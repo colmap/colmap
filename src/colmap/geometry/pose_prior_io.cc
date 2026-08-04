@@ -219,8 +219,9 @@ Eigen::Matrix3d CovarianceFromUpperTriangle(double xx,
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(cov,
                                                         Eigen::EigenvaluesOnly);
   THROW_CHECK_EQ(solver.info(), Eigen::Success)
-      << "row " << row_index << ": position covariance eigendecomposition "
-                                "failed";
+      << "row " << row_index
+      << ": position covariance eigendecomposition "
+         "failed";
   THROW_CHECK_GT(solver.eigenvalues().minCoeff(), 0.0)
       << "row " << row_index
       << ": position covariance must be strictly positive definite; its "
@@ -305,8 +306,8 @@ PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path) {
            "wholly present or wholly absent";
   };
 
-  for (const Column required : {Column::NAME, Column::LAT, Column::LON,
-                                Column::ALT}) {
+  for (const Column required :
+       {Column::NAME, Column::LAT, Column::LON, Column::ALT}) {
     THROW_CHECK(column_index.count(required) > 0)
         << "`schema` must contain NAME, LAT, LON and ALT";
   }
@@ -314,8 +315,7 @@ PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path) {
   require_whole_group(kStdColumns, "STD_T*");
   require_whole_group(kCovColumns, "COV_T*");
   require_whole_group(kGravityColumns, "gravity (GX/GY/GZ)");
-  require_whole_group(kHeadingColumns,
-                      "heading (HEADING_DEG/HEADING_STD_DEG)");
+  require_whole_group(kHeadingColumns, "heading (HEADING_DEG/HEADING_STD_DEG)");
 
   const bool has_std = has_all(kStdColumns);
   const bool has_cov = has_all(kCovColumns);
@@ -428,8 +428,7 @@ PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path) {
     const double lat = number_of(Column::LAT, "LAT");
     const double lon = number_of(Column::LON, "LON");
     const double alt = number_of(Column::ALT, "ALT");
-    THROW_CHECK(std::isfinite(lat) && std::isfinite(lon) &&
-                std::isfinite(alt))
+    THROW_CHECK(std::isfinite(lat) && std::isfinite(lon) && std::isfinite(alt))
         << "row " << row_index << " (" << row.name
         << "): LAT/LON/ALT must all be finite";
     THROW_CHECK(lat >= -90.0 && lat <= 90.0)
@@ -502,16 +501,16 @@ PosePriorArchive ReadPosePriorArchive(const std::filesystem::path& path) {
             << "): a heading requires a gravity reading on the same row, "
                "which establishes the horizontal plane the azimuth is "
                "measured in";
-        const double heading_deg = number_of(Column::HEADING_DEG,
-                                             "HEADING_DEG");
+        const double heading_deg =
+            number_of(Column::HEADING_DEG, "HEADING_DEG");
         const double heading_stddev_deg =
             number_of(Column::HEADING_STD_DEG, "HEADING_STD_DEG");
         THROW_CHECK(heading_deg >= 0.0 && heading_deg < 360.0)
             << "row " << row_index << " (" << row.name << "): HEADING_DEG "
             << heading_deg << " is outside [0, 360)";
         THROW_CHECK(heading_stddev_deg > 0.0 && heading_stddev_deg <= 180.0)
-            << "row " << row_index << " (" << row.name
-            << "): HEADING_STD_DEG " << heading_stddev_deg
+            << "row " << row_index << " (" << row.name << "): HEADING_STD_DEG "
+            << heading_stddev_deg
             << " is outside (0, 180]. Every heading row states its own "
                "uncertainty; there is no global fallback.";
         row.heading_rad = heading_deg * kPi / 180.0;

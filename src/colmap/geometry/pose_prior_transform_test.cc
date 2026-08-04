@@ -65,11 +65,8 @@ TEST(PosePriorEnuFrame, NoUsablePriorsYieldsNoFrame) {
   // returning a default-constructed one would silently place the scene at
   // (0, 0) off the coast of Africa.
   std::vector<PosePrior> priors;
-  priors.push_back(MakePrior(CameraData(1),
-                             10.0,
-                             20.0,
-                             30.0,
-                             PosePrior::CoordinateSystem::CARTESIAN));
+  priors.push_back(MakePrior(
+      CameraData(1), 10.0, 20.0, 30.0, PosePrior::CoordinateSystem::CARTESIAN));
   priors.push_back(
       MakePrior(CameraData(2), PosePrior::kNaN, PosePrior::kNaN, 30.0));
   EXPECT_FALSE(PosePriorEnuFrame::Derive(priors).has_value());
@@ -148,7 +145,8 @@ TEST(PosePriorEnuFrame, PositionInEnuLeavesAbsentAltitudeAbsent) {
 }
 
 TEST(PosePriorEnuFrame, EastNorthUpAxesPointTheRightWay) {
-  const std::vector<PosePrior> priors = {MakePrior(CameraData(1), 0.0, 0.0, 0.0)};
+  const std::vector<PosePrior> priors = {
+      MakePrior(CameraData(1), 0.0, 0.0, 0.0)};
   const auto frame = PosePriorEnuFrame::Derive(priors);
   ASSERT_TRUE(frame.has_value());
 
@@ -210,15 +208,13 @@ TEST(PosePriorEnuFrame, CovarianceIsRotatedIntoTheSharedFrame) {
 
   PosePrior distant = MakePrior(CameraData(2), 0.0, 0.0, 0.0);
   distant.position_covariance = Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
-  const Eigen::Matrix3d expected =
-      Eigen::Vector3d(9.0, 4.0, 1.0).asDiagonal();
+  const Eigen::Matrix3d expected = Eigen::Vector3d(9.0, 4.0, 1.0).asDiagonal();
   EXPECT_THAT(frame->CovarianceInEnu(distant), EigenMatrixNear(expected, 1e-6));
 
   // A covariance at the origin's own position is unchanged.
   PosePrior local = MakePrior(CameraData(3), 0.0, 90.0, 0.0);
   local.position_covariance = Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
-  const Eigen::Matrix3d unchanged =
-      Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
+  const Eigen::Matrix3d unchanged = Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
   EXPECT_THAT(frame->CovarianceInEnu(local), EigenMatrixNear(unchanged, 1e-6));
 }
 
@@ -298,8 +294,8 @@ TEST(PosePriorEnuFrame, GrossOutlierDoesNotMoveTheOrigin) {
     return (sum / static_cast<double>(points.size())).eval();
   };
   std::vector<Eigen::Vector3d> with_outlier_ecef = clustered_ecef;
-  with_outlier_ecef.push_back(gps_transform.EllipsoidToECEF(
-      {with_outlier.back().position})[0]);
+  with_outlier_ecef.push_back(
+      gps_transform.EllipsoidToECEF({with_outlier.back().position})[0]);
   const double mean_shift_m =
       (mean_of(with_outlier_ecef) - mean_of(clustered_ecef)).norm();
   EXPECT_GT(mean_shift_m, 100000.0);

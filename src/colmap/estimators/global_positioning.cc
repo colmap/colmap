@@ -314,7 +314,6 @@ void GlobalPositioner::InitializeRandomPositions(
     }
   }
 
-
   VLOG(2) << "Constrained positions: " << constrained_positions.size();
 }
 
@@ -727,8 +726,8 @@ void GlobalPositioner::EngagePositionPriorOptimization(
   auto prior_loss_function =
       std::make_unique<ceres::CauchyLoss>(kPosePriorPositionLossScale);
   const Eigen::Matrix3d fallback_covariance =
-      Eigen::Matrix3d::Identity() * (kPosePriorPositionFallbackStddev *
-                                     kPosePriorPositionFallbackStddev);
+      Eigen::Matrix3d::Identity() *
+      (kPosePriorPositionFallbackStddev * kPosePriorPositionFallbackStddev);
 
   for (size_t i = 0; i < frame_ids.size(); ++i) {
     if (!report.inlier_mask[i]) {

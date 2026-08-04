@@ -252,8 +252,8 @@ TEST(ModelAligner, PosePriorGeoreferenceReport) {
                                    reference_lon,
                                    reference_alt)[0];
   Reconstruction aligned_input = target;
-  aligned_input.Transform(Sim3d(
-      1.0, Eigen::Quaterniond::Identity(), -origin_offset_enu));
+  aligned_input.Transform(
+      Sim3d(1.0, Eigen::Quaterniond::Identity(), -origin_offset_enu));
   aligned_input.Write(input_path);
 
   Image unregistered_image;
@@ -509,12 +509,12 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
   const auto run_aligner = [&](const std::filesystem::path& output_path,
                                const std::filesystem::path& report_path,
                                const std::string& output_coordinate_frame) {
-    return RunReportAligner(input_path,
-                            output_path,
-                            database_path,
-                            report_path,
-                            {"--output_coordinate_frame",
-                             output_coordinate_frame});
+    return RunReportAligner(
+        input_path,
+        output_path,
+        database_path,
+        report_path,
+        {"--output_coordinate_frame", output_coordinate_frame});
   };
 
   ASSERT_EQ(
@@ -601,7 +601,6 @@ TEST(ModelAligner, OutputCoordinateFrameLichtfeldColmap) {
   }
 }
 
-
 TEST(ModelAligner, GeoreferenceReportIsAlwaysComplete) {
   // There is one report shape. A consumer cannot ask for a field that a
   // previous run chose not to write, which is what made the old `summary`
@@ -637,18 +636,21 @@ TEST(ModelAligner, GeoreferenceReportIsAlwaysComplete) {
   // This fixture has no gravity priors, so the value is JSON null; the field
   // is still present, because the report's shape must not depend on which
   // optional sensor groups the archive happened to carry.
-  EXPECT_NO_THROW(report.get_child("diagnostics.gravity_consistency_angle_deg"));
+  EXPECT_NO_THROW(
+      report.get_child("diagnostics.gravity_consistency_angle_deg"));
 
   // The detailed diagnostics the pipeline reads. These are exactly the fields
   // the old summary level dropped.
   EXPECT_NO_THROW(report.get_child("diagnostics.position_3d_residual_m"));
   EXPECT_NO_THROW(report.get_child("diagnostics.gravity_residual_deg"));
-  EXPECT_TRUE(report.get_optional<double>(
-                        "diagnostics.position_horizontal_residual_m.p90")
+  EXPECT_TRUE(report
+                  .get_optional<double>(
+                      "diagnostics.position_horizontal_residual_m.p90")
                   .has_value());
-  EXPECT_TRUE(report.get_optional<double>(
-                        "diagnostics.position_vertical_residual_m.p90")
-                  .has_value());
+  EXPECT_TRUE(
+      report
+          .get_optional<double>("diagnostics.position_vertical_residual_m.p90")
+          .has_value());
   EXPECT_TRUE(std::isfinite(
       report.get<double>("diagnostics.max_horizontal_baseline_m")));
   EXPECT_TRUE(std::isfinite(

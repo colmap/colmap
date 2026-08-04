@@ -17,10 +17,7 @@
 #include <algorithm>
 
 namespace colmap {
-namespace {
-
-}  // namespace
-
+namespace {}  // namespace
 
 RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
   RotationEstimatorOptions opts = rotation_averaging;
@@ -115,7 +112,6 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
 
   return true;
 }
-
 
 void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   using Observation = std::pair<image_t, point2D_t>;

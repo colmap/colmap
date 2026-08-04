@@ -340,8 +340,7 @@ TEST(SequentialPairGenerator, MaxPriorDistanceGatesQuadraticProbes) {
     PosePrior pose_prior;
     pose_prior.corr_data_id = images[i].DataId();
     pose_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
-    const double lat =
-        48.40 + (i < 4 ? i * 1e-5 : 0.01 + (i - 4) * 1e-5);
+    const double lat = 48.40 + (i < 4 ? i * 1e-5 : 0.01 + (i - 4) * 1e-5);
     pose_prior.position = Eigen::Vector3d(lat, -71.16, 120.0);
     database->WritePosePrior(pose_prior);
   }

@@ -402,7 +402,6 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
     return result;
   }
 
-
   const auto report =
       EstimateSim3dRobust(src, tgt, ransac_options, result.tgt_from_src);
   result.success = report.success;
@@ -412,7 +411,6 @@ PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
   }
   return result;
 }
-
 
 bool AlignReconstructionsViaReprojections(
     const Reconstruction& src_reconstruction,

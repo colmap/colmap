@@ -812,8 +812,7 @@ void WriteCameraResidualsCSV(
          << CSVNumber(residual.y()) << ',' << CSVNumber(residual.z()) << ','
          << CSVNumber(residual_horizontal) << ','
          << CSVNumber(std::abs(residual.z())) << ',' << CSVNumber(residual_3d)
-         << ','
-         << (r.has_gravity_prior ? 1 : 0) << ','
+         << ',' << (r.has_gravity_prior ? 1 : 0) << ','
          << CSVNumber(r.gravity_sensor.x()) << ','
          << CSVNumber(r.gravity_sensor.y()) << ','
          << CSVNumber(r.gravity_sensor.z()) << ','

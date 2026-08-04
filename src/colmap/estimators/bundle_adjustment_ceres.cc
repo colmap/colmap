@@ -1007,48 +1007,47 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
               pose_prior.corr_data_id.id, pose_prior, reconstruction);
         }
       }
-      LOG(INFO) << "Pose prior BA support: " << parameterized_image_ids.size()
-                << " parameterized images, " << num_position_priors_considered
-                << " position priors considered -> "
-                << num_position_residuals_added_ << " position residuals "
-                << "added (loss="
-                << LossFunctionTypeName(
-                       prior_options_.ceres->prior_position_loss_function_type)
-                << ", standardized_scale="
-                << prior_options_.ceres->prior_position_loss_scale << "), "
-                << num_position_cov_rejected_
-                << " rows with invalid declared covariance fell back to "
-                << prior_options_.prior_position_fallback_stddev << " m; "
-                << num_gravity_priors_considered
-                << " gravity priors considered -> "
-                << num_gravity_residuals_added_ << " gravity residuals added"
-                << (prior_options_.use_prior_gravity
-                        ? (std::string(" (loss=") +
-                           LossFunctionTypeName(
-                               prior_options_.ceres
-                                   ->prior_gravity_loss_function_type) +
-                           ", standardized_scale=" +
-                           std::to_string(
-                               prior_options_.ceres->prior_gravity_loss_scale) +
-                           ", stddev_deg=" +
-                           std::to_string(
-                               prior_options_.prior_gravity_stddev_deg) +
-                           ")")
-                        : std::string(" (gravity mode off)"))
-                << "; " << num_heading_priors_considered
-                << " heading priors considered -> "
-                << num_heading_residuals_added_ << " heading residuals added"
-                << (prior_options_.use_prior_heading
-                        ? (std::string(" (loss=") +
-                           LossFunctionTypeName(
-                               prior_options_.ceres
-                                   ->prior_heading_loss_function_type) +
-                           ", standardized_scale=" +
-                           std::to_string(
-                               prior_options_.ceres->prior_heading_loss_scale) +
-                           ", " + std::to_string(num_heading_degenerate_rejected_) +
-                           " rejected for a near-vertical camera axis)")
-                        : std::string(" (heading mode off)"));
+      LOG(INFO)
+          << "Pose prior BA support: " << parameterized_image_ids.size()
+          << " parameterized images, " << num_position_priors_considered
+          << " position priors considered -> " << num_position_residuals_added_
+          << " position residuals "
+          << "added (loss="
+          << LossFunctionTypeName(
+                 prior_options_.ceres->prior_position_loss_function_type)
+          << ", standardized_scale="
+          << prior_options_.ceres->prior_position_loss_scale << "), "
+          << num_position_cov_rejected_
+          << " rows with invalid declared covariance fell back to "
+          << prior_options_.prior_position_fallback_stddev << " m; "
+          << num_gravity_priors_considered << " gravity priors considered -> "
+          << num_gravity_residuals_added_ << " gravity residuals added"
+          << (prior_options_.use_prior_gravity
+                  ? (std::string(" (loss=") +
+                     LossFunctionTypeName(
+                         prior_options_.ceres
+                             ->prior_gravity_loss_function_type) +
+                     ", standardized_scale=" +
+                     std::to_string(
+                         prior_options_.ceres->prior_gravity_loss_scale) +
+                     ", stddev_deg=" +
+                     std::to_string(prior_options_.prior_gravity_stddev_deg) +
+                     ")")
+                  : std::string(" (gravity mode off)"))
+          << "; " << num_heading_priors_considered
+          << " heading priors considered -> " << num_heading_residuals_added_
+          << " heading residuals added"
+          << (prior_options_.use_prior_heading
+                  ? (std::string(" (loss=") +
+                     LossFunctionTypeName(
+                         prior_options_.ceres
+                             ->prior_heading_loss_function_type) +
+                     ", standardized_scale=" +
+                     std::to_string(
+                         prior_options_.ceres->prior_heading_loss_scale) +
+                     ", " + std::to_string(num_heading_degenerate_rejected_) +
+                     " rejected for a near-vertical camera axis)")
+                  : std::string(" (heading mode off)"));
     }
   }
 
@@ -1138,9 +1137,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
     // Heading rides on the same measured down vector, so it needs gravity on
     // this row regardless of what the flags say.
-    bool add_heading_residual =
-        prior_options_.use_prior_heading && add_gravity_residual &&
-        pose_prior.HasHeading();
+    bool add_heading_residual = prior_options_.use_prior_heading &&
+                                add_gravity_residual && pose_prior.HasHeading();
     Eigen::Matrix<double, 1, 1> heading_cov;
     if (add_heading_residual) {
       // A camera pointing nearly straight up or down has no defined azimuth:
@@ -1181,11 +1179,11 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
       }
       if (add_heading_residual) {
         problem.AddResidualBlock(
-            CovarianceWeightedCostFunctor<
-                AbsoluteHeadingPriorCostFunctor>::Create(heading_cov,
-                                                         world_north_,
-                                                         measured_down,
-                                                         pose_prior.heading_rad),
+            CovarianceWeightedCostFunctor<AbsoluteHeadingPriorCostFunctor>::
+                Create(heading_cov,
+                       world_north_,
+                       measured_down,
+                       pose_prior.heading_rad),
             prior_heading_loss_function_.get(),
             rig_from_world.params.data());
         ++num_heading_residuals_added_;

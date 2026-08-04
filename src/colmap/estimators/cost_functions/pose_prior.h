@@ -249,9 +249,10 @@ struct AbsoluteRigGravityPriorCostFunctor
 struct AbsoluteHeadingPriorCostFunctor
     : public AutoDiffCostFunctor<AbsoluteHeadingPriorCostFunctor, 1, 7> {
  public:
-  AbsoluteHeadingPriorCostFunctor(const Eigen::Vector3d& north_world,
-                                  const Eigen::Vector3d& measured_down_in_sensor,
-                                  double measured_heading_rad)
+  AbsoluteHeadingPriorCostFunctor(
+      const Eigen::Vector3d& north_world,
+      const Eigen::Vector3d& measured_down_in_sensor,
+      double measured_heading_rad)
       : north_world_(north_world.normalized()),
         down_(measured_down_in_sensor.normalized()),
         measured_north_in_sensor_(

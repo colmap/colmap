@@ -54,8 +54,8 @@ bool IsNaNEqual(const T& left, const T& right) {
   return true;
 }
 
-// Scalar counterpart of IsNaNEqual: two absent (NaN) values compare equal, which
-// the default == does not do.
+// Scalar counterpart of IsNaNEqual: two absent (NaN) values compare equal,
+// which the default == does not do.
 bool IsNaNScalarEqual(double left, double right) {
   if (std::isnan(left) != std::isnan(right)) {
     return false;

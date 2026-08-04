@@ -425,8 +425,10 @@ TEST(AbsoluteHeadingPriorCostFunctor, MeasuresTheSignedAngularError) {
   const Rigid3d cam_from_world = LevelCameraAtHeading(90.0);
   // The camera really points at 90; the measurement says 80, so the error is
   // 10 degrees, and saying 100 gives the same magnitude with the other sign.
-  const double under = EvaluateHeadingResidual(80.0, cam_from_world, down_in_cam);
-  const double over = EvaluateHeadingResidual(100.0, cam_from_world, down_in_cam);
+  const double under =
+      EvaluateHeadingResidual(80.0, cam_from_world, down_in_cam);
+  const double over =
+      EvaluateHeadingResidual(100.0, cam_from_world, down_in_cam);
   EXPECT_NEAR(std::abs(under), DegToRad(10.0), 1e-9);
   EXPECT_NEAR(std::abs(over), DegToRad(10.0), 1e-9);
   EXPECT_LT(under * over, 0.0) << "the residual must be signed";
@@ -437,15 +439,15 @@ TEST(AbsoluteHeadingPriorCostFunctor, IsContinuousAcrossTheWrapPoint) {
   // subtracts angles would report a huge error here and drag the solve.
   const Eigen::Vector3d down_in_cam(0.0, 1.0, 0.0);
   const Rigid3d cam_from_world = LevelCameraAtHeading(359.0);
-  EXPECT_NEAR(std::abs(EvaluateHeadingResidual(1.0, cam_from_world, down_in_cam)),
-              DegToRad(2.0),
-              1e-9);
-
-  const Rigid3d at_one = LevelCameraAtHeading(1.0);
   EXPECT_NEAR(
-      std::abs(EvaluateHeadingResidual(359.0, at_one, down_in_cam)),
+      std::abs(EvaluateHeadingResidual(1.0, cam_from_world, down_in_cam)),
       DegToRad(2.0),
       1e-9);
+
+  const Rigid3d at_one = LevelCameraAtHeading(1.0);
+  EXPECT_NEAR(std::abs(EvaluateHeadingResidual(359.0, at_one, down_in_cam)),
+              DegToRad(2.0),
+              1e-9);
 }
 
 TEST(AbsoluteHeadingPriorCostFunctor, ReturnsPiForAnOppositeHeading) {
@@ -466,8 +468,8 @@ TEST(AbsoluteHeadingPriorCostFunctor, HasNoFalseMinimumOverTheFullDomain) {
   for (int measured_deg = 1; measured_deg < 360; ++measured_deg) {
     const double residual = std::abs(EvaluateHeadingResidual(
         static_cast<double>(measured_deg), cam_from_world, down_in_cam));
-    const double expected = DegToRad(
-        std::min<double>(measured_deg, 360 - measured_deg));
+    const double expected =
+        DegToRad(std::min<double>(measured_deg, 360 - measured_deg));
     EXPECT_NEAR(residual, expected, 1e-9) << "measured_deg=" << measured_deg;
     EXPECT_GT(residual, 1e-6) << "false zero at measured_deg=" << measured_deg;
   }
@@ -480,8 +482,7 @@ TEST(AbsoluteHeadingPriorCostFunctor, IsInvariantToRollAndPitch) {
   // compete with it.
   const Rigid3d level = LevelCameraAtHeading(45.0);
   const Eigen::Vector3d level_down_in_cam(0.0, 1.0, 0.0);
-  const double base =
-      EvaluateHeadingResidual(50.0, level, level_down_in_cam);
+  const double base = EvaluateHeadingResidual(50.0, level, level_down_in_cam);
   ASSERT_GT(std::abs(base), 1e-6);
 
   for (const double tilt_deg : {5.0, 15.0, 30.0}) {
@@ -494,9 +495,8 @@ TEST(AbsoluteHeadingPriorCostFunctor, IsInvariantToRollAndPitch) {
       const Rigid3d tilted(tilt * Eigen::Quaterniond(level.rotation()),
                            level.translation());
       const Eigen::Vector3d tilted_down = tilt * level_down_in_cam;
-      EXPECT_NEAR(EvaluateHeadingResidual(50.0, tilted, tilted_down),
-                  base,
-                  1e-9)
+      EXPECT_NEAR(
+          EvaluateHeadingResidual(50.0, tilted, tilted_down), base, 1e-9)
           << "tilt_deg=" << tilt_deg << " axis=" << axis.transpose();
     }
   }

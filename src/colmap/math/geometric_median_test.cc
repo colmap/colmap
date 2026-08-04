@@ -150,7 +150,8 @@ TEST(GeometricMedian, GrossOutlierDoesNotDragTheResult) {
   // so the origin must not follow it.
   std::vector<Eigen::Vector3d> points;
   for (int i = 0; i < 20; ++i) {
-    points.emplace_back(static_cast<double>(i % 5), static_cast<double>(i % 3), 0.0);
+    points.emplace_back(
+        static_cast<double>(i % 5), static_cast<double>(i % 3), 0.0);
   }
   Eigen::Vector3d mean = Eigen::Vector3d::Zero();
   for (const Eigen::Vector3d& p : points) mean += p;
@@ -194,8 +195,8 @@ TEST(GeometricMedian, DeterministicForAFixedInputOrder) {
 
 TEST(GeometricMedian, PermutationChangesResultOnlyNegligibly) {
   // Floating-point accumulation order differs under permutation, so the result
-  // is not required to be bit-identical -- only to agree far below any tolerance
-  // that matters for a tangent-plane origin.
+  // is not required to be bit-identical -- only to agree far below any
+  // tolerance that matters for a tangent-plane origin.
   std::vector<Eigen::Vector3d> points;
   for (int i = 0; i < 30; ++i) {
     points.emplace_back(std::sin(i * 2.1), std::cos(i), std::sin(i * 0.7));

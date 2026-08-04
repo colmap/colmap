@@ -127,11 +127,10 @@ TEST(PosePriorArchive, ReadsPositionAndStandardDeviations) {
   EXPECT_THAT(archive.rows[0].position_wgs84,
               EigenMatrixNear(Eigen::Vector3d(45.0, -73.0, 40.0), 1e-12));
   // Standard deviations become a diagonal covariance of their squares.
-  EXPECT_THAT(
-      archive.rows[0].position_covariance,
-      EigenMatrixNear(
-          Eigen::Matrix3d(Eigen::Vector3d(4.0, 4.0, 16.0).asDiagonal()),
-          1e-12));
+  EXPECT_THAT(archive.rows[0].position_covariance,
+              EigenMatrixNear(
+                  Eigen::Matrix3d(Eigen::Vector3d(4.0, 4.0, 16.0).asDiagonal()),
+                  1e-12));
   EXPECT_FALSE(archive.rows[0].gravity.has_value());
   EXPECT_FALSE(archive.rows[0].heading_rad.has_value());
 }
@@ -171,11 +170,10 @@ TEST(PosePriorArchive, ColumnOrderIsFree) {
   EXPECT_EQ(archive.rows[0].name, "a.jpg");
   EXPECT_THAT(archive.rows[0].position_wgs84,
               EigenMatrixNear(Eigen::Vector3d(45.0, -73.0, 40.0), 1e-12));
-  EXPECT_THAT(
-      archive.rows[0].position_covariance,
-      EigenMatrixNear(
-          Eigen::Matrix3d(Eigen::Vector3d(4.0, 4.0, 16.0).asDiagonal()),
-          1e-12));
+  EXPECT_THAT(archive.rows[0].position_covariance,
+              EigenMatrixNear(
+                  Eigen::Matrix3d(Eigen::Vector3d(4.0, 4.0, 16.0).asDiagonal()),
+                  1e-12));
 }
 
 TEST(PosePriorArchive, ReadsAndNormalizesGravity) {

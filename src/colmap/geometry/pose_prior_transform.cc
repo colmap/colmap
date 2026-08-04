@@ -78,8 +78,9 @@ std::optional<PosePriorEnuFrame> PosePriorEnuFrame::Derive(
   std::vector<double> altitudes;
   lla.reserve(sorted.size());
   for (const auto& [data_id, pose_prior] : sorted) {
-    const double alt =
-        std::isfinite(pose_prior->position.z()) ? pose_prior->position.z() : 0.0;
+    const double alt = std::isfinite(pose_prior->position.z())
+                           ? pose_prior->position.z()
+                           : 0.0;
     if (std::isfinite(pose_prior->position.z())) {
       altitudes.push_back(pose_prior->position.z());
     }
@@ -101,8 +102,8 @@ std::optional<PosePriorEnuFrame> PosePriorEnuFrame::Derive(
   frame.origin_wgs84_ =
       Eigen::Vector3d(median_lla.x(), median_lla.y(), origin_alt);
   frame.origin_ecef_ = gps_transform.EllipsoidToECEF({frame.origin_wgs84_})[0];
-  frame.enu_from_ecef_ =
-      GPSTransform::ENUFromECEF(frame.origin_wgs84_.x(), frame.origin_wgs84_.y());
+  frame.enu_from_ecef_ = GPSTransform::ENUFromECEF(frame.origin_wgs84_.x(),
+                                                   frame.origin_wgs84_.y());
   frame.ecef_from_enu_ = frame.enu_from_ecef_.transpose();
 
   THROW_CHECK(frame.origin_wgs84_.allFinite())
@@ -119,9 +120,8 @@ Eigen::Vector3d PosePriorEnuFrame::PositionInEnu(
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   const double alt =
       std::isfinite(pose_prior.position.z()) ? pose_prior.position.z() : 0.0;
-  const Eigen::Vector3d ecef = gps_transform.EllipsoidToECEF(
-      {Eigen::Vector3d(
-          pose_prior.position.x(), pose_prior.position.y(), alt)})[0];
+  const Eigen::Vector3d ecef = gps_transform.EllipsoidToECEF({Eigen::Vector3d(
+      pose_prior.position.x(), pose_prior.position.y(), alt)})[0];
   Eigen::Vector3d enu = enu_from_ecef_ * (ecef - origin_ecef_);
   if (!std::isfinite(pose_prior.position.z())) {
     // The row declared no height. Propagating the placeholder as a real
