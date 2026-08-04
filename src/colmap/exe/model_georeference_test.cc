@@ -14,12 +14,12 @@
 namespace colmap {
 namespace {
 
-// The LichtFeld Studio import contract is empirically validated production
-// behavior (see E:\mont_et_mare\colmap_run6\export, opened and visually
-// confirmed upright in the user's installed LichtFeld Studio). These tests
-// independently assert every element of that contract at the unit level, so
-// that any accidental change to the matrices or basis mapping is a release
-// blocker rather than a silent regression discovered only in the GUI.
+// The LichtFeld Studio import contract was established by exporting a scene,
+// opening it in LichtFeld Studio, and confirming it displays upright. That
+// check cannot run in CI, so these tests assert every element of the contract
+// at the unit level instead: a change to the matrices or the basis mapping is
+// then a release blocker rather than a regression nobody sees until the scene
+// is already sideways in the viewer.
 
 TEST(ModelGeoreference, LichtfeldColmapParsesAndRetainsExactSpelling) {
   // Contract item 1: `LICHTFELD_COLMAP` parses successfully and retains the
@@ -181,7 +181,7 @@ TEST(ModelGeoreference, EcefGeometryRoundTripIsIdentity) {
 }
 
 TEST(ModelGeoreference, EcefTransformSurvivesDeletionOnlyCrop) {
-  // Workstream 3: for a point in the serialized geometry frame,
+  // For a point in the serialized geometry frame,
   // point_ecef = ecef_from_geometry * point_geometry. If an editor only
   // deletes points/Gaussians, every surviving coordinate is unchanged and
   // the same ecef_from_geometry remains exactly valid for a tiny remaining

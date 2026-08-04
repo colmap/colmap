@@ -860,13 +860,22 @@ if ($LASTEXITCODE -ne 0) { throw "pycolmap diff check failed" }
 
 $UpstreamOnly = @(
     'src/colmap/controllers/incremental_pipeline.h',
-    'src/colmap/sfm/incremental_mapper.cc',
-    'src/colmap/sfm/incremental_mapper.h',
     'src/colmap/sfm/incremental_mapper_test.cc'
 )
 git diff --quiet "$Base..HEAD" -- @UpstreamOnly
 if ($LASTEXITCODE -eq 1) { throw "forbidden incremental-mapper branch diff" }
 if ($LASTEXITCODE -ne 0) { throw "incremental-mapper diff check failed" }
+
+# incremental_mapper.{h,cc} carry the one documented exception from A1: the
+# gravity forwarding that 4.7 requires across IterativeGlobalRefinement. Assert
+# the diff is *only* that, so an unrelated change cannot hide behind it.
+$IncrementalAdded = git diff --unified=0 "$Base..HEAD" `
+    -- src/colmap/sfm/incremental_mapper.h src/colmap/sfm/incremental_mapper.cc |
+    rg '^\+[^+]' | rg -v '(?i)(gravity|^\+\s*//)'
+if ($IncrementalAdded) {
+    $IncrementalAdded
+    throw "incremental-mapper diff exceeds the A1 gravity-forwarding exception"
+}
 
 $StagedPlans = git diff --cached --name-only --diff-filter=A | rg -n '^[^/\\]+\.md$'
 $Code = $LASTEXITCODE
@@ -1418,3 +1427,80 @@ code must be coherent: strict WGS84 telemetry import, covariance-weighted metric
 position constraints, yaw-free weighted gravity, optional uncertainty-weighted
 true-north yaw, GPS-aware pairing, and a tested LichtFeld/phone georeference
 contract. Nothing else belongs in this fork.
+
+---
+
+## Appendix: conflicts and defects found while implementing this plan
+
+Recorded here rather than silently worked around. Each was hit during the
+`telemetry-cleanup` branch work and either resolved or escalated.
+
+### A1. Section 4.10 contradicts section 4.7 (resolved)
+
+4.10 reverts `IncrementalMapper::Options` to upstream. 4.7 requires gravity
+residuals in *every later BA stage*. The global mapper's later refinement runs
+through `IncrementalMapper::IterativeGlobalRefinement`, so a wholesale revert
+stops enforcing gravity partway through the solve -- with no error, and a
+plausible-looking result. The baseline pins the expectation: 965 gravity
+residuals in *each* later BA.
+
+Resolved by restoring the minimum: `use_prior_gravity`,
+`prior_gravity_stddev_deg`, `prior_gravity_loss_scale` on
+`IncrementalMapper::Options` plus a three-line forward into
+`PosePriorBundleAdjustmentOptions`. Nothing in the incremental mapper
+interprets them; they only cross the boundary. `prior_position_fallback_stddev`
+was deliberately NOT restored, per 4.6a.
+
+### A2. Section 6.1's fallback assertion contradicts upstream (resolved)
+
+"No fallback standard deviation path exists" cannot hold: upstream's
+`AlignReconstructionToPosePriors` takes `prior_position_fallback_stddev` as a
+mandatory parameter guarded by `THROW_CHECK_GT(..., 0.0)`, and
+`PosePriorBundleAdjustmentOptions` carries the same field. Only the
+branch-added `pose_prior_position_fallback_stddev` is deletable. The assertion
+must be "the fallback is never *consumed*" (4.6a).
+
+### A3. Section 4.8's unconditional material gate breaks first alignments (ESCALATED)
+
+Deleting `--reject_material_realignment` and always enforcing was implemented
+and then reverted. The gate measures `tgt_from_src` -- the FULL alignment
+transform, not a residual correction. It is near-identity only when the input
+already came from an `optimize` solve, which holds for the production runner
+(0.000123 deg, 0.0001 m) but not for `model_aligner` performing a *first*
+alignment, which the command also serves. Unconditional enforcement rejects
+exactly that case: the report tests fail at 28 deg / 715 m / 229x.
+
+Re-centring the test fixture removed the rotation and scale error but left a
+344 m translation, because the report derives its own ENU origin from the
+geometric median of the priors rather than from the fixture's frame.
+
+**Open decision.** Either the report path formally stops serving first
+alignments -- in which case its fixtures must be rebuilt in the report's own ENU
+frame -- or the flag stays. It stays until this is decided.
+
+### A4. Sequential prior-distance gate treated UNDEFINED as metres (fixed)
+
+Not in the plan, found while implementing 4.5. `PosePriorToMetricPosition` fell
+through `UNDEFINED` to the `CARTESIAN` branch and returned `position` unchanged,
+so a prior with no declared coordinate system had raw degrees compared against a
+metre threshold. Images in different parts of a capture differ by whole degrees
+and would be vetoed as if kilometres apart, silently deleting long-range probes
+including loop closures. Both existing gate tests were relying on this
+fallthrough. Fixed, WGS84-only, with a regression test.
+
+The same function also used a default-constructed `GPSTransform`, which is
+GRS80, while every other stage states WGS84. Now explicit.
+
+### A5. sift_test never compiled on MSVC (fixed)
+
+`M_PI` is not standard C++ and requires `_USE_MATH_DEFINES` before `<cmath>`.
+Pre-existing, unrelated to this branch, but it blocks the ctest gate in 9.3.
+Replaced with a local constant.
+
+### A6. Report emitters have no structural validation (noted)
+
+Removing `targets[]` took the brace closing `frame_contract`, and removing the
+orientation counts left a trailing comma. Both produced malformed JSON. The
+emitters are raw `ostream` writes, so only the report-parsing tests caught it --
+nothing in the build or the emitter complains, and a run would have written an
+unparseable sidecar. Worth a structural check if the schema is edited again.

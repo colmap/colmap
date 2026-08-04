@@ -129,24 +129,6 @@ struct GlobalMapperOptions {
   // see doc/pose_priors.rst), so this single scalar is applied uniformly.
   double pose_prior_gravity_stddev_deg = 5.0;
 
-  // Threshold on the *standardized* (covariance-whitened) residual norm for
-  // the gravity robust loss, in "number of standard deviations" -- NOT
-  // radians/degrees, even though the gravity covariance itself is built from
-  // pose_prior_gravity_stddev_deg. CovarianceWeightedCostFunctor whitens the
-  // raw angular residual by dividing by sigma_rad before Ceres ever sees it,
-  // so the robust loss operates on a dimensionless standardized residual;
-  // the correct 95%-confidence-radius threshold for a 2-DOF whitened
-  // residual is sqrt(chi-square_2dof_95), not the raw chi-square quantile
-  // (see AbsoluteGravityPriorCostFunctor's local-rank-2 comment in
-  // pose_prior.h for why 2 DOF applies to a 3-component chordal residual).
-  // The loss function itself defaults to Cauchy (see
-  // CeresPosePriorBundleAdjustmentOptions::prior_gravity_loss_function_type)
-  // -- unlike the position prior, gravity's robust loss is not separately
-  // gated by a use_robust_loss_on_prior_gravity flag, since a single
-  // corrupted gravity reading is a known real failure mode for this sensor
-  // class and robustness is wanted by default whenever gravity mode is on.
-  double pose_prior_gravity_loss_scale = std::sqrt(kChiSquare95TwoDof);
-
   // Whether to add the 1-DoF true-north heading residual to the same BA
   // stages as gravity. Off by default: the production archive carries no
   // heading, and a compass is the least trustworthy sensor in this workflow.
@@ -160,12 +142,6 @@ struct GlobalMapperOptions {
   // global fallback, because a heading whose accuracy nobody stated is a
   // heading nobody should be weighting.
   bool pose_prior_use_heading = false;
-
-  // Threshold on the *standardized* heading residual, in "number of standard
-  // deviations". The residual is one signed angle, whitened by that row's own
-  // heading variance, so the 95%-confidence radius uses 1 DoF -- see
-  // CeresPosePriorBundleAdjustmentOptions::prior_heading_loss_scale.
-  double pose_prior_heading_loss_scale = std::sqrt(kChiSquare95OneDof);
 
   // Whether to skip the fixed-rotation stage in bundle adjustment.
   // By default, BA runs in two stages: first with fixed rotations (position
@@ -284,10 +260,7 @@ class GlobalMapper {
   // position priors have established the metric/ENU gauge).
   bool pose_prior_gravity_requested_ = false;
   double pose_prior_gravity_stddev_deg_ = 5.0;
-  double pose_prior_gravity_loss_scale_ = std::sqrt(kChiSquare95TwoDof);
-
   bool pose_prior_heading_requested_ = false;
-  double pose_prior_heading_loss_scale_ = std::sqrt(kChiSquare95OneDof);
 };
 
 }  // namespace colmap

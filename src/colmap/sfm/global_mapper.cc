@@ -409,13 +409,9 @@ bool GlobalMapper::RunBundleAdjustment(const BundleAdjustmentOptions& options) {
     // the metric/ENU gauge (use_prior_position is already true here).
     prior_options.use_prior_gravity = pose_prior_gravity_requested_;
     prior_options.prior_gravity_stddev_deg = pose_prior_gravity_stddev_deg_;
-    prior_options.ceres->prior_gravity_loss_scale =
-        pose_prior_gravity_loss_scale_;
     // Heading rides on gravity's measured down vector, so it engages under
     // the same condition and never on its own.
     prior_options.use_prior_heading = pose_prior_heading_requested_;
-    prior_options.ceres->prior_heading_loss_scale =
-        pose_prior_heading_loss_scale_;
     ba = CreatePosePriorBundleAdjuster(options,
                                        prior_options,
                                        ba_config,
@@ -562,7 +558,6 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
   mapper_options.prior_position_loss_scale = pose_prior_ba_loss_scale_;
   mapper_options.use_prior_gravity = pose_prior_gravity_requested_;
   mapper_options.prior_gravity_stddev_deg = pose_prior_gravity_stddev_deg_;
-  mapper_options.prior_gravity_loss_scale = pose_prior_gravity_loss_scale_;
   mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
                                    /*max_refinement_change=*/0.0005,
                                    mapper_options,
@@ -632,7 +627,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
         << "pose_prior_gravity_stddev_deg must be <= 180";
   }
   pose_prior_gravity_stddev_deg_ = options.pose_prior_gravity_stddev_deg;
-  pose_prior_gravity_loss_scale_ = options.pose_prior_gravity_loss_scale;
 
   pose_prior_heading_requested_ = options.pose_prior_use_heading;
   if (pose_prior_heading_requested_) {
@@ -659,7 +653,6 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
         << "pose_prior_use_heading was requested but no pose prior carries "
            "both a heading and the gravity reading it needs";
   }
-  pose_prior_heading_loss_scale_ = options.pose_prior_heading_loss_scale;
 
   // Reports the current reconstruction and returns whether a stop was
   // requested. Point errors are recomputed in pixels before reporting because

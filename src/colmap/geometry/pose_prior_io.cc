@@ -47,11 +47,11 @@
 namespace colmap {
 namespace {
 
-// Tolerance on the gravity direction's norm. `GoPro:GravityVector` and its
-// equivalents are already device-fused unit directions, so this admits
-// ordinary serialization rounding and nothing else. It is deliberately not
-// compared against 9.80665: there is no acceleration magnitude in a
-// normalized direction to compare.
+// Tolerance on the gravity direction's norm. Action cameras and phones expose
+// gravity as an already device-fused unit direction, so this admits ordinary
+// serialization rounding and nothing else. It is deliberately not compared
+// against 9.80665: a normalized direction has no acceleration magnitude left
+// in it to compare.
 constexpr double kGravityUnitNormTolerance = 1e-2;
 
 constexpr double kPi = 3.14159265358979323846;

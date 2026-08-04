@@ -316,9 +316,9 @@ available as ``colmap [command]``:
   positions and fix the rotation-averaging gauge; see
   :ref:`Pose Priors <pose-priors>`.
 
-- ``pose_prior_importer``: Import a pose-prior archive (GPS/GNSS/INS
-  position, gravity, or full orientation, per image) into the database. See
-  :ref:`Pose Priors <pose-priors>`.
+- ``pose_prior_importer``: Import a pose-prior archive (per-image WGS84
+  position with uncertainty, and optionally gravity and a true-north heading)
+  into the database. See :ref:`Pose Priors <pose-priors>`.
 
 - ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose
   priors. See :ref:`Pose Priors <pose-priors>`.

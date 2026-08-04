@@ -3,579 +3,515 @@
 Pose Priors
 ===========
 
-COLMAP can ingest external position/orientation measurements (for example,
-GNSS, RTK, an inertial navigation solution, survey control, or motion
-capture) as **pose priors** on a per-image basis, use them to speed up and
-stabilize global SfM, and produce a
-scene-to-Earth georeference report after reconstruction. This page documents
-the full pipeline: importing an archive, the exact conventions each field
-must satisfy, the ``pose_prior_mapper``/``global_mapper`` modes that consume
-priors, and the ``model_aligner`` georeference report.
+.. contents::
+   :local:
 
-Pose priors are optional at every stage. Missing fields (no orientation, no
-covariance, no altitude) are represented explicitly as absent rather than
-guessed, and every stage that can be skipped without a prior reports whether
-it was requested and whether it actually engaged.
+Purpose and supported workflow
+------------------------------
 
+A *pose prior* is measured sensor data about where a camera was, imported
+alongside the images and used to constrain reconstruction. This fork supports
+one workflow end to end:
 
-Importing a pose-prior archive
--------------------------------
+1. A trusted adapter reads a capture's telemetry and writes a **pose prior
+   archive**: one JSON file, one row per image, stating a WGS84 position with
+   its uncertainty and optionally a gravity direction and a compass heading.
+2. ``colmap pose_prior_importer`` validates that archive completely and writes
+   it into the database in a single transaction.
+3. ``colmap sequential_matcher`` can use the positions to skip image pairs that
+   are too far apart to overlap.
+4. ``colmap global_mapper`` solves the reconstruction with the positions as
+   covariance-weighted constraints, so the result is metric and placed on the
+   Earth rather than in an arbitrary frame at an arbitrary scale.
+5. ``colmap model_aligner`` publishes the result together with a georeference
+   report: the transforms a downstream consumer needs to convert the exported
+   geometry back to ECEF or WGS84, and the diagnostics needed to decide whether
+   to trust it.
 
-``colmap pose_prior_importer`` reads a JSON archive and writes
-:ref:`PosePrior <database>` rows into the database, resolving each row by
-image name::
+The output is geometry a viewer can place on the Earth from the report alone --
+no cameras, no database, no reconstruction. That is what makes it survive
+editing and export into other tools.
 
-    colmap pose_prior_importer \
-        --database_path DATABASE \
-        --pose_prior_path priors.json \
-        --existing error
+Everything on this path is fail-closed. An archive that does not match the
+contract below is rejected rather than partially interpreted, and a constraint
+that is requested but cannot engage stops the run instead of quietly doing
+nothing.
 
-Archive format::
+The archive
+-----------
+
+There is exactly one accepted format::
 
     {
+      "schema_version": 1,
       "coordinate_system": "WGS84",
       "sensor_type": "CAMERA",
-      "translation_convention": "WORLD_FROM_CAM",
       "ellipsoid": "WGS84",
       "height_datum": "ELLIPSOIDAL",
-      "schema": ["NAME", "LAT", "LON", "ALT", "STD_TX", "STD_TY", "STD_TZ"],
+      "position_covariance_frame": "LOCAL_ENU",
+      "gravity_frame": "CAMERA",
+      "gravity_direction": "DOWN",
+      "heading_reference": "TRUE_NORTH",
+      "heading_axis": "CAMERA_FORWARD_PROJECTED_HORIZONTAL",
+      "heading_rotation": "CLOCKWISE_FROM_NORTH",
+      "schema": [
+        "NAME", "LAT", "LON", "ALT",
+        "STD_TX", "STD_TY", "STD_TZ",
+        "GX", "GY", "GZ",
+        "HEADING_DEG", "HEADING_STD_DEG"
+      ],
       "data": [
-        ["img001.jpg", 47.3769, 8.5417, 500.0, 2.0, 2.0, 4.0],
-        ["img002.jpg", 47.3770, 8.5418, 501.0, 2.0, 2.0, 4.0]
+        ["a.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, 0.0, 1.0, 0.0, 92.0, 5.0],
+        ["b.jpg", 45.0, -73.0, 40.0, 2.0, 2.0, 4.0, null, null, null, null, null]
       ]
     }
 
-An archive has three parts:
+Columns
+~~~~~~~
 
-- **Metadata**: the coordinate system (``WGS84`` or ``CARTESIAN``), sensor
-  type, reference ellipsoid, and the conventions below. These apply to every
-  row in the archive.
-- **Schema**: an ordered list of column names describing each data row.
-  Column order is arbitrary. An unrecognized column name fails the import by
-  default (``--unknown_column_policy error``, since a typo is far more
-  likely than a deliberate new column); pass
-  ``--unknown_column_policy ignore`` to instead discard that column's cells
-  and log one warning naming every ignored column, so a producer's extra
-  source-specific columns can be carried without breaking import. Forward
-  compatibility is opt-in, not automatic.
-- **Data**: one row per image. ``NAME`` resolves to a database image by
-  filename; rows that don't resolve are skipped with a warning, not an
-  error, so a partial archive against a partial dataset still imports.
+Column order is free. Each column may appear at most once. No column outside
+this list is legal.
 
-Column groups, all optional independently:
+.. list-table::
+   :header-rows: 1
+   :widths: 22 12 66
 
-- **Translation**: ``LAT, LON, ALT`` (geographic) or ``TX, TY, TZ``
-  (Cartesian). Absent entirely if only ``NAME`` plus other groups are given.
-- **Translation uncertainty**: ``STD_TX, STD_TY, STD_TZ`` (diagonal, used to
-  build a diagonal covariance) or ``COV_TXX, COV_TXY, COV_TXZ, COV_TYY,
-  COV_TYZ, COV_TZZ`` (full covariance). ``STD_*`` and ``COV_*`` are mutually
-  exclusive within one archive.
-- **Gravity**: ``GX, GY, GZ`` — the down direction in sensor coordinates,
-  independent of full orientation. This is cheaper to obtain reliably than a
-  full quaternion (see below) and is enough to seed an upright-camera
-  assumption.
-- **Absolute orientation**: ``QW, QX, QY, QZ``, Hamilton convention, W
-  first, representing ``sensor_from_world`` (``sensor_from_local_enu`` for
-  WGS84 archives, ``sensor_from_cartesian_world``/``sensor_from_local`` for
-  Cartesian archives, selected by ``rotation_world_frame``).
-- **Rotation uncertainty**: ``ROT_COV_XX`` .. ``ROT_COV_ZZ``, rad², right-
-  multiplicative in the same world basis as the quaternion.
+   * - Column
+     - Required
+     - Meaning
+   * - ``NAME``
+     - yes
+     - Image name, non-empty, unique, and resolvable in the database.
+   * - ``LAT``, ``LON``, ``ALT``
+     - yes
+     - Degrees, degrees, and metres of **ellipsoidal** height.
+   * - ``STD_TX``, ``STD_TY``, ``STD_TZ``
+     - one form
+     - One-sigma East, North, Up position uncertainty in metres.
+   * - ``COV_TXX`` … ``COV_TZZ``
+     - one form
+     - Upper triangle of the position covariance in m², in the same local ENU
+       frame. Six columns: ``XX, XY, XZ, YY, YZ, ZZ``.
+   * - ``GX``, ``GY``, ``GZ``
+     - optional
+     - Measured **down** direction in camera coordinates, as a unit vector.
+   * - ``HEADING_DEG``, ``HEADING_STD_DEG``
+     - optional
+     - Azimuth of the camera's horizontally-projected forward axis, clockwise
+       from true north, and its own one-sigma uncertainty, in degrees.
 
-**Absence is a first-class state.** ``PosePrior::HasPosition()``,
-``HasGravity()``, ``HasRotation()``, ``HasPositionCov()``, and
-``HasRotationCov()`` each test for all-finite fields independently; a row
-that supplies position but not orientation is exactly as valid as one that
-supplies both, and every downstream consumer (mapper modes, the georeference
-report) checks these predicates rather than assuming a field is present.
-Horizontal-only GPS (no reliable altitude) is represented the same way: the
-altitude component is left non-finite rather than defaulted to zero, and it
-stays non-finite through the WGS84→ENU conversion (only East/North are
-finite; Up is ``NaN``) so a horizontal fix is never silently treated as a
-3D fix.
+Position uncertainty must be stated exactly once, as either the three
+``STD_T*`` columns or the six ``COV_T*`` columns -- never both, never neither.
+A covariance-weighted solve cannot weight a prior that declares no uncertainty.
 
-``--existing`` controls what happens when an incoming row's image already
-has a prior in the database:
+``GX/GY/GZ`` and ``HEADING_DEG/HEADING_STD_DEG`` are the only optional groups.
+A group is either wholly present in ``schema`` or wholly absent from it, and
+within a row every member is either a number or JSON ``null``. The heading
+group requires the gravity group.
 
-- ``error``: abort the whole import if any incoming resolved image already
-  has a prior.
-- ``replace``: the incoming row's groups become the complete prior for that
-  image — groups absent from the row become absent on the stored prior too
-  (e.g. re-importing with only ``LAT/LON/ALT`` clears a previously-stored
-  orientation for that image).
-- ``merge``: only the groups present in the row are updated; every other
-  group already on the stored prior is preserved untouched.
+Metadata
+~~~~~~~~
 
-There is no separate "update" flag — ``--existing`` is required and is the
-only control for this behavior.
+Every key has exactly one supported value and is validated against it, so an
+archive that a future producer means something different by fails instead of
+being misread.
 
+``schema_version``, ``coordinate_system``, ``sensor_type``, ``ellipsoid``,
+``height_datum`` and ``position_covariance_frame`` are always required, with
+the values shown above.
 
-Mapper modes
-------------
+``gravity_frame`` and ``gravity_direction`` are required when the gravity
+group is in ``schema``, and **forbidden** otherwise. ``heading_reference``,
+``heading_axis`` and ``heading_rotation`` are required when the heading group
+is in ``schema``, and forbidden otherwise. No other top-level key is legal.
 
-Pose priors are consumed by ``pose_prior_mapper`` (incremental SfM) and by
-``global_mapper``'s two independent gauge-fixing controls,
-``--GlobalMapper.pose_prior_position_mode`` and
-``--GlobalMapper.pose_prior_rotation_mode``::
+Validation
+~~~~~~~~~~
 
-    colmap global_mapper \
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Rule
+     - Why
+   * - Unknown, missing, or conditionally-forbidden top-level key is rejected
+     - An unrecognized name is a producer typo far more often than a deliberate
+       extension, and skipping it would drop the measurement the operator
+       believed they supplied.
+   * - Unsupported ``schema_version`` is rejected
+     - A version bump exists to say the meaning of these fields changed.
+   * - At least one row, exactly one cell per schema column
+     - A row of the wrong width has no unambiguous reading.
+   * - ``NAME`` non-empty and unique; every name resolves to a database image
+     - Two rows for one image leave the winner arbitrary. All unresolved names
+       are reported in one error, before anything is written.
+   * - ``LAT`` in [-90, 90], ``LON`` in [-180, 180], all of ``LAT/LON/ALT``
+       finite
+     - Out-of-range values are the usual sign of a swapped or mis-scaled field.
+   * - Each standard deviation strictly positive
+     - Zero uncertainty is an infinite weight; that row would pin the solve.
+   * - Covariance symmetric and strictly positive definite
+     - A zero, singular, or indefinite matrix states a direction of perfect
+       certainty. Symmetry is by construction -- only the upper triangle is
+       read.
+   * - Optional group all-present or all-null per row; no partial group
+     - Half a direction is not a direction.
+   * - Gravity norm within 0.01 of one, then normalized; zero or larger error
+       rejected
+     - This column is a device-fused unit direction. It is **not** compared
+       against 9.80665: a normalized direction has no acceleration magnitude
+       left in it. An archive written from raw accelerometer counts is
+       rejected here rather than silently mis-weighted.
+   * - Heading requires gravity on the same row; ``HEADING_DEG`` in [0, 360);
+       ``HEADING_STD_DEG`` in (0, 180]
+     - The azimuth is measured in the plane the measured down vector
+       establishes. Every heading row states its own accuracy; there is no CLI
+       value that substitutes for it.
+   * - A geographically distant but well-formed row is **kept**
+     - Whether it is an outlier is a question about the capture, which robust
+       fitting answers with the other rows in hand. The parser only knows
+       whether the row is well-formed.
+
+Frames, units, and conventions
+------------------------------
+
+Position
+~~~~~~~~
+
+Archive positions are WGS84 latitude, longitude, and ellipsoidal height. An
+orthometric or geoid height differs from an ellipsoidal one by tens of metres,
+which is why ``height_datum`` is mandatory and checked rather than assumed.
+
+Internally COLMAP works in a local **ENU** tangent frame: East ``+X``, North
+``+Y``, Up ``+Z``, metres. The frame's origin is the geometric median of the
+priors' ECEF positions, converted back to WGS84, with the median of the
+altitudes that rows actually declare. The median, not the mean or the first
+row, so that one gross GPS fix -- a valid archive row, rejected later by robust
+fitting rather than at import -- cannot move the frame every transform is
+expressed against.
+
+The mapper and the report derive this frame with the same code from the same
+rows, sorted by a stable identifier, so two processes given the same priors
+compute a bitwise-identical origin. Without that, geometry solved against one
+origin and a report published against another are offset with nothing to
+indicate why.
+
+Covariance
+~~~~~~~~~~
+
+A row's covariance is declared in the local ENU frame at **that row's own**
+latitude and longitude, because that is where the uncertainty was measured.
+Converting into the shared frame rotates it::
+
+    C_shared = R * C_local * R^T
+
+where ``R`` takes the row's local ENU axes into the shared ones. Over a single
+reconstruction ``R`` is near-identity, but it is not identity, and skipping it
+quietly points anisotropic uncertainty in the wrong direction.
+
+Gravity
+~~~~~~~
+
+``GX/GY/GZ`` is the measured **down** direction in camera coordinates. COLMAP
+camera axes are ``+X`` right, ``+Y`` down, ``+Z`` forward.
+
+The residual compares that measurement with the down direction the solved
+camera rotation predicts. It constrains roll and pitch and is exactly invariant
+to yaw: rotating the camera about its own predicted-down axis leaves the
+prediction unchanged. It is a full chordal difference rather than a
+tangent-plane projection, because the projected form is also zero for an
+exactly inverted prediction, and a gravity residual with a minimum at the
+antipode can attract an upside-down solution.
+
+Heading
+~~~~~~~
+
+``HEADING_DEG`` is the azimuth of the camera's forward axis, projected into the
+horizontal plane, measured clockwise from true north.
+
+A magnetic reading must be declination-corrected before it is written, and a
+device-body heading must be transformed through a known body-to-camera
+extrinsic. The archive always describes the camera.
+
+The residual is one signed angle, computed in the plane that the row's measured
+down vector ``d`` establishes, for a measured heading ``h``::
+
+    f     = (0, 0, 1)                      camera forward
+    f_h   = normalize(f - d * dot(d, f))   forward, projected horizontal
+    r_h   = normalize(cross(d, f_h))
+    n_m   = cos(h) * f_h - sin(h) * r_h    measured north, in the camera frame
+    n_p   = R_cam_from_world * north_world
+    n_p_h = normalize(n_p - d * dot(d, n_p))
+    residual = atan2(dot(d, cross(n_m, n_p_h)), dot(n_m, n_p_h))
+
+The ``atan2`` form is signed, continuous across the 0/360 wrap, and returns
+magnitude π -- not a false zero -- for an exactly opposite heading. A compass
+180 degrees out is a real failure mode, and a residual blind to it would make
+the wrong solution look optimal.
+
+A heading is one number and is represented as one number. It is deliberately
+not stored or solved as a quaternion: that would let the solver read roll and
+pitch out of a measurement containing neither, and those fabricated degrees of
+freedom would compete with the gravity residual, which does measure them.
+
+When the camera's forward axis is within ``1e-3`` of the measured vertical, its
+azimuth is undefined and the row's heading residual is skipped and counted.
+
+Importing
+---------
+
+::
+
+    colmap pose_prior_importer \
         --database_path DATABASE \
-        --output_path MODEL \
-        --GlobalMapper.pose_prior_position_mode initialize \
-        --GlobalMapper.pose_prior_rotation_mode initialize
+        --pose_prior_path ARCHIVE.json \
+        --existing {error,replace}
 
-Position mode (``off`` | ``initialize`` | ``optimize``):
+The archive, every image binding, and the existing database state are all
+validated before the first write; the writes then happen in one transaction.
+On any error nothing is written.
 
-- ``off``: pose priors are not used for global positioning.
-- ``initialize``: camera positions are seeded from pose priors (converted to
-  a metric local frame) before global positioning runs, giving the solver a
-  much better starting point without changing the objective it optimizes.
-  **This is the recommended default** for a first experiment — it captures
-  most of the benefit of GPS priors with the least risk of a bad prior
-  destabilizing the solve, since a bad seed can still be corrected by
-  positioning/bundle adjustment.
-- ``optimize``: pose priors are added as weighted terms directly in the
-  global positioning objective (covariance-weighted when a covariance is
-  present, a fallback stddev otherwise), pulling the final solve toward the
-  priors rather than only seeding it. Use this once ``initialize`` has been
-  validated on the same dataset and the priors are known to be trustworthy.
+``--existing=error``
+    Fail if any resolved image already has a prior.
 
-Whenever position mode is not ``off``, the mapper logs the resolved trust
-knobs once at solve start: ``--GlobalMapper.pose_prior_position_loss_scale``,
-``--GlobalMapper.pose_prior_position_fallback_stddev``, and their product,
-the Sim3 RANSAC gate used by ``optimize`` to admit correspondences into its
-gauge fit (``max_error = loss_scale × fallback_stddev`` — the coupling is
-intentional, not an oversight: it avoids introducing a third, unrelated
-tuning constant). Configuring ``optimize``'s weighting therefore always
-means choosing this gate too; read the logged line before trusting an
-``optimize`` run. ``--GlobalMapper.pose_prior_position_ransac_max_error``
-decouples this gate from the loss scale when the two genuinely need
-different values; a negative value (default) retains the derived gate
-above, and the logged line states whether the gate in effect was
-``explicit`` or ``derived``.
+``--existing=replace``
+    Write the row's complete prior over any existing one. A null gravity or
+    heading group **clears** previously stored values for that image.
 
-A long, weakly-connected sequential chain in ``initialize`` mode (GPS seeds
-positions but has no weight at all in the objective) can drift slowly
-relative to GPS over stretches of tens to hundreds of frames, producing a
-low-frequency wobble at roughly GPS-noise scale; the symptom is a low
-``position_inlier_ratio`` and/or an elevated
-``gravity_consistency_angle_deg`` in the georeference report, since a
-single robust Sim3 fit cannot represent an internal wobble and instead
-rejects the disagreeing frames as outliers. Engaging ``optimize`` with a
-deliberately declared (not fabricated) position covariance corrects this
-aggregate symptom directly — position-inlier admission and the
-gravity-consistency angle both improve — because the continuous GPS terms
-constrain the *overall* rigid gauge. It is not, by itself, guaranteed to
-remove a spatially-varying local wobble: each frame's GPS term is a single
-weighted residual competing against many more visual point-observation
-constraints on that same frame, and neither the joint solve's per-frame
-weighting nor the aligner's single global Sim3 can express a correction
-that varies systematically along the trajectory. Measure the specific
-symptom you are trying to fix (aggregate inlier ratio and gravity angle vs.
-a targeted cross-pass or along-track consistency check) rather than
-assuming one implies the other.
+There is no merge mode. A prior assembled from two archives has no single
+provenance and no way to tell which field came from where.
 
-**Consumer-GPS defaults.** For a single-receiver consumer GNSS/action-camera
-source (no RTK, no dual-frequency correction), a declared position standard
-deviation of ``2.5 m`` East, ``2.5 m`` North, ``5.0 m`` Up (vertical is
-weaker than horizontal for this receiver class) is a reasonable, sensor-
-class-appropriate default — not a fabricated one, but also not a substitute
-for an actual accuracy figure from the receiver if one is available.
-Covariance inflation (multiplying the declared variance by a constant
-factor to account for temporal correlation between consecutive fixes) is
-opt-in and must be derived from a measurement of the correlated-group size
-(for example, an autocorrelation analysis of visual-to-GPS residuals for
-that specific dataset), never applied as a blanket default — a large
-inflation factor observed on one capture is evidence about that capture's
-correlation structure, not a general operating parameter for the sensor
-class. Whatever stddev and inflation are in effect, report both the raw
-(metre) and whitened (covariance-weighted) residual summaries so a reader
-can tell whether a large raw residual reflects genuine sensor noise or an
-under-declared covariance.
+On success the importer logs one line containing the archive row count,
+resolved image count, inserted and replaced counts, and how many rows carried
+gravity and heading.
 
-Global positioning is fail-closed: if the solve does not converge to a
-usable solution, ``global_mapper`` retries exactly once with the same
-problem on CPU (Ceres/SuiteSparse is always available, unlike an optional
-GPU backend) before giving up, logging a ``LOG(WARNING)`` naming the
-failure and the fallback. If the CPU retry also fails, the whole pipeline
-aborts with a logged error and writes no reconstruction, rather than
-silently exporting cameras left at their unoptimized seed positions. This
-guards against a run "succeeding" with exit 0 on a scene that was never
-actually solved.
+Matching
+--------
 
-Rotation mode (``off`` | ``initialize``): selects a single global rotation
-gauge from full-orientation pose priors via robust consensus among frames
-that supply one, then fixes the remaining rotation-averaging gauge freedom
-to it. This only engages when at least one image has a usable orientation
-prior (``HasRotation()``); the mapper logs
-``Pose prior rotation gauge: requested=true, engaged=false`` with a stated
-reason (no orientation priors present, consensus failed, etc.) when it
-cannot engage, and ``engaged=true`` with the chosen frame otherwise — never
-silently falling back.
+``--SequentialMatching.max_prior_distance`` (metres) skips quadratic image
+pairs whose priors are further apart than the threshold. A negative value
+disables the gate.
 
-A sufficiently varied position track can determine a horizontal world gauge
-from geometry alone. Absolute orientation is an independent, optional source
-of information; it is most useful when the position layout is weak, when a
-specific local-world orientation must be preserved, or when orientation
-residuals are themselves diagnostically important. A position-only archive
-is fully supported and leaves ``pose_prior_rotation_mode`` unengaged by
-design.
+The gate applies only to WGS84 priors, which are converted to ECEF before the
+distance is taken. A prior with no declared coordinate system is not treated as
+metres: images in different parts of a capture differ by whole degrees, and
+comparing those against a metre threshold would veto long-range pairs --
+including loop closures -- as if they were kilometres apart.
 
-**Soft gravity in bundle adjustment** (``--GlobalMapper.pose_prior_gravity_ba_mode
-{off, optimize}``, default ``off``) is a separate mechanism from
-``--GlobalMapper.ra_use_gravity``. ``ra_use_gravity`` is a *hard* constraint
-inside rotation averaging: a gravity-paired relative-rotation edge is
-reduced to a single rotational degree of freedom (yaw only) before the
-solve, with no tunable uncertainty. ``pose_prior_gravity_ba_mode=optimize``
-instead adds a *soft*, covariance-weighted, yaw-free residual directly in
-bundle adjustment (``--GlobalMapper.pose_prior_gravity_stddev_deg``,
-default ``5.0``, and ``--GlobalMapper.pose_prior_gravity_loss_scale``, a
-robust-loss threshold defaulting to a Cauchy loss — a single corrupted
-gravity reading is treated as an expected failure mode for this sensor
-class, not an exceptional one). The residual itself is a 3-component
-chordal difference between the predicted and measured down directions
-(``predicted_down_in_sensor - measured_down_in_sensor``), whose norm is
-monotonic and has a unique zero at truth over the full ``[0, 180]`` degree
-domain — *not* the direction projected onto the tangent plane orthogonal to
-the measured vector, whose norm is ``sin(angle)`` and is therefore also
-(falsely) zero at a 180-degree inverted prediction. ``pose_prior_gravity_loss_scale``
-(like ``pose_prior_position_loss_scale``/``ba_prior_position_loss_scale``) is
-in *standardized* (covariance-whitened) residual-norm units — "number of
-standard deviations" — not radians/degrees/metres, even though the input
-knob (``*_stddev_deg``) is an angle; do not read a loss-scale value as an
-angle after whitening. It only takes effect once
-``pose_prior_position_mode=optimize`` has actually engaged: only then does
-the reconstruction sit in the same ENU-aligned frame the gravity residual's
-fixed "down" direction assumes (see the frame contract below), so gravity
-mode is intentionally coupled to GPS optimize mode rather than usable
-independently. The two mechanisms are not mutually exclusive but are not
-meant to be layered either — running rotation averaging with
-``ra_use_gravity=1`` and then also engaging the soft BA residual double-
-counts the same measurement; a normal configuration picks one, typically
-the hard mode for an ``initialize``-only run and the soft mode once
-``optimize`` is engaged.
+Mapping
+-------
 
-Per-row gravity uncertainty (an angular stddev specific to one image's
-gravity reading, analogous to ``ROT_COV_*`` for orientation) is not
-currently supported — ``PosePrior`` has no such field, and adding one would
-touch the database schema, archive import/export, and every source
-adapter. ``pose_prior_gravity_stddev_deg`` is deliberately a single global
-sensor-class value instead. This is a known, deliberate limitation, not an
-oversight; revisit only if a source adapter can actually supply per-sample
-gravity confidence.
+.. list-table::
+   :header-rows: 1
+   :widths: 45 55
 
-Note that :ref:`spatial/sequential/retrieval pairing <cli>` (used before
-feature matching) uses pose priors only to *propose* candidate image pairs;
-it never substitutes for geometric verification, which remains the sole
-authority on whether a pair is actually a valid two-view match.
+   * - Option
+     - Meaning
+   * - ``--GlobalMapper.pose_prior_position_mode {off,optimize}``
+     - ``optimize`` adds covariance-weighted position residuals and establishes
+       the metric ENU gauge. Default ``off``.
+   * - ``--GlobalMapper.pose_prior_use_gravity {0,1}``
+     - Adds the yaw-free gravity residual. Default ``0``.
+   * - ``--GlobalMapper.pose_prior_gravity_stddev_deg``
+     - Sensor-class angular uncertainty applied to every gravity row, in
+       degrees. Default ``5.0``.
+   * - ``--GlobalMapper.pose_prior_use_heading {0,1}``
+     - Adds the one-DoF heading residual. Default ``0``. Each row supplies its
+       own uncertainty.
 
-``--SequentialMatching.max_prior_distance`` (metres, default ``-1`` =
-disabled) gates sequential matching's quadratic-overlap probes (pairs at
-index offset ``2^k`` beyond the base ``overlap`` window, used to bridge
-temporary pauses or loops) by position-prior separation: a probe whose
-images both carry a usable position prior farther apart than this distance
-is dropped before matching. It applies only to those long-range quadratic
-probes, never to the base ``±overlap`` neighbors that form the sequential
-walk itself, so GPS noise can never sever walk continuity; a probe missing
-a prior on either image always passes ungated. This prevents a specific
-failure on repetitive structure (e.g. a long stretch of near-identical
-stonework or facade): a quadratic probe can pass geometric verification
-against a visually similar but physically distant repetition of the same
-structure, creating a false loop closure that then has no GPS term to
-resist it during visual-only global positioning.
+Failure semantics
+~~~~~~~~~~~~~~~~~
 
+Requesting a constraint that does not take effect is an error, not a warning.
+A run that quietly drops a constraint still produces a plausible-looking
+reconstruction, and nothing in the output says the measurement was ignored.
 
-model_aligner: Earth alignment and the georeference report
-------------------------------------------------------------
+* ``pose_prior_position_mode=optimize`` that does not engage fails the run.
+* ``pose_prior_use_gravity=1`` requires ``optimize``: gravity is expressed
+  against the ENU frame that only the position solve establishes. The
+  uncertainty must be in (0, 180] degrees.
+* ``pose_prior_use_heading=1`` requires both ``optimize`` and
+  ``pose_prior_use_gravity=1``, and at least one row carrying both a heading
+  and the gravity it depends on. There is no heading-only configuration.
 
-``model_aligner`` aligns a reconstruction to WGS84/ENU using pose priors
-already stored in the database (``--alignment_type enu``), and can
-additionally write a scene georeference report describing every
-sfm-to-Earth transform plus per-camera residuals::
+Valid gravity and heading data is imported and retained regardless of these
+flags, so enabling one later does not require re-importing.
+
+Once the gauge is established, the position, gravity, and heading residuals are
+carried into every subsequent pose-prior bundle-adjustment stage, including the
+refinement stages that run through the incremental mapper. A constraint that
+stops applying partway through a solve is one that silently stops being true.
+
+Each residual is whitened by its own uncertainty and passed through a fixed
+robust loss whose radius is the 95% chi-square confidence radius for that
+residual's degrees of freedom: 3 for position, 2 for gravity (the chordal
+residual has three components but rank two at the solution), 1 for heading.
+These radii are named constants, not options.
+
+Upstream's ``--GlobalMapper.ra_use_gravity`` rotation-averaging reduction is
+unchanged and independent. Do not enable it together with
+``pose_prior_use_gravity``: the soft and hard paths would consume the same
+readings twice.
+
+Publishing
+----------
+
+::
 
     colmap model_aligner \
-        --input_path MODEL \
-        --output_path MODEL_ALIGNED \
+        --input_path SPARSE --output_path ALIGNED \
         --database_path DATABASE \
         --alignment_type enu \
-        --alignment_max_error 5.0 \
-        --georeference_json report.json \
-        --camera_residuals_csv residuals.csv
+        --alignment_max_error 10 \
+        --alignment_random_seed 12345 \
+        --scene_id SCENE \
+        --georeference_json georeference.json \
+        --camera_residuals_csv camera_residuals.csv \
+        --output_coordinate_frame {ENU_Z_UP,LICHTFELD_COLMAP}
 
-The alignment is a robust (RANSAC) similarity (``Sim3d``) fit between the
-reconstruction's camera centers and their position pose priors converted to
-a local ENU frame, so it tolerates a minority of grossly wrong priors
-without needing them removed by hand first. ``--alignment_max_error`` is the
-position inlier threshold in metres and must be positive; choose it from the
-expected measurement, association, and calibration error rather than treating
-the example value as universal. ``--alignment_random_seed`` exposes the
-underlying RANSAC's seed (default: unseeded, matching prior behavior
-byte-for-byte); pass an explicit non-negative integer to make a run
-reproducible, or sweep several seeds to check that the fit is not an
-artifact of one particular random sample. The resolved seed is recorded in
-the JSON report as ``alignment_random_seed``.
+Requesting ``--georeference_json`` or ``--camera_residuals_csv`` selects the
+report path. Without them, ``model_aligner`` behaves exactly as upstream.
 
-``--alignment_max_horizontal_error``/``--alignment_max_vertical_error``
-(metres) replace the single isotropic gate with an anisotropic one that
-evaluates ENU horizontal and vertical residuals independently -- useful
-because GPS vertical uncertainty is typically much larger than horizontal.
-Both must be supplied together and strictly positive; when absent (the
-default), the isotropic ``--alignment_max_error`` gate applies unchanged.
-The report's ``position_ransac_gate`` object records which mode was used
-and the exact threshold value(s) in effect.
+The report path publishes a delivery, so its input must already be solved in
+the metric ENU gauge. Its own Sim3 fit is equal-weight among RANSAC inliers and
+ignores per-row covariance, so it must be a no-op; a material correction means
+the mapper's covariance-weighted solve and this one disagree, and the
+less-informed of the two is the one about to be written. That fails the run.
+**To align a reconstruction that was never aligned, run** ``model_aligner``
+**without the report flags.**
 
-**Choosing the ENU origin.** By default the origin is derived automatically
-as the geometric median (Weiszfeld's algorithm — robust to outliers, unlike
-a mean) of the WGS84 reference points, using the median altitude rather than
-an arbitrary first row. After the initial robust fit identifies inliers, the
-origin is recomputed once from only the inlier points and the fit is redone
-once against that refined origin — this two-pass scheme keeps a single gross
-outlier from skewing the very origin used to judge inliers. Alternatively,
-supply an explicit origin with ``--enu_origin_lat/--enu_origin_lon/
---enu_origin_alt`` (all three or none); this is recorded in the report as
-``explicit`` rather than ``derived``.
+The path requires WGS84 priors with valid covariance, at least
+``--min_common_images`` registered correspondences, and an altitude somewhere
+in the archive -- a report states an ellipsoidal height and cannot substitute a
+placeholder. Cartesian priors are rejected: they carry no datum to georeference
+against.
 
-For Cartesian priors, Earth output additionally requires an explicit geodetic
-origin and ``--pose_prior_cartesian_frame=ENU``. This explicit assertion is
-necessary because the database's Cartesian coordinate-system tag does not by
-itself distinguish a local arbitrary frame from an Earth-oriented ENU frame.
+The reconstruction is written first and reopened to confirm it matches the
+in-memory counts; only then are the JSON and CSV published through checked
+temporary files and atomic same-directory renames. A sidecar claiming success
+is never left behind by a failed run.
 
-With ``--use_pose_prior_orientation=1``, the robust position-only Sim3 remains
-the starting point and its position inlier set remains authoritative. COLMAP
-then refines the same single global Sim3 with covariance-weighted position and
-absolute-orientation residuals under robust losses. Orientation outliers are
-classified with ``--orientation_max_error_deg`` and removed before one final
-refinement. If no usable orientation remains or the refinement is unusable,
-COLMAP retains the valid position-only transform and reports
-``orientation_requested=true`` and ``orientation_engaged=false``. Relative
-camera geometry is never adjusted independently by this operation.
+Output frames
+~~~~~~~~~~~~~
 
-**Material realignment.** The report's ``final_realignment_check`` object
-(always present) records how large a correction the report's own
-equal-weight robust Sim3 fit applied on top of whatever frame the input
-reconstruction was already in: ``rotation_deg``/``translation_m``/
-``scale_ratio`` against their thresholds (default ``0.5°``/``1.0 m``/``0.01``,
-overridable via ``--material_realignment_max_rotation_deg``/
-``--material_realignment_max_translation_m``/
-``--material_realignment_max_scale_ratio``, defined once so the report's
-diagnostic and the enforcement below cannot drift apart), and
-``is_material``. A material correction on an input already declared
-metric/ENU-optimized (``pose_prior_position_mode=optimize``) usually means
-that upstream solve did not actually hold for this input, since this
-equal-weight refit ignores per-row GPS covariance. Pass
-``--reject_material_realignment`` to fail the command instead of silently
-accepting such a correction; off by default, and the diagnostic is always
-reported regardless of this flag.
+``ENU_Z_UP``
+    East ``+X``, North ``+Y``, Up ``+Z``. The canonical frame.
 
-**The JSON report** (``--georeference_json``) contains: a scene identifier
-(supplied via ``--scene_id``, or JSON ``null`` if not supplied -- it is never
-fabricated, so otherwise-identical reports stay deterministic), COLMAP's
-build/source commit for provenance, input/output paths and reconstruction
-counts, the WGS84 ellipsoid and the ellipsoidal-height convention, the chosen
-ENU origin and whether it was explicit or derived, all six transform
-directions between scene, ENU, and ECEF (each verified to numerically
-round-trip its declared inverse before the report is written),
-metres-per-input-unit, and position and orientation support/inlier/residual
-diagnostics. These values describe the fit and its geometry, not independent
-positioning accuracy. The report intentionally does **not** depend on
-COLMAP's optional download/curl/crypto feature and does not compute file
-hashes — geometry/report SHA256 values belong one layer downstream, in an
-exported asset's own sidecar (see below), where the actual asset bytes exist.
+``LICHTFELD_COLMAP``
+    Raw written data is East ``+X``, ``-Up`` ``+Y``, North ``+Z``. LichtFeld
+    Studio's COLMAP loader then applies its own ``diag(1, -1, -1)`` boundary
+    rotation, after which the scene displays East ``+X``, Up ``+Y``, North
+    ``-Z``. The pre-composition is what makes the scene appear upright.
 
-**Report verbosity** (``--georeference_report_level {summary, full}``,
-default ``summary``) controls how much machine-diagnostic detail the JSON
-report contains, independent of console log verbosity
-(``--log_level``/``--v``). Both levels contain everything needed to
-georeference the output geometry: schema/version, the frame contract,
-support counts, every evaluated quality value with its threshold and fired
-state, the final-realignment check, and provenance. ``full`` additionally
-contains horizontal and 3D extent conditioning, baseline-to-measured-
-uncertainty ratio, maximum scene radius, ellipsoid-to-tangent-plane
-departure, and the detailed per-residual-type percentile breakdowns
-(``{mean, median, p90, max}``) -- useful for experiment verification, not
-needed for ordinary georeferencing. A pipeline that uses the report to judge
-experiment quality (as opposed to just recovering ENU/ECEF from delivered
-geometry) should request ``full`` explicitly.
+The chosen transform is applied to the reconstruction that is actually written,
+not only to the report's metadata.
 
-**The frame contract.** ``--output_coordinate_frame`` selects which frame the
-written reconstruction actually ends up in: ``ENU_Z_UP`` (default, unchanged
-existing behavior: right-handed, Z-up, metres), ``GLTF_Y_UP`` (East→+X,
-Up→+Y, North→−Z, matching generic glTF 2.0 world-space convention), or
-``LICHTFELD_COLMAP`` (raw COLMAP-data East→+X, Up→−Y, North→+Z, precomposed
-so that LichtFeld Studio's own documented
-``visualizer_from_colmap_data = diag(1,-1,-1)`` boundary transform displays
-the scene upright there). The report's ``frame_contract`` object (schema
-version 2) states this explicitly rather than leaving it to convention:
-``geometry_frame``/``up_axis`` describe the frame actually written
-(``geometry_already_transformed: true`` — there is no separate
-un-transformed variant), plus a full ``transforms`` sub-object
-(``geometry_from_enu``, ``enu_from_geometry``, ``ecef_from_geometry``,
-``geometry_from_ecef`` — complete ``Sim3d``s, not just an informal rotation
-note) so any delivered artifact can be composed back to ENU or ECEF/WGS84
-regardless of which frame it was written in. When ``LICHTFELD_COLMAP`` is
-selected, a ``consumer_profile`` object additionally records factual,
-versionable contract metadata describing the transform this exporter
-applied: ``contract_version``, ``boundary`` (``DATA_TO_VISUALIZER_WORLD_AXES``),
-``source_reference`` (the pinned LichtFeld source commit), the full
-``visualizer_from_geometry`` transform, and ``visualizer_up_axis``. This is
-a statement of what COLMAP did, not a runtime claim about which GUI build a
-future user has installed -- COLMAP cannot observe that. A pipeline manifest
-or user-run acceptance record may separately state that a particular
-installed build was visually verified. A legacy single-entry ``targets``
-array is kept alongside ``transforms`` for existing consumers. Before
-trusting any transform in a real loader, round-trip a known ENU basis vector
-(and one camera pose) through it once; a cropped or otherwise
-unchanged-geometry asset preserves the sidecar unchanged, and only a
-rebasing edit composes a new transform.
+The report
+----------
 
-**Post-alignment warnings.** The report always emits three diagnostics
-alongside their pipeline-policy thresholds, so the threshold can be
-re-derived later without re-running the alignment:
-``diagnostics.horizontal_condition_ratio`` (the centered horizontal
-position-support singular-value ratio s2/s1 — small values mean the camera
-track is close to collinear, leaving rotation about the track axis weakly
-constrained), ``diagnostics.gravity_consistency_angle_deg`` (the **median**
-of a per-image angle computed between that image's own predicted-down and
-measured-down vectors — deliberately not a single angle of the normalized
-*mean* down vector, which lets images with opposite-signed errors cancel in
-the sum and read as a falsely small angle even when individual images
-disagree substantially; the full per-image distribution is in
-``diagnostics.gravity_residual_deg`` as ``{mean, median, p90, max,
-num_support}``, and every registered image's own
-``has_gravity_prior``/``gravity_measured_*``/``gravity_predicted_*``/
-``gravity_residual_deg`` columns are in ``camera_residuals.csv`` -- the
-per-image detail needed to identify which specific image is behind a large
-``max``, which the aggregate statistics alone cannot show; ``null`` when no
-prior in the database has gravity), and
-``warnings.position_inlier_ratio`` (the fraction of registered
-position-prior correspondences that were inliers to the robust Sim3 fit —
-``null`` when there are no registered correspondences). All three land in
-the top-level ``warnings`` object as
-``{value, threshold, fired}`` **at both report levels**; the detailed
-``diagnostics.horizontal_condition_ratio``/``diagnostics.gravity_residual_deg``
-breakdowns shown above are ``full``-only (``diagnostics.gravity_consistency_angle_deg``
-itself, the scalar the warning is judged against, remains available at both
-levels). The shipped policy defaults fire at ``s2/s1 < 0.1``, gravity angle
-``> 3.0°``, and position inlier ratio ``< 0.8``; override them with
-``--georeference_collinearity_ratio_threshold`` (range ``[0, 1]``),
-``--georeference_gravity_median_threshold_deg`` (range ``(0, 180]``), and
-``--georeference_min_position_inlier_ratio`` (range ``[0, 1]``) respectively.
-A low inlier ratio names its likely cause in the log line: internal
-misregistration from repeated structure or false loop closures dragging a
-large minority of the scene onto the wrong location, which the robust fit
-then rejects as outliers rather than fixes. A fired warning is
-``LOG(WARNING)``-only — it never fails the command.
+Every ``georeference.json`` has the same shape, under one top-level
+``schema_version: 1``. There is no verbosity setting: a consumer cannot ask for
+a field that a previous run chose not to write.
 
-**The CSV report** (``--camera_residuals_csv``) has one row per database
-image, sorted by name::
+* **Provenance** -- ``scene_id``, COLMAP version and source commit, creation
+  time, input and output paths.
+* **CRS** -- ellipsoid, height datum, and the selected ENU origin.
+* **Support** -- database priors, registered images, registered prior
+  correspondences, position inliers and outliers, gravity and heading
+  observation counts.
+* **Transforms** -- ``enu_from_sfm`` and its inverse, ``ecef_from_enu`` and its
+  inverse, ``ecef_from_sfm`` and its inverse, and metres per input unit.
+* **Frame contract** -- geometry frame, handedness, up axis, units, and
+  ``geometry_from_enu`` / ``enu_from_geometry`` / ``ecef_from_geometry`` /
+  ``geometry_from_ecef``. For ``LICHTFELD_COLMAP``, also the visualizer
+  boundary transform and displayed up axis.
+* **Diagnostics** -- position residuals in metres (3D, horizontal, vertical),
+  and gravity and heading residuals in degrees; each with mean, median, P90,
+  maximum, and support.
+* **Quality** -- each check's measured value, its fixed threshold, and whether
+  it fired.
+* **Final realignment check** -- rotation, translation, scale delta, their
+  thresholds, and ``is_material``.
 
-    image_name,registered,has_position_prior,position_fit_inlier,
-    prior_e,prior_n,prior_u,solved_e,solved_n,solved_u,
-    residual_e,residual_n,residual_u,residual_horizontal,residual_vertical,residual_3d,
-    has_orientation_prior,orientation_fit_inlier,orientation_residual_deg
+Heading fields are present with zero support when no headings exist, so
+adopting a compass later does not change the report's shape.
 
-Absent numeric values are empty cells, never ``0`` or the literal text
-``NaN``. Registered prior-bearing images receive solved coordinates and
-residuals whether they were fit inliers or outliers, so the CSV preserves the
-very disagreements that are most useful for diagnosing bad metadata,
-timestamp association, or reconstruction failure.
+Residual CSV
+~~~~~~~~~~~~
 
-**Altitude datum.** The report declares ``height_datum: ELLIPSOIDAL``
-unconditionally and does not perform geoid or orthometric-height
-conversion; a source adapter supplying orthometric/MSL altitude must
-convert to ellipsoidal height itself before import (see "Source-adapter
-responsibilities" below) or accept that reported altitudes carry that
-offset uncorrected. This is an intentional scope boundary for now, not an
-oversight — datum conversion may be revisited later for survey-grade
-absolute elevation, but does not block or otherwise affect any pipeline
-stage today.
+One row per registered image, ordered by image name::
 
-**Report diagnostics have limitations worth knowing before trusting them at
-face value**: residuals are computed after the same robust fit that used
-those very points as (candidate) inliers, so they describe fit quality, not
-an independent validation; the RANSAC inlier/outlier split is a hard
-threshold on one robust fit, not a calibrated per-point confidence; measured
-covariance describes the upstream measurement model and can itself be wrong;
-and a low residual cannot establish absolute accuracy without independent
-control observations. The consumer-GPS defaults documented above
-(``2.5 m`` E/N, ``5.0 m`` U) are an **operator-declared sensor-class
-model**, not per-image "detected" covariance — this pipeline's GoPro
-telemetry adapter does not extract or calibrate a per-sample GPS
-accuracy/DOP field, so do not describe a run's covariance as measured or
-detected in any report or summary derived from it. Consumer GPS also carries
-correlated multipath and several-metre absolute bias that many independent
-frames do not average away; a self-consistent fit against the same GPS
-observations used as priors is not proof of absolute accuracy. Label a
-result **"metric, consumer-GPS georeferenced"**, not **"mapping-grade"**,
-unless independent checkpoints (surveyed/GNSS control, trusted features with
-known uncertainty, or a withheld held-out GPS split explicitly flagged as
-still-not-independent) have actually been measured against it and a stated
-numerical tolerance is met.
+    image_name,image_id,has_position_prior,position_fit_inlier,
+    residual_east_m,residual_north_m,residual_up_m,
+    residual_horizontal_m,residual_3d_m,
+    has_gravity_prior,gravity_residual_deg,
+    has_heading_prior,heading_stddev_deg,heading_residual_deg
 
+An empty cell means the quantity does not exist for that row. This file is the
+operator's outlier-cleanup input, so it includes every registered image --
+including rows robust fitting rejected. A robust loss down-weights a
+measurement; it does not make it disappear from the record.
 
-Downstream asset composition
-----------------------------
+Thresholds
+~~~~~~~~~~
 
-COLMAP reports coordinate transforms for its reconstruction. An external
-exporter can carry the same georeference into a point cloud, mesh, radiance
-field, tiled map, or another derived representation without making COLMAP
-depend on that representation's file format.
+Fixed policy, recorded in every report alongside the value they judged. None is
+a CLI option: a gate an operator can widen from the command line is not a gate,
+and the recorded threshold would describe that invocation rather than the
+contract.
 
-Every downstream asset sidecar copies the report's ``scene_id`` and
-contains: an ``asset_id``, an optional ``parent_asset_id``, the geometry
-filename and its SHA256, a local axis-aligned bounding box and bounding
-sphere, ``ecef_from_asset`` and ``asset_from_ecef``, ``metres_per_asset_unit``,
-and the source georeference report's own SHA256 (so an asset can be traced
-back to the exact report that georeferenced it).
+.. list-table::
+   :header-rows: 1
+   :widths: 34 16 50
 
-Composition rules:
+   * - Check
+     - Threshold
+     - Effect
+   * - Collinearity (second/first horizontal singular-value ratio)
+     - ``0.1``
+     - Warning only. A capture that follows a road or a facade is naturally
+       elongated.
+   * - Median gravity disagreement
+     - ``3.0°``
+     - Fails delivery.
+   * - Position inlier ratio
+     - ``0.8``
+     - Fails delivery.
+   * - Final realignment rotation
+     - ``0.5°``
+     - Fails delivery.
+   * - Final realignment translation
+     - ``1.0 m``
+     - Fails delivery.
+   * - Final realignment scale delta
+     - ``0.01``
+     - Fails delivery.
 
-- A crop or delete that does not move any remaining point's coordinates
-  copies the parent's transforms unchanged, but still gets a new
-  ``asset_id`` and a freshly recomputed geometry hash/bounds — identity
-  follows content, not just the transform.
-- If an editor applies a rigid/similarity edit and supplies
-  ``parent_from_child``, compose:
-  ``ecef_from_child = ecef_from_parent * parent_from_child``.
-- A non-rigid or non-uniform deformation (sculpting, non-uniform scale per
-  axis, mesh deformation) cannot be represented by one ``Sim3`` — such an
-  edit must either mark the direct georeference invalid on the child asset,
-  or emit a richer mapping than a single similarity transform. Never force
-  a non-rigid edit into a ``Sim3`` field.
-- To place a real-world WGS84 point from any positioning client into asset
-  space: convert WGS84 to ECEF, then apply ``asset_from_ecef``. To place an
-  asset-space point on Earth: apply ``ecef_from_asset``.
+Using the report downstream
+---------------------------
 
-Formats with no metadata channel, including ordinary PLY, can use an adjacent
-sidecar. Formats with extensible metadata may embed the same fields. The
-composition contract is format-independent.
+For a point in the serialized geometry frame::
 
+    point_ecef = ecef_from_geometry * point_geometry
 
-Source-adapter responsibilities
-----------------------------------
+``ecef_from_geometry`` and its siblings are recorded in the report, so a viewer
+needs nothing else -- no cameras, no database, no deleted geometry -- to place
+the asset on the Earth. Copy the report alongside the exported asset rather
+than leaving it in the original COLMAP output directory.
 
-COLMAP's pose-prior archive is intentionally source-agnostic. Producing a
-*correct* archive from embedded image metadata, a GNSS/INS receiver, a mobile
-device, a robotics stack, motion capture, or surveyed control is the source
-adapter's responsibility. Before emitting a measurement, an adapter must
-establish:
+This survives a deletion-only edit exactly. If a downstream editor only removes
+points or Gaussians, every surviving coordinate is unchanged, so the same
+transform remains valid for whatever fragment is left.
 
-- the timestamp association between the measurement and image exposure;
-- the height datum and any geoid or barometric conversion needed before
-  declaring ``height_datum: ELLIPSOIDAL``;
-- sensor-to-camera extrinsics and axis/handedness conventions;
-- quaternion direction (``sensor_from_world`` rather than its inverse);
-- the world frame used by positions, orientations, and their covariances;
-- covariance units, basis, and whether the values are actually calibrated;
-- any heading-reference correction required by the upstream navigation
-  system.
+It does **not** survive an edit that translates, rotates, scales, or recentres
+a scene node before export. That bakes an additional transform into the asset
+which COLMAP never observes::
 
-A gravity vector is a unit down direction in camera-sensor coordinates only
-after the relevant axis and mounting transforms have been applied. A raw
-accelerometer sample is not automatically a gravity prior. Likewise, the
-presence of a heading sensor does not prove that a fused orientation is
-accurate or expressed in the required frame.
+    ecef_from_child = ecef_from_parent * parent_from_child
 
-Missing information stays missing. If altitude, yaw, covariance, or full
-orientation cannot be established, omit that measurement group instead of
-inserting zero, a guessed value, or a large-covariance placeholder. Absence is
-handled explicitly throughout import, mapping, and reporting.
+with ``parent_from_child`` the identity for a deletion-only edit. Composing a
+non-identity node transform is the exporting tool's responsibility.
+
+To locate a device in the scene, convert its WGS84 fix to ECEF and apply
+``geometry_from_ecef``. Positional uncertainty carries through the same
+transform, so a reported accuracy radius becomes a radius in scene units.

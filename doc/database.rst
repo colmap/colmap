@@ -96,14 +96,14 @@ The rest of the reconstruction pipeline only uses the keypoint locations.
 Pose priors
 -----------
 
-The ``pose_priors`` table stores an optional, externally supplied position
-and/or orientation measurement (for example, GNSS/INS, survey control, or
-motion capture) per sensor, keyed by the same ``data_id`` used elsewhere to
-identify a sensor within a frame. Position, gravity, and full orientation
-are each independently optional and explicitly absent (not defaulted) when
-unavailable. See :ref:`Pose Priors <pose-priors>` for the archive import
-format, the exact quaternion/gravity/covariance conventions, and how mapper
-stages and ``model_aligner`` consume this table.
+The ``pose_priors`` table stores an externally supplied measurement of where
+a sensor was, keyed by the same ``data_id`` used elsewhere to identify a
+sensor within a frame: a position with its covariance, and optionally a
+gravity direction and a scalar true-north heading with its own uncertainty.
+Each optional group is explicitly absent -- not defaulted -- when unavailable,
+so an absent measurement can never be read as a measured zero. See
+:ref:`Pose Priors <pose-priors>` for the archive format, the exact
+conventions, and how the mapper and ``model_aligner`` consume this table.
 
 
 Matches and two-view geometries

@@ -249,19 +249,20 @@ TEST(GlobalMapper, PosePriorPositionOptimizeSurvivesRetriangulation) {
 }
 
 // End-to-end wiring test for the soft gravity BA residual through the full
-// GlobalMapper::Solve() pipeline (CLI-level PosePriorGravityBAMode ->
-// GlobalMapperOptions -> RunBundleAdjustment()'s prior branch ->
-// PosePriorBundleAdjuster, and also through IterativeRetriangulateAndRefine's
-// propagated mapper options). The hard ra_use_gravity rotation-averaging
-// reduction is deliberately left off (rotation_averaging.use_gravity =
-// false), so any rotation accuracy here is attributable to the soft BA
-// residual and the reprojection/position-prior terms, not the legacy hard
-// mechanism. Precise isolation of
-// gravity's own marginal contribution (yaw invariance, robustness to one bad
-// reading, exact tilt magnitude) is covered at the functor level
-// (pose_prior_test.cc) and the single-BA-solve integration level
-// (bundle_adjustment_ceres_test.cc); this test's job is only to prove the
-// full pipeline wiring is correct and stays metric/near-truth end-to-end.
+// GlobalMapper::Solve() pipeline: pose_prior_use_gravity -> GlobalMapperOptions
+// -> RunBundleAdjustment()'s prior branch -> PosePriorBundleAdjuster, and also
+// through the mapper options IterativeRetriangulateAndRefine propagates.
+//
+// rotation_averaging.use_gravity is deliberately left off, so any rotation
+// accuracy here is attributable to the soft BA residual and the
+// reprojection/position-prior terms rather than the rotation-averaging
+// reduction, which would consume the same readings.
+//
+// Gravity's own marginal contribution -- yaw invariance, robustness to one bad
+// reading, exact tilt magnitude -- is isolated at the functor level in
+// pose_prior_test.cc and at the single-solve level in
+// bundle_adjustment_ceres_test.cc. This test's only job is to prove the
+// pipeline wiring holds and the result stays metric and near truth end to end.
 TEST(GlobalMapper, PosePriorGravityOptimizeSurvivesFullPipeline) {
   SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";

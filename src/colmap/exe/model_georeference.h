@@ -81,7 +81,8 @@ Sim3d LichtfeldVisualizerFromColmapData();
 // describe that invocation rather than the contract, and two reports would no
 // longer be comparable.
 //
-// Collinearity is informational -- a street capture is naturally elongated.
+// Collinearity is informational: a capture that follows a road or a facade is
+// naturally elongated, and that is not a defect.
 // Gravity disagreement and position inlier ratio are hard delivery gates.
 struct GeoreferenceQualityThresholds {
   double collinearity_ratio_threshold = 0.1;
