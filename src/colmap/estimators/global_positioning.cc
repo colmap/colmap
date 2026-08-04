@@ -313,58 +313,19 @@ void GlobalPositioner::InitializeRandomPositions(
     }
   }
 
-  // Build rig-center seeds from pose priors when `initialize` is requested.
-  // These seeds only affect the starting point of otherwise-free parameter
-  // blocks: no prior residual is added, and normal post-positioning
-  // normalization still runs, so this is a warm start, not a metric claim.
-  FlatHashMap<frame_t, Eigen::Vector3d> prior_seeds;
-  if (options_.pose_prior_position_mode == PosePriorPositionMode::initialize) {
-    prior_seeds = BuildPosePriorRigCenterSeeds(
-        reconstruction, pose_priors, &summary->num_usable_priors);
-    if (!prior_seeds.empty()) {
-      Eigen::Vector3d seed_mean = Eigen::Vector3d::Zero();
-      for (const auto& [frame_id, center] : prior_seeds) {
-        seed_mean += center;
-      }
-      seed_mean /= static_cast<double>(prior_seeds.size());
-      for (auto& [frame_id, center] : prior_seeds) {
-        center -= seed_mean;
-      }
-    }
-  }
-
   // Initialize frame centers in temporary storage.
   // The reconstruction poses remain in cam_from_world convention.
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     if (constrained_positions.find(frame_id) == constrained_positions.end()) {
       continue;
     }
-    const auto seed_it = prior_seeds.find(frame_id);
-    if (seed_it != prior_seeds.end()) {
-      frame_centers_[frame_id] = seed_it->second;
-      ++summary->num_covered_frames;
-    } else if (options_.generate_random_positions &&
-               options_.optimize_positions) {
+    if (options_.generate_random_positions && options_.optimize_positions) {
       frame_centers_[frame_id] = 100.0 * RandVector3d(-1, 1);
-      if (options_.pose_prior_position_mode ==
-          PosePriorPositionMode::initialize) {
-        ++summary->num_fallback_frames;
-      }
     } else {
       frame_centers_[frame_id] = frame.RigFromWorld().TgtOriginInSrc();
     }
   }
 
-  if (options_.pose_prior_position_mode == PosePriorPositionMode::initialize) {
-    summary->engaged = summary->num_covered_frames > 0;
-    LOG(INFO) << StringPrintf(
-        "Pose prior initialize: requested=true, engaged=%s, usable "
-        "priors=%d, covered frames=%d, fallback frames=%d",
-        summary->engaged ? "true" : "false",
-        summary->num_usable_priors,
-        summary->num_covered_frames,
-        summary->num_fallback_frames);
-  }
 
   VLOG(2) << "Constrained positions: " << constrained_positions.size();
 }

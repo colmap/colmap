@@ -296,7 +296,7 @@ TEST(GlobalMapper, PosePriorGravityOptimizeSurvivesFullPipeline) {
   options.global_positioning.pose_prior_position_mode =
       PosePriorPositionMode::optimize;
   options.global_positioning.pose_prior_position_fallback_stddev = 3.0;
-  options.pose_prior_gravity_ba_mode = PosePriorGravityBAMode::optimize;
+  options.pose_prior_use_gravity = true;
   options.pose_prior_gravity_stddev_deg = 2.0;
 
   ASSERT_TRUE(global_mapper.Solve(options));

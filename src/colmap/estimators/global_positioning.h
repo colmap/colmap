@@ -23,7 +23,7 @@ namespace colmap {
 // Enumerator names are lowercase so MAKE_ENUM_CLASS's generated ToString/
 // FromString round-trip the exact CLI/project-file spelling required by the
 // contract, without a separate case-conversion step.
-MAKE_ENUM_CLASS(PosePriorPositionMode, 0, off, initialize, optimize);
+MAKE_ENUM_CLASS(PosePriorPositionMode, 0, off, optimize);
 
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.

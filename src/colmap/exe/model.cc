@@ -279,7 +279,7 @@ int RunModelAligner(int argc, char** argv) {
   std::string scene_id;
   std::string pose_prior_cartesian_frame;
   std::filesystem::path georeference_json;
-  std::string georeference_report_level_str = "summary";
+  std::string georeference_report_level_str = "full";
   std::filesystem::path camera_residuals_csv;
   std::string output_coordinate_frame_str = "ENU_Z_UP";
   bool reject_material_realignment = false;

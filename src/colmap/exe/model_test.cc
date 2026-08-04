@@ -634,10 +634,12 @@ TEST(ModelAligner, GeoreferenceReportLevelControlsDiagnosticDetail) {
   boost::property_tree::ptree full;
   boost::property_tree::read_json(full_report.string(), full);
 
-  EXPECT_EQ(summary.get<std::string>("report_level"), "summary");
-  EXPECT_EQ(full.get<std::string>("report_level"), "full");
+  // There is one report shape. Whatever level was requested, both runs must
+  // carry the identical complete field set: a consumer cannot ask for a field
+  // that a previous run chose not to write, which is what made the old
+  // summary level unusable downstream.
 
-  // Both levels contain everything needed to georeference the geometry.
+  // Both reports contain everything needed to georeference the geometry.
   for (const boost::property_tree::ptree* report : {&summary, &full}) {
     EXPECT_EQ(report->get<std::string>("schema"), "colmap_scene_georeference");
     EXPECT_NO_THROW(report->get_child("frame_contract"));
@@ -653,17 +655,18 @@ TEST(ModelAligner, GeoreferenceReportLevelControlsDiagnosticDetail) {
         report->get_child("diagnostics.gravity_consistency_angle_deg"));
   }
 
-  // `full`-only detailed diagnostics are absent from `summary`.
-  EXPECT_THROW(summary.get_child("diagnostics.position_3d_residual_m"),
-               boost::property_tree::ptree_bad_path);
-  EXPECT_THROW(summary.get_child("diagnostics.gravity_residual_deg"),
-               boost::property_tree::ptree_bad_path);
-  EXPECT_THROW(summary.get<double>("diagnostics.max_horizontal_baseline_m"),
-               boost::property_tree::ptree_bad_path);
-  EXPECT_THROW(summary.get<double>("diagnostics.horizontal_condition_ratio"),
-               boost::property_tree::ptree_bad_path);
+  // The detailed diagnostics the pipeline reads are present in BOTH reports.
+  EXPECT_NO_THROW(summary.get_child("diagnostics.position_3d_residual_m"));
+  EXPECT_NO_THROW(summary.get_child("diagnostics.gravity_residual_deg"));
+  EXPECT_TRUE(std::isfinite(
+      summary.get<double>("diagnostics.max_horizontal_baseline_m")));
+  EXPECT_TRUE(std::isfinite(
+      summary.get<double>("diagnostics.horizontal_condition_ratio")));
+  EXPECT_TRUE(summary.get_optional<double>(
+                         "diagnostics.position_horizontal_residual_m.p90")
+                  .has_value());
 
-  // The same detailed diagnostics are present in `full`.
+
   EXPECT_NO_THROW(full.get_child("diagnostics.position_3d_residual_m"));
   EXPECT_NO_THROW(full.get_child("diagnostics.gravity_residual_deg"));
   EXPECT_TRUE(

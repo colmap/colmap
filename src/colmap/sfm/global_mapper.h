@@ -20,17 +20,6 @@ namespace colmap {
 //   pose priors before global positioning (see GlobalMapper::Solve).
 // Lowercase enumerators so MAKE_ENUM_CLASS's generated ToString/FromString
 
-// off: no gravity residual in bundle adjustment (the existing hard
-//   ra_use_gravity 1-DoF rotation-averaging reduction, if enabled, is
-//   unaffected by this setting -- it is a separate mechanism).
-// optimize: add a soft, yaw-free gravity residual to every BA stage that
-//   runs once pose_prior_position_mode == optimize has engaged (there is no
-//   other point in the solve where "down" has a known physical direction to
-//   compare against). No "initialize" state: unlike position gauging or the
-//   one-time rotation-gauge snap (pose_prior_rotation_mode), a BA residual
-//   is inherently a continuous-optimization concept only.
-MAKE_ENUM_CLASS(PosePriorGravityBAMode, 0, off, optimize);
-
 struct GlobalMapperOptions {
   // Number of threads.
   int num_threads = -1;
@@ -129,12 +118,11 @@ struct GlobalMapperOptions {
   double ba_prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
   // Whether/how to add a soft, yaw-free gravity residual to GlobalMapper's
-  // own bundle-adjustment stages. See PosePriorGravityBAMode. Off by
+  // own bundle-adjustment stages. Off by
   // default -- preserves existing behavior byte-for-byte until explicitly
   // requested; the existing hard ra_use_gravity rotation-averaging
   // reduction remains available unchanged as the legacy mechanism.
-  PosePriorGravityBAMode pose_prior_gravity_ba_mode =
-      PosePriorGravityBAMode::off;
+  bool pose_prior_use_gravity = false;
 
   // Global sensor-class angular uncertainty for the gravity residual, in
   // degrees. PosePrior has no per-row gravity covariance field (deferred;

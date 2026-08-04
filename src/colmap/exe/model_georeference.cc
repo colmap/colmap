@@ -358,7 +358,10 @@ void WriteGeoreferenceReportJSON(
     const GeoreferenceQualityThresholds& quality_thresholds,
     const MaterialRealignmentThresholds& material_realignment_thresholds,
     GeoreferenceReportLevel report_level) {
-  const bool full_report = report_level == GeoreferenceReportLevel::FULL;
+  // 4.9: there is one report shape. A consumer cannot ask for a field a
+  // previous run chose not to write, so every report carries the complete
+  // diagnostic set.
+  constexpr bool full_report = true;
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
   const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
   const Eigen::Matrix3d ecef_from_enu_rotation =

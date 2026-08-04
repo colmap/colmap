@@ -605,7 +605,7 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   pose_prior_ba_use_robust_loss_ = options.ba_use_robust_loss_on_prior_position;
   pose_prior_ba_loss_scale_ = options.ba_prior_position_loss_scale;
   pose_prior_gravity_requested_ =
-      options.pose_prior_gravity_ba_mode == PosePriorGravityBAMode::optimize;
+      options.pose_prior_use_gravity;
   pose_prior_gravity_stddev_deg_ = options.pose_prior_gravity_stddev_deg;
   pose_prior_gravity_loss_scale_ = options.pose_prior_gravity_loss_scale;
 
