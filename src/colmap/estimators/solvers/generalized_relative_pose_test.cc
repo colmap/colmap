@@ -133,6 +133,8 @@ class ParameterizedGRNPEstimatorTests
                                                  /*panoramic2=*/bool>> {};
 
 TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
+  SetPRNGSeed(1);
+
   // Note that we can estimate the minimal problem from only 6 points but we
   // use an additional points to choose the correct solution.
   constexpr int kNumPoints = GR6PEstimator::kMinNumSamples + 1;
@@ -165,6 +167,8 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
 }
 
 TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
+  SetPRNGSeed(1);
+
   // Note that we can estimate the minimal problem from only 8 points but we
   // use the additional points to choose the correct solution.
   // The GR8P estimator is numerically much more sensitive than the GR6P
