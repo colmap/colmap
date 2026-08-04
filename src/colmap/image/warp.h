@@ -38,7 +38,7 @@ struct WarpImageOptions {
   // Minimum target-to-source dimension ratio for warping directly at target
   // resolution. Smaller ratios warp at source resolution and resize the result
   // to avoid aliasing.
-  double direct_warp_min_scale = 0.9;
+  double direct_warp_min_scale = 0.5;
 };
 
 // Warp source image to target image by projecting the pixels of the target

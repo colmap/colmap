@@ -126,7 +126,7 @@ TEST(Warp, DirectWarpMinScale) {
   const Bitmap source_image = GenerateRandomBitmap(100, 100, true);
 
   Camera target_camera = source_camera;
-  target_camera.Rescale(90, 90);
+  target_camera.Rescale(50, 50);
   Bitmap default_image;
   WarpImageBetweenCameras(WarpImageOptions(),
                           source_camera,
@@ -149,7 +149,7 @@ TEST(Warp, DirectWarpMinScale) {
   EXPECT_NE(default_image.RowMajorData(), resized_image.RowMajorData());
 
   target_camera = source_camera;
-  target_camera.Rescale(89, 89);
+  target_camera.Rescale(49, 49);
   WarpImageBetweenCameras(WarpImageOptions(),
                           source_camera,
                           target_camera,
@@ -163,7 +163,7 @@ TEST(Warp, DirectWarpMinScale) {
   CheckBitmapsExactlyEqual(default_image, resized_image);
 
   target_camera = source_camera;
-  target_camera.Rescale(95, 89);
+  target_camera.Rescale(95, 49);
   WarpImageBetweenCameras(WarpImageOptions(),
                           source_camera,
                           target_camera,
@@ -270,7 +270,7 @@ TEST(Warp, HomographyDirectWarpMinScale) {
   const Bitmap source_image = GenerateRandomBitmap(100, 100, false);
 
   Camera target_camera = source_camera;
-  target_camera.Rescale(90, 90);
+  target_camera.Rescale(50, 50);
   Bitmap default_image;
   WarpImageWithHomographyBetweenCameras(WarpImageOptions(),
                                         Eigen::Matrix3d::Identity(),
@@ -296,7 +296,7 @@ TEST(Warp, HomographyDirectWarpMinScale) {
   EXPECT_NE(default_image.RowMajorData(), resized_image.RowMajorData());
 
   target_camera = source_camera;
-  target_camera.Rescale(89, 89);
+  target_camera.Rescale(49, 49);
   WarpImageWithHomographyBetweenCameras(WarpImageOptions(),
                                         Eigen::Matrix3d::Identity(),
                                         source_camera,

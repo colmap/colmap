@@ -10,9 +10,9 @@ def test_undistort_camera_options_default_init():
 
 def test_warp_image_options_direct_warp_min_scale_readwrite():
     options = pycolmap.WarpImageOptions()
-    assert options.direct_warp_min_scale == 0.9
-    options.direct_warp_min_scale = 0.5
     assert options.direct_warp_min_scale == 0.5
+    options.direct_warp_min_scale = 0.4
+    assert options.direct_warp_min_scale == 0.4
 
 
 def test_undistort_camera_options_warp_options_readwrite():
