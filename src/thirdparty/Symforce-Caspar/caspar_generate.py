@@ -120,6 +120,59 @@ class ConstPinholeFocal(sf.V2):
     pass
 
 
+# OpenCV: camera.params = [fx, fy, cx, cy, k1, k2, p1, p2] (COLMAP's own
+# OpenCVCameraModel param order, sensor/models.h), but Caspar's merged Calib
+# node packs [focal_and_extra..., principal_point...] (see
+# bundle_adjustment_caspar.cc's SetupSolverData, which concatenates
+# focal_and_extra_data then principal_point_data) -- SAME convention
+# SimpleRadial's merged calib=[f,k,cx,cy] already follows (focal_and_extra=
+# [f,k] then pp=[cx,cy]). refine_focal_length/refine_extra_params are always
+# refined together (merged focal_and_extra block, enforced in
+# bundle_adjustment_caspar.cc's AddFactors -- "not supported by CASPAR's
+# merged focal_and_extra block"), so focal_and_extra = [fx, fy, k1, k2, p1,
+# p2] (6 floats) here, principal_point = [cx, cy] (2 floats), merged calib =
+# [fx, fy, k1, k2, p1, p2, cx, cy] (8 floats, NOT camera.params' order).
+#
+# 8 floats vs Pinhole/SimpleRadial's 4-float merged calib -- double the
+# per-factor shared-memory footprint of the existing merged Calib node;
+# generated and confirmed to still fit the 48 KB budget (caspar_generate.py's
+# own check, see comment above -- codegen exits loudly if it doesn't).
+class OpenCVPose(sf.Pose3):
+    pass
+
+
+class ConstOpenCVPose(sf.Pose3):
+    pass
+
+
+class OpenCVCalib(sf.V8):
+    pass  # [fx, fy, k1, k2, p1, p2, cx, cy]  (merged)
+
+
+class ConstOpenCVCalib(sf.V8):
+    pass
+
+
+class OpenCVPrincipalPoint(sf.V2):
+    pass  # [cx, cy]  (split: pp tunable)
+
+
+class ConstOpenCVPrincipalPoint(sf.V2):
+    pass
+
+
+class OpenCVFocalAndExtra(sf.V6):
+    pass  # [fx, fy, k1, k2, p1, p2]  (split: focal+extra tunable)
+
+
+class ConstOpenCVFocalAndExtra(sf.V6):
+    pass
+
+
+class ConstOpenCVSensorFromRig(sf.Pose3):
+    pass
+
+
 # Constant sensor-from-rig calibration, stored as ConstantSequential
 # (7 floats = 28 B f32 / 56 B f64 loaded from global memory per factor).
 # ConstantShared would deduplicate to one slot per unique sensor per block,
@@ -262,6 +315,47 @@ def pinhole_core(
     return sf.V2([fx * p[0] + cx, fy * p[1] + cy]) - pixel
 
 
+def opencv_core(
+    pose: T.Annotated[OpenCVPose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstOpenCVSensorFromRig, mem.ConstantSequential
+    ],
+    calib: T.Annotated[OpenCVCalib, mem.TunableShared],  # [fx,fy,k1,k2,p1,p2,cx,cy]
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """Reprojection residual for COLMAP's OPENCV model (sensor/models.h).
+
+    calib = [fx, fy, k1, k2, p1, p2, cx, cy] (focal_and_extra then
+    principal_point, per the merged-calib packing convention -- see
+    OpenCVCalib's comment above; NOT camera.params' [fx,fy,cx,cy,k1,k2,p1,p2]
+    order). Mirrors OpenCVCameraModel::ImgFromCam/Distortion in
+    sensor/models.h EXACTLY (same term order/signs) -- du/dv is the
+    distortion OFFSET added to the normalized (undistorted) coordinates,
+    not a multiplicative scale factor:
+        radial = k1*r2 + k2*r2^2
+        du = uu*radial + 2*p1*uu*vv + p2*(r2 + 2*uu^2)
+        dv = vv*radial + 2*p2*uu*vv + p1*(r2 + 2*vv^2)
+        x = uu + du, y = vv + dv
+        X = fx*x + cx, Y = fy*y + cy
+    pose holds rig_from_world; sensor_from_rig is identity for single-camera
+    rigs (cam_from_world == rig_from_world in that case).
+    """
+    cam_T_world = sensor_from_rig * pose
+    fx, fy, k1, k2, p1, p2, cx, cy = calib
+    point_cam = cam_T_world * point
+    depth = point_cam[2]
+    uv = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
+    uu, vv = uv
+    r2 = uu * uu + vv * vv
+    radial = k1 * r2 + k2 * r2 * r2
+    du = uu * radial + 2 * p1 * uu * vv + p2 * (r2 + 2 * uu * uu)
+    dv = vv * radial + 2 * p2 * uu * vv + p1 * (r2 + 2 * vv * vv)
+    x = uu + du
+    y = vv + dv
+    return sf.V2([fx * x + cx, fy * y + cy]) - pixel
+
+
 # Split cores delegate to merged cores to avoid duplicating projection math.
 
 
@@ -311,6 +405,41 @@ def pinhole_split_core(
     return pinhole_core(pose, sensor_from_rig, calib, point, pixel)
 
 
+def opencv_split_core(
+    pose: T.Annotated[OpenCVPose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstOpenCVSensorFromRig, mem.ConstantSequential
+    ],
+    focal_and_extra: T.Annotated[OpenCVFocalAndExtra, mem.TunableShared],
+    principal_point: T.Annotated[OpenCVPrincipalPoint, mem.TunableShared],
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """Split-calib variant of opencv_core for COLMAP's OPENCV model.
+
+    Used whenever refine_principal_point disagrees with
+    refine_focal_length/refine_extra_params -- e.g. COLMAP's own default
+    (refine_focal_length=True, refine_extra_params=True,
+    refine_principal_point=False), which is the common real-world case, NOT
+    an edge case: it hits FIXED_PRINCIPAL_POINT here, not opencv_core's
+    merged BASE variant.
+    focal_and_extra = [fx, fy, k1, k2, p1, p2], principal_point = [cx, cy].
+    """
+    calib = sf.V8(
+        [
+            focal_and_extra[0],
+            focal_and_extra[1],
+            focal_and_extra[2],
+            focal_and_extra[3],
+            focal_and_extra[4],
+            focal_and_extra[5],
+            principal_point[0],
+            principal_point[1],
+        ]
+    )
+    return opencv_core(pose, sensor_from_rig, calib, point, pixel)
+
+
 dtype = mem.DType.DOUBLE if precision == "f64" else mem.DType.FLOAT
 caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 
@@ -348,6 +477,11 @@ FIXABLE_PINHOLE = {
     "point": ConstPoint,
 }
 
+FIXABLE_OPENCV = {
+    "pose": ConstOpenCVPose,
+    "point": ConstPoint,
+}
+
 FIXABLE_SIMPLE_RADIAL_SPLIT = {
     "pose": ConstSimpleRadialPose,
     "focal_and_extra": ConstSimpleRadialFocalAndExtra,
@@ -362,6 +496,13 @@ FIXABLE_PINHOLE_SPLIT = {
     "point": ConstPoint,
 }
 
+FIXABLE_OPENCV_SPLIT = {
+    "pose": ConstOpenCVPose,
+    "focal_and_extra": ConstOpenCVFocalAndExtra,
+    "principal_point": ConstOpenCVPrincipalPoint,
+    "point": ConstPoint,
+}
+
 # Merged: BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT (4 variants).
 register_camera_model(
     caslib,
@@ -372,6 +513,9 @@ register_camera_model(
 )
 register_camera_model(
     caslib, "pinhole", pinhole_core, FIXABLE_PINHOLE, include_all_fixed=True
+)
+register_camera_model(
+    caslib, "opencv", opencv_core, FIXABLE_OPENCV, include_all_fixed=True
 )
 
 # Split: all variants where at least one of
@@ -389,6 +533,13 @@ register_camera_model(
     pinhole_split_core,
     FIXABLE_PINHOLE_SPLIT,
     must_fix_one_of={"focal", "principal_point"},
+)
+register_camera_model(
+    caslib,
+    "opencv_split",
+    opencv_split_core,
+    FIXABLE_OPENCV_SPLIT,
+    must_fix_one_of={"focal_and_extra", "principal_point"},
 )
 
 out_dir = Path(f"{sys.argv[1]}")
