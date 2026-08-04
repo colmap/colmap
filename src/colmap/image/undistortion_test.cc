@@ -225,6 +225,41 @@ TEST(UndistortCamera, NoBlankPixels) {
   }
 }
 
+TEST(UndistortImage, WarpOptions) {
+  Camera distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
+
+  Bitmap distorted_image(100, 100, true);
+  for (size_t i = 0; i < distorted_image.RowMajorData().size(); ++i) {
+    distorted_image.RowMajorData()[i] = static_cast<uint8_t>(i % 251);
+  }
+
+  UndistortCameraOptions options;
+  options.warp_options.direct_warp_min_scale = 0.0;
+  Bitmap direct_image;
+  Camera direct_camera;
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &direct_image,
+                 &direct_camera);
+
+  options.warp_options.direct_warp_min_scale = 1.0;
+  Bitmap resized_image;
+  Camera resized_camera;
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &resized_image,
+                 &resized_camera);
+
+  EXPECT_EQ(direct_camera, resized_camera);
+  EXPECT_EQ(direct_image.Width(), resized_image.Width());
+  EXPECT_EQ(direct_image.Height(), resized_image.Height());
+  EXPECT_NE(direct_image.RowMajorData(), resized_image.RowMajorData());
+}
+
 TEST(UndistortReconstruction, Nominal) {
   const size_t kNumImages = 10;
   const size_t kNumPoints2D = 10;
