@@ -65,53 +65,16 @@ struct PosePriorAlignmentResult {
   Sim3d tgt_from_src;
   std::vector<image_t> correspondence_image_ids;
   std::vector<char> inlier_mask;
-  bool orientation_requested = false;
-  bool orientation_engaged = false;
-  std::vector<image_t> orientation_image_ids;
-  std::vector<char> orientation_inlier_mask;
-  std::vector<double> orientation_residuals_deg;
-};
-
-// Optional anisotropic ENU horizontal/vertical RANSAC admission gate for
-// AlignReconstructionToPosePriorsRobust. Both fields must be set together
-// (strictly positive); a default-constructed instance (IsSet() == false)
-// means "not requested", in which case the estimator uses the ordinary
-// isotropic RANSACOptions.max_error gate unchanged. Only meaningful when
-// both src and tgt points passed to the estimator are already expressed in
-// a shared ENU frame (Up = +Z) -- e.g. the model_aligner georeference
-// report path, which converts pose priors to ENU before alignment.
-struct AnisotropicPositionGate {
-  double max_horizontal_error = -1.0;
-  double max_vertical_error = -1.0;
-
-  bool IsSet() const {
-    return max_horizontal_error > 0.0 && max_vertical_error > 0.0;
-  }
 };
 
 // Same correspondence collection as AlignReconstructionToPosePriors, but
-// returns the full PosePriorAlignmentResult instead of only the Sim3d. If
-// `anisotropic_gate` is set, RANSAC inlier admission evaluates ENU
-// horizontal and vertical residuals separately instead of the isotropic 3D
-// Euclidean residual gated by `ransac_options.max_error`.
+// returns the full PosePriorAlignmentResult instead of only the Sim3d, so a
+// caller can report which correspondences were inliers without re-deriving
+// that from rounded output.
 PosePriorAlignmentResult AlignReconstructionToPosePriorsRobust(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
-    const RANSACOptions& ransac_options,
-    const AnisotropicPositionGate& anisotropic_gate =
-        AnisotropicPositionGate());
-
-// Refines a successful position alignment with absolute orientation priors.
-// The position RANSAC inlier set remains fixed. If orientation support is
-// absent or unusable, the position-only transform is retained and the result
-// records that orientation was requested but did not engage.
-void RefinePosePriorAlignmentWithOrientations(
-    const Reconstruction& src_reconstruction,
-    const std::vector<PosePrior>& tgt_pose_priors,
-    double position_fallback_stddev,
-    double orientation_fallback_stddev_rad,
-    double orientation_max_error_deg,
-    PosePriorAlignmentResult* result);
+    const RANSACOptions& ransac_options);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated

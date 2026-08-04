@@ -19,8 +19,6 @@ namespace colmap {
 // initialize: run a robust consensus gauge rotation from full-orientation
 //   pose priors before global positioning (see GlobalMapper::Solve).
 // Lowercase enumerators so MAKE_ENUM_CLASS's generated ToString/FromString
-// round-trip the exact CLI/project-file spelling required by the contract.
-MAKE_ENUM_CLASS(PosePriorRotationMode, 0, off, initialize);
 
 // off: no gravity residual in bundle adjustment (the existing hard
 //   ra_use_gravity 1-DoF rotation-averaging reduction, if enabled, is
@@ -51,8 +49,6 @@ struct GlobalMapperOptions {
   bool refine_sensor_from_rig = true;
 
   // Whether/how to initialize the global rotation gauge from full-orientation
-  // pose priors. See PosePriorRotationMode.
-  PosePriorRotationMode pose_prior_rotation_mode = PosePriorRotationMode::off;
 
   // Options for each component.
   RotationEstimatorOptions rotation_averaging;
@@ -212,8 +208,6 @@ class GlobalMapper {
   // framework) and applies it once to the whole reconstruction. Run after
   // RotationAveraging() and before GlobalPositioning(). Always returns true;
   // "no consensus" is requested-but-not-engaged, not a hard failure.
-  bool InitializeRotationGaugeFromPosePriors(
-      const RotationEstimatorOptions& rotation_averaging_options);
 
   // Establish tracks from feature matches.
   void EstablishTracks(const GlobalMapperOptions& options);

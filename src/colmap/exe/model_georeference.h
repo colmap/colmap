@@ -151,12 +151,7 @@ struct ModelGeoreferenceOptions {
   std::string pose_prior_cartesian_frame;
   int min_common_images = 3;
   RANSACOptions ransac_options;
-  // See AnisotropicPositionGate: unset (default) preserves the isotropic
-  // ransac_options.max_error gate path bit for bit.
-  AnisotropicPositionGate anisotropic_position_gate;
 
-  bool use_pose_prior_orientation = false;
-  double orientation_max_error_deg = 10.0;
 
   std::string scene_id;
   std::filesystem::path georeference_json;

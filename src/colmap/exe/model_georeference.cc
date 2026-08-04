@@ -178,15 +178,12 @@ struct CameraPosePriorResidual {
   bool registered = false;
   bool has_position_prior = false;
   bool position_fit_inlier = false;
-  bool has_orientation_prior = false;
-  bool orientation_fit_inlier = false;
   Eigen::Vector3d prior_enu =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   Eigen::Vector3d solved_enu =
       Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
   Eigen::Matrix3d position_covariance_enu =
       Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  double orientation_residual_deg = std::numeric_limits<double>::quiet_NaN();
   bool has_gravity_prior = false;
   // Gravity (down) in the sensor coordinate system, frame-invariant under
   // the report's ENU re-expression of the position prior. Measured value as
@@ -375,14 +372,10 @@ void WriteGeoreferenceReportJSON(
     double max_ellipsoid_tangent_departure_m,
     double position_ransac_threshold,
     int alignment_random_seed,
-    double orientation_max_error_deg,
-    bool orientation_requested,
-    bool orientation_engaged,
     OutputCoordinateFrame output_coordinate_frame,
     bool reject_material_realignment_requested,
     const GeoreferenceQualityThresholds& quality_thresholds,
     const MaterialRealignmentThresholds& material_realignment_thresholds,
-    const AnisotropicPositionGate& anisotropic_position_gate,
     GeoreferenceReportLevel report_level) {
   const bool full_report = report_level == GeoreferenceReportLevel::FULL;
   const Sim3d sfm_from_enu = Inverse(enu_from_sfm);
@@ -410,12 +403,9 @@ void WriteGeoreferenceReportJSON(
   std::vector<double> horizontal_residuals;
   std::vector<double> vertical_residuals;
   std::vector<double> full_residuals;
-  std::vector<double> orientation_residuals;
   std::vector<double> horizontal_sigmas;
   int num_position_inliers = 0;
   int num_registered_correspondences = 0;
-  int num_orientation_candidates = 0;
-  int num_orientation_inliers = 0;
   double max_horizontal_radius = 0.0;
   double max_3d_radius = 0.0;
   double max_horizontal_baseline = 0.0;
@@ -444,13 +434,6 @@ void WriteGeoreferenceReportJSON(
         }
       }
     }
-    if (r.registered && r.has_orientation_prior) {
-      ++num_orientation_candidates;
-    }
-    if (r.orientation_fit_inlier && std::isfinite(r.orientation_residual_deg)) {
-      ++num_orientation_inliers;
-      orientation_residuals.push_back(r.orientation_residual_deg);
-    }
   }
   for (size_t i = 0; i < inlier_prior_enu.size(); ++i) {
     for (size_t j = i + 1; j < inlier_prior_enu.size(); ++j) {
@@ -465,8 +448,6 @@ void WriteGeoreferenceReportJSON(
       ComputeStatistics(horizontal_residuals);
   const ScalarStatistics vertical_stats = ComputeStatistics(vertical_residuals);
   const ScalarStatistics full_stats = ComputeStatistics(full_residuals);
-  const ScalarStatistics orientation_stats =
-      ComputeStatistics(orientation_residuals);
   const double sigma_h = Percentile(horizontal_sigmas, 0.5);
   const double baseline_to_sigma =
       std::isfinite(sigma_h) && sigma_h > 0.0
@@ -725,9 +706,6 @@ void WriteGeoreferenceReportJSON(
   json << "\"num_registered_position_correspondences\":"
        << num_registered_correspondences << ",";
   json << "\"num_position_inliers\":" << num_position_inliers << ",";
-  json << "\"num_orientation_candidates\":" << num_orientation_candidates
-       << ",";
-  json << "\"num_orientation_inliers\":" << num_orientation_inliers;
   json << "},";
   // gravity_consistency_angle_deg is the one scalar diagnostic the
   // gravity_disagreement warning is evaluated against, so it is reported at
@@ -754,11 +732,6 @@ void WriteGeoreferenceReportJSON(
          << ",\"median\":" << JSONNumber(vertical_stats.median)
          << ",\"p90\":" << JSONNumber(vertical_stats.p90)
          << ",\"max\":" << JSONNumber(vertical_stats.max) << "},";
-    json << "\"orientation_residual_deg\":{"
-         << "\"mean\":" << JSONNumber(orientation_stats.mean)
-         << ",\"median\":" << JSONNumber(orientation_stats.median)
-         << ",\"p90\":" << JSONNumber(orientation_stats.p90)
-         << ",\"max\":" << JSONNumber(orientation_stats.max) << "},";
     json << "\"max_horizontal_baseline_m\":"
          << JSONNumber(max_horizontal_baseline) << ",";
     json << "\"horizontal_prior_sigma_median_m\":" << JSONNumber(sigma_h)
@@ -807,31 +780,7 @@ void WriteGeoreferenceReportJSON(
   json << "},";
   json << "\"position_ransac_threshold_m\":"
        << JSONNumber(position_ransac_threshold) << ",";
-  // Exact gate mode and values used for RANSAC position-prior admission
-  // (workstream 4A): `isotropic` is the legacy single-threshold gate
-  // (position_ransac_threshold_m above); `anisotropic` evaluates ENU
-  // horizontal and vertical residuals against independent thresholds.
-  json << "\"position_ransac_gate\":{";
-  json << "\"mode\":\""
-       << (anisotropic_position_gate.IsSet() ? "anisotropic" : "isotropic")
-       << "\",";
-  json << "\"max_horizontal_error_m\":"
-       << JSONNumber(anisotropic_position_gate.IsSet()
-                         ? anisotropic_position_gate.max_horizontal_error
-                         : std::numeric_limits<double>::quiet_NaN())
-       << ",";
-  json << "\"max_vertical_error_m\":"
-       << JSONNumber(anisotropic_position_gate.IsSet()
-                         ? anisotropic_position_gate.max_vertical_error
-                         : std::numeric_limits<double>::quiet_NaN());
-  json << "},";
   json << "\"alignment_random_seed\":" << alignment_random_seed << ",";
-  json << "\"orientation_max_error_deg\":"
-       << JSONNumber(orientation_max_error_deg) << ",";
-  json << "\"orientation_requested\":"
-       << (orientation_requested ? "true" : "false") << ",";
-  json << "\"orientation_engaged\":" << (orientation_engaged ? "true" : "false")
-       << ",";
   // How large a correction this report's own equal-weight robust Sim3 fit
   // (enu_from_sfm above) applied on top of whatever frame the input
   // reconstruction was already in. Always reported; only enforced as a hard
@@ -930,8 +879,6 @@ void WriteCameraResidualsCSV(
           "prior_e,prior_n,prior_u,solved_e,solved_n,solved_u,"
           "residual_e,residual_n,residual_u,residual_horizontal,"
           "residual_vertical,residual_3d,"
-          "has_orientation_prior,orientation_fit_inlier,"
-          "orientation_residual_deg,"
           "has_gravity_prior,gravity_measured_x,gravity_measured_y,"
           "gravity_measured_z,gravity_predicted_x,gravity_predicted_y,"
           "gravity_predicted_z,gravity_residual_deg\n";
@@ -962,9 +909,7 @@ void WriteCameraResidualsCSV(
          << CSVNumber(residual.y()) << ',' << CSVNumber(residual.z()) << ','
          << CSVNumber(residual_horizontal) << ','
          << CSVNumber(std::abs(residual.z())) << ',' << CSVNumber(residual_3d)
-         << ',' << (r.has_orientation_prior ? 1 : 0) << ','
-         << (r.orientation_fit_inlier ? 1 : 0) << ','
-         << CSVNumber(r.orientation_residual_deg) << ','
+         << ','
          << (r.has_gravity_prior ? 1 : 0) << ','
          << CSVNumber(r.gravity_sensor.x()) << ','
          << CSVNumber(r.gravity_sensor.y()) << ','
@@ -1015,16 +960,9 @@ std::vector<PosePrior> ConvertPosePriorsToReportENU(
                                   prior.position_covariance *
                                   shared_from_local.transpose();
       }
-      if (prior.HasRotation()) {
-        out.rotation =
-            (prior.rotation * Eigen::Quaterniond(shared_from_local.transpose()))
-                .normalized();
-      }
-      if (prior.HasRotationCov()) {
-        out.rotation_covariance = shared_from_local *
-                                  prior.rotation_covariance *
-                                  shared_from_local.transpose();
-      }
+      // Heading is an azimuth from true north and needs no basis change when
+      // the ENU origin moves: translating the tangent frame does not rotate
+      // its north axis.
     }
     converted.push_back(out);
   }
@@ -1099,10 +1037,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                 : pose_priors;
 
   PosePriorAlignmentResult result =
-      AlignReconstructionToPosePriorsRobust(reconstruction,
-                                            enu_priors,
-                                            o.ransac_options,
-                                            o.anisotropic_position_gate);
+      AlignReconstructionToPosePriorsRobust(
+          reconstruction, enu_priors, o.ransac_options);
   if (!result.success) {
     LOG(ERROR) << "=> Alignment failed";
     return EXIT_FAILURE;
@@ -1127,10 +1063,8 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
       enu_priors = ConvertPosePriorsToReportENU(
           pose_priors, origin_lat, origin_lon, origin_alt);
       result =
-          AlignReconstructionToPosePriorsRobust(reconstruction,
-                                                enu_priors,
-                                                o.ransac_options,
-                                                o.anisotropic_position_gate);
+          AlignReconstructionToPosePriorsRobust(
+              reconstruction, enu_priors, o.ransac_options);
       if (!result.success) {
         LOG(ERROR) << "=> Alignment failed after origin refinement";
         return EXIT_FAILURE;
@@ -1150,16 +1084,6 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                   "--pose_prior_cartesian_frame=ENU before an Earth report "
                   "can be emitted";
     return EXIT_FAILURE;
-  }
-
-  if (o.use_pose_prior_orientation) {
-    RefinePosePriorAlignmentWithOrientations(
-        reconstruction,
-        enu_priors,
-        o.ransac_options.max_error / 2.7955,
-        DegToRad(o.orientation_max_error_deg) / 2.7955,
-        o.orientation_max_error_deg,
-        &result);
   }
 
   // This robust Sim3 fit is equal-weight among RANSAC inliers and ignores
@@ -1217,12 +1141,6 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
       inlier_image_ids.insert(result.correspondence_image_ids[i]);
     }
   }
-  FlatHashSet<image_t> orientation_inlier_image_ids;
-  for (size_t i = 0; i < result.orientation_image_ids.size(); ++i) {
-    if (result.orientation_inlier_mask[i]) {
-      orientation_inlier_image_ids.insert(result.orientation_image_ids[i]);
-    }
-  }
   NodeHashMap<image_t, const PosePrior*> enu_prior_by_image;
   for (const PosePrior& prior : enu_priors) {
     if (prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
@@ -1244,7 +1162,6 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
     if (prior_it != priors_by_image.end()) {
       r.has_position_prior = std::isfinite(prior_it->second.position.x()) &&
                              std::isfinite(prior_it->second.position.y());
-      r.has_orientation_prior = prior_it->second.HasRotation();
       r.has_gravity_prior = prior_it->second.HasGravity();
       r.gravity_sensor = prior_it->second.gravity;
     }
@@ -1254,16 +1171,9 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
       r.position_covariance_enu = enu_it->second->position_covariance;
     }
     r.position_fit_inlier = inlier_image_ids.count(r.image_id) > 0;
-    r.orientation_fit_inlier =
-        orientation_inlier_image_ids.count(r.image_id) > 0;
     if (r.registered) {
       const Image& image = reconstruction.Image(r.image_id);
       r.solved_enu = image.ProjectionCenter();
-      if (enu_it != enu_prior_by_image.end() && enu_it->second->HasRotation()) {
-        r.orientation_residual_deg =
-            RadToDeg(enu_it->second->rotation.angularDistance(
-                image.CamFromWorld().rotation()));
-      }
       if (r.has_gravity_prior) {
         // world_down_ convention: East=+X, North=+Y, Up=+Z (see
         // PosePriorBundleAdjuster::world_down_ in bundle_adjustment_ceres.cc
@@ -1335,14 +1245,10 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
                                 max_ellipsoid_tangent_departure_m,
                                 o.ransac_options.max_error,
                                 o.ransac_options.random_seed,
-                                o.orientation_max_error_deg,
-                                result.orientation_requested,
-                                result.orientation_engaged,
                                 o.output_coordinate_frame,
                                 o.reject_material_realignment,
                                 o.quality_thresholds,
                                 o.material_realignment_thresholds,
-                                o.anisotropic_position_gate,
                                 o.report_level);
   }
   if (!o.camera_residuals_csv.empty()) {

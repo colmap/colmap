@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
@@ -153,6 +154,16 @@ class IncrementalMapper {
     // Threshold on the residual for the robust loss
     // (chi2 for 3DOF at 95% = 7.815)
     double prior_position_loss_scale = 7.815;
+
+    // Gravity is applied by the global mapper, but its later refinement stages
+    // run through IterativeGlobalRefinement() below, so the constraint has to
+    // be carried across that boundary or it silently stops being enforced
+    // partway through the solve. These three fields exist only to forward the
+    // caller's gravity settings into PosePriorBundleAdjustmentOptions; nothing
+    // in the incremental mapper itself interprets them.
+    bool use_prior_gravity = false;
+    double prior_gravity_stddev_deg = 5.0;
+    double prior_gravity_loss_scale = std::sqrt(kChiSquare95TwoDof);
 
     // Number of threads.
     int num_threads = -1;

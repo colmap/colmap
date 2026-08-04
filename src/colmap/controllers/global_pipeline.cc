@@ -85,9 +85,7 @@ GlobalPipeline::GlobalPipeline(
   // the database does not activate anything.
   database_cache_options.convert_pose_priors_to_enu =
       options_.mapper.global_positioning.pose_prior_position_mode !=
-          PosePriorPositionMode::off ||
-      options_.mapper.pose_prior_rotation_mode ==
-          PosePriorRotationMode::initialize;
+      PosePriorPositionMode::off;
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
   if (options_.decompose_relative_pose) {
     MaybeDecomposeRelativePoses(database_cache_.get());

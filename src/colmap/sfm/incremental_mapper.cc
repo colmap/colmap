@@ -1207,6 +1207,12 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
     prior_options.ceres->prior_position_loss_scale =
         options.prior_position_loss_scale;
+    // Forward gravity so it keeps constraining roll/pitch through every later
+    // refinement stage, not only the mapper's own bundle adjustments.
+    prior_options.use_prior_gravity = options.use_prior_gravity;
+    prior_options.prior_gravity_stddev_deg = options.prior_gravity_stddev_deg;
+    prior_options.ceres->prior_gravity_loss_scale =
+        options.prior_gravity_loss_scale;
     prior_options.alignment_ransac_options.random_seed = options.random_seed;
     bundle_adjuster =
         CreatePosePriorBundleAdjuster(custom_ba_options,

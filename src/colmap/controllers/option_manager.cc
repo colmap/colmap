@@ -809,11 +809,6 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.pose_prior_position_ransac_max_error",
                    &global_mapper->mapper.global_positioning
                         .pose_prior_position_ransac_max_error);
-  AddDefaultEnumOption("GlobalMapper.pose_prior_rotation_mode",
-                       &global_mapper->mapper.pose_prior_rotation_mode,
-                       &PosePriorRotationModeToString,
-                       &PosePriorRotationModeFromString,
-                       "off|initialize");
   AddDefaultEnumOption("GlobalMapper.pose_prior_gravity_ba_mode",
                        &global_mapper->mapper.pose_prior_gravity_ba_mode,
                        &PosePriorGravityBAModeToString,
