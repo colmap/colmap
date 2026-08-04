@@ -58,6 +58,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_math
 )
 COLMAP_ADD_TEST(
+    NAME geometric_median_test
+    SRCS geometric_median_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
     NAME graph_cut_test
     SRCS graph_cut_test.cc
     LINK_LIBS colmap_math

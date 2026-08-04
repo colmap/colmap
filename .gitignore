@@ -58,3 +58,4 @@ vcpkg_installed/
 # backup files
 *~
 *.orig
+build_check/
