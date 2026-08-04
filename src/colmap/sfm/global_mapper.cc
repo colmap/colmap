@@ -300,8 +300,19 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
         summary.num_inliers,
         used_cpu_fallback ? ", gpu_solve_failed=true, cpu_fallback=true" : "");
   }
-  // `initialize` seeds are free parameters and carry no metric claim, so only
-  // an engaged `optimize` solve is gauge-destroying to normalize away.
+  // Fail closed. Requesting `optimize` and silently continuing without it
+  // yields visual-only SfM in an arbitrary frame -- which still registers every
+  // image and still produces a report, so the failure is invisible until the
+  // scale turns out to be meaningless. Refuse instead.
+  if (summary.requested == PosePriorPositionMode::optimize &&
+      !summary.engaged) {
+    LOG(ERROR) << "Pose prior position mode `optimize` was requested but did "
+                  "not engage. Continuing would produce a non-metric "
+                  "reconstruction indistinguishable from a metric one. "
+                  "Check that enough registered images carry a position prior "
+                  "with a valid covariance.";
+    return false;
+  }
   pose_prior_position_engaged_ =
       summary.requested == PosePriorPositionMode::optimize && summary.engaged;
   // Cached here (not only in Solve()) so RunBundleAdjustment() stays correct
@@ -604,8 +615,21 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 
   pose_prior_ba_use_robust_loss_ = options.ba_use_robust_loss_on_prior_position;
   pose_prior_ba_loss_scale_ = options.ba_prior_position_loss_scale;
-  pose_prior_gravity_requested_ =
-      options.pose_prior_use_gravity;
+  pose_prior_gravity_requested_ = options.pose_prior_use_gravity;
+  // Gravity pins roll and pitch. Requesting it without an engaged metric gauge
+  // to attach it to, or validating its uncertainty only implicitly, would let
+  // the constraint quietly do nothing while the run still looks successful.
+  if (pose_prior_gravity_requested_) {
+    THROW_CHECK(options.global_positioning.pose_prior_position_mode ==
+                PosePriorPositionMode::optimize)
+        << "pose_prior_use_gravity requires pose_prior_position_mode=optimize: "
+           "gravity is expressed against the shared ENU frame that only the "
+           "position solve establishes";
+    THROW_CHECK_GT(options.pose_prior_gravity_stddev_deg, 0.0)
+        << "pose_prior_gravity_stddev_deg must be > 0";
+    THROW_CHECK_LE(options.pose_prior_gravity_stddev_deg, 180.0)
+        << "pose_prior_gravity_stddev_deg must be <= 180";
+  }
   pose_prior_gravity_stddev_deg_ = options.pose_prior_gravity_stddev_deg;
   pose_prior_gravity_loss_scale_ = options.pose_prior_gravity_loss_scale;
 
