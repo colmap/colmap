@@ -53,23 +53,20 @@ float GetPixelConstantBorder(const float* data,
   }
 }
 
+template <WarpImageOptions::Interpolation interpolation>
 std::optional<BitmapColor<uint8_t>> InterpolatePixel(
-    const Bitmap& image,
-    const Eigen::Vector2d& point,
-    const WarpImageOptions::Interpolation interpolation) {
+    const Bitmap& image, const Eigen::Vector2d& point) {
   const double x = point.x() - 0.5;
   const double y = point.y() - 0.5;
-  switch (interpolation) {
-    case WarpImageOptions::Interpolation::kNearestNeighbor:
-      return image.InterpolateNearestNeighbor(x, y);
-    case WarpImageOptions::Interpolation::kBilinear: {
-      const std::optional<BitmapColor<float>> color =
-          image.InterpolateBilinear(x, y);
-      return color ? std::make_optional(color->Cast<uint8_t>()) : std::nullopt;
-    }
+  if constexpr (interpolation ==
+                WarpImageOptions::Interpolation::kNearestNeighbor) {
+    return image.InterpolateNearestNeighbor(x, y);
+  } else {
+    static_assert(interpolation == WarpImageOptions::Interpolation::kBilinear);
+    const std::optional<BitmapColor<float>> color =
+        image.InterpolateBilinear(x, y);
+    return color ? std::make_optional(color->Cast<uint8_t>()) : std::nullopt;
   }
-  LOG(FATAL_THROW) << "Invalid warp image interpolation mode: "
-                   << static_cast<int>(interpolation);
 }
 
 bool ShouldWarpDirectly(const Camera& source_camera,
@@ -91,13 +88,12 @@ bool ShouldWarpDirectly(const Camera& source_camera,
   return std::min(scale_x, scale_y) >= options.direct_warp_min_scale;
 }
 
-}  // namespace
-
-void WarpImageBetweenCameras(const WarpImageOptions& options,
-                             const Camera& source_camera,
-                             const Camera& target_camera,
-                             const Bitmap& source_image,
-                             Bitmap* target_image) {
+template <WarpImageOptions::Interpolation interpolation>
+void WarpImageBetweenCamerasImpl(const WarpImageOptions& options,
+                                 const Camera& source_camera,
+                                 const Camera& target_camera,
+                                 const Bitmap& source_image,
+                                 Bitmap* target_image) {
   THROW_CHECK_EQ(source_camera.width, source_image.Width());
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
@@ -131,10 +127,9 @@ void WarpImageBetweenCameras(const WarpImageOptions& options,
       const std::optional<Eigen::Vector2d> source_point =
           source_camera.ImgFromCam(cam_point->homogeneous());
 
-      const auto color =
-          source_point ? InterpolatePixel(
-                             source_image, *source_point, options.interpolation)
-                       : std::nullopt;
+      const auto color = source_point ? InterpolatePixel<interpolation>(
+                                            source_image, *source_point)
+                                      : std::nullopt;
       if (color) {
         target_image->SetPixel(x, y, *color);
       } else {
@@ -146,6 +141,27 @@ void WarpImageBetweenCameras(const WarpImageOptions& options,
   if (!warp_directly) {
     target_image->Rescale(target_camera.width, target_camera.height);
   }
+}
+
+}  // namespace
+
+void WarpImageBetweenCameras(const WarpImageOptions& options,
+                             const Camera& source_camera,
+                             const Camera& target_camera,
+                             const Bitmap& source_image,
+                             Bitmap* target_image) {
+  switch (options.interpolation) {
+    case WarpImageOptions::Interpolation::kNearestNeighbor:
+      return WarpImageBetweenCamerasImpl<
+          WarpImageOptions::Interpolation::kNearestNeighbor>(
+          options, source_camera, target_camera, source_image, target_image);
+    case WarpImageOptions::Interpolation::kBilinear:
+      return WarpImageBetweenCamerasImpl<
+          WarpImageOptions::Interpolation::kBilinear>(
+          options, source_camera, target_camera, source_image, target_image);
+  }
+  LOG(FATAL_THROW) << "Invalid warp image interpolation mode: "
+                   << static_cast<int>(options.interpolation);
 }
 
 void WarpImageWithHomography(const Eigen::Matrix3d& H,
@@ -174,12 +190,15 @@ void WarpImageWithHomography(const Eigen::Matrix3d& H,
   }
 }
 
-void WarpImageWithHomographyBetweenCameras(const WarpImageOptions& options,
-                                           const Eigen::Matrix3d& H,
-                                           const Camera& source_camera,
-                                           const Camera& target_camera,
-                                           const Bitmap& source_image,
-                                           Bitmap* target_image) {
+namespace {
+
+template <WarpImageOptions::Interpolation interpolation>
+void WarpImageWithHomographyBetweenCamerasImpl(const WarpImageOptions& options,
+                                               const Eigen::Matrix3d& H,
+                                               const Camera& source_camera,
+                                               const Camera& target_camera,
+                                               const Bitmap& source_image,
+                                               Bitmap* target_image) {
   THROW_CHECK_EQ(source_camera.width, source_image.Width());
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
@@ -214,10 +233,9 @@ void WarpImageWithHomographyBetweenCameras(const WarpImageOptions& options,
       const std::optional<Eigen::Vector2d> source_point =
           source_camera.ImgFromCam(cam_point->homogeneous());
 
-      const auto color =
-          source_point ? InterpolatePixel(
-                             source_image, *source_point, options.interpolation)
-                       : std::nullopt;
+      const auto color = source_point ? InterpolatePixel<interpolation>(
+                                            source_image, *source_point)
+                                      : std::nullopt;
       if (color) {
         target_image->SetPixel(x, y, *color);
       } else {
@@ -229,6 +247,28 @@ void WarpImageWithHomographyBetweenCameras(const WarpImageOptions& options,
   if (!warp_directly) {
     target_image->Rescale(target_camera.width, target_camera.height);
   }
+}
+
+}  // namespace
+
+void WarpImageWithHomographyBetweenCameras(const WarpImageOptions& options,
+                                           const Eigen::Matrix3d& H,
+                                           const Camera& source_camera,
+                                           const Camera& target_camera,
+                                           const Bitmap& source_image,
+                                           Bitmap* target_image) {
+  switch (options.interpolation) {
+    case WarpImageOptions::Interpolation::kNearestNeighbor:
+      return WarpImageWithHomographyBetweenCamerasImpl<
+          WarpImageOptions::Interpolation::kNearestNeighbor>(
+          options, H, source_camera, target_camera, source_image, target_image);
+    case WarpImageOptions::Interpolation::kBilinear:
+      return WarpImageWithHomographyBetweenCamerasImpl<
+          WarpImageOptions::Interpolation::kBilinear>(
+          options, H, source_camera, target_camera, source_image, target_image);
+  }
+  LOG(FATAL_THROW) << "Invalid warp image interpolation mode: "
+                   << static_cast<int>(options.interpolation);
 }
 
 void ResampleImageBilinear(const float* data,

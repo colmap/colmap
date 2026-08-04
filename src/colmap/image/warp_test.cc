@@ -208,6 +208,10 @@ TEST(Warp, Interpolation) {
       options, source_camera, target_camera, source_image, &nearest_image);
   ASSERT_TRUE(nearest_image.GetPixel(0, 0).has_value());
   EXPECT_EQ(nearest_image.GetPixel(0, 0)->r, 100);
+
+  options.interpolation = static_cast<WarpImageOptions::Interpolation>(-1);
+  EXPECT_ANY_THROW(WarpImageBetweenCameras(
+      options, source_camera, target_camera, source_image, &nearest_image));
 }
 
 TEST(Warp, ShiftedCameras) {
@@ -380,6 +384,15 @@ TEST(Warp, HomographyInterpolation) {
                                         &nearest_image);
   ASSERT_TRUE(nearest_image.GetPixel(0, 0).has_value());
   EXPECT_EQ(nearest_image.GetPixel(0, 0)->r, 100);
+
+  options.interpolation = static_cast<WarpImageOptions::Interpolation>(-1);
+  EXPECT_ANY_THROW(
+      WarpImageWithHomographyBetweenCameras(options,
+                                            Eigen::Matrix3d::Identity(),
+                                            source_camera,
+                                            target_camera,
+                                            source_image,
+                                            &nearest_image));
 }
 
 TEST(Warp, WarpImageWithHomographyBetweenCamerasTransposed) {
