@@ -1720,6 +1720,178 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
+// Characterizes how much the gravity residual actually moves a joint solve,
+// and pins that measurement so a future weighting change cannot pass silently.
+//
+// It does not assert that gravity improves roll/pitch, because measured here
+// it does not: from a 6.3 degree initial tilt, bundle adjustment reaches the
+// same accuracy with gravity on or off, and even a deliberately 20-degree-wrong
+// gravity barely perturbs the result. Each camera contributes hundreds of
+// reprojection residuals and one gravity residual weighted at a several-degree
+// sigma, so the angular term is outvoted long before it can steer anything.
+// A sensor accurate to 2-5 degrees also cannot sharpen an estimate that
+// reprojection and position priors have already driven below a degree.
+//
+// That makes gravity insurance rather than a contributor in this
+// configuration: correct (see AbsoluteGravityPriorCostFunctor's own tests),
+// wired into every pose-prior BA stage, harmless, and currently not decisive.
+// The numbers below are the evidence for that claim; if a weighting change
+// makes gravity matter, this test is where it will show up first.
+//
+// Tilt is measured as the angle between each camera's predicted down direction
+// and ground truth's -- exactly the roll/pitch error, blind to yaw.
+TEST(PosePriorBundleAdjuster, GravityInfluenceOnRollAndPitchIsBounded) {
+  SetPRNGSeed(0);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 10;
+  // Sparse structure with noisy observations, so reprojection alone leaves
+  // real orientation freedom. With dense well-spread points, bundle adjustment
+  // recovers the tilt perfectly on its own and there is nothing for gravity to
+  // contribute -- which is a statement about that fixture, not about gravity.
+  synthetic_options.num_points3D = 12;
+  synthetic_options.prior_position = true;
+  synthetic_options.prior_gravity = true;
+  synthetic_options.prior_gravity_in_world = Eigen::Vector3d(0, 0, -1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction tilted = gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 1.5;
+  noise_options.point2D_stddev = 2.0;
+  noise_options.rig_from_world_translation_stddev = 0.3;
+  noise_options.prior_position_stddev = 0.05;
+  SynthesizeNoise(noise_options, &tilted);
+
+  // SynthesizeNoise only rotates about the world vertical, which is yaw and is
+  // exactly what this test's metric ignores. Tilt has to be injected directly:
+  // rotate each frame about a horizontal world axis, which is the roll/pitch
+  // error gravity is supposed to remove.
+  for (const frame_t frame_id : tilted.RegFrameIds()) {
+    Rigid3d& rig_from_world = tilted.Frame(frame_id).RigFromWorld();
+    const double angle_deg = RandomGaussian<double>(0.0, 6.0);
+    const Eigen::Vector3d axis =
+        Eigen::Vector3d(RandomGaussian<double>(0.0, 1.0),
+                        RandomGaussian<double>(0.0, 1.0),
+                        0.0)
+            .normalized();
+    rig_from_world.rotation() *=
+        Eigen::Quaterniond(Eigen::AngleAxisd(DegToRad(angle_deg), axis));
+  }
+
+  // The strict path requires a declared covariance on every prior, so state
+  // the one the noise above was actually drawn from.
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : pose_priors) {
+    prior.position_covariance =
+        Eigen::Matrix3d::Identity() * (noise_options.prior_position_stddev *
+                                       noise_options.prior_position_stddev);
+  }
+
+  BundleAdjustmentConfig ba_config;
+  for (const frame_t frame_id : tilted.RegFrameIds()) {
+    for (const data_t& data_id : tilted.Frame(frame_id).ImageIds()) {
+      ba_config.AddImage(data_id.id);
+    }
+  }
+
+  // Mean angle between the solved and ground-truth down directions, in the
+  // camera frame. Yaw-free by construction.
+  const auto mean_tilt_error_deg =
+      [&gt_reconstruction](const Reconstruction& solved) {
+        const Eigen::Vector3d world_down(0.0, 0.0, -1.0);
+        double sum = 0.0;
+        int count = 0;
+        for (const image_t image_id : solved.RegImageIds()) {
+          const Eigen::Vector3d solved_down =
+              solved.Image(image_id).CamFromWorld().rotation() * world_down;
+          const Eigen::Vector3d gt_down =
+              gt_reconstruction.Image(image_id).CamFromWorld().rotation() *
+              world_down;
+          sum += RadToDeg(std::acos(std::clamp(
+              solved_down.normalized().dot(gt_down.normalized()), -1.0, 1.0)));
+          ++count;
+        }
+        return count > 0 ? sum / count : 0.0;
+      };
+
+  const auto solve_with_gravity = [&](bool use_gravity) {
+    Reconstruction reconstruction = tilted;
+    PosePriorBundleAdjustmentOptions prior_ba_options;
+    prior_ba_options.alignment_ransac_options.random_seed = 0;
+    prior_ba_options.use_prior_gravity = use_gravity;
+    prior_ba_options.prior_gravity_stddev_deg = 2.0;
+    BundleAdjustmentOptions ba_options;
+    auto adjuster = CreatePosePriorBundleAdjuster(
+        ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+    auto summary = adjuster->Solve();
+    EXPECT_TRUE(summary->IsSolutionUsable());
+    return mean_tilt_error_deg(reconstruction);
+  };
+
+  const double tilt_before = mean_tilt_error_deg(tilted);
+  const double tilt_without_gravity = solve_with_gravity(false);
+  const double tilt_with_gravity = solve_with_gravity(true);
+
+  // How far a deliberately wrong gravity can drag the solve. This is the
+  // measurement that says "outvoted", not "ignored": the residual is present
+  // and finite, it simply cannot overcome the reprojection terms.
+  double tilt_with_wrong_gravity = 0.0;
+  {
+    std::vector<PosePrior> wrong = pose_priors;
+    for (PosePrior& prior : wrong) {
+      prior.gravity =
+          Eigen::AngleAxisd(DegToRad(20.0), Eigen::Vector3d::UnitX()) *
+          prior.gravity;
+    }
+    Reconstruction reconstruction = tilted;
+    PosePriorBundleAdjustmentOptions prior_ba_options;
+    prior_ba_options.alignment_ransac_options.random_seed = 0;
+    prior_ba_options.use_prior_gravity = true;
+    prior_ba_options.prior_gravity_stddev_deg = 2.0;
+    BundleAdjustmentOptions ba_options;
+    auto adjuster = CreatePosePriorBundleAdjuster(
+        ba_options, prior_ba_options, ba_config, wrong, reconstruction);
+    adjuster->Solve();
+    tilt_with_wrong_gravity = mean_tilt_error_deg(reconstruction);
+  }
+
+  // Printed so the margins are visible in the log rather than only implied by
+  // a green test -- these numbers are the finding.
+  std::cout << "  mean camera tilt error: " << tilt_before
+            << " deg before solving, " << tilt_without_gravity
+            << " deg without gravity, " << tilt_with_gravity
+            << " deg with gravity, " << tilt_with_wrong_gravity
+            << " deg with 20 deg wrong gravity" << std::endl;
+
+  // The fixture must actually be tilted, or none of the comparisons mean
+  // anything.
+  ASSERT_GT(tilt_before, 2.0) << "fixture is not tilted enough to be a test";
+  // ... and bundle adjustment must actually recover from it, or this would be
+  // measuring a failed solve rather than gravity's contribution.
+  ASSERT_LT(tilt_without_gravity, 1.0) << "the solve itself did not converge";
+
+  // Gravity must never make a well-constrained solve worse. This is the
+  // property the production pipeline depends on.
+  EXPECT_LE(tilt_with_gravity, tilt_without_gravity + 0.01)
+      << "gravity degraded roll/pitch: " << tilt_with_gravity << " deg with, "
+      << tilt_without_gravity << " deg without";
+
+  // And its influence is bounded: even a 20-degree-wrong reading moves the
+  // solution by well under a tenth of a degree. If a weighting change makes
+  // gravity decisive, this bound breaks first and the comment above needs
+  // rewriting rather than the number relaxing.
+  EXPECT_LT(std::abs(tilt_with_wrong_gravity - tilt_without_gravity), 0.1)
+      << "a 20 deg gravity error moved the solve by "
+      << std::abs(tilt_with_wrong_gravity - tilt_without_gravity)
+      << " deg; gravity is now decisive in this configuration and the "
+         "characterization above is stale";
+}
+
 TEST(PosePriorBundleAdjuster, GravityPriorSolveUsableWithOneOutlier) {
   SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
