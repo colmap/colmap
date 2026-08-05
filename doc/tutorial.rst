@@ -100,7 +100,7 @@ also define various levels of logging verbosity.
 Structure-from-Motion
 ---------------------
 
-.. figure:: images/incremental-sfm.png
+.. figure:: images/incremental-sfm.webp
     :alt: Incremental Structure-from-Motion pipeline
     :figclass: align-center
 

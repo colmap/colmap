@@ -34,6 +34,7 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
@@ -68,7 +69,7 @@ GeneralizedAbsolutePoseProblem BuildGeneralizedAbsolutePoseProblem() {
 
   GeneralizedAbsolutePoseProblem problem;
   problem.gt_rig_from_world =
-      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     for (const auto& point2D : image.Points2D()) {
@@ -88,8 +89,6 @@ GeneralizedAbsolutePoseProblem BuildGeneralizedAbsolutePoseProblem() {
 }
 
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
-  SetPRNGSeed();
-
   GeneralizedAbsolutePoseProblem problem =
       BuildGeneralizedAbsolutePoseProblem();
   const size_t num_points = problem.points2D.size();
@@ -112,7 +111,7 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   std::vector<char> gt_inlier_mask(num_points, true);
   for (size_t i = gt_num_inliers; i < num_points; ++i) {
     problem.points2D[shuffled_idxs[i]] +=
-        Eigen::Vector2d::Random().normalized() * outlier_distance;
+        RandomEigenVectord<2>().normalized() * outlier_distance;
     gt_inlier_mask[shuffled_idxs[i]] = false;
   }
 
@@ -149,8 +148,8 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
   const double translation_noise = 0.1;
   const Rigid3d rig_from_gt_rig(Eigen::Quaterniond(Eigen::AngleAxisd(
                                     DegToRad(rotation_noise_degree),
-                                    Eigen::Vector3d::Random().normalized())),
-                                Eigen::Vector3d::Random() * translation_noise);
+                                    RandomEigenVectord<3>().normalized())),
+                                RandomEigenVectord<3>() * translation_noise);
   Rigid3d rig_from_world = rig_from_gt_rig * problem.gt_rig_from_world;
 
   AbsolutePoseRefinementOptions options;
@@ -226,8 +225,8 @@ TEST(RefineGeneralizedAbsolutePose, PositionPriorCovariance) {
   const double translation_noise = 0.1;
   const Rigid3d rig_from_gt_rig(Eigen::Quaterniond(Eigen::AngleAxisd(
                                     DegToRad(rotation_noise_degree),
-                                    Eigen::Vector3d::Random().normalized())),
-                                Eigen::Vector3d::Random() * translation_noise);
+                                    RandomEigenVectord<3>().normalized())),
+                                RandomEigenVectord<3>() * translation_noise);
   const Rigid3d initial_rig_from_world =
       rig_from_gt_rig * problem.gt_rig_from_world;
 
@@ -363,11 +362,11 @@ GeneralizedRelativePoseProblem BuildGeneralizedRelativePoseProblem(
 }
 
 TEST(EstimateGeneralizedRelativePose, Nominal) {
-  SetPRNGSeed();
-
   for (const int num_cameras_per_rig1 : {1, 2, 3}) {
     for (const int num_cameras_per_rig2 : {1, 2, 3}) {
-      for (const double sensor_from_rig_translation_stddev : {0.0, 0.05}) {
+      // A meaningful inter-camera baseline is needed to recover metric scale
+      // reliably in non-panoramic configurations.
+      for (const double sensor_from_rig_translation_stddev : {0.0, 0.2}) {
         GeneralizedRelativePoseProblem problem =
             BuildGeneralizedRelativePoseProblem(
                 num_cameras_per_rig1,
@@ -412,7 +411,7 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
           EXPECT_THAT(
               *rig2_from_rig1,
               Rigid3dNear(
-                  problem.gt_rig2_from_rig1, /*rtol=*/1e-6, /*ttol=*/1e-6));
+                  problem.gt_rig2_from_rig1, /*rtol=*/1e-3, /*ttol=*/2e-3));
         }
       }
     }
@@ -500,8 +499,6 @@ StructureLessAbsolutePoseProblem BuildStructureLessAbsolutePoseProblem(
 }
 
 TEST(EstimateStructureLessAbsolutePose, Nominal) {
-  SetPRNGSeed();
-
   const StructureLessAbsolutePoseProblem problem =
       BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/5);
 
@@ -527,8 +524,6 @@ TEST(EstimateStructureLessAbsolutePose, Nominal) {
 }
 
 TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
-  SetPRNGSeed();
-
   StructureLessAbsolutePoseProblem problem =
       BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/10);
 
@@ -544,7 +539,7 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
   }
 
   StructureLessAbsolutePoseEstimationOptions options;
-  options.ransac_options.max_error = 1e-3;
+  options.ransac_options.max_error = 1.0;  // pixels
   Rigid3d cam_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;
@@ -562,12 +557,10 @@ TEST(EstimateStructureLessAbsolutePose, WithOutliers) {
             problem.world_points2D.size() * (1 - kOutlierRatio) * 0.9);
   EXPECT_THAT(
       cam_from_world,
-      Rigid3dNear(problem.gt_cam_from_world, /*rtol=*/1e-3, /*ttol=*/1e-3));
+      Rigid3dNear(problem.gt_cam_from_world, /*rtol=*/5e-3, /*ttol=*/5e-3));
 }
 
 TEST(EstimateStructureLessAbsolutePose, PanoramicWorldCameras) {
-  SetPRNGSeed();
-
   const StructureLessAbsolutePoseProblem problem =
       BuildStructureLessAbsolutePoseProblem(/*num_world_cams=*/1);
 

@@ -30,6 +30,7 @@
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_matchers.h"
 
 #include <Eigen/Core>
@@ -40,12 +41,11 @@ namespace colmap {
 namespace {
 
 TEST(QuaternionLeftMultMatrix, Nominal) {
-  SetPRNGSeed(42);
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
-    Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
-    Eigen::Quaterniond p = Eigen::Quaterniond::UnitRandom();
+    Eigen::Quaterniond q = RandomEigenQuaterniond();
+    Eigen::Quaterniond p = RandomEigenQuaterniond();
     Eigen::Vector4d p_vec(p.x(), p.y(), p.z(), p.w());
 
     // L(q) * p = q * p.
@@ -72,12 +72,11 @@ TEST(QuaternionLeftMultMatrix, Nominal) {
 }
 
 TEST(QuaternionRightMultMatrix, Nominal) {
-  SetPRNGSeed(42);
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
-    Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
-    Eigen::Quaterniond p = Eigen::Quaterniond::UnitRandom();
+    Eigen::Quaterniond q = RandomEigenQuaterniond();
+    Eigen::Quaterniond p = RandomEigenQuaterniond();
     Eigen::Vector4d q_vec(q.x(), q.y(), q.z(), q.w());
 
     // R(p) * q = q * p.
@@ -104,12 +103,11 @@ TEST(QuaternionRightMultMatrix, Nominal) {
 }
 
 TEST(QuaternionRotatePointWithJac, Nominal) {
-  SetPRNGSeed(42);
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
-    Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
-    Eigen::Vector3d pt = Eigen::Vector3d::Random();
+    Eigen::Quaterniond q = RandomEigenQuaterniond();
+    Eigen::Vector3d pt = RandomEigenVectord<3>();
     double q_arr[4] = {q.x(), q.y(), q.z(), q.w()};
 
     // R(q) * pt matches Eigen.
@@ -135,9 +133,8 @@ TEST(QuaternionRotatePointWithJac, Nominal) {
 }
 
 TEST(EigenQuaternionAngleAxis, Roundtrip) {
-  SetPRNGSeed(42);
   for (int i = 0; i < 100; ++i) {
-    const Eigen::Quaterniond q = Eigen::Quaterniond::UnitRandom();
+    const Eigen::Quaterniond q = RandomEigenQuaterniond();
     const double q_arr[4] = {q.x(), q.y(), q.z(), q.w()};
 
     // quaternion -> angle-axis -> quaternion recovers the original rotation.

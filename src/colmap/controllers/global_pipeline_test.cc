@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -81,8 +82,6 @@ TEST(GlobalPipeline, Nominal) {
 }
 
 TEST(GlobalPipeline, SfMWithRandomSeedStability) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -173,7 +172,6 @@ TEST(GlobalPipeline, WithExistingRelativePoses) {
 
 // To test relative pose re-estimation from view graph calibration.
 TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
-  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -192,10 +190,9 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
     if (!two_view_geometry.cam2_from_cam1.has_value()) {
       continue;
     }
-    two_view_geometry.cam2_from_cam1->rotation() =
-        Eigen::Quaterniond::UnitRandom();
+    two_view_geometry.cam2_from_cam1->rotation() = RandomEigenQuaterniond();
     two_view_geometry.cam2_from_cam1->translation() =
-        Eigen::Vector3d::Random().normalized();
+        RandomEigenVectord<3>().normalized();
 
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geometry);

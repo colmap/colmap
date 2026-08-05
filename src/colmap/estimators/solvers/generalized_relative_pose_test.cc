@@ -31,7 +31,9 @@
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <array>
@@ -57,41 +59,43 @@ GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
   GeneralizedRelativePoseProblem problem;
 
   const std::array<Rigid3d, 2> rigs_from_world = {
-      Rigid3d(Eigen::Quaterniond::UnitRandom(),
-              Eigen::Vector3d::Random().normalized()),
-      Rigid3d(Eigen::Quaterniond::UnitRandom(),
-              Eigen::Vector3d::Random().normalized())};
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>().normalized()),
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>().normalized())};
 
   problem.rig2_from_rig1 = rigs_from_world[1] * Inverse(rigs_from_world[0]);
 
   std::vector<Rigid3d> cams_from_rig1(num_cameras1);
   for (int i = 0; i < num_cameras1; ++i) {
-    const Eigen::Quaterniond cam1_from_rig_rotation =
-        Eigen::Quaterniond::UnitRandom();
+    const Eigen::Quaterniond cam1_from_rig_rotation = RandomEigenQuaterniond();
     cams_from_rig1[i] = Rigid3d(
         cam1_from_rig_rotation,
         panoramic1 ? cam1_from_rig_rotation * Eigen::Vector3d(1, 2, 3)
-                   : Eigen::Vector3d(Eigen::Vector3d::Random().normalized()));
+                   : Eigen::Vector3d(RandomEigenVectord<3>().normalized()));
   }
 
   std::vector<Rigid3d> cams_from_rig2(num_cameras2);
   for (int i = 0; i < num_cameras2; ++i) {
-    const Eigen::Quaterniond cam2_from_rig_rotation =
-        Eigen::Quaterniond::UnitRandom();
+    const Eigen::Quaterniond cam2_from_rig_rotation = RandomEigenQuaterniond();
     cams_from_rig2[i] = Rigid3d(
         cam2_from_rig_rotation,
         panoramic2 ? cam2_from_rig_rotation * Eigen::Vector3d(-3, -2, -1)
-                   : Eigen::Vector3d(Eigen::Vector3d::Random().normalized()));
+                   : Eigen::Vector3d(RandomEigenVectord<3>().normalized()));
   }
 
   std::vector<Eigen::Vector3d> points3D;
   points3D.reserve(num_points);
   for (int i = 0; i < num_points; ++i) {
-    points3D.emplace_back(Eigen::Vector3d::Random());
+    points3D.emplace_back(RandomEigenVectord<3>());
   }
 
   problem.points1.reserve(num_points);
   problem.points2.reserve(num_points);
+  // GR6P/GR8P::Residuals score in pixel units with the tangent Sampson error,
+  // so each observation carries its ray's unprojection Jacobian. A spherical
+  // camera maps every bearing to a pixel, keeping the synthetic points valid in
+  // all directions (a pinhole would drop the back hemisphere).
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
   for (int i = 0; i < num_points; ++i) {
     const size_t cam_idx1 = i % num_cameras1;
     const size_t cam_idx2 = i % num_cameras2;
@@ -103,13 +107,20 @@ GeneralizedRelativePoseProblem CreateGeneralizedRelativePoseProblem(
       continue;
     }
 
+    const CamRayWithJac ray1_with_jac =
+        camera.CamRayFromImgWithJac(camera.ImgFromCam(point3D_in_cam1).value())
+            .value();
+    const CamRayWithJac ray2_with_jac =
+        camera.CamRayFromImgWithJac(camera.ImgFromCam(point3D_in_cam2).value())
+            .value();
+
     auto& point1 = problem.points1.emplace_back();
     point1.cam_from_rig = cams_from_rig1[cam_idx1];
-    point1.ray_in_cam = point3D_in_cam1.normalized();
+    point1.ray_with_jac_in_cam = ray1_with_jac;
 
     auto& point2 = problem.points2.emplace_back();
     point2.cam_from_rig = cams_from_rig2[cam_idx2];
-    point2.ray_in_cam = point3D_in_cam2.normalized();
+    point2.ray_with_jac_in_cam = ray2_with_jac;
   }
 
   return problem;
@@ -135,7 +146,7 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
         kNumPoints, kNumCams1, kNumCams2, kPanoramic1, kPanoramic2);
 
     RANSACOptions options;
-    options.max_error = 1e-3;
+    options.max_error = 1.0;  // pixels
     RANSAC<GR6PEstimator> ransac(options);
     const auto report = ransac.Estimate(problem.points1, problem.points2);
 
@@ -148,8 +159,9 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR6P) {
     std::vector<double> residuals;
     GR6PEstimator::Residuals(
         problem.points1, problem.points2, report.model, &residuals);
+    // Residuals are squared pixels. The RANSAC inlier bound is max_error^2.
     for (size_t i = 0; i < residuals.size(); ++i) {
-      EXPECT_LE(residuals[i], options.max_error);
+      EXPECT_LE(residuals[i], options.max_error * options.max_error);
     }
   }
 }
@@ -172,7 +184,7 @@ TEST_P(ParameterizedGRNPEstimatorTests, GR8P) {
 
     RANSACOptions options;
     options.max_num_trials = 1000;
-    options.max_error = 1e-2;
+    options.max_error = 5.0;  // pixels
     RANSAC<GR8PEstimator> ransac(options);
     const auto report = ransac.Estimate(problem.points1, problem.points2);
 

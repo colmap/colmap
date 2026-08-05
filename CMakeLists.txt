@@ -38,6 +38,18 @@ option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
 option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(HIP_ENABLED "Whether to enable AMD GPU support via HIP/ROCm" OFF)
+
+if(CUDA_ENABLED AND HIP_ENABLED)
+    message(FATAL_ERROR "CUDA and HIP cannot be enabled at the same time")
+endif()
+
+# enable_language(HIP) and set_source_files_properties(LANGUAGE HIP) require
+# CMake 3.21+. Bump the minimum only when HIP is requested so CUDA-only and
+# CPU-only builds continue to work on older CMake versions.
+if(HIP_ENABLED)
+    cmake_minimum_required(VERSION 3.21)
+endif()
 option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(MVS_ENABLED "Whether to enable the Multi-View Stereo module" ON)
@@ -397,9 +409,13 @@ if(IS_MSVC)
             DESTINATION "/")
 endif()
 
-# Install application meny entry under Linux/Unix.
+# Install application meny entry and icon under Linux/Unix.
 if(UNIX AND NOT APPLE)
     install(FILES "doc/COLMAP.desktop" DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications")
+    # Install the app icon so the desktop entry's "Icon=colmap" resolves.
+    install(FILES "src/colmap/ui/media/colmap-logo.svg"
+            DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps"
+            RENAME "colmap.svg")
 endif()
 
 # Configure the uninstallation script.
@@ -448,7 +464,7 @@ if(GUI_ENABLED)
          colmap_ui
     )
 endif()
-if(CUDA_ENABLED)
+if(CUDA_ENABLED OR HIP_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
     )

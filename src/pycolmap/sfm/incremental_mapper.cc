@@ -115,7 +115,8 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite(
           "ba_local_max_num_iterations",
           &Opts::ba_local_max_num_iterations,
-          "The maximum number of local bundle adjustment iterations.")
+          "The maximum number of local bundle adjustment iterations. If -1, "
+          "the default of the configured bundle adjustment backend is used.")
       .def_readwrite(
           "ba_global_frames_ratio",
           &Opts::ba_global_frames_ratio,
@@ -139,7 +140,8 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite(
           "ba_global_max_num_iterations",
           &Opts::ba_global_max_num_iterations,
-          "The maximum number of global bundle adjustment iterations.")
+          "The maximum number of global bundle adjustment iterations. If -1, "
+          "the default of the configured bundle adjustment backend is used.")
       .def_readwrite(
           "ba_local_max_refinements",
           &Opts::ba_local_max_refinements,

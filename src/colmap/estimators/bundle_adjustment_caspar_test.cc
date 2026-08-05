@@ -107,7 +107,6 @@ namespace colmap {
 namespace {
 
 TEST(DefaultBundleAdjuster, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -146,7 +145,6 @@ TEST(DefaultBundleAdjuster, Nominal) {
 }
 
 TEST(DefaultBundleAdjuster, RigThrowsErrorOnVariableSensorFromRig) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -169,7 +167,6 @@ TEST(DefaultBundleAdjuster, NominalMultiCameraRigConstantSensorFromRig) {
   // Exercises the sensor_from_rig code path: 2 cameras per rig, one of which
   // has a non-identity sensor_from_rig. Verifies that Caspar converges to the
   // ground truth when sensor_from_rig is held constant.
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -213,7 +210,6 @@ TEST(DefaultBundleAdjuster, MultiCameraRigLargeConstantSensorFromRig) {
   // sensor_from_rig offsets — typically 20–90 degrees and 0.1–1 m baseline.
   // This test uses a 30-degree Z-rotation and 0.3 m translation to exercise
   // the non-identity sensor_from_rig path with realistic values.
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -381,6 +377,45 @@ TEST(DefaultBundleAdjuster, PartiallyContainedTracks) {
   }
 }
 
+TEST(DefaultBundleAdjuster, MinimumTrackLengthWithExternalObservations) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  // Shorten one track from three to two observations. The remaining
+  // observations are split between a configured image and an external image.
+  reconstruction.DeleteObservation(2, 0);
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    config.AddVariablePoint(point3D_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.min_track_length = 3;
+  const auto summary =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction)
+          ->Solve();
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // 99 points x 3 observations x 2 residuals per observation. The point with
+  // a two-observation track is excluded from both configured and external
+  // images.
+  EXPECT_EQ(summary->num_residuals, 594);
+}
+
 TEST(DefaultBundleAdjuster, ConstantPoints) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -425,6 +460,39 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
     } else {
       CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
     }
+  }
+}
+
+TEST(DefaultBundleAdjuster, ConstantAllPoints) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.refine_points3D = false;
+  const auto summary =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction)
+          ->Solve();
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // 100 points, 2 images, 2 residuals per point per image.
+  EXPECT_EQ(summary->num_residuals, 400);
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckConstantPoint(point3D, orig_reconstruction.Point3D(point3D_id));
   }
 }
 
@@ -592,7 +660,6 @@ TEST(DefaultBundleAdjuster, VariablePrincipalPoint) {
 }
 
 TEST(DefaultBundleAdjuster, MergedCalibConvergence) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -889,7 +956,6 @@ TEST(DefaultBundleAdjuster, MultipleExternalImagesAreInvariant) {
 }
 
 TEST(DefaultBundleAdjuster, MergedCalibMatchesCeres) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -962,7 +1028,6 @@ bool PoseExactlyUnchanged(const Image& a, const Image& b) {
 }
 
 TEST(DefaultBundleAdjuster, GaugeFixingWithOneFrameFromWorld) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions opts;
   opts.num_rigs = 2;
@@ -1000,7 +1065,6 @@ TEST(DefaultBundleAdjuster, GaugeFixingWithOneFrameFromWorld) {
 
 TEST(DefaultBundleAdjuster,
      GaugeFixingWithOneFrameFromWorld_SkipsWhenAlreadyFixed) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions opts;
   opts.num_rigs = 2;
@@ -1038,7 +1102,6 @@ TEST(DefaultBundleAdjuster,
 }
 
 TEST(DefaultBundleAdjuster, GaugeFixingWithThreePoints_PinsExactlyThreePoints) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions opts;
   opts.num_rigs = 2;
@@ -1079,7 +1142,6 @@ TEST(DefaultBundleAdjuster, GaugeFixingWithThreePoints_PinsExactlyThreePoints) {
 
 TEST(DefaultBundleAdjuster,
      GaugeFixingWithThreePoints_CountsExistingConstantPoints) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions opts;
   opts.num_rigs = 2;
@@ -1123,7 +1185,6 @@ TEST(DefaultBundleAdjuster, MultiCameraRigResidualCountConstantSensorFromRig) {
   // All sensor observations (ref and non-ref) must contribute residuals.
   // The old code skipped non-ref sensor observations when the pose was
   // variable, which would halve the residual count for a 2-camera rig.
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -1159,7 +1220,6 @@ TEST(DefaultBundleAdjuster, MultiCameraRigConstantRigPoseHoldsAllSensors) {
   // must have invariant cam_from_world. Sensors in the variable frame must
   // change. This differs from the Ceres behaviour where non-ref sensors can
   // still move via a variable sensor_from_rig.
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -1204,7 +1264,6 @@ TEST(DefaultBundleAdjuster,
   // 2 rigs × 3 cameras × 5 frames = 30 images. Mirrors the Ceres
   // NominalMultiCameraRig test to verify Caspar converges to GT at the same
   // scale as the single-camera nominal test.
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;

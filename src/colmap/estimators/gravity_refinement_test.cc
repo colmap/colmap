@@ -31,6 +31,7 @@
 
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
@@ -57,7 +58,7 @@ void SynthesizeGravityOutliers(std::vector<PosePrior>& pose_priors,
   for (auto& pose_prior : pose_priors) {
     if (pose_prior.HasGravity() &&
         RandomUniformReal<double>(0, 1) < outlier_ratio) {
-      pose_prior.gravity = Eigen::Vector3d::Random().normalized();
+      pose_prior.gravity = RandomEigenVectord<3>().normalized();
     }
   }
 }
@@ -89,8 +90,6 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
 }
 
 TEST(GravityRefinement, RefineGravity) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -123,8 +122,6 @@ TEST(GravityRefinement, RefineGravity) {
 }
 
 TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);

@@ -301,7 +301,6 @@ class BundleAdjusterBackendTest
     : public ::testing::TestWithParam<BundleAdjustmentBackend> {};
 
 TEST_P(BundleAdjusterBackendTest, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -348,6 +347,70 @@ TEST_P(BundleAdjusterBackendTest, Nominal) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
+TEST_P(BundleAdjusterBackendTest, MinimumTrackLength) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  reconstruction.DeleteObservation(3, 0);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  options.min_track_length = 3;
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  // 99 points x 3 observations x 2 residuals per observation. The point with
+  // a two-observation track is excluded.
+  EXPECT_EQ(summary->num_residuals, 594);
+}
+
+TEST_P(BundleAdjusterBackendTest, ConstantPoints3D) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 20;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction original_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  options.refine_points3D = false;
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 80);
+
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    EXPECT_EQ(point3D.xyz, original_reconstruction.Point3D(point3D_id).xyz);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
                          BundleAdjusterBackendTest,
                          ::testing::Values(BundleAdjustmentBackend::CERES));
@@ -358,7 +421,6 @@ class PosePriorBundleAdjusterBackendTest
     : public ::testing::TestWithParam<BundleAdjustmentBackend> {};
 
 TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
