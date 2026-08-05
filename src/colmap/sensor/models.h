@@ -152,8 +152,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 
 // Parameter groups specific to perspective camera models: focal length,
 // principal point, and extra (distortion) parameters.
-#ifndef CAMERA_MODEL_PERSPECTIVE_PARAM_DEFINITIONS
-#define CAMERA_MODEL_PERSPECTIVE_PARAM_DEFINITIONS(                          \
+#ifndef PERSPECTIVE_CAMERA_MODEL_PARAM_DEFINITIONS
+#define PERSPECTIVE_CAMERA_MODEL_PARAM_DEFINITIONS(                          \
     num_focal_params_val, num_pp_params_val, num_extra_params_val)           \
   static constexpr size_t num_focal_params = num_focal_params_val;           \
   static constexpr size_t num_pp_params = num_pp_params_val;                 \
@@ -174,8 +174,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
 
 // Parameter group specific to spherical (omnidirectional) camera models: the
 // metadata parameters (e.g., image dimensions).
-#ifndef CAMERA_MODEL_SPHERICAL_PARAM_DEFINITIONS
-#define CAMERA_MODEL_SPHERICAL_PARAM_DEFINITIONS(num_metadata_params_val)   \
+#ifndef SPHERICAL_CAMERA_MODEL_PARAM_DEFINITIONS
+#define SPHERICAL_CAMERA_MODEL_PARAM_DEFINITIONS(num_metadata_params_val)   \
   static constexpr size_t num_metadata_params = num_metadata_params_val;    \
   static const std::array<size_t, (num_metadata_params_val)> metadata_idxs; \
   static inline std::array<size_t, (num_metadata_params_val)>               \
@@ -195,7 +195,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
       model_name_val,                                                        \
       (num_focal_params_val) + (num_pp_params_val) + (num_extra_params_val), \
       has_img_from_cam_with_jac_val)                                         \
-  CAMERA_MODEL_PERSPECTIVE_PARAM_DEFINITIONS(                                \
+  PERSPECTIVE_CAMERA_MODEL_PARAM_DEFINITIONS(                                \
       num_focal_params_val, num_pp_params_val, num_extra_params_val)
 #endif
 
@@ -208,7 +208,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                   model_name_val,                         \
                                   num_metadata_params_val,                \
                                   has_img_from_cam_with_jac_val)          \
-  CAMERA_MODEL_SPHERICAL_PARAM_DEFINITIONS(num_metadata_params_val)
+  SPHERICAL_CAMERA_MODEL_PARAM_DEFINITIONS(num_metadata_params_val)
 #endif
 
 #ifndef PERSPECTIVE_CAMERA_MODEL_CASES
