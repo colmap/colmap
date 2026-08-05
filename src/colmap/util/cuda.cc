@@ -31,11 +31,10 @@
 
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 
 #include <algorithm>
 #include <iostream>
-
-#include <cuda_runtime.h>
 
 namespace colmap {
 namespace {
@@ -64,12 +63,12 @@ int FindBestCudaDevice() {
   std::vector<int> indices(num_devices);
   for (int id = 0; id < num_devices; ++id) {
     indices[id] = id;
-    cudaGetDeviceProperties(&all_devices[id], id);
+    CUDA_SAFE_CALL(cudaGetDeviceProperties(&all_devices[id], id));
   }
   std::sort(indices.begin(), indices.end(), [&](int a, int b) {
     return CompareCudaDevice(all_devices[a], all_devices[b]);
   });
-  const int selected = indices[0];
+  const int selected = indices.front();
   VLOG(2) << "Found " << num_devices << " CUDA device(s), "
           << "selected device " << selected << " with name "
           << all_devices[selected].name;
