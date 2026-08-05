@@ -264,10 +264,9 @@ TEST(AbsolutePose, EPNP) {
 
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, CameraModelId::kPinhole, 12, 34, 56);
-  auto img_from_cam_func =
-      [&camera](const Eigen::Vector3d& cam_point) {
-        return camera.ImgFromCam(cam_point);
-      };
+  auto img_from_cam_func = [&camera](const Eigen::Vector3d& cam_point) {
+    return camera.ImgFromCam(cam_point);
+  };
 
   // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double qx = 0; qx < 1; qx += 0.2) {
@@ -381,10 +380,9 @@ TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
 TEST(ComputeSquaredReprojectionError, Nominal) {
   const Camera camera = Camera::CreateFromModelId(
       kInvalidCameraId, CameraModelId::kSimplePinhole, 12, 34, 56);
-  auto img_from_cam_func =
-      [&camera](const Eigen::Vector3d& cam_point) {
-        return camera.ImgFromCam(cam_point);
-      };
+  auto img_from_cam_func = [&camera](const Eigen::Vector3d& cam_point) {
+    return camera.ImgFromCam(cam_point);
+  };
 
   std::vector<Eigen::Vector3d> points3D;
   points3D.emplace_back(-1, 0, 1);
