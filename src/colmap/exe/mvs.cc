@@ -352,6 +352,26 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
       << "Invalid `output_type` " << output_type
       << " - supported values are 'bin', 'ply' and 'txt'.";
 
+  // Validate the output path up front, before the expensive fusion, so that a
+  // misspecified path fails immediately rather than after fusion completes
+  // (see issue #3117). For 'bin'/'txt' the output is a directory of files; for
+  // 'ply' it is a single file.
+  if (output_type == "ply") {
+    THROW_CHECK(!ExistsDir(output_path))
+        << "Invalid `output_path` " << output_path
+        << " - for output_type 'PLY' this must be a file path, but an "
+           "existing directory was given.";
+    const std::filesystem::path output_parent_dir = GetParentDir(output_path);
+    THROW_CHECK(output_parent_dir.empty() || ExistsDir(output_parent_dir))
+        << "Invalid `output_path` " << output_path
+        << " - the parent directory " << output_parent_dir
+        << " does not exist.";
+  } else {
+    THROW_CHECK(ExistsDir(output_path))
+        << "Invalid `output_path` " << output_path << " - for output_type '"
+        << output_type << "' this must be an existing directory.";
+  }
+
   mvs::StereoFusion fuser(
       options, workspace_path, workspace_format, pmvs_option_name, input_type);
 
