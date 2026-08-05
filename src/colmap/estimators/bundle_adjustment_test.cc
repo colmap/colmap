@@ -411,16 +411,9 @@ TEST_P(BundleAdjusterBackendTest, ConstantPoints3D) {
   }
 }
 
-#ifdef CASPAR_ENABLED
-INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
-                         BundleAdjusterBackendTest,
-                         ::testing::Values(BundleAdjustmentBackend::CERES,
-                                           BundleAdjustmentBackend::CASPAR));
-#else
 INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
                          BundleAdjusterBackendTest,
                          ::testing::Values(BundleAdjustmentBackend::CERES));
-#endif
 
 // Parameterized test for generic PosePriorBundleAdjuster interface across
 // backends.

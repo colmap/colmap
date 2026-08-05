@@ -463,6 +463,39 @@ TEST(DefaultBundleAdjuster, ConstantPoints) {
   }
 }
 
+TEST(DefaultBundleAdjuster, ConstantAllPoints) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.refine_points3D = false;
+  const auto summary =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction)
+          ->Solve();
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  // 100 points, 2 images, 2 residuals per point per image.
+  EXPECT_EQ(summary->num_residuals, 400);
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckConstantPoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
 TEST(DefaultBundleAdjuster, VariableImage) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
