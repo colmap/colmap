@@ -410,9 +410,9 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.compute_relative_pose = true;
 
-  // Spherical cameras have no pinhole image plane, so the fundamental matrix
-  // and homography are not estimated; only the bearing-based essential matrix
-  // is, committing to the CALIBRATED configuration.
+  // Spherical cameras have no pinhole image plane, so the fundamental matrix is
+  // not estimated; the pair is classified from the bearing-based essential
+  // matrix and a ray-space homography.
   const TwoViewGeometry geometry =
       EstimateTwoViewGeometry(test_data.camera1,
                               test_data.points1,
@@ -423,7 +423,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(geometry.E.has_value());
   EXPECT_FALSE(geometry.F.has_value());
-  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
 
   // The recovered relative pose should match the ground truth: rotation
@@ -439,7 +439,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
                   /*ttol=*/1e-2));
 
   // EstimateCalibratedTwoViewGeometry delegates to the spherical path rather
-  // than estimating a meaningless fundamental matrix / homography.
+  // than estimating a meaningless fundamental matrix.
   const TwoViewGeometry calibrated_geometry =
       EstimateCalibratedTwoViewGeometry(test_data.camera1,
                                         test_data.points1,
@@ -451,7 +451,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
             TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(calibrated_geometry.E.has_value());
   EXPECT_FALSE(calibrated_geometry.F.has_value());
-  EXPECT_FALSE(calibrated_geometry.H.has_value());
+  EXPECT_TRUE(calibrated_geometry.H.has_value());
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedFisheyeIsDegenerate) {
@@ -551,6 +551,39 @@ TEST(EstimateTwoViewGeometry, ForceHUseWithFisheyeIsDegenerate) {
 // pixel-space homography cannot fit the correspondences at all, so it loses the
 // inliers that drive the classification. Estimating it on bearing rays restores
 // the fit and with it the PLANAR_OR_PANORAMIC label.
+// A rotating 360 degree camera is the usual capture mode, and the essential
+// matrix degenerates there, so the spherical path must catch it.
+TEST(EstimateTwoViewGeometry, PanoramicWithSphericalCameraIsDetected) {
+  SetPRNGSeed(42);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsSpherical());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+}
+
 TEST(EstimateTwoViewGeometry, PanoramicWithDistortedCameraIsDetected) {
   SetPRNGSeed(42);
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -933,7 +966,7 @@ TEST(EstimateTwoViewGeometry, SphericalAndCalibratedPerspective) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(geometry.E.has_value());
   EXPECT_FALSE(geometry.F.has_value());
-  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
 }
 
