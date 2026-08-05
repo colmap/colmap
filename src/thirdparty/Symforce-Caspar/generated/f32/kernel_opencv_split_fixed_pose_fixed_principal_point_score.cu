@@ -209,6 +209,12 @@ __global__ void __launch_bounds__(1024, 1)
     r46 = fmaf(r3, r25, r46);
     r46 = fmaf(r46, r46, r13 * r13);
   };
+  // See kernel_opencv_split_fixed_principal_point_score.cu: r46 is only
+  // assigned inside the guard above, so for padding-lane threads beyond
+  // problem_size it is otherwise read uninitialized here (UB, can be NaN).
+  if (global_thread_idx >= problem_size) {
+    r46 = 0.0f;
+  }
   SumStore<float>(out_rTr_local, (float *)inout_shared, 0,
                   global_thread_idx < problem_size, r46);
   SumFlushFinal<float>(out_rTr_local, out_rTr, 1);

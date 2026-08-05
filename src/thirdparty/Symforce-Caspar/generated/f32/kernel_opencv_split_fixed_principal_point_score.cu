@@ -231,6 +231,16 @@ __global__ void __launch_bounds__(1024, 1)
     r46 = fmaf(r3, r25, r46);
     r46 = fmaf(r46, r46, r13 * r13);
   };
+  // r46 is only assigned inside the guard above; for threads beyond
+  // problem_size (padding lanes in the last, partially-filled block) it is
+  // read here uninitialized, which is undefined behavior and can evaluate
+  // to a NaN bit pattern depending on register allocation. SumStore's
+  // "valid" mask is meant to discard it, but relies on `r46` holding *some*
+  // defined value at this point; make that explicit instead of relying on
+  // whatever garbage happens to occupy the register.
+  if (global_thread_idx >= problem_size) {
+    r46 = 0.0f;
+  }
   SumStore<float>(out_rTr_local, (float *)inout_shared, 0,
                   global_thread_idx < problem_size, r46);
   SumFlushFinal<float>(out_rTr_local, out_rTr, 1);
