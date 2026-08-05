@@ -255,8 +255,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   throw std::domain_error("Camera model does not exist");
 
 // Fisheye camera model macros
-#ifndef FISHEYE_CAMERA_MODEL_CASES
-#define FISHEYE_CAMERA_MODEL_CASES                  \
+#ifndef PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES
+#define PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES      \
   CAMERA_MODEL_CASE(SimpleRadialFisheyeCameraModel) \
   CAMERA_MODEL_CASE(RadialFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
@@ -266,8 +266,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   CAMERA_MODEL_CASE(FisheyeCameraModel)
 #endif
 
-#ifndef FISHEYE_CAMERA_MODEL_DEFINITIONS
-#define FISHEYE_CAMERA_MODEL_DEFINITIONS                      \
+#ifndef PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
+#define PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS          \
   template <typename T>                                       \
   static void ImgFromFisheye(                                 \
       const T* params, const T& uu, const T& vv, T* x, T* y); \
@@ -552,7 +552,7 @@ struct OpenCVFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<OpenCVFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kOpenCVFisheye, "OPENCV_FISHEYE", 2, 2, 4, true)
-  FISHEYE_CAMERA_MODEL_DEFINITIONS
+  PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // Full OpenCV camera model.
@@ -613,7 +613,7 @@ struct SimpleRadialFisheyeCameraModel
                                        2,
                                        1,
                                        true)
-  FISHEYE_CAMERA_MODEL_DEFINITIONS
+  PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -630,7 +630,7 @@ struct RadialFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<RadialFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kRadialFisheye, "RADIAL_FISHEYE", 1, 2, 2, true)
-  FISHEYE_CAMERA_MODEL_DEFINITIONS
+  PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // Camera model with radial and tangential distortion coefficients and
@@ -649,7 +649,7 @@ struct ThinPrismFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<ThinPrismFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kThinPrismFisheye, "THIN_PRISM_FISHEYE", 2, 2, 8, true)
-  FISHEYE_CAMERA_MODEL_DEFINITIONS
+  PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // RadTanThinPrismFisheye Camera Model
@@ -672,7 +672,7 @@ struct RadTanThinPrismFisheyeModel
                                        2,
                                        12,
                                        true)
-  FISHEYE_CAMERA_MODEL_DEFINITIONS
+  PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // Simple Division camera model.
@@ -725,7 +725,7 @@ struct SimpleFisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<SimpleFisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kSimpleFisheye, "SIMPLE_FISHEYE", 1, 2, 0, true)
-  FISHEYE_CAMERA_MODEL_DEFINITIONS
+  PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // Equidistant fisheye camera model.
@@ -742,7 +742,7 @@ struct FisheyeCameraModel
     : public BasePerspectiveFisheyeCameraModel<FisheyeCameraModel> {
   PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(
       CameraModelId::kFisheye, "FISHEYE", 2, 2, 0, true)
-  FISHEYE_CAMERA_MODEL_DEFINITIONS
+  PERSPECTIVE_FISHEYE_CAMERA_MODEL_DEFINITIONS
 };
 
 // EUCM camera model
@@ -3068,7 +3068,7 @@ bool CameraModelIsPerspectiveFisheye(const CameraModelId model_id) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel) case CameraModel::model_id:
 
-    FISHEYE_CAMERA_MODEL_CASES
+    PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES
     return true;
     default:
       return false;
