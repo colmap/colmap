@@ -12,10 +12,18 @@ namespace py = pybind11;
 
 void BindUndistortion(py::module& m) {
   auto PyWarpImageOptions =
-      py::classh<WarpImageOptions>(m, "WarpImageOptions")
-          .def(py::init<>())
-          .def_readwrite("direct_warp_min_scale",
-                         &WarpImageOptions::direct_warp_min_scale);
+      py::classh<WarpImageOptions>(m, "WarpImageOptions").def(py::init<>());
+  auto PyInterpolation =
+      py::enum_<WarpImageOptions::Interpolation>(PyWarpImageOptions,
+                                                 "Interpolation")
+          .value("NEAREST_NEIGHBOR",
+                 WarpImageOptions::Interpolation::kNearestNeighbor)
+          .value("BILINEAR", WarpImageOptions::Interpolation::kBilinear);
+  AddStringToEnumConstructor(PyInterpolation);
+  PyWarpImageOptions
+      .def_readwrite("interpolation", &WarpImageOptions::interpolation)
+      .def_readwrite("direct_warp_min_scale",
+                     &WarpImageOptions::direct_warp_min_scale);
   MakeDataclass(PyWarpImageOptions);
 
   auto PyUndistortCameraOptions =
