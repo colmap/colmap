@@ -14,8 +14,19 @@
 #if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
 
 #include <hip/hip_runtime.h>
+
+// hipcub.hpp contains device-side template code that only compiles under
+// the HIP device compiler (clang++ -x hip / hipcc). Plain host C++
+// translation units (e.g. bundle_adjustment_caspar.cc) transitively include
+// this header via solver.h for the cudaError_t/cudaMalloc/... aliases below
+// only -- they don't need cub::, and including hipcub.hpp there fails to
+// compile (rocprim/hipcub internals assume HIP device-compilation context:
+// __syncthreads(), blockDim, etc. as bare identifiers). Restrict the
+// cooperative-groups/hipcub includes to actual HIP compilation.
+#if defined(__HIPCC__)
 #include <hip/hip_cooperative_groups.h>
 #include <hipcub/hipcub.hpp>
+#endif
 
 // CUDA runtime API -> HIP runtime API
 #define cudaMalloc              hipMalloc
@@ -42,10 +53,17 @@
 #define atomicAdd_block atomicAdd
 
 // CUB -> hipCUB namespace
+#if defined(__HIPCC__)
 namespace cub = hipcub;
+#endif
 
 // Cooperative groups: HIP has cg basics but lacks cg::reduce, cg::labeled_partition, memcpy_async.
-// Provide manual implementations where needed.
+// Provide manual implementations where needed. These are __device__-only and use
+// HIP/CUDA intrinsics (__popcll, shfl_xor via GroupT) that aren't declared outside
+// HIP device compilation -- guard the whole namespace + macros behind __HIPCC__,
+// same as the hipcub include above. Host-only TUs never invoke CG_REDUCE_SUM/
+// CG_LABELED_REDUCE_SUM (those are only used from kernel .cu files).
+#if defined(__HIPCC__)
 
 namespace caspar_hip {
 
@@ -117,6 +135,8 @@ __device__ __forceinline__ T labeled_reduce_sum(GroupT group, T val, LabelT labe
 #define CG_REDUCE_SUM(group, val) caspar_hip::reduce_sum(group, val)
 #define CG_LABELED_REDUCE_SUM(group, val, label, is_leader) \
     caspar_hip::labeled_reduce_sum(group, val, label, is_leader)
+
+#endif  // __HIPCC__
 
 #else  // CUDA path
 
