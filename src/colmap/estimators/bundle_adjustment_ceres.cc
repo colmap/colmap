@@ -600,6 +600,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
         loss_function_(options_.ceres->CreateLossFunction()) {
+    VLOG(2) << "Creating Ceres bundle adjuster";
+
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -898,6 +900,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
+    VLOG(2) << "Creating Ceres pose prior bundle adjuster";
+
     THROW_CHECK(prior_options_.Check());
 
     // Filter irrelevant pose priors.
