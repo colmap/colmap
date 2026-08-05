@@ -96,6 +96,57 @@ FundamentalMatrixReport EstimateFundamentalMatrix(
       .Estimate(points1, points2);
 }
 
+using HomographyMatrixReport =
+    LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>::Report;
+
+// Robustly estimate the homography relating two calibrated views. A world plane
+// relates image points projectively only under a pinhole projection, so
+// distorted cameras are estimated on bearing rays and mapped back to pixels.
+// Undistorted pinhole cameras keep the pixel estimator, where the two are
+// algebraically equivalent, so that path stays bit-identical.
+HomographyMatrixReport EstimateHomographyMatrix(
+    const RANSACOptions& ransac_options,
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac) {
+  if (camera1.IsUndistorted() && camera2.IsUndistorted()) {
+    return LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>(
+               ransac_options)
+        .Estimate(points1, points2);
+  }
+
+  // The estimator handles any central camera, but publishing the result in
+  // pixel space needs a calibration matrix, which spherical cameras lack. Such
+  // pairs are routed to EstimateSphericalTwoViewGeometry before reaching here.
+  std::vector<Eigen::Vector3d> cam_rays1(cam_rays1_with_jac.size());
+  std::vector<CamRayWithImgPoint> cam_rays2(cam_rays2_with_jac.size());
+  for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
+    cam_rays1[i] = cam_rays1_with_jac[i].ray;
+    cam_rays2[i] = {cam_rays2_with_jac[i].ray, points2[i]};
+  }
+
+  const HomographyMatrixRayEstimator estimator(&camera2);
+  const auto ray_report =
+      LORANSAC<HomographyMatrixRayEstimator, HomographyMatrixRayEstimator>(
+          ransac_options, estimator, estimator)
+          .Estimate(cam_rays1, cam_rays2);
+
+  HomographyMatrixReport report;
+  report.success = ray_report.success;
+  report.num_trials = ray_report.num_trials;
+  report.support = ray_report.support;
+  report.inlier_mask = ray_report.inlier_mask;
+  // The estimator maps rays to rays, so publish K2 H K1^-1 to keep the stored
+  // homography in pixel space. K carries no distortion, so for a distorted
+  // camera that is the homography in its virtual pinhole frame.
+  report.model = camera2.CalibrationMatrix() * ray_report.model *
+                 camera1.CalibrationMatrix().inverse();
+  return report;
+}
+
 FeatureMatches ExtractInlierMatches(const FeatureMatches& matches,
                                     const size_t num_inliers,
                                     const std::vector<char>& inlier_mask) {
@@ -156,7 +207,9 @@ TwoViewGeometry EstimateCalibratedHomography(
     matched_img_points2[i] = points2[matches[i].point2D_idx2];
   }
 
-  // Estimate planar or panoramic model.
+  // Estimate planar or panoramic model. Estimated on image points rather than
+  // rays: the caller only guarantees a pinhole projection here, not a focal
+  // length prior, so no rays can be built.
 
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       options.ransac_options);
@@ -222,7 +275,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
                                                   matched_img_points2);
   geometry.F = F_report.model;
 
-  // Estimate planar or panoramic model.
+  // Estimate planar or panoramic model. Estimated on image points rather than
+  // rays, as the intrinsics are unknown here and no rays can be built without
+  // them. The fundamental matrix above shares that frame, so the comparison
+  // below stays self-consistent.
 
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       options.ransac_options);
@@ -916,10 +972,13 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
-  const auto H_report =
-      H_ransac.Estimate(matched_img_points1, matched_img_points2);
+  const auto H_report = EstimateHomographyMatrix(ransac_options,
+                                                 camera1,
+                                                 matched_img_points1,
+                                                 camera2,
+                                                 matched_img_points2,
+                                                 matched_cam_rays1_with_jac,
+                                                 matched_cam_rays2_with_jac);
   geometry.H = H_report.model;
 
   if ((!E_report.success && !F_report.success && !H_report.success) ||
@@ -1074,7 +1133,10 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
 
   // Estimate a homography to detect planar/panoramic degeneracies, where
   // two-view focal recovery is ill-posed and the 6-point solver returns a
-  // meaningless focal length.
+  // meaningless focal length. Estimated on image points rather than rays, as
+  // the focal length is the unknown here and no rays can be built without it.
+  // The shared-focal solver above also works in image points, so the inlier
+  // comparison below stays self-consistent.
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
       ransac_options);
   const auto H_report =
