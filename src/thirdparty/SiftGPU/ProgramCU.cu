@@ -768,7 +768,24 @@ void ProgramCU::ReduceHistogram(CuTexImage*hist1, CuTexImage* hist2)
 void __global__ ListGen_Kernel(cudaTextureObject_t texDataList, cudaTextureObject_t texDataI4, int4* d_list, int list_len, int width)
 {
 	int idx1 = IMUL(blockIdx.x, blockDim.x) + threadIdx.x;
+#if defined(COLMAP_HIP_ENABLED)
+	// The launch grid is rounded up to a multiple of LISTGEN_BLOCK_DIM, so
+	// idx1 can run past list_len for the tail block. The only bounds check
+	// in the original code guards the *write* at the bottom of this kernel
+	// (`if (idx1 < list_len) d_list[idx1] = pos;`), but the *read* below is
+	// unconditional. CUDA's tex1Dfetch on a linear texture silently
+	// returns zero for an out-of-range element and the tail threads'
+	// garbage `pos` is simply discarded by the write guard. HIP does not
+	// provide that clamp-to-zero fallback: an out-of-range tex1Dfetch can
+	// read from unmapped device memory and fault. Clamp the fetch index
+	// itself so it never leaves the texture's valid range; the fetched
+	// value for tail threads is still discarded by the write guard below,
+	// so this does not change any in-range thread's result.
+	int cidx1 = list_len > 0 ? min(idx1, list_len - 1) : 0;
+	int4 pos = tex1Dfetch<int4>(texDataList, cidx1);
+#else
     int4 pos = tex1Dfetch<int4>(texDataList, idx1);
+#endif
 	int idx2 = IMUL(pos.y, width) + pos.x;
 	int4 temp = tex1Dfetch<int4>(texDataI4, idx2);
 	int  sum1 = temp.x + temp.y;
