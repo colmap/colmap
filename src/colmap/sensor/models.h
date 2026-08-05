@@ -71,6 +71,8 @@ namespace colmap {
 //  - `ImgFromCam`: Projects points in camera frame to pixel coordinates in
 //    image plane (the inverse of `CamFromImg`). Assumes that the camera
 //    coordinates are given as (u, v, w). Returns false, if projection failed.
+//    The `check_cheirality` flag selects whether points behind the camera are
+//    rejected, see `HasProjectableDepth`.
 //  - `CamFromImg`: lift pixel coordinates in image plane to normalized camera
 //    coordinates (the inverse of `ImgFromCam`). Produces camera coordinates
 //    as (u, v, 1). Returns false, if lifting failed.
@@ -126,8 +128,13 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   static inline std::vector<double> InitializeParams(                         \
       double focal_length, size_t width, size_t height);                      \
   template <typename T>                                                       \
-  static bool ImgFromCam(                                                     \
-      const T* params, const T& u, const T& v, const T& w, T* x, T* y);       \
+  static bool ImgFromCam(const T* params,                                     \
+                         const T& u,                                          \
+                         const T& v,                                          \
+                         const T& w,                                          \
+                         T* x,                                                \
+                         T* y,                                                \
+                         bool check_cheirality = true);                       \
   template <bool Enable = has_img_from_cam_with_jac,                          \
             typename std::enable_if<Enable, int>::type = 0>                   \
   static inline bool ImgFromCamWithJac(const double* params,                  \
@@ -137,7 +144,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                        double* x,                             \
                                        double* y,                             \
                                        double* J_params,                      \
-                                       double* J_uvw);                        \
+                                       double* J_uvw,                         \
+                                       bool check_cheirality = true);         \
   static inline bool CamFromImg(                                              \
       const double* params, double x, double y, double* u, double* v);
 #endif
@@ -266,6 +274,15 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
   template <typename T>                                       \
   static void FisheyeFromImg(const T* params, T x, T y, T* uu, T* vv);
 #endif
+
+// Depth guard shared by the models' `ImgFromCam`. Rejects points at or behind
+// the camera plane if `check_cheirality`, otherwise only points on the plane,
+// where the projection diverges.
+template <typename T>
+inline bool HasProjectableDepth(const T& w, const bool check_cheirality) {
+  return check_cheirality ? w >= std::numeric_limits<T>::epsilon()
+                          : ceres::abs(w) >= std::numeric_limits<T>::epsilon();
+}
 
 // The "Curiously Recurring Template Pattern" (CRTP) is used throughout the
 // camera model hierarchy so that shared functionality can be reused across
@@ -912,7 +929,8 @@ bool CameraModelHasBogusParams(CameraModelId model_id,
 inline std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     CameraModelId model_id,
     const std::vector<double>& params,
-    const Eigen::Vector3d& uvw);
+    const Eigen::Vector3d& uvw,
+    bool check_cheirality = true);
 
 // Transform camera to image coordinates, additionally computing the Jacobian
 // of the projection with respect to the camera ray.
@@ -930,7 +948,8 @@ inline std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector3d& uvw,
-    Eigen::Matrix2x3d* J_uvw);
+    Eigen::Matrix2x3d* J_uvw,
+    bool check_cheirality = true);
 
 // The Jacobian of `CameraModelCamRayFromImg`, i.e. d(u, v, w) / d(x, y),
 // obtained by inverting the projection Jacobian d(x, y) / d(u, v, w) at a unit
@@ -1202,9 +1221,14 @@ std::vector<double> SimplePinholeCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool SimplePinholeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool SimplePinholeCameraModel::ImgFromCam(const T* params,
+                                          const T& u,
+                                          const T& v,
+                                          const T& w,
+                                          T* x,
+                                          T* y,
+                                          const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1258,9 +1282,14 @@ std::vector<double> PinholeCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool PinholeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool PinholeCameraModel::ImgFromCam(const T* params,
+                                    const T& u,
+                                    const T& v,
+                                    const T& w,
+                                    T* x,
+                                    T* y,
+                                    const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1316,9 +1345,14 @@ std::vector<double> SimpleRadialCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool SimpleRadialCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool SimpleRadialCameraModel::ImgFromCam(const T* params,
+                                         const T& u,
+                                         const T& v,
+                                         const T& w,
+                                         T* x,
+                                         T* y,
+                                         const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1393,9 +1427,14 @@ std::vector<double> RadialCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool RadialCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool RadialCameraModel::ImgFromCam(const T* params,
+                                   const T& u,
+                                   const T& v,
+                                   const T& w,
+                                   T* x,
+                                   T* y,
+                                   const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1471,9 +1510,14 @@ std::vector<double> OpenCVCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool OpenCVCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool OpenCVCameraModel::ImgFromCam(const T* params,
+                                   const T& u,
+                                   const T& v,
+                                   const T& w,
+                                   T* x,
+                                   T* y,
+                                   const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1578,9 +1622,14 @@ void OpenCVFisheyeCameraModel::FisheyeFromImg(
 }
 
 template <typename T>
-bool OpenCVFisheyeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool OpenCVFisheyeCameraModel::ImgFromCam(const T* params,
+                                          const T& u,
+                                          const T& v,
+                                          const T& w,
+                                          T* x,
+                                          T* y,
+                                          const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1661,9 +1710,14 @@ std::vector<double> FullOpenCVCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool FullOpenCVCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool FullOpenCVCameraModel::ImgFromCam(const T* params,
+                                       const T& u,
+                                       const T& v,
+                                       const T& w,
+                                       T* x,
+                                       T* y,
+                                       const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1752,9 +1806,14 @@ std::vector<double> FOVCameraModel::InitializeParams(const double focal_length,
 }
 
 template <typename T>
-bool FOVCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool FOVCameraModel::ImgFromCam(const T* params,
+                                const T& u,
+                                const T& v,
+                                const T& w,
+                                T* x,
+                                T* y,
+                                const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1916,9 +1975,14 @@ void SimpleRadialFisheyeCameraModel::FisheyeFromImg(
 }
 
 template <typename T>
-bool SimpleRadialFisheyeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool SimpleRadialFisheyeCameraModel::ImgFromCam(const T* params,
+                                                const T& u,
+                                                const T& v,
+                                                const T& w,
+                                                T* x,
+                                                T* y,
+                                                const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -2004,9 +2068,14 @@ void RadialFisheyeCameraModel::FisheyeFromImg(
 }
 
 template <typename T>
-bool RadialFisheyeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool RadialFisheyeCameraModel::ImgFromCam(const T* params,
+                                          const T& u,
+                                          const T& v,
+                                          const T& w,
+                                          T* x,
+                                          T* y,
+                                          const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -2108,9 +2177,14 @@ void ThinPrismFisheyeCameraModel::FisheyeFromImg(
 }
 
 template <typename T>
-bool ThinPrismFisheyeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool ThinPrismFisheyeCameraModel::ImgFromCam(const T* params,
+                                             const T& u,
+                                             const T& v,
+                                             const T& w,
+                                             T* x,
+                                             T* y,
+                                             const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -2223,9 +2297,14 @@ void RadTanThinPrismFisheyeModel::FisheyeFromImg(
 }
 
 template <typename T>
-bool RadTanThinPrismFisheyeModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool RadTanThinPrismFisheyeModel::ImgFromCam(const T* params,
+                                             const T& u,
+                                             const T& v,
+                                             const T& w,
+                                             T* x,
+                                             T* y,
+                                             const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -2324,8 +2403,13 @@ std::vector<double> SimpleDivisionCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool SimpleDivisionCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+bool SimpleDivisionCameraModel::ImgFromCam(const T* params,
+                                           const T& u,
+                                           const T& v,
+                                           const T& w,
+                                           T* x,
+                                           T* y,
+                                           const bool /*check_cheirality*/) {
   // Division model projection:
   // (xp, 1+k*|xp|^2) ~= (x(1:2), x3)
   // Solving the quadratic: rho*k*r2 - x3 * r + rho = 0
@@ -2408,8 +2492,13 @@ std::vector<double> DivisionCameraModel::InitializeParams(
 }
 
 template <typename T>
-bool DivisionCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+bool DivisionCameraModel::ImgFromCam(const T* params,
+                                     const T& u,
+                                     const T& v,
+                                     const T& w,
+                                     T* x,
+                                     T* y,
+                                     const bool /*check_cheirality*/) {
   // Division model projection:
   // (xp, 1+k*|xp|^2) ~= (x(1:2), x3)
   // Solving the quadratic: rho*k*r2 - x3 * r + rho = 0
@@ -2516,9 +2605,14 @@ void SimpleFisheyeCameraModel::FisheyeFromImg(
 }
 
 template <typename T>
-bool SimpleFisheyeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool SimpleFisheyeCameraModel::ImgFromCam(const T* params,
+                                          const T& u,
+                                          const T& v,
+                                          const T& w,
+                                          T* x,
+                                          T* y,
+                                          const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -2591,9 +2685,14 @@ void FisheyeCameraModel::FisheyeFromImg(
 }
 
 template <typename T>
-bool FisheyeCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool FisheyeCameraModel::ImgFromCam(const T* params,
+                                    const T& u,
+                                    const T& v,
+                                    const T& w,
+                                    T* x,
+                                    T* y,
+                                    const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -2656,9 +2755,14 @@ std::vector<double> EUCMCameraModel::InitializeParams(const double focal_length,
 }
 
 template <typename T>
-bool EUCMCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
-  if (w < std::numeric_limits<T>::epsilon()) {
+bool EUCMCameraModel::ImgFromCam(const T* params,
+                                 const T& u,
+                                 const T& v,
+                                 const T& w,
+                                 T* x,
+                                 T* y,
+                                 const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -2676,7 +2780,7 @@ bool EUCMCameraModel::ImgFromCam(
   }
   const T rho = ceres::sqrt(rho2);
   const T den = alpha * rho + (1.0 - alpha) * w;
-  if (den < T(std::numeric_limits<double>::epsilon())) {
+  if (!HasProjectableDepth(den, check_cheirality)) {
     return false;
   }
   *x = u / den;
@@ -2746,8 +2850,13 @@ std::vector<double> EquirectangularCameraModel::InitializeParams(
 // Unlike pinhole/fisheye models that require w > 0, EQUIRECTANGULAR accepts any
 // non-zero direction — all 4π of the sphere are representable.
 template <typename T>
-bool EquirectangularCameraModel::ImgFromCam(
-    const T* params, const T& u, const T& v, const T& w, T* x, T* y) {
+bool EquirectangularCameraModel::ImgFromCam(const T* params,
+                                            const T& u,
+                                            const T& v,
+                                            const T& w,
+                                            T* x,
+                                            T* y,
+                                            const bool /*check_cheirality*/) {
   const T width = params[0];
   const T height = params[1];
 
@@ -2796,15 +2905,21 @@ bool EquirectangularCameraModel::CamFromImg(
 std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     const CameraModelId model_id,
     const std::vector<double>& params,
-    const Eigen::Vector3d& uvw) {
+    const Eigen::Vector3d& uvw,
+    const bool check_cheirality) {
   Eigen::Vector2d xy;
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                     \
-  case CameraModel::model_id:                                              \
-    if (CameraModel::ImgFromCam(                                           \
-            params.data(), uvw.x(), uvw.y(), uvw.z(), &xy.x(), &xy.y())) { \
-      return xy;                                                           \
-    }                                                                      \
+#define CAMERA_MODEL_CASE(CameraModel)               \
+  case CameraModel::model_id:                        \
+    if (CameraModel::ImgFromCam(params.data(),       \
+                                uvw.x(),             \
+                                uvw.y(),             \
+                                uvw.z(),             \
+                                &xy.x(),             \
+                                &xy.y(),             \
+                                check_cheirality)) { \
+      return xy;                                     \
+    }                                                \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -2818,7 +2933,8 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     const CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector3d& uvw,
-    Eigen::Matrix2x3d* J_uvw) {
+    Eigen::Matrix2x3d* J_uvw,
+    const bool check_cheirality) {
   Eigen::Vector2d xy;
   // 2x3 row-major Jacobian. Zero-init so a kernel that skips an entry can't
   // leak an uninitialized read through the Map below.
@@ -2840,7 +2956,8 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
                                        &xy.x(),                             \
                                        &xy.y(),                             \
                                        /*J_params=*/nullptr,                \
-                                       J_uvw_ptr)) {                        \
+                                       J_uvw_ptr,                           \
+                                       check_cheirality)) {                 \
       if (J_uvw != nullptr) {                                               \
         *J_uvw =                                                            \
             Eigen::Map<const Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>( \
