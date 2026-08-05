@@ -22,7 +22,7 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
-FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
+std::vector<FlatHashSet<frame_t>> PoseGraph::ComputeConnectedFrameComponents(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
   FlatHashSet<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> graph_edges;
@@ -49,10 +49,32 @@ FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
     return {};
   }
 
-  const std::vector<frame_t> largest_component_vec =
-      FindLargestConnectedComponent(nodes, graph_edges);
-  return FlatHashSet<frame_t>(largest_component_vec.begin(),
-                              largest_component_vec.end());
+  std::vector<std::vector<frame_t>> components =
+      FindConnectedComponents(nodes, graph_edges);
+
+  std::sort(components.begin(),
+            components.end(),
+            [](const std::vector<frame_t>& a, const std::vector<frame_t>& b) {
+              return a.size() > b.size();
+            });
+
+  std::vector<FlatHashSet<frame_t>> result;
+  result.reserve(components.size());
+  for (auto& component : components) {
+    result.emplace_back(component.begin(), component.end());
+  }
+  return result;
+}
+
+FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
+    const Reconstruction& reconstruction, bool filter_unregistered) const {
+  std::vector<FlatHashSet<frame_t>> components =
+      ComputeConnectedFrameComponents(reconstruction, filter_unregistered);
+  if (components.empty()) {
+    return {};
+  }
+  // Components are sorted by descending size, so the first is the largest.
+  return std::move(components.front());
 }
 
 void PoseGraph::InvalidatePairsOutsideActiveImageIds(
