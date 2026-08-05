@@ -352,6 +352,22 @@ bool GlobalMapper::IterativeBundleAdjustment(
     if (!skip_fixed_rotation_stage) {
       BundleAdjustmentOptions opts_position_only = options;
       opts_position_only.constant_rig_from_world_rotation = true;
+      // Caspar's pose node is a single retracted Pose3 (rotation+
+      // translation together) with no mechanism to hold rotation
+      // constant while translation is free -- constant_rig_from_world_
+      // rotation is silently ignored when backend == CASPAR (confirmed:
+      // zero references to it anywhere in bundle_adjustment_caspar.cc),
+      // so this stage would otherwise silently degrade into a second full
+      // joint optimization pass instead of a stabilizing partial one.
+      // Live 3-scene accuracy sweep confirmed this causes real
+      // scale-regime-split regressions on non-trivial scenes (floor2:
+      // 0->2, trolley_femto: 0->5; only the smallest/simplest scene
+      // stayed clean). Force Ceres for just this sub-stage -- it's the
+      // cheap half of the loop anyway; the joint-optimization stage below
+      // keeps the requested backend (Caspar's actual speed win).
+      if (opts_position_only.backend == BundleAdjustmentBackend::CASPAR) {
+        opts_position_only.backend = BundleAdjustmentBackend::CERES;
+      }
       if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
         return false;
       }
