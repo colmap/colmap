@@ -99,33 +99,26 @@ FundamentalMatrixReport EstimateFundamentalMatrix(
 using HomographyMatrixReport =
     LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>::Report;
 
-// Robustly estimate the homography relating two calibrated views. A world plane
-// relates image points projectively only under a pinhole projection, so
-// distorted cameras are estimated on bearing rays and mapped back to pixels.
-// Undistorted pinhole cameras keep the pixel estimator, where the two are
-// algebraically equivalent, so that path stays bit-identical.
-HomographyMatrixReport EstimateHomographyMatrix(
+// Robustly estimate the pixel-space homography of a distorted camera pair. A
+// world plane relates image points projectively only under a pinhole
+// projection, so the estimate is made on bearing rays, where it holds for any
+// central camera, and conjugated back by the calibration matrices.
+HomographyMatrixReport EstimateHomographyMatrixFromRays(
     const RANSACOptions& ransac_options,
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
-    const std::vector<Eigen::Vector2d>& points2,
-    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
-    const std::vector<CamRayWithJac>& cam_rays2_with_jac) {
-  if (camera1.IsUndistorted() && camera2.IsUndistorted()) {
-    return LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>(
-               ransac_options)
-        .Estimate(points1, points2);
-  }
+    const std::vector<Eigen::Vector2d>& points2) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
 
-  // The estimator handles any central camera, but publishing the result in
-  // pixel space needs a calibration matrix, which spherical cameras lack. Such
-  // pairs are routed to EstimateSphericalTwoViewGeometry before reaching here.
-  std::vector<Eigen::Vector3d> cam_rays1(cam_rays1_with_jac.size());
-  std::vector<CamRayWithImgPoint> cam_rays2(cam_rays2_with_jac.size());
-  for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
-    cam_rays1[i] = cam_rays1_with_jac[i].ray;
-    cam_rays2[i] = {cam_rays2_with_jac[i].ray, points2[i]};
+  std::vector<Eigen::Vector3d> cam_rays1(points1.size());
+  std::vector<CamRayWithImgPoint> cam_rays2(points2.size());
+  for (size_t i = 0; i < points1.size(); ++i) {
+    cam_rays1[i] =
+        camera1.CamRayFromImg(points1[i]).value_or(Eigen::Vector3d::Zero());
+    cam_rays2[i] = {
+        camera2.CamRayFromImg(points2[i]).value_or(Eigen::Vector3d::Zero()),
+        points2[i]};
   }
 
   const HomographyMatrixRayEstimator estimator(&camera2);
@@ -453,10 +446,18 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
     matched_cam_rays2[i] = {matched_cam_rays2_with_jac[i].ray,
                             matched_img_points2[i]};
   }
+  // Budget the search for the ratio the homography must beat to be selected
+  // below, rather than the default. See EstimateCalibratedTwoViewGeometry.
+  auto H_ransac_options = ransac_options;
+  H_ransac_options.min_inlier_ratio = std::max(
+      ransac_options.min_inlier_ratio,
+      options.max_H_inlier_ratio *
+          static_cast<double>(E_report.support.num_inliers) / matches.size());
+
   const HomographyMatrixRayEstimator H_estimator(&camera2);
   const auto H_report =
       LORANSAC<HomographyMatrixRayEstimator, HomographyMatrixRayEstimator>(
-          ransac_options, H_estimator, H_estimator)
+          H_ransac_options, H_estimator, H_estimator)
           .Estimate(matched_cam_rays1, matched_cam_rays2);
   if (H_report.success) {
     geometry.H = H_report.model;
@@ -1012,13 +1013,31 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  const auto H_report = EstimateHomographyMatrix(ransac_options,
-                                                 camera1,
-                                                 matched_img_points1,
-                                                 camera2,
-                                                 matched_img_points2,
-                                                 matched_cam_rays1_with_jac,
-                                                 matched_cam_rays2_with_jac);
+  // A homography is only selected below if it beats max_H_inlier_ratio times
+  // the epipolar model's inlier count, so budget the search for that ratio
+  // rather than the default. Lower ratios are found less reliably, but such a
+  // homography would be discarded anyway. The smaller of the two epipolar
+  // counts is the lowest bar it might have to clear.
+  auto H_ransac_options = ransac_options;
+  H_ransac_options.min_inlier_ratio =
+      std::max(ransac_options.min_inlier_ratio,
+               options.max_H_inlier_ratio *
+                   static_cast<double>(std::min(E_report.support.num_inliers,
+                                                F_report.support.num_inliers)) /
+                   matches.size());
+
+  // Undistorted pinhole cameras keep the pixel estimator, where the two are
+  // algebraically equivalent, so that path stays bit-identical.
+  const auto H_report =
+      (camera1.IsUndistorted() && camera2.IsUndistorted())
+          ? LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>(
+                H_ransac_options)
+                .Estimate(matched_img_points1, matched_img_points2)
+          : EstimateHomographyMatrixFromRays(H_ransac_options,
+                                             camera1,
+                                             matched_img_points1,
+                                             camera2,
+                                             matched_img_points2);
   geometry.H = H_report.model;
 
   if ((!E_report.success && !F_report.success && !H_report.success) ||

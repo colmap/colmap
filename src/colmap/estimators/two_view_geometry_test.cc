@@ -581,7 +581,10 @@ TEST(EstimateTwoViewGeometry, PanoramicWithSphericalCameraIsDetected) {
                               test_data.matches,
                               two_view_geometry_options);
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.E.has_value());
   EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_FALSE(geometry.F.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
 }
 
 TEST(EstimateTwoViewGeometry, PanoramicWithDistortedCameraIsDetected) {
@@ -603,6 +606,7 @@ TEST(EstimateTwoViewGeometry, PanoramicWithDistortedCameraIsDetected) {
 
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
   const TwoViewGeometry geometry =
       EstimateTwoViewGeometry(test_data.camera1,
                               test_data.points1,
@@ -610,8 +614,9 @@ TEST(EstimateTwoViewGeometry, PanoramicWithDistortedCameraIsDetected) {
                               test_data.points2,
                               test_data.matches,
                               two_view_geometry_options);
-  EXPECT_EQ(geometry.config,
-            TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
 }
 
 // As above for a fisheye camera, which reaches the calibrated path today
@@ -635,6 +640,7 @@ TEST(EstimateTwoViewGeometry, PanoramicWithFisheyeCameraIsDetected) {
 
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
   const TwoViewGeometry geometry =
       EstimateTwoViewGeometry(test_data.camera1,
                               test_data.points1,
@@ -642,8 +648,9 @@ TEST(EstimateTwoViewGeometry, PanoramicWithFisheyeCameraIsDetected) {
                               test_data.points2,
                               test_data.matches,
                               two_view_geometry_options);
-  EXPECT_EQ(geometry.config,
-            TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
 }
 
 TEST(EstimateTwoViewGeometry, SharedFocal) {

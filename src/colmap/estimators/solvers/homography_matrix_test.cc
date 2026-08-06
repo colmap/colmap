@@ -34,6 +34,7 @@
 #include "colmap/util/eigen_alignment.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 #include <Eigen/Core>
@@ -299,19 +300,27 @@ TEST_P(HomographyMatrixRayTests, PixelEquivalence) {
 TEST(HomographyMatrixRay, BehindCamera) {
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 1000, 1920, 1080);
-  const std::vector<Eigen::Vector3d> cam_rays1 = {Eigen::Vector3d::UnitZ()};
+  const Eigen::Matrix3d H =
+      Eigen::AngleAxisd(DegToRad(100.0), Eigen::Vector3d::UnitY())
+          .toRotationMatrix();
+  // The second ray stays in front after the rotation, so the rejection must be
+  // selective rather than blanket.
+  const Eigen::Vector3d forward =
+      Eigen::AngleAxisd(DegToRad(-70.0), Eigen::Vector3d::UnitY()) *
+      Eigen::Vector3d::UnitZ();
+  const std::vector<Eigen::Vector3d> cam_rays1 = {Eigen::Vector3d::UnitZ(),
+                                                  forward};
   const std::vector<CamRayWithImgPoint> cam_rays2 = {
-      {Eigen::Vector3d::UnitZ(), Eigen::Vector2d(960, 540)}};
+      {Eigen::Vector3d::UnitZ(), Eigen::Vector2d(960, 540)},
+      {(H * forward).normalized(),
+       camera.ImgFromCam((H * forward).normalized()).value()}};
 
   std::vector<double> residuals;
   HomographyMatrixRayEstimator(&camera).Residuals(
-      cam_rays1,
-      cam_rays2,
-      Eigen::AngleAxisd(DegToRad(100.0), Eigen::Vector3d::UnitY())
-          .toRotationMatrix(),
-      &residuals);
+      cam_rays1, cam_rays2, H, &residuals);
 
   EXPECT_EQ(residuals[0], std::numeric_limits<double>::max());
+  EXPECT_LT(residuals[1], 1e-6);
 }
 
 // A spherical camera images every direction, so the estimator must work over
@@ -349,6 +358,29 @@ TEST_P(HomographyMatrixRayTests, Spherical) {
       EXPECT_LT(residuals[i], 1e-6);
     }
   }
+}
+
+// The azimuth wraps, so two nearly identical directions can sit a full image
+// width apart in pixels. Scoring that raw difference would reject every
+// correspondence near the seam.
+TEST(HomographyMatrixRay, SphericalSeam) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0, 2048, 1024);
+  constexpr double kDelta = 0.01;
+  const Eigen::Vector3d ray1(
+      std::sin(M_PI - kDelta), 0, std::cos(M_PI - kDelta));
+  const Eigen::Vector3d ray2(
+      std::sin(-M_PI + kDelta), 0, std::cos(-M_PI + kDelta));
+  const Eigen::Vector2d point1 = camera.ImgFromCam(ray1).value();
+  const Eigen::Vector2d point2 = camera.ImgFromCam(ray2).value();
+  ASSERT_GT((point1 - point2).norm(), 2000);
+
+  std::vector<double> residuals;
+  HomographyMatrixRayEstimator(&camera).Residuals(
+      {ray1}, {{ray2, point2}}, Eigen::Matrix3d::Identity(), &residuals);
+
+  const double expected = 2 * kDelta * camera.width / (2 * M_PI);
+  EXPECT_NEAR(residuals[0], expected * expected, 1e-6);
 }
 
 // Why Estimate must resolve the sign of H. A spherical camera projects -H x1 as

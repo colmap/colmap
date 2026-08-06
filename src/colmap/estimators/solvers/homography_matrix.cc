@@ -32,6 +32,7 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
 #include <limits>
 #include <optional>
 
@@ -226,15 +227,26 @@ void HomographyMatrixRayEstimator::Residuals(
 
   residuals->resize(cam_rays1.size());
 
+  // Azimuthal models wrap at the +-pi seam, where a raw pixel difference jumps
+  // by about the image width. Wrap it into [-width/2, width/2), as
+  // WrapEquirectangularHorizontalSeam does for the reprojection error, which
+  // spells the same rounding as a floor since it must stay autodiff-safe.
+  const bool is_periodic = camera2_->IsSpherical();
+  const double width = static_cast<double>(camera2_->width);
+
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
     const std::optional<Eigen::Vector2d> img_point =
         camera2_->ImgFromCam(H * cam_rays1[i]);
-    if (img_point.has_value()) {
-      (*residuals)[i] = (*img_point - cam_rays2[i].img_point).squaredNorm();
-    } else {
+    if (!img_point.has_value()) {
       // Transferred out of the camera's field, so there is nothing to score.
       (*residuals)[i] = std::numeric_limits<double>::max();
+      continue;
     }
+    Eigen::Vector2d error = *img_point - cam_rays2[i].img_point;
+    if (is_periodic) {
+      error.x() -= width * std::round(error.x() / width);
+    }
+    (*residuals)[i] = error.squaredNorm();
   }
 }
 
