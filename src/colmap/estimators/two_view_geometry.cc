@@ -158,8 +158,13 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   // Estimate planar or panoramic model.
 
+  auto ransac_options = options.ransac_options;
+  if (options.min_inlier_ratio > 0) {
+    ransac_options.min_inlier_ratio = options.min_inlier_ratio;
+  }
+
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+      ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -224,8 +229,15 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
+  // Budget the search for the ratio the homography must beat to be selected
+  // below, since a weaker one is discarded anyway.
+  auto H_ransac_options = options.ransac_options;
+  H_ransac_options.min_inlier_ratio =
+      std::max(options.ransac_options.min_inlier_ratio,
+               options.max_H_inlier_ratio * F_report.support.num_inliers /
+                   matches.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+      H_ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -916,8 +928,16 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
+  // As above. The competing model depends on the branch taken below, so the
+  // smaller inlier count is the lowest bar the homography might have to clear.
+  auto H_ransac_options = ransac_options;
+  H_ransac_options.min_inlier_ratio = std::max(
+      ransac_options.min_inlier_ratio,
+      options.max_H_inlier_ratio *
+          std::min(E_report.support.num_inliers, F_report.support.num_inliers) /
+          matches.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
+      H_ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -1075,8 +1095,14 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
   // Estimate a homography to detect planar/panoramic degeneracies, where
   // two-view focal recovery is ill-posed and the 6-point solver returns a
   // meaningless focal length.
+  // As in EstimateUncalibratedTwoViewGeometry.
+  auto H_ransac_options = ransac_options;
+  H_ransac_options.min_inlier_ratio =
+      std::max(ransac_options.min_inlier_ratio,
+               options.max_H_inlier_ratio * SF_report.support.num_inliers /
+                   matches.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
+      H_ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -1266,8 +1292,14 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   // spherical one it is skipped, as in the spherical path. A default report has
   // no inliers, so the checks below then behave as a failed estimate.
   const bool has_image_plane = !camera2.IsSpherical();
+  // As in EstimateUncalibratedTwoViewGeometry.
+  auto H_ransac_options = ransac_options;
+  H_ransac_options.min_inlier_ratio =
+      std::max(ransac_options.min_inlier_ratio,
+               options.max_H_inlier_ratio * focal_report.support.num_inliers /
+                   matches.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
+      H_ransac_options);
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>::Report
       H_report;
   if (has_image_plane) {
