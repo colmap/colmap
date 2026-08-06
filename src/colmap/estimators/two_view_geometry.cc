@@ -43,6 +43,7 @@
 #include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
@@ -158,8 +159,10 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(options.ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -224,8 +227,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(options.ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -381,7 +386,8 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
   // unscaled.
 
   LORANSAC<EssentialMatrixTangentSampsonEstimator,
-           EssentialMatrixTangentSampsonEstimator>
+           EssentialMatrixTangentSampsonEstimator,
+           MEstimatorSupportMeasurer>
       E_ransac(ransac_options);
   const auto E_report =
       E_ransac.Estimate(matched_cam_rays1_with_jac, matched_cam_rays2_with_jac);
@@ -904,7 +910,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // threshold. This also removes the former CamFromImgThreshold conversion,
   // whose single per-camera focal length is only exact at the principal point.
   LORANSAC<EssentialMatrixTangentSampsonEstimator,
-           EssentialMatrixTangentSampsonEstimator>
+           EssentialMatrixTangentSampsonEstimator,
+           MEstimatorSupportMeasurer>
       E_ransac(ransac_options);
   const auto E_report =
       E_ransac.Estimate(matched_cam_rays1_with_jac, matched_cam_rays2_with_jac);
@@ -916,8 +923,10 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -1419,7 +1428,9 @@ bool DetectWatermarkMatches(const Camera& camera1,
   ransac_options.max_error = options.watermark_detection_max_error;
   ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
-  LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>>
+  LORANSAC<TranslationTransformEstimator<2>,
+           TranslationTransformEstimator<2>,
+           MEstimatorSupportMeasurer>
       ransac(ransac_options);
   const auto report = ransac.Estimate(inlier_points1, inlier_points2);
 
