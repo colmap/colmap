@@ -600,6 +600,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
         loss_function_(options_.ceres->CreateLossFunction()) {
+    VLOG(2) << "Creating Ceres bundle adjuster";
+
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -898,6 +900,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
+    VLOG(2) << "Creating Ceres pose prior bundle adjuster";
+
     THROW_CHECK(prior_options_.Check());
 
     // Filter irrelevant pose priors.
@@ -912,16 +916,17 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                        }),
         pose_priors_.end());
 
-    const bool use_prior_position = AlignReconstruction();
+    const bool use_prior_position =
+        pose_priors_.size() >= 3 && AlignReconstruction();
 
-    // Fix 7-DOFs of BA problem if not enough valid pose priors.
+    // Fix 7-DOFs of the BA problem if the pose priors cannot constrain them.
     if (use_prior_position) {
       // Normalize the reconstruction to avoid any numerical instability but
       // do not transform priors as they will be transformed when added to
       // ceres::Problem.
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
     } else {
-      config_.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+      config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     }
 
     // WARNING: Do not move this above the reconstruction normalization.
@@ -1026,37 +1031,13 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   }
 
   bool AlignReconstruction() {
-    RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
-    if (ransac_options.max_error <= 0) {
-      std::vector<double> rms_vars;
-      rms_vars.reserve(pose_priors_.size());
-      for (const auto& pose_prior : pose_priors_) {
-        const double trace = pose_prior.position_covariance.trace();
-        if (trace <= 0.0) {
-          continue;
-        }
-        rms_vars.push_back(trace / 3.0);
-      }
-
-      if (rms_vars.empty()) {
-        LOG(WARNING) << "No pose priors with valid covariance found.";
-        rms_vars.push_back(prior_options_.prior_position_fallback_stddev *
-                           prior_options_.prior_position_fallback_stddev);
-      }
-
-      // Set max error using the median RMS variance of valid pose priors.
-      // Scaled by sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95%
-      // confidence radius.
-      ransac_options.max_error =
-          std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
-    }
-
-    VLOG(2) << "Robustly aligning reconstruction with max_error="
-            << ransac_options.max_error;
-
     Sim3d metric_from_orig;
     if (!AlignReconstructionToPosePriors(
-            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
+            reconstruction_,
+            pose_priors_,
+            prior_options_.alignment_ransac_options,
+            prior_options_.prior_position_fallback_stddev,
+            &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
       return false;
     }

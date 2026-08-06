@@ -64,7 +64,13 @@ public:
 	static void MultiplyDescriptor(CuTexImage* tex1, CuTexImage* tex2, CuTexImage* texDot, CuTexImage* texCRT);
 	static void MultiplyDescriptorG(CuTexImage* texDes1, CuTexImage* texDes2,
 		CuTexImage* texLoc1, CuTexImage* texLoc2, CuTexImage* texDot, CuTexImage* texCRT,
-		float* H, float hdistmax, float* F, float fdistmax);
+		float* H, float hdistmax, float* F, float fdistmax,
+		int use_h, int use_f);
+	// Guided matching against an essential matrix using per-feature bearing
+	// vectors and unprojection Jacobians (12 floats per feature).
+	static void MultiplyDescriptorGRay(CuTexImage* texDes1, CuTexImage* texDes2,
+		CuTexImage* texLoc1, CuTexImage* texLoc2, CuTexImage* texDot, CuTexImage* texCRT,
+		float* E, float edistmax);
 	static void GetRowMatch(CuTexImage* texDot, CuTexImage* texMatch, float distmax, float ratiomax);
 	static void GetColMatch(CuTexImage* texCRT, CuTexImage* texMatch, float distmax, float ratiomax);
 };

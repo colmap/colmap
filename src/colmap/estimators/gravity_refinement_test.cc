@@ -90,8 +90,6 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
 }
 
 TEST(GravityRefinement, RefineGravity) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -124,8 +122,6 @@ TEST(GravityRefinement, RefineGravity) {
 }
 
 TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);

@@ -44,8 +44,6 @@ class BruteForceONNXMatcherTest : public testing::Test {
  protected:
   static constexpr int kDescriptorDim = 128;
 
-  void SetUp() override { SetPRNGSeed(42); }
-
   static FeatureMatchingOptions CreateFeatureMatcherOptions() {
     FeatureMatchingOptions options(FeatureMatcherType::ALIKED_BRUTEFORCE);
     options.use_gpu = false;
@@ -328,8 +326,6 @@ class AlikedLightGlueONNXMatcherTest : public testing::Test {
   static constexpr int kHeight = 480;
   static constexpr int kDescriptorDim = 128;
 
-  void SetUp() override { SetPRNGSeed(42); }
-
   static FeatureMatchingOptions CreateFeatureMatcherOptions() {
     FeatureMatchingOptions options(FeatureMatcherType::ALIKED_LIGHTGLUE);
     options.use_gpu = false;
@@ -524,8 +520,6 @@ class SiftLightGlueONNXMatcherTest : public testing::Test {
   static constexpr int kWidth = 640;
   static constexpr int kHeight = 480;
   static constexpr int kDescriptorDim = 128;
-
-  void SetUp() override { SetPRNGSeed(42); }
 
   static FeatureMatchingOptions CreateFeatureMatcherOptions() {
     FeatureMatchingOptions options(FeatureMatcherType::SIFT_LIGHTGLUE);

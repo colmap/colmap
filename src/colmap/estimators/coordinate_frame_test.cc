@@ -223,8 +223,6 @@ void RenderLineImages(Reconstruction& reconstruction,
 }
 
 TEST(EstimateManhattanWorldFrame, Synthetic) {
-  SetPRNGSeed(0);
-
   const auto scene = CreateManhattanScene();
   const auto test_dir = CreateTestDir();
 
