@@ -74,18 +74,30 @@ void SceneClustering::Partition(
 void SceneClustering::PartitionHierarchicalCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
-    Cluster* cluster) {
+    Cluster* cluster,
+    const NodeHashMap<image_t, image_t>& overlap_anchor) {
   THROW_CHECK_EQ(edges.size(), weights.size());
 
   // If the cluster is small enough, we return from the recursive clustering.
-  if (edges.empty() || cluster->image_ids.size() <=
-                           static_cast<size_t>(options_.leaf_max_num_images)) {
+  if (edges.empty() ||
+      cluster->image_ids.size() <=
+          options_.leaf_max_num_images + options_.image_overlap) {
     return;
   }
 
   // Partition the cluster using a normalized cut on the scene graph.
-  const auto labels =
+  auto labels =
       ComputeNormalizedMinGraphCut(edges, weights, options_.branching);
+
+  // Manually assign labels to the overlap images inherited from the parent
+  // cluster. These images have no edges in the subgraph of this cluster and
+  // are therefore not labeled by the graph cut, so they follow the image of
+  // this cluster that they overlap with.
+  for (const auto& [image_id, anchor] : overlap_anchor) {
+    if (labels.count(anchor)) {
+      labels[image_id] = labels.at(anchor);
+    }
+  }
 
   // Assign the images to the clustered child clusters.
   cluster->child_clusters.resize(options_.branching);
@@ -105,6 +117,8 @@ void SceneClustering::PartitionHierarchicalCluster(
   std::vector<std::vector<int>> child_weights(options_.branching);
   std::vector<std::vector<std::pair<std::pair<int, int>, int>>>
       overlapping_edges(options_.branching);
+  std::vector<NodeHashMap<image_t, image_t>> child_overlap_anchor(
+      options_.branching);
   for (size_t i = 0; i < edges.size(); ++i) {
     const int label1 = labels.at(edges[i].first);
     const int label2 = labels.at(edges[i].second);
@@ -114,6 +128,45 @@ void SceneClustering::PartitionHierarchicalCluster(
     } else {
       overlapping_edges.at(label1).emplace_back(edges[i], weights[i]);
       overlapping_edges.at(label2).emplace_back(edges[i], weights[i]);
+    }
+  }
+
+  // Add overlapping images between sibling clusters before partitioning. For
+  // each selected image we remember the image in this cluster that it overlaps
+  // with via the best-matching edge, so that the overlap can follow this
+  // anchor image when the child cluster is partitioned recursively.
+  if (options_.image_overlap > 0) {
+    for (int i = 0; i < options_.branching; ++i) {
+      std::sort(overlapping_edges[i].begin(),
+                overlapping_edges[i].end(),
+                [](const std::pair<std::pair<int, int>, int>& edge1,
+                   const std::pair<std::pair<int, int>, int>& edge2) {
+                  return edge1.second > edge2.second;
+                });
+
+      std::set<image_t> overlapping_image_ids;
+      for (const auto& edge : overlapping_edges[i]) {
+        if (labels.at(edge.first.first) == i) {
+          const image_t image_id = edge.first.second;
+          if (overlapping_image_ids.insert(image_id).second) {
+            child_overlap_anchor[i][image_id] = edge.first.first;
+          }
+        } else {
+          const image_t image_id = edge.first.first;
+          if (overlapping_image_ids.insert(image_id).second) {
+            child_overlap_anchor[i][image_id] = edge.first.second;
+          }
+        }
+        if (overlapping_image_ids.size() >=
+            static_cast<size_t>(options_.image_overlap)) {
+          break;
+        }
+      }
+
+      cluster->child_clusters[i].image_ids.insert(
+          cluster->child_clusters[i].image_ids.end(),
+          overlapping_image_ids.begin(),
+          overlapping_image_ids.end());
     }
   }
 
@@ -129,8 +182,10 @@ void SceneClustering::PartitionHierarchicalCluster(
       continue;
     }
 
-    PartitionHierarchicalCluster(
-        child_edges[i], child_weights[i], &cluster->child_clusters[i]);
+    PartitionHierarchicalCluster(child_edges[i],
+                                 child_weights[i],
+                                 &cluster->child_clusters[i],
+                                 child_overlap_anchor[i]);
   }
 
   // Remove empty clusters.
@@ -148,46 +203,6 @@ void SceneClustering::PartitionHierarchicalCluster(
       cluster->image_ids.size() ==
           cluster->child_clusters[0].image_ids.size()) {
     cluster->child_clusters = {};
-  }
-
-  if (options_.image_overlap > 0) {
-    for (int i = 0; i < options_.branching; ++i) {
-      // Sort the overlapping edges by the number of inlier matches, such
-      // that we add overlapping images with many common observations.
-      std::sort(overlapping_edges[i].begin(),
-                overlapping_edges[i].end(),
-                [](const std::pair<std::pair<int, int>, int>& edge1,
-                   const std::pair<std::pair<int, int>, int>& edge2) {
-                  return edge1.second > edge2.second;
-                });
-
-      // Select overlapping edges at random and add image to cluster.
-      std::set<int> overlapping_image_ids;
-      for (const auto& edge : overlapping_edges[i]) {
-        if (labels.at(edge.first.first) == i) {
-          overlapping_image_ids.insert(edge.first.second);
-        } else {
-          overlapping_image_ids.insert(edge.first.first);
-        }
-        if (overlapping_image_ids.size() >=
-            static_cast<size_t>(options_.image_overlap)) {
-          break;
-        }
-      }
-
-      // Recursively append the overlapping images to cluster and its children.
-      std::function<void(Cluster*)> InsertOverlappingImageIds =
-          [&](Cluster* cluster) {
-            cluster->image_ids.insert(cluster->image_ids.end(),
-                                      overlapping_image_ids.begin(),
-                                      overlapping_image_ids.end());
-            for (auto& child_cluster : cluster->child_clusters) {
-              InsertOverlappingImageIds(&child_cluster);
-            }
-          };
-
-      InsertOverlappingImageIds(&cluster->child_clusters[i]);
-    }
   }
 }
 
