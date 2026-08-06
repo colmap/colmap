@@ -1292,7 +1292,7 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   // spherical one it is skipped, as in the spherical path. A default report has
   // no inliers, so the checks below then behave as a failed estimate.
   const bool has_image_plane = !camera2.IsSpherical();
-  // As in EstimateUncalibratedTwoViewGeometry.
+  // Budget the estimation as in EstimateUncalibratedTwoViewGeometry.
   auto H_ransac_options = ransac_options;
   H_ransac_options.min_inlier_ratio =
       std::max(ransac_options.min_inlier_ratio,
