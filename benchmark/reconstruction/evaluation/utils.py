@@ -802,7 +802,11 @@ def panorama_reconstruction(
         )
 
     render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
-    if render_type not in {"perspective_overlapping", "spherical"}:
+    if render_type not in {
+        "perspective_overlapping",
+        "spherical",
+        "spherical_reprojected",
+    }:
         raise ValueError(
             f"Unknown panorama reconstruction backend: "
             f"{scene_info.reconstruction_backend}"

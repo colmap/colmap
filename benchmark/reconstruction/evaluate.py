@@ -65,6 +65,7 @@ from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
 from evaluation.tartanair import (
     DatasetTartanAirPerspective,
     DatasetTartanAirSpherical,
+    DatasetTartanAirSphericalReprojected,
 )
 from evaluation.tartanair.tartanair_v2 import load_manifest
 from evaluation.utils import (
@@ -92,6 +93,7 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "imc2025": DatasetIMC2025,
         "tartanair-v2-perspective": DatasetTartanAirPerspective,
         "tartanair-v2-spherical": DatasetTartanAirSpherical,
+        "tartanair-v2-spherical-reprojected": DatasetTartanAirSphericalReprojected,
     }
 
     metrics: MetricsByDatasetByCatByScene = {}
