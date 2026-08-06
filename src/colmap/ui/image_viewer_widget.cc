@@ -29,8 +29,12 @@
 
 #include "colmap/ui/image_viewer_widget.h"
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/ui/model_viewer_widget.h"
 #include "colmap/util/file.h"
+
+#include <algorithm>
+#include <optional>
 
 namespace colmap {
 
@@ -259,6 +263,12 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
       options_(options) {
   setWindowTitle("Image information");
 
+  // Track the cursor over the image so a viewing ray for the pixel under the
+  // mouse can be drawn in the 3D model viewer.
+  graphics_view_->setMouseTracking(true);
+  graphics_view_->viewport()->setMouseTracking(true);
+  graphics_view_->viewport()->installEventFilter(this);
+
   table_widget_ = new QTableWidget(this);
   table_widget_->setColumnCount(2);
   table_widget_->setRowCount(8);
@@ -379,6 +389,95 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
 
   const auto path = *options_->image_path / image.Name();
   ReadAndShowWithKeypoints(path, keypoints, tri_mask);
+}
+
+bool DatabaseImageViewerWidget::eventFilter(QObject* watched, QEvent* event) {
+  if (watched == graphics_view_->viewport()) {
+    if (event->type() == QEvent::MouseMove) {
+      const QPointF scene_pos = graphics_view_->mapToScene(
+          static_cast<QMouseEvent*>(event)->pos());
+      UpdateHoverRay(scene_pos);
+    } else if (event->type() == QEvent::Leave) {
+      if (model_viewer_widget_ != nullptr) {
+        model_viewer_widget_->ClearHoverRay();
+      }
+    }
+  }
+  return FeatureImageViewerWidget::eventFilter(watched, event);
+}
+
+void DatabaseImageViewerWidget::UpdateHoverRay(const QPointF& scene_pos) {
+  if (model_viewer_widget_ == nullptr) {
+    return;
+  }
+  const auto image_it = model_viewer_widget_->images.find(image_id_);
+  if (image_it == model_viewer_widget_->images.end()) {
+    model_viewer_widget_->ClearHoverRay();
+    return;
+  }
+  const Image& image = image_it->second;
+  const auto camera_it = model_viewer_widget_->cameras.find(image.CameraId());
+  if (camera_it == model_viewer_widget_->cameras.end()) {
+    model_viewer_widget_->ClearHoverRay();
+    return;
+  }
+  const Camera& camera = camera_it->second;
+
+  // Scene coordinates -> original image pixel coordinates (the displayed pixmap
+  // may differ in resolution from the camera).
+  double px = scene_pos.x();
+  double py = scene_pos.y();
+  const QGraphicsPixmapItem* pixmap_item = graphics_scene_.ImagePixmapItem();
+  if (pixmap_item != nullptr && pixmap_item->pixmap().width() > 0 &&
+      pixmap_item->pixmap().height() > 0) {
+    px *= static_cast<double>(camera.width) / pixmap_item->pixmap().width();
+    py *= static_cast<double>(camera.height) / pixmap_item->pixmap().height();
+  }
+  if (px < 0 || py < 0 || px >= static_cast<double>(camera.width) ||
+      py >= static_cast<double>(camera.height)) {
+    model_viewer_widget_->ClearHoverRay();
+    return;
+  }
+
+  // Unproject the pixel to a world-space viewing ray from the camera center.
+  const std::optional<Eigen::Vector2d> cam_point =
+      camera.CamFromImg(Eigen::Vector2d(px, py));
+  if (!cam_point.has_value()) {
+    model_viewer_widget_->ClearHoverRay();
+    return;
+  }
+  Eigen::Vector3d dir_cam(cam_point->x(), cam_point->y(), 1.0);
+  dir_cam.normalize();
+  const Rigid3d world_from_cam = Inverse(image.CamFromWorld());
+  const Eigen::Vector3d origin = image.ProjectionCenter();
+  const Eigen::Vector3d dir_world = world_from_cam.rotation() * dir_cam;
+
+  // Snap the ray to the nearest observed keypoint (with a 3D point) within a
+  // small radius, so the ray lands exactly on the reconstructed point.
+  const double snap_radius =
+      0.01 * std::max(camera.width, camera.height);  // ~1% of image size
+  double best_sq_dist = snap_radius * snap_radius;
+  bool has_point3D = false;
+  Eigen::Vector3d point3D = Eigen::Vector3d::Zero();
+  const Eigen::Vector2d pixel(px, py);
+  for (const Point2D& point2D : image.Points2D()) {
+    if (!point2D.HasPoint3D()) {
+      continue;
+    }
+    const double sq_dist = (point2D.xy - pixel).squaredNorm();
+    if (sq_dist >= best_sq_dist) {
+      continue;
+    }
+    const auto p3d_it = model_viewer_widget_->points3D.find(point2D.point3D_id);
+    if (p3d_it == model_viewer_widget_->points3D.end()) {
+      continue;
+    }
+    best_sq_dist = sq_dist;
+    point3D = p3d_it->second.xyz;
+    has_point3D = true;
+  }
+
+  model_viewer_widget_->SetHoverRay(origin, dir_world, has_point3D, point3D);
 }
 
 void DatabaseImageViewerWidget::ResizeTable() {

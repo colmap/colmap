@@ -484,6 +484,14 @@ void ModelViewerWidget::paintGL() {
   image_connection_painter_.Render(pmv_matrix, width(), height(), 1);
   image_axis_painter_.Render(pmv_matrix, width(), height(), 3);
 
+  // Hover ray (from a camera center through a hovered image pixel).
+  if (hover_ray_active_) {
+    hover_ray_painter_.Render(pmv_matrix, width(), height(), 3);
+    if (hover_ray_has_point_) {
+      hover_point_painter_.Render(pmv_matrix, 15);
+    }
+  }
+
   // Movie grabber cameras
   movie_grabber_path_painter_.Render(pmv_matrix, width(), height(), 1.5);
   movie_grabber_line_painter_.Render(pmv_matrix, width(), height(), 1);
@@ -867,6 +875,60 @@ void ModelViewerWidget::ShowImageInfo(const image_t image_id) {
   image_viewer_widget_->ShowImageWithId(image_id);
 }
 
+void ModelViewerWidget::SetHoverRay(const Eigen::Vector3d& origin,
+                                    const Eigen::Vector3d& direction,
+                                    const bool has_point3D,
+                                    const Eigen::Vector3d& point3D) {
+  makeCurrent();
+
+  // Geometry in the viewer is rendered as model_scale_ * (world + model_origin_),
+  // so the ray endpoints must use the same transform.
+  const Eigen::Vector3f render_origin =
+      (model_scale_ * (origin + model_origin_)).cast<float>();
+  Eigen::Vector3f render_end;
+  if (has_point3D) {
+    render_end = (model_scale_ * (point3D + model_origin_)).cast<float>();
+  } else {
+    // Extend across the scene: uniform scale preserves the world direction.
+    const float ray_length = std::max(2.0f * render_origin.norm(), 1.0f);
+    render_end = render_origin + direction.cast<float>() * ray_length;
+  }
+
+  constexpr uint8_t kRayR = 0, kRayG = 220, kRayB = 255, kRayA = 255;  // cyan
+  hover_ray_painter_.Upload({LinePainter::Data(
+      PointPainter::Data(render_origin.x(),
+                         render_origin.y(),
+                         render_origin.z(),
+                         kRayR,
+                         kRayG,
+                         kRayB,
+                         kRayA),
+      PointPainter::Data(
+          render_end.x(), render_end.y(), render_end.z(), kRayR, kRayG, kRayB,
+          kRayA))});
+
+  hover_ray_has_point_ = has_point3D;
+  if (has_point3D) {
+    hover_point_painter_.Upload({PointPainter::Data(
+        render_end.x(), render_end.y(), render_end.z(), 255, 255, 0, 255)});
+  }
+
+  hover_ray_active_ = true;
+  update();
+}
+
+void ModelViewerWidget::ClearHoverRay() {
+  if (!hover_ray_active_) {
+    return;
+  }
+  makeCurrent();
+  hover_ray_painter_.Upload({});
+  hover_point_painter_.Upload({});
+  hover_ray_active_ = false;
+  hover_ray_has_point_ = false;
+  update();
+}
+
 float ModelViewerWidget::PointSize() const { return point_size_; }
 
 float ModelViewerWidget::ImageSize() const { return image_size_; }
@@ -957,6 +1019,9 @@ void ModelViewerWidget::SetupPainters() {
   image_triangle_painter_.Setup();
   image_connection_painter_.Setup();
   image_axis_painter_.Setup();
+
+  hover_ray_painter_.Setup();
+  hover_point_painter_.Setup();
 
   movie_grabber_path_painter_.Setup();
   movie_grabber_line_painter_.Setup();

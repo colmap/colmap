@@ -120,6 +120,16 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   void SetBackgroundColor(float r, float g, float b);
 
+  // Draw a viewing ray from a camera center through a hovered image pixel.
+  // `origin` and `direction` (unit) are in world coordinates. If `has_point3D`,
+  // the ray ends at `point3D` and that point is highlighted; otherwise the ray
+  // extends across the scene along `direction`.
+  void SetHoverRay(const Eigen::Vector3d& origin,
+                   const Eigen::Vector3d& direction,
+                   bool has_point3D,
+                   const Eigen::Vector3d& point3D);
+  void ClearHoverRay();
+
   // Copy of current scene data that is displayed
   std::shared_ptr<Reconstruction> reconstruction;
   NodeHashMap<rig_t, Rig> rigs;
@@ -190,6 +200,11 @@ class ModelViewerWidget : public QOpenGLWidget,
   LinePainter image_connection_painter_;
   // Thicker overlay lines for spherical cameras (image-center indicators).
   LinePainter image_axis_painter_;
+
+  LinePainter hover_ray_painter_;
+  PointPainter hover_point_painter_;
+  bool hover_ray_active_ = false;
+  bool hover_ray_has_point_ = false;
 
   LinePainter movie_grabber_path_painter_;
   LinePainter movie_grabber_line_painter_;
