@@ -21,14 +21,25 @@ class CasparBundleAdjuster : public BundleAdjuster {
                        BundleAdjustmentConfig config,
                        Reconstruction& reconstruction)
       : BundleAdjuster(options, config), reconstruction_(reconstruction) {
-    VLOG(1) << "Using Caspar bundle adjuster";
+    VLOG(2) << "Creating Caspar bundle adjuster";
 
+    LogUnsupportedOptions();
     BuildObservationCounts();
     FixGauge();
     BuildFactors();
   }
 
  private:
+  void LogUnsupportedOptions() const {
+    if (options_.refine_rig_from_world &&
+        options_.constant_rig_from_world_rotation) {
+      LOG(ERROR)
+          << "Caspar does not support constant_rig_from_world_rotation=true. "
+             "The option will be ignored and eligible rig rotations will be "
+             "refined.";
+    }
+  }
+
   ICasparModelAdapter* GetAdapter(const CameraModelId model_id) {
     auto it = adapters_.find(model_id);
     if (it != adapters_.end()) {
@@ -59,7 +70,8 @@ class CasparBundleAdjuster : public BundleAdjuster {
       }
       for (const Point2D& point2D : image.Points2D()) {
         if (!point2D.HasPoint3D() ||
-            config_.IsIgnoredPoint(point2D.point3D_id)) {
+            config_.IsIgnoredPoint(point2D.point3D_id) ||
+            !HasSufficientTrackLength(point2D.point3D_id)) {
           continue;
         }
         point3D_num_observations_[point2D.point3D_id]++;
@@ -74,6 +86,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   void CountExternalObservations(const point3D_t point3D_id) {
+    if (!HasSufficientTrackLength(point3D_id)) {
+      return;
+    }
     const Point3D& point3D = reconstruction_.Point3D(point3D_id);
     for (const auto& track_el : point3D.track.Elements()) {
       if (!config_.HasImage(track_el.image_id)) {
@@ -225,6 +240,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
   void AddFactorsForExternalObservations(const point3D_t point3D_id) {
     THROW_CHECK(!config_.IsIgnoredPoint(point3D_id));
+    if (!HasSufficientTrackLength(point3D_id)) {
+      return;
+    }
     Point3D& point3D = reconstruction_.Point3D(point3D_id);
     GetOrCreatePoint(point3D_id, point3D);
 
@@ -461,13 +479,20 @@ class CasparBundleAdjuster : public BundleAdjuster {
   }
 
   bool IsPointVariable(const point3D_t point3D_id) const {
-    if (config_.HasConstantPoint(point3D_id) ||
+    if (!options_.refine_points3D || config_.HasConstantPoint(point3D_id) ||
         gauge_fixed_points_.count(point3D_id)) {
       return false;
     }
     const auto it = point3D_num_observations_.find(point3D_id);
     return it != point3D_num_observations_.end() &&
            reconstruction_.Point3D(point3D_id).track.Length() <= it->second;
+  }
+
+  bool HasSufficientTrackLength(const point3D_t point3D_id) const {
+    return options_.min_track_length <= 0 ||
+           static_cast<int>(
+               reconstruction_.Point3D(point3D_id).track.Length()) >=
+               options_.min_track_length;
   }
 
   void FixGauge() {
