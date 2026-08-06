@@ -35,6 +35,14 @@
 namespace colmap {
 
 struct WarpImageOptions {
+  enum class Interpolation {
+    kNearestNeighbor,
+    kBilinear,
+  };
+
+  // Interpolation method for sampling the source image.
+  Interpolation interpolation = Interpolation::kBilinear;
+
   // Minimum target-to-source dimension ratio for warping directly at target
   // resolution. Smaller ratios warp at source resolution and resize the result
   // to avoid aliasing.
