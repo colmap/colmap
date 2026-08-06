@@ -928,8 +928,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  // As above. The competing model depends on the branch taken below, so the
-  // smaller inlier count is the lowest bar the homography might have to clear.
+  // Budget the estimation as above. The competing model depends on the branch 
+  // taken below so the homography must reach the smallest count of the two.
   auto H_ransac_options = ransac_options;
   H_ransac_options.min_inlier_ratio = std::max(
       ransac_options.min_inlier_ratio,
