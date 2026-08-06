@@ -229,8 +229,8 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Estimate planar or panoramic model.
 
-  // Budget the search for the ratio the homography must beat to be selected
-  // below, since a weaker one is discarded anyway.
+  // Budget the search for the inlier ratio that the homography must reach
+  // to be selected below, since a weaker one is discarded anyway.
   auto H_ransac_options = options.ransac_options;
   H_ransac_options.min_inlier_ratio =
       std::max(options.ransac_options.min_inlier_ratio,
