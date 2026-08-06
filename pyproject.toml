@@ -33,6 +33,9 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
 ]
 
+[project.optional-dependencies]
+panorama = ["opencv-python-headless", "pillow", "tqdm"]
+
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
 cmake.source-dir = "python/"
@@ -41,7 +44,9 @@ wheel.packages = ["python/pycolmap"]
 [tool.cibuildwheel]
 build = "cp3{10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
-test-requires = "pytest>=8.0 mypy==2.1.0 enlighten==1.14.1"
+# pillow and requests are imported by the TartanAir packaging script, whose
+# tests are otherwise silently skipped.
+test-requires = "pytest>=8.0 mypy==2.1.0 enlighten==1.14.1 pillow requests"
 test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
@@ -65,6 +70,8 @@ test-command = "pwsh -File {project}/python/ci/test-colmap-windows.ps1"
 # Skip mypy on source files for Python 3.10. There's a bug in numpy's type
 # annotations that was fixed in version 2.3.0, but numpy stopped shipping
 # wheels for Python 3.10 in 2.3.0. This causes mypy to fail.
+# TODO: remove once support for Python 3.10 is dropped after its EOL in
+# October 2026.
 [[tool.cibuildwheel.overrides]]
 select = "cp310-{macosx,manylinux}*"
 test-command = """\

@@ -13,6 +13,11 @@ are visualized in red and reconstructed points in their average point color
 extracted from the images. The viewer can also visualize dense point clouds
 produced from Multi-View Stereo.
 
+For lightweight, read-only inspection of binary sparse models in a web browser,
+see the :doc:`3D Viewer <viewer>`. It provides the same core model-view controls
+and visual conventions as the native viewer, but not the GUI's reconstruction,
+editing, dense visualization, or advanced rendering functionality.
+
 
 Model Viewer Controls
 ---------------------

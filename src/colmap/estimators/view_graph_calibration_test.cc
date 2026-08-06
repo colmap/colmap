@@ -43,8 +43,6 @@ namespace colmap {
 namespace {
 
 TEST(CalibrateViewGraph, Nominal) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -98,8 +96,6 @@ TEST(CalibrateViewGraph, Nominal) {
 }
 
 TEST(CalibrateViewGraph, PriorFocalLength) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -132,8 +128,6 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
 }
 
 TEST(CalibrateViewGraph, ConfigTagging) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -175,8 +169,6 @@ TEST(CalibrateViewGraph, ConfigTagging) {
 }
 
 TEST(CalibrateViewGraph, RelativePoseReestimation) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   SyntheticDatasetOptions options;
@@ -242,8 +234,6 @@ TEST(CalibrateViewGraph, RelativePoseReestimation) {
 }
 
 TEST(CalibrateViewGraph, SphericalCamerasAreIgnored) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   // Spherical (omnidirectional) cameras have no focal length and produce
@@ -285,6 +275,45 @@ TEST(CalibrateViewGraph, SphericalCamerasAreIgnored) {
     EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     EXPECT_TRUE(tvg.E.has_value());
     EXPECT_FALSE(tvg.F.has_value());
+  }
+}
+
+TEST(CalibrateViewGraph, FisheyeCamerasAreIgnored) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  // A fisheye camera projects angularly, so its focal length cannot be
+  // recovered from a fundamental matrix. View graph calibration must skip it
+  // entirely, leaving both its parameters and its focal length prior flag
+  // untouched, rather than reporting a focal length it never optimized.
+  SyntheticDatasetOptions options;
+  options.num_rigs = 10;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 200;
+  options.camera_model_id = OpenCVFisheyeCameraModel::model_id;
+  options.camera_params = {1280, 1280, 512, 384, 0, 0, 0, 0};
+  options.camera_has_prior_focal_length = false;
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  // Store original camera parameters to verify they remain untouched.
+  NodeHashMap<camera_t, std::vector<double>> original_params;
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    original_params[camera_id] = camera.params;
+  }
+
+  ViewGraphCalibrationOptions calib_options;
+  calib_options.reestimate_relative_pose = false;
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+
+  for (const auto& [camera_id, params] : original_params) {
+    const Camera camera = database->ReadCamera(camera_id);
+    ASSERT_TRUE(camera.IsPerspectiveFisheye());
+    EXPECT_EQ(camera.params, params);
+    // Never calibrated, so it must not be marked as having a prior focal
+    // length, which would make downstream stages trust an unestimated value.
+    EXPECT_FALSE(camera.has_prior_focal_length);
   }
 }
 

@@ -44,16 +44,24 @@ namespace colmap {
 // Both images are assumed to share a single unknown focal length, e.g. two
 // images captured by the same camera without a reliable focal-length prior.
 //
-// The shared focal is ill-conditioned when the two optical axes are coplanar,
-// i.e. intersecting or parallel (turntable or object-scan capture): the known
-// singularity of two-view focal recovery (Bougnoux 1998; Kocur et al., CVPR
-// 2024). The essential matrix stays well constrained there, but the focal does
-// not.
+// Two-view focal recovery is singular for coplanar optical axes, i.e. axes that
+// intersect or are parallel, in the general case of two independent unknown
+// focals:
 //
-// FocalIdentifiability() scores how far a recovered pose is from this singular
-// configuration, so callers can detect and reject an unreliable focal. The
-// references characterize the condition but give no such measure; the score and
-// its threshold are heuristic.
+//    S. Bougnoux, From projective to Euclidean space under any practical
+//    situation, a criticism of self-calibration, ICCV, 1998.
+//
+// For a single shared focal, coplanar axes alone are not singular. They are
+// singular only if the axes are additionally parallel, or intersect with the
+// camera centers equidistant from the point of intersection, following p. 5 of:
+//
+//    H. Stewenius, D. Nister, F. Kahl, F. Schaffalitzky, A minimal solution for
+//    relative pose with unknown focal length,
+//    Image and Vision Computing, 26(7), 2008.
+//
+// IsFocalIdentifiable() tests a recovered pose against the singular family, so
+// callers can reject an unreliable focal. Neither reference gives a measure of
+// distance from it, so the scores and thresholds behind the test are heuristic.
 //
 // Inputs (X_t/Y_t) are principal-point-centered image points (u - cx, v - cy),
 // not calibrated rays. The estimated model bundles the calibrated essential
@@ -105,17 +113,11 @@ class RelativePoseSharedFocalEstimator {
                         const M_t& model,
                         std::vector<double>* residuals);
 
-  // Score in [0, 1]: |b . (a1 x a2)| for unit optical axes a1 = e_z,
-  // a2 = R^T e_z and unit baseline b = (-R^T t).normalized(). Zero iff the axes
-  // are coplanar, approaching 1 for skew axes; a zero baseline returns 0.
-  static double FocalIdentifiability(const Rigid3d& cam2_from_cam1);
-
-  // Minimum FocalIdentifiability() score for the recovered focal to be treated
-  // as reliable. It rejects near-coplanar optical axes (turntable/object-scan
-  // capture), where two-view focal recovery is ill-conditioned, while admitting
-  // clearly skew configurations that constrain the focal. The value 0.05 was
-  // chosen empirically and works reasonably in practice.
-  static constexpr double kMinFocalIdentifiability = 0.05;
+  // Whether the focal recovered for the given pose should be treated as
+  // reliable, i.e. whether the pose is clear of the singular family described
+  // above. Tested as two predicates: the axes are sufficiently skew, or,
+  // failing that, sufficiently far from isosceles.
+  static bool IsFocalIdentifiable(const Rigid3d& cam2_from_cam1);
 };
 
 }  // namespace colmap

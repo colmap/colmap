@@ -126,7 +126,7 @@ bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
     }                                                                     \
   }
 
-    FISHEYE_CAMERA_MODEL_CASES
+    PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES
     default:
       throw std::domain_error(
           "Camera model does not exist or is not a fisheye camera");
@@ -274,7 +274,7 @@ void TestModel(const std::vector<double>& params) {
   int num_ceres_tests_ran = 0;
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
-      if (CameraModelIsFisheye(CameraModel::model_id) &&
+      if (CameraModelIsPerspectiveFisheye(CameraModel::model_id) &&
           !FisheyeCameraModelIsValidPixel(
               CameraModel::model_id, params, Eigen::Vector2d(x, y))) {
         continue;

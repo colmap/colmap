@@ -41,7 +41,6 @@ namespace colmap {
 namespace {
 
 TEST(QuaternionLeftMultMatrix, Nominal) {
-  SetPRNGSeed(42);
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
@@ -73,7 +72,6 @@ TEST(QuaternionLeftMultMatrix, Nominal) {
 }
 
 TEST(QuaternionRightMultMatrix, Nominal) {
-  SetPRNGSeed(42);
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
@@ -105,7 +103,6 @@ TEST(QuaternionRightMultMatrix, Nominal) {
 }
 
 TEST(QuaternionRotatePointWithJac, Nominal) {
-  SetPRNGSeed(42);
   constexpr double kEps = 1e-7;
 
   for (int i = 0; i < 100; ++i) {
@@ -136,7 +133,6 @@ TEST(QuaternionRotatePointWithJac, Nominal) {
 }
 
 TEST(EigenQuaternionAngleAxis, Roundtrip) {
-  SetPRNGSeed(42);
   for (int i = 0; i < 100; ++i) {
     const Eigen::Quaterniond q = RandomEigenQuaterniond();
     const double q_arr[4] = {q.x(), q.y(), q.z(), q.w()};

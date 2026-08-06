@@ -30,6 +30,7 @@
 #include "colmap/util/cudacc.h"
 
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 
 namespace colmap {
 
@@ -64,7 +65,7 @@ void CudaSafeCall(const cudaError_t error,
 }
 
 void CudaCheck(const char* file, const int line) {
-  const cudaError error = cudaGetLastError();
+  const cudaError_t error = cudaGetLastError();
   while (error != cudaSuccess) {
     LOG(FATAL_THROW) << StringPrintf(
         "CUDA error at %s:%i - %s", file, line, cudaGetErrorString(error));
@@ -73,7 +74,7 @@ void CudaCheck(const char* file, const int line) {
 
 void CudaSyncAndCheck(const char* file, const int line) {
   // Synchronizes the default stream which is a nullptr.
-  const cudaError error = cudaStreamSynchronize(nullptr);
+  const cudaError_t error = cudaStreamSynchronize(nullptr);
   if (cudaSuccess != error) {
     LOG(FATAL_THROW)
         << StringPrintf("CUDA error at %s:%i - %s",

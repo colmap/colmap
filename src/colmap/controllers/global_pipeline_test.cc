@@ -82,8 +82,6 @@ TEST(GlobalPipeline, Nominal) {
 }
 
 TEST(GlobalPipeline, SfMWithRandomSeedStability) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -174,7 +172,6 @@ TEST(GlobalPipeline, WithExistingRelativePoses) {
 
 // To test relative pose re-estimation from view graph calibration.
 TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
-  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
