@@ -183,6 +183,38 @@ TEST(Warp, DirectWarpMinScale) {
                                            &default_image));
 }
 
+TEST(Warp, Interpolation) {
+  const Camera source_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 4, 4, 4);
+  Camera target_camera = source_camera;
+  target_camera.SetPrincipalPointX(1.5);
+
+  Bitmap source_image(4, 4, /*as_rgb=*/false);
+  for (int y = 0; y < source_image.Height(); ++y) {
+    source_image.SetPixel(0, y, BitmapColor<uint8_t>(0));
+    source_image.SetPixel(1, y, BitmapColor<uint8_t>(100));
+  }
+
+  WarpImageOptions options;
+  Bitmap bilinear_image;
+  WarpImageBetweenCameras(
+      options, source_camera, target_camera, source_image, &bilinear_image);
+  ASSERT_TRUE(bilinear_image.GetPixel(0, 0).has_value());
+  EXPECT_EQ(bilinear_image.GetPixel(0, 0)->r, 50);
+
+  options.interpolation = WarpImageOptions::Interpolation::kNearestNeighbor;
+  Bitmap nearest_image;
+  WarpImageBetweenCameras(
+      options, source_camera, target_camera, source_image, &nearest_image);
+  ASSERT_TRUE(nearest_image.GetPixel(0, 0).has_value());
+  EXPECT_EQ(nearest_image.GetPixel(0, 0)->r, 100);
+
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+  options.interpolation = static_cast<WarpImageOptions::Interpolation>(-1);
+  EXPECT_ANY_THROW(WarpImageBetweenCameras(
+      options, source_camera, target_camera, source_image, &nearest_image));
+}
+
 TEST(Warp, ShiftedCameras) {
   const Camera source_camera =
       Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 100, 100);
@@ -318,6 +350,51 @@ TEST(Warp, HomographyDirectWarpMinScale) {
                                             target_camera,
                                             source_image,
                                             &default_image));
+}
+
+TEST(Warp, HomographyInterpolation) {
+  const Camera source_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 4, 4, 4);
+  Camera target_camera = source_camera;
+  target_camera.SetPrincipalPointX(1.5);
+
+  Bitmap source_image(4, 4, /*as_rgb=*/false);
+  for (int y = 0; y < source_image.Height(); ++y) {
+    source_image.SetPixel(0, y, BitmapColor<uint8_t>(0));
+    source_image.SetPixel(1, y, BitmapColor<uint8_t>(100));
+  }
+
+  WarpImageOptions options;
+  Bitmap bilinear_image;
+  WarpImageWithHomographyBetweenCameras(options,
+                                        Eigen::Matrix3d::Identity(),
+                                        source_camera,
+                                        target_camera,
+                                        source_image,
+                                        &bilinear_image);
+  ASSERT_TRUE(bilinear_image.GetPixel(0, 0).has_value());
+  EXPECT_EQ(bilinear_image.GetPixel(0, 0)->r, 50);
+
+  options.interpolation = WarpImageOptions::Interpolation::kNearestNeighbor;
+  Bitmap nearest_image;
+  WarpImageWithHomographyBetweenCameras(options,
+                                        Eigen::Matrix3d::Identity(),
+                                        source_camera,
+                                        target_camera,
+                                        source_image,
+                                        &nearest_image);
+  ASSERT_TRUE(nearest_image.GetPixel(0, 0).has_value());
+  EXPECT_EQ(nearest_image.GetPixel(0, 0)->r, 100);
+
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
+  options.interpolation = static_cast<WarpImageOptions::Interpolation>(-1);
+  EXPECT_ANY_THROW(
+      WarpImageWithHomographyBetweenCameras(options,
+                                            Eigen::Matrix3d::Identity(),
+                                            source_camera,
+                                            target_camera,
+                                            source_image,
+                                            &nearest_image));
 }
 
 TEST(Warp, WarpImageWithHomographyBetweenCamerasTransposed) {

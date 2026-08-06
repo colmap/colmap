@@ -143,8 +143,9 @@ bool SimplePinholeCameraModel::ImgFromCamWithJac(const double* params,
                                                  double* x,
                                                  double* y,
                                                  double* J_params,
-                                                 double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                                 double* J_uvw,
+                                                 const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -192,8 +193,9 @@ bool PinholeCameraModel::ImgFromCamWithJac(const double* params,
                                            double* x,
                                            double* y,
                                            double* J_params,
-                                           double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                           double* J_uvw,
+                                           const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -243,8 +245,9 @@ bool SimpleRadialCameraModel::ImgFromCamWithJac(const double* params,
                                                 double* x,
                                                 double* y,
                                                 double* J_params,
-                                                double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                                double* J_uvw,
+                                                const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -324,8 +327,9 @@ bool RadialCameraModel::ImgFromCamWithJac(const double* params,
                                           double* x,
                                           double* y,
                                           double* J_params,
-                                          double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                          double* J_uvw,
+                                          const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -401,8 +405,9 @@ bool OpenCVCameraModel::ImgFromCamWithJac(const double* params,
                                           double* x,
                                           double* y,
                                           double* J_params,
-                                          double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                          double* J_uvw,
+                                          const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -497,8 +502,9 @@ bool FullOpenCVCameraModel::ImgFromCamWithJac(const double* params,
                                               double* x,
                                               double* y,
                                               double* J_params,
-                                              double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                              double* J_uvw,
+                                              const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -625,8 +631,9 @@ bool FOVCameraModel::ImgFromCamWithJac(const double* params,
                                        double* x,
                                        double* y,
                                        double* J_params,
-                                       double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                       double* J_uvw,
+                                       const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -716,15 +723,17 @@ bool FOVCameraModel::ImgFromCamWithJac(const double* params,
 }
 
 template <bool Enable, typename std::enable_if<Enable, int>::type>
-bool SimpleRadialFisheyeCameraModel::ImgFromCamWithJac(const double* params,
-                                                       const double& u,
-                                                       const double& v,
-                                                       const double& w,
-                                                       double* x,
-                                                       double* y,
-                                                       double* J_params,
-                                                       double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+bool SimpleRadialFisheyeCameraModel::ImgFromCamWithJac(
+    const double* params,
+    const double& u,
+    const double& v,
+    const double& w,
+    double* x,
+    double* y,
+    double* J_params,
+    double* J_uvw,
+    const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -788,8 +797,9 @@ bool RadialFisheyeCameraModel::ImgFromCamWithJac(const double* params,
                                                  double* x,
                                                  double* y,
                                                  double* J_params,
-                                                 double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                                 double* J_uvw,
+                                                 const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -856,8 +866,9 @@ bool OpenCVFisheyeCameraModel::ImgFromCamWithJac(const double* params,
                                                  double* x,
                                                  double* y,
                                                  double* J_params,
-                                                 double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                                 double* J_uvw,
+                                                 const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -930,15 +941,17 @@ bool OpenCVFisheyeCameraModel::ImgFromCamWithJac(const double* params,
 }
 
 template <bool Enable, typename std::enable_if<Enable, int>::type>
-bool ThinPrismFisheyeCameraModel::ImgFromCamWithJac(const double* params,
-                                                    const double& u,
-                                                    const double& v,
-                                                    const double& w,
-                                                    double* x,
-                                                    double* y,
-                                                    double* J_params,
-                                                    double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+bool ThinPrismFisheyeCameraModel::ImgFromCamWithJac(
+    const double* params,
+    const double& u,
+    const double& v,
+    const double& w,
+    double* x,
+    double* y,
+    double* J_params,
+    double* J_uvw,
+    const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1033,15 +1046,17 @@ bool ThinPrismFisheyeCameraModel::ImgFromCamWithJac(const double* params,
 }
 
 template <bool Enable, typename std::enable_if<Enable, int>::type>
-bool RadTanThinPrismFisheyeModel::ImgFromCamWithJac(const double* params,
-                                                    const double& u,
-                                                    const double& v,
-                                                    const double& w,
-                                                    double* x,
-                                                    double* y,
-                                                    double* J_params,
-                                                    double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+bool RadTanThinPrismFisheyeModel::ImgFromCamWithJac(
+    const double* params,
+    const double& u,
+    const double& v,
+    const double& w,
+    double* x,
+    double* y,
+    double* J_params,
+    double* J_uvw,
+    const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1179,8 +1194,9 @@ bool SimpleFisheyeCameraModel::ImgFromCamWithJac(const double* params,
                                                  double* x,
                                                  double* y,
                                                  double* J_params,
-                                                 double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                                 double* J_uvw,
+                                                 const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1226,8 +1242,9 @@ bool FisheyeCameraModel::ImgFromCamWithJac(const double* params,
                                            double* x,
                                            double* y,
                                            double* J_params,
-                                           double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                           double* J_uvw,
+                                           const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1271,14 +1288,16 @@ bool FisheyeCameraModel::ImgFromCamWithJac(const double* params,
 }
 
 template <bool Enable, typename std::enable_if<Enable, int>::type>
-bool SimpleDivisionCameraModel::ImgFromCamWithJac(const double* params,
-                                                  const double& u,
-                                                  const double& v,
-                                                  const double& w,
-                                                  double* x,
-                                                  double* y,
-                                                  double* J_params,
-                                                  double* J_uvw) {
+bool SimpleDivisionCameraModel::ImgFromCamWithJac(
+    const double* params,
+    const double& u,
+    const double& v,
+    const double& w,
+    double* x,
+    double* y,
+    double* J_params,
+    double* J_uvw,
+    const bool /*check_cheirality*/) {
   const double f = params[0];
   const double c1 = params[1];
   const double c2 = params[2];
@@ -1336,7 +1355,8 @@ bool DivisionCameraModel::ImgFromCamWithJac(const double* params,
                                             double* x,
                                             double* y,
                                             double* J_params,
-                                            double* J_uvw) {
+                                            double* J_uvw,
+                                            const bool /*check_cheirality*/) {
   const double f1 = params[0];
   const double f2 = params[1];
   const double c1 = params[2];
@@ -1397,8 +1417,9 @@ bool EUCMCameraModel::ImgFromCamWithJac(const double* params,
                                         double* x,
                                         double* y,
                                         double* J_params,
-                                        double* J_uvw) {
-  if (w < std::numeric_limits<double>::epsilon()) {
+                                        double* J_uvw,
+                                        const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }
 
@@ -1416,7 +1437,7 @@ bool EUCMCameraModel::ImgFromCamWithJac(const double* params,
   }
   const double rho = std::sqrt(rho2);
   const double den = alpha * rho + (1.0 - alpha) * w;
-  if (den < std::numeric_limits<double>::epsilon()) {
+  if (!HasProjectableDepth(den, check_cheirality)) {
     return false;
   }
 
@@ -1478,14 +1499,16 @@ bool EUCMCameraModel::ImgFromCamWithJac(const double* params,
 }
 
 template <bool Enable, typename std::enable_if<Enable, int>::type>
-bool EquirectangularCameraModel::ImgFromCamWithJac(const double* params,
-                                                   const double& u,
-                                                   const double& v,
-                                                   const double& w,
-                                                   double* x,
-                                                   double* y,
-                                                   double* J_params,
-                                                   double* J_uvw) {
+bool EquirectangularCameraModel::ImgFromCamWithJac(
+    const double* params,
+    const double& u,
+    const double& v,
+    const double& w,
+    double* x,
+    double* y,
+    double* J_params,
+    double* J_uvw,
+    const bool /*check_cheirality*/) {
   const double width = params[0];
   const double height = params[1];
 

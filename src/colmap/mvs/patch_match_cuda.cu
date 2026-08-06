@@ -423,11 +423,10 @@ struct LocalRefImage {
 // so out-of-range point samples reproduce the border blend. __GFX9__ is a
 // per-architecture device macro, so a fat binary still uses the hardware path
 // for its non-gfx9 (e.g. RDNA) device code.
-__device__ inline float SampleLayeredBilinear(
-    const cudaTextureObject_t texture,
-    const float x,
-    const float y,
-    const int layer) {
+__device__ inline float SampleLayeredBilinear(const cudaTextureObject_t texture,
+                                              const float x,
+                                              const float y,
+                                              const int layer) {
   const float px = x - 0.5f;
   const float py = y - 0.5f;
   const float fx = floorf(px);
@@ -1634,7 +1633,8 @@ void PatchMatchCuda::InitSourceImages() {
     // Detect the actual device at runtime (so a binary built for several
     // architectures still picks the right path per GPU) and fall back to point
     // filtering there; the gfx9 device code emulates bilinear filtering in the
-    // kernel (see SampleLayeredBilinear). Non-gfx9 GPUs keep hardware filtering.
+    // kernel (see SampleLayeredBilinear). Non-gfx9 GPUs keep hardware
+    // filtering.
     int device = 0;
     CUDA_SAFE_CALL(cudaGetDevice(&device));
     cudaDeviceProp device_prop;
