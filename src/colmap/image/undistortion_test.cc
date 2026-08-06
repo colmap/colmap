@@ -33,11 +33,48 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/logging.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+uint64_t TotalAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  const std::vector<uint8_t>& data1 = bitmap1.RowMajorData();
+  const std::vector<uint8_t>& data2 = bitmap2.RowMajorData();
+  THROW_CHECK_EQ(data1.size(), data2.size());
+  uint64_t total_absolute_difference = 0;
+  for (size_t i = 0; i < data1.size(); ++i) {
+    total_absolute_difference +=
+        std::abs(static_cast<int>(data1[i]) - static_cast<int>(data2[i]));
+  }
+  return total_absolute_difference;
+}
+
+double MeanAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  THROW_CHECK_GT(bitmap1.RowMajorData().size(), 0);
+  return static_cast<double>(TotalAbsoluteDifference(bitmap1, bitmap2)) /
+         bitmap1.RowMajorData().size();
+}
+
+int MaxAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  const std::vector<uint8_t>& data1 = bitmap1.RowMajorData();
+  const std::vector<uint8_t>& data2 = bitmap2.RowMajorData();
+  THROW_CHECK_EQ(data1.size(), data2.size());
+  int max_absolute_difference = 0;
+  for (size_t i = 0; i < data1.size(); ++i) {
+    max_absolute_difference = std::max(
+        max_absolute_difference,
+        std::abs(static_cast<int>(data1[i]) - static_cast<int>(data2[i])));
+  }
+  return max_absolute_difference;
+}
 
 TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
@@ -223,6 +260,58 @@ TEST(UndistortCamera, NoBlankPixels) {
       ASSERT_NE(color->b, 0);
     }
   }
+}
+
+TEST(UndistortImage, WarpOptions) {
+  Camera distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
+
+  Bitmap distorted_image(100, 100, true);
+  for (int y = 0; y < distorted_image.Height(); ++y) {
+    for (int x = 0; x < distorted_image.Width(); ++x) {
+      distorted_image.SetPixel(
+          x,
+          y,
+          BitmapColor<uint8_t>(static_cast<uint8_t>(x),
+                               static_cast<uint8_t>(y),
+                               static_cast<uint8_t>((x + y) / 2)));
+    }
+  }
+
+  UndistortCameraOptions options;
+  Bitmap direct_image;
+  Camera direct_camera;
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &direct_image,
+                 &direct_camera);
+  const double direct_scale =
+      std::min(static_cast<double>(direct_camera.width) /
+                   static_cast<double>(distorted_camera.width),
+               static_cast<double>(direct_camera.height) /
+                   static_cast<double>(distorted_camera.height));
+  ASSERT_GE(direct_scale, options.warp_options.direct_warp_min_scale);
+
+  options.warp_options.direct_warp_min_scale = 1.0;
+  Bitmap resized_image;
+  Camera resized_camera;
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &resized_image,
+                 &resized_camera);
+
+  EXPECT_EQ(direct_camera, resized_camera);
+  EXPECT_EQ(direct_image.Width(), resized_image.Width());
+  EXPECT_EQ(direct_image.Height(), resized_image.Height());
+  EXPECT_NE(direct_image.RowMajorData(), resized_image.RowMajorData());
+
+  // The extra resize changes rounding, but not by a perceptible amount for
+  // smooth image content.
+  EXPECT_LT(MeanAbsoluteDifference(direct_image, resized_image), 0.5);
+  EXPECT_LE(MaxAbsoluteDifference(direct_image, resized_image), 1);
 }
 
 TEST(UndistortReconstruction, Nominal) {
