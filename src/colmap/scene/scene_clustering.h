@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/scene/database_cache.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <memory>
@@ -84,7 +85,8 @@ class SceneClustering {
   void PartitionHierarchicalCluster(
       const std::vector<std::pair<int, int>>& edges,
       const std::vector<int>& weights,
-      Cluster* cluster);
+      Cluster* cluster,
+      const NodeHashMap<image_t, image_t>& overlap_anchor = {});
 
   void PartitionFlatCluster(const std::vector<std::pair<int, int>>& edges,
                             const std::vector<int>& weights);
