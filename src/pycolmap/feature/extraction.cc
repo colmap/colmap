@@ -2,6 +2,7 @@
 #include "colmap/feature/sift.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #endif
 
 #include "pycolmap/helpers.h"
@@ -200,6 +201,53 @@ void BindFeatureExtraction(py::module& m) {
                          "extractor.")
           .def("check", &AlikedExtractionOptions::Check);
   MakeDataclass(PyAlikedExtractionOptions);
+
+  auto PyLomaExtractionOptions =
+      py::classh<LomaExtractionOptions>(m, "LomaExtractionOptions")
+          .def(py::init<>())
+          .def_readwrite("max_num_features",
+                         &LomaExtractionOptions::max_num_features,
+                         "Number of keypoints to detect. Recommended is to "
+                         "use either 2048 or 4096.")
+          .def_readwrite("min_score",
+                         &LomaExtractionOptions::min_score,
+                         "Minimum score threshold for keypoint detection.")
+          .def_readwrite("descriptor_size",
+                         &LomaExtractionOptions::descriptor_size,
+                         "Internal descriptor dimension. Do not change: the "
+                         "ONNX graph is exported with a fixed descriptor "
+                         "dimension.")
+          .def_readwrite("use_bf16",
+                         &LomaExtractionOptions::use_bf16,
+                         "Whether to use the bf16 descriptor variant (only "
+                         "affects LOMA_B; a no-op for LOMA_B128, which has "
+                         "no DINO backbone to cast).")
+          .def_readwrite("use_fast_resize",
+                         &LomaExtractionOptions::use_fast_resize,
+                         "Whether to downsize each image to the "
+                         "descriptor's fixed input resolution with a fast "
+                         "bilinear resample instead of a higher-quality "
+                         "filtered resize. ~2-3x faster on high-resolution "
+                         "images, at a small AUC cost visible only at the "
+                         "tightest rotation-error thresholds.")
+          .def_readwrite("detector_model_path",
+                         &LomaExtractionOptions::detector_model_path,
+                         "Path to the ONNX model file for the LoMa detector "
+                         "(shared across all variants).")
+          .def_readwrite(
+              "descriptor_model_path",
+              &LomaExtractionOptions::descriptor_model_path,
+              "Path to the fp32 ONNX model file for the LOMA_B descriptor.")
+          .def_readwrite(
+              "descriptor_model_path_bf16",
+              &LomaExtractionOptions::descriptor_model_path_bf16,
+              "Path to the bf16 ONNX model file for the LOMA_B descriptor.")
+          .def_readwrite(
+              "descriptor_b128_model_path",
+              &LomaExtractionOptions::descriptor_b128_model_path,
+              "Path to the ONNX model file for the LOMA_B128 descriptor.")
+          .def("check", &LomaExtractionOptions::Check);
+  MakeDataclass(PyLomaExtractionOptions);
 #endif
 
   auto PyFeatureExtractionOptions =
@@ -232,6 +280,8 @@ void BindFeatureExtraction(py::module& m) {
 #ifdef COLMAP_ONNX_ENABLED
   PyFeatureExtractionOptions.def_readwrite("aliked",
                                            &FeatureExtractionOptions::aliked);
+  PyFeatureExtractionOptions.def_readwrite("loma",
+                                           &FeatureExtractionOptions::loma);
 #endif
   MakeDataclass(PyFeatureExtractionOptions);
 
