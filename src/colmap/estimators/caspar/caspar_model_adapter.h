@@ -19,6 +19,7 @@ struct CasparSolverSizing {
   // Pose pools are per-model to prevent cross-model factor batching.
   size_t num_simple_radial_poses = 0;
   size_t num_pinhole_poses = 0;
+  size_t num_opencv_poses = 0;
   size_t num_points = 0;
 
   // SimpleRadial: num_calibs is shared by the merged Calib pool and the split
@@ -66,6 +67,28 @@ struct CasparSolverSizing {
   size_t num_pinhole_split_fixed_pose_fixed_focal_fixed_point = 0;
   size_t num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point = 0;
   size_t num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point = 0;
+
+  // OpenCV: same layout as SimpleRadial/Pinhole above.
+  size_t num_opencv_calibs = 0;
+  size_t num_opencv = 0;
+  size_t num_opencv_fixed_pose = 0;
+  size_t num_opencv_fixed_point = 0;
+  size_t num_opencv_fixed_pose_fixed_point = 0;
+  size_t num_opencv_split_fixed_focal_and_extra = 0;
+  size_t num_opencv_split_fixed_principal_point = 0;
+  size_t num_opencv_split_fixed_pose_fixed_focal_and_extra = 0;
+  size_t num_opencv_split_fixed_pose_fixed_principal_point = 0;
+  size_t num_opencv_split_fixed_focal_and_extra_fixed_principal_point = 0;
+  size_t num_opencv_split_fixed_focal_and_extra_fixed_point = 0;
+  size_t num_opencv_split_fixed_principal_point_fixed_point = 0;
+  size_t
+      num_opencv_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point =
+          0;
+  size_t num_opencv_split_fixed_pose_fixed_focal_and_extra_fixed_point = 0;
+  size_t num_opencv_split_fixed_pose_fixed_principal_point_fixed_point = 0;
+  size_t
+      num_opencv_split_fixed_focal_and_extra_fixed_principal_point_fixed_point =
+          0;
 };
 
 // One implementation per camera model.
@@ -901,6 +924,404 @@ class PinholeAdapter : public ICasparModelAdapter {
   }
 };
 
+// OpenCV implementation
+
+class OpenCVAdapter : public ICasparModelAdapter {
+ public:
+  CameraModelId ModelId() const override {
+    return CameraModelId::kOpenCV;
+  }
+  // OpenCV: params = [fx, fy, cx, cy, k1, k2, p1, p2]
+  // focal_and_extra = [fx, fy, k1, k2, p1, p2]  (non-contiguous in params array)
+  // principal_point      = [cx, cy]
+  // merged calib         = [fx, fy, k1, k2, p1, p2, cx, cy]
+  size_t FocalAndExtraSize() const override { return 6; }
+  size_t PrincipalPointSize() const override { return 2; }
+  size_t CalibSize() const override {
+    return FocalAndExtraSize() + PrincipalPointSize();
+  }
+
+  void FillSizing(CasparSolverSizing& sz,
+                  const ModelData& md,
+                  size_t num_calibs) const override {
+    sz.num_opencv_calibs = num_calibs;
+    for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
+      const size_t n = md.variants[v].num_factors;
+      switch (static_cast<FactorVariant>(v)) {
+        // Merged variants: both focal_and_extra and principal_point are
+        // tunable.
+        case FactorVariant::BASE:
+          sz.num_opencv = n;
+          break;
+        case FactorVariant::FIXED_POSE:
+          sz.num_opencv_fixed_pose = n;
+          break;
+        case FactorVariant::FIXED_POINT:
+          sz.num_opencv_fixed_point = n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_POINT:
+          sz.num_opencv_fixed_pose_fixed_point = n;
+          break;
+        // Split variants: at least one intrinsic group is fixed.
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA:
+          sz.num_opencv_split_fixed_focal_and_extra = n;
+          break;
+        case FactorVariant::FIXED_PRINCIPAL_POINT:
+          sz.num_opencv_split_fixed_principal_point = n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
+          sz.num_opencv_split_fixed_pose_fixed_focal_and_extra = n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
+          sz.num_opencv_split_fixed_pose_fixed_principal_point = n;
+          break;
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          sz.num_opencv_split_fixed_focal_and_extra_fixed_principal_point =
+              n;
+          break;
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+          sz.num_opencv_split_fixed_focal_and_extra_fixed_point = n;
+          break;
+        case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          sz.num_opencv_split_fixed_principal_point_fixed_point = n;
+          break;
+        case FactorVariant::
+            FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          sz.num_opencv_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point =
+              n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+          sz.num_opencv_split_fixed_pose_fixed_focal_and_extra_fixed_point =
+              n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          sz.num_opencv_split_fixed_pose_fixed_principal_point_fixed_point =
+              n;
+          break;
+        case FactorVariant::
+            FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          sz.num_opencv_split_fixed_focal_and_extra_fixed_principal_point_fixed_point =
+              n;
+          break;
+      }
+    }
+  }
+
+  void ExtractFocalAndExtra(const Camera& camera,
+                            std::vector<StorageType>& out) const override {
+    out.push_back(static_cast<StorageType>(camera.params[0]));  // fx
+    out.push_back(static_cast<StorageType>(camera.params[1]));  // fy
+    out.push_back(static_cast<StorageType>(camera.params[4]));  // k1
+    out.push_back(static_cast<StorageType>(camera.params[5]));  // k2
+    out.push_back(static_cast<StorageType>(camera.params[6]));  // p1
+    out.push_back(static_cast<StorageType>(camera.params[7]));  // p2
+  }
+
+  void ExtractPrincipalPoint(const Camera& camera,
+                             std::vector<StorageType>& out) const override {
+    out.push_back(static_cast<StorageType>(camera.params[2]));  // cx
+    out.push_back(static_cast<StorageType>(camera.params[3]));  // cy
+  }
+
+  void WriteFocalAndExtra(Camera& camera,
+                          const StorageType* data,
+                          size_t idx) const override {
+    const size_t base = idx * FocalAndExtraSize();
+    camera.params[0] = static_cast<double>(data[base + 0]);  // fx
+    camera.params[1] = static_cast<double>(data[base + 1]);  // fy
+    camera.params[4] = static_cast<double>(data[base + 2]);  // k1
+    camera.params[5] = static_cast<double>(data[base + 3]);  // k2
+    camera.params[6] = static_cast<double>(data[base + 4]);  // p1
+    camera.params[7] = static_cast<double>(data[base + 5]);  // p2
+  }
+
+  void WritePrincipalPoint(Camera& camera,
+                           const StorageType* data,
+                           size_t idx) const override {
+    camera.params[2] =
+        static_cast<double>(data[idx * PrincipalPointSize() + 0]);  // cx
+    camera.params[3] =
+        static_cast<double>(data[idx * PrincipalPointSize() + 1]);  // cy
+  }
+
+  void SetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.SetOpenCVPoseNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.GetOpenCVPoseNodesToStackedHost(data, 0, n);
+  }
+
+  void SetFocalAndExtraNodes(caspar::GraphSolver& s,
+                             StorageType* data,
+                             size_t n) const override {
+    s.SetOpenCVFocalAndExtraNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetFocalAndExtraNodes(caspar::GraphSolver& s,
+                             StorageType* data,
+                             size_t n) const override {
+    s.GetOpenCVFocalAndExtraNodesToStackedHost(data, 0, n);
+  }
+
+  void SetPrincipalPointNodes(caspar::GraphSolver& s,
+                              StorageType* data,
+                              size_t n) const override {
+    s.SetOpenCVPrincipalPointNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetPrincipalPointNodes(caspar::GraphSolver& s,
+                              StorageType* data,
+                              size_t n) const override {
+    s.GetOpenCVPrincipalPointNodesToStackedHost(data, 0, n);
+  }
+
+  void SetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.SetOpenCVCalibNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.GetOpenCVCalibNodesToStackedHost(data, 0, n);
+  }
+
+  void SetVariantFactors(caspar::GraphSolver& s,
+                         FactorVariant variant,
+                         const VariantData& d) const override {
+    const size_t n = d.num_factors;
+    switch (variant) {
+      // Merged variants: the calib index is the same as
+      // focal_and_extra_index, so no VariantData changes are needed for
+      // these cases.
+      case FactorVariant::BASE:
+        s.SetOpencvNum(n);
+        s.SetOpencvPoseIndicesFromHost(d.pose_indices.data(), n);
+        s.SetOpencvSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvCalibIndicesFromHost(d.focal_and_extra_indices.data(),
+                                              n);
+        s.SetOpencvPointIndicesFromHost(d.point_indices.data(), n);
+        s.SetOpencvPixelDataFromStackedHost(d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE:
+        s.SetOpencvFixedPoseNum(n);
+        s.SetOpencvFixedPoseSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvFixedPoseCalibIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetOpencvFixedPosePointIndicesFromHost(d.point_indices.data(),
+                                                       n);
+        s.SetOpencvFixedPosePoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetOpencvFixedPosePixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA:
+        s.SetOpencvSplitFixedFocalAndExtraNum(n);
+        s.SetOpencvSplitFixedFocalAndExtraPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_PRINCIPAL_POINT:
+        s.SetOpencvSplitFixedPrincipalPointNum(n);
+        s.SetOpencvSplitFixedPrincipalPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetOpencvSplitFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedPrincipalPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetOpencvSplitFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetOpencvSplitFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetOpencvSplitFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POINT:
+        s.SetOpencvFixedPointNum(n);
+        s.SetOpencvFixedPointPoseIndicesFromHost(d.pose_indices.data(),
+                                                       n);
+        s.SetOpencvFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvFixedPointCalibIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetOpencvFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetOpencvFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraNum(n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointNum(n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_POINT:
+        s.SetOpencvFixedPoseFixedPointNum(n);
+        s.SetOpencvFixedPoseFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvFixedPoseFixedPointCalibIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetOpencvFixedPoseFixedPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetOpencvFixedPoseFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetOpencvFixedPoseFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointNum(n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+        s.SetOpencvSplitFixedFocalAndExtraFixedPointNum(n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        s.SetOpencvSplitFixedPrincipalPointFixedPointNum(n);
+        s.SetOpencvSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetOpencvSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetOpencvSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetOpencvSplitFixedPrincipalPointFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetOpencvSplitFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::
+          FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(
+            n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPointNum(n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFixedPointNum(n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetOpencvSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::
+          FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFixedPointNum(
+            n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetOpencvSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+    }
+  }
+};
+
 inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
     const CameraModelId model_id) {
   switch (model_id) {
@@ -908,6 +1329,8 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
       return std::make_unique<SimpleRadialAdapter>();
     case CameraModelId::kPinhole:
       return std::make_unique<PinholeAdapter>();
+    case CameraModelId::kOpenCV:
+      return std::make_unique<OpenCVAdapter>();
     default:
       return nullptr;
   }
@@ -915,10 +1338,11 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
 
 // WARNING: Argument order is opaque and bug-prone and will change in a future
 // Caspar release. Order:
-//   1. Node type counts, alphabetical by type name
+//   1. Node type counts, alphabetical by type name (OpenCV < Pinhole <
+//      SimpleRadial)
 //   2. Factor counts, in registration order from caspar_generate.py:
-//        simple_radial (4) → pinhole (4) →
-//        simple_radial_split (11) → pinhole_split (11)
+//        simple_radial (4) → pinhole (4) → opencv (4) →
+//        simple_radial_split (11) → pinhole_split (11) → opencv_split (11)
 inline caspar::GraphSolver CreateSolver(
     const caspar::SolverParams<StorageType>& params,
     const CasparSolverSizing& sz,
@@ -926,10 +1350,16 @@ inline caspar::GraphSolver CreateSolver(
   return caspar::GraphSolver(
       params,
       // Node type counts (alphabetical):
+      //   OpenCVCalib, OpenCVFocalAndExtra, OpenCVPose,
+      //   OpenCVPrincipalPoint,
       //   PinholeCalib, PinholeFocal, PinholePose,
       //   PinholePrincipalPoint, Point,
       //   SimpleRadialCalib, SimpleRadialFocalAndExtra,
       //   SimpleRadialPose, SimpleRadialPrincipalPoint
+      sz.num_opencv_calibs,         // OpenCVCalib          (merged pool)
+      sz.num_opencv_calibs,         // OpenCVFocalAndExtra   (split pool)
+      sz.num_opencv_poses,          // OpenCVPose
+      sz.num_opencv_calibs,         // OpenCVPrincipalPoint  (split pool)
       sz.num_pinhole_calibs,        // PinholeCalib        (merged pool)
       sz.num_pinhole_calibs,        // PinholeFocal         (split pool)
       sz.num_pinhole_poses,         // PinholePose
@@ -952,6 +1382,11 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_fixed_pose,              // {pose}
       sz.num_pinhole_fixed_point,             // {point}
       sz.num_pinhole_fixed_pose_fixed_point,  // {pose, point}
+      // opencv factor counts (same order):
+      sz.num_opencv,                         // {}
+      sz.num_opencv_fixed_pose,              // {pose}
+      sz.num_opencv_fixed_point,             // {point}
+      sz.num_opencv_fixed_pose_fixed_point,  // {pose, point}
       // simple_radial_split factor counts (11 variants, must_fix_one_of):
       sz.num_simple_radial_split_fixed_focal_and_extra,             // r=1 {fae}
       sz.num_simple_radial_split_fixed_principal_point,             // r=1 {pp}
@@ -980,6 +1415,19 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_split_fixed_pose_fixed_focal_fixed_point,            // r=3
       sz.num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
       sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point,  // r=3
+      // opencv_split factor counts (same 11-variant order, focal_and_extra
+      // naming since OpenCV bundles focal+extra_params like SimpleRadial):
+      sz.num_opencv_split_fixed_focal_and_extra,             // r=1 {fae}
+      sz.num_opencv_split_fixed_principal_point,             // r=1 {pp}
+      sz.num_opencv_split_fixed_pose_fixed_focal_and_extra,  // r=2 {pose,fae}
+      sz.num_opencv_split_fixed_pose_fixed_principal_point,  // r=2 {pose,pp}
+      sz.num_opencv_split_fixed_focal_and_extra_fixed_principal_point,  // r=2 {fae,pp}
+      sz.num_opencv_split_fixed_focal_and_extra_fixed_point,  // r=2 {fae,pt}
+      sz.num_opencv_split_fixed_principal_point_fixed_point,  // r=2 {pp,pt}
+      sz.num_opencv_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point,  // r=3
+      sz.num_opencv_split_fixed_pose_fixed_focal_and_extra_fixed_point,  // r=3
+      sz.num_opencv_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
+      sz.num_opencv_split_fixed_focal_and_extra_fixed_principal_point_fixed_point,  // r=3
       device_id);
 }
 
