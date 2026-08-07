@@ -31,8 +31,6 @@
 
 #include "colmap/util/logging.h"
 
-#include <iostream>
-
 namespace colmap {
 
 struct RenderOptions {

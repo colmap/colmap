@@ -29,8 +29,6 @@
 
 #include "colmap/feature/types.h"
 
-#include "colmap/math/math.h"
-
 #include <gtest/gtest.h>
 
 namespace colmap {

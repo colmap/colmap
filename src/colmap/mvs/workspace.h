@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"

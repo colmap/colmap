@@ -31,7 +31,6 @@
 
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/string.h"
 
 #include <algorithm>
 #include <iostream>

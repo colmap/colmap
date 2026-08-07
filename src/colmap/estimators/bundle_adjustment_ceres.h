@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/math/math.h"
-#include "colmap/optim/ransac.h"
 
 #include <ceres/ceres.h>
 

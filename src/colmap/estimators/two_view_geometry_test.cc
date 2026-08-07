@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/solvers/relpose_one_sided_focal.h"
 #include "colmap/estimators/solvers/relpose_shared_focal.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
