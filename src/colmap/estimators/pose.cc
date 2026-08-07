@@ -91,7 +91,9 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     }
 
     ImgFromCamFunc img_from_cam_func =
-        std::bind(&Camera::ImgFromCam, camera, std::placeholders::_1);
+        [camera](const Eigen::Vector3d& cam_point) {
+          return camera->ImgFromCam(cam_point);
+        };
     LORANSAC<P3PEstimator, EPNPEstimator> ransac(
         options.ransac_options,
         P3PEstimator(img_from_cam_func),

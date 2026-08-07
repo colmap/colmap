@@ -204,8 +204,13 @@ TwoViewGeometry EstimateCalibratedHomography(
   // rays: the caller only guarantees a pinhole projection here, not a focal
   // length prior, so no rays can be built.
 
+  auto ransac_options = options.ransac_options;
+  if (options.min_inlier_ratio > 0) {
+    ransac_options.min_inlier_ratio = options.min_inlier_ratio;
+  }
+
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+      ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -273,8 +278,15 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   // them. The fundamental matrix above shares that frame, so the comparison
   // below stays self-consistent.
 
+  // Budget the search for the inlier ratio that the homography must reach
+  // to be selected below, since a weaker one is discarded anyway.
+  auto H_ransac_options = options.ransac_options;
+  H_ransac_options.min_inlier_ratio =
+      std::max(options.ransac_options.min_inlier_ratio,
+               options.max_H_inlier_ratio * F_report.support.num_inliers /
+                   matches.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+      H_ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -1012,20 +1024,16 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
-
-  // A homography is only selected below if it beats max_H_inlier_ratio times
-  // the epipolar model's inlier count, so budget the search for that ratio
-  // rather than the default. Lower ratios are found less reliably, but such a
-  // homography would be discarded anyway. The smaller of the two epipolar
-  // counts is the lowest bar it might have to clear.
+  // Budget the estimation as above. The competing model depends on the branch
+  // taken below so the homography must reach the smallest count of the two.
   auto H_ransac_options = ransac_options;
-  H_ransac_options.min_inlier_ratio =
-      std::max(ransac_options.min_inlier_ratio,
-               options.max_H_inlier_ratio *
-                   static_cast<double>(std::min(E_report.support.num_inliers,
-                                                F_report.support.num_inliers)) /
-                   matches.size());
-
+  H_ransac_options.min_inlier_ratio = std::max(
+      ransac_options.min_inlier_ratio,
+      options.max_H_inlier_ratio *
+          std::min(E_report.support.num_inliers, F_report.support.num_inliers) /
+          matches.size());
+  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
+      H_ransac_options);
   // Undistorted pinhole cameras keep the pixel estimator, where the two are
   // algebraically equivalent, so that path stays bit-identical.
   const auto H_report =
@@ -1192,12 +1200,15 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
 
   // Estimate a homography to detect planar/panoramic degeneracies, where
   // two-view focal recovery is ill-posed and the 6-point solver returns a
-  // meaningless focal length. Estimated on image points rather than rays, as
-  // the focal length is the unknown here and no rays can be built without it.
-  // The shared-focal solver above also works in image points, so the inlier
-  // comparison below stays self-consistent.
+  // meaningless focal length.
+  // Budget the estimation as in EstimateUncalibratedTwoViewGeometry.
+  auto H_ransac_options = ransac_options;
+  H_ransac_options.min_inlier_ratio =
+      std::max(ransac_options.min_inlier_ratio,
+               options.max_H_inlier_ratio * SF_report.support.num_inliers /
+                   matches.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
+      H_ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -1387,8 +1398,14 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   // spherical one it is skipped, as in the spherical path. A default report has
   // no inliers, so the checks below then behave as a failed estimate.
   const bool has_image_plane = !camera2.IsSpherical();
+  // Budget the estimation as in EstimateUncalibratedTwoViewGeometry.
+  auto H_ransac_options = ransac_options;
+  H_ransac_options.min_inlier_ratio =
+      std::max(ransac_options.min_inlier_ratio,
+               options.max_H_inlier_ratio * focal_report.support.num_inliers /
+                   matches.size());
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      ransac_options);
+      H_ransac_options);
   LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>::Report
       H_report;
   if (has_image_plane) {
