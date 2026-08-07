@@ -107,6 +107,9 @@ void GlobalPipeline::Run() {
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
+  if (mapper_options.bundle_adjustment.ceres) {
+    mapper_options.bundle_adjustment.ceres->use_gpu = options_.ba_use_gpu;
+  }
 
   GlobalMapper global_mapper(database_cache_);
   global_mapper.BeginReconstruction(reconstruction);

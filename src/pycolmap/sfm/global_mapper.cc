@@ -93,6 +93,7 @@ void BindGlobalMapper(py::module& m) {
             "The image path at which to find the images to extract point "
             "colors.")
         .def_readwrite("num_threads", &Opts::num_threads)
+        .def_readwrite("ba_use_gpu", &Opts::ba_use_gpu)
         .def_readwrite("random_seed", &Opts::random_seed)
         .def_readwrite("decompose_relative_pose",
                        &Opts::decompose_relative_pose)

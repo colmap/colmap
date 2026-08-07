@@ -41,7 +41,6 @@ struct GlobalMapperOptions {
     if (options.ceres) {
       options.ceres->loss_function_type =
           CeresBundleAdjustmentOptions::LossFunctionType::HUBER;
-      options.ceres->use_gpu = true;
       // TODO: Investigate whether disabling auto solver selection and using
       // explicit SPARSE_SCHUR is necessary for global SfM, or if we can just
       // rely on COLMAP's auto selection.
@@ -77,8 +76,8 @@ struct GlobalMapperOptions {
   double max_normalized_reproj_error = 1e-2;  // for bundle adjustment
   double min_tri_angle_deg = 1.;              // for triangulation
 
-  // GPU device index for bundle adjustment, shared by the Ceres and Caspar
-  // backends (-1 = auto-select).
+  // GPU device index for bundle adjustment, shared by all backends
+  // (-1 = auto-select).
   std::string ba_gpu_index = "-1";
 
   // Control the number of iterations for bundle adjustment.

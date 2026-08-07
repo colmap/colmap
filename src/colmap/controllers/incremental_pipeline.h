@@ -137,9 +137,10 @@ struct IncrementalPipelineOptions {
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
 
-  // Whether to use Ceres' CUDA sparse linear algebra library, if available.
+  // Whether to use GPU-based bundle adjustment, if supported by the backend.
   bool ba_use_gpu = false;
-  // GPU device index for bundle adjustment (-1 = auto-select).
+  // GPU device index for bundle adjustment, shared by all backends
+  // (-1 = auto-select).
   std::string ba_gpu_index = "-1";
 
   // Bundle adjustment solver backend for local bundle adjustment.

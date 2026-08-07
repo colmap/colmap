@@ -55,6 +55,9 @@ struct GlobalPipelineOptions {
   // Number of threads for parallel processing.
   int num_threads = -1;
 
+  // Whether to use GPU-based bundle adjustment, if supported by the backend.
+  bool ba_use_gpu = false;
+
   // Random seed for reproducibility.
   int random_seed = -1;
 

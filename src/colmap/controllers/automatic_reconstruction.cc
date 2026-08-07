@@ -342,6 +342,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
       global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
       global_options.random_seed = options_.random_seed;
+      global_options.ba_use_gpu = options_.use_gpu;
       mapper = std::make_unique<GlobalPipeline>(std::move(global_options),
                                                 std::move(database),
                                                 reconstruction_manager_);

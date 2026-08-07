@@ -20,6 +20,13 @@ def test_global_mapper_options_ba_gpu_index():
     assert options.ba_gpu_index == "0"
 
 
+def test_global_pipeline_options_ba_use_gpu():
+    options = pycolmap.GlobalPipelineOptions()
+    assert not options.ba_use_gpu
+    options.ba_use_gpu = True
+    assert options.ba_use_gpu
+
+
 def test_global_mapper_options_get_rotation_averaging():
     options = pycolmap.GlobalMapperOptions()
     assert options.get_rotation_averaging() is not None

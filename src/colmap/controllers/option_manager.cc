@@ -818,11 +818,10 @@ void OptionManager::AddGlobalMapperOptions() {
                        &global_mapper->mapper.bundle_adjustment.backend,
                        BundleAdjustmentBackendToString,
                        BundleAdjustmentBackendFromString);
+  AddDefaultOption("GlobalMapper.ba_use_gpu", &global_mapper->ba_use_gpu);
   AddDefaultOption("GlobalMapper.ba_gpu_index",
                    &global_mapper->mapper.ba_gpu_index);
   // Bundle adjustment options (Ceres-specific).
-  AddDefaultOption("GlobalMapper.ba_ceres_use_gpu",
-                   &global_mapper->mapper.bundle_adjustment.ceres->use_gpu);
   AddDefaultOption(
       "GlobalMapper.ba_ceres_loss_function_scale",
       &global_mapper->mapper.bundle_adjustment.ceres->loss_function_scale);
