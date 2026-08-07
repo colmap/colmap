@@ -24,7 +24,7 @@ py::typing::Optional<py::dict> PyEstimateFundamentalMatrix(
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
+           FundamentalMatrixSampsonEstimator>
       ransac(options);
   const auto report = ransac.Estimate(points2D1, points2D2);
   py::gil_scoped_acquire acquire;
