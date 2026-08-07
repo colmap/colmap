@@ -423,6 +423,28 @@ int RunGlobalMapper(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+bool RunHierarchicalMapperImpl(
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
+    const std::shared_ptr<HierarchicalPipelineOptions>& mapper_options,
+    std::shared_ptr<ReconstructionManager>& reconstruction_manager) {
+  HierarchicalPipelineOptions options = *mapper_options;
+  options.image_path = image_path;
+
+  HierarchicalPipeline hierarchical_mapper(
+      options, Database::Open(database_path), reconstruction_manager);
+  hierarchical_mapper.Run();
+
+  if (reconstruction_manager->Size() == 0) {
+    LOG(ERROR) << "Failed to create sparse model";
+    return false;
+  }
+
+  reconstruction_manager->Write(output_path);
+  return true;
+}
+
 int RunHierarchicalMapper(int argc, char** argv) {
   std::filesystem::path output_path;
 
@@ -444,18 +466,14 @@ int RunHierarchicalMapper(int argc, char** argv) {
 
   options.hierarchical_mapper->incremental_options = *options.mapper;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalPipeline hierarchical_mapper(
-      *options.hierarchical_mapper,
-      Database::Open(*options.database_path),
-      reconstruction_manager);
-  hierarchical_mapper.Run();
-
-  if (reconstruction_manager->Size() == 0) {
-    LOG(ERROR) << "failed to create sparse model";
+  if (!RunHierarchicalMapperImpl(*options.database_path,
+                                 options.hierarchical_mapper->image_path,
+                                 output_path,
+                                 options.hierarchical_mapper,
+                                 reconstruction_manager)) {
     return EXIT_FAILURE;
   }
 
-  reconstruction_manager->Write(output_path);
   options.Write(output_path / "project.ini");
 
   return EXIT_SUCCESS;
