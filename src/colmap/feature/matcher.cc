@@ -102,7 +102,12 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
     case FeatureMatcherType::SIFT_LIGHTGLUE:
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
     case FeatureMatcherType::ALIKED_LIGHTGLUE:
+    case FeatureMatcherType::LOMA_BRUTEFORCE:
     case FeatureMatcherType::LOMA_B:
+    case FeatureMatcherType::LOMA_B128:
+    case FeatureMatcherType::LOMA_R:
+    case FeatureMatcherType::LOMA_L:
+    case FeatureMatcherType::LOMA_G:
       return false;
     default:
       ThrowUnknownFeatureMatcherType(type);
@@ -127,7 +132,12 @@ bool FeatureMatchingOptions::Check() const {
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
     case FeatureMatcherType::ALIKED_LIGHTGLUE:
       return THROW_CHECK_NOTNULL(aliked)->Check();
+    case FeatureMatcherType::LOMA_BRUTEFORCE:
     case FeatureMatcherType::LOMA_B:
+    case FeatureMatcherType::LOMA_B128:
+    case FeatureMatcherType::LOMA_R:
+    case FeatureMatcherType::LOMA_L:
+    case FeatureMatcherType::LOMA_G:
       return THROW_CHECK_NOTNULL(loma)->Check();
     default:
       LOG(ERROR) << "Unknown feature matcher type: " << type;
@@ -145,7 +155,12 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
     case FeatureMatcherType::ALIKED_LIGHTGLUE:
       return CreateAlikedFeatureMatcher(options);
+    case FeatureMatcherType::LOMA_BRUTEFORCE:
     case FeatureMatcherType::LOMA_B:
+    case FeatureMatcherType::LOMA_B128:
+    case FeatureMatcherType::LOMA_R:
+    case FeatureMatcherType::LOMA_L:
+    case FeatureMatcherType::LOMA_G:
       return CreateLomaFeatureMatcher(options);
     default:
       ThrowUnknownFeatureMatcherType(options.type);
