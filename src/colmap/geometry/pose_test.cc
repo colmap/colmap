@@ -29,6 +29,7 @@
 
 #include "colmap/geometry/pose.h"
 
+#include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
