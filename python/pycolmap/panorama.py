@@ -104,6 +104,12 @@ class PanoramaReconstructionOptions:
     matcher: Matcher = Matcher.SEQUENTIAL
     mapper: Mapper = Mapper.INCREMENTAL
     render_type: PanoRenderType = PanoRenderType.PERSPECTIVE_OVERLAPPING
+    extractor_type: pycolmap.FeatureExtractorType = (
+        pycolmap.FeatureExtractorType.SIFT
+    )
+    matcher_type: pycolmap.FeatureMatcherType = (
+        pycolmap.FeatureMatcherType.SIFT_BRUTEFORCE
+    )
     random_seed: int = 0
     num_threads: int = -1
     gpu_index: str = "-1"
@@ -537,6 +543,7 @@ def run_matcher(
     database_path: Path,
     matching_options: pycolmap.FeatureMatchingOptions,
 ) -> None:
+    matching_options.type = options.matcher_type
     matching_options.use_gpu = options.use_gpu
     matching_options.gpu_index = options.gpu_index
     matching_options.num_threads = options.num_threads
@@ -614,6 +621,7 @@ def run_spherical(
 
     reader_options = pycolmap.ImageReaderOptions(camera_model="EQUIRECTANGULAR")
     extraction_options = pycolmap.FeatureExtractionOptions(
+        type=options.extractor_type,
         use_gpu=options.use_gpu,
         gpu_index=options.gpu_index,
         num_threads=options.num_threads,
@@ -696,6 +704,7 @@ def render_and_extract_features(
     rendered_camera = processor.rig_config.cameras[0].camera
     assert rendered_camera is not None  # Make mypy happy.
     extraction_options = pycolmap.FeatureExtractionOptions(
+        type=options.extractor_type,
         use_gpu=options.use_gpu,
         gpu_index=options.gpu_index,
         num_threads=options.num_threads,
@@ -847,12 +856,15 @@ def create_pano_database_from_renderings(
                     descriptor_type = descriptors.type
                     # Only the keypoint centers are reprojected; the remaining
                     # shape (scale/orientation) columns stay in the rendered
-                    # image frame. This is fine for the SIFT-based matchers
-                    # used here, which only compare descriptors, and for
-                    # mapping, which only uses the centers. Learned matchers
-                    # (e.g. LightGlue) additionally consume keypoint positions
-                    # and, for SIFT, scale/orientation, and would see
-                    # inconsistent inputs here.
+                    # image frame. This is fine for SIFT (whose matcher only
+                    # compares descriptors, and mapping only uses the centers)
+                    # and for ALIKED (whose extractor never populates a
+                    # non-identity affine shape to begin with -- see
+                    # ALIKEDFeatureExtractor in aliked.cc -- so there is
+                    # nothing meaningful left inconsistent for ALIKED_LIGHTGLUE
+                    # either). A future extractor/matcher pair that does rely
+                    # on a non-identity keypoint shape would need this shape
+                    # reprojected too.
                     keypoints[:, :2] = processor.pano_xy_from_cam_xy(
                         cam_idx, keypoints[:, :2]
                     )
