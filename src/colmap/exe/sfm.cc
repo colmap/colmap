@@ -99,6 +99,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
+  options.AddDefaultOption("global_descriptor_path",
+                           &reconstruction_options.global_descriptor_path);
   options.AddDefaultOption(
       "data_type", &data_type, "{individual, video, internet}");
   options.AddDefaultOption("quality", &quality, "{low, medium, high, extreme}");

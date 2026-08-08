@@ -43,6 +43,7 @@ struct TwoViewGeometryOptions;
 struct ExhaustivePairingOptions;
 struct SequentialPairingOptions;
 struct VocabTreePairingOptions;
+struct GlobalDescriptorPairingOptions;
 struct SpatialPairingOptions;
 struct TransitivePairingOptions;
 struct ImportedPairingOptions;
@@ -96,6 +97,7 @@ class OptionManager : public BaseOptionManager {
   void AddExhaustivePairingOptions();
   void AddSequentialPairingOptions();
   void AddVocabTreePairingOptions();
+  void AddGlobalDescriptorPairingOptions();
   void AddSpatialPairingOptions();
   void AddTransitivePairingOptions();
   void AddImportedPairingOptions();
@@ -129,6 +131,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<ExhaustivePairingOptions> exhaustive_pairing;
   std::shared_ptr<SequentialPairingOptions> sequential_pairing;
   std::shared_ptr<VocabTreePairingOptions> vocab_tree_pairing;
+  std::shared_ptr<GlobalDescriptorPairingOptions> global_descriptor_pairing;
   std::shared_ptr<SpatialPairingOptions> spatial_pairing;
   std::shared_ptr<TransitivePairingOptions> transitive_pairing;
   std::shared_ptr<ImportedPairingOptions> imported_pairing;
@@ -167,6 +170,7 @@ class OptionManager : public BaseOptionManager {
   bool added_exhaustive_pairing_options_ = false;
   bool added_sequential_pairing_options_ = false;
   bool added_vocab_tree_pairing_options_ = false;
+  bool added_global_descriptor_pairing_options_ = false;
   bool added_spatial_pairing_options_ = false;
   bool added_transitive_pairing_options_ = false;
   bool added_image_pairs_pairing_options_ = false;

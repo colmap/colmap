@@ -66,6 +66,10 @@ class AutomaticReconstructionController : public Thread {
     // The path to the vocabulary tree for feature matching.
     std::filesystem::path vocab_tree_path;
 
+    // Path to a global descriptor ONNX model (e.g. MixVPR) that replaces the
+    // vocabulary tree for image retrieval / loop detection in feature matching.
+    std::filesystem::path global_descriptor_path;
+
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;
 
@@ -155,6 +159,7 @@ class AutomaticReconstructionController : public Thread {
   std::unique_ptr<Thread> exhaustive_matcher_;
   std::unique_ptr<Thread> sequential_matcher_;
   std::unique_ptr<Thread> vocab_tree_matcher_;
+  std::unique_ptr<Thread> global_descriptor_matcher_;
 };
 
 }  // namespace colmap

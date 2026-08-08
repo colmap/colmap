@@ -345,6 +345,15 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
       pairing_options, matching_options, geometry_options, database_path);
 }
 
+std::unique_ptr<Thread> CreateGlobalDescriptorFeatureMatcher(
+    const GlobalDescriptorPairingOptions& pairing_options,
+    const FeatureMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
+    const std::filesystem::path& database_path) {
+  return FeatureMatcherThread::Create<GlobalDescriptorPairGenerator>(
+      pairing_options, matching_options, geometry_options, database_path);
+}
+
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
