@@ -199,3 +199,8 @@ class DatasetTartanAirPerspective(DatasetTartanAir):
 class DatasetTartanAirSpherical(DatasetTartanAir):
     dataset_name = "tartanair-v2-spherical"
     render_type = "spherical"
+
+
+class DatasetTartanAirSphericalReprojected(DatasetTartanAir):
+    dataset_name = "tartanair-v2-spherical-reprojected"
+    render_type = "spherical_reprojected"
