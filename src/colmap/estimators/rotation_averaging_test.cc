@@ -31,7 +31,6 @@
 
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
-#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"

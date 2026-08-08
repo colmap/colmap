@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 
-#include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_matchers.h"
 
