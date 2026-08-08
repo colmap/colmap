@@ -245,7 +245,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
 }
 
 TEST(CreateSiftGPUMatcherCUDA, Nominal) {
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
   FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
   options.use_gpu = true;
   options.gpu_index = "0";

@@ -578,8 +578,8 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     sift_gpu_args.push_back("./sift_gpu");
 
-#if defined(COLMAP_CUDA_ENABLED)
-    // Use CUDA version by default if darkness adaptivity is disabled.
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+    // Use the compute backend by default if darkness adaptivity is disabled.
     if (!options.sift->darkness_adaptivity && gpu_indices[0] < 0) {
       gpu_indices[0] = 0;
     }
@@ -588,7 +588,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
       sift_gpu_args.push_back("-cuda");
       sift_gpu_args.push_back(std::to_string(gpu_indices[0]));
     }
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 
     // Darkness adaptivity (hidden feature). Significantly improves
     // distribution of features. Only available in GLSL version.
@@ -1341,7 +1341,7 @@ std::vector<float> PackCamRaysWithJac(const Camera& camera,
 // CUDA version doesn't need this as it has its own thread safety.
 static std::map<int, std::unique_ptr<std::mutex>> sift_opengl_mutexes_;
 
-enum class SiftBackend { CUDA, GLSL };
+enum class SiftBackend { COMPUTE, GLSL };
 
 class SiftGPUFeatureMatcher : public FeatureMatcher {
  public:
@@ -1371,18 +1371,18 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     matcher->sift_match_gpu_ = SiftMatchGPU(options.max_num_matches);
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
     if (gpu_indices[0] >= 0) {
       matcher->sift_match_gpu_.SetLanguage(
           SiftMatchGPU::SIFTMATCH_CUDA_DEVICE0 + gpu_indices[0]);
     } else {
       matcher->sift_match_gpu_.SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA);
     }
-    matcher->backend_ = SiftBackend::CUDA;
-#else   // COLMAP_CUDA_ENABLED
+    matcher->backend_ = SiftBackend::COMPUTE;
+#else
     matcher->sift_match_gpu_.SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
     matcher->backend_ = SiftBackend::GLSL;
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 
     if (matcher->sift_match_gpu_.VerifyContextGL() == 0) {
       return nullptr;
@@ -1397,15 +1397,15 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
       return nullptr;
     }
 
-#if !defined(COLMAP_CUDA_ENABLED)
+#if !defined(COLMAP_CUDA_ENABLED) && !defined(COLMAP_HIP_ENABLED)
     if (matcher->sift_match_gpu_.GetMaxSift() < options.max_num_matches) {
       LOG(WARNING) << StringPrintf(
           "OpenGL version of SiftGPU only supports a "
-          "maximum of %d matches - consider changing to CUDA-based "
+          "maximum of %d matches - consider changing to CUDA- or HIP-based "
           "feature matching to avoid this limitation.",
           matcher->sift_match_gpu_.GetMaxSift());
     }
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // !COLMAP_CUDA_ENABLED && !COLMAP_HIP_ENABLED
 
     matcher->sift_match_gpu_.gpu_index = gpu_indices[0];
 

@@ -247,13 +247,11 @@ COLMAP_ADD_TEST(
     SRCS types_test.cc
     LINK_LIBS colmap_util
 )
-if(GUI_ENABLED)
-    COLMAP_ADD_TEST(
-        NAME opengl_utils_test
-        SRCS opengl_utils_test.cc
-        LINK_LIBS colmap_util
-    )
-endif()
+COLMAP_ADD_TEST(
+    NAME opengl_utils_test
+    SRCS opengl_utils_test.cc
+    LINK_LIBS colmap_util
+)
 
 if(HIP_ENABLED)
     # On ROCm builds, cuda.cc / cudacc.cc compile with the host C++ compiler.

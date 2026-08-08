@@ -31,18 +31,39 @@
 using namespace std;
 
 
-#include <cuda.h>
-#include <cuda_runtime_api.h>
+#include "colmap/util/cuda_to_hip.h"
+
+#if !defined(COLMAP_HIP_ENABLED)
+// The pixel-buffer-object interop below uses the legacy cudaGL* entry points,
+// which have no ROCm counterpart (ROCm offers only the modern
+// hipGraphicsGLRegisterBuffer family). COLMAP never reaches those code paths:
+// it always hands SiftGPU host pixel data, so PyramidCU takes the
+// InitTexture/CopyFromHost branch, and the buffer-object branches are only
+// reachable from SiftGPU's own standalone viewer, which COLMAP does not build.
+// They are therefore compiled out rather than translated, and each one reports
+// or returns its failure, so that another consumer of SiftGPU that does reach
+// them cannot mistake a transfer that did not happen for one that did.
+#define SIFTGPU_GL_INTEROP_ENABLED
 #include <cuda_gl_interop.h>
+#endif
 
 #include "GlobalUtil.h"
 #include "GLTexImage.h"
 #include "CuTexImage.h"
 #include "ProgramCU.h"
 
+void CuTexImage::CuTexObj::Destroy()
+{
+	if(handle)
+	{
+		cudaDestroyTextureObject(handle);
+		handle = 0;
+	}
+}
+
 CuTexImage::CuTexObj::~CuTexObj()
 {
-	cudaDestroyTextureObject(handle);
+	Destroy();
 }
 
 CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc,
@@ -59,26 +80,6 @@ CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc,
 
 	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
 	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture");
-
-	return texObj;
-}
-
-CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDesc,
-											   											 const cudaChannelFormatDesc& channelFmtDesc)
-{
-	CuTexObj texObj;
-
-	cudaResourceDesc resourceDesc;
-	memset(&resourceDesc, 0, sizeof(resourceDesc));
-	resourceDesc.resType = cudaResourceTypePitch2D;
-  resourceDesc.res.pitch2D.devPtr = _cuData;
-	resourceDesc.res.pitch2D.width = _imgWidth;
-	resourceDesc.res.pitch2D.height = _imgHeight;
-	resourceDesc.res.pitch2D.pitchInBytes = _imgWidth * _numChannel * sizeof(float);
-	resourceDesc.res.pitch2D.desc = channelFmtDesc;
-
-	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
-	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture2D");
 
 	return texObj;
 }
@@ -106,6 +107,7 @@ CuTexImage::CuTexImage(int width, int height, int nchannel, GLuint pbo)
 		glGetBufferParameteriv(GL_PIXEL_PACK_BUFFER_ARB, GL_BUFFER_SIZE, &bsize);
 	}
 	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, 0);
+#if defined(SIFTGPU_GL_INTEROP_ENABLED)
 	if(bsize >=esize)
 	{
 
@@ -114,6 +116,7 @@ CuTexImage::CuTexImage(int width, int height, int nchannel, GLuint pbo)
 		ProgramCU::CheckErrorCUDA("cudaGLMapBufferObject");
 		_fromPBO = pbo;
 	}else
+#endif
 	{
 		_cuData = NULL;
 		_fromPBO = 0;
@@ -143,8 +146,10 @@ CuTexImage::~CuTexImage()
 
 	if(_fromPBO)
 	{
+#if defined(SIFTGPU_GL_INTEROP_ENABLED)
 		cudaGLUnmapBufferObject(_fromPBO);
 		cudaGLUnregisterBufferObject(_fromPBO);
+#endif
 	}else if(_cuData)
 	{
 		cudaFree(_cuData);
@@ -253,6 +258,7 @@ void CuTexImage::CopyToTexture2D()
 
 void CuTexImage::CopyFromPBO(int width, int height, GLuint pbo)
 {
+#if defined(SIFTGPU_GL_INTEROP_ENABLED)
 	void* pbuf =NULL;
 	GLint esize = width * height * sizeof(float);
 	cudaGLRegisterBufferObject(pbo);
@@ -262,10 +268,20 @@ void CuTexImage::CopyFromPBO(int width, int height, GLuint pbo)
 
 	cudaGLUnmapBufferObject(pbo);
 	cudaGLUnregisterBufferObject(pbo);
+#else
+	// Unlike the other buffer-object entry points, this one returns void and
+	// its caller has already allocated the destination, so a silent no-op
+	// would leave the pyramid reading uninitialized device memory as if it
+	// held the image. Report it and leave a defined value behind.
+	std::cerr << "Unable To Copy From PBO: this build has no pixel buffer "
+	             "object interop\n";
+	if(_cuData) cudaMemset(_cuData, 0, _numBytes);
+#endif
 }
 
 int CuTexImage::CopyToPBO(GLuint pbo)
 {
+#if defined(SIFTGPU_GL_INTEROP_ENABLED)
 	void* pbuf =NULL;
 	GLint bsize, esize = _imgWidth * _imgHeight * sizeof(float) * _numChannel;
 	glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pbo);
@@ -285,10 +301,9 @@ int CuTexImage::CopyToPBO(GLuint pbo)
 		cudaGLUnmapBufferObject(pbo);
 		cudaGLUnregisterBufferObject(pbo);
 		return 1;
-	}else
-	{
-		return 0;
 	}
+#endif
+	return 0;
 }
 
 #endif

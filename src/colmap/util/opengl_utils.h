@@ -93,7 +93,15 @@ class OpenGLContextManager {
   inline bool MakeCurrent() { return false; }
 };
 
-inline void RunThreadWithOpenGLContext(Thread* thread) {}
+// Without Qt there is no OpenGL context to hand the thread, but the thread
+// itself must still run: callers use this to execute work that only needs a
+// context for the OpenGL backend, and a body that is silently skipped turns
+// every such caller (in particular the GPU tests) into a no-op that reports
+// success.
+inline void RunThreadWithOpenGLContext(Thread* thread) {
+  thread->Start();
+  thread->Wait();
+}
 
 #endif
 

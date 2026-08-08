@@ -83,7 +83,7 @@ FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE: {
-#ifdef COLMAP_CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
       return false;
 #else
       return use_gpu;
