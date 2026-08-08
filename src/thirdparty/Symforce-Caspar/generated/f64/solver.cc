@@ -122,6 +122,19 @@
 #include "kernel_SimpleRadialPrincipalPoint_update_r_first.h"
 #include "kernel_SimpleRadialPrincipalPoint_update_step.h"
 #include "kernel_SimpleRadialPrincipalPoint_update_step_first.h"
+#include "kernel_SphericalPose_alpha_denominator_or_beta_numerator.h"
+#include "kernel_SphericalPose_alpha_numerator_denominator.h"
+#include "kernel_SphericalPose_normalize.h"
+#include "kernel_SphericalPose_pred_decrease_times_two.h"
+#include "kernel_SphericalPose_retract.h"
+#include "kernel_SphericalPose_start_w.h"
+#include "kernel_SphericalPose_start_w_contribute.h"
+#include "kernel_SphericalPose_update_Mp.h"
+#include "kernel_SphericalPose_update_p.h"
+#include "kernel_SphericalPose_update_r.h"
+#include "kernel_SphericalPose_update_r_first.h"
+#include "kernel_SphericalPose_update_step.h"
+#include "kernel_SphericalPose_update_step_first.h"
 #include "kernel_pinhole_fixed_point_jtjnjtr_direct.h"
 #include "kernel_pinhole_fixed_point_res_jac.h"
 #include "kernel_pinhole_fixed_point_res_jac_first.h"
@@ -242,6 +255,18 @@
 #include "kernel_simple_radial_split_fixed_principal_point_res_jac.h"
 #include "kernel_simple_radial_split_fixed_principal_point_res_jac_first.h"
 #include "kernel_simple_radial_split_fixed_principal_point_score.h"
+#include "kernel_spherical_fixed_point_jtjnjtr_direct.h"
+#include "kernel_spherical_fixed_point_res_jac.h"
+#include "kernel_spherical_fixed_point_res_jac_first.h"
+#include "kernel_spherical_fixed_point_score.h"
+#include "kernel_spherical_fixed_pose_jtjnjtr_direct.h"
+#include "kernel_spherical_fixed_pose_res_jac.h"
+#include "kernel_spherical_fixed_pose_res_jac_first.h"
+#include "kernel_spherical_fixed_pose_score.h"
+#include "kernel_spherical_jtjnjtr_direct.h"
+#include "kernel_spherical_res_jac.h"
+#include "kernel_spherical_res_jac_first.h"
+#include "kernel_spherical_score.h"
 #include "shared_indices.h"
 #include "solver_tools.h"
 #include "sort_indices.h"
@@ -286,6 +311,7 @@ GraphSolver::GraphSolver(
     size_t SimpleRadialFocalAndExtra_num_max,
     size_t SimpleRadialPose_num_max,
     size_t SimpleRadialPrincipalPoint_num_max,
+    size_t SphericalPose_num_max,
     size_t simple_radial_num_max,
     size_t simple_radial_fixed_pose_num_max,
     size_t simple_radial_fixed_point_num_max,
@@ -321,6 +347,9 @@ GraphSolver::GraphSolver(
     size_t pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max,
     size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
     size_t pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max,
+    size_t spherical_num_max,
+    size_t spherical_fixed_pose_num_max,
+    size_t spherical_fixed_point_num_max,
     int device_id)
     : params_(params),
       device_id_(device_id),
@@ -342,6 +371,8 @@ GraphSolver::GraphSolver(
       SimpleRadialPose_num_max_(SimpleRadialPose_num_max),
       SimpleRadialPrincipalPoint_num_(SimpleRadialPrincipalPoint_num_max),
       SimpleRadialPrincipalPoint_num_max_(SimpleRadialPrincipalPoint_num_max),
+      SphericalPose_num_(SphericalPose_num_max),
+      SphericalPose_num_max_(SphericalPose_num_max),
       simple_radial_num_(simple_radial_num_max),
       simple_radial_num_max_(simple_radial_num_max),
       simple_radial_fixed_pose_num_(simple_radial_fixed_pose_num_max),
@@ -447,7 +478,13 @@ GraphSolver::GraphSolver(
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_(
           pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max),
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_(
-          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max) {
+          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max),
+      spherical_num_(spherical_num_max),
+      spherical_num_max_(spherical_num_max),
+      spherical_fixed_pose_num_(spherical_fixed_pose_num_max),
+      spherical_fixed_pose_num_max_(spherical_fixed_pose_num_max),
+      spherical_fixed_point_num_(spherical_fixed_point_num_max),
+      spherical_fixed_point_num_max_(spherical_fixed_point_num_max) {
   indices_valid_ = false;
   if (params.pcg_rel_error_exit <= 0.0f) {
     throw std::runtime_error("params.pcg_rel_error_exit must be positive");
@@ -537,6 +574,12 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialPrincipalPoint__storage_new_best_ =
       assign_and_increment<double>(
           origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__SphericalPose__storage_current_ = assign_and_increment<double>(
+      origin_ptr_, offset, 8 * SphericalPose_num_, 4);
+  nodes__SphericalPose__storage_check_ = assign_and_increment<double>(
+      origin_ptr_, offset, 8 * SphericalPose_num_, 4);
+  nodes__SphericalPose__storage_new_best_ = assign_and_increment<double>(
+      origin_ptr_, offset, 8 * SphericalPose_num_, 4);
   facs__simple_radial__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
           origin_ptr_, offset, 1 * simple_radial_num_, 4);
@@ -1418,6 +1461,42 @@ GraphSolver::GraphSolver(
           offset,
           4 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__spherical__args__pose__idx_shared_ = assign_and_increment<SharedIndex>(
+      origin_ptr_, offset, 1 * spherical_num_, 4);
+  facs__spherical__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(origin_ptr_, offset, 8 * spherical_num_, 4);
+  facs__spherical__args__wh__data_ =
+      assign_and_increment<double>(origin_ptr_, offset, 2 * spherical_num_, 4);
+  facs__spherical__args__point__idx_shared_ = assign_and_increment<SharedIndex>(
+      origin_ptr_, offset, 1 * spherical_num_, 4);
+  facs__spherical__args__pixel__data_ =
+      assign_and_increment<double>(origin_ptr_, offset, 2 * spherical_num_, 4);
+  facs__spherical_fixed_pose__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 8 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_pose__args__wh__data_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_pose__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_pose__args__pixel__data_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_pose__args__pose__data_ = assign_and_increment<double>(
+      origin_ptr_, offset, 8 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_point__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * spherical_fixed_point_num_, 4);
+  facs__spherical_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 8 * spherical_fixed_point_num_, 4);
+  facs__spherical_fixed_point__args__wh__data_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * spherical_fixed_point_num_, 4);
+  facs__spherical_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 2 * spherical_fixed_point_num_, 4);
+  facs__spherical_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 4 * spherical_fixed_point_num_, 4);
   marker__scratch_inout_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   facs__simple_radial__res_ = assign_and_increment<double>(
@@ -1565,6 +1644,12 @@ GraphSolver::GraphSolver(
           offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__spherical__res_ =
+      assign_and_increment<double>(origin_ptr_, offset, 2 * spherical_num_, 4);
+  facs__spherical_fixed_pose__res_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_point__res_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * spherical_fixed_point_num_, 4);
   facs__simple_radial__args__pose__jac_ = assign_and_increment<double>(
       origin_ptr_, offset, 12 * simple_radial_num_, 4);
   facs__simple_radial__args__calib__jac_ = assign_and_increment<double>(
@@ -1833,6 +1918,14 @@ GraphSolver::GraphSolver(
           offset,
           12 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__spherical__args__pose__jac_ =
+      assign_and_increment<double>(origin_ptr_, offset, 12 * spherical_num_, 4);
+  facs__spherical__args__point__jac_ =
+      assign_and_increment<double>(origin_ptr_, offset, 6 * spherical_num_, 4);
+  facs__spherical_fixed_pose__args__point__jac_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_point__args__pose__jac_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * spherical_fixed_point_num_, 4);
   nodes__PinholeCalib__z_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * PinholeCalib_num_, 4);
   nodes__PinholeCalib__z_end__ =
@@ -1868,6 +1961,10 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialPrincipalPoint__z_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__z_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__SphericalPose__z_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
+  nodes__SphericalPose__z_end__ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   nodes__PinholeCalib__p_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * PinholeCalib_num_, 4);
@@ -1905,6 +2002,10 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__p_end__ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__SphericalPose__p_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
+  nodes__SphericalPose__p_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   nodes__PinholeCalib__step_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * PinholeCalib_num_, 4);
   nodes__PinholeCalib__step_end__ =
@@ -1941,6 +2042,10 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__step_end__ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__SphericalPose__step_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
+  nodes__SphericalPose__step_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__w_start_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   nodes__PinholeCalib__w_ = assign_and_increment<double>(
@@ -1961,6 +2066,8 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__w_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__SphericalPose__w_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
   marker__w_end_ = assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   marker__r_0_start_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
@@ -1982,6 +2089,8 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__r_0_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__SphericalPose__r_0_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
   marker__r_0_end_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__r_k_start_ =
@@ -2004,6 +2113,8 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__r_k_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__SphericalPose__r_k_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
   marker__r_k_end_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__Mp_start_ =
@@ -2026,6 +2137,8 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__Mp_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__SphericalPose__Mp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
   marker__Mp_end_ = assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__precond_start_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
@@ -2069,6 +2182,10 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialPrincipalPoint__precond_tril_ =
       assign_and_increment<double>(
           origin_ptr_, offset, 1 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__SphericalPose__precond_diag_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * SphericalPose_num_, 4);
+  nodes__SphericalPose__precond_tril_ = assign_and_increment<double>(
+      origin_ptr_, offset, 16 * SphericalPose_num_, 4);
   marker__precond_end_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   marker__jp_start_ =
@@ -2217,6 +2334,12 @@ GraphSolver::GraphSolver(
           offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__spherical__jp_ =
+      assign_and_increment<double>(origin_ptr_, offset, 2 * spherical_num_, 4);
+  facs__spherical_fixed_pose__jp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * spherical_fixed_pose_num_, 4);
+  facs__spherical_fixed_point__jp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * spherical_fixed_point_num_, 4);
   marker__jp_end_ = assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   solver__current_diag_ =
       assign_and_increment<double>(origin_ptr_, offset, 1 * 1, 1);
@@ -2270,6 +2393,7 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
       std::chrono::steady_clock::now();
   std::chrono::time_point<std::chrono::steady_clock> t_prev = t0;
   score_best = DoResJacFirst();
+  result.initial_score = score_best;
   if (print_progress) {
     printf("                                 score_init: % .6e\n", score_best);
   }
@@ -2322,6 +2446,8 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
                   nodes__SimpleRadialPose__storage_new_best_);
         std::swap(nodes__SimpleRadialPrincipalPoint__storage_check_,
                   nodes__SimpleRadialPrincipalPoint__storage_new_best_);
+        std::swap(nodes__SphericalPose__storage_check_,
+                  nodes__SphericalPose__storage_new_best_);
         score_best_pcg = score_new_pcg;
         if (params_.pcg_rel_score_exit != -1.0f &&
             score_best_pcg < score_best * params_.pcg_rel_score_exit) {
@@ -2354,6 +2480,8 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
                 nodes__SimpleRadialPose__storage_new_best_);
       std::swap(nodes__SimpleRadialPrincipalPoint__storage_check_,
                 nodes__SimpleRadialPrincipalPoint__storage_new_best_);
+      std::swap(nodes__SphericalPose__storage_check_,
+                nodes__SphericalPose__storage_new_best_);
     }
 
     const double diag_current = diag;
@@ -2386,6 +2514,8 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
                 nodes__SimpleRadialPose__storage_new_best_);
       std::swap(nodes__SimpleRadialPrincipalPoint__storage_current_,
                 nodes__SimpleRadialPrincipalPoint__storage_new_best_);
+      std::swap(nodes__SphericalPose__storage_current_,
+                nodes__SphericalPose__storage_new_best_);
 
     } else {
       quality = 0.0f;
@@ -3480,6 +3610,88 @@ double GraphSolver::DoResJacFirst() {
       nodes__PinholePose__precond_tril_,
       PinholePose_num_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+
+  SphericalResJacFirst(nodes__SphericalPose__storage_current_,
+                       SphericalPose_num_max_,
+                       facs__spherical__args__pose__idx_shared_,
+                       facs__spherical__args__sensor_from_rig__data_,
+                       spherical_num_max_,
+                       facs__spherical__args__wh__data_,
+                       spherical_num_max_,
+                       nodes__Point__storage_current_,
+                       Point_num_max_,
+                       facs__spherical__args__point__idx_shared_,
+                       facs__spherical__args__pixel__data_,
+                       spherical_num_max_,
+
+                       facs__spherical__res_,
+                       spherical_num_,
+                       solver__res_tot_,
+                       facs__spherical__args__pose__jac_,
+                       spherical_num_,
+                       nodes__SphericalPose__r_k_,
+                       SphericalPose_num_,
+                       nodes__SphericalPose__precond_diag_,
+                       SphericalPose_num_,
+                       nodes__SphericalPose__precond_tril_,
+                       SphericalPose_num_,
+                       facs__spherical__args__point__jac_,
+                       spherical_num_,
+                       nodes__Point__r_k_,
+                       Point_num_,
+                       nodes__Point__precond_diag_,
+                       Point_num_,
+                       nodes__Point__precond_tril_,
+                       Point_num_,
+                       spherical_num_);
+
+  SphericalFixedPoseResJacFirst(
+      facs__spherical_fixed_pose__args__sensor_from_rig__data_,
+      spherical_fixed_pose_num_max_,
+      facs__spherical_fixed_pose__args__wh__data_,
+      spherical_fixed_pose_num_max_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__spherical_fixed_pose__args__point__idx_shared_,
+      facs__spherical_fixed_pose__args__pixel__data_,
+      spherical_fixed_pose_num_max_,
+      facs__spherical_fixed_pose__args__pose__data_,
+      spherical_fixed_pose_num_max_,
+
+      facs__spherical_fixed_pose__res_,
+      spherical_fixed_pose_num_,
+      solver__res_tot_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      spherical_fixed_pose_num_);
+
+  SphericalFixedPointResJacFirst(
+      nodes__SphericalPose__storage_current_,
+      SphericalPose_num_max_,
+      facs__spherical_fixed_point__args__pose__idx_shared_,
+      facs__spherical_fixed_point__args__sensor_from_rig__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__wh__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__pixel__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__point__data_,
+      spherical_fixed_point_num_max_,
+
+      facs__spherical_fixed_point__res_,
+      spherical_fixed_point_num_,
+      solver__res_tot_,
+      nodes__SphericalPose__r_k_,
+      SphericalPose_num_,
+      nodes__SphericalPose__precond_diag_,
+      SphericalPose_num_,
+      nodes__SphericalPose__precond_tril_,
+      SphericalPose_num_,
+      spherical_fixed_point_num_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__r_0_start_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__Mp_start_);
   return 0.5 * ReadCuMem(solver__res_tot_);
@@ -4522,6 +4734,88 @@ void GraphSolver::DoResJac() {
       nodes__PinholePose__precond_tril_,
       PinholePose_num_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+
+  SphericalResJac(nodes__SphericalPose__storage_current_,
+                  SphericalPose_num_max_,
+                  facs__spherical__args__pose__idx_shared_,
+                  facs__spherical__args__sensor_from_rig__data_,
+                  spherical_num_max_,
+                  facs__spherical__args__wh__data_,
+                  spherical_num_max_,
+                  nodes__Point__storage_current_,
+                  Point_num_max_,
+                  facs__spherical__args__point__idx_shared_,
+                  facs__spherical__args__pixel__data_,
+                  spherical_num_max_,
+
+                  facs__spherical__res_,
+                  spherical_num_,
+
+                  facs__spherical__args__pose__jac_,
+                  spherical_num_,
+                  nodes__SphericalPose__r_k_,
+                  SphericalPose_num_,
+                  nodes__SphericalPose__precond_diag_,
+                  SphericalPose_num_,
+                  nodes__SphericalPose__precond_tril_,
+                  SphericalPose_num_,
+                  facs__spherical__args__point__jac_,
+                  spherical_num_,
+                  nodes__Point__r_k_,
+                  Point_num_,
+                  nodes__Point__precond_diag_,
+                  Point_num_,
+                  nodes__Point__precond_tril_,
+                  Point_num_,
+                  spherical_num_);
+
+  SphericalFixedPoseResJac(
+      facs__spherical_fixed_pose__args__sensor_from_rig__data_,
+      spherical_fixed_pose_num_max_,
+      facs__spherical_fixed_pose__args__wh__data_,
+      spherical_fixed_pose_num_max_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__spherical_fixed_pose__args__point__idx_shared_,
+      facs__spherical_fixed_pose__args__pixel__data_,
+      spherical_fixed_pose_num_max_,
+      facs__spherical_fixed_pose__args__pose__data_,
+      spherical_fixed_pose_num_max_,
+
+      facs__spherical_fixed_pose__res_,
+      spherical_fixed_pose_num_,
+
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      spherical_fixed_pose_num_);
+
+  SphericalFixedPointResJac(
+      nodes__SphericalPose__storage_current_,
+      SphericalPose_num_max_,
+      facs__spherical_fixed_point__args__pose__idx_shared_,
+      facs__spherical_fixed_point__args__sensor_from_rig__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__wh__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__pixel__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__point__data_,
+      spherical_fixed_point_num_max_,
+
+      facs__spherical_fixed_point__res_,
+      spherical_fixed_point_num_,
+
+      nodes__SphericalPose__r_k_,
+      SphericalPose_num_,
+      nodes__SphericalPose__precond_diag_,
+      SphericalPose_num_,
+      nodes__SphericalPose__precond_tril_,
+      SphericalPose_num_,
+      spherical_fixed_point_num_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__r_0_start_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__Mp_start_);
 }
@@ -4635,6 +4929,17 @@ void GraphSolver::DoNormalize() {
       z,
       SimpleRadialPrincipalPoint_num_,
       SimpleRadialPrincipalPoint_num_);
+  z = pcg_iter_ == 0 ? nodes__SphericalPose__p_ : nodes__SphericalPose__z_;
+  SphericalPoseNormalize(nodes__SphericalPose__precond_diag_,
+                         SphericalPose_num_,
+                         nodes__SphericalPose__precond_tril_,
+                         SphericalPose_num_,
+                         nodes__SphericalPose__r_k_,
+                         SphericalPose_num_,
+                         solver__current_diag_,
+                         z,
+                         SphericalPose_num_,
+                         SphericalPose_num_);
 }
 
 void GraphSolver::DoUpdateMp() {
@@ -4728,6 +5033,16 @@ void GraphSolver::DoUpdateMp() {
                                      nodes__SimpleRadialPrincipalPoint__w_,
                                      SimpleRadialPrincipalPoint_num_,
                                      SimpleRadialPrincipalPoint_num_);
+  SphericalPoseUpdateMp(nodes__SphericalPose__r_k_,
+                        SphericalPose_num_,
+                        nodes__SphericalPose__Mp_,
+                        SphericalPose_num_,
+                        solver__beta_,
+                        nodes__SphericalPose__Mp_,
+                        SphericalPose_num_,
+                        nodes__SphericalPose__w_,
+                        SphericalPose_num_,
+                        SphericalPose_num_);
 }
 
 void GraphSolver::DoJtjpDirect() {
@@ -5091,6 +5406,21 @@ void GraphSolver::DoJtjpDirect() {
       nodes__PinholeFocal__w_,
       PinholeFocal_num_,
       pinhole_split_fixed_principal_point_fixed_point_num_);
+  SphericalJtjnjtrDirect(nodes__SphericalPose__p_,
+                         SphericalPose_num_,
+                         facs__spherical__args__pose__idx_shared_,
+                         facs__spherical__args__pose__jac_,
+                         spherical_num_,
+                         nodes__Point__p_,
+                         Point_num_,
+                         facs__spherical__args__point__idx_shared_,
+                         facs__spherical__args__point__jac_,
+                         spherical_num_,
+                         nodes__SphericalPose__w_,
+                         SphericalPose_num_,
+                         nodes__Point__w_,
+                         Point_num_,
+                         spherical_num_);
 }
 
 void GraphSolver::DoAlphaFirst() {
@@ -5181,6 +5511,15 @@ void GraphSolver::DoAlphaFirst() {
       solver__alpha_numerator_,
       solver__alpha_denominator_,
       SimpleRadialPrincipalPoint_num_);
+  SphericalPoseAlphaNumeratorDenominator(nodes__SphericalPose__p_,
+                                         SphericalPose_num_,
+                                         nodes__SphericalPose__r_k_,
+                                         SphericalPose_num_,
+                                         nodes__SphericalPose__w_,
+                                         SphericalPose_num_,
+                                         solver__alpha_numerator_,
+                                         solver__alpha_denominator_,
+                                         SphericalPose_num_);
 
   AlphaFromNumDenom(solver__alpha_numerator_,
                     solver__alpha_denominator_,
@@ -5247,6 +5586,12 @@ void GraphSolver::DoAlpha() {
       SimpleRadialPrincipalPoint_num_,
       solver__alpha_denominator_,
       SimpleRadialPrincipalPoint_num_);
+  SphericalPoseAlphaDenominatorOrBetaNumerator(nodes__SphericalPose__p_,
+                                               SphericalPose_num_,
+                                               nodes__SphericalPose__w_,
+                                               SphericalPose_num_,
+                                               solver__alpha_denominator_,
+                                               SphericalPose_num_);
 
   AlphaFromNumDenom(solver__beta_numerator_,
                     solver__alpha_denominator_,
@@ -5311,6 +5656,12 @@ void GraphSolver::DoUpdateStepFirst() {
       nodes__SimpleRadialPrincipalPoint__step_,
       SimpleRadialPrincipalPoint_num_,
       SimpleRadialPrincipalPoint_num_);
+  SphericalPoseUpdateStepFirst(nodes__SphericalPose__p_,
+                               SphericalPose_num_,
+                               solver__alpha_,
+                               nodes__SphericalPose__step_,
+                               SphericalPose_num_,
+                               SphericalPose_num_);
 }
 
 void GraphSolver::DoUpdateStep() {
@@ -5386,6 +5737,14 @@ void GraphSolver::DoUpdateStep() {
                                        nodes__SimpleRadialPrincipalPoint__step_,
                                        SimpleRadialPrincipalPoint_num_,
                                        SimpleRadialPrincipalPoint_num_);
+  SphericalPoseUpdateStep(nodes__SphericalPose__step_,
+                          SphericalPose_num_,
+                          nodes__SphericalPose__p_,
+                          SphericalPose_num_,
+                          solver__alpha_,
+                          nodes__SphericalPose__step_,
+                          SphericalPose_num_,
+                          SphericalPose_num_);
 }
 
 void GraphSolver::DoUpdateRFirst() {
@@ -5491,6 +5850,17 @@ void GraphSolver::DoUpdateRFirst() {
       solver__r_kp1_norm2_tot_,
       SimpleRadialPrincipalPoint_num_);
 
+  SphericalPoseUpdateRFirst(nodes__SphericalPose__r_k_,
+                            SphericalPose_num_,
+                            nodes__SphericalPose__w_,
+                            SphericalPose_num_,
+                            solver__neg_alpha_,
+                            nodes__SphericalPose__r_k_,
+                            SphericalPose_num_,
+                            solver__r_0_norm2_tot_,
+                            solver__r_kp1_norm2_tot_,
+                            SphericalPose_num_);
+
   pcg_r_0_norm2_ = ReadCuMem(solver__r_0_norm2_tot_);
   pcg_r_kp1_norm2_ = ReadCuMem(solver__r_kp1_norm2_tot_);
 }
@@ -5579,6 +5949,15 @@ void GraphSolver::DoUpdateR() {
                                     SimpleRadialPrincipalPoint_num_,
                                     solver__r_kp1_norm2_tot_,
                                     SimpleRadialPrincipalPoint_num_);
+  SphericalPoseUpdateR(nodes__SphericalPose__r_k_,
+                       SphericalPose_num_,
+                       nodes__SphericalPose__w_,
+                       SphericalPose_num_,
+                       solver__neg_alpha_,
+                       nodes__SphericalPose__r_k_,
+                       SphericalPose_num_,
+                       solver__r_kp1_norm2_tot_,
+                       SphericalPose_num_);
   pcg_r_kp1_norm2_ = ReadCuMem(solver__r_kp1_norm2_tot_);
 }
 
@@ -5648,6 +6027,13 @@ double GraphSolver::DoRetractScore() {
       nodes__SimpleRadialPrincipalPoint__storage_check_,
       SimpleRadialPrincipalPoint_num_max_,
       SimpleRadialPrincipalPoint_num_);
+  SphericalPoseRetract(nodes__SphericalPose__storage_current_,
+                       SphericalPose_num_max_,
+                       nodes__SphericalPose__step_,
+                       SphericalPose_num_,
+                       nodes__SphericalPose__storage_check_,
+                       SphericalPose_num_max_,
+                       SphericalPose_num_);
   Zero(solver__res_tot_, solver__res_tot_ + 1);
   SimpleRadialScore(nodes__SimpleRadialPose__storage_check_,
                     SimpleRadialPose_num_max_,
@@ -6136,6 +6522,48 @@ double GraphSolver::DoRetractScore() {
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
       solver__res_tot_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+  SphericalScore(nodes__SphericalPose__storage_check_,
+                 SphericalPose_num_max_,
+                 facs__spherical__args__pose__idx_shared_,
+                 facs__spherical__args__sensor_from_rig__data_,
+                 spherical_num_max_,
+                 facs__spherical__args__wh__data_,
+                 spherical_num_max_,
+                 nodes__Point__storage_check_,
+                 Point_num_max_,
+                 facs__spherical__args__point__idx_shared_,
+                 facs__spherical__args__pixel__data_,
+                 spherical_num_max_,
+                 solver__res_tot_,
+                 spherical_num_);
+  SphericalFixedPoseScore(
+      facs__spherical_fixed_pose__args__sensor_from_rig__data_,
+      spherical_fixed_pose_num_max_,
+      facs__spherical_fixed_pose__args__wh__data_,
+      spherical_fixed_pose_num_max_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__spherical_fixed_pose__args__point__idx_shared_,
+      facs__spherical_fixed_pose__args__pixel__data_,
+      spherical_fixed_pose_num_max_,
+      facs__spherical_fixed_pose__args__pose__data_,
+      spherical_fixed_pose_num_max_,
+      solver__res_tot_,
+      spherical_fixed_pose_num_);
+  SphericalFixedPointScore(
+      nodes__SphericalPose__storage_check_,
+      SphericalPose_num_max_,
+      facs__spherical_fixed_point__args__pose__idx_shared_,
+      facs__spherical_fixed_point__args__sensor_from_rig__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__wh__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__pixel__data_,
+      spherical_fixed_point_num_max_,
+      facs__spherical_fixed_point__args__point__data_,
+      spherical_fixed_point_num_max_,
+      solver__res_tot_,
+      spherical_fixed_point_num_);
   return 0.5 * ReadCuMem(solver__res_tot_);
 }
 
@@ -6208,6 +6636,13 @@ void GraphSolver::DoBeta() {
       SimpleRadialPrincipalPoint_num_,
       solver__beta_numerator_,
       SimpleRadialPrincipalPoint_num_);
+
+  SphericalPoseAlphaDenominatorOrBetaNumerator(nodes__SphericalPose__r_k_,
+                                               SphericalPose_num_,
+                                               nodes__SphericalPose__z_,
+                                               SphericalPose_num_,
+                                               solver__beta_numerator_,
+                                               SphericalPose_num_);
   BetaFromNumDenom(
       solver__beta_numerator_, solver__alpha_numerator_, solver__beta_);
 }
@@ -6285,6 +6720,14 @@ void GraphSolver::DoUpdateP() {
                                     nodes__SimpleRadialPrincipalPoint__p_,
                                     SimpleRadialPrincipalPoint_num_,
                                     SimpleRadialPrincipalPoint_num_);
+  SphericalPoseUpdateP(nodes__SphericalPose__z_,
+                       SphericalPose_num_,
+                       nodes__SphericalPose__p_,
+                       SphericalPose_num_,
+                       solver__beta_,
+                       nodes__SphericalPose__p_,
+                       SphericalPose_num_,
+                       SphericalPose_num_);
 }
 
 double GraphSolver::GetPredDecrease() {
@@ -6373,6 +6816,15 @@ double GraphSolver::GetPredDecrease() {
       SimpleRadialPrincipalPoint_num_,
       solver__pred_decrease_tot_,
       SimpleRadialPrincipalPoint_num_);
+  SphericalPosePredDecreaseTimesTwo(nodes__SphericalPose__step_,
+                                    SphericalPose_num_,
+                                    nodes__SphericalPose__precond_diag_,
+                                    SphericalPose_num_,
+                                    solver__current_diag_,
+                                    nodes__SphericalPose__r_0_,
+                                    SphericalPose_num_,
+                                    solver__pred_decrease_tot_,
+                                    SphericalPose_num_);
   return 0.5 * ReadCuMem(solver__pred_decrease_tot_);
 }
 
@@ -7049,6 +7501,81 @@ void GraphSolver::GetSimpleRadialPrincipalPointNodesToStackedDevice(
       SimpleRadialPrincipalPoint_num_max_,
       offset,
       num);
+}
+
+void GraphSolver::SetSphericalPoseNum(const size_t num) {
+  cudaSetDevice(device_id_);
+  if (num > SphericalPose_num_max_) {
+    throw std::runtime_error(std::to_string(num) + " > SphericalPose_num_max_");
+  }
+  SphericalPose_num_ = num;
+}
+
+void GraphSolver::SetSphericalPoseNodesFromStackedHost(const double* const data,
+                                                       const size_t offset,
+                                                       const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > SphericalPose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > SphericalPose_num_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  SphericalPoseStackedToCaspar(marker__scratch_inout_,
+                               nodes__SphericalPose__storage_current_,
+                               SphericalPose_num_max_,
+                               offset,
+                               num);
+}
+
+void GraphSolver::SetSphericalPoseNodesFromStackedDevice(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > SphericalPose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > SphericalPose_num_");
+  }
+  SphericalPoseStackedToCaspar(data,
+                               nodes__SphericalPose__storage_current_,
+                               SphericalPose_num_max_,
+                               offset,
+                               num);
+}
+
+void GraphSolver::GetSphericalPoseNodesToStackedHost(double* const data,
+                                                     const size_t offset,
+                                                     const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > SphericalPose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > SphericalPose_num_");
+  }
+  SphericalPoseCasparToStacked(nodes__SphericalPose__storage_current_,
+                               marker__scratch_inout_,
+                               SphericalPose_num_max_,
+                               offset,
+                               num);
+  cudaMemcpy(data,
+             marker__scratch_inout_,
+             7 * num * sizeof(double),
+             cudaMemcpyDeviceToHost);
+}
+
+void GraphSolver::GetSphericalPoseNodesToStackedDevice(double* const data,
+                                                       const size_t offset,
+                                                       const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > SphericalPose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > SphericalPose_num_");
+  }
+  SphericalPoseCasparToStacked(nodes__SphericalPose__storage_current_,
+                               data,
+                               SphericalPose_num_max_,
+                               offset,
+                               num);
 }
 
 void GraphSolver::SetSimpleRadialNum(const size_t num) {
@@ -14062,6 +14589,524 @@ void GraphSolver::
       offset,
       num);
 }
+void GraphSolver::SetSphericalNum(const size_t num) {
+  if (num > spherical_num_max_) {
+    throw std::runtime_error(std::to_string(num) + " > spherical_num_max_");
+  }
+  spherical_num_ = num;
+}
+void GraphSolver::SetSphericalPoseIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != spherical_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_num_. Use SetsphericalNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetSphericalPoseIndicesFromDevice((unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetSphericalPoseIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != spherical_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_num_. Use SetsphericalNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices, facs__spherical__args__pose__idx_shared_, num);
+}
+void GraphSolver::SetSphericalPointIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != spherical_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_num_. Use SetsphericalNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetSphericalPointIndicesFromDevice((unsigned int*)marker__scratch_inout_,
+                                     num);
+}
+
+void GraphSolver::SetSphericalPointIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != spherical_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_num_. Use SetsphericalNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices, facs__spherical__args__point__idx_shared_, num);
+}
+void GraphSolver::SetSphericalSensorFromRigDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstSphericalSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__spherical__args__sensor_from_rig__data_,
+      spherical_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetSphericalSensorFromRigDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_num_max_");
+  }
+  ConstSphericalSensorFromRigStackedToCaspar(
+      data,
+      facs__spherical__args__sensor_from_rig__data_,
+      spherical_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetSphericalWhDataFromStackedHost(const double* const data,
+                                                    size_t offset,
+                                                    size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstSphericalWHStackedToCaspar(marker__scratch_inout_,
+                                  facs__spherical__args__wh__data_,
+                                  spherical_num_max_,
+                                  offset,
+                                  num);
+}
+
+void GraphSolver::SetSphericalWhDataFromStackedDevice(const double* const data,
+                                                      size_t offset,
+                                                      size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_num_max_");
+  }
+  ConstSphericalWHStackedToCaspar(
+      data, facs__spherical__args__wh__data_, spherical_num_max_, offset, num);
+}
+void GraphSolver::SetSphericalPixelDataFromStackedHost(const double* const data,
+                                                       size_t offset,
+                                                       size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(marker__scratch_inout_,
+                            facs__spherical__args__pixel__data_,
+                            spherical_num_max_,
+                            offset,
+                            num);
+}
+
+void GraphSolver::SetSphericalPixelDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_num_max_");
+  }
+  ConstPixelStackedToCaspar(data,
+                            facs__spherical__args__pixel__data_,
+                            spherical_num_max_,
+                            offset,
+                            num);
+}
+void GraphSolver::SetSphericalFixedPoseNum(const size_t num) {
+  if (num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  spherical_fixed_pose_num_ = num;
+}
+void GraphSolver::SetSphericalFixedPosePointIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != spherical_fixed_pose_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_fixed_pose_num_. Use Setspherical_fixed_poseNum before "
+        "setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetSphericalFixedPosePointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetSphericalFixedPosePointIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != spherical_fixed_pose_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_fixed_pose_num_. Use Setspherical_fixed_poseNum before "
+        "setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices, facs__spherical_fixed_pose__args__point__idx_shared_, num);
+}
+void GraphSolver::SetSphericalFixedPoseSensorFromRigDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstSphericalSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__spherical_fixed_pose__args__sensor_from_rig__data_,
+      spherical_fixed_pose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetSphericalFixedPoseSensorFromRigDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  ConstSphericalSensorFromRigStackedToCaspar(
+      data,
+      facs__spherical_fixed_pose__args__sensor_from_rig__data_,
+      spherical_fixed_pose_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetSphericalFixedPoseWhDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstSphericalWHStackedToCaspar(marker__scratch_inout_,
+                                  facs__spherical_fixed_pose__args__wh__data_,
+                                  spherical_fixed_pose_num_max_,
+                                  offset,
+                                  num);
+}
+
+void GraphSolver::SetSphericalFixedPoseWhDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  ConstSphericalWHStackedToCaspar(data,
+                                  facs__spherical_fixed_pose__args__wh__data_,
+                                  spherical_fixed_pose_num_max_,
+                                  offset,
+                                  num);
+}
+void GraphSolver::SetSphericalFixedPosePixelDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(marker__scratch_inout_,
+                            facs__spherical_fixed_pose__args__pixel__data_,
+                            spherical_fixed_pose_num_max_,
+                            offset,
+                            num);
+}
+
+void GraphSolver::SetSphericalFixedPosePixelDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  ConstPixelStackedToCaspar(data,
+                            facs__spherical_fixed_pose__args__pixel__data_,
+                            spherical_fixed_pose_num_max_,
+                            offset,
+                            num);
+}
+void GraphSolver::SetSphericalFixedPosePoseDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstSphericalPoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__spherical_fixed_pose__args__pose__data_,
+      spherical_fixed_pose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetSphericalFixedPosePoseDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_pose_num_max_");
+  }
+  ConstSphericalPoseStackedToCaspar(
+      data,
+      facs__spherical_fixed_pose__args__pose__data_,
+      spherical_fixed_pose_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetSphericalFixedPointNum(const size_t num) {
+  if (num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  spherical_fixed_point_num_ = num;
+}
+void GraphSolver::SetSphericalFixedPointPoseIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != spherical_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_fixed_point_num_. Use Setspherical_fixed_pointNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetSphericalFixedPointPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetSphericalFixedPointPoseIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != spherical_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != spherical_fixed_point_num_. Use Setspherical_fixed_pointNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices, facs__spherical_fixed_point__args__pose__idx_shared_, num);
+}
+void GraphSolver::SetSphericalFixedPointSensorFromRigDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstSphericalSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__spherical_fixed_point__args__sensor_from_rig__data_,
+      spherical_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetSphericalFixedPointSensorFromRigDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  ConstSphericalSensorFromRigStackedToCaspar(
+      data,
+      facs__spherical_fixed_point__args__sensor_from_rig__data_,
+      spherical_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetSphericalFixedPointWhDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstSphericalWHStackedToCaspar(marker__scratch_inout_,
+                                  facs__spherical_fixed_point__args__wh__data_,
+                                  spherical_fixed_point_num_max_,
+                                  offset,
+                                  num);
+}
+
+void GraphSolver::SetSphericalFixedPointWhDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  ConstSphericalWHStackedToCaspar(data,
+                                  facs__spherical_fixed_point__args__wh__data_,
+                                  spherical_fixed_point_num_max_,
+                                  offset,
+                                  num);
+}
+void GraphSolver::SetSphericalFixedPointPixelDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(marker__scratch_inout_,
+                            facs__spherical_fixed_point__args__pixel__data_,
+                            spherical_fixed_point_num_max_,
+                            offset,
+                            num);
+}
+
+void GraphSolver::SetSphericalFixedPointPixelDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(data,
+                            facs__spherical_fixed_point__args__pixel__data_,
+                            spherical_fixed_point_num_max_,
+                            offset,
+                            num);
+}
+void GraphSolver::SetSphericalFixedPointPointDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(marker__scratch_inout_,
+                            facs__spherical_fixed_point__args__point__data_,
+                            spherical_fixed_point_num_max_,
+                            offset,
+                            num);
+}
+
+void GraphSolver::SetSphericalFixedPointPointDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > spherical_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > spherical_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(data,
+                            facs__spherical_fixed_point__args__point__data_,
+                            spherical_fixed_point_num_max_,
+                            offset,
+                            num);
+}
 
 size_t GraphSolver::get_nbytes() {
   size_t offset = 0;
@@ -14094,6 +15139,9 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 8 * SphericalPose_num_, 4);
+  increment_offset<double>(offset, 8 * SphericalPose_num_, 4);
+  increment_offset<double>(offset, 8 * SphericalPose_num_, 4);
   increment_offset<SharedIndex>(offset, 1 * simple_radial_num_, 4);
   increment_offset<double>(offset, 8 * simple_radial_num_, 4);
   increment_offset<SharedIndex>(offset, 1 * simple_radial_num_, 4);
@@ -14518,6 +15566,21 @@ size_t GraphSolver::get_nbytes() {
       offset,
       4 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
       4);
+  increment_offset<SharedIndex>(offset, 1 * spherical_num_, 4);
+  increment_offset<double>(offset, 8 * spherical_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * spherical_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_num_, 4);
+  increment_offset<double>(offset, 8 * spherical_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_pose_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * spherical_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 8 * spherical_fixed_pose_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * spherical_fixed_point_num_, 4);
+  increment_offset<double>(offset, 8 * spherical_fixed_point_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_point_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_point_num_, 4);
+  increment_offset<double>(offset, 4 * spherical_fixed_point_num_, 4);
   at_least =
       std::max(at_least,
                offset + std::max({4 * PinholeCalib_num_max_,
@@ -14528,7 +15591,8 @@ size_t GraphSolver::get_nbytes() {
                                   4 * SimpleRadialCalib_num_max_,
                                   2 * SimpleRadialFocalAndExtra_num_max_,
                                   7 * SimpleRadialPose_num_max_,
-                                  2 * SimpleRadialPrincipalPoint_num_max_}) *
+                                  2 * SimpleRadialPrincipalPoint_num_max_,
+                                  7 * SphericalPose_num_max_}) *
                             sizeof(double));
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * simple_radial_num_, 4);
@@ -14603,6 +15667,9 @@ size_t GraphSolver::get_nbytes() {
       offset,
       2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
       4);
+  increment_offset<double>(offset, 2 * spherical_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_point_num_, 4);
   increment_offset<double>(offset, 12 * simple_radial_num_, 4);
   increment_offset<double>(offset, 4 * simple_radial_num_, 4);
   increment_offset<double>(offset, 6 * simple_radial_num_, 4);
@@ -14724,6 +15791,10 @@ size_t GraphSolver::get_nbytes() {
       offset,
       12 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
       4);
+  increment_offset<double>(offset, 12 * spherical_num_, 4);
+  increment_offset<double>(offset, 6 * spherical_num_, 4);
+  increment_offset<double>(offset, 6 * spherical_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 12 * spherical_fixed_point_num_, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
@@ -14742,23 +15813,7 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 6 * PinholePose_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * PinholePrincipalPoint_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 4 * Point_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 4 * SimpleRadialCalib_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
@@ -14778,6 +15833,28 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * PinholePose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * PinholePrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 4 * Point_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 4 * SimpleRadialCalib_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
   increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
@@ -14788,6 +15865,7 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
   increment_offset<double>(offset, 0 * 0, 1);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14799,6 +15877,7 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14810,6 +15889,7 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14821,6 +15901,7 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14841,6 +15922,8 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 16 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 1 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 6 * SphericalPose_num_, 4);
+  increment_offset<double>(offset, 16 * SphericalPose_num_, 4);
   increment_offset<double>(offset, 0 * 0, 1);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * simple_radial_num_, 4);
@@ -14915,6 +15998,9 @@ size_t GraphSolver::get_nbytes() {
       offset,
       2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
       4);
+  increment_offset<double>(offset, 2 * spherical_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 2 * spherical_fixed_point_num_, 4);
   increment_offset<double>(offset, 0 * 0, 1);
   increment_offset<double>(offset, 1 * 1, 1);
   increment_offset<double>(offset, 1 * 1, 1);

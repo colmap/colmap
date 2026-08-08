@@ -1,0 +1,6 @@
+# The Caspar GPU bundle-adjustment kernels under Symforce-Caspar/generated are
+# produced by src/thirdparty/Symforce-Caspar/caspar_generate.py (Symforce
+# codegen), not written by hand. Mark them as generated so GitHub collapses
+# them in pull-request diffs and excludes them from language statistics; review
+# the generator (caspar_generate.py) and the C++ adapter/wiring instead.
+src/thirdparty/Symforce-Caspar/generated/** linguist-generated=true

@@ -1,13 +1,13 @@
 /* ----------------------------------------------------------------------------
  * SymForce - Copyright 2025, Skydio, Inc.
  * This source code is under the Apache 2.0 license found in the LICENSE file.
- * ---------------------------------------------------------------------------- */
+ * ----------------------------------------------------------------------------
+ */
 
+#include "shared_indices.h"
 #include <cooperative_groups.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
-
-#include "shared_indices.h"
 
 namespace cg = cooperative_groups;
 
@@ -22,18 +22,16 @@ __device__ void Swap(T& a, T& b) {
 
 // Batcher odd–even mergesort, sorts at most 1024 elements
 template <typename TVal, uint kArrayLength, typename TIdx = uint>
-__forceinline__ __device__ void Sort(TVal* const values, TIdx* const indices = nullptr) {
+__forceinline__ __device__ void Sort(TVal* const values,
+                                     TIdx* const indices = nullptr) {
   __shared__ bool is_sorted;
-  if (threadIdx.x == 0)
-    is_sorted = true;
+  if (threadIdx.x == 0) is_sorted = true;
 
   __syncthreads();
   if (threadIdx.x + 1 < kArrayLength)
-    if (values[threadIdx.x] > values[threadIdx.x + 1])
-      is_sorted = false;
+    if (values[threadIdx.x] > values[threadIdx.x + 1]) is_sorted = false;
   __syncthreads();
-  if (is_sorted)
-    return;
+  if (is_sorted) return;
 
 #pragma unroll
   for (uint size = 2; size <= kArrayLength; size <<= 1) {
@@ -44,8 +42,7 @@ __forceinline__ __device__ void Sort(TVal* const values, TIdx* const indices = n
       if (pos + stride < kArrayLength)
         if (values[pos] > values[pos + stride]) {
           Swap<TVal>(values[pos], values[pos + stride]);
-          if (indices)
-            Swap<TIdx>(indices[pos], indices[pos + stride]);
+          if (indices) Swap<TIdx>(indices[pos], indices[pos + stride]);
         }
       stride >>= 1;
     }
@@ -59,8 +56,7 @@ __forceinline__ __device__ void Sort(TVal* const values, TIdx* const indices = n
       if (offset >= stride && pos < kArrayLength)
         if (values[pos - stride] > values[pos]) {
           Swap<TVal>(values[pos - stride], values[pos]);
-          if (indices)
-            Swap<TIdx>(indices[pos - stride], indices[pos]);
+          if (indices) Swap<TIdx>(indices[pos - stride], indices[pos]);
         }
     }
     if (size <= 16)
@@ -71,31 +67,33 @@ __forceinline__ __device__ void Sort(TVal* const values, TIdx* const indices = n
 }
 
 template <int kArrayLength>
-__forceinline__ __device__ void MakeUnique(uint* const values, uint* const indices) {
+__forceinline__ __device__ void MakeUnique(uint* const values,
+                                           uint* const indices) {
   Sort<uint, kArrayLength>(values, indices);
   bool pred = false;
   if (threadIdx.x < kArrayLength - 1)
     pred = values[threadIdx.x] == values[threadIdx.x + 1];
   __syncthreads();
-  if (pred)
-    values[threadIdx.x + 1] = 0xFFFFFFFF;
+  if (pred) values[threadIdx.x + 1] = 0xFFFFFFFF;
   Sort<uint, kArrayLength>(values);
 }
 
 template <int kArrayLength>
 __forceinline__ __device__ uint GetNUnique(const uint* values) {
   __shared__ uint n_sorted;  // last block might have less than 1024 elements
-  if (threadIdx.x == 0)
-    n_sorted = kArrayLength;
+  if (threadIdx.x == 0) n_sorted = kArrayLength;
   __syncthreads();
   if (threadIdx.x < kArrayLength - 1)
-    if (values[threadIdx.x + 1] == 0xFFFFFFFF && values[threadIdx.x] != 0xFFFFFFFF)
+    if (values[threadIdx.x + 1] == 0xFFFFFFFF &&
+        values[threadIdx.x] != 0xFFFFFFFF)
       n_sorted = threadIdx.x + 1;
   __syncthreads();
   return n_sorted;
 }
 
-__forceinline__ __device__ uint GetOrd(const uint* values, const uint length, const uint val) {
+__forceinline__ __device__ uint GetOrd(const uint* values,
+                                       const uint length,
+                                       const uint val) {
   const uint* lo = values;
   const uint* hi = values + length;
   while (lo < hi) {
@@ -108,9 +106,10 @@ __forceinline__ __device__ uint GetOrd(const uint* values, const uint length, co
   return static_cast<uint>(lo - values);
 }
 
-__global__ void SharedIndicesKernel(const uint* const __restrict__ indices,
-                                    SharedIndex* const __restrict__ shared_indices_out,
-                                    const uint size) {
+__global__ void SharedIndicesKernel(
+    const uint* const __restrict__ indices,
+    SharedIndex* const __restrict__ shared_indices_out,
+    const uint size) {
   const auto block = cg::this_thread_block();
 
   const auto gtrank = cg::this_grid().thread_rank();
@@ -142,14 +141,15 @@ __global__ void SharedIndicesKernel(const uint* const __restrict__ indices,
     shared_index.argsort = 0xffff;
     shared_index.target = 0xffff;
   };
-  if (gtrank < size)
-    shared_indices_out[gtrank] = shared_index;
+  if (gtrank < size) shared_indices_out[gtrank] = shared_index;
 }
 
-void SharedIndices(const uint* const indices, SharedIndex* const shared_indices_out,
+void SharedIndices(const uint* const indices,
+                   SharedIndex* const shared_indices_out,
                    const uint problem_size) {
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  SharedIndicesKernel<<<n_blocks, 1024>>>(indices, shared_indices_out, problem_size);
+  SharedIndicesKernel<<<n_blocks, 1024>>>(
+      indices, shared_indices_out, problem_size);
 }
 
 }  // namespace caspar
