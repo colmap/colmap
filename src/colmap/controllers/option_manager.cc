@@ -605,6 +605,7 @@ void OptionManager::AddMapperOptions() {
 
   AddDefaultOption("Mapper.min_num_matches", &mapper->min_num_matches);
   AddDefaultOption("Mapper.ignore_watermarks", &mapper->ignore_watermarks);
+  AddDefaultOption("Mapper.load_all_images", &mapper->load_all_images);
   AddDefaultOption("Mapper.multiple_models", &mapper->multiple_models);
   AddDefaultOption("Mapper.max_num_models", &mapper->max_num_models);
   AddDefaultOption("Mapper.max_model_overlap", &mapper->max_model_overlap);

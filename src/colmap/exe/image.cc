@@ -287,6 +287,7 @@ int RunImageRegistrator(int argc, char** argv) {
         options.mapper->ignore_watermarks;
     database_cache_options.image_names = {options.mapper->image_names.begin(),
                                           options.mapper->image_names.end()};
+    database_cache_options.load_all_images = options.mapper->load_all_images;
     database_cache = DatabaseCache::Create(
         *Database::Open(*options.database_path), database_cache_options);
     timer.PrintMinutes();

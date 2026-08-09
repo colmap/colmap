@@ -135,6 +135,7 @@ TEST(OptionManager, WriteAndRead) {
   options_write.feature_extraction->max_image_size = 2048;
   options_write.feature_extraction->sift->max_num_features = 4096;
   options_write.mapper->min_num_matches = 20;
+  options_write.mapper->load_all_images = true;
 
   // Write to file
   options_write.Write(config_path);
@@ -159,6 +160,8 @@ TEST(OptionManager, WriteAndRead) {
             options_write.feature_extraction->sift->max_num_features);
   EXPECT_EQ(options_read.mapper->min_num_matches,
             options_write.mapper->min_num_matches);
+  EXPECT_EQ(options_read.mapper->load_all_images,
+            options_write.mapper->load_all_images);
 }
 
 TEST(OptionManager, ReRead) {
@@ -235,6 +238,7 @@ TEST(OptionManager, ParseWithOptions) {
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddFeatureExtractionOptions();
+  options.AddMapperOptions();
 
   const auto database_path = test_dir / "database.db";
   const auto image_path = test_dir / "images";
@@ -250,6 +254,8 @@ TEST(OptionManager, ParseWithOptions) {
       "1024",
       "--SiftExtraction.max_num_features",
       "2048",
+      "--Mapper.load_all_images",
+      "1",
   };
 
   std::vector<char*> argv;
@@ -265,6 +271,7 @@ TEST(OptionManager, ParseWithOptions) {
   EXPECT_EQ(*options.image_path, image_path);
   EXPECT_EQ(options.feature_extraction->max_image_size, 1024);
   EXPECT_EQ(options.feature_extraction->sift->max_num_features, 2048);
+  EXPECT_TRUE(options.mapper->load_all_images);
 }
 
 TEST(OptionManager, ParseWithProjectPath) {
