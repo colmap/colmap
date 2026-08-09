@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -164,9 +165,29 @@ struct Camera {
   // Convert pixel threshold in image plane to camera frame.
   inline double CamFromImgThreshold(double threshold) const;
 
-  // Project point from camera frame to image plane.
+  // Project point from camera frame to image plane. Without cheirality check,
+  // points behind the camera are projected as well and only points on the
+  // camera plane fail.
   inline std::optional<Eigen::Vector2d> ImgFromCam(
-      const Eigen::Vector3d& cam_point) const;
+      const Eigen::Vector3d& cam_point, bool check_cheirality = true) const;
+
+  // Project point from camera frame to image plane, additionally computing the
+  // Jacobian d(x, y) / d(u, v, w). Pass nullptr to skip the Jacobian.
+  inline std::optional<Eigen::Vector2d> ImgFromCamWithJac(
+      const Eigen::Vector3d& cam_point,
+      Eigen::Matrix2x3d* J_uvw,
+      bool check_cheirality = true) const;
+
+  // Unproject a pixel to a unit bearing vector together with the Jacobian
+  // d(u, v, w) / d(x, y) of that bearing with respect to the pixel.
+  //
+  // The Jacobian maps image-space perturbations into the tangent plane of the
+  // unit sphere at the bearing, which is what allows an epipolar residual to be
+  // evaluated in pixel units for any central camera model. Returns std::nullopt
+  // if the pixel cannot be unprojected or the projection is rank deficient
+  // there.
+  inline std::optional<CamRayWithJac> CamRayFromImgWithJac(
+      const Eigen::Vector2d& image_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.
@@ -319,8 +340,34 @@ double Camera::CamFromImgThreshold(const double threshold) const {
 }
 
 std::optional<Eigen::Vector2d> Camera::ImgFromCam(
-    const Eigen::Vector3d& cam_point) const {
-  return CameraModelImgFromCam(model_id, params, cam_point);
+    const Eigen::Vector3d& cam_point, const bool check_cheirality) const {
+  return CameraModelImgFromCam(model_id, params, cam_point, check_cheirality);
+}
+
+std::optional<Eigen::Vector2d> Camera::ImgFromCamWithJac(
+    const Eigen::Vector3d& cam_point,
+    Eigen::Matrix2x3d* J_uvw,
+    const bool check_cheirality) const {
+  return CameraModelImgFromCamWithJac(
+      model_id, params, cam_point, J_uvw, check_cheirality);
+}
+
+std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
+    const Eigen::Vector2d& image_point) const {
+  const std::optional<Eigen::Vector3d> cam_ray = CamRayFromImg(image_point);
+  if (!cam_ray.has_value()) {
+    return std::nullopt;
+  }
+  Eigen::Matrix2x3d J_uvw;
+  if (!ImgFromCamWithJac(*cam_ray, &J_uvw).has_value()) {
+    return std::nullopt;
+  }
+  const std::optional<Eigen::Matrix3x2d> J_ray =
+      CamRayFromImgJacobian(*cam_ray, J_uvw);
+  if (!J_ray.has_value()) {
+    return std::nullopt;
+  }
+  return CamRayWithJac{*cam_ray, *J_ray};
 }
 
 bool Camera::operator==(const Camera& other) const {

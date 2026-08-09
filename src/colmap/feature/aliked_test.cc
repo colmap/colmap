@@ -40,7 +40,6 @@ namespace colmap {
 namespace {
 
 void CreateRandomRgbImage(const int width, const int height, Bitmap* bitmap) {
-  SetPRNGSeed(42);
   *bitmap = Bitmap(width, height, /*as_rgb=*/true);
   for (int r = 0; r < height; ++r) {
     for (int c = 0; c < width; ++c) {

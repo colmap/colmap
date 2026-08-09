@@ -38,7 +38,6 @@
 #include "colmap/mvs/poisson_meshing.h"
 #endif
 #include "colmap/ui/main_window.h"
-#include "colmap/ui/render_options.h"
 #include "colmap/util/controller_thread.h"
 
 namespace colmap {

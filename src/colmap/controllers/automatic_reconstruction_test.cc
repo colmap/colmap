@@ -45,8 +45,6 @@ class ParameterizedAutomaticReconstructionTests
           AutomaticReconstructionController::Mapper> {};
 
 TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
-  SetPRNGSeed(1);
-
   const auto test_dir = CreateTestDir();
   const auto workspace_path = test_dir / "workspace";
   const auto image_path = test_dir / "images";

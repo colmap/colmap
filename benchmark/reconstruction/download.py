@@ -28,13 +28,23 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import hashlib
+import inspect
+import json
 import shutil
 import subprocess
+import tarfile
 import zipfile
 from pathlib import Path
 
 import py7zr
 import requests
+from evaluation.tartanair.tartanair_v2 import (
+    MANIFEST_PATH,
+    load_manifest,
+    scene_shards,
+    shard_name,
+)
 
 import pycolmap
 
@@ -125,6 +135,37 @@ def download_imc2024(data_path: Path) -> None:
         shutil.move(scene, data_path / category_path)
 
 
+def download_imc2025(data_path: Path) -> None:
+    data_path.mkdir(parents=True, exist_ok=True)
+
+    pycolmap.logging.info("Downloading IMC2025")
+    subprocess.check_call(
+        [
+            "kaggle",
+            "competitions",
+            "download",
+            "-c",
+            "image-matching-challenge-2025",
+            "-p",
+            str(data_path),
+        ],
+    )
+
+    pycolmap.logging.info("Extracting IMC2025")
+    with zipfile.ZipFile(
+        data_path / "image-matching-challenge-2025.zip", mode="r"
+    ) as archive:
+        archive.extractall(path=data_path)
+
+    # Move all scenes to the "all" category sub-folder.
+    category_path = data_path / "train/all"
+    category_path.mkdir(parents=True, exist_ok=True)
+    for scene in (data_path / "train").iterdir():
+        if scene.name == "all":
+            continue
+        shutil.move(scene, category_path)
+
+
 # TODO: BlendedMVS+ and BlendedMVS++.
 def download_blended_mvs(data_path: Path) -> None:
     target_folder = data_path / "BlendedMVS"
@@ -163,11 +204,95 @@ def download_blended_mvs(data_path: Path) -> None:
             combined_zip.unlink()
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as fid:
+        while chunk := fid.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _extract_tar_safely(archive_path: Path, output_path: Path) -> None:
+    output_root = output_path.resolve()
+    with tarfile.open(archive_path) as archive:
+        for member in archive.getmembers():
+            if member.issym() or member.islnk():
+                raise RuntimeError(
+                    f"Refusing link in release archive: {member.name}"
+                )
+            target = (output_path / member.name).resolve()
+            if not target.is_relative_to(output_root):
+                raise RuntimeError(
+                    f"Refusing unsafe release archive path: {member.name}"
+                )
+        if "filter" in inspect.signature(archive.extractall).parameters:
+            archive.extractall(output_path, filter="fully_trusted")
+        else:
+            archive.extractall(output_path)
+
+
+def download_tartanair_v2(
+    data_path: Path,
+    categories: list[str] | None = None,
+    scenes: list[str] | None = None,
+) -> None:
+    manifest = load_manifest()
+    categories = categories or []
+    scenes = scenes or []
+    shards = scene_shards(manifest)
+    selected_shards = []
+    for index, shard_scenes in enumerate(shards):
+        if any(
+            (not categories or scene.category in categories)
+            and (not scenes or scene.name in scenes)
+            for scene in shard_scenes
+        ):
+            selected_shards.append(index)
+
+    if not selected_shards:
+        pycolmap.logging.warning("No TartanAir V2 scenes matched the filters")
+        return
+
+    data_path.mkdir(parents=True, exist_ok=True)
+    archive_path = data_path / ".archives"
+    archive_path.mkdir(exist_ok=True)
+    release = manifest["release"]
+    base_url = (
+        f"https://github.com/{release['repository']}/releases/download/"
+        f"{release['tag']}"
+    )
+    checksum_path = MANIFEST_PATH.with_name("tartanair_v2_checksums.json")
+    checksums = json.loads(checksum_path.read_text())
+    for index in selected_shards:
+        filename = shard_name(manifest, index)
+        target = archive_path / filename
+        expected = checksums.get(filename)
+        if expected is None:
+            raise RuntimeError(f"Missing release checksum for {filename}")
+        if not target.exists() or (expected and _sha256(target) != expected):
+            temporary = target.with_suffix(target.suffix + ".part")
+            if temporary.exists():
+                temporary.unlink()
+            pycolmap.logging.info(f"Downloading TartanAir V2 {filename}")
+            download_file(f"{base_url}/{filename}", archive_path)
+            downloaded = archive_path / filename
+            if downloaded != temporary:
+                downloaded.replace(temporary)
+            if expected and _sha256(temporary) != expected:
+                temporary.unlink()
+                raise RuntimeError(f"Checksum mismatch for {filename}")
+            temporary.replace(target)
+        pycolmap.logging.info(f"Extracting TartanAir V2 {filename}")
+        _extract_tar_safely(target, data_path)
+
+
 DOWNLOADERS = {
     "eth3d": download_eth3d,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
+    "imc2025": download_imc2025,
     "blended-mvs": download_blended_mvs,
+    "tartanair-v2": download_tartanair_v2,
 }
 
 
@@ -182,6 +307,18 @@ def parse_args() -> argparse.Namespace:
         default=DOWNLOADERS.keys(),
         choices=DOWNLOADERS.keys(),
     )
+    parser.add_argument(
+        "--categories",
+        nargs="+",
+        default=[],
+        help="TartanAir categories to download; empty downloads all.",
+    )
+    parser.add_argument(
+        "--scenes",
+        nargs="+",
+        default=[],
+        help="TartanAir scenes to download; empty downloads all.",
+    )
     return parser.parse_args()
 
 
@@ -189,7 +326,12 @@ def main() -> None:
     args = parse_args()
 
     for dataset in args.datasets:
-        DOWNLOADERS[dataset](args.data_path / dataset)
+        if dataset == "tartanair-v2":
+            download_tartanair_v2(
+                args.data_path / dataset, args.categories, args.scenes
+            )
+        else:
+            DOWNLOADERS[dataset](args.data_path / dataset)
 
 
 if __name__ == "__main__":

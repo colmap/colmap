@@ -36,7 +36,6 @@
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #ifdef COLMAP_ONNX_ENABLED

@@ -29,8 +29,6 @@
 
 #include "colmap/scene/scene_clustering.h"
 
-#include "colmap/scene/database.h"
-
 #include <set>
 
 #include <gtest/gtest.h>
