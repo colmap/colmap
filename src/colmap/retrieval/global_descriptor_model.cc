@@ -60,7 +60,7 @@ const std::vector<GlobalDescriptorModel> kModels = {
             "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
             "resolve/main/mixvpr/onnx/mixvpr_fp16.onnx;"
             "mixvpr_fp16.onnx;"
-            "2afcfb51cd13ed96b242c80f809dae7a47ccbbaf0a6cd3a31f93e39b45dee311",
+            "fee89548fdc8066d2464f00d5672363868459c8d6346c33bf2d2aea3b7e13c86",
     },
     {
         .name = "MegaLoc",
