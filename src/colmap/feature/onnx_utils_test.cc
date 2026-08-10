@@ -96,12 +96,28 @@ class ErrorLogSink : public google::LogSink {
   size_t num_error_logs_ = 0;
 };
 
+TEST(ONNXExecutionProviderTest, Selection) {
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/false),
+            ONNXExecutionProvider::CPU);
+#ifdef COLMAP_CUDA_ENABLED
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/true),
+            ONNXExecutionProvider::CUDA);
+#elif defined(COLMAP_COREML_ENABLED)
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/true),
+            ONNXExecutionProvider::COREML);
+#else
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/true),
+            ONNXExecutionProvider::CPU);
+#endif
+}
+
 TEST(ONNXModelTest, MetadataAndInference) {
   ONNXModel model(WriteIdentityModel().string(),
                   /*num_threads=*/1,
                   /*use_gpu=*/false,
                   /*gpu_index=*/"-1");
 
+  EXPECT_EQ(model.execution_provider(), ONNXExecutionProvider::CPU);
   ASSERT_EQ(model.input_names().size(), 1);
   EXPECT_STREQ(model.input_names()[0], "input");
   ASSERT_EQ(model.input_shapes().size(), 1);

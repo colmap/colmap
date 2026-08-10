@@ -307,6 +307,33 @@ TEST_F(BruteForceONNXMatcherTest, EmptyDescriptors) {
   EXPECT_EQ(matches.size(), 0);
 }
 
+#ifdef COLMAP_COREML_ENABLED
+TEST_F(BruteForceONNXMatcherTest, CoreMLAutomaticallyUsesCPU) {
+  constexpr int kNumDescriptors = 20;
+
+  auto keypoints1 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors1 = CreateRandomDescriptors(kNumDescriptors);
+  auto keypoints2 = CreateDummyKeypoints(kNumDescriptors);
+  auto descriptors2 = CreateRandomDescriptors(kNumDescriptors);
+
+  FeatureMatchingOptions options = CreateFeatureMatcherOptions();
+  options.use_gpu = true;
+  BruteForceONNXMatchingOptions bf_options =
+      CreateBruteForceONNXMatchingOptions();
+  bf_options.min_cossim = 1.0;
+  bf_options.max_ratio = 0.0;
+  bf_options.cross_check = false;
+  auto matcher = CreateBruteForceMatcher(options, bf_options);
+
+  FeatureMatcher::Image image1{1, nullptr, keypoints1, descriptors1};
+  FeatureMatcher::Image image2{2, nullptr, keypoints2, descriptors2};
+  FeatureMatches matches;
+  matcher->Match(image1, image2, &matches);
+
+  EXPECT_TRUE(matches.empty());
+}
+#endif
+
 TEST_F(BruteForceONNXMatcherTest, Caching) {
   constexpr int kNumDescriptors = 10;
 

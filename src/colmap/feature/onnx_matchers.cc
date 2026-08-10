@@ -642,8 +642,18 @@ std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
     std::vector<FeatureExtractorType> supported_feature_types,
     bool normalize_descriptors) {
 #ifdef COLMAP_ONNX_ENABLED
+  FeatureMatchingOptions effective_options = options;
+  if (SelectONNXExecutionProvider(effective_options.use_gpu) ==
+      ONNXExecutionProvider::COREML) {
+    // CoreML cannot represent the zero-length dynamic output produced by the
+    // model's NonZero node when a pair has no valid matches.
+    LOG_FIRST_N(WARNING, 1)
+        << "The ONNX brute-force matcher is not supported by CoreML; using "
+           "the CPU execution provider instead";
+    effective_options.use_gpu = false;
+  }
   return std::make_unique<BruteForceONNXFeatureMatcher>(
-      options,
+      effective_options,
       brute_force_options,
       std::move(supported_feature_types),
       normalize_descriptors);

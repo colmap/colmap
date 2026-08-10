@@ -69,6 +69,19 @@ namespace {
 }
 }  // namespace
 
+ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu) {
+  if (!use_gpu) {
+    return ONNXExecutionProvider::CPU;
+  }
+#ifdef COLMAP_CUDA_ENABLED
+  return ONNXExecutionProvider::CUDA;
+#elif defined(COLMAP_COREML_ENABLED)
+  return ONNXExecutionProvider::COREML;
+#else
+  return ONNXExecutionProvider::CPU;
+#endif
+}
+
 std::string FormatONNXTensorShape(const std::vector<int64_t>& shape) {
   std::ostringstream oss;
   oss << "[";
@@ -149,8 +162,10 @@ void ONNXModel::InitializeSession(const std::string& model_path,
                                   const std::string& gpu_index,
                                   bool is_capability_probe) {
   ConfigureSessionOptions(num_threads);
+  execution_provider_ = SelectONNXExecutionProvider(use_gpu);
 
-  if (is_capability_probe && use_gpu) {
+  if (is_capability_probe &&
+      execution_provider_ != ONNXExecutionProvider::CPU) {
     // Ensure successful session creation means that the selected accelerator
     // supports the complete graph instead of silently assigning unsupported
     // nodes to the CPU execution provider.
@@ -159,7 +174,7 @@ void ONNXModel::InitializeSession(const std::string& model_path,
   }
 
 #ifdef COLMAP_CUDA_ENABLED
-  if (use_gpu) {
+  if (execution_provider_ == ONNXExecutionProvider::CUDA) {
     const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
     THROW_CHECK_EQ(gpu_indices.size(), 1)
         << "ONNX model can only run on one GPU";
@@ -175,9 +190,9 @@ void ONNXModel::InitializeSession(const std::string& model_path,
   // offloads supported subgraphs to the GPU/Apple Neural Engine (unsupported
   // nodes automatically fall back to the CPU). Selected automatically whenever
   // GPU use is requested; set use_gpu=false to force pure CPU execution.
-  bool use_coreml = false;
+  const bool use_coreml = execution_provider_ == ONNXExecutionProvider::COREML;
 #ifdef COLMAP_COREML_ENABLED
-  if (use_gpu) {
+  if (use_coreml) {
     VLOG(2) << "Enabling CoreML execution provider";
     // COREML_FLAG_CREATE_MLPROGRAM selects the newer ML Program model format,
     // which supports a wider set of operators and float inputs than the legacy
@@ -185,7 +200,6 @@ void ONNXModel::InitializeSession(const std::string& model_path,
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(
         static_cast<OrtSessionOptions*>(session_options_),
         COREML_FLAG_CREATE_MLPROGRAM));
-    use_coreml = true;
   }
 #endif
 
@@ -213,6 +227,7 @@ void ONNXModel::InitializeSession(const std::string& model_path,
     LOG(WARNING) << "Failed to initialize ONNX session with CoreML ("
                  << e.what() << "); falling back to CPU execution provider";
     ConfigureSessionOptions(num_threads);
+    execution_provider_ = ONNXExecutionProvider::CPU;
     session_ =
         std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
   }
