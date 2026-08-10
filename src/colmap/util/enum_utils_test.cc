@@ -29,8 +29,6 @@
 
 #include "colmap/util/enum_utils.h"
 
-#include <string>
-
 #include <gtest/gtest.h>
 
 namespace colmap {

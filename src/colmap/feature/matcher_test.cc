@@ -34,7 +34,6 @@
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 

@@ -30,7 +30,6 @@
 #include "colmap/image/undistortion.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/logging.h"

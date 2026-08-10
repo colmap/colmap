@@ -31,7 +31,6 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/feature/utils.h"
-#include "colmap/retrieval/resources.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"

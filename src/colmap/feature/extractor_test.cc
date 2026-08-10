@@ -32,7 +32,6 @@
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
-#include "colmap/util/testing.h"
 
 #include <utility>
 

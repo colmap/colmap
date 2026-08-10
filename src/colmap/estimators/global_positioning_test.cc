@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/global_positioning.h"
 
-#include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction_matchers.h"

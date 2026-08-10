@@ -30,7 +30,6 @@
 #include "colmap/retrieval/visual_index.h"
 
 #include "colmap/feature/types.h"
-#include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
