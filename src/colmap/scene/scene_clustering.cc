@@ -31,6 +31,7 @@
 
 #include "colmap/math/graph_cut.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/types.h"
 
 #include <set>
 
@@ -145,16 +146,17 @@ void SceneClustering::PartitionHierarchicalCluster(
                 });
 
       std::set<image_t> overlapping_image_ids;
-      for (const auto& edge : overlapping_edges[i]) {
-        if (labels.at(edge.first.first) == i) {
-          const image_t image_id = edge.first.second;
-          if (overlapping_image_ids.insert(image_id).second) {
-            child_overlap_anchor[i][image_id] = edge.first.first;
+      for (const auto& [pair, _] : overlapping_edges[i]) {
+        const image_t image_id1 = pair.first;
+        const image_t image_id2 = pair.second;
+
+        if (labels.at(image_id1) == i) {
+          if (overlapping_image_ids.insert(image_id2).second) {
+            child_overlap_anchor[i][image_id2] = image_id1;
           }
         } else {
-          const image_t image_id = edge.first.first;
-          if (overlapping_image_ids.insert(image_id).second) {
-            child_overlap_anchor[i][image_id] = edge.first.second;
+          if (overlapping_image_ids.insert(image_id1).second) {
+            child_overlap_anchor[i][image_id1] = image_id2;
           }
         }
         if (overlapping_image_ids.size() >=
