@@ -520,7 +520,7 @@ bool LomaMatchingOptions::Check() const {
 namespace {
 std::unique_ptr<FeatureMatcher> CreateLomaVariantMatcher(
     const FeatureMatchingOptions& options,
-    const LomaVariantMatcherOptions& variant,
+    const LomaMatchingOptions::Variant& variant,
     FeatureExtractorType expected_extractor_type) {
   if (options.loma->use_bf16) {
     try {

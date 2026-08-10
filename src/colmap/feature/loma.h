@@ -74,14 +74,14 @@ struct LomaExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
     const FeatureExtractionOptions& options);
 
-// Model paths for one LoMa matcher variant (B/B128/R/L/G), at both
-// precisions.
-struct LomaVariantMatcherOptions {
-  std::string model_path;
-  std::string model_path_bf16;
-};
-
 struct LomaMatchingOptions {
+  // Model paths for one LoMa matcher variant (B/B128/R/L/G), at both
+  // precisions.
+  struct Variant {
+    std::string model_path;
+    std::string model_path_bf16;
+  };
+
   // Matching filter, matches LG
   double min_score = 0.1;
 
@@ -90,16 +90,11 @@ struct LomaMatchingOptions {
   bool use_bf16 = false;
 
   // One entry per FeatureMatcherType::LOMA_* dedicated-matcher variant.
-  LomaVariantMatcherOptions b = {kDefaultLomaBMatcherUri,
-                                 kDefaultLomaBMatcherBf16Uri};
-  LomaVariantMatcherOptions b128 = {kDefaultLomaB128MatcherUri,
-                                    kDefaultLomaB128MatcherBf16Uri};
-  LomaVariantMatcherOptions r = {kDefaultLomaRMatcherUri,
-                                 kDefaultLomaRMatcherBf16Uri};
-  LomaVariantMatcherOptions l = {kDefaultLomaLMatcherUri,
-                                 kDefaultLomaLMatcherBf16Uri};
-  LomaVariantMatcherOptions g = {kDefaultLomaGMatcherUri,
-                                 kDefaultLomaGMatcherBf16Uri};
+  Variant b = {kDefaultLomaBMatcherUri, kDefaultLomaBMatcherBf16Uri};
+  Variant b128 = {kDefaultLomaB128MatcherUri, kDefaultLomaB128MatcherBf16Uri};
+  Variant r = {kDefaultLomaRMatcherUri, kDefaultLomaRMatcherBf16Uri};
+  Variant l = {kDefaultLomaLMatcherUri, kDefaultLomaLMatcherBf16Uri};
+  Variant g = {kDefaultLomaGMatcherUri, kDefaultLomaGMatcherBf16Uri};
 
   // Brute-force matching options (reuses the generic ONNX matcher, which
   // is descriptor-dimension agnostic).

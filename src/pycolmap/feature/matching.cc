@@ -128,13 +128,13 @@ void BindFeatureMatching(py::module& m) {
   MakeDataclass(PyAlikedMatchingOptions);
 
   auto PyLomaVariantMatcherOptions =
-      py::classh<LomaVariantMatcherOptions>(m, "LomaVariantMatcherOptions")
+      py::classh<LomaMatchingOptions::Variant>(m, "LomaVariantMatcherOptions")
           .def(py::init<>())
           .def_readwrite("model_path",
-                         &LomaVariantMatcherOptions::model_path,
+                         &LomaMatchingOptions::Variant::model_path,
                          "Path to the fp32 ONNX model file for this variant.")
           .def_readwrite("model_path_bf16",
-                         &LomaVariantMatcherOptions::model_path_bf16,
+                         &LomaMatchingOptions::Variant::model_path_bf16,
                          "Path to the bf16 ONNX model file for this variant.");
   MakeDataclass(PyLomaVariantMatcherOptions);
 
