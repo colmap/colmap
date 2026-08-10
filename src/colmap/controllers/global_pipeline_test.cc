@@ -242,6 +242,7 @@ std::vector<std::unordered_set<image_t>> GroupImageIdsByRig(
     }
   }
   std::vector<std::unordered_set<image_t>> groups;
+  groups.reserve(images_by_rig.size());
   for (auto& [rig_id, image_ids] : images_by_rig) {
     groups.push_back(std::move(image_ids));
   }
