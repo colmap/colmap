@@ -37,7 +37,6 @@
 #include <mutex>
 #include <sstream>
 
-#include <onnxruntime_session_options_config_keys.h>
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -50,6 +49,8 @@ namespace colmap {
 #ifdef COLMAP_ONNX_ENABLED
 
 namespace {
+constexpr char kDisableCpuEpFallback[] = "session.disable_cpu_ep_fallback";
+
 [[noreturn]] void RethrowONNXException() {
   try {
     std::rethrow_exception(std::current_exception());
@@ -167,8 +168,7 @@ void ONNXModel::InitializeSession(const std::string& model_path,
   if (is_capability_probe &&
       execution_provider_ != ONNXExecutionProvider::CPU) {
     // Fail if any node would fall back to CPU.
-    session_options_.AddConfigEntry(kOrtSessionOptionsDisableCPUEPFallback,
-                                    "1");
+    session_options_.AddConfigEntry(kDisableCpuEpFallback, "1");
   }
 
 #ifdef COLMAP_CUDA_ENABLED
