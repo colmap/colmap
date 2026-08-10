@@ -68,6 +68,78 @@ void WarnInsufficientPriorFocalLengths() {
                   "manually.";
 }
 
+// Refines a single input component of the view graph by rotation averaging.
+// Solves rotation averaging on an isolated copy of `base` (to avoid
+// cross-component rig calibration leakage) restricted to `input_component`,
+// filters outlier pairs by relative rotation, and returns the image ids of each
+// resulting disjoint sub-component. Outlier edge filtering may split a weakly
+// connected input component into several sub-components.
+std::vector<FlatHashSet<image_t>> ComputeSubComponentsByRotationAveraging(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& input_component,
+    const Reconstruction& base,
+    const std::vector<PosePrior>& pose_priors) {
+  if (input_component.empty()) {
+    return {};
+  }
+
+  Reconstruction reconstruction = base;
+  PoseGraph component_pose_graph = pose_graph;
+  component_pose_graph.InvalidatePairsOutsideActiveImageIds(input_component);
+
+  // Step 1: Estimate rotations for this component (no filtering here).
+  if (!RunRotationAveragingOnComponent(options,
+                                       component_pose_graph,
+                                       input_component,
+                                       reconstruction,
+                                       pose_priors)) {
+    return {};
+  }
+
+  // Step 2: Filter outlier pairs by rotation error without de-registering.
+  if (options.max_rotation_error_deg > 0) {
+    FilterEdgesByRelativeRotation(
+        component_pose_graph, reconstruction, options.max_rotation_error_deg);
+  }
+
+  // Step 3: Return each disjoint component of the filtered view graph. Outlier
+  // edge filtering above may have split the input component into several.
+  return component_pose_graph.ComputeConnectedComponentImageIds(
+      reconstruction, /*filter_unregistered=*/true);
+}
+
+// Partitions the view graph into components using rotation averaging: computes
+// the initial connected components of `pose_graph`, refines each on an isolated
+// copy of `base` (to avoid cross-component rig calibration leakage), filters
+// outlier pairs by relative rotation, and returns the image ids of every
+// resulting disjoint component. Outlier edge filtering during rotation
+// averaging may further split a weakly connected component into several.
+std::vector<FlatHashSet<image_t>> ComputeComponentsByRotationAveraging(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    const Reconstruction& base,
+    const std::vector<PosePrior>& pose_priors) {
+  // Step 1: Partition the view graph into its initial connected components.
+  const std::vector<FlatHashSet<image_t>> input_components =
+      pose_graph.ComputeConnectedComponentImageIds(
+          base, /*filter_unregistered=*/false);
+
+  // Step 2: Refine each initial component via rotation averaging. Outlier edge
+  // filtering during rotation averaging may further split weakly connected
+  // clusters into multiple disjoint components.
+  std::vector<FlatHashSet<image_t>> components;
+  for (const auto& input_component : input_components) {
+    std::vector<FlatHashSet<image_t>> sub_components =
+        ComputeSubComponentsByRotationAveraging(
+            options, pose_graph, input_component, base, pose_priors);
+    for (auto& sub_component : sub_components) {
+      components.push_back(std::move(sub_component));
+    }
+  }
+  return components;
+}
+
 }  // namespace
 
 GlobalPipeline::GlobalPipeline(
@@ -93,7 +165,7 @@ GlobalPipeline::GlobalPipeline(
   RegisterCallback(MODEL_UPDATE_CALLBACK);
 }
 
-std::shared_ptr<Reconstruction> GlobalPipeline::RunSingleReconstruction(
+std::shared_ptr<Reconstruction> GlobalPipeline::ReconstructSingleComponent(
     const std::shared_ptr<const DatabaseCache>& database_cache,
     const GlobalMapperOptions& mapper_options) {
   auto reconstruction = std::make_shared<Reconstruction>();
@@ -142,10 +214,10 @@ void GlobalPipeline::Run() {
 
   std::vector<std::shared_ptr<Reconstruction>> reconstructions;
   if (options_.reconstruct_all_components) {
-    RunMultiComponents(mapper_options, &reconstructions);
+    reconstructions = ReconstructMultiComponents(mapper_options);
   } else {
     reconstructions.push_back(
-        RunSingleReconstruction(database_cache_, mapper_options));
+        ReconstructSingleComponent(database_cache_, mapper_options));
   }
 
   // Sort reconstructions by the number of registered frames (descending) and
@@ -191,42 +263,36 @@ void GlobalPipeline::Run() {
   }
 }
 
-void GlobalPipeline::RunMultiComponents(
-    const GlobalMapperOptions& mapper_options,
-    std::vector<std::shared_ptr<Reconstruction>>* reconstructions) {
+std::vector<std::shared_ptr<Reconstruction>>
+GlobalPipeline::ReconstructMultiComponents(
+    const GlobalMapperOptions& mapper_options) {
+  std::vector<std::shared_ptr<Reconstruction>> reconstructions;
+
   // Build the base reconstruction, pose graph, and pose priors from the cache.
-  auto base = std::make_shared<Reconstruction>();
-  base->Load(*database_cache_);
+  Reconstruction base;
+  base.Load(*database_cache_);
   PoseGraph pose_graph;
   pose_graph.Load(*database_cache_->CorrespondenceGraph());
   const std::vector<PosePrior>& pose_priors = database_cache_->PosePriors();
 
   if (pose_graph.Empty()) {
     LOG(ERROR) << "Cannot continue with empty pose graph";
-    return;
+    return reconstructions;
   }
 
-  // Partition the view graph into connected components via rotation averaging.
-  ReconstructionManager component_manager;
-  *component_manager.Get(component_manager.Add()) = *base;
-  if (!RunRotationAveragingMultiComponents(mapper_options.RotationAveraging(),
-                                           pose_graph,
-                                           component_manager,
-                                           pose_priors)) {
-    LOG(ERROR) << "Failed to compute connected components";
-    return;
-  }
+  // Partition the view graph into components using rotation averaging.
+  const std::vector<FlatHashSet<image_t>> components =
+      ComputeComponentsByRotationAveraging(
+          mapper_options.RotationAveraging(), pose_graph, base, pose_priors);
 
-  LOG(INFO) << "Found " << component_manager.Size() << " connected component(s)";
+  LOG(INFO) << "Found " << components.size() << " connected component(s)";
 
   // Run the full pipeline independently per component, restricted to that
   // component's images.
-  for (size_t i = 0; i < component_manager.Size(); ++i) {
-    const auto component = component_manager.Get(i);
-
+  for (size_t i = 0; i < components.size(); ++i) {
     FlatHashSet<std::string> image_names;
-    for (const image_t image_id : component->RegImageIds()) {
-      image_names.insert(component->Image(image_id).Name());
+    for (const image_t image_id : components[i]) {
+      image_names.insert(base.Image(image_id).Name());
     }
     if (image_names.empty()) {
       continue;
@@ -234,7 +300,7 @@ void GlobalPipeline::RunMultiComponents(
 
     LOG_HEADING1(StringPrintf("Reconstructing component %d / %d with %d images",
                               static_cast<int>(i + 1),
-                              static_cast<int>(component_manager.Size()),
+                              static_cast<int>(components.size()),
                               static_cast<int>(image_names.size())));
 
     DatabaseCache::Options cache_options;
@@ -244,9 +310,11 @@ void GlobalPipeline::RunMultiComponents(
     std::shared_ptr<DatabaseCache> component_cache =
         DatabaseCache::CreateFromCache(*database_cache_, cache_options);
 
-    reconstructions->push_back(
-        RunSingleReconstruction(component_cache, mapper_options));
+    reconstructions.push_back(
+        ReconstructSingleComponent(component_cache, mapper_options));
   }
+
+  return reconstructions;
 }
 
 }  // namespace colmap

@@ -77,6 +77,13 @@ class PoseGraph {
       const Reconstruction& reconstruction,
       bool filter_unregistered = true) const;
 
+  // Compute all connected components as sets of image ids, returned sorted by
+  // descending component size (matching the frame component ordering). If
+  // filter_unregistered is true, only considers frames with HasPose().
+  std::vector<FlatHashSet<image_t>> ComputeConnectedComponentImageIds(
+      const Reconstruction& reconstruction,
+      bool filter_unregistered = true) const;
+
   // Compute the largest connected component of frames.
   // If filter_unregistered is true, only considers frames with HasPose().
   // Returns the set of frame_ids in the largest connected component.

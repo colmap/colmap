@@ -66,6 +66,28 @@ std::vector<FlatHashSet<frame_t>> PoseGraph::ComputeConnectedFrameComponents(
   return result;
 }
 
+std::vector<FlatHashSet<image_t>> PoseGraph::ComputeConnectedComponentImageIds(
+    const Reconstruction& reconstruction, bool filter_unregistered) const {
+  const std::vector<FlatHashSet<frame_t>> frame_components =
+      ComputeConnectedFrameComponents(reconstruction, filter_unregistered);
+
+  NodeHashMap<frame_t, int> frame_to_component;
+  for (int comp = 0; comp < static_cast<int>(frame_components.size()); ++comp) {
+    for (const frame_t frame_id : frame_components[comp]) {
+      frame_to_component[frame_id] = comp;
+    }
+  }
+
+  std::vector<FlatHashSet<image_t>> image_ids(frame_components.size());
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    const auto it = frame_to_component.find(image.FrameId());
+    if (it != frame_to_component.end()) {
+      image_ids[it->second].insert(image_id);
+    }
+  }
+  return image_ids;
+}
+
 FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
   std::vector<FlatHashSet<frame_t>> components =
@@ -74,7 +96,10 @@ FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
     return {};
   }
   // Components are sorted by descending size, so the first is the largest.
-  return std::move(components.front());
+  // Move it into a named local so the return is a plain NRVO-eligible move
+  // (std::move on the vector element itself avoids copying the set).
+  FlatHashSet<frame_t> largest = std::move(components.front());
+  return largest;
 }
 
 void PoseGraph::InvalidatePairsOutsideActiveImageIds(
