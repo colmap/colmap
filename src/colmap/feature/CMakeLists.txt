@@ -102,6 +102,13 @@ if(ONNX_ENABLED)
             onnxruntime::onnxruntime
     )
     COLMAP_ADD_TEST(
+        NAME onnx_utils_test
+        SRCS onnx_utils_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
         NAME loma_test
         SRCS loma_test.cc
         LINK_LIBS

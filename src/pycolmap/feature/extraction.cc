@@ -212,16 +212,11 @@ void BindFeatureExtraction(py::module& m) {
           .def_readwrite("min_score",
                          &LomaExtractionOptions::min_score,
                          "Minimum score threshold for keypoint detection.")
-          .def_readwrite("descriptor_size",
-                         &LomaExtractionOptions::descriptor_size,
-                         "Internal descriptor dimension. Do not change: the "
-                         "ONNX graph is exported with a fixed descriptor "
-                         "dimension.")
           .def_readwrite("use_bf16",
                          &LomaExtractionOptions::use_bf16,
-                         "Whether to use the bf16 descriptor variant (only "
-                         "affects LOMA_B; a no-op for LOMA_B128, which has "
-                         "no DINO backbone to cast).")
+                         "Whether to use the bf16 descriptor variant when "
+                         "supported by the selected ONNX execution provider "
+                         "(only affects LOMA_B; falls back to fp32 otherwise).")
           .def_readwrite("use_fast_resize",
                          &LomaExtractionOptions::use_fast_resize,
                          "Whether to downsize each image to the "

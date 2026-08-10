@@ -158,5 +158,13 @@ TEST(LomaTest, DynamicNumKeypoints) {
   EXPECT_EQ(keypoints_2048.size(), 2048);
 }
 
+TEST(LomaTest, Bf16MatcherCpuFallback) {
+  FeatureMatchingOptions options(FeatureMatcherType::LOMA_B);
+  options.use_gpu = false;
+  options.loma->use_bf16 = true;
+
+  EXPECT_NE(CreateLomaFeatureMatcher(options), nullptr);
+}
+
 }  // namespace
 }  // namespace colmap

@@ -36,6 +36,8 @@
 #include <iostream>
 #include <mutex>
 #include <sstream>
+
+#include <onnxruntime_session_options_config_keys.h>
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -102,7 +104,8 @@ void ThrowCheckONNXNode(const std::string_view name,
 ONNXModel::ONNXModel(std::string model_path,
                      int num_threads,
                      bool use_gpu,
-                     const std::string& gpu_index) {
+                     const std::string& gpu_index,
+                     bool is_capability_probe) {
   {
     static std::mutex download_mutex;
     const std::lock_guard<std::mutex> lock(download_mutex);
@@ -112,8 +115,12 @@ ONNXModel::ONNXModel(std::string model_path,
   const int num_eff_threads = GetEffectiveNumThreads(num_threads);
 
   try {
-    InitializeSession(model_path, num_eff_threads, use_gpu, gpu_index);
+    InitializeSession(
+        model_path, num_eff_threads, use_gpu, gpu_index, is_capability_probe);
   } catch (...) {
+    if (is_capability_probe) {
+      throw;
+    }
     RethrowONNXException();
   }
 }
@@ -139,8 +146,17 @@ void ONNXModel::ConfigureSessionOptions(int num_threads) {
 void ONNXModel::InitializeSession(const std::string& model_path,
                                   int num_threads,
                                   bool use_gpu,
-                                  const std::string& gpu_index) {
+                                  const std::string& gpu_index,
+                                  bool is_capability_probe) {
   ConfigureSessionOptions(num_threads);
+
+  if (is_capability_probe && use_gpu) {
+    // Ensure successful session creation means that the selected accelerator
+    // supports the complete graph instead of silently assigning unsupported
+    // nodes to the CPU execution provider.
+    session_options_.AddConfigEntry(kOrtSessionOptionsDisableCPUEPFallback,
+                                    "1");
+  }
 
 #ifdef COLMAP_CUDA_ENABLED
   if (use_gpu) {
@@ -189,7 +205,7 @@ void ONNXModel::InitializeSession(const std::string& model_path,
     session_ =
         std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
   } catch (const Ort::Exception& e) {
-    if (!use_coreml) {
+    if (!use_coreml || is_capability_probe) {
       throw;
     }
     // Some models cannot be compiled by CoreML (e.g. unsupported dynamic

@@ -55,10 +55,14 @@ void ThrowCheckONNXNode(std::string_view name,
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {
  public:
+  // A capability probe propagates initialization failures without logging an
+  // error. When use_gpu is true, it also requires the selected accelerator to
+  // support the complete graph instead of falling back to the CPU provider.
   ONNXModel(std::string model_path,
             int num_threads,
             bool use_gpu,
-            const std::string& gpu_index);
+            const std::string& gpu_index,
+            bool is_capability_probe = false);
 
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
@@ -76,7 +80,8 @@ class ONNXModel {
   void InitializeSession(const std::string& model_path,
                          int num_threads,
                          bool use_gpu,
-                         const std::string& gpu_index);
+                         const std::string& gpu_index,
+                         bool is_capability_probe);
 
   // Apply the common, provider-independent session options (threading,
   // execution mode, graph optimization). Resets any previously appended

@@ -146,7 +146,9 @@ void BindFeatureMatching(py::module& m) {
                          "Matching filter, matches LG.")
           .def_readwrite("use_bf16",
                          &LomaMatchingOptions::use_bf16,
-                         "Whether to use the bf16 matcher variant.")
+                         "Whether to use the bf16 matcher variant when "
+                         "supported by the selected ONNX execution provider "
+                         "(falls back to fp32 otherwise).")
           .def_readwrite("b", &LomaMatchingOptions::b, "LOMA_B model paths.")
           .def_readwrite(
               "b128", &LomaMatchingOptions::b128, "LOMA_B128 model paths.")

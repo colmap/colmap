@@ -46,12 +46,9 @@ struct LomaExtractionOptions {
   // min_score = 0.0.
   double min_score = 0.0;
 
-  // NOTE: Do not change. Internal descriptor dimension. The ONNX graph is
-  // exported with a fixed descriptor dimension.
-  int descriptor_size = 784;
-
-  // Use the bf16 descriptor variant for faster inference. Only affects
-  // LOMA_B -- no-op for LOMA_B128 (no DINO backbone to cast).
+  // Use the bf16 descriptor variant when supported by the selected ONNX
+  // execution provider. Falls back to fp32 otherwise. Only affects LOMA_B --
+  // no-op for LOMA_B128 (no DINO backbone to cast).
   bool use_bf16 = false;
 
   // Use a fast bilinear resample instead of the filtered resize for the
@@ -88,7 +85,8 @@ struct LomaMatchingOptions {
   // Matching filter, matches LG
   double min_score = 0.1;
 
-  // Use the bf16 matcher variant for faster inference.
+  // Use the bf16 matcher variant when supported by the selected ONNX execution
+  // provider. Falls back to fp32 otherwise.
   bool use_bf16 = false;
 
   // One entry per FeatureMatcherType::LOMA_* dedicated-matcher variant.

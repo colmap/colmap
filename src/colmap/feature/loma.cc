@@ -159,7 +159,8 @@ Ort::Value MakeInt64Tensor(std::vector<int64_t>& data,
 class LomaFeatureExtractor : public FeatureExtractor {
  public:
   LomaFeatureExtractor(const FeatureExtractionOptions& options,
-                       const std::string& descriptor_model_path)
+                       const std::string& descriptor_model_path,
+                       bool probe_descriptor_support = false)
       : options_(options),
         detector_(options.loma->detector_model_path,
                   options.num_threads,
@@ -168,7 +169,8 @@ class LomaFeatureExtractor : public FeatureExtractor {
         descriptor_(descriptor_model_path,
                     options.num_threads,
                     options.use_gpu,
-                    options.gpu_index) {
+                    options.gpu_index,
+                    probe_descriptor_support) {
     THROW_CHECK(options.Check());
 
     // Detector: image [1, 3, H, W], num_keypoints [1] (int64, runtime input --
@@ -197,6 +199,26 @@ class LomaFeatureExtractor : public FeatureExtractor {
     // Descriptor: image [1, 3, S, S], keypoints [1, N, 2] -> descriptions
     // [1, N, D]. Variant-specific (dim differs between DeDoDe-B / DeDoDe-G).
     THROW_CHECK_EQ(descriptor_.input_shapes().size(), 2);
+    bool found_image_input = false;
+    bool found_keypoints_input = false;
+    for (size_t i = 0; i < descriptor_.input_names().size(); ++i) {
+      const std::string_view name = descriptor_.input_names()[i];
+      const auto& shape = descriptor_.input_shapes()[i];
+      if (name == "image") {
+        ThrowCheckONNXNode(name, "image", shape, {1, 3, -1, -1});
+        THROW_CHECK_GT(shape[2], 0);
+        THROW_CHECK_EQ(shape[2], shape[3]);
+        descriptor_size_ = static_cast<int>(shape[2]);
+        found_image_input = true;
+      } else if (name == "keypoints") {
+        ThrowCheckONNXNode(name, "keypoints", shape, {1, -1, 2});
+        found_keypoints_input = true;
+      } else {
+        LOG(FATAL_THROW) << "Unexpected LoMa descriptor input: " << name;
+      }
+    }
+    THROW_CHECK(found_image_input);
+    THROW_CHECK(found_keypoints_input);
     THROW_CHECK_EQ(descriptor_.output_shapes().size(), 1);
     const auto& desc_out_shape = descriptor_.output_shapes()[0];
     THROW_CHECK_EQ(desc_out_shape.size(), 3);
@@ -214,7 +236,6 @@ class LomaFeatureExtractor : public FeatureExtractor {
 
     const int width = bitmap.Width();
     const int height = bitmap.Height();
-    const int desc_size = options_.loma->descriptor_size;
     const int64_t num_keypoints_requested = options_.loma->max_num_features;
 
     std::vector<float> det_input = BitmapToInputTensor(bitmap);
@@ -243,10 +264,15 @@ class LomaFeatureExtractor : public FeatureExtractor {
 
     std::vector<float> kpts_norm_copy(kpts_norm, kpts_norm + num_kpts * 2);
 
-    // --- descriptor: still fixed-shape, resized (not padded) to desc_size.
-    std::vector<float> desc_input = ResizeToInputTensor(
-        bitmap, desc_size, desc_size, options_.loma->use_fast_resize);
-    std::vector<int64_t> desc_img_shape{1, 3, desc_size, desc_size};
+    // --- descriptor: still fixed-shape, resized (not padded) to the model's
+    // input size.
+    std::vector<float> desc_input =
+        ResizeToInputTensor(bitmap,
+                            descriptor_size_,
+                            descriptor_size_,
+                            options_.loma->use_fast_resize);
+    std::vector<int64_t> desc_img_shape{
+        1, 3, descriptor_size_, descriptor_size_};
     std::vector<int64_t> desc_kpt_shape{1, num_kpts, 2};
 
     std::vector<Ort::Value> desc_inputs_unordered;
@@ -300,6 +326,7 @@ class LomaFeatureExtractor : public FeatureExtractor {
   const FeatureExtractionOptions options_;
   ONNXModel detector_;
   ONNXModel descriptor_;
+  int descriptor_size_ = 0;
   int descriptor_dim_ = 0;
 };
 
@@ -307,14 +334,16 @@ class LomaFeatureMatcher : public FeatureMatcher {
  public:
   LomaFeatureMatcher(const FeatureMatchingOptions& options,
                      const std::string& model_path,
-                     FeatureExtractorType expected_extractor_type)
+                     FeatureExtractorType expected_extractor_type,
+                     bool probe_model_support = false)
       : options_(options),
         loma_options_(*options.loma),
         expected_extractor_type_(expected_extractor_type),
         model_(model_path,
                options.num_threads,
                options.use_gpu,
-               options.gpu_index) {
+               options.gpu_index,
+               probe_model_support) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 4);
     THROW_CHECK_GE(model_.output_shapes().size(), 2);
@@ -446,29 +475,36 @@ bool LomaExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GE(min_score, 0);
   CHECK_OPTION_LE(min_score, 1);
-  CHECK_OPTION_GT(descriptor_size, 0);
   return true;
 }
 
 std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
     const FeatureExtractionOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
-  std::string descriptor_model_path;
   switch (options.type) {
-    case FeatureExtractorType::LOMA_B:
-      descriptor_model_path = options.loma->use_bf16
-                                  ? options.loma->descriptor_model_path_bf16
-                                  : options.loma->descriptor_model_path;
-      break;
+    case FeatureExtractorType::LOMA_B: {
+      if (options.loma->use_bf16) {
+        try {
+          return std::make_unique<LomaFeatureExtractor>(
+              options,
+              options.loma->descriptor_model_path_bf16,
+              /*probe_descriptor_support=*/true);
+        } catch (const Ort::Exception& e) {
+          LOG(WARNING) << "Failed to initialize the bf16 LoMa descriptor ("
+                       << e.what() << "); falling back to fp32";
+        }
+      }
+      return std::make_unique<LomaFeatureExtractor>(
+          options, options.loma->descriptor_model_path);
+    }
     case FeatureExtractorType::LOMA_B128:
       // No bf16 variant for dedode_b (VGG-only, no DINO) -- use_bf16 is a
       // no-op here.
-      descriptor_model_path = options.loma->descriptor_b128_model_path;
-      break;
+      return std::make_unique<LomaFeatureExtractor>(
+          options, options.loma->descriptor_b128_model_path);
     default:
       throw std::runtime_error("Unknown LoMa extractor type.");
   }
-  return std::make_unique<LomaFeatureExtractor>(options, descriptor_model_path);
 #else
   throw std::runtime_error("LoMa feature extraction requires ONNX support.");
 #endif
@@ -482,9 +518,23 @@ bool LomaMatchingOptions::Check() const {
 
 #ifdef COLMAP_ONNX_ENABLED
 namespace {
-std::string ResolveLomaMatcherPath(const LomaVariantMatcherOptions& variant,
-                                   bool use_bf16) {
-  return use_bf16 ? variant.model_path_bf16 : variant.model_path;
+std::unique_ptr<FeatureMatcher> CreateLomaVariantMatcher(
+    const FeatureMatchingOptions& options,
+    const LomaVariantMatcherOptions& variant,
+    FeatureExtractorType expected_extractor_type) {
+  if (options.loma->use_bf16) {
+    try {
+      return std::make_unique<LomaFeatureMatcher>(options,
+                                                  variant.model_path_bf16,
+                                                  expected_extractor_type,
+                                                  /*probe_model_support=*/true);
+    } catch (const Ort::Exception& e) {
+      LOG(WARNING) << "Failed to initialize the bf16 LoMa matcher (" << e.what()
+                   << "); falling back to fp32";
+    }
+  }
+  return std::make_unique<LomaFeatureMatcher>(
+      options, variant.model_path, expected_extractor_type);
 }
 }  // namespace
 #endif
@@ -492,36 +542,25 @@ std::string ResolveLomaMatcherPath(const LomaVariantMatcherOptions& variant,
 std::unique_ptr<FeatureMatcher> CreateLomaFeatureMatcher(
     const FeatureMatchingOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
-  const bool use_bf16 = options.loma->use_bf16;
   switch (options.type) {
     case FeatureMatcherType::LOMA_BRUTEFORCE:
       return CreateBruteForceONNXFeatureMatcher(options,
                                                 options.loma->brute_force);
     case FeatureMatcherType::LOMA_B:
-      return std::make_unique<LomaFeatureMatcher>(
-          options,
-          ResolveLomaMatcherPath(options.loma->b, use_bf16),
-          FeatureExtractorType::LOMA_B);
+      return CreateLomaVariantMatcher(
+          options, options.loma->b, FeatureExtractorType::LOMA_B);
     case FeatureMatcherType::LOMA_B128:
-      return std::make_unique<LomaFeatureMatcher>(
-          options,
-          ResolveLomaMatcherPath(options.loma->b128, use_bf16),
-          FeatureExtractorType::LOMA_B128);
+      return CreateLomaVariantMatcher(
+          options, options.loma->b128, FeatureExtractorType::LOMA_B128);
     case FeatureMatcherType::LOMA_R:
-      return std::make_unique<LomaFeatureMatcher>(
-          options,
-          ResolveLomaMatcherPath(options.loma->r, use_bf16),
-          FeatureExtractorType::LOMA_B);
+      return CreateLomaVariantMatcher(
+          options, options.loma->r, FeatureExtractorType::LOMA_B);
     case FeatureMatcherType::LOMA_L:
-      return std::make_unique<LomaFeatureMatcher>(
-          options,
-          ResolveLomaMatcherPath(options.loma->l, use_bf16),
-          FeatureExtractorType::LOMA_B);
+      return CreateLomaVariantMatcher(
+          options, options.loma->l, FeatureExtractorType::LOMA_B);
     case FeatureMatcherType::LOMA_G:
-      return std::make_unique<LomaFeatureMatcher>(
-          options,
-          ResolveLomaMatcherPath(options.loma->g, use_bf16),
-          FeatureExtractorType::LOMA_B);
+      return CreateLomaVariantMatcher(
+          options, options.loma->g, FeatureExtractorType::LOMA_B);
     default:
       throw std::runtime_error("Unknown LoMa matcher type.");
   }
