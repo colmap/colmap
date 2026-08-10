@@ -52,8 +52,7 @@ constexpr uint32_t kFileVersion = 1;
 
 void GlobalDescriptorIndex::BuildFaissIndex() {
   auto* index = new faiss::IndexFlatIP(descriptor_dim_);
-  index->add(static_cast<faiss::idx_t>(image_ids_.size()),
-             descriptors_.data());
+  index->add(static_cast<faiss::idx_t>(image_ids_.size()), descriptors_.data());
   faiss_index_.reset(index);
   prepared_ = true;
 }
@@ -91,8 +90,8 @@ void GlobalDescriptorIndex::Add(const image_t image_id,
 
   // Grow the descriptor matrix by one row.
   descriptors_.conservativeResize(row + 1, Eigen::NoChange);
-  descriptors_.row(row) = Eigen::Map<const Eigen::RowVectorXf>(
-      descriptor.data(), descriptor_dim_);
+  descriptors_.row(row) =
+      Eigen::Map<const Eigen::RowVectorXf>(descriptor.data(), descriptor_dim_);
 
   image_ids_.push_back(image_id);
   image_id_to_idx_[image_id] = row;
@@ -111,10 +110,9 @@ void GlobalDescriptorIndex::Prepare() {
 
 bool GlobalDescriptorIndex::IsPrepared() const { return prepared_; }
 
-void GlobalDescriptorIndex::Query(
-    const QueryOptions& options,
-    const image_t query_image_id,
-    std::vector<ImageScore>* image_scores) const {
+void GlobalDescriptorIndex::Query(const QueryOptions& options,
+                                  const image_t query_image_id,
+                                  std::vector<ImageScore>* image_scores) const {
   THROW_CHECK(prepared_)
       << "Index not prepared. Call Prepare() before Query().";
   THROW_CHECK_NOTNULL(image_scores);
@@ -173,10 +171,10 @@ void GlobalDescriptorIndex::Write(const std::filesystem::path& path) const {
   // Header: magic, version, num_images, descriptor_dim.
   WriteBinaryLittleEndian<uint32_t>(&file, kFileMagic);
   WriteBinaryLittleEndian<uint32_t>(&file, kFileVersion);
-  WriteBinaryLittleEndian<uint32_t>(
-      &file, static_cast<uint32_t>(image_ids_.size()));
-  WriteBinaryLittleEndian<uint32_t>(
-      &file, static_cast<uint32_t>(descriptor_dim_));
+  WriteBinaryLittleEndian<uint32_t>(&file,
+                                    static_cast<uint32_t>(image_ids_.size()));
+  WriteBinaryLittleEndian<uint32_t>(&file,
+                                    static_cast<uint32_t>(descriptor_dim_));
 
   // Image IDs.
   for (const image_t id : image_ids_) {

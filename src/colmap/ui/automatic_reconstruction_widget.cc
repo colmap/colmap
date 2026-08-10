@@ -51,8 +51,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddSpacer();
 
   // Retrieval type selector.
-  QLabel* retrieval_label =
-      new QLabel(tr("Image retrieval"), this);
+  QLabel* retrieval_label = new QLabel(tr("Image retrieval"), this);
   retrieval_label->setFont(font());
   retrieval_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
   grid_layout_->addWidget(retrieval_label, grid_layout_->rowCount(), 0);
@@ -63,8 +62,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
 #ifdef COLMAP_ONNX_ENABLED
   retrieval_type_cb_->addItem("MixVPR (global descriptor)");
 #endif
-  grid_layout_->addWidget(retrieval_type_cb_,
-                          grid_layout_->rowCount() - 1, 1);
+  grid_layout_->addWidget(retrieval_type_cb_, grid_layout_->rowCount() - 1, 1);
 
   // Vocab tree path row (visible when Vocabulary Tree selected).
   {
@@ -197,8 +195,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
 void AutomaticReconstructionWidget::UpdateRetrievalFields() {
   const int idx = retrieval_type_cb_->currentIndex();
   // 0 = None, 1 = Vocabulary Tree, 2 = MixVPR
-  if (vocab_tree_row_)
-    vocab_tree_row_->setVisible(idx == 1);
+  if (vocab_tree_row_) vocab_tree_row_->setVisible(idx == 1);
   if (global_descriptor_row_)
     global_descriptor_row_->setVisible(
 #ifdef COLMAP_ONNX_ENABLED
@@ -226,11 +223,10 @@ void AutomaticReconstructionWidget::Run() {
 #ifdef COLMAP_ONNX_ENABLED
   else if (retrieval_idx == 2) {
     // MixVPR global descriptor.
-    QLineEdit* edit =
-        global_descriptor_row_
-            ? global_descriptor_row_->findChild<QLineEdit*>(
-                  "auto_global_descriptor_edit")
-            : nullptr;
+    QLineEdit* edit = global_descriptor_row_
+                          ? global_descriptor_row_->findChild<QLineEdit*>(
+                                "auto_global_descriptor_edit")
+                          : nullptr;
     if (edit) options_.global_descriptor_path = edit->text().toStdString();
     options_.vocab_tree_path.clear();
   }

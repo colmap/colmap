@@ -273,8 +273,8 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
   loop_detection_type_cb_->addItem("None");             // 0
   loop_detection_type_cb_->addItem("Vocabulary Tree");  // 1
 #ifdef COLMAP_ONNX_ENABLED
-  loop_detection_type_cb_->addItem("MixVPR");           // 2
-  loop_detection_type_cb_->addItem("MegaLoc");           // 3
+  loop_detection_type_cb_->addItem("MixVPR");   // 2
+  loop_detection_type_cb_->addItem("MegaLoc");  // 3
 #endif
   options_widget_->AddWidgetRow("Loop detection", loop_detection_type_cb_);
 
@@ -387,18 +387,18 @@ void SequentialMatchingTab::Run() {
       options_->sequential_pairing->loop_detection_image_path =
           *options_->image_path;
       if (options_->sequential_pairing->loop_detection_image_path.empty() ||
-          !ExistsDir(
-              options_->sequential_pairing->loop_detection_image_path)) {
+          !ExistsDir(options_->sequential_pairing->loop_detection_image_path)) {
         QMessageBox::critical(
-            this, "",
+            this,
+            "",
             tr("Image path is not set or does not exist.\n\n"
                "For %1 loop detection, the image folder must be "
                "configured in the project settings (File > New Project).\n\n"
                "Current path: %2")
                 .arg(loop_detection_type_cb_->currentText(),
                      QString::fromStdString(
-                         options_->sequential_pairing
-                             ->loop_detection_image_path.string())));
+                         options_->sequential_pairing->loop_detection_image_path
+                             .string())));
         return;
       }
       const auto& model_path =
@@ -406,7 +406,8 @@ void SequentialMatchingTab::Run() {
       if (!model_path.empty() && !ExistsFile(model_path) &&
           !IsURI(model_path.string())) {
         QMessageBox::critical(
-            this, "",
+            this,
+            "",
             tr("Invalid %1 model path. Leave empty for "
                "auto-download, or provide a valid local file.")
                 .arg(loop_detection_type_cb_->currentText()));
@@ -415,8 +416,7 @@ void SequentialMatchingTab::Run() {
     } else
 #endif
     {
-      const auto& tree_path =
-          options_->sequential_pairing->vocab_tree_path;
+      const auto& tree_path = options_->sequential_pairing->vocab_tree_path;
       if (!tree_path.empty() && !ExistsFile(tree_path) &&
           !IsURI(tree_path.string())) {
         QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
@@ -474,8 +474,8 @@ void VocabTreeMatchingTab::Run() {
 }
 
 #ifdef COLMAP_ONNX_ENABLED
-GlobalDescriptorMatchingTab::GlobalDescriptorMatchingTab(
-    QWidget* parent, OptionManager* options)
+GlobalDescriptorMatchingTab::GlobalDescriptorMatchingTab(QWidget* parent,
+                                                         OptionManager* options)
     : FeatureMatchingTab(parent, options) {
   // Model type selector — populated from GlobalDescriptorModel registry.
   model_type_cb_ = new QComboBox(this);
@@ -521,16 +521,15 @@ void GlobalDescriptorMatchingTab::Run() {
 
   // Auto-derive paths from the project.
   options_->global_descriptor_pairing->image_path = *options_->image_path;
-  options_->global_descriptor_pairing->database_path =
-      *options_->database_path;
+  options_->global_descriptor_pairing->database_path = *options_->database_path;
 
-  const auto& model_path =
-      options_->global_descriptor_pairing->model_path;
+  const auto& model_path = options_->global_descriptor_pairing->model_path;
   // Empty path is valid: auto-download from HuggingFace.
   if (!model_path.empty() && !ExistsFile(model_path) &&
       !IsURI(model_path.string())) {
     QMessageBox::critical(
-        this, "",
+        this,
+        "",
         tr("Invalid global descriptor model path. Leave empty for "
            "auto-download, or provide a valid local file or URL."));
     return;
@@ -538,16 +537,17 @@ void GlobalDescriptorMatchingTab::Run() {
 
   if (options_->global_descriptor_pairing->image_path.empty()) {
     QMessageBox::critical(
-        this, "",
+        this,
+        "",
         tr("Image path not set. Please set it in the project options."));
     return;
   }
 
-  auto matcher = CreateGlobalDescriptorFeatureMatcher(
-      *options_->global_descriptor_pairing,
-      *options_->feature_matching,
-      *options_->two_view_geometry,
-      *options_->database_path);
+  auto matcher =
+      CreateGlobalDescriptorFeatureMatcher(*options_->global_descriptor_pairing,
+                                           *options_->feature_matching,
+                                           *options_->two_view_geometry,
+                                           *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 #endif  // COLMAP_ONNX_ENABLED

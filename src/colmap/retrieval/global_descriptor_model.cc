@@ -71,7 +71,8 @@ const std::vector<GlobalDescriptorModel> kModels = {
         .std = {1.0f, 1.0f, 1.0f},
         .input_name = "images",
         .output_name = "descriptor",
-        .expected_input_shape = {-1, 3, -1, -1},  // dynamic H,W; our code resizes to 518×518
+        .expected_input_shape =
+            {-1, 3, -1, -1},  // dynamic H,W; our code resizes to 518×518
         .expected_output_shape = {1, 8448},
         .descriptor_dim = 8448,
         .supports_batching = false,  // gemm_input_reshape hardcodes batch=1

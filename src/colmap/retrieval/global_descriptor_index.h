@@ -55,7 +55,8 @@ struct GlobalDescriptorQueryOptions {
 // using cosine similarity (dot product on L2-normalized vectors via FAISS).
 //
 // The pipeline is:
-//   1. Add(image_id, descriptor) – store a pre-computed L2-normalized descriptor
+//   1. Add(image_id, descriptor) – store a pre-computed L2-normalized
+//   descriptor
 //   2. Prepare() – build a FAISS IndexFlatIP over all stored descriptors
 //   3. Query()  – look up the descriptor for a given image_id and return
 //                 the top-k nearest neighbors by cosine similarity

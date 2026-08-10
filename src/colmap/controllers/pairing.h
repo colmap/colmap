@@ -399,7 +399,7 @@ class SequentialPairGenerator : public PairGenerator {
   std::vector<image_t> image_ids_;
   // Optional mapping from frames to images and vice versa.
   NodeHashMap<frame_t, std::vector<image_t>> frame_to_image_ids_;
-  NodeHashMap<image_t, frame_t> image_to_frame_ids_;
+  NodeHashMap<image_t, frame_t> image_to_frame_id_;
   std::unique_ptr<PairGenerator> loop_detection_pair_generator_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t image_idx_ = 0;
@@ -529,10 +529,10 @@ class GlobalDescriptorPairGenerator : public PairGenerator {
   std::vector<std::pair<image_t, image_t>> Next() override;
 
  private:
-  // Preprocess a bitmap for the given model. Returns serialized NCHW float data.
+  // Preprocess a bitmap for the given model. Returns serialized NCHW float
+  // data.
   static std::vector<float> PreprocessImage(
-      const Bitmap& bitmap,
-      const retrieval::GlobalDescriptorModel& model);
+      const Bitmap& bitmap, const retrieval::GlobalDescriptorModel& model);
 
   // Compute global descriptors for all images using batched ONNX inference
   // and add them to the global descriptor index.

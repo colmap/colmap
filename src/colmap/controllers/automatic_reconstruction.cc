@@ -241,11 +241,11 @@ void AutomaticReconstructionController::Setup() {
             *option_manager_.two_view_geometry,
             *option_manager_.database_path);
       } else {
-        vocab_tree_matcher_ = CreateVocabTreeFeatureMatcher(
-            *option_manager_.vocab_tree_pairing,
-            *option_manager_.feature_matching,
-            *option_manager_.two_view_geometry,
-            *option_manager_.database_path);
+        vocab_tree_matcher_ =
+            CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
+                                          *option_manager_.feature_matching,
+                                          *option_manager_.two_view_geometry,
+                                          *option_manager_.database_path);
       }
     }
   }

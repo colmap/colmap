@@ -48,7 +48,6 @@
 #include <faiss/IndexFlat.h>
 #include <omp.h>
 
-
 namespace colmap {
 namespace {
 
@@ -143,9 +142,8 @@ GlobalDescriptorPairingOptions
 SequentialPairingOptions::GlobalDescriptorOptions() const {
   GlobalDescriptorPairingOptions options;
   options.num_images = loop_detection_num_images;
-  options.model_type = loop_detection_model_type.empty()
-                           ? "MixVPR"
-                           : loop_detection_model_type;
+  options.model_type =
+      loop_detection_model_type.empty() ? "MixVPR" : loop_detection_model_type;
   options.model_path = loop_detection_model_path;
   options.image_path = loop_detection_image_path;
   options.database_path = loop_detection_database_path;
@@ -461,9 +459,8 @@ SequentialPairGenerator::SequentialPairGenerator(
           std::make_unique<GlobalDescriptorPairGenerator>(
               options_.GlobalDescriptorOptions(), cache_, query_image_ids);
     } else {
-      loop_detection_pair_generator_ =
-          std::make_unique<VocabTreePairGenerator>(
-              options_.VocabTreeOptions(), cache_, query_image_ids);
+      loop_detection_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
+          options_.VocabTreeOptions(), cache_, query_image_ids);
     }
   }
 
@@ -499,8 +496,9 @@ void SequentialPairGenerator::Reset() {
 
 bool SequentialPairGenerator::HasFinished() const {
   return image_idx_ >= image_ids_.size() &&
-         (loop_detection_pair_generator_ ? loop_detection_pair_generator_->HasFinished()
-                                     : true);
+         (loop_detection_pair_generator_
+              ? loop_detection_pair_generator_->HasFinished()
+              : true);
 }
 
 void SequentialPairGenerator::MaybeExpandRigImages(image_t image_id1,
@@ -998,9 +996,9 @@ GlobalDescriptorPairGenerator::GlobalDescriptorPairGenerator(
     const GlobalDescriptorPairingOptions& options,
     const std::shared_ptr<FeatureMatcherCache>& cache,
     const std::vector<image_t>& query_image_ids)
-    : options_(options)
-    , cache_(THROW_CHECK_NOTNULL(cache))
-    , global_descriptor_index_(4096) {
+    : options_(options),
+      cache_(THROW_CHECK_NOTNULL(cache)),
+      global_descriptor_index_(4096) {
   THROW_CHECK(options.Check());
   LOG(INFO) << "Generating image pairs with global descriptors...";
 
@@ -1048,8 +1046,7 @@ GlobalDescriptorPairGenerator::GlobalDescriptorPairGenerator(
     global_descriptor_index_.Query(query_opts, query_id, &scores);
 
     for (const auto& score : scores) {
-      const image_pair_t pair_id =
-          ImagePairToPairId(query_id, score.image_id);
+      const image_pair_t pair_id = ImagePairToPairId(query_id, score.image_id);
       if (seen_pairs.insert(pair_id).second) {
         image_pairs_.emplace_back(query_id, score.image_id);
       }
@@ -1066,8 +1063,8 @@ GlobalDescriptorPairGenerator::GlobalDescriptorPairGenerator(
     const std::vector<image_t>& query_image_ids)
     : GlobalDescriptorPairGenerator(
           options,
-          std::make_shared<FeatureMatcherCache>(
-              options.CacheSize(), THROW_CHECK_NOTNULL(database)),
+          std::make_shared<FeatureMatcherCache>(options.CacheSize(),
+                                                THROW_CHECK_NOTNULL(database)),
           query_image_ids) {}
 
 void GlobalDescriptorPairGenerator::Reset() { pair_idx_ = 0; }
@@ -1076,8 +1073,7 @@ bool GlobalDescriptorPairGenerator::HasFinished() const {
   return pair_idx_ >= image_pairs_.size();
 }
 
-std::vector<std::pair<image_t, image_t>>
-GlobalDescriptorPairGenerator::Next() {
+std::vector<std::pair<image_t, image_t>> GlobalDescriptorPairGenerator::Next() {
   if (HasFinished()) {
     return {};
   }
@@ -1087,9 +1083,7 @@ GlobalDescriptorPairGenerator::Next() {
                image_pairs_.size());
 
   LOG(INFO) << StringPrintf(
-      "Processing pairs [%d/%d]",
-      pair_idx_ + 1,
-      image_pairs_.size());
+      "Processing pairs [%d/%d]", pair_idx_ + 1, image_pairs_.size());
 
   std::vector<std::pair<image_t, image_t>> batch;
   batch.reserve(end_idx - pair_idx_);
@@ -1102,8 +1096,7 @@ GlobalDescriptorPairGenerator::Next() {
 
 // static
 std::vector<float> GlobalDescriptorPairGenerator::PreprocessImage(
-    const Bitmap& bitmap,
-    const retrieval::GlobalDescriptorModel& model) {
+    const Bitmap& bitmap, const retrieval::GlobalDescriptorModel& model) {
   // Input: RGB bitmap. Output: float32 NCHW tensor normalized per model config.
   const int input_w =
       model.input_width > 0 ? model.input_width : bitmap.Width();
@@ -1127,8 +1120,9 @@ std::vector<float> GlobalDescriptorPairGenerator::PreprocessImage(
   for (int y = 0; y < input_h; ++y) {
     for (int x = 0; x < input_w; ++x) {
       for (int c = 0; c < kChannels; ++c) {
-        const float val = static_cast<float>(
-            data[(y * input_w + x) * kChannels + c]) / 255.0f;
+        const float val =
+            static_cast<float>(data[(y * input_w + x) * kChannels + c]) /
+            255.0f;
         tensor[c * kNumPixels + y * input_w + x] =
             (val - model.mean[c]) / model.std[c];
       }
@@ -1151,18 +1145,17 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
   }
   LOG(INFO) << "Using global descriptor model: " << model_info->name;
 
-  const int kInputW = model_info->input_width > 0 ? model_info->input_width
-                                                    : 0;  // dynamic
-  const int kInputH = model_info->input_height > 0 ? model_info->input_height
-                                                    : 0;
+  const int kInputW =
+      model_info->input_width > 0 ? model_info->input_width : 0;  // dynamic
+  const int kInputH =
+      model_info->input_height > 0 ? model_info->input_height : 0;
   const int kChannels = 3;
   const int kDescriptorDim = model_info->descriptor_dim;
   const int kBatchSize =
       model_info->supports_batching ? options_.batch_size : 1;
 
   // Resize the index if descriptor dim changed (e.g. model switch).
-  global_descriptor_index_ =
-      retrieval::GlobalDescriptorIndex(kDescriptorDim);
+  global_descriptor_index_ = retrieval::GlobalDescriptorIndex(kDescriptorDim);
 
   // Cache alongside the database, not in the image folder.
   const std::filesystem::path cache_path =
@@ -1172,21 +1165,20 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
     try {
       global_descriptor_index_.Read(cache_path);
       if (global_descriptor_index_.NumImages() == all_image_ids.size()) {
-        LOG(INFO) << "Loaded cached " << model_info->name
-                  << " descriptors for " << all_image_ids.size()
-                  << " images from " << cache_path;
+        LOG(INFO) << "Loaded cached " << model_info->name << " descriptors for "
+                  << all_image_ids.size() << " images from " << cache_path;
         return;
       }
       LOG(INFO) << "Cached descriptors have "
                 << global_descriptor_index_.NumImages() << " images, but "
                 << all_image_ids.size() << " are needed. Re-extracting...";
-      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(
-          kDescriptorDim);
+      global_descriptor_index_ =
+          retrieval::GlobalDescriptorIndex(kDescriptorDim);
     } catch (const std::exception& e) {
       LOG(WARNING) << "Failed to read cached descriptors (" << e.what()
                    << "), re-extracting...";
-      global_descriptor_index_ = retrieval::GlobalDescriptorIndex(
-          kDescriptorDim);
+      global_descriptor_index_ =
+          retrieval::GlobalDescriptorIndex(kDescriptorDim);
     }
   }
 
@@ -1201,10 +1193,8 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
   }
   std::unique_ptr<ONNXModel> model;
   try {
-    model = std::make_unique<ONNXModel>(model_path,
-                                        options_.num_threads,
-                                        options_.use_gpu,
-                                        options_.gpu_index);
+    model = std::make_unique<ONNXModel>(
+        model_path, options_.num_threads, options_.use_gpu, options_.gpu_index);
   } catch (const std::exception& e) {
     LOG(FATAL_THROW)
         << "Failed to load " << model_info->name << " model. "
@@ -1226,8 +1216,7 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
                      model->output_shapes()[0],
                      model_info->expected_output_shape);
 
-  const int kPixelsPerImage =
-      kInputW > 0 ? kChannels * kInputW * kInputH : 0;
+  const int kPixelsPerImage = kInputW > 0 ? kChannels * kInputW * kInputH : 0;
 
   // Process images in batches.
   std::vector<image_t> batch_image_ids;
@@ -1248,12 +1237,11 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
     const image_t image_id = all_image_ids[i];
     const Image& image = cache_->GetImage(image_id);
 
-    const std::filesystem::path full_path =
-        options_.image_path / image.Name();
+    const std::filesystem::path full_path = options_.image_path / image.Name();
     Bitmap bitmap;
     if (!bitmap.Read(full_path, /*as_rgb=*/true)) {
-      LOG(ERROR) << "Failed to read image: " << full_path
-                 << ", skipping image " << image_id;
+      LOG(ERROR) << "Failed to read image: " << full_path << ", skipping image "
+                 << image_id;
       continue;
     }
 
@@ -1263,37 +1251,33 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
 
     if (static_cast<int>(batch_image_ids.size()) >= kBatchSize ||
         i == total_images - 1) {
-      const int current_batch_size =
-          static_cast<int>(batch_image_ids.size());
+      const int current_batch_size = static_cast<int>(batch_image_ids.size());
 
       std::vector<int64_t> input_shape = {
           current_batch_size, kChannels, kInputH, kInputW};
       // Handle dynamic input sizes.
       if (kInputW == 0) {
-        input_shape = {current_batch_size,
-                        kChannels,
-                        bitmap.Height(),
-                        bitmap.Width()};
+        input_shape = {
+            current_batch_size, kChannels, bitmap.Height(), bitmap.Width()};
         // For models without batching, we still create the batch dim = 1.
         if (!model_info->supports_batching) {
           input_shape[0] = 1;
         }
       }
 
-      Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-          ort_memory,
-          batch_data.data(),
-          batch_data.size(),
-          input_shape.data(),
-          input_shape.size());
+      Ort::Value input_tensor =
+          Ort::Value::CreateTensor<float>(ort_memory,
+                                          batch_data.data(),
+                                          batch_data.size(),
+                                          input_shape.data(),
+                                          input_shape.size());
 
       std::vector<Ort::Value> input_tensors;
       input_tensors.emplace_back(std::move(input_tensor));
       std::vector<Ort::Value> output_tensors = model->Run(input_tensors);
       THROW_CHECK_EQ(output_tensors.size(), 1);
 
-      const float* output_data =
-          output_tensors[0].GetTensorData<float>();
+      const float* output_data = output_tensors[0].GetTensorData<float>();
       const auto output_shape =
           output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
 
@@ -1309,9 +1293,8 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       }
 
       total_processed += output_batch;
-      LOG(INFO) << StringPrintf("Extracted descriptors [%d/%d]",
-                                total_processed,
-                                total_images);
+      LOG(INFO) << StringPrintf(
+          "Extracted descriptors [%d/%d]", total_processed, total_images);
 
       batch_image_ids.clear();
       batch_data.clear();

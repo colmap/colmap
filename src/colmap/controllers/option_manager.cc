@@ -70,7 +70,8 @@ OptionManager::OptionManager(bool add_project_options)
   exhaustive_pairing = std::make_shared<ExhaustivePairingOptions>();
   sequential_pairing = std::make_shared<SequentialPairingOptions>();
   vocab_tree_pairing = std::make_shared<VocabTreePairingOptions>();
-  global_descriptor_pairing = std::make_shared<GlobalDescriptorPairingOptions>();
+  global_descriptor_pairing =
+      std::make_shared<GlobalDescriptorPairingOptions>();
   spatial_pairing = std::make_shared<SpatialPairingOptions>();
   transitive_pairing = std::make_shared<TransitivePairingOptions>();
   imported_pairing = std::make_shared<ImportedPairingOptions>();

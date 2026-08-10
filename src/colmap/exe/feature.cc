@@ -286,8 +286,7 @@ int RunSequentialMatcher(int argc, char** argv) {
 
   // Forward project paths to sequential loop detection.
   if (!options.image_path->empty()) {
-    options.sequential_pairing->loop_detection_image_path =
-        *options.image_path;
+    options.sequential_pairing->loop_detection_image_path = *options.image_path;
   }
   options.sequential_pairing->loop_detection_database_path =
       *options.database_path;
@@ -416,11 +415,11 @@ int RunGlobalDescriptorMatcher(int argc, char** argv) {
     app = std::make_unique<QApplication>(argc, argv);
   }
 
-  auto matcher = CreateGlobalDescriptorFeatureMatcher(
-      *options.global_descriptor_pairing,
-      *options.feature_matching,
-      *options.two_view_geometry,
-      *options.database_path);
+  auto matcher =
+      CreateGlobalDescriptorFeatureMatcher(*options.global_descriptor_pairing,
+                                           *options.feature_matching,
+                                           *options.two_view_geometry,
+                                           *options.database_path);
 
   if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());
