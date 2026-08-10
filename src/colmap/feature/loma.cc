@@ -544,8 +544,11 @@ std::unique_ptr<FeatureMatcher> CreateLomaFeatureMatcher(
 #ifdef COLMAP_ONNX_ENABLED
   switch (options.type) {
     case FeatureMatcherType::LOMA_BRUTEFORCE:
-      return CreateBruteForceONNXFeatureMatcher(options,
-                                                options.loma->brute_force);
+      return CreateBruteForceONNXFeatureMatcher(
+          options,
+          options.loma->brute_force,
+          {FeatureExtractorType::LOMA_B, FeatureExtractorType::LOMA_B128},
+          /*normalize_descriptors=*/true);
     case FeatureMatcherType::LOMA_B:
       return CreateLomaVariantMatcher(
           options, options.loma->b, FeatureExtractorType::LOMA_B);
