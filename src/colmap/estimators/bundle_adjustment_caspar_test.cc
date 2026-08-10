@@ -34,7 +34,6 @@
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 

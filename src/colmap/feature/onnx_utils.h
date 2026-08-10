@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
-
 #include <memory>
 #include <string>
 #include <string_view>

@@ -29,8 +29,6 @@
 
 #include "colmap/scene/scene_clustering.h"
 
-#include "colmap/util/types.h"
-
 #include <algorithm>
 #include <initializer_list>
 #include <set>
