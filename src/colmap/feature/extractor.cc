@@ -138,7 +138,6 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
         return 3200;
       case FeatureExtractorType::ALIKED_N16ROT:
       case FeatureExtractorType::ALIKED_N32:
-        return 1600;
       case FeatureExtractorType::LOMA_B:
       case FeatureExtractorType::LOMA_B128:
         return 1600;

@@ -142,7 +142,7 @@ TEST(FeatureExtractionOptions, Move) {
 
   EXPECT_EQ(moved.loma.get(), loma_ptr);
   EXPECT_EQ(moved.loma->max_num_features, max_num_features);
-  EXPECT_EQ(options.loma, nullptr);
+  EXPECT_EQ(moved.loma.use_count(), 1);
 }
 
 TEST(FeatureExtractionOptions, MoveAssignment) {
@@ -156,7 +156,7 @@ TEST(FeatureExtractionOptions, MoveAssignment) {
 
   EXPECT_EQ(moved.loma.get(), loma_ptr);
   EXPECT_EQ(moved.loma->max_num_features, max_num_features);
-  EXPECT_EQ(options.loma, nullptr);
+  EXPECT_EQ(moved.loma.use_count(), 1);
 }
 
 TEST(FeatureExtractionOptions, RequiresRGB) {
