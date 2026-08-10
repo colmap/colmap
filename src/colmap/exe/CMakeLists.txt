@@ -55,6 +55,7 @@ endif()
 
 set(COLMAP_EXE_SRCS
     feature.h feature.cc
+    image.h image.cc
     sfm.h sfm.cc
     model.h model.cc
 )
@@ -81,6 +82,12 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         Boost::boost
         colmap_sfm
+)
+
+COLMAP_ADD_TEST(
+    NAME image_test
+    SRCS image_test.cc
+    LINK_LIBS colmap_exe
 )
 
 COLMAP_ADD_TEST(
