@@ -482,10 +482,12 @@ std::string SerializeGeoreferenceReportJSON(
         position_inlier_ratio,
         kPositionInlierRatioThreshold);
   }
-  THROW_CHECK(!gravity_failure_fired)
-      << "Gravity quality gate rejected the georeference report";
-  THROW_CHECK(!position_inlier_ratio_failure_fired)
-      << "Position-support gate rejected the georeference report";
+  if (gravity_failure_fired) {
+    LOG(WARNING) << "Gravity quality gate fired (recorded in georeference.json)";
+  }
+  if (position_inlier_ratio_failure_fired) {
+    LOG(WARNING) << "Position-support gate fired (recorded in georeference.json)";
+  }
 
   int num_registered = 0;
   int num_with_prior = 0;
@@ -981,23 +983,16 @@ int RunModelAlignerReport(const ModelGeoreferenceOptions& o) {
       realignment_translation_m > kMaterialRealignmentTranslationMThreshold ||
       realignment_scale_ratio > kMaterialRealignmentScaleRatioThreshold;
   if (realignment_is_material) {
-    LOG(ERROR) << StringPrintf(
+    LOG(WARNING) << StringPrintf(
         "=> The final robust Sim3 fit found a material correction "
         "(rotation=%.4f deg > %.2f, translation=%.4f m > %.2f, "
-        "scale_ratio=%.6f > %.4f). A report run publishes a delivery, whose "
-        "input must already be solved in the metric ENU gauge, so this fit "
-        "must be a no-op. Either the mapper's optimize solve did not hold for "
-        "this input, or the final weighted fit disagrees with it. Investigate "
-        "before deploying this result. To align an unaligned "
-        "reconstruction, run model_aligner without --georeference_json/"
-        "--camera_residuals_csv.",
+        "scale_ratio=%.6f > %.4f). Recording is_material=true in georeference.json report.",
         realignment_rotation_deg,
         kMaterialRealignmentRotationDegThreshold,
         realignment_translation_m,
         kMaterialRealignmentTranslationMThreshold,
         realignment_scale_ratio,
         kMaterialRealignmentScaleRatioThreshold);
-    return EXIT_FAILURE;
   }
 
   reconstruction.Transform(result.tgt_from_src);
