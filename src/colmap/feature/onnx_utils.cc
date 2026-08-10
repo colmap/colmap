@@ -166,9 +166,7 @@ void ONNXModel::InitializeSession(const std::string& model_path,
 
   if (is_capability_probe &&
       execution_provider_ != ONNXExecutionProvider::CPU) {
-    // Ensure successful session creation means that the selected accelerator
-    // supports the complete graph instead of silently assigning unsupported
-    // nodes to the CPU execution provider.
+    // Fail if any node would fall back to CPU.
     session_options_.AddConfigEntry(kOrtSessionOptionsDisableCPUEPFallback,
                                     "1");
   }

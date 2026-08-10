@@ -645,8 +645,7 @@ std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
   FeatureMatchingOptions effective_options = options;
   if (SelectONNXExecutionProvider(effective_options.use_gpu) ==
       ONNXExecutionProvider::COREML) {
-    // CoreML cannot represent the zero-length dynamic output produced by the
-    // model's NonZero node when a pair has no valid matches.
+    // CoreML cannot handle the zero-length dynamic output from NonZero.
     LOG_FIRST_N(WARNING, 1)
         << "The ONNX brute-force matcher is not supported by CoreML; using "
            "the CPU execution provider instead";

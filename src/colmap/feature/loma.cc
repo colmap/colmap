@@ -264,8 +264,7 @@ class LomaFeatureExtractor : public FeatureExtractor {
 
     std::vector<float> kpts_norm_copy(kpts_norm, kpts_norm + num_kpts * 2);
 
-    // --- descriptor: still fixed-shape, resized (not padded) to the model's
-    // input size.
+    // Resize to the model's fixed descriptor input size.
     std::vector<float> desc_input =
         ResizeToInputTensor(bitmap,
                             descriptor_size_,

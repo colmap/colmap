@@ -46,9 +46,8 @@ struct LomaExtractionOptions {
   // min_score = 0.0.
   double min_score = 0.0;
 
-  // Use the bf16 descriptor variant when supported by the selected ONNX
-  // execution provider. Falls back to fp32 otherwise. Only affects LOMA_B --
-  // no-op for LOMA_B128 (no DINO backbone to cast).
+  // Prefer bf16 for LOMA_B when supported; otherwise use fp32. No-op for
+  // LOMA_B128.
   bool use_bf16 = false;
 
   // Use a fast bilinear resample instead of the filtered resize for the
@@ -75,8 +74,7 @@ std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
     const FeatureExtractionOptions& options);
 
 struct LomaMatchingOptions {
-  // Model paths for one LoMa matcher variant (B/B128/R/L/G), at both
-  // precisions.
+  // Per-variant fp32 and bf16 model paths.
   struct Variant {
     std::string model_path;
     std::string model_path_bf16;
@@ -85,8 +83,7 @@ struct LomaMatchingOptions {
   // Matching filter, matches LG
   double min_score = 0.1;
 
-  // Use the bf16 matcher variant when supported by the selected ONNX execution
-  // provider. Falls back to fp32 otherwise.
+  // Prefer bf16 when supported; otherwise use fp32.
   bool use_bf16 = false;
 
   // One entry per FeatureMatcherType::LOMA_* dedicated-matcher variant.
