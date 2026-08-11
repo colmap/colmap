@@ -52,41 +52,14 @@
 #include "colmap/mvs/poisson_meshing.h"
 #include "colmap/mvs/texture_mapping.h"
 #endif
-#include "colmap/retrieval/global_descriptor_model.h"
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/version.h"
 
-#include <algorithm>
-
 namespace config = boost::program_options;
 
 namespace colmap {
-namespace {
-
-constexpr char kRetrievalMethodHelp[] = "{VOCAB_TREE, GLOBAL_DESCRIPTOR}";
-
-// Lists the available global descriptor model types, e.g. "{MixVPR, MegaLoc}".
-std::string GlobalDescriptorModelTypesHelp() {
-  std::vector<std::string_view> names =
-      retrieval::GlobalDescriptorModel::ModelNames();
-  if (names.empty()) {
-    return "";
-  }
-  std::sort(names.begin(), names.end());
-  std::string help = "{";
-  for (size_t i = 0; i < names.size(); ++i) {
-    if (i > 0) {
-      help += ", ";
-    }
-    help += std::string(names[i]);
-  }
-  help += "}";
-  return help;
-}
-
-}  // namespace
 
 OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
@@ -440,8 +413,7 @@ void OptionManager::AddSequentialPairingOptions() {
   AddDefaultEnumOption("SequentialMatching.loop_detection_method",
                        &sequential_pairing->loop_detection_options.method,
                        RetrievalMethodToString,
-                       RetrievalMethodFromString,
-                       kRetrievalMethodHelp);
+                       RetrievalMethodFromString);
   AddDefaultOption("SequentialMatching.loop_detection_num_images",
                    &sequential_pairing->loop_detection_options.num_images);
   AddDefaultOption(
@@ -459,8 +431,7 @@ void OptionManager::AddSequentialPairingOptions() {
   AddDefaultOption("SequentialMatching.vocab_tree_path",
                    &sequential_pairing->loop_detection_options.vocab_tree_path);
   AddDefaultOption("SequentialMatching.loop_detection_model_type",
-                   &sequential_pairing->loop_detection_options.model_type,
-                   GlobalDescriptorModelTypesHelp());
+                   &sequential_pairing->loop_detection_options.model_type);
   AddDefaultOption("SequentialMatching.loop_detection_model_path",
                    &sequential_pairing->loop_detection_options.model_path);
   AddDefaultOption("SequentialMatching.num_threads",
@@ -479,8 +450,7 @@ void OptionManager::AddRetrievalPairingOptions() {
   AddDefaultEnumOption("RetrievalMatching.method",
                        &retrieval_pairing->method,
                        RetrievalMethodToString,
-                       RetrievalMethodFromString,
-                       kRetrievalMethodHelp);
+                       RetrievalMethodFromString);
   AddDefaultOption("RetrievalMatching.num_images",
                    &retrieval_pairing->num_images);
   AddDefaultOption("RetrievalMatching.num_threads",
@@ -498,8 +468,7 @@ void OptionManager::AddRetrievalPairingOptions() {
   AddDefaultOption("RetrievalMatching.vocab_tree_path",
                    &retrieval_pairing->vocab_tree_path);
   AddDefaultOption("RetrievalMatching.model_type",
-                   &retrieval_pairing->model_type,
-                   GlobalDescriptorModelTypesHelp());
+                   &retrieval_pairing->model_type);
   AddDefaultOption("RetrievalMatching.model_path",
                    &retrieval_pairing->model_path);
   AddDefaultOption("RetrievalMatching.use_gpu", &retrieval_pairing->use_gpu);
