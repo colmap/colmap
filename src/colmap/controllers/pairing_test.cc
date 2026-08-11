@@ -33,6 +33,7 @@
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
@@ -460,6 +461,57 @@ TEST(SpatialPairGenerator, LargeCoordinates) {
                   std::make_pair(images[2].ImageId(), images[1].ImageId())));
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.HasFinished());
+}
+
+TEST(SpatialPairGenerator, CentersLargeCoordinatesWithMissingPosePrior) {
+  // Verifies that images with missing pose priors do not bias the internal
+  // offset applied to position priors during spatial matching, i.e. by
+  // including rows of zeros in the average position calculation.
+
+  constexpr int kNumImages = 4;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  // Add pose priors for 3 of the 4 images, with large coordinate values.
+  database->ClearPosePriors();
+
+  const Eigen::Vector3d offset(1'600'000, 5'400'000, 100);
+
+  PosePrior pose_prior1;
+  pose_prior1.corr_data_id = images[0].DataId();
+  pose_prior1.position = offset + Eigen::Vector3d(-1, -2, -3);
+  pose_prior1.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  database->WritePosePrior(pose_prior1);
+
+  PosePrior pose_prior2;
+  pose_prior2.corr_data_id = images[1].DataId();
+  pose_prior2.position = offset + Eigen::Vector3d(0, 0, 0);
+  pose_prior2.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  database->WritePosePrior(pose_prior2);
+
+  PosePrior pose_prior4;
+  pose_prior4.corr_data_id = images[3].DataId();
+  pose_prior4.position = offset + Eigen::Vector3d(1, 2, 3);
+  pose_prior4.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  database->WritePosePrior(pose_prior4);
+
+  // Read the position prior data, with the expectation that positions will be
+  // centered automatically around a local origin.
+  SpatialPairingOptions options;
+  options.ignore_z = false;
+
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      options.CacheSize(), THROW_CHECK_NOTNULL(database));
+  SpatialPairGenerator generator(options, cache);
+  const Eigen::RowMajorMatrixXf position_matrix =
+      generator.ReadPositionPriorData(*cache);
+
+  // Verify that the missing pose prior did not bias the calculated offset.
+  Eigen::RowMajorMatrixXf expected_position_matrix(3, 3);
+  expected_position_matrix << -1, -2, -3, 0, 0, 0, 1, 2, 3;
+  EXPECT_THAT(position_matrix, EigenMatrixNear(expected_position_matrix));
 }
 
 TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {
