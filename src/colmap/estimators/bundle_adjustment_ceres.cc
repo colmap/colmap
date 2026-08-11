@@ -30,6 +30,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/cost_functions/camera_prior.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
@@ -39,6 +40,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <algorithm>
 #include <iomanip>
 
 namespace colmap {
@@ -460,6 +462,135 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   }
 }
 
+// Adds a weighted prior residual block on the intrinsics of each camera. The
+// residuals pull the focal length towards its current value (only for cameras
+// with a prior focal length) and the principal point and extra parameters
+// towards their default initialization values.
+void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
+                              const BundleAdjustmentConfig& config,
+                              const std::set<camera_t>& camera_ids,
+                              Reconstruction& reconstruction,
+                              ceres::LossFunction* loss_function,
+                              ceres::Problem& problem) {
+  const bool prior_focal_length =
+      options.refine_focal_length && options.focal_length_prior_weight > 0;
+  const bool prior_principal_point = options.refine_principal_point &&
+                                     options.principal_point_prior_weight > 0;
+  const bool prior_extra_params =
+      options.refine_extra_params && options.extra_params_prior_weight > 0;
+  if (!prior_focal_length && !prior_principal_point && !prior_extra_params) {
+    return;
+  }
+
+  for (const camera_t camera_id : camera_ids) {
+    Camera& camera = reconstruction.Camera(camera_id);
+    if (config.HasConstantCamIntrinsics(camera_id) || !camera.IsPerspective()) {
+      continue;
+    }
+
+    // Normalize the focal length and principal point deviations by the image
+    // size, such that the weights are resolution independent.
+    const double inv_max_size = 1.0 / std::max(camera.width, camera.height);
+
+    std::vector<double> weights(camera.params.size(), 0.0);
+    std::vector<double> priors(camera.params.size(), 0.0);
+    bool has_prior = false;
+
+    if (prior_focal_length && camera.has_prior_focal_length) {
+      for (const size_t idx : camera.FocalLengthIdxs()) {
+        weights[idx] = options.focal_length_prior_weight * inv_max_size;
+        priors[idx] = camera.params[idx];
+        has_prior = true;
+      }
+    }
+
+    if (prior_principal_point) {
+      const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
+      THROW_CHECK_EQ(params_idxs.size(), 2);
+      weights[params_idxs[0]] =
+          options.principal_point_prior_weight * inv_max_size;
+      weights[params_idxs[1]] =
+          options.principal_point_prior_weight * inv_max_size;
+      priors[params_idxs[0]] = 0.5 * camera.width;
+      priors[params_idxs[1]] = 0.5 * camera.height;
+      has_prior = true;
+    }
+
+    if (prior_extra_params) {
+      for (const size_t idx : camera.ExtraParamsIdxs()) {
+        weights[idx] = options.extra_params_prior_weight;
+        priors[idx] = 0;
+        has_prior = true;
+      }
+    }
+
+    if (!has_prior) {
+      continue;
+    }
+
+    problem.AddResidualBlock(
+        CreateCameraCostFunction<CameraParamsPriorCostFunctor>(
+            camera.model_id, weights, priors),
+        loss_function,
+        camera.params.data());
+  }
+}
+
+// Constrains the camera parameters to the same bounds that
+// Camera::HasBogusParams tests. Parameters that already violate the bounds are
+// clamped into them, because Ceres rejects infeasible starting points. Only
+// parameter groups that are optimized are bounded, since bounding a group that
+// ParameterizeCameras holds constant cannot have any effect.
+void BoundCameraParams(const BundleAdjustmentOptions& options,
+                       const std::set<camera_t>& camera_ids,
+                       Reconstruction& reconstruction,
+                       ceres::Problem& problem) {
+  for (const camera_t camera_id : camera_ids) {
+    Camera& camera = reconstruction.Camera(camera_id);
+    if (!camera.IsPerspective() ||
+        !problem.HasParameterBlock(camera.params.data()) ||
+        problem.IsParameterBlockConstant(camera.params.data())) {
+      continue;
+    }
+
+    const double max_size = std::max(camera.width, camera.height);
+
+    const auto bound_param = [&camera, &problem](const size_t idx,
+                                                 const double lower,
+                                                 const double upper) {
+      camera.params[idx] = std::clamp(camera.params[idx], lower, upper);
+      if (upper == lower) {
+        // Ceres rejects an empty bound interval as infeasible. The clamp above
+        // already pins the parameter to the only feasible value.
+        return;
+      }
+      problem.SetParameterLowerBound(camera.params.data(), idx, lower);
+      problem.SetParameterUpperBound(camera.params.data(), idx, upper);
+    };
+
+    if (options.refine_focal_length) {
+      for (const size_t idx : camera.FocalLengthIdxs()) {
+        bound_param(idx,
+                    options.min_focal_length_ratio * max_size,
+                    options.max_focal_length_ratio * max_size);
+      }
+    }
+
+    if (options.refine_principal_point) {
+      const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
+      THROW_CHECK_EQ(params_idxs.size(), 2);
+      bound_param(params_idxs[0], 0, static_cast<double>(camera.width));
+      bound_param(params_idxs[1], 0, static_cast<double>(camera.height));
+    }
+
+    if (options.refine_extra_params) {
+      for (const size_t idx : camera.ExtraParamsIdxs()) {
+        bound_param(idx, -options.max_extra_param, options.max_extra_param);
+      }
+    }
+  }
+}
+
 void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
                                const BundleAdjustmentConfig& config,
                                const std::set<image_t>& image_ids,
@@ -599,7 +730,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         const BundleAdjustmentConfig& config,
                         Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
-        loss_function_(options_.ceres->CreateLossFunction()) {
+        loss_function_(options_.ceres->CreateLossFunction()),
+        camera_prior_loss_function_(std::make_unique<ceres::HuberLoss>(1.0)) {
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -625,6 +757,21 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         parameterized_camera_ids_,
                         reconstruction,
                         *problem_);
+
+    // Bound the camera parameters before adding the priors, so that the priors
+    // are anchored at feasible values.
+    if (options_.bound_camera_params) {
+      BoundCameraParams(
+          options_, parameterized_camera_ids_, reconstruction, *problem_);
+    }
+
+    AddCameraPriorsToProblem(options_,
+                             config_,
+                             parameterized_camera_ids_,
+                             reconstruction,
+                             camera_prior_loss_function_.get(),
+                             *problem_);
+
     ParameterizeRigsAndFrames(
         options_, config_, parameterized_image_ids_, reconstruction, *problem_);
     ParameterizePoints(options_,
@@ -881,6 +1028,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
  private:
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
+  std::unique_ptr<ceres::LossFunction> camera_prior_loss_function_;
 
   std::set<camera_t> parameterized_camera_ids_;
   std::set<image_t> parameterized_image_ids_;

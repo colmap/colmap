@@ -32,6 +32,7 @@
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/logging.h"
 
 namespace colmap {
 
@@ -308,6 +309,12 @@ BundleAdjustmentBackendOptions& BundleAdjustmentBackendOptions::operator=(
 }
 
 bool BundleAdjustmentOptions::Check() const {
+  CHECK_OPTION_GE(focal_length_prior_weight, 0);
+  CHECK_OPTION_GE(principal_point_prior_weight, 0);
+  CHECK_OPTION_GE(extra_params_prior_weight, 0);
+  CHECK_OPTION_GT(min_focal_length_ratio, 0);
+  CHECK_OPTION_GE(max_focal_length_ratio, min_focal_length_ratio);
+  CHECK_OPTION_GE(max_extra_param, 0);
   return THROW_CHECK_NOTNULL(ceres)->Check();
 }
 
@@ -320,6 +327,15 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
       return CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
     case BundleAdjustmentBackend::CASPAR:
 #ifdef CASPAR_ENABLED
+      if (options.focal_length_prior_weight > 0 ||
+          options.principal_point_prior_weight > 0 ||
+          options.extra_params_prior_weight > 0 ||
+          options.bound_camera_params) {
+        LOG_FIRST_N(WARNING, 1)
+            << "Camera intrinsics priors and parameter bounds are not "
+               "supported by the Caspar bundle adjustment backend and are "
+               "ignored";
+      }
       return CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
 #else
       LOG(FATAL_THROW)

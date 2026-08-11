@@ -103,6 +103,18 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("ba_refine_sensor_from_rig",
                      &Opts::ba_refine_sensor_from_rig,
                      "Whether to refine rig poses during the reconstruction.")
+      .def_readwrite("ba_focal_length_prior_weight",
+                     &Opts::ba_focal_length_prior_weight,
+                     "Weight of the soft prior on the focal length during "
+                     "bundle adjustment. Zero disables the prior.")
+      .def_readwrite("ba_principal_point_prior_weight",
+                     &Opts::ba_principal_point_prior_weight,
+                     "Weight of the soft prior on the principal point during "
+                     "bundle adjustment. Zero disables the prior.")
+      .def_readwrite("ba_extra_params_prior_weight",
+                     &Opts::ba_extra_params_prior_weight,
+                     "Weight of the soft prior on the extra parameters during "
+                     "bundle adjustment. Zero disables the prior.")
       .def_readwrite(
           "ba_min_num_residuals_for_cpu_multi_threading",
           &Opts::ba_min_num_residuals_for_cpu_multi_threading,

@@ -766,6 +766,9 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
         ceres::LoggingType::SILENT;
   }
   abs_pose_refinement_options.print_summary = false;
+  // The intrinsics are deliberately left unbounded, such that the bogus
+  // parameter check below can detect and reset a degenerate camera.
+  abs_pose_refinement_options.bound_camera_params = false;
   if (reg_stats_.num_reg_images_per_camera[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,

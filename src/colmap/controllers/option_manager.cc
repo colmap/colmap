@@ -521,6 +521,20 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->constant_rig_from_world_rotation);
   AddDefaultOption("BundleAdjustment.min_track_length",
                    &bundle_adjustment->min_track_length);
+  AddDefaultOption("BundleAdjustment.focal_length_prior_weight",
+                   &bundle_adjustment->focal_length_prior_weight);
+  AddDefaultOption("BundleAdjustment.principal_point_prior_weight",
+                   &bundle_adjustment->principal_point_prior_weight);
+  AddDefaultOption("BundleAdjustment.extra_params_prior_weight",
+                   &bundle_adjustment->extra_params_prior_weight);
+  AddDefaultOption("BundleAdjustment.bound_camera_params",
+                   &bundle_adjustment->bound_camera_params);
+  AddDefaultOption("BundleAdjustment.min_focal_length_ratio",
+                   &bundle_adjustment->min_focal_length_ratio);
+  AddDefaultOption("BundleAdjustment.max_focal_length_ratio",
+                   &bundle_adjustment->max_focal_length_ratio);
+  AddDefaultOption("BundleAdjustment.max_extra_param",
+                   &bundle_adjustment->max_extra_param);
   AddDefaultEnumOption("BundleAdjustment.backend",
                        &bundle_adjustment->backend,
                        BundleAdjustmentBackendToString,
@@ -630,6 +644,12 @@ void OptionManager::AddMapperOptions() {
                    &mapper->ba_refine_extra_params);
   AddDefaultOption("Mapper.ba_refine_sensor_from_rig",
                    &mapper->ba_refine_sensor_from_rig);
+  AddDefaultOption("Mapper.ba_focal_length_prior_weight",
+                   &mapper->ba_focal_length_prior_weight);
+  AddDefaultOption("Mapper.ba_principal_point_prior_weight",
+                   &mapper->ba_principal_point_prior_weight);
+  AddDefaultOption("Mapper.ba_extra_params_prior_weight",
+                   &mapper->ba_extra_params_prior_weight);
   AddDefaultOption("Mapper.ba_local_function_tolerance",
                    &mapper->ba_local_function_tolerance);
   AddDefaultOption("Mapper.ba_local_max_num_iterations",
@@ -812,6 +832,26 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.bundle_adjustment.refine_points3D);
   AddDefaultOption("GlobalMapper.ba_min_track_length",
                    &global_mapper->mapper.bundle_adjustment.min_track_length);
+  AddDefaultOption(
+      "GlobalMapper.ba_focal_length_prior_weight",
+      &global_mapper->mapper.bundle_adjustment.focal_length_prior_weight);
+  AddDefaultOption(
+      "GlobalMapper.ba_principal_point_prior_weight",
+      &global_mapper->mapper.bundle_adjustment.principal_point_prior_weight);
+  AddDefaultOption(
+      "GlobalMapper.ba_extra_params_prior_weight",
+      &global_mapper->mapper.bundle_adjustment.extra_params_prior_weight);
+  AddDefaultOption(
+      "GlobalMapper.ba_bound_camera_params",
+      &global_mapper->mapper.bundle_adjustment.bound_camera_params);
+  AddDefaultOption(
+      "GlobalMapper.ba_min_focal_length_ratio",
+      &global_mapper->mapper.bundle_adjustment.min_focal_length_ratio);
+  AddDefaultOption(
+      "GlobalMapper.ba_max_focal_length_ratio",
+      &global_mapper->mapper.bundle_adjustment.max_focal_length_ratio);
+  AddDefaultOption("GlobalMapper.ba_max_extra_param",
+                   &global_mapper->mapper.bundle_adjustment.max_extra_param);
   AddDefaultEnumOption("GlobalMapper.ba_backend",
                        &global_mapper->mapper.bundle_adjustment.backend,
                        BundleAdjustmentBackendToString,

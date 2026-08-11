@@ -104,6 +104,13 @@ struct IncrementalPipelineOptions {
   bool ba_refine_principal_point = false;
   bool ba_refine_extra_params = true;
 
+  // Weights for soft priors on the camera intrinsics during bundle
+  // adjustment. A weight of 0 disables the respective prior. See
+  // BundleAdjustmentOptions for details.
+  double ba_focal_length_prior_weight = 0;
+  double ba_principal_point_prior_weight = 0;
+  double ba_extra_params_prior_weight = 0;
+
   // Whether to optimize rig poses during the reconstruction.
   bool ba_refine_sensor_from_rig = true;
 
