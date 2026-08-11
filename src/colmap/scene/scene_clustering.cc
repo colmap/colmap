@@ -31,7 +31,6 @@
 
 #include "colmap/math/graph_cut.h"
 #include "colmap/util/hash_containers.h"
-#include "colmap/util/types.h"
 
 #include <set>
 
@@ -75,8 +74,7 @@ void SceneClustering::Partition(
 void SceneClustering::PartitionHierarchicalCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
-    Cluster* cluster,
-    const NodeHashMap<image_t, image_t>& overlap_anchor) {
+    Cluster* cluster) {
   THROW_CHECK_EQ(edges.size(), weights.size());
 
   // If the cluster is small enough, we return from the recursive clustering.
@@ -87,18 +85,8 @@ void SceneClustering::PartitionHierarchicalCluster(
   }
 
   // Partition the cluster using a normalized cut on the scene graph.
-  auto labels =
+  const auto labels =
       ComputeNormalizedMinGraphCut(edges, weights, options_.branching);
-
-  // Manually assign labels to the overlap images inherited from the parent
-  // cluster. These images have no edges in the subgraph of this cluster and
-  // are therefore not labeled by the graph cut, so they follow the image of
-  // this cluster that they overlap with.
-  for (const auto& [image_id, anchor] : overlap_anchor) {
-    if (labels.count(anchor)) {
-      labels[image_id] = labels.at(anchor);
-    }
-  }
 
   // Assign the images to the clustered child clusters.
   cluster->child_clusters.resize(options_.branching);
@@ -113,29 +101,19 @@ void SceneClustering::PartitionHierarchicalCluster(
     }
   }
 
-  // Collect the edges based on whether they are inter or intra child clusters.
-  std::vector<std::vector<std::pair<int, int>>> child_edges(options_.branching);
-  std::vector<std::vector<int>> child_weights(options_.branching);
+  // Collect the edges between child clusters as overlap candidates.
   std::vector<std::vector<std::pair<std::pair<int, int>, int>>>
       overlapping_edges(options_.branching);
-  std::vector<NodeHashMap<image_t, image_t>> child_overlap_anchor(
-      options_.branching);
   for (size_t i = 0; i < edges.size(); ++i) {
     const int label1 = labels.at(edges[i].first);
     const int label2 = labels.at(edges[i].second);
-    if (label1 == label2) {
-      child_edges.at(label1).push_back(edges[i]);
-      child_weights.at(label1).push_back(weights[i]);
-    } else {
+    if (label1 != label2) {
       overlapping_edges.at(label1).emplace_back(edges[i], weights[i]);
       overlapping_edges.at(label2).emplace_back(edges[i], weights[i]);
     }
   }
 
-  // Add overlapping images between sibling clusters before partitioning. For
-  // each selected image we remember the image in this cluster that it overlaps
-  // with via the best-matching edge, so that the overlap can follow this
-  // anchor image when the child cluster is partitioned recursively.
+  // Add overlapping images between sibling clusters before partitioning.
   if (options_.image_overlap > 0) {
     for (int i = 0; i < options_.branching; ++i) {
       std::sort(overlapping_edges[i].begin(),
@@ -151,13 +129,9 @@ void SceneClustering::PartitionHierarchicalCluster(
         const image_t image_id2 = pair.second;
 
         if (labels.at(image_id1) == i) {
-          if (overlapping_image_ids.insert(image_id2).second) {
-            child_overlap_anchor[i][image_id2] = image_id1;
-          }
+          overlapping_image_ids.insert(image_id2);
         } else {
-          if (overlapping_image_ids.insert(image_id1).second) {
-            child_overlap_anchor[i][image_id1] = image_id2;
-          }
+          overlapping_image_ids.insert(image_id1);
         }
         if (overlapping_image_ids.size() >=
             static_cast<size_t>(options_.image_overlap)) {
@@ -169,6 +143,24 @@ void SceneClustering::PartitionHierarchicalCluster(
           cluster->child_clusters[i].image_ids.end(),
           overlapping_image_ids.begin(),
           overlapping_image_ids.end());
+    }
+  }
+
+  // Retain the full subgraph induced by every expanded child cluster. Edges
+  // incident to inherited overlap images allow the graph cut to assign those
+  // images based on all their connections at every subsequent level.
+  std::vector<std::vector<std::pair<int, int>>> child_edges(options_.branching);
+  std::vector<std::vector<int>> child_weights(options_.branching);
+  for (int i = 0; i < options_.branching; ++i) {
+    FlatHashSet<image_t> child_image_ids(
+        cluster->child_clusters[i].image_ids.begin(),
+        cluster->child_clusters[i].image_ids.end());
+    for (size_t j = 0; j < edges.size(); ++j) {
+      if (child_image_ids.count(edges[j].first) &&
+          child_image_ids.count(edges[j].second)) {
+        child_edges[i].push_back(edges[j]);
+        child_weights[i].push_back(weights[j]);
+      }
     }
   }
 
@@ -184,10 +176,8 @@ void SceneClustering::PartitionHierarchicalCluster(
       continue;
     }
 
-    PartitionHierarchicalCluster(child_edges[i],
-                                 child_weights[i],
-                                 &cluster->child_clusters[i],
-                                 child_overlap_anchor[i]);
+    PartitionHierarchicalCluster(
+        child_edges[i], child_weights[i], &cluster->child_clusters[i]);
   }
 
   // Remove empty clusters.

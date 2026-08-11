@@ -99,6 +99,75 @@ SceneGraph MakeSceneGraphTwoLevel() {
   return graph;
 }
 
+// Path graph with three levels of progressively weaker connections.
+SceneGraph MakeSceneGraphThreeLevel() {
+  static const SceneGraph graph = {{{0, 1},
+                                    {1, 2},
+                                    {2, 3},
+                                    {3, 4},
+                                    {4, 5},
+                                    {5, 6},
+                                    {6, 7},
+                                    {7, 8},
+                                    {8, 9},
+                                    {9, 10},
+                                    {10, 11},
+                                    {11, 12},
+                                    {12, 13},
+                                    {13, 14},
+                                    {14, 15}},
+                                   {1000,
+                                    100,
+                                    1000,
+                                    10,
+                                    1000,
+                                    100,
+                                    1000,
+                                    1,
+                                    1000,
+                                    100,
+                                    1000,
+                                    10,
+                                    1000,
+                                    100,
+                                    1000}};
+  return graph;
+}
+
+// The first six images form one top-level cluster and the last six images form
+// the other. Image 6 overlaps the first cluster. Its strongest individual
+// connection is to image 0, but its combined connection to images 3 and 4 is
+// stronger.
+SceneGraph MakeSceneGraphAggregateOverlap() {
+  static const SceneGraph graph = {{{0, 1},
+                                    {1, 2},
+                                    {2, 3},
+                                    {3, 4},
+                                    {4, 5},
+                                    {6, 7},
+                                    {7, 8},
+                                    {8, 9},
+                                    {9, 10},
+                                    {10, 11},
+                                    {6, 0},
+                                    {6, 3},
+                                    {6, 4}},
+                                   {10000,
+                                    10000,
+                                    1,
+                                    10000,
+                                    10000,
+                                    20000,
+                                    20000,
+                                    20000,
+                                    20000,
+                                    20000,
+                                    100,
+                                    90,
+                                    90}};
+  return graph;
+}
+
 MATCHER_P(UnorderedClustersEqMatcher,
           expected_clusters,
           "is equal to the expected clusters (ignoring order): " +
@@ -133,6 +202,17 @@ std::vector<std::set<image_t>> GetLeafImageSets(
                                  leaf->image_ids.end());
   }
   return leaf_image_sets;
+}
+
+std::vector<std::set<image_t>> GetChildImageSets(
+    const SceneClustering::Cluster& cluster) {
+  std::vector<std::set<image_t>> child_image_sets;
+  child_image_sets.reserve(cluster.child_clusters.size());
+  for (const auto& child : cluster.child_clusters) {
+    child_image_sets.emplace_back(child.image_ids.begin(),
+                                  child.image_ids.end());
+  }
+  return child_image_sets;
 }
 
 TEST(SceneClustering, Empty) {
@@ -225,9 +305,61 @@ TEST(SceneClustering, HierarchicalTwoLevelsWithOverlap) {
   scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
 
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 4);
+  EXPECT_THAT(
+      GetLeafImageSets(scene_clustering.GetLeafClusters()),
+      UnorderedClustersEq(
+          {0, 1, 2, 3, 4}, {0, 1, 2, 4, 7}, {0, 3, 4, 5, 6}, {0, 4, 5, 6, 7}));
+}
+
+TEST(SceneClustering, HierarchicalThreeLevelsWithOverlap) {
+  const SceneGraph graph = MakeSceneGraphThreeLevel();
+
+  SceneClustering::Options options;
+  options.branching = 2;
+  options.image_overlap = 1;
+  options.leaf_max_num_images = 3;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  // Top-level overlap images are partitioned twice after they are inherited,
+  // exercising connectivity beyond the single generation covered above.
+  EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 8);
   EXPECT_THAT(GetLeafImageSets(scene_clustering.GetLeafClusters()),
-              UnorderedClustersEq(
-                  {0, 1, 2, 7}, {0, 5, 6, 7}, {1, 2, 3, 4}, {3, 4, 5, 6}));
+              UnorderedClustersEq({0, 1, 2},
+                                  {1, 2, 3, 4},
+                                  {3, 4, 5, 6},
+                                  {5, 6, 7, 8},
+                                  {7, 8, 9, 10},
+                                  {9, 10, 11, 12},
+                                  {11, 12, 13, 14},
+                                  {13, 14, 15}));
+}
+
+TEST(SceneClustering, HierarchicalOverlapUsesAllConnections) {
+  const SceneGraph graph = MakeSceneGraphAggregateOverlap();
+
+  SceneClustering::Options options;
+  options.branching = 2;
+  options.image_overlap = 1;
+  options.leaf_max_num_images = 4;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  const SceneClustering::Cluster* target_cluster = nullptr;
+  for (const auto& child : scene_clustering.GetRootCluster()->child_clusters) {
+    const std::set<image_t> image_ids(child.image_ids.begin(),
+                                      child.image_ids.end());
+    if (image_ids.count(0) && image_ids.count(1) && image_ids.count(2) &&
+        image_ids.count(3) && image_ids.count(4) && image_ids.count(5)) {
+      target_cluster = &child;
+      break;
+    }
+  }
+  ASSERT_NE(target_cluster, nullptr);
+  // Image 6 does not simply follow its strongest connection to image 0. Its
+  // full connectivity participates in the graph cut and changes the split.
+  EXPECT_THAT(GetChildImageSets(*target_cluster),
+              UnorderedClustersEq({0, 1, 2, 3, 4}, {3, 4, 5, 6}));
 }
 
 }  // namespace
