@@ -476,6 +476,51 @@ TEST(DefaultBundleAdjuster, BoundCameraParams) {
                                      options.max_extra_param));
 }
 
+// Bundle adjustment must respect the model-specific parameter validity of the
+// EUCM model, whose beta parameter defaults to 1 and must stay strictly
+// positive, unlike the distortion parameters of all other models.
+TEST(DefaultBundleAdjuster, EUCMPriorsAndBounds) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_model_id = EUCMCameraModel::model_id;
+  // fx, fy, cx, cy, alpha, beta, at the model's default extra parameters.
+  synthetic_dataset_options.camera_params = {1280, 1280, 512, 384, 0.0, 1.0};
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  const camera_t camera_id = reconstruction.Cameras().begin()->first;
+  Camera& camera = reconstruction.Camera(camera_id);
+  const size_t beta_idx = camera.ExtraParamsIdxs()[1];
+  camera.params[beta_idx] = 0.4;
+
+  BundleAdjustmentOptions options;
+  options.print_summary = false;
+  options.refine_principal_point = true;
+  options.bound_camera_params = true;
+  options.extra_params_prior_weight = 1e3;
+
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  EXPECT_TRUE(summary->IsSolutionUsable());
+
+  // The prior pulls beta towards its default of 1, not towards 0, which the
+  // bogus parameter check considers degenerate.
+  EXPECT_NEAR(camera.params[beta_idx], 1.0, 0.1);
+  EXPECT_FALSE(camera.HasBogusParams(options.min_focal_length_ratio,
+                                     options.max_focal_length_ratio,
+                                     options.max_extra_param));
+}
+
 // Parameterized test for generic PosePriorBundleAdjuster interface across
 // backends.
 class PosePriorBundleAdjusterBackendTest

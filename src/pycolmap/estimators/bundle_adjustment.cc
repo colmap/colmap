@@ -346,11 +346,13 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("extra_params_prior_weight",
                          &BAOpts::extra_params_prior_weight,
                          "Weight of the soft prior pulling the extra "
-                         "parameters towards zero. Zero disables the prior.")
+                         "parameters towards the values the camera model "
+                         "initializes them to, which is zero for most models. "
+                         "Zero disables the prior.")
           .def_readwrite("bound_camera_params",
                          &BAOpts::bound_camera_params,
-                         "Whether to constrain the camera parameters to the "
-                         "bounds that Camera.has_bogus_params tests.")
+                         "Whether to constrain the camera parameters to bounds "
+                         "consistent with Camera.has_bogus_params.")
           .def_readwrite("min_focal_length_ratio",
                          &BAOpts::min_focal_length_ratio,
                          "Minimum ratio of focal length to maximum image "

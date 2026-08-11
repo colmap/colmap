@@ -320,6 +320,20 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
                                          T max_extra_param);
 
+  // Lower and upper bounds for the parameters, consistent with HasBogusParams:
+  // a parameter vector inside these bounds is never bogus. Unconstrained
+  // parameters are bounded by +/- infinity. Note that the converse does not
+  // hold for every model, i.e. a non-bogus parameter vector may lie marginally
+  // outside the bounds, because a closed interval cannot express a strict
+  // inequality.
+  static inline void ParamsBounds(size_t width,
+                                  size_t height,
+                                  double min_focal_length_ratio,
+                                  double max_focal_length_ratio,
+                                  double max_extra_param,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds);
+
   template <typename T>
   static inline T CamFromImgThreshold(const T* params, T threshold);
 
@@ -375,6 +389,21 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
 
 template <typename CameraModel>
 struct BaseSphericalCameraModel : public BaseCameraModel<CameraModel> {
+  // Spherical models are fully specified by their metadata parameters, so no
+  // parameter is constrained. See HasBogusParams, which always returns false.
+  static inline void ParamsBounds(size_t /*width*/,
+                                  size_t /*height*/,
+                                  double /*min_focal_length_ratio*/,
+                                  double /*max_focal_length_ratio*/,
+                                  double /*max_extra_param*/,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds) {
+    lower_bounds->assign(CameraModel::num_params,
+                         -std::numeric_limits<double>::infinity());
+    upper_bounds->assign(CameraModel::num_params,
+                         std::numeric_limits<double>::infinity());
+  }
+
   // Rescale the parameters in-place for a new image resolution. Only the image
   // dimensions (w, h), carried by the metadata group, track the rescaled image;
   // any extra parameters are resolution independent and left untouched.
@@ -746,6 +775,14 @@ struct EUCMCameraModel
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
                                          T max_extra_param);
+
+  static inline void ParamsBounds(size_t width,
+                                  size_t height,
+                                  double min_focal_length_ratio,
+                                  double max_focal_length_ratio,
+                                  double max_extra_param,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds);
 };
 
 // Equirectangular (spherical panorama) camera model.
@@ -898,6 +935,32 @@ bool CameraModelHasBogusParams(CameraModelId model_id,
                                double min_focal_length_ratio,
                                double max_focal_length_ratio,
                                double max_extra_param);
+
+// Get lower and upper bounds for the camera parameters that are consistent with
+// CameraModelHasBogusParams: a parameter vector inside these bounds is never
+// bogus. Unconstrained parameters are bounded by +/- infinity. Note that the
+// converse does not hold for every model, i.e. a non-bogus parameter vector may
+// lie marginally outside the bounds, because a closed interval cannot express a
+// strict inequality.
+//
+// @param model_id                Unique identifier of camera model.
+// @param width                   Sensor width of the camera.
+// @param height                  Sensor height of the camera.
+// @param min_focal_length_ratio  Minimum ratio of focal length over
+//                                maximum sensor dimension.
+// @param max_focal_length_ratio  Maximum ratio of focal length over
+//                                maximum sensor dimension.
+// @param max_extra_param         Maximum magnitude of each extra parameter.
+// @param lower_bounds            Output lower bound per parameter.
+// @param upper_bounds            Output upper bound per parameter.
+void CameraModelParamsBounds(CameraModelId model_id,
+                             size_t width,
+                             size_t height,
+                             double min_focal_length_ratio,
+                             double max_focal_length_ratio,
+                             double max_extra_param,
+                             std::vector<double>* lower_bounds,
+                             std::vector<double>* upper_bounds);
 
 // Transform camera to image coordinates.
 //
@@ -1059,6 +1122,37 @@ bool BasePerspectiveCameraModel<CameraModel>::HasBogusExtraParams(
   }
 
   return false;
+}
+
+template <typename CameraModel>
+void BasePerspectiveCameraModel<CameraModel>::ParamsBounds(
+    const size_t width,
+    const size_t height,
+    const double min_focal_length_ratio,
+    const double max_focal_length_ratio,
+    const double max_extra_param,
+    std::vector<double>* lower_bounds,
+    std::vector<double>* upper_bounds) {
+  lower_bounds->assign(CameraModel::num_params,
+                       -std::numeric_limits<double>::infinity());
+  upper_bounds->assign(CameraModel::num_params,
+                       std::numeric_limits<double>::infinity());
+
+  const double max_size = std::max(width, height);
+  for (const size_t idx : CameraModel::focal_length_idxs) {
+    (*lower_bounds)[idx] = min_focal_length_ratio * max_size;
+    (*upper_bounds)[idx] = max_focal_length_ratio * max_size;
+  }
+
+  (*lower_bounds)[CameraModel::principal_point_idxs[0]] = 0;
+  (*upper_bounds)[CameraModel::principal_point_idxs[0]] = width;
+  (*lower_bounds)[CameraModel::principal_point_idxs[1]] = 0;
+  (*upper_bounds)[CameraModel::principal_point_idxs[1]] = height;
+
+  for (const size_t idx : CameraModel::extra_params_idxs) {
+    (*lower_bounds)[idx] = -max_extra_param;
+    (*upper_bounds)[idx] = max_extra_param;
+  }
 }
 
 template <typename CameraModel>
@@ -2601,6 +2695,31 @@ bool EUCMCameraModel::HasBogusExtraParams(const std::vector<T>& params,
   const T alpha = params[4];
   const T beta = params[5];
   return alpha < T(0) || alpha > T(1) || beta <= T(0);
+}
+
+// A box constraint cannot express the strict beta > 0 that HasBogusExtraParams
+// requires, so beta is bounded from below by this small positive value.
+constexpr double kMinEUCMBeta = 1e-6;
+
+void EUCMCameraModel::ParamsBounds(const size_t width,
+                                   const size_t height,
+                                   const double min_focal_length_ratio,
+                                   const double max_focal_length_ratio,
+                                   const double max_extra_param,
+                                   std::vector<double>* lower_bounds,
+                                   std::vector<double>* upper_bounds) {
+  BasePerspectiveCameraModel<EUCMCameraModel>::ParamsBounds(
+      width,
+      height,
+      min_focal_length_ratio,
+      max_focal_length_ratio,
+      max_extra_param,
+      lower_bounds,
+      upper_bounds);
+  // alpha is restricted to [0, 1] and beta must be strictly positive.
+  (*lower_bounds)[4] = std::max(0.0, (*lower_bounds)[4]);
+  (*upper_bounds)[4] = std::min(1.0, (*upper_bounds)[4]);
+  (*lower_bounds)[5] = std::max(kMinEUCMBeta, (*lower_bounds)[5]);
 }
 
 std::vector<double> EUCMCameraModel::InitializeParams(const double focal_length,

@@ -492,6 +492,30 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
     // size, such that the weights are resolution independent.
     const double inv_max_size = 1.0 / std::max(camera.width, camera.height);
 
+    // The principal point and extra parameters are pulled towards the values
+    // the camera model initializes them to, which is not necessarily zero, e.g.
+    // for the beta parameter of the EUCM model. The targets are clamped into the
+    // valid parameter range, so that the prior never pulls a parameter towards a
+    // value that HasBogusParams rejects or that BoundCameraParams forbids.
+    std::vector<double> default_params = CameraModelInitializeParams(
+        camera.model_id, camera.MeanFocalLength(), camera.width, camera.height);
+    std::vector<double> lower_bounds;
+    std::vector<double> upper_bounds;
+    CameraModelParamsBounds(camera.model_id,
+                            camera.width,
+                            camera.height,
+                            options.min_focal_length_ratio,
+                            options.max_focal_length_ratio,
+                            options.max_extra_param,
+                            &lower_bounds,
+                            &upper_bounds);
+    for (size_t idx = 0; idx < default_params.size(); ++idx) {
+      if (lower_bounds[idx] <= upper_bounds[idx]) {
+        default_params[idx] = std::clamp(
+            default_params[idx], lower_bounds[idx], upper_bounds[idx]);
+      }
+    }
+
     std::vector<double> weights(camera.params.size(), 0.0);
     std::vector<double> priors(camera.params.size(), 0.0);
     bool has_prior = false;
@@ -505,21 +529,17 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
     }
 
     if (prior_principal_point) {
-      const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
-      THROW_CHECK_EQ(params_idxs.size(), 2);
-      weights[params_idxs[0]] =
-          options.principal_point_prior_weight * inv_max_size;
-      weights[params_idxs[1]] =
-          options.principal_point_prior_weight * inv_max_size;
-      priors[params_idxs[0]] = 0.5 * camera.width;
-      priors[params_idxs[1]] = 0.5 * camera.height;
-      has_prior = true;
+      for (const size_t idx : camera.PrincipalPointIdxs()) {
+        weights[idx] = options.principal_point_prior_weight * inv_max_size;
+        priors[idx] = default_params[idx];
+        has_prior = true;
+      }
     }
 
     if (prior_extra_params) {
       for (const size_t idx : camera.ExtraParamsIdxs()) {
         weights[idx] = options.extra_params_prior_weight;
-        priors[idx] = 0;
+        priors[idx] = default_params[idx];
         has_prior = true;
       }
     }
@@ -536,15 +556,18 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
   }
 }
 
-// Constrains the camera parameters to the same bounds that
-// Camera::HasBogusParams tests. Parameters that already violate the bounds are
-// clamped into them, because Ceres rejects infeasible starting points. Only
-// parameter groups that are optimized are bounded, since bounding a group that
-// ParameterizeCameras holds constant cannot have any effect.
+// Constrains the camera parameters to bounds that are consistent with
+// Camera::HasBogusParams, such that the intrinsics cannot leave the region the
+// bogus parameter filter considers valid. Parameters that already violate the
+// bounds are clamped into them, because Ceres rejects infeasible starting
+// points. Only parameter groups that are optimized are bounded, since bounding
+// a group that ParameterizeCameras holds constant cannot have any effect.
 void BoundCameraParams(const BundleAdjustmentOptions& options,
                        const std::set<camera_t>& camera_ids,
                        Reconstruction& reconstruction,
                        ceres::Problem& problem) {
+  std::vector<double> lower_bounds;
+  std::vector<double> upper_bounds;
   for (const camera_t camera_id : camera_ids) {
     Camera& camera = reconstruction.Camera(camera_id);
     if (!camera.IsPerspective() ||
@@ -553,39 +576,53 @@ void BoundCameraParams(const BundleAdjustmentOptions& options,
       continue;
     }
 
-    const double max_size = std::max(camera.width, camera.height);
+    CameraModelParamsBounds(camera.model_id,
+                            camera.width,
+                            camera.height,
+                            options.min_focal_length_ratio,
+                            options.max_focal_length_ratio,
+                            options.max_extra_param,
+                            &lower_bounds,
+                            &upper_bounds);
 
-    const auto bound_param = [&camera, &problem](const size_t idx,
-                                                 const double lower,
-                                                 const double upper) {
-      camera.params[idx] = std::clamp(camera.params[idx], lower, upper);
-      if (upper == lower) {
-        // Ceres rejects an empty bound interval as infeasible. The clamp above
-        // already pins the parameter to the only feasible value.
-        return;
-      }
-      problem.SetParameterLowerBound(camera.params.data(), idx, lower);
-      problem.SetParameterUpperBound(camera.params.data(), idx, upper);
-    };
+    const auto bound_param =
+        [&camera, &problem, &lower_bounds, &upper_bounds](const size_t idx) {
+          const double lower = lower_bounds[idx];
+          const double upper = upper_bounds[idx];
+          if (upper < lower) {
+            // Empty interval, e.g. for a strictly positive parameter with a
+            // max_extra_param of zero. There is no feasible value to clamp to.
+            return;
+          }
+          camera.params[idx] = std::clamp(camera.params[idx], lower, upper);
+          if (upper == lower) {
+            // Ceres rejects an empty bound interval as infeasible. The clamp
+            // above already pins the parameter to the only feasible value.
+            return;
+          }
+          if (std::isfinite(lower)) {
+            problem.SetParameterLowerBound(camera.params.data(), idx, lower);
+          }
+          if (std::isfinite(upper)) {
+            problem.SetParameterUpperBound(camera.params.data(), idx, upper);
+          }
+        };
 
     if (options.refine_focal_length) {
       for (const size_t idx : camera.FocalLengthIdxs()) {
-        bound_param(idx,
-                    options.min_focal_length_ratio * max_size,
-                    options.max_focal_length_ratio * max_size);
+        bound_param(idx);
       }
     }
 
     if (options.refine_principal_point) {
-      const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
-      THROW_CHECK_EQ(params_idxs.size(), 2);
-      bound_param(params_idxs[0], 0, static_cast<double>(camera.width));
-      bound_param(params_idxs[1], 0, static_cast<double>(camera.height));
+      for (const size_t idx : camera.PrincipalPointIdxs()) {
+        bound_param(idx);
+      }
     }
 
     if (options.refine_extra_params) {
       for (const size_t idx : camera.ExtraParamsIdxs()) {
-        bound_param(idx, -options.max_extra_param, options.max_extra_param);
+        bound_param(idx);
       }
     }
   }

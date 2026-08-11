@@ -213,14 +213,14 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // time the problem is constructed. Note that it therefore acts as a damping
   // term across successive bundle adjustment problems rather than as an anchor
   // to the original prior, e.g. EXIF, focal length. The principal point and
-  // extra parameter priors pull towards the default initialization values,
-  // i.e. the image center and zero, respectively.
+  // extra parameter priors pull towards the values the camera model
+  // initializes them to, i.e. the image center and, for most models, zero.
   double focal_length_prior_weight = 0;
   double principal_point_prior_weight = 0;
   double extra_params_prior_weight = 0;
 
-  // Whether to constrain the camera parameters to the same bounds that
-  // Camera::HasBogusParams tests, such that the intrinsics cannot leave the
+  // Whether to constrain the camera parameters to bounds that are consistent
+  // with Camera::HasBogusParams, such that the intrinsics cannot leave the
   // region that the bogus parameter filter considers valid. Parameters that
   // already violate the bounds are clamped into them.
   bool bound_camera_params = true;

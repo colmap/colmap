@@ -29,6 +29,9 @@
 
 #include "colmap/sensor/models.h"
 
+#include <algorithm>
+#include <tuple>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -491,6 +494,102 @@ TEST(CameraModelRescale, Spherical) {
                      params);
   EXPECT_EQ(params, (std::vector<double>{1600, 200}));
 }
+
+const std::vector<CameraModelId>& AllCameraModelIds() {
+  static const std::vector<CameraModelId> model_ids = {
+#define CAMERA_MODEL_CASE(CameraModel) CameraModel::model_id,
+      CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+  };
+  return model_ids;
+}
+
+class CameraModelParamsBoundsTest
+    : public ::testing::TestWithParam<CameraModelId> {};
+
+TEST_P(CameraModelParamsBoundsTest, DefaultParamsAreWithinBounds) {
+  constexpr size_t kWidth = 1600;
+  constexpr size_t kHeight = 1200;
+  constexpr double kFocalLength = 1000;
+
+  const CameraModelId model_id = GetParam();
+  const std::vector<double> params =
+      CameraModelInitializeParams(model_id, kFocalLength, kWidth, kHeight);
+
+  // Only checked for the default thresholds. Under a tightened max_extra_param
+  // the default parameters of some models are bogus to begin with, e.g. the
+  // beta parameter of the EUCM model, which defaults to 1.
+  constexpr double kMinRatio = 0.1;
+  constexpr double kMaxRatio = 10.0;
+  constexpr double kMaxExtra = 1.0;
+
+  std::vector<double> lower_bounds;
+  std::vector<double> upper_bounds;
+  CameraModelParamsBounds(model_id,
+                          kWidth,
+                          kHeight,
+                          kMinRatio,
+                          kMaxRatio,
+                          kMaxExtra,
+                          &lower_bounds,
+                          &upper_bounds);
+
+  ASSERT_EQ(lower_bounds.size(), CameraModelNumParams(model_id));
+  ASSERT_EQ(upper_bounds.size(), CameraModelNumParams(model_id));
+
+  for (size_t idx = 0; idx < params.size(); ++idx) {
+    EXPECT_GE(params[idx], lower_bounds[idx]) << "param " << idx;
+    EXPECT_LE(params[idx], upper_bounds[idx]) << "param " << idx;
+  }
+  EXPECT_FALSE(CameraModelHasBogusParams(
+      model_id, params, kWidth, kHeight, kMinRatio, kMaxRatio, kMaxExtra));
+}
+
+// Clamping any parameter vector into the bounds must yield parameters that the
+// bogus parameter filter accepts, for every camera model.
+TEST_P(CameraModelParamsBoundsTest, ClampedParamsAreNotBogus) {
+  constexpr size_t kWidth = 1600;
+  constexpr size_t kHeight = 1200;
+  constexpr double kFocalLength = 1000;
+
+  const CameraModelId model_id = GetParam();
+
+  for (const auto [min_ratio, max_ratio, max_extra] :
+       {std::tuple(0.1, 10.0, 1.0), std::tuple(0.2, 5.0, 0.5)}) {
+    std::vector<double> lower_bounds;
+    std::vector<double> upper_bounds;
+    CameraModelParamsBounds(model_id,
+                            kWidth,
+                            kHeight,
+                            min_ratio,
+                            max_ratio,
+                            max_extra,
+                            &lower_bounds,
+                            &upper_bounds);
+
+    for (const double bogus_value :
+         {-1e6, -1e3, -10.0, -1.0, 0.0, 1.0, 10.0, 1e3, 1e6}) {
+      std::vector<double> params =
+          CameraModelInitializeParams(model_id, kFocalLength, kWidth, kHeight);
+      for (size_t idx = 0; idx < params.size(); ++idx) {
+        params[idx] = bogus_value;
+        params[idx] =
+            std::clamp(params[idx], lower_bounds[idx], upper_bounds[idx]);
+      }
+      EXPECT_FALSE(CameraModelHasBogusParams(
+          model_id, params, kWidth, kHeight, min_ratio, max_ratio, max_extra))
+          << "model " << CameraModelIdToName(model_id) << ", bogus value "
+          << bogus_value;
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(AllCameraModels,
+                         CameraModelParamsBoundsTest,
+                         ::testing::ValuesIn(AllCameraModelIds()),
+                         [](const auto& info) {
+                           return CameraModelIdToName(info.param);
+                         });
 
 }  // namespace
 }  // namespace colmap

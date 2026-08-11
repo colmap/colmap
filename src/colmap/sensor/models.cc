@@ -309,4 +309,30 @@ bool CameraModelHasBogusParams(const CameraModelId model_id,
   return false;
 }
 
+void CameraModelParamsBounds(const CameraModelId model_id,
+                             const size_t width,
+                             const size_t height,
+                             const double min_focal_length_ratio,
+                             const double max_focal_length_ratio,
+                             const double max_extra_param,
+                             std::vector<double>* lower_bounds,
+                             std::vector<double>* upper_bounds) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                \
+  case CameraModel::model_id:                         \
+    CameraModel::ParamsBounds(width,                  \
+                              height,                 \
+                              min_focal_length_ratio, \
+                              max_focal_length_ratio, \
+                              max_extra_param,        \
+                              lower_bounds,           \
+                              upper_bounds);          \
+    return;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+}
+
 }  // namespace colmap
