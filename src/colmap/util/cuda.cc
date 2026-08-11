@@ -31,7 +31,6 @@
 
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/string.h"
 
 #include <algorithm>
 #include <iostream>
@@ -51,8 +50,14 @@ bool CompareCudaDevice(const cudaDeviceProp& d1, const cudaDeviceProp& d2) {
 }  // namespace
 
 int GetNumCudaDevices() {
-  int num_cuda_devices;
-  CUDA_SAFE_CALL(cudaGetDeviceCount(&num_cuda_devices));
+  int num_cuda_devices = 0;
+  const cudaError_t error = cudaGetDeviceCount(&num_cuda_devices);
+#ifdef COLMAP_CUDA_ENABLED
+  if (error == cudaErrorNoDevice || error == cudaErrorInsufficientDriver) {
+    return 0;
+  }
+#endif
+  CUDA_SAFE_CALL(error);
   return num_cuda_devices;
 }
 

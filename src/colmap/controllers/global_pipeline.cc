@@ -33,7 +33,6 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/sfm/global_mapper.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
