@@ -30,7 +30,6 @@
 #include "colmap/controllers/global_pipeline.h"
 
 #include "colmap/estimators/view_graph_calibration.h"
-#include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"

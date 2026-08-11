@@ -29,7 +29,6 @@
 
 #include "colmap/mvs/model.h"
 
-#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
