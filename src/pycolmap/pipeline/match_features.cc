@@ -225,8 +225,8 @@ void BindMatchFeatures(py::module& m) {
                          "Global descriptor model type (e.g. \"MixVPR\").")
           .def_readwrite("model_path",
                          &RetrievalPairingOptions::model_path,
-                         "Path to the global descriptor ONNX model file. If "
-                         "empty, auto-downloads from the model's default URI.")
+                         "Path to the global descriptor ONNX model file. "
+                         "Defaults to the selected model type's default URI.")
           .def_readwrite("image_path",
                          &RetrievalPairingOptions::image_path,
                          "Path to the image directory, required for global "

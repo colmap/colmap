@@ -116,5 +116,10 @@ std::vector<std::string_view> GlobalDescriptorModel::ModelNames() {
   return names;
 }
 
+std::string GlobalDescriptorModel::DefaultModelUri(std::string_view name) {
+  const GlobalDescriptorModel* model = GetModel(name);
+  return model == nullptr ? std::string() : model->default_model_uri;
+}
+
 }  // namespace retrieval
 }  // namespace colmap

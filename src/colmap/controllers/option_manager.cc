@@ -66,24 +66,15 @@ namespace colmap {
 namespace {
 
 constexpr char kRetrievalMethodHelp[] = "{VOCAB_TREE, GLOBAL_DESCRIPTOR}";
-constexpr char kVocabTreePathHelp[] =
-    "If empty, the default vocabulary tree for the database's feature type "
-    "is downloaded";
-
-std::vector<std::string_view> SortedGlobalDescriptorModelNames() {
-  std::vector<std::string_view> names =
-      retrieval::GlobalDescriptorModel::ModelNames();
-  std::sort(names.begin(), names.end());
-  return names;
-}
 
 // Lists the available global descriptor model types, e.g. "{MixVPR, MegaLoc}".
 std::string GlobalDescriptorModelTypesHelp() {
-  const std::vector<std::string_view> names =
-      SortedGlobalDescriptorModelNames();
+  std::vector<std::string_view> names =
+      retrieval::GlobalDescriptorModel::ModelNames();
   if (names.empty()) {
     return "";
   }
+  std::sort(names.begin(), names.end());
   std::string help = "{";
   for (size_t i = 0; i < names.size(); ++i) {
     if (i > 0) {
@@ -92,20 +83,6 @@ std::string GlobalDescriptorModelTypesHelp() {
     help += std::string(names[i]);
   }
   help += "}";
-  return help;
-}
-
-// Explains the auto-download behavior with each model's default URI.
-std::string GlobalDescriptorModelPathHelp() {
-  std::string help =
-      "If empty, the default model for the selected model type is downloaded";
-  for (const std::string_view name : SortedGlobalDescriptorModelNames()) {
-    const retrieval::GlobalDescriptorModel* model =
-        retrieval::GlobalDescriptorModel::GetModel(name);
-    help += StringPrintf("; %s: %s",
-                         std::string(name).c_str(),
-                         model->default_model_uri.c_str());
-  }
   return help;
 }
 
@@ -480,14 +457,12 @@ void OptionManager::AddSequentialPairingOptions() {
       "SequentialMatching.loop_detection_max_num_features",
       &sequential_pairing->loop_detection_options.max_num_features);
   AddDefaultOption("SequentialMatching.vocab_tree_path",
-                   &sequential_pairing->loop_detection_options.vocab_tree_path,
-                   kVocabTreePathHelp);
+                   &sequential_pairing->loop_detection_options.vocab_tree_path);
   AddDefaultOption("SequentialMatching.loop_detection_model_type",
                    &sequential_pairing->loop_detection_options.model_type,
                    GlobalDescriptorModelTypesHelp());
   AddDefaultOption("SequentialMatching.loop_detection_model_path",
-                   &sequential_pairing->loop_detection_options.model_path,
-                   GlobalDescriptorModelPathHelp());
+                   &sequential_pairing->loop_detection_options.model_path);
   AddDefaultOption("SequentialMatching.num_threads",
                    &sequential_pairing->loop_detection_options.num_threads);
 }
@@ -521,14 +496,12 @@ void OptionManager::AddRetrievalPairingOptions() {
   AddDefaultOption("RetrievalMatching.max_num_features",
                    &retrieval_pairing->max_num_features);
   AddDefaultOption("RetrievalMatching.vocab_tree_path",
-                   &retrieval_pairing->vocab_tree_path,
-                   kVocabTreePathHelp);
+                   &retrieval_pairing->vocab_tree_path);
   AddDefaultOption("RetrievalMatching.model_type",
                    &retrieval_pairing->model_type,
                    GlobalDescriptorModelTypesHelp());
   AddDefaultOption("RetrievalMatching.model_path",
-                   &retrieval_pairing->model_path,
-                   GlobalDescriptorModelPathHelp());
+                   &retrieval_pairing->model_path);
   AddDefaultOption("RetrievalMatching.use_gpu", &retrieval_pairing->use_gpu);
   AddDefaultOption("RetrievalMatching.gpu_index",
                    &retrieval_pairing->gpu_index);

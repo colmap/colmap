@@ -83,6 +83,10 @@ struct GlobalDescriptorModel {
 
   // Returns all registered model names.
   static std::vector<std::string_view> ModelNames();
+
+  // Returns the default model URI for the given model name, or an empty
+  // string if the name is not recognized.
+  static std::string DefaultModelUri(std::string_view name);
 };
 
 }  // namespace retrieval

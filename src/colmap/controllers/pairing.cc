@@ -1209,8 +1209,19 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
     }
   }
 
-  // Resolve model path.
+  // Resolve model path. If the path was left at another registered model's
+  // default URI (e.g. when only the model type was changed), fall back to
+  // the selected model's default.
   std::string model_path = options_.model_path.string();
+  for (const std::string_view name :
+       retrieval::GlobalDescriptorModel::ModelNames()) {
+    const retrieval::GlobalDescriptorModel* other =
+        retrieval::GlobalDescriptorModel::GetModel(name);
+    if (other != model_info && model_path == other->default_model_uri) {
+      model_path.clear();
+      break;
+    }
+  }
   if (model_path.empty()) {
     model_path = model_info->default_model_uri;
     LOG(INFO) << "Auto-downloading " << model_info->name
