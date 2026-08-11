@@ -67,9 +67,11 @@ std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const TwoViewGeometryOptions& geometry_options,
     const std::filesystem::path& database_path);
 
-// Match each image against its nearest neighbors using a vocabulary tree.
-std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
-    const VocabTreePairingOptions& pairing_options,
+// Match each image against its nearest neighbors found via image retrieval,
+// either using a vocabulary tree or a learned global descriptor model
+// (e.g. MixVPR), depending on RetrievalPairingOptions::method.
+std::unique_ptr<Thread> CreateRetrievalFeatureMatcher(
+    const RetrievalPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
     const std::filesystem::path& database_path);
@@ -90,8 +92,8 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
 // Sequential order is determined based on the image names in ascending order.
 //
 // Invoke loop detection if `(i mod loop_detection_period) == 0`, retrieve
-// most similar `loop_detection_num_images` images from vocabulary tree,
-// and perform matching and verification.
+// the most similar images using the configured retrieval method, and
+// perform matching and verification.
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,
     const FeatureMatchingOptions& matching_options,
@@ -166,15 +168,6 @@ struct GeometricVerifierOptions {
   // verification with RANSAC.
   bool use_existing_relative_pose = false;
 };
-
-// Match images using global descriptors (e.g. MixVPR) for image retrieval.
-// Each image is represented by a single compact descriptor; nearest-neighbor
-// search is performed via cosine similarity to find similar image pairs.
-std::unique_ptr<Thread> CreateGlobalDescriptorFeatureMatcher(
-    const GlobalDescriptorPairingOptions& pairing_options,
-    const FeatureMatchingOptions& matching_options,
-    const TwoViewGeometryOptions& geometry_options,
-    const std::filesystem::path& database_path);
 
 // Perform geometric verification of existing matched image pairs.
 std::unique_ptr<Thread> CreateGeometricVerifier(

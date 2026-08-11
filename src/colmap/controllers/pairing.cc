@@ -116,39 +116,55 @@ bool VocabTreePairingOptions::Check() const {
   return true;
 }
 
-bool SequentialPairingOptions::Check() const {
-  CHECK_OPTION_GT(overlap, 0);
-  CHECK_OPTION_GT(loop_detection_period, 0);
-  CHECK_OPTION_GT(loop_detection_num_images, 0);
-  CHECK_OPTION_GT(loop_detection_num_nearest_neighbors, 0);
-  CHECK_OPTION_GT(loop_detection_num_checks, 0);
+bool RetrievalPairingOptions::Check() const {
+  CHECK_OPTION_GT(num_images, 0);
+  switch (method) {
+    case RetrievalMethod::VOCAB_TREE:
+      CHECK_OPTION_GT(num_nearest_neighbors, 0);
+      CHECK_OPTION_GT(num_checks, 0);
+      break;
+    case RetrievalMethod::GLOBAL_DESCRIPTOR:
+      CHECK_OPTION(!model_type.empty());
+      CHECK_OPTION_GT(batch_size, 0);
+      break;
+  }
   return true;
 }
 
-VocabTreePairingOptions SequentialPairingOptions::VocabTreeOptions() const {
+VocabTreePairingOptions RetrievalPairingOptions::VocabTreeOptions() const {
   VocabTreePairingOptions options;
-  options.num_images = loop_detection_num_images;
-  options.num_nearest_neighbors = loop_detection_num_nearest_neighbors;
-  options.num_checks = loop_detection_num_checks;
-  options.num_images_after_verification =
-      loop_detection_num_images_after_verification;
-  options.max_num_features = loop_detection_max_num_features;
+  options.num_images = num_images;
+  options.num_nearest_neighbors = num_nearest_neighbors;
+  options.num_checks = num_checks;
+  options.num_images_after_verification = num_images_after_verification;
+  options.max_num_features = max_num_features;
   options.vocab_tree_path = vocab_tree_path;
+  options.match_list_path = match_list_path;
   options.num_threads = num_threads;
   return options;
 }
 
 GlobalDescriptorPairingOptions
-SequentialPairingOptions::GlobalDescriptorOptions() const {
+RetrievalPairingOptions::GlobalDescriptorOptions() const {
   GlobalDescriptorPairingOptions options;
-  options.num_images = loop_detection_num_images;
-  options.model_type =
-      loop_detection_model_type.empty() ? "MixVPR" : loop_detection_model_type;
-  options.model_path = loop_detection_model_path;
-  options.image_path = loop_detection_image_path;
-  options.database_path = loop_detection_database_path;
+  options.num_images = num_images;
+  options.model_type = model_type;
+  options.model_path = model_path;
+  options.image_path = image_path;
+  options.database_path = database_path;
+  options.match_list_path = match_list_path;
   options.num_threads = num_threads;
+  options.use_gpu = use_gpu;
+  options.gpu_index = gpu_index;
+  options.batch_size = batch_size;
   return options;
+}
+
+bool SequentialPairingOptions::Check() const {
+  CHECK_OPTION_GT(overlap, 0);
+  CHECK_OPTION_GT(loop_detection_period, 0);
+  CHECK_OPTION(loop_detection_options.Check());
+  return true;
 }
 
 bool SpatialPairingOptions::Check() const {
@@ -450,18 +466,8 @@ SequentialPairGenerator::SequentialPairGenerator(
          i += options_.loop_detection_period) {
       query_image_ids.push_back(image_ids_[i]);
     }
-    // Vocab tree path is cleared by the GUI/CLI when MixVPR is selected,
-    // and vice-versa.  If vocab_tree_path is empty the user chose global
-    // descriptor mode (model_path may be empty = auto-download).
-    if (options_.vocab_tree_path.empty()) {
-      LOG(INFO) << "Using global descriptor for loop detection";
-      loop_detection_pair_generator_ =
-          std::make_unique<GlobalDescriptorPairGenerator>(
-              options_.GlobalDescriptorOptions(), cache_, query_image_ids);
-    } else {
-      loop_detection_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
-          options_.VocabTreeOptions(), cache_, query_image_ids);
-    }
+    loop_detection_pair_generator_ = std::make_unique<RetrievalPairGenerator>(
+        options_.loop_detection_options, cache_, query_image_ids);
   }
 
   if (options_.expand_rig_images) {
@@ -1313,6 +1319,48 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       << "Global descriptor matching requires ONNX Runtime support. "
       << "Please rebuild COLMAP with ONNX_ENABLED=ON.";
 #endif  // COLMAP_ONNX_ENABLED
+}
+
+// ---------------------------------------------------------------------------
+// RetrievalPairGenerator
+// ---------------------------------------------------------------------------
+
+RetrievalPairGenerator::RetrievalPairGenerator(
+    const RetrievalPairingOptions& options,
+    const std::shared_ptr<FeatureMatcherCache>& cache,
+    const std::vector<image_t>& query_image_ids) {
+  THROW_CHECK(options.Check());
+  switch (options.method) {
+    case RetrievalMethod::VOCAB_TREE:
+      impl_ = std::make_unique<VocabTreePairGenerator>(
+          options.VocabTreeOptions(), cache, query_image_ids);
+      break;
+    case RetrievalMethod::GLOBAL_DESCRIPTOR:
+      impl_ = std::make_unique<GlobalDescriptorPairGenerator>(
+          options.GlobalDescriptorOptions(), cache, query_image_ids);
+      break;
+  }
+  THROW_CHECK(impl_ != nullptr);
+}
+
+RetrievalPairGenerator::RetrievalPairGenerator(
+    const RetrievalPairingOptions& options,
+    const std::shared_ptr<Database>& database,
+    const std::vector<image_t>& query_image_ids)
+    : RetrievalPairGenerator(
+          options,
+          std::make_shared<FeatureMatcherCache>(options.CacheSize(),
+                                                THROW_CHECK_NOTNULL(database)),
+          query_image_ids) {}
+
+void RetrievalPairGenerator::Reset() { impl_->Reset(); }
+
+bool RetrievalPairGenerator::HasFinished() const {
+  return impl_->HasFinished();
+}
+
+std::vector<std::pair<image_t, image_t>> RetrievalPairGenerator::Next() {
+  return impl_->Next();
 }
 
 }  // namespace colmap

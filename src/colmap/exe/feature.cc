@@ -278,7 +278,9 @@ int RunMatchesImporter(int argc, char** argv) {
 int RunSequentialMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddImageOptions();
+  // The image path is optional; it is only required for global descriptor
+  // loop detection, which computes descriptors from the image pixels.
+  options.AddDefaultOption("image_path", options.image_path.get());
   options.AddSequentialPairingOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -286,10 +288,21 @@ int RunSequentialMatcher(int argc, char** argv) {
 
   // Forward project paths to sequential loop detection.
   if (!options.image_path->empty()) {
-    options.sequential_pairing->loop_detection_image_path = *options.image_path;
+    options.sequential_pairing->loop_detection_options.image_path =
+        *options.image_path;
   }
-  options.sequential_pairing->loop_detection_database_path =
+  options.sequential_pairing->loop_detection_options.database_path =
       *options.database_path;
+
+  if (options.sequential_pairing->loop_detection &&
+      options.sequential_pairing->loop_detection_options.method ==
+          RetrievalMethod::GLOBAL_DESCRIPTOR &&
+      !ExistsDir(
+          options.sequential_pairing->loop_detection_options.image_path)) {
+    LOG(ERROR) << "`image_path` must be specified and exist for global "
+                  "descriptor loop detection.";
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.feature_matching->RequiresOpenGL()) {
@@ -367,11 +380,25 @@ int RunTransitiveMatcher(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunVocabTreeMatcher(int argc, char** argv) {
+int RunRetrievalMatcher(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddVocabTreePairingOptions();
+  // The image path is optional; it is only required for global descriptor
+  // retrieval, which computes descriptors from the image pixels.
+  options.AddDefaultOption("image_path", options.image_path.get());
+  options.AddRetrievalPairingOptions();
   if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  // Forward project paths to the pairing options.
+  options.retrieval_pairing->image_path = *options.image_path;
+  options.retrieval_pairing->database_path = *options.database_path;
+
+  if (options.retrieval_pairing->method == RetrievalMethod::GLOBAL_DESCRIPTOR &&
+      !ExistsDir(options.retrieval_pairing->image_path)) {
+    LOG(ERROR) << "`image_path` must be specified and exist for global "
+                  "descriptor retrieval.";
     return EXIT_FAILURE;
   }
 
@@ -380,46 +407,10 @@ int RunVocabTreeMatcher(int argc, char** argv) {
     app = std::make_unique<QApplication>(argc, argv);
   }
 
-  auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_pairing,
+  auto matcher = CreateRetrievalFeatureMatcher(*options.retrieval_pairing,
                                                *options.feature_matching,
                                                *options.two_view_geometry,
                                                *options.database_path);
-
-  if (app != nullptr) {
-    RunThreadWithOpenGLContext(matcher.get());
-  } else {
-    matcher->Start();
-    matcher->Wait();
-  }
-
-  return EXIT_SUCCESS;
-}
-
-int RunGlobalDescriptorMatcher(int argc, char** argv) {
-  OptionManager options;
-  options.AddDatabaseOptions();
-  options.AddImageOptions();
-  options.AddFeatureMatchingOptions();
-  options.AddTwoViewGeometryOptions();
-  options.AddGlobalDescriptorPairingOptions();
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  // Forward project paths to pairing options.
-  options.global_descriptor_pairing->image_path = *options.image_path;
-  options.global_descriptor_pairing->database_path = *options.database_path;
-
-  std::unique_ptr<QApplication> app;
-  if (options.feature_matching->RequiresOpenGL()) {
-    app = std::make_unique<QApplication>(argc, argv);
-  }
-
-  auto matcher =
-      CreateGlobalDescriptorFeatureMatcher(*options.global_descriptor_pairing,
-                                           *options.feature_matching,
-                                           *options.two_view_geometry,
-                                           *options.database_path);
 
   if (app != nullptr) {
     RunThreadWithOpenGLContext(matcher.get());

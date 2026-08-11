@@ -200,6 +200,7 @@ The available commands can be listed using the command::
           pose_prior_mapper
           poisson_mesher
           project_generator
+          retrieval_matcher
           rig_configurator
           rotation_averager
           sequential_matcher
@@ -208,7 +209,6 @@ The available commands can be listed using the command::
           transitive_matcher
           view_graph_calibrator
           vocab_tree_builder
-          vocab_tree_matcher
           vocab_tree_retriever
 
 And each command has a ``-h,--help`` command-line argument to show the usage and
@@ -289,9 +289,12 @@ available as ``colmap [command]``:
 - ``feature_extractor``, ``feature_importer``: Perform feature extraction or
   import features for a set of images.
 
-- ``exhaustive_matcher``, ``vocab_tree_matcher``, ``sequential_matcher``,
+- ``exhaustive_matcher``, ``retrieval_matcher``, ``sequential_matcher``,
   ``spatial_matcher``, ``transitive_matcher``, ``matches_importer``:
-  Perform feature matching after performing feature extraction.
+  Perform feature matching after performing feature extraction. The
+  ``retrieval_matcher`` matches every image against its visual nearest
+  neighbors, retrieved either with a vocabulary tree (default) or a learned
+  global descriptor model (``--RetrievalMatching.method GLOBAL_DESCRIPTOR``).
 
 - ``geometric_verifier``: Run standalone geometric verification on existing
   feature matches in the database. This estimates two-view geometries

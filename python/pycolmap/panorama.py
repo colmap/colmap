@@ -525,7 +525,7 @@ def run_matcher(
             database_path, matching_options=matching_options
         )
     elif options.matcher == Matcher.VOCABTREE:
-        pycolmap.match_vocabtree(
+        pycolmap.match_retrieval(
             database_path, matching_options=matching_options
         )
     elif options.matcher == Matcher.SPATIAL:

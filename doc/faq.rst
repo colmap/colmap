@@ -490,9 +490,9 @@ new images within this reconstruction, you can follow these steps::
         --image_path $PROJECT_PATH/images \
         --image_list_path /path/to/image-list.txt
 
-    colmap vocab_tree_matcher \
+    colmap retrieval_matcher \
         --database_path $PROJECT_PATH/database.db \
-        --VocabTreeMatching.match_list_path /path/to/image-list.txt
+        --RetrievalMatching.match_list_path /path/to/image-list.txt
 
     colmap image_registrator \
         --database_path $PROJECT_PATH/database.db \
@@ -604,7 +604,7 @@ The following describes practical ways to reduce bundle adjustment runtime.
     ``--SiftExtraction.max_num_features``.
   - Reduce matching pairs (and avoid ``exhaustive_matcher`` when possible) by
     decreasing ``--SequentialMatching.overlap``,
-    ``--SpatialMatching.max_num_neighbors``, or ``--VocabTreeMatching.num_images``.
+    ``--SpatialMatching.max_num_neighbors``, or ``--RetrievalMatching.num_images``.
   - Reduce matches by decreasing ``--FeatureMatching.max_num_matches``.
   - Enable experimental landmark pruning to drop redundant 3D points using
     ``--Mapper.ba_global_ignore_redundant_points3D 1``.

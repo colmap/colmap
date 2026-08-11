@@ -69,9 +69,7 @@ OptionManager::OptionManager(bool add_project_options)
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
   exhaustive_pairing = std::make_shared<ExhaustivePairingOptions>();
   sequential_pairing = std::make_shared<SequentialPairingOptions>();
-  vocab_tree_pairing = std::make_shared<VocabTreePairingOptions>();
-  global_descriptor_pairing =
-      std::make_shared<GlobalDescriptorPairingOptions>();
+  retrieval_pairing = std::make_shared<RetrievalPairingOptions>();
   spatial_pairing = std::make_shared<SpatialPairingOptions>();
   transitive_pairing = std::make_shared<TransitivePairingOptions>();
   imported_pairing = std::make_shared<ImportedPairingOptions>();
@@ -125,10 +123,9 @@ void OptionManager::ModifyForLowQuality() {
   feature_extraction->max_image_size =
       static_cast<int>(0.3125 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 2048;
-  sequential_pairing->loop_detection_num_images /= 2;
-  vocab_tree_pairing->max_num_features = 256;
-  vocab_tree_pairing->num_images /= 2;
-  global_descriptor_pairing->num_images /= 2;
+  sequential_pairing->loop_detection_options.num_images /= 2;
+  retrieval_pairing->max_num_features = 256;
+  retrieval_pairing->num_images /= 2;
   mapper->ba_local_max_num_iterations =
       mapper->EffBaLocalMaxNumIterations() / 2;
   mapper->ba_global_max_num_iterations =
@@ -152,10 +149,9 @@ void OptionManager::ModifyForMediumQuality() {
   feature_extraction->max_image_size =
       static_cast<int>(0.5 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 4096;
-  sequential_pairing->loop_detection_num_images /= 1.5;
-  vocab_tree_pairing->max_num_features = 1024;
-  vocab_tree_pairing->num_images /= 1.5;
-  global_descriptor_pairing->num_images /= 1.5;
+  sequential_pairing->loop_detection_options.num_images /= 1.5;
+  retrieval_pairing->max_num_features = 1024;
+  retrieval_pairing->num_images /= 1.5;
   mapper->ba_local_max_num_iterations =
       static_cast<int>(mapper->EffBaLocalMaxNumIterations() / 1.5);
   mapper->ba_global_max_num_iterations =
@@ -181,7 +177,7 @@ void OptionManager::ModifyForHighQuality() {
       static_cast<int>(0.75 * feature_extraction->EffMaxImageSize());
   feature_extraction->sift->max_num_features = 8192;
   feature_matching->guided_matching = true;
-  vocab_tree_pairing->max_num_features = 4096;
+  retrieval_pairing->max_num_features = 4096;
   mapper->ba_local_max_num_iterations = 30;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 75;
@@ -208,8 +204,7 @@ void OptionManager::AddAllOptions() {
   AddTwoViewGeometryOptions();
   AddExhaustivePairingOptions();
   AddSequentialPairingOptions();
-  AddVocabTreePairingOptions();
-  AddGlobalDescriptorPairingOptions();
+  AddRetrievalPairingOptions();
   AddSpatialPairingOptions();
   AddTransitivePairingOptions();
   AddImportedPairingOptions();
@@ -415,69 +410,72 @@ void OptionManager::AddSequentialPairingOptions() {
                    &sequential_pairing->loop_detection);
   AddDefaultOption("SequentialMatching.loop_detection_period",
                    &sequential_pairing->loop_detection_period);
+  AddDefaultEnumOption("SequentialMatching.loop_detection_method",
+                       &sequential_pairing->loop_detection_options.method,
+                       RetrievalMethodToString,
+                       RetrievalMethodFromString);
   AddDefaultOption("SequentialMatching.loop_detection_num_images",
-                   &sequential_pairing->loop_detection_num_images);
-  AddDefaultOption("SequentialMatching.loop_detection_num_nearest_neighbors",
-                   &sequential_pairing->loop_detection_num_nearest_neighbors);
+                   &sequential_pairing->loop_detection_options.num_images);
+  AddDefaultOption(
+      "SequentialMatching.loop_detection_num_nearest_neighbors",
+      &sequential_pairing->loop_detection_options.num_nearest_neighbors);
   AddDefaultOption("SequentialMatching.loop_detection_num_checks",
-                   &sequential_pairing->loop_detection_num_checks);
+                   &sequential_pairing->loop_detection_options.num_checks);
   AddDefaultOption(
       "SequentialMatching.loop_detection_num_images_after_verification",
-      &sequential_pairing->loop_detection_num_images_after_verification);
-  AddDefaultOption("SequentialMatching.loop_detection_max_num_features",
-                   &sequential_pairing->loop_detection_max_num_features);
+      &sequential_pairing->loop_detection_options
+           .num_images_after_verification);
+  AddDefaultOption(
+      "SequentialMatching.loop_detection_max_num_features",
+      &sequential_pairing->loop_detection_options.max_num_features);
   AddDefaultOption("SequentialMatching.vocab_tree_path",
-                   &sequential_pairing->vocab_tree_path);
+                   &sequential_pairing->loop_detection_options.vocab_tree_path);
+  AddDefaultOption("SequentialMatching.loop_detection_model_type",
+                   &sequential_pairing->loop_detection_options.model_type);
   AddDefaultOption("SequentialMatching.loop_detection_model_path",
-                   &sequential_pairing->loop_detection_model_path);
+                   &sequential_pairing->loop_detection_options.model_path);
   AddDefaultOption("SequentialMatching.num_threads",
-                   &sequential_pairing->num_threads);
+                   &sequential_pairing->loop_detection_options.num_threads);
 }
 
-void OptionManager::AddVocabTreePairingOptions() {
-  if (added_vocab_tree_pairing_options_) {
+void OptionManager::AddRetrievalPairingOptions() {
+  if (added_retrieval_pairing_options_) {
     return;
   }
-  added_vocab_tree_pairing_options_ = true;
+  added_retrieval_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
 
-  AddDefaultOption("VocabTreeMatching.num_images",
-                   &vocab_tree_pairing->num_images);
-  AddDefaultOption("VocabTreeMatching.num_nearest_neighbors",
-                   &vocab_tree_pairing->num_nearest_neighbors);
-  AddDefaultOption("VocabTreeMatching.num_checks",
-                   &vocab_tree_pairing->num_checks);
-  AddDefaultOption("VocabTreeMatching.num_images_after_verification",
-                   &vocab_tree_pairing->num_images_after_verification);
-  AddDefaultOption("VocabTreeMatching.max_num_features",
-                   &vocab_tree_pairing->max_num_features);
-  AddDefaultOption("VocabTreeMatching.vocab_tree_path",
-                   &vocab_tree_pairing->vocab_tree_path);
-  AddDefaultOption("VocabTreeMatching.match_list_path",
-                   &vocab_tree_pairing->match_list_path);
-  AddDefaultOption("VocabTreeMatching.num_threads",
-                   &vocab_tree_pairing->num_threads);
-}
-
-void OptionManager::AddGlobalDescriptorPairingOptions() {
-  if (added_global_descriptor_pairing_options_) {
-    return;
-  }
-  added_global_descriptor_pairing_options_ = true;
-  AddDefaultOption("GlobalDescriptorMatching.model_path",
-                   &global_descriptor_pairing->model_path);
-  AddDefaultOption("GlobalDescriptorMatching.num_images",
-                   &global_descriptor_pairing->num_images);
-  AddDefaultOption("GlobalDescriptorMatching.batch_size",
-                   &global_descriptor_pairing->batch_size);
-  AddDefaultOption("GlobalDescriptorMatching.num_threads",
-                   &global_descriptor_pairing->num_threads);
-  AddDefaultOption("GlobalDescriptorMatching.use_gpu",
-                   &global_descriptor_pairing->use_gpu);
-  AddDefaultOption("GlobalDescriptorMatching.gpu_index",
-                   &global_descriptor_pairing->gpu_index);
+  AddDefaultEnumOption("RetrievalMatching.method",
+                       &retrieval_pairing->method,
+                       RetrievalMethodToString,
+                       RetrievalMethodFromString);
+  AddDefaultOption("RetrievalMatching.num_images",
+                   &retrieval_pairing->num_images);
+  AddDefaultOption("RetrievalMatching.num_threads",
+                   &retrieval_pairing->num_threads);
+  AddDefaultOption("RetrievalMatching.match_list_path",
+                   &retrieval_pairing->match_list_path);
+  AddDefaultOption("RetrievalMatching.num_nearest_neighbors",
+                   &retrieval_pairing->num_nearest_neighbors);
+  AddDefaultOption("RetrievalMatching.num_checks",
+                   &retrieval_pairing->num_checks);
+  AddDefaultOption("RetrievalMatching.num_images_after_verification",
+                   &retrieval_pairing->num_images_after_verification);
+  AddDefaultOption("RetrievalMatching.max_num_features",
+                   &retrieval_pairing->max_num_features);
+  AddDefaultOption("RetrievalMatching.vocab_tree_path",
+                   &retrieval_pairing->vocab_tree_path);
+  AddDefaultOption("RetrievalMatching.model_type",
+                   &retrieval_pairing->model_type);
+  AddDefaultOption("RetrievalMatching.model_path",
+                   &retrieval_pairing->model_path);
+  AddDefaultOption("RetrievalMatching.use_gpu", &retrieval_pairing->use_gpu);
+  AddDefaultOption("RetrievalMatching.gpu_index",
+                   &retrieval_pairing->gpu_index);
+  AddDefaultOption("RetrievalMatching.batch_size",
+                   &retrieval_pairing->batch_size);
 }
 
 void OptionManager::AddSpatialPairingOptions() {
@@ -1164,8 +1162,7 @@ void OptionManager::Reset(bool reset_logging) {
   added_two_view_geometry_options_ = false;
   added_exhaustive_pairing_options_ = false;
   added_sequential_pairing_options_ = false;
-  added_vocab_tree_pairing_options_ = false;
-  added_global_descriptor_pairing_options_ = false;
+  added_retrieval_pairing_options_ = false;
   added_spatial_pairing_options_ = false;
   added_transitive_pairing_options_ = false;
   added_image_pairs_pairing_options_ = false;
@@ -1192,8 +1189,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *feature_matching = FeatureMatchingOptions();
   *exhaustive_pairing = ExhaustivePairingOptions();
   *sequential_pairing = SequentialPairingOptions();
-  *vocab_tree_pairing = VocabTreePairingOptions();
-  *global_descriptor_pairing = GlobalDescriptorPairingOptions();
+  *retrieval_pairing = RetrievalPairingOptions();
   *spatial_pairing = SpatialPairingOptions();
   *transitive_pairing = TransitivePairingOptions();
   *imported_pairing = ImportedPairingOptions();
@@ -1230,9 +1226,7 @@ bool OptionManager::Check() {
   if (two_view_geometry) success = success && two_view_geometry->Check();
   if (exhaustive_pairing) success = success && exhaustive_pairing->Check();
   if (sequential_pairing) success = success && sequential_pairing->Check();
-  if (vocab_tree_pairing) success = success && vocab_tree_pairing->Check();
-  if (global_descriptor_pairing)
-    success = success && global_descriptor_pairing->Check();
+  if (retrieval_pairing) success = success && retrieval_pairing->Check();
   if (spatial_pairing) success = success && spatial_pairing->Check();
   if (transitive_pairing) success = success && transitive_pairing->Check();
   if (imported_pairing) success = success && imported_pairing->Check();

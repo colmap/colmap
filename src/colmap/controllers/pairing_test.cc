@@ -129,6 +129,29 @@ TEST(VocabTreePairGenerator, Nominal) {
   }
 }
 
+TEST(RetrievalPairGenerator, VocabTree) {
+  constexpr int kNumImages = 5;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+
+  RetrievalPairingOptions options;
+  options.method = RetrievalMethod::VOCAB_TREE;
+  options.num_images = 3;
+  options.num_nearest_neighbors = 1;
+  options.vocab_tree_path = CreateTestDir() / "vocab_tree.txt";
+
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
+  CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
+
+  RetrievalPairGenerator generator(options, database);
+  for (int i = 0; i < kNumImages; ++i) {
+    const auto pairs = generator.Next();
+    EXPECT_EQ(pairs.size(), options.num_images);
+  }
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+}
+
 TEST(VocabTreePairGenerator, DoesNotDeadlockOnFailedQuery) {
   constexpr int kNumImages = 5;
   auto database = Database::Open(kInMemorySqliteDatabasePath);

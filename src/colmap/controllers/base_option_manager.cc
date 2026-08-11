@@ -324,6 +324,12 @@ bool BaseOptionManager::ReRead(const std::filesystem::path& path,
 }
 
 void BaseOptionManager::Write(const std::filesystem::path& path) const {
+  // Sync enum options to their string representation, in case the enum
+  // fields were modified directly (e.g. from the GUI) after parsing.
+  for (const auto& info : enum_options_) {
+    info->sync();
+  }
+
   boost::property_tree::ptree pt;
 
   // First, put all options without a section and then those with a section.

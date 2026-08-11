@@ -144,6 +144,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
 #endif
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
+  commands.emplace_back("retrieval_matcher", &colmap::RunRetrievalMatcher);
   commands.emplace_back("rig_configurator", &colmap::RunRigConfigurator);
   commands.emplace_back("rotation_averager", &colmap::RunRotationAverager);
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
@@ -155,9 +156,6 @@ int main(int argc, char** argv) {
   commands.emplace_back("view_graph_calibrator",
                         &colmap::RunViewGraphCalibrator);
   commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
-  commands.emplace_back("global_descriptor_matcher",
-                        &colmap::RunGlobalDescriptorMatcher);
-  commands.emplace_back("vocab_tree_matcher", &colmap::RunVocabTreeMatcher);
   commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);
 
   if (argc == 1) {

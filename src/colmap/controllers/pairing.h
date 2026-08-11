@@ -35,6 +35,7 @@
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
@@ -42,8 +43,6 @@
 #include <filesystem>
 
 namespace colmap {
-
-struct GlobalDescriptorPairingOptions;
 
 struct ExhaustivePairingOptions {
   // Block size, i.e. number of images to simultaneously load into memory.
@@ -88,6 +87,124 @@ struct VocabTreePairingOptions {
   inline size_t CacheSize() const { return 5 * num_images; }
 };
 
+struct GlobalDescriptorPairingOptions {
+  // Number of most similar images to retrieve for each query image.
+  int num_images = 100;
+
+  // Global descriptor model type (e.g. "MixVPR", "MegaLoc").
+  // If empty, defaults to "MixVPR".
+  std::string model_type = "MixVPR";
+
+  // Path to the global descriptor ONNX model file.
+  // If empty, auto-downloads from the model's default URI.
+  std::filesystem::path model_path;
+
+  // Path to the directory containing the images.
+  std::filesystem::path image_path;
+
+  // Path to the database file.  Descriptor caches are stored alongside it.
+  std::filesystem::path database_path;
+
+  // Optional path to file with specific image names to use as queries.
+  // If empty, all images are used as queries.
+  std::filesystem::path match_list_path = "";
+
+  // Number of threads for ONNX inference.
+  int num_threads = -1;
+
+  // Whether to use GPU / CoreML for ONNX inference (default true on macOS
+  // for CoreML acceleration; falls back to CPU if unavailable).
+  bool use_gpu = true;
+
+  // GPU index for ONNX inference.
+  std::string gpu_index = "-1";
+
+  // Batch size for ONNX inference.
+  int batch_size = 16;
+
+  bool Check() const;
+
+  inline size_t CacheSize() const { return 5 * num_images; }
+};
+
+// The method used to retrieve visually similar images for matching.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(RetrievalMethod,
+                                0,
+                                VOCAB_TREE,
+                                GLOBAL_DESCRIPTOR);
+
+// Generic options for retrieval-based matching. The shared options apply to
+// all retrieval methods, while the method-specific options only take effect
+// for the respective method.
+struct RetrievalPairingOptions {
+  // The method used to retrieve similar images.
+  RetrievalMethod method = RetrievalMethod::VOCAB_TREE;
+
+  // Number of images to retrieve for each query image.
+  int num_images = 100;
+
+  // Number of threads for indexing and retrieval.
+  int num_threads = -1;
+
+  // Optional path to file with specific image names to use as queries.
+  // If empty, all images are used as queries.
+  std::filesystem::path match_list_path;
+
+  // Options for method == RetrievalMethod::VOCAB_TREE.
+
+  // Number of nearest neighbors to retrieve per query feature.
+  int num_nearest_neighbors = 5;
+
+  // Number of nearest-neighbor checks to use in retrieval.
+  int num_checks = 64;
+
+  // How many images to return after spatial verification. Set to 0 to turn
+  // off spatial verification.
+  int num_images_after_verification = 0;
+
+  // The maximum number of features to use for indexing an image. If an
+  // image has more features, only the largest-scale features will be indexed.
+  int max_num_features = -1;
+
+  // Path to the vocabulary tree. If empty, the default vocabulary tree for
+  // the database's feature type is downloaded.
+  std::filesystem::path vocab_tree_path;
+
+  // Options for method == RetrievalMethod::GLOBAL_DESCRIPTOR.
+
+  // Global descriptor model type (e.g. "MixVPR", "MegaLoc").
+  std::string model_type = "MixVPR";
+
+  // Path to the global descriptor ONNX model file.
+  // If empty, auto-downloads from the model's default URI.
+  std::filesystem::path model_path;
+
+  // Path to the directory containing the images, required for global
+  // descriptor retrieval.
+  std::filesystem::path image_path;
+
+  // Path to the database file. Descriptor caches are stored alongside it.
+  std::filesystem::path database_path;
+
+  // Whether to use GPU / CoreML for ONNX inference.
+  bool use_gpu = true;
+
+  // GPU index for ONNX inference.
+  std::string gpu_index = "-1";
+
+  // Batch size for ONNX inference.
+  int batch_size = 16;
+
+  bool Check() const;
+
+  // Convert to the method-specific options consumed by the underlying pair
+  // generators.
+  VocabTreePairingOptions VocabTreeOptions() const;
+  GlobalDescriptorPairingOptions GlobalDescriptorOptions() const;
+
+  inline size_t CacheSize() const { return 5 * num_images; }
+};
+
 struct SequentialPairingOptions {
   // Number of overlapping image pairs.
   int overlap = 10;
@@ -128,59 +245,27 @@ struct SequentialPairingOptions {
   // If no rigs/frames are configured in the database, this option is ignored.
   bool expand_rig_images = true;
 
-  // Whether to enable vocabulary tree based loop detection.
+  // Whether to enable retrieval-based loop detection.
   bool loop_detection = false;
 
   // The frequency at which loop detection is triggered, in number of images.
   int loop_detection_period = 10;
 
-  // The number of images to retrieve in loop detection. This number should
-  // be significantly larger than the sequential matching overlap.
-  int loop_detection_num_images = 50;
+  // Retrieval options for loop detection. The number of retrieved images
+  // (num_images) should be significantly larger than the sequential matching
+  // overlap.
+  RetrievalPairingOptions loop_detection_options;
 
-  // Number of nearest neighbors to retrieve per query feature.
-  int loop_detection_num_nearest_neighbors = 1;
-
-  // Number of nearest-neighbor checks to use in retrieval.
-  int loop_detection_num_checks = 64;
-
-  // How many images to return after spatial verification. Set to 0 to turn off
-  // spatial verification.
-  int loop_detection_num_images_after_verification = 0;
-
-  // The maximum number of features to use for indexing an image. If an
-  // image has more features, only the largest-scale features will be indexed.
-  int loop_detection_max_num_features = -1;
-
-  // Number of threads for loop detection indexing and retrieval.
-  int num_threads = -1;
-
-  // Path to the vocabulary tree (used when loop_detection_model_path is empty).
-  std::filesystem::path vocab_tree_path;
-
-  // Global descriptor model type for loop detection (e.g. "MixVPR", "MegaLoc").
-  std::string loop_detection_model_type;
-
-  // Path to a global descriptor ONNX model for loop detection.
-  // When empty, auto-downloads from the model type's default URI.
-  std::filesystem::path loop_detection_model_path;
-
-  // Path to the image directory, required for global-descriptor loop detection.
-  std::filesystem::path loop_detection_image_path;
-
-  // Database path.  Descriptor caches are stored alongside the db file.
-  std::filesystem::path loop_detection_database_path;
+  SequentialPairingOptions() {
+    // Loop detection defaults that differ from standalone retrieval matching.
+    loop_detection_options.num_images = 50;
+    loop_detection_options.num_nearest_neighbors = 1;
+  }
 
   bool Check() const;
 
-  VocabTreePairingOptions VocabTreeOptions() const;
-  // Returns options suitable for GlobalDescriptorPairGenerator.
-  // Defined in pairing.cc to avoid circular dependency with the full
-  // GlobalDescriptorPairingOptions definition.
-  GlobalDescriptorPairingOptions GlobalDescriptorOptions() const;
-
   inline size_t CacheSize() const {
-    return std::max(5 * loop_detection_num_images, 5 * overlap);
+    return std::max(5 * loop_detection_options.num_images, 5 * overlap);
   }
 };
 
@@ -250,46 +335,6 @@ struct ExistingMatchedPairingOptions {
   inline size_t CacheSize() const {
     return std::max<size_t>(10, static_cast<size_t>(2 * std::sqrt(batch_size)));
   }
-};
-
-struct GlobalDescriptorPairingOptions {
-  // Number of most similar images to retrieve for each query image.
-  int num_images = 100;
-
-  // Global descriptor model type (e.g. "MixVPR", "MegaLoc").
-  // If empty, defaults to "MixVPR".
-  std::string model_type = "MixVPR";
-
-  // Path to the global descriptor ONNX model file.
-  // If empty, auto-downloads from the model's default URI.
-  std::filesystem::path model_path;
-
-  // Path to the directory containing the images.
-  std::filesystem::path image_path;
-
-  // Path to the database file.  Descriptor caches are stored alongside it.
-  std::filesystem::path database_path;
-
-  // Optional path to file with specific image names to use as queries.
-  // If empty, all images are used as queries.
-  std::filesystem::path match_list_path = "";
-
-  // Number of threads for ONNX inference.
-  int num_threads = -1;
-
-  // Whether to use GPU / CoreML for ONNX inference (default true on macOS
-  // for CoreML acceleration; falls back to CPU if unavailable).
-  bool use_gpu = true;
-
-  // GPU index for ONNX inference.
-  std::string gpu_index = "-1";
-
-  // Batch size for ONNX inference.
-  int batch_size = 16;
-
-  bool Check() const;
-
-  inline size_t CacheSize() const { return 5 * num_images; }
 };
 
 class PairGenerator {
@@ -544,6 +589,30 @@ class GlobalDescriptorPairGenerator : public PairGenerator {
   retrieval::GlobalDescriptorIndex global_descriptor_index_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t pair_idx_ = 0;
+};
+
+// Generic retrieval-based pair generator that dispatches to the configured
+// retrieval method (vocabulary tree or global descriptor).
+class RetrievalPairGenerator : public PairGenerator {
+ public:
+  using PairingOptions = RetrievalPairingOptions;
+
+  RetrievalPairGenerator(const RetrievalPairingOptions& options,
+                         const std::shared_ptr<FeatureMatcherCache>& cache,
+                         const std::vector<image_t>& query_image_ids = {});
+
+  RetrievalPairGenerator(const RetrievalPairingOptions& options,
+                         const std::shared_ptr<Database>& database,
+                         const std::vector<image_t>& query_image_ids = {});
+
+  void Reset() override;
+
+  bool HasFinished() const override;
+
+  std::vector<std::pair<image_t, image_t>> Next() override;
+
+ private:
+  std::unique_ptr<PairGenerator> impl_;
 };
 
 }  // namespace colmap

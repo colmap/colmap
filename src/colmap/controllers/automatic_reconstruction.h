@@ -158,8 +158,7 @@ class AutomaticReconstructionController : public Thread {
   std::unique_ptr<Thread> feature_extractor_;
   std::unique_ptr<Thread> exhaustive_matcher_;
   std::unique_ptr<Thread> sequential_matcher_;
-  std::unique_ptr<Thread> vocab_tree_matcher_;
-  std::unique_ptr<Thread> global_descriptor_matcher_;
+  std::unique_ptr<Thread> retrieval_matcher_;
 };
 
 }  // namespace colmap

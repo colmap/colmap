@@ -41,25 +41,32 @@ def test_spatial_pairing_options_check():
     assert options.check()
 
 
-def test_vocab_tree_pairing_options_init():
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_init():
+    options = pycolmap.RetrievalPairingOptions()
     assert options is not None
 
 
-def test_vocab_tree_pairing_options_num_images():
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_method():
+    options = pycolmap.RetrievalPairingOptions()
+    assert options.method == pycolmap.RetrievalMethod.VOCAB_TREE
+    options.method = pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
+    assert options.method == pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
+
+
+def test_retrieval_pairing_options_num_images():
+    options = pycolmap.RetrievalPairingOptions()
     options.num_images = 50
     assert options.num_images == 50
 
 
-def test_vocab_tree_pairing_options_num_nearest_neighbors():
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_num_nearest_neighbors():
+    options = pycolmap.RetrievalPairingOptions()
     options.num_nearest_neighbors = 3
     assert options.num_nearest_neighbors == 3
 
 
-def test_vocab_tree_pairing_options_check():
-    options = pycolmap.VocabTreePairingOptions()
+def test_retrieval_pairing_options_check():
+    options = pycolmap.RetrievalPairingOptions()
     assert options.check()
 
 
@@ -80,10 +87,11 @@ def test_sequential_pairing_options_quadratic_overlap():
     assert options.quadratic_overlap is True
 
 
-def test_sequential_pairing_options_vocab_tree_options():
+def test_sequential_pairing_options_loop_detection_options():
     options = pycolmap.SequentialPairingOptions()
-    vocab_tree_options = options.vocab_tree_options()
-    assert vocab_tree_options is not None
+    assert options.loop_detection_options.num_images == 50
+    options.loop_detection_options.num_images = 100
+    assert options.loop_detection_options.num_images == 100
 
 
 def test_sequential_pairing_options_check():

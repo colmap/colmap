@@ -111,8 +111,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;
-  option_manager_.sequential_pairing->num_threads = options_.num_threads;
-  option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;
+  option_manager_.sequential_pairing->loop_detection_options.num_threads =
+      options_.num_threads;
+  option_manager_.retrieval_pairing->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
 #if defined(COLMAP_MVS_ENABLED)
   option_manager_.patch_match_stereo->num_threads = options_.num_threads;
@@ -120,22 +121,28 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.delaunay_meshing->num_threads = options_.num_threads;
 #endif
 
+  RetrievalPairingOptions& retrieval_options =
+      *option_manager_.retrieval_pairing;
+  RetrievalPairingOptions& loop_detection_options =
+      option_manager_.sequential_pairing->loop_detection_options;
   if (!options_.global_descriptor_path.empty()) {
     // Use global descriptor model (e.g. MixVPR) for image retrieval and
     // loop detection, replacing the vocabulary tree.
     LOG(INFO) << "Using global descriptor model: "
               << options_.global_descriptor_path;
-    option_manager_.sequential_pairing->loop_detection_model_path =
-        options_.global_descriptor_path;
-    option_manager_.sequential_pairing->loop_detection_image_path =
-        options_.image_path;
-    option_manager_.sequential_pairing->loop_detection_database_path =
-        *option_manager_.database_path;
+    retrieval_options.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
+    retrieval_options.model_path = options_.global_descriptor_path;
+    retrieval_options.image_path = options_.image_path;
+    retrieval_options.database_path = *option_manager_.database_path;
+    loop_detection_options.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
+    loop_detection_options.model_path = options_.global_descriptor_path;
+    loop_detection_options.image_path = options_.image_path;
+    loop_detection_options.database_path = *option_manager_.database_path;
   } else {
-    // Use vocabulary tree for loop detection (default).
-    option_manager_.vocab_tree_pairing->vocab_tree_path =
+    // Use vocabulary tree for retrieval and loop detection (default).
+    retrieval_options.vocab_tree_path =
         GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
-    option_manager_.sequential_pairing->vocab_tree_path =
+    loop_detection_options.vocab_tree_path =
         GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
   }
   option_manager_.sequential_pairing->loop_detection = true;
@@ -224,29 +231,11 @@ void AutomaticReconstructionController::Setup() {
 
     if (!options_.vocab_tree_path.empty() ||
         !options_.global_descriptor_path.empty()) {
-      if (!options_.global_descriptor_path.empty()) {
-        option_manager_.global_descriptor_pairing->model_path =
-            options_.global_descriptor_path;
-        option_manager_.global_descriptor_pairing->image_path =
-            options_.image_path;
-        option_manager_.global_descriptor_pairing->database_path =
-            *option_manager_.database_path;
-        option_manager_.global_descriptor_pairing->num_images =
-            option_manager_.vocab_tree_pairing->num_images;
-        option_manager_.global_descriptor_pairing->num_threads =
-            options_.num_threads;
-        global_descriptor_matcher_ = CreateGlobalDescriptorFeatureMatcher(
-            *option_manager_.global_descriptor_pairing,
-            *option_manager_.feature_matching,
-            *option_manager_.two_view_geometry,
-            *option_manager_.database_path);
-      } else {
-        vocab_tree_matcher_ =
-            CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
-                                          *option_manager_.feature_matching,
-                                          *option_manager_.two_view_geometry,
-                                          *option_manager_.database_path);
-      }
+      retrieval_matcher_ =
+          CreateRetrievalFeatureMatcher(*option_manager_.retrieval_pairing,
+                                        *option_manager_.feature_matching,
+                                        *option_manager_.two_view_geometry,
+                                        *option_manager_.database_path);
     }
   }
 }
@@ -313,15 +302,12 @@ void AutomaticReconstructionController::RunFeatureMatching() {
              options_.data_type == DataType::INTERNET) {
     auto database = Database::Open(*option_manager_.database_path);
     const size_t num_images = database->NumImages();
-    if (options_.vocab_tree_path.empty() &&
-        options_.global_descriptor_path.empty()) {
+    if ((options_.vocab_tree_path.empty() &&
+         options_.global_descriptor_path.empty()) ||
+        num_images < 200) {
       matcher = exhaustive_matcher_.get();
-    } else if (num_images < 200) {
-      matcher = exhaustive_matcher_.get();
-    } else if (!options_.global_descriptor_path.empty()) {
-      matcher = global_descriptor_matcher_.get();
     } else {
-      matcher = vocab_tree_matcher_.get();
+      matcher = retrieval_matcher_.get();
     }
   }
 
@@ -331,8 +317,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
   matcher->Wait();
   exhaustive_matcher_.reset();
   sequential_matcher_.reset();
-  vocab_tree_matcher_.reset();
-  global_descriptor_matcher_.reset();
+  retrieval_matcher_.reset();
   active_thread_ = nullptr;
 }
 
