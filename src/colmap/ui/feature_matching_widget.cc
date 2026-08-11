@@ -76,6 +76,9 @@ class SequentialMatchingTab : public FeatureMatchingTab {
   SequentialMatchingTab(QWidget* parent, OptionManager* options);
   void Run() override;
 
+ protected:
+  void ReadOptions() override;
+
  private:
   void UpdateLoopDetectionFields();
   QComboBox* loop_detection_type_cb_;
@@ -85,6 +88,7 @@ class SequentialMatchingTab : public FeatureMatchingTab {
   int vocab_tree_grid_row_ = -1;
 #ifdef COLMAP_ONNX_ENABLED
   int global_descriptor_grid_row_ = -1;
+  QLineEdit* model_path_edit_ = nullptr;
 #endif
 };
 
@@ -108,7 +112,6 @@ class RetrievalMatchingTab : public FeatureMatchingTab {
   int global_descriptor_start_row_ = -1;
   int global_descriptor_end_row_ = -1;
 #endif
-  int prev_method_index_ = -1;
 };
 
 class SpatialMatchingTab : public FeatureMatchingTab {
@@ -298,7 +301,7 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
     // MixVPR/MegaLoc model path (ONNX only).
 #ifdef COLMAP_ONNX_ENABLED
     global_descriptor_grid_row_ = grid->rowCount();
-    options_widget_->AddOptionFilePath(
+    model_path_edit_ = options_widget_->AddOptionFilePath(
         &options_->sequential_pairing->loop_detection_options.model_path,
         "Model path (ONNX, optional)");
 #endif
@@ -364,7 +367,44 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
   SetRowVisible(vocab_tree_grid_row_, idx == 1);
 #ifdef COLMAP_ONNX_ENABLED
   SetRowVisible(global_descriptor_grid_row_, idx >= 2);
+  // Show the configured model path for the selected model, or the model's
+  // default download URI otherwise.
+  if (idx >= 2 && model_path_edit_ != nullptr) {
+    const std::string model_name =
+        loop_detection_type_cb_->currentText().toStdString();
+    const RetrievalPairingOptions& loop_detection_options =
+        options_->sequential_pairing->loop_detection_options;
+    if (!loop_detection_options.model_path.empty() &&
+        loop_detection_options.model_type == model_name) {
+      model_path_edit_->setText(
+          QString::fromStdString(loop_detection_options.model_path.string()));
+    } else if (const auto* model =
+                   retrieval::GlobalDescriptorModel::GetModel(model_name)) {
+      model_path_edit_->setText(
+          QString::fromStdString(model->default_model_uri));
+    }
+  }
 #endif
+}
+
+void SequentialMatchingTab::ReadOptions() {
+  // Sync the loop detection combo from the stored options.
+  int index = 0;
+  if (options_->sequential_pairing->loop_detection) {
+    index = 1;  // Vocabulary tree.
+#ifdef COLMAP_ONNX_ENABLED
+    if (options_->sequential_pairing->loop_detection_options.method ==
+        RetrievalMethod::GLOBAL_DESCRIPTOR) {
+      const int model_index =
+          loop_detection_type_cb_->findText(QString::fromStdString(
+              options_->sequential_pairing->loop_detection_options.model_type));
+      index = model_index >= 2 ? model_index : 2;
+    }
+#endif
+  }
+  loop_detection_type_cb_->setCurrentIndex(index);
+  FeatureMatchingTab::ReadOptions();
+  UpdateLoopDetectionFields();
 }
 
 void SequentialMatchingTab::Run() {
@@ -505,10 +545,9 @@ void RetrievalMatchingTab::ReadOptions() {
     index = model_index > 0 ? model_index : 1;
   }
 #endif
-  // Avoid clearing the configured model path on this programmatic change.
-  prev_method_index_ = index;
   method_cb_->setCurrentIndex(index);
   FeatureMatchingTab::ReadOptions();
+  UpdateMethodFields();
 }
 
 void RetrievalMatchingTab::UpdateMethodFields() {
@@ -535,14 +574,21 @@ void RetrievalMatchingTab::UpdateMethodFields() {
 #ifdef COLMAP_ONNX_ENABLED
   set_rows_visible(
       global_descriptor_start_row_, global_descriptor_end_row_, !vocab_tree);
-  // Clear the model path when the user switches to a different model: the
-  // default path is auto-downloaded from the model registry.
-  if (!vocab_tree && prev_method_index_ >= 0 && idx != prev_method_index_ &&
-      model_path_edit_ != nullptr) {
-    model_path_edit_->setText(QString());
+  // Show the configured model path for the selected model, or the model's
+  // default download URI otherwise.
+  if (!vocab_tree && model_path_edit_ != nullptr) {
+    const std::string model_name = method_cb_->currentText().toStdString();
+    const RetrievalPairingOptions& pairing = *options_->retrieval_pairing;
+    if (!pairing.model_path.empty() && pairing.model_type == model_name) {
+      model_path_edit_->setText(
+          QString::fromStdString(pairing.model_path.string()));
+    } else if (const auto* model =
+                   retrieval::GlobalDescriptorModel::GetModel(model_name)) {
+      model_path_edit_->setText(
+          QString::fromStdString(model->default_model_uri));
+    }
   }
 #endif
-  prev_method_index_ = idx;
 }
 
 void RetrievalMatchingTab::Run() {
