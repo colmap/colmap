@@ -370,18 +370,20 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
   // Show the configured model path for the selected model, or the model's
   // default download URI otherwise.
   if (idx >= 2 && model_path_edit_ != nullptr) {
-    const std::string model_name =
-        loop_detection_type_cb_->currentText().toStdString();
+    const auto* model = retrieval::GlobalDescriptorModel::GetModel(
+        loop_detection_type_cb_->currentText().toStdString());
     const RetrievalPairingOptions& loop_detection_options =
         options_->sequential_pairing->loop_detection_options;
-    if (!loop_detection_options.model_path.empty() &&
-        loop_detection_options.model_type == model_name) {
-      model_path_edit_->setText(
-          QString::fromStdString(loop_detection_options.model_path.string()));
-    } else if (const auto* model =
-                   retrieval::GlobalDescriptorModel::GetModel(model_name)) {
-      model_path_edit_->setText(
-          QString::fromStdString(model->default_model_uri));
+    if (model != nullptr) {
+      if (!loop_detection_options.model_path.empty() &&
+          retrieval::GlobalDescriptorModel::GetModel(
+              loop_detection_options.model_type) == model) {
+        model_path_edit_->setText(
+            QString::fromStdString(loop_detection_options.model_path.string()));
+      } else {
+        model_path_edit_->setText(
+            QString::fromStdString(model->default_model_uri));
+      }
     }
   }
 #endif
@@ -395,9 +397,13 @@ void SequentialMatchingTab::ReadOptions() {
 #ifdef COLMAP_ONNX_ENABLED
     if (options_->sequential_pairing->loop_detection_options.method ==
         RetrievalMethod::GLOBAL_DESCRIPTOR) {
-      const int model_index =
-          loop_detection_type_cb_->findText(QString::fromStdString(
-              options_->sequential_pairing->loop_detection_options.model_type));
+      // Normalize to the canonical model name for a case-insensitive match.
+      const auto* model = retrieval::GlobalDescriptorModel::GetModel(
+          options_->sequential_pairing->loop_detection_options.model_type);
+      const int model_index = model == nullptr
+                                  ? -1
+                                  : loop_detection_type_cb_->findText(
+                                        QString::fromStdString(model->name));
       index = model_index >= 2 ? model_index : 2;
     }
 #endif
@@ -540,8 +546,13 @@ void RetrievalMatchingTab::ReadOptions() {
 #ifdef COLMAP_ONNX_ENABLED
   if (options_->retrieval_pairing->method ==
       RetrievalMethod::GLOBAL_DESCRIPTOR) {
-    const int model_index = method_cb_->findText(
-        QString::fromStdString(options_->retrieval_pairing->model_type));
+    // Normalize to the canonical model name for a case-insensitive match.
+    const auto* model = retrieval::GlobalDescriptorModel::GetModel(
+        options_->retrieval_pairing->model_type);
+    const int model_index =
+        model == nullptr
+            ? -1
+            : method_cb_->findText(QString::fromStdString(model->name));
     index = model_index > 0 ? model_index : 1;
   }
 #endif
@@ -577,15 +588,19 @@ void RetrievalMatchingTab::UpdateMethodFields() {
   // Show the configured model path for the selected model, or the model's
   // default download URI otherwise.
   if (!vocab_tree && model_path_edit_ != nullptr) {
-    const std::string model_name = method_cb_->currentText().toStdString();
+    const auto* model = retrieval::GlobalDescriptorModel::GetModel(
+        method_cb_->currentText().toStdString());
     const RetrievalPairingOptions& pairing = *options_->retrieval_pairing;
-    if (!pairing.model_path.empty() && pairing.model_type == model_name) {
-      model_path_edit_->setText(
-          QString::fromStdString(pairing.model_path.string()));
-    } else if (const auto* model =
-                   retrieval::GlobalDescriptorModel::GetModel(model_name)) {
-      model_path_edit_->setText(
-          QString::fromStdString(model->default_model_uri));
+    if (model != nullptr) {
+      if (!pairing.model_path.empty() &&
+          retrieval::GlobalDescriptorModel::GetModel(pairing.model_type) ==
+              model) {
+        model_path_edit_->setText(
+            QString::fromStdString(pairing.model_path.string()));
+      } else {
+        model_path_edit_->setText(
+            QString::fromStdString(model->default_model_uri));
+      }
     }
   }
 #endif

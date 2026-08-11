@@ -29,6 +29,9 @@
 
 #include "colmap/retrieval/global_descriptor_model.h"
 
+#include "colmap/util/string.h"
+
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -87,12 +90,15 @@ const std::vector<GlobalDescriptorModel> kModels = {
 const std::vector<GlobalDescriptorModel> kModels = {};
 #endif
 
-// Build a name→model lookup map.
+// Build a lowercase-name→model lookup map for case-insensitive matching.
+// The canonical spelling remains the registered model name.
 auto& ModelMap() {
-  static std::unordered_map<std::string_view, const GlobalDescriptorModel*> map;
+  static std::unordered_map<std::string, const GlobalDescriptorModel*> map;
   if (map.empty()) {
     for (const auto& m : kModels) {
-      map[m.name] = &m;
+      std::string key = m.name;
+      StringToLower(&key);
+      map[std::move(key)] = &m;
     }
   }
   return map;
@@ -102,16 +108,18 @@ auto& ModelMap() {
 
 const GlobalDescriptorModel* GlobalDescriptorModel::GetModel(
     std::string_view name) {
+  std::string key(name);
+  StringToLower(&key);
   auto& map = ModelMap();
-  auto it = map.find(name);
+  auto it = map.find(key);
   return it != map.end() ? it->second : nullptr;
 }
 
 std::vector<std::string_view> GlobalDescriptorModel::ModelNames() {
   std::vector<std::string_view> names;
-  names.reserve(ModelMap().size());
-  for (const auto& [name, _] : ModelMap()) {
-    names.push_back(name);
+  names.reserve(kModels.size());
+  for (const auto& m : kModels) {
+    names.push_back(m.name);
   }
   return names;
 }

@@ -130,6 +130,19 @@ bool RetrievalPairingOptions::Check() const {
       return false;
 #endif
       CHECK_OPTION(!model_type.empty());
+      if (retrieval::GlobalDescriptorModel::GetModel(model_type) == nullptr) {
+        std::string names;
+        for (const std::string_view name :
+             retrieval::GlobalDescriptorModel::ModelNames()) {
+          if (!names.empty()) {
+            names += ", ";
+          }
+          names += std::string(name);
+        }
+        LOG(ERROR) << "Unknown global descriptor model type: '" << model_type
+                   << "'. Available models: " << names;
+        return false;
+      }
       CHECK_OPTION_GT(batch_size, 0);
       break;
   }
