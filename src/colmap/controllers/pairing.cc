@@ -124,6 +124,11 @@ bool RetrievalPairingOptions::Check() const {
       CHECK_OPTION_GT(num_checks, 0);
       break;
     case RetrievalMethod::GLOBAL_DESCRIPTOR:
+#ifndef COLMAP_ONNX_ENABLED
+      LOG(ERROR) << "Global descriptor retrieval requires ONNX Runtime "
+                    "support. Please rebuild COLMAP with ONNX_ENABLED=ON.";
+      return false;
+#endif
       CHECK_OPTION(!model_type.empty());
       CHECK_OPTION_GT(batch_size, 0);
       break;
@@ -163,7 +168,9 @@ RetrievalPairingOptions::GlobalDescriptorOptions() const {
 bool SequentialPairingOptions::Check() const {
   CHECK_OPTION_GT(overlap, 0);
   CHECK_OPTION_GT(loop_detection_period, 0);
-  CHECK_OPTION(loop_detection_options.Check());
+  if (loop_detection) {
+    CHECK_OPTION(loop_detection_options.Check());
+  }
   return true;
 }
 
