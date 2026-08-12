@@ -173,10 +173,12 @@ MATCHER_P(UnorderedClustersEqMatcher,
           "is equal to the expected clusters (ignoring order): " +
               ::testing::PrintToString(expected_clusters)) {
   std::vector<std::set<image_t>> actual;
+  actual.reserve(arg.size());
   for (const auto& cluster : arg) {
     actual.emplace_back(cluster.begin(), cluster.end());
   }
   std::vector<std::set<image_t>> expected;
+  expected.reserve(expected_clusters.size());
   for (const auto& cluster : expected_clusters) {
     expected.emplace_back(cluster.begin(), cluster.end());
   }
