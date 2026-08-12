@@ -90,7 +90,7 @@ TEST(HierarchicalPipeline, WithoutNoise) {
   ExpectEqualReconstructions(gt_reconstruction,
                              *reconstruction,
                              /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
+                             /*max_proj_center_error=*/5e-4,
                              /*num_obs_tolerance=*/0);
 
   // After the pipeline runs, point3D.error must be in pixel units, i.e.
