@@ -78,9 +78,9 @@ void SceneClustering::PartitionHierarchicalCluster(
   THROW_CHECK_EQ(edges.size(), weights.size());
 
   // If the cluster is small enough, we return from the recursive clustering.
-  if (edges.empty() ||
-      cluster->image_ids.size() <=
-          options_.leaf_max_num_images + options_.image_overlap) {
+  if (edges.empty() || cluster->image_ids.size() <=
+                           static_cast<size_t>(options_.leaf_max_num_images) +
+                               static_cast<size_t>(options_.image_overlap)) {
     return;
   }
 
