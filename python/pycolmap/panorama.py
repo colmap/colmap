@@ -40,7 +40,7 @@ else:
 class Matcher(StrEnum):
     SEQUENTIAL = enum.auto()
     EXHAUSTIVE = enum.auto()
-    VOCABTREE = enum.auto()
+    RETRIEVAL = enum.auto()
     SPATIAL = enum.auto()
 
 
@@ -100,6 +100,8 @@ class PanoramaReconstructionOptions:
     covisibility_path: Path | None = None
     covisibility_min_shared_points: int = 1
     show_progress: bool = True
+    # Pairing options for Matcher.RETRIEVAL; defaults to the vocabulary tree.
+    retrieval_options: "pycolmap.RetrievalPairingOptions | None" = None
 
 
 def create_virtual_camera(
@@ -510,6 +512,7 @@ def run_matcher(
     options: PanoramaReconstructionOptions,
     database_path: Path,
     matching_options: pycolmap.FeatureMatchingOptions,
+    image_path: Path,
 ) -> None:
     matching_options.use_gpu = options.use_gpu
     matching_options.gpu_index = options.gpu_index
@@ -524,9 +527,20 @@ def run_matcher(
         pycolmap.match_exhaustive(
             database_path, matching_options=matching_options
         )
-    elif options.matcher == Matcher.VOCABTREE:
+    elif options.matcher == Matcher.RETRIEVAL:
+        pairing_options = options.retrieval_options
+        if pairing_options is None:
+            pairing_options = pycolmap.RetrievalPairingOptions()
+        if (
+            pairing_options.method == pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
+            and str(pairing_options.image_path) in ("", ".")
+        ):
+            # Global descriptors are computed from the image pixels.
+            pairing_options.image_path = image_path
         pycolmap.match_retrieval(
-            database_path, matching_options=matching_options
+            database_path,
+            pairing_options=pairing_options,
+            matching_options=matching_options,
         )
     elif options.matcher == Matcher.SPATIAL:
         pycolmap.match_spatial(database_path, matching_options=matching_options)
@@ -602,7 +616,12 @@ def run_spherical(
 
     # A single EQUIRECTANGULAR camera observes the whole sphere from one
     # center, so there is no rig and no per-frame image-pair skipping.
-    run_matcher(options, database_path, pycolmap.FeatureMatchingOptions())
+    run_matcher(
+        options,
+        database_path,
+        pycolmap.FeatureMatchingOptions(),
+        input_image_path,
+    )
     if options.covisibility_path is not None:
         filter_database_by_covisibility(
             database_path,
@@ -702,7 +721,7 @@ def run_perspective(
     matching_options.rig_verification = True
     # The images within a frame do not have overlap due to the provided masks.
     matching_options.skip_image_pairs_in_same_frame = True
-    run_matcher(options, database_path, matching_options)
+    run_matcher(options, database_path, matching_options, image_dir)
     if options.covisibility_path is not None:
         filter_database_by_covisibility(
             database_path,
