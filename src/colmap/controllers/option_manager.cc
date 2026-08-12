@@ -432,6 +432,8 @@ void OptionManager::AddSequentialPairingOptions() {
                    &sequential_pairing->loop_detection_options.vocab_tree_path);
   AddDefaultOption("SequentialMatching.loop_detection_model_type",
                    &sequential_pairing->loop_detection_options.model_type);
+  AddDefaultOption("SequentialMatching.loop_detection_model_precision",
+                   &sequential_pairing->loop_detection_options.model_precision);
   AddDefaultOption("SequentialMatching.loop_detection_model_path",
                    &sequential_pairing->loop_detection_options.model_path);
   AddDefaultOption("SequentialMatching.num_threads",
@@ -469,6 +471,8 @@ void OptionManager::AddRetrievalPairingOptions() {
                    &retrieval_pairing->vocab_tree_path);
   AddDefaultOption("RetrievalMatching.model_type",
                    &retrieval_pairing->model_type);
+  AddDefaultOption("RetrievalMatching.model_precision",
+                   &retrieval_pairing->model_precision);
   AddDefaultOption("RetrievalMatching.model_path",
                    &retrieval_pairing->model_path);
   AddDefaultOption("RetrievalMatching.use_gpu", &retrieval_pairing->use_gpu);

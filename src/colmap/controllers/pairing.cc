@@ -143,6 +143,22 @@ bool RetrievalPairingOptions::Check() const {
                    << "'. Available models: " << names;
         return false;
       }
+      if (retrieval::GlobalDescriptorModel::DefaultModelUri(model_type,
+                                                            model_precision)
+              .empty()) {
+        std::string variants;
+        for (const std::string_view name :
+             retrieval::GlobalDescriptorModel::VariantNames(model_type)) {
+          if (!variants.empty()) {
+            variants += ", ";
+          }
+          variants += std::string(name);
+        }
+        LOG(ERROR) << "Unknown precision variant '" << model_precision
+                   << "' for model " << model_type
+                   << ". Available variants: " << variants;
+        return false;
+      }
       CHECK_OPTION_GT(batch_size, 0);
       break;
   }
@@ -167,6 +183,7 @@ RetrievalPairingOptions::GlobalDescriptorOptions() const {
   GlobalDescriptorPairingOptions options;
   options.num_images = num_images;
   options.model_type = model_type;
+  options.model_precision = model_precision;
   options.model_path = model_path;
   options.image_path = image_path;
   options.database_path = database_path;
@@ -1191,8 +1208,10 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       model_info->input_height > 0 ? model_info->input_height : 0;
   const int kChannels = 3;
   const int kDescriptorDim = model_info->descriptor_dim;
-  const int kBatchSize =
-      model_info->supports_batching ? options_.batch_size : 1;
+  const int kBatchSize = retrieval::GlobalDescriptorModel::SupportsBatching(
+                             options_.model_type, options_.model_precision)
+                             ? options_.batch_size
+                             : 1;
 
   // Resize the index if descriptor dim changed (e.g. model switch).
   global_descriptor_index_ = retrieval::GlobalDescriptorIndex(kDescriptorDim);
@@ -1222,23 +1241,29 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
     }
   }
 
-  // Resolve model path. If the path was left at another registered model's
-  // default URI (e.g. when only the model type was changed), fall back to
-  // the selected model's default.
+  // Resolve model path. If the path was left at another registered model
+  // variant's default URI (e.g. when only the model type or precision was
+  // changed), fall back to the selected variant's default.
+  const std::string selected_uri =
+      retrieval::GlobalDescriptorModel::DefaultModelUri(
+          options_.model_type, options_.model_precision);
   std::string model_path = options_.model_path.string();
   for (const std::string_view name :
        retrieval::GlobalDescriptorModel::ModelNames()) {
-    const retrieval::GlobalDescriptorModel* other =
-        retrieval::GlobalDescriptorModel::GetModel(name);
-    if (other != model_info && model_path == other->default_model_uri) {
-      model_path.clear();
-      break;
+    for (const std::string_view variant :
+         retrieval::GlobalDescriptorModel::VariantNames(name)) {
+      const std::string uri =
+          retrieval::GlobalDescriptorModel::DefaultModelUri(name, variant);
+      if (uri != selected_uri && model_path == uri) {
+        model_path.clear();
+        break;
+      }
     }
   }
   if (model_path.empty()) {
-    model_path = model_info->default_model_uri;
-    LOG(INFO) << "Auto-downloading " << model_info->name
-              << " model from default URI";
+    model_path = selected_uri;
+    LOG(INFO) << "Auto-downloading " << model_info->name << " ("
+              << options_.model_precision << ") model from default URI";
   } else {
     LOG(INFO) << "Loading ONNX model from " << model_path;
   }

@@ -223,6 +223,10 @@ void BindMatchFeatures(py::module& m) {
           .def_readwrite("model_type",
                          &RetrievalPairingOptions::model_type,
                          "Global descriptor model type (e.g. \"MixVPR\").")
+          .def_readwrite("model_precision",
+                         &RetrievalPairingOptions::model_precision,
+                         "Precision variant of the global descriptor model "
+                         "(e.g. \"fp16\", \"fp32\").")
           .def_readwrite("model_path",
                          &RetrievalPairingOptions::model_path,
                          "Path to the global descriptor ONNX model file. "

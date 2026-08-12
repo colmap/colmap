@@ -95,6 +95,9 @@ struct GlobalDescriptorPairingOptions {
   // If empty, defaults to "MixVPR".
   std::string model_type = "MixVPR";
 
+  // Precision variant of the model (e.g. "fp16", "fp32").
+  std::string model_precision = "fp16";
+
   // Path to the global descriptor ONNX model file.
   // If empty, auto-downloads from the model's default URI.
   std::filesystem::path model_path;
@@ -175,11 +178,15 @@ struct RetrievalPairingOptions {
   // Global descriptor model type (e.g. "MixVPR", "MegaLoc").
   std::string model_type = "MixVPR";
 
+  // Precision variant of the global descriptor model (e.g. "fp16", "fp32").
+  std::string model_precision = "fp16";
+
   // Path to the global descriptor ONNX model file. If empty or left at
-  // another registered model's default URI (e.g. when only model_type was
-  // changed), the selected model's default URI is used instead.
+  // another registered model variant's default URI (e.g. when only
+  // model_type or model_precision was changed), the selected variant's
+  // default URI is used instead.
   std::filesystem::path model_path =
-      retrieval::GlobalDescriptorModel::DefaultModelUri("MixVPR");
+      retrieval::GlobalDescriptorModel::DefaultModelUri("MixVPR", "fp16");
 
   // Path to the directory containing the images, required for global
   // descriptor retrieval.

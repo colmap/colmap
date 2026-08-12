@@ -88,6 +88,8 @@ class SequentialMatchingTab : public FeatureMatchingTab {
   int vocab_tree_grid_row_ = -1;
 #ifdef COLMAP_ONNX_ENABLED
   int global_descriptor_grid_row_ = -1;
+  int precision_grid_row_ = -1;
+  QComboBox* precision_cb_ = nullptr;
   QLineEdit* model_path_edit_ = nullptr;
 #endif
 };
@@ -108,6 +110,9 @@ class RetrievalMatchingTab : public FeatureMatchingTab {
   int vocab_tree_start_row_ = -1;
   int vocab_tree_end_row_ = -1;
 #ifdef COLMAP_ONNX_ENABLED
+  void RepopulatePrecisions(const std::string& selected_precision);
+  void UpdateModelPathField();
+  QComboBox* precision_cb_ = nullptr;
   QLineEdit* model_path_edit_ = nullptr;
   int global_descriptor_start_row_ = -1;
   int global_descriptor_end_row_ = -1;
@@ -298,12 +303,20 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
         &options_->sequential_pairing->loop_detection_options.vocab_tree_path,
         "Vocab tree path");
 
-    // MixVPR/MegaLoc model path (ONNX only).
+    // MixVPR/MegaLoc model precision and path (ONNX only).
 #ifdef COLMAP_ONNX_ENABLED
+    precision_grid_row_ = grid->rowCount();
+    precision_cb_ = new QComboBox(this);
+    options_widget_->AddWidgetRow("loop_detection_model_precision",
+                                  precision_cb_);
     global_descriptor_grid_row_ = grid->rowCount();
     model_path_edit_ = options_widget_->AddOptionFilePath(
         &options_->sequential_pairing->loop_detection_options.model_path,
         "Model path (ONNX, optional)");
+    connect(precision_cb_,
+            QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this,
+            &SequentialMatchingTab::UpdateLoopDetectionFields);
 #endif
   }
 
@@ -366,24 +379,58 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
   // 0 = None, 1 = Vocab Tree, 2+ = global descriptor (MixVPR / MegaLoc / ...)
   SetRowVisible(vocab_tree_grid_row_, idx == 1);
 #ifdef COLMAP_ONNX_ENABLED
+  // The precision selector occupies a single grid row.
+  for (int c = 0; c < 2; ++c) {
+    QLayoutItem* item = grid->itemAtPosition(precision_grid_row_, c);
+    if (item && item->widget()) {
+      item->widget()->setVisible(idx >= 2);
+    }
+  }
   SetRowVisible(global_descriptor_grid_row_, idx >= 2);
-  // Show the configured model path for the selected model, or the model's
-  // default download URI otherwise.
   if (idx >= 2 && model_path_edit_ != nullptr) {
-    const auto* model = retrieval::GlobalDescriptorModel::GetModel(
-        loop_detection_type_cb_->currentText().toStdString());
     const RetrievalPairingOptions& loop_detection_options =
         options_->sequential_pairing->loop_detection_options;
-    if (model != nullptr) {
-      if (!loop_detection_options.model_path.empty() &&
-          retrieval::GlobalDescriptorModel::GetModel(
-              loop_detection_options.model_type) == model) {
-        model_path_edit_->setText(
-            QString::fromStdString(loop_detection_options.model_path.string()));
-      } else {
-        model_path_edit_->setText(
-            QString::fromStdString(model->default_model_uri));
+    const std::string model_name =
+        loop_detection_type_cb_->currentText().toStdString();
+    const auto* model = retrieval::GlobalDescriptorModel::GetModel(model_name);
+    if (model == nullptr) {
+      return;
+    }
+    // Repopulate the precision variants of the selected model, keeping the
+    // current selection when possible.
+    {
+      const QSignalBlocker blocker(precision_cb_);
+      const std::string preferred =
+          precision_cb_->count() > 0
+              ? precision_cb_->currentText().toStdString()
+              : loop_detection_options.model_precision;
+      precision_cb_->clear();
+      int precision_index = 0;
+      for (const auto variant :
+           retrieval::GlobalDescriptorModel::VariantNames(model_name)) {
+        if (std::string(variant) == preferred) {
+          precision_index = precision_cb_->count();
+        }
+        precision_cb_->addItem(QString::fromStdString(std::string(variant)));
       }
+      precision_cb_->setCurrentIndex(precision_index);
+    }
+    // Show the configured model path for the selected model variant, or
+    // the variant's default download URI otherwise.
+    const std::string precision = precision_cb_->currentText().toStdString();
+    const std::string default_uri =
+        retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
+                                                          precision);
+    if (!loop_detection_options.model_path.empty() &&
+        retrieval::GlobalDescriptorModel::GetModel(
+            loop_detection_options.model_type) == model &&
+        retrieval::GlobalDescriptorModel::DefaultModelUri(
+            loop_detection_options.model_type,
+            loop_detection_options.model_precision) == default_uri) {
+      model_path_edit_->setText(
+          QString::fromStdString(loop_detection_options.model_path.string()));
+    } else {
+      model_path_edit_->setText(QString::fromStdString(default_uri));
     }
   }
 #endif
@@ -426,10 +473,12 @@ void SequentialMatchingTab::Run() {
   }
 #ifdef COLMAP_ONNX_ENABLED
   else if (idx >= 2) {
-    // Global descriptor: set model type from combo.
+    // Global descriptor: set model type and precision from the combos.
     loop_detection_options.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
     loop_detection_options.model_type =
         loop_detection_type_cb_->currentText().toStdString();
+    loop_detection_options.model_precision =
+        precision_cb_->currentText().toStdString();
     loop_detection_options.database_path = *options_->database_path;
   }
 #endif
@@ -522,12 +571,19 @@ RetrievalMatchingTab::RetrievalMatchingTab(QWidget* parent,
 #ifdef COLMAP_ONNX_ENABLED
   // Global descriptor options.
   global_descriptor_start_row_ = grid == nullptr ? -1 : grid->rowCount();
+  precision_cb_ = new QComboBox(this);
+  options_widget_->AddWidgetRow("model_precision", precision_cb_);
   options_widget_->AddOptionInt(
       &options_->retrieval_pairing->batch_size, "batch_size", 1);
   model_path_edit_ = options_widget_->AddOptionFilePath(
       &options_->retrieval_pairing->model_path,
       "Model path<br>(ONNX, optional)");
   global_descriptor_end_row_ = grid == nullptr ? -1 : grid->rowCount();
+
+  connect(precision_cb_,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this,
+          &RetrievalMatchingTab::UpdateModelPathField);
 #endif
 
   connect(method_cb_,
@@ -559,6 +615,12 @@ void RetrievalMatchingTab::ReadOptions() {
   method_cb_->setCurrentIndex(index);
   FeatureMatchingTab::ReadOptions();
   UpdateMethodFields();
+#ifdef COLMAP_ONNX_ENABLED
+  if (index > 0) {
+    RepopulatePrecisions(options_->retrieval_pairing->model_precision);
+    UpdateModelPathField();
+  }
+#endif
 }
 
 void RetrievalMatchingTab::UpdateMethodFields() {
@@ -585,26 +647,57 @@ void RetrievalMatchingTab::UpdateMethodFields() {
 #ifdef COLMAP_ONNX_ENABLED
   set_rows_visible(
       global_descriptor_start_row_, global_descriptor_end_row_, !vocab_tree);
-  // Show the configured model path for the selected model, or the model's
-  // default download URI otherwise.
-  if (!vocab_tree && model_path_edit_ != nullptr) {
-    const auto* model = retrieval::GlobalDescriptorModel::GetModel(
-        method_cb_->currentText().toStdString());
-    const RetrievalPairingOptions& pairing = *options_->retrieval_pairing;
-    if (model != nullptr) {
-      if (!pairing.model_path.empty() &&
-          retrieval::GlobalDescriptorModel::GetModel(pairing.model_type) ==
-              model) {
-        model_path_edit_->setText(
-            QString::fromStdString(pairing.model_path.string()));
-      } else {
-        model_path_edit_->setText(
-            QString::fromStdString(model->default_model_uri));
-      }
-    }
+  if (!vocab_tree) {
+    RepopulatePrecisions(options_->retrieval_pairing->model_precision);
+    UpdateModelPathField();
   }
 #endif
 }
+
+#ifdef COLMAP_ONNX_ENABLED
+void RetrievalMatchingTab::RepopulatePrecisions(
+    const std::string& selected_precision) {
+  const QSignalBlocker blocker(precision_cb_);
+  precision_cb_->clear();
+  int index = 0;
+  for (const auto variant : retrieval::GlobalDescriptorModel::VariantNames(
+           method_cb_->currentText().toStdString())) {
+    if (std::string(variant) == selected_precision) {
+      index = precision_cb_->count();
+    }
+    precision_cb_->addItem(QString::fromStdString(std::string(variant)));
+  }
+  precision_cb_->setCurrentIndex(index);
+}
+
+void RetrievalMatchingTab::UpdateModelPathField() {
+  // Show the configured model path for the selected model variant, or the
+  // variant's default download URI otherwise.
+  if (model_path_edit_ == nullptr) {
+    return;
+  }
+  const std::string model_name = method_cb_->currentText().toStdString();
+  const std::string precision = precision_cb_->currentText().toStdString();
+  const auto* model = retrieval::GlobalDescriptorModel::GetModel(model_name);
+  if (model == nullptr) {
+    return;
+  }
+  const RetrievalPairingOptions& pairing = *options_->retrieval_pairing;
+  if (!pairing.model_path.empty() &&
+      retrieval::GlobalDescriptorModel::GetModel(pairing.model_type) == model &&
+      retrieval::GlobalDescriptorModel::DefaultModelUri(
+          pairing.model_type, pairing.model_precision) ==
+          retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
+                                                            precision)) {
+    model_path_edit_->setText(
+        QString::fromStdString(pairing.model_path.string()));
+  } else {
+    model_path_edit_->setText(QString::fromStdString(
+        retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
+                                                          precision)));
+  }
+}
+#endif
 
 void RetrievalMatchingTab::Run() {
   WriteOptions();
@@ -626,6 +719,7 @@ void RetrievalMatchingTab::Run() {
   else {
     pairing.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
     pairing.model_type = method_cb_->currentText().toStdString();
+    pairing.model_precision = precision_cb_->currentText().toStdString();
     // Auto-derive paths from the project.
     pairing.image_path = *options_->image_path;
     pairing.database_path = *options_->database_path;

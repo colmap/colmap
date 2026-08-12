@@ -59,11 +59,21 @@ const std::vector<GlobalDescriptorModel> kModels = {
         .expected_output_shape = {-1, 4096},
         .descriptor_dim = 4096,
         .supports_batching = true,
-        .default_model_uri =
-            "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
-            "resolve/main/mixvpr/onnx/mixvpr_fp16.onnx;"
-            "mixvpr_fp16.onnx;"
-            "fee89548fdc8066d2464f00d5672363868459c8d6346c33bf2d2aea3b7e13c86",
+        .variants =
+            {{.name = "fp16",
+              .uri =
+                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
+                  "resolve/main/mixvpr/onnx/mixvpr_fp16.onnx;"
+                  "mixvpr_fp16.onnx;"
+                  "fee89548fdc8066d2464f00d5672363868459c8d6346c33bf2d2aea3b7"
+                  "e13c86"},
+             {.name = "fp32",
+              .uri =
+                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
+                  "resolve/main/mixvpr/onnx/mixvpr_fp32.onnx;"
+                  "mixvpr_fp32.onnx;"
+                  "1ede695b528f99b4d4ad3da940c9fe8d62f07254cbb0871205d669816e"
+                  "e97f47"}},
     },
     {
         .name = "MegaLoc",
@@ -75,15 +85,27 @@ const std::vector<GlobalDescriptorModel> kModels = {
         .input_name = "images",
         .output_name = "descriptor",
         .expected_input_shape =
-            {-1, 3, -1, -1},  // dynamic H,W; our code resizes to 518×518
-        .expected_output_shape = {1, 8448},
+            {-1, 3, -1, -1},  // dynamic/fixed H,W; our code resizes to 518
+        .expected_output_shape = {-1, 8448},
         .descriptor_dim = 8448,
-        .supports_batching = false,  // gemm_input_reshape hardcodes batch=1
-        .default_model_uri =
-            "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
-            "resolve/main/megaloc/megaloc_fp16.onnx;"
-            "megaloc_fp16.onnx;"
-            "f7dc23122d301a6173576fcf6952b9e962f967671b115ec418cf5ebd23de87ac",
+        .supports_batching = true,
+        .variants =
+            {{.name = "fp16",
+              .uri =
+                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
+                  "resolve/main/megaloc/onnx/megaloc_fp16.onnx;"
+                  "megaloc_fp16.onnx;"
+                  "b1aa2436d07cf28c0873581ad9272978c44f427f0a46169e677cf156ff"
+                  "ac452f"},
+             {.name = "fp32",
+              .uri =
+                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
+                  "resolve/main/megaloc/onnx/megaloc.onnx;"
+                  "megaloc.onnx;"
+                  "a3caae0481bc0a669503b70975c9863e82cc38b7be077d01428447f4f8"
+                  "8056e3",
+              // Older single-file export with a batch=1 reshape baked in.
+              .supports_batching = false}},
     },
 };
 #else
@@ -124,9 +146,54 @@ std::vector<std::string_view> GlobalDescriptorModel::ModelNames() {
   return names;
 }
 
-std::string GlobalDescriptorModel::DefaultModelUri(std::string_view name) {
+namespace {
+
+const GlobalDescriptorModel::Variant* GetVariant(std::string_view name,
+                                                 std::string_view precision) {
+  const GlobalDescriptorModel* model = GlobalDescriptorModel::GetModel(name);
+  if (model == nullptr || model->variants.empty()) {
+    return nullptr;
+  }
+  if (precision.empty()) {
+    return &model->variants.front();
+  }
+  std::string key(precision);
+  StringToLower(&key);
+  for (const auto& variant : model->variants) {
+    if (variant.name == key) {
+      return &variant;
+    }
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+std::string GlobalDescriptorModel::DefaultModelUri(std::string_view name,
+                                                   std::string_view precision) {
+  const Variant* variant = GetVariant(name, precision);
+  return variant == nullptr ? std::string() : variant->uri;
+}
+
+std::vector<std::string_view> GlobalDescriptorModel::VariantNames(
+    std::string_view name) {
   const GlobalDescriptorModel* model = GetModel(name);
-  return model == nullptr ? std::string() : model->default_model_uri;
+  std::vector<std::string_view> names;
+  if (model != nullptr) {
+    names.reserve(model->variants.size());
+    for (const auto& variant : model->variants) {
+      names.push_back(variant.name);
+    }
+  }
+  return names;
+}
+
+bool GlobalDescriptorModel::SupportsBatching(std::string_view name,
+                                             std::string_view precision) {
+  const GlobalDescriptorModel* model = GetModel(name);
+  const Variant* variant = GetVariant(name, precision);
+  return model != nullptr && variant != nullptr && model->supports_batching &&
+         variant->supports_batching;
 }
 
 }  // namespace retrieval

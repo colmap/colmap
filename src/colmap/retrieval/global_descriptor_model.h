@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace colmap {
@@ -69,13 +70,23 @@ struct GlobalDescriptorModel {
   // Dimensionality of the output descriptor.
   int descriptor_dim = 4096;
 
-  // Whether the model supports batched inference (batch_size > 1).
-  // Some models (e.g. MegaLoc) only accept batch_size = 1.
+  // Whether the model architecture supports batched inference.
   bool supports_batching = true;
 
-  // Default ONNX model download URI (HuggingFace, GitHub, etc.).
-  // Uses COLMAP URI format: "url;filename;sha256".
-  std::string default_model_uri;
+  // A precision variant of the model with its download URI.
+  struct Variant {
+    // Lowercase variant key (e.g. "fp16", "fp32").
+    std::string name;
+    // Download URI in COLMAP format: "url;filename;sha256". Must point to
+    // a single-file ONNX export (the downloader does not support ONNX
+    // external data). Files follow the "<model>_<variant>.onnx" naming.
+    std::string uri;
+    // Whether this exported file supports batched inference.
+    bool supports_batching = true;
+  };
+
+  // Precision variants, default variant first.
+  std::vector<Variant> variants;
 
   // Returns the model config for a given model name.
   // Returns nullptr if the name is not recognized.
@@ -84,9 +95,19 @@ struct GlobalDescriptorModel {
   // Returns all registered model names.
   static std::vector<std::string_view> ModelNames();
 
-  // Returns the default model URI for the given model name, or an empty
-  // string if the name is not recognized.
-  static std::string DefaultModelUri(std::string_view name);
+  // Returns the model URI for the given model name and precision variant.
+  // An empty precision selects the model's default variant. Returns an
+  // empty string if the model or variant is not registered.
+  static std::string DefaultModelUri(std::string_view name,
+                                     std::string_view precision = "");
+
+  // Returns the precision variants of the given model, default first.
+  static std::vector<std::string_view> VariantNames(std::string_view name);
+
+  // Returns whether the given model and precision variant support batched
+  // inference. Returns false if the model or variant is not registered.
+  static bool SupportsBatching(std::string_view name,
+                               std::string_view precision = "");
 };
 
 }  // namespace retrieval
