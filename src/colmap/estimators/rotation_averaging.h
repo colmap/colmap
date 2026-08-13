@@ -156,24 +156,4 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           Reconstruction& reconstruction,
                           const std::vector<PosePrior>& pose_priors);
 
-// Estimates rotations for the given connected component `active_image_ids`
-// (typically a single connected component of `pose_graph`, e.g. from
-// PoseGraph::ComputeConnectedComponentImageIds) and registers its frames.
-// Handles rigs with unknown cam_from_rig by first solving on an expanded
-// reconstruction. Does NOT perform outlier filtering or de-registration;
-// callers compose these primitives to implement the desired post-processing.
-bool RunRotationAveragingOnComponent(
-    const RotationEstimatorOptions& options,
-    PoseGraph& pose_graph,
-    const FlatHashSet<image_t>& active_image_ids,
-    Reconstruction& reconstruction,
-    const std::vector<PosePrior>& pose_priors);
-
-// Marks image pairs as invalid whose relative rotation disagrees with the
-// reconstructed rotations by more than `max_angle_deg`. Pairs whose images do
-// not both have a pose are left untouched.
-void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
-                                   const Reconstruction& reconstruction,
-                                   double max_angle_deg);
-
 }  // namespace colmap

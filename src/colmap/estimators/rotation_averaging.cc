@@ -243,8 +243,6 @@ Reconstruction CreateExpandedReconstruction(
   return recon_expanded;
 }
 
-}  // namespace
-
 // Mark edges as invalid if their relative rotation differs from the
 // reconstructed rotation by more than max_angle_deg.
 void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
@@ -276,103 +274,7 @@ void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
             << max_angle_deg << " degrees";
 }
 
-// Estimates rotations for the given `active_image_ids` (a single connected
-// component of `pose_graph`, computed by the caller) and registers their
-// frames. Handles rigs with unknown cam_from_rig by first solving on an
-// expanded reconstruction. Does NOT perform outlier filtering or
-// de-registration; callers handle any post-processing.
-bool RunRotationAveragingOnComponent(
-    const RotationEstimatorOptions& options,
-    PoseGraph& pose_graph,
-    const FlatHashSet<image_t>& active_image_ids,
-    Reconstruction& reconstruction,
-    const std::vector<PosePrior>& pose_priors) {
-  if (active_image_ids.empty()) {
-    LOG(ERROR) << "No connected components found";
-    return false;
-  }
-
-  // Step 1: Solve rotation averaging on the given component.
-  if (!HasUnknownCamsFromRig(reconstruction)) {
-    // All cam_from_rig are known, solve directly on the provided component.
-    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
-
-    RotationEstimator rotation_estimator(options);
-    if (!rotation_estimator.EstimateRotations(
-            pose_graph, pose_priors, active_image_ids, reconstruction)) {
-      return false;
-    }
-  } else {
-    // Some cam_from_rig are unknown. First solve on an expanded reconstruction
-    // where each such camera is treated as an independent rig, then use the
-    // results to initialize cam_from_rig before the final solve.
-    LOG(INFO) << "Detected cameras with unknown cam_from_rig, "
-                 "estimating rotations with these cameras as independent";
-
-    // Step 1a: Create expanded reconstruction and solve.
-    Reconstruction recon_expanded =
-        CreateExpandedReconstruction(reconstruction);
-
-    FlatHashSet<image_t> expanded_active_image_ids =
-        ComputeLargestConnectedComponentImageIds(
-            pose_graph, recon_expanded, options.filter_unregistered);
-
-    if (expanded_active_image_ids.empty()) {
-      LOG(ERROR) << "No connected components found";
-      return false;
-    }
-
-    pose_graph.InvalidatePairsOutsideActiveImageIds(expanded_active_image_ids);
-
-    RotationEstimator rotation_estimator_expanded(options);
-    if (!rotation_estimator_expanded.EstimateRotations(
-            pose_graph,
-            pose_priors,
-            expanded_active_image_ids,
-            recon_expanded)) {
-      return false;
-    }
-
-    // Step 1b: Initialize cam_from_rig from expanded results.
-    NodeHashMap<image_t, Rigid3d> expanded_cams_from_world;
-    for (const auto& [image_id, image] : recon_expanded.Images()) {
-      if (!image.HasPose()) continue;
-      expanded_cams_from_world[image_id] = image.CamFromWorld();
-    }
-
-    LOG(INFO)
-        << "Initializing cam_from_rig from preliminary rotation estimates";
-    InitializeRigRotationsFromImages(expanded_cams_from_world,
-                                     reconstruction,
-                                     options.refine_sensor_from_rig);
-
-    // Step 1c: Solve on original reconstruction with initialized cam_from_rig.
-    // The active set is recomputed on the original reconstruction because
-    // expanding the rigs above changes frame connectivity, so it may differ
-    // from the component the caller passed in.
-    const FlatHashSet<image_t> final_active_image_ids =
-        ComputeLargestConnectedComponentImageIds(
-            pose_graph, reconstruction, options.filter_unregistered);
-
-    if (final_active_image_ids.empty()) {
-      LOG(ERROR) << "No connected components found";
-      return false;
-    }
-
-    pose_graph.InvalidatePairsOutsideActiveImageIds(final_active_image_ids);
-
-    RotationEstimatorOptions options_ra = options;
-    options_ra.skip_initialization = true;
-    options_ra.use_stratified = false;
-    RotationEstimator rotation_estimator(options_ra);
-    if (!rotation_estimator.EstimateRotations(
-            pose_graph, pose_priors, final_active_image_ids, reconstruction)) {
-      return false;
-    }
-  }
-
-  return true;
-}
+}  // namespace
 
 bool RotationEstimator::EstimateRotations(
     const PoseGraph& pose_graph,
@@ -700,14 +602,89 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           PoseGraph& pose_graph,
                           Reconstruction& reconstruction,
                           const std::vector<PosePrior>& pose_priors) {
-  // Step 1: Compute the largest connected component and solve rotation
-  // averaging on it.
-  const FlatHashSet<image_t> active_image_ids =
-      ComputeLargestConnectedComponentImageIds(
-          pose_graph, reconstruction, options.filter_unregistered);
-  if (!RunRotationAveragingOnComponent(
-          options, pose_graph, active_image_ids, reconstruction, pose_priors)) {
-    return false;
+  FlatHashSet<image_t> active_image_ids;
+
+  // Step 1: Solve rotation averaging on the largest connected component.
+  if (!HasUnknownCamsFromRig(reconstruction)) {
+    // All cam_from_rig are known, solve directly.
+    active_image_ids = ComputeLargestConnectedComponentImageIds(
+        pose_graph, reconstruction, options.filter_unregistered);
+
+    if (active_image_ids.empty()) {
+      LOG(ERROR) << "No connected components found";
+      return false;
+    }
+
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+
+    RotationEstimator rotation_estimator(options);
+    if (!rotation_estimator.EstimateRotations(
+            pose_graph, pose_priors, active_image_ids, reconstruction)) {
+      return false;
+    }
+  } else {
+    // Some cam_from_rig are unknown. First solve on an expanded reconstruction
+    // where each such camera is treated as an independent rig, then use the
+    // results to initialize cam_from_rig before the final solve.
+    LOG(INFO) << "Detected cameras with unknown cam_from_rig, "
+                 "estimating rotations with these cameras as independent";
+
+    // Step 1a: Create expanded reconstruction and solve.
+    Reconstruction recon_expanded =
+        CreateExpandedReconstruction(reconstruction);
+
+    FlatHashSet<image_t> expanded_active_image_ids =
+        ComputeLargestConnectedComponentImageIds(
+            pose_graph, recon_expanded, options.filter_unregistered);
+
+    if (expanded_active_image_ids.empty()) {
+      LOG(ERROR) << "No connected components found";
+      return false;
+    }
+
+    pose_graph.InvalidatePairsOutsideActiveImageIds(expanded_active_image_ids);
+
+    RotationEstimator rotation_estimator_expanded(options);
+    if (!rotation_estimator_expanded.EstimateRotations(
+            pose_graph,
+            pose_priors,
+            expanded_active_image_ids,
+            recon_expanded)) {
+      return false;
+    }
+
+    // Step 1b: Initialize cam_from_rig from expanded results.
+    NodeHashMap<image_t, Rigid3d> expanded_cams_from_world;
+    for (const auto& [image_id, image] : recon_expanded.Images()) {
+      if (!image.HasPose()) continue;
+      expanded_cams_from_world[image_id] = image.CamFromWorld();
+    }
+
+    LOG(INFO)
+        << "Initializing cam_from_rig from preliminary rotation estimates";
+    InitializeRigRotationsFromImages(expanded_cams_from_world,
+                                     reconstruction,
+                                     options.refine_sensor_from_rig);
+
+    // Step 1c: Solve on original reconstruction with initialized cam_from_rig.
+    active_image_ids = ComputeLargestConnectedComponentImageIds(
+        pose_graph, reconstruction, options.filter_unregistered);
+
+    if (active_image_ids.empty()) {
+      LOG(ERROR) << "No connected components found";
+      return false;
+    }
+
+    pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
+
+    RotationEstimatorOptions options_ra = options;
+    options_ra.skip_initialization = true;
+    options_ra.use_stratified = false;
+    RotationEstimator rotation_estimator(options_ra);
+    if (!rotation_estimator.EstimateRotations(
+            pose_graph, pose_priors, active_image_ids, reconstruction)) {
+      return false;
+    }
   }
 
   // Step 2: Filter outlier pairs by rotation error and update the active set.
@@ -716,9 +693,8 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
         pose_graph, reconstruction, options.max_rotation_error_deg);
 
     // Recompute largest connected component among registered frames.
-    const FlatHashSet<image_t> active_image_ids =
-        ComputeLargestConnectedComponentImageIds(
-            pose_graph, reconstruction, /*filter_unregistered=*/true);
+    active_image_ids = ComputeLargestConnectedComponentImageIds(
+        pose_graph, reconstruction, /*filter_unregistered=*/true);
 
     if (active_image_ids.empty()) {
       LOG(ERROR) << "No connected components found after filtering";

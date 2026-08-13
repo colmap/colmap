@@ -4,6 +4,35 @@
 #include "colmap/util/hash_containers.h"
 
 namespace colmap {
+namespace {
+
+struct FrameGraph {
+  FlatHashSet<frame_t> nodes;
+  std::vector<std::pair<frame_t, frame_t>> edges;
+};
+
+FrameGraph BuildFrameGraph(const PoseGraph& pose_graph,
+                           const Reconstruction& reconstruction,
+                           const bool filter_unregistered) {
+  FrameGraph graph;
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
+    const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
+
+    if (filter_unregistered && (!reconstruction.Frame(frame_id1).HasPose() ||
+                                !reconstruction.Frame(frame_id2).HasPose())) {
+      continue;
+    }
+
+    graph.nodes.insert(frame_id1);
+    graph.nodes.insert(frame_id2);
+    graph.edges.emplace_back(frame_id1, frame_id2);
+  }
+  return graph;
+}
+
+}  // namespace
 
 void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   for (const auto& [pair_id, num_matches] :
@@ -24,33 +53,14 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
 
 std::vector<FlatHashSet<frame_t>> PoseGraph::ComputeConnectedFrameComponents(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
-  FlatHashSet<frame_t> nodes;
-  std::vector<std::pair<frame_t, frame_t>> graph_edges;
-
-  for (const auto& [pair_id, edge] : ValidEdges()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
-    const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
-
-    // If filter_unregistered, skip pairs where either frame has no pose.
-    if (filter_unregistered) {
-      if (!reconstruction.Frame(frame_id1).HasPose() ||
-          !reconstruction.Frame(frame_id2).HasPose()) {
-        continue;
-      }
-    }
-
-    nodes.insert(frame_id1);
-    nodes.insert(frame_id2);
-    graph_edges.emplace_back(frame_id1, frame_id2);
-  }
-
-  if (nodes.empty()) {
+  FrameGraph graph =
+      BuildFrameGraph(*this, reconstruction, filter_unregistered);
+  if (graph.nodes.empty()) {
     return {};
   }
 
   std::vector<std::vector<frame_t>> components =
-      FindConnectedComponents(nodes, graph_edges);
+      FindConnectedComponents(graph.nodes, graph.edges);
 
   std::sort(components.begin(),
             components.end(),
@@ -71,7 +81,7 @@ std::vector<FlatHashSet<image_t>> PoseGraph::ComputeConnectedComponentImageIds(
   const std::vector<FlatHashSet<frame_t>> frame_components =
       ComputeConnectedFrameComponents(reconstruction, filter_unregistered);
 
-  NodeHashMap<frame_t, int> frame_to_component;
+  FlatHashMap<frame_t, int> frame_to_component;
   for (int comp = 0; comp < static_cast<int>(frame_components.size()); ++comp) {
     for (const frame_t frame_id : frame_components[comp]) {
       frame_to_component[frame_id] = comp;
@@ -90,16 +100,14 @@ std::vector<FlatHashSet<image_t>> PoseGraph::ComputeConnectedComponentImageIds(
 
 FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
-  std::vector<FlatHashSet<frame_t>> components =
-      ComputeConnectedFrameComponents(reconstruction, filter_unregistered);
-  if (components.empty()) {
+  FrameGraph graph =
+      BuildFrameGraph(*this, reconstruction, filter_unregistered);
+  if (graph.nodes.empty()) {
     return {};
   }
-  // Components are sorted by descending size, so the first is the largest.
-  // Move it into a named local so the return is a plain NRVO-eligible move
-  // (std::move on the vector element itself avoids copying the set).
-  FlatHashSet<frame_t> largest = std::move(components.front());
-  return largest;
+  const std::vector<frame_t> largest_component =
+      FindLargestConnectedComponent(graph.nodes, graph.edges);
+  return {largest_component.begin(), largest_component.end()};
 }
 
 void PoseGraph::InvalidatePairsOutsideActiveImageIds(
@@ -116,27 +124,9 @@ void PoseGraph::InvalidatePairsOutsideActiveImageIds(
 int PoseGraph::MarkConnectedComponents(const Reconstruction& reconstruction,
                                        NodeHashMap<frame_t, int>& cluster_ids,
                                        int min_num_images) const {
-  FlatHashSet<frame_t> nodes;
-  std::vector<std::pair<frame_t, frame_t>> graph_edges;
-  for (const auto& [pair_id, edge] : ValidEdges()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
-    const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
-    nodes.insert(frame_id1);
-    nodes.insert(frame_id2);
-    graph_edges.emplace_back(frame_id1, frame_id2);
-  }
-
-  const std::vector<std::vector<frame_t>> connected_components =
-      FindConnectedComponents(nodes, graph_edges);
-  const int num_comp = static_cast<int>(connected_components.size());
-
-  std::vector<std::pair<int, int>> comp_num_images(num_comp);
-  for (int comp = 0; comp < num_comp; comp++) {
-    comp_num_images[comp] =
-        std::make_pair(connected_components[comp].size(), comp);
-  }
-  std::sort(comp_num_images.begin(), comp_num_images.end(), std::greater<>());
+  const std::vector<FlatHashSet<frame_t>> connected_components =
+      ComputeConnectedFrameComponents(reconstruction,
+                                      /*filter_unregistered=*/false);
 
   // Clear and populate cluster_ids output parameter
   cluster_ids.clear();
@@ -145,9 +135,11 @@ int PoseGraph::MarkConnectedComponents(const Reconstruction& reconstruction,
   }
 
   int comp = 0;
-  for (; comp < num_comp; comp++) {
-    if (comp_num_images[comp].first < min_num_images) break;
-    for (auto frame_id : connected_components[comp_num_images[comp].second]) {
+  for (; comp < static_cast<int>(connected_components.size()); ++comp) {
+    if (static_cast<int>(connected_components[comp].size()) < min_num_images) {
+      break;
+    }
+    for (const frame_t frame_id : connected_components[comp]) {
       cluster_ids[frame_id] = comp;
     }
   }

@@ -34,11 +34,10 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <algorithm>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -221,9 +220,9 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
 
 // Returns the set of registered image ids for each reconstruction managed by
 // `reconstruction_manager`.
-std::vector<std::unordered_set<image_t>> RegImageIdSetsPerReconstruction(
+std::vector<FlatHashSet<image_t>> RegImageIdSetsPerReconstruction(
     const ReconstructionManager& reconstruction_manager) {
-  std::vector<std::unordered_set<image_t>> image_id_sets;
+  std::vector<FlatHashSet<image_t>> image_id_sets;
   for (size_t i = 0; i < reconstruction_manager.Size(); ++i) {
     const std::vector<image_t> reg_image_ids =
         reconstruction_manager.Get(i)->RegImageIds();
@@ -233,15 +232,15 @@ std::vector<std::unordered_set<image_t>> RegImageIdSetsPerReconstruction(
 }
 
 // Groups the registered images of `reconstruction` by their rig.
-std::vector<std::unordered_set<image_t>> GroupImageIdsByRig(
+std::vector<FlatHashSet<image_t>> GroupImageIdsByRig(
     const Reconstruction& reconstruction) {
-  std::unordered_map<rig_t, std::unordered_set<image_t>> images_by_rig;
+  FlatHashMap<rig_t, FlatHashSet<image_t>> images_by_rig;
   for (const auto& [frame_id, frame] : reconstruction.Frames()) {
     for (const data_t& data_id : frame.ImageIds()) {
       images_by_rig[frame.RigId()].insert(data_id.id);
     }
   }
-  std::vector<std::unordered_set<image_t>> groups;
+  std::vector<FlatHashSet<image_t>> groups;
   groups.reserve(images_by_rig.size());
   for (auto& [rig_id, image_ids] : images_by_rig) {
     groups.push_back(std::move(image_ids));
@@ -255,7 +254,7 @@ std::vector<std::unordered_set<image_t>> GroupImageIdsByRig(
 // boundaries (e.g. one full rig) so the result is internally consistent.
 Reconstruction ExtractGroundTruthSubset(
     const Reconstruction& gt_reconstruction,
-    const std::unordered_set<image_t>& group_image_ids) {
+    const FlatHashSet<image_t>& group_image_ids) {
   Reconstruction subset = gt_reconstruction;
   std::vector<frame_t> frames_to_deregister;
   for (const auto& [frame_id, frame] : subset.Frames()) {
@@ -279,9 +278,8 @@ Reconstruction ExtractGroundTruthSubset(
 // Deletes all two-view geometries and matches connecting images from different
 // groups so the view graph in the database splits into disconnected components.
 void DisconnectDatabaseComponents(
-    const std::vector<std::unordered_set<image_t>>& groups,
-    Database& database) {
-  std::unordered_map<image_t, int> image_to_group;
+    const std::vector<FlatHashSet<image_t>>& groups, Database& database) {
+  FlatHashMap<image_t, int> image_to_group;
   for (int group = 0; group < static_cast<int>(groups.size()); ++group) {
     for (const image_t image_id : groups[group]) {
       image_to_group[image_id] = group;
@@ -304,10 +302,10 @@ void DisconnectDatabaseComponents(
 // single initial connected component that rotation averaging must split by
 // filtering the outliers.
 void BridgeGroupsWithOutlierEdges(
-    const std::vector<std::unordered_set<image_t>>& groups,
+    const std::vector<FlatHashSet<image_t>>& groups,
     int num_outlier_edges,
     Database& database) {
-  std::unordered_map<image_t, int> image_to_group;
+  FlatHashMap<image_t, int> image_to_group;
   for (int group = 0; group < static_cast<int>(groups.size()); ++group) {
     for (const image_t image_id : groups[group]) {
       image_to_group[image_id] = group;
@@ -354,7 +352,7 @@ TEST(GlobalPipeline, MultiComponents) {
   // Split the images into two groups (one per rig) and cut all cross-group
   // matches so the view graph decomposes into two connected components.
   // Grouping by rig keeps each component's ground truth well-defined.
-  const std::vector<std::unordered_set<image_t>> expected_components =
+  const std::vector<FlatHashSet<image_t>> expected_components =
       GroupImageIdsByRig(gt_reconstruction);
   ASSERT_EQ(expected_components.size(), 2);
   ASSERT_EQ(expected_components[0].size(), 5);
@@ -378,8 +376,8 @@ TEST(GlobalPipeline, MultiComponents) {
   for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
     const Reconstruction& reconstruction = *reconstruction_manager->Get(i);
     const std::vector<image_t> reg_image_ids = reconstruction.RegImageIds();
-    const std::unordered_set<image_t> reconstruction_image_ids(
-        reg_image_ids.begin(), reg_image_ids.end());
+    const FlatHashSet<image_t> reconstruction_image_ids(reg_image_ids.begin(),
+                                                        reg_image_ids.end());
     const auto group_it = std::find(expected_components.begin(),
                                     expected_components.end(),
                                     reconstruction_image_ids);
@@ -391,6 +389,151 @@ TEST(GlobalPipeline, MultiComponents) {
                                    /*max_rotation_error_deg=*/1e-2,
                                    /*max_proj_center_error=*/1e-4));
   }
+}
+
+TEST(GlobalPipeline, ReconstructOnlyLargestComponent) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  options.reconstruct_all_components = false;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_EQ(reconstruction_manager->Get(0)->NumRegFrames(), 5);
+}
+
+// The current component must be visible through the reconstruction manager
+// while callbacks run, and a stop request must prevent subsequent components
+// from starting.
+TEST(GlobalPipeline, MultiComponentsStopAfterFirstComponent) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+
+  bool stop_requested = false;
+  bool callback_saw_in_progress_reconstruction = false;
+  mapper.AddCallback(GlobalPipeline::MODEL_UPDATE_CALLBACK, [&]() {
+    callback_saw_in_progress_reconstruction =
+        reconstruction_manager->Size() == 1 &&
+        reconstruction_manager->Get(0)->NumRegFrames() > 0;
+    stop_requested = true;
+  });
+  mapper.SetCheckIfStoppedFunc([&]() { return stop_requested; });
+  mapper.Run();
+
+  EXPECT_TRUE(callback_saw_in_progress_reconstruction);
+  EXPECT_TRUE(stop_requested);
+  EXPECT_EQ(reconstruction_manager->Size(), 1);
+}
+
+// Components that cannot meet min_num_frames are discarded before invoking
+// the expensive global mapper.
+TEST(GlobalPipeline, MultiComponentsBelowMinNumFrames) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 20;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  options.min_num_frames = 3;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  bool callback_called = false;
+  mapper.AddCallback(GlobalPipeline::MODEL_UPDATE_CALLBACK,
+                     [&]() { callback_called = true; });
+  mapper.Run();
+
+  EXPECT_FALSE(callback_called);
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
+}
+
+// Multi-camera rigs with unknown sensor_from_rig must be calibrated
+// independently in each disconnected component.
+TEST(GlobalPipeline, MultiComponentsWithUnknownSensorFromRig) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  ASSERT_EQ(expected_components.size(), 2);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  for (Rig rig : database->ReadAllRigs()) {
+    for (const sensor_t sensor_id : rig.SensorIds()) {
+      if (!rig.IsRefSensor(sensor_id)) {
+        rig.ResetSensorFromRig(sensor_id);
+      }
+    }
+    database->UpdateRig(rig);
+  }
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 2);
+  EXPECT_THAT(RegImageIdSetsPerReconstruction(*reconstruction_manager),
+              testing::UnorderedElementsAreArray(expected_components));
 }
 
 // End-to-end: two clusters bridged only by a couple of outlier edges (with
@@ -420,7 +563,7 @@ TEST(GlobalPipeline, MultiComponentsWithOutlierEdges) {
   std::vector<image_t> image_ids = gt_reconstruction.RegImageIds();
   std::sort(image_ids.begin(), image_ids.end());
   ASSERT_EQ(image_ids.size(), 10);
-  const std::vector<std::unordered_set<image_t>> expected_components = {
+  const std::vector<FlatHashSet<image_t>> expected_components = {
       {image_ids.begin(), image_ids.begin() + 5},
       {image_ids.begin() + 5, image_ids.end()}};
 
@@ -467,7 +610,7 @@ TEST(GlobalPipeline, MultiComponentsWithOutlierEdgesUsingGravity) {
   std::vector<image_t> image_ids = gt_reconstruction.RegImageIds();
   std::sort(image_ids.begin(), image_ids.end());
   ASSERT_EQ(image_ids.size(), 10);
-  const std::vector<std::unordered_set<image_t>> expected_components = {
+  const std::vector<FlatHashSet<image_t>> expected_components = {
       {image_ids.begin(), image_ids.begin() + 5},
       {image_ids.begin() + 5, image_ids.end()}};
 

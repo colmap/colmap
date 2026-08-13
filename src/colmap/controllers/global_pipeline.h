@@ -90,15 +90,28 @@ class GlobalPipeline : public BaseController {
   void Run() override;
 
  private:
+  struct ReconstructionStats {
+    size_t num_failed = 0;
+    size_t num_too_small = 0;
+  };
+
+  struct ReconstructionResult {
+    std::shared_ptr<Reconstruction> reconstruction;
+    bool success = false;
+  };
+
   // Run the full global SfM pipeline on the given database cache and return
-  // the resulting reconstruction.
-  std::shared_ptr<Reconstruction> ReconstructSingleComponent(
+  // the resulting reconstruction. The in-progress reconstruction is added to
+  // the manager so callbacks can render it. The caller decides whether to keep
+  // it based on the returned success state.
+  ReconstructionResult ReconstructSingleComponent(
       const std::shared_ptr<const DatabaseCache>& database_cache,
       const GlobalMapperOptions& mapper_options);
 
-  // Partition the view graph into connected components and run the full
-  // pipeline per component. Returns the resulting reconstructions.
-  std::vector<std::shared_ptr<Reconstruction>> ReconstructMultiComponents(
+  // Partition the input view graph into connected components and reconstruct
+  // each one. If rotation filtering discards part of a component, continue
+  // reconstructing the remaining images until no component is left.
+  ReconstructionStats ReconstructMultiComponents(
       const GlobalMapperOptions& mapper_options);
 
   const GlobalPipelineOptions options_;
