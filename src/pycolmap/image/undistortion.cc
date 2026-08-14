@@ -11,6 +11,21 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindUndistortion(py::module& m) {
+  auto PyWarpImageOptions =
+      py::classh<WarpImageOptions>(m, "WarpImageOptions").def(py::init<>());
+  auto PyInterpolation =
+      py::enum_<WarpImageOptions::Interpolation>(PyWarpImageOptions,
+                                                 "Interpolation")
+          .value("NEAREST_NEIGHBOR",
+                 WarpImageOptions::Interpolation::kNearestNeighbor)
+          .value("BILINEAR", WarpImageOptions::Interpolation::kBilinear);
+  AddStringToEnumConstructor(PyInterpolation);
+  PyWarpImageOptions
+      .def_readwrite("interpolation", &WarpImageOptions::interpolation)
+      .def_readwrite("direct_warp_min_scale",
+                     &WarpImageOptions::direct_warp_min_scale);
+  MakeDataclass(PyWarpImageOptions);
+
   auto PyUndistortCameraOptions =
       py::classh<UndistortCameraOptions>(m, "UndistortCameraOptions")
           .def(py::init<>())
@@ -24,7 +39,8 @@ void BindUndistortion(py::module& m) {
           .def_readwrite("roi_max_x", &UndistortCameraOptions::roi_max_x)
           .def_readwrite("roi_max_y", &UndistortCameraOptions::roi_max_y)
           .def_readwrite("max_cam_point_norm",
-                         &UndistortCameraOptions::max_cam_point_norm);
+                         &UndistortCameraOptions::max_cam_point_norm)
+          .def_readwrite("warp_options", &UndistortCameraOptions::warp_options);
   MakeDataclass(PyUndistortCameraOptions);
 
   m.def("undistort_camera",

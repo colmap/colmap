@@ -29,43 +29,218 @@
 
 #include "colmap/scene/scene_clustering.h"
 
-#include "colmap/scene/database.h"
-
+#include <algorithm>
+#include <initializer_list>
 #include <set>
+#include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
+struct SceneGraph {
+  std::vector<std::pair<image_t, image_t>> image_pairs;
+  std::vector<int> num_inliers;
+};
+
+// Image connectivity graph:
+//
+//               100           10
+//        (0) -------- (1) -------- (2)
+//         |                         |
+//        10                        100
+//         |                         |
+//        (5) -------- (4) -------- (3)
+//              100           10
+//
+// Weak cross-cluster connections (1 inlier):
+//        (0) -------- (3)
+//        (2) -------- (5)
+//        (4) -------- (1)
+SceneGraph MakeSceneGraphOneLevel() {
+  static const SceneGraph graph = {
+      {{0, 1}, {2, 3}, {4, 5}, {1, 2}, {3, 4}, {5, 0}, {0, 3}, {2, 5}, {4, 1}},
+      {100, 100, 100, 10, 10, 10, 1, 1, 1}};
+  return graph;
+}
+
+// Image connectivity graph:
+//
+//               100          50          100
+//        (0) -------- (1) -------- (2) -------- (3)
+//         |                                      |
+//        10                                      10
+//         |                                      |
+//        (7) -------- (6) -------- (5) -------- (4)
+//              100          50          100
+//
+// Weak cross-cluster connections (1 inlier):
+//        (0) -------- (4)
+//        (1) -------- (6)
+//        (2) -------- (5)
+//        (3) -------- (7)
+SceneGraph MakeSceneGraphTwoLevel() {
+  static const SceneGraph graph = {
+      {{0, 1},
+       {1, 2},
+       {2, 3},
+       {4, 5},
+       {5, 6},
+       {6, 7},
+       {0, 7},
+       {3, 4},
+       {0, 4},
+       {1, 6},
+       {2, 5},
+       {3, 7}},
+      {100, 50, 100, 100, 50, 100, 10, 10, 1, 1, 1, 1}};
+  return graph;
+}
+
+// Path graph with three levels of progressively weaker connections.
+SceneGraph MakeSceneGraphThreeLevel() {
+  static const SceneGraph graph = {{{0, 1},
+                                    {1, 2},
+                                    {2, 3},
+                                    {3, 4},
+                                    {4, 5},
+                                    {5, 6},
+                                    {6, 7},
+                                    {7, 8},
+                                    {8, 9},
+                                    {9, 10},
+                                    {10, 11},
+                                    {11, 12},
+                                    {12, 13},
+                                    {13, 14},
+                                    {14, 15}},
+                                   {1000,
+                                    100,
+                                    1000,
+                                    10,
+                                    1000,
+                                    100,
+                                    1000,
+                                    1,
+                                    1000,
+                                    100,
+                                    1000,
+                                    10,
+                                    1000,
+                                    100,
+                                    1000}};
+  return graph;
+}
+
+// The first six images form one top-level cluster and the last six images form
+// the other. Image 6 overlaps the first cluster. Its strongest individual
+// connection is to image 0, but its combined connection to images 3 and 4 is
+// stronger.
+SceneGraph MakeSceneGraphAggregateOverlap() {
+  static const SceneGraph graph = {{{0, 1},
+                                    {1, 2},
+                                    {2, 3},
+                                    {3, 4},
+                                    {4, 5},
+                                    {6, 7},
+                                    {7, 8},
+                                    {8, 9},
+                                    {9, 10},
+                                    {10, 11},
+                                    {6, 0},
+                                    {6, 3},
+                                    {6, 4}},
+                                   {10000,
+                                    10000,
+                                    1,
+                                    10000,
+                                    10000,
+                                    20000,
+                                    20000,
+                                    20000,
+                                    20000,
+                                    20000,
+                                    100,
+                                    90,
+                                    90}};
+  return graph;
+}
+
+MATCHER_P(UnorderedClustersEqMatcher,
+          expected_clusters,
+          "is equal to the expected clusters (ignoring order): " +
+              ::testing::PrintToString(expected_clusters)) {
+  std::vector<std::set<image_t>> actual;
+  actual.reserve(arg.size());
+  for (const auto& cluster : arg) {
+    actual.emplace_back(cluster.begin(), cluster.end());
+  }
+  std::vector<std::set<image_t>> expected;
+  expected.reserve(expected_clusters.size());
+  for (const auto& cluster : expected_clusters) {
+    expected.emplace_back(cluster.begin(), cluster.end());
+  }
+  std::sort(actual.begin(), actual.end());
+  std::sort(expected.begin(), expected.end());
+  return actual == expected;
+}
+
+template <typename... ClusterTypes>
+auto UnorderedClustersEq(std::initializer_list<ClusterTypes>... clusters) {
+  std::vector<std::set<image_t>> expected;
+  expected.reserve(sizeof...(clusters));
+  (expected.emplace_back(clusters.begin(), clusters.end()), ...);
+  return UnorderedClustersEqMatcher(expected);
+}
+
+std::vector<std::set<image_t>> GetLeafImageSets(
+    const std::vector<const SceneClustering::Cluster*>& leaves) {
+  std::vector<std::set<image_t>> leaf_image_sets;
+  leaf_image_sets.reserve(leaves.size());
+  for (const auto* leaf : leaves) {
+    leaf_image_sets.emplace_back(leaf->image_ids.begin(),
+                                 leaf->image_ids.end());
+  }
+  return leaf_image_sets;
+}
+
+std::vector<std::set<image_t>> GetChildImageSets(
+    const SceneClustering::Cluster& cluster) {
+  std::vector<std::set<image_t>> child_image_sets;
+  child_image_sets.reserve(cluster.child_clusters.size());
+  for (const auto& child : cluster.child_clusters) {
+    child_image_sets.emplace_back(child.image_ids.begin(),
+                                  child.image_ids.end());
+  }
+  return child_image_sets;
+}
+
 TEST(SceneClustering, Empty) {
-  const std::vector<std::pair<image_t, image_t>> image_pairs;
-  const std::vector<int> num_inliers;
   SceneClustering::Options options;
   options.branching = 2;
   options.image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
-  EXPECT_TRUE(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs, num_inliers);
+  EXPECT_EQ(scene_clustering.GetRootCluster(), nullptr);
+  scene_clustering.Partition({}, {});
   EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids.size(), 0);
   EXPECT_EQ(scene_clustering.GetRootCluster()->child_clusters.size(), 0);
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 1);
 }
 
 TEST(SceneClustering, OneLevel) {
-  const std::vector<std::pair<image_t, image_t>> image_pairs = {{0, 1}};
-  const std::vector<int> num_inliers = {10};
   SceneClustering::Options options;
   options.branching = 2;
   options.image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
-  EXPECT_TRUE(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs, num_inliers);
+  EXPECT_EQ(scene_clustering.GetRootCluster(), nullptr);
+  scene_clustering.Partition({{0, 1}}, {10});
   EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids.size(), 2);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[0], 0);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[1], 1);
+  EXPECT_THAT(scene_clustering.GetRootCluster()->image_ids,
+              ::testing::UnorderedElementsAre(0, 1));
   EXPECT_EQ(scene_clustering.GetRootCluster()->child_clusters.size(), 0);
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 1);
   EXPECT_EQ(scene_clustering.GetRootCluster(),
@@ -73,89 +248,128 @@ TEST(SceneClustering, OneLevel) {
 }
 
 TEST(SceneClustering, ThreeFlatClusters) {
-  const std::vector<std::pair<image_t, image_t>> image_pairs = {
-      {0, 1}, {2, 3}, {4, 5}, {1, 2}, {3, 4}, {5, 0}, {0, 3}, {2, 5}, {4, 1}};
-  const std::vector<int> num_inliers = {100, 100, 100, 10, 10, 10, 1, 1, 1};
+  const SceneGraph graph = MakeSceneGraphOneLevel();
+
   SceneClustering::Options options;
   options.branching = 3;
   options.image_overlap = 0;
-  options.branching = 3;
   options.is_hierarchical = false;
   SceneClustering scene_clustering(options);
-  EXPECT_TRUE(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs, num_inliers);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids.size(), 6);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[0], 0);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[1], 1);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[2], 2);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[3], 3);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[4], 4);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[5], 5);
+  EXPECT_EQ(scene_clustering.GetRootCluster(), nullptr);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 3);
-  EXPECT_EQ(scene_clustering.GetLeafClusters()[0]->image_ids.size(), 2);
-  const std::set<image_t> image_ids0(
-      scene_clustering.GetLeafClusters()[0]->image_ids.begin(),
-      scene_clustering.GetLeafClusters()[0]->image_ids.end());
-  EXPECT_TRUE(image_ids0.count(0));
-  EXPECT_TRUE(image_ids0.count(1));
-  EXPECT_EQ(scene_clustering.GetLeafClusters()[1]->image_ids.size(), 2);
-  const std::set<image_t> image_ids1(
-      scene_clustering.GetLeafClusters()[1]->image_ids.begin(),
-      scene_clustering.GetLeafClusters()[1]->image_ids.end());
-  EXPECT_TRUE(image_ids1.count(2));
-  EXPECT_TRUE(image_ids1.count(3));
-  EXPECT_EQ(scene_clustering.GetLeafClusters()[2]->image_ids.size(), 2);
-  const std::set<image_t> image_ids2(
-      scene_clustering.GetLeafClusters()[2]->image_ids.begin(),
-      scene_clustering.GetLeafClusters()[2]->image_ids.end());
-  EXPECT_TRUE(image_ids2.count(4));
-  EXPECT_TRUE(image_ids2.count(5));
+  EXPECT_THAT(GetLeafImageSets(scene_clustering.GetLeafClusters()),
+              UnorderedClustersEq({0, 1}, {2, 3}, {4, 5}));
 }
 
 TEST(SceneClustering, ThreeFlatClustersTwoOverlap) {
-  const std::vector<std::pair<image_t, image_t>> image_pairs = {
-      {0, 1}, {2, 3}, {4, 5}, {1, 2}, {3, 4}, {5, 0}, {0, 3}, {2, 5}, {4, 1}};
-  const std::vector<int> num_inliers = {100, 100, 100, 10, 10, 10, 1, 1, 1};
+  const SceneGraph graph = MakeSceneGraphOneLevel();
+
   SceneClustering::Options options;
   options.branching = 3;
   options.image_overlap = 2;
-  options.branching = 3;
   options.is_hierarchical = false;
   SceneClustering scene_clustering(options);
-  EXPECT_TRUE(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs, num_inliers);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids.size(), 6);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[0], 0);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[1], 1);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[2], 2);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[3], 3);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[4], 4);
-  EXPECT_EQ(scene_clustering.GetRootCluster()->image_ids[5], 5);
+  EXPECT_EQ(scene_clustering.GetRootCluster(), nullptr);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 3);
-  EXPECT_EQ(scene_clustering.GetLeafClusters()[0]->image_ids.size(), 4);
-  const std::set<image_t> image_ids0(
-      scene_clustering.GetLeafClusters()[0]->image_ids.begin(),
-      scene_clustering.GetLeafClusters()[0]->image_ids.end());
-  EXPECT_TRUE(image_ids0.count(0));
-  EXPECT_TRUE(image_ids0.count(1));
-  EXPECT_TRUE(image_ids0.count(2));
-  EXPECT_TRUE(image_ids0.count(5));
-  EXPECT_EQ(scene_clustering.GetLeafClusters()[1]->image_ids.size(), 4);
-  const std::set<image_t> image_ids1(
-      scene_clustering.GetLeafClusters()[1]->image_ids.begin(),
-      scene_clustering.GetLeafClusters()[1]->image_ids.end());
-  EXPECT_TRUE(image_ids1.count(1));
-  EXPECT_TRUE(image_ids1.count(2));
-  EXPECT_TRUE(image_ids1.count(3));
-  EXPECT_TRUE(image_ids1.count(4));
-  EXPECT_EQ(scene_clustering.GetLeafClusters()[2]->image_ids.size(), 4);
-  const std::set<image_t> image_ids2(
-      scene_clustering.GetLeafClusters()[2]->image_ids.begin(),
-      scene_clustering.GetLeafClusters()[2]->image_ids.end());
-  EXPECT_TRUE(image_ids2.count(0));
-  EXPECT_TRUE(image_ids2.count(3));
-  EXPECT_TRUE(image_ids2.count(4));
-  EXPECT_TRUE(image_ids2.count(5));
+  EXPECT_THAT(GetLeafImageSets(scene_clustering.GetLeafClusters()),
+              UnorderedClustersEq({0, 1, 2, 5}, {1, 2, 3, 4}, {0, 3, 4, 5}));
+}
+
+TEST(SceneClustering, HierarchicalTwoLevelsNoOverlap) {
+  const SceneGraph graph = MakeSceneGraphTwoLevel();
+
+  SceneClustering::Options options;
+  options.branching = 2;
+  options.image_overlap = 0;
+  options.leaf_max_num_images = 2;
+  SceneClustering scene_clustering(options);
+  EXPECT_EQ(scene_clustering.GetRootCluster(), nullptr);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 4);
+  EXPECT_THAT(GetLeafImageSets(scene_clustering.GetLeafClusters()),
+              UnorderedClustersEq({0, 1}, {2, 3}, {4, 5}, {6, 7}));
+}
+
+TEST(SceneClustering, HierarchicalTwoLevelsWithOverlap) {
+  const SceneGraph graph = MakeSceneGraphTwoLevel();
+
+  SceneClustering::Options options;
+  options.branching = 2;
+  options.image_overlap = 2;
+  options.leaf_max_num_images = 3;
+  SceneClustering scene_clustering(options);
+  EXPECT_EQ(scene_clustering.GetRootCluster(), nullptr);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 4);
+  EXPECT_THAT(
+      GetLeafImageSets(scene_clustering.GetLeafClusters()),
+      UnorderedClustersEq(
+          {0, 1, 2, 3, 4}, {0, 1, 2, 4, 7}, {0, 3, 4, 5, 6}, {0, 4, 5, 6, 7}));
+}
+
+TEST(SceneClustering, HierarchicalThreeLevelsWithOverlap) {
+  const SceneGraph graph = MakeSceneGraphThreeLevel();
+
+  SceneClustering::Options options;
+  options.branching = 2;
+  options.image_overlap = 1;
+  options.leaf_max_num_images = 3;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  // Top-level overlap images are partitioned twice after they are inherited,
+  // exercising connectivity beyond the single generation covered above.
+  EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 8);
+  EXPECT_THAT(GetLeafImageSets(scene_clustering.GetLeafClusters()),
+              UnorderedClustersEq({0, 1, 2},
+                                  {1, 2, 3, 4},
+                                  {3, 4, 5, 6},
+                                  {5, 6, 7, 8},
+                                  {7, 8, 9, 10},
+                                  {9, 10, 11, 12},
+                                  {11, 12, 13, 14},
+                                  {13, 14, 15}));
+}
+
+TEST(SceneClustering, HierarchicalOverlapUsesAllConnections) {
+  const SceneGraph graph = MakeSceneGraphAggregateOverlap();
+
+  SceneClustering::Options options;
+  options.branching = 2;
+  options.image_overlap = 1;
+  options.leaf_max_num_images = 4;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  const SceneClustering::Cluster* target_cluster = nullptr;
+  for (const auto& child : scene_clustering.GetRootCluster()->child_clusters) {
+    const std::set<image_t> image_ids(child.image_ids.begin(),
+                                      child.image_ids.end());
+    if (image_ids.count(0) && image_ids.count(1) && image_ids.count(2) &&
+        image_ids.count(3) && image_ids.count(4) && image_ids.count(5)) {
+      target_cluster = &child;
+      break;
+    }
+  }
+  ASSERT_NE(target_cluster, nullptr);
+  const auto child_image_sets = GetChildImageSets(*target_cluster);
+  ASSERT_EQ(child_image_sets.size(), 2);
+
+  // Image 6 does not simply follow its strongest connection to image 0. Its
+  // full connectivity to images 3 and 4 participates in the graph cut. The
+  // exact partition is implementation-dependent in METIS.
+  EXPECT_TRUE(std::any_of(child_image_sets.begin(),
+                          child_image_sets.end(),
+                          [](const std::set<image_t>& image_ids) {
+                            return image_ids.count(3) && image_ids.count(4) &&
+                                   image_ids.count(6);
+                          }));
 }
 
 }  // namespace

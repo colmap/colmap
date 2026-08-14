@@ -134,6 +134,31 @@ bool HasUnknownSensorFromRig(const Reconstruction& reconstruction) {
   return false;
 }
 
+void AlignReconstructionToPriorsOrRigScale(
+    const IncrementalPipelineOptions& options,
+    const DatabaseCache& database_cache,
+    Reconstruction* reconstruction) {
+  if (options.use_prior_position) {
+    PosePriorBundleAdjustmentOptions prior_options;
+    prior_options.alignment_ransac_options.random_seed = options.random_seed;
+
+    Sim3d metric_from_reconstruction;
+    if (AlignReconstructionToPosePriors(
+            *reconstruction,
+            database_cache.PosePriors(),
+            prior_options.alignment_ransac_options,
+            prior_options.prior_position_fallback_stddev,
+            &metric_from_reconstruction)) {
+      reconstruction->Transform(metric_from_reconstruction);
+      return;
+    }
+    LOG(WARNING) << "Final alignment w.r.t. prior positions failed; restoring "
+                    "the original rig scale instead";
+  }
+
+  AlignReconstructionToOrigRigScales(database_cache.Rigs(), reconstruction);
+}
+
 }  // namespace
 
 IncrementalMapper::Options IncrementalPipelineOptions::Mapper() const {
@@ -709,8 +734,8 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
         reconstruction->UpdatePoint3DErrors();
         LOG(INFO) << "Keeping reconstruction due to interrupt";
         mapper.EndReconstruction(/*discard=*/false);
-        AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
-                                           reconstruction.get());
+        AlignReconstructionToPriorsOrRigScale(
+            *options_, *database_cache_, reconstruction.get());
         return Status::STOP;
       }
 
@@ -767,8 +792,8 @@ IncrementalPipeline::Status IncrementalPipeline::Reconstruct(
           reconstruction->UpdatePoint3DErrors();
           LOG(INFO) << "Keeping successful reconstruction";
           mapper.EndReconstruction(/*discard=*/false);
-          AlignReconstructionToOrigRigScales(database_cache_->Rigs(),
-                                             reconstruction.get());
+          AlignReconstructionToPriorsOrRigScale(
+              *options_, *database_cache_, reconstruction.get());
         }
 
         Callback(LAST_IMAGE_REG_CALLBACK);

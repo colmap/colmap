@@ -4,8 +4,10 @@
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
+PYTHON        = python
 PAPER         =
 BUILDDIR      = _build
+PORT          = 8000
 
 # User-friendly check for sphinx-build
 ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
@@ -19,11 +21,12 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 
-.PHONY: help clean html dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help clean viewer-assets html serve dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
+	@echo "  serve      to build and serve HTML at http://localhost:$(PORT)"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
 	@echo "  pickle     to make pickle files"
@@ -48,18 +51,31 @@ help:
 
 clean:
 	rm -rf $(BUILDDIR)/*
+	rm -rf _static/viewer
 
-html:
+viewer-assets:
+	@if command -v npm >/dev/null 2>&1 && test -d node_modules; then \
+		npm run build; \
+	elif test "$(STRICT_VIEWER)" = "1"; then \
+		echo "npm and doc/node_modules are required when STRICT_VIEWER=1"; exit 1; \
+	else \
+		echo "WARNING: skipping 3D viewer build (npm or doc/node_modules not found)"; \
+	fi
+
+html: viewer-assets
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
-dirhtml:
+serve: html
+	$(PYTHON) -m http.server $(PORT) --directory $(BUILDDIR)/html
+
+dirhtml: viewer-assets
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
 
-singlehtml:
+singlehtml: viewer-assets
 	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
 	@echo
 	@echo "Build finished. The HTML page is in $(BUILDDIR)/singlehtml."

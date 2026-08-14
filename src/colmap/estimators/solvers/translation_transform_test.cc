@@ -41,8 +41,6 @@ namespace {
 TEST(TranslationTransform, Estimate) {
   constexpr size_t kNumPoints = 100;
 
-  SetPRNGSeed(0);
-
   std::vector<Eigen::Vector2d> src;
   src.reserve(kNumPoints);
   for (size_t i = 0; i < kNumPoints; ++i) {

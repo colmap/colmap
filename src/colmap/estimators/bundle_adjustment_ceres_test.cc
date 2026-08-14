@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -121,8 +122,26 @@ inline const ceres::Solver::Summary& GetCeresSummary(
   return ceres_summary->ceres_summary;
 }
 
+#ifdef COLMAP_CUDA_ENABLED
+TEST(CeresBundleAdjustmentOptions, FallsBackToCpuWithoutCudaDevice) {
+  if (GetNumCudaDevices() > 0) {
+    GTEST_SKIP() << "CUDA GPU is available";
+  }
+
+  CeresBundleAdjustmentOptions options;
+  options.use_gpu = true;
+  options.min_num_images_gpu_solver = 0;
+
+  const ceres::Solver::Options solver_options =
+      options.CreateSolverOptions(BundleAdjustmentConfig(), ceres::Problem());
+  EXPECT_EQ(solver_options.dense_linear_algebra_library_type,
+            options.solver_options.dense_linear_algebra_library_type);
+  EXPECT_EQ(solver_options.sparse_linear_algebra_library_type,
+            options.solver_options.sparse_linear_algebra_library_type);
+}
+#endif  // COLMAP_CUDA_ENABLED
+
 TEST(DefaultBundleAdjuster, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -162,7 +181,6 @@ TEST(DefaultBundleAdjuster, Nominal) {
 }
 
 TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -1441,7 +1459,6 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
 }
 
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1496,8 +1513,38 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
+TEST(PosePriorBundleAdjuster, InsufficientPriorsUseTwoCameraGauge) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.prior_position = true;
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  pose_priors.resize(2);
+  auto adjuster =
+      CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                    PosePriorBundleAdjustmentOptions(),
+                                    config,
+                                    std::move(pose_priors),
+                                    reconstruction);
+
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
+}
+
 TEST(PosePriorBundleAdjuster, MissingPositionCov) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1545,7 +1592,6 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
 }
 
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;

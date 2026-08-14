@@ -22,14 +22,14 @@ jobs:
       matrix:
         config: [
           {
-            os: windows-2025,
+            os: windows-2025-vs2026,
             cmakeBuildType: Release,
             cudaEnabled: true,
             testsEnabled: true,
             exportPackage: true,
           },
           {
-            os: windows-2025,
+            os: windows-2025-vs2026,
             cmakeBuildType: Release,
             cudaEnabled: false,
             testsEnabled: true,
@@ -108,14 +108,14 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
-          # CUDA 13 reorganized the toolkit, so the compiler now needs three
+          # CUDA 13 reorganized the toolkit, so the compiler now needs four
           # extra components beyond the old list: crt (crt/host_config.h,
           # included by cuda_runtime.h), nvvm (the cicc device compiler +
-          # libdevice; no longer bundled in the nvcc subpackage) and thrust
-          # (Thrust/CUB headers, on Windows the subpackage is "thrust", not
-          # "cccl"). We avoid a full install to skip the large math/Nsight
-          # subpackages COLMAP does not use.
-          sub-packages: '["nvcc", "crt", "nvvm", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          # libdevice; no longer bundled in the nvcc subpackage),
+          # nvptxcompiler, and thrust (Thrust/CUB headers, on Windows the
+          # subpackage is "thrust", not "cccl"). We avoid a full install to
+          # skip the large math/Nsight subpackages COLMAP does not use.
+          sub-packages: '["nvcc", "crt", "nvvm", "nvptxcompiler", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
           method: 'network'
 
       - name: Setup vcpkg
@@ -134,7 +134,7 @@ jobs:
           # expands to Turing..Blackwell (75..120). Older CMake predates CUDA 13
           # and would expand it to a stale set including Maxwell/Pascal/Volta
           # (compute_50/60/70), which CUDA 13 no longer supports.
-          cmakeVersion: "4.1.0"
+          cmakeVersion: "4.3.2"
           ninjaVersion: "1.12.1"
 
       - name: Configure and build
@@ -166,6 +166,7 @@ jobs:
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release `
+            -DVCPKG_USE_LEGACY_APPLOCAL=ON `
             -DCMAKE_INSTALL_PREFIX=install `
             -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           ninja

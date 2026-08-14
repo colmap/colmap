@@ -70,6 +70,30 @@ constexpr char kLastGrabImage[] =
 // Get proper QSettings
 QSettings GetQSettings() { return QSettings("Colmap", "ColmapUI"); }
 
+QIcon CreateApplicationIcon() {
+  const QString logo_path = QStringLiteral(":/media/colmap-logo.svg");
+#ifdef Q_OS_MACOS
+  // Match the macOS app icon grid, where the artwork occupies roughly 80% of
+  // the full canvas instead of extending all the way to its edges.
+  constexpr int kCanvasSize = 1024;
+  constexpr int kArtworkInset = 100;
+  QPixmap icon_pixmap(kCanvasSize, kCanvasSize);
+  icon_pixmap.fill(Qt::transparent);
+
+  QSvgRenderer logo_renderer(logo_path);
+  QPainter logo_painter(&icon_pixmap);
+  logo_renderer.render(&logo_painter,
+                       QRectF(kArtworkInset,
+                              kArtworkInset,
+                              kCanvasSize - 2 * kArtworkInset,
+                              kCanvasSize - 2 * kArtworkInset));
+  logo_painter.end();
+  return QIcon(icon_pixmap);
+#else
+  return QIcon(logo_path);
+#endif
+}
+
 // Default fallback: Documents (or home).
 QString DefaultBaseDir() {
   QString d =
@@ -177,8 +201,7 @@ MainWindow::MainWindow(OptionManager options)
       window_closed_(false) {
   InitUiResources();
 
-  // Use the COLMAP logo as the window and application icon.
-  const QIcon app_icon(":/media/colmap-logo.svg");
+  const QIcon app_icon = CreateApplicationIcon();
   setWindowIcon(app_icon);
   QApplication::setWindowIcon(app_icon);
 
