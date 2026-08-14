@@ -42,7 +42,7 @@ __global__ void __launch_bounds__(1024, 1)
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
-      r16;
+      r16, r17, r18;
 
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(
@@ -91,7 +91,7 @@ __global__ void __launch_bounds__(1024, 1)
     r10 = fma(r3, r5, r9 * r4);
     ReadIdx2<1024, double, double, double2>(
         pose_jac, 6 * pose_jac_num_alloc, global_thread_idx, r11, r12);
-    r13 = r11 * r4;
+    r13 = fma(r12, r5, r11 * r4);
     WriteSum2<double, double>((double*)inout_shared, r10, r13);
   };
   FlushSumShared<2, double>(out_pose_njtr,
@@ -99,11 +99,13 @@ __global__ void __launch_bounds__(1024, 1)
                             pose_njtr_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r13 = r12 * r5;
     ReadIdx2<1024, double, double, double2>(
-        pose_jac, 8 * pose_jac_num_alloc, global_thread_idx, r10, r14);
-    r4 = fma(r10, r4, r14 * r5);
-    WriteSum2<double, double>((double*)inout_shared, r13, r4);
+        pose_jac, 8 * pose_jac_num_alloc, global_thread_idx, r13, r10);
+    r14 = fma(r10, r5, r13 * r4);
+    ReadIdx2<1024, double, double, double2>(
+        pose_jac, 10 * pose_jac_num_alloc, global_thread_idx, r15, r16);
+    r4 = fma(r15, r4, r16 * r5);
+    WriteSum2<double, double>((double*)inout_shared, r14, r4);
   };
   FlushSumShared<2, double>(out_pose_njtr,
                             4 * out_pose_njtr_num_alloc,
@@ -117,9 +119,12 @@ __global__ void __launch_bounds__(1024, 1)
     ReadShared2<double>((double*)inout_shared,
                         pose_njtr_indices_loc[threadIdx.x].target,
                         r4,
-                        r13);
+                        r14);
   };
   __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r13 = fma(r4, r13, r14 * r15);
+  };
   LoadShared<2, double, double>(pose_njtr,
                                 2 * pose_njtr_num_alloc,
                                 pose_njtr_indices_loc,
@@ -127,13 +132,10 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadShared2<double>((double*)inout_shared,
                         pose_njtr_indices_loc[threadIdx.x].target,
-                        r5,
-                        r15);
+                        r15,
+                        r5);
   };
   __syncthreads();
-  if (global_thread_idx < problem_size) {
-    r9 = fma(r5, r9, r13 * r10);
-  };
   LoadShared<2, double, double>(pose_njtr,
                                 0 * pose_njtr_num_alloc,
                                 pose_njtr_indices_loc,
@@ -141,20 +143,22 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadShared2<double>((double*)inout_shared,
                         pose_njtr_indices_loc[threadIdx.x].target,
-                        r10,
-                        r16);
+                        r17,
+                        r18);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r9 = fma(r15, r11, r9);
-    r9 = fma(r10, r0, r9);
-    r9 = fma(r16, r2, r9);
-    r6 = r6 * r9;
-    r3 = fma(r5, r3, r13 * r14);
-    r3 = fma(r10, r1, r3);
-    r3 = fma(r16, r8, r3);
-    r3 = fma(r4, r12, r3);
-    r7 = r7 * r3;
+    r13 = fma(r15, r9, r13);
+    r13 = fma(r5, r11, r13);
+    r13 = fma(r17, r0, r13);
+    r13 = fma(r18, r2, r13);
+    r6 = r6 * r13;
+    r12 = fma(r5, r12, r14 * r16);
+    r12 = fma(r15, r3, r12);
+    r12 = fma(r17, r1, r12);
+    r12 = fma(r18, r8, r12);
+    r12 = fma(r4, r10, r12);
+    r7 = r7 * r12;
     WriteSum2<double, double>((double*)inout_shared, r6, r7);
   };
   FlushSumShared<2, double>(out_calib_njtr,
@@ -162,7 +166,7 @@ __global__ void __launch_bounds__(1024, 1)
                             calib_njtr_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    WriteSum2<double, double>((double*)inout_shared, r9, r3);
+    WriteSum2<double, double>((double*)inout_shared, r13, r12);
   };
   FlushSumShared<2, double>(out_calib_njtr,
                             2 * out_calib_njtr_num_alloc,

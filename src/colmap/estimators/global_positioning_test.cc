@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/global_positioning.h"
 
-#include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -45,8 +44,6 @@ namespace colmap {
 namespace {
 
 TEST(GlobalPositioning, Nominal) {
-  SetPRNGSeed(0);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -93,8 +90,6 @@ TEST(GlobalPositioning, Nominal) {
 }
 
 TEST(GlobalPositioning, MultiCameraRig) {
-  SetPRNGSeed(0);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -141,8 +136,6 @@ TEST(GlobalPositioning, MultiCameraRig) {
 }
 
 TEST(GlobalPositioning, RefineSensorFromRigFalsePreservesRig) {
-  SetPRNGSeed(0);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);

@@ -39,10 +39,10 @@ jobs:
       GLOG_logtostderr: 1
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-compiler
         with:
           key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
@@ -50,7 +50,7 @@ jobs:
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -98,6 +98,16 @@ jobs:
           cd build
           set +e
           ctest --output-on-failure
+
+      - name: Export package
+        run: |
+          ./scripts/shell/build_mac_app.sh build/src/colmap/exe/colmap
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: colmap-arm64-macos
+          path: build/src/colmap/exe/COLMAP-mac.zip
 
       - name: Cleanup compiler cache
         run: |

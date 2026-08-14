@@ -33,6 +33,7 @@
 #include "colmap/scene/image.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <Eigen/Core>
@@ -45,9 +46,9 @@ class PointColormapBase {
   PointColormapBase();
   virtual ~PointColormapBase() = default;
 
-  virtual void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-                       std::unordered_map<image_t, Image>& images,
-                       std::unordered_map<point3D_t, Point3D>& points3D,
+  virtual void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+                       NodeHashMap<image_t, Image>& images,
+                       NodeHashMap<point3D_t, Point3D>& points3D,
                        std::vector<image_t>& reg_image_ids) = 0;
 
   virtual Eigen::Vector4f ComputeColor(point3D_t point3D_id,
@@ -67,9 +68,9 @@ class PointColormapBase {
 // Map color according to RGB value from image.
 class PointColormapPhotometric : public PointColormapBase {
  public:
-  void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-               std::unordered_map<image_t, Image>& images,
-               std::unordered_map<point3D_t, Point3D>& points3D,
+  void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+               NodeHashMap<image_t, Image>& images,
+               NodeHashMap<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(point3D_t point3D_id,
@@ -79,9 +80,9 @@ class PointColormapPhotometric : public PointColormapBase {
 // Map color according to error.
 class PointColormapError : public PointColormapBase {
  public:
-  void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-               std::unordered_map<image_t, Image>& images,
-               std::unordered_map<point3D_t, Point3D>& points3D,
+  void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+               NodeHashMap<image_t, Image>& images,
+               NodeHashMap<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(point3D_t point3D_id,
@@ -91,9 +92,9 @@ class PointColormapError : public PointColormapBase {
 // Map color according to track length.
 class PointColormapTrackLen : public PointColormapBase {
  public:
-  void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-               std::unordered_map<image_t, Image>& images,
-               std::unordered_map<point3D_t, Point3D>& points3D,
+  void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+               NodeHashMap<image_t, Image>& images,
+               NodeHashMap<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(point3D_t point3D_id,
@@ -103,16 +104,16 @@ class PointColormapTrackLen : public PointColormapBase {
 // Map color according to ground-resolution.
 class PointColormapGroundResolution : public PointColormapBase {
  public:
-  void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-               std::unordered_map<image_t, Image>& images,
-               std::unordered_map<point3D_t, Point3D>& points3D,
+  void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+               NodeHashMap<image_t, Image>& images,
+               NodeHashMap<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(point3D_t point3D_id,
                                const Point3D& point3D) override;
 
  private:
-  std::unordered_map<point3D_t, float> resolutions_;
+  FlatHashMap<point3D_t, float> resolutions_;
 };
 
 // Base class for image color mapping.
@@ -121,9 +122,9 @@ class ImageColormapBase {
   ImageColormapBase();
   virtual ~ImageColormapBase() = default;
 
-  virtual void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-                       std::unordered_map<image_t, Image>& images,
-                       std::unordered_map<point3D_t, Point3D>& points3D,
+  virtual void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+                       NodeHashMap<image_t, Image>& images,
+                       NodeHashMap<point3D_t, Point3D>& points3D,
                        std::vector<image_t>& reg_image_ids) = 0;
 
   virtual void ComputeColor(const Image& image,
@@ -137,9 +138,9 @@ class ImageColormapBase {
 // Use uniform color for all images.
 class ImageColormapUniform : public ImageColormapBase {
  public:
-  void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-               std::unordered_map<image_t, Image>& images,
-               std::unordered_map<point3D_t, Point3D>& points3D,
+  void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+               NodeHashMap<image_t, Image>& images,
+               NodeHashMap<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
   void ComputeColor(const Image& image,
@@ -153,9 +154,9 @@ class ImageColormapUniform : public ImageColormapBase {
 // Use color for images with specific words in their name.
 class ImageColormapNameFilter : public ImageColormapBase {
  public:
-  void Prepare(std::unordered_map<camera_t, Camera>& cameras,
-               std::unordered_map<image_t, Image>& images,
-               std::unordered_map<point3D_t, Point3D>& points3D,
+  void Prepare(NodeHashMap<camera_t, Camera>& cameras,
+               NodeHashMap<image_t, Image>& images,
+               NodeHashMap<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
   void AddColorForWord(const std::string& word,

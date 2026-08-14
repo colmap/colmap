@@ -1,6 +1,7 @@
 #include "colmap/scene/pose_graph.h"
 
 #include "colmap/math/connected_components.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 
@@ -21,9 +22,9 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
-std::unordered_set<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
+FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
-  std::unordered_set<frame_t> nodes;
+  FlatHashSet<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> graph_edges;
 
   for (const auto& [pair_id, edge] : ValidEdges()) {
@@ -50,12 +51,12 @@ std::unordered_set<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
 
   const std::vector<frame_t> largest_component_vec =
       FindLargestConnectedComponent(nodes, graph_edges);
-  return std::unordered_set<frame_t>(largest_component_vec.begin(),
-                                     largest_component_vec.end());
+  return FlatHashSet<frame_t>(largest_component_vec.begin(),
+                              largest_component_vec.end());
 }
 
 void PoseGraph::InvalidatePairsOutsideActiveImageIds(
-    const std::unordered_set<image_t>& active_image_ids) {
+    const FlatHashSet<image_t>& active_image_ids) {
   for (const auto& [pair_id, edge] : edges_) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (!active_image_ids.count(image_id1) ||
@@ -65,11 +66,10 @@ void PoseGraph::InvalidatePairsOutsideActiveImageIds(
   }
 }
 
-int PoseGraph::MarkConnectedComponents(
-    const Reconstruction& reconstruction,
-    std::unordered_map<frame_t, int>& cluster_ids,
-    int min_num_images) const {
-  std::unordered_set<frame_t> nodes;
+int PoseGraph::MarkConnectedComponents(const Reconstruction& reconstruction,
+                                       NodeHashMap<frame_t, int>& cluster_ids,
+                                       int min_num_images) const {
+  FlatHashSet<frame_t> nodes;
   std::vector<std::pair<frame_t, frame_t>> graph_edges;
   for (const auto& [pair_id, edge] : ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);

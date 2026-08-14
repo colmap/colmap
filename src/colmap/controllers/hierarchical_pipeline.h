@@ -39,6 +39,30 @@
 
 namespace colmap {
 
+struct HierarchicalPipelineOptions {
+  // The image path at which to find the images to extract point colors.
+  // If not specified, all point colors will be black.
+  std::filesystem::path image_path;
+
+  // The maximum number of trials to initialize a cluster.
+  int init_num_trials = 10;
+
+  // The total number of threads for the hierarchical pipeline. This budget
+  // is divided across workers to avoid thread oversubscription.
+  int num_threads = -1;
+
+  // The number of workers used to reconstruct clusters in parallel.
+  int num_workers = -1;
+
+  // Options for clustering the scene graph.
+  SceneClustering::Options clustering_options;
+
+  // Options used to reconstruction each cluster individually.
+  IncrementalPipelineOptions incremental_options;
+
+  bool Check() const;
+};
+
 // Hierarchical mapping first hierarchically partitions the scene into multiple
 // overlapping clusters, then reconstructs them separately using incremental
 // mapping, and finally merges them all into a globally consistent
@@ -46,39 +70,15 @@ namespace colmap {
 // incremental mapping becomes slow with an increasing number of images.
 class HierarchicalPipeline : public BaseController {
  public:
-  struct Options {
-    // The image path at which to find the images to extract point colors.
-    // If not specified, all point colors will be black.
-    std::filesystem::path image_path;
-
-    // The maximum number of trials to initialize a cluster.
-    int init_num_trials = 10;
-
-    // The total number of threads for the hierarchical pipeline. This budget
-    // is divided across workers to avoid thread oversubscription.
-    int num_threads = -1;
-
-    // The number of workers used to reconstruct clusters in parallel.
-    int num_workers = -1;
-
-    // Options for clustering the scene graph.
-    SceneClustering::Options clustering_options;
-
-    // Options used to reconstruction each cluster individually.
-    IncrementalPipelineOptions incremental_options;
-
-    bool Check() const;
-  };
-
   HierarchicalPipeline(
-      const Options& options,
+      const HierarchicalPipelineOptions& options,
       std::shared_ptr<Database> database,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
   void Run() override;
 
  private:
-  const Options options_;
+  const HierarchicalPipelineOptions options_;
   std::shared_ptr<DatabaseCache> database_cache_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };

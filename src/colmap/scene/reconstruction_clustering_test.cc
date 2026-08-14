@@ -32,6 +32,7 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -52,10 +53,10 @@ namespace {
 //   keep_ratio: the ratio of kept observations across clusters
 void PartitionFramesIntoClusters(
     Reconstruction& reconstruction,
-    const std::unordered_map<frame_t, int>& frame_to_cluster,
+    const NodeHashMap<frame_t, int>& frame_to_cluster,
     double keep_ratio = 0.1) {
   // Build reverse mapping: cluster_id -> set of frame_ids
-  std::unordered_map<int, std::unordered_set<frame_t>> cluster_to_frames;
+  NodeHashMap<int, FlatHashSet<frame_t>> cluster_to_frames;
   for (const auto& [frame_id, cluster_id] : frame_to_cluster) {
     cluster_to_frames[cluster_id].insert(frame_id);
   }
@@ -66,7 +67,7 @@ void PartitionFramesIntoClusters(
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     // Determine which clusters observe this 3D point.
-    std::unordered_map<int, std::vector<TrackElement>> cluster_observations;
+    NodeHashMap<int, std::vector<TrackElement>> cluster_observations;
 
     for (const auto& track_el : point3D.track.Elements()) {
       const frame_t frame_id =
@@ -140,9 +141,9 @@ std::vector<frame_t> ExtractSortedFrameIds(
 // Helper function to build clusters from the clustering output.
 // Returns a vector of sets, where result[cluster_id] contains the frame IDs
 // in that cluster.
-std::vector<std::unordered_set<frame_t>> BuildClustersFromOutput(
-    const std::unordered_map<frame_t, int>& cluster_ids) {
-  std::vector<std::unordered_set<frame_t>> clusters;
+std::vector<FlatHashSet<frame_t>> BuildClustersFromOutput(
+    const NodeHashMap<frame_t, int>& cluster_ids) {
+  std::vector<FlatHashSet<frame_t>> clusters;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
     if (cluster_id == -1) continue;
     if (clusters.size() <= static_cast<size_t>(cluster_id)) {
@@ -207,7 +208,7 @@ TEST(ClusterReconstructionFrames, WeaklyConnectedReconstruction) {
   EXPECT_EQ(cluster_ids.size(), kNumFrames);
 
   // Each frame should get id -1
-  std::unordered_set<int> unique_cluster_ids;
+  FlatHashSet<int> unique_cluster_ids;
   for (const auto& [frame_id, cluster_id] : cluster_ids) {
     EXPECT_EQ(cluster_id, -1);
   }
@@ -233,7 +234,7 @@ TEST(ClusterReconstructionFrames, OneMajorConnectedComponent) {
 
   // Partition into one cluster and independent frames:
   // first 8 frames in cluster 0, other frames are independent
-  std::unordered_map<frame_t, int> frame_to_cluster;
+  NodeHashMap<frame_t, int> frame_to_cluster;
   const size_t kLargeClusterSize = 8;
   for (size_t i = 0; i < kLargeClusterSize; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
@@ -302,8 +303,8 @@ TEST(ClusterReconstructionFrames, MultipleWeaklyConnectedClusters) {
       ExtractSortedFrameIds(reconstruction);
 
   // Partition frames into 3 clusters.
-  std::unordered_map<frame_t, int> frame_to_cluster;
-  std::vector<std::unordered_set<frame_t>> expected_clusters(3);
+  NodeHashMap<frame_t, int> frame_to_cluster;
+  std::vector<FlatHashSet<frame_t>> expected_clusters(3);
 
   for (size_t i = 0; i < kCluster0Size; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
@@ -373,8 +374,8 @@ TEST(ClusterReconstructionFrames, MultipleDisjointClusters) {
       ExtractSortedFrameIds(reconstruction);
 
   // Partition frames into 3 completely disjoint clusters.
-  std::unordered_map<frame_t, int> frame_to_cluster;
-  std::vector<std::unordered_set<frame_t>> expected_clusters(3);
+  NodeHashMap<frame_t, int> frame_to_cluster;
+  std::vector<FlatHashSet<frame_t>> expected_clusters(3);
 
   for (size_t i = 0; i < kCluster0Size; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
@@ -447,8 +448,8 @@ TEST(ClusterReconstructionFrames, RigOneMajorConnectedComponent) {
 
   // Partition into one large cluster and independent frames:
   // first 7 frames in cluster 0, other 3 frames are independent.
-  std::unordered_map<frame_t, int> frame_to_cluster;
-  std::unordered_set<frame_t> expected_large_cluster;
+  NodeHashMap<frame_t, int> frame_to_cluster;
+  FlatHashSet<frame_t> expected_large_cluster;
   const size_t kLargeClusterSize = 7;
   for (size_t i = 0; i < kLargeClusterSize; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
@@ -513,8 +514,8 @@ TEST(ClusterReconstructionFrames, RigMultipleWeaklyConnectedClusters) {
       ExtractSortedFrameIds(reconstruction);
 
   // Partition frames into 3 clusters.
-  std::unordered_map<frame_t, int> frame_to_cluster;
-  std::vector<std::unordered_set<frame_t>> expected_clusters(3);
+  NodeHashMap<frame_t, int> frame_to_cluster;
+  std::vector<FlatHashSet<frame_t>> expected_clusters(3);
 
   for (size_t i = 0; i < kCluster0Size; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;
@@ -585,8 +586,8 @@ TEST(ClusterReconstructionFrames, RigMultipleDisjointClusters) {
       ExtractSortedFrameIds(reconstruction);
 
   // Partition frames into 3 completely disjoint clusters.
-  std::unordered_map<frame_t, int> frame_to_cluster;
-  std::vector<std::unordered_set<frame_t>> expected_clusters(3);
+  NodeHashMap<frame_t, int> frame_to_cluster;
+  std::vector<FlatHashSet<frame_t>> expected_clusters(3);
 
   for (size_t i = 0; i < kCluster0Size; ++i) {
     frame_to_cluster[all_frame_ids[i]] = 0;

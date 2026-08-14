@@ -51,6 +51,7 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
                                   const mvs::StereoFusionOptions& options,
                                   std::string output_type);
 
+int RunAdvancingFrontMesher(int argc, char** argv);
 int RunDelaunayMesher(int argc, char** argv);
 int RunMeshSimplifier(int argc, char** argv);
 int RunMeshTexturer(int argc, char** argv);

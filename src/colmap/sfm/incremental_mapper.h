@@ -34,14 +34,17 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/hash_containers.h"
 
 namespace colmap {
 
 // Class that provides all functionality for the incremental reconstruction
 // procedure. Example usage:
 //
-//  IncrementalMapper mapper(&database_cache);
-//  mapper.BeginReconstruction(&reconstruction);
+//  auto database_cache = std::make_shared<DatabaseCache>(...);
+//  IncrementalMapper mapper(database_cache);
+//  auto reconstruction = std::make_shared<Reconstruction>();
+//  mapper.BeginReconstruction(reconstruction);
 //  TwoViewGeometry tvg;
 //  THROW_CHECK(
 //      mapper.FindInitialImagePair(options, tvg, image_id1, image_id2));
@@ -133,11 +136,11 @@ class IncrementalMapper {
 
     // List of rigs for which to fix the sensor_from_rig transformation,
     // independent of ba_refine_sensor_from_rig.
-    std::unordered_set<rig_t> constant_rigs;
+    FlatHashSet<rig_t> constant_rigs;
 
     // List of cameras for which to fix the camera parameters independent
     // of refine_focal_length, refine_principal_point, and refine_extra_params.
-    std::unordered_set<camera_t> constant_cameras;
+    FlatHashSet<camera_t> constant_cameras;
 
     // Whether to use prior camera positions
     bool use_prior_position = false;
@@ -255,7 +258,7 @@ class IncrementalMapper {
       const BundleAdjustmentOptions& ba_options,
       const IncrementalTriangulator::Options& tri_options,
       image_t image_id,
-      const std::unordered_set<point3D_t>& point3D_ids);
+      const FlatHashSet<point3D_t>& point3D_ids);
 
   // Global bundle adjustment using Ceres Solver.
   bool AdjustGlobalBundle(const Options& options,
@@ -287,10 +290,10 @@ class IncrementalMapper {
   std::shared_ptr<class Reconstruction> Reconstruction() const;
   class ObservationManager& ObservationManager() const;
   IncrementalTriangulator& Triangulator() const;
-  const std::unordered_set<frame_t>& FilteredFrames() const;
-  const std::unordered_set<frame_t>& ExistingFrameIds() const;
-  const std::unordered_map<rig_t, size_t>& NumRegFramesPerRig() const;
-  const std::unordered_map<camera_t, size_t>& NumRegImagesPerCamera() const;
+  const FlatHashSet<frame_t>& FilteredFrames() const;
+  const FlatHashSet<frame_t>& ExistingFrameIds() const;
+  const FlatHashMap<rig_t, size_t>& NumRegFramesPerRig() const;
+  const FlatHashMap<camera_t, size_t>& NumRegImagesPerCamera() const;
 
   // Reset registration statistics for initialization. This can be used when
   // relaxing the initialization thresholds, such that previously tried pairs
@@ -305,7 +308,7 @@ class IncrementalMapper {
   size_t NumSharedRegImages() const;
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
-  const std::unordered_set<point3D_t>& GetModifiedPoints3D();
+  const FlatHashSet<point3D_t>& GetModifiedPoints3D();
 
   // Clear the collection of changed 3D points.
   void ClearModifiedPoints3D();
@@ -333,23 +336,23 @@ class IncrementalMapper {
 
     // Images and image pairs that have been used for initialization. Each image
     // and image pair is only tried once for initialization.
-    std::unordered_map<image_t, size_t> init_num_reg_trials;
-    std::unordered_set<image_pair_t> init_image_pairs;
+    FlatHashMap<image_t, size_t> init_num_reg_trials;
+    FlatHashSet<image_pair_t> init_image_pairs;
 
     // The number of registered frames/images per rig/camera. This information
     // is used to avoid duplicate refinement of rig/camera parameters and
     // degradation of already refined rig/camera parameters in local bundle
     // adjustment when multiple frames share rigs or images share intrinsics.
-    std::unordered_map<rig_t, size_t> num_reg_frames_per_rig;
-    std::unordered_map<camera_t, size_t> num_reg_images_per_camera;
+    FlatHashMap<rig_t, size_t> num_reg_frames_per_rig;
+    FlatHashMap<camera_t, size_t> num_reg_images_per_camera;
 
     // The number of reconstructions in which images are registered.
-    std::unordered_map<image_t, size_t> num_registrations;
+    FlatHashMap<image_t, size_t> num_registrations;
 
     // Number of trials to register image in current reconstruction. Used to set
     // an upper bound to the number of trials to register an image.
-    std::unordered_map<image_t, size_t> num_reg_trials;
-    std::unordered_map<image_t, size_t> num_structure_less_reg_trials;
+    FlatHashMap<image_t, size_t> num_reg_trials;
+    FlatHashMap<image_t, size_t> num_structure_less_reg_trials;
   };
 
   // Registers a frame using generalized absolute pose estimation.
@@ -376,12 +379,12 @@ class IncrementalMapper {
   RegistrationStatistics reg_stats_;
 
   // Frames that have been filtered in current reconstruction.
-  std::unordered_set<frame_t> filtered_frames_;
+  FlatHashSet<frame_t> filtered_frames_;
 
   // Frames that were registered before beginning the reconstruction.
   // This frame list will be non-empty, if the reconstruction is continued from
   // an existing reconstruction.
-  std::unordered_set<frame_t> existing_frame_ids_;
+  FlatHashSet<frame_t> existing_frame_ids_;
 };
 
 }  // namespace colmap

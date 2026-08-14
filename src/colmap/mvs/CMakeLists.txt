@@ -33,14 +33,16 @@ set(FOLDER_NAME "mvs")
 COLMAP_ADD_LIBRARY(
     NAME colmap_mvs
     SRCS
+        advancing_front_meshing.h advancing_front_meshing.cc
         consistency_graph.h consistency_graph.cc
+        delaunay_meshing.h delaunay_meshing.cc
         depth_map.h depth_map.cc
         fusion.h fusion.cc
         image.h image.cc
         mat.h mat.cc
         mesh_simplification.h mesh_simplification.cc
-        meshing.h meshing.cc
         model.h model.cc
+        poisson_meshing.h poisson_meshing.cc
         normal_map.h normal_map.cc
         patch_match_options.h patch_match_options.cc
         texture_mapping.h texture_mapping.cc
@@ -93,8 +95,18 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
-    NAME meshing_test
-    SRCS meshing_test.cc
+    NAME poisson_meshing_test
+    SRCS poisson_meshing_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME delaunay_meshing_test
+    SRCS delaunay_meshing_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME advancing_front_meshing_test
+    SRCS advancing_front_meshing_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
@@ -238,7 +250,7 @@ if(CUDA_ENABLED)
                     foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
                         string(STRIP "${_cap}" _cap)
                         string(REGEX MATCH
-                               "^([0-9]+)\\.([0-9]+)" _match "${_cap}")
+                               "^([0-9]+)\.([0-9]+)" _match "${_cap}")
                         if(_match)
                             math(EXPR _sm
                                  "${CMAKE_MATCH_1} * 10 + ${CMAKE_MATCH_2}")
@@ -268,4 +280,41 @@ if(CUDA_ENABLED)
         SRCS gpu_mat_test.cu
         LINK_LIBS colmap_mvs_cuda
     )
+endif()
+
+# ROCm HIP support for MVS (patch_match_stereo on AMD GPUs).
+#
+# enable_language(HIP) and find_package(hip/hiprand/rocrand) are handled
+# centrally in cmake/FindDependencies.cmake. Here we just mark the three
+# .cu translation units as LANGUAGE HIP so CMake hands them to the HIP
+# toolchain (clang++ -x hip) instead of the CUDA one. The source itself
+# is unmodified; symbol remapping happens in src/colmap/util/cuda_to_hip.h.
+if(HIP_ENABLED)
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_mvs_cuda
+        SRCS
+            gpu_mat_prng.h gpu_mat_prng.cu
+            gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            patch_match.h patch_match.cc
+            patch_match_cuda.h patch_match_cuda.cu
+        PUBLIC_LINK_LIBS
+            colmap_mvs
+            colmap_util_cuda
+            hip::host
+            hip::hiprand
+            roc::rocrand
+    )
+    set_source_files_properties(
+        gpu_mat_prng.cu
+        gpu_mat_ref_image.cu
+        patch_match_cuda.cu
+        PROPERTIES LANGUAGE HIP
+    )
+
+    COLMAP_ADD_TEST(
+        NAME gpu_mat_test
+        SRCS gpu_mat_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
+    set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
 endif()

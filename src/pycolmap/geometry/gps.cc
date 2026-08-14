@@ -14,11 +14,11 @@ using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindGPS(py::module& m) {
-  py::enum_<GPSTransform::Ellipsoid> PyGPSTransfromEllipsoid(
-      m, "GPSTransfromEllipsoid");
-  PyGPSTransfromEllipsoid.value("GRS80", GPSTransform::Ellipsoid::GRS80)
+  py::enum_<GPSTransform::Ellipsoid> PyGPSTransformEllipsoid(
+      m, "GPSTransformEllipsoid");
+  PyGPSTransformEllipsoid.value("GRS80", GPSTransform::Ellipsoid::GRS80)
       .value("WGS84", GPSTransform::Ellipsoid::WGS84);
-  AddStringToEnumConstructor(PyGPSTransfromEllipsoid);
+  AddStringToEnumConstructor(PyGPSTransformEllipsoid);
 
   py::classh_ext<GPSTransform> PyGPSTransform(m, "GPSTransform");
   PyGPSTransform

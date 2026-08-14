@@ -1,6 +1,15 @@
 import numpy as np
+import pytest
 
 import pycolmap
+
+
+def test_database_direct_construction_is_disallowed():
+    # Regression test for https://github.com/colmap/colmap/issues/4422:
+    # Database is abstract, so direct construction is disallowed. Use
+    # Database.open() instead.
+    with pytest.raises(TypeError):
+        pycolmap.Database()
 
 
 def test_database_open_and_context_manager(tmp_path):

@@ -46,6 +46,9 @@ TEST(Camera, Empty) {
   EXPECT_EQ(camera.height, 0);
   EXPECT_FALSE(camera.has_prior_focal_length);
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
+  EXPECT_THROW(camera.PrincipalPointIdxs(), std::domain_error);
+  EXPECT_THROW(camera.ExtraParamsIdxs(), std::domain_error);
+  EXPECT_THROW(camera.MetaDataParamsIdxs(), std::domain_error);
   EXPECT_THROW(camera.ParamsInfo(), std::domain_error);
   EXPECT_EQ(camera.ParamsToString(), "");
   EXPECT_EQ(camera.params.size(), 0);
@@ -132,10 +135,12 @@ TEST(Camera, ParamIdxs) {
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
   EXPECT_THROW(camera.PrincipalPointIdxs(), std::domain_error);
   EXPECT_THROW(camera.ExtraParamsIdxs(), std::domain_error);
+  EXPECT_THROW(camera.MetaDataParamsIdxs(), std::domain_error);
   camera.model_id = FullOpenCVCameraModel::model_id;
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 2);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 8);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
 }
 
 TEST(Camera, CalibrationMatrix) {
@@ -237,6 +242,7 @@ TEST(Camera, CreateFromModelId) {
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
   EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
@@ -262,6 +268,7 @@ TEST(Camera, CreateFromModelName) {
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 0);
   EXPECT_EQ(camera.ParamsInfo(), "f, cx, cy");
   EXPECT_EQ(camera.ParamsToString(), "1, 0.5, 0.5");
   EXPECT_EQ(camera.FocalLength(), 1.0);
@@ -312,6 +319,68 @@ TEST(Camera, ImgFromCam) {
             Eigen::Vector2d(0.0, 0.0));
 }
 
+TEST(Camera, ImgFromCamWithoutCheiralityCheck) {
+  const Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
+  const Eigen::Vector3d cam_point(-0.5, -0.5, -1);
+  EXPECT_FALSE(camera.ImgFromCam(cam_point).has_value());
+  EXPECT_EQ(camera.ImgFromCam(cam_point, /*check_cheirality=*/false).value(),
+            Eigen::Vector2d(1.0, 1.0));
+}
+
+TEST(Camera, CamRayFromImgWithJac) {
+  // Covers a perspective model, a distorted one, and a spherical one. For the
+  // spherical camera the sampled pixels include the back hemisphere, where
+  // CamFromImg fails outright but CamRayFromImg (and hence this) must not.
+  const std::vector<Camera> cameras = {
+      Camera::CreateFromModelId(
+          1, CameraModelId::kSimplePinhole, 650.0, 1024, 768),
+      Camera::CreateFromModelId(
+          2, CameraModelId::kSimpleRadial, 650.0, 1024, 768),
+      Camera::CreateFromModelId(
+          3, CameraModelId::kEquirectangular, 0.0, 1000, 500),
+  };
+
+  for (const Camera& camera : cameras) {
+    for (const double x : {1.0, 250.0, 512.0, 800.0, 999.0}) {
+      for (const double y : {1.0, 120.0, 250.0, 400.0, 499.0}) {
+        const Eigen::Vector2d image_point(x, y);
+        const auto ray_and_jac = camera.CamRayFromImgWithJac(image_point);
+        ASSERT_TRUE(ray_and_jac.has_value())
+            << "model " << camera.ModelName() << " at "
+            << image_point.transpose();
+        const auto& [cam_ray, J_ray] = *ray_and_jac;
+
+        // The bearing is a unit vector that reprojects to the source pixel.
+        EXPECT_NEAR(cam_ray.norm(), 1.0, 1e-12);
+        const std::optional<Eigen::Vector2d> reprojected =
+            camera.ImgFromCam(cam_ray);
+        ASSERT_TRUE(reprojected.has_value());
+        EXPECT_LE((*reprojected - image_point).norm(), 1e-8);
+
+        // The Jacobian inverts the projection on the tangent plane.
+        Eigen::Matrix2x3d J_uvw;
+        ASSERT_TRUE(camera.ImgFromCamWithJac(cam_ray, &J_uvw).has_value());
+        EXPECT_LE((J_uvw * J_ray - Eigen::Matrix2d::Identity()).norm(), 1e-10);
+        EXPECT_LE((J_ray.transpose() * cam_ray).norm(), 1e-10 * J_ray.norm());
+      }
+    }
+  }
+}
+
+TEST(Camera, CamRayFromImgWithJacUnprojectable) {
+  // A pixel the camera cannot unproject (iterative undistortion diverges) must
+  // yield no ray + Jacobian, rather than a garbage one.
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 100.0, 100, 200);
+  camera.params[4] = -0.5;  // k1
+  camera.params[5] = 0.5;   // k2
+  camera.params[6] = -0.5;  // p1
+  const Eigen::Vector2d unprojectable(50.0, 150.0);
+  ASSERT_FALSE(camera.CamFromImg(unprojectable).has_value());
+  EXPECT_FALSE(camera.CamRayFromImgWithJac(unprojectable).has_value());
+}
+
 TEST(Camera, Rescale) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
@@ -357,6 +426,60 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.FocalLengthY(), 2);
   EXPECT_EQ(camera.PrincipalPointX(), 2);
   EXPECT_EQ(camera.PrincipalPointY(), 2);
+}
+
+TEST(Camera, Spherical) {
+  Camera camera = Camera::CreateFromModelId(
+      1, EquirectangularCameraModel::model_id, /*focal_length=*/0.0, 1000, 500);
+  EXPECT_EQ(camera.params, std::vector<double>({1000, 500}));
+  EXPECT_FALSE(camera.IsPerspective());
+  EXPECT_TRUE(camera.IsSpherical());
+
+  // No focal length / pinhole image plane. The (w, h) parameters form the
+  // metadata group; there is no principal point or extra (distortion).
+  EXPECT_TRUE(camera.FocalLengthIdxs().empty());
+  EXPECT_TRUE(camera.PrincipalPointIdxs().empty());
+  EXPECT_TRUE(camera.ExtraParamsIdxs().empty());
+  EXPECT_EQ(camera.MetaDataParamsIdxs().size(), 2);
+  EXPECT_EQ(camera.MeanFocalLength(), 0.0);
+  // CalibrationMatrix is undefined without a focal length.
+  EXPECT_ANY_THROW(camera.CalibrationMatrix());
+  // Spherical images have no lens distortion to undistort.
+  EXPECT_TRUE(camera.IsUndistorted());
+
+  // Rescaling keeps the (w, h) parameters consistent with the dimensions.
+  camera.Rescale(0.5);
+  EXPECT_EQ(camera.width, 500);
+  EXPECT_EQ(camera.height, 250);
+  EXPECT_EQ(camera.params, std::vector<double>({500, 250}));
+  EXPECT_TRUE(camera.IsSpherical());
+
+  // A perspective camera is not spherical.
+  const Camera pinhole =
+      Camera::CreateFromModelId(2, PinholeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(pinhole.IsPerspective());
+  EXPECT_FALSE(pinhole.IsSpherical());
+}
+
+TEST(Camera, IsPerspectivePinhole) {
+  const Camera pinhole =
+      Camera::CreateFromModelId(1, PinholeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(pinhole.IsPerspectivePinhole());
+
+  const Camera radial = Camera::CreateFromModelId(
+      2, SimpleRadialCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(radial.IsPerspectivePinhole());
+
+  const Camera fisheye = Camera::CreateFromModelId(
+      3, OpenCVFisheyeCameraModel::model_id, 1.0, 1, 1);
+  EXPECT_TRUE(fisheye.IsPerspective());
+  EXPECT_TRUE(fisheye.IsPerspectiveFisheye());
+  EXPECT_FALSE(fisheye.IsPerspectivePinhole());
+
+  const Camera spherical = Camera::CreateFromModelId(
+      4, EquirectangularCameraModel::model_id, 0.0, 1000, 500);
+  EXPECT_FALSE(spherical.IsPerspectiveFisheye());
+  EXPECT_FALSE(spherical.IsPerspectivePinhole());
 }
 
 }  // namespace

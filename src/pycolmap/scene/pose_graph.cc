@@ -1,5 +1,7 @@
 #include "colmap/scene/pose_graph.h"
 
+#include "colmap/util/hash_containers.h"
+
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
@@ -107,7 +109,7 @@ void BindPoseGraph(py::module& m) {
           [](const PoseGraph& self,
              const Reconstruction& reconstruction,
              int min_num_images) {
-            std::unordered_map<frame_t, int> cluster_ids;
+            colmap::NodeHashMap<frame_t, int> cluster_ids;
             int num_components = self.MarkConnectedComponents(
                 reconstruction, cluster_ids, min_num_images);
             return py::dict("num_components"_a = num_components,

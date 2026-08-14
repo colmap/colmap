@@ -74,6 +74,7 @@ enum class FactorVariant {
 
 struct VariantData {
   std::vector<unsigned int> pose_indices;
+  std::vector<StorageType> sensor_from_rig_data;  // 7 floats per factor
   std::vector<unsigned int> focal_and_extra_indices;
   std::vector<unsigned int> principal_point_indices;
   std::vector<unsigned int> point_indices;
@@ -104,7 +105,7 @@ namespace colmap {
 // round-trip through OptionManager regardless of the float/double build.
 // Also includes GPU index selection option
 struct CasparBundleAdjustmentOptions {
-  int solver_iter_max = 100;
+  int solver_iter_max = 200;
   int pcg_iter_max = 20;
   double diag_init = 1.0;
   double diag_min = 1e-12;
@@ -118,6 +119,7 @@ struct CasparBundleAdjustmentOptions {
   double pcg_rel_decrease_min = -1.0;
   double solver_rel_decrease_min = 1.0;
   std::string gpu_index = "-1";
+  bool collect_iteration_data = false;
 };
 
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
@@ -129,6 +131,9 @@ std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
 struct CasparBundleAdjustmentSummary : public BundleAdjustmentSummary {
   static std::shared_ptr<CasparBundleAdjustmentSummary> Create(
       const caspar::SolveResult& caspar_summary);
+  int iteration_count = 0;
+  double initial_score = 0.0;
+  std::vector<caspar::IterationData> iterations;
 };
 #endif
 }  // namespace colmap

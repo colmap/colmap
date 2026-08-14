@@ -32,6 +32,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/scene_clustering.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
@@ -40,8 +41,8 @@ namespace colmap {
 namespace {
 
 void MergeClusters(const SceneClustering::Cluster& cluster,
-                   std::unordered_map<const SceneClustering::Cluster*,
-                                      std::shared_ptr<ReconstructionManager>>*
+                   NodeHashMap<const SceneClustering::Cluster*,
+                               std::shared_ptr<ReconstructionManager>>*
                        reconstruction_managers) {
   // Extract all reconstructions from all child clusters.
   std::vector<std::shared_ptr<Reconstruction>> reconstructions;
@@ -102,7 +103,7 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
 
 }  // namespace
 
-bool HierarchicalPipeline::Options::Check() const {
+bool HierarchicalPipelineOptions::Check() const {
   CHECK_OPTION_GT(init_num_trials, -1);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(num_workers, -1);
@@ -113,7 +114,7 @@ bool HierarchicalPipeline::Options::Check() const {
 }
 
 HierarchicalPipeline::HierarchicalPipeline(
-    const Options& options,
+    const HierarchicalPipelineOptions& options,
     std::shared_ptr<Database> database,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
@@ -152,7 +153,7 @@ void HierarchicalPipeline::Run() {
   // Cluster scene graph
   //////////////////////////////////////////////////////////////////////////////
 
-  std::unordered_map<image_t, std::string> image_id_to_name;
+  NodeHashMap<image_t, std::string> image_id_to_name;
   image_id_to_name.reserve(database_cache_->NumImages());
   for (const auto& [image_id, image] : database_cache_->Images()) {
     image_id_to_name.emplace(image_id, image.Name());
@@ -213,7 +214,7 @@ void HierarchicalPipeline::Run() {
         incremental_options->init_num_trials = options_.init_num_trials;
         incremental_options->num_threads = num_threads_per_worker;
 
-        std::unordered_set<std::string> cluster_image_names;
+        FlatHashSet<std::string> cluster_image_names;
         cluster_image_names.reserve(cluster.image_ids.size());
         for (const image_t image_id : cluster.image_ids) {
           cluster_image_names.insert(image_id_to_name.at(image_id));
@@ -244,8 +245,8 @@ void HierarchicalPipeline::Run() {
 
   // Start the reconstruction workers. Use a separate reconstruction manager per
   // thread to avoid race conditions.
-  std::unordered_map<const SceneClustering::Cluster*,
-                     std::shared_ptr<ReconstructionManager>>
+  NodeHashMap<const SceneClustering::Cluster*,
+              std::shared_ptr<ReconstructionManager>>
       reconstruction_managers;
   reconstruction_managers.reserve(leaf_clusters.size());
 

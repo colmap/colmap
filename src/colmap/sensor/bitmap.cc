@@ -64,6 +64,16 @@ OIIO::string_view OIIOFromStdStringView(std::string_view value) {
   return {value.data(), value.size()};
 }
 
+// Convert a filesystem path to a UTF-8 std::string. On Windows,
+// path.string() returns a locale-dependent narrow string, which mangles
+// non-ASCII characters before they reach OIIO. path.u8string() always yields
+// UTF-8 bytes, but its return type changes from std::string in C++17 to
+// std::u8string in C++20; the reinterpret_cast keeps this portable.
+std::string PathToUtf8(const std::filesystem::path& path) {
+  const auto u8 = path.u8string();
+  return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
 std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
                                        int width,
                                        int height,
@@ -219,68 +229,6 @@ void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
       data_[i++] = color.b;
     }
   }
-}
-
-std::optional<BitmapColor<uint8_t>> Bitmap::InterpolateNearestNeighbor(
-    const double x, const double y) const {
-  const int xx = static_cast<int>(std::round(x));
-  const int yy = static_cast<int>(std::round(y));
-  return GetPixel(xx, yy);
-}
-
-std::optional<BitmapColor<float>> Bitmap::InterpolateBilinear(
-    const double x, const double y) const {
-  const int x0 = static_cast<int>(std::floor(x));
-  const int x1 = x0 + 1;
-  const int y0 = static_cast<int>(std::floor(y));
-  const int y1 = y0 + 1;
-
-  if (x0 < 0 || x1 >= width_ || y0 < 0 || y1 >= height_) {
-    return std::nullopt;
-  }
-
-  const double dx = x - x0;
-  const double dy = y - y0;
-  const double dx_1 = 1 - dx;
-  const double dy_1 = 1 - dy;
-
-  const int pitch = width_ * channels_;
-  const uint8_t* line0 = &data_[y0 * pitch];
-  const uint8_t* line1 = &data_[y1 * pitch];
-
-  if (IsGrey()) {
-    // Top row, column-wise linear interpolation.
-    const double v0 = dx_1 * line0[x0] + dx * line0[x1];
-
-    // Bottom row, column-wise linear interpolation.
-    const double v1 = dx_1 * line1[x0] + dx * line1[x1];
-
-    // Row-wise linear interpolation.
-    const float r = dy_1 * v0 + dy * v1;
-    return BitmapColor<float>(r, r, r);
-  } else if (IsRGB()) {
-    const uint8_t* p00 = &line0[3 * x0];
-    const uint8_t* p01 = &line0[3 * x1];
-    const uint8_t* p10 = &line1[3 * x0];
-    const uint8_t* p11 = &line1[3 * x1];
-
-    // Top row, column-wise linear interpolation.
-    const double v0_r = dx_1 * p00[0] + dx * p01[0];
-    const double v0_g = dx_1 * p00[1] + dx * p01[1];
-    const double v0_b = dx_1 * p00[2] + dx * p01[2];
-
-    // Bottom row, column-wise linear interpolation.
-    const double v1_r = dx_1 * p10[0] + dx * p11[0];
-    const double v1_g = dx_1 * p10[1] + dx * p11[1];
-    const double v1_b = dx_1 * p10[2] + dx * p11[2];
-
-    // Row-wise linear interpolation.
-    return BitmapColor<float>(dy_1 * v0_r + dy * v1_r,
-                              dy_1 * v0_g + dy * v1_g,
-                              dy_1 * v0_b + dy * v1_b);
-  }
-
-  return std::nullopt;
 }
 
 std::optional<int> Bitmap::ExifOrientation() const {
@@ -457,7 +405,7 @@ bool Bitmap::Read(const std::filesystem::path& path,
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
 
-  const auto input = OIIO::ImageInput::open(path.string(), &config);
+  const auto input = OIIO::ImageInput::open(PathToUtf8(path), &config);
   if (!input) {
     // Always retrieve the error to clear OIIO's pending error state.
     const std::string error = OIIO::geterror();
@@ -512,7 +460,8 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
 bool Bitmap::Write(const std::filesystem::path& path,
                    const bool delinearize_colorspace) const {
-  const auto output = OIIO::ImageOutput::create(path.string());
+  const std::string utf8_path = PathToUtf8(path);
+  const auto output = OIIO::ImageOutput::create(utf8_path);
   if (!output) {
     std::cerr << "Could not create an ImageOutput for " << path
               << ", error = " << OIIO::geterror() << "\n";
@@ -545,7 +494,7 @@ bool Bitmap::Write(const std::filesystem::path& path,
     }
   }
 
-  if (!output->open(path.string(), meta_data.image_spec)) {
+  if (!output->open(utf8_path, meta_data.image_spec)) {
     VLOG(3) << "Could not open " << path << ", error = " << output->geterror()
             << "\n";
     return false;
@@ -584,6 +533,20 @@ void Bitmap::Rescale(const int new_width,
   auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
   meta_data->image_spec.width = new_width;
   meta_data->image_spec.height = new_height;
+}
+
+double Bitmap::Thumbnail(const int max_image_size, RescaleFilter filter) {
+  THROW_CHECK_GT(max_image_size, 0);
+  if (width_ <= max_image_size && height_ <= max_image_size) {
+    return 1.0;
+  }
+  // Fit the down-sampled version exactly into the max dimensions.
+  const double scale =
+      static_cast<double>(max_image_size) / std::max(width_, height_);
+  Rescale(static_cast<int>(std::round(width_ * scale)),
+          static_cast<int>(std::round(height_ * scale)),
+          filter);
+  return scale;
 }
 
 void Bitmap::Rot90(int k) {

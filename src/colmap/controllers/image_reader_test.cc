@@ -32,6 +32,7 @@
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
@@ -278,7 +279,7 @@ TEST(ImageReaderTest, SingleCameraPerFolder) {
   Bitmap bitmap;
   Bitmap mask;
 
-  std::unordered_map<std::string, camera_t> folder_cameras;
+  NodeHashMap<std::string, camera_t> folder_cameras;
   for (int i = 0; i < 4; ++i) {
     const auto status =
         image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);

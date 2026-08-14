@@ -32,6 +32,7 @@
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/hash_containers.h"
 
 #include <memory>
 
@@ -116,7 +117,7 @@ class IncrementalTriangulator {
   // have failed to triangulate before due to inaccurate poses, etc.
   // Returns the number of completed observations.
   size_t CompleteTracks(const Options& options,
-                        const std::unordered_set<point3D_t>& point3D_ids);
+                        const FlatHashSet<point3D_t>& point3D_ids);
 
   // Complete tracks of all 3D points.
   // Returns the number of completed observations.
@@ -125,7 +126,7 @@ class IncrementalTriangulator {
   // Merge tracks of for specific 3D points.
   // Returns the number of merged observations.
   size_t MergeTracks(const Options& options,
-                     const std::unordered_set<point3D_t>& point3D_ids);
+                     const FlatHashSet<point3D_t>& point3D_ids);
 
   // Merge tracks of all 3D points.
   // Returns the number of merged observations.
@@ -143,7 +144,7 @@ class IncrementalTriangulator {
   void AddModifiedPoint3D(point3D_t point3D_id);
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
-  const std::unordered_set<point3D_t>& GetModifiedPoints3D();
+  const FlatHashSet<point3D_t>& GetModifiedPoints3D();
 
   // Clear the collection of changed 3D points.
   void ClearModifiedPoints3D();
@@ -202,14 +203,13 @@ class IncrementalTriangulator {
   std::shared_ptr<ObservationManager> obs_manager_;
 
   // Cache for cameras with bogus parameters.
-  std::unordered_map<camera_t, bool> camera_has_bogus_params_;
+  FlatHashMap<camera_t, bool> camera_has_bogus_params_;
 
   // Cache for tried track merges to avoid duplicate merge trials. Keyed on
   // a canonical (min, max) pair of 3D-point ids so each attempted merge is
   // recorded once with a single hashmap operation in either direction.
-  // Uses the std::hash<std::pair<uint64_t, uint64_t>> specialization in
-  // colmap/util/types.h.
-  std::unordered_set<std::pair<point3D_t, point3D_t>> merge_trials_;
+  // Uses the colmap::PairHash functor from colmap/util/types.h.
+  FlatHashSet<std::pair<point3D_t, point3D_t>, PairHash> merge_trials_;
 
   // Cache for found correspondences in the graph.
   std::vector<CorrespondenceGraph::Correspondence> found_corrs_;
@@ -220,17 +220,16 @@ class IncrementalTriangulator {
   std::vector<TrackElement> complete_next_queue_;
   // Dedupes (image_id, point2D_idx) pairs reached by Complete()'s BFS so
   // the inner reprojection-error check is not redone for correspondences
-  // shared across multiple parents at the same transitivity level. Uses
-  // the std::hash<std::pair<uint32_t, uint32_t>> specialization in
-  // colmap/util/types.h.
-  std::unordered_set<std::pair<image_t, point2D_t>> complete_visited_;
+  // shared across multiple parents at the same transitivity level. Uses the
+  // colmap::PairHash functor from colmap/util/types.h.
+  FlatHashSet<std::pair<image_t, point2D_t>, PairHash> complete_visited_;
 
   // Number of trials to retriangulate image pair.
-  std::unordered_map<image_pair_t, int> re_num_trials_;
+  FlatHashMap<image_pair_t, int> re_num_trials_;
 
   // Changed 3D points, i.e. if a 3D point is modified (created, continued,
   // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called.
-  std::unordered_set<point3D_t> modified_point3D_ids_;
+  FlatHashSet<point3D_t> modified_point3D_ids_;
 };
 
 std::ostream& operator<<(std::ostream& stream,

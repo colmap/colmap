@@ -64,6 +64,13 @@ struct LeastAbsoluteDeviationSolver {
     double absolute_tolerance = 1e-4;
     double relative_tolerance = 1e-2;
 
+    // Tikhonov ridge added to the diagonal of the normal equations A^T A
+    // before factorization. Set to a small positive value (e.g., 1e-12) for
+    // poorly conditioned but mathematically positive definite systems where
+    // CHOLMOD's supernodal Cholesky may report "matrix not positive definite".
+    // Default 0 disables regularization (no computational overhead).
+    double ridge_regularization = 0;
+
     enum class SolverType {
       SimplicialLLT,
       SupernodalCholmodLLT,
@@ -74,12 +81,18 @@ struct LeastAbsoluteDeviationSolver {
   LeastAbsoluteDeviationSolver(const Options& options,
                                const Eigen::SparseMatrix<double>& A);
 
+  // Returns false if the factorization of A^T A failed during construction
+  // (e.g., the system is rank deficient or numerically not positive definite),
+  // in which case Solve always returns false without producing NaN output.
+  bool Valid() const { return valid_; }
+
   bool Solve(const Eigen::VectorXd& b, Eigen::VectorXd* x) const;
 
  private:
   const Options& options_;
   const Eigen::SparseMatrix<double>& A_;
   const std::shared_ptr<LeastAbsoluteDeviationLinearSolverImpl> linear_solver_;
+  bool valid_ = false;
 };
 
 }  // namespace colmap

@@ -32,6 +32,7 @@
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/hash_containers.h"
 
 #include <vector>
 
@@ -46,11 +47,13 @@ bool AlignReconstructionToLocations(
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src);
 
-// Robustly align reconstruction to given pose priors.
+// Robustly align reconstruction to given pose priors. If max_error is not set
+// in the RANSAC options, derive it from the median position covariance.
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
-    const RANSACOptions& ransac_options,
+    RANSACOptions ransac_options,
+    double prior_position_fallback_stddev,
     Sim3d* tgt_from_src);
 
 // Robustly compute alignment between reconstructions by finding images that
@@ -124,7 +127,6 @@ bool MergeReconstructions(double max_reproj_error,
 // Align reconstruction to the original metric scales in rig extrinsics. Returns
 // false if there is no available non-panoramic rig in the alignment process.
 bool AlignReconstructionToOrigRigScales(
-    const std::unordered_map<rig_t, Rig>& orig_rigs,
-    Reconstruction* reconstruction);
+    const NodeHashMap<rig_t, Rig>& orig_rigs, Reconstruction* reconstruction);
 
 }  // namespace colmap

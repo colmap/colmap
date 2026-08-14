@@ -29,12 +29,12 @@
 
 #pragma once
 
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/util/eigen_alignment.h"
 
 #include <vector>
 
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 
 namespace colmap {
 
@@ -67,19 +67,10 @@ class EssentialMatrixFivePointEstimator {
                        const std::vector<Y_t>& cam_rays2,
                        std::vector<M_t>* models);
 
-  // Calculate the residuals of a set of corresponding rays and a given
-  // essential matrix.
-  //
-  // Residuals are defined as the squared Sampson error.
-  //
-  // @param cam_rays1  First set of corresponding rays.
-  // @param cam_rays2  Second set of corresponding rays.
-  // @param E          3x3 essential matrix.
-  // @param residuals  Output vector of residuals.
-  static void Residuals(const std::vector<X_t>& cam_rays1,
-                        const std::vector<Y_t>& cam_rays2,
-                        const M_t& E,
-                        std::vector<double>* residuals);
+  // NOTE: This minimal solver no longer provides a Residuals() method. Inlier
+  // scoring for essential matrices is done in pixel units by
+  // EssentialMatrixTangentSampsonEstimator. The former Sampson-on-unit-bearings
+  // Residuals (ComputeSquaredSampsonErrorWithCheirality) has been retired.
 };
 
 // Essential matrix estimator from corresponding normalized camera ray pairs.
@@ -105,20 +96,49 @@ class EssentialMatrixEightPointEstimator {
   // @param cam_rays2  Second set of corresponding rays.
   static void Estimate(const std::vector<X_t>& cam_rays1,
                        const std::vector<Y_t>& cam_rays2,
-
                        std::vector<M_t>* models);
 
+  // NOTE: Residuals() retired. See EssentialMatrixFivePointEstimator above.
+};
+
+// Essential matrix estimator scoring correspondences by the tangent Sampson
+// error, i.e. in pixel units, for arbitrary central camera models.
+//
+// The model is estimated by the same five-point solver as
+// EssentialMatrixFivePointEstimator. Only the residual differs. Because the
+// residual is measured in pixels rather than radians, the RANSAC threshold is
+// the plain pixel threshold and needs no per-camera conversion via
+// Camera::CamFromImgThreshold. See ComputeSquaredTangentSampsonError.
+class EssentialMatrixTangentSampsonEstimator {
+ public:
+  using X_t = CamRayWithJac;
+  using Y_t = CamRayWithJac;
+  using M_t = Eigen::Matrix3d;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 5;
+
+  // Estimate up to 10 possible essential matrix solutions from a set of
+  // corresponding camera rays. The Jacobians are ignored here. They only
+  // affect scoring.
+  static void Estimate(const std::vector<X_t>& cam_rays1_with_jac,
+                       const std::vector<Y_t>& cam_rays2_with_jac,
+                       std::vector<M_t>* models);
+
+  // Refine E in place by nonlinearly minimizing the pixel-unit tangent Sampson
+  // error over the given correspondences, starting from *E. This is the local
+  // optimizer used by LO-RANSAC (see SupportsRefineWithInitialModel in
+  // loransac.h). Returns false and leaves *E unchanged on a degenerate
+  // decomposition.
+  static bool Refine(const std::vector<X_t>& cam_rays1_with_jac,
+                     const std::vector<Y_t>& cam_rays2_with_jac,
+                     M_t* E);
+
   // Calculate the residuals of a set of corresponding rays and a given
-  // essential matrix.
-  //
-  // Residuals are defined as the squared Sampson error.
-  //
-  // @param cam_rays1  First set of corresponding rays.
-  // @param cam_rays2  Second set of corresponding rays.
-  // @param E          3x3 essential matrix.
-  // @param residuals  Output vector of residuals.
-  static void Residuals(const std::vector<X_t>& cam_rays1,
-                        const std::vector<Y_t>& cam_rays2,
+  // essential matrix, as the squared tangent Sampson error in squared pixels,
+  // additionally enforcing the cheirality constraint.
+  static void Residuals(const std::vector<X_t>& cam_rays1_with_jac,
+                        const std::vector<Y_t>& cam_rays2_with_jac,
                         const M_t& E,
                         std::vector<double>* residuals);
 };

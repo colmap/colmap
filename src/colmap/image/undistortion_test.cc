@@ -30,14 +30,50 @@
 #include "colmap/image/undistortion.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
+#include "colmap/util/logging.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <cstdlib>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+uint64_t TotalAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  const std::vector<uint8_t>& data1 = bitmap1.RowMajorData();
+  const std::vector<uint8_t>& data2 = bitmap2.RowMajorData();
+  THROW_CHECK_EQ(data1.size(), data2.size());
+  uint64_t total_absolute_difference = 0;
+  for (size_t i = 0; i < data1.size(); ++i) {
+    total_absolute_difference +=
+        std::abs(static_cast<int>(data1[i]) - static_cast<int>(data2[i]));
+  }
+  return total_absolute_difference;
+}
+
+double MeanAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  THROW_CHECK_GT(bitmap1.RowMajorData().size(), 0);
+  return static_cast<double>(TotalAbsoluteDifference(bitmap1, bitmap2)) /
+         bitmap1.RowMajorData().size();
+}
+
+int MaxAbsoluteDifference(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  const std::vector<uint8_t>& data1 = bitmap1.RowMajorData();
+  const std::vector<uint8_t>& data2 = bitmap2.RowMajorData();
+  THROW_CHECK_EQ(data1.size(), data2.size());
+  int max_absolute_difference = 0;
+  for (size_t i = 0; i < data1.size(); ++i) {
+    max_absolute_difference = std::max(
+        max_absolute_difference,
+        std::abs(static_cast<int>(data1[i]) - static_cast<int>(data2[i])));
+  }
+  return max_absolute_difference;
+}
 
 TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
@@ -225,6 +261,58 @@ TEST(UndistortCamera, NoBlankPixels) {
   }
 }
 
+TEST(UndistortImage, WarpOptions) {
+  Camera distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
+
+  Bitmap distorted_image(100, 100, true);
+  for (int y = 0; y < distorted_image.Height(); ++y) {
+    for (int x = 0; x < distorted_image.Width(); ++x) {
+      distorted_image.SetPixel(
+          x,
+          y,
+          BitmapColor<uint8_t>(static_cast<uint8_t>(x),
+                               static_cast<uint8_t>(y),
+                               static_cast<uint8_t>((x + y) / 2)));
+    }
+  }
+
+  UndistortCameraOptions options;
+  Bitmap direct_image;
+  Camera direct_camera;
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &direct_image,
+                 &direct_camera);
+  const double direct_scale =
+      std::min(static_cast<double>(direct_camera.width) /
+                   static_cast<double>(distorted_camera.width),
+               static_cast<double>(direct_camera.height) /
+                   static_cast<double>(distorted_camera.height));
+  ASSERT_GE(direct_scale, options.warp_options.direct_warp_min_scale);
+
+  options.warp_options.direct_warp_min_scale = 1.0;
+  Bitmap resized_image;
+  Camera resized_camera;
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &resized_image,
+                 &resized_camera);
+
+  EXPECT_EQ(direct_camera, resized_camera);
+  EXPECT_EQ(direct_image.Width(), resized_image.Width());
+  EXPECT_EQ(direct_image.Height(), resized_image.Height());
+  EXPECT_NE(direct_image.RowMajorData(), resized_image.RowMajorData());
+
+  // The extra resize changes rounding, but not by a perceptible amount for
+  // smooth image content.
+  EXPECT_LT(MeanAbsoluteDifference(direct_image, resized_image), 0.5);
+  EXPECT_LE(MaxAbsoluteDifference(direct_image, resized_image), 1);
+}
+
 TEST(UndistortReconstruction, Nominal) {
   const size_t kNumImages = 10;
   const size_t kNumPoints2D = 10;
@@ -267,6 +355,127 @@ TEST(UndistortReconstruction, Nominal) {
     for (const auto& point2D : image.second.Points2D()) {
       EXPECT_NE(point2D.xy, Eigen::Vector2d::Ones());
     }
+  }
+}
+
+TEST(UndistortReconstruction, RescalesAlreadyUndistortedCameras) {
+  constexpr size_t kNumImages = 3;
+
+  Reconstruction reconstruction;
+
+  // Already-undistorted (PINHOLE) camera at a high resolution. focal=100,
+  // width=height=100 => principal point at (50, 50).
+  Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100, 100, 100);
+  ASSERT_TRUE(camera.IsUndistorted());
+  reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  reconstruction.AddRig(rig);
+
+  const Eigen::Vector2d point_xy(60, 40);
+  for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
+    Frame frame;
+    frame.SetRigId(1);
+    frame.SetFrameId(image_id);
+    frame.SetRigFromWorld(Rigid3d());
+    Image image;
+    image.SetImageId(image_id);
+    image.SetCameraId(1);
+    image.SetFrameId(frame.FrameId());
+    image.SetName("image" + std::to_string(image_id));
+    image.SetPoints2D(std::vector<Eigen::Vector2d>(1, point_xy));
+    frame.AddDataId(image.DataId());
+    reconstruction.AddFrame(frame);
+    reconstruction.AddImage(image);
+    reconstruction.RegisterFrame(frame.FrameId());
+  }
+
+  UndistortCameraOptions options;
+  options.max_image_size = 50;
+  UndistortReconstruction(options, &reconstruction);
+
+  // The camera resolution and intrinsics are rescaled to match max_image_size.
+  const Camera& undistorted_camera = reconstruction.Camera(1);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.width, 50);
+  EXPECT_EQ(undistorted_camera.height, 50);
+  EXPECT_NEAR(undistorted_camera.FocalLengthX(), 50, 1e-6);
+  EXPECT_NEAR(undistorted_camera.FocalLengthY(), 50, 1e-6);
+  EXPECT_NEAR(undistorted_camera.PrincipalPointX(), 25, 1e-6);
+  EXPECT_NEAR(undistorted_camera.PrincipalPointY(), 25, 1e-6);
+
+  // The observations are rescaled consistently with the camera: (60, 40) maps
+  // to normalized (0.1, -0.1) and back through the halved intrinsics to
+  // (0.1 * 50 + 25, -0.1 * 50 + 25) = (30, 20).
+  for (const auto& image : reconstruction.Images()) {
+    ASSERT_EQ(image.second.NumPoints2D(), 1);
+    EXPECT_THAT(image.second.Point2D(0).xy,
+                EigenMatrixNear(Eigen::Vector2d(30, 20), 1e-6));
+  }
+}
+
+TEST(UndistortReconstruction, RescalesSphericalCameras) {
+  constexpr size_t kNumImages = 3;
+
+  Reconstruction reconstruction;
+
+  // Spherical (EQUIRECTANGULAR) camera at a high resolution. It has no pinhole
+  // plane to undistort to, but can still be resized to a smaller image of the
+  // same model.
+  Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
+  ASSERT_TRUE(camera.IsSpherical());
+  reconstruction.AddCamera(camera);
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
+  reconstruction.AddRig(rig);
+
+  // A front-hemisphere pixel (azimuth 36 deg) and a back-hemisphere pixel
+  // (azimuth -144 deg, behind the camera). The back-hemisphere observation has
+  // no forward normalized (CamFromImg) representation, so it must be handled by
+  // plain linear scaling rather than a bearing round-trip.
+  const std::vector<Eigen::Vector2d> points_xy = {Eigen::Vector2d(600, 200),
+                                                  Eigen::Vector2d(100, 400)};
+  for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
+    Frame frame;
+    frame.SetRigId(1);
+    frame.SetFrameId(image_id);
+    frame.SetRigFromWorld(Rigid3d());
+    Image image;
+    image.SetImageId(image_id);
+    image.SetCameraId(1);
+    image.SetFrameId(frame.FrameId());
+    image.SetName("image" + std::to_string(image_id));
+    image.SetPoints2D(points_xy);
+    frame.AddDataId(image.DataId());
+    reconstruction.AddFrame(frame);
+    reconstruction.AddImage(image);
+    reconstruction.RegisterFrame(frame.FrameId());
+  }
+
+  UndistortCameraOptions options;
+  options.max_image_size = 250;
+  UndistortReconstruction(options, &reconstruction);
+
+  // The camera keeps its model but is resized so its larger dimension (width)
+  // matches max_image_size: scale = 250 / 1000 = 0.25.
+  const Camera& undistorted_camera = reconstruction.Camera(1);
+  EXPECT_EQ(undistorted_camera.ModelName(), "EQUIRECTANGULAR");
+  EXPECT_EQ(undistorted_camera.width, 250);
+  EXPECT_EQ(undistorted_camera.height, 125);
+
+  // The observations are rescaled consistently with the camera: the fractional
+  // position within the image is preserved (a plain 0.25 scaling here), so both
+  // the front- and back-hemisphere points map through without loss.
+  for (const auto& image : reconstruction.Images()) {
+    ASSERT_EQ(image.second.NumPoints2D(), 2);
+    EXPECT_THAT(image.second.Point2D(0).xy,
+                EigenMatrixNear(Eigen::Vector2d(150, 50), 1e-6));
+    EXPECT_THAT(image.second.Point2D(1).xy,
+                EigenMatrixNear(Eigen::Vector2d(25, 100), 1e-6));
   }
 }
 

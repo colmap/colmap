@@ -14,6 +14,8 @@ __global__ void __launch_bounds__(1024, 1)
     SimpleRadialScoreKernel(float* pose,
                             unsigned int pose_num_alloc,
                             SharedIndex* pose_indices,
+                            float* sensor_from_rig,
+                            unsigned int sensor_from_rig_num_alloc,
                             float* calib,
                             unsigned int calib_num_alloc,
                             SharedIndex* calib_indices,
@@ -32,6 +34,7 @@ __global__ void __launch_bounds__(1024, 1)
       (global_thread_idx < problem_size
            ? pose_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
+
   __shared__ SharedIndex calib_indices_loc[1024];
   calib_indices_loc[threadIdx.x] =
       (global_thread_idx < problem_size
@@ -46,7 +49,8 @@ __global__ void __launch_bounds__(1024, 1)
   __shared__ float out_rTr_local[1];
 
   float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
-      r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26;
+      r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
+      r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44;
   LoadShared<4, float, float>(
       calib, 0 * calib_num_alloc, calib_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
@@ -63,14 +67,13 @@ __global__ void __launch_bounds__(1024, 1)
         pixel, 0 * pixel_num_alloc, global_thread_idx, r4, r5);
     r6 = -1.00000000000000000e+00;
     r4 = fmaf(r4, r6, r2);
+    ReadIdx3<1024, float, float, float4>(sensor_from_rig,
+                                         4 * sensor_from_rig_num_alloc,
+                                         global_thread_idx,
+                                         r2,
+                                         r7,
+                                         r8);
   };
-  LoadShared<3, float, float>(
-      pose, 4 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
-  if (global_thread_idx < problem_size) {
-    ReadShared3<float>(
-        (float*)inout_shared, pose_indices_loc[threadIdx.x].target, r2, r7, r8);
-  };
-  __syncthreads();
   LoadShared<3, float, float>(
       point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
@@ -81,69 +84,143 @@ __global__ void __launch_bounds__(1024, 1)
                        r11);
   };
   __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r12 = -2.00000000000000000e+00;
+  };
   LoadShared<4, float, float>(
       pose, 0 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared4<float>((float*)inout_shared,
                        pose_indices_loc[threadIdx.x].target,
-                       r12,
                        r13,
                        r14,
-                       r15);
+                       r15,
+                       r16);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r16 = -2.00000000000000000e+00;
-    r17 = r15 * r16;
-    r18 = 2.00000000000000000e+00;
-    r19 = r12 * r18;
-    r20 = r13 * r19;
-    r21 = fmaf(r14, r17, r20);
-    r21 = fmaf(r10, r21, r2);
-    r2 = r13 * r15;
-    r22 = r14 * r19;
-    r2 = fmaf(r18, r2, r22);
-    r23 = r14 * r14;
-    r23 = r16 * r23;
-    r24 = 1.00000000000000000e+00;
-    r25 = r13 * r13;
-    r25 = fmaf(r16, r25, r24);
-    r26 = r23 + r25;
-    r21 = fmaf(r11, r2, r21);
-    r21 = fmaf(r9, r26, r21);
-    r26 = 9.99999999999999955e-07;
-    r2 = r13 * r14;
-    r2 = r2 * r18;
-    r19 = fmaf(r15, r19, r2);
-    r19 = fmaf(r10, r19, r8);
-    r22 = fmaf(r13, r17, r22);
-    r8 = r12 * r12;
-    r8 = r8 * r16;
-    r25 = r8 + r25;
-    r19 = fmaf(r9, r22, r19);
-    r19 = fmaf(r11, r25, r19);
-    r25 = copysign(1.0, r19);
-    r25 = fmaf(r26, r25, r19);
-    r26 = r25 * r25;
-    r26 = 1.0 / r26;
-    r19 = r14 * r15;
-    r19 = fmaf(r18, r19, r20);
-    r19 = fmaf(r9, r19, r7);
-    r17 = fmaf(r12, r17, r2);
-    r23 = r24 + r23;
-    r23 = r23 + r8;
-    r19 = fmaf(r11, r17, r19);
-    r19 = fmaf(r10, r23, r19);
-    r23 = r19 * r19;
-    r10 = r21 * r21;
-    r10 = fmaf(r26, r10, r26 * r23);
-    r10 = fmaf(r1, r10, r24);
-    r10 = r0 * r10;
+    ReadIdx4<1024, float, float, float4>(sensor_from_rig,
+                                         0 * sensor_from_rig_num_alloc,
+                                         global_thread_idx,
+                                         r17,
+                                         r18,
+                                         r19,
+                                         r20);
+    r21 = fmaf(r14, r17, r15 * r20);
+    r22 = r13 * r18;
+    r21 = fmaf(r6, r22, r21);
+    r21 = fmaf(r16, r19, r21);
+    r22 = r21 * r21;
+    r22 = r12 * r22;
+    r23 = 1.00000000000000000e+00;
+    r24 = r15 * r17;
+    r24 = fmaf(r6, r24, r14 * r20);
+    r24 = fmaf(r16, r18, r24);
+    r24 = fmaf(r13, r19, r24);
+    r25 = r24 * r24;
+    r25 = fmaf(r12, r25, r23);
+    r26 = r22 + r25;
+    r26 = fmaf(r9, r26, r2);
+    r2 = 2.00000000000000000e+00;
+    r27 = fmaf(r16, r17, r13 * r20);
+    r28 = r14 * r19;
+    r27 = fmaf(r6, r28, r27);
+    r27 = fmaf(r15, r18, r27);
+    r28 = r2 * r27;
+    r29 = r24 * r28;
+    r30 = fmaf(r14, r18, r13 * r17);
+    r30 = fmaf(r15, r19, r30);
+    r30 = fmaf(r6, r30, r16 * r20);
+    r16 = r12 * r30;
+    r31 = fmaf(r21, r16, r29);
+    r32 = r2 * r24;
+    r33 = r21 * r28;
+    r32 = fmaf(r30, r32, r33);
+  };
+  LoadShared<3, float, float>(
+      pose, 4 * pose_num_alloc, pose_indices_loc, (float*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    ReadShared3<float>((float*)inout_shared,
+                       pose_indices_loc[threadIdx.x].target,
+                       r34,
+                       r35,
+                       r36);
+  };
+  __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r37 = r17 * r19;
+    r37 = r37 * r2;
+    r38 = r18 * r20;
+    r39 = fmaf(r2, r38, r37);
+    r40 = r19 * r20;
+    r41 = r17 * r18;
+    r41 = r41 * r2;
+    r40 = fmaf(r12, r40, r41);
+    r42 = r18 * r18;
+    r42 = r42 * r12;
+    r43 = r23 + r42;
+    r44 = r19 * r19;
+    r44 = r12 * r44;
+    r43 = r43 + r44;
+    r26 = fmaf(r10, r31, r26);
+    r26 = fmaf(r11, r32, r26);
+    r26 = fmaf(r36, r39, r26);
+    r26 = fmaf(r35, r40, r26);
+    r26 = fmaf(r34, r43, r26);
+    r43 = 9.99999999999999955e-07;
+    r33 = fmaf(r24, r16, r33);
+    r33 = fmaf(r9, r33, r8);
+    r38 = fmaf(r12, r38, r37);
+    r42 = r23 + r42;
+    r37 = r17 * r17;
+    r37 = r12 * r37;
+    r42 = r42 + r37;
+    r8 = r18 * r19;
+    r8 = r8 * r2;
+    r40 = r17 * r20;
+    r40 = fmaf(r2, r40, r8);
+    r39 = r2 * r21;
+    r39 = r39 * r24;
+    r28 = fmaf(r30, r28, r39);
+    r32 = r27 * r27;
+    r32 = r32 * r12;
+    r25 = r32 + r25;
+    r33 = fmaf(r34, r38, r33);
+    r33 = fmaf(r36, r42, r33);
+    r33 = fmaf(r35, r40, r33);
+    r33 = fmaf(r10, r28, r33);
+    r33 = fmaf(r11, r25, r33);
+    r25 = copysign(1.0, r33);
+    r25 = fmaf(r43, r25, r33);
+    r43 = r25 * r25;
+    r43 = 1.0 / r43;
+    r33 = r26 * r26;
+    r28 = r2 * r21;
+    r28 = fmaf(r30, r28, r29);
+    r28 = fmaf(r9, r28, r7);
+    r9 = r19 * r20;
+    r9 = fmaf(r2, r9, r41);
+    r44 = r23 + r44;
+    r44 = r44 + r37;
+    r37 = r17 * r20;
+    r37 = fmaf(r12, r37, r8);
+    r16 = fmaf(r27, r16, r39);
+    r22 = r23 + r22;
+    r22 = r22 + r32;
+    r28 = fmaf(r34, r9, r28);
+    r28 = fmaf(r35, r44, r28);
+    r28 = fmaf(r36, r37, r28);
+    r28 = fmaf(r11, r16, r28);
+    r28 = fmaf(r10, r22, r28);
+    r22 = r28 * r28;
+    r22 = fmaf(r43, r22, r43 * r33);
+    r22 = fmaf(r1, r22, r23);
+    r22 = r0 * r22;
     r25 = 1.0 / r25;
-    r10 = r10 * r25;
-    r4 = fmaf(r21, r10, r4);
+    r22 = r22 * r25;
+    r4 = fmaf(r26, r22, r4);
     r6 = fmaf(r5, r6, r3);
-    r6 = fmaf(r19, r10, r6);
+    r6 = fmaf(r28, r22, r6);
     r6 = fmaf(r6, r6, r4 * r4);
   };
   SumStore<float>(out_rTr_local,
@@ -157,6 +234,8 @@ __global__ void __launch_bounds__(1024, 1)
 void SimpleRadialScore(float* pose,
                        unsigned int pose_num_alloc,
                        SharedIndex* pose_indices,
+                       float* sensor_from_rig,
+                       unsigned int sensor_from_rig_num_alloc,
                        float* calib,
                        unsigned int calib_num_alloc,
                        SharedIndex* calib_indices,
@@ -175,6 +254,8 @@ void SimpleRadialScore(float* pose,
   SimpleRadialScoreKernel<<<n_blocks, 1024>>>(pose,
                                               pose_num_alloc,
                                               pose_indices,
+                                              sensor_from_rig,
+                                              sensor_from_rig_num_alloc,
                                               calib,
                                               calib_num_alloc,
                                               calib_indices,

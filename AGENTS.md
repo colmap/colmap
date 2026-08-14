@@ -163,6 +163,20 @@ pytest                             # All Python tests (config in pyproject.toml)
 - Generic indexes: int, size_t
 - Special identifiers: camera_t, image_t, image_pair_t, frame_t, rig_t, point2D_t, point3D_t, sensor_t, data_t, pose_prior_t
 
+### Hash containers (util/hash_containers.h)
+
+Use the `colmap::{Flat,Node}Hash{Map,Set}` aliases, not `std::unordered_map/set`.
+
+- `FlatHashMap`/`FlatHashSet` — default; fastest, but invalidate element
+  references/iterators on insert/erase, so no iterator-erase loops (erase by key).
+- `NodeHashMap`/`NodeHashSet` — reference-stable; use when a reference/pointer/
+  iterator to an element is held across a mutation of the same container (e.g.
+  `Reconstruction::points3D_`).
+
+Custom keys reuse the `std::hash` specializations / `PairHash` in `util/types.h`.
+Keep `std::map`/`std::set` only when sorted iteration is required (deterministic
+output, Ceres block order, `lower_bound`).
+
 ### Formatting
 
 ```bash

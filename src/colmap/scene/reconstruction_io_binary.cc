@@ -37,6 +37,7 @@
 #include "colmap/scene/track.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <fstream>
@@ -179,7 +180,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
     CreateOneRigPerCamera(reconstruction);
   }
 
-  const std::unordered_map<image_t, Frame*> image_to_frame =
+  const NodeHashMap<image_t, Frame*> image_to_frame =
       ExtractImageToFramePtr(reconstruction);
 
   std::vector<Eigen::Vector2d> points2D;

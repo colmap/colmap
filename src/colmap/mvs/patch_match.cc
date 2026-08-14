@@ -35,12 +35,12 @@
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
 #include <numeric>
 #include <set>
-#include <unordered_set>
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl
 
@@ -257,7 +257,7 @@ void PatchMatchController::ReadProblems() {
       DegToRad(options_.min_triangulation_angle);
 
   std::string ref_image_name;
-  std::unordered_set<int> ref_image_idxs;
+  FlatHashSet<int> ref_image_idxs;
 
   struct ProblemConfig {
     std::string ref_image_name;
@@ -451,8 +451,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   {
     // Collect all used images in current problem.
-    std::unordered_set<int> used_image_idxs(problem.src_image_idxs.begin(),
-                                            problem.src_image_idxs.end());
+    FlatHashSet<int> used_image_idxs(problem.src_image_idxs.begin(),
+                                     problem.src_image_idxs.end());
     used_image_idxs.insert(problem.ref_image_idx);
 
     patch_match_options.filter_min_num_consistent =

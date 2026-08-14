@@ -37,6 +37,50 @@ void BindTriangulation(py::module& m) {
       "cam_point1"_a,
       "cam_point2"_a,
       "Triangulate point in world from two-view observation.");
+  m.def(
+      "triangulate_point",
+      [](const Eigen::Matrix3x4d& cam1_from_world,
+         const Eigen::Matrix3x4d& cam2_from_world,
+         const Eigen::Vector3d& cam_ray1,
+         const Eigen::Vector3d& cam_ray2)
+          -> py::typing::Optional<Eigen::Vector3d> {
+        Eigen::Vector3d point3D;
+        if (TriangulatePoint(cam1_from_world,
+                             cam2_from_world,
+                             cam_ray1,
+                             cam_ray2,
+                             &point3D)) {
+          return py::cast(point3D);
+        } else {
+          return py::none();
+        }
+      },
+      "cam1_from_world"_a,
+      "cam2_from_world"_a,
+      "cam_ray1"_a,
+      "cam_ray2"_a,
+      "Triangulate point in world from two-view bearing-vector observation.");
+  m.def(
+      "triangulate_multi_view_point",
+      [](const std::vector<Eigen::Matrix3x4d>& cams_from_world,
+         const std::vector<Eigen::Vector3d>& cam_rays)
+          -> py::typing::Optional<Eigen::Vector3d> {
+        THROW_CHECK_EQ(cams_from_world.size(), cam_rays.size());
+        Eigen::Vector3d point3D;
+        if (TriangulateMultiViewPoint(
+                span<const Eigen::Matrix3x4d>(cams_from_world.data(),
+                                              cams_from_world.size()),
+                span<const Eigen::Vector3d>(cam_rays.data(), cam_rays.size()),
+                &point3D)) {
+          return py::cast(point3D);
+        } else {
+          return py::none();
+        }
+      },
+      "cams_from_world"_a,
+      "cam_rays"_a,
+      "Triangulate point in world from multi-view bearing-vector "
+      "observations.");
   m.def("calculate_triangulation_angle",
         &CalculateTriangulationAngle,
         "proj_center1"_a,

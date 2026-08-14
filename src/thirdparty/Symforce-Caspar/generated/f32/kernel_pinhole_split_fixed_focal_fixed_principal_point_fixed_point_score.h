@@ -9,6 +9,8 @@ void PinholeSplitFixedFocalFixedPrincipalPointFixedPointScore(
     float* pose,
     unsigned int pose_num_alloc,
     SharedIndex* pose_indices,
+    float* sensor_from_rig,
+    unsigned int sensor_from_rig_num_alloc,
     float* pixel,
     unsigned int pixel_num_alloc,
     float* focal,

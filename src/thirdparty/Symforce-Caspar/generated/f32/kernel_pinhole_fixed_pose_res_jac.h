@@ -5,7 +5,9 @@
 
 namespace caspar {
 
-void PinholeFixedPoseResJac(float* calib,
+void PinholeFixedPoseResJac(float* sensor_from_rig,
+                            unsigned int sensor_from_rig_num_alloc,
+                            float* calib,
                             unsigned int calib_num_alloc,
                             SharedIndex* calib_indices,
                             float* point,

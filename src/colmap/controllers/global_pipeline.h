@@ -67,6 +67,13 @@ struct GlobalPipelineOptions {
 
 class GlobalPipeline : public BaseController {
  public:
+  enum CallbackType {
+    // Triggered after global positioning, after each global refinement
+    // iteration, and after retriangulation, so the in-progress reconstruction
+    // can be rendered.
+    MODEL_UPDATE_CALLBACK,
+  };
+
   GlobalPipeline(GlobalPipelineOptions options,
                  std::shared_ptr<Database> database,
                  std::shared_ptr<ReconstructionManager> reconstruction_manager);

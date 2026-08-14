@@ -29,10 +29,11 @@
 
 #include "colmap/geometry/pose.h"
 
-#include "colmap/geometry/triangulation.h"
 #include "colmap/math/matrix.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
+
+#include <Eigen/Geometry>
 
 namespace colmap {
 
@@ -207,21 +208,62 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
       cam1_from_world.translation() + translation12 * t);
 }
 
+namespace {
+constexpr double kSmallAngleThreshold = 1e-10;
+}  // namespace
+
+Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
+  const double theta = omega.norm();
+  if (theta < kSmallAngleThreshold) {
+    // First-order Taylor expansion preserving rotation direction.
+    return Eigen::Quaterniond(
+               1.0, 0.5 * omega.x(), 0.5 * omega.y(), 0.5 * omega.z())
+        .normalized();
+  }
+  return Eigen::Quaterniond(Eigen::AngleAxisd(theta, omega / theta));
+}
+
+Eigen::Matrix3d LeftJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
+  const double theta = omega.norm();
+  if (theta < kSmallAngleThreshold) {
+    return Eigen::Matrix3d::Identity() + 0.5 * CrossProductMatrix(omega);
+  }
+  const Eigen::Vector3d a = omega / theta;
+  const Eigen::Matrix3d a_x = CrossProductMatrix(a);
+  const double sin_theta = std::sin(theta);
+  const double sinc_theta = sin_theta / theta;
+  return sinc_theta * Eigen::Matrix3d::Identity() +
+         (1.0 - sinc_theta) * a * a.transpose() +
+         ((1.0 - std::cos(theta)) / theta) * a_x;
+}
+
+Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
+  return LeftJacobianFromAngleAxis(-omega);
+}
+
 bool CheckCheirality(const Rigid3d& cam2_from_cam1,
                      const std::vector<Eigen::Vector3d>& cam_rays1,
                      const std::vector<Eigen::Vector3d>& cam_rays2,
-                     std::vector<Eigen::Vector3d>* points3D) {
+                     std::vector<int>* valid_indices) {
   THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  points3D->clear();
+  valid_indices->clear();
+  const Eigen::Matrix3d cam2_from_cam1_rot =
+      cam2_from_cam1.rotation().toRotationMatrix();
   for (size_t i = 0; i < cam_rays1.size(); ++i) {
-    Eigen::Vector3d point3D_in_cam1;
-    if (!TriangulateMidPoint(
-            cam2_from_cam1, cam_rays1[i], cam_rays2[i], &point3D_in_cam1)) {
-      continue;
+    // Solve the 2x2 system for the depths of the point along both rays; both
+    // must be positive for the point to lie in front of both cameras. This
+    // assumes unit-norm rays: the common positive factor 1 / (1 - a^2) is
+    // dropped since it does not affect the sign (a = cos angle between the
+    // rays, so |a| <= 1).
+    const Eigen::Vector3d ray1_in_cam2 = cam2_from_cam1_rot * cam_rays1[i];
+    const double a = -ray1_in_cam2.dot(cam_rays2[i]);
+    const double b1 = -ray1_in_cam2.dot(cam2_from_cam1.translation());
+    const double b2 = cam_rays2[i].dot(cam2_from_cam1.translation());
+    if (b1 - a * b2 > 0.0 && b2 - a * b1 > 0.0) {
+      valid_indices->push_back(static_cast<int>(i));
     }
-    points3D->push_back(point3D_in_cam1);
   }
-  return !points3D->empty();
+  return !valid_indices->empty();
 }
 
 Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,

@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <functional>
@@ -36,7 +37,6 @@
 #include <list>
 #include <memory>
 #include <shared_mutex>
-#include <unordered_map>
 
 namespace colmap {
 
@@ -80,7 +80,7 @@ class LRUCache {
   std::list<key_value_pair_t> elems_list_;
 
   // Mapping from key to location in the list.
-  std::unordered_map<key_t, list_iterator_t> elems_map_;
+  NodeHashMap<key_t, list_iterator_t> elems_map_;
 
   // Function to compute new values if not in the cache.
   const LoadFn load_fn_;
@@ -176,7 +176,7 @@ class MemoryConstrainedLRUCache {
   std::list<key_value_pair_t> elems_list_;
 
   // Mapping from key to (location in list, num_bytes).
-  std::unordered_map<key_t, std::pair<list_iterator_t, size_t>> elems_map_;
+  NodeHashMap<key_t, std::pair<list_iterator_t, size_t>> elems_map_;
 
   // Function to compute new values if not in the cache.
   const LoadFn load_fn_;

@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/texture_mapping.h"
 
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -85,7 +86,7 @@ Image MakeTestImage(int width, int height, const BitmapColor<uint8_t>& color) {
 
   Bitmap bitmap(width, height, /*as_rgb=*/true);
   bitmap.Fill(color);
-  image.SetBitmap(bitmap);
+  image.SetBitmap(std::move(bitmap));
 
   return image;
 }
@@ -115,7 +116,7 @@ Image MakeBehindCameraImage(int width, int height) {
 
   Bitmap bitmap(width, height, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0));
-  image.SetBitmap(bitmap);
+  image.SetBitmap(std::move(bitmap));
 
   return image;
 }
@@ -145,7 +146,7 @@ Image MakeGrazingAngleImage(int width, int height) {
 
   Bitmap bitmap(width, height, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(128));
-  image.SetBitmap(bitmap);
+  image.SetBitmap(std::move(bitmap));
 
   return image;
 }
@@ -328,7 +329,7 @@ TEST(MeshTextureMapping, SingleFaceTwoViews) {
   Image img_far("far.png", 256, 256, K, R, T);
   Bitmap bitmap(256, 256, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 255, 0));
-  img_far.SetBitmap(bitmap);
+  img_far.SetBitmap(std::move(bitmap));
 
   std::vector<Image> images = {img_close, img_far};
 

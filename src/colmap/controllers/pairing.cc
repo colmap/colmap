@@ -33,13 +33,11 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/retrieval/resources.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <faiss/IndexFlat.h>
@@ -50,13 +48,13 @@ namespace {
 
 std::vector<std::pair<image_t, image_t>> ReadImagePairsText(
     const std::filesystem::path& path,
-    const std::unordered_map<std::string, image_t>& image_name_to_image_id) {
+    const NodeHashMap<std::string, image_t>& image_name_to_image_id) {
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
 
   std::string line;
   std::vector<std::pair<image_t, image_t>> image_pairs;
-  std::unordered_set<image_pair_t> image_pairs_set;
+  FlatHashSet<image_pair_t> image_pairs_set;
   while (std::getline(file, line)) {
     StringTrim(&line);
 
@@ -252,7 +250,7 @@ VocabTreePairGenerator::VocabTreePairGenerator(
     query_image_ids_ = cache_->GetImageIds();
   } else {
     // Map image names to image identifiers.
-    std::unordered_map<std::string, image_t> image_name_to_image_id;
+    NodeHashMap<std::string, image_t> image_name_to_image_id;
     image_name_to_image_id.reserve(all_image_ids.size());
     for (const auto image_id : all_image_ids) {
       const auto& image = cache_->GetImage(image_id);
@@ -389,20 +387,32 @@ void VocabTreePairGenerator::IndexImages(
 }
 
 void VocabTreePairGenerator::Query(const image_t image_id) {
-  auto keypoints = *cache_->GetKeypoints(image_id);
-  auto descriptors = *cache_->GetDescriptors(image_id);
-  if (options_.max_num_features > 0 &&
-      descriptors.data.rows() > options_.max_num_features) {
-    ExtractTopScaleFeatures(
-        &keypoints, &descriptors, options_.max_num_features);
-  }
-
   Retrieval retrieval;
   retrieval.image_id = image_id;
-  visual_index_->Query(query_options_,
-                       keypoints,
-                       descriptors.ToFloat(),
-                       &retrieval.image_scores);
+
+  // Each query must push exactly one result, because the consuming Next() pops
+  // exactly one result per query. If a query fails (e.g., due to corrupt
+  // features or an out-of-memory error during spatial verification), we still
+  // push an empty result and skip retrieval for this image. Otherwise, the
+  // consumer would block indefinitely waiting for a result that never arrives.
+  try {
+    auto keypoints = *cache_->GetKeypoints(image_id);
+    auto descriptors = *cache_->GetDescriptors(image_id);
+    if (options_.max_num_features > 0 &&
+        descriptors.data.rows() > options_.max_num_features) {
+      ExtractTopScaleFeatures(
+          &keypoints, &descriptors, options_.max_num_features);
+    }
+
+    visual_index_->Query(query_options_,
+                         keypoints,
+                         descriptors.ToFloat(),
+                         &retrieval.image_scores);
+  } catch (const std::exception& error) {
+    LOG(ERROR) << "Failed to query image " << image_id
+               << " against vocabulary tree, skipping: " << error.what();
+    retrieval.image_scores.clear();
+  }
 
   THROW_CHECK(queue_.Push(std::move(retrieval)));
 }
@@ -429,13 +439,13 @@ SequentialPairGenerator::SequentialPairGenerator(
   if (options_.expand_rig_images) {
     const std::vector<frame_t> frame_ids = cache_->GetFrameIds();
     frame_to_image_ids_.reserve(frame_ids.size());
-    image_to_frame_ids_.reserve(image_ids_.size());
+    image_to_frame_id_.reserve(image_ids_.size());
     for (const frame_t frame_id : frame_ids) {
       const Frame& frame = cache_->GetFrame(frame_id);
       auto& frame_image_ids = frame_to_image_ids_[frame_id];
       for (const data_t& data_id : frame.ImageIds()) {
         frame_image_ids.push_back(data_id.id);
-        image_to_frame_ids_[data_id.id] = frame_id;
+        image_to_frame_id_[data_id.id] = frame_id;
       }
     }
   }
@@ -462,6 +472,52 @@ bool SequentialPairGenerator::HasFinished() const {
                                      : true);
 }
 
+void SequentialPairGenerator::MaybeExpandRigImages(image_t image_id1,
+                                                   image_t image_id2) {
+  if (!options_.expand_rig_images) {
+    return;
+  }
+  const auto frame_id2_it = image_to_frame_id_.find(image_id2);
+  if (frame_id2_it != image_to_frame_id_.end()) {
+    // Pair with all images in second frame.
+    for (const image_t frame_image_id2 :
+         frame_to_image_ids_.at(frame_id2_it->second)) {
+      if (image_id1 != frame_image_id2 && image_id2 != frame_image_id2) {
+        image_pairs_.emplace_back(image_id1, frame_image_id2);
+      }
+    }
+  }
+}
+
+bool SequentialPairGenerator::IsValidSequentialNeighbor(
+    image_t image_id1, image_t image_id2) const {
+  if (!options_.expand_rig_images) {
+    return true;
+  }
+
+  const auto frame_id1_it = image_to_frame_id_.find(image_id1);
+  const auto frame_id2_it = image_to_frame_id_.find(image_id2);
+  if (frame_id1_it == image_to_frame_id_.end() ||
+      frame_id2_it == image_to_frame_id_.end()) {
+    return true;
+  }
+
+  const frame_t frame_id1 = frame_id1_it->second;
+  const frame_t frame_id2 = frame_id2_it->second;
+  if (frame_to_image_ids_.at(frame_id1).size() == 1 &&
+      frame_to_image_ids_.at(frame_id2).size() == 1) {
+    return true;
+  }
+
+  // Rig images are sorted by their sensor-prefixed names. Crossing from the
+  // end of one sensor's sequence to the beginning of the next would create
+  // a false temporal neighbor. Same-frame sensor pairs are added in Next(),
+  // and temporal pairs are expanded to the other sensors by
+  // MaybeExpandRigImages().
+  return cache_->GetImage(image_id1).CameraId() ==
+         cache_->GetImage(image_id2).CameraId();
+}
+
 std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
   image_pairs_.clear();
   if (image_idx_ >= image_ids_.size()) {
@@ -477,8 +533,8 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
 
   // If image is part of a rig, then pair the other images in the same frame.
   if (options_.expand_rig_images) {
-    if (const auto frame_id1_it = image_to_frame_ids_.find(image_id1);
-        frame_id1_it != image_to_frame_ids_.end()) {
+    if (const auto frame_id1_it = image_to_frame_id_.find(image_id1);
+        frame_id1_it != image_to_frame_id_.end()) {
       for (const image_t frame_image_id2 :
            frame_to_image_ids_.at(frame_id1_it->second)) {
         if (image_id1 != frame_image_id2) {
@@ -488,27 +544,14 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
     }
   }
 
-  auto MaybeExpandRigImages = [this](image_t image_id1, image_t image_id2) {
-    if (!options_.expand_rig_images) {
-      return;
-    }
-    const auto frame_id2_it = image_to_frame_ids_.find(image_id2);
-    if (frame_id2_it != image_to_frame_ids_.end()) {
-      // Pair with all images in second frame.
-      for (const image_t frame_image_id2 :
-           frame_to_image_ids_.at(frame_id2_it->second)) {
-        if (image_id1 != frame_image_id2 && image_id2 != frame_image_id2) {
-          image_pairs_.emplace_back(image_id1, frame_image_id2);
-        }
-      }
-    }
-  };
-
   for (int i = 0; i < options_.overlap; ++i) {
     if (options_.quadratic_overlap) {
       const size_t image_idx_2_quadratic = image_idx_ + (1ull << i);
       if (image_idx_2_quadratic < image_ids_.size()) {
         const image_t image_id2 = image_ids_.at(image_idx_2_quadratic);
+        if (!IsValidSequentialNeighbor(image_id1, image_id2)) {
+          continue;
+        }
         image_pairs_.emplace_back(image_id1, image_id2);
         MaybeExpandRigImages(image_id1, image_id2);
       } else {
@@ -518,6 +561,9 @@ std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
       const size_t image_idx_2 = image_idx_ + i + 1;
       if (image_idx_2 < image_ids_.size()) {
         const image_t image_id2 = image_ids_.at(image_idx_2);
+        if (!IsValidSequentialNeighbor(image_id1, image_id2)) {
+          continue;
+        }
         image_pairs_.emplace_back(image_id1, image_id2);
         MaybeExpandRigImages(image_id1, image_id2);
       } else {
@@ -701,11 +747,25 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
     }
   }
 
+  // Trim unused rows for images without a valid position before calculating
+  // the mean coordinate below.
+  const size_t num_populated_rows = position_idxs_.size();
+  position_matrix.conservativeResize(num_populated_rows, Eigen::NoChange);
+
   // Subtract the mean coordinate before casting to float for better numerical
-  // precision when dealing with large coordinates (e.g. GPS). For even better
-  // precision, we could also rescale the coordinates.
-  position_matrix.rowwise() -= position_matrix.colwise().mean();
-  return position_matrix.topRows(position_idxs_.size()).cast<float>();
+  // precision when dealing with large coordinates (e.g. GPS). This is
+  // particularly important for projected Cartesian coordinate systems, which
+  // can contain very large values in metres. For even better precision, we
+  // could also rescale the coordinates.
+  const Eigen::RowVector3d mean_position = position_matrix.colwise().mean();
+
+  Eigen::IOFormat vec_fmt(Eigen::FullPrecision, Eigen::DontAlignCols, ", ");
+  VLOG(1) << "Internally offsetting image pose priors by mean coordinate "
+          << mean_position.format(vec_fmt) << " prior to spatial matching.";
+
+  position_matrix.rowwise() -= mean_position;
+
+  return position_matrix.cast<float>();
 }
 
 TransitivePairGenerator::TransitivePairGenerator(
@@ -809,7 +869,7 @@ ImportedPairGenerator::ImportedPairGenerator(
 
   LOG(INFO) << "Importing image pairs...";
   const std::vector<image_t> image_ids = cache->GetImageIds();
-  std::unordered_map<std::string, image_t> image_name_to_image_id;
+  NodeHashMap<std::string, image_t> image_name_to_image_id;
   image_name_to_image_id.reserve(image_ids.size());
   for (const auto image_id : image_ids) {
     const auto& image = cache->GetImage(image_id);

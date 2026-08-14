@@ -37,6 +37,7 @@
 #include "colmap/scene/reconstruction_io_text.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 
@@ -107,8 +108,8 @@ std::vector<image_t> Reconstruction::RegImageIds() const {
   return reg_image_ids;
 }
 
-std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
-  std::unordered_set<point3D_t> point3D_ids;
+FlatHashSet<point3D_t> Reconstruction::Point3DIds() const {
+  FlatHashSet<point3D_t> point3D_ids;
   point3D_ids.reserve(points3D_.size());
 
   for (const auto& [point3D_id, _] : points3D_) {
@@ -350,7 +351,7 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 
 void Reconstruction::TearDown() {
   // Remove all non-registered frames/images.
-  std::unordered_set<rig_t> keep_rig_ids;
+  FlatHashSet<rig_t> keep_rig_ids;
   for (auto frame_it = frames_.begin(); frame_it != frames_.end();) {
     for (const data_t& data_id : frame_it->second.ImageIds()) {
       auto image_it = images_.find(data_id.id);
@@ -362,7 +363,9 @@ void Reconstruction::TearDown() {
       keep_rig_ids.insert(frame_it->second.RigId());
       ++frame_it;
     } else {
-      frame_it = frames_.erase(frame_it);
+      // erase(it++) rather than it = erase(it): portable across hash map
+      // backends (Abseil's erase() returns void); frames_ is node-based.
+      frames_.erase(frame_it++);
     }
   }
 
@@ -379,7 +382,7 @@ void Reconstruction::TearDown() {
             break;
         }
       }
-      it = rigs_.erase(it);
+      rigs_.erase(it++);
     } else {
       ++it;
     }
@@ -639,7 +642,7 @@ void Reconstruction::SetRigsAndFrames(std::vector<class Rig> rigs,
   frames_.reserve(frames.size());
   reg_frame_ids_.clear();
   num_reg_images_ = 0;
-  std::unordered_map<image_t, frame_t> image_to_frame_ids;
+  NodeHashMap<image_t, frame_t> image_to_frame_ids;
   for (auto& frame : frames) {
     for (const data_t& data_id : frame.ImageIds()) {
       THROW_CHECK(
@@ -822,7 +825,7 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
     }
     cropped_reconstruction.AddImage(std::move(image));
   }
-  std::unordered_set<image_t> cropped_frame_ids;
+  FlatHashSet<image_t> cropped_frame_ids;
   for (const auto& [_, point3D] : points3D_) {
     if (bbox.contains(point3D.xyz)) {
       for (const auto& track_el : point3D.track.Elements()) {
@@ -868,10 +871,10 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
 }
 
 void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
-  std::unordered_map<image_t, image_t> old_to_new_image_ids;
+  NodeHashMap<image_t, image_t> old_to_new_image_ids;
   old_to_new_image_ids.reserve(NumImages());
 
-  std::unordered_map<image_t, class Image> new_images;
+  NodeHashMap<image_t, class Image> new_images;
   new_images.reserve(NumImages());
 
   for (auto& [_, image] : images_) {
@@ -1123,7 +1126,7 @@ void Reconstruction::ExtractColorsForAllImages(
     int count = 0;
   };
   ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
-  std::vector<std::unordered_map<point3D_t, ColorData>> thread_data(
+  std::vector<FlatHashMap<point3D_t, ColorData>> thread_data(
       thread_pool.NumThreads());
 
   for (const auto& image_id : RegImageIds()) {
@@ -1157,7 +1160,7 @@ void Reconstruction::ExtractColorsForAllImages(
   thread_pool.Wait();
 
   // Merge per-thread results.
-  std::unordered_map<point3D_t, ColorData> merged_data;
+  FlatHashMap<point3D_t, ColorData> merged_data;
   for (const auto& data : thread_data) {
     for (const auto& [point3D_id, thread_color_data] : data) {
       auto& merged_color_data = merged_data[point3D_id];

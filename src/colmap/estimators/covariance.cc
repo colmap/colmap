@@ -30,26 +30,24 @@
 #include "colmap/estimators/covariance.h"
 
 #include "colmap/estimators/cost_functions/manifold.h"
-
-#include <unordered_set>
+#include "colmap/util/hash_containers.h"
 
 #include <ceres/crs_matrix.h>
 
 namespace colmap {
 namespace {
 
-bool ComputeSchurComplement(
-    bool estimate_point_covs,
-    bool estimate_pose_covs,
-    bool estimate_other_covs,
-    double damping,
-    int point_num_params,
-    const std::vector<internal::PointParam>& points,
-    const std::vector<internal::PoseParam>& poses,
-    const std::vector<const double*>& others,
-    ceres::Problem& problem,
-    std::unordered_map<point3D_t, Eigen::MatrixXd>& point_covs,
-    Eigen::SparseMatrix<double>& S) {
+bool ComputeSchurComplement(bool estimate_point_covs,
+                            bool estimate_pose_covs,
+                            bool estimate_other_covs,
+                            double damping,
+                            int point_num_params,
+                            const std::vector<internal::PointParam>& points,
+                            const std::vector<internal::PoseParam>& poses,
+                            const std::vector<const double*>& others,
+                            ceres::Problem& problem,
+                            FlatHashMap<point3D_t, Eigen::MatrixXd>& point_covs,
+                            Eigen::SparseMatrix<double>& S) {
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
   ceres::Problem::EvaluateOptions eval_options;
@@ -218,9 +216,9 @@ Eigen::MatrixXd ExtractCovFromLInverse(const Eigen::MatrixXd& L_inv,
 }  // namespace
 
 BACovariance::BACovariance(
-    std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs,
-    std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size,
-    std::unordered_map<const double*, std::pair<int, int>> other_L_start_size,
+    FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs,
+    NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size,
+    NodeHashMap<const double*, std::pair<int, int>> other_L_start_size,
     Eigen::MatrixXd L_inv)
     : point_covs_(std::move(point_covs)),
       pose_L_start_size_(std::move(pose_L_start_size)),
@@ -332,8 +330,8 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
   int point_num_params = 0;
   int pose_num_params = 0;
   int other_num_params = 0;
-  std::unordered_map<image_t, std::pair<int, int>> pose_L_start_size;
-  std::unordered_map<const double*, std::pair<int, int>> other_L_start_size;
+  NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size;
+  NodeHashMap<const double*, std::pair<int, int>> other_L_start_size;
   for (const auto& point : points) {
     point_num_params += ParameterBlockTangentSize(problem, point.xyz);
   }
@@ -357,7 +355,7 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     }
   }
 
-  std::unordered_map<point3D_t, Eigen::MatrixXd> point_covs;
+  FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs;
   Eigen::SparseMatrix<double> S;
   if (!ComputeSchurComplement(estimate_point_covs,
                               estimate_pose_covs,
@@ -437,7 +435,7 @@ std::vector<const double*> GetOtherParams(
     const ceres::Problem& problem,
     const std::vector<PoseParam>& poses,
     const std::vector<PointParam>& points) {
-  std::unordered_set<const double*> pose_and_point_params;
+  FlatHashSet<const double*> pose_and_point_params;
   pose_and_point_params.reserve(poses.size() + points.size());
   for (const auto& pose : poses) {
     pose_and_point_params.insert(pose.cam_from_world);

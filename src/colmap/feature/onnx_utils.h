@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
-
 #include <memory>
 #include <string>
 #include <string_view>
@@ -77,6 +75,12 @@ class ONNXModel {
                          int num_threads,
                          bool use_gpu,
                          const std::string& gpu_index);
+
+  // Apply the common, provider-independent session options (threading,
+  // execution mode, graph optimization). Resets any previously appended
+  // execution providers, so it can be reused to rebuild session_options_ for a
+  // CPU-only fallback.
+  void ConfigureSessionOptions(int num_threads);
 
   Ort::Env env_;
   Ort::AllocatorWithDefaultOptions allocator_;

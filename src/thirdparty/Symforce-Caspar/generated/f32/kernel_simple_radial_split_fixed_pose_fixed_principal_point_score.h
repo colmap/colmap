@@ -6,9 +6,11 @@
 namespace caspar {
 
 void SimpleRadialSplitFixedPoseFixedPrincipalPointScore(
-    float* focal_and_distortion,
-    unsigned int focal_and_distortion_num_alloc,
-    SharedIndex* focal_and_distortion_indices,
+    float* sensor_from_rig,
+    unsigned int sensor_from_rig_num_alloc,
+    float* focal_and_extra,
+    unsigned int focal_and_extra_num_alloc,
+    SharedIndex* focal_and_extra_indices,
     float* point,
     unsigned int point_num_alloc,
     SharedIndex* point_indices,

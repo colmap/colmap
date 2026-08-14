@@ -33,9 +33,11 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/math/union_find.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 
 #include <Eigen/Geometry>
 
@@ -73,31 +75,51 @@ std::vector<image_pair_t> ExtractExhaustiveImagePairs(
   return image_pairs;
 }
 
+// Fill the configuration, essential matrix, and (for perspective pairs)
+// fundamental matrix of a synthetic two-view geometry.
+void SetTwoViewGeometryModel(const Camera& camera1,
+                             const Camera& camera2,
+                             const Rigid3d& cam2_from_cam1,
+                             TwoViewGeometry* two_view_geometry) {
+  two_view_geometry->E = EssentialMatrixFromPose(cam2_from_cam1);
+  if (camera1.IsSpherical() || camera2.IsSpherical()) {
+    // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no pinhole
+    // calibration matrix, so the fundamental matrix is undefined; they are
+    // always calibrated and use the bearing-based essential-matrix
+    // configuration.
+    two_view_geometry->config = TwoViewGeometry::CALIBRATED;
+    return;
+  }
+  const bool is_calibrated =
+      camera1.has_prior_focal_length && camera2.has_prior_focal_length;
+  two_view_geometry->config = is_calibrated ? TwoViewGeometry::CALIBRATED
+                                            : TwoViewGeometry::UNCALIBRATED;
+  two_view_geometry->F =
+      FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
+                                     *two_view_geometry->E,
+                                     camera1.CalibrationMatrix());
+}
+
 TwoViewGeometry BuildTwoViewGeometry(bool has_relative_pose,
                                      const Reconstruction& reconstruction,
                                      const image_pair_t pair_id) {
   const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
 
   const auto& image1 = reconstruction.Image(image_id1);
-  const Eigen::Matrix3d K1 = image1.CameraPtr()->CalibrationMatrix();
   const auto num_points2D1 = image1.NumPoints2D();
   const auto& image2 = reconstruction.Image(image_id2);
-  const Eigen::Matrix3d K2 = image2.CameraPtr()->CalibrationMatrix();
   const auto num_points2D2 = image2.NumPoints2D();
 
   TwoViewGeometry two_view_geometry;
-  const bool is_calibrated = image1.CameraPtr()->has_prior_focal_length &&
-                             image2.CameraPtr()->has_prior_focal_length;
-  two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
-                                           : TwoViewGeometry::UNCALIBRATED;
   const Rigid3d cam2_from_cam1 =
       image2.CamFromWorld() * Inverse(image1.CamFromWorld());
   if (has_relative_pose) {
     two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
   }
-  two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
-  two_view_geometry.F =
-      FundamentalFromEssentialMatrix(K2, two_view_geometry.E.value(), K1);
+  SetTwoViewGeometryModel(*image1.CameraPtr(),
+                          *image2.CameraPtr(),
+                          cam2_from_cam1,
+                          &two_view_geometry);
 
   for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
        ++point2D_idx1) {
@@ -159,7 +181,7 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
                               bool has_relative_pose,
                               Reconstruction* reconstruction,
                               Database* database) {
-  std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
+  NodeHashMap<image_pair_t, TwoViewGeometry> two_view_geometries;
   for (const auto& point3D : reconstruction->Points3D()) {
     std::vector<TrackElement> track_elements = point3D.second.track.Elements();
     std::sort(track_elements.begin(),
@@ -191,20 +213,13 @@ void SynthesizeChainedMatches(double inlier_match_ratio,
     const auto& camera1 = *image1.CameraPtr();
     const auto& image2 = reconstruction->Image(image_id2);
     const auto& camera2 = *image2.CameraPtr();
-    const bool is_calibrated =
-        camera1.has_prior_focal_length && camera2.has_prior_focal_length;
-    two_view_geometry.config = is_calibrated ? TwoViewGeometry::CALIBRATED
-                                             : TwoViewGeometry::UNCALIBRATED;
     const Rigid3d cam2_from_cam1 =
         image2.CamFromWorld() * Inverse(image1.CamFromWorld());
     if (has_relative_pose) {
       two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
     }
-    two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
-    two_view_geometry.F =
-        FundamentalFromEssentialMatrix(camera2.CalibrationMatrix(),
-                                       two_view_geometry.E.value(),
-                                       camera1.CalibrationMatrix());
+    SetTwoViewGeometryModel(
+        camera1, camera2, cam2_from_cam1, &two_view_geometry);
 
     WriteTwoViewGeometryToDatabase(pair_id,
                                    two_view_geometry,
@@ -354,11 +369,11 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   }
 
   // Synthesize 3D points on unit sphere centered at origin.
-  std::unordered_set<point3D_t> new_points3D_ids;
+  FlatHashSet<point3D_t> new_points3D_ids;
   new_points3D_ids.reserve(options.num_points3D);
   for (int point3D_idx = 0; point3D_idx < options.num_points3D; ++point3D_idx) {
     new_points3D_ids.insert(
-        reconstruction->AddPoint3D(Eigen::Vector3d::Random().normalized(),
+        reconstruction->AddPoint3D(RandomEigenVectord<3>().normalized(),
                                    /*track=*/{}));
   }
 
@@ -440,7 +455,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       frame.SetRigId(rig.RigId());
 
       // Synthesize frames as sphere centered at world origin.
-      const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
+      const Eigen::Vector3d view_dir = -RandomEigenVectord<3>().normalized();
       const Eigen::Vector3d proj_center = -5 * view_dir;
       Rigid3d rig_from_world;
       rig_from_world.rotation() = Eigen::Quaterniond::FromTwoVectors(
@@ -744,7 +759,7 @@ void SynthesizeNoise(const SyntheticNoiseOptions& options,
         const double angle =
             RandomGaussian<double>(0, DegToRad(options.prior_gravity_stddev));
         const Eigen::Vector3d axis =
-            pose_prior.gravity.cross(Eigen::Vector3d::Random()).normalized();
+            pose_prior.gravity.cross(RandomEigenVectord<3>()).normalized();
         pose_prior.gravity =
             (Eigen::AngleAxisd(angle, axis) * pose_prior.gravity).normalized();
       }

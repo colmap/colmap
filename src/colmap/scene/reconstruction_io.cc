@@ -30,6 +30,7 @@
 #include "colmap/scene/reconstruction_io.h"
 
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/types.h"
 
@@ -52,7 +53,7 @@ bool ExportNVM(const Reconstruction& reconstruction,
   file << "NVM_V3 \n" << " \n";
   file << reconstruction.NumRegImages() << "  \n";
 
-  std::unordered_map<image_t, size_t> image_id_to_idx_;
+  NodeHashMap<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
 
   for (const auto image_id : reconstruction.RegImageIds()) {
@@ -103,7 +104,7 @@ bool ExportNVM(const Reconstruction& reconstruction,
     std::ostringstream line;
     line.imbue(std::locale::classic());
 
-    std::unordered_set<image_t> image_ids;
+    FlatHashSet<image_t> image_ids;
     for (const auto& track_el : point3D.second.track.Elements()) {
       // Make sure that each point only has a single observation per image,
       // since VisualSfM does not support with multiple observations.
@@ -224,7 +225,7 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
   synth_file << reconstruction.NumRegImages() << " "
              << reconstruction.NumPoints3D() << '\n';
 
-  std::unordered_map<image_t, size_t> image_id_to_idx_;
+  NodeHashMap<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
 
   // Write image/camera info
@@ -277,7 +278,7 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
     std::ostringstream line;
     line.imbue(std::locale::classic());
 
-    std::unordered_set<image_t> image_ids;
+    FlatHashSet<image_t> image_ids;
     for (const auto& track_el : p.track.Elements()) {
       // Make sure that each point only has a single observation per image,
       // since VisualSfM does not support with multiple observations.
@@ -329,7 +330,7 @@ bool ExportBundler(const Reconstruction& reconstruction,
   file << reconstruction.NumRegImages() << " " << reconstruction.NumPoints3D()
        << '\n';
 
-  std::unordered_map<image_t, size_t> image_id_to_idx_;
+  NodeHashMap<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
 
   for (const image_t image_id : reconstruction.RegImageIds()) {

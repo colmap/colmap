@@ -30,6 +30,7 @@
 #include "colmap/scene/scene_clustering.h"
 
 #include "colmap/math/graph_cut.h"
+#include "colmap/util/hash_containers.h"
 
 #include <set>
 
@@ -78,7 +79,8 @@ void SceneClustering::PartitionHierarchicalCluster(
 
   // If the cluster is small enough, we return from the recursive clustering.
   if (edges.empty() || cluster->image_ids.size() <=
-                           static_cast<size_t>(options_.leaf_max_num_images)) {
+                           static_cast<size_t>(options_.leaf_max_num_images) +
+                               static_cast<size_t>(options_.image_overlap)) {
     return;
   }
 
@@ -99,20 +101,66 @@ void SceneClustering::PartitionHierarchicalCluster(
     }
   }
 
-  // Collect the edges based on whether they are inter or intra child clusters.
-  std::vector<std::vector<std::pair<int, int>>> child_edges(options_.branching);
-  std::vector<std::vector<int>> child_weights(options_.branching);
+  // Collect the edges between child clusters as overlap candidates.
   std::vector<std::vector<std::pair<std::pair<int, int>, int>>>
       overlapping_edges(options_.branching);
   for (size_t i = 0; i < edges.size(); ++i) {
     const int label1 = labels.at(edges[i].first);
     const int label2 = labels.at(edges[i].second);
-    if (label1 == label2) {
-      child_edges.at(label1).push_back(edges[i]);
-      child_weights.at(label1).push_back(weights[i]);
-    } else {
+    if (label1 != label2) {
       overlapping_edges.at(label1).emplace_back(edges[i], weights[i]);
       overlapping_edges.at(label2).emplace_back(edges[i], weights[i]);
+    }
+  }
+
+  // Add overlapping images between sibling clusters before partitioning.
+  if (options_.image_overlap > 0) {
+    for (int i = 0; i < options_.branching; ++i) {
+      std::sort(overlapping_edges[i].begin(),
+                overlapping_edges[i].end(),
+                [](const std::pair<std::pair<int, int>, int>& edge1,
+                   const std::pair<std::pair<int, int>, int>& edge2) {
+                  return edge1.second > edge2.second;
+                });
+
+      std::set<image_t> overlapping_image_ids;
+      for (const auto& [pair, _] : overlapping_edges[i]) {
+        const image_t image_id1 = pair.first;
+        const image_t image_id2 = pair.second;
+
+        if (labels.at(image_id1) == i) {
+          overlapping_image_ids.insert(image_id2);
+        } else {
+          overlapping_image_ids.insert(image_id1);
+        }
+        if (overlapping_image_ids.size() >=
+            static_cast<size_t>(options_.image_overlap)) {
+          break;
+        }
+      }
+
+      cluster->child_clusters[i].image_ids.insert(
+          cluster->child_clusters[i].image_ids.end(),
+          overlapping_image_ids.begin(),
+          overlapping_image_ids.end());
+    }
+  }
+
+  // Retain the full subgraph induced by every expanded child cluster. Edges
+  // incident to inherited overlap images allow the graph cut to assign those
+  // images based on all their connections at every subsequent level.
+  std::vector<std::vector<std::pair<int, int>>> child_edges(options_.branching);
+  std::vector<std::vector<int>> child_weights(options_.branching);
+  for (int i = 0; i < options_.branching; ++i) {
+    FlatHashSet<image_t> child_image_ids(
+        cluster->child_clusters[i].image_ids.begin(),
+        cluster->child_clusters[i].image_ids.end());
+    for (size_t j = 0; j < edges.size(); ++j) {
+      if (child_image_ids.count(edges[j].first) &&
+          child_image_ids.count(edges[j].second)) {
+        child_edges[i].push_back(edges[j]);
+        child_weights[i].push_back(weights[j]);
+      }
     }
   }
 
@@ -148,46 +196,6 @@ void SceneClustering::PartitionHierarchicalCluster(
           cluster->child_clusters[0].image_ids.size()) {
     cluster->child_clusters = {};
   }
-
-  if (options_.image_overlap > 0) {
-    for (int i = 0; i < options_.branching; ++i) {
-      // Sort the overlapping edges by the number of inlier matches, such
-      // that we add overlapping images with many common observations.
-      std::sort(overlapping_edges[i].begin(),
-                overlapping_edges[i].end(),
-                [](const std::pair<std::pair<int, int>, int>& edge1,
-                   const std::pair<std::pair<int, int>, int>& edge2) {
-                  return edge1.second > edge2.second;
-                });
-
-      // Select overlapping edges at random and add image to cluster.
-      std::set<int> overlapping_image_ids;
-      for (const auto& edge : overlapping_edges[i]) {
-        if (labels.at(edge.first.first) == i) {
-          overlapping_image_ids.insert(edge.first.second);
-        } else {
-          overlapping_image_ids.insert(edge.first.first);
-        }
-        if (overlapping_image_ids.size() >=
-            static_cast<size_t>(options_.image_overlap)) {
-          break;
-        }
-      }
-
-      // Recursively append the overlapping images to cluster and its children.
-      std::function<void(Cluster*)> InsertOverlappingImageIds =
-          [&](Cluster* cluster) {
-            cluster->image_ids.insert(cluster->image_ids.end(),
-                                      overlapping_image_ids.begin(),
-                                      overlapping_image_ids.end());
-            for (auto& child_cluster : cluster->child_clusters) {
-              InsertOverlappingImageIds(&child_cluster);
-            }
-          };
-
-      InsertOverlappingImageIds(&cluster->child_clusters[i]);
-    }
-  }
 }
 
 void SceneClustering::PartitionFlatCluster(
@@ -222,7 +230,7 @@ void SceneClustering::PartitionFlatCluster(
             });
 
   // For each image find all related images with their weights
-  std::unordered_map<int, std::vector<std::pair<int, int>>> related_images;
+  NodeHashMap<int, std::vector<std::pair<int, int>>> related_images;
   for (size_t i = 0; i < edges.size(); ++i) {
     related_images[edges[i].first].emplace_back(edges[i].second, weights[i]);
     related_images[edges[i].second].emplace_back(edges[i].first, weights[i]);
@@ -312,7 +320,7 @@ std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
 SceneClustering SceneClustering::Create(const Options& options,
                                         const DatabaseCache& database_cache) {
   LOG(INFO) << "Building scene graph...";
-  const std::unordered_map<image_pair_t, point2D_t> num_matches_between_images =
+  const NodeHashMap<image_pair_t, point2D_t> num_matches_between_images =
       database_cache.CorrespondenceGraph()->NumMatchesBetweenAllImages();
 
   std::vector<std::pair<image_t, image_t>> all_image_pairs;

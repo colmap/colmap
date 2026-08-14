@@ -33,11 +33,10 @@
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/endian.h"
+#include "colmap/util/hash_containers.h"
 
 #include <bitset>
 #include <cstdint>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>
@@ -105,14 +104,14 @@ class InvertedIndex {
   float SquaredIDFWeight(int64_t word_id) const;
 
   void FindMatches(int64_t word_id,
-                   const std::unordered_set<int>& image_ids,
+                   const FlatHashSet<int>& image_ids,
                    std::vector<const EntryType*>* matches) const;
 
   // Compute the self-similarity for the image.
   float ComputeSelfSimilarity(const WordIds& word_ids) const;
 
   // Get the identifiers of all indexed images.
-  void GetImageIds(std::unordered_set<int>* image_ids) const;
+  void GetImageIds(FlatHashSet<int>* image_ids) const;
 
   // Read/write the inverted index from/to a binary file.
   void Read(std::istream* in);
@@ -128,7 +127,7 @@ class InvertedIndex {
 
   // For each image in the database, a normalization factor to be used to
   // normalize the votes.
-  std::unordered_map<int, float> normalization_constants_;
+  NodeHashMap<int, float> normalization_constants_;
 
   // The projection matrix used to project SIFT descriptors.
   ProjMatrixType proj_matrix_;
@@ -261,7 +260,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     normalization_weight = 1.0f / std::sqrt(self_similarity);
   }
 
-  std::unordered_map<int, int> score_map;
+  NodeHashMap<int, int> score_map;
   std::vector<ImageScore> inverted_file_scores;
 
   for (typename DescType::Index i = 0; i < descriptors.rows(); ++i) {
@@ -319,7 +318,7 @@ float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::SquaredIDFWeight(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::FindMatches(
     const int64_t word_id,
-    const std::unordered_set<int>& image_ids,
+    const FlatHashSet<int>& image_ids,
     std::vector<const EntryType*>* matches) const {
   matches->clear();
   const auto& entries = inverted_files_.at(word_id).Entries();
@@ -346,7 +345,7 @@ float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeSelfSimilarity(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetImageIds(
-    std::unordered_set<int>* image_ids) const {
+    FlatHashSet<int>* image_ids) const {
   for (const auto& inverted_file : inverted_files_) {
     inverted_file.GetImageIds(image_ids);
   }
@@ -424,14 +423,14 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
     ComputeWeightsAndNormalizationConstants() {
-  std::unordered_set<int> image_ids;
+  FlatHashSet<int> image_ids;
   GetImageIds(&image_ids);
 
   for (auto& inverted_file : inverted_files_) {
     inverted_file.ComputeIDFWeight(image_ids.size());
   }
 
-  std::unordered_map<int, double> self_similarities;
+  NodeHashMap<int, double> self_similarities;
   self_similarities.reserve(image_ids.size());
   for (const auto& inverted_file : inverted_files_) {
     inverted_file.ComputeImageSelfSimilarities(&self_similarities);

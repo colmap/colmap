@@ -29,10 +29,9 @@
 
 #include "colmap/math/math.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/hash_containers.h"
 
 #include <queue>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace colmap {
@@ -42,9 +41,9 @@ static constexpr int kNumImageTilesPerDim = 8;
 static constexpr int kNumImageTiles =
     kNumImageTilesPerDim * kNumImageTilesPerDim;
 
-std::unordered_map<image_t, std::vector<int>> ComputeImageTileIdxs(
+NodeHashMap<image_t, std::vector<int>> ComputeImageTileIdxs(
     int num_tiles_per_dim, const Reconstruction& reconstruction) {
-  std::unordered_map<image_t, std::vector<int>> image_tile_idxs;
+  NodeHashMap<image_t, std::vector<int>> image_tile_idxs;
   image_tile_idxs.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
     const Camera& camera = reconstruction.Camera(image.CameraId());
@@ -69,9 +68,9 @@ std::unordered_map<image_t, std::vector<int>> ComputeImageTileIdxs(
 
 double ComputeCoverageGain(
     const Point3D& point3D,
-    const std::unordered_map<image_t, std::array<int, kNumImageTiles>>&
+    const NodeHashMap<image_t, std::array<int, kNumImageTiles>>&
         num_selected_points3D_per_image_tile,
-    const std::unordered_map<image_t, std::vector<int>>& image_tile_idxs) {
+    const NodeHashMap<image_t, std::vector<int>>& image_tile_idxs) {
   double gain = 0;
   for (const auto& track_el : point3D.track.Elements()) {
     const int tile_idx =
@@ -91,9 +90,9 @@ std::vector<point3D_t> FindRedundantPoints3D(
   const size_t num_init_points3D = reconstruction.NumPoints3D();
   const size_t num_images = reconstruction.NumImages();
 
-  const std::unordered_map<image_t, std::vector<int>> image_tile_idxs =
+  const NodeHashMap<image_t, std::vector<int>> image_tile_idxs =
       ComputeImageTileIdxs(kNumImageTilesPerDim, reconstruction);
-  std::unordered_map<image_t, std::array<int, kNumImageTiles>>
+  NodeHashMap<image_t, std::array<int, kNumImageTiles>>
       num_selected_points3D_per_image_tile;
   num_selected_points3D_per_image_tile.reserve(num_images);
   for (const auto& image : reconstruction.Images()) {
@@ -124,7 +123,7 @@ std::vector<point3D_t> FindRedundantPoints3D(
              point3D, num_selected_points3D_per_image_tile, image_tile_idxs)});
   }
 
-  std::unordered_set<point3D_t> selected_point3D_ids;
+  FlatHashSet<point3D_t> selected_point3D_ids;
   selected_point3D_ids.reserve(num_init_points3D);
   while (!priority_queue.empty()) {
     auto point3D_info = priority_queue.top();

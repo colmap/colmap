@@ -29,7 +29,7 @@
 
 #include "colmap/optim/combination_sampler.h"
 
-#include <unordered_set>
+#include "colmap/util/hash_containers.h"
 
 #include <gtest/gtest.h>
 
@@ -40,7 +40,7 @@ TEST(CombinationSampler, LessSamples) {
   CombinationSampler sampler(2);
   sampler.Initialize(5);
   EXPECT_EQ(sampler.MaxNumSamples(), 10);
-  std::vector<std::unordered_set<size_t>> sample_sets;
+  std::vector<FlatHashSet<size_t>> sample_sets;
   for (size_t i = 0; i < 10; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
@@ -66,8 +66,7 @@ TEST(CombinationSampler, EqualSamples) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
     EXPECT_EQ(samples.size(), 5);
-    EXPECT_EQ(std::unordered_set<size_t>(samples.begin(), samples.end()).size(),
-              5);
+    EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 5);
   }
 }
 

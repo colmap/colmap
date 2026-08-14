@@ -126,6 +126,14 @@ void BindBitmap(pybind11::module& m) {
            "new_height"_a,
            "filter"_a = BitmapRescaleFilter::kBilinear,
            "Rescale image to the new dimensions.")
+      .def("thumbnail",
+           &Bitmap::Thumbnail,
+           "max_image_size"_a,
+           "filter"_a = BitmapRescaleFilter::kBilinear,
+           "Downscale the image so neither dimension exceeds max_image_size, "
+           "preserving the aspect ratio. Images already within the bound are "
+           "left unchanged. Returns the applied scale factor (1 if no "
+           "rescaling was necessary).")
       .def("rot90",
            &Bitmap::Rot90,
            "Rotate image by k * 90 degrees counter-clockwise.")

@@ -4,6 +4,7 @@
 #include "colmap/util/types.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/scene/types.h"
 #include "pycolmap/utils.h"
 
 #include <pybind11/eigen.h>

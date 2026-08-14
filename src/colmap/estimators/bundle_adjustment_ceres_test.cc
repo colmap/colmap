@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -121,8 +122,26 @@ inline const ceres::Solver::Summary& GetCeresSummary(
   return ceres_summary->ceres_summary;
 }
 
+#ifdef COLMAP_CUDA_ENABLED
+TEST(CeresBundleAdjustmentOptions, FallsBackToCpuWithoutCudaDevice) {
+  if (GetNumCudaDevices() > 0) {
+    GTEST_SKIP() << "CUDA GPU is available";
+  }
+
+  CeresBundleAdjustmentOptions options;
+  options.use_gpu = true;
+  options.min_num_images_gpu_solver = 0;
+
+  const ceres::Solver::Options solver_options =
+      options.CreateSolverOptions(BundleAdjustmentConfig(), ceres::Problem());
+  EXPECT_EQ(solver_options.dense_linear_algebra_library_type,
+            options.solver_options.dense_linear_algebra_library_type);
+  EXPECT_EQ(solver_options.sparse_linear_algebra_library_type,
+            options.solver_options.sparse_linear_algebra_library_type);
+}
+#endif  // COLMAP_CUDA_ENABLED
+
 TEST(DefaultBundleAdjuster, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -162,7 +181,6 @@ TEST(DefaultBundleAdjuster, Nominal) {
 }
 
 TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -245,6 +263,58 @@ TEST(DefaultBundleAdjuster, TwoView) {
   CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
                                             orig_reconstruction.Image(2));
 
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
+TEST(DefaultBundleAdjuster, ThreeViewSpherical) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  ASSERT_TRUE(reconstruction.Camera(1).IsSpherical());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  EXPECT_EQ(config.NumResiduals(reconstruction),
+            GetCeresProblem(*bundle_adjuster).NumResiduals());
+
+  // The spherical model has no focal length; its (w, h) parameters are held
+  // constant during bundle adjustment.
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    EXPECT_EQ(camera.params, orig_reconstruction.Camera(camera_id).params);
+  }
+
+  CheckConstantCamFromWorld(reconstruction.Image(1),
+                            orig_reconstruction.Image(1));
+  CheckConstantCamFromWorldTranslationCoord(reconstruction.Image(2),
+                                            orig_reconstruction.Image(2));
+  CheckVariableCamFromWorld(reconstruction.Image(3),
+                            orig_reconstruction.Image(3));
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     CheckVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
   }
@@ -1389,7 +1459,6 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
 }
 
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1444,8 +1513,38 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
+TEST(PosePriorBundleAdjuster, InsufficientPriorsUseTwoCameraGauge) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.prior_position = true;
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  pose_priors.resize(2);
+  auto adjuster =
+      CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                    PosePriorBundleAdjustmentOptions(),
+                                    config,
+                                    std::move(pose_priors),
+                                    reconstruction);
+
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
+}
+
 TEST(PosePriorBundleAdjuster, MissingPositionCov) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1493,7 +1592,6 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
 }
 
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;

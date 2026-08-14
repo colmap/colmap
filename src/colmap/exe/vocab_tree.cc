@@ -31,10 +31,10 @@
 
 #include "colmap/controllers/option_manager.h"
 #include "colmap/feature/utils.h"
-#include "colmap/retrieval/resources.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
@@ -193,7 +193,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   // Perform image queries
   //////////////////////////////////////////////////////////////////////////////
 
-  std::unordered_map<image_t, const Image*> image_id_to_image;
+  NodeHashMap<image_t, const Image*> image_id_to_image;
   image_id_to_image.reserve(database_images.size());
   for (const auto& image : database_images) {
     image_id_to_image.emplace(image.ImageId(), &image);

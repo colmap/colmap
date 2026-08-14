@@ -203,3 +203,20 @@ def test_bitmap_exif_altitude():
     bitmap = pycolmap.Bitmap(width=32, height=24, as_rgb=True)
     result = bitmap.exif_altitude()
     assert result is None
+
+
+def test_bitmap_thumbnail():
+    bitmap = pycolmap.Bitmap(width=200, height=100, as_rgb=True)
+    scale = bitmap.thumbnail(max_image_size=50)
+    # The longest side is scaled to fit max_image_size: 50 / max(200, 100).
+    assert scale == 0.25
+    assert bitmap.width == 50
+    assert bitmap.height == 25
+
+
+def test_bitmap_thumbnail_noop():
+    bitmap = pycolmap.Bitmap(width=40, height=30, as_rgb=True)
+    scale = bitmap.thumbnail(max_image_size=100)
+    assert scale == 1.0
+    assert bitmap.width == 40
+    assert bitmap.height == 30

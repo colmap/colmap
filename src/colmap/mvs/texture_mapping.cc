@@ -29,6 +29,7 @@
 
 #include "colmap/mvs/texture_mapping.h"
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
@@ -37,7 +38,6 @@
 #include <cmath>
 #include <cstdint>
 #include <queue>
-#include <unordered_map>
 #include <variant>
 
 #include <Eigen/Core>
@@ -154,7 +154,7 @@ std::vector<Eigen::Vector3f> ComputeFaceNormals(const PlyMesh& mesh) {
 
 FaceAdjacencyMap BuildFaceAdjacency(const PlyMesh& mesh) {
   const size_t num_faces = mesh.faces.size();
-  std::unordered_map<uint64_t, std::vector<size_t>> edge_to_faces;
+  NodeHashMap<uint64_t, std::vector<size_t>> edge_to_faces;
   edge_to_faces.reserve(num_faces * 3);
 
   for (size_t fi = 0; fi < num_faces; ++fi) {
@@ -376,7 +376,7 @@ std::vector<int> SelectViews(const PlyMesh& mesh,
     for (size_t fi = 0; fi < num_faces; ++fi) {
       if (view_per_face[fi] < 0) continue;
 
-      std::unordered_map<int, int> label_counts;
+      NodeHashMap<int, int> label_counts;
       for (const size_t ni : adjacency[fi]) {
         if (view_per_face[ni] >= 0) {
           ++label_counts[view_per_face[ni]];
@@ -796,7 +796,7 @@ void ApplyGlobalColorCorrection(
 
   // Build per-region vertex-to-variable mapping.
   struct RegionVertexMap {
-    std::unordered_map<size_t, size_t> vert_to_var;
+    NodeHashMap<size_t, size_t> vert_to_var;
   };
   std::vector<RegionVertexMap> region_vert_maps(regions.size());
 

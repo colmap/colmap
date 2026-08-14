@@ -30,7 +30,7 @@
 #include "colmap/retrieval/visual_index.h"
 
 #include "colmap/feature/types.h"
-#include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -56,8 +56,6 @@ class ParameterizedVisualIndexTests
 
 TEST_P(ParameterizedVisualIndexTests, Nominal) {
   const auto [desc_dim, embedding_dim] = GetParam();
-
-  SetPRNGSeed(1);
 
   {
     auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
@@ -188,8 +186,6 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
 TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   // Keep test runtimes low.
   build_options.num_iterations = 10;
@@ -235,7 +231,7 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
       }
     } else {
       for (size_t j = 0; j < keypoints.size(); ++j) {
-        const Eigen::Vector2f offset = Eigen::Vector2f::Random();
+        const Eigen::Vector2f offset = RandomEigenVectorf<2>();
         keypoints[j].x = offset.x();
         keypoints[j].y = offset.y();
       }
@@ -287,8 +283,6 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
 TEST_P(ParameterizedVisualIndexTests, TypeMismatch) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;
@@ -330,8 +324,6 @@ TEST_P(ParameterizedVisualIndexTests, TypeMismatch) {
 }
 
 TEST(VisualIndex, Print) {
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;

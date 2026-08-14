@@ -29,7 +29,23 @@
 
 #include "colmap/ui/options_widget.h"
 
+#include <limits>
+
 namespace colmap {
+namespace {
+
+// Maps the stored "unlimited" sentinel (INT_MAX) to the displayed value -1.
+int UnlimitedOptionToSpinbox(int option, int max) {
+  return option >= max ? -1 : option;
+}
+
+// Maps the displayed value -1 back to the stored "unlimited" sentinel
+// (INT_MAX).
+int UnlimitedSpinboxToOption(int value) {
+  return value < 0 ? std::numeric_limits<int>::max() : value;
+}
+
+}  // namespace
 
 OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {
   QFont font;
@@ -98,6 +114,22 @@ QSpinBox* OptionsWidget::AddOptionInt(int* option,
   AddOptionRow(label_text, spinbox, option);
 
   options_int_.emplace_back(spinbox, option);
+
+  return spinbox;
+}
+
+QSpinBox* OptionsWidget::AddOptionIntUnlimited(int* option,
+                                               const std::string& label_text,
+                                               const int max) {
+  QSpinBox* spinbox = new QSpinBox(this);
+  spinbox->setMinimum(-1);
+  spinbox->setMaximum(max);
+  spinbox->setSpecialValueText(tr("unlimited"));
+  spinbox->setValue(UnlimitedOptionToSpinbox(*option, max));
+
+  AddOptionRow(label_text, spinbox, option);
+
+  options_int_unlimited_.emplace_back(spinbox, option);
 
   return spinbox;
 }
@@ -228,6 +260,11 @@ void OptionsWidget::ReadOptions() {
     option.first->setValue(*option.second);
   }
 
+  for (auto& option : options_int_unlimited_) {
+    option.first->setValue(
+        UnlimitedOptionToSpinbox(*option.second, option.first->maximum()));
+  }
+
   for (auto& option : options_double_) {
     option.first->setValue(*option.second);
   }
@@ -252,6 +289,10 @@ void OptionsWidget::ReadOptions() {
 void OptionsWidget::WriteOptions() {
   for (auto& option : options_int_) {
     *option.second = option.first->value();
+  }
+
+  for (auto& option : options_int_unlimited_) {
+    *option.second = UnlimitedSpinboxToOption(option.first->value());
   }
 
   for (auto& option : options_double_) {

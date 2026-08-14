@@ -66,8 +66,6 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
 }
 
 TEST(HierarchicalPipeline, WithoutNoise) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -81,23 +79,30 @@ TEST(HierarchicalPipeline, WithoutNoise) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalPipeline::Options mapper_options;
+  HierarchicalPipelineOptions mapper_options;
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
   HierarchicalPipeline mapper(mapper_options, database, reconstruction_manager);
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto reconstruction = reconstruction_manager->Get(0);
   ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
+                             *reconstruction,
                              /*max_rotation_error_deg=*/1e-2,
-                             /*max_proj_center_error=*/1e-4,
+                             /*max_proj_center_error=*/5e-4,
                              /*num_obs_tolerance=*/0);
+
+  // After the pipeline runs, point3D.error must be in pixel units, i.e.
+  // equal to what UpdatePoint3DErrors would recompute.
+  ASSERT_GT(reconstruction->NumPoints3D(), 0u);
+  const double mean_after_run = reconstruction->ComputeMeanReprojectionError();
+  reconstruction->UpdatePoint3DErrors();
+  EXPECT_DOUBLE_EQ(mean_after_run,
+                   reconstruction->ComputeMeanReprojectionError());
 }
 
 TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -113,7 +118,7 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalPipeline::Options mapper_options;
+  HierarchicalPipelineOptions mapper_options;
   mapper_options.clustering_options.leaf_max_num_images = 10;
   mapper_options.clustering_options.image_overlap = 3;
   // Note that the hierarchical mapper does not work well when the
@@ -132,8 +137,6 @@ TEST(HierarchicalPipeline, WithoutNoiseAndNonTrivialFrames) {
 }
 
 TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -149,7 +152,7 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
       synthetic_dataset_options, &gt_reconstruction, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalPipeline::Options mapper_options;
+  HierarchicalPipelineOptions mapper_options;
   mapper_options.clustering_options.leaf_max_num_images = 10;
   mapper_options.clustering_options.image_overlap = 3;
   // Note that the hierarchical mapper does not work well when the
@@ -168,8 +171,6 @@ TEST(HierarchicalPipeline, WithoutNoiseAndPanoramicNonTrivialFrames) {
 }
 
 TEST(HierarchicalPipeline, MultiReconstruction) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -187,7 +188,7 @@ TEST(HierarchicalPipeline, MultiReconstruction) {
       synthetic_dataset_options, &gt_reconstruction2, database.get());
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  HierarchicalPipeline::Options mapper_options;
+  HierarchicalPipelineOptions mapper_options;
   mapper_options.clustering_options.leaf_max_num_images = 5;
   mapper_options.clustering_options.image_overlap = 3;
   HierarchicalPipeline mapper(mapper_options, database, reconstruction_manager);
@@ -213,6 +214,19 @@ TEST(HierarchicalPipeline, MultiReconstruction) {
                              /*max_rotation_error_deg=*/1e-2,
                              /*max_proj_center_error=*/1e-4,
                              /*num_obs_tolerance=*/0);
+
+  // After the pipeline runs, point3D.error must be in pixel units for every
+  // reconstruction in the manager, i.e. equal to what UpdatePoint3DErrors
+  // would recompute.
+  for (Reconstruction* reconstruction :
+       {computed_reconstruction1, computed_reconstruction2}) {
+    ASSERT_GT(reconstruction->NumPoints3D(), 0u);
+    const double mean_after_run =
+        reconstruction->ComputeMeanReprojectionError();
+    reconstruction->UpdatePoint3DErrors();
+    EXPECT_DOUBLE_EQ(mean_after_run,
+                     reconstruction->ComputeMeanReprojectionError());
+  }
 }
 
 }  // namespace

@@ -30,6 +30,7 @@
 #include "colmap/scene/database_cache.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
@@ -146,8 +147,8 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
   timer.Restart();
   LOG(INFO) << "Loading images...";
 
-  std::unordered_set<frame_t> frame_ids;
-  std::unordered_map<image_t, frame_t> image_to_frame_id;
+  FlatHashSet<frame_t> frame_ids;
+  NodeHashMap<image_t, frame_t> image_to_frame_id;
 
   {
     std::vector<class Image> images = database.ReadAllImages();
@@ -184,7 +185,7 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
     }
 
     // Collect all images that are connected in the correspondence graph.
-    std::unordered_set<frame_t> connected_frame_ids;
+    FlatHashSet<frame_t> connected_frame_ids;
     if (!options.load_all_images) {
       connected_frame_ids.reserve(frame_ids.size());
       for (const auto& [pair_id, two_view_geometry] : two_view_geometries) {
@@ -203,13 +204,16 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
       }
     }
 
-    const std::unordered_set<frame_t>& load_frame_ids =
+    const FlatHashSet<frame_t>& load_frame_ids =
         options.load_all_images ? frame_ids : connected_frame_ids;
 
-    // Remove frames that should not be loaded.
+    // Remove frames that should not be loaded. Use erase(it++) rather than
+    // it = erase(it) so the code is portable across hash map backends (some,
+    // e.g. Abseil, return void from erase()); frames_ is node-based, so
+    // advancing past the erased element first is safe.
     for (auto it = frames_.begin(); it != frames_.end();) {
       if (load_frame_ids.count(it->first) == 0) {
-        it = frames_.erase(it);
+        frames_.erase(it++);
       } else {
         ++it;
       }
@@ -315,7 +319,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   // Collect candidate image ids matching the name filter.
   // Empty image_names means use all images.
-  std::unordered_set<image_t> candidate_image_ids;
+  FlatHashSet<image_t> candidate_image_ids;
   for (const auto& [image_id, image] : database_cache.Images()) {
     if (options.image_names.empty() ||
         options.image_names.count(image.Name()) > 0) {
@@ -325,7 +329,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   const auto& source_graph = database_cache.CorrespondenceGraph();
 
-  std::unordered_set<image_t> connected_image_ids;
+  FlatHashSet<image_t> connected_image_ids;
   if (!options.load_all_images) {
     for (const auto& [pair_id, num_matches] :
          source_graph->NumMatchesBetweenAllImages()) {
@@ -346,11 +350,11 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     }
   }
 
-  const std::unordered_set<image_t>& load_image_ids =
+  const FlatHashSet<image_t>& load_image_ids =
       options.load_all_images ? candidate_image_ids : connected_image_ids;
 
   // Collect frame ids for images to load.
-  std::unordered_set<frame_t> filtered_frame_ids;
+  FlatHashSet<frame_t> filtered_frame_ids;
   for (const image_t image_id : load_image_ids) {
     const auto& image = database_cache.Image(image_id);
     filtered_frame_ids.insert(image.FrameId());
@@ -359,7 +363,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   // Copy all images of filtered frames (not just the images matching the
   // name filter). This is needed for multi-camera rigs where the generalized
   // pose solver needs all images of a frame.
-  std::unordered_set<camera_t> filtered_camera_ids;
+  FlatHashSet<camera_t> filtered_camera_ids;
   for (const auto& [image_id, image] : database_cache.Images()) {
     if (filtered_frame_ids.count(image.FrameId()) > 0) {
       cache->images_.emplace(image_id, image);
@@ -368,7 +372,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   }
 
   // Copy filtered frames and collect rig ids.
-  std::unordered_set<rig_t> filtered_rig_ids;
+  FlatHashSet<rig_t> filtered_rig_ids;
   for (const auto& [frame_id, frame] : database_cache.Frames()) {
     if (filtered_frame_ids.count(frame_id) > 0) {
       cache->frames_.emplace(frame_id, frame);

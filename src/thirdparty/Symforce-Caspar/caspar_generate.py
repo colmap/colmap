@@ -40,7 +40,7 @@ class ConstPixel(sf.V2):
 
 # Calibration node layout:
 #
-# When both focal_and_distortion/focal and principal_point are tunable, they
+# When both focal_and_extra/focal and principal_point are tunable, they
 # are merged into a single V4 Calib node to save one shared-memory slot per
 # block.
 # This covers 4 variants: BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT.
@@ -79,11 +79,11 @@ class ConstSimpleRadialPrincipalPoint(sf.V2):
     pass
 
 
-class SimpleRadialFocalAndDistortion(sf.V2):
+class SimpleRadialFocalAndExtra(sf.V2):
     pass  # [f, k]    (split: focal tunable)
 
 
-class ConstSimpleRadialFocalAndDistortion(sf.V2):
+class ConstSimpleRadialFocalAndExtra(sf.V2):
     pass
 
 
@@ -117,6 +117,23 @@ class PinholeFocal(sf.V2):
 
 
 class ConstPinholeFocal(sf.V2):
+    pass
+
+
+# Constant sensor-from-rig calibration, stored as ConstantSequential
+# (7 floats = 28 B f32 / 56 B f64 loaded from global memory per factor).
+# ConstantShared would deduplicate to one slot per unique sensor per block,
+# eliminating the per-factor global loads, but Caspar incorrectly counts
+# ConstantShared nodes against the 48 KB shared-memory budget even though they
+# are never loaded into shared memory.  Switch to ConstantShared once fixed.
+# This choice does not affect Jacobian correctness: rig linkage is encoded
+# through the shared rig_from_world pose node (same pose index for all sensors
+# in a frame), not through sensor_from_rig.
+class ConstSimpleRadialSensorFromRig(sf.Pose3):
+    pass
+
+
+class ConstPinholeSensorFromRig(sf.Pose3):
     pass
 
 
@@ -198,6 +215,9 @@ def register_camera_model(
 
 def simple_radial_core(
     pose: T.Annotated[SimpleRadialPose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstSimpleRadialSensorFromRig, mem.ConstantSequential
+    ],
     calib: T.Annotated[SimpleRadialCalib, mem.TunableShared],  # [f, k, cx, cy]
     point: T.Annotated[Point, mem.TunableShared],
     pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
@@ -206,8 +226,10 @@ def simple_radial_core(
 
     calib = [f, k, cx, cy]: single focal length, one radial distortion
     coefficient, and principal point.
+    pose holds rig_from_world; sensor_from_rig is identity for single-camera
+    rigs (cam_from_world == rig_from_world in that case).
     """
-    cam_T_world = pose
+    cam_T_world = sensor_from_rig * pose
     f, k, cx, cy = calib
     point_cam = cam_T_world * point
     depth = point_cam[2]
@@ -218,6 +240,9 @@ def simple_radial_core(
 
 def pinhole_core(
     pose: T.Annotated[PinholePose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstPinholeSensorFromRig, mem.ConstantSequential
+    ],
     calib: T.Annotated[PinholeCalib, mem.TunableShared],  # [fx, fy, cx, cy]
     point: T.Annotated[Point, mem.TunableShared],
     pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
@@ -226,8 +251,10 @@ def pinhole_core(
 
     calib = [fx, fy, cx, cy]: two independent focal lengths and principal point,
     no distortion.
+    pose holds rig_from_world; sensor_from_rig is identity for single-camera
+    rigs (cam_from_world == rig_from_world in that case).
     """
-    cam_T_world = pose
+    cam_T_world = sensor_from_rig * pose
     fx, fy, cx, cy = calib
     point_cam = cam_T_world * point
     depth = point_cam[2]
@@ -240,32 +267,36 @@ def pinhole_core(
 
 def simple_radial_split_core(
     pose: T.Annotated[SimpleRadialPose, mem.TunableShared],
-    focal_and_distortion: T.Annotated[
-        SimpleRadialFocalAndDistortion, mem.TunableShared
+    sensor_from_rig: T.Annotated[
+        ConstSimpleRadialSensorFromRig, mem.ConstantSequential
     ],
+    focal_and_extra: T.Annotated[SimpleRadialFocalAndExtra, mem.TunableShared],
     principal_point: T.Annotated[SimpleRadialPrincipalPoint, mem.TunableShared],
     point: T.Annotated[Point, mem.TunableShared],
     pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
 ) -> sf.V2:
     """Split-calib variant of simple_radial_core.
 
-    For COLMAP's SIMPLE_RADIAL model. Used when focal/distortion and principal
+    For COLMAP's SIMPLE_RADIAL model. Used when focal/extra and principal
     point are tuned independently.
-    focal_and_distortion = [f, k], principal_point = [cx, cy].
+    focal_and_extra = [f, k], principal_point = [cx, cy].
     """
     calib = sf.V4(
         [
-            focal_and_distortion[0],
-            focal_and_distortion[1],
+            focal_and_extra[0],
+            focal_and_extra[1],
             principal_point[0],
             principal_point[1],
         ]
     )
-    return simple_radial_core(pose, calib, point, pixel)
+    return simple_radial_core(pose, sensor_from_rig, calib, point, pixel)
 
 
 def pinhole_split_core(
     pose: T.Annotated[PinholePose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstPinholeSensorFromRig, mem.ConstantSequential
+    ],
     focal: T.Annotated[PinholeFocal, mem.TunableShared],
     principal_point: T.Annotated[PinholePrincipalPoint, mem.TunableShared],
     point: T.Annotated[Point, mem.TunableShared],
@@ -277,7 +308,7 @@ def pinhole_split_core(
     focal = [fx, fy], principal_point = [cx, cy].
     """
     calib = sf.V4([focal[0], focal[1], principal_point[0], principal_point[1]])
-    return pinhole_core(pose, calib, point, pixel)
+    return pinhole_core(pose, sensor_from_rig, calib, point, pixel)
 
 
 dtype = mem.DType.DOUBLE if precision == "f64" else mem.DType.FLOAT
@@ -289,18 +320,23 @@ caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 #
 # COLMAP flag mapping:
 #   refine_rig_from_world                      -> pose
-#   refine_focal_length && refine_extra_params -> focal_and_distortion / focal
+#   refine_focal_length && refine_extra_params -> focal_and_extra / focal
 #   refine_principal_point                     -> principal_point
 #   refine_points3D                            -> point
 #
 # Limitations:
 #   - constant_rig_from_world_rotation not supported (needs separate pose
 #     rotation/translation sub-nodes)
-#   - refine_sensor_from_rig not supported (for now) due to high shared memory
-#     usage (single camera per rig assumed)
+#   - refine_sensor_from_rig=true not supported (tunable sensor_from_rig would
+#     need a second Pose3 node, likely overflowing the 48 KB limit without
+#     splitting Pose3 into rotation/translation sub-nodes)
 #   - refine_focal_length != refine_extra_params not supported (observations
-#     skipped with a warning because the merged focal_and_distortion node
+#     skipped with a warning because the merged focal_and_extra node
 #     cannot be split)
+#
+# sensor_from_rig is always present as a ConstantShared parameter. For single-
+# camera datasets the host passes identity, making it a no-op. For multi-camera
+# rigs it carries the per-sensor extrinsic calibration.
 
 FIXABLE_SIMPLE_RADIAL = {
     "pose": ConstSimpleRadialPose,
@@ -314,7 +350,7 @@ FIXABLE_PINHOLE = {
 
 FIXABLE_SIMPLE_RADIAL_SPLIT = {
     "pose": ConstSimpleRadialPose,
-    "focal_and_distortion": ConstSimpleRadialFocalAndDistortion,
+    "focal_and_extra": ConstSimpleRadialFocalAndExtra,
     "principal_point": ConstSimpleRadialPrincipalPoint,
     "point": ConstPoint,
 }
@@ -339,13 +375,13 @@ register_camera_model(
 )
 
 # Split: all variants where at least one of
-# {focal_and_distortion, principal_point} is fixed (11 variants per model).
+# {focal_and_extra, principal_point} is fixed (11 variants per model).
 register_camera_model(
     caslib,
     "simple_radial_split",
     simple_radial_split_core,
     FIXABLE_SIMPLE_RADIAL_SPLIT,
-    must_fix_one_of={"focal_and_distortion", "principal_point"},
+    must_fix_one_of={"focal_and_extra", "principal_point"},
 )
 register_camera_model(
     caslib,

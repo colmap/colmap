@@ -30,6 +30,7 @@
 #include "colmap/mvs/mesh_simplification.h"
 
 #include "colmap/math/math.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
@@ -37,7 +38,6 @@
 #include <array>
 #include <cmath>
 #include <queue>
-#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Dense>
@@ -349,7 +349,7 @@ PlyMesh SimplifyMesh(const PlyMesh& mesh,
   if (options.boundary_weight > 0) {
     LOG(INFO) << "Computing boundary preservation quadrics...";
     // Build edge-to-face mapping.
-    std::unordered_map<Edge, std::vector<size_t>, PairHash> edge_faces;
+    NodeHashMap<Edge, std::vector<size_t>, PairHash> edge_faces;
     edge_faces.reserve(num_faces * 3 / 2);
     for (size_t fi = 0; fi < num_faces; ++fi) {
       if (face_removed[fi]) continue;

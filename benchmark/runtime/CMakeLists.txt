@@ -3,8 +3,17 @@ find_package(benchmark REQUIRED)
 add_executable(benchmark_cost_functions cost_functions.cc)
 target_link_libraries(benchmark_cost_functions PRIVATE colmap_estimators benchmark::benchmark)
 
+add_executable(benchmark_fundamental_matrix_degensac fundamental_matrix_degensac.cc)
+target_link_libraries(benchmark_fundamental_matrix_degensac PRIVATE colmap_estimators benchmark::benchmark)
+
 add_executable(benchmark_bundle_adjustment bundle_adjustment.cc)
 target_link_libraries(benchmark_bundle_adjustment PRIVATE colmap_estimators colmap_scene benchmark::benchmark)
 
+add_executable(benchmark_bundle_adjustment_convergence bundle_adjustment_convergence.cc)
+target_link_libraries(benchmark_bundle_adjustment_convergence PRIVATE colmap_estimators colmap_scene colmap_controllers)
+
 add_executable(benchmark_global_positioning global_positioning.cc)
 target_link_libraries(benchmark_global_positioning PRIVATE colmap_estimators colmap_scene benchmark::benchmark)
+
+add_executable(benchmark_incremental_mapping incremental_mapping.cc)
+target_link_libraries(benchmark_incremental_mapping PRIVATE colmap_controllers colmap_scene benchmark::benchmark)

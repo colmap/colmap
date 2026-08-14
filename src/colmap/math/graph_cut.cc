@@ -29,7 +29,7 @@
 
 #include "colmap/math/graph_cut.h"
 
-#include <unordered_map>
+#include "colmap/util/hash_containers.h"
 
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
@@ -65,7 +65,7 @@ class MetisGraph {
  public:
   MetisGraph(const std::vector<std::pair<int, int>>& edges,
              const std::vector<int>& weights) {
-    std::unordered_map<int, std::vector<std::pair<int, int>>> adjacency_list;
+    NodeHashMap<int, std::vector<std::pair<int, int>>> adjacency_list;
     for (size_t i = 0; i < edges.size(); ++i) {
       const auto& edge = edges[i];
       const auto weight = weights[i];
@@ -131,8 +131,8 @@ class MetisGraph {
   idx_t* adjwgt = nullptr;
 
  private:
-  std::unordered_map<int, int> vertex_id_to_idx_;
-  std::unordered_map<int, int> vertex_idx_to_id_;
+  NodeHashMap<int, int> vertex_id_to_idx_;
+  NodeHashMap<int, int> vertex_idx_to_id_;
   std::vector<idx_t> xadj_;
   std::vector<idx_t> adjncy_;
   std::vector<idx_t> adjwgt_;
@@ -183,7 +183,7 @@ void ComputeMinGraphCutStoerWagner(
   }
 }
 
-std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
+NodeHashMap<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
     const int num_parts) {
@@ -223,7 +223,7 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     LOG(FATAL_THROW) << "INTERNAL: Metis 'some other type of error'";
   }
 
-  std::unordered_map<int, int> labels;
+  NodeHashMap<int, int> labels;
   for (size_t idx = 0; idx < cut_labels.size(); ++idx) {
     labels.emplace(graph.GetVertexId(idx), cut_labels[idx]);
   }

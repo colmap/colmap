@@ -29,8 +29,10 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/types.h"
 
 #include <vector>
 
@@ -61,12 +63,12 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
 // @param cam_rays1       First set of corresponding rays.
 // @param cam_rays2       Second set of corresponding rays.
 // @param cam2_from_cam1  Relative camera transformation.
-// @param points3D        Triangulated 3D points infront of camera.
+// @param valid_indices   Indices of correspondences in front of both cameras.
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector3d>& cam_rays1,
                              const std::vector<Eigen::Vector3d>& cam_rays2,
                              Rigid3d* cam2_from_cam1,
-                             std::vector<Eigen::Vector3d>* points3D);
+                             std::vector<int>* valid_indices);
 
 // Compose essential matrix from relative camera poses.
 //
@@ -133,12 +135,16 @@ Eigen::Matrix3d EssentialFromFundamentalMatrix(const Eigen::Matrix3d& K2,
 // Calculate the squared Sampson error for a single point pair and a given
 // fundamental or essential matrix.
 //
-// @param ray1        First point/ray in homogeneous coordinates.
-// @param ray2        Second point/ray in homogeneous coordinates.
+// The points must be hnormalized: the error is not invariant to the scale of
+// the homogeneous representative, so unit bearings give a different, smaller
+// error.
+//
+// @param point1      First point in hnormalized homogeneous coordinates.
+// @param point2      Second point in hnormalized homogeneous coordinates.
 // @param E           3x3 fundamental or essential matrix.
 // @return            Squared Sampson error.
-double ComputeSquaredSampsonError(const Eigen::Vector3d& ray1,
-                                  const Eigen::Vector3d& ray2,
+double ComputeSquaredSampsonError(const Eigen::Vector3d& point1,
+                                  const Eigen::Vector3d& point2,
                                   const Eigen::Matrix3d& E);
 
 // Calculate the residuals of a set of corresponding points and a given
@@ -155,18 +161,123 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
 
-// Calculate the residuals of a set of corresponding rays and a given
+// Calculate the residuals of a set of corresponding points and a given
 // fundamental or essential matrix.
 //
-// Residuals are defined as the squared Sampson error.
+// Residuals are defined as the squared Sampson error. The points must be
+// hnormalized, as above.
 //
-// @param rays1       Corresponding rays.
-// @param rays2       Corresponding rays.
+// @param points1     Corresponding points in hnormalized homogeneous
+//                    coordinates.
+// @param points2     Corresponding points in hnormalized homogeneous
+//                    coordinates.
 // @param E           3x3 fundamental or essential matrix.
 // @param residuals   Output vector of residuals.
-void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& rays1,
-                                const std::vector<Eigen::Vector3d>& rays2,
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
+                                const std::vector<Eigen::Vector3d>& points2,
                                 const Eigen::Matrix3d& E,
                                 std::vector<double>* residuals);
+
+// Squared norm of a ray-space constraint gradient pulled back into pixels,
+// ||J^T g||^2, where J = d(ray) / d(pixel) is an unprojection Jacobian. This is
+// one term of a tangent Sampson denominator.
+//
+// The contraction is written out rather than left to Eigen, which generates
+// poor code for a fixed 3x2 transposed product. Doing so is worth roughly 3x on
+// the tangent Sampson residual, which RANSAC evaluates once per hypothesis per
+// correspondence.
+inline double SquaredPixelGradientNorm(const Eigen::Matrix3x2d& J,
+                                       const Eigen::Vector3d& g) {
+  const double gx = J(0, 0) * g[0] + J(1, 0) * g[1] + J(2, 0) * g[2];
+  const double gy = J(0, 1) * g[0] + J(1, 1) * g[1] + J(2, 1) * g[2];
+  return gx * gx + gy * gy;
+}
+
+// Calculate the squared tangent Sampson error for a single ray pair and a given
+// essential matrix.
+//
+// The Sampson approximation is C(z)^2 / ||dC/dz||^2 for a constraint C and
+// measurements z. Taking z to be the *pixel* coordinates, rather than the rays,
+// yields an error in pixel units for any central camera model:
+//
+//     C            = ray2^T E ray1
+//     dC/dpx1      = J1^T (E^T ray2)
+//     dC/dpx2      = J2^T (E ray1)
+//     error        = C^2 / (||dC/dpx1||^2 + ||dC/dpx2||^2)
+//
+// where J = d(ray) / d(pixel) is the unprojection Jacobian, obtainable via
+// Camera::CamRayFromImgWithJac. This is the tangent Sampson error of Terekhov
+// and Larsson, "Tangent Sampson Error: Fast Approximate Two-view Reprojection
+// Error for Central Camera Models", ICCV 2023.
+//
+// Pixels are the space in which feature detection noise is (approximately)
+// isotropic and uniform, so a threshold on this residual is meaningful in
+// pixels across the whole image and for every camera model - unlike the plain
+// Sampson error on unit bearings, whose pixel-equivalent tolerance grows with
+// the angle from the principal direction.
+//
+// Note that the Sampson approximation is not invariant to the choice of
+// homogeneous representative when that choice varies with the measurements:
+// rescaling the constraint by g(z) perturbs the result by a term proportional
+// to the residual. For an undistorted pinhole this reduces *exactly* to f^2
+// times the Sampson error on normalized image coordinates when the (u, v, 1)
+// representative is used (its Jacobian being the constant 1/f), and to first
+// order in the residual when unit bearings are used. The latter is the sense in
+// which this is an approximation of the true reprojection error.
+//
+// @param cam_ray1_with_jac  First bearing with its Jacobian d(ray1) /
+// d(pixel1).
+// @param cam_ray2_with_jac  Second bearing with its Jacobian d(ray2) /
+// d(pixel2).
+// @param E           3x3 essential matrix.
+// @return            Squared tangent Sampson error, in squared pixels.
+double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
+                                         const CamRayWithJac& cam_ray2_with_jac,
+                                         const Eigen::Matrix3d& E);
+
+// Overload reading the ray and Jacobian in place, so hot loops (e.g. the CPU
+// guided-matching filter, called O(N1*N2) times) avoid materializing a
+// CamRayWithJac per correspondence.
+double ComputeSquaredTangentSampsonError(const Eigen::Vector3d& cam_ray1,
+                                         const Eigen::Matrix3x2d& J1,
+                                         const Eigen::Vector3d& cam_ray2,
+                                         const Eigen::Matrix3x2d& J2,
+                                         const Eigen::Matrix3d& E);
+
+// Calculate the residuals of a set of corresponding rays and a given essential
+// matrix, as the squared tangent Sampson error.
+//
+// @param cam_rays1_with_jac  Corresponding bearings with their Jacobians.
+// @param cam_rays2_with_jac  Corresponding bearings with their Jacobians.
+// @param E           3x3 essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredTangentSampsonError(
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals);
+
+// Calculate the residuals of a set of corresponding rays and a given essential
+// matrix as the squared tangent Sampson error, additionally enforcing the
+// cheirality constraint.
+//
+// Correspondences that triangulate behind either camera (the relative pose is
+// recovered from E by cheirality voting) are assigned an infinite residual.
+//
+// This is called once per RANSAC hypothesis, so it avoids copying the bundled
+// input: only the bearings are materialized, because PoseFromEssentialMatrix
+// requires contiguous vectors.
+//
+// @param cam_rays1_with_jac   First set of corresponding bearings with
+// Jacobians.
+// @param cam_rays2_with_jac   Second set of corresponding bearings with
+// Jacobians.
+// @param E           3x3 essential matrix.
+// @param residuals   Output vector of residuals.
+void ComputeSquaredTangentSampsonErrorWithCheirality(
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals);
 
 }  // namespace colmap

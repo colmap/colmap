@@ -30,7 +30,6 @@
 #include "colmap/ui/point_viewer_widget.h"
 
 #include "colmap/ui/model_viewer_widget.h"
-#include "colmap/util/file.h"
 
 namespace colmap {
 
@@ -193,7 +192,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     Bitmap bitmap;
     const std::filesystem::path path = *options_->image_path / image.Name();
     if (!bitmap.Read(path, /*as_rgb=*/true, /*linearize=*/false)) {
-      LOG(ERROR) << "Cannot read image at path " << path;
+      LOG(WARNING) << "Cannot read image at path " << path;
       continue;
     }
 

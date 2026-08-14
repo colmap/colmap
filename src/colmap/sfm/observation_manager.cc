@@ -34,9 +34,11 @@
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/projection.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <cassert>
+#include <limits>
 
 namespace colmap {
 
@@ -351,7 +353,7 @@ point3D_t ObservationManager::MergePoints3D(const point3D_t point3D_id1,
 size_t ObservationManager::FilterPoints3D(
     const double max_reproj_error,
     const double min_tri_angle,
-    const std::unordered_set<point3D_t>& point3D_ids) {
+    const FlatHashSet<point3D_t>& point3D_ids) {
   size_t num_filtered_observations = 0;
   num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
@@ -363,8 +365,8 @@ size_t ObservationManager::FilterPoints3D(
 size_t ObservationManager::FilterPoints3DInImages(
     const double max_reproj_error,
     const double min_tri_angle,
-    const std::unordered_set<image_t>& image_ids) {
-  std::unordered_set<point3D_t> point3D_ids;
+    const FlatHashSet<image_t>& image_ids) {
+  FlatHashSet<point3D_t> point3D_ids;
   for (const image_t image_id : image_ids) {
     const Image& image = reconstruction_.Image(image_id);
     for (const Point2D& point2D : image.Points2D()) {
@@ -381,8 +383,7 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
   // Important: First filter observations and points with large reprojection
   // error, so that observations with large reprojection error do not make
   // a point stable through a large triangulation angle.
-  const std::unordered_set<point3D_t> point3D_ids =
-      reconstruction_.Point3DIds();
+  const FlatHashSet<point3D_t> point3D_ids = reconstruction_.Point3DIds();
   size_t num_filtered_observations = 0;
   num_filtered_observations +=
       FilterPoints3DWithLargeReprojectionError(max_reproj_error, point3D_ids);
@@ -394,8 +395,7 @@ size_t ObservationManager::FilterAllPoints3D(const double max_reproj_error,
 size_t ObservationManager::FilterPoints3DWithShortTracks(
     const size_t min_track_length) {
   size_t num_filtered_observations = 0;
-  const std::unordered_set<point3D_t> point3D_ids =
-      reconstruction_.Point3DIds();
+  const FlatHashSet<point3D_t> point3D_ids = reconstruction_.Point3DIds();
   for (const point3D_t point3D_id : point3D_ids) {
     const struct Point3D& point3D = reconstruction_.Point3D(point3D_id);
     if (point3D.track.Length() < min_track_length) {
@@ -411,6 +411,9 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   for (const frame_t frame_id : reconstruction_.RegFrameIds()) {
     for (const data_t& data_id : reconstruction_.Frame(frame_id).ImageIds()) {
       const Image& image = reconstruction_.Image(data_id.id);
+      if (image.CameraPtr()->IsSpherical()) {
+        continue;
+      }
       const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
       for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
            ++point2D_idx) {
@@ -430,8 +433,7 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
 }
 
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
-    const double min_tri_angle,
-    const std::unordered_set<point3D_t>& point3D_ids) {
+    const double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) {
   // Number of filtered observations.
   size_t num_filtered_observations = 0;
 
@@ -439,7 +441,7 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
   // Cache for image projection centers.
-  std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
+  FlatHashMap<image_t, Eigen::Vector3d> proj_centers;
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
@@ -493,13 +495,9 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
 
 size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
     const double max_error,
-    const std::unordered_set<point3D_t>& point3D_ids,
+    const FlatHashSet<point3D_t>& point3D_ids,
     const ReprojectionErrorType error_type) {
   size_t num_filtered_observations = 0;
-
-  // Precompute squared/converted thresholds to avoid redundant computations.
-  const double max_squared_error = max_error * max_error;
-  const double max_angular_error_rad = DegToRad(max_error);
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
@@ -522,49 +520,49 @@ size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
       const Camera& camera = *image.CameraPtr();
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
-      bool should_filter = false;
+      // Each case reports observation_error in the same units as max_error
+      // (pixels, normalized chord length, or degrees). Degenerate observations
+      // that must always be filtered report an infinite error.
       double observation_error = 0.0;
-
       switch (error_type) {
-        case ReprojectionErrorType::PIXEL: {
-          const double squared_error = CalculateSquaredReprojectionError(
-              point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
-          should_filter = squared_error > max_squared_error;
-          observation_error = std::sqrt(squared_error);
+        case ReprojectionErrorType::PIXEL:
+          observation_error = std::sqrt(CalculateSquaredReprojectionError(
+              point2D.xy, point3D.xyz, image.CamFromWorld(), camera));
           break;
-        }
         case ReprojectionErrorType::NORMALIZED: {
           const Eigen::Vector3d point3D_in_cam =
               image.CamFromWorld() * point3D.xyz;
-          constexpr double kMinDepth = 1e-12;
-          if (point3D_in_cam.z() < kMinDepth) {
-            should_filter = true;
-            break;
+          if (camera.IsPerspective()) {
+            constexpr double kMinDepth = 1e-12;
+            const std::optional<Eigen::Vector2d> cam_point =
+                camera.CamFromImg(point2D.xy);
+            observation_error =
+                (point3D_in_cam.z() >= kMinDepth && cam_point.has_value())
+                    ? (point3D_in_cam.hnormalized().head<2>() - *cam_point)
+                          .norm()
+                    : std::numeric_limits<double>::infinity();
+          } else {
+            // Omnidirectional cameras (e.g. EQUIRECTANGULAR) have no pinhole
+            // z-divide and legitimately observe points behind the local +Z
+            // axis, so the cheirality gate and 2D CamFromImg above do not
+            // apply. Compare unit bearings instead (chord distance ~= angle for
+            // small errors, consistent with the normalized threshold).
+            const std::optional<Eigen::Vector3d> cam_ray =
+                camera.CamRayFromImg(point2D.xy);
+            observation_error =
+                cam_ray.has_value()
+                    ? (point3D_in_cam.normalized() - *cam_ray).norm()
+                    : std::numeric_limits<double>::infinity();
           }
-          const std::optional<Eigen::Vector2d> cam_point =
-              camera.CamFromImg(point2D.xy);
-          if (!cam_point.has_value()) {
-            should_filter = true;
-            break;
-          }
-          const Eigen::Vector2d reproj_point =
-              point3D_in_cam.hnormalized().head<2>();
-          const double squared_error =
-              (reproj_point - *cam_point).squaredNorm();
-          should_filter = squared_error > max_squared_error;
-          observation_error = std::sqrt(squared_error);
           break;
         }
-        case ReprojectionErrorType::ANGULAR: {
-          const double error = CalculateAngularReprojectionError(
-              point2D.xy, point3D.xyz, image.CamFromWorld(), camera);
-          should_filter = error > max_angular_error_rad;
-          observation_error = RadToDeg(error);
+        case ReprojectionErrorType::ANGULAR:
+          observation_error = RadToDeg(CalculateAngularReprojectionError(
+              point2D.xy, point3D.xyz, image.CamFromWorld(), camera));
           break;
-        }
       }
 
-      if (should_filter) {
+      if (observation_error > max_error) {
         track_els_to_delete.push_back(track_el);
       } else {
         error_sum += observation_error;

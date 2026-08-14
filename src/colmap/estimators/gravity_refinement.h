@@ -4,6 +4,7 @@
 #include "colmap/math/math.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/hash_containers.h"
 
 #include <ceres/ceres.h>
 
@@ -45,8 +46,8 @@ class GravityRefiner {
   void IdentifyErrorProneGravity(
       const PoseGraph& pose_graph,
       const Reconstruction& reconstruction,
-      std::unordered_map<image_t, PosePrior*>& image_to_pose_prior,
-      std::unordered_set<frame_t>& error_prone_frames);
+      NodeHashMap<image_t, PosePrior*>& image_to_pose_prior,
+      FlatHashSet<frame_t>& error_prone_frames);
   GravityRefinerOptions options_;
   std::shared_ptr<ceres::LossFunction> loss_function_;
 };

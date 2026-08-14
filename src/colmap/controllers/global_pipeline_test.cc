@@ -30,7 +30,7 @@
 #include "colmap/controllers/global_pipeline.h"
 
 #include "colmap/estimators/view_graph_calibration.h"
-#include "colmap/math/random.h"
+#include "colmap/math/random_eigen.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -65,15 +65,22 @@ TEST(GlobalPipeline, Nominal) {
   mapper.Run();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
+  auto reconstruction = reconstruction_manager->Get(0);
   EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction_manager->Get(0),
+              ReconstructionNear(*reconstruction,
                                  /*max_rotation_error_deg=*/1e-2,
                                  /*max_proj_center_error=*/1e-4));
+
+  // After the pipeline runs, point3D.error must be in pixel units, i.e.
+  // equal to what UpdatePoint3DErrors would recompute.
+  ASSERT_GT(reconstruction->NumPoints3D(), 0u);
+  const double mean_after_run = reconstruction->ComputeMeanReprojectionError();
+  reconstruction->UpdatePoint3DErrors();
+  EXPECT_DOUBLE_EQ(mean_after_run,
+                   reconstruction->ComputeMeanReprojectionError());
 }
 
 TEST(GlobalPipeline, SfMWithRandomSeedStability) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -164,7 +171,6 @@ TEST(GlobalPipeline, WithExistingRelativePoses) {
 
 // To test relative pose re-estimation from view graph calibration.
 TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
-  SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
   Reconstruction gt_reconstruction;
@@ -183,10 +189,9 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
     if (!two_view_geometry.cam2_from_cam1.has_value()) {
       continue;
     }
-    two_view_geometry.cam2_from_cam1->rotation() =
-        Eigen::Quaterniond::UnitRandom();
+    two_view_geometry.cam2_from_cam1->rotation() = RandomEigenQuaterniond();
     two_view_geometry.cam2_from_cam1->translation() =
-        Eigen::Vector3d::Random().normalized();
+        RandomEigenVectord<3>().normalized();
 
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     database->UpdateTwoViewGeometry(image_id1, image_id2, two_view_geometry);

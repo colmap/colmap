@@ -29,6 +29,8 @@
 
 #include "colmap/math/union_find.h"
 
+#include "colmap/util/hash_containers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -298,7 +300,7 @@ TEST(UnionFind, ParentsGroupByRoot) {
   uf.Union(10, 20);
 
   uf.Compress();
-  std::unordered_map<int, std::vector<int>> groups;
+  NodeHashMap<int, std::vector<int>> groups;
   for (const auto& [elem, parent] : uf.Parents()) {
     groups[parent].push_back(elem);
   }

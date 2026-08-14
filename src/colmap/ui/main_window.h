@@ -36,7 +36,6 @@
 #include "colmap/ui/dense_reconstruction_widget.h"
 #include "colmap/ui/feature_extraction_widget.h"
 #include "colmap/ui/feature_matching_widget.h"
-#include "colmap/ui/license_widget.h"
 #include "colmap/ui/log_widget.h"
 #include "colmap/ui/match_matrix_widget.h"
 #include "colmap/ui/model_viewer_widget.h"
@@ -47,6 +46,7 @@
 #include "colmap/ui/render_options_widget.h"
 #include "colmap/ui/undistortion_widget.h"
 #include "colmap/util/controller_thread.h"
+#include "colmap/util/threading.h"
 
 #include <QtCore>
 #include <QtGui>
@@ -78,7 +78,9 @@ class MainWindow : public QMainWindow {
   void CreateMenus();
   void CreateToolbar();
   void CreateStatusbar();
-  void CreateControllers();
+  void CreateMapperController();
+  void StopMapperController();
+  void ResetMapperController();
 
   void HandleDragEvent(QDropEvent* event);
 
@@ -107,6 +109,10 @@ class MainWindow : public QMainWindow {
   void ReconstructionReset();
   void ReconstructionOptions();
   void ReconstructionFinish();
+  // Enables/disables the Step and Pause controls based on the selected mapper:
+  // both are usable for incremental and global mapping (the latter pausing
+  // between stages), but disabled for hierarchical mapping.
+  void UpdateMapperControls();
   void ReconstructionNormalize();
   bool ReconstructionOverwrite();
 
@@ -140,6 +146,7 @@ class MainWindow : public QMainWindow {
   void About();
   void Documentation();
   void Support();
+  void License();
 
   void ShowInvalidProjectError();
   void UpdateTimer();
@@ -152,7 +159,8 @@ class MainWindow : public QMainWindow {
   OptionManager options_;
 
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
-  std::unique_ptr<ControllerThread<IncrementalPipeline>> mapper_controller_;
+  std::unique_ptr<Thread> mapper_controller_;
+  MapperType mapper_type_ = MapperType::INCREMENTAL;
 
   Timer timer_;
 
@@ -171,7 +179,6 @@ class MainWindow : public QMainWindow {
   ReconstructionManagerWidget* reconstruction_manager_widget_;
   ReconstructionStatsWidget* reconstruction_stats_widget_;
   MatchMatrixWidget* match_matrix_widget_;
-  LicenseWidget* license_widget_;
   ThreadControlWidget* thread_control_widget_;
 
   QToolBar* file_toolbar_;

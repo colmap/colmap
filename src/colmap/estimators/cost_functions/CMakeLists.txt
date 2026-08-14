@@ -38,8 +38,11 @@ COLMAP_ADD_LIBRARY(
         manifold.h
         motion_averaging.h
         pose_prior.h
+        quaternion_utils.h
         reprojection_error.h
         sampson_error.h
+        tiny_manifold.h
+        tiny_sampson_error.h
         utils.h
     INTERFACE_LINK_LIBS
         colmap_geometry
@@ -74,6 +77,16 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators_cost_functions
 )
 COLMAP_ADD_TEST(
+    NAME tiny_manifold_test
+    SRCS tiny_manifold_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
+    NAME tiny_sampson_error_test
+    SRCS tiny_sampson_error_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
     NAME pose_prior_test
     SRCS pose_prior_test.cc
     LINK_LIBS colmap_estimators_cost_functions
@@ -82,4 +95,9 @@ COLMAP_ADD_TEST(
     NAME motion_averaging_test
     SRCS motion_averaging_test.cc
     LINK_LIBS colmap_estimators_cost_functions
+)
+COLMAP_ADD_TEST(
+    NAME quaternion_utils_test
+    SRCS quaternion_utils_test.cc
+    LINK_LIBS colmap_estimators_cost_functions colmap_math
 )

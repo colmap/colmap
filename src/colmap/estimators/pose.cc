@@ -66,14 +66,17 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     for (size_t i = 0; i < points2D.size(); ++i) {
       points2D_centered[i] = points2D[i] - principal_point;
     }
-    RANSAC<P4PFEstimator> ransac(options.ransac_options);
+    const span<const size_t> focal_length_idxs = camera->FocalLengthIdxs();
+    RANSAC<P4PFEstimator> ransac(
+        options.ransac_options,
+        P4PFEstimator(/*share_focal_length=*/focal_length_idxs.size() == 1));
     auto report = ransac.Estimate(points2D_centered, points3D);
     if (report.success) {
       *cam_from_world =
           Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
                   report.model.cam_from_world.col(3));
-      for (const size_t idx : camera->FocalLengthIdxs()) {
-        camera->params[idx] = report.model.focal_length;
+      for (size_t k = 0; k < focal_length_idxs.size(); ++k) {
+        camera->params[focal_length_idxs[k]] = report.model.focal_lengths[k];
       }
       *num_inliers = report.support.num_inliers;
       *inlier_mask = std::move(report.inlier_mask);
@@ -83,18 +86,14 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     std::vector<P3PEstimator::X_t> points2D_with_rays(points2D.size());
     for (size_t i = 0; i < points2D.size(); ++i) {
       points2D_with_rays[i].image_point = points2D[i];
-      if (const std::optional<Eigen::Vector2d> cam_point =
-              camera->CamFromImg(points2D[i]);
-          cam_point) {
-        points2D_with_rays[i].camera_ray =
-            cam_point->homogeneous().normalized();
-      } else {
-        points2D_with_rays[i].camera_ray.setZero();
-      }
+      points2D_with_rays[i].camera_ray =
+          camera->CamRayFromImg(points2D[i]).value_or(Eigen::Vector3d::Zero());
     }
 
     ImgFromCamFunc img_from_cam_func =
-        std::bind(&Camera::ImgFromCam, camera, std::placeholders::_1);
+        [camera](const Eigen::Vector3d& cam_point) {
+          return camera->ImgFromCam(cam_point);
+        };
     LORANSAC<P3PEstimator, EPNPEstimator> ransac(
         options.ransac_options,
         P3PEstimator(img_from_cam_func),
@@ -113,39 +112,39 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 }
 
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector3d>& cam_rays1,
-                          const std::vector<Eigen::Vector3d>& cam_rays2,
+                          const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+                          const std::vector<CamRayWithJac>& cam_rays2_with_jac,
                           Rigid3d* cam2_from_cam1,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), cam_rays2_with_jac.size());
 
-  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
+  LORANSAC<EssentialMatrixTangentSampsonEstimator,
+           EssentialMatrixTangentSampsonEstimator>
       ransac(ransac_options);
-  auto report = ransac.Estimate(cam_rays1, cam_rays2);
+  auto report = ransac.Estimate(cam_rays1_with_jac, cam_rays2_with_jac);
 
   if (!report.success) {
     return false;
   }
 
-  std::vector<Eigen::Vector3d> inlier_cam_rays1(report.support.num_inliers);
-  std::vector<Eigen::Vector3d> inlier_cam_rays2(report.support.num_inliers);
-
-  size_t j = 0;
-  for (size_t i = 0; i < cam_rays1.size(); ++i) {
+  std::vector<Eigen::Vector3d> inlier_cam_rays1;
+  std::vector<Eigen::Vector3d> inlier_cam_rays2;
+  inlier_cam_rays1.reserve(report.support.num_inliers);
+  inlier_cam_rays2.reserve(report.support.num_inliers);
+  for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
     if (report.inlier_mask[i]) {
-      inlier_cam_rays1[j] = cam_rays1[i];
-      inlier_cam_rays2[j] = cam_rays2[i];
-      j += 1;
+      inlier_cam_rays1.push_back(cam_rays1_with_jac[i].ray);
+      inlier_cam_rays2.push_back(cam_rays2_with_jac[i].ray);
     }
   }
 
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> valid_indices;
   PoseFromEssentialMatrix(report.model,
                           inlier_cam_rays1,
                           inlier_cam_rays2,
                           cam2_from_cam1,
-                          &points3D);
+                          &valid_indices);
 
   if (cam2_from_cam1->rotation().coeffs().array().isNaN().any() ||
       cam2_from_cam1->translation().array().isNaN().any()) {
@@ -155,7 +154,7 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
   *num_inliers = report.support.num_inliers;
   *inlier_mask = std::move(report.inlier_mask);
 
-  return !points3D.empty();
+  return !valid_indices.empty();
 }
 
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -291,31 +290,31 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<char>& inlier_mask,
-                        const std::vector<Eigen::Vector3d>& cam_rays1,
-                        const std::vector<Eigen::Vector3d>& cam_rays2,
+                        const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+                        const std::vector<CamRayWithJac>& cam_rays2_with_jac,
                         Rigid3d* cam2_from_cam1) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), cam_rays2_with_jac.size());
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), inlier_mask.size());
 
   // CostFunction assumes unit quaternions.
   cam2_from_cam1->rotation().normalize();
 
-  constexpr double kMaxL2Error = 1.0;
-  const auto loss_function = std::make_unique<ceres::CauchyLoss>(kMaxL2Error);
+  // No robust loss: the observations are already RANSAC-gated inliers, so the
+  // refinement is plain least squares.
+  ceres::Problem problem;
 
-  ceres::Problem::Options problem_options;
-  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  ceres::Problem problem(problem_options);
-
-  for (size_t i = 0; i < cam_rays1.size(); ++i) {
-    // Skip outlier observations
-    if (!inlier_mask[i]) {
+  for (size_t i = 0; i < cam_rays1_with_jac.size(); ++i) {
+    // Skip outliers and unprojectable (zero) rays, which the residual scores as
+    // a perfect fit rather than rejecting.
+    if (!inlier_mask[i] || cam_rays1_with_jac[i].ray.isZero() ||
+        cam_rays2_with_jac[i].ray.isZero()) {
       continue;
     }
-    ceres::CostFunction* cost_function =
-        SampsonErrorCostFunctor::Create(cam_rays1[i], cam_rays2[i]);
-    problem.AddResidualBlock(
-        cost_function, loss_function.get(), cam2_from_cam1->params.data());
+    ceres::CostFunction* cost_function = TangentSampsonErrorCostFunctor::Create(
+        cam_rays1_with_jac[i], cam_rays2_with_jac[i]);
+    problem.AddResidualBlock(cost_function,
+                             /*loss_function=*/nullptr,
+                             cam2_from_cam1->params.data());
   }
 
   SetManifold(&problem,
@@ -330,55 +329,45 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 }
 
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector3d>& cam_rays1,
-                           const std::vector<Eigen::Vector3d>& cam_rays2,
+                           const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+                           const std::vector<CamRayWithJac>& cam_rays2_with_jac,
                            const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_EQ(cam_rays1.size(), inlier_mask.size());
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), cam_rays2_with_jac.size());
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), inlier_mask.size());
 
-  // Extract inlier points for decomposing the essential matrix into
-  // rotation and translation components.
-
-  size_t num_inliers = 0;
-  for (const auto inlier : inlier_mask) {
-    if (inlier) {
-      num_inliers += 1;
-    }
-  }
-
-  std::vector<Eigen::Vector3d> inlier_cam_rays1(num_inliers);
-  std::vector<Eigen::Vector3d> inlier_cam_rays2(num_inliers);
-  size_t j = 0;
+  // Collect inliers. PoseFromEssentialMatrix needs the bare bearings. The
+  // refinement additionally needs their unprojection Jacobians.
+  std::vector<CamRayWithJac> inlier_cam_rays1_with_jac;
+  std::vector<CamRayWithJac> inlier_cam_rays2_with_jac;
+  std::vector<Eigen::Vector3d> inlier_rays1;
+  std::vector<Eigen::Vector3d> inlier_rays2;
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
-      inlier_cam_rays1[j] = cam_rays1[i];
-      inlier_cam_rays2[j] = cam_rays2[i];
-      j += 1;
+      inlier_cam_rays1_with_jac.push_back(cam_rays1_with_jac[i]);
+      inlier_cam_rays2_with_jac.push_back(cam_rays2_with_jac[i]);
+      inlier_rays1.push_back(cam_rays1_with_jac[i].ray);
+      inlier_rays2.push_back(cam_rays2_with_jac[i].ray);
     }
   }
 
   // Extract relative pose from essential matrix.
   Rigid3d cam2_from_cam1;
-  std::vector<Eigen::Vector3d> points3D;
+  std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
-      *E, inlier_cam_rays1, inlier_cam_rays2, &cam2_from_cam1, &points3D);
+      *E, inlier_rays1, inlier_rays2, &cam2_from_cam1, &valid_indices);
 
-  if (points3D.size() == 0) {
+  if (valid_indices.empty()) {
     return false;
   }
 
-  // Refine essential matrix, use all points so that refinement is able to
-  // consider points as inliers that were originally outliers.
-
-  const bool refinement_success =
-      RefineRelativePose(options,
-                         std::vector<char>(num_inliers, true),
-                         inlier_cam_rays1,
-                         inlier_cam_rays2,
-                         &cam2_from_cam1);
-
-  if (!refinement_success) {
+  // Refine over all inliers (robustness came from the RANSAC selection).
+  if (!RefineRelativePose(
+          options,
+          std::vector<char>(inlier_cam_rays1_with_jac.size(), true),
+          inlier_cam_rays1_with_jac,
+          inlier_cam_rays2_with_jac,
+          &cam2_from_cam1)) {
     return false;
   }
 

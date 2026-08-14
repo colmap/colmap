@@ -29,6 +29,8 @@
 
 #include "colmap/math/connected_components.h"
 
+#include "colmap/util/hash_containers.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -38,14 +40,14 @@ namespace {
 using ::testing::UnorderedElementsAre;
 
 TEST(FindConnectedComponents, Empty) {
-  std::unordered_set<int> nodes;
+  FlatHashSet<int> nodes;
   std::vector<std::pair<int, int>> edges;
   auto components = FindConnectedComponents(nodes, edges);
   EXPECT_TRUE(components.empty());
 }
 
 TEST(FindConnectedComponents, SingleNode) {
-  std::unordered_set<int> nodes = {1};
+  FlatHashSet<int> nodes = {1};
   std::vector<std::pair<int, int>> edges;
   auto components = FindConnectedComponents(nodes, edges);
   ASSERT_EQ(components.size(), 1);
@@ -54,7 +56,7 @@ TEST(FindConnectedComponents, SingleNode) {
 }
 
 TEST(FindConnectedComponents, TwoConnectedNodes) {
-  std::unordered_set<int> nodes = {1, 2};
+  FlatHashSet<int> nodes = {1, 2};
   std::vector<std::pair<int, int>> edges = {{1, 2}};
   auto components = FindConnectedComponents(nodes, edges);
   ASSERT_EQ(components.size(), 1);
@@ -62,7 +64,7 @@ TEST(FindConnectedComponents, TwoConnectedNodes) {
 }
 
 TEST(FindConnectedComponents, TwoDisconnectedNodes) {
-  std::unordered_set<int> nodes = {1, 2};
+  FlatHashSet<int> nodes = {1, 2};
   std::vector<std::pair<int, int>> edges;
   auto components = FindConnectedComponents(nodes, edges);
   ASSERT_EQ(components.size(), 2);
@@ -71,7 +73,7 @@ TEST(FindConnectedComponents, TwoDisconnectedNodes) {
 }
 
 TEST(FindConnectedComponents, ThreeComponents) {
-  std::unordered_set<int> nodes = {1, 2, 3, 4, 5, 6};
+  FlatHashSet<int> nodes = {1, 2, 3, 4, 5, 6};
   std::vector<std::pair<int, int>> edges = {{1, 2}, {3, 4}, {5, 6}};
   auto components = FindConnectedComponents(nodes, edges);
   ASSERT_EQ(components.size(), 3);
@@ -81,7 +83,7 @@ TEST(FindConnectedComponents, ThreeComponents) {
 }
 
 TEST(FindConnectedComponents, Chain) {
-  std::unordered_set<int> nodes = {1, 2, 3, 4, 5};
+  FlatHashSet<int> nodes = {1, 2, 3, 4, 5};
   std::vector<std::pair<int, int>> edges = {{1, 2}, {2, 3}, {3, 4}, {4, 5}};
   auto components = FindConnectedComponents(nodes, edges);
   ASSERT_EQ(components.size(), 1);
@@ -89,21 +91,21 @@ TEST(FindConnectedComponents, Chain) {
 }
 
 TEST(FindLargestConnectedComponent, Empty) {
-  std::unordered_set<int> nodes;
+  FlatHashSet<int> nodes;
   std::vector<std::pair<int, int>> edges;
   auto largest = FindLargestConnectedComponent(nodes, edges);
   EXPECT_TRUE(largest.empty());
 }
 
 TEST(FindLargestConnectedComponent, SingleNode) {
-  std::unordered_set<int> nodes = {42};
+  FlatHashSet<int> nodes = {42};
   std::vector<std::pair<int, int>> edges;
   auto largest = FindLargestConnectedComponent(nodes, edges);
   EXPECT_THAT(largest, UnorderedElementsAre(42));
 }
 
 TEST(FindLargestConnectedComponent, AllConnected) {
-  std::unordered_set<int> nodes = {1, 2, 3, 4};
+  FlatHashSet<int> nodes = {1, 2, 3, 4};
   std::vector<std::pair<int, int>> edges = {{1, 2}, {2, 3}, {3, 4}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
   EXPECT_THAT(largest, UnorderedElementsAre(1, 2, 3, 4));
@@ -112,7 +114,7 @@ TEST(FindLargestConnectedComponent, AllConnected) {
 TEST(FindLargestConnectedComponent, TwoComponentsDifferentSizes) {
   // Component 1: {1, 2, 3} (size 3)
   // Component 2: {10, 20} (size 2)
-  std::unordered_set<int> nodes = {1, 2, 3, 10, 20};
+  FlatHashSet<int> nodes = {1, 2, 3, 10, 20};
   std::vector<std::pair<int, int>> edges = {{1, 2}, {2, 3}, {10, 20}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
   EXPECT_THAT(largest, UnorderedElementsAre(1, 2, 3));
@@ -120,14 +122,14 @@ TEST(FindLargestConnectedComponent, TwoComponentsDifferentSizes) {
 
 TEST(FindLargestConnectedComponent, ManySmallOnelarger) {
   // 5 isolated nodes + 1 component of 3
-  std::unordered_set<int> nodes = {1, 2, 3, 4, 5, 100, 200, 300};
+  FlatHashSet<int> nodes = {1, 2, 3, 4, 5, 100, 200, 300};
   std::vector<std::pair<int, int>> edges = {{100, 200}, {200, 300}};
   auto largest = FindLargestConnectedComponent(nodes, edges);
   EXPECT_THAT(largest, UnorderedElementsAre(100, 200, 300));
 }
 
 TEST(FindLargestConnectedComponent, StringType) {
-  std::unordered_set<std::string> nodes = {"a", "b", "c", "x", "y"};
+  FlatHashSet<std::string> nodes = {"a", "b", "c", "x", "y"};
   std::vector<std::pair<std::string, std::string>> edges = {{"a", "b"},
                                                             {"b", "c"}};
   auto largest = FindLargestConnectedComponent(nodes, edges);

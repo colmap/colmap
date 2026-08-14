@@ -29,9 +29,9 @@
 
 #pragma once
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
-#include <unordered_map>
 #include <vector>
 
 #if defined(__GNUC__) && !defined(__clang__)
@@ -59,7 +59,7 @@ void ComputeMinGraphCutStoerWagner(
 
 // Compute the normalized min-cut of an undirected graph using Metis.
 // Partitions the graph into clusters and returns the cluster labels per vertex.
-std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
+NodeHashMap<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
     int num_parts);

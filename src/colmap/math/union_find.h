@@ -29,14 +29,18 @@
 
 #pragma once
 
+#include "colmap/util/hash_containers.h"
+
 #include <cstddef>
+#include <functional>
 #include <optional>
-#include <unordered_map>
 
 namespace colmap {
 
-// Helper class to perform union-find operations.
-template <typename T>
+// Helper class to perform union-find operations. The optional Hash parameter
+// allows keying on types without a std::hash specialization (e.g., std::pair,
+// via colmap::PairHash).
+template <typename T, typename Hash = std::hash<T>>
 class UnionFind {
  public:
   void Reserve(size_t capacity) { parent_.reserve(capacity); }
@@ -84,11 +88,11 @@ class UnionFind {
   }
 
   // Access all elements and their parents in the union-find structure.
-  const std::unordered_map<T, T>& Parents() const { return parent_; }
+  const NodeHashMap<T, T, Hash>& Parents() const { return parent_; }
 
  private:
   // Map to store the parent of each element.
-  std::unordered_map<T, T> parent_;
+  NodeHashMap<T, T, Hash> parent_;
 };
 
 }  // namespace colmap

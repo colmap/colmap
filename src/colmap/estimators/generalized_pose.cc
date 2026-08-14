@@ -42,6 +42,7 @@
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>
@@ -62,7 +63,8 @@ void ThrowCheckCameras(const std::vector<size_t>& camera_idxs,
 
 bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
                     const std::vector<Rigid3d>& cams_from_rig) {
-  const std::set<size_t> camera_idx_set(camera_idxs.begin(), camera_idxs.end());
+  const FlatHashSet<size_t> camera_idx_set(camera_idxs.begin(),
+                                           camera_idxs.end());
   const size_t first_camera_idx = *camera_idx_set.begin();
   const Eigen::Vector3d first_origin_in_rig =
       cams_from_rig[first_camera_idx].TgtOriginInSrc();
@@ -153,13 +155,9 @@ bool EstimateGeneralizedAbsolutePose(
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
-    if (const std::optional<Eigen::Vector2d> cam_point =
-            cameras[camera_idx].CamFromImg(points2D[i]);
-        cam_point) {
-      rig_points2D[i].ray_in_cam = cam_point->homogeneous().normalized();
-    } else {
-      rig_points2D[i].ray_in_cam.setZero();
-    }
+    rig_points2D[i].ray_in_cam = cameras[camera_idx]
+                                     .CamRayFromImg(points2D[i])
+                                     .value_or(Eigen::Vector3d::Zero());
     rig_points2D[i].cam_from_rig = cams_from_rig_matrices[camera_idx];
   }
 
@@ -213,44 +211,44 @@ bool EstimateGeneralizedRelativePose(
     return false;
   }
 
-  // Adjust the error to be in normalized camera coordinates.
-  RANSACOptions normalized_ransac_options = ransac_options;
-  double normalized_max_error = 0;
-  for (const Camera& camera : cameras) {
-    normalized_max_error +=
-        camera.CamFromImgThreshold(ransac_options.max_error);
-  }
-  normalized_ransac_options.max_error = normalized_max_error / cameras.size();
-
+  // Both branches below score with the pixel-unit tangent Sampson error, so the
+  // RANSAC threshold is the plain pixel ransac_options throughout. No
+  // per-camera conversion to normalized/angular units is needed.
   if (IsPanoramicRig(camera_idxs1, cams_from_rig) &&
       IsPanoramicRig(camera_idxs2, cams_from_rig)) {
     Rigid3d cam2_from_cam1;
-    std::vector<Eigen::Vector3d> cam_rays1(num_points);
-    std::vector<Eigen::Vector3d> cam_rays2(num_points);
+    // EstimateRelativePose treats the panoramic rig as one central camera, so
+    // each ray carries its unprojection Jacobian, rotated into the rig frame by
+    // the same rotation as the ray. Unprojectable points are zeroed, which the
+    // tangent Sampson residual reports as infinite (rejected).
+    std::vector<CamRayWithJac> cam_rays1_with_jac(num_points);
+    std::vector<CamRayWithJac> cam_rays2_with_jac(num_points);
     for (size_t i = 0; i < num_points; ++i) {
       const size_t camera_idx1 = camera_idxs1[i];
-      if (const std::optional<Eigen::Vector2d> cam_point1 =
-              cameras[camera_idx1].CamFromImg(points2D1[i]);
-          cam_point1.has_value()) {
-        cam_rays1[i] = cams_from_rig[camera_idx1].rotation().inverse() *
-                       cam_point1->homogeneous().normalized();
+      const Eigen::Matrix3d rig_from_cam1 =
+          cams_from_rig[camera_idx1].rotation().inverse().toRotationMatrix();
+      if (const auto rj =
+              cameras[camera_idx1].CamRayFromImgWithJac(points2D1[i])) {
+        cam_rays1_with_jac[i] = {rig_from_cam1 * rj->ray,
+                                 rig_from_cam1 * rj->jacobian};
       } else {
-        cam_rays1[i].setZero();
+        cam_rays1_with_jac[i] = CamRayWithJac::Zero();
       }
 
       const size_t camera_idx2 = camera_idxs2[i];
-      if (const std::optional<Eigen::Vector2d> cam_point2 =
-              cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
-          cam_point2.has_value()) {
-        cam_rays2[i] = cams_from_rig[camera_idx2].rotation().inverse() *
-                       cam_point2->homogeneous().normalized();
+      const Eigen::Matrix3d rig_from_cam2 =
+          cams_from_rig[camera_idx2].rotation().inverse().toRotationMatrix();
+      if (const auto rj =
+              cameras[camera_idx2].CamRayFromImgWithJac(points2D2[i])) {
+        cam_rays2_with_jac[i] = {rig_from_cam2 * rj->ray,
+                                 rig_from_cam2 * rj->jacobian};
       } else {
-        cam_rays2[i].setZero();
+        cam_rays2_with_jac[i] = CamRayWithJac::Zero();
       }
     }
-    if (EstimateRelativePose(normalized_ransac_options,
-                             cam_rays1,
-                             cam_rays2,
+    if (EstimateRelativePose(ransac_options,
+                             cam_rays1_with_jac,
+                             cam_rays2_with_jac,
                              &cam2_from_cam1,
                              num_inliers,
                              inlier_mask)) {
@@ -263,26 +261,17 @@ bool EstimateGeneralizedRelativePose(
   std::vector<GRNPObservation> points1(num_points);
   std::vector<GRNPObservation> points2(num_points);
   for (size_t i = 0; i < num_points; ++i) {
-    points1[i].cam_from_rig = cams_from_rig[camera_idxs1[i]];
-    if (const std::optional<Eigen::Vector2d> cam_point1 =
-            cameras[camera_idxs1[i]].CamFromImg(points2D1[i]);
-        cam_point1.has_value()) {
-      points1[i].ray_in_cam = cam_point1->homogeneous().normalized();
-    } else {
-      points1[i].ray_in_cam.setZero();
-    }
-
-    points2[i].cam_from_rig = cams_from_rig[camera_idxs2[i]];
-    if (const std::optional<Eigen::Vector2d> cam_point2 =
-            cameras[camera_idxs2[i]].CamFromImg(points2D2[i]);
-        cam_point2.has_value()) {
-      points2[i].ray_in_cam = cam_point2->homogeneous().normalized();
-    } else {
-      points2[i].ray_in_cam.setZero();
-    }
+    points1[i] = {cams_from_rig[camera_idxs1[i]],
+                  cameras[camera_idxs1[i]]
+                      .CamRayFromImgWithJac(points2D1[i])
+                      .value_or(CamRayWithJac::Zero())};
+    points2[i] = {cams_from_rig[camera_idxs2[i]],
+                  cameras[camera_idxs2[i]]
+                      .CamRayFromImgWithJac(points2D2[i])
+                      .value_or(CamRayWithJac::Zero())};
   }
 
-  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(normalized_ransac_options);
+  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(ransac_options);
   auto report = ransac.Estimate(points1, points2);
   if (!report.success) {
     return false;
@@ -474,29 +463,18 @@ bool EstimateStructureLessAbsolutePose(
   std::vector<GRNPObservation> query_obs(num_points);
   for (size_t i = 0; i < num_points; ++i) {
     const size_t world_camera_idx = world_camera_idxs[i];
-    world_obs[i].cam_from_rig = world_cams_from_world[world_camera_idx];
-    if (const std::optional<Eigen::Vector2d> world_cam_point =
-            world_cameras[world_camera_idx].CamFromImg(world_points2D[i]);
-        world_cam_point.has_value()) {
-      world_obs[i].ray_in_cam = world_cam_point->homogeneous().normalized();
-    } else {
-      world_obs[i].ray_in_cam.setZero();
-    }
-
-    query_obs[i].cam_from_rig = Rigid3d();
-    if (const std::optional<Eigen::Vector2d> query_cam_point =
-            query_camera.CamFromImg(query_points2D[i]);
-        query_cam_point.has_value()) {
-      query_obs[i].ray_in_cam = query_cam_point->homogeneous().normalized();
-    } else {
-      query_obs[i].ray_in_cam.setZero();
-    }
+    world_obs[i] = {world_cams_from_world[world_camera_idx],
+                    world_cameras[world_camera_idx]
+                        .CamRayFromImgWithJac(world_points2D[i])
+                        .value_or(CamRayWithJac::Zero())};
+    query_obs[i] = {Rigid3d(),
+                    query_camera.CamRayFromImgWithJac(query_points2D[i])
+                        .value_or(CamRayWithJac::Zero())};
   }
 
-  auto custom_ransac_options = options.ransac_options;
-  custom_ransac_options.max_error =
-      query_camera.CamFromImgThreshold(options.ransac_options.max_error);
-  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(custom_ransac_options);
+  // GR6P/GR8P score with the pixel-unit tangent Sampson error, so the RANSAC
+  // threshold is the plain pixel max_error. No per-camera conversion needed.
+  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(options.ransac_options);
   auto report = ransac.Estimate(world_obs, query_obs);
   if (!report.success) {
     return false;

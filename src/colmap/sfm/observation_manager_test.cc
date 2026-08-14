@@ -29,6 +29,9 @@
 
 #include "colmap/sfm/observation_manager.h"
 
+#include "colmap/math/random_eigen.h"
+#include "colmap/util/hash_containers.h"
+
 #include <memory>
 
 #include <gtest/gtest.h>
@@ -84,50 +87,49 @@ TEST(ObservationManager, FilterPoints3D) {
   GenerateReconstruction(2, reconstruction);
   ObservationManager obs_manager(reconstruction);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(
-      obs_manager.FilterPoints3D(0.0, 0.0, std::unordered_set<point3D_t>{}), 0);
+  EXPECT_EQ(obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id1 + 1}),
+                0.0, 0.0, FlatHashSet<point3D_t>{point3D_id1 + 1}),
             0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{point3D_id1}),
+      2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id2 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id2}),
-            1);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{point3D_id2}),
+      1);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id3 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.5, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id3, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id3, TrackElement(2, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 0.0, std::unordered_set<point3D_t>{point3D_id3}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.0, 0.0, FlatHashSet<point3D_t>{point3D_id3}),
+      0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.0, 1e-3, std::unordered_set<point3D_t>{point3D_id3}),
+                0.0, 1e-3, FlatHashSet<point3D_t>{point3D_id3}),
             2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.6, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id4, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id4, TrackElement(2, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.1, 0.0, std::unordered_set<point3D_t>{point3D_id4}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3D(0.1, 0.0, FlatHashSet<point3D_t>{point3D_id4}),
+      0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(obs_manager.FilterPoints3D(
-                0.09, 0.0, std::unordered_set<point3D_t>{point3D_id4}),
+                0.09, 0.0, FlatHashSet<point3D_t>{point3D_id4}),
             2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
@@ -210,60 +212,110 @@ TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
             2);
 }
 
+TEST(ObservationManager, FilterPoints3DSphericalSeam) {
+  Reconstruction reconstruction;
+  const camera_t kCameraId = 1;
+  Camera camera =
+      Camera::CreateFromModelId(kCameraId,
+                                EquirectangularCameraModel::model_id,
+                                /*focal_length=*/0.0,
+                                1000,
+                                500);
+  reconstruction.AddCamera(camera);
+
+  Rig rig;
+  rig.SetRigId(1);
+  rig.AddRefSensor(camera.SensorId());
+  reconstruction.AddRig(rig);
+
+  Frame frame;
+  frame.SetFrameId(1);
+  frame.SetRigId(rig.RigId());
+  frame.AddDataId(data_t(camera.SensorId(), 1));
+  frame.AddDataId(data_t(camera.SensorId(), 2));
+  frame.SetRigFromWorld(Rigid3d());
+  reconstruction.AddFrame(frame);
+
+  // Both images observe the back direction (0, 0, -1) at the x = 0 seam
+  // representation; the point projects to x = w. A raw pixel error would be
+  // ~width across the seam, but the spherical reprojection error is
+  // seam-invariant and ~0.
+  Image image1;
+  image1.SetImageId(1);
+  image1.SetCameraId(kCameraId);
+  image1.SetFrameId(1);
+  image1.SetPoints2D({Eigen::Vector2d(0, 250)});
+  reconstruction.AddImage(image1);
+
+  Image image2;
+  image2.SetImageId(2);
+  image2.SetCameraId(kCameraId);
+  image2.SetFrameId(1);
+  image2.SetPoints2D({Eigen::Vector2d(0, 250)});
+  reconstruction.AddImage(image2);
+
+  ObservationManager obs_manager(reconstruction);
+
+  const point3D_t id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, -2), Track());
+  reconstruction.AddObservation(id, TrackElement(1, 0));
+  reconstruction.AddObservation(id, TrackElement(2, 0));
+
+  // The seam-straddling exact match is not filtered (a pixel metric would
+  // wrongly drop it with a ~width error).
+  EXPECT_EQ(obs_manager.FilterPoints3DWithLargeReprojectionError(
+                /*max_error=*/1.0, {id}, ReprojectionErrorType::PIXEL),
+            0);
+}
+
 TEST(ObservationManager, FilterPoints3DInImages) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, reconstruction);
   ObservationManager obs_manager(reconstruction);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{1}), 2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 
   const point3D_t point3D_id2 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.4, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{2}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{2}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{1}),
-            1);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{1}), 1);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id3 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.5, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id3, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id3, TrackElement(2, 0));
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 0.0, std::unordered_set<image_t>{1}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 0.0, FlatHashSet<image_t>{1}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
 
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.0, 1e-3, std::unordered_set<image_t>{1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.0, 1e-3, FlatHashSet<image_t>{1}),
+      2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.6, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id4, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id4, TrackElement(2, 0));
 
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.1, 0.0, std::unordered_set<image_t>{1}),
-            0);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.1, 0.0, FlatHashSet<image_t>{1}), 0);
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
-  EXPECT_EQ(obs_manager.FilterPoints3DInImages(
-                0.09, 0.0, std::unordered_set<image_t>{1}),
-            2);
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DInImages(0.09, 0.0, FlatHashSet<image_t>{1}),
+      2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
@@ -272,14 +324,14 @@ TEST(ObservationManager, FilterAllPoints) {
   GenerateReconstruction(2, reconstruction);
   ObservationManager obs_manager(reconstruction);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   EXPECT_EQ(obs_manager.FilterAllPoints3D(0.0, 0.0), 2);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id2 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 0));
   EXPECT_EQ(obs_manager.FilterAllPoints3D(0.0, 0.0), 1);
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
@@ -307,16 +359,16 @@ TEST(ObservationManager, FilterPoints3DWithShortTracks) {
   ObservationManager obs_manager(reconstruction);
 
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
 
   const point3D_t point3D_id2 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 1));
   reconstruction.AddObservation(point3D_id2, TrackElement(2, 1));
 
   const point3D_t point3D_id3 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   reconstruction.AddObservation(point3D_id3, TrackElement(1, 2));
   reconstruction.AddObservation(point3D_id3, TrackElement(2, 2));
   reconstruction.AddObservation(point3D_id3, TrackElement(3, 2));
@@ -362,7 +414,7 @@ TEST(ObservationManager, FilterFrames) {
   GenerateReconstruction(4, reconstruction);
   ObservationManager obs_manager(reconstruction);
   const point3D_t point3D_id1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
+      reconstruction.AddPoint3D(RandomEigenVectord<3>(), Track());
   obs_manager.AddObservation(point3D_id1, TrackElement(1, 0));
   obs_manager.AddObservation(point3D_id1, TrackElement(2, 0));
   obs_manager.AddObservation(point3D_id1, TrackElement(3, 0));

@@ -31,6 +31,7 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/scene/camera.h"
 
 #include <optional>
 
@@ -47,7 +48,11 @@ struct TwoViewGeometry {
     CALIBRATED = 2,
     // Relative pose (metric) from calibrated (non-panoramic) rig.
     CALIBRATED_RIG = 9,
-    // Fundamental matrix.
+    // Fundamental matrix. A pair whose focal length(s) were recovered by the
+    // two-view solver (e.g. the shared-focal essential-matrix solver) is also
+    // UNCALIBRATED: it carries F built from the estimated focal, and exposes
+    // the estimated intrinsics via `camera1`/`camera2` (see below) so consumers
+    // can seed them without trusting the camera's placeholder focal.
     UNCALIBRATED = 3,
     // Homography, planar scene with baseline.
     PLANAR = 4,
@@ -62,6 +67,15 @@ struct TwoViewGeometry {
     MULTIPLE = 8,
   };
 
+  // Defaulted but defined out-of-line to avoid a spurious GCC -Wuninitialized
+  // from inlined moves of the std::optional<Camera> members.
+  TwoViewGeometry() = default;
+  TwoViewGeometry(const TwoViewGeometry&);
+  TwoViewGeometry(TwoViewGeometry&&) noexcept;
+  TwoViewGeometry& operator=(const TwoViewGeometry&);
+  TwoViewGeometry& operator=(TwoViewGeometry&&) noexcept;
+  ~TwoViewGeometry();
+
   // One of `ConfigurationType`.
   int config = ConfigurationType::UNDEFINED;
 
@@ -74,6 +88,11 @@ struct TwoViewGeometry {
 
   // Relative pose.
   std::optional<Rigid3d> cam2_from_cam1;
+
+  // Per-side intrinsics recovered by the two-view solver: `cameraN` holds side
+  // N's estimated intrinsics, or nullopt if that side was not estimated.
+  std::optional<Camera> camera1;
+  std::optional<Camera> camera2;
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;

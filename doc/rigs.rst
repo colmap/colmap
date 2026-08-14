@@ -243,3 +243,7 @@ robust. We provide an example Python script to reconstruct a 360° collection::
 Make sure to use the version of the script that corresponds to the version of
 COLMAP that you are using, as the script at HEAD is not guaranteed to be
 compatible.
+
+The example is a command-line wrapper around ``pycolmap.panorama.reconstruct``.
+Perspective rendering requires the optional ``panorama`` dependencies, which
+can be installed with ``pip install 'pycolmap[panorama]'``.
