@@ -747,11 +747,25 @@ Eigen::RowMajorMatrixXf SpatialPairGenerator::ReadPositionPriorData(
     }
   }
 
+  // Trim unused rows for images without a valid position before calculating
+  // the mean coordinate below.
+  const size_t num_populated_rows = position_idxs_.size();
+  position_matrix.conservativeResize(num_populated_rows, Eigen::NoChange);
+
   // Subtract the mean coordinate before casting to float for better numerical
-  // precision when dealing with large coordinates (e.g. GPS). For even better
-  // precision, we could also rescale the coordinates.
-  position_matrix.rowwise() -= position_matrix.colwise().mean();
-  return position_matrix.topRows(position_idxs_.size()).cast<float>();
+  // precision when dealing with large coordinates (e.g. GPS). This is
+  // particularly important for projected Cartesian coordinate systems, which
+  // can contain very large values in metres. For even better precision, we
+  // could also rescale the coordinates.
+  const Eigen::RowVector3d mean_position = position_matrix.colwise().mean();
+
+  Eigen::IOFormat vec_fmt(Eigen::FullPrecision, Eigen::DontAlignCols, ", ");
+  VLOG(1) << "Internally offsetting image pose priors by mean coordinate "
+          << mean_position.format(vec_fmt) << " prior to spatial matching.";
+
+  position_matrix.rowwise() -= mean_position;
+
+  return position_matrix.cast<float>();
 }
 
 TransitivePairGenerator::TransitivePairGenerator(

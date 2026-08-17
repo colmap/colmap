@@ -1617,8 +1617,19 @@ void PatchMatchCuda::InitSourceImages() {
     for (size_t i = 0; i < problem_.src_image_idxs.size(); ++i) {
       const Image& image = problem_.images->at(problem_.src_image_idxs[i]);
       const Bitmap& bitmap = image.GetBitmap();
+      // The texture reads each layer with a row stride of max_width, while
+      // the bitmap rows are packed with the image's own width. Images
+      // narrower than max_width must therefore be copied row by row - a
+      // single contiguous copy would displace row r by r * (max_width -
+      // width) pixels. Example for a 2x2 image in a 3-wide layer:
+      //   bitmap [a b; c d] -> contiguous copy [a b c; d 0 0] (wrong)
+      //                        row-wise copy   [a b 0; c d 0] (correct)
+      const uint8_t* src = bitmap.RowMajorData().data();
       uint8_t* dest = src_images_host_data.data() + max_width * max_height * i;
-      memcpy(dest, bitmap.RowMajorData().data(), bitmap.NumBytes());
+      for (size_t r = 0; r < image.GetHeight(); ++r) {
+        memcpy(dest, src + r * image.GetWidth(), image.GetWidth());
+        dest += max_width;
+      }
     }
 
     // Create source images texture.
