@@ -45,22 +45,18 @@ namespace {
 
 bool HasCollinearTriplet(const std::vector<Eigen::Vector2d>& points) {
   constexpr double kMinNormalizedAreaSquared = 1e-24;
-  for (size_t i = 0; i < points.size(); ++i) {
-    for (size_t j = i + 1; j < points.size(); ++j) {
-      for (size_t k = j + 1; k < points.size(); ++k) {
-        const Eigen::Vector2d delta1 = points[j] - points[i];
-        const Eigen::Vector2d delta2 = points[k] - points[i];
-        const double scale_squared =
-            delta1.squaredNorm() * delta2.squaredNorm();
-        const double area = delta1.x() * delta2.y() - delta1.y() * delta2.x();
-        if (scale_squared == 0.0 ||
-            area * area <= kMinNormalizedAreaSquared * scale_squared) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
+  const auto is_collinear = [&points](const size_t i,
+                                      const size_t j,
+                                      const size_t k) {
+    const Eigen::Vector2d delta1 = points[j] - points[i];
+    const Eigen::Vector2d delta2 = points[k] - points[i];
+    const double scale_squared = delta1.squaredNorm() * delta2.squaredNorm();
+    const double area = delta1.x() * delta2.y() - delta1.y() * delta2.x();
+    return scale_squared == 0.0 ||
+           area * area <= kMinNormalizedAreaSquared * scale_squared;
+  };
+  return is_collinear(0, 1, 2) || is_collinear(0, 1, 3) ||
+         is_collinear(0, 2, 3) || is_collinear(1, 2, 3);
 }
 
 }  // namespace

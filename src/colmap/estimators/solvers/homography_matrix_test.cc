@@ -46,15 +46,19 @@ namespace {
 
 class HomographyMatrixTests : public ::testing::TestWithParam<size_t> {};
 
-TEST(HomographyMatrixEstimator, CollinearMinimalSample) {
-  const std::vector<Eigen::Vector2d> src = {{0, 0}, {1, 0}, {2, 0}, {0, 1}};
+TEST(HomographyMatrixEstimator, CollinearMinimalSampleTriplets) {
   const std::vector<Eigen::Vector2d> dst = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
 
-  HomographyMatrixEstimator estimator;
-  std::vector<Eigen::Matrix3d> models;
-  estimator.Estimate(src, dst, &models);
+  for (size_t outlier_idx = 0; outlier_idx < 4; ++outlier_idx) {
+    std::vector<Eigen::Vector2d> src = {{0, 0}, {1, 0}, {2, 0}, {3, 0}};
+    src[outlier_idx] = {0, 1};
 
-  EXPECT_TRUE(models.empty());
+    HomographyMatrixEstimator estimator;
+    std::vector<Eigen::Matrix3d> models;
+    estimator.Estimate(src, dst, &models);
+
+    EXPECT_TRUE(models.empty());
+  }
 }
 
 TEST_P(HomographyMatrixTests, Nominal) {
