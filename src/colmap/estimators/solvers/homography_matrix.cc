@@ -41,6 +41,25 @@
 #include <Eigen/SVD>
 
 namespace colmap {
+namespace {
+
+bool HasCollinearTriplet(const std::vector<Eigen::Vector2d>& points) {
+  const auto is_collinear = [&points](const size_t i,
+                                      const size_t j,
+                                      const size_t k) {
+    constexpr double kMinNormalizedAreaSquared = 1e-24;
+    const Eigen::Vector2d delta1 = points[j] - points[i];
+    const Eigen::Vector2d delta2 = points[k] - points[i];
+    const double scale_squared = delta1.squaredNorm() * delta2.squaredNorm();
+    const double area = delta1.x() * delta2.y() - delta1.y() * delta2.x();
+    return scale_squared == 0.0 ||
+           area * area <= kMinNormalizedAreaSquared * scale_squared;
+  };
+  return is_collinear(0, 1, 2) || is_collinear(0, 1, 3) ||
+         is_collinear(0, 2, 3) || is_collinear(1, 2, 3);
+}
+
+}  // namespace
 
 void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
                                          const std::vector<Y_t>& points2,
@@ -52,6 +71,13 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   models->clear();
 
   const size_t num_points = points1.size();
+  // A minimal homography requires four points in general position (no three
+  // collinear) in both images. See Hartley and Zisserman, Multiple View
+  // Geometry in Computer Vision, 2nd ed., Sec. 4.1.3, pp. 91-92.
+  if (num_points == 4 &&
+      (HasCollinearTriplet(points1) || HasCollinearTriplet(points2))) {
+    return;
+  }
 
   // Setup constraint matrix.
   Eigen::Matrix<double, Eigen::Dynamic, 9> A(2 * num_points, 9);

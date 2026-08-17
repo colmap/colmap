@@ -47,7 +47,10 @@ void WriteImageOIIO(const int width,
                     const int channels,
                     const std::filesystem::path& path,
                     const uint8_t* data) {
-  const OIIO::ImageSpec spec(width, height, channels, OIIO::TypeDesc::UINT8);
+  OIIO::ImageSpec spec(width, height, channels, OIIO::TypeDesc::UINT8);
+  if (channels == 2 || channels == 4) {
+    spec["oiio:UnassociatedAlpha"] = 1;
+  }
   auto output = OIIO::ImageOutput::create(path.string());
   ASSERT_NE(output, nullptr);
   ASSERT_TRUE(output->open(path.string(), spec));
