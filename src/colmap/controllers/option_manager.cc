@@ -390,7 +390,7 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->loma->brute_force.max_ratio);
   AddDefaultOption("LomaMatching.brute_force_cross_check",
                    &feature_matching->loma->brute_force.cross_check);
-  AddDefaultOption("LomaMatching.bruteforce_model_path",
+  AddDefaultOption("LomaMatching.brute_force_model_path",
                    &feature_matching->loma->brute_force.model_path);
 }
 

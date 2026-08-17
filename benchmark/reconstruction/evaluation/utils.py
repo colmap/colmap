@@ -470,7 +470,7 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--feature",
         default="sift",
-        choices=["sift", "aliked", "loma"],
+        choices=["sift", "aliked", "loma", "loma128"],
     )
     parser.add_argument(
         "--mapper",

@@ -68,7 +68,9 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   options.max_image_size = 2000;
   for (const auto& type : {FeatureExtractorType::SIFT,
                            FeatureExtractorType::ALIKED_N16ROT,
-                           FeatureExtractorType::ALIKED_N32}) {
+                           FeatureExtractorType::ALIKED_N32,
+                           FeatureExtractorType::LOMA_B,
+                           FeatureExtractorType::LOMA_B128}) {
     options.type = type;
     EXPECT_EQ(options.EffMaxImageSize(), 2000);
   }
@@ -81,6 +83,10 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
   options.type = FeatureExtractorType::ALIKED_N32;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B128;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
 
   options.max_image_size = 0;
   options.type = FeatureExtractorType::SIFT;
@@ -88,6 +94,10 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   options.type = FeatureExtractorType::ALIKED_N16ROT;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
   options.type = FeatureExtractorType::ALIKED_N32;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B128;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
 }
 
@@ -166,6 +176,8 @@ TEST(FeatureExtractionOptions, RequiresRGB) {
       {FeatureExtractorType::SIFT, false},
       {FeatureExtractorType::ALIKED_N16ROT, true},
       {FeatureExtractorType::ALIKED_N32, true},
+      {FeatureExtractorType::LOMA_B, true},
+      {FeatureExtractorType::LOMA_B128, true},
   };
 
   for (const auto& [type, expected] : kTestCases) {
@@ -182,6 +194,8 @@ TEST(FeatureExtractionOptions, CheckAndRequiresOpenGLWithNoGpu) {
       FeatureExtractorType::SIFT,
       FeatureExtractorType::ALIKED_N16ROT,
       FeatureExtractorType::ALIKED_N32,
+      FeatureExtractorType::LOMA_B,
+      FeatureExtractorType::LOMA_B128,
   };
 
   for (const auto& type : kTypes) {
