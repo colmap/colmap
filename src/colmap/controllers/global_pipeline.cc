@@ -30,6 +30,7 @@
 #include "colmap/controllers/global_pipeline.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
@@ -39,7 +40,6 @@
 #include "colmap/util/timer.h"
 
 #include <algorithm>
-#include <deque>
 
 namespace colmap {
 namespace {
@@ -76,6 +76,66 @@ size_t NumFramesForImages(const Reconstruction& reconstruction,
     frame_ids.insert(reconstruction.Image(image_id).FrameId());
   }
   return frame_ids.size();
+}
+
+struct ComponentDecomposition {
+  std::vector<FlatHashSet<image_t>> components;
+  size_t num_failed = 0;
+};
+
+// Split every input view-graph component once using the same rotation
+// averaging and relative-rotation filtering as the global mapper. Components
+// that are already too small are passed through so the caller can account for
+// them without running rotation averaging.
+ComponentDecomposition ComputeComponentsByRotationAveraging(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    const Reconstruction& base,
+    const std::vector<PosePrior>& pose_priors,
+    int min_num_frames) {
+  ComponentDecomposition result;
+  const std::vector<FlatHashSet<image_t>> input_components =
+      pose_graph.ComputeConnectedComponentImageIds(
+          base, /*filter_unregistered=*/false);
+
+  for (const auto& input_component : input_components) {
+    if (static_cast<int>(NumFramesForImages(base, input_component)) <
+        min_num_frames) {
+      result.components.push_back(input_component);
+      continue;
+    }
+
+    Reconstruction reconstruction = base;
+    PoseGraph component_pose_graph = pose_graph;
+    component_pose_graph.InvalidatePairsOutsideActiveImageIds(input_component);
+
+    RotationEstimatorOptions decomposition_options = options;
+    decomposition_options.filter_unregistered = false;
+    if (!RunRotationAveragingOnComponent(decomposition_options,
+                                         component_pose_graph,
+                                         input_component,
+                                         reconstruction,
+                                         pose_priors)) {
+      ++result.num_failed;
+      continue;
+    }
+
+    if (decomposition_options.max_rotation_error_deg > 0) {
+      FilterEdgesByRelativeRotation(
+          component_pose_graph,
+          reconstruction,
+          decomposition_options.max_rotation_error_deg);
+    }
+
+    std::vector<FlatHashSet<image_t>> sub_components =
+        component_pose_graph.ComputeConnectedComponentImageIds(
+            reconstruction, /*filter_unregistered=*/true);
+    for (auto& sub_component : sub_components) {
+      result.components.push_back(std::move(sub_component));
+    }
+  }
+
+  return result;
 }
 
 }  // namespace
@@ -123,10 +183,8 @@ GlobalPipeline::ReconstructionResult GlobalPipeline::ReconstructSingleComponent(
             << " seconds";
 
   // A stop requested through the callback is reported as success, so false
-  // only denotes a genuine mapping failure. Return the failed reconstruction
-  // temporarily so multi-component orchestration can skip its registered
-  // frames while retrying the remainder; the caller removes it from the output
-  // manager.
+  // only denotes a genuine mapping failure. The caller removes failed
+  // reconstructions from the output manager.
   if (!success) {
     LOG(ERROR) << "Global mapping failed";
     return {std::move(reconstruction), false};
@@ -216,42 +274,39 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
     const GlobalMapperOptions& mapper_options) {
   ReconstructionStats stats;
 
-  // Build the base reconstruction and pose graph from the cache.
+  // Build the base reconstruction, pose graph, and pose priors from the cache.
   Reconstruction base;
   base.Load(*database_cache_);
   PoseGraph pose_graph;
   pose_graph.Load(*database_cache_->CorrespondenceGraph());
+  const std::vector<PosePrior>& pose_priors = database_cache_->PosePriors();
   if (pose_graph.Empty()) {
     LOG(ERROR) << "Cannot continue with empty pose graph";
     return stats;
   }
 
-  // Partition the unfiltered input view graph. The full mapper may split these
-  // components further when it filters relative rotations below.
-  std::vector<FlatHashSet<image_t>> components =
-      pose_graph.ComputeConnectedComponentImageIds(
-          base, /*filter_unregistered=*/false);
+  // Decompose the view graph once after rotation filtering. The full mapper is
+  // then run at most once per resulting component; any additional fragments
+  // rejected by its refinement pass are not recursively retried.
+  ComponentDecomposition decomposition =
+      ComputeComponentsByRotationAveraging(mapper_options.RotationAveraging(),
+                                           pose_graph,
+                                           base,
+                                           pose_priors,
+                                           options_.min_num_frames);
+  stats.num_failed += decomposition.num_failed;
+  std::vector<FlatHashSet<image_t>>& components = decomposition.components;
 
-  LOG(INFO) << "Found " << components.size() << " connected component(s)";
+  LOG(INFO) << "Found " << components.size()
+            << " connected component(s) after rotation filtering";
 
-  // Run the full pipeline independently per input component. The mapper keeps
-  // the largest connected component after rotation filtering. Remove its
-  // registered frames, decompose the remainder, and enqueue every resulting
-  // component. This uses the mapper's actual two-pass rotation averaging and
-  // does not require a disposable preliminary solve.
-  std::deque<FlatHashSet<image_t>> pending_components;
-  for (auto& component : components) {
-    pending_components.push_back(std::move(component));
-  }
-  size_t component_idx = 0;
-  while (!pending_components.empty()) {
+  for (size_t component_idx = 0; component_idx < components.size();
+       ++component_idx) {
     if (CheckIfStopped()) {
       return stats;
     }
 
-    FlatHashSet<image_t> image_ids = std::move(pending_components.front());
-    pending_components.pop_front();
-    ++component_idx;
+    const FlatHashSet<image_t>& image_ids = components[component_idx];
 
     if (static_cast<int>(NumFramesForImages(base, image_ids)) <
         options_.min_num_frames) {
@@ -259,11 +314,10 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
       continue;
     }
 
-    LOG_HEADING1(
-        StringPrintf("Reconstructing component %d with %d images (%d pending)",
-                     static_cast<int>(component_idx),
-                     static_cast<int>(image_ids.size()),
-                     static_cast<int>(pending_components.size())));
+    LOG_HEADING1(StringPrintf("Reconstructing component %d / %d with %d images",
+                              static_cast<int>(component_idx + 1),
+                              static_cast<int>(components.size()),
+                              static_cast<int>(image_ids.size())));
 
     DatabaseCache::Options cache_options;
     cache_options.image_names.reserve(image_ids.size());
@@ -278,24 +332,6 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
     const std::shared_ptr<Reconstruction>& reconstruction =
         result.reconstruction;
 
-    const std::vector<frame_t> reg_frame_ids = reconstruction->RegFrameIds();
-    const FlatHashSet<frame_t> registered_frame_ids(reg_frame_ids.begin(),
-                                                    reg_frame_ids.end());
-    FlatHashSet<image_t> remaining_image_ids;
-    remaining_image_ids.reserve(image_ids.size());
-    for (const image_t image_id : image_ids) {
-      if (registered_frame_ids.count(base.Image(image_id).FrameId()) == 0) {
-        remaining_image_ids.insert(image_id);
-      }
-    }
-
-    if (remaining_image_ids.size() == image_ids.size()) {
-      LOG(ERROR) << "Global mapping made no registration progress";
-      reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
-      ++stats.num_failed;
-      continue;
-    }
-
     if (!result.success) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;
@@ -303,26 +339,6 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
                options_.min_num_frames) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_too_small;
-    }
-
-    if (CheckIfStopped()) {
-      return stats;
-    }
-
-    if (!remaining_image_ids.empty()) {
-      PoseGraph remaining_pose_graph = pose_graph;
-      remaining_pose_graph.InvalidatePairsOutsideActiveImageIds(
-          remaining_image_ids);
-      std::vector<FlatHashSet<image_t>> remaining_components =
-          remaining_pose_graph.ComputeConnectedComponentImageIds(
-              base, /*filter_unregistered=*/false);
-      if (remaining_components.empty()) {
-        ++stats.num_too_small;
-      } else {
-        for (auto& component : remaining_components) {
-          pending_components.push_back(std::move(component));
-        }
-      }
     }
   }
 

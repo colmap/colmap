@@ -495,6 +495,70 @@ TEST(GlobalPipeline, MultiComponentsBelowMinNumFrames) {
   EXPECT_EQ(reconstruction_manager->Size(), 0);
 }
 
+// Components that become too small only after rotation filtering must also be
+// discarded before invoking the full global mapper. In particular, the
+// rejected bridge edges must not reconnect the residual components and cause
+// repeated mapping attempts.
+TEST(GlobalPipeline, MultiComponentsBelowMinNumFramesAfterRotationFiltering) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  synthetic_dataset_options.prior_gravity = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  ASSERT_EQ(expected_components.size(), 2);
+  ASSERT_EQ(expected_components[0].size(), 3);
+  ASSERT_EQ(expected_components[1].size(), 3);
+
+  // Keep and corrupt every cross-component edge. Gravity anchors the two
+  // groups, so rotation filtering rejects the bridges and recovers two
+  // three-frame components from one initial six-frame component.
+  BridgeGroupsWithOutlierEdges(expected_components,
+                               /*num_outlier_edges=*/
+                               static_cast<int>(gt_reconstruction.NumImages() *
+                                                gt_reconstruction.NumImages()),
+                               *database);
+
+  // First verify that the setup is successfully decomposed into the expected
+  // components when they meet the minimum size.
+  auto baseline_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions baseline_options;
+  baseline_options.random_seed = 1;
+  baseline_options.min_num_frames = 3;
+  baseline_options.mapper.rotation_averaging.use_gravity = true;
+  GlobalPipeline baseline_mapper(
+      std::move(baseline_options), database, baseline_manager);
+  baseline_mapper.Run();
+  ASSERT_EQ(baseline_manager->Size(), 2);
+  EXPECT_THAT(RegImageIdSetsPerReconstruction(*baseline_manager),
+              testing::UnorderedElementsAreArray(expected_components));
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  options.random_seed = 1;
+  options.min_num_frames = 4;
+  options.mapper.rotation_averaging.use_gravity = true;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  bool callback_called = false;
+  mapper.AddCallback(GlobalPipeline::MODEL_UPDATE_CALLBACK,
+                     [&]() { callback_called = true; });
+  mapper.Run();
+
+  EXPECT_FALSE(callback_called);
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
+}
+
 // Multi-camera rigs with unknown sensor_from_rig must be calibrated
 // independently in each disconnected component.
 TEST(GlobalPipeline, MultiComponentsWithUnknownSensorFromRig) {

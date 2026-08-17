@@ -108,9 +108,8 @@ class GlobalPipeline : public BaseController {
       const std::shared_ptr<const DatabaseCache>& database_cache,
       const GlobalMapperOptions& mapper_options);
 
-  // Partition the input view graph into connected components and reconstruct
-  // each one. If rotation filtering discards part of a component, continue
-  // reconstructing the remaining images until no component is left.
+  // Partition the input view graph once using rotation averaging and
+  // reconstruct each resulting component at most once.
   ReconstructionStats ReconstructMultiComponents(
       const GlobalMapperOptions& mapper_options);
 
