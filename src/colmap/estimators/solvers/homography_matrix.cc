@@ -44,10 +44,10 @@ namespace colmap {
 namespace {
 
 bool HasCollinearTriplet(const std::vector<Eigen::Vector2d>& points) {
-  constexpr double kMinNormalizedAreaSquared = 1e-24;
   const auto is_collinear = [&points](const size_t i,
                                       const size_t j,
                                       const size_t k) {
+    constexpr double kMinNormalizedAreaSquared = 1e-24;
     const Eigen::Vector2d delta1 = points[j] - points[i];
     const Eigen::Vector2d delta2 = points[k] - points[i];
     const double scale_squared = delta1.squaredNorm() * delta2.squaredNorm();
