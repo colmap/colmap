@@ -286,9 +286,8 @@ class GlobalMapperGeneralOptionsWidget : public OptionsWidget {
     AddOptionInt(&options->global_mapper->random_seed, "random_seed", -1);
     AddOptionBool(&options->global_mapper->decompose_relative_pose,
                   "decompose_relative_pose");
-    AddOptionBool(&options->global_mapper->reconstruct_all_components,
-                  "reconstruct_all_components");
-    AddOptionInt(&options->global_mapper->min_num_frames, "min_num_frames", 0);
+    AddOptionBool(&options->global_mapper->multiple_models, "multiple_models");
+    AddOptionInt(&options->global_mapper->min_model_size, "min_model_size", 0);
     AddOptionBool(&options->global_mapper->mapper.refine_sensor_from_rig,
                   "refine_sensor_from_rig");
     AddOptionInt(&options->global_mapper->mapper.ba_num_iterations,

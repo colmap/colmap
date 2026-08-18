@@ -361,7 +361,7 @@ TEST(GlobalPipeline, MultiComponents) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  ASSERT_TRUE(options.reconstruct_all_components);
+  ASSERT_TRUE(options.multiple_models);
   ViewGraphCalibrationOptions vgc_options;
   CalibrateViewGraph(vgc_options, database.get());
   GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
@@ -412,7 +412,7 @@ TEST(GlobalPipeline, ReconstructOnlyLargestComponent) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  options.reconstruct_all_components = false;
+  options.multiple_models = false;
   GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
@@ -462,9 +462,9 @@ TEST(GlobalPipeline, MultiComponentsStopAfterFirstComponent) {
   EXPECT_EQ(reconstruction_manager->Size(), 1);
 }
 
-// Components that cannot meet min_num_frames are discarded before invoking
+// Components that cannot meet min_model_size are discarded before invoking
 // the expensive global mapper.
-TEST(GlobalPipeline, MultiComponentsBelowMinNumFrames) {
+TEST(GlobalPipeline, MultiComponentsBelowMinModelSize) {
   SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
@@ -484,7 +484,7 @@ TEST(GlobalPipeline, MultiComponentsBelowMinNumFrames) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  options.min_num_frames = 3;
+  options.min_model_size = 3;
   GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   bool callback_called = false;
   mapper.AddCallback(GlobalPipeline::MODEL_UPDATE_CALLBACK,
@@ -499,7 +499,7 @@ TEST(GlobalPipeline, MultiComponentsBelowMinNumFrames) {
 // discarded before invoking the full global mapper. In particular, the
 // rejected bridge edges must not reconnect the residual components and cause
 // repeated mapping attempts.
-TEST(GlobalPipeline, MultiComponentsBelowMinNumFramesAfterRotationFiltering) {
+TEST(GlobalPipeline, MultiComponentsBelowMinModelSizeAfterRotationFiltering) {
   SetPRNGSeed(1);
   const auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
@@ -535,7 +535,7 @@ TEST(GlobalPipeline, MultiComponentsBelowMinNumFramesAfterRotationFiltering) {
   auto baseline_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions baseline_options;
   baseline_options.random_seed = 1;
-  baseline_options.min_num_frames = 3;
+  baseline_options.min_model_size = 3;
   baseline_options.mapper.rotation_averaging.use_gravity = true;
   GlobalPipeline baseline_mapper(
       std::move(baseline_options), database, baseline_manager);
@@ -547,7 +547,7 @@ TEST(GlobalPipeline, MultiComponentsBelowMinNumFramesAfterRotationFiltering) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
   options.random_seed = 1;
-  options.min_num_frames = 4;
+  options.min_model_size = 4;
   options.mapper.rotation_averaging.use_gravity = true;
   GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   bool callback_called = false;
@@ -637,7 +637,7 @@ TEST(GlobalPipeline, MultiComponentsWithOutlierEdges) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  ASSERT_TRUE(options.reconstruct_all_components);
+  ASSERT_TRUE(options.multiple_models);
   GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
   mapper.Run();
 
@@ -688,7 +688,7 @@ TEST(GlobalPipeline, MultiComponentsWithOutlierEdgesUsingGravity) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   GlobalPipelineOptions options;
-  ASSERT_TRUE(options.reconstruct_all_components);
+  ASSERT_TRUE(options.multiple_models);
   // Gravity priors pin each cluster to the vertical, making the random-rotation
   // bridges detectable regardless of the otherwise free inter-cluster gauge.
   options.mapper.rotation_averaging.use_gravity = true;

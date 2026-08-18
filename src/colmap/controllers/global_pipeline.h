@@ -64,11 +64,11 @@ struct GlobalPipelineOptions {
   // If true (default), reconstruct every connected component of the view graph
   // (one model per component). If false, reconstruct only the largest connected
   // component.
-  bool reconstruct_all_components = true;
+  bool multiple_models = true;
 
   // Minimum number of registered frames for a reconstruction to be kept.
   // Reconstructions with fewer registered frames are discarded.
-  int min_num_frames = 3;
+  int min_model_size = 3;
 
   // Options for the global mapper.
   GlobalMapperOptions mapper;

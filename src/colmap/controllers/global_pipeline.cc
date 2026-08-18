@@ -92,7 +92,7 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
     const PoseGraph& pose_graph,
     const Reconstruction& base,
     const std::vector<PosePrior>& pose_priors,
-    int min_num_frames) {
+    int min_model_size) {
   ComponentDecomposition result;
   const std::vector<FlatHashSet<image_t>> input_components =
       pose_graph.ComputeConnectedComponentImageIds(
@@ -100,7 +100,7 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
 
   for (const auto& input_component : input_components) {
     if (static_cast<int>(NumFramesForImages(base, input_component)) <
-        min_num_frames) {
+        min_model_size) {
       result.components.push_back(input_component);
       continue;
     }
@@ -148,7 +148,7 @@ GlobalPipeline::GlobalPipeline(
       reconstruction_manager_(
           std::move(THROW_CHECK_NOTNULL(reconstruction_manager))) {
   THROW_CHECK_NOTNULL(database);
-  THROW_CHECK_GE(options_.min_num_frames, 0);
+  THROW_CHECK_GE(options_.min_model_size, 0);
 
   // Create database cache with relative poses for pose graph.
   DatabaseCache::Options database_cache_options;
@@ -212,7 +212,7 @@ void GlobalPipeline::Run() {
 
   const size_t first_reconstruction_idx = reconstruction_manager_->Size();
   ReconstructionStats stats;
-  if (options_.reconstruct_all_components) {
+  if (options_.multiple_models) {
     stats = ReconstructMultiComponents(mapper_options);
   } else {
     const ReconstructionResult result =
@@ -221,7 +221,7 @@ void GlobalPipeline::Run() {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;
     } else if (static_cast<int>(result.reconstruction->NumRegFrames()) <
-               options_.min_num_frames) {
+               options_.min_model_size) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_too_small;
     }
@@ -259,7 +259,7 @@ void GlobalPipeline::Run() {
   LOG(INFO) << "Kept "
             << reconstruction_manager_->Size() - first_reconstruction_idx
             << " reconstruction(s), discarded " << stats.num_too_small
-            << " with fewer than " << options_.min_num_frames
+            << " with fewer than " << options_.min_model_size
             << " registered frames, and failed to reconstruct "
             << stats.num_failed;
 
@@ -293,7 +293,7 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
                                            pose_graph,
                                            base,
                                            pose_priors,
-                                           options_.min_num_frames);
+                                           options_.min_model_size);
   stats.num_failed += decomposition.num_failed;
   std::vector<FlatHashSet<image_t>>& components = decomposition.components;
 
@@ -309,7 +309,7 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
     const FlatHashSet<image_t>& image_ids = components[component_idx];
 
     if (static_cast<int>(NumFramesForImages(base, image_ids)) <
-        options_.min_num_frames) {
+        options_.min_model_size) {
       ++stats.num_too_small;
       continue;
     }
@@ -336,7 +336,7 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;
     } else if (static_cast<int>(reconstruction->NumRegFrames()) <
-               options_.min_num_frames) {
+               options_.min_model_size) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_too_small;
     }
