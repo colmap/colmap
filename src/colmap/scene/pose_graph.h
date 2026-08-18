@@ -71,35 +71,28 @@ class PoseGraph {
         edges_.end());
   }
 
-  // Compute all connected components of frames, returned sorted by descending
-  // size. If filter_unregistered is true, only considers frames with HasPose().
-  std::vector<FlatHashSet<frame_t>> ComputeConnectedFrameComponents(
+  // Returns connected components as sets of frame IDs, largest first. If
+  // filter_unregistered is true, only considers frames with HasPose().
+  std::vector<FlatHashSet<frame_t>> ConnectedFrameComponents(
       const Reconstruction& reconstruction,
       bool filter_unregistered = true) const;
 
-  // Compute all connected components as sets of image ids, returned sorted by
-  // descending frame count. If filter_unregistered is true, only considers
-  // frames with HasPose().
-  std::vector<FlatHashSet<image_t>> ComputeConnectedComponentImageIds(
+  // Returns image IDs for each connected frame component. The outer vector is
+  // sorted by the number of frames in each component, largest first. If
+  // filter_unregistered is true, only considers frames with HasPose().
+  std::vector<FlatHashSet<image_t>> ConnectedImageIdsForFrameComponents(
       const Reconstruction& reconstruction,
       bool filter_unregistered = true) const;
 
-  // Compute the largest connected component of frames.
-  // If filter_unregistered is true, only considers frames with HasPose().
-  // Returns the set of frame_ids in the largest connected component.
-  FlatHashSet<frame_t> ComputeLargestConnectedFrameComponent(
+  // Returns the frame IDs in the largest connected component. If
+  // filter_unregistered is true, only considers frames with HasPose().
+  FlatHashSet<frame_t> LargestConnectedFrameComponent(
       const Reconstruction& reconstruction,
       bool filter_unregistered = true) const;
 
   // Mark image pairs as invalid if either image is not in the active set.
   void InvalidatePairsOutsideActiveImageIds(
       const FlatHashSet<image_t>& active_image_ids);
-
-  // Mark connected clusters of images, where the cluster_id is sorted by the
-  // the number of images. Populates `cluster_ids` output parameter.
-  int MarkConnectedComponents(const Reconstruction& reconstruction,
-                              NodeHashMap<frame_t, int>& cluster_ids,
-                              int min_num_images = -1) const;
 
  private:
   // Map from pair ID to edge data. The pair ID is computed from the

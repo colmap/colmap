@@ -35,6 +35,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace colmap {
@@ -91,20 +92,18 @@ class GlobalPipeline : public BaseController {
 
  private:
   struct ReconstructionStats {
+    // Number of components that failed during rotation averaging or mapping.
     size_t num_failed = 0;
+
+    // Number of components discarded for having too few registered frames.
     size_t num_too_small = 0;
   };
 
-  struct ReconstructionResult {
-    std::shared_ptr<Reconstruction> reconstruction;
-    bool success = false;
-  };
-
   // Run the full global SfM pipeline on the given database cache and return
-  // the resulting reconstruction. The in-progress reconstruction is added to
-  // the manager so callbacks can render it. The caller decides whether to keep
-  // it based on the returned success state.
-  ReconstructionResult ReconstructSingleComponent(
+  // the resulting reconstruction, or nullopt if mapping fails. The in-progress
+  // reconstruction is added to the manager so callbacks can render it. The
+  // caller decides whether to keep it.
+  std::optional<std::shared_ptr<Reconstruction>> ReconstructSingleComponent(
       const std::shared_ptr<const DatabaseCache>& database_cache,
       const GlobalMapperOptions& mapper_options);
 

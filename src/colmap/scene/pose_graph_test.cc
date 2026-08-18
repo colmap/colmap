@@ -280,64 +280,7 @@ TEST(PoseGraph, Load) {
   EXPECT_TRUE(pose_graph.HasEdge(2, 3));
 }
 
-TEST(PoseGraph, MarkConnectedComponents) {
-  // Create a reconstruction with 5 images (5 rigs, 1 camera each, 1 frame each)
-  SyntheticDatasetOptions synthetic_options;
-  synthetic_options.num_rigs = 5;
-  synthetic_options.num_cameras_per_rig = 1;
-  synthetic_options.num_frames_per_rig = 1;
-  synthetic_options.num_points3D = 10;
-  Reconstruction reconstruction;
-  SynthesizeDataset(synthetic_options, &reconstruction);
-
-  // Get image IDs from the reconstruction
-  const auto reg_image_ids = reconstruction.RegImageIds();
-  ASSERT_EQ(reg_image_ids.size(), 5);
-
-  // Build a pose graph with two disconnected components:
-  // Component A: images 0, 1, 2 (3 frames)
-  // Component B: images 3, 4 (2 frames)
-  PoseGraph pose_graph;
-  pose_graph.AddEdge(reg_image_ids[0], reg_image_ids[1], SynthesizeEdge());
-  pose_graph.AddEdge(reg_image_ids[1], reg_image_ids[2], SynthesizeEdge());
-  pose_graph.AddEdge(reg_image_ids[3], reg_image_ids[4], SynthesizeEdge());
-
-  // MarkConnectedComponents with no minimum
-  NodeHashMap<frame_t, int> cluster_ids;
-  int num_components =
-      pose_graph.MarkConnectedComponents(reconstruction, cluster_ids);
-  EXPECT_EQ(num_components, 2);
-
-  // All 5 frames should have cluster IDs
-  EXPECT_EQ(cluster_ids.size(), 5);
-
-  // Larger component (3 frames) gets cluster_id=0
-  const frame_t frame0 = reconstruction.Image(reg_image_ids[0]).FrameId();
-  const frame_t frame1 = reconstruction.Image(reg_image_ids[1]).FrameId();
-  const frame_t frame2 = reconstruction.Image(reg_image_ids[2]).FrameId();
-  const frame_t frame3 = reconstruction.Image(reg_image_ids[3]).FrameId();
-  const frame_t frame4 = reconstruction.Image(reg_image_ids[4]).FrameId();
-
-  EXPECT_THAT(cluster_ids,
-              testing::UnorderedElementsAre(testing::Pair(frame0, 0),
-                                            testing::Pair(frame1, 0),
-                                            testing::Pair(frame2, 0),
-                                            testing::Pair(frame3, 1),
-                                            testing::Pair(frame4, 1)));
-
-  // With min_num_images=3, only the larger component qualifies
-  num_components =
-      pose_graph.MarkConnectedComponents(reconstruction, cluster_ids, 3);
-  EXPECT_EQ(num_components, 1);
-  EXPECT_THAT(cluster_ids,
-              testing::UnorderedElementsAre(testing::Pair(frame0, 0),
-                                            testing::Pair(frame1, 0),
-                                            testing::Pair(frame2, 0),
-                                            testing::Pair(frame3, -1),
-                                            testing::Pair(frame4, -1)));
-}
-
-TEST(PoseGraph, ComputeLargestConnectedFrameComponentEmpty) {
+TEST(PoseGraph, LargestConnectedFrameComponentEmpty) {
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 3;
   synthetic_options.num_cameras_per_rig = 1;
@@ -348,12 +291,12 @@ TEST(PoseGraph, ComputeLargestConnectedFrameComponentEmpty) {
 
   // Pose graph with no edges
   PoseGraph pose_graph;
-  const auto result = pose_graph.ComputeLargestConnectedFrameComponent(
+  const auto result = pose_graph.LargestConnectedFrameComponent(
       reconstruction, /*filter_unregistered=*/false);
   EXPECT_TRUE(result.empty());
 }
 
-TEST(PoseGraph, ComputeConnectedFrameComponents) {
+TEST(PoseGraph, ConnectedFrameComponents) {
   // Five single-frame rigs.
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 5;
@@ -379,7 +322,7 @@ TEST(PoseGraph, ComputeConnectedFrameComponents) {
   const frame_t frame4 = reconstruction.Image(reg_image_ids[4]).FrameId();
 
   const std::vector<FlatHashSet<frame_t>> components =
-      pose_graph.ComputeConnectedFrameComponents(reconstruction);
+      pose_graph.ConnectedFrameComponents(reconstruction);
 
   ASSERT_EQ(components.size(), 2);
   // Components are sorted by descending size.
@@ -390,11 +333,11 @@ TEST(PoseGraph, ComputeConnectedFrameComponents) {
   EXPECT_THAT(components[1], testing::UnorderedElementsAre(frame3, frame4));
 
   // The largest component must equal the first (largest) entry.
-  EXPECT_EQ(pose_graph.ComputeLargestConnectedFrameComponent(reconstruction),
+  EXPECT_EQ(pose_graph.LargestConnectedFrameComponent(reconstruction),
             components[0]);
 }
 
-TEST(PoseGraph, ComputeConnectedFrameComponentsEmpty) {
+TEST(PoseGraph, ConnectedFrameComponentsEmpty) {
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 3;
   synthetic_options.num_cameras_per_rig = 1;
@@ -406,8 +349,8 @@ TEST(PoseGraph, ComputeConnectedFrameComponentsEmpty) {
   // Pose graph with no edges yields no components.
   PoseGraph pose_graph;
   EXPECT_TRUE(pose_graph
-                  .ComputeConnectedFrameComponents(
-                      reconstruction, /*filter_unregistered=*/false)
+                  .ConnectedFrameComponents(reconstruction,
+                                            /*filter_unregistered=*/false)
                   .empty());
 }
 

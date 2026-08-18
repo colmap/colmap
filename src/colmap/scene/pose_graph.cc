@@ -51,7 +51,7 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
-std::vector<FlatHashSet<frame_t>> PoseGraph::ComputeConnectedFrameComponents(
+std::vector<FlatHashSet<frame_t>> PoseGraph::ConnectedFrameComponents(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
   FrameGraph graph =
       BuildFrameGraph(*this, reconstruction, filter_unregistered);
@@ -76,10 +76,11 @@ std::vector<FlatHashSet<frame_t>> PoseGraph::ComputeConnectedFrameComponents(
   return result;
 }
 
-std::vector<FlatHashSet<image_t>> PoseGraph::ComputeConnectedComponentImageIds(
+std::vector<FlatHashSet<image_t>>
+PoseGraph::ConnectedImageIdsForFrameComponents(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
   const std::vector<FlatHashSet<frame_t>> frame_components =
-      ComputeConnectedFrameComponents(reconstruction, filter_unregistered);
+      ConnectedFrameComponents(reconstruction, filter_unregistered);
 
   FlatHashMap<frame_t, int> frame_to_component;
   for (int comp = 0; comp < static_cast<int>(frame_components.size()); ++comp) {
@@ -98,7 +99,7 @@ std::vector<FlatHashSet<image_t>> PoseGraph::ComputeConnectedComponentImageIds(
   return image_ids;
 }
 
-FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
+FlatHashSet<frame_t> PoseGraph::LargestConnectedFrameComponent(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
   FrameGraph graph =
       BuildFrameGraph(*this, reconstruction, filter_unregistered);
@@ -119,32 +120,6 @@ void PoseGraph::InvalidatePairsOutsideActiveImageIds(
       SetInvalidEdge(pair_id);
     }
   }
-}
-
-int PoseGraph::MarkConnectedComponents(const Reconstruction& reconstruction,
-                                       NodeHashMap<frame_t, int>& cluster_ids,
-                                       int min_num_images) const {
-  const std::vector<FlatHashSet<frame_t>> connected_components =
-      ComputeConnectedFrameComponents(reconstruction,
-                                      /*filter_unregistered=*/false);
-
-  // Clear and populate cluster_ids output parameter
-  cluster_ids.clear();
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    cluster_ids[frame_id] = -1;
-  }
-
-  int comp = 0;
-  for (; comp < static_cast<int>(connected_components.size()); ++comp) {
-    if (static_cast<int>(connected_components[comp].size()) < min_num_images) {
-      break;
-    }
-    for (const frame_t frame_id : connected_components[comp]) {
-      cluster_ids[frame_id] = comp;
-    }
-  }
-
-  return comp;
 }
 
 }  // namespace colmap

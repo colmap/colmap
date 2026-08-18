@@ -98,8 +98,8 @@ FlatHashSet<image_t> ComputeLargestConnectedComponentImageIds(
     const Reconstruction& reconstruction,
     bool filter_unregistered) {
   const FlatHashSet<frame_t> frame_ids =
-      pose_graph.ComputeLargestConnectedFrameComponent(reconstruction,
-                                                       filter_unregistered);
+      pose_graph.LargestConnectedFrameComponent(reconstruction,
+                                                filter_unregistered);
 
   FlatHashSet<image_t> image_ids;
   for (const auto& [image_id, image] : reconstruction.Images()) {

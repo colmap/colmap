@@ -95,7 +95,7 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
     int min_model_size) {
   ComponentDecomposition result;
   const std::vector<FlatHashSet<image_t>> input_components =
-      pose_graph.ComputeConnectedComponentImageIds(
+      pose_graph.ConnectedImageIdsForFrameComponents(
           base, /*filter_unregistered=*/false);
 
   for (const auto& input_component : input_components) {
@@ -128,7 +128,7 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
     }
 
     std::vector<FlatHashSet<image_t>> sub_components =
-        component_pose_graph.ComputeConnectedComponentImageIds(
+        component_pose_graph.ConnectedImageIdsForFrameComponents(
             reconstruction, /*filter_unregistered=*/true);
     for (auto& sub_component : sub_components) {
       result.components.push_back(std::move(sub_component));
@@ -164,7 +164,8 @@ GlobalPipeline::GlobalPipeline(
   RegisterCallback(MODEL_UPDATE_CALLBACK);
 }
 
-GlobalPipeline::ReconstructionResult GlobalPipeline::ReconstructSingleComponent(
+std::optional<std::shared_ptr<Reconstruction>>
+GlobalPipeline::ReconstructSingleComponent(
     const std::shared_ptr<const DatabaseCache>& database_cache,
     const GlobalMapperOptions& mapper_options) {
   auto reconstruction =
@@ -187,14 +188,14 @@ GlobalPipeline::ReconstructionResult GlobalPipeline::ReconstructSingleComponent(
   // reconstructions from the output manager.
   if (!success) {
     LOG(ERROR) << "Global mapping failed";
-    return {std::move(reconstruction), false};
+    return std::nullopt;
   }
 
   // Align reconstruction to the original metric scales in rig extrinsics.
   AlignReconstructionToOrigRigScales(database_cache->Rigs(),
                                      reconstruction.get());
 
-  return {std::move(reconstruction), true};
+  return reconstruction;
 }
 
 void GlobalPipeline::Run() {
@@ -215,12 +216,12 @@ void GlobalPipeline::Run() {
   if (options_.multiple_models) {
     stats = ReconstructMultiComponents(mapper_options);
   } else {
-    const ReconstructionResult result =
+    const std::optional<std::shared_ptr<Reconstruction>> reconstruction =
         ReconstructSingleComponent(database_cache_, mapper_options);
-    if (!result.success) {
+    if (!reconstruction.has_value()) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;
-    } else if (static_cast<int>(result.reconstruction->NumRegFrames()) <
+    } else if (static_cast<int>((*reconstruction)->NumRegFrames()) <
                options_.min_model_size) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_too_small;
@@ -328,15 +329,12 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
     const std::shared_ptr<DatabaseCache> component_cache =
         DatabaseCache::CreateFromCache(*database_cache_, cache_options);
 
-    const ReconstructionResult result =
+    const std::optional<std::shared_ptr<Reconstruction>> reconstruction =
         ReconstructSingleComponent(component_cache, mapper_options);
-    const std::shared_ptr<Reconstruction>& reconstruction =
-        result.reconstruction;
-
-    if (!result.success) {
+    if (!reconstruction.has_value()) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;
-    } else if (static_cast<int>(reconstruction->NumRegFrames()) <
+    } else if (static_cast<int>((*reconstruction)->NumRegFrames()) <
                options_.min_model_size) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_too_small;
