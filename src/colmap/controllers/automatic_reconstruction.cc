@@ -91,6 +91,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
         FeatureExtractorType::ALIKED_N16ROT;
     option_manager_.feature_matching->type =
         FeatureMatcherType::ALIKED_BRUTEFORCE;
+  } else if (options_.feature == Feature::LOMA) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B;
+    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B;
+  } else if (options_.feature == Feature::LOMA128) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
+    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B128;
   }
 
   // Apply quality preset (scales max_image_size relative to extractor default).
@@ -105,8 +111,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   }
 
   // Feature-specific overrides that must come after quality.
-  if (options_.feature == Feature::ALIKED) {
-    // Guided matching is not supported for ALIKED.
+  if (options_.feature == Feature::ALIKED ||
+      options_.feature == Feature::LOMA ||
+      options_.feature == Feature::LOMA128) {
+    // Guided matching is not supported for ALIKED/LoMa
     option_manager_.feature_matching->guided_matching = false;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;

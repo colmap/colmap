@@ -3,6 +3,7 @@
 #include "colmap/feature/utils.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #endif
 
@@ -72,7 +73,13 @@ void BindFeatureMatching(py::module& m) {
       .value("SIFT_BRUTEFORCE", FeatureMatcherType::SIFT_BRUTEFORCE)
       .value("SIFT_LIGHTGLUE", FeatureMatcherType::SIFT_LIGHTGLUE)
       .value("ALIKED_BRUTEFORCE", FeatureMatcherType::ALIKED_BRUTEFORCE)
-      .value("ALIKED_LIGHTGLUE", FeatureMatcherType::ALIKED_LIGHTGLUE);
+      .value("ALIKED_LIGHTGLUE", FeatureMatcherType::ALIKED_LIGHTGLUE)
+      .value("LOMA_BRUTEFORCE", FeatureMatcherType::LOMA_BRUTEFORCE)
+      .value("LOMA_B", FeatureMatcherType::LOMA_B)
+      .value("LOMA_B128", FeatureMatcherType::LOMA_B128)
+      .value("LOMA_R", FeatureMatcherType::LOMA_R)
+      .value("LOMA_L", FeatureMatcherType::LOMA_L)
+      .value("LOMA_G", FeatureMatcherType::LOMA_G);
 
 #ifdef COLMAP_ONNX_ENABLED
   auto PyBruteForceONNXMatchingOptions =
@@ -119,6 +126,40 @@ void BindFeatureMatching(py::module& m) {
                          "LightGlue matching options.")
           .def("check", &AlikedMatchingOptions::Check);
   MakeDataclass(PyAlikedMatchingOptions);
+
+  auto PyLomaVariantMatcherOptions =
+      py::classh<LomaMatchingOptions::Variant>(m, "LomaVariantMatcherOptions")
+          .def(py::init<>())
+          .def_readwrite("model_path",
+                         &LomaMatchingOptions::Variant::model_path,
+                         "Path to the fp32 ONNX model file for this variant.")
+          .def_readwrite("model_path_bf16",
+                         &LomaMatchingOptions::Variant::model_path_bf16,
+                         "Path to the bf16 ONNX model file for this variant.");
+  MakeDataclass(PyLomaVariantMatcherOptions);
+
+  auto PyLomaMatchingOptions =
+      py::classh<LomaMatchingOptions>(m, "LomaMatchingOptions")
+          .def(py::init<>())
+          .def_readwrite("min_score",
+                         &LomaMatchingOptions::min_score,
+                         "Matching filter, matches LG.")
+          .def_readwrite("use_bf16",
+                         &LomaMatchingOptions::use_bf16,
+                         "Whether to use the bf16 matcher variant when "
+                         "supported by the selected ONNX execution provider "
+                         "(falls back to fp32 otherwise).")
+          .def_readwrite("b", &LomaMatchingOptions::b, "LOMA_B model paths.")
+          .def_readwrite(
+              "b128", &LomaMatchingOptions::b128, "LOMA_B128 model paths.")
+          .def_readwrite("r", &LomaMatchingOptions::r, "LOMA_R model paths.")
+          .def_readwrite("l", &LomaMatchingOptions::l, "LOMA_L model paths.")
+          .def_readwrite("g", &LomaMatchingOptions::g, "LOMA_G model paths.")
+          .def_readwrite("brute_force",
+                         &LomaMatchingOptions::brute_force,
+                         "Brute-force matching options.")
+          .def("check", &LomaMatchingOptions::Check);
+  MakeDataclass(PyLomaMatchingOptions);
 #endif
 
   auto PySiftMatchingOptions =
@@ -190,6 +231,7 @@ void BindFeatureMatching(py::module& m) {
 #ifdef COLMAP_ONNX_ENABLED
   PyFeatureMatchingOptions.def_readwrite("aliked",
                                          &FeatureMatchingOptions::aliked);
+  PyFeatureMatchingOptions.def_readwrite("loma", &FeatureMatchingOptions::loma);
 #endif
   MakeDataclass(PyFeatureMatchingOptions);
 
