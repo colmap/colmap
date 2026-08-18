@@ -33,6 +33,7 @@
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -121,8 +122,26 @@ inline const ceres::Solver::Summary& GetCeresSummary(
   return ceres_summary->ceres_summary;
 }
 
+#ifdef COLMAP_CUDA_ENABLED
+TEST(CeresBundleAdjustmentOptions, FallsBackToCpuWithoutCudaDevice) {
+  if (GetNumCudaDevices() > 0) {
+    GTEST_SKIP() << "CUDA GPU is available";
+  }
+
+  CeresBundleAdjustmentOptions options;
+  options.use_gpu = true;
+  options.min_num_images_gpu_solver = 0;
+
+  const ceres::Solver::Options solver_options =
+      options.CreateSolverOptions(BundleAdjustmentConfig(), ceres::Problem());
+  EXPECT_EQ(solver_options.dense_linear_algebra_library_type,
+            options.solver_options.dense_linear_algebra_library_type);
+  EXPECT_EQ(solver_options.sparse_linear_algebra_library_type,
+            options.solver_options.sparse_linear_algebra_library_type);
+}
+#endif  // COLMAP_CUDA_ENABLED
+
 TEST(DefaultBundleAdjuster, Nominal) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -162,7 +181,6 @@ TEST(DefaultBundleAdjuster, Nominal) {
 }
 
 TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -1441,7 +1459,6 @@ TEST(DefaultBundleAdjuster, IgnorePoint) {
 }
 
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1528,7 +1545,6 @@ TEST(PosePriorBundleAdjuster, InsufficientPriorsUseTwoCameraGauge) {
 }
 
 TEST(PosePriorBundleAdjuster, MissingPositionCov) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1576,7 +1592,6 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
 }
 
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
-  SetPRNGSeed(0);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;

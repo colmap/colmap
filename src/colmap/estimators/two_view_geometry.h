@@ -99,9 +99,8 @@ struct TwoViewGeometryOptions {
   bool force_H_use = false;
 
   // Use DEGENSAC (Chum et al., CVPR 2005) for the fundamental matrix instead of
-  // plain LO-RANSAC, making estimation robust to a dominant scene plane. On by
-  // default.
-  bool use_degensac = true;
+  // plain LO-RANSAC, making estimation robust to a dominant scene plane.
+  bool use_degensac = false;
 
   // Locally optimize the fundamental matrix by nonlinearly minimizing the
   // Sampson error over the inlier set, instead of refitting the linear

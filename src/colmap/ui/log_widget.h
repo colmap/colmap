@@ -33,8 +33,6 @@
 
 #include <QtGui>
 #include <QtWidgets>
-#include <fstream>
-#include <iostream>
 
 namespace colmap {
 

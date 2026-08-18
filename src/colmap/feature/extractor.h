@@ -31,7 +31,6 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/enum_utils.h"
 
 #include <memory>
 

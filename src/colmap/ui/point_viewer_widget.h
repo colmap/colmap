@@ -30,7 +30,6 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/scene/reconstruction.h"
 
 #include <QtCore>
 #include <QtWidgets>

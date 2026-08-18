@@ -41,6 +41,12 @@ if(CUDA_ENABLED)
         list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
     endif()
 endif()
+if(HIP_ENABLED)
+    list(APPEND OPTIONAL_LIBS colmap_util_cuda)
+    if(MVS_ENABLED)
+        list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
+    endif()
+endif()
 if(GUI_ENABLED)
     list(APPEND OPTIONAL_LIBS
         colmap_ui
@@ -49,6 +55,7 @@ endif()
 
 set(COLMAP_EXE_SRCS
     feature.h feature.cc
+    image.h image.cc
     sfm.h sfm.cc
     model.h model.cc
 )
@@ -75,6 +82,12 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         Boost::boost
         colmap_sfm
+)
+
+COLMAP_ADD_TEST(
+    NAME image_test
+    SRCS image_test.cc
+    LINK_LIBS colmap_exe
 )
 
 COLMAP_ADD_TEST(
@@ -110,4 +123,7 @@ COLMAP_ADD_EXECUTABLE(
         ${OPTIONAL_LIBS}
         Boost::boost
 )
+if(HIP_ENABLED)
+    target_link_libraries(colmap_main hip::host hip::hiprand roc::rocrand)
+endif()
 set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)

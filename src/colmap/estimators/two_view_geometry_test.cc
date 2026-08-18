@@ -29,7 +29,6 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/solvers/relpose_one_sided_focal.h"
 #include "colmap/estimators/solvers/relpose_shared_focal.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
@@ -235,7 +234,6 @@ TEST(EstimateTwoViewGeometryPose, Calibrated) {
 }
 
 TEST(EstimateTwoViewGeometryPose, FailureDueToInsufficientMatches) {
-  SetPRNGSeed(0);
   for (const auto config : {TwoViewGeometry::ConfigurationType::CALIBRATED,
                             TwoViewGeometry::ConfigurationType::UNCALIBRATED,
                             TwoViewGeometry::ConfigurationType::PLANAR,
@@ -411,9 +409,9 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.compute_relative_pose = true;
 
-  // Spherical cameras have no pinhole image plane, so the fundamental matrix
-  // and homography are not estimated; only the bearing-based essential matrix
-  // is, committing to the CALIBRATED configuration.
+  // Spherical cameras have no pinhole image plane, so the fundamental matrix is
+  // not estimated; the pair is classified from the bearing-based essential
+  // matrix and a ray-space homography.
   const TwoViewGeometry geometry =
       EstimateTwoViewGeometry(test_data.camera1,
                               test_data.points1,
@@ -424,7 +422,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(geometry.E.has_value());
   EXPECT_FALSE(geometry.F.has_value());
-  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
 
   // The recovered relative pose should match the ground truth: rotation
@@ -440,7 +438,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
                   /*ttol=*/1e-2));
 
   // EstimateCalibratedTwoViewGeometry delegates to the spherical path rather
-  // than estimating a meaningless fundamental matrix / homography.
+  // than estimating a meaningless fundamental matrix.
   const TwoViewGeometry calibrated_geometry =
       EstimateCalibratedTwoViewGeometry(test_data.camera1,
                                         test_data.points1,
@@ -452,7 +450,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
             TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(calibrated_geometry.E.has_value());
   EXPECT_FALSE(calibrated_geometry.F.has_value());
-  EXPECT_FALSE(calibrated_geometry.H.has_value());
+  EXPECT_TRUE(calibrated_geometry.H.has_value());
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedFisheyeIsDegenerate) {
@@ -547,8 +545,114 @@ TEST(EstimateTwoViewGeometry, ForceHUseWithFisheyeIsDegenerate) {
   EXPECT_FALSE(geometry.H.has_value());
 }
 
+// A pure-rotation pair is the configuration a homography must catch, since the
+// essential matrix degenerates there. With a strongly distorted camera the
+// pixel-space homography cannot fit the correspondences at all, so it loses the
+// inliers that drive the classification. Estimating it on bearing rays restores
+// the fit and with it the PLANAR_OR_PANORAMIC label.
+// A rotating 360 degree camera is the usual capture mode, and the essential
+// matrix degenerates there, so the spherical path must catch it.
+TEST(EstimateTwoViewGeometry, PanoramicWithSphericalCameraIsDetected) {
+  SetPRNGSeed(42);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsSpherical());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.E.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_FALSE(geometry.F.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+}
+
+TEST(EstimateTwoViewGeometry, PanoramicWithDistortedCameraIsDetected) {
+  SetPRNGSeed(42);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.camera_model_id = OpenCVCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {
+      1280, 1280, 512, 384, 0.15, -0.03, 0.001, 0.001};
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsPerspectivePinhole());
+  ASSERT_FALSE(test_data.camera1.IsUndistorted());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+}
+
+// As above for a fisheye camera, which reaches the calibrated path today
+// because it short-circuits only spherical models. No gate change is involved.
+TEST(EstimateTwoViewGeometry, PanoramicWithFisheyeCameraIsDetected) {
+  SetPRNGSeed(42);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.camera_model_id =
+      OpenCVFisheyeCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {
+      1280, 1280, 512, 384, 0.05, -0.01, 0, 0};
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+}
+
 TEST(EstimateTwoViewGeometry, SharedFocal) {
-  SetPRNGSeed(0);
   // A single shared, uncalibrated, pinhole-projection camera observed from two
   // frames routes to the shared-focal solver, which jointly recovers the
   // relative pose and the unknown focal length. Both a single-focal model
@@ -647,7 +751,6 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
 }
 
 TEST(EstimateTwoViewGeometry, OneSidedFocal) {
-  SetPRNGSeed(0);
   // Two distinct cameras where exactly one has a known focal length route to
   // the one-sided focal solver, which recovers the relative pose jointly with
   // the unknown focal of the other. The pair is run in both orders, so that the
@@ -869,7 +972,7 @@ TEST(EstimateTwoViewGeometry, SphericalAndCalibratedPerspective) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(geometry.E.has_value());
   EXPECT_FALSE(geometry.F.has_value());
-  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
 }
 
@@ -1115,8 +1218,6 @@ TEST(EstimateTwoViewGeometry, IgnoreStationaryMatches) {
 }
 
 TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1134,6 +1235,9 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
       synthetic_dataset_options, synthetic_noise_options);
 
   TwoViewGeometryOptions two_view_geometry_options;
+  // This test verifies RANSAC seed reproducibility, not the default calibration
+  // verification boundary. Leave margin for platform-dependent inlier counts.
+  two_view_geometry_options.min_E_F_inlier_ratio = 0.8;
   two_view_geometry_options.ransac_options.random_seed = 42;
   const TwoViewGeometry geometry1 =
       EstimateTwoViewGeometry(test_data.camera1,
@@ -1172,8 +1276,6 @@ TEST(EstimateTwoViewGeometry, CalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1225,8 +1327,6 @@ TEST(EstimateTwoViewGeometry, UncalibratedDeterministic) {
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedDegensac) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1259,8 +1359,6 @@ TEST(EstimateTwoViewGeometry, UncalibratedDegensac) {
 }
 
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 2;
@@ -1378,8 +1476,6 @@ RigTwoViewGeometryTestData CreateRigTwoViewGeometryTestData(
 }
 
 TEST(EstimateRigTwoViewGeometries, Nominal) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 3;
@@ -1421,8 +1517,6 @@ TEST(EstimateRigTwoViewGeometries, Nominal) {
 }
 
 TEST(EstimateMultipleTwoViewGeometries, SingleGeometry) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1448,8 +1542,6 @@ TEST(EstimateMultipleTwoViewGeometries, SingleGeometry) {
 }
 
 TEST(EstimateMultipleTwoViewGeometries, NoGeometry) {
-  SetPRNGSeed(1);
-
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
   synthetic_dataset_options.num_cameras_per_rig = 1;
@@ -1476,8 +1568,6 @@ TEST(EstimateMultipleTwoViewGeometries, NoGeometry) {
 }
 
 TEST(EstimateMultipleTwoViewGeometries, MultipleGeometries) {
-  SetPRNGSeed(1);
-
   // Create two separate synthetic datasets with different poses.
 
   Reconstruction reconstruction1;
@@ -1552,8 +1642,6 @@ TEST(EstimateMultipleTwoViewGeometries, MultipleGeometries) {
 }
 
 TEST(MaybeDecomposeRelativePoses, Nominal) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   Reconstruction reconstruction;
@@ -1600,8 +1688,6 @@ TEST(MaybeDecomposeRelativePoses, Nominal) {
 // The pose survives a wrong focal (it comes from E alone); tri_angle, measured
 // between the rays, does not.
 TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   Reconstruction reconstruction;
@@ -1697,8 +1783,6 @@ TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
 // matrix from the inlier matches instead of crashing in
 // EstimateTwoViewGeometryPose's THROW_CHECK on geometry->E/F/H.
 TEST(MaybeDecomposeRelativePoses, MissingMatrixFromOldDatabase) {
-  SetPRNGSeed(42);
-
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
   Reconstruction reconstruction;

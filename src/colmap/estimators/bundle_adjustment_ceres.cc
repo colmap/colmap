@@ -140,11 +140,19 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 
 #ifdef COLMAP_CUDA_ENABLED
   bool cuda_solver_enabled = false;
+  const bool cuda_solver_requested =
+      use_gpu && num_images >= min_num_images_gpu_solver;
+  const bool use_cuda_solver = cuda_solver_requested && GetNumCudaDevices() > 0;
+  if (cuda_solver_requested && !use_cuda_solver) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but no CUDA GPU is "
+           "available. Falling back to CPU-based solvers.";
+  }
 
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
-  if (use_gpu && num_images >= min_num_images_gpu_solver) {
+  if (use_cuda_solver) {
     cuda_solver_enabled = true;
     custom_solver_options.dense_linear_algebra_library_type = ceres::CUDA;
     max_num_images_direct_dense_solver = max_num_images_direct_dense_gpu_solver;
@@ -161,7 +169,7 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
     !defined(CERES_NO_CUDSS)
-  if (use_gpu && num_images >= min_num_images_gpu_solver) {
+  if (use_cuda_solver) {
     cuda_solver_enabled = true;
     custom_solver_options.sparse_linear_algebra_library_type =
         ceres::CUDA_SPARSE;
@@ -600,6 +608,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
         loss_function_(options_.ceres->CreateLossFunction()) {
+    VLOG(2) << "Creating Ceres bundle adjuster";
+
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -898,6 +908,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
+    VLOG(2) << "Creating Ceres pose prior bundle adjuster";
+
     THROW_CHECK(prior_options_.Check());
 
     // Filter irrelevant pose priors.

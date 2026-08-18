@@ -35,7 +35,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
-#include <utility>
 #include <vector>
 
 #include <Eigen/Geometry>
@@ -166,14 +165,18 @@ struct Camera {
   // Convert pixel threshold in image plane to camera frame.
   inline double CamFromImgThreshold(double threshold) const;
 
-  // Project point from camera frame to image plane.
+  // Project point from camera frame to image plane. Without cheirality check,
+  // points behind the camera are projected as well and only points on the
+  // camera plane fail.
   inline std::optional<Eigen::Vector2d> ImgFromCam(
-      const Eigen::Vector3d& cam_point) const;
+      const Eigen::Vector3d& cam_point, bool check_cheirality = true) const;
 
   // Project point from camera frame to image plane, additionally computing the
   // Jacobian d(x, y) / d(u, v, w). Pass nullptr to skip the Jacobian.
   inline std::optional<Eigen::Vector2d> ImgFromCamWithJac(
-      const Eigen::Vector3d& cam_point, Eigen::Matrix2x3d* J_uvw) const;
+      const Eigen::Vector3d& cam_point,
+      Eigen::Matrix2x3d* J_uvw,
+      bool check_cheirality = true) const;
 
   // Unproject a pixel to a unit bearing vector together with the Jacobian
   // d(u, v, w) / d(x, y) of that bearing with respect to the pixel.
@@ -337,13 +340,16 @@ double Camera::CamFromImgThreshold(const double threshold) const {
 }
 
 std::optional<Eigen::Vector2d> Camera::ImgFromCam(
-    const Eigen::Vector3d& cam_point) const {
-  return CameraModelImgFromCam(model_id, params, cam_point);
+    const Eigen::Vector3d& cam_point, const bool check_cheirality) const {
+  return CameraModelImgFromCam(model_id, params, cam_point, check_cheirality);
 }
 
 std::optional<Eigen::Vector2d> Camera::ImgFromCamWithJac(
-    const Eigen::Vector3d& cam_point, Eigen::Matrix2x3d* J_uvw) const {
-  return CameraModelImgFromCamWithJac(model_id, params, cam_point, J_uvw);
+    const Eigen::Vector3d& cam_point,
+    Eigen::Matrix2x3d* J_uvw,
+    const bool check_cheirality) const {
+  return CameraModelImgFromCamWithJac(
+      model_id, params, cam_point, J_uvw, check_cheirality);
 }
 
 std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(

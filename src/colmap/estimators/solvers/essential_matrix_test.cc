@@ -118,7 +118,6 @@ class EssentialMatrixFivePointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixFivePointEstimatorTests, Nominal) {
-  SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   // The minimal case has no redundancy, so it conditions its sample to stay
   // well-posed and accepts the solver's numerical accuracy with a looser
@@ -157,7 +156,6 @@ class EssentialMatrixEightPointEstimatorTests
     : public ::testing::TestWithParam<size_t> {};
 
 TEST_P(EssentialMatrixEightPointEstimatorTests, Nominal) {
-  SetPRNGSeed(0);
   const size_t kNumRays = GetParam();
   for (size_t k = 0; k < 1; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
@@ -193,7 +191,6 @@ std::vector<CamRayWithJac> WithJacobians(
 
 // Refine recovers the true pose from a perturbed initial E on exact rays.
 TEST(EssentialMatrixTangentSampsonEstimator, RefineRecoversPose) {
-  SetPRNGSeed(0);
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
   for (size_t k = 0; k < 30; ++k) {
@@ -229,7 +226,6 @@ TEST(EssentialMatrixTangentSampsonEstimator, RefineRecoversPose) {
 
 // The LO-RANSAC estimator recovers the pose despite 30% gross outliers.
 TEST(EssentialMatrixTangentSampsonEstimator, LORANSACWithOutliers) {
-  SetPRNGSeed(0);
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
   for (size_t k = 0; k < 10; ++k) {

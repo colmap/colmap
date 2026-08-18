@@ -50,7 +50,7 @@ bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
     }                                                                     \
   }
 
-    FISHEYE_CAMERA_MODEL_CASES
+    PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES
     default:
       throw std::domain_error(
           "Camera model does not exist or is not a fisheye camera");

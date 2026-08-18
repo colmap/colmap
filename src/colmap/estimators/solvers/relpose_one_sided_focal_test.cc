@@ -179,7 +179,6 @@ bool HasValidModel(const std::vector<Eigen::Vector2d>& points1,
 // The minimal 6-point solver recovers the pose and the unknown focal on clean
 // samples.
 TEST(RelativePoseOneSidedFocalEstimator, Nominal) {
-  SetPRNGSeed(0);
   const Camera camera2 = TestCamera2();
   for (size_t k = 0; k < 100; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
@@ -208,7 +207,6 @@ TEST(RelativePoseOneSidedFocalEstimator, Nominal) {
 // error, in first-view pixels, and max on degenerate inputs (non-positive focal
 // or a zero ray). The exact formula is pinned by the cost-function tests.
 TEST(RelativePoseOneSidedFocalEstimator, Residuals) {
-  SetPRNGSeed(0);
   const Camera camera2 = TestCamera2();
   const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
   std::vector<Eigen::Vector2d> points1;
@@ -279,7 +277,6 @@ TEST(RelativePoseOneSidedFocalEstimator, Residuals) {
 
 // Refinement pulls a perturbed pose + focal back to the ground truth.
 TEST(RelativePoseOneSidedFocalEstimator, RefineFromInitialModel) {
-  SetPRNGSeed(0);
   const Camera camera2 = TestCamera2();
   for (size_t k = 0; k < 50; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
@@ -327,7 +324,6 @@ TEST(RelativePoseOneSidedFocalEstimator, RefineFromInitialModel) {
 // both those rays and the Jacobians that put its share of the residual in its
 // own pixels.
 TEST(RelativePoseOneSidedFocalEstimator, FullSphereCalibratedRays) {
-  SetPRNGSeed(0);
   const Camera camera2 = TestCamera2(EquirectangularCameraModel::model_id);
   // Without the cheirality filter the configurations are harsher than any
   // pinhole pair, and the minimal solve occasionally loses the true root. Never

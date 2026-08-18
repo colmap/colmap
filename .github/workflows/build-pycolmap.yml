@@ -24,7 +24,7 @@ jobs:
         config: [
           {os: ubuntu-24.04, cudaEnabled: false},
           {os: macos-14, arch: arm64, deploymentTarget: 14.0, cudaEnabled: false},
-          {os: windows-2025, cudaEnabled: false},
+          {os: windows-2025-vs2026, cudaEnabled: false},
           {os: ubuntu-24.04, cudaEnabled: true},
         ]
     env:
