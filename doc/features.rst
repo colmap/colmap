@@ -20,10 +20,12 @@ The following feature extractor types are available:
   extractor that produces floating-point descriptors. Requires ONNX support to
   be enabled at build time (``-DONNX_ENABLED=ON``).
 
-- ``LOMA``: A learned feature extractor, introduced in LoMa: Local Feature Matching Revisited, ECCV26, that uses the DeDoDe architecture. Two descriptor
-  variants are available: ``LOMA_B`` (256-dim, frozen DINOv2 features
-  combined with trained convolutional features) and ``LOMA_B128`` (128-dim,
-  more lightweight). Requires ONNX support to be enabled at build time (``-DONNX_ENABLED=ON``).
+- ``LOMA``: A learned feature extractor, introduced in LoMa: Local Feature
+  Matching Revisited, ECCV26, that uses the DeDoDe architecture. Two descriptor
+  variants are available: ``LOMA_B`` (256-dim, frozen DINOv2 features combined
+  with trained convolutional features) and ``LOMA_B128`` (128-dim, more
+  lightweight). Requires ONNX support to be enabled at build time
+  (``-DONNX_ENABLED=ON``).
 
 To select a feature extractor type via the command-line::
 
@@ -65,8 +67,8 @@ The following feature matcher types are available:
 - ``ALIKED_LIGHTGLUE``: Neural network-based matching using the LightGlue model
   for ALIKED descriptors. Requires ONNX support to be enabled at build time.
 
-- ``LOMA_BRUTEFORCE``: Brute-force matching for either of the LoMa descriptors. Uses
-  cosine similarity. Requires ONNX support to be enabled at build time.
+- ``LOMA_BRUTEFORCE``: Brute-force matching for either of the LoMa descriptors.
+  Uses cosine similarity. Requires ONNX support to be enabled at build time.
 
 - ``LOMA_B``: Dedicated neural network matcher for the 256-dim ``LOMA_B``
   descriptor, comparable in size to LightGlue. Requires ONNX support to be
@@ -111,7 +113,8 @@ The feature extractor and matcher types should be compatible:
 - Use ``ALIKED_*`` extraction with ``ALIKED_BRUTEFORCE`` or ``ALIKED_LIGHTGLUE`` matching.
 - Use ``LOMA_B`` extraction with ``LOMA_BRUTEFORCE``, ``LOMA_B``, ``LOMA_R``,
   ``LOMA_L``, or ``LOMA_G`` matching.
-- Use ``LOMA_B128`` extraction with ``LOMA_BRUTEFORCE`` or ``LOMA_B128`` matching.
+- Use ``LOMA_B128`` extraction with ``LOMA_BRUTEFORCE`` or ``LOMA_B128``
+  matching.
 
 Mixing incompatible types (e.g., SIFT features with ALIKED matcher, or
 ``LOMA_B128`` features with the ``LOMA_B`` matcher) will result in a runtime
@@ -136,7 +139,8 @@ different ALIKED models from the release page at https://github.com/colmap/colma
 LoMa Model Variants
 --------------------
 
-LoMa, similar to ALIKED, uses a detect+describe+match framework. The descriptor comes in two variants:
+LoMa, similar to ALIKED, uses a detect+describe+match framework. The descriptor
+comes in two variants:
 
 - ``LOMA_B``: 256-dim descriptor combining frozen DINOv2 features with trained
   convolutional features.
@@ -145,11 +149,13 @@ LoMa, similar to ALIKED, uses a detect+describe+match framework. The descriptor 
 Each descriptor variant has its own dedicated matcher(s) with
 different trade-offs between speed and accuracy:
 
-- ``LOMA_B`` descriptors can be matched with ``LOMA_B`` (smallest, same size as LightGlue), ``LOMA_R`` (same size as ``LOMA_B`` but trained with
-  rotation augmentation), ``LOMA_L``, or ``LOMA_G`` (progressively larger, slower, and
+- ``LOMA_B`` descriptors can be matched with ``LOMA_B`` (smallest, same size as
+  LightGlue), ``LOMA_R`` (same size as ``LOMA_B`` but trained with rotation
+  augmentation), ``LOMA_L``, or ``LOMA_G`` (progressively larger, slower, and
   more accurate), as well as ``LOMA_BRUTEFORCE``.
 - ``LOMA_B128`` descriptors can only be matched with ``LOMA_B128`` or
-  ``LOMA_BRUTEFORCE``. Fastest option but least accurate out of the LoMa matchers.
+  ``LOMA_BRUTEFORCE``. Fastest option but least accurate out of the LoMa
+  matchers.
 
 By default, all LoMa model weights are downloaded automatically and cached
 locally the first time they are used, so no manual setup is required to get
