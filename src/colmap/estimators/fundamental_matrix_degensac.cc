@@ -316,13 +316,13 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
       off_plane_idxs.push_back(i);
     }
   }
-  if (off_plane_idxs.size() < 2) {
+  const size_t num_off_plane = off_plane_idxs.size();
+  if (num_off_plane < 2) {
     return std::nullopt;
   }
 
   // Precompute the transferred plane points H * x1 and the off-plane points, so
   // the epipole search below scores over only the off-plane subset.
-  const size_t num_off_plane = off_plane_idxs.size();
   std::vector<Eigen::Vector3d> lines(num_off_plane);
   std::vector<Eigen::Vector2d> off_points1(num_off_plane);
   std::vector<Eigen::Vector2d> off_points2(num_off_plane);
@@ -350,7 +350,7 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     size_t a = RandomUniformInteger<size_t>(0, num_off_plane - 1);
     size_t b = RandomUniformInteger<size_t>(0, num_off_plane - 1);
     if (a == b) {
-      b = (b + 1) % num_off_plane;
+      b = (b + 1 == num_off_plane) ? 0 : b + 1;
     }
 
     // The epipole is the intersection of the two parallax lines.
