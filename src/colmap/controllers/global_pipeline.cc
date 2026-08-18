@@ -81,12 +81,12 @@ size_t NumFramesForImages(const Reconstruction& reconstruction,
 struct ComponentDecomposition {
   std::vector<FlatHashSet<image_t>> components;
   size_t num_failed = 0;
+  size_t num_too_small = 0;
 };
 
 // Split every input view-graph component once using the same rotation
 // averaging and relative-rotation filtering as the global mapper. Components
-// that are already too small are passed through so the caller can account for
-// them without running rotation averaging.
+// that are already too small are discarded without running rotation averaging.
 ComponentDecomposition ComputeComponentsByRotationAveraging(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
@@ -101,7 +101,7 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
   for (const auto& input_component : input_components) {
     if (static_cast<int>(NumFramesForImages(base, input_component)) <
         min_model_size) {
-      result.components.push_back(input_component);
+      ++result.num_too_small;
       continue;
     }
 
@@ -295,6 +295,7 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
                                            pose_priors,
                                            options_.min_model_size);
   stats.num_failed += decomposition.num_failed;
+  stats.num_too_small += decomposition.num_too_small;
   std::vector<FlatHashSet<image_t>>& components = decomposition.components;
 
   LOG(INFO) << "Found " << components.size()
