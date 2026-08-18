@@ -802,6 +802,10 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption("GlobalMapper.random_seed", &global_mapper->random_seed);
   AddDefaultOption("GlobalMapper.decompose_relative_pose",
                    &global_mapper->decompose_relative_pose);
+  AddDefaultOption("GlobalMapper.multiple_models",
+                   &global_mapper->multiple_models);
+  AddDefaultOption("GlobalMapper.min_model_size",
+                   &global_mapper->min_model_size);
   AddDefaultOption("GlobalMapper.ba_num_iterations",
                    &global_mapper->mapper.ba_num_iterations);
   AddDefaultOption("GlobalMapper.skip_rotation_averaging",
