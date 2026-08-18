@@ -65,7 +65,7 @@ bool FactorizeFundamentalMatrix(const Eigen::Matrix3d& F,
                                 Eigen::Matrix<double, 9, 1>* params) {
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       F, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Eigen::Vector3d singular_values = svd.singularValues();
+  const Eigen::Vector3d& singular_values = svd.singularValues();
   // A zero or numerically rank-1 matrix has no meaningful factorization, as
   // U's second column is arbitrary once the second singular value vanishes.
   constexpr double kMinSingularValueRatio = 1e-12;
