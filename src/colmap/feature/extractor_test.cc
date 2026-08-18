@@ -30,7 +30,10 @@
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
+
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -42,6 +45,7 @@ TEST(FeatureExtractionOptions, Copy) {
   options.max_image_size += 100;
   options.sift->max_num_features += 100;
   options.aliked->max_num_features += 100;
+  options.loma->max_num_features += 100;
 
   FeatureExtractionOptions copy = options;
 
@@ -49,10 +53,12 @@ TEST(FeatureExtractionOptions, Copy) {
   EXPECT_EQ(copy.max_image_size, options.max_image_size);
   EXPECT_EQ(copy.sift->max_num_features, options.sift->max_num_features);
   EXPECT_EQ(copy.aliked->max_num_features, options.aliked->max_num_features);
+  EXPECT_EQ(copy.loma->max_num_features, options.loma->max_num_features);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.sift.get(), copy.sift.get());
   EXPECT_NE(options.aliked.get(), copy.aliked.get());
+  EXPECT_NE(options.loma.get(), copy.loma.get());
 }
 
 TEST(FeatureExtractionOptions, EffMaxImageSize) {
@@ -62,7 +68,9 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   options.max_image_size = 2000;
   for (const auto& type : {FeatureExtractorType::SIFT,
                            FeatureExtractorType::ALIKED_N16ROT,
-                           FeatureExtractorType::ALIKED_N32}) {
+                           FeatureExtractorType::ALIKED_N32,
+                           FeatureExtractorType::LOMA_B,
+                           FeatureExtractorType::LOMA_B128}) {
     options.type = type;
     EXPECT_EQ(options.EffMaxImageSize(), 2000);
   }
@@ -75,6 +83,10 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
   options.type = FeatureExtractorType::ALIKED_N32;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B128;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
 
   options.max_image_size = 0;
   options.type = FeatureExtractorType::SIFT;
@@ -83,6 +95,10 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
   options.type = FeatureExtractorType::ALIKED_N32;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
+  options.type = FeatureExtractorType::LOMA_B128;
+  EXPECT_EQ(options.EffMaxImageSize(), 1600);
 }
 
 TEST(FeatureExtractionOptions, CopyAssignment) {
@@ -90,6 +106,7 @@ TEST(FeatureExtractionOptions, CopyAssignment) {
   options.max_image_size = 999;
   options.sift->max_num_features += 200;
   options.aliked->max_num_features += 300;
+  options.loma->max_num_features += 400;
 
   // Test copy assignment into a default-constructed instance.
   FeatureExtractionOptions assigned;
@@ -99,24 +116,57 @@ TEST(FeatureExtractionOptions, CopyAssignment) {
   EXPECT_EQ(assigned.sift->max_num_features, options.sift->max_num_features);
   EXPECT_EQ(assigned.aliked->max_num_features,
             options.aliked->max_num_features);
+  EXPECT_EQ(assigned.loma->max_num_features, options.loma->max_num_features);
 
   // Verify deep copy (different pointer instances).
   EXPECT_NE(assigned.sift.get(), options.sift.get());
   EXPECT_NE(assigned.aliked.get(), options.aliked.get());
+  EXPECT_NE(assigned.loma.get(), options.loma.get());
 
   // Mutating the copy must not affect the original.
   assigned.sift->max_num_features += 1;
   EXPECT_NE(assigned.sift->max_num_features, options.sift->max_num_features);
+  assigned.loma->max_num_features += 1;
+  EXPECT_NE(assigned.loma->max_num_features, options.loma->max_num_features);
 
   // Test self-assignment (assign via const ref to avoid -Wself-assign).
   const auto* sift_ptr_before = options.sift.get();
   const auto* aliked_ptr_before = options.aliked.get();
+  const auto* loma_ptr_before = options.loma.get();
   const auto max_image_size_before = options.max_image_size;
   const auto& self_ref = options;
   options = self_ref;
   EXPECT_EQ(options.sift.get(), sift_ptr_before);
   EXPECT_EQ(options.aliked.get(), aliked_ptr_before);
+  EXPECT_EQ(options.loma.get(), loma_ptr_before);
   EXPECT_EQ(options.max_image_size, max_image_size_before);
+}
+
+TEST(FeatureExtractionOptions, Move) {
+  FeatureExtractionOptions options;
+  options.loma->max_num_features += 100;
+  const auto* loma_ptr = options.loma.get();
+  const int max_num_features = options.loma->max_num_features;
+
+  FeatureExtractionOptions moved = std::move(options);
+
+  EXPECT_EQ(moved.loma.get(), loma_ptr);
+  EXPECT_EQ(moved.loma->max_num_features, max_num_features);
+  EXPECT_EQ(moved.loma.use_count(), 1);
+}
+
+TEST(FeatureExtractionOptions, MoveAssignment) {
+  FeatureExtractionOptions options;
+  options.loma->max_num_features += 100;
+  const auto* loma_ptr = options.loma.get();
+  const int max_num_features = options.loma->max_num_features;
+
+  FeatureExtractionOptions moved;
+  moved = std::move(options);
+
+  EXPECT_EQ(moved.loma.get(), loma_ptr);
+  EXPECT_EQ(moved.loma->max_num_features, max_num_features);
+  EXPECT_EQ(moved.loma.use_count(), 1);
 }
 
 TEST(FeatureExtractionOptions, RequiresRGB) {
@@ -126,6 +176,8 @@ TEST(FeatureExtractionOptions, RequiresRGB) {
       {FeatureExtractorType::SIFT, false},
       {FeatureExtractorType::ALIKED_N16ROT, true},
       {FeatureExtractorType::ALIKED_N32, true},
+      {FeatureExtractorType::LOMA_B, true},
+      {FeatureExtractorType::LOMA_B128, true},
   };
 
   for (const auto& [type, expected] : kTestCases) {
@@ -142,6 +194,8 @@ TEST(FeatureExtractionOptions, CheckAndRequiresOpenGLWithNoGpu) {
       FeatureExtractorType::SIFT,
       FeatureExtractorType::ALIKED_N16ROT,
       FeatureExtractorType::ALIKED_N32,
+      FeatureExtractorType::LOMA_B,
+      FeatureExtractorType::LOMA_B128,
   };
 
   for (const auto& type : kTypes) {

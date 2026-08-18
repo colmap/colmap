@@ -167,7 +167,9 @@ FeatureDescriptors FeatureDescriptors::FromFloat(
       result.data = float_desc.data.cast<uint8_t>();
       break;
     case FeatureExtractorType::ALIKED_N16ROT:
-    case FeatureExtractorType::ALIKED_N32: {
+    case FeatureExtractorType::ALIKED_N32:
+    case FeatureExtractorType::LOMA_B:
+    case FeatureExtractorType::LOMA_B128: {
       // reinterpret float32 data as uint8 bytes
       const Eigen::Index uint8_cols = float_cols * sizeof(float);
       result.data.resize(rows, uint8_cols);
@@ -200,7 +202,9 @@ FeatureDescriptorsFloat FeatureDescriptorsFloat::FromBytes(
       result.data = byte_desc.data.cast<float>();
       break;
     case FeatureExtractorType::ALIKED_N16ROT:
-    case FeatureExtractorType::ALIKED_N32: {
+    case FeatureExtractorType::ALIKED_N32:
+    case FeatureExtractorType::LOMA_B:
+    case FeatureExtractorType::LOMA_B128: {
       // reinterpret uint8 bytes as float32 data
       THROW_CHECK_EQ(uint8_cols % sizeof(float), 0);
       const Eigen::Index float_cols = uint8_cols / sizeof(float);

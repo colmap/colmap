@@ -42,6 +42,7 @@
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/advancing_front_meshing.h"
@@ -290,6 +291,23 @@ void OptionManager::AddFeatureExtractionOptions() {
                    &feature_extraction->aliked->n16rot_model_path);
   AddDefaultOption("AlikedExtraction.n32_model_path",
                    &feature_extraction->aliked->n32_model_path);
+
+  AddDefaultOption("LomaExtraction.max_num_features",
+                   &feature_extraction->loma->max_num_features);
+  AddDefaultOption("LomaExtraction.min_score",
+                   &feature_extraction->loma->min_score);
+  AddDefaultOption("LomaExtraction.use_bf16",
+                   &feature_extraction->loma->use_bf16);
+  AddDefaultOption("LomaExtraction.use_fast_resize",
+                   &feature_extraction->loma->use_fast_resize);
+  AddDefaultOption("LomaExtraction.detector_model_path",
+                   &feature_extraction->loma->detector_model_path);
+  AddDefaultOption("LomaExtraction.descriptor_model_path",
+                   &feature_extraction->loma->descriptor_model_path);
+  AddDefaultOption("LomaExtraction.descriptor_model_path_bf16",
+                   &feature_extraction->loma->descriptor_model_path_bf16);
+  AddDefaultOption("LomaExtraction.descriptor_b128_model_path",
+                   &feature_extraction->loma->descriptor_b128_model_path);
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
@@ -342,6 +360,38 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->aliked->lightglue.min_score);
   AddDefaultOption("AlikedMatching.lightglue_model_path",
                    &feature_matching->aliked->lightglue.model_path);
+
+  AddDefaultOption("LomaMatching.min_score",
+                   &feature_matching->loma->min_score);
+  AddDefaultOption("LomaMatching.use_bf16", &feature_matching->loma->use_bf16);
+  AddDefaultOption("LomaMatching.b_model_path",
+                   &feature_matching->loma->b.model_path);
+  AddDefaultOption("LomaMatching.b_model_path_bf16",
+                   &feature_matching->loma->b.model_path_bf16);
+  AddDefaultOption("LomaMatching.b128_model_path",
+                   &feature_matching->loma->b128.model_path);
+  AddDefaultOption("LomaMatching.b128_model_path_bf16",
+                   &feature_matching->loma->b128.model_path_bf16);
+  AddDefaultOption("LomaMatching.r_model_path",
+                   &feature_matching->loma->r.model_path);
+  AddDefaultOption("LomaMatching.r_model_path_bf16",
+                   &feature_matching->loma->r.model_path_bf16);
+  AddDefaultOption("LomaMatching.l_model_path",
+                   &feature_matching->loma->l.model_path);
+  AddDefaultOption("LomaMatching.l_model_path_bf16",
+                   &feature_matching->loma->l.model_path_bf16);
+  AddDefaultOption("LomaMatching.g_model_path",
+                   &feature_matching->loma->g.model_path);
+  AddDefaultOption("LomaMatching.g_model_path_bf16",
+                   &feature_matching->loma->g.model_path_bf16);
+  AddDefaultOption("LomaMatching.brute_force_min_cossim",
+                   &feature_matching->loma->brute_force.min_cossim);
+  AddDefaultOption("LomaMatching.brute_force_max_ratio",
+                   &feature_matching->loma->brute_force.max_ratio);
+  AddDefaultOption("LomaMatching.brute_force_cross_check",
+                   &feature_matching->loma->brute_force.cross_check);
+  AddDefaultOption("LomaMatching.brute_force_model_path",
+                   &feature_matching->loma->brute_force.model_path);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
