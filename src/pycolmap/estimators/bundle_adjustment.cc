@@ -204,6 +204,9 @@ void BindBundleAdjuster(py::module& m) {
                          &CeresBAOpts::loss_function_scale,
                          "Scaling factor determines residual at which "
                          "robustification takes place.")
+          .def_readwrite("loss_function_weight",
+                         &CeresBAOpts::loss_function_weight,
+                         "Outer weight applied to the complete robust loss.")
           .def_readwrite("use_gpu",
                          &CeresBAOpts::use_gpu,
                          "Whether to use Ceres' CUDA linear algebra library, "

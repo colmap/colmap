@@ -107,6 +107,9 @@ def test_bundle_adjustment_config_images_property():
 def test_ceres_ba_options_default_init():
     options = pycolmap.CeresBundleAdjustmentOptions()
     assert options is not None
+    assert options.loss_function_weight == 1.0
+    options.loss_function_weight = 2.5
+    assert options.loss_function_weight == 2.5
 
 
 def test_ceres_ba_options_check():

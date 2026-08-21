@@ -39,6 +39,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <cmath>
 #include <iomanip>
 
 namespace colmap {
@@ -116,7 +117,13 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
 
 std::unique_ptr<ceres::LossFunction>
 CeresBundleAdjustmentOptions::CreateLossFunction() const {
-  return colmap::CreateLossFunction(loss_function_type, loss_function_scale);
+  std::unique_ptr<ceres::LossFunction> loss_function =
+      colmap::CreateLossFunction(loss_function_type, loss_function_scale);
+  if (loss_function_weight == 1.0) {
+    return loss_function;
+  }
+  return std::make_unique<ceres::ScaledLoss>(
+      loss_function.release(), loss_function_weight, ceres::TAKE_OWNERSHIP);
 }
 
 ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
@@ -233,6 +240,8 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 
 bool CeresBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION(std::isfinite(loss_function_weight));
+  CHECK_OPTION_GE(loss_function_weight, 0);
   CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
                   max_num_images_direct_sparse_cpu_solver);
   CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,

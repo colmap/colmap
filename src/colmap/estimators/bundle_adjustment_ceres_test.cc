@@ -36,6 +36,8 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 // Due to pose normalization operations, constant variables may not be perfectly
@@ -120,6 +122,34 @@ inline const ceres::Solver::Summary& GetCeresSummary(
       dynamic_cast<const CeresBundleAdjustmentSummary*>(summary);
   CHECK_NOTNULL(ceres_summary);
   return ceres_summary->ceres_summary;
+}
+
+TEST(CeresBundleAdjustmentOptions, LossFunctionWeightIsOuterAndDefaultOne) {
+  CeresBundleAdjustmentOptions options;
+  options.loss_function_type =
+      CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+  options.loss_function_scale = 3.0;
+  std::unique_ptr<ceres::LossFunction> unweighted =
+      options.CreateLossFunction();
+  double expected[3];
+  unweighted->Evaluate(4.0, expected);
+
+  options.loss_function_weight = 2.5;
+  std::unique_ptr<ceres::LossFunction> weighted = options.CreateLossFunction();
+  double actual[3];
+  weighted->Evaluate(4.0, actual);
+
+  EXPECT_DOUBLE_EQ(actual[0], 2.5 * expected[0]);
+  EXPECT_DOUBLE_EQ(actual[1], 2.5 * expected[1]);
+  EXPECT_DOUBLE_EQ(actual[2], 2.5 * expected[2]);
+}
+
+TEST(CeresBundleAdjustmentOptions, RejectsInvalidLossFunctionWeight) {
+  CeresBundleAdjustmentOptions options;
+  options.loss_function_weight = -1.0;
+  EXPECT_FALSE(options.Check());
+  options.loss_function_weight = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(options.Check());
 }
 
 #ifdef COLMAP_CUDA_ENABLED
