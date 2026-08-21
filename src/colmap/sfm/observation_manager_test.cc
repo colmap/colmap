@@ -134,6 +134,36 @@ TEST(ObservationManager, FilterPoints3D) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
+TEST(ObservationManager, FindPoints3DWithSmallTriangulationAngle) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, reconstruction);
+  reconstruction.Frame(2).SetRigFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0)));
+  const point3D_t wide_point =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 5), Track());
+  reconstruction.AddObservation(wide_point, TrackElement(1, 0));
+  reconstruction.AddObservation(wide_point, TrackElement(2, 0));
+  const point3D_t one_view_point =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 5), Track());
+  reconstruction.AddObservation(one_view_point, TrackElement(1, 1));
+  const FlatHashSet<point3D_t> point_ids{wide_point, one_view_point};
+
+  ObservationManager obs_manager(reconstruction);
+  const std::vector<point3D_t> small_points =
+      obs_manager.FindPoints3DWithSmallTriangulationAngle(5.0, point_ids);
+  EXPECT_EQ(small_points.size(), 1);
+  EXPECT_EQ(small_points.front(), one_view_point);
+  EXPECT_TRUE(reconstruction.ExistsPoint3D(wide_point));
+  EXPECT_TRUE(reconstruction.ExistsPoint3D(one_view_point));
+  EXPECT_TRUE(reconstruction.Image(1).Point2D(0).HasPoint3D());
+  EXPECT_TRUE(reconstruction.Image(1).Point2D(1).HasPoint3D());
+
+  EXPECT_EQ(
+      obs_manager.FilterPoints3DWithSmallTriangulationAngle(5.0, point_ids), 1);
+  EXPECT_TRUE(reconstruction.ExistsPoint3D(wide_point));
+  EXPECT_FALSE(reconstruction.ExistsPoint3D(one_view_point));
+}
+
 TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
   Reconstruction reconstruction;
   const camera_t kCameraId = 1;

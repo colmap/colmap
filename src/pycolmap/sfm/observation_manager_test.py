@@ -62,3 +62,16 @@ def test_observation_manager_num_correspondences(synthetic_reconstruction):
     image_ids = list(synthetic_reconstruction.images.keys())
     count = manager.num_correspondences(image_ids[0])
     assert isinstance(count, int)
+
+
+def test_find_small_triangulation_angle_points_is_non_mutating(
+    synthetic_reconstruction,
+):
+    manager = _make_observation_manager(synthetic_reconstruction)
+    point_ids = set(synthetic_reconstruction.points3D.keys())
+    before = synthetic_reconstruction.num_points3D()
+    selected = manager.find_points3D_with_small_triangulation_angle(
+        180.0, point_ids
+    )
+    assert set(selected) == point_ids
+    assert synthetic_reconstruction.num_points3D() == before

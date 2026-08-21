@@ -122,6 +122,12 @@ class ObservationManager {
   // @return    The number of filtered observations.
   size_t FilterObservationsWithNegativeDepth();
 
+  // Find points with insufficient triangulation angle without modifying the
+  // reconstruction. The returned order matches the input set traversal used
+  // by FilterPoints3DWithSmallTriangulationAngle.
+  std::vector<point3D_t> FindPoints3DWithSmallTriangulationAngle(
+      double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) const;
+
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids);
 

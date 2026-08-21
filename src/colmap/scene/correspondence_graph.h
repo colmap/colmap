@@ -133,6 +133,14 @@ class CorrespondenceGraph {
       size_t transitivity,
       std::vector<Correspondence>* corrs) const;
 
+  // Extract each connected correspondence component exactly once, following
+  // the supplied seed order. Each component starts with its seed and retains
+  // the discovery order of ExtractTransitiveCorrespondences.
+  std::vector<std::vector<Correspondence>>
+  ExtractTransitiveCorrespondenceComponents(
+      const std::vector<Correspondence>& ordered_seeds,
+      size_t transitivity) const;
+
   // Find all matches between two images.
   void ExtractMatchesBetweenImages(image_t image_id1,
                                    image_t image_id2,

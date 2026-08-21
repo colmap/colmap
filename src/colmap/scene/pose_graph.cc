@@ -55,6 +55,40 @@ FlatHashSet<frame_t> PoseGraph::ComputeLargestConnectedFrameComponent(
                               largest_component_vec.end());
 }
 
+FlatHashSet<frame_t>
+PoseGraph::ComputeLargestConnectedFrameComponentInPairOrder(
+    const Reconstruction& reconstruction,
+    const std::vector<image_pair_t>& pair_order,
+    const bool filter_unregistered) const {
+  FlatHashSet<frame_t> nodes;
+  std::vector<std::pair<frame_t, frame_t>> graph_edges;
+  graph_edges.reserve(pair_order.size());
+
+  for (const image_pair_t pair_id : pair_order) {
+    const auto edge_it = edges_.find(pair_id);
+    THROW_CHECK(edge_it != edges_.end());
+    THROW_CHECK(edge_it->second.valid);
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
+    const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
+    if (filter_unregistered && (!reconstruction.Frame(frame_id1).HasPose() ||
+                                !reconstruction.Frame(frame_id2).HasPose())) {
+      continue;
+    }
+    nodes.insert(frame_id1);
+    nodes.insert(frame_id2);
+    graph_edges.emplace_back(frame_id1, frame_id2);
+  }
+
+  if (nodes.empty()) {
+    return {};
+  }
+  const std::vector<frame_t> largest_component =
+      FindLargestConnectedComponent(nodes, graph_edges);
+  return FlatHashSet<frame_t>(largest_component.begin(),
+                              largest_component.end());
+}
+
 void PoseGraph::InvalidatePairsOutsideActiveImageIds(
     const FlatHashSet<image_t>& active_image_ids) {
   for (const auto& [pair_id, edge] : edges_) {

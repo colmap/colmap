@@ -32,6 +32,8 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random_eigen.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -295,6 +297,25 @@ TEST_P(CorrespondenceGraphFinalizeTest, ThreeView) {
             2);
   EXPECT_EQ(CountNumTransitiveCorrespondences(correspondence_graph, 2, 0, 3),
             2);
+
+  const std::vector<CorrespondenceGraph::Correspondence> seeds = {
+      {0, 0}, {1, 0}, {2, 0}, {1, 5}, {2, 5}};
+  const auto components =
+      correspondence_graph.ExtractTransitiveCorrespondenceComponents(
+          seeds, std::numeric_limits<size_t>::max());
+  ASSERT_EQ(components.size(), 2);
+  ASSERT_EQ(components[0].size(), 3);
+  EXPECT_EQ(components[0][0].image_id, 0);
+  EXPECT_EQ(components[0][0].point2D_idx, 0);
+  EXPECT_EQ(components[0][1].image_id, 2);
+  EXPECT_EQ(components[0][1].point2D_idx, 0);
+  EXPECT_EQ(components[0][2].image_id, 1);
+  EXPECT_EQ(components[0][2].point2D_idx, 0);
+  ASSERT_EQ(components[1].size(), 2);
+  EXPECT_EQ(components[1][0].image_id, 1);
+  EXPECT_EQ(components[1][0].point2D_idx, 5);
+  EXPECT_EQ(components[1][1].image_id, 2);
+  EXPECT_EQ(components[1][1].point2D_idx, 5);
 }
 
 INSTANTIATE_TEST_SUITE_P(CorrespondenceGraph,

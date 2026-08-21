@@ -290,6 +290,36 @@ void CorrespondenceGraph::ExtractTransitiveCorrespondences(
   corrs->pop_back();
 }
 
+std::vector<std::vector<CorrespondenceGraph::Correspondence>>
+CorrespondenceGraph::ExtractTransitiveCorrespondenceComponents(
+    const std::vector<Correspondence>& ordered_seeds,
+    const size_t transitivity) const {
+  std::vector<std::vector<Correspondence>> components;
+  FlatHashSet<std::pair<image_t, point2D_t>, PairHash> visited;
+  std::vector<Correspondence> transitive_correspondences;
+  for (const Correspondence& seed : ordered_seeds) {
+    const std::pair<image_t, point2D_t> seed_key(seed.image_id,
+                                                 seed.point2D_idx);
+    if (visited.count(seed_key) != 0) {
+      continue;
+    }
+
+    ExtractTransitiveCorrespondences(seed.image_id,
+                                     seed.point2D_idx,
+                                     transitivity,
+                                     &transitive_correspondences);
+    std::vector<Correspondence>& component = components.emplace_back();
+    component.reserve(transitive_correspondences.size() + 1);
+    component.push_back(seed);
+    visited.insert(seed_key);
+    for (const Correspondence& correspondence : transitive_correspondences) {
+      component.push_back(correspondence);
+      visited.insert({correspondence.image_id, correspondence.point2D_idx});
+    }
+  }
+  return components;
+}
+
 void CorrespondenceGraph::ExtractMatchesBetweenImages(
     const image_t image_id1,
     const image_t image_id2,

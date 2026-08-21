@@ -6,6 +6,8 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
+#include <vector>
+
 namespace colmap {
 
 class PoseGraph {
@@ -74,6 +76,14 @@ class PoseGraph {
   // Returns the set of frame_ids in the largest connected component.
   FlatHashSet<frame_t> ComputeLargestConnectedFrameComponent(
       const Reconstruction& reconstruction,
+      bool filter_unregistered = true) const;
+
+  // Compute the largest connected frame component while consuming edges in
+  // the caller-provided pair order. This makes equal-size component selection
+  // reproducible for callers that already own a stable edge order.
+  FlatHashSet<frame_t> ComputeLargestConnectedFrameComponentInPairOrder(
+      const Reconstruction& reconstruction,
+      const std::vector<image_pair_t>& pair_order,
       bool filter_unregistered = true) const;
 
   // Mark image pairs as invalid if either image is not in the active set.

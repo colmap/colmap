@@ -353,6 +353,44 @@ TEST(PoseGraph, ComputeLargestConnectedFrameComponentEmpty) {
   EXPECT_TRUE(result.empty());
 }
 
+TEST(PoseGraph, ComputeLargestConnectedFrameComponentInPairOrder) {
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 5;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 1;
+  synthetic_options.num_points3D = 10;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_options, &reconstruction);
+  const std::vector<image_t> image_ids = reconstruction.RegImageIds();
+  ASSERT_EQ(image_ids.size(), 5);
+
+  PoseGraph pose_graph;
+  const image_pair_t pair01 = ImagePairToPairId(image_ids[0], image_ids[1]);
+  const image_pair_t pair12 = ImagePairToPairId(image_ids[1], image_ids[2]);
+  const image_pair_t pair34 = ImagePairToPairId(image_ids[3], image_ids[4]);
+  pose_graph.AddEdge(image_ids[0], image_ids[1], SynthesizeEdge());
+  pose_graph.AddEdge(image_ids[1], image_ids[2], SynthesizeEdge());
+  pose_graph.AddEdge(image_ids[3], image_ids[4], SynthesizeEdge());
+
+  const auto component =
+      pose_graph.ComputeLargestConnectedFrameComponentInPairOrder(
+          reconstruction,
+          {pair01, pair12, pair34},
+          /*filter_unregistered=*/false);
+  EXPECT_THAT(component,
+              testing::UnorderedElementsAre(
+                  reconstruction.Image(image_ids[0]).FrameId(),
+                  reconstruction.Image(image_ids[1]).FrameId(),
+                  reconstruction.Image(image_ids[2]).FrameId()));
+
+  pose_graph.SetInvalidEdge(pair01);
+  EXPECT_THROW(pose_graph.ComputeLargestConnectedFrameComponentInPairOrder(
+                   reconstruction,
+                   {pair01, pair12, pair34},
+                   /*filter_unregistered=*/false),
+               std::invalid_argument);
+}
+
 TEST(PoseGraph, InvalidatePairsOutsideActiveImageIds) {
   PoseGraph pose_graph;
   pose_graph.AddEdge(1, 2, SynthesizeEdge());

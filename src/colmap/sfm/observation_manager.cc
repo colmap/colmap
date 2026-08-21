@@ -432,16 +432,17 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   return num_filtered;
 }
 
-size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
-    const double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) {
-  // Number of filtered observations.
-  size_t num_filtered_observations = 0;
-
+std::vector<point3D_t>
+ObservationManager::FindPoints3DWithSmallTriangulationAngle(
+    const double min_tri_angle,
+    const FlatHashSet<point3D_t>& point3D_ids) const {
   // Minimum triangulation angle in radians.
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
   // Cache for image projection centers.
   FlatHashMap<image_t, Eigen::Vector3d> proj_centers;
+  std::vector<point3D_t> point3D_ids_to_filter;
+  point3D_ids_to_filter.reserve(point3D_ids.size());
 
   for (const auto point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
@@ -460,6 +461,10 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
       Eigen::Vector3d proj_center1;
       if (proj_centers.count(image_id1) == 0) {
         const Image& image1 = reconstruction_.Image(image_id1);
+        if (!image1.HasPose()) {
+          throw std::invalid_argument(
+              "triangulation filtering requires posed images");
+        }
         proj_center1 = image1.ProjectionCenter();
         proj_centers.emplace(image_id1, proj_center1);
       } else {
@@ -468,7 +473,17 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
 
       for (size_t i2 = 0; i2 < i1; ++i2) {
         const image_t image_id2 = point3D.track.Element(i2).image_id;
-        const Eigen::Vector3d& proj_center2 = proj_centers.at(image_id2);
+        auto proj_center2_it = proj_centers.find(image_id2);
+        if (proj_center2_it == proj_centers.end()) {
+          const Image& image2 = reconstruction_.Image(image_id2);
+          if (!image2.HasPose()) {
+            throw std::invalid_argument(
+                "triangulation filtering requires posed images");
+          }
+          proj_center2_it =
+              proj_centers.emplace(image_id2, image2.ProjectionCenter()).first;
+        }
+        const Eigen::Vector3d& proj_center2 = proj_center2_it->second;
 
         const double tri_angle = CalculateTriangulationAngle(
             proj_center1, proj_center2, point3D.xyz);
@@ -485,9 +500,21 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     }
 
     if (!keep_point) {
-      num_filtered_observations += point3D.track.Length();
-      DeletePoint3D(point3D_id);
+      point3D_ids_to_filter.push_back(point3D_id);
     }
+  }
+
+  return point3D_ids_to_filter;
+}
+
+size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
+    const double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) {
+  size_t num_filtered_observations = 0;
+  for (const point3D_t point3D_id :
+       FindPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids)) {
+    num_filtered_observations +=
+        reconstruction_.Point3D(point3D_id).track.Length();
+    DeletePoint3D(point3D_id);
   }
 
   return num_filtered_observations;
