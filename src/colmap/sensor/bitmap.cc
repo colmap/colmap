@@ -528,7 +528,27 @@ void Bitmap::Rescale(const int new_width,
   OIIO::ImageBuf new_buf(
       OIIO::ImageSpec(new_width, new_height, channels_, OIIO::TypeDesc::UINT8),
       new_data.data());
-  THROW_CHECK(OIIO::ImageBufAlgo::resize(new_buf, buf));
+  switch (filter) {
+    case RescaleFilter::kBilinear:
+      // Unlike resample(), resize() applies antialiasing when downsampling.
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, {{"filtername", "triangle"}}));
+#else
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, /*filtername=*/"triangle", /*filterwidth=*/0.0f));
+#endif
+      break;
+    case RescaleFilter::kBox:
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+      THROW_CHECK(
+          OIIO::ImageBufAlgo::resize(new_buf, buf, {{"filtername", "box"}}));
+#else
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, /*filtername=*/"box", /*filterwidth=*/0.0f));
+#endif
+      break;
+  }
 
   width_ = new_width;
   height_ = new_height;
