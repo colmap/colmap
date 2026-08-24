@@ -42,6 +42,9 @@ Improvements
   Sampson error for calibrated two-view geometry, relative-pose refinement,
   guided matching, and generalized pose estimation. This particularly
   improves wide-field-of-view and spherical cameras.
+* Added camera and image-space point overloads for
+  ``pycolmap.estimate_relative_pose`` and ``refine_relative_pose`` while
+  retaining the camera-ray overloads for backwards compatibility.
 * Estimate homographies on camera rays for distorted and spherical cameras,
   enabling geometrically correct planar and panoramic detection.
 * Added analytical reprojection Jacobians for every camera model and fixed-pose
@@ -91,15 +94,15 @@ Breaking Changes
 * The ``hierarchical_mapper`` options ``num_threads``, ``num_workers``,
   ``image_overlap``, and ``leaf_max_num_images`` are now prefixed with
   ``HierarchicalMapper.``.
-* ``pycolmap.estimate_relative_pose`` and ``refine_relative_pose`` now accept
-  cameras and image-space points instead of precomputed camera rays.
 * ``pycolmap.estimate_essential_matrix`` no longer returns
-  ``inlier_points3D``, and ``pycolmap.cost_functions.SampsonErrorCost`` now
-  accepts image-plane points instead of camera rays.
+  ``inlier_points3D``.
+* ``pycolmap.cost_functions.SampsonErrorCost`` now accepts image-plane points
+  instead of camera rays.
 * The C++ ``HierarchicalPipeline::Options`` type was renamed to
-  ``HierarchicalPipelineOptions``. Several relative-pose APIs now use
-  ``CamRayWithJac``, and ``PoseFromEssentialMatrix`` returns valid
-  correspondence indices instead of triangulated points.
+  ``HierarchicalPipelineOptions``.
+* Several C++ relative-pose APIs now use ``CamRayWithJac``.
+* ``PoseFromEssentialMatrix`` now returns valid correspondence indices instead
+  of triangulated points.
 * The C++ ``CameraModelIsFisheye`` function was renamed to
   ``CameraModelIsPerspectiveFisheye``.
 * The global ``std::hash<std::pair<...>>`` specializations were removed.
