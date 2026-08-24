@@ -609,6 +609,7 @@ Bitmap Bitmap::CloneAsGrey() const {
     for (size_t i = 0; i < cloned.data_.size(); ++i) {
       // The weighted sum is non-negative, so adding 0.5 before truncating is
       // equivalent to std::round and allows the loop to be vectorized.
+      // NOLINTNEXTLINE(bugprone-incorrect-roundings)
       cloned.data_[i] = static_cast<uint8_t>(.2126f * data_[3 * i + 0] +
                                              .7152f * data_[3 * i + 1] +
                                              .0722f * data_[3 * i + 2] + .5f);
