@@ -115,6 +115,41 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
   return result;
 }
 
+std::vector<CamRayWithJac> CamRaysWithIdentityJacobians(
+    const std::vector<Eigen::Vector3d>& cam_rays) {
+  // The identity embedding selects the first two ray coordinates in the
+  // tangent Sampson denominator, matching the legacy Sampson error on rays.
+  std::vector<CamRayWithJac> cam_rays_with_jac(cam_rays.size());
+  for (size_t i = 0; i < cam_rays.size(); ++i) {
+    cam_rays_with_jac[i] = {cam_rays[i], Eigen::Matrix3x2d::Identity()};
+  }
+  return cam_rays_with_jac;
+}
+
+py::typing::Optional<py::dict> PyEstimateRelativePoseFromRays(
+    const std::vector<Eigen::Vector3d>& cam_rays1,
+    const std::vector<Eigen::Vector3d>& cam_rays2,
+    const RANSACOptions& estimation_options) {
+  py::gil_scoped_release release;
+  Rigid3d cam2_from_cam1;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  if (!EstimateRelativePose(estimation_options,
+                            CamRaysWithIdentityJacobians(cam_rays1),
+                            CamRaysWithIdentityJacobians(cam_rays2),
+                            &cam2_from_cam1,
+                            &num_inliers,
+                            &inlier_mask)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+
+  py::gil_scoped_acquire acquire;
+  return py::dict("cam2_from_cam1"_a = cam2_from_cam1,
+                  "num_inliers"_a = num_inliers,
+                  "inlier_mask"_a = ToPythonMask(inlier_mask));
+}
+
 py::typing::Optional<py::dict> PyEstimateRelativePose(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points2D1,
@@ -191,6 +226,29 @@ py::typing::Optional<py::dict> PyRefineRelativePose(
   py::gil_scoped_acquire acquire;
   py::dict result("cam2_from_cam1"_a = refined_cam2_from_cam1);
   return result;
+}
+
+py::typing::Optional<py::dict> PyRefineRelativePoseFromRays(
+    const Rigid3d& init_cam2_from_cam1,
+    const std::vector<Eigen::Vector3d>& cam_rays1,
+    const std::vector<Eigen::Vector3d>& cam_rays2,
+    const PyInlierMask& inlier_mask,
+    const ceres::Solver::Options& refinement_options) {
+  py::gil_scoped_release release;
+  Rigid3d refined_cam2_from_cam1 = init_cam2_from_cam1;
+  std::vector<char> inlier_mask_char(inlier_mask.size());
+  Eigen::Map<Eigen::Matrix<char, Eigen::Dynamic, 1>>(
+      inlier_mask_char.data(), inlier_mask.size()) = inlier_mask.cast<char>();
+  if (!RefineRelativePose(refinement_options,
+                          inlier_mask_char,
+                          CamRaysWithIdentityJacobians(cam_rays1),
+                          CamRaysWithIdentityJacobians(cam_rays2),
+                          &refined_cam2_from_cam1)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+  py::gil_scoped_acquire acquire;
+  return py::dict("cam2_from_cam1"_a = refined_cam2_from_cam1);
 }
 
 void BindAbsolutePoseEstimator(py::module& m) {
@@ -278,6 +336,13 @@ void BindAbsolutePoseEstimator(py::module& m) {
       "Local optimization non-linearly refines that error over the current "
       "inlier set, but the returned pose receives no final refinement over its "
       "own inliers; use refine_relative_pose for that.");
+  m.def("estimate_relative_pose",
+        &PyEstimateRelativePoseFromRays,
+        "cam_rays1"_a,
+        "cam_rays2"_a,
+        py::arg_v("options", RANSACOptions(), "RANSACOptions()"),
+        "Robustly estimate relative pose from camera rays using LO-RANSAC. "
+        "This overload is retained for backwards compatibility.");
   m.def("refine_relative_pose",
         &PyRefineRelativePose,
         "cam2_from_cam1"_a,
@@ -289,4 +354,13 @@ void BindAbsolutePoseEstimator(py::module& m) {
         py::arg_v("options", ceres::Solver::Options()),
         "Non-linear refinement of relative pose from 2D-2D correspondences "
         "(camera + image points) with the tangent Sampson error.");
+  m.def("refine_relative_pose",
+        &PyRefineRelativePoseFromRays,
+        "cam2_from_cam1"_a,
+        "cam_rays1"_a,
+        "cam_rays2"_a,
+        "inlier_mask"_a,
+        py::arg_v("options", ceres::Solver::Options()),
+        "Non-linear refinement of relative pose from camera rays. This "
+        "overload is retained for backwards compatibility.");
 }

@@ -103,3 +103,32 @@ def test_absolute_pose_refinement_options_position_prior_covariance_readwrite():
 )
 def test_public_api_callable(name):
     assert callable(getattr(pycolmap, name))
+
+
+def test_relative_pose_ray_overloads():
+    rng = np.random.default_rng(0)
+    points3D = rng.uniform(-1.0, 1.0, size=(20, 3))
+    points3D[:, 2] += 4.0
+    translation = np.array([0.5, 0.1, 0.0])
+    cam_rays1 = points3D / np.linalg.norm(points3D, axis=1, keepdims=True)
+    points3D_in_cam2 = points3D + translation
+    cam_rays2 = points3D_in_cam2 / np.linalg.norm(
+        points3D_in_cam2, axis=1, keepdims=True
+    )
+
+    options = pycolmap.RANSACOptions()
+    options.max_error = 1e-3
+    options.random_seed = 0
+    estimation = pycolmap.estimate_relative_pose(
+        cam_rays1=cam_rays1, cam_rays2=cam_rays2, options=options
+    )
+    assert estimation is not None
+    assert estimation["num_inliers"] == len(points3D)
+
+    refinement = pycolmap.refine_relative_pose(
+        cam2_from_cam1=estimation["cam2_from_cam1"],
+        cam_rays1=cam_rays1,
+        cam_rays2=cam_rays2,
+        inlier_mask=estimation["inlier_mask"],
+    )
+    assert refinement is not None
