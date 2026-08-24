@@ -583,12 +583,21 @@ TEST(Bitmap, CloneAsGrey) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(1, 0, 4));
+  bitmap.SetPixel(2, 0, BitmapColor<uint8_t>(0, 0, 6));
+  bitmap.SetPixel(3, 0, BitmapColor<uint8_t>(255, 255, 255));
   const Bitmap cloned_bitmap = bitmap.CloneAsGrey();
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 1);
   EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
             BitmapColor<uint8_t>(19, 19, 19));
+  EXPECT_EQ(cloned_bitmap.GetPixel(1, 0).value(),
+            BitmapColor<uint8_t>(1, 1, 1));
+  EXPECT_EQ(cloned_bitmap.GetPixel(2, 0).value(),
+            BitmapColor<uint8_t>(0, 0, 0));
+  EXPECT_EQ(cloned_bitmap.GetPixel(3, 0).value(),
+            BitmapColor<uint8_t>(255, 255, 255));
   const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
