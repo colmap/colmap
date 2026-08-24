@@ -1978,11 +1978,199 @@ def _render_meanstd(
     return "\n".join(lines)
 
 
+def _render_interval_table(
+    title: str,
+    thresholds: npt.NDArray[np.floating],
+    interval,
+    verdicts: list[str],
+    is_relative: bool,
+    include_p_values: bool,
+) -> str:
+    thresholds_disp = thresholds if is_relative else 100 * thresholds
+    unit = "deg" if is_relative else "cm"
+    lines = [
+        title,
+        f"{'threshold':>10} {'estimate':>10} {'lower':>10} "
+        f"{'upper':>10} "
+        + (f"{'p(adj)':>10} " if include_p_values else "")
+        + "verdict",
+        "-" * (68 if include_p_values else 57),
+    ]
+    for index, threshold in enumerate(thresholds_disp):
+        line = (
+            f"{('@' + format(threshold, 'g') + unit):>10} "
+            f"{interval.estimate[index]:+10.3f} "
+            f"{interval.lower[index]:+10.3f} "
+            f"{interval.upper[index]:+10.3f} "
+        )
+        if include_p_values:
+            line += f"{interval.adjusted_p_values[index]:10.4f} "
+        line += verdicts[index]
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _run_statistical_inference(
+    stacks_a: dict[SceneKey, npt.NDArray[np.floating]],
+    stacks_b: dict[SceneKey, npt.NDArray[np.floating]],
+    keys: list[SceneKey],
+    thresholds: npt.NDArray[np.floating],
+    error_type: str,
+    labels: Sequence[str],
+    num_bootstrap_samples: int,
+    confidence: float,
+    minimum_effect: float,
+    random_seed: int,
+    paired_variants: bool,
+    ceiling_path: Path | None,
+    ceiling_variant: str,
+    ceiling_margin: float,
+    single_a: bool,
+    single_b: bool,
+) -> None:
+    from .statistics import (
+        ceiling_gap_interval,
+        classify_ceiling_gap,
+        classify_difference,
+        load_noise_ceiling,
+        paired_difference_interval,
+    )
+
+    real_keys = [key for key in keys if not _is_summary_scene(key[2])]
+    grouped_keys: dict[tuple[str, str], list[SceneKey]] = (
+        collections.defaultdict(list)
+    )
+    for key in real_keys:
+        grouped_keys[key[:2]].append(key)
+
+    label_a, label_b = labels
+    if paired_variants:
+        for group_index, ((dataset, category), group) in enumerate(
+            sorted(grouped_keys.items())
+        ):
+            scores_a = np.stack([stacks_a[key] for key in group])
+            scores_b = np.stack([stacks_b[key] for key in group])
+            interval = paired_difference_interval(
+                scores_a,
+                scores_b,
+                num_bootstrap_samples=num_bootstrap_samples,
+                confidence=confidence,
+                random_seed=random_seed + group_index,
+            )
+            verdicts = [
+                classify_difference(lower, upper, minimum_effect)
+                for lower, upper in zip(
+                    interval.lower, interval.upper, strict=True
+                )
+            ]
+            pycolmap.logging.info(
+                "\n"
+                + _render_interval_table(
+                    f"Statistical inference: {dataset}/{category}, "
+                    f"{label_a} - {label_b}; macro scene average; "
+                    f"simultaneous {100 * confidence:g}% intervals; "
+                    f"minimum effect={minimum_effect:g}",
+                    thresholds,
+                    interval,
+                    verdicts,
+                    error_type.startswith("relative"),
+                    include_p_values=True,
+                )
+            )
+    else:
+        pycolmap.logging.warning(
+            "Skipping A/B inference: one variant is a single run broadcast "
+            "against the other's seeds, so the variants are not paired."
+        )
+
+    if ceiling_path is None:
+        return
+    ceiling = load_noise_ceiling(ceiling_path)
+    if ceiling.error_type != error_type:
+        raise ValueError(
+            f"Ceiling error type {ceiling.error_type} does not match "
+            f"report error type {error_type}"
+        )
+    if not np.array_equal(ceiling.thresholds, thresholds):
+        raise ValueError("Ceiling and report thresholds differ")
+
+    ceiling_index = {
+        scene_key: index for index, scene_key in enumerate(ceiling.scene_keys)
+    }
+    matching_keys = [key for key in real_keys if "/".join(key) in ceiling_index]
+    if not matching_keys:
+        raise ValueError("Ceiling and reports have no scenes in common")
+    missing_report_keys = sorted(
+        set(ceiling.scene_keys) - {"/".join(key) for key in matching_keys}
+    )
+    if missing_report_keys:
+        pycolmap.logging.warning(
+            f"Ceiling has {len(missing_report_keys)} scene(s) absent from "
+            "the compared reports; inference uses their intersection."
+        )
+
+    variant_stacks = stacks_a if ceiling_variant == "a" else stacks_b
+    run_scores = np.stack([variant_stacks[key] for key in matching_keys])
+    variant_is_single = single_a if ceiling_variant == "a" else single_b
+    if variant_is_single:
+        run_scores = run_scores[:, :1]
+    ceiling_scores = np.stack(
+        [ceiling.scores[ceiling_index["/".join(key)]] for key in matching_keys]
+    )
+    interval = ceiling_gap_interval(
+        run_scores,
+        ceiling_scores,
+        num_bootstrap_samples=num_bootstrap_samples,
+        confidence=confidence,
+        random_seed=random_seed + len(grouped_keys),
+    )
+    calibrated = ceiling.metadata.get("calibrated") is True
+    verdicts = []
+    for lower, upper in zip(interval.lower, interval.upper, strict=True):
+        verdict = classify_ceiling_gap(lower, upper, ceiling_margin)
+        if not calibrated:
+            verdict = {
+                "ceiling-limited": "within synthetic model",
+                "headroom remains": "synthetic-model headroom",
+                "inconclusive": "inconclusive (synthetic)",
+            }[verdict]
+        verdicts.append(verdict)
+    variant_label = label_a if ceiling_variant == "a" else label_b
+    calibration_label = "calibrated" if calibrated else "UNCALIBRATED"
+    pycolmap.logging.info(
+        "\n"
+        + _render_interval_table(
+            f"Noise ceiling: ceiling - {variant_label}; "
+            f"{len(matching_keys)} scenes; {calibration_label}; "
+            f"simultaneous {100 * confidence:g}% intervals; "
+            f"equivalence margin={ceiling_margin:g}",
+            thresholds,
+            interval,
+            verdicts,
+            error_type.startswith("relative"),
+            include_p_values=False,
+        )
+    )
+    if not calibrated:
+        pycolmap.logging.warning(
+            "The ceiling artifact is an uncalibrated sensitivity model. "
+            "It cannot establish that the dataset noise floor was reached."
+        )
+
+
 def compare_reports(
     report_a_paths: list[Path],
     report_b_paths: list[Path],
     labels: Sequence[str] = ("A", "B"),
     seeds: list[int] | None = None,
+    run_inference: bool = False,
+    num_bootstrap_samples: int = 10_000,
+    confidence: float = 0.95,
+    minimum_effect: float = 0.5,
+    inference_seed: int = 0,
+    ceiling_path: Path | None = None,
+    ceiling_variant: str = "b",
+    ceiling_margin: float = 0.5,
 ) -> None:
     """Logs an A vs B comparison of two sets of paired reports.
 
@@ -2007,6 +2195,18 @@ def compare_reports(
 
     reports_a = [load_report(path) for path in report_a_paths]
     reports_b = [load_report(path) for path in report_b_paths]
+    if run_inference or ceiling_path is not None:
+        if num_runs == 1:
+            pycolmap.logging.warning(
+                "Inference has one run per variant: intervals reflect scene "
+                "variation but cannot estimate run-to-run randomness."
+            )
+        elif num_runs < 5:
+            pycolmap.logging.warning(
+                f"Inference has only {num_runs} seeds; run-to-run uncertainty "
+                "may be estimated imprecisely. At least 5, preferably 10, "
+                "shared seeds are recommended."
+            )
 
     if num_runs == 1:
         metrics_a, metrics_b = reports_a[0], reports_b[0]
@@ -2021,6 +2221,35 @@ def compare_reports(
             f"Results {label_a} - {label_b}:\n"
             + create_result_table(metrics_diff)
         )
+        if run_inference or ceiling_path is not None:
+            keys = _common_scene_keys(reports_a + reports_b)
+            first_metrics = _first_metrics(reports_a[0])
+            error_type = first_metrics.error_type
+            thresholds = np.asarray(first_metrics.error_thresholds)
+            stacks_a = {
+                key: _stack_scores(reports_a, key, error_type) for key in keys
+            }
+            stacks_b = {
+                key: _stack_scores(reports_b, key, error_type) for key in keys
+            }
+            _run_statistical_inference(
+                stacks_a,
+                stacks_b,
+                keys,
+                thresholds,
+                error_type,
+                labels,
+                num_bootstrap_samples,
+                confidence,
+                minimum_effect,
+                inference_seed,
+                paired_variants=True,
+                ceiling_path=ceiling_path,
+                ceiling_variant=ceiling_variant,
+                ceiling_margin=ceiling_margin,
+                single_a=True,
+                single_b=True,
+            )
         return
 
     keys = _common_scene_keys(reports_a + reports_b)
@@ -2098,3 +2327,22 @@ def compare_reports(
             signed=True,
         )
     )
+    if run_inference or ceiling_path is not None:
+        _run_statistical_inference(
+            stacks_a,
+            stacks_b,
+            keys,
+            thresholds,
+            error_type,
+            labels,
+            num_bootstrap_samples,
+            confidence,
+            minimum_effect,
+            inference_seed,
+            paired_variants=shared,
+            ceiling_path=ceiling_path,
+            ceiling_variant=ceiling_variant,
+            ceiling_margin=ceiling_margin,
+            single_a=single_a,
+            single_b=single_b,
+        )

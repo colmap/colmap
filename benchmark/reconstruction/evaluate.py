@@ -59,16 +59,9 @@ import argparse
 import json
 import pickle
 
-from evaluation.blended_mvs import DatasetBlendedMVS
-from evaluation.eth3d import DatasetETH3D
-from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
-from evaluation.tartanair import (
-    DatasetTartanAirPerspective,
-    DatasetTartanAirSpherical,
-)
+from evaluation.datasets import DATASET_TYPES
 from evaluation.tartanair.tartanair_v2 import load_manifest
 from evaluation.utils import (
-    Dataset,
     MetricsByDatasetByCatByScene,
     create_result_table,
     filter_smallest_scenes_per_category,
@@ -84,25 +77,15 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
 
     Returns None if a dataset is unknown or no scenes matched.
     """
-    datasets: dict[str, type[Dataset]] = {
-        "eth3d": DatasetETH3D,
-        "blended-mvs": DatasetBlendedMVS,
-        "imc2023": DatasetIMC2023,
-        "imc2024": DatasetIMC2024,
-        "imc2025": DatasetIMC2025,
-        "tartanair-v2-perspective": DatasetTartanAirPerspective,
-        "tartanair-v2-spherical": DatasetTartanAirSpherical,
-    }
-
     metrics: MetricsByDatasetByCatByScene = {}
     for dataset_name in args.datasets:
-        if dataset_name not in datasets:
+        if dataset_name not in DATASET_TYPES:
             pycolmap.logging.error(f"Unknown dataset: {dataset_name}")
             return None
 
         pycolmap.logging.info(f"Evaluating dataset: {dataset_name}")
 
-        dataset = datasets[dataset_name](
+        dataset = DATASET_TYPES[dataset_name](
             data_path=args.data_path,
             categories=args.categories,
             scenes=args.scenes,
