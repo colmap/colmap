@@ -530,8 +530,13 @@ void Bitmap::Rescale(const int new_width,
       new_data.data());
   switch (filter) {
     case RescaleFilter::kBilinear:
-      THROW_CHECK(
-          OIIO::ImageBufAlgo::resample(new_buf, buf, /*interpolate=*/true));
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, {{"filtername", "triangle"}}));
+#else
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, /*filtername=*/"triangle", /*filterwidth=*/0.0f));
+#endif
       break;
     case RescaleFilter::kBox:
 #if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
