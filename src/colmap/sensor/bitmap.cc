@@ -607,9 +607,11 @@ Bitmap Bitmap::CloneAsGrey() const {
     cloned.linear_colorspace_ = linear_colorspace_;
     cloned.data_.resize(width_ * height_);
     for (size_t i = 0; i < cloned.data_.size(); ++i) {
-      cloned.data_[i] =
-          std::round(.2126f * data_[3 * i + 0] + .7152f * data_[3 * i + 1] +
-                     .0722f * data_[3 * i + 2]);
+      // The weighted sum is non-negative, so adding 0.5 before truncating is
+      // equivalent to std::round and allows the loop to be vectorized.
+      cloned.data_[i] = static_cast<uint8_t>(.2126f * data_[3 * i + 0] +
+                                             .7152f * data_[3 * i + 1] +
+                                             .0722f * data_[3 * i + 2] + .5f);
     }
     cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
     auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
