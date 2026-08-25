@@ -163,6 +163,8 @@ jobs:
       - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
+          echo "CIBW_BUILD=cp310-manylinux*" >> "$GITHUB_ENV"
+
           VCPKG_TARGET_TRIPLET="x64-linux-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
@@ -204,6 +206,8 @@ jobs:
 
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR FETCHCONTENT_BASE_DIR FETCHCONTENT_FULLY_DISCONNECTED"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
+          echo "CIBW_BEFORE_TEST_LINUX=dnf install -y gdb" >> "$GITHUB_ENV"
+          echo 'CIBW_TEST_COMMAND_LINUX=cd {project} && gdb -batch -ex "handle SIGILL stop print nopass" -ex run -ex "x/16i \$pc-32" -ex "info registers" -ex "thread apply all bt full" --args python -m pytest -s -vv src/pycolmap/pipeline/sfm_test.py' >> "$GITHUB_ENV"
 
           if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
             CIBW_MANYLINUX_X86_64_IMAGE="pytorch/manylinux2_28-builder:cuda12.9"
