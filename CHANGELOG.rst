@@ -55,6 +55,9 @@ Improvements
 * Optimized image warping for modest downscales, with reported 4--7x
   improvements in common undistortion cases. Added configurable nearest-neighbor
   or bilinear interpolation in C++ and pycolmap.
+* Accelerated image preprocessing by using antialiased triangle filtering for
+  bilinear bitmap downscaling and vectorizing RGB-to-grayscale conversion.
+  Bitmap rescaling now also honors the requested bilinear or box filter.
 * Added CoreML as an ONNX execution provider on macOS, with automatic CPU
   fallback for unsupported models.
 * Added optional match-count weighting for global rotation averaging.
@@ -83,6 +86,8 @@ Bug Fixes
 * Fix reconstruction merges with inconsistent image ID/name mappings.
 * Fix point-triangulator image-list handling.
 * Restore the ``gflags::gflags`` target for downstream CMake consumers.
+* Fix stale reconstruction statistics and elapsed time in the viewer after
+  clearing a reconstruction.
 
 Breaking Changes
 ----------------
