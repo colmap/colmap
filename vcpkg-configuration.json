@@ -3,5 +3,8 @@
     "kind": "git",
     "repository": "https://github.com/Microsoft/vcpkg",
     "baseline": "127402f1c75bb3d5ff6bce04b285faa4930a5aca"
-  }
+  },
+  "overlay-ports": [
+    "cmake/vcpkg/ports"
+  ]
 }
