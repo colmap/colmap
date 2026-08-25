@@ -20,6 +20,7 @@ jobs:
     name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
+      fail-fast: false
       matrix:
         config: [
           {os: ubuntu-24.04, cudaEnabled: false},
@@ -205,13 +206,13 @@ jobs:
 
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR FETCHCONTENT_BASE_DIR FETCHCONTENT_FULLY_DISCONNECTED"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
+          echo "CIBW_BEFORE_TEST_LINUX=dnf install -y gdb" >> "$GITHUB_ENV"
+          echo 'CIBW_TEST_COMMAND_LINUX=cd {project} && gdb -batch -ex run -ex "thread apply all bt full" --args python -m pytest -s -vv src/pycolmap/pipeline/sfm_test.py::test_global_mapping' >> "$GITHUB_ENV"
 
           if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
             CIBW_MANYLINUX_X86_64_IMAGE="pytorch/manylinux2_28-builder:cuda12.9"
             CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
-            echo "CIBW_BEFORE_TEST_LINUX=dnf install -y gdb" >> "$GITHUB_ENV"
-            echo 'CIBW_TEST_COMMAND_LINUX=cd {project} && gdb -batch -ex run -ex "thread apply all bt full" --args python -m pytest -s -vv src/pycolmap/pipeline/sfm_test.py::test_global_mapping' >> "$GITHUB_ENV"
             # Edit pyproject.toml to change package name to pycolmap-cuda12 and add CUDA Runtime native Libraries and CURAND native runtime libraries to dependencies
             pip install tomlkit
             python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "cuda-toolkit[cudart,curand]>=12,<13"
