@@ -59,8 +59,8 @@ jobs:
         uses: actions/cache@v6
         id: cache-compiler
         with:
-          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
