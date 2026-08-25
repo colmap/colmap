@@ -166,7 +166,6 @@ jobs:
             -DCUDAToolkit_ROOT="${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release `
-            -DVCPKG_OVERLAY_TRIPLETS="${{ github.workspace }}/cmake/vcpkg/triplets" `
             -DVCPKG_USE_LEGACY_APPLOCAL=ON `
             -DCMAKE_INSTALL_PREFIX=install `
             -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
@@ -191,7 +190,6 @@ jobs:
 
           ../vcpkg/vcpkg.exe install `
               --triplet=x64-windows-release `
-              --overlay-triplets="${{ github.workspace }}/cmake/vcpkg/triplets" `
               --x-feature=gui `
               --x-feature=cgal `
               $(if ($${{ matrix.config.testsEnabled }}) { echo "--x-feature=tests" }) `
