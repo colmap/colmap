@@ -404,6 +404,19 @@ TEST(Bitmap, RescaleGrey) {
   EXPECT_EQ(bitmap2.Channels(), 1);
 }
 
+TEST(Bitmap, RescaleFilters) {
+  Bitmap bitmap(4, 4, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
+
+  Bitmap bilinear = bitmap.Clone();
+  bilinear.Rescale(1, 1, Bitmap::RescaleFilter::kBilinear);
+  Bitmap box = bitmap.Clone();
+  box.Rescale(1, 1, Bitmap::RescaleFilter::kBox);
+
+  EXPECT_NE(bilinear.GetPixel(0, 0)->r, box.GetPixel(0, 0)->r);
+}
+
 TEST(Bitmap, Thumbnail) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
@@ -570,12 +583,21 @@ TEST(Bitmap, CloneAsGrey) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(1, 0, 4));
+  bitmap.SetPixel(2, 0, BitmapColor<uint8_t>(0, 0, 6));
+  bitmap.SetPixel(3, 0, BitmapColor<uint8_t>(255, 255, 255));
   const Bitmap cloned_bitmap = bitmap.CloneAsGrey();
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 1);
   EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
             BitmapColor<uint8_t>(19, 19, 19));
+  EXPECT_EQ(cloned_bitmap.GetPixel(1, 0).value(),
+            BitmapColor<uint8_t>(1, 1, 1));
+  EXPECT_EQ(cloned_bitmap.GetPixel(2, 0).value(),
+            BitmapColor<uint8_t>(0, 0, 0));
+  EXPECT_EQ(cloned_bitmap.GetPixel(3, 0).value(),
+            BitmapColor<uint8_t>(255, 255, 255));
   const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;
