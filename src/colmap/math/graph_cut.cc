@@ -198,13 +198,9 @@ NodeHashMap<int, int> ComputeNormalizedMinGraphCut(
   idx_t nparts = num_parts;
 
   idx_t metisOptions[METIS_NOPTIONS];
-  LOG(INFO) << "Calling METIS_SetDefaultOptions with idx_t size "
-            << sizeof(idx_t);
   METIS_SetDefaultOptions(metisOptions);
-  LOG(INFO) << "METIS_SetDefaultOptions completed";
 
   std::vector<idx_t> cut_labels(graph.nvtxs, -1);
-  LOG(INFO) << "Calling METIS_PartGraphKway";
   const int metisResult = METIS_PartGraphKway(&graph.nvtxs,
                                               /*ncon=*/&ncon,
                                               graph.xadj,
@@ -218,7 +214,6 @@ NodeHashMap<int, int> ComputeNormalizedMinGraphCut(
                                               metisOptions,
                                               &edgecut,
                                               cut_labels.data());
-  LOG(INFO) << "METIS_PartGraphKway completed";
 
   if (metisResult == METIS_ERROR_INPUT) {
     LOG(FATAL_THROW) << "INTERNAL: Metis input error";

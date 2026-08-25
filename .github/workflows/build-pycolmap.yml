@@ -131,13 +131,17 @@ jobs:
           echo "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" >> "${env:GITHUB_ENV}"
           $VCPKG_TARGET_TRIPLET = "x64-windows-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "${env:GITHUB_ENV}"
+          $VCPKG_OVERLAY_TRIPLETS = "${{ github.workspace }}/cmake/vcpkg/triplets"
+          echo "VCPKG_OVERLAY_TRIPLETS=${VCPKG_OVERLAY_TRIPLETS}" >> "${env:GITHUB_ENV}"
 
           # Fix: cibuildhweel cannot interpolate env variables.
           $CMAKE_TOOLCHAIN_FILE = $CMAKE_TOOLCHAIN_FILE.replace('\', '/')
+          $VCPKG_OVERLAY_TRIPLETS = $VCPKG_OVERLAY_TRIPLETS.replace('\', '/')
           $VCPKG_INSTALLED_DIR = "${{ github.workspace }}/build/vcpkg_installed"
           $VCPKG_INSTALLED_DIR = $VCPKG_INSTALLED_DIR.replace('\', '/')
           $CONFIG_SETTINGS = "cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
+          $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_OVERLAY_TRIPLETS=${VCPKG_OVERLAY_TRIPLETS}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${VCPKG_INSTALLED_DIR}"
           echo "CIBW_CONFIG_SETTINGS_WINDOWS=${CONFIG_SETTINGS}" >> "${env:GITHUB_ENV}"
           $CIBW_REPAIR_WHEEL_COMMAND = "delvewheel repair -v --add-path ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin -w {dest_dir} {wheel}"
