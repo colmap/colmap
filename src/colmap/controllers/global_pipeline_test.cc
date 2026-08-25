@@ -34,8 +34,14 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
+#include <utility>
+#include <vector>
+
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -210,6 +216,518 @@ TEST(GlobalPipeline, WithNoisyExistingRelativePoses) {
               ReconstructionNear(*reconstruction_manager->Get(0),
                                  /*max_rotation_error_deg=*/1e-2,
                                  /*max_proj_center_error=*/1e-4));
+}
+
+// Returns the set of registered image ids for each reconstruction managed by
+// `reconstruction_manager`.
+std::vector<FlatHashSet<image_t>> RegImageIdSetsPerReconstruction(
+    const ReconstructionManager& reconstruction_manager) {
+  std::vector<FlatHashSet<image_t>> image_id_sets;
+  for (size_t i = 0; i < reconstruction_manager.Size(); ++i) {
+    const std::vector<image_t> reg_image_ids =
+        reconstruction_manager.Get(i)->RegImageIds();
+    image_id_sets.emplace_back(reg_image_ids.begin(), reg_image_ids.end());
+  }
+  return image_id_sets;
+}
+
+// Groups the registered images of `reconstruction` by their rig.
+std::vector<FlatHashSet<image_t>> GroupImageIdsByRig(
+    const Reconstruction& reconstruction) {
+  FlatHashMap<rig_t, FlatHashSet<image_t>> images_by_rig;
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    for (const data_t& data_id : frame.ImageIds()) {
+      images_by_rig[frame.RigId()].insert(data_id.id);
+    }
+  }
+  std::vector<FlatHashSet<image_t>> groups;
+  groups.reserve(images_by_rig.size());
+  for (auto& [rig_id, image_ids] : images_by_rig) {
+    groups.push_back(std::move(image_ids));
+  }
+  return groups;
+}
+
+// Builds a ground-truth sub-reconstruction restricted to `group_image_ids` by
+// de-registering all frames outside the group and tearing down the leftover
+// images, frames, rigs, and cameras. The group must align with frame/rig
+// boundaries (e.g. one full rig) so the result is internally consistent.
+Reconstruction ExtractGroundTruthSubset(
+    const Reconstruction& gt_reconstruction,
+    const FlatHashSet<image_t>& group_image_ids) {
+  Reconstruction subset = gt_reconstruction;
+  std::vector<frame_t> frames_to_deregister;
+  for (const auto& [frame_id, frame] : subset.Frames()) {
+    const bool in_group =
+        std::any_of(frame.ImageIds().begin(),
+                    frame.ImageIds().end(),
+                    [&](const data_t& data_id) {
+                      return group_image_ids.count(data_id.id) > 0;
+                    });
+    if (!in_group) {
+      frames_to_deregister.push_back(frame_id);
+    }
+  }
+  for (const frame_t frame_id : frames_to_deregister) {
+    subset.DeRegisterFrame(frame_id);
+  }
+  subset.TearDown();
+  return subset;
+}
+
+// Deletes all two-view geometries and matches connecting images from different
+// groups so the view graph in the database splits into disconnected components.
+void DisconnectDatabaseComponents(
+    const std::vector<FlatHashSet<image_t>>& groups, Database& database) {
+  FlatHashMap<image_t, int> image_to_group;
+  for (int group = 0; group < static_cast<int>(groups.size()); ++group) {
+    for (const image_t image_id : groups[group]) {
+      image_to_group[image_id] = group;
+    }
+  }
+  for (const auto& [pair_id, two_view_geometry] :
+       database.ReadTwoViewGeometries()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (image_to_group.at(image_id1) != image_to_group.at(image_id2)) {
+      database.DeleteTwoViewGeometry(image_id1, image_id2);
+      database.DeleteInlierMatches(image_id1, image_id2);
+      database.DeleteMatches(image_id1, image_id2);
+    }
+  }
+}
+
+// Bridges the given image groups with `num_outlier_edges` cross-group two-view
+// geometries whose relative rotations are randomized (outliers), and deletes
+// all other cross-group edges. The kept outlier edges connect the groups into a
+// single initial connected component that rotation averaging must split by
+// filtering the outliers.
+void BridgeGroupsWithOutlierEdges(
+    const std::vector<FlatHashSet<image_t>>& groups,
+    int num_outlier_edges,
+    Database& database) {
+  FlatHashMap<image_t, int> image_to_group;
+  for (int group = 0; group < static_cast<int>(groups.size()); ++group) {
+    for (const image_t image_id : groups[group]) {
+      image_to_group[image_id] = group;
+    }
+  }
+  int num_kept = 0;
+  for (auto [pair_id, two_view_geometry] : database.ReadTwoViewGeometries()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (image_to_group.at(image_id1) == image_to_group.at(image_id2)) {
+      continue;  // Keep intra-group edges untouched.
+    }
+    if (num_kept < num_outlier_edges &&
+        two_view_geometry.cam2_from_cam1.has_value()) {
+      // Corrupt the relative rotation so this bridge edge is an outlier.
+      two_view_geometry.cam2_from_cam1->rotation() = RandomEigenQuaterniond();
+      database.UpdateTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+      ++num_kept;
+    } else {
+      database.DeleteTwoViewGeometry(image_id1, image_id2);
+      database.DeleteInlierMatches(image_id1, image_id2);
+      database.DeleteMatches(image_id1, image_id2);
+    }
+  }
+}
+
+// End-to-end: a database whose view graph splits into two disconnected
+// components should yield one reconstruction per component, each registering
+// exactly that component's images.
+TEST(GlobalPipeline, MultiComponents) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Split the images into two groups (one per rig) and cut all cross-group
+  // matches so the view graph decomposes into two connected components.
+  // Grouping by rig keeps each component's ground truth well-defined.
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  ASSERT_EQ(expected_components.size(), 2);
+  ASSERT_EQ(expected_components[0].size(), 5);
+  ASSERT_EQ(expected_components[1].size(), 5);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  ASSERT_TRUE(options.multiple_models);
+  ViewGraphCalibrationOptions vgc_options;
+  CalibrateViewGraph(vgc_options, database.get());
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  // Expect one reconstruction per component, each covering its own images.
+  ASSERT_EQ(reconstruction_manager->Size(), 2);
+  EXPECT_THAT(RegImageIdSetsPerReconstruction(*reconstruction_manager),
+              testing::UnorderedElementsAreArray(expected_components));
+
+  // Each recovered component must also match the ground truth of its cluster.
+  for (size_t i = 0; i < reconstruction_manager->Size(); ++i) {
+    const Reconstruction& reconstruction = *reconstruction_manager->Get(i);
+    const std::vector<image_t> reg_image_ids = reconstruction.RegImageIds();
+    const FlatHashSet<image_t> reconstruction_image_ids(reg_image_ids.begin(),
+                                                        reg_image_ids.end());
+    const auto group_it = std::find(expected_components.begin(),
+                                    expected_components.end(),
+                                    reconstruction_image_ids);
+    ASSERT_NE(group_it, expected_components.end());
+    const Reconstruction gt_subset =
+        ExtractGroundTruthSubset(gt_reconstruction, *group_it);
+    EXPECT_THAT(gt_subset,
+                ReconstructionNear(reconstruction,
+                                   /*max_rotation_error_deg=*/1e-2,
+                                   /*max_proj_center_error=*/1e-4));
+  }
+}
+
+TEST(GlobalPipeline, ReconstructOnlyLargestComponent) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  options.multiple_models = false;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_EQ(reconstruction_manager->Get(0)->NumRegFrames(), 5);
+}
+
+// The current component must be visible through the reconstruction manager
+// while callbacks run, and a stop request must prevent subsequent components
+// from starting.
+TEST(GlobalPipeline, MultiComponentsStopAfterFirstComponent) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+
+  bool stop_requested = false;
+  bool callback_saw_in_progress_reconstruction = false;
+  mapper.AddCallback(GlobalPipeline::MODEL_UPDATE_CALLBACK, [&]() {
+    callback_saw_in_progress_reconstruction =
+        reconstruction_manager->Size() == 1 &&
+        reconstruction_manager->Get(0)->NumRegFrames() > 0;
+    stop_requested = true;
+  });
+  mapper.SetCheckIfStoppedFunc([&]() { return stop_requested; });
+  mapper.Run();
+
+  EXPECT_TRUE(callback_saw_in_progress_reconstruction);
+  EXPECT_TRUE(stop_requested);
+  EXPECT_EQ(reconstruction_manager->Size(), 1);
+}
+
+// Components that cannot meet min_model_size are discarded before invoking
+// the expensive global mapper.
+TEST(GlobalPipeline, MultiComponentsBelowMinModelSize) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 20;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  options.min_model_size = 3;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  bool callback_called = false;
+  mapper.AddCallback(GlobalPipeline::MODEL_UPDATE_CALLBACK,
+                     [&]() { callback_called = true; });
+  mapper.Run();
+
+  EXPECT_FALSE(callback_called);
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
+}
+
+// Components that become too small only after rotation filtering must also be
+// discarded before invoking the full global mapper. In particular, the
+// rejected bridge edges must not reconnect the residual components and cause
+// repeated mapping attempts.
+TEST(GlobalPipeline, MultiComponentsBelowMinModelSizeAfterRotationFiltering) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  synthetic_dataset_options.prior_gravity = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  ASSERT_EQ(expected_components.size(), 2);
+  ASSERT_EQ(expected_components[0].size(), 3);
+  ASSERT_EQ(expected_components[1].size(), 3);
+
+  // Keep and corrupt every cross-component edge. Gravity anchors the two
+  // groups, so rotation filtering rejects the bridges and recovers two
+  // three-frame components from one initial six-frame component.
+  BridgeGroupsWithOutlierEdges(expected_components,
+                               /*num_outlier_edges=*/
+                               static_cast<int>(gt_reconstruction.NumImages() *
+                                                gt_reconstruction.NumImages()),
+                               *database);
+
+  // First verify that the setup is successfully decomposed into the expected
+  // components when they meet the minimum size.
+  auto baseline_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions baseline_options;
+  baseline_options.random_seed = 1;
+  baseline_options.min_model_size = 3;
+  baseline_options.mapper.rotation_averaging.use_gravity = true;
+  GlobalPipeline baseline_mapper(
+      std::move(baseline_options), database, baseline_manager);
+  baseline_mapper.Run();
+  ASSERT_EQ(baseline_manager->Size(), 2);
+  EXPECT_THAT(RegImageIdSetsPerReconstruction(*baseline_manager),
+              testing::UnorderedElementsAreArray(expected_components));
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  options.random_seed = 1;
+  options.min_model_size = 4;
+  options.mapper.rotation_averaging.use_gravity = true;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  bool callback_called = false;
+  mapper.AddCallback(GlobalPipeline::MODEL_UPDATE_CALLBACK,
+                     [&]() { callback_called = true; });
+  mapper.Run();
+
+  EXPECT_FALSE(callback_called);
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
+}
+
+// Multi-camera rigs with unknown sensor_from_rig must be calibrated
+// independently in each disconnected component.
+TEST(GlobalPipeline, MultiComponentsWithUnknownSensorFromRig) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<FlatHashSet<image_t>> expected_components =
+      GroupImageIdsByRig(gt_reconstruction);
+  ASSERT_EQ(expected_components.size(), 2);
+  DisconnectDatabaseComponents(expected_components, *database);
+
+  for (Rig rig : database->ReadAllRigs()) {
+    for (const sensor_t sensor_id : rig.SensorIds()) {
+      if (!rig.IsRefSensor(sensor_id)) {
+        rig.ResetSensorFromRig(sensor_id);
+      }
+    }
+    database->UpdateRig(rig);
+  }
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 2);
+  EXPECT_THAT(RegImageIdSetsPerReconstruction(*reconstruction_manager),
+              testing::UnorderedElementsAreArray(expected_components));
+}
+
+// End-to-end: two clusters bridged only by a couple of outlier edges (with
+// bogus relative rotations) are still recovered as two separate
+// reconstructions. The two mutually-inconsistent bridges cannot both be
+// satisfied by any global rotation solution, so rotation averaging leaves each
+// with a large residual and FilterEdgesByRelativeRotation removes them,
+// splitting the view graph.
+TEST(GlobalPipeline, MultiComponentsWithOutlierEdges) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  // Known focal lengths let us skip view graph calibration, which would
+  // otherwise re-estimate (and thereby "fix") the injected outlier edges.
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Split the images into two groups.
+  std::vector<image_t> image_ids = gt_reconstruction.RegImageIds();
+  std::sort(image_ids.begin(), image_ids.end());
+  ASSERT_EQ(image_ids.size(), 10);
+  const std::vector<FlatHashSet<image_t>> expected_components = {
+      {image_ids.begin(), image_ids.begin() + 5},
+      {image_ids.begin() + 5, image_ids.end()}};
+
+  // Connect the two groups only through two outlier bridge edges.
+  BridgeGroupsWithOutlierEdges(
+      expected_components, /*num_outlier_edges=*/2, *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  ASSERT_TRUE(options.multiple_models);
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  // The outlier bridges must be rejected, recovering the two clusters.
+  ASSERT_EQ(reconstruction_manager->Size(), 2);
+  EXPECT_THAT(RegImageIdSetsPerReconstruction(*reconstruction_manager),
+              testing::UnorderedElementsAreArray(expected_components));
+}
+
+// End-to-end (gravity variant): even when *every* cross-cluster edge is a
+// bogus-rotation outlier - a regime the default gravity-free solver cannot
+// resolve because the inter-cluster orientation gauge is free - gravity priors
+// anchor each cluster to the vertical. The random bridge rotations then exceed
+// the rotation error threshold and are filtered, recovering the two clusters.
+TEST(GlobalPipeline, MultiComponentsWithOutlierEdgesUsingGravity) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  // Known focal lengths let us skip view graph calibration, which would
+  // otherwise re-estimate (and thereby "fix") the injected outlier edges.
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  synthetic_dataset_options.prior_gravity = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Split the images into two groups.
+  std::vector<image_t> image_ids = gt_reconstruction.RegImageIds();
+  std::sort(image_ids.begin(), image_ids.end());
+  ASSERT_EQ(image_ids.size(), 10);
+  const std::vector<FlatHashSet<image_t>> expected_components = {
+      {image_ids.begin(), image_ids.begin() + 5},
+      {image_ids.begin() + 5, image_ids.end()}};
+
+  // Corrupt every cross-cluster edge into an outlier bridge (passing a count
+  // larger than the number of cross pairs keeps and randomizes all of them).
+  BridgeGroupsWithOutlierEdges(
+      expected_components,
+      /*num_outlier_edges=*/
+      static_cast<int>(image_ids.size() * image_ids.size()),
+      *database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  ASSERT_TRUE(options.multiple_models);
+  // Gravity priors pin each cluster to the vertical, making the random-rotation
+  // bridges detectable regardless of the otherwise free inter-cluster gauge.
+  options.mapper.rotation_averaging.use_gravity = true;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  // Despite every cross edge being an outlier, gravity lets rotation averaging
+  // filter them all and recover the two clusters.
+  ASSERT_EQ(reconstruction_manager->Size(), 2);
+  EXPECT_THAT(RegImageIdSetsPerReconstruction(*reconstruction_manager),
+              testing::UnorderedElementsAreArray(expected_components));
+}
+
+// End-to-end: with no matches at all, the view graph is empty and the pipeline
+// produces no reconstructions.
+TEST(GlobalPipeline, MultiComponentsEmptyViewGraph) {
+  SetPRNGSeed(1);
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 20;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  // Remove all matches so the view graph is empty.
+  database->ClearTwoViewGeometries();
+  database->ClearMatches();
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  GlobalPipelineOptions options;
+  GlobalPipeline mapper(std::move(options), database, reconstruction_manager);
+  mapper.Run();
+
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
 }
 
 }  // namespace
