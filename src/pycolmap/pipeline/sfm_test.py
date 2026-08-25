@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -78,6 +79,10 @@ def test_incremental_mapping(tmp_path: Path):
     assert (output_path / "0").exists()
 
 
+@pytest.mark.skipif(
+    os.environ.get("BUILD_CUDA_ENABLED") == "true",
+    reason="Covered by the CPU wheel; unsupported by the CUDA builder host",
+)
 def test_global_mapping(tmp_path: Path):
     pycolmap.set_random_seed(0)
 
