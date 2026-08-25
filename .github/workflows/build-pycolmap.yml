@@ -20,7 +20,6 @@ jobs:
     name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     strategy:
-      fail-fast: false
       matrix:
         config: [
           {os: ubuntu-24.04, cudaEnabled: false},
@@ -60,8 +59,8 @@ jobs:
         uses: actions/cache@v6
         id: cache-compiler
         with:
-          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-
+          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
@@ -176,7 +175,6 @@ jobs:
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/project/build/vcpkg_installed"
-          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.SIMD_ENABLED=OFF"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.WERROR_ENABLED=ON"
           echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
@@ -206,8 +204,6 @@ jobs:
 
           CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR FETCHCONTENT_BASE_DIR FETCHCONTENT_FULLY_DISCONNECTED"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
-          echo "CIBW_BEFORE_TEST_LINUX=dnf install -y gdb" >> "$GITHUB_ENV"
-          echo 'CIBW_TEST_COMMAND_LINUX=cd {project} && gdb -batch -ex run -ex "thread apply all bt full" --args python -m pytest -s -vv' >> "$GITHUB_ENV"
 
           if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
             CIBW_MANYLINUX_X86_64_IMAGE="pytorch/manylinux2_28-builder:cuda12.9"

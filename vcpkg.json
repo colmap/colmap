@@ -28,6 +28,13 @@
             "default-features": false
         },
         "metis",
+        {
+            "name": "openblas",
+            "features": [
+                "dynamic-arch"
+            ],
+            "platform": "linux"
+        },
         "openimageio",
         "sqlite3",
         {
