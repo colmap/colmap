@@ -1591,6 +1591,48 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
+TEST(PosePriorBundleAdjuster, ConstantSensorFromRigWithMissingPositionCov) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 2;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.prior_position = true;
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (const PosePrior& pose_prior : pose_priors) {
+    EXPECT_FALSE(pose_prior.HasPositionCov());
+  }
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.refine_sensor_from_rig = false;
+  BundleAdjustmentConfig ba_config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    ba_config.AddImage(image_id);
+  }
+
+  auto adjuster =
+      CreatePosePriorBundleAdjuster(ba_options,
+                                    PosePriorBundleAdjustmentOptions(),
+                                    ba_config,
+                                    std::move(pose_priors),
+                                    reconstruction);
+  ceres::Problem& problem = GetCeresProblem(*adjuster);
+
+  for (auto& [_, rig] : reconstruction.Rigs()) {
+    for (auto& [_, sensor_from_rig] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig.has_value());
+      ASSERT_TRUE(problem.HasParameterBlock(sensor_from_rig->params.data()));
+      EXPECT_TRUE(
+          problem.IsParameterBlockConstant(sensor_from_rig->params.data()));
+    }
+  }
+}
+
 TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
