@@ -5,6 +5,11 @@ import pytest
 
 import pycolmap
 
+skip_in_cuda_wheel = pytest.mark.skipif(
+    os.environ.get("BUILD_CUDA_ENABLED") == "true",
+    reason="Covered by the CPU wheel; unsupported by the CUDA builder host",
+)
+
 
 def test_view_graph_calibration_options_init():
     options = pycolmap.ViewGraphCalibrationOptions()
@@ -79,10 +84,7 @@ def test_incremental_mapping(tmp_path: Path):
     assert (output_path / "0").exists()
 
 
-@pytest.mark.skipif(
-    os.environ.get("BUILD_CUDA_ENABLED") == "true",
-    reason="Covered by the CPU wheel; unsupported by the CUDA builder host",
-)
+@skip_in_cuda_wheel
 def test_global_mapping(tmp_path: Path):
     pycolmap.set_random_seed(0)
 
@@ -128,6 +130,7 @@ def test_global_mapping(tmp_path: Path):
         assert error.proj_center_error < 1e-4
 
 
+@skip_in_cuda_wheel
 def test_hierarchical_mapping(tmp_path: Path):
     pycolmap.set_random_seed(0)
 
