@@ -17,7 +17,9 @@ void BindFeatureTypes(py::module& m) {
       .value("UNDEFINED", FeatureExtractorType::UNDEFINED)
       .value("SIFT", FeatureExtractorType::SIFT)
       .value("ALIKED_N16ROT", FeatureExtractorType::ALIKED_N16ROT)
-      .value("ALIKED_N32", FeatureExtractorType::ALIKED_N32);
+      .value("ALIKED_N32", FeatureExtractorType::ALIKED_N32)
+      .value("LOMA_B", FeatureExtractorType::LOMA_B)
+      .value("LOMA_B128", FeatureExtractorType::LOMA_B128);
 
   // Define both classes first without cross-referencing methods.
   auto PyFeatureDescriptors =

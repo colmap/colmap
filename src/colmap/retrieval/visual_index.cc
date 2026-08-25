@@ -660,6 +660,8 @@ std::unique_ptr<VisualIndex> VisualIndex::Create(int desc_dim,
     return std::make_unique<FaissVisualIndex<128, 64>>();
   } else if (desc_dim == 32 && embedding_dim == 16) {
     return std::make_unique<FaissVisualIndex<32, 16>>();
+  } else if (desc_dim == 256 && embedding_dim == 64) {
+    return std::make_unique<FaissVisualIndex<256, 64>>();
   } else {
     std::ostringstream error;
     error << "Visual index with descriptor dimension " << desc_dim

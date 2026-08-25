@@ -279,10 +279,10 @@ available as ``colmap [command]``:
 - ``automatic_reconstructor``: Automatically reconstruct sparse and dense model
   for a set of input images. Key options include ``--quality`` (LOW, MEDIUM,
   HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
-  for different capture scenarios, ``--feature`` (SIFT, ALIKED) to select the
-  feature extraction algorithm, ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL)
-  to choose the SfM pipeline, and ``--mesher`` (POISSON, DELAUNAY,
-  ADVANCING_FRONT) to select the surface reconstruction method.
+  for different capture scenarios, ``--feature`` (SIFT, ALIKED, LOMA, LOMA128)
+  to select the feature extraction algorithm, ``--mapper`` (INCREMENTAL,
+  HIERARCHICAL, GLOBAL) to choose the SfM pipeline, and ``--mesher`` (POISSON,
+  DELAUNAY, ADVANCING_FRONT) to select the surface reconstruction method.
 
 - ``project_generator``: Generate project files at different quality settings.
 
