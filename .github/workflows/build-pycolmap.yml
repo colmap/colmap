@@ -28,7 +28,7 @@ jobs:
           {os: ubuntu-24.04, cudaEnabled: true},
         ]
     env:
-      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_VERSION: 2
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
