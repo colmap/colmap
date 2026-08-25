@@ -30,15 +30,66 @@
 #include "colmap/estimators/bundle_adjustment.h"
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+constexpr double kConstantPoseVarEps = 1e-9;
+
+void ExpectVariableCamera(const Camera& camera, const Camera& orig_camera) {
+  const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
+  const size_t extra_param_idx = SimpleRadialCameraModel::extra_params_idxs[0];
+  EXPECT_NE(camera.params[focal_length_idx],
+            orig_camera.params[focal_length_idx]);
+  EXPECT_NE(camera.params[extra_param_idx],
+            orig_camera.params[extra_param_idx]);
+}
+
+void ExpectConstantCamera(const Camera& camera, const Camera& orig_camera) {
+  const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
+  const size_t extra_param_idx = SimpleRadialCameraModel::extra_params_idxs[0];
+  EXPECT_EQ(camera.params[focal_length_idx],
+            orig_camera.params[focal_length_idx]);
+  EXPECT_EQ(camera.params[extra_param_idx],
+            orig_camera.params[extra_param_idx]);
+}
+
+void ExpectVariableCamFromWorld(const Image& image, const Image& orig_image) {
+  EXPECT_THAT(image.CamFromWorld(),
+              testing::Not(Rigid3dEq(orig_image.CamFromWorld())));
+}
+
+void ExpectConstantCamFromWorld(const Image& image, const Image& orig_image) {
+  EXPECT_THAT(
+      image.CamFromWorld(),
+      Rigid3dNear(
+          orig_image.CamFromWorld(), kConstantPoseVarEps, kConstantPoseVarEps));
+}
+
+void ExpectVariablePoint(const Point3D& point, const Point3D& orig_point) {
+  EXPECT_NE(point.xyz, orig_point.xyz);
+}
+
+void ExpectConstantPoint(const Point3D& point, const Point3D& orig_point) {
+  EXPECT_EQ(point.xyz, orig_point.xyz);
+}
+
+std::vector<BundleAdjustmentBackend> BundleAdjustmentBackends() {
+  std::vector<BundleAdjustmentBackend> backends = {
+      BundleAdjustmentBackend::CERES};
+#ifdef CASPAR_ENABLED
+  backends.push_back(BundleAdjustmentBackend::CASPAR);
+#endif
+  return backends;
+}
 
 TEST(BundleAdjustmentOptions, Copy) {
   BundleAdjustmentOptions options;
@@ -347,6 +398,159 @@ TEST_P(BundleAdjusterBackendTest, Nominal) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
+TEST_P(BundleAdjusterBackendTest, NominalMultiCameraRigConstantSensorFromRig) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  Reconstruction reconstruction = gt_reconstruction;
+
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  options.refine_sensor_from_rig = false;
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
+}
+
+TEST_P(BundleAdjusterBackendTest, TwoView) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 400);
+
+  ExpectConstantCamFromWorld(reconstruction.Image(1),
+                             orig_reconstruction.Image(1));
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    ExpectVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
+TEST_P(BundleAdjusterBackendTest, TwoViewConstantCamera) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
+  config.SetConstantCamIntrinsics(1);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 400);
+
+  ExpectConstantCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  ExpectVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
+  ExpectConstantCamFromWorld(reconstruction.Image(1),
+                             orig_reconstruction.Image(1));
+  ExpectConstantCamFromWorld(reconstruction.Image(2),
+                             orig_reconstruction.Image(2));
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    ExpectVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
+TEST_P(BundleAdjusterBackendTest, PartiallyContainedTracks) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const point3D_t variable_point3D_id =
+      reconstruction.Image(3).Point2D(0).point3D_id;
+  reconstruction.DeleteObservation(3, 0);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.SetConstantRigFromWorldPose(1);
+  config.SetConstantRigFromWorldPose(2);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 400);
+
+  ExpectVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  ExpectVariableCamera(reconstruction.Camera(2), orig_reconstruction.Camera(2));
+  ExpectConstantCamera(reconstruction.Camera(3), orig_reconstruction.Camera(3));
+  ExpectConstantCamFromWorld(reconstruction.Image(3),
+                             orig_reconstruction.Image(3));
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D_id == variable_point3D_id) {
+      ExpectVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+    } else {
+      ExpectConstantPoint(point3D, orig_reconstruction.Point3D(point3D_id));
+    }
+  }
+}
+
 TEST_P(BundleAdjusterBackendTest, MinimumTrackLength) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -380,6 +584,84 @@ TEST_P(BundleAdjusterBackendTest, MinimumTrackLength) {
   EXPECT_EQ(summary->num_residuals, 594);
 }
 
+TEST_P(BundleAdjusterBackendTest, MinimumTrackLengthWithExternalObservations) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  // Shorten one track from three to two observations. The remaining
+  // observations are split between a configured image and an external image.
+  reconstruction.DeleteObservation(2, 0);
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    config.AddVariablePoint(point3D_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  options.min_track_length = 3;
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  // 99 points x 3 observations x 2 residuals per observation. The point with
+  // a two-observation track is excluded from both configured and external
+  // images.
+  EXPECT_EQ(summary->num_residuals, 594);
+}
+
+TEST_P(BundleAdjusterBackendTest, ConstantPoints) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  const point3D_t constant_point3D_id1 = 1;
+  const point3D_t constant_point3D_id2 = 2;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddConstantPoint(constant_point3D_id1);
+  config.AddConstantPoint(constant_point3D_id2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 400);
+
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D_id == constant_point3D_id1 ||
+        point3D_id == constant_point3D_id2) {
+      ExpectConstantPoint(point3D, orig_reconstruction.Point3D(point3D_id));
+    } else {
+      ExpectVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+    }
+  }
+}
+
 TEST_P(BundleAdjusterBackendTest, ConstantPoints3D) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -407,13 +689,153 @@ TEST_P(BundleAdjusterBackendTest, ConstantPoints3D) {
   EXPECT_EQ(summary->num_residuals, 80);
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    EXPECT_EQ(point3D.xyz, original_reconstruction.Point3D(point3D_id).xyz);
+    ExpectConstantPoint(point3D, original_reconstruction.Point3D(point3D_id));
   }
+}
+
+TEST_P(BundleAdjusterBackendTest, VariableImage) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 600);
+
+  ExpectConstantCamFromWorld(reconstruction.Image(1),
+                             orig_reconstruction.Image(1));
+  ExpectVariableCamFromWorld(reconstruction.Image(3),
+                             orig_reconstruction.Image(3));
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    ExpectVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
+  }
+}
+
+TEST_P(BundleAdjusterBackendTest, ConstantFocalLengthAndExtraParams) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  options.refine_focal_length = false;
+  options.refine_extra_params = false;
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 400);
+
+  const size_t focal_length_idx = SimpleRadialCameraModel::focal_length_idxs[0];
+  const size_t extra_param_idx = SimpleRadialCameraModel::extra_params_idxs[0];
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    const Camera& orig_camera = orig_reconstruction.Camera(camera_id);
+    EXPECT_EQ(camera.params[focal_length_idx],
+              orig_camera.params[focal_length_idx]);
+    EXPECT_EQ(camera.params[extra_param_idx],
+              orig_camera.params[extra_param_idx]);
+  }
+}
+
+TEST_P(BundleAdjusterBackendTest, VariablePrincipalPoint) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  options.refine_principal_point = true;
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+  EXPECT_EQ(summary->num_residuals, 400);
+
+  const size_t principal_point_idx_x =
+      SimpleRadialCameraModel::principal_point_idxs[0];
+  const size_t principal_point_idx_y =
+      SimpleRadialCameraModel::principal_point_idxs[1];
+  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
+    const Camera& orig_camera = orig_reconstruction.Camera(camera_id);
+    EXPECT_NE(camera.params[principal_point_idx_x],
+              orig_camera.params[principal_point_idx_x]);
+    EXPECT_NE(camera.params[principal_point_idx_y],
+              orig_camera.params[principal_point_idx_y]);
+  }
+}
+
+TEST_P(BundleAdjusterBackendTest, IgnorePoint) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  config.AddImage(2);
+  config.IgnorePoint(42);
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.backend = GetParam();
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  // 99 points (point 42 ignored), 2 images, 2 residuals per observation.
+  EXPECT_EQ(summary->num_residuals, 396);
 }
 
 INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
                          BundleAdjusterBackendTest,
-                         ::testing::Values(BundleAdjustmentBackend::CERES));
+                         ::testing::ValuesIn(BundleAdjustmentBackends()));
 
 // Parameterized test for generic PosePriorBundleAdjuster interface across
 // backends.
