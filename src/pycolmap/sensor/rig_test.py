@@ -145,3 +145,22 @@ def test_rig_map_insert_and_access():
     rig_map[1] = rig
     assert len(rig_map) == 1
     assert rig_map[1].rig_id == 1
+    assert "RigMap{1: Rig(rig_id=1" in repr(rig_map)
+
+
+def test_reconstruction_rig_map_views_and_iteration():
+    reconstruction = pycolmap.Reconstruction()
+    camera = pycolmap.Camera.create_from_model_id(
+        camera_id=1,
+        model=pycolmap.CameraModelId.SIMPLE_PINHOLE,
+        focal_length=1.0,
+        width=1,
+        height=1,
+    )
+    reconstruction.add_camera_with_trivial_rig(camera)
+
+    assert isinstance(repr(reconstruction.rigs.values()), str)
+    assert [rig.rig_id for rig in reconstruction.rigs.values()] == [1]
+    assert [
+        (rig_id, rig.rig_id) for rig_id, rig in reconstruction.rigs.items()
+    ] == [(1, 1)]
