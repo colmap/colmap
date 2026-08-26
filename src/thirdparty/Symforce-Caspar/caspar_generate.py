@@ -120,6 +120,45 @@ class ConstPinholeFocal(sf.V2):
     pass
 
 
+# ThinPrismFisheye: params =
+# [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1]
+#
+# The merged Calib node keeps COLMAP's parameter order exactly. The split
+# layout follows the existing CASPAR focal/extra + principal-point scheme:
+# focal_and_extra = [fx, fy, k1, k2, p1, p2, k3, k4, sx1, sy1]
+# principal_point = [cx, cy].
+class ThinPrismFisheyePose(sf.Pose3):
+    pass
+
+
+class ConstThinPrismFisheyePose(sf.Pose3):
+    pass
+
+
+class ThinPrismFisheyeCalib(sf.Matrix(12, 1).__class__):
+    pass
+
+
+class ConstThinPrismFisheyeCalib(sf.Matrix(12, 1).__class__):
+    pass
+
+
+class ThinPrismFisheyePrincipalPoint(sf.V2):
+    pass
+
+
+class ConstThinPrismFisheyePrincipalPoint(sf.V2):
+    pass
+
+
+class ThinPrismFisheyeFocalAndExtra(sf.Matrix(10, 1).__class__):
+    pass
+
+
+class ConstThinPrismFisheyeFocalAndExtra(sf.Matrix(10, 1).__class__):
+    pass
+
+
 # Constant sensor-from-rig calibration, stored as ConstantSequential
 # (7 floats = 28 B f32 / 56 B f64 loaded from global memory per factor).
 # ConstantShared would deduplicate to one slot per unique sensor per block,
@@ -134,6 +173,10 @@ class ConstSimpleRadialSensorFromRig(sf.Pose3):
 
 
 class ConstPinholeSensorFromRig(sf.Pose3):
+    pass
+
+
+class ConstThinPrismFisheyeSensorFromRig(sf.Pose3):
     pass
 
 
@@ -262,6 +305,55 @@ def pinhole_core(
     return sf.V2([fx * p[0] + cx, fy * p[1] + cy]) - pixel
 
 
+def thin_prism_fisheye_project(point_cam, calib) -> sf.V2:
+    """COLMAP THIN_PRISM_FISHEYE projection.
+
+    calib is in COLMAP order:
+    [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1].
+    COLMAP maps normalized pinhole coordinates to fisheye coordinates first,
+    then applies radial/tangential/thin-prism distortion in fisheye space.
+    """
+    fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1 = calib
+    depth = point_cam[2]
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
+    r2_normal = p.squared_norm()
+    r_normal = sf.sqrt(r2_normal)
+    theta = sf.atan(r_normal)
+    fisheye_scale = theta / (
+        r_normal + sf.epsilon() * sf.sign_no_zero(r_normal)
+    )
+    uu = fisheye_scale * p[0]
+    vv = fisheye_scale * p[1]
+
+    uu2 = uu * uu
+    uuvv = uu * vv
+    vv2 = vv * vv
+    rr2 = uu2 + vv2
+    rr4 = rr2 * rr2
+    rr6 = rr4 * rr2
+    rr8 = rr6 * rr2
+    radial = k1 * rr2 + k2 * rr4 + k3 * rr6 + k4 * rr8
+    du = uu * radial + 2 * p1 * uuvv + p2 * (rr2 + 2 * uu2) + sx1 * rr2
+    dv = vv * radial + 2 * p2 * uuvv + p1 * (rr2 + 2 * vv2) + sy1 * rr2
+    return sf.V2([fx * (uu + du) + cx, fy * (vv + dv) + cy])
+
+
+def thin_prism_fisheye_core(
+    pose: T.Annotated[ThinPrismFisheyePose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstThinPrismFisheyeSensorFromRig, mem.ConstantSequential
+    ],
+    calib: T.Annotated[
+        ThinPrismFisheyeCalib, mem.TunableShared
+    ],  # [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1]
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """Reprojection residual for COLMAP's THIN_PRISM_FISHEYE model."""
+    cam_T_world = sensor_from_rig * pose
+    return thin_prism_fisheye_project(cam_T_world * point, calib) - pixel
+
+
 # Split cores delegate to merged cores to avoid duplicating projection math.
 
 
@@ -311,6 +403,46 @@ def pinhole_split_core(
     return pinhole_core(pose, sensor_from_rig, calib, point, pixel)
 
 
+def thin_prism_fisheye_split_core(
+    pose: T.Annotated[ThinPrismFisheyePose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstThinPrismFisheyeSensorFromRig, mem.ConstantSequential
+    ],
+    focal_and_extra: T.Annotated[
+        ThinPrismFisheyeFocalAndExtra, mem.TunableShared
+    ],
+    principal_point: T.Annotated[
+        ThinPrismFisheyePrincipalPoint, mem.TunableShared
+    ],
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """Split-calib variant of thin_prism_fisheye_core.
+
+    focal_and_extra = [fx, fy, k1, k2, p1, p2, k3, k4, sx1, sy1],
+    principal_point = [cx, cy].
+    """
+    calib = sf.Matrix(
+        [
+            focal_and_extra[0],
+            focal_and_extra[1],
+            principal_point[0],
+            principal_point[1],
+            focal_and_extra[2],
+            focal_and_extra[3],
+            focal_and_extra[4],
+            focal_and_extra[5],
+            focal_and_extra[6],
+            focal_and_extra[7],
+            focal_and_extra[8],
+            focal_and_extra[9],
+        ]
+    )
+    return thin_prism_fisheye_core(
+        pose, sensor_from_rig, calib, point, pixel
+    )
+
+
 dtype = mem.DType.DOUBLE if precision == "f64" else mem.DType.FLOAT
 caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 
@@ -348,6 +480,11 @@ FIXABLE_PINHOLE = {
     "point": ConstPoint,
 }
 
+FIXABLE_THIN_PRISM_FISHEYE = {
+    "pose": ConstThinPrismFisheyePose,
+    "point": ConstPoint,
+}
+
 FIXABLE_SIMPLE_RADIAL_SPLIT = {
     "pose": ConstSimpleRadialPose,
     "focal_and_extra": ConstSimpleRadialFocalAndExtra,
@@ -362,6 +499,13 @@ FIXABLE_PINHOLE_SPLIT = {
     "point": ConstPoint,
 }
 
+FIXABLE_THIN_PRISM_FISHEYE_SPLIT = {
+    "pose": ConstThinPrismFisheyePose,
+    "focal_and_extra": ConstThinPrismFisheyeFocalAndExtra,
+    "principal_point": ConstThinPrismFisheyePrincipalPoint,
+    "point": ConstPoint,
+}
+
 # Merged: BASE, FIXED_POSE, FIXED_POINT, FIXED_POSE_FIXED_POINT (4 variants).
 register_camera_model(
     caslib,
@@ -372,6 +516,13 @@ register_camera_model(
 )
 register_camera_model(
     caslib, "pinhole", pinhole_core, FIXABLE_PINHOLE, include_all_fixed=True
+)
+register_camera_model(
+    caslib,
+    "thin_prism_fisheye",
+    thin_prism_fisheye_core,
+    FIXABLE_THIN_PRISM_FISHEYE,
+    include_all_fixed=True,
 )
 
 # Split: all variants where at least one of
@@ -389,6 +540,13 @@ register_camera_model(
     pinhole_split_core,
     FIXABLE_PINHOLE_SPLIT,
     must_fix_one_of={"focal", "principal_point"},
+)
+register_camera_model(
+    caslib,
+    "thin_prism_fisheye_split",
+    thin_prism_fisheye_split_core,
+    FIXABLE_THIN_PRISM_FISHEYE_SPLIT,
+    must_fix_one_of={"focal_and_extra", "principal_point"},
 )
 
 out_dir = Path(f"{sys.argv[1]}")

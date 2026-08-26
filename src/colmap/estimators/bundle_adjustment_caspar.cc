@@ -643,14 +643,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
           const size_t cal_size = adapter_ptr->CalibSize();
           std::vector<StorageType> calib_data(n_calib * cal_size);
           for (size_t i = 0; i < n_calib; ++i) {
-            for (size_t j = 0; j < fae_size; ++j) {
-              calib_data[i * cal_size + j] =
-                  md.focal_and_extra_data[i * fae_size + j];
-            }
-            for (size_t j = 0; j < pp_size; ++j) {
-              calib_data[i * cal_size + fae_size + j] =
-                  md.principal_point_data[i * pp_size + j];
-            }
+            adapter_ptr->MergeCalibData(
+                md.focal_and_extra_data.data() + i * fae_size,
+                md.principal_point_data.data() + i * pp_size,
+                calib_data.data() + i * cal_size);
           }
           if (n_calib > 0) {
             VLOG(2) << "  SetCalibNodes [cam 0, model "
@@ -719,14 +715,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
                     << calib_data[3] << "]";
           }
           for (size_t i = 0; i < n_calib; ++i) {
-            for (size_t j = 0; j < fae_size; ++j) {
-              md.focal_and_extra_data[i * fae_size + j] =
-                  calib_data[i * cal_size + j];
-            }
-            for (size_t j = 0; j < pp_size; ++j) {
-              md.principal_point_data[i * pp_size + j] =
-                  calib_data[i * cal_size + fae_size + j];
-            }
+            adapter_ptr->SplitCalibData(
+                calib_data.data() + i * cal_size,
+                md.focal_and_extra_data.data() + i * fae_size,
+                md.principal_point_data.data() + i * pp_size);
           }
           if (n_calib > 0) {
             VLOG(2) << "  After split-back [cam 0]: fae=["
@@ -881,6 +873,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
         it != num_poses_per_model_.end()) {
       sz.num_pinhole_poses = it->second;
     }
+    if (auto it = num_poses_per_model_.find(CameraModelId::kThinPrismFisheye);
+        it != num_poses_per_model_.end()) {
+      sz.num_thin_prism_fisheye_poses = it->second;
+    }
     auto get_md = [&](CameraModelId id) -> const ModelData* {
       auto it = model_data_per_model_.find(id);
       return it != model_data_per_model_.end() ? &it->second : nullptr;
@@ -899,6 +895,12 @@ class CasparBundleAdjuster : public BundleAdjuster {
       sz.num_pinhole_calibs = get_n(CameraModelId::kPinhole);
       adapters_.at(CameraModelId::kPinhole)
           ->FillSizing(sz, *md, sz.num_pinhole_calibs);
+    }
+    if (const ModelData* md = get_md(CameraModelId::kThinPrismFisheye)) {
+      sz.num_thin_prism_fisheye_calibs =
+          get_n(CameraModelId::kThinPrismFisheye);
+      adapters_.at(CameraModelId::kThinPrismFisheye)
+          ->FillSizing(sz, *md, sz.num_thin_prism_fisheye_calibs);
     }
     return sz;
   }
