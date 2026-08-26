@@ -136,6 +136,62 @@ cudaError_t ConstSimpleRadialSensorFromRigCasparToStacked(
     const unsigned int cas_offset,
     const unsigned int num_objects);
 
+cudaError_t ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstThinPrismFisheyeFocalAndExtraCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstThinPrismFisheyePoseStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstThinPrismFisheyePoseCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstThinPrismFisheyePrincipalPointCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ConstThinPrismFisheyeSensorFromRigCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
 cudaError_t PinholeCalibStackedToCaspar(const double* stacked_data,
                                         double* cas_data,
                                         const unsigned int cas_stride,
@@ -244,6 +300,60 @@ cudaError_t SimpleRadialPrincipalPointStackedToCaspar(
     const unsigned int num_objects);
 
 cudaError_t SimpleRadialPrincipalPointCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyeCalibStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyeCalibCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyeFocalAndExtraStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyeFocalAndExtraCasparToStacked(
+    const double* cas_data,
+    double* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyePoseStackedToCaspar(const double* stacked_data,
+                                                double* cas_data,
+                                                const unsigned int cas_stride,
+                                                const unsigned int cas_offset,
+                                                const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyePoseCasparToStacked(const double* cas_data,
+                                                double* stacked_data,
+                                                const unsigned int cas_stride,
+                                                const unsigned int cas_offset,
+                                                const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyePrincipalPointStackedToCaspar(
+    const double* stacked_data,
+    double* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyePrincipalPointCasparToStacked(
     const double* cas_data,
     double* stacked_data,
     const unsigned int cas_stride,

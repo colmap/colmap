@@ -1,0 +1,86 @@
+#include "kernel_ThinPrismFisheyePrincipalPoint_start_w_contribute.h"
+#include "memops.cuh"
+#include <cooperative_groups.h>
+#include <cooperative_groups/details/partitioning.h>
+#include <cooperative_groups/memcpy_async.h>
+#include <cooperative_groups/reduce.h>
+#include <cuda_runtime.h>
+
+namespace cg = cooperative_groups;
+
+namespace caspar {
+
+__global__ void __launch_bounds__(1024, 1)
+    ThinPrismFisheyePrincipalPointStartWContributeKernel(
+        double* ThinPrismFisheyePrincipalPoint_precond_diag,
+        unsigned int ThinPrismFisheyePrincipalPoint_precond_diag_num_alloc,
+        const double* const diag,
+        double* ThinPrismFisheyePrincipalPoint_p,
+        unsigned int ThinPrismFisheyePrincipalPoint_p_num_alloc,
+        double* out_ThinPrismFisheyePrincipalPoint_w,
+        unsigned int out_ThinPrismFisheyePrincipalPoint_w_num_alloc,
+        size_t problem_size) {
+  const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ uint8_t inout_shared[8192];
+
+  double r0, r1, r2, r3, r4;
+
+  if (global_thread_idx < problem_size) {
+    ReadIdx2<1024, double, double, double2>(
+        ThinPrismFisheyePrincipalPoint_precond_diag,
+        0 * ThinPrismFisheyePrincipalPoint_precond_diag_num_alloc,
+        global_thread_idx,
+        r0,
+        r1);
+  };
+  LoadUnique<1, double, double>(diag, 0, (double*)inout_shared);
+  if (global_thread_idx < problem_size) {
+    ReadShared1<double>((double*)inout_shared, 0, r2);
+  };
+  __syncthreads();
+  if (global_thread_idx < problem_size) {
+    r0 = r0 * r2;
+    ReadIdx2<1024, double, double, double2>(
+        ThinPrismFisheyePrincipalPoint_p,
+        0 * ThinPrismFisheyePrincipalPoint_p_num_alloc,
+        global_thread_idx,
+        r3,
+        r4);
+    r0 = r0 * r3;
+    r2 = r1 * r2;
+    r2 = r2 * r4;
+    AddIdx2<1024, double, double, double2>(
+        out_ThinPrismFisheyePrincipalPoint_w,
+        0 * out_ThinPrismFisheyePrincipalPoint_w_num_alloc,
+        global_thread_idx,
+        r0,
+        r2);
+  };
+}
+
+void ThinPrismFisheyePrincipalPointStartWContribute(
+    double* ThinPrismFisheyePrincipalPoint_precond_diag,
+    unsigned int ThinPrismFisheyePrincipalPoint_precond_diag_num_alloc,
+    const double* const diag,
+    double* ThinPrismFisheyePrincipalPoint_p,
+    unsigned int ThinPrismFisheyePrincipalPoint_p_num_alloc,
+    double* out_ThinPrismFisheyePrincipalPoint_w,
+    unsigned int out_ThinPrismFisheyePrincipalPoint_w_num_alloc,
+    size_t problem_size) {
+  if (problem_size == 0) {
+    return;
+  }
+
+  const int n_blocks = (problem_size + 1024 - 1) / 1024;
+  ThinPrismFisheyePrincipalPointStartWContributeKernel<<<n_blocks, 1024>>>(
+      ThinPrismFisheyePrincipalPoint_precond_diag,
+      ThinPrismFisheyePrincipalPoint_precond_diag_num_alloc,
+      diag,
+      ThinPrismFisheyePrincipalPoint_p,
+      ThinPrismFisheyePrincipalPoint_p_num_alloc,
+      out_ThinPrismFisheyePrincipalPoint_w,
+      out_ThinPrismFisheyePrincipalPoint_w_num_alloc,
+      problem_size);
+}
+
+}  // namespace caspar

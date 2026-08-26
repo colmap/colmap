@@ -122,6 +122,58 @@
 #include "kernel_SimpleRadialPrincipalPoint_update_r_first.h"
 #include "kernel_SimpleRadialPrincipalPoint_update_step.h"
 #include "kernel_SimpleRadialPrincipalPoint_update_step_first.h"
+#include "kernel_ThinPrismFisheyeCalib_alpha_denominator_or_beta_numerator.h"
+#include "kernel_ThinPrismFisheyeCalib_alpha_numerator_denominator.h"
+#include "kernel_ThinPrismFisheyeCalib_normalize.h"
+#include "kernel_ThinPrismFisheyeCalib_pred_decrease_times_two.h"
+#include "kernel_ThinPrismFisheyeCalib_retract.h"
+#include "kernel_ThinPrismFisheyeCalib_start_w.h"
+#include "kernel_ThinPrismFisheyeCalib_start_w_contribute.h"
+#include "kernel_ThinPrismFisheyeCalib_update_Mp.h"
+#include "kernel_ThinPrismFisheyeCalib_update_p.h"
+#include "kernel_ThinPrismFisheyeCalib_update_r.h"
+#include "kernel_ThinPrismFisheyeCalib_update_r_first.h"
+#include "kernel_ThinPrismFisheyeCalib_update_step.h"
+#include "kernel_ThinPrismFisheyeCalib_update_step_first.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_alpha_denominator_or_beta_numerator.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_alpha_numerator_denominator.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_normalize.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_pred_decrease_times_two.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_retract.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_start_w.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_start_w_contribute.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_update_Mp.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_update_p.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_update_r.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_update_r_first.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_update_step.h"
+#include "kernel_ThinPrismFisheyeFocalAndExtra_update_step_first.h"
+#include "kernel_ThinPrismFisheyePose_alpha_denominator_or_beta_numerator.h"
+#include "kernel_ThinPrismFisheyePose_alpha_numerator_denominator.h"
+#include "kernel_ThinPrismFisheyePose_normalize.h"
+#include "kernel_ThinPrismFisheyePose_pred_decrease_times_two.h"
+#include "kernel_ThinPrismFisheyePose_retract.h"
+#include "kernel_ThinPrismFisheyePose_start_w.h"
+#include "kernel_ThinPrismFisheyePose_start_w_contribute.h"
+#include "kernel_ThinPrismFisheyePose_update_Mp.h"
+#include "kernel_ThinPrismFisheyePose_update_p.h"
+#include "kernel_ThinPrismFisheyePose_update_r.h"
+#include "kernel_ThinPrismFisheyePose_update_r_first.h"
+#include "kernel_ThinPrismFisheyePose_update_step.h"
+#include "kernel_ThinPrismFisheyePose_update_step_first.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_alpha_denominator_or_beta_numerator.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_alpha_numerator_denominator.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_normalize.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_pred_decrease_times_two.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_retract.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_start_w.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_start_w_contribute.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_update_Mp.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_update_p.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_update_r.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_update_r_first.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_update_step.h"
+#include "kernel_ThinPrismFisheyePrincipalPoint_update_step_first.h"
 #include "kernel_pinhole_fixed_point_jtjnjtr_direct.h"
 #include "kernel_pinhole_fixed_point_res_jac.h"
 #include "kernel_pinhole_fixed_point_res_jac_first.h"
@@ -242,6 +294,66 @@
 #include "kernel_simple_radial_split_fixed_principal_point_res_jac.h"
 #include "kernel_simple_radial_split_fixed_principal_point_res_jac_first.h"
 #include "kernel_simple_radial_split_fixed_principal_point_score.h"
+#include "kernel_thin_prism_fisheye_fixed_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_fixed_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_fixed_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_fixed_point_score.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_fixed_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_fixed_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_fixed_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_fixed_point_score.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_res_jac.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_fixed_pose_score.h"
+#include "kernel_thin_prism_fisheye_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_res_jac.h"
+#include "kernel_thin_prism_fisheye_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_focal_and_extra_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_fixed_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_fixed_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_fixed_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_fixed_point_score.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_jtjnjtr_direct.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_res_jac.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_res_jac_first.h"
+#include "kernel_thin_prism_fisheye_split_fixed_principal_point_score.h"
 #include "shared_indices.h"
 #include "solver_tools.h"
 #include "sort_indices.h"
@@ -286,6 +398,10 @@ GraphSolver::GraphSolver(
     size_t SimpleRadialFocalAndExtra_num_max,
     size_t SimpleRadialPose_num_max,
     size_t SimpleRadialPrincipalPoint_num_max,
+    size_t ThinPrismFisheyeCalib_num_max,
+    size_t ThinPrismFisheyeFocalAndExtra_num_max,
+    size_t ThinPrismFisheyePose_num_max,
+    size_t ThinPrismFisheyePrincipalPoint_num_max,
     size_t simple_radial_num_max,
     size_t simple_radial_fixed_pose_num_max,
     size_t simple_radial_fixed_point_num_max,
@@ -294,6 +410,10 @@ GraphSolver::GraphSolver(
     size_t pinhole_fixed_pose_num_max,
     size_t pinhole_fixed_point_num_max,
     size_t pinhole_fixed_pose_fixed_point_num_max,
+    size_t thin_prism_fisheye_num_max,
+    size_t thin_prism_fisheye_fixed_pose_num_max,
+    size_t thin_prism_fisheye_fixed_point_num_max,
+    size_t thin_prism_fisheye_fixed_pose_fixed_point_num_max,
     size_t simple_radial_split_fixed_focal_and_extra_num_max,
     size_t simple_radial_split_fixed_principal_point_num_max,
     size_t simple_radial_split_fixed_pose_fixed_focal_and_extra_num_max,
@@ -321,6 +441,22 @@ GraphSolver::GraphSolver(
     size_t pinhole_split_fixed_pose_fixed_focal_fixed_point_num_max,
     size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
     size_t pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max,
+    size_t thin_prism_fisheye_split_fixed_focal_and_extra_num_max,
+    size_t thin_prism_fisheye_split_fixed_principal_point_num_max,
+    size_t thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max,
+    size_t thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max,
+    size_t
+        thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max,
+    size_t thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max,
+    size_t thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max,
+    size_t
+        thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max,
+    size_t
+        thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max,
+    size_t
+        thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
+    size_t
+        thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max,
     int device_id)
     : params_(params),
       device_id_(device_id),
@@ -342,6 +478,17 @@ GraphSolver::GraphSolver(
       SimpleRadialPose_num_max_(SimpleRadialPose_num_max),
       SimpleRadialPrincipalPoint_num_(SimpleRadialPrincipalPoint_num_max),
       SimpleRadialPrincipalPoint_num_max_(SimpleRadialPrincipalPoint_num_max),
+      ThinPrismFisheyeCalib_num_(ThinPrismFisheyeCalib_num_max),
+      ThinPrismFisheyeCalib_num_max_(ThinPrismFisheyeCalib_num_max),
+      ThinPrismFisheyeFocalAndExtra_num_(ThinPrismFisheyeFocalAndExtra_num_max),
+      ThinPrismFisheyeFocalAndExtra_num_max_(
+          ThinPrismFisheyeFocalAndExtra_num_max),
+      ThinPrismFisheyePose_num_(ThinPrismFisheyePose_num_max),
+      ThinPrismFisheyePose_num_max_(ThinPrismFisheyePose_num_max),
+      ThinPrismFisheyePrincipalPoint_num_(
+          ThinPrismFisheyePrincipalPoint_num_max),
+      ThinPrismFisheyePrincipalPoint_num_max_(
+          ThinPrismFisheyePrincipalPoint_num_max),
       simple_radial_num_(simple_radial_num_max),
       simple_radial_num_max_(simple_radial_num_max),
       simple_radial_fixed_pose_num_(simple_radial_fixed_pose_num_max),
@@ -362,6 +509,19 @@ GraphSolver::GraphSolver(
           pinhole_fixed_pose_fixed_point_num_max),
       pinhole_fixed_pose_fixed_point_num_max_(
           pinhole_fixed_pose_fixed_point_num_max),
+      thin_prism_fisheye_num_(thin_prism_fisheye_num_max),
+      thin_prism_fisheye_num_max_(thin_prism_fisheye_num_max),
+      thin_prism_fisheye_fixed_pose_num_(thin_prism_fisheye_fixed_pose_num_max),
+      thin_prism_fisheye_fixed_pose_num_max_(
+          thin_prism_fisheye_fixed_pose_num_max),
+      thin_prism_fisheye_fixed_point_num_(
+          thin_prism_fisheye_fixed_point_num_max),
+      thin_prism_fisheye_fixed_point_num_max_(
+          thin_prism_fisheye_fixed_point_num_max),
+      thin_prism_fisheye_fixed_pose_fixed_point_num_(
+          thin_prism_fisheye_fixed_pose_fixed_point_num_max),
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_(
+          thin_prism_fisheye_fixed_pose_fixed_point_num_max),
       simple_radial_split_fixed_focal_and_extra_num_(
           simple_radial_split_fixed_focal_and_extra_num_max),
       simple_radial_split_fixed_focal_and_extra_num_max_(
@@ -447,7 +607,51 @@ GraphSolver::GraphSolver(
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_(
           pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max),
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_(
-          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max) {
+          pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_num_max),
+      thin_prism_fisheye_split_fixed_principal_point_num_(
+          thin_prism_fisheye_split_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_principal_point_num_max_(
+          thin_prism_fisheye_split_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_(
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_(
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_(
+          thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_(
+          thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_(
+          thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_(
+          thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_(
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_(
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_(
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_(
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_(
+          thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_(
+          thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max),
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_(
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max) {
   indices_valid_ = false;
   if (params.pcg_rel_error_exit <= 0.0f) {
     throw std::runtime_error("params.pcg_rel_error_exit must be positive");
@@ -537,6 +741,37 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialPrincipalPoint__storage_new_best_ =
       assign_and_increment<double>(
           origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyeCalib__storage_current_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeCalib__storage_check_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeCalib__storage_new_best_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__storage_current_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__storage_check_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__storage_new_best_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyePose__storage_current_ = assign_and_increment<double>(
+      origin_ptr_, offset, 8 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePose__storage_check_ = assign_and_increment<double>(
+      origin_ptr_, offset, 8 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePose__storage_new_best_ = assign_and_increment<double>(
+      origin_ptr_, offset, 8 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__storage_current_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__storage_check_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__storage_new_best_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   facs__simple_radial__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
           origin_ptr_, offset, 1 * simple_radial_num_, 4);
@@ -662,6 +897,80 @@ GraphSolver::GraphSolver(
   facs__pinhole_fixed_pose_fixed_point__args__point__data_ =
       assign_and_increment<double>(
           origin_ptr_, offset, 4 * pinhole_fixed_pose_fixed_point_num_, 4);
+  facs__thin_prism_fisheye__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 8 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye__args__calib__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye__args__pixel__data_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 8 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__args__calib__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 2 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__args__pose__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 8 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 8 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__args__calib__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_, offset, 1 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 2 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 4 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__args__calib__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pose__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          4 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
   facs__simple_radial_split_fixed_focal_and_extra__args__pose__idx_shared_ =
       assign_and_increment<SharedIndex>(
           origin_ptr_,
@@ -1418,6 +1727,406 @@ GraphSolver::GraphSolver(
           offset,
           4 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__focal_and_extra__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          10 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__principal_point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pose__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          10 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pose__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__principal_point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          10 *
+              thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          10 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          4 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__principal_point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          4 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          10 *
+              thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          10 *
+              thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          4 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          4 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_ =
+      assign_and_increment<SharedIndex>(
+          origin_ptr_,
+          offset,
+          1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__sensor_from_rig__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          8 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          10 *
+              thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          4 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
   marker__scratch_inout_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   facs__simple_radial__res_ = assign_and_increment<double>(
@@ -1440,6 +2149,18 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * pinhole_fixed_point_num_, 4);
   facs__pinhole_fixed_pose_fixed_point__res_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+  facs__thin_prism_fisheye__res_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__res_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__res_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
   facs__simple_radial_split_fixed_focal_and_extra__res_ =
       assign_and_increment<double>(
           origin_ptr_,
@@ -1565,6 +2286,72 @@ GraphSolver::GraphSolver(
           offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
   facs__simple_radial__args__pose__jac_ = assign_and_increment<double>(
       origin_ptr_, offset, 12 * simple_radial_num_, 4);
   facs__simple_radial__args__calib__jac_ = assign_and_increment<double>(
@@ -1606,6 +2393,30 @@ GraphSolver::GraphSolver(
   facs__pinhole_fixed_pose_fixed_point__args__calib__jac_ =
       assign_and_increment<double>(
           origin_ptr_, offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+  facs__thin_prism_fisheye__args__pose__jac_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye__args__calib__jac_ = assign_and_increment<double>(
+      origin_ptr_, offset, 16 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye__args__point__jac_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__args__calib__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 16 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__args__point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 6 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__args__pose__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 12 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__args__calib__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 16 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__args__calib__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          16 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
   facs__simple_radial_split_fixed_focal_and_extra__args__pose__jac_ =
       assign_and_increment<double>(
           origin_ptr_,
@@ -1833,6 +2644,129 @@ GraphSolver::GraphSolver(
           offset,
           12 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          12 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          0 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          6 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          12 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          16 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__args__point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          6 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          0 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          6 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          16 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          6 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          12 *
+              thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          6 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          12 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          0 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          12 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          16 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          6 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          0 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          16 *
+              thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__jac_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          12 *
+              thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
   nodes__PinholeCalib__z_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * PinholeCalib_num_, 4);
   nodes__PinholeCalib__z_end__ =
@@ -1868,6 +2802,22 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialPrincipalPoint__z_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__z_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyeCalib__z_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeCalib__z_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__z_ = assign_and_increment<double>(
+      origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__z_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyePose__z_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePose__z_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__z_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__z_end__ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   nodes__PinholeCalib__p_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * PinholeCalib_num_, 4);
@@ -1905,6 +2855,22 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__p_end__ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyeCalib__p_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeCalib__p_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__p_ = assign_and_increment<double>(
+      origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__p_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyePose__p_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePose__p_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__p_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__p_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   nodes__PinholeCalib__step_ = assign_and_increment<double>(
       origin_ptr_, offset, 4 * PinholeCalib_num_, 4);
   nodes__PinholeCalib__step_end__ =
@@ -1941,6 +2907,22 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   nodes__SimpleRadialPrincipalPoint__step_end__ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyeCalib__step_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeCalib__step_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__step_ = assign_and_increment<double>(
+      origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__step_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyePose__step_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePose__step_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__step_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__step_end__ =
+      assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__w_start_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   nodes__PinholeCalib__w_ = assign_and_increment<double>(
@@ -1961,6 +2943,14 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__w_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyeCalib__w_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__w_ = assign_and_increment<double>(
+      origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyePose__w_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__w_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   marker__w_end_ = assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   marker__r_0_start_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
@@ -1982,6 +2972,14 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__r_0_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyeCalib__r_0_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__r_0_ = assign_and_increment<double>(
+      origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyePose__r_0_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__r_0_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   marker__r_0_end_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__r_k_start_ =
@@ -2004,6 +3002,14 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__r_k_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyeCalib__r_k_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__r_k_ = assign_and_increment<double>(
+      origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyePose__r_k_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__r_k_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   marker__r_k_end_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__Mp_start_ =
@@ -2026,6 +3032,14 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 6 * SimpleRadialPose_num_, 4);
   nodes__SimpleRadialPrincipalPoint__Mp_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyeCalib__Mp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__Mp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyePose__Mp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__Mp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   marker__Mp_end_ = assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
   marker__precond_start_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 4);
@@ -2069,6 +3083,26 @@ GraphSolver::GraphSolver(
   nodes__SimpleRadialPrincipalPoint__precond_tril_ =
       assign_and_increment<double>(
           origin_ptr_, offset, 1 * SimpleRadialPrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyeCalib__precond_diag_ = assign_and_increment<double>(
+      origin_ptr_, offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeCalib__precond_tril_ = assign_and_increment<double>(
+      origin_ptr_, offset, 66 * ThinPrismFisheyeCalib_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 45 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  nodes__ThinPrismFisheyePose__precond_diag_ = assign_and_increment<double>(
+      origin_ptr_, offset, 6 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePose__precond_tril_ = assign_and_increment<double>(
+      origin_ptr_, offset, 16 * ThinPrismFisheyePose_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__precond_diag_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  nodes__ThinPrismFisheyePrincipalPoint__precond_tril_ =
+      assign_and_increment<double>(
+          origin_ptr_, offset, 1 * ThinPrismFisheyePrincipalPoint_num_, 4);
   marker__precond_end_ =
       assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   marker__jp_start_ =
@@ -2093,6 +3127,18 @@ GraphSolver::GraphSolver(
       origin_ptr_, offset, 2 * pinhole_fixed_point_num_, 4);
   facs__pinhole_fixed_pose_fixed_point__jp_ = assign_and_increment<double>(
       origin_ptr_, offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+  facs__thin_prism_fisheye__jp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * thin_prism_fisheye_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose__jp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * thin_prism_fisheye_fixed_pose_num_, 4);
+  facs__thin_prism_fisheye_fixed_point__jp_ = assign_and_increment<double>(
+      origin_ptr_, offset, 2 * thin_prism_fisheye_fixed_point_num_, 4);
+  facs__thin_prism_fisheye_fixed_pose_fixed_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_fixed_pose_fixed_point_num_,
+          4);
   facs__simple_radial_split_fixed_focal_and_extra__jp_ =
       assign_and_increment<double>(
           origin_ptr_,
@@ -2217,6 +3263,72 @@ GraphSolver::GraphSolver(
           offset,
           2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
           4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+          4);
+  facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__jp_ =
+      assign_and_increment<double>(
+          origin_ptr_,
+          offset,
+          2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+          4);
   marker__jp_end_ = assign_and_increment<double>(origin_ptr_, offset, 0 * 0, 1);
   solver__current_diag_ =
       assign_and_increment<double>(origin_ptr_, offset, 1 * 1, 1);
@@ -2270,6 +3382,7 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
       std::chrono::steady_clock::now();
   std::chrono::time_point<std::chrono::steady_clock> t_prev = t0;
   score_best = DoResJacFirst();
+  result.initial_score = score_best;
   if (print_progress) {
     printf("                                 score_init: % .6e\n", score_best);
   }
@@ -2322,6 +3435,14 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
                   nodes__SimpleRadialPose__storage_new_best_);
         std::swap(nodes__SimpleRadialPrincipalPoint__storage_check_,
                   nodes__SimpleRadialPrincipalPoint__storage_new_best_);
+        std::swap(nodes__ThinPrismFisheyeCalib__storage_check_,
+                  nodes__ThinPrismFisheyeCalib__storage_new_best_);
+        std::swap(nodes__ThinPrismFisheyeFocalAndExtra__storage_check_,
+                  nodes__ThinPrismFisheyeFocalAndExtra__storage_new_best_);
+        std::swap(nodes__ThinPrismFisheyePose__storage_check_,
+                  nodes__ThinPrismFisheyePose__storage_new_best_);
+        std::swap(nodes__ThinPrismFisheyePrincipalPoint__storage_check_,
+                  nodes__ThinPrismFisheyePrincipalPoint__storage_new_best_);
         score_best_pcg = score_new_pcg;
         if (params_.pcg_rel_score_exit != -1.0f &&
             score_best_pcg < score_best * params_.pcg_rel_score_exit) {
@@ -2354,6 +3475,14 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
                 nodes__SimpleRadialPose__storage_new_best_);
       std::swap(nodes__SimpleRadialPrincipalPoint__storage_check_,
                 nodes__SimpleRadialPrincipalPoint__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyeCalib__storage_check_,
+                nodes__ThinPrismFisheyeCalib__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyeFocalAndExtra__storage_check_,
+                nodes__ThinPrismFisheyeFocalAndExtra__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyePose__storage_check_,
+                nodes__ThinPrismFisheyePose__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyePrincipalPoint__storage_check_,
+                nodes__ThinPrismFisheyePrincipalPoint__storage_new_best_);
     }
 
     const double diag_current = diag;
@@ -2386,6 +3515,14 @@ SolveResult GraphSolver::solve(bool print_progress, bool verbose_logging) {
                 nodes__SimpleRadialPose__storage_new_best_);
       std::swap(nodes__SimpleRadialPrincipalPoint__storage_current_,
                 nodes__SimpleRadialPrincipalPoint__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyeCalib__storage_current_,
+                nodes__ThinPrismFisheyeCalib__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+                nodes__ThinPrismFisheyeFocalAndExtra__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyePose__storage_current_,
+                nodes__ThinPrismFisheyePose__storage_new_best_);
+      std::swap(nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+                nodes__ThinPrismFisheyePrincipalPoint__storage_new_best_);
 
     } else {
       quality = 0.0f;
@@ -2718,6 +3855,144 @@ double GraphSolver::DoResJacFirst() {
       nodes__PinholeCalib__precond_tril_,
       PinholeCalib_num_,
       pinhole_fixed_pose_fixed_point_num_);
+
+  ThinPrismFisheyeResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye__args__pose__idx_shared_,
+      facs__thin_prism_fisheye__args__sensor_from_rig__data_,
+      thin_prism_fisheye_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye__args__calib__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye__args__point__idx_shared_,
+      facs__thin_prism_fisheye__args__pixel__data_,
+      thin_prism_fisheye_num_max_,
+
+      facs__thin_prism_fisheye__res_,
+      thin_prism_fisheye_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye__args__pose__jac_,
+      thin_prism_fisheye_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye__args__calib__jac_,
+      thin_prism_fisheye_num_,
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_tril_,
+      ThinPrismFisheyeCalib_num_,
+      facs__thin_prism_fisheye__args__point__jac_,
+      thin_prism_fisheye_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_num_);
+
+  ThinPrismFisheyeFixedPoseResJacFirst(
+      facs__thin_prism_fisheye_fixed_pose__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__calib__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__point__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+
+      facs__thin_prism_fisheye_fixed_pose__res_,
+      thin_prism_fisheye_fixed_pose_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_fixed_pose__args__calib__jac_,
+      thin_prism_fisheye_fixed_pose_num_,
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_tril_,
+      ThinPrismFisheyeCalib_num_,
+      facs__thin_prism_fisheye_fixed_pose__args__point__jac_,
+      thin_prism_fisheye_fixed_pose_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_fixed_pose_num_);
+
+  ThinPrismFisheyeFixedPointResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_fixed_point__res_,
+      thin_prism_fisheye_fixed_point_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_fixed_point__args__calib__jac_,
+      thin_prism_fisheye_fixed_point_num_,
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_tril_,
+      ThinPrismFisheyeCalib_num_,
+      thin_prism_fisheye_fixed_point_num_);
+
+  ThinPrismFisheyeFixedPoseFixedPointResJacFirst(
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__res_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_,
+      solver__res_tot_,
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_tril_,
+      ThinPrismFisheyeCalib_num_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_);
 
   SimpleRadialSplitFixedFocalAndExtraResJacFirst(
       nodes__SimpleRadialPose__storage_current_,
@@ -3480,6 +4755,387 @@ double GraphSolver::DoResJacFirst() {
       nodes__PinholePose__precond_tril_,
       PinholePose_num_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_);
+
+  ThinPrismFisheyeSplitFixedPrincipalPointResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraResJacFirst(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedPrincipalPointResJacFirst(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPointResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedPrincipalPointFixedPointResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      solver__res_tot_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointResJacFirst(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      solver__res_tot_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointResJacFirst(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      solver__res_tot_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointResJacFirst(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      solver__res_tot_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointResJacFirst(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      solver__res_tot_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__r_0_start_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__Mp_start_);
   return 0.5 * ReadCuMem(solver__res_tot_);
@@ -3760,6 +5416,143 @@ void GraphSolver::DoResJac() {
       nodes__PinholeCalib__precond_tril_,
       PinholeCalib_num_,
       pinhole_fixed_pose_fixed_point_num_);
+
+  ThinPrismFisheyeResJac(nodes__ThinPrismFisheyePose__storage_current_,
+                         ThinPrismFisheyePose_num_max_,
+                         facs__thin_prism_fisheye__args__pose__idx_shared_,
+                         facs__thin_prism_fisheye__args__sensor_from_rig__data_,
+                         thin_prism_fisheye_num_max_,
+                         nodes__ThinPrismFisheyeCalib__storage_current_,
+                         ThinPrismFisheyeCalib_num_max_,
+                         facs__thin_prism_fisheye__args__calib__idx_shared_,
+                         nodes__Point__storage_current_,
+                         Point_num_max_,
+                         facs__thin_prism_fisheye__args__point__idx_shared_,
+                         facs__thin_prism_fisheye__args__pixel__data_,
+                         thin_prism_fisheye_num_max_,
+
+                         facs__thin_prism_fisheye__res_,
+                         thin_prism_fisheye_num_,
+
+                         facs__thin_prism_fisheye__args__pose__jac_,
+                         thin_prism_fisheye_num_,
+                         nodes__ThinPrismFisheyePose__r_k_,
+                         ThinPrismFisheyePose_num_,
+                         nodes__ThinPrismFisheyePose__precond_diag_,
+                         ThinPrismFisheyePose_num_,
+                         nodes__ThinPrismFisheyePose__precond_tril_,
+                         ThinPrismFisheyePose_num_,
+                         facs__thin_prism_fisheye__args__calib__jac_,
+                         thin_prism_fisheye_num_,
+                         nodes__ThinPrismFisheyeCalib__r_k_,
+                         ThinPrismFisheyeCalib_num_,
+                         nodes__ThinPrismFisheyeCalib__precond_diag_,
+                         ThinPrismFisheyeCalib_num_,
+                         nodes__ThinPrismFisheyeCalib__precond_tril_,
+                         ThinPrismFisheyeCalib_num_,
+                         facs__thin_prism_fisheye__args__point__jac_,
+                         thin_prism_fisheye_num_,
+                         nodes__Point__r_k_,
+                         Point_num_,
+                         nodes__Point__precond_diag_,
+                         Point_num_,
+                         nodes__Point__precond_tril_,
+                         Point_num_,
+                         thin_prism_fisheye_num_);
+
+  ThinPrismFisheyeFixedPoseResJac(
+      facs__thin_prism_fisheye_fixed_pose__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__calib__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__point__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+
+      facs__thin_prism_fisheye_fixed_pose__res_,
+      thin_prism_fisheye_fixed_pose_num_,
+
+      facs__thin_prism_fisheye_fixed_pose__args__calib__jac_,
+      thin_prism_fisheye_fixed_pose_num_,
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_tril_,
+      ThinPrismFisheyeCalib_num_,
+      facs__thin_prism_fisheye_fixed_pose__args__point__jac_,
+      thin_prism_fisheye_fixed_pose_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_fixed_pose_num_);
+
+  ThinPrismFisheyeFixedPointResJac(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_fixed_point__res_,
+      thin_prism_fisheye_fixed_point_num_,
+
+      facs__thin_prism_fisheye_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_fixed_point__args__calib__jac_,
+      thin_prism_fisheye_fixed_point_num_,
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_tril_,
+      ThinPrismFisheyeCalib_num_,
+      thin_prism_fisheye_fixed_point_num_);
+
+  ThinPrismFisheyeFixedPoseFixedPointResJac(
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__res_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_,
+
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_tril_,
+      ThinPrismFisheyeCalib_num_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_);
 
   SimpleRadialSplitFixedFocalAndExtraResJac(
       nodes__SimpleRadialPose__storage_current_,
@@ -4522,6 +6315,387 @@ void GraphSolver::DoResJac() {
       nodes__PinholePose__precond_tril_,
       PinholePose_num_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraResJac(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_);
+
+  ThinPrismFisheyeSplitFixedPrincipalPointResJac(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraResJac(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedPrincipalPointResJac(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointResJac(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPointResJac(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedPrincipalPointFixedPointResJac(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointResJac(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      nodes__Point__storage_current_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+
+      nodes__Point__r_k_,
+      Point_num_,
+      nodes__Point__precond_diag_,
+      Point_num_,
+      nodes__Point__precond_tril_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointResJac(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointResJac(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_);
+
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointResJac(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__res_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_tril_,
+      ThinPrismFisheyePose_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__r_0_start_);
   Copy(marker__r_k_start_, marker__r_k_end_, marker__Mp_start_);
 }
@@ -4635,6 +6809,56 @@ void GraphSolver::DoNormalize() {
       z,
       SimpleRadialPrincipalPoint_num_,
       SimpleRadialPrincipalPoint_num_);
+  z = pcg_iter_ == 0 ? nodes__ThinPrismFisheyeCalib__p_
+                     : nodes__ThinPrismFisheyeCalib__z_;
+  ThinPrismFisheyeCalibNormalize(nodes__ThinPrismFisheyeCalib__precond_diag_,
+                                 ThinPrismFisheyeCalib_num_,
+                                 nodes__ThinPrismFisheyeCalib__precond_tril_,
+                                 ThinPrismFisheyeCalib_num_,
+                                 nodes__ThinPrismFisheyeCalib__r_k_,
+                                 ThinPrismFisheyeCalib_num_,
+                                 solver__current_diag_,
+                                 z,
+                                 ThinPrismFisheyeCalib_num_,
+                                 ThinPrismFisheyeCalib_num_);
+  z = pcg_iter_ == 0 ? nodes__ThinPrismFisheyeFocalAndExtra__p_
+                     : nodes__ThinPrismFisheyeFocalAndExtra__z_;
+  ThinPrismFisheyeFocalAndExtraNormalize(
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_tril_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__current_diag_,
+      z,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  z = pcg_iter_ == 0 ? nodes__ThinPrismFisheyePose__p_
+                     : nodes__ThinPrismFisheyePose__z_;
+  ThinPrismFisheyePoseNormalize(nodes__ThinPrismFisheyePose__precond_diag_,
+                                ThinPrismFisheyePose_num_,
+                                nodes__ThinPrismFisheyePose__precond_tril_,
+                                ThinPrismFisheyePose_num_,
+                                nodes__ThinPrismFisheyePose__r_k_,
+                                ThinPrismFisheyePose_num_,
+                                solver__current_diag_,
+                                z,
+                                ThinPrismFisheyePose_num_,
+                                ThinPrismFisheyePose_num_);
+  z = pcg_iter_ == 0 ? nodes__ThinPrismFisheyePrincipalPoint__p_
+                     : nodes__ThinPrismFisheyePrincipalPoint__z_;
+  ThinPrismFisheyePrincipalPointNormalize(
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_tril_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__current_diag_,
+      z,
+      ThinPrismFisheyePrincipalPoint_num_,
+      ThinPrismFisheyePrincipalPoint_num_);
 }
 
 void GraphSolver::DoUpdateMp() {
@@ -4728,6 +6952,48 @@ void GraphSolver::DoUpdateMp() {
                                      nodes__SimpleRadialPrincipalPoint__w_,
                                      SimpleRadialPrincipalPoint_num_,
                                      SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibUpdateMp(nodes__ThinPrismFisheyeCalib__r_k_,
+                                ThinPrismFisheyeCalib_num_,
+                                nodes__ThinPrismFisheyeCalib__Mp_,
+                                ThinPrismFisheyeCalib_num_,
+                                solver__beta_,
+                                nodes__ThinPrismFisheyeCalib__Mp_,
+                                ThinPrismFisheyeCalib_num_,
+                                nodes__ThinPrismFisheyeCalib__w_,
+                                ThinPrismFisheyeCalib_num_,
+                                ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraUpdateMp(
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__Mp_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__beta_,
+      nodes__ThinPrismFisheyeFocalAndExtra__Mp_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseUpdateMp(nodes__ThinPrismFisheyePose__r_k_,
+                               ThinPrismFisheyePose_num_,
+                               nodes__ThinPrismFisheyePose__Mp_,
+                               ThinPrismFisheyePose_num_,
+                               solver__beta_,
+                               nodes__ThinPrismFisheyePose__Mp_,
+                               ThinPrismFisheyePose_num_,
+                               nodes__ThinPrismFisheyePose__w_,
+                               ThinPrismFisheyePose_num_,
+                               ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointUpdateMp(
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__Mp_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__beta_,
+      nodes__ThinPrismFisheyePrincipalPoint__Mp_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      ThinPrismFisheyePrincipalPoint_num_);
 }
 
 void GraphSolver::DoJtjpDirect() {
@@ -4839,6 +7105,61 @@ void GraphSolver::DoJtjpDirect() {
       nodes__PinholeCalib__w_,
       PinholeCalib_num_,
       pinhole_fixed_point_num_);
+  ThinPrismFisheyeJtjnjtrDirect(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye__args__pose__idx_shared_,
+      facs__thin_prism_fisheye__args__pose__jac_,
+      thin_prism_fisheye_num_,
+      nodes__ThinPrismFisheyeCalib__p_,
+      ThinPrismFisheyeCalib_num_,
+      facs__thin_prism_fisheye__args__calib__idx_shared_,
+      facs__thin_prism_fisheye__args__calib__jac_,
+      thin_prism_fisheye_num_,
+      nodes__Point__p_,
+      Point_num_,
+      facs__thin_prism_fisheye__args__point__idx_shared_,
+      facs__thin_prism_fisheye__args__point__jac_,
+      thin_prism_fisheye_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyeCalib__w_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__Point__w_,
+      Point_num_,
+      thin_prism_fisheye_num_);
+  ThinPrismFisheyeFixedPoseJtjnjtrDirect(
+      nodes__ThinPrismFisheyeCalib__p_,
+      ThinPrismFisheyeCalib_num_,
+      facs__thin_prism_fisheye_fixed_pose__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose__args__calib__jac_,
+      thin_prism_fisheye_fixed_pose_num_,
+      nodes__Point__p_,
+      Point_num_,
+      facs__thin_prism_fisheye_fixed_pose__args__point__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose__args__point__jac_,
+      thin_prism_fisheye_fixed_pose_num_,
+      nodes__ThinPrismFisheyeCalib__w_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__Point__w_,
+      Point_num_,
+      thin_prism_fisheye_fixed_pose_num_);
+  ThinPrismFisheyeFixedPointJtjnjtrDirect(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_fixed_point_num_,
+      nodes__ThinPrismFisheyeCalib__p_,
+      ThinPrismFisheyeCalib_num_,
+      facs__thin_prism_fisheye_fixed_point__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__calib__jac_,
+      thin_prism_fisheye_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyeCalib__w_,
+      ThinPrismFisheyeCalib_num_,
+      thin_prism_fisheye_fixed_point_num_);
   SimpleRadialSplitFixedFocalAndExtraJtjnjtrDirect(
       nodes__SimpleRadialPose__p_,
       SimpleRadialPose_num_,
@@ -5091,6 +7412,132 @@ void GraphSolver::DoJtjpDirect() {
       nodes__PinholeFocal__w_,
       PinholeFocal_num_,
       pinhole_split_fixed_principal_point_fixed_point_num_);
+  ThinPrismFisheyeSplitFixedFocalAndExtraJtjnjtrDirect(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__Point__p_,
+      Point_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__Point__w_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_);
+  ThinPrismFisheyeSplitFixedPrincipalPointJtjnjtrDirect(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__p_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__Point__p_,
+      Point_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__Point__w_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_principal_point_num_);
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraJtjnjtrDirect(
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      nodes__Point__p_,
+      Point_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__Point__w_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_);
+  ThinPrismFisheyeSplitFixedPoseFixedPrincipalPointJtjnjtrDirect(
+      nodes__ThinPrismFisheyeFocalAndExtra__p_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      nodes__Point__p_,
+      Point_num_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__Point__w_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_);
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointJtjnjtrDirect(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      nodes__Point__p_,
+      Point_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      nodes__Point__w_,
+      Point_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_);
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPointJtjnjtrDirect(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__jac_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_);
+  ThinPrismFisheyeSplitFixedPrincipalPointFixedPointJtjnjtrDirect(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__p_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__jac_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_);
 }
 
 void GraphSolver::DoAlphaFirst() {
@@ -5181,6 +7628,46 @@ void GraphSolver::DoAlphaFirst() {
       solver__alpha_numerator_,
       solver__alpha_denominator_,
       SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibAlphaNumeratorDenominator(
+      nodes__ThinPrismFisheyeCalib__p_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__w_,
+      ThinPrismFisheyeCalib_num_,
+      solver__alpha_numerator_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraAlphaNumeratorDenominator(
+      nodes__ThinPrismFisheyeFocalAndExtra__p_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__alpha_numerator_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseAlphaNumeratorDenominator(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      solver__alpha_numerator_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointAlphaNumeratorDenominator(
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__alpha_numerator_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyePrincipalPoint_num_);
 
   AlphaFromNumDenom(solver__alpha_numerator_,
                     solver__alpha_denominator_,
@@ -5247,6 +7734,34 @@ void GraphSolver::DoAlpha() {
       SimpleRadialPrincipalPoint_num_,
       solver__alpha_denominator_,
       SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyeCalib__p_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__w_,
+      ThinPrismFisheyeCalib_num_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyeFocalAndExtra__p_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyePose__p_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__w_,
+      ThinPrismFisheyePose_num_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__alpha_denominator_,
+      ThinPrismFisheyePrincipalPoint_num_);
 
   AlphaFromNumDenom(solver__beta_numerator_,
                     solver__alpha_denominator_,
@@ -5311,6 +7826,32 @@ void GraphSolver::DoUpdateStepFirst() {
       nodes__SimpleRadialPrincipalPoint__step_,
       SimpleRadialPrincipalPoint_num_,
       SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibUpdateStepFirst(nodes__ThinPrismFisheyeCalib__p_,
+                                       ThinPrismFisheyeCalib_num_,
+                                       solver__alpha_,
+                                       nodes__ThinPrismFisheyeCalib__step_,
+                                       ThinPrismFisheyeCalib_num_,
+                                       ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraUpdateStepFirst(
+      nodes__ThinPrismFisheyeFocalAndExtra__p_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__alpha_,
+      nodes__ThinPrismFisheyeFocalAndExtra__step_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseUpdateStepFirst(nodes__ThinPrismFisheyePose__p_,
+                                      ThinPrismFisheyePose_num_,
+                                      solver__alpha_,
+                                      nodes__ThinPrismFisheyePose__step_,
+                                      ThinPrismFisheyePose_num_,
+                                      ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointUpdateStepFirst(
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__alpha_,
+      nodes__ThinPrismFisheyePrincipalPoint__step_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      ThinPrismFisheyePrincipalPoint_num_);
 }
 
 void GraphSolver::DoUpdateStep() {
@@ -5386,6 +7927,40 @@ void GraphSolver::DoUpdateStep() {
                                        nodes__SimpleRadialPrincipalPoint__step_,
                                        SimpleRadialPrincipalPoint_num_,
                                        SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibUpdateStep(nodes__ThinPrismFisheyeCalib__step_,
+                                  ThinPrismFisheyeCalib_num_,
+                                  nodes__ThinPrismFisheyeCalib__p_,
+                                  ThinPrismFisheyeCalib_num_,
+                                  solver__alpha_,
+                                  nodes__ThinPrismFisheyeCalib__step_,
+                                  ThinPrismFisheyeCalib_num_,
+                                  ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraUpdateStep(
+      nodes__ThinPrismFisheyeFocalAndExtra__step_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__p_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__alpha_,
+      nodes__ThinPrismFisheyeFocalAndExtra__step_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseUpdateStep(nodes__ThinPrismFisheyePose__step_,
+                                 ThinPrismFisheyePose_num_,
+                                 nodes__ThinPrismFisheyePose__p_,
+                                 ThinPrismFisheyePose_num_,
+                                 solver__alpha_,
+                                 nodes__ThinPrismFisheyePose__step_,
+                                 ThinPrismFisheyePose_num_,
+                                 ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointUpdateStep(
+      nodes__ThinPrismFisheyePrincipalPoint__step_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__alpha_,
+      nodes__ThinPrismFisheyePrincipalPoint__step_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      ThinPrismFisheyePrincipalPoint_num_);
 }
 
 void GraphSolver::DoUpdateRFirst() {
@@ -5491,6 +8066,52 @@ void GraphSolver::DoUpdateRFirst() {
       solver__r_kp1_norm2_tot_,
       SimpleRadialPrincipalPoint_num_);
 
+  ThinPrismFisheyeCalibUpdateRFirst(nodes__ThinPrismFisheyeCalib__r_k_,
+                                    ThinPrismFisheyeCalib_num_,
+                                    nodes__ThinPrismFisheyeCalib__w_,
+                                    ThinPrismFisheyeCalib_num_,
+                                    solver__neg_alpha_,
+                                    nodes__ThinPrismFisheyeCalib__r_k_,
+                                    ThinPrismFisheyeCalib_num_,
+                                    solver__r_0_norm2_tot_,
+                                    solver__r_kp1_norm2_tot_,
+                                    ThinPrismFisheyeCalib_num_);
+
+  ThinPrismFisheyeFocalAndExtraUpdateRFirst(
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__neg_alpha_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__r_0_norm2_tot_,
+      solver__r_kp1_norm2_tot_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+
+  ThinPrismFisheyePoseUpdateRFirst(nodes__ThinPrismFisheyePose__r_k_,
+                                   ThinPrismFisheyePose_num_,
+                                   nodes__ThinPrismFisheyePose__w_,
+                                   ThinPrismFisheyePose_num_,
+                                   solver__neg_alpha_,
+                                   nodes__ThinPrismFisheyePose__r_k_,
+                                   ThinPrismFisheyePose_num_,
+                                   solver__r_0_norm2_tot_,
+                                   solver__r_kp1_norm2_tot_,
+                                   ThinPrismFisheyePose_num_);
+
+  ThinPrismFisheyePrincipalPointUpdateRFirst(
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__neg_alpha_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__r_0_norm2_tot_,
+      solver__r_kp1_norm2_tot_,
+      ThinPrismFisheyePrincipalPoint_num_);
+
   pcg_r_0_norm2_ = ReadCuMem(solver__r_0_norm2_tot_);
   pcg_r_kp1_norm2_ = ReadCuMem(solver__r_kp1_norm2_tot_);
 }
@@ -5579,6 +8200,44 @@ void GraphSolver::DoUpdateR() {
                                     SimpleRadialPrincipalPoint_num_,
                                     solver__r_kp1_norm2_tot_,
                                     SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibUpdateR(nodes__ThinPrismFisheyeCalib__r_k_,
+                               ThinPrismFisheyeCalib_num_,
+                               nodes__ThinPrismFisheyeCalib__w_,
+                               ThinPrismFisheyeCalib_num_,
+                               solver__neg_alpha_,
+                               nodes__ThinPrismFisheyeCalib__r_k_,
+                               ThinPrismFisheyeCalib_num_,
+                               solver__r_kp1_norm2_tot_,
+                               ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraUpdateR(
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__w_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__neg_alpha_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__r_kp1_norm2_tot_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseUpdateR(nodes__ThinPrismFisheyePose__r_k_,
+                              ThinPrismFisheyePose_num_,
+                              nodes__ThinPrismFisheyePose__w_,
+                              ThinPrismFisheyePose_num_,
+                              solver__neg_alpha_,
+                              nodes__ThinPrismFisheyePose__r_k_,
+                              ThinPrismFisheyePose_num_,
+                              solver__r_kp1_norm2_tot_,
+                              ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointUpdateR(
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__w_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__neg_alpha_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__r_kp1_norm2_tot_,
+      ThinPrismFisheyePrincipalPoint_num_);
   pcg_r_kp1_norm2_ = ReadCuMem(solver__r_kp1_norm2_tot_);
 }
 
@@ -5648,6 +8307,36 @@ double GraphSolver::DoRetractScore() {
       nodes__SimpleRadialPrincipalPoint__storage_check_,
       SimpleRadialPrincipalPoint_num_max_,
       SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibRetract(nodes__ThinPrismFisheyeCalib__storage_current_,
+                               ThinPrismFisheyeCalib_num_max_,
+                               nodes__ThinPrismFisheyeCalib__step_,
+                               ThinPrismFisheyeCalib_num_,
+                               nodes__ThinPrismFisheyeCalib__storage_check_,
+                               ThinPrismFisheyeCalib_num_max_,
+                               ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraRetract(
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__step_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_check_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseRetract(nodes__ThinPrismFisheyePose__storage_current_,
+                              ThinPrismFisheyePose_num_max_,
+                              nodes__ThinPrismFisheyePose__step_,
+                              ThinPrismFisheyePose_num_,
+                              nodes__ThinPrismFisheyePose__storage_check_,
+                              ThinPrismFisheyePose_num_max_,
+                              ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointRetract(
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__step_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_check_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      ThinPrismFisheyePrincipalPoint_num_);
   Zero(solver__res_tot_, solver__res_tot_ + 1);
   SimpleRadialScore(nodes__SimpleRadialPose__storage_check_,
                     SimpleRadialPose_num_max_,
@@ -5766,6 +8455,65 @@ double GraphSolver::DoRetractScore() {
       pinhole_fixed_pose_fixed_point_num_max_,
       solver__res_tot_,
       pinhole_fixed_pose_fixed_point_num_);
+  ThinPrismFisheyeScore(nodes__ThinPrismFisheyePose__storage_check_,
+                        ThinPrismFisheyePose_num_max_,
+                        facs__thin_prism_fisheye__args__pose__idx_shared_,
+                        facs__thin_prism_fisheye__args__sensor_from_rig__data_,
+                        thin_prism_fisheye_num_max_,
+                        nodes__ThinPrismFisheyeCalib__storage_check_,
+                        ThinPrismFisheyeCalib_num_max_,
+                        facs__thin_prism_fisheye__args__calib__idx_shared_,
+                        nodes__Point__storage_check_,
+                        Point_num_max_,
+                        facs__thin_prism_fisheye__args__point__idx_shared_,
+                        facs__thin_prism_fisheye__args__pixel__data_,
+                        thin_prism_fisheye_num_max_,
+                        solver__res_tot_,
+                        thin_prism_fisheye_num_);
+  ThinPrismFisheyeFixedPoseScore(
+      facs__thin_prism_fisheye_fixed_pose__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_check_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__calib__idx_shared_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__point__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      facs__thin_prism_fisheye_fixed_pose__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_fixed_pose_num_);
+  ThinPrismFisheyeFixedPointScore(
+      nodes__ThinPrismFisheyePose__storage_check_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_check_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_fixed_point_num_);
+  ThinPrismFisheyeFixedPoseFixedPointScore(
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeCalib__storage_check_,
+      ThinPrismFisheyeCalib_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__calib__idx_shared_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_);
   SimpleRadialSplitFixedFocalAndExtraScore(
       nodes__SimpleRadialPose__storage_check_,
       SimpleRadialPose_num_max_,
@@ -6136,6 +8884,191 @@ double GraphSolver::DoRetractScore() {
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_,
       solver__res_tot_,
       pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_);
+  ThinPrismFisheyeSplitFixedFocalAndExtraScore(
+      nodes__ThinPrismFisheyePose__storage_check_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_check_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_);
+  ThinPrismFisheyeSplitFixedPrincipalPointScore(
+      nodes__ThinPrismFisheyePose__storage_check_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_check_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_principal_point_num_);
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraScore(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_check_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_);
+  ThinPrismFisheyeSplitFixedPoseFixedPrincipalPointScore(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_check_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_);
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointScore(
+      nodes__ThinPrismFisheyePose__storage_check_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_);
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPointScore(
+      nodes__ThinPrismFisheyePose__storage_check_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_check_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_);
+  ThinPrismFisheyeSplitFixedPrincipalPointFixedPointScore(
+      nodes__ThinPrismFisheyePose__storage_check_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_check_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_);
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointScore(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      nodes__Point__storage_check_,
+      Point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_);
+  ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointScore(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_check_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_);
+  ThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointScore(
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_check_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_);
+  ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointScore(
+      nodes__ThinPrismFisheyePose__storage_check_,
+      ThinPrismFisheyePose_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      solver__res_tot_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_);
   return 0.5 * ReadCuMem(solver__res_tot_);
 }
 
@@ -6208,6 +9141,38 @@ void GraphSolver::DoBeta() {
       SimpleRadialPrincipalPoint_num_,
       solver__beta_numerator_,
       SimpleRadialPrincipalPoint_num_);
+
+  ThinPrismFisheyeCalibAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyeCalib__r_k_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__z_,
+      ThinPrismFisheyeCalib_num_,
+      solver__beta_numerator_,
+      ThinPrismFisheyeCalib_num_);
+
+  ThinPrismFisheyeFocalAndExtraAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyeFocalAndExtra__r_k_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__z_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__beta_numerator_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+
+  ThinPrismFisheyePoseAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyePose__r_k_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__z_,
+      ThinPrismFisheyePose_num_,
+      solver__beta_numerator_,
+      ThinPrismFisheyePose_num_);
+
+  ThinPrismFisheyePrincipalPointAlphaDenominatorOrBetaNumerator(
+      nodes__ThinPrismFisheyePrincipalPoint__r_k_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__z_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__beta_numerator_,
+      ThinPrismFisheyePrincipalPoint_num_);
   BetaFromNumDenom(
       solver__beta_numerator_, solver__alpha_numerator_, solver__beta_);
 }
@@ -6285,6 +9250,39 @@ void GraphSolver::DoUpdateP() {
                                     nodes__SimpleRadialPrincipalPoint__p_,
                                     SimpleRadialPrincipalPoint_num_,
                                     SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibUpdateP(nodes__ThinPrismFisheyeCalib__z_,
+                               ThinPrismFisheyeCalib_num_,
+                               nodes__ThinPrismFisheyeCalib__p_,
+                               ThinPrismFisheyeCalib_num_,
+                               solver__beta_,
+                               nodes__ThinPrismFisheyeCalib__p_,
+                               ThinPrismFisheyeCalib_num_,
+                               ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraUpdateP(nodes__ThinPrismFisheyeFocalAndExtra__z_,
+                                       ThinPrismFisheyeFocalAndExtra_num_,
+                                       nodes__ThinPrismFisheyeFocalAndExtra__p_,
+                                       ThinPrismFisheyeFocalAndExtra_num_,
+                                       solver__beta_,
+                                       nodes__ThinPrismFisheyeFocalAndExtra__p_,
+                                       ThinPrismFisheyeFocalAndExtra_num_,
+                                       ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePoseUpdateP(nodes__ThinPrismFisheyePose__z_,
+                              ThinPrismFisheyePose_num_,
+                              nodes__ThinPrismFisheyePose__p_,
+                              ThinPrismFisheyePose_num_,
+                              solver__beta_,
+                              nodes__ThinPrismFisheyePose__p_,
+                              ThinPrismFisheyePose_num_,
+                              ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointUpdateP(
+      nodes__ThinPrismFisheyePrincipalPoint__z_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__beta_,
+      nodes__ThinPrismFisheyePrincipalPoint__p_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      ThinPrismFisheyePrincipalPoint_num_);
 }
 
 double GraphSolver::GetPredDecrease() {
@@ -6373,6 +9371,46 @@ double GraphSolver::GetPredDecrease() {
       SimpleRadialPrincipalPoint_num_,
       solver__pred_decrease_tot_,
       SimpleRadialPrincipalPoint_num_);
+  ThinPrismFisheyeCalibPredDecreaseTimesTwo(
+      nodes__ThinPrismFisheyeCalib__step_,
+      ThinPrismFisheyeCalib_num_,
+      nodes__ThinPrismFisheyeCalib__precond_diag_,
+      ThinPrismFisheyeCalib_num_,
+      solver__current_diag_,
+      nodes__ThinPrismFisheyeCalib__r_0_,
+      ThinPrismFisheyeCalib_num_,
+      solver__pred_decrease_tot_,
+      ThinPrismFisheyeCalib_num_);
+  ThinPrismFisheyeFocalAndExtraPredDecreaseTimesTwo(
+      nodes__ThinPrismFisheyeFocalAndExtra__step_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      nodes__ThinPrismFisheyeFocalAndExtra__precond_diag_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__current_diag_,
+      nodes__ThinPrismFisheyeFocalAndExtra__r_0_,
+      ThinPrismFisheyeFocalAndExtra_num_,
+      solver__pred_decrease_tot_,
+      ThinPrismFisheyeFocalAndExtra_num_);
+  ThinPrismFisheyePosePredDecreaseTimesTwo(
+      nodes__ThinPrismFisheyePose__step_,
+      ThinPrismFisheyePose_num_,
+      nodes__ThinPrismFisheyePose__precond_diag_,
+      ThinPrismFisheyePose_num_,
+      solver__current_diag_,
+      nodes__ThinPrismFisheyePose__r_0_,
+      ThinPrismFisheyePose_num_,
+      solver__pred_decrease_tot_,
+      ThinPrismFisheyePose_num_);
+  ThinPrismFisheyePrincipalPointPredDecreaseTimesTwo(
+      nodes__ThinPrismFisheyePrincipalPoint__step_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      nodes__ThinPrismFisheyePrincipalPoint__precond_diag_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__current_diag_,
+      nodes__ThinPrismFisheyePrincipalPoint__r_0_,
+      ThinPrismFisheyePrincipalPoint_num_,
+      solver__pred_decrease_tot_,
+      ThinPrismFisheyePrincipalPoint_num_);
   return 0.5 * ReadCuMem(solver__pred_decrease_tot_);
 }
 
@@ -7047,6 +10085,315 @@ void GraphSolver::GetSimpleRadialPrincipalPointNodesToStackedDevice(
       nodes__SimpleRadialPrincipalPoint__storage_current_,
       data,
       SimpleRadialPrincipalPoint_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeCalibNum(const size_t num) {
+  cudaSetDevice(device_id_);
+  if (num > ThinPrismFisheyeCalib_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > ThinPrismFisheyeCalib_num_max_");
+  }
+  ThinPrismFisheyeCalib_num_ = num;
+}
+
+void GraphSolver::SetThinPrismFisheyeCalibNodesFromStackedHost(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeCalib_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeCalib_num_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             12 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ThinPrismFisheyeCalibStackedToCaspar(
+      marker__scratch_inout_,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeCalibNodesFromStackedDevice(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeCalib_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeCalib_num_");
+  }
+  ThinPrismFisheyeCalibStackedToCaspar(
+      data,
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      ThinPrismFisheyeCalib_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::GetThinPrismFisheyeCalibNodesToStackedHost(
+    double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeCalib_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeCalib_num_");
+  }
+  ThinPrismFisheyeCalibCasparToStacked(
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      marker__scratch_inout_,
+      ThinPrismFisheyeCalib_num_max_,
+      offset,
+      num);
+  cudaMemcpy(data,
+             marker__scratch_inout_,
+             12 * num * sizeof(double),
+             cudaMemcpyDeviceToHost);
+}
+
+void GraphSolver::GetThinPrismFisheyeCalibNodesToStackedDevice(
+    double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeCalib_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeCalib_num_");
+  }
+  ThinPrismFisheyeCalibCasparToStacked(
+      nodes__ThinPrismFisheyeCalib__storage_current_,
+      data,
+      ThinPrismFisheyeCalib_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFocalAndExtraNum(const size_t num) {
+  cudaSetDevice(device_id_);
+  if (num > ThinPrismFisheyeFocalAndExtra_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > ThinPrismFisheyeFocalAndExtra_num_max_");
+  }
+  ThinPrismFisheyeFocalAndExtra_num_ = num;
+}
+
+void GraphSolver::SetThinPrismFisheyeFocalAndExtraNodesFromStackedHost(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeFocalAndExtra_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeFocalAndExtra_num_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFocalAndExtraNodesFromStackedDevice(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeFocalAndExtra_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeFocalAndExtra_num_");
+  }
+  ThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::GetThinPrismFisheyeFocalAndExtraNodesToStackedHost(
+    double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeFocalAndExtra_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeFocalAndExtra_num_");
+  }
+  ThinPrismFisheyeFocalAndExtraCasparToStacked(
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      marker__scratch_inout_,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      offset,
+      num);
+  cudaMemcpy(data,
+             marker__scratch_inout_,
+             10 * num * sizeof(double),
+             cudaMemcpyDeviceToHost);
+}
+
+void GraphSolver::GetThinPrismFisheyeFocalAndExtraNodesToStackedDevice(
+    double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyeFocalAndExtra_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyeFocalAndExtra_num_");
+  }
+  ThinPrismFisheyeFocalAndExtraCasparToStacked(
+      nodes__ThinPrismFisheyeFocalAndExtra__storage_current_,
+      data,
+      ThinPrismFisheyeFocalAndExtra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyePoseNum(const size_t num) {
+  cudaSetDevice(device_id_);
+  if (num > ThinPrismFisheyePose_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > ThinPrismFisheyePose_num_max_");
+  }
+  ThinPrismFisheyePose_num_ = num;
+}
+
+void GraphSolver::SetThinPrismFisheyePoseNodesFromStackedHost(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePose_num_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyePoseNodesFromStackedDevice(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePose_num_");
+  }
+  ThinPrismFisheyePoseStackedToCaspar(
+      data,
+      nodes__ThinPrismFisheyePose__storage_current_,
+      ThinPrismFisheyePose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::GetThinPrismFisheyePoseNodesToStackedHost(double* const data,
+                                                            const size_t offset,
+                                                            const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePose_num_");
+  }
+  ThinPrismFisheyePoseCasparToStacked(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      marker__scratch_inout_,
+      ThinPrismFisheyePose_num_max_,
+      offset,
+      num);
+  cudaMemcpy(data,
+             marker__scratch_inout_,
+             7 * num * sizeof(double),
+             cudaMemcpyDeviceToHost);
+}
+
+void GraphSolver::GetThinPrismFisheyePoseNodesToStackedDevice(
+    double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePose_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePose_num_");
+  }
+  ThinPrismFisheyePoseCasparToStacked(
+      nodes__ThinPrismFisheyePose__storage_current_,
+      data,
+      ThinPrismFisheyePose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyePrincipalPointNum(const size_t num) {
+  cudaSetDevice(device_id_);
+  if (num > ThinPrismFisheyePrincipalPoint_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > ThinPrismFisheyePrincipalPoint_num_max_");
+  }
+  ThinPrismFisheyePrincipalPoint_num_ = num;
+}
+
+void GraphSolver::SetThinPrismFisheyePrincipalPointNodesFromStackedHost(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePrincipalPoint_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePrincipalPoint_num_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyePrincipalPointNodesFromStackedDevice(
+    const double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePrincipalPoint_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePrincipalPoint_num_");
+  }
+  ThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::GetThinPrismFisheyePrincipalPointNodesToStackedHost(
+    double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePrincipalPoint_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePrincipalPoint_num_");
+  }
+  ThinPrismFisheyePrincipalPointCasparToStacked(
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      marker__scratch_inout_,
+      ThinPrismFisheyePrincipalPoint_num_max_,
+      offset,
+      num);
+  cudaMemcpy(data,
+             marker__scratch_inout_,
+             2 * num * sizeof(double),
+             cudaMemcpyDeviceToHost);
+}
+
+void GraphSolver::GetThinPrismFisheyePrincipalPointNodesToStackedDevice(
+    double* const data, const size_t offset, const size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > ThinPrismFisheyePrincipalPoint_num_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > ThinPrismFisheyePrincipalPoint_num_");
+  }
+  ThinPrismFisheyePrincipalPointCasparToStacked(
+      nodes__ThinPrismFisheyePrincipalPoint__storage_current_,
+      data,
+      ThinPrismFisheyePrincipalPoint_num_max_,
       offset,
       num);
 }
@@ -8493,6 +11840,766 @@ void GraphSolver::SetPinholeFixedPoseFixedPointPointDataFromStackedDevice(
       data,
       facs__pinhole_fixed_pose_fixed_point__args__point__data_,
       pinhole_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeNum(const size_t num) {
+  if (num > thin_prism_fisheye_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > thin_prism_fisheye_num_max_");
+  }
+  thin_prism_fisheye_num_ = num;
+}
+void GraphSolver::SetThinPrismFisheyePoseIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_num_. Use Setthin_prism_fisheyeNum before "
+        "setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyePoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyePoseIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_num_. Use Setthin_prism_fisheyeNum before "
+        "setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices, facs__thin_prism_fisheye__args__pose__idx_shared_, num);
+}
+void GraphSolver::SetThinPrismFisheyeCalibIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_num_. Use Setthin_prism_fisheyeNum before "
+        "setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeCalibIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyeCalibIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_num_. Use Setthin_prism_fisheyeNum before "
+        "setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices, facs__thin_prism_fisheye__args__calib__idx_shared_, num);
+}
+void GraphSolver::SetThinPrismFisheyePointIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_num_. Use Setthin_prism_fisheyeNum before "
+        "setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyePointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyePointIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_num_. Use Setthin_prism_fisheyeNum before "
+        "setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices, facs__thin_prism_fisheye__args__point__idx_shared_, num);
+}
+void GraphSolver::SetThinPrismFisheyeSensorFromRigDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye__args__sensor_from_rig__data_,
+      thin_prism_fisheye_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeSensorFromRigDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye__args__sensor_from_rig__data_,
+      thin_prism_fisheye_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyePixelDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(marker__scratch_inout_,
+                            facs__thin_prism_fisheye__args__pixel__data_,
+                            thin_prism_fisheye_num_max_,
+                            offset,
+                            num);
+}
+
+void GraphSolver::SetThinPrismFisheyePixelDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_num_max_");
+  }
+  ConstPixelStackedToCaspar(data,
+                            facs__thin_prism_fisheye__args__pixel__data_,
+                            thin_prism_fisheye_num_max_,
+                            offset,
+                            num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPoseNum(const size_t num) {
+  if (num > thin_prism_fisheye_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > thin_prism_fisheye_fixed_pose_num_max_");
+  }
+  thin_prism_fisheye_fixed_pose_num_ = num;
+}
+void GraphSolver::SetThinPrismFisheyeFixedPoseCalibIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_fixed_pose_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_pose_num_. Use "
+        "Setthin_prism_fisheye_fixed_poseNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeFixedPoseCalibIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPoseCalibIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_fixed_pose_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_pose_num_. Use "
+        "Setthin_prism_fisheye_fixed_poseNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices,
+                facs__thin_prism_fisheye_fixed_pose__args__calib__idx_shared_,
+                num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPosePointIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_fixed_pose_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_pose_num_. Use "
+        "Setthin_prism_fisheye_fixed_poseNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeFixedPosePointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPosePointIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_fixed_pose_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_pose_num_. Use "
+        "Setthin_prism_fisheye_fixed_poseNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices,
+                facs__thin_prism_fisheye_fixed_pose__args__point__idx_shared_,
+                num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPoseSensorFromRigDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_pose_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_pose__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_pose_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_pose__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPosePixelDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_pose_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_pose__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPosePixelDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_pose_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_pose__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPosePoseDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_pose_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_pose__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPosePoseDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_pose_num_max_");
+  }
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_pose__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPointNum(const size_t num) {
+  if (num > thin_prism_fisheye_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > thin_prism_fisheye_fixed_point_num_max_");
+  }
+  thin_prism_fisheye_fixed_point_num_ = num;
+}
+void GraphSolver::SetThinPrismFisheyeFixedPointPoseIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_point_num_. Use "
+        "Setthin_prism_fisheye_fixed_pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeFixedPointPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPointPoseIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_point_num_. Use "
+        "Setthin_prism_fisheye_fixed_pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices,
+                facs__thin_prism_fisheye_fixed_point__args__pose__idx_shared_,
+                num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPointCalibIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_point_num_. Use "
+        "Setthin_prism_fisheye_fixed_pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeFixedPointCalibIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPointCalibIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_point_num_. Use "
+        "Setthin_prism_fisheye_fixed_pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(indices,
+                facs__thin_prism_fisheye_fixed_point__args__calib__idx_shared_,
+                num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPointSensorFromRigDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeFixedPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPointPixelDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPointPixelDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPointPointDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPointPointDataFromStackedDevice(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > thin_prism_fisheye_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPoseFixedPointNum(const size_t num) {
+  if (num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  thin_prism_fisheye_fixed_pose_fixed_point_num_ = num;
+}
+void GraphSolver::SetThinPrismFisheyeFixedPoseFixedPointCalibIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_fixed_pose_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_pose_fixed_point_num_. Use "
+        "Setthin_prism_fisheye_fixed_pose_fixed_pointNum before setting "
+        "indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeFixedPoseFixedPointCalibIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::SetThinPrismFisheyeFixedPoseFixedPointCalibIndicesFromDevice(
+    const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_fixed_pose_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_fixed_pose_fixed_point_num_. Use "
+        "Setthin_prism_fisheye_fixed_pose_fixed_pointNum before setting "
+        "indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__calib__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseFixedPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseFixedPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseFixedPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseFixedPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeFixedPoseFixedPointPoseDataFromStackedHost(
+    const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseFixedPointPoseDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__pose__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseFixedPointPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeFixedPoseFixedPointPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_fixed_pose_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_fixed_pose_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_fixed_pose_fixed_point__args__point__data_,
+      thin_prism_fisheye_fixed_pose_fixed_point_num_max_,
       offset,
       num);
 }
@@ -14062,6 +18169,2930 @@ void GraphSolver::
       offset,
       num);
 }
+void GraphSolver::SetThinPrismFisheyeSplitFixedFocalAndExtraNum(
+    const size_t num) {
+  if (num > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_focal_and_extra_num_ = num;
+}
+void GraphSolver::SetThinPrismFisheyeSplitFixedFocalAndExtraPoseIndicesFromHost(
+    const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extraNum before setting "
+        "indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraPoseIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extraNum before setting "
+        "indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pose__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraPrincipalPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extraNum before setting "
+        "indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extraNum before setting "
+        "indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extraNum before setting "
+        "indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extraNum before setting "
+        "indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_focal_and_extra_num_max_");
+  }
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeSplitFixedPrincipalPointNum(
+    const size_t num) {
+  if (num > thin_prism_fisheye_split_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " > thin_prism_fisheye_split_fixed_principal_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_principal_point_num_ = num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPoseIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_principal_pointNum before setting "
+        "indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPrincipalPointPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPoseIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_principal_pointNum before setting "
+        "indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pose__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFocalAndExtraIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_principal_pointNum before setting "
+        "indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPrincipalPointFocalAndExtraIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFocalAndExtraIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_principal_pointNum before setting "
+        "indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_principal_pointNum before setting "
+        "indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPrincipalPointPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_principal_pointNum before setting "
+        "indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_principal_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPrincipalPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num > thin_prism_fisheye_split_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > thin_prism_fisheye_split_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraNum(
+    const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_ = num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extraNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extraNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__principal_point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extraNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extraNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPoseDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_");
+  }
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointNum(
+    const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_ = num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_principal_pointNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_principal_pointNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__focal_and_extra__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_principal_pointNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_pose_fixed_principal_pointNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPoseDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointNum(
+        const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_ =
+      num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num !=
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_"
+        "pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num !=
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_"
+        "pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num !=
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_"
+        "pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num !=
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_"
+        "pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointNum(
+    const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_ = num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPoseIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_pointNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPoseIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_pointNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pose__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_pointNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_pointNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointNum(
+    const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_ = num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_principal_point_fixed_pointNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_principal_point_fixed_pointNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_principal_point_fixed_pointNum "
+        "before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_. "
+        "Use Setthin_prism_fisheye_split_fixed_principal_point_fixed_pointNum "
+        "before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(
+        std::to_string(offset + num) +
+        " > "
+        "thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(
+        const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_ =
+      num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num !=
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_"
+        "principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_"
+        "principal_pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num !=
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_"
+        "principal_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_"
+        "principal_pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_principal_point_num_max_");
+  }
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointNum(
+        const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_ =
+      num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num !=
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_"
+        "pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num !=
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_"
+        "pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__principal_point__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_focal_"
+                             "and_extra_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointNum(
+        const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_ =
+      num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num !=
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_"
+        "pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num !=
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_"
+        "num_. Use "
+        "Setthin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_"
+        "pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__focal_and_extra__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyePoseStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__pose__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_pose_fixed_"
+                             "principal_point_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointNum(
+        const size_t num) {
+  if (num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_ =
+      num;
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
+        const unsigned int* const indices, size_t num) {
+  cudaSetDevice(device_id_);
+  if (num !=
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_"
+        "fixed_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_"
+        "point_fixed_pointNum before setting indices.");
+  }
+  cudaMemcpy((unsigned int*)marker__scratch_inout_,
+             indices,
+             num * sizeof(unsigned int),
+             cudaMemcpyHostToDevice);
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+      (unsigned int*)marker__scratch_inout_, num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromDevice(
+        const unsigned int* const indices, size_t num) {
+  indices_valid_ = false;
+  cudaSetDevice(device_id_);
+
+  if (num !=
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_) {
+    throw std::runtime_error(
+        std::to_string(num) +
+        " != "
+        "thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_"
+        "fixed_point_num_. Use "
+        "Setthin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_"
+        "point_fixed_pointNum before setting indices.");
+  }
+
+  size_t tmp_size = SortIndicesGetTmpNbytes(num);
+  if (tmp_size + num > scratch_inout_size_) {
+    throw std::runtime_error(
+        "Scratch_inout_size too small. tmp_size: " + std::to_string(tmp_size) +
+        ", num: " + std::to_string(num) +
+        ", scratch_inout_size_: " + std::to_string(scratch_inout_size_));
+  }
+  SharedIndices(
+      indices,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pose__idx_shared_,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             7 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointSensorFromRigDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__sensor_from_rig__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPixelStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstPixelStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__pixel__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             10 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__focal_and_extra__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             2 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__principal_point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  cudaMemcpy(marker__scratch_inout_,
+             data,
+             3 * num * sizeof(double),
+             cudaMemcpyHostToDevice);
+  ConstPointStackedToCaspar(
+      marker__scratch_inout_,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
+
+void GraphSolver::
+    SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedDevice(
+        const double* const data, size_t offset, size_t num) {
+  cudaSetDevice(device_id_);
+  if (offset + num >
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_) {
+    throw std::runtime_error(std::to_string(offset + num) +
+                             " > "
+                             "thin_prism_fisheye_split_fixed_focal_and_extra_"
+                             "fixed_principal_point_fixed_point_num_max_");
+  }
+  ConstPointStackedToCaspar(
+      data,
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point__args__point__data_,
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_max_,
+      offset,
+      num);
+}
 
 size_t GraphSolver::get_nbytes() {
   size_t offset = 0;
@@ -14094,6 +21125,18 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 8 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 8 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 8 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   increment_offset<SharedIndex>(offset, 1 * simple_radial_num_, 4);
   increment_offset<double>(offset, 8 * simple_radial_num_, 4);
   increment_offset<SharedIndex>(offset, 1 * simple_radial_num_, 4);
@@ -14140,6 +21183,35 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(offset, 8 * pinhole_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(offset, 4 * pinhole_fixed_pose_fixed_point_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 8 * thin_prism_fisheye_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * thin_prism_fisheye_num_, 4);
+  increment_offset<SharedIndex>(offset, 1 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 8 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 8 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(offset, 8 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(offset, 4 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 8 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 8 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 4 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
   increment_offset<SharedIndex>(
       offset, 1 * simple_radial_split_fixed_focal_and_extra_num_, 4);
   increment_offset<double>(
@@ -14518,18 +21590,266 @@ size_t GraphSolver::get_nbytes() {
       offset,
       4 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
       4);
-  at_least =
-      std::max(at_least,
-               offset + std::max({4 * PinholeCalib_num_max_,
-                                  2 * PinholeFocal_num_max_,
-                                  7 * PinholePose_num_max_,
-                                  2 * PinholePrincipalPoint_num_max_,
-                                  3 * Point_num_max_,
-                                  4 * SimpleRadialCalib_num_max_,
-                                  2 * SimpleRadialFocalAndExtra_num_max_,
-                                  7 * SimpleRadialPose_num_max_,
-                                  2 * SimpleRadialPrincipalPoint_num_max_}) *
-                            sizeof(double));
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 8 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 10 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset, 8 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<SharedIndex>(
+      offset, 1 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      10 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      10 *
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      10 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      4 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      4 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      10 *
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      10 *
+          thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      4 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      4 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<SharedIndex>(
+      offset,
+      1 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      8 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      10 *
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      4 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
+  at_least = std::max(
+      at_least,
+      offset + std::max({4 * PinholeCalib_num_max_,
+                         2 * PinholeFocal_num_max_,
+                         7 * PinholePose_num_max_,
+                         2 * PinholePrincipalPoint_num_max_,
+                         3 * Point_num_max_,
+                         4 * SimpleRadialCalib_num_max_,
+                         2 * SimpleRadialFocalAndExtra_num_max_,
+                         7 * SimpleRadialPose_num_max_,
+                         2 * SimpleRadialPrincipalPoint_num_max_,
+                         12 * ThinPrismFisheyeCalib_num_max_,
+                         10 * ThinPrismFisheyeFocalAndExtra_num_max_,
+                         7 * ThinPrismFisheyePose_num_max_,
+                         2 * ThinPrismFisheyePrincipalPoint_num_max_}) *
+                   sizeof(double));
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * simple_radial_num_, 4);
   increment_offset<double>(offset, 2 * simple_radial_fixed_pose_num_, 4);
@@ -14540,6 +21860,11 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_point_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(
       offset, 2 * simple_radial_split_fixed_focal_and_extra_num_, 4);
   increment_offset<double>(
@@ -14603,6 +21928,46 @@ size_t GraphSolver::get_nbytes() {
       offset,
       2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
       4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
   increment_offset<double>(offset, 12 * simple_radial_num_, 4);
   increment_offset<double>(offset, 4 * simple_radial_num_, 4);
   increment_offset<double>(offset, 6 * simple_radial_num_, 4);
@@ -14620,6 +21985,15 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 12 * pinhole_fixed_point_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_point_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset, 12 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 16 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 6 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 16 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 6 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 12 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(offset, 16 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 16 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(
       offset, 12 * simple_radial_split_fixed_focal_and_extra_num_, 4);
   increment_offset<double>(
@@ -14724,6 +22098,77 @@ size_t GraphSolver::get_nbytes() {
       offset,
       12 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
       4);
+  increment_offset<double>(
+      offset, 12 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 0 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 6 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 12 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset, 16 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset, 6 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset,
+      0 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      6 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      16 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      6 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      12 *
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      6 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      12 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      0 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      12 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      16 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      6 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      0 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      16 *
+          thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      12 *
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
+      4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
@@ -14742,23 +22187,13 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 6 * PinholePose_num_, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * PinholePrincipalPoint_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 4 * Point_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 4 * SimpleRadialCalib_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
-  increment_offset<double>(offset, 0 * 0, 4);
-  increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
@@ -14778,6 +22213,40 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * PinholePose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * PinholePrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 4 * Point_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 4 * SimpleRadialCalib_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
   increment_offset<double>(offset, 2 * PinholeFocal_num_, 4);
@@ -14788,6 +22257,10 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 1);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14799,6 +22272,10 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14810,6 +22287,10 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14821,6 +22302,10 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * SimpleRadialFocalAndExtra_num_, 4);
   increment_offset<double>(offset, 6 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 4 * PinholeCalib_num_, 4);
@@ -14841,6 +22326,14 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 16 * SimpleRadialPose_num_, 4);
   increment_offset<double>(offset, 2 * SimpleRadialPrincipalPoint_num_, 4);
   increment_offset<double>(offset, 1 * SimpleRadialPrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 12 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 66 * ThinPrismFisheyeCalib_num_, 4);
+  increment_offset<double>(offset, 10 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 45 * ThinPrismFisheyeFocalAndExtra_num_, 4);
+  increment_offset<double>(offset, 6 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 16 * ThinPrismFisheyePose_num_, 4);
+  increment_offset<double>(offset, 2 * ThinPrismFisheyePrincipalPoint_num_, 4);
+  increment_offset<double>(offset, 1 * ThinPrismFisheyePrincipalPoint_num_, 4);
   increment_offset<double>(offset, 0 * 0, 1);
   increment_offset<double>(offset, 0 * 0, 4);
   increment_offset<double>(offset, 2 * simple_radial_num_, 4);
@@ -14852,6 +22345,11 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_point_num_, 4);
   increment_offset<double>(offset, 2 * pinhole_fixed_pose_fixed_point_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_fixed_pose_num_, 4);
+  increment_offset<double>(offset, 2 * thin_prism_fisheye_fixed_point_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_fixed_pose_fixed_point_num_, 4);
   increment_offset<double>(
       offset, 2 * simple_radial_split_fixed_focal_and_extra_num_, 4);
   increment_offset<double>(
@@ -14914,6 +22412,46 @@ size_t GraphSolver::get_nbytes() {
   increment_offset<double>(
       offset,
       2 * pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_split_fixed_focal_and_extra_num_, 4);
+  increment_offset<double>(
+      offset, 2 * thin_prism_fisheye_split_fixed_principal_point_num_, 4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point_num_,
+      4);
+  increment_offset<double>(
+      offset,
+      2 * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point_num_,
       4);
   increment_offset<double>(offset, 0 * 0, 1);
   increment_offset<double>(offset, 1 * 1, 1);
