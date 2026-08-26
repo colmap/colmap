@@ -990,7 +990,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     Image& image = reconstruction.Image(image_id);
 
     const bool constant_sensor_from_rig =
-        !options_.refine_sensor_from_rig ||
+        image.IsRefInFrame() || !options_.refine_sensor_from_rig ||
         config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
     const bool constant_rig_from_world =
         !options_.refine_rig_from_world ||
@@ -1035,6 +1035,14 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           prior_loss_function_.get(),
           cam_from_rig.params.data(),
           rig_from_world.params.data());
+      // Reprojection residuals may omit constant poses, so the prior can add
+      // their parameter blocks after the default parameterization pass.
+      if (constant_sensor_from_rig) {
+        problem.SetParameterBlockConstant(cam_from_rig.params.data());
+      }
+    }
+    if (constant_rig_from_world) {
+      problem.SetParameterBlockConstant(rig_from_world.params.data());
     }
   }
 

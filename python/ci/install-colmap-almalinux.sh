@@ -57,6 +57,7 @@ if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
 fi
 export PATH="${COMPILER_TOOLS_DIR}:${PATH}"
 ln -sf ${COMPILER_TOOLS_DIR}/ccache /usr/local/bin/ccache
+ccache --zero-stats
 
 # Setup vcpkg
 git clone https://github.com/microsoft/vcpkg ${VCPKG_INSTALLATION_ROOT}
@@ -84,6 +85,4 @@ cmake3 .. -GNinja \
     -DFETCHCONTENT_FULLY_DISCONNECTED="${FETCHCONTENT_FULLY_DISCONNECTED}"
 ninja install
 
-ccache --show-stats --verbose
-ccache --evict-older-than 1d
 ccache --show-stats --verbose

@@ -11,7 +11,7 @@ def test_global_mapper_options_init():
 def test_global_mapper_options_image_path():
     options = pycolmap.GlobalMapperOptions()
     options.image_path = "/tmp/images"
-    assert str(options.image_path) == "/tmp/images"
+    assert options.image_path == Path("/tmp/images")
 
 
 def test_global_mapper_options_ba_gpu_index():
