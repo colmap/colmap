@@ -11,6 +11,7 @@ $env:Path = "${COMPILER_TOOLS_DIR};" + $env:Path
 If (!(Test-Path -path "${COMPILER_TOOLS_DIR}/ccache.exe" -PathType Leaf)) {
     .github/workflows/install-ccache.ps1 -Destination "${COMPILER_TOOLS_DIR}"
 }
+ccache --zero-stats
 
 # Setup vcpkg
 cd ${CURRDIR}
@@ -40,6 +41,4 @@ cmake .. `
     -DFETCHCONTENT_FULLY_DISCONNECTED="${env:FETCHCONTENT_FULLY_DISCONNECTED}"
 ninja install
 
-ccache --show-stats --verbose
-ccache --evict-older-than 1d
 ccache --show-stats --verbose
