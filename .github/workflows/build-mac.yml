@@ -29,10 +29,13 @@ jobs:
         ]
 
     env:
-      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_VERSION: 2
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 500M
       FETCHCONTENT_CACHE_VERSION: 1
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
@@ -41,16 +44,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Set compiler cache epoch
+        id: compiler-cache-epoch
+        shell: bash
+        # GitHub cache entries are immutable. Rotate weekly so changed objects
+        # are incorporated without creating a new archive for every run.
+        run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-compiler
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          restore-keys: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -77,6 +87,7 @@ jobs:
             ccache \
             libomp
           brew link --force libomp
+          ccache --zero-stats
 
       - name: Configure and build
         run: |
@@ -112,6 +123,22 @@ jobs:
       - name: Cleanup compiler cache
         run: |
           set -x
+          ccache --cleanup
           ccache --show-stats --verbose
-          ccache --evict-older-than 1d
-          ccache --show-stats --verbose
+
+      - name: Save compiler cache
+        # Pull-request caches are scoped to the PR merge ref, cannot seed main,
+        # and still consume the repository-wide cache quota.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-compiler.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ matrix.config.cmakeBuildType }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Save FetchContent cache
+        # Avoid duplicate dependency archives that only this PR can restore.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-fetchcontent.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}

@@ -38,10 +38,13 @@ jobs:
         ]
 
     env:
-      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_VERSION: 2
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 500M
       FETCHCONTENT_CACHE_VERSION: 1
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
@@ -52,6 +55,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set compiler cache epoch
+        id: compiler-cache-epoch
+        shell: bash
+        # GitHub cache entries are immutable. Rotate weekly so changed objects
+        # are incorporated without creating a new archive for every run.
+        run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
 
       # We define the vcpkg binary sources using separate variables for read and
       # write operations:
@@ -77,15 +87,15 @@ jobs:
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-compiler
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          restore-keys: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}-
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -98,9 +108,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path "${{ env.CCACHE_DIR }}"
           echo "${{ env.COMPILER_CACHE_DIR }}/bin" | Out-File -Encoding utf8 -Append -FilePath $env:GITHUB_PATH
           if (Test-Path -PathType Leaf "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe") {
+            & "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe" --zero-stats
             exit
           }
           .github/workflows/install-ccache.ps1 -Destination "${{ env.COMPILER_CACHE_DIR }}/bin"
+          & "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe" --zero-stats
 
       - name: Install CUDA
         uses: Jimver/cuda-toolkit@v0.2.35
@@ -236,6 +248,22 @@ jobs:
       - name: Cleanup compiler cache
         shell: pwsh
         run: |
+          ccache --cleanup
           ccache --show-stats --verbose
-          ccache --evict-older-than 1d
-          ccache --show-stats --verbose
+
+      - name: Save compiler cache
+        # Pull-request caches are scoped to the PR merge ref, cannot seed main,
+        # and still consume the repository-wide cache quota.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-compiler.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Save FetchContent cache
+        # Avoid duplicate dependency archives that only this PR can restore.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-fetchcontent.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}

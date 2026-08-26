@@ -9,10 +9,14 @@ ARG NVIDIA_CUDA_VERSION=12.9.1
 FROM nvidia/cuda:${NVIDIA_CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION} AS builder
 
 ARG CUDA_ARCHITECTURES=all-major
+ARG CCACHE_MAXSIZE=500M
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
 ARG FETCHCONTENT_FULLY_DISCONNECTED=OFF
 ENV CCACHE_DIR=/colmap/build/.ccache
 ENV CCACHE_BASEDIR=/colmap
+ENV CCACHE_COMPILERCHECK=content
+ENV CCACHE_MAXSIZE=${CCACHE_MAXSIZE}
+ENV CCACHE_NOHASHDIR=true
 
 # Prevent stop building ubuntu at time zone selection.
 ENV DEBIAN_FRONTEND=noninteractive
@@ -57,6 +61,7 @@ COPY . /colmap
 # Build and install COLMAP.
 RUN cd /colmap && \
     mkdir -p build/.ccache && \
+    ccache --zero-stats && \
     cd build && \
     cmake .. \
         -GNinja \

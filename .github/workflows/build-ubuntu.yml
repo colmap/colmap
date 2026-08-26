@@ -96,10 +96,13 @@ jobs:
         ]
 
     env:
-      COMPILER_CACHE_VERSION: 1
+      COMPILER_CACHE_VERSION: 2
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: 500M
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
       FETCHCONTENT_CACHE_VERSION: 1
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
@@ -108,6 +111,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set compiler cache epoch
+        id: compiler-cache-epoch
+        shell: bash
+        # GitHub cache entries are immutable. Rotate weekly so changed objects
+        # are incorporated without creating a new archive for every run.
+        run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
 
       - name: Check code format
         if: matrix.config.checkCodeFormat
@@ -120,15 +130,15 @@ jobs:
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
       - name: Restore Compiler cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-compiler
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          restore-keys: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}-
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -140,21 +150,20 @@ jobs:
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
           echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
 
-          if [ -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
-            exit 0
+          if [ ! -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
+            set -x
+            wget https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-x86_64-glibc.tar.xz
+            echo "508b2a1217dc6e04a23e967c7b95a0fb45d8a7e16fde9e180919698f2e2be060  ccache-4.13.6-linux-x86_64-glibc.tar.xz" | sha256sum --check
+            tar xfv ccache-4.13.6-linux-x86_64-glibc.tar.xz
+            mkdir -p "$COMPILER_CACHE_DIR/bin"
+            mv ./ccache-4.13.6-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
+            ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
+            wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
+            echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
+            unzip "${ctcache_commit_id}.zip"
+            mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
           fi
-
-          set -x
-          wget https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-x86_64-glibc.tar.xz
-          echo "508b2a1217dc6e04a23e967c7b95a0fb45d8a7e16fde9e180919698f2e2be060  ccache-4.13.6-linux-x86_64-glibc.tar.xz" | sha256sum --check
-          tar xfv ccache-4.13.6-linux-x86_64-glibc.tar.xz
-          mkdir -p "$COMPILER_CACHE_DIR/bin"
-          mv ./ccache-4.13.6-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
-          ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
-          wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
-          echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
-          unzip "${ctcache_commit_id}.zip"
-          mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
+          "$COMPILER_CACHE_DIR/bin/ccache" --zero-stats
 
       - name: Setup Ubuntu
         run: |
@@ -350,8 +359,7 @@ jobs:
       - name: Cleanup compiler cache
         run: |
           set -x
-          ccache --show-stats --verbose
-          ccache --evict-older-than 1d
+          ccache --cleanup
           ccache --show-stats --verbose
 
           echo "Size of ctcache before: $(du -sh $CTCACHE_DIR)"
@@ -360,3 +368,20 @@ jobs:
           find "$CTCACHE_DIR"/*/ -mtime +10 -print0 | xargs -0 rm -rf
           echo "Size of ctcache after:  $(du -sh $CTCACHE_DIR)"
           echo "Number of ctcache files after: $(find $CTCACHE_DIR | wc -l)"
+
+      - name: Save compiler cache
+        # Pull-request caches are scoped to the PR merge ref, cannot seed main,
+        # and still consume the repository-wide cache quota.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-compiler.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+
+      - name: Save FetchContent cache
+        # Avoid duplicate dependency archives that only this PR can restore.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-fetchcontent.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}

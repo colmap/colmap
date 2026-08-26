@@ -14,8 +14,9 @@ env:
   IS_RELEASE: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
   FETCHCONTENT_CACHE_VERSION: 1
   FETCHCONTENT_CACHE_DIR: build/_deps
-  COMPILER_CACHE_VERSION: 1
+  COMPILER_CACHE_VERSION: 2
   CCACHE_DIR: build/.ccache
+  CCACHE_MAXSIZE: 500M
 
 jobs:
   build:
@@ -35,8 +36,15 @@ jobs:
 
       - uses: actions/checkout@v7
 
+      - name: Set compiler cache epoch
+        id: compiler-cache-epoch
+        shell: bash
+        # GitHub cache entries are immutable. Rotate weekly so changed objects
+        # are incorporated without creating a new archive for every run.
+        run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
       - name: Restore FetchContent cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-fetchcontent
         with:
           key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-docker-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
@@ -44,11 +52,11 @@ jobs:
           path: ${{ env.FETCHCONTENT_CACHE_DIR }}
 
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         id: cache-ccache
         with:
-          key: ccache-v${{ env.COMPILER_CACHE_VERSION }}-docker-${{ github.run_id }}
-          restore-keys: ccache-v${{ env.COMPILER_CACHE_VERSION }}-docker-
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-docker-${{ steps.compiler-cache-epoch.outputs.value }}
+          restore-keys: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-docker-
           path: ${{ env.CCACHE_DIR }}
 
       - name: Set up QEMU
@@ -76,6 +84,7 @@ jobs:
           docker_args=(
             --file docker/Dockerfile
             --build-arg CUDA_ARCHITECTURES="$cuda_archs"
+            --build-arg CCACHE_MAXSIZE="${CCACHE_MAXSIZE}"
             --build-arg FETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
           )
           docker build . \
@@ -100,6 +109,22 @@ jobs:
         run: |
           set -x
           sudo apt-get install -y ccache
+          ccache --cleanup
           ccache --show-stats --verbose
-          ccache --evict-older-than 1d
-          ccache --show-stats --verbose
+
+      - name: Save compiler cache
+        # Pull-request caches are scoped to the PR merge ref, cannot seed main,
+        # and still consume the repository-wide cache quota.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-docker-${{ steps.compiler-cache-epoch.outputs.value }}
+          path: ${{ env.CCACHE_DIR }}
+
+      - name: Save FetchContent cache
+        # Avoid duplicate dependency archives that only this PR can restore.
+        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-fetchcontent.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-docker-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
+          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
