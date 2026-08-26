@@ -134,6 +134,15 @@ jobs:
         run: |
           echo "${{ env.COMPILER_CACHE_DIR }}/bin" >> "${env:GITHUB_PATH}"
 
+          # The Visual Studio generator ignores CMake compiler launchers. Use
+          # Ninja for wheel builds and persist the MSVC developer environment
+          # that Ninja needs into the following cibuildwheel step.
+          & "./scripts/shell/enter_vs_dev_shell.ps1"
+          echo "PATH=${env:PATH}" >> "${env:GITHUB_ENV}"
+          echo "INCLUDE=${env:INCLUDE}" >> "${env:GITHUB_ENV}"
+          echo "LIB=${env:LIB}" >> "${env:GITHUB_ENV}"
+          echo "LIBPATH=${env:LIBPATH}" >> "${env:GITHUB_ENV}"
+
           $VCPKG_INSTALLATION_ROOT = "${{ github.workspace }}/vcpkg"
           echo "VCPKG_INSTALLATION_ROOT=${VCPKG_INSTALLATION_ROOT}" >> "${env:GITHUB_ENV}"
           $CMAKE_TOOLCHAIN_FILE = "${VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake"
@@ -148,6 +157,7 @@ jobs:
           $CONFIG_SETTINGS = "cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${VCPKG_INSTALLED_DIR}"
+          $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.args=-GNinja"
           echo "CIBW_CONFIG_SETTINGS_WINDOWS=${CONFIG_SETTINGS}" >> "${env:GITHUB_ENV}"
           $CCACHE_DIR = "${env:CCACHE_DIR}".replace('\', '/')
           $CCACHE_BASEDIR = "${env:CCACHE_BASEDIR}".replace('\', '/')
