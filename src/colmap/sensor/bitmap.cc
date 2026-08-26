@@ -231,68 +231,6 @@ void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   }
 }
 
-std::optional<BitmapColor<uint8_t>> Bitmap::InterpolateNearestNeighbor(
-    const double x, const double y) const {
-  const int xx = static_cast<int>(std::round(x));
-  const int yy = static_cast<int>(std::round(y));
-  return GetPixel(xx, yy);
-}
-
-std::optional<BitmapColor<float>> Bitmap::InterpolateBilinear(
-    const double x, const double y) const {
-  const int x0 = static_cast<int>(std::floor(x));
-  const int x1 = x0 + 1;
-  const int y0 = static_cast<int>(std::floor(y));
-  const int y1 = y0 + 1;
-
-  if (x0 < 0 || x1 >= width_ || y0 < 0 || y1 >= height_) {
-    return std::nullopt;
-  }
-
-  const double dx = x - x0;
-  const double dy = y - y0;
-  const double dx_1 = 1 - dx;
-  const double dy_1 = 1 - dy;
-
-  const int pitch = width_ * channels_;
-  const uint8_t* line0 = &data_[y0 * pitch];
-  const uint8_t* line1 = &data_[y1 * pitch];
-
-  if (IsGrey()) {
-    // Top row, column-wise linear interpolation.
-    const double v0 = dx_1 * line0[x0] + dx * line0[x1];
-
-    // Bottom row, column-wise linear interpolation.
-    const double v1 = dx_1 * line1[x0] + dx * line1[x1];
-
-    // Row-wise linear interpolation.
-    const float r = dy_1 * v0 + dy * v1;
-    return BitmapColor<float>(r, r, r);
-  } else if (IsRGB()) {
-    const uint8_t* p00 = &line0[3 * x0];
-    const uint8_t* p01 = &line0[3 * x1];
-    const uint8_t* p10 = &line1[3 * x0];
-    const uint8_t* p11 = &line1[3 * x1];
-
-    // Top row, column-wise linear interpolation.
-    const double v0_r = dx_1 * p00[0] + dx * p01[0];
-    const double v0_g = dx_1 * p00[1] + dx * p01[1];
-    const double v0_b = dx_1 * p00[2] + dx * p01[2];
-
-    // Bottom row, column-wise linear interpolation.
-    const double v1_r = dx_1 * p10[0] + dx * p11[0];
-    const double v1_g = dx_1 * p10[1] + dx * p11[1];
-    const double v1_b = dx_1 * p10[2] + dx * p11[2];
-
-    // Row-wise linear interpolation.
-    return BitmapColor<float>(dy_1 * v0_r + dy * v1_r,
-                              dy_1 * v0_g + dy * v1_g,
-                              dy_1 * v0_b + dy * v1_b);
-  }
-
-  return std::nullopt;
-}
-
 std::optional<int> Bitmap::ExifOrientation() const {
   int orientation = 0;
   if (GetMetaData("Orientation", "int", &orientation)) {
@@ -466,6 +404,9 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
+  // Preserve color values when reading formats with unassociated alpha. Alpha
+  // is discarded below, so automatic premultiplication would darken pixels.
+  config["oiio:UnassociatedAlpha"] = 1;
 
   const auto input = OIIO::ImageInput::open(PathToUtf8(path), &config);
   if (!input) {
@@ -587,7 +528,27 @@ void Bitmap::Rescale(const int new_width,
   OIIO::ImageBuf new_buf(
       OIIO::ImageSpec(new_width, new_height, channels_, OIIO::TypeDesc::UINT8),
       new_data.data());
-  THROW_CHECK(OIIO::ImageBufAlgo::resize(new_buf, buf));
+  switch (filter) {
+    case RescaleFilter::kBilinear:
+      // Unlike resample(), resize() applies antialiasing when downsampling.
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, {{"filtername", "triangle"}}));
+#else
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, /*filtername=*/"triangle", /*filterwidth=*/0.0f));
+#endif
+      break;
+    case RescaleFilter::kBox:
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+      THROW_CHECK(
+          OIIO::ImageBufAlgo::resize(new_buf, buf, {{"filtername", "box"}}));
+#else
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, /*filtername=*/"box", /*filterwidth=*/0.0f));
+#endif
+      break;
+  }
 
   width_ = new_width;
   height_ = new_height;
@@ -666,9 +627,12 @@ Bitmap Bitmap::CloneAsGrey() const {
     cloned.linear_colorspace_ = linear_colorspace_;
     cloned.data_.resize(width_ * height_);
     for (size_t i = 0; i < cloned.data_.size(); ++i) {
-      cloned.data_[i] =
-          std::round(.2126f * data_[3 * i + 0] + .7152f * data_[3 * i + 1] +
-                     .0722f * data_[3 * i + 2]);
+      // The weighted sum is non-negative, so adding 0.5 before truncating is
+      // equivalent to std::round and allows the loop to be vectorized.
+      // NOLINTNEXTLINE(bugprone-incorrect-roundings)
+      cloned.data_[i] = static_cast<uint8_t>(.2126f * data_[3 * i + 0] +
+                                             .7152f * data_[3 * i + 1] +
+                                             .0722f * data_[3 * i + 2] + .5f);
     }
     cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
     auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());

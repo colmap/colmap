@@ -31,9 +31,9 @@
 
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -96,7 +96,13 @@ TEST(FeatureMatchingOptions, RequiresOpenGL) {
   const FeatureMatcherType types[] = {FeatureMatcherType::SIFT_BRUTEFORCE,
                                       FeatureMatcherType::SIFT_LIGHTGLUE,
                                       FeatureMatcherType::ALIKED_BRUTEFORCE,
-                                      FeatureMatcherType::ALIKED_LIGHTGLUE};
+                                      FeatureMatcherType::ALIKED_LIGHTGLUE,
+                                      FeatureMatcherType::LOMA_BRUTEFORCE,
+                                      FeatureMatcherType::LOMA_B,
+                                      FeatureMatcherType::LOMA_B128,
+                                      FeatureMatcherType::LOMA_R,
+                                      FeatureMatcherType::LOMA_L,
+                                      FeatureMatcherType::LOMA_G};
 
   for (const auto type : types) {
     options.type = type;
@@ -111,7 +117,13 @@ TEST(FeatureMatchingOptions, Check) {
   const FeatureMatcherType types[] = {FeatureMatcherType::SIFT_BRUTEFORCE,
                                       FeatureMatcherType::SIFT_LIGHTGLUE,
                                       FeatureMatcherType::ALIKED_BRUTEFORCE,
-                                      FeatureMatcherType::ALIKED_LIGHTGLUE};
+                                      FeatureMatcherType::ALIKED_LIGHTGLUE,
+                                      FeatureMatcherType::LOMA_BRUTEFORCE,
+                                      FeatureMatcherType::LOMA_B,
+                                      FeatureMatcherType::LOMA_B128,
+                                      FeatureMatcherType::LOMA_R,
+                                      FeatureMatcherType::LOMA_L,
+                                      FeatureMatcherType::LOMA_G};
 
   for (const auto type : types) {
     options.type = type;

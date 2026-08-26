@@ -31,6 +31,8 @@
 
 #include "colmap/feature/matcher.h"
 
+#include <vector>
+
 namespace colmap {
 
 struct BruteForceONNXMatchingOptions {
@@ -50,9 +52,14 @@ struct BruteForceONNXMatchingOptions {
   bool Check() const;
 };
 
+// The matcher rejects descriptors whose type is not listed in
+// `supported_feature_types`. Set `normalize_descriptors` when the extractor
+// does not produce unit-length descriptors.
 std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
     const FeatureMatchingOptions& options,
-    const BruteForceONNXMatchingOptions& brute_force_options);
+    const BruteForceONNXMatchingOptions& brute_force_options,
+    std::vector<FeatureExtractorType> supported_feature_types,
+    bool normalize_descriptors);
 
 // The LightGlue torch model was exported to ONNX using the following codebase:
 // https://github.com/colmap/LightGlue-ONNX/tree/user/jsch/onnx-export

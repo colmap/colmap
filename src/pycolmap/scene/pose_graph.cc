@@ -93,30 +93,15 @@ void BindPoseGraph(py::module& m) {
            &PoseGraph::SetInvalidEdge,
            "pair_id"_a,
            "Mark an edge as invalid.")
-      .def("compute_largest_connected_frame_component",
-           &PoseGraph::ComputeLargestConnectedFrameComponent,
+      .def("largest_connected_frame_component",
+           &PoseGraph::LargestConnectedFrameComponent,
            "reconstruction"_a,
            "filter_unregistered"_a = true,
-           "Compute the largest connected component of frames. If "
-           "filter_unregistered is True, only considers frames with poses.")
+           "Return the largest connected component of frames. If "
+           "filter_unregistered is True, only consider frames with poses.")
       .def("invalidate_pairs_outside_active_image_ids",
            &PoseGraph::InvalidatePairsOutsideActiveImageIds,
            "active_image_ids"_a,
            "Mark image pairs as invalid if either image is not in the active "
-           "set.")
-      .def(
-          "mark_connected_components",
-          [](const PoseGraph& self,
-             const Reconstruction& reconstruction,
-             int min_num_images) {
-            colmap::NodeHashMap<frame_t, int> cluster_ids;
-            int num_components = self.MarkConnectedComponents(
-                reconstruction, cluster_ids, min_num_images);
-            return py::dict("num_components"_a = num_components,
-                            "cluster_ids"_a = cluster_ids);
-          },
-          "reconstruction"_a,
-          "min_num_images"_a = -1,
-          "Mark connected clusters of images. Returns dict with num_components "
-          "and cluster_ids mapping frame IDs to cluster IDs.");
+           "set.");
 }

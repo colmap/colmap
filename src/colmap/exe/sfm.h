@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/controllers/global_pipeline.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/reconstruction_manager.h"
@@ -61,6 +62,13 @@ bool RunGlobalMapperImpl(
     const std::filesystem::path& image_path,
     const std::filesystem::path& output_path,
     const std::shared_ptr<GlobalPipelineOptions>& mapper_options,
+    std::shared_ptr<ReconstructionManager>& reconstruction_manager);
+
+bool RunHierarchicalMapperImpl(
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
+    const std::shared_ptr<HierarchicalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager);
 
 int RunAutomaticReconstructor(int argc, char** argv);

@@ -319,6 +319,15 @@ TEST(Camera, ImgFromCam) {
             Eigen::Vector2d(0.0, 0.0));
 }
 
+TEST(Camera, ImgFromCamWithoutCheiralityCheck) {
+  const Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimplePinhole, 1.0, 1, 1);
+  const Eigen::Vector3d cam_point(-0.5, -0.5, -1);
+  EXPECT_FALSE(camera.ImgFromCam(cam_point).has_value());
+  EXPECT_EQ(camera.ImgFromCam(cam_point, /*check_cheirality=*/false).value(),
+            Eigen::Vector2d(1.0, 1.0));
+}
+
 TEST(Camera, CamRayFromImgWithJac) {
   // Covers a perspective model, a distorted one, and a spherical one. For the
   // spherical camera the sampled pixels include the back hemisphere, where

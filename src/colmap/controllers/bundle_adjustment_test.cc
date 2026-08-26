@@ -30,7 +30,6 @@
 #include "colmap/controllers/bundle_adjustment.h"
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/math/random.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 
