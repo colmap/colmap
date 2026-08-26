@@ -53,6 +53,11 @@ Example:
     --threads_per_scene 1 --overwrite_two_view_geometries \\
     --data_path data --datasets eth3d --categories dslr --scenes meadow \\
     --run_path runs --run_name variance-meadow
+
+  # Distorted ETH3D DSLR JPEGs (bare eth3d remains undistorted):
+  python evaluate.py --colmap_path /path/colmap \
+    --datasets eth3d:distorted --categories dslr \
+    --run_name eth3d-distorted
 """
 
 import argparse
@@ -68,21 +73,49 @@ from evaluation.tartanair import (
 )
 from evaluation.tartanair.tartanair_v2 import load_manifest
 from evaluation.utils import (
+    DATASET_VARIANTS,
     Dataset,
     MetricsByDatasetByCatByScene,
     create_result_table,
     filter_smallest_scenes_per_category,
     parse_args,
+    parse_dataset_spec,
     process_scenes,
 )
 
 import pycolmap
 
 
+def _parse_dataset_specs(specs: list[str]) -> list[tuple[str, str | None]]:
+    datasets = {
+        "eth3d",
+        "blended-mvs",
+        "imc2023",
+        "imc2024",
+        "imc2025",
+        "tartanair-v2-perspective",
+        "tartanair-v2-spherical",
+    }
+    parsed_specs = []
+    seen_names = set()
+    for spec in specs:
+        dataset_name, variant = parse_dataset_spec(spec, datasets)
+        if dataset_name in seen_names:
+            raise ValueError(
+                f"Dataset {dataset_name!r} was requested more than once. "
+                "Run variants in separate invocations with different "
+                "--run_name and --report_name values, then compare them with "
+                "compare.py."
+            )
+        seen_names.add(dataset_name)
+        parsed_specs.append((dataset_name, variant))
+    return parsed_specs
+
+
 def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
     """Evaluates all datasets once and writes args.report_name.
 
-    Returns None if a dataset is unknown or no scenes matched.
+    Returns None if no scenes matched.
     """
     datasets: dict[str, type[Dataset]] = {
         "eth3d": DatasetETH3D,
@@ -94,20 +127,28 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "tartanair-v2-spherical": DatasetTartanAirSpherical,
     }
 
+    parsed_specs = _parse_dataset_specs(args.datasets)
+
     metrics: MetricsByDatasetByCatByScene = {}
-    for dataset_name in args.datasets:
-        if dataset_name not in datasets:
-            pycolmap.logging.error(f"Unknown dataset: {dataset_name}")
-            return None
+    for dataset_name, variant in parsed_specs:
+        variant_label = variant
+        if variant_label is None and dataset_name in DATASET_VARIANTS:
+            variant_label = DATASET_VARIANTS[dataset_name][0]
+        variant_label = variant_label or "default"
+        pycolmap.logging.info(
+            f"Evaluating dataset: {dataset_name} (variant={variant_label})"
+        )
 
-        pycolmap.logging.info(f"Evaluating dataset: {dataset_name}")
-
+        # A missing variant means the dataset constructor's historical default;
+        # for ETH3D that is undistorted and must remain so for compatibility.
+        variant_kwargs = {"variant": variant} if variant is not None else {}
         dataset = datasets[dataset_name](
             data_path=args.data_path,
             categories=args.categories,
             scenes=args.scenes,
             run_path=args.run_path,
             run_name=args.run_name,
+            **variant_kwargs,
         )
 
         scene_infos = dataset.list_scenes()
@@ -137,6 +178,14 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
     metadata_path = report_path.with_suffix(".json")
     metadata = {
         "datasets": args.datasets,
+        "dataset_variants": {
+            name: (
+                variant
+                if variant is not None
+                else DATASET_VARIANTS.get(name, (None,))[0]
+            )
+            for name, variant in parsed_specs
+        },
         "pycolmap_version": pycolmap.__version__,
         "random_seed": args.random_seed,
         "feature": args.feature,
@@ -191,6 +240,10 @@ def run_seeds(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = parse_args(__doc__)
+    try:
+        _parse_dataset_specs(args.datasets)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     if args.seeds is not None:
         run_seeds(args)
     else:

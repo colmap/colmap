@@ -34,6 +34,7 @@ import json
 import shutil
 import subprocess
 import tarfile
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -45,6 +46,7 @@ from evaluation.tartanair.tartanair_v2 import (
     scene_shards,
     shard_name,
 )
+from evaluation.utils import parse_dataset_spec
 
 import pycolmap
 
@@ -59,26 +61,102 @@ def download_file(url: str, target_folder: Path) -> str:
     return filename
 
 
-def download_eth3d(data_path: Path) -> None:
-    for filename, category in [
-        ("multi_view_training_dslr_undistorted.7z", "dslr"),
-        ("multi_view_test_dslr_undistorted.7z", "dslr"),
-        ("multi_view_training_rig_undistorted.7z", "rig"),
-        ("multi_view_test_rig_undistorted.7z", "rig"),
-    ]:
+def _publish_staged_tree(staging_path: Path, target_folder: Path) -> None:
+    """Merge a staged archive into target_folder with rollback on failure."""
+    with tempfile.TemporaryDirectory(
+        prefix=".eth3d-publish-", dir=target_folder
+    ) as transaction_dir:
+        backups_path = Path(transaction_dir) / "backups"
+        backups_path.mkdir()
+        published: list[tuple[Path, Path | None]] = []
+
+        def publish(source: Path, destination: Path) -> None:
+            if source.is_dir() and destination.is_dir():
+                for child in source.iterdir():
+                    publish(child, destination / child.name)
+                return
+
+            backup = None
+            if destination.exists():
+                backup = backups_path / destination.relative_to(target_folder)
+                backup.parent.mkdir(parents=True, exist_ok=True)
+                destination.rename(backup)
+            try:
+                source.rename(destination)
+            except Exception:
+                if backup is not None:
+                    backup.rename(destination)
+                raise
+            published.append((destination, backup))
+
+        try:
+            for source in staging_path.iterdir():
+                publish(source, target_folder / source.name)
+        except Exception:
+            for destination, backup in reversed(published):
+                if destination.is_dir():
+                    shutil.rmtree(destination)
+                else:
+                    destination.unlink(missing_ok=True)
+                if backup is not None:
+                    backup.parent.mkdir(parents=True, exist_ok=True)
+                    backup.rename(destination)
+            raise
+
+
+def download_eth3d(data_path: Path, variant: str = "undistorted") -> None:
+    # Bare `eth3d` must remain the undistorted variant for compatibility.
+    archives_by_variant = {
+        "undistorted": [
+            ("multi_view_training_dslr_undistorted.7z", "dslr"),
+            ("multi_view_test_dslr_undistorted.7z", "dslr"),
+            ("multi_view_training_rig_undistorted.7z", "rig"),
+            ("multi_view_test_rig_undistorted.7z", "rig"),
+        ],
+        # ETH3D's similarly named multi_view_*_dslr_raw.7z archives contain
+        # undeveloped camera RAW (.NEF), not distorted images COLMAP can read.
+        # The `distorted` variant deliberately means the _jpg.7z archives.
+        # Distorted rig data is intentionally not wired up, so this is
+        # DSLR-only.
+        "distorted": [
+            ("multi_view_training_dslr_jpg.7z", "dslr"),
+            ("multi_view_test_dslr_jpg.7z", "dslr"),
+        ],
+    }
+    if variant not in archives_by_variant:
+        raise ValueError(f"Unsupported ETH3D variant: {variant}")
+
+    num_succeeded = 0
+    for filename, category in archives_by_variant[variant]:
         target_folder = data_path / category
         target_folder.mkdir(parents=True, exist_ok=True)
+        archive_path = target_folder / filename
+        url = "https://www.eth3d.net/data/" + filename
+        try:
+            pycolmap.logging.info(
+                f"Downloading ETH3D category={category}, filename={filename}"
+            )
+            download_file(url, target_folder)
 
-        pycolmap.logging.info(
-            f"Downloading ETH3D category={category}, filename={filename}"
-        )
-        download_file("https://www.eth3d.net/data/" + filename, target_folder)
+            pycolmap.logging.info(
+                f"Extracting ETH3D category={category}, filename={filename}"
+            )
+            with tempfile.TemporaryDirectory(
+                prefix=f".{filename}.", dir=target_folder
+            ) as temporary_dir:
+                staging_path = Path(temporary_dir)
+                with py7zr.SevenZipFile(archive_path, mode="r") as archive:
+                    archive.extractall(path=staging_path)
+                _publish_staged_tree(staging_path, target_folder)
+            num_succeeded += 1
+        except Exception as error:
+            pycolmap.logging.error(
+                f"Failed to download or extract ETH3D archive {url}: {error}"
+            )
+            archive_path.unlink(missing_ok=True)
 
-        pycolmap.logging.info(
-            f"Extracting ETH3D category={category}, filename={filename}"
-        )
-        with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
-            archive.extractall(path=target_folder)
+    if num_succeeded == 0:
+        raise RuntimeError(f"Failed to download any ETH3D {variant} archives")
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -304,8 +382,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--datasets",
         nargs="+",
-        default=DOWNLOADERS.keys(),
-        choices=DOWNLOADERS.keys(),
+        default=list(DOWNLOADERS),
+        help="Datasets to download as NAME or NAME:VARIANT. Valid names: "
+        f"{', '.join(DOWNLOADERS)}. Bare names keep their existing defaults; "
+        "eth3d is exactly eth3d:undistorted. eth3d:distorted downloads the "
+        "large DSLR-only _jpg.7z archives into the same data/eth3d tree, where "
+        "both variants can coexist.",
     )
     parser.add_argument(
         "--categories",
@@ -325,13 +407,24 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    for dataset in args.datasets:
-        if dataset == "tartanair-v2":
+    try:
+        dataset_specs = [
+            parse_dataset_spec(spec, DOWNLOADERS) for spec in args.datasets
+        ]
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+
+    for name, variant in dataset_specs:
+        if name == "tartanair-v2":
             download_tartanair_v2(
-                args.data_path / dataset, args.categories, args.scenes
+                args.data_path / name, args.categories, args.scenes
             )
+        elif name == "eth3d":
+            # A bare `eth3d` leaves the downloader's undistorted default intact.
+            kwargs = {"variant": variant} if variant is not None else {}
+            download_eth3d(args.data_path / name, **kwargs)
         else:
-            DOWNLOADERS[dataset](args.data_path / dataset)
+            DOWNLOADERS[name](args.data_path / name)
 
 
 if __name__ == "__main__":

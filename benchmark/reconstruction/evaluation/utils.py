@@ -56,10 +56,53 @@ from pycolmap import panorama
 from .covisibility import filter_covisibility  # noqa: F401
 from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
 
+# The first variant is the dataset default. In particular, a bare `eth3d`
+# keeps selecting undistorted images for backward compatibility. Callers must
+# treat a parsed variant of None as "use the dataset default" rather than
+# choosing a variant themselves.
+DATASET_VARIANTS = {"eth3d": ("undistorted", "distorted")}
+
 # Sentinel GT component id in image_name_to_component marking an outlier image
 # that does not belong to any GT reconstruction. Outliers are never part of a
 # GT edge (relative metric) or a GT component (absolute metric).
 OUTLIER_COMPONENT_ID = -1
+
+
+def parse_dataset_spec(
+    spec: str, known_datasets: Iterable[str]
+) -> tuple[str, str | None]:
+    """Parse a dataset name with an optional `:<variant>` suffix."""
+    if spec.count(":") > 1:
+        raise ValueError(
+            f"Invalid dataset spec {spec!r}: expected NAME or NAME:VARIANT"
+        )
+
+    name, separator, variant = spec.partition(":")
+    known_datasets = tuple(known_datasets)
+    if name not in known_datasets:
+        valid_names = ", ".join(sorted(known_datasets))
+        raise ValueError(
+            f"Unknown dataset {name!r} in spec {spec!r}. "
+            f"Valid datasets: {valid_names}"
+        )
+    if not separator:
+        return name, None
+    if not variant:
+        raise ValueError(
+            f"Invalid dataset spec {spec!r}: the variant must not be empty"
+        )
+
+    variants = DATASET_VARIANTS.get(name)
+    if variants is None:
+        raise ValueError(f"Dataset {name!r} does not support variants")
+    if variant not in variants:
+        valid_variants = ", ".join(variants)
+        raise ValueError(
+            f"Unknown variant {variant!r} for dataset {name!r}. "
+            f"Valid variants: {valid_variants}"
+        )
+    return name, variant
+
 
 _PR_SET_PDEATHSIG = 1
 _LIBC = (
@@ -334,6 +377,9 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "--datasets",
         nargs="+",
         default=["eth3d", "blended-mvs", "imc2023", "imc2024"],
+        help="Datasets to evaluate as NAME or NAME:VARIANT. Bare names keep "
+        "their existing defaults; eth3d is exactly eth3d:undistorted. Use "
+        "eth3d:distorted for the distorted DSLR JPEGs.",
     )
     parser.add_argument(
         "--categories",
