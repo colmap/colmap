@@ -37,6 +37,10 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/testing.h"
 
+#ifdef CASPAR_ENABLED
+#include "colmap/util/cuda.h"
+#endif
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -349,7 +353,17 @@ TEST(BundleAdjustmentSummary, BriefReport) {
 
 // Parameterized test for generic BundleAdjuster interface across backends.
 class BundleAdjusterBackendTest
-    : public ::testing::TestWithParam<BundleAdjustmentBackend> {};
+    : public ::testing::TestWithParam<BundleAdjustmentBackend> {
+ protected:
+  void SetUp() override {
+#ifdef CASPAR_ENABLED
+    if (GetParam() == BundleAdjustmentBackend::CASPAR &&
+        GetNumCudaDevices() == 0) {
+      GTEST_SKIP() << "No CUDA devices available";
+    }
+#endif
+  }
+};
 
 TEST_P(BundleAdjusterBackendTest, Nominal) {
   Reconstruction gt_reconstruction;
