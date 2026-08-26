@@ -107,10 +107,10 @@ __global__ void __launch_bounds__(1024, 1)
     r23 = fma(r6, r23, r5);
     ReadIdx2<1024, double, double, double2>(
         pose, 4 * pose_num_alloc, global_thread_idx, r5, r24);
-    r25 = r8 * r9;
-    r26 = r12 * r13;
-    r26 = r26 * r17;
-    r25 = fma(r17, r25, r26);
+    r25 = r12 * r13;
+    r25 = r25 * r17;
+    r26 = r8 * r9;
+    r26 = fma(r17, r26, r25);
     r27 = -2.00000000000000000e+00;
     r28 = r8 * r8;
     r28 = r27 * r28;
@@ -143,7 +143,7 @@ __global__ void __launch_bounds__(1024, 1)
     r41 = r21 * r21;
     r41 = r41 * r27;
     r40 = r40 + r41;
-    r23 = fma(r5, r25, r23);
+    r23 = fma(r5, r26, r23);
     r23 = fma(r24, r31, r23);
     r23 = fma(r32, r35, r23);
     r23 = fma(r36, r38, r23);
@@ -160,10 +160,10 @@ __global__ void __launch_bounds__(1024, 1)
     r35 = 1.00000000000000008e-15;
     ReadIdx1<1024, double, double, double>(
         sensor_from_rig, 6 * sensor_from_rig_num_alloc, global_thread_idx, r31);
-    r25 = r27 * r16;
+    r26 = r27 * r16;
     r21 = r21 * r19;
-    r25 = fma(r22, r25, r21);
-    r25 = fma(r6, r25, r31);
+    r26 = fma(r22, r26, r21);
+    r26 = fma(r6, r26, r31);
     r31 = r12 * r8;
     r31 = r31 * r17;
     r42 = fma(r13, r34, r31);
@@ -177,13 +177,13 @@ __global__ void __launch_bounds__(1024, 1)
     r37 = r16 * r16;
     r37 = r27 * r37;
     r39 = r39 + r37;
-    r25 = fma(r5, r42, r25);
-    r25 = fma(r32, r30, r25);
-    r25 = fma(r24, r44, r25);
-    r25 = fma(r7, r19, r25);
-    r25 = fma(r36, r39, r25);
-    r39 = copysign(1.0, r25);
-    r39 = fma(r35, r39, r25);
+    r26 = fma(r5, r42, r26);
+    r26 = fma(r32, r30, r26);
+    r26 = fma(r24, r44, r26);
+    r26 = fma(r7, r19, r26);
+    r26 = fma(r36, r39, r26);
+    r39 = copysign(1.0, r26);
+    r39 = fma(r35, r39, r26);
     r35 = r39 * r39;
     r35 = 1.0 / r35;
     r41 = r29 + r41;
@@ -194,7 +194,7 @@ __global__ void __launch_bounds__(1024, 1)
     r20 = fma(r22, r20, r21);
     r21 = r13 * r9;
     r21 = fma(r17, r21, r31);
-    r34 = fma(r8, r34, r26);
+    r34 = fma(r8, r34, r25);
     r28 = r29 + r28;
     r28 = r28 + r43;
     r41 = fma(r7, r15, r41);

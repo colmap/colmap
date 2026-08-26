@@ -19,6 +19,7 @@ struct CasparSolverSizing {
   // Pose pools are per-model to prevent cross-model factor batching.
   size_t num_simple_radial_poses = 0;
   size_t num_pinhole_poses = 0;
+  size_t num_thin_prism_fisheye_poses = 0;
   size_t num_points = 0;
 
   // SimpleRadial: num_calibs is shared by the merged Calib pool and the split
@@ -66,6 +67,34 @@ struct CasparSolverSizing {
   size_t num_pinhole_split_fixed_pose_fixed_focal_fixed_point = 0;
   size_t num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point = 0;
   size_t num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point = 0;
+
+  // ThinPrismFisheye: same 4 merged + 11 split variant layout.
+  size_t num_thin_prism_fisheye_calibs = 0;
+  size_t num_thin_prism_fisheye = 0;
+  size_t num_thin_prism_fisheye_fixed_pose = 0;
+  size_t num_thin_prism_fisheye_fixed_point = 0;
+  size_t num_thin_prism_fisheye_fixed_pose_fixed_point = 0;
+  size_t num_thin_prism_fisheye_split_fixed_focal_and_extra = 0;
+  size_t num_thin_prism_fisheye_split_fixed_principal_point = 0;
+  size_t num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra = 0;
+  size_t num_thin_prism_fisheye_split_fixed_pose_fixed_principal_point = 0;
+  size_t
+      num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point =
+          0;
+  size_t num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point = 0;
+  size_t num_thin_prism_fisheye_split_fixed_principal_point_fixed_point = 0;
+  size_t
+      num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point =
+          0;
+  size_t
+      num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point =
+          0;
+  size_t
+      num_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point =
+          0;
+  size_t
+      num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point =
+          0;
 };
 
 // One implementation per camera model.
@@ -83,6 +112,32 @@ class ICasparModelAdapter {
   // Number of floats in the merged Calib node per camera
   // (= FocalAndExtraSize() + PrincipalPointSize()).
   virtual size_t CalibSize() const = 0;
+
+  virtual void MergeCalibData(const StorageType* focal_and_extra,
+                              const StorageType* principal_point,
+                              StorageType* calib) const {
+    const size_t fae_size = FocalAndExtraSize();
+    const size_t pp_size = PrincipalPointSize();
+    for (size_t i = 0; i < fae_size; ++i) {
+      calib[i] = focal_and_extra[i];
+    }
+    for (size_t i = 0; i < pp_size; ++i) {
+      calib[fae_size + i] = principal_point[i];
+    }
+  }
+
+  virtual void SplitCalibData(const StorageType* calib,
+                              StorageType* focal_and_extra,
+                              StorageType* principal_point) const {
+    const size_t fae_size = FocalAndExtraSize();
+    const size_t pp_size = PrincipalPointSize();
+    for (size_t i = 0; i < fae_size; ++i) {
+      focal_and_extra[i] = calib[i];
+    }
+    for (size_t i = 0; i < pp_size; ++i) {
+      principal_point[i] = calib[fae_size + i];
+    }
+  }
 
   virtual void SetCalibNodes(caspar::GraphSolver& solver,
                              StorageType* data,
@@ -525,6 +580,457 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
   }
 };
 
+// ThinPrismFisheye implementation
+
+class ThinPrismFisheyeAdapter : public ICasparModelAdapter {
+ public:
+  CameraModelId ModelId() const override {
+    return CameraModelId::kThinPrismFisheye;
+  }
+  // ThinPrismFisheye: params =
+  // [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1]
+  // focal_and_extra = [fx, fy, k1, k2, p1, p2, k3, k4, sx1, sy1]
+  // principal_point = [cx, cy]
+  // merged calib    = COLMAP order above
+  size_t FocalAndExtraSize() const override { return 10; }
+  size_t PrincipalPointSize() const override { return 2; }
+  size_t CalibSize() const override {
+    return FocalAndExtraSize() + PrincipalPointSize();
+  }
+
+  void FillSizing(CasparSolverSizing& sz,
+                  const ModelData& md,
+                  size_t num_calibs) const override {
+    sz.num_thin_prism_fisheye_calibs = num_calibs;
+    for (int v = 0; v < CASPAR_NUM_VARIANTS; ++v) {
+      const size_t n = md.variants[v].num_factors;
+      switch (static_cast<FactorVariant>(v)) {
+        // Merged variants: both focal_and_extra and principal_point are
+        // tunable.
+        case FactorVariant::BASE:
+          sz.num_thin_prism_fisheye = n;
+          break;
+        case FactorVariant::FIXED_POSE:
+          sz.num_thin_prism_fisheye_fixed_pose = n;
+          break;
+        case FactorVariant::FIXED_POINT:
+          sz.num_thin_prism_fisheye_fixed_point = n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_POINT:
+          sz.num_thin_prism_fisheye_fixed_pose_fixed_point = n;
+          break;
+        // Split variants: at least one intrinsic group is fixed.
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA:
+          sz.num_thin_prism_fisheye_split_fixed_focal_and_extra = n;
+          break;
+        case FactorVariant::FIXED_PRINCIPAL_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_principal_point = n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
+          sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra = n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_pose_fixed_principal_point = n;
+          break;
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point =
+              n;
+          break;
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point = n;
+          break;
+        case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_principal_point_fixed_point = n;
+          break;
+        case FactorVariant::
+            FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point =
+              n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point =
+              n;
+          break;
+        case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point =
+              n;
+          break;
+        case FactorVariant::
+            FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point =
+              n;
+          break;
+      }
+    }
+  }
+
+  void ExtractFocalAndExtra(const Camera& camera,
+                            std::vector<StorageType>& out) const override {
+    out.push_back(static_cast<StorageType>(camera.params[0]));   // fx
+    out.push_back(static_cast<StorageType>(camera.params[1]));   // fy
+    out.push_back(static_cast<StorageType>(camera.params[4]));   // k1
+    out.push_back(static_cast<StorageType>(camera.params[5]));   // k2
+    out.push_back(static_cast<StorageType>(camera.params[6]));   // p1
+    out.push_back(static_cast<StorageType>(camera.params[7]));   // p2
+    out.push_back(static_cast<StorageType>(camera.params[8]));   // k3
+    out.push_back(static_cast<StorageType>(camera.params[9]));   // k4
+    out.push_back(static_cast<StorageType>(camera.params[10]));  // sx1
+    out.push_back(static_cast<StorageType>(camera.params[11]));  // sy1
+  }
+
+  void ExtractPrincipalPoint(const Camera& camera,
+                             std::vector<StorageType>& out) const override {
+    out.push_back(static_cast<StorageType>(camera.params[2]));  // cx
+    out.push_back(static_cast<StorageType>(camera.params[3]));  // cy
+  }
+
+  void WriteFocalAndExtra(Camera& camera,
+                          const StorageType* data,
+                          size_t idx) const override {
+    camera.params[0] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 0]);  // fx
+    camera.params[1] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 1]);  // fy
+    camera.params[4] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 2]);  // k1
+    camera.params[5] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 3]);  // k2
+    camera.params[6] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 4]);  // p1
+    camera.params[7] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 5]);  // p2
+    camera.params[8] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 6]);  // k3
+    camera.params[9] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 7]);  // k4
+    camera.params[10] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 8]);  // sx1
+    camera.params[11] =
+        static_cast<double>(data[idx * FocalAndExtraSize() + 9]);  // sy1
+  }
+
+  void WritePrincipalPoint(Camera& camera,
+                           const StorageType* data,
+                           size_t idx) const override {
+    camera.params[2] =
+        static_cast<double>(data[idx * PrincipalPointSize() + 0]);  // cx
+    camera.params[3] =
+        static_cast<double>(data[idx * PrincipalPointSize() + 1]);  // cy
+  }
+
+  void MergeCalibData(const StorageType* focal_and_extra,
+                      const StorageType* principal_point,
+                      StorageType* calib) const override {
+    calib[0] = focal_and_extra[0];   // fx
+    calib[1] = focal_and_extra[1];   // fy
+    calib[2] = principal_point[0];   // cx
+    calib[3] = principal_point[1];   // cy
+    calib[4] = focal_and_extra[2];   // k1
+    calib[5] = focal_and_extra[3];   // k2
+    calib[6] = focal_and_extra[4];   // p1
+    calib[7] = focal_and_extra[5];   // p2
+    calib[8] = focal_and_extra[6];   // k3
+    calib[9] = focal_and_extra[7];   // k4
+    calib[10] = focal_and_extra[8];  // sx1
+    calib[11] = focal_and_extra[9];  // sy1
+  }
+
+  void SplitCalibData(const StorageType* calib,
+                      StorageType* focal_and_extra,
+                      StorageType* principal_point) const override {
+    focal_and_extra[0] = calib[0];  // fx
+    focal_and_extra[1] = calib[1];  // fy
+    principal_point[0] = calib[2];  // cx
+    principal_point[1] = calib[3];  // cy
+    focal_and_extra[2] = calib[4];  // k1
+    focal_and_extra[3] = calib[5];  // k2
+    focal_and_extra[4] = calib[6];  // p1
+    focal_and_extra[5] = calib[7];  // p2
+    focal_and_extra[6] = calib[8];  // k3
+    focal_and_extra[7] = calib[9];  // k4
+    focal_and_extra[8] = calib[10];  // sx1
+    focal_and_extra[9] = calib[11];  // sy1
+  }
+
+  void SetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.SetThinPrismFisheyePoseNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.GetThinPrismFisheyePoseNodesToStackedHost(data, 0, n);
+  }
+
+  void SetFocalAndExtraNodes(caspar::GraphSolver& s,
+                             StorageType* data,
+                             size_t n) const override {
+    s.SetThinPrismFisheyeFocalAndExtraNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetFocalAndExtraNodes(caspar::GraphSolver& s,
+                             StorageType* data,
+                             size_t n) const override {
+    s.GetThinPrismFisheyeFocalAndExtraNodesToStackedHost(data, 0, n);
+  }
+
+  void SetPrincipalPointNodes(caspar::GraphSolver& s,
+                              StorageType* data,
+                              size_t n) const override {
+    s.SetThinPrismFisheyePrincipalPointNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetPrincipalPointNodes(caspar::GraphSolver& s,
+                              StorageType* data,
+                              size_t n) const override {
+    s.GetThinPrismFisheyePrincipalPointNodesToStackedHost(data, 0, n);
+  }
+
+  void SetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.SetThinPrismFisheyeCalibNodesFromStackedHost(data, 0, n);
+  }
+
+  void GetCalibNodes(caspar::GraphSolver& s,
+                     StorageType* data,
+                     size_t n) const override {
+    s.GetThinPrismFisheyeCalibNodesToStackedHost(data, 0, n);
+  }
+
+  void SetVariantFactors(caspar::GraphSolver& s,
+                         FactorVariant variant,
+                         const VariantData& d) const override {
+    const size_t n = d.num_factors;
+    switch (variant) {
+      // Merged variants: the calib index is the same as
+      // focal_and_extra_index, so no VariantData changes are needed for
+      // these cases.
+      case FactorVariant::BASE:
+        s.SetThinPrismFisheyeNum(n);
+        s.SetThinPrismFisheyePoseIndicesFromHost(d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeCalibIndicesFromHost(d.focal_and_extra_indices.data(),
+                                              n);
+        s.SetThinPrismFisheyePointIndicesFromHost(d.point_indices.data(), n);
+        s.SetThinPrismFisheyePixelDataFromStackedHost(d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE:
+        s.SetThinPrismFisheyeFixedPoseNum(n);
+        s.SetThinPrismFisheyeFixedPoseSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeFixedPoseCalibIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetThinPrismFisheyeFixedPosePointIndicesFromHost(d.point_indices.data(),
+                                                       n);
+        s.SetThinPrismFisheyeFixedPosePoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeFixedPosePixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA:
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraNum(n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_PRINCIPAL_POINT:
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POINT:
+        s.SetThinPrismFisheyeFixedPointNum(n);
+        s.SetThinPrismFisheyeFixedPointPoseIndicesFromHost(d.pose_indices.data(),
+                                                       n);
+        s.SetThinPrismFisheyeFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeFixedPointCalibIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetThinPrismFisheyeFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetThinPrismFisheyeFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA:
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraNum(n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT:
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_POINT:
+        s.SetThinPrismFisheyeFixedPoseFixedPointNum(n);
+        s.SetThinPrismFisheyeFixedPoseFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeFixedPoseFixedPointCalibIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetThinPrismFisheyeFixedPoseFixedPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeFixedPoseFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetThinPrismFisheyeFixedPoseFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::
+          FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(
+            n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_POINT:
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPrincipalPointIndicesFromHost(
+            d.principal_point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::FIXED_POSE_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointFocalAndExtraIndicesFromHost(
+            d.focal_and_extra_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::
+          FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT_FIXED_POINT:
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointNum(
+            n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPointDataFromStackedHost(
+            d.const_points.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFixedPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+    }
+  }
+};
+
+
 // Pinhole implementation
 
 class PinholeAdapter : public ICasparModelAdapter {
@@ -908,6 +1414,8 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
       return std::make_unique<SimpleRadialAdapter>();
     case CameraModelId::kPinhole:
       return std::make_unique<PinholeAdapter>();
+    case CameraModelId::kThinPrismFisheye:
+      return std::make_unique<ThinPrismFisheyeAdapter>();
     default:
       return nullptr;
   }
@@ -917,8 +1425,9 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
 // Caspar release. Order:
 //   1. Node type counts, alphabetical by type name
 //   2. Factor counts, in registration order from caspar_generate.py:
-//        simple_radial (4) → pinhole (4) →
-//        simple_radial_split (11) → pinhole_split (11)
+//        simple_radial (4) → pinhole (4) → thin_prism_fisheye (4) →
+//        simple_radial_split (11) → pinhole_split (11) →
+//        thin_prism_fisheye_split (11)
 inline caspar::GraphSolver CreateSolver(
     const caspar::SolverParams<StorageType>& params,
     const CasparSolverSizing& sz,
@@ -929,7 +1438,9 @@ inline caspar::GraphSolver CreateSolver(
       //   PinholeCalib, PinholeFocal, PinholePose,
       //   PinholePrincipalPoint, Point,
       //   SimpleRadialCalib, SimpleRadialFocalAndExtra,
-      //   SimpleRadialPose, SimpleRadialPrincipalPoint
+      //   SimpleRadialPose, SimpleRadialPrincipalPoint,
+      //   ThinPrismFisheyeCalib, ThinPrismFisheyeFocalAndExtra,
+      //   ThinPrismFisheyePose, ThinPrismFisheyePrincipalPoint
       sz.num_pinhole_calibs,        // PinholeCalib        (merged pool)
       sz.num_pinhole_calibs,        // PinholeFocal         (split pool)
       sz.num_pinhole_poses,         // PinholePose
@@ -942,6 +1453,13 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_simple_radial_poses,   // SimpleRadialPose
       sz.num_simple_radial_calibs,  // SimpleRadialPrincipalPoint      (split
                                     // pool)
+      sz.num_thin_prism_fisheye_calibs,  // ThinPrismFisheyeCalib       (merged
+                                         // pool)
+      sz.num_thin_prism_fisheye_calibs,  // ThinPrismFisheyeFocalAndExtra
+                                         // (split pool)
+      sz.num_thin_prism_fisheye_poses,   // ThinPrismFisheyePose
+      sz.num_thin_prism_fisheye_calibs,  // ThinPrismFisheyePrincipalPoint
+                                         // (split pool)
       // simple_radial factor counts (r=0..2 over {pose, point}):
       sz.num_simple_radial,                         // {}
       sz.num_simple_radial_fixed_pose,              // {pose}
@@ -952,6 +1470,11 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_fixed_pose,              // {pose}
       sz.num_pinhole_fixed_point,             // {point}
       sz.num_pinhole_fixed_pose_fixed_point,  // {pose, point}
+      // thin_prism_fisheye factor counts (same order):
+      sz.num_thin_prism_fisheye,                         // {}
+      sz.num_thin_prism_fisheye_fixed_pose,              // {pose}
+      sz.num_thin_prism_fisheye_fixed_point,             // {point}
+      sz.num_thin_prism_fisheye_fixed_pose_fixed_point,  // {pose, point}
       // simple_radial_split factor counts (11 variants, must_fix_one_of):
       sz.num_simple_radial_split_fixed_focal_and_extra,             // r=1 {fae}
       sz.num_simple_radial_split_fixed_principal_point,             // r=1 {pp}
@@ -980,6 +1503,22 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_split_fixed_pose_fixed_focal_fixed_point,            // r=3
       sz.num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
       sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point,  // r=3
+      // thin_prism_fisheye_split factor counts (same 11-variant order):
+      sz.num_thin_prism_fisheye_split_fixed_focal_and_extra,  // r=1 {fae}
+      sz.num_thin_prism_fisheye_split_fixed_principal_point,  // r=1 {pp}
+      sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra,  // r=2
+                                                                         // {pose,fae}
+      sz.num_thin_prism_fisheye_split_fixed_pose_fixed_principal_point,  // r=2
+                                                                         // {pose,pp}
+      sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point,  // r=2 {fae,pp}
+      sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_point,  // r=2
+                                                                          // {fae,pt}
+      sz.num_thin_prism_fisheye_split_fixed_principal_point_fixed_point,  // r=2
+                                                                          // {pp,pt}
+      sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point,  // r=3
+      sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_point,  // r=3
+      sz.num_thin_prism_fisheye_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
+      sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_fixed_point,  // r=3
       device_id);
 }
 

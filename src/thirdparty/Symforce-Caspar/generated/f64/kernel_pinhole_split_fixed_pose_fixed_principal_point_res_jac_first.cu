@@ -274,13 +274,13 @@ __global__ void __launch_bounds__(1024, 1)
     r33 = r36 * r33;
     r6 = r5 * r40;
     r6 = fma(r0, r6, r24 * r33);
-    r29 = r34 * r1;
-    r39 = r24 * r36;
-    r39 = fma(r7, r39, r0 * r29);
+    r29 = r24 * r36;
+    r39 = r34 * r1;
+    r39 = fma(r0, r39, r7 * r29);
     WriteIdx2<1024, double, double, double2>(
         out_point_jac, 0 * out_point_jac_num_alloc, global_thread_idx, r6, r39);
     r29 = r5 * r45;
-    r29 = fma(r0, r29, r38 * r33);
+    r29 = fma(r38, r33, r0 * r29);
     r31 = r34 * r44;
     r30 = r38 * r36;
     r30 = fma(r7, r30, r0 * r31);
@@ -323,7 +323,7 @@ __global__ void __launch_bounds__(1024, 1)
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r0 = fma(r6, r6, r39 * r39);
-    r7 = fma(r29, r29, r30 * r30);
+    r7 = fma(r30, r30, r29 * r29);
     WriteSum2<double, double>((double*)inout_shared, r0, r7);
   };
   FlushSumShared<2, double>(out_point_precond_diag,
@@ -339,17 +339,17 @@ __global__ void __launch_bounds__(1024, 1)
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r7 = fma(r39, r30, r6 * r29);
-    r39 = fma(r39, r47, r6 * r31);
-    WriteSum2<double, double>((double*)inout_shared, r7, r39);
+    r7 = fma(r6, r29, r39 * r30);
+    r6 = fma(r6, r31, r39 * r47);
+    WriteSum2<double, double>((double*)inout_shared, r7, r6);
   };
   FlushSumShared<2, double>(out_point_precond_tril,
                             0 * out_point_precond_tril_num_alloc,
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r47 = fma(r30, r47, r29 * r31);
-    WriteSum1<double, double>((double*)inout_shared, r47);
+    r31 = fma(r29, r31, r30 * r47);
+    WriteSum1<double, double>((double*)inout_shared, r31);
   };
   FlushSumShared<1, double>(out_point_precond_tril,
                             2 * out_point_precond_tril_num_alloc,

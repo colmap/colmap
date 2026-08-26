@@ -976,6 +976,432 @@ cudaError_t ConstSimpleRadialSensorFromRigCasparToStacked(
 }
 
 __global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyeFocalAndExtraStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 10];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 10 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 10;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 10] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 10;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+    data[3] = stacked_local_ptr[3];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[4];
+    data[1] = stacked_local_ptr[5];
+    data[2] = stacked_local_ptr[6];
+    data[3] = stacked_local_ptr[7];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[8];
+    data[1] = stacked_local_ptr[9];
+
+    out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 8 * cas_stride;
+    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyeFocalAndExtraCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 10];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 10;
+    const float* in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+    stacked_local_ptr[3] = data[3];
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[4] = data[0];
+    stacked_local_ptr[5] = data[1];
+    stacked_local_ptr[6] = data[2];
+    stacked_local_ptr[7] = data[3];
+    in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 8 * cas_stride;
+    reinterpret_cast<float2*>(data)[0] =
+        reinterpret_cast<const float2*>(in_ptr)[0];
+    stacked_local_ptr[8] = data[0];
+    stacked_local_ptr[9] = data[1];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 10 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 10;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 10];
+  }
+}
+
+cudaError_t ConstThinPrismFisheyeFocalAndExtraStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyeFocalAndExtraStackedToCaspar_kernel<<<num_blocks,
+                                                             block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ConstThinPrismFisheyeFocalAndExtraCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyeFocalAndExtraCasparToStacked_kernel<<<num_blocks,
+                                                             block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyePoseStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 7];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 7 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 7;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 7] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+    data[3] = stacked_local_ptr[3];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[4];
+    data[1] = stacked_local_ptr[5];
+    data[2] = stacked_local_ptr[6];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyePoseCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 7];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    const float* in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+    stacked_local_ptr[3] = data[3];
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[4] = data[0];
+    stacked_local_ptr[5] = data[1];
+    stacked_local_ptr[6] = data[2];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 7 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 7;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 7];
+  }
+}
+
+cudaError_t ConstThinPrismFisheyePoseStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyePoseStackedToCaspar_kernel<<<num_blocks, block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ConstThinPrismFisheyePoseCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyePoseCasparToStacked_kernel<<<num_blocks, block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyePrincipalPointStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 2];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 2 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 2;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 2] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+
+    out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyePrincipalPointCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 2];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float* in_ptr;
+    in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float2*>(data)[0] =
+        reinterpret_cast<const float2*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 2 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 2;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 2];
+  }
+}
+
+cudaError_t ConstThinPrismFisheyePrincipalPointStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyePrincipalPointStackedToCaspar_kernel<<<num_blocks,
+                                                              block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ConstThinPrismFisheyePrincipalPointCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyePrincipalPointCasparToStacked_kernel<<<num_blocks,
+                                                              block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyeSensorFromRigStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 7];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 7 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 7;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 7] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+    data[3] = stacked_local_ptr[3];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[4];
+    data[1] = stacked_local_ptr[5];
+    data[2] = stacked_local_ptr[6];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ConstThinPrismFisheyeSensorFromRigCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 7];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    const float* in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+    stacked_local_ptr[3] = data[3];
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[4] = data[0];
+    stacked_local_ptr[5] = data[1];
+    stacked_local_ptr[6] = data[2];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 7 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 7;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 7];
+  }
+}
+
+cudaError_t ConstThinPrismFisheyeSensorFromRigStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyeSensorFromRigStackedToCaspar_kernel<<<num_blocks,
+                                                             block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ConstThinPrismFisheyeSensorFromRigCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ConstThinPrismFisheyeSensorFromRigCasparToStacked_kernel<<<num_blocks,
+                                                             block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
 __launch_bounds__(block_size, 1) void PinholeCalibStackedToCaspar_kernel(
     const float* const __restrict__ stacked_data,
     float* const __restrict__ cas_data,
@@ -1808,6 +2234,446 @@ cudaError_t SimpleRadialPrincipalPointCasparToStacked(
   const int num_blocks = (num_objects + block_size - 1) / block_size;
 
   SimpleRadialPrincipalPointCasparToStacked_kernel<<<num_blocks, block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyeCalibStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 12];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 12 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 12;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 12] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 12;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+    data[3] = stacked_local_ptr[3];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[4];
+    data[1] = stacked_local_ptr[5];
+    data[2] = stacked_local_ptr[6];
+    data[3] = stacked_local_ptr[7];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[8];
+    data[1] = stacked_local_ptr[9];
+    data[2] = stacked_local_ptr[10];
+    data[3] = stacked_local_ptr[11];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 8 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyeCalibCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 12];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 12;
+    const float* in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+    stacked_local_ptr[3] = data[3];
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[4] = data[0];
+    stacked_local_ptr[5] = data[1];
+    stacked_local_ptr[6] = data[2];
+    stacked_local_ptr[7] = data[3];
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 8 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[8] = data[0];
+    stacked_local_ptr[9] = data[1];
+    stacked_local_ptr[10] = data[2];
+    stacked_local_ptr[11] = data[3];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 12 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 12;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 12];
+  }
+}
+
+cudaError_t ThinPrismFisheyeCalibStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyeCalibStackedToCaspar_kernel<<<num_blocks, block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ThinPrismFisheyeCalibCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyeCalibCasparToStacked_kernel<<<num_blocks, block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyeFocalAndExtraStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 10];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 10 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 10;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 10] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 10;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+    data[3] = stacked_local_ptr[3];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[4];
+    data[1] = stacked_local_ptr[5];
+    data[2] = stacked_local_ptr[6];
+    data[3] = stacked_local_ptr[7];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[8];
+    data[1] = stacked_local_ptr[9];
+
+    out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 8 * cas_stride;
+    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyeFocalAndExtraCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 10];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 10;
+    const float* in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+    stacked_local_ptr[3] = data[3];
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[4] = data[0];
+    stacked_local_ptr[5] = data[1];
+    stacked_local_ptr[6] = data[2];
+    stacked_local_ptr[7] = data[3];
+    in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 8 * cas_stride;
+    reinterpret_cast<float2*>(data)[0] =
+        reinterpret_cast<const float2*>(in_ptr)[0];
+    stacked_local_ptr[8] = data[0];
+    stacked_local_ptr[9] = data[1];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 10 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 10;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 10];
+  }
+}
+
+cudaError_t ThinPrismFisheyeFocalAndExtraStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyeFocalAndExtraStackedToCaspar_kernel<<<num_blocks,
+                                                        block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ThinPrismFisheyeFocalAndExtraCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyeFocalAndExtraCasparToStacked_kernel<<<num_blocks,
+                                                        block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyePoseStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 7];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 7 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 7;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 7] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+    data[2] = stacked_local_ptr[2];
+    data[3] = stacked_local_ptr[3];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+    data[0] = stacked_local_ptr[4];
+    data[1] = stacked_local_ptr[5];
+    data[2] = stacked_local_ptr[6];
+
+    out_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(out_ptr)[0] = reinterpret_cast<float4*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyePoseCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 7];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 7;
+    const float* in_ptr;
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+    stacked_local_ptr[2] = data[2];
+    stacked_local_ptr[3] = data[3];
+    in_ptr = cas_data + 4 * (global_thread_idx + cas_offset) + 4 * cas_stride;
+    reinterpret_cast<float4*>(data)[0] =
+        reinterpret_cast<const float4*>(in_ptr)[0];
+    stacked_local_ptr[4] = data[0];
+    stacked_local_ptr[5] = data[1];
+    stacked_local_ptr[6] = data[2];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 7 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 7;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 7];
+  }
+}
+
+cudaError_t ThinPrismFisheyePoseStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyePoseStackedToCaspar_kernel<<<num_blocks, block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ThinPrismFisheyePoseCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyePoseCasparToStacked_kernel<<<num_blocks, block_size>>>(
+      cas_data, stacked_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyePrincipalPointStackedToCaspar_kernel(
+    const float* const __restrict__ stacked_data,
+    float* const __restrict__ cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 2];
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 2 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 2;
+       target += blockDim.x) {
+    stacked_data_local[target - (blockIdx.x * blockDim.x) * 2] =
+        stacked_data[target];
+  }
+
+  __syncthreads();
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    float* out_ptr;
+    data[0] = stacked_local_ptr[0];
+    data[1] = stacked_local_ptr[1];
+
+    out_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float2*>(out_ptr)[0] = reinterpret_cast<float2*>(data)[0];
+  }
+}
+
+__global__
+__launch_bounds__(block_size, 1) void ThinPrismFisheyePrincipalPointCasparToStacked_kernel(
+    const float* const __restrict__ cas_data,
+    float* const __restrict__ stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const unsigned int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  __shared__ float stacked_data_local[block_size * 2];
+
+  if (global_thread_idx < num_objects) {
+    float data[4] = {0, 0, 0, 0};
+    float* stacked_local_ptr = stacked_data_local + threadIdx.x * 2;
+    const float* in_ptr;
+    in_ptr = cas_data + 2 * (global_thread_idx + cas_offset) + 0 * cas_stride;
+    reinterpret_cast<float2*>(data)[0] =
+        reinterpret_cast<const float2*>(in_ptr)[0];
+    stacked_local_ptr[0] = data[0];
+    stacked_local_ptr[1] = data[1];
+  }
+
+  __syncthreads();
+
+  for (unsigned int target = (blockIdx.x * blockDim.x) * 2 + threadIdx.x;
+       target < min(num_objects, (blockIdx.x + 1) * blockDim.x) * 2;
+       target += blockDim.x) {
+    stacked_data[target] =
+        stacked_data_local[target - (blockIdx.x * blockDim.x) * 2];
+  }
+}
+
+cudaError_t ThinPrismFisheyePrincipalPointStackedToCaspar(
+    const float* stacked_data,
+    float* cas_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyePrincipalPointStackedToCaspar_kernel<<<num_blocks,
+                                                         block_size>>>(
+      stacked_data, cas_data, cas_stride, cas_offset, num_objects);
+
+  return cudaGetLastError();
+}
+
+cudaError_t ThinPrismFisheyePrincipalPointCasparToStacked(
+    const float* cas_data,
+    float* stacked_data,
+    const unsigned int cas_stride,
+    const unsigned int cas_offset,
+    const unsigned int num_objects) {
+  const int num_blocks = (num_objects + block_size - 1) / block_size;
+
+  ThinPrismFisheyePrincipalPointCasparToStacked_kernel<<<num_blocks,
+                                                         block_size>>>(
       cas_data, stacked_data, cas_stride, cas_offset, num_objects);
 
   return cudaGetLastError();

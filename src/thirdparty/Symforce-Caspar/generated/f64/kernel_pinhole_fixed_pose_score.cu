@@ -43,7 +43,7 @@ __global__ void __launch_bounds__(1024, 1)
 
   double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
       r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
-      r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44;
+      r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45;
   LoadShared<2, double, double>(
       calib, 2 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
@@ -55,13 +55,13 @@ __global__ void __launch_bounds__(1024, 1)
     ReadIdx2<1024, double, double, double2>(
         pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
-    r2 = fma(r2, r4, r0);
+    r3 = fma(r3, r4, r1);
   };
   LoadShared<2, double, double>(
       calib, 0 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared2<double>(
-        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r0, r5);
+        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r1, r5);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -79,134 +79,134 @@ __global__ void __launch_bounds__(1024, 1)
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r10 = -2.00000000000000000e+00;
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             2 * sensor_from_rig_num_alloc,
                                             global_thread_idx,
-                                            r11,
-                                            r12);
+                                            r10,
+                                            r11);
     ReadIdx2<1024, double, double, double2>(
-        pose, 2 * pose_num_alloc, global_thread_idx, r13, r14);
+        pose, 0 * pose_num_alloc, global_thread_idx, r12, r13);
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             0 * sensor_from_rig_num_alloc,
                                             global_thread_idx,
-                                            r15,
-                                            r16);
+                                            r14,
+                                            r15);
     ReadIdx2<1024, double, double, double2>(
-        pose, 0 * pose_num_alloc, global_thread_idx, r17, r18);
-    r19 = fma(r15, r18, r12 * r13);
-    r20 = r16 * r17;
-    r19 = fma(r4, r20, r19);
-    r19 = fma(r11, r14, r19);
-    r20 = r19 * r19;
-    r20 = r10 * r20;
-    r21 = 1.00000000000000000e+00;
-    r22 = r15 * r13;
-    r22 = fma(r4, r22, r12 * r18);
-    r22 = fma(r16, r14, r22);
-    r22 = fma(r11, r17, r22);
-    r23 = r22 * r22;
-    r23 = fma(r10, r23, r21);
-    r24 = r20 + r23;
-    r24 = fma(r8, r24, r6);
-    r6 = 2.00000000000000000e+00;
-    r25 = fma(r15, r14, r12 * r17);
-    r26 = r11 * r18;
-    r25 = fma(r4, r26, r25);
-    r25 = fma(r16, r13, r25);
-    r26 = r6 * r25;
-    r27 = r22 * r26;
-    r28 = fma(r16, r18, r15 * r17);
-    r28 = fma(r11, r13, r28);
-    r28 = fma(r4, r28, r12 * r14);
-    r14 = r10 * r28;
-    r29 = fma(r19, r14, r27);
+        pose, 2 * pose_num_alloc, global_thread_idx, r16, r17);
+    r18 = r14 * r16;
+    r18 = fma(r4, r18, r11 * r13);
+    r18 = fma(r15, r17, r18);
+    r18 = fma(r10, r12, r18);
+    r19 = 2.00000000000000000e+00;
+    r20 = fma(r14, r17, r11 * r12);
+    r21 = r10 * r13;
+    r20 = fma(r4, r21, r20);
+    r20 = fma(r15, r16, r20);
+    r21 = r19 * r20;
+    r22 = r18 * r21;
+    r23 = fma(r14, r13, r11 * r16);
+    r24 = r15 * r12;
+    r23 = fma(r4, r24, r23);
+    r23 = fma(r10, r17, r23);
+    r24 = fma(r15, r13, r14 * r12);
+    r24 = fma(r10, r16, r24);
+    r24 = fma(r4, r24, r11 * r17);
+    r17 = r23 * r24;
+    r25 = fma(r19, r17, r22);
+    r25 = fma(r8, r25, r7);
+    ReadIdx2<1024, double, double, double2>(
+        pose, 4 * pose_num_alloc, global_thread_idx, r7, r26);
+    r27 = r10 * r11;
+    r28 = r14 * r15;
+    r28 = r28 * r19;
+    r27 = fma(r19, r27, r28);
+    r29 = -2.00000000000000000e+00;
+    r30 = r10 * r10;
+    r30 = r29 * r30;
+    r31 = 1.00000000000000000e+00;
+    r32 = r14 * r14;
+    r32 = fma(r29, r32, r31);
+    r33 = r30 + r32;
+    ReadIdx1<1024, double, double, double>(
+        pose, 6 * pose_num_alloc, global_thread_idx, r34);
+    r35 = r15 * r10;
+    r35 = r35 * r19;
+    r36 = r11 * r29;
+    r37 = fma(r14, r36, r35);
   };
   LoadShared<1, double, double>(
       point, 2 * point_num_alloc, point_indices_loc, (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     ReadShared1<double>(
-        (double*)inout_shared, point_indices_loc[threadIdx.x].target, r30);
+        (double*)inout_shared, point_indices_loc[threadIdx.x].target, r38);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    r31 = r6 * r22;
-    r32 = r19 * r26;
-    r31 = fma(r28, r31, r32);
-    ReadIdx1<1024, double, double, double>(
-        pose, 6 * pose_num_alloc, global_thread_idx, r33);
-    r34 = r15 * r11;
-    r34 = r34 * r6;
-    r35 = r16 * r12;
-    r36 = fma(r6, r35, r34);
-    ReadIdx2<1024, double, double, double2>(
-        pose, 4 * pose_num_alloc, global_thread_idx, r37, r38);
-    r39 = r11 * r12;
-    r40 = r15 * r16;
-    r40 = r40 * r6;
-    r39 = fma(r10, r39, r40);
-    r41 = r16 * r16;
-    r41 = r41 * r10;
-    r42 = r21 + r41;
-    r43 = r11 * r11;
-    r43 = r10 * r43;
+    r39 = r19 * r23;
+    r39 = r39 * r18;
+    r40 = r20 * r29;
+    r40 = fma(r24, r40, r39);
+    r41 = r20 * r20;
+    r41 = r41 * r29;
+    r42 = r31 + r41;
+    r43 = r23 * r23;
+    r43 = r43 * r29;
     r42 = r42 + r43;
-    r24 = fma(r9, r29, r24);
-    r24 = fma(r30, r31, r24);
-    r24 = fma(r33, r36, r24);
-    r24 = fma(r38, r39, r24);
-    r24 = fma(r37, r42, r24);
-    r42 = r0 * r24;
-    r39 = 1.00000000000000008e-15;
+    r25 = fma(r7, r27, r25);
+    r25 = fma(r26, r33, r25);
+    r25 = fma(r34, r37, r25);
+    r25 = fma(r38, r40, r25);
+    r25 = fma(r9, r42, r25);
+    r42 = r5 * r25;
+    r40 = 1.00000000000000008e-15;
     ReadIdx1<1024, double, double, double>(
-        sensor_from_rig, 6 * sensor_from_rig_num_alloc, global_thread_idx, r36);
-    r32 = fma(r22, r14, r32);
-    r32 = fma(r8, r32, r36);
-    r35 = fma(r10, r35, r34);
-    r41 = r21 + r41;
-    r34 = r15 * r15;
-    r34 = r10 * r34;
-    r41 = r41 + r34;
-    r36 = r16 * r11;
-    r36 = r36 * r6;
-    r31 = r15 * r12;
-    r31 = fma(r6, r31, r36);
-    r29 = r6 * r19;
-    r29 = r29 * r22;
-    r26 = fma(r28, r26, r29);
-    r44 = r25 * r25;
-    r44 = r44 * r10;
-    r23 = r44 + r23;
-    r32 = fma(r37, r35, r32);
-    r32 = fma(r33, r41, r32);
-    r32 = fma(r38, r31, r32);
-    r32 = fma(r9, r26, r32);
-    r32 = fma(r30, r23, r32);
-    r23 = copysign(1.0, r32);
-    r23 = fma(r39, r23, r32);
-    r23 = 1.0 / r23;
-    r2 = fma(r23, r42, r2);
-    r4 = fma(r3, r4, r1);
-    r3 = r6 * r19;
-    r3 = fma(r28, r3, r27);
-    r3 = fma(r8, r3, r7);
-    r8 = r11 * r12;
-    r8 = fma(r6, r8, r40);
-    r43 = r21 + r43;
-    r43 = r43 + r34;
-    r34 = r15 * r12;
-    r34 = fma(r10, r34, r36);
-    r14 = fma(r25, r14, r29);
-    r20 = r21 + r20;
-    r20 = r20 + r44;
-    r3 = fma(r37, r8, r3);
-    r3 = fma(r38, r43, r3);
-    r3 = fma(r33, r34, r3);
-    r3 = fma(r30, r14, r3);
-    r3 = fma(r9, r20, r3);
-    r20 = r5 * r3;
-    r4 = fma(r23, r20, r4);
-    r4 = fma(r4, r4, r2 * r2);
+        sensor_from_rig, 6 * sensor_from_rig_num_alloc, global_thread_idx, r37);
+    r33 = r29 * r18;
+    r23 = r23 * r21;
+    r33 = fma(r24, r33, r23);
+    r33 = fma(r8, r33, r37);
+    r37 = r14 * r10;
+    r37 = r37 * r19;
+    r27 = fma(r15, r36, r37);
+    r44 = r15 * r15;
+    r44 = r29 * r44;
+    r32 = r44 + r32;
+    r45 = r14 * r11;
+    r45 = fma(r19, r45, r35);
+    r21 = fma(r24, r21, r39);
+    r41 = r31 + r41;
+    r39 = r18 * r18;
+    r39 = r29 * r39;
+    r41 = r41 + r39;
+    r33 = fma(r7, r27, r33);
+    r33 = fma(r34, r32, r33);
+    r33 = fma(r26, r45, r33);
+    r33 = fma(r9, r21, r33);
+    r33 = fma(r38, r41, r33);
+    r41 = copysign(1.0, r33);
+    r41 = fma(r40, r41, r33);
+    r41 = 1.0 / r41;
+    r3 = fma(r41, r42, r3);
+    r4 = fma(r2, r4, r0);
+    r43 = r31 + r43;
+    r43 = r43 + r39;
+    r43 = fma(r8, r43, r6);
+    r17 = fma(r29, r17, r22);
+    r22 = r19 * r18;
+    r22 = fma(r24, r22, r23);
+    r23 = r15 * r11;
+    r23 = fma(r19, r23, r37);
+    r36 = fma(r10, r36, r28);
+    r30 = r31 + r30;
+    r30 = r30 + r44;
+    r43 = fma(r9, r17, r43);
+    r43 = fma(r38, r22, r43);
+    r43 = fma(r34, r23, r43);
+    r43 = fma(r26, r36, r43);
+    r43 = fma(r7, r30, r43);
+    r30 = r1 * r43;
+    r4 = fma(r41, r30, r4);
+    r4 = fma(r4, r4, r3 * r3);
   };
   SumStore<double>(out_rTr_local,
                    (double*)inout_shared,

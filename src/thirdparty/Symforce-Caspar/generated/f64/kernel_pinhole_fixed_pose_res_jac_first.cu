@@ -227,7 +227,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
     r3 = fma(r0, r7, r3);
     WriteIdx2<1024, double, double, double2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
-    r39 = fma(r3, r3, r2 * r2);
+    r39 = fma(r2, r2, r3 * r3);
   };
   SumStore<double>(out_rTr_local,
                    (double*)inout_shared,
@@ -328,9 +328,9 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
     r30 = fma(r7, r30, r0 * r33);
     WriteIdx2<1024, double, double, double2>(
         out_point_jac, 4 * out_point_jac_num_alloc, global_thread_idx, r6, r30);
-    r33 = r4 * r2;
-    r7 = r4 * r3;
-    r7 = fma(r39, r7, r32 * r33);
+    r33 = r4 * r3;
+    r7 = r4 * r2;
+    r7 = fma(r32, r7, r39 * r33);
     r33 = r4 * r2;
     r0 = r4 * r3;
     r0 = fma(r29, r0, r31 * r33);
@@ -341,9 +341,9 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r0 = r4 * r3;
-    r7 = r4 * r2;
-    r7 = fma(r6, r7, r30 * r0);
+    r0 = r4 * r2;
+    r7 = r4 * r3;
+    r7 = fma(r30, r7, r6 * r0);
     WriteSum1<double, double>((double*)inout_shared, r7);
   };
   FlushSumShared<1, double>(out_point_njtr,
@@ -351,7 +351,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r7 = fma(r39, r39, r32 * r32);
+    r7 = fma(r32, r32, r39 * r39);
     r0 = fma(r29, r29, r31 * r31);
     WriteSum2<double, double>((double*)inout_shared, r7, r0);
   };
@@ -360,7 +360,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r0 = fma(r30, r30, r6 * r6);
+    r0 = fma(r6, r6, r30 * r30);
     WriteSum1<double, double>((double*)inout_shared, r0);
   };
   FlushSumShared<1, double>(out_point_precond_diag,
@@ -368,7 +368,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r0 = fma(r32, r31, r39 * r29);
+    r0 = fma(r39, r29, r32 * r31);
     r39 = fma(r39, r30, r32 * r6);
     WriteSum2<double, double>((double*)inout_shared, r0, r39);
   };

@@ -210,12 +210,12 @@ __global__ void __launch_bounds__(1024, 1)
     r42 = r42 * r2;
     r2 = r4 * r3;
     r2 = fma(r1, r2, r21 * r42);
-    r21 = r4 * r26;
-    r1 = r0 * r9;
-    r21 = r21 * r3;
-    r21 = r21 * r23;
-    r14 = r23 * r1;
-    r14 = fma(r42, r14, r1 * r21);
+    r21 = r0 * r9;
+    r1 = r23 * r21;
+    r14 = r4 * r26;
+    r14 = r14 * r3;
+    r14 = r14 * r23;
+    r14 = fma(r21, r14, r42 * r1);
     WriteSum2<double, double>((double*)inout_shared, r2, r14);
   };
   FlushSumShared<2, double>(out_focal_and_extra_njtr,
@@ -229,9 +229,9 @@ __global__ void __launch_bounds__(1024, 1)
     r2 = r2 * r39;
     r2 = fma(r20, r2, r32 * r14);
     r9 = r0 * r9;
-    r39 = r39 * r1;
+    r39 = r39 * r21;
     r9 = r9 * r39;
-    r9 = fma(r32, r9, r20 * r9);
+    r9 = fma(r20, r9, r32 * r9);
     WriteSum2<double, double>((double*)inout_shared, r2, r9);
   };
   FlushSumShared<2, double>(out_focal_and_extra_precond_diag,

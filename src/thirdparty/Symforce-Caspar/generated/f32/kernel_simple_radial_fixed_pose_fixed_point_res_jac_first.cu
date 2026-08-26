@@ -218,7 +218,7 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     r3 = r1 * r1;
     r3 = r3 * r40;
-    r3 = fmaf(r33, r3, r22 * r3);
+    r3 = fmaf(r22, r3, r33 * r3);
     r10 = r0 * r10;
     r40 = r40 * r37;
     r10 = r10 * r40;
@@ -234,8 +234,8 @@ __global__ void __launch_bounds__(1024, 1)
     r20 = r28 * r20;
     r10 = r26 * r25;
     r10 = r10 * r37;
-    r3 = r1 * r22;
-    r4 = r1 * r33;
+    r3 = r1 * r33;
+    r4 = r1 * r22;
     r4 = fmaf(r40, r4, r40 * r3);
     WriteSum4<float, float>((float*)inout_shared, r4, r23, r20, r10);
   };

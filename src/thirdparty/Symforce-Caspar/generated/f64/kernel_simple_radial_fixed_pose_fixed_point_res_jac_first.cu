@@ -217,12 +217,12 @@ __global__ void __launch_bounds__(1024, 1)
     r42 = r4 * r24;
     r42 = r42 * r2;
     r42 = fma(r14, r42, r14 * r1);
-    r30 = r0 * r9;
-    r34 = r23 * r30;
-    r33 = r4 * r24;
-    r33 = r33 * r2;
-    r33 = r33 * r23;
-    r33 = fma(r30, r33, r1 * r34);
+    r30 = r4 * r24;
+    r34 = r0 * r9;
+    r30 = r30 * r2;
+    r30 = r30 * r23;
+    r33 = r23 * r34;
+    r33 = fma(r1, r33, r34 * r30);
     WriteSum2<double, double>((double*)inout_shared, r42, r33);
   };
   FlushSumShared<2, double>(out_calib_njtr,
@@ -242,7 +242,7 @@ __global__ void __launch_bounds__(1024, 1)
     r3 = r3 * r39;
     r3 = fma(r20, r3, r32 * r3);
     r9 = r0 * r9;
-    r39 = r39 * r30;
+    r39 = r39 * r34;
     r9 = r9 * r39;
     r9 = fma(r32, r9, r20 * r9);
     WriteSum2<double, double>((double*)inout_shared, r3, r9);
@@ -272,7 +272,7 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     r14 = r26 * r14;
     r21 = r24 * r23;
-    r21 = r21 * r30;
+    r21 = r21 * r34;
     WriteSum2<double, double>((double*)inout_shared, r14, r21);
   };
   FlushSumShared<2, double>(out_calib_precond_tril,
@@ -282,7 +282,7 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     r21 = 0.00000000000000000e+00;
     r14 = r26 * r23;
-    r14 = r14 * r30;
+    r14 = r14 * r34;
     WriteSum2<double, double>((double*)inout_shared, r14, r21);
   };
   FlushSumShared<2, double>(out_calib_precond_tril,

@@ -208,7 +208,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
     r5 = fmaf(r2, r11, r5);
     WriteIdx2<1024, float, float, float2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r4, r5);
-    r12 = fmaf(r4, r4, r5 * r5);
+    r12 = fmaf(r5, r5, r4 * r4);
   };
   SumStore<float>(out_rTr_local,
                   (float*)inout_shared,
@@ -270,9 +270,9 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
     r38 = r41 * r38;
     r37 = r0 * r44;
     r37 = fmaf(r2, r37, r29 * r38);
-    r36 = r29 * r41;
-    r12 = r1 * r3;
-    r12 = fmaf(r2, r12, r11 * r36);
+    r36 = r1 * r3;
+    r12 = r29 * r41;
+    r12 = fmaf(r11, r12, r2 * r36);
     r36 = r0 * r39;
     r36 = fmaf(r2, r36, r43 * r38);
     r10 = r1 * r9;
@@ -295,15 +295,15 @@ __global__ void __launch_bounds__(1024, 1) PinholeFixedPoseResJacFirstKernel(
                                           global_thread_idx,
                                           r38,
                                           r47);
-    r10 = r6 * r4;
-    r11 = r6 * r5;
-    r11 = fmaf(r12, r11, r37 * r10);
+    r10 = r6 * r5;
+    r11 = r6 * r4;
+    r11 = fmaf(r37, r11, r12 * r10);
     r10 = r6 * r5;
     r2 = r6 * r4;
     r2 = fmaf(r36, r2, r7 * r10);
-    r10 = r6 * r4;
-    r32 = r6 * r5;
-    r32 = fmaf(r47, r32, r38 * r10);
+    r10 = r6 * r5;
+    r32 = r6 * r4;
+    r32 = fmaf(r38, r32, r47 * r10);
     WriteSum3<float, float>((float*)inout_shared, r11, r2, r32);
   };
   FlushSumShared<3, float>(out_point_njtr,

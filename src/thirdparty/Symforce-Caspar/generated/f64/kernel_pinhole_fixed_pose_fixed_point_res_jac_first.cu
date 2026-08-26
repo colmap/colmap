@@ -197,7 +197,7 @@ __global__ void __launch_bounds__(1024, 1)
     r3 = fma(r6, r37, r3);
     WriteIdx2<1024, double, double, double2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
-    r37 = fma(r3, r3, r2 * r2);
+    r37 = fma(r2, r2, r3 * r3);
   };
   SumStore<double>(out_rTr_local,
                    (double*)inout_shared,

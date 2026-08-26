@@ -213,7 +213,7 @@ __global__ void __launch_bounds__(1024, 1)
     r3 = fmaf(r0, r8, r3);
     WriteIdx2<1024, float, float, float2>(
         out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
-    r9 = fmaf(r3, r3, r2 * r2);
+    r9 = fmaf(r2, r2, r3 * r3);
   };
   SumStore<float>(out_rTr_local,
                   (float*)inout_shared,
@@ -248,9 +248,9 @@ __global__ void __launch_bounds__(1024, 1)
     r9 = fmaf(r8, r9, r0 * r10);
     r10 = r7 * r45;
     r10 = fmaf(r0, r10, r41 * r5);
-    r34 = r41 * r39;
-    r30 = r37 * r33;
-    r30 = fmaf(r0, r30, r8 * r34);
+    r34 = r37 * r33;
+    r30 = r41 * r39;
+    r30 = fmaf(r8, r30, r0 * r34);
     WriteIdx4<1024, float, float, float4>(out_point_jac,
                                           0 * out_point_jac_num_alloc,
                                           global_thread_idx,
@@ -265,9 +265,9 @@ __global__ void __launch_bounds__(1024, 1)
     r47 = fmaf(r8, r47, r0 * r34);
     WriteIdx2<1024, float, float, float2>(
         out_point_jac, 4 * out_point_jac_num_alloc, global_thread_idx, r5, r47);
-    r34 = r4 * r3;
-    r8 = r4 * r2;
-    r8 = fmaf(r35, r8, r9 * r34);
+    r34 = r4 * r2;
+    r8 = r4 * r3;
+    r8 = fmaf(r9, r8, r35 * r34);
     r34 = r4 * r3;
     r0 = r4 * r2;
     r0 = fmaf(r10, r0, r30 * r34);
@@ -281,7 +281,7 @@ __global__ void __launch_bounds__(1024, 1)
                            point_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r29 = fmaf(r35, r35, r9 * r9);
+    r29 = fmaf(r9, r9, r35 * r35);
     r0 = fmaf(r30, r30, r10 * r10);
     r8 = fmaf(r47, r47, r5 * r5);
     WriteSum3<float, float>((float*)inout_shared, r29, r0, r8);
@@ -292,9 +292,9 @@ __global__ void __launch_bounds__(1024, 1)
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r8 = fmaf(r35, r10, r9 * r30);
-    r35 = fmaf(r35, r5, r9 * r47);
+    r9 = fmaf(r9, r47, r35 * r5);
     r5 = fmaf(r10, r5, r30 * r47);
-    WriteSum3<float, float>((float*)inout_shared, r8, r35, r5);
+    WriteSum3<float, float>((float*)inout_shared, r8, r9, r5);
   };
   FlushSumShared<3, float>(out_point_precond_tril,
                            0 * out_point_precond_tril_num_alloc,

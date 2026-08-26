@@ -254,9 +254,9 @@ __global__ void __launch_bounds__(1024, 1)
     r10 = fmaf(r9, r10, r0 * r5);
     r5 = r7 * r45;
     r5 = fmaf(r0, r5, r41 * r36);
-    r34 = r41 * r39;
-    r30 = r37 * r33;
-    r30 = fmaf(r0, r30, r9 * r34);
+    r34 = r37 * r33;
+    r30 = r41 * r39;
+    r30 = fmaf(r9, r30, r0 * r34);
     WriteIdx4<1024, float, float, float4>(out_point_jac,
                                           0 * out_point_jac_num_alloc,
                                           global_thread_idx,
@@ -274,9 +274,9 @@ __global__ void __launch_bounds__(1024, 1)
                                           global_thread_idx,
                                           r36,
                                           r47);
-    r34 = r4 * r3;
-    r9 = r4 * r2;
-    r9 = fmaf(r8, r9, r10 * r34);
+    r34 = r4 * r2;
+    r9 = r4 * r3;
+    r9 = fmaf(r10, r9, r8 * r34);
     r34 = r4 * r3;
     r0 = r4 * r2;
     r0 = fmaf(r5, r0, r30 * r34);
@@ -290,7 +290,7 @@ __global__ void __launch_bounds__(1024, 1)
                            point_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r29 = fmaf(r8, r8, r10 * r10);
+    r29 = fmaf(r10, r10, r8 * r8);
     r0 = fmaf(r30, r30, r5 * r5);
     r9 = fmaf(r47, r47, r36 * r36);
     WriteSum3<float, float>((float*)inout_shared, r29, r0, r9);
@@ -301,9 +301,9 @@ __global__ void __launch_bounds__(1024, 1)
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r9 = fmaf(r8, r5, r10 * r30);
-    r8 = fmaf(r8, r36, r10 * r47);
+    r10 = fmaf(r10, r47, r8 * r36);
     r36 = fmaf(r5, r36, r30 * r47);
-    WriteSum3<float, float>((float*)inout_shared, r9, r8, r36);
+    WriteSum3<float, float>((float*)inout_shared, r9, r10, r36);
   };
   FlushSumShared<3, float>(out_point_precond_tril,
                            0 * out_point_precond_tril_num_alloc,

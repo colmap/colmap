@@ -257,13 +257,13 @@ __global__ void __launch_bounds__(1024, 1)
     r29 = r36 * r29;
     r32 = r5 * r40;
     r32 = fma(r0, r32, r24 * r29);
-    r39 = r34 * r1;
-    r7 = r24 * r36;
-    r7 = fma(r6, r7, r0 * r39);
+    r39 = r24 * r36;
+    r7 = r34 * r1;
+    r7 = fma(r0, r7, r6 * r39);
     WriteIdx2<1024, double, double, double2>(
         out_point_jac, 0 * out_point_jac_num_alloc, global_thread_idx, r32, r7);
     r39 = r5 * r45;
-    r39 = fma(r0, r39, r38 * r29);
+    r39 = fma(r38, r29, r0 * r39);
     r31 = r34 * r44;
     r30 = r38 * r36;
     r30 = fma(r6, r30, r0 * r31);
@@ -306,7 +306,7 @@ __global__ void __launch_bounds__(1024, 1)
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
     r0 = fma(r32, r32, r7 * r7);
-    r6 = fma(r39, r39, r30 * r30);
+    r6 = fma(r30, r30, r39 * r39);
     WriteSum2<double, double>((double*)inout_shared, r0, r6);
   };
   FlushSumShared<2, double>(out_point_precond_diag,
@@ -322,17 +322,17 @@ __global__ void __launch_bounds__(1024, 1)
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r6 = fma(r7, r30, r32 * r39);
-    r7 = fma(r7, r47, r32 * r31);
-    WriteSum2<double, double>((double*)inout_shared, r6, r7);
+    r6 = fma(r32, r39, r7 * r30);
+    r32 = fma(r32, r31, r7 * r47);
+    WriteSum2<double, double>((double*)inout_shared, r6, r32);
   };
   FlushSumShared<2, double>(out_point_precond_tril,
                             0 * out_point_precond_tril_num_alloc,
                             point_indices_loc,
                             (double*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r47 = fma(r30, r47, r39 * r31);
-    WriteSum1<double, double>((double*)inout_shared, r47);
+    r31 = fma(r39, r31, r30 * r47);
+    WriteSum1<double, double>((double*)inout_shared, r31);
   };
   FlushSumShared<1, double>(out_point_precond_tril,
                             2 * out_point_precond_tril_num_alloc,
