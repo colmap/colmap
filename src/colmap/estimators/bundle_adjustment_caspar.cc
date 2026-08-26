@@ -900,6 +900,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
       adapters_.at(CameraModelId::kPinhole)
           ->FillSizing(sz, *md, sz.num_pinhole_calibs);
     }
+    if (const ModelData* md = get_md(CameraModelId::kThinPrismFisheye)) {
+      adapters_.at(CameraModelId::kThinPrismFisheye)->FillSizing(sz, *md, 0);
+    }
     return sz;
   }
 
