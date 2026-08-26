@@ -32,6 +32,15 @@ jobs:
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      # cibuildwheel creates a different temporary build directory for every
+      # wheel and run. Do not include that directory in compiler cache keys.
+      CCACHE_NOHASHDIR: "true"
+      # Hosted runner compiler mtimes can change even when their contents do
+      # not, which would otherwise invalidate the cache.
+      CCACHE_COMPILERCHECK: content
+      # Keep enough history for the COLMAP and pycolmap objects without
+      # exhausting the repository-wide GitHub Actions cache quota.
+      CCACHE_MAXSIZE: 1G
       FETCHCONTENT_CACHE_VERSION: 1
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/fetchcontent-cache
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
@@ -59,8 +68,8 @@ jobs:
         uses: actions/cache@v6
         id: cache-compiler
         with:
-          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}
+          key: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
+          restore-keys: pycolmap-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.arch }}-cuda_${{ matrix.config.cudaEnabled }}-
           path: ${{ env.COMPILER_CACHE_DIR }}
 
       - name: Restore FetchContent cache
@@ -202,7 +211,7 @@ jobs:
           fi
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "$GITHUB_ENV"
 
-          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR FETCHCONTENT_BASE_DIR FETCHCONTENT_FULLY_DISCONNECTED"
+          CIBW_ENVIRONMENT_PASS_LINUX="VCPKG_TARGET_TRIPLET VCPKG_INSTALLATION_ROOT CMAKE_TOOLCHAIN_FILE VCPKG_BINARY_SOURCES CONTAINER_COMPILER_CACHE_DIR CCACHE_DIR CCACHE_BASEDIR CCACHE_NOHASHDIR CCACHE_COMPILERCHECK CCACHE_MAXSIZE FETCHCONTENT_BASE_DIR FETCHCONTENT_FULLY_DISCONNECTED"
           echo "CIBW_ENVIRONMENT_PASS_LINUX=${CIBW_ENVIRONMENT_PASS_LINUX}" >> "$GITHUB_ENV"
 
           if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
@@ -227,6 +236,34 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
           CIBW_ENVIRONMENT:  >
             BUILD_CUDA_ENABLED=${{ matrix.config.cudaEnabled }}
+
+      - name: Show compiler cache stats (Linux/macOS)
+        if: always() && runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ "${RUNNER_OS}" = "Linux" ] && [ -x "${COMPILER_CACHE_DIR}/bin/ccache" ]; then
+            export CCACHE_DIR="${COMPILER_CACHE_DIR}/ccache"
+            CCACHE="${COMPILER_CACHE_DIR}/bin/ccache"
+          elif command -v ccache >/dev/null 2>&1; then
+            CCACHE=ccache
+          else
+            echo "ccache is unavailable"
+            exit 0
+          fi
+          "${CCACHE}" --cleanup
+          "${CCACHE}" --show-stats --verbose
+
+      - name: Show compiler cache stats (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ccache = "${env:COMPILER_CACHE_DIR}/bin/ccache.exe"
+          if (!(Test-Path -PathType Leaf $ccache)) {
+            Write-Output "ccache is unavailable"
+            exit 0
+          }
+          & $ccache --cleanup
+          & $ccache --show-stats --verbose
 
       - name: Archive wheels
         uses: actions/upload-artifact@v7
