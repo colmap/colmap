@@ -99,6 +99,16 @@ jobs:
           set +e
           ctest --output-on-failure
 
+      - name: Export package
+        run: |
+          ./scripts/shell/build_mac_app.sh build/src/colmap/exe/colmap
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: colmap-arm64-macos
+          path: build/src/colmap/exe/COLMAP-mac.zip
+
       - name: Cleanup compiler cache
         run: |
           set -x

@@ -124,7 +124,6 @@ RANSACOptions TestRANSACOptions() {
 }
 
 TEST(EpipoleFromFundamentalMatrix, Nominal) {
-  SetPRNGSeed(0);
   for (int k = 0; k < 20; ++k) {
     const Eigen::Matrix3d K = RandomCalibrationMatrix();
     const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
@@ -138,7 +137,6 @@ TEST(EpipoleFromFundamentalMatrix, Nominal) {
 }
 
 TEST(HomographyFromFundamentalAndPoints, Nominal) {
-  SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
   const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                RandomEigenVectord<3>());
@@ -177,7 +175,6 @@ TEST(HomographyFromFundamentalAndPoints, Nominal) {
 }
 
 TEST(HomographyFromFundamentalAndPoints, CollinearReturnsNullopt) {
-  SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
   const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                RandomEigenVectord<3>());
@@ -200,7 +197,6 @@ TEST(HomographyFromFundamentalAndPoints, CollinearReturnsNullopt) {
 }
 
 TEST(IsSampleHDegenerate, DetectsAndRejects) {
-  SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
   const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                RandomEigenVectord<3>());
@@ -256,7 +252,6 @@ TEST(IsSampleHDegenerate, DetectsAndRejects) {
 // On a general non-planar scene, DEGENSAC recovers the fundamental matrix as
 // well as the plain LO-RANSAC estimator.
 TEST(FundamentalMatrixDegensac, NonPlanarParity) {
-  SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
   const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                RandomEigenVectord<3>());
@@ -294,7 +289,6 @@ TEST(FundamentalMatrixDegensac, NonPlanarParity) {
 // correct fundamental matrix via plane-and-parallax completion, explaining the
 // off-plane points well.
 TEST(FundamentalMatrixDegensac, RecoversFOnDominantPlane) {
-  SetPRNGSeed(0);
   const Eigen::Matrix3d K = RandomCalibrationMatrix();
   const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
                                RandomEigenVectord<3>().normalized());

@@ -161,7 +161,6 @@ constexpr double kMaxFailureRate = 0.03;
 
 // The minimal 6-point solver recovers the pose and focal on clean samples.
 TEST(RelativePoseSharedFocalEstimator, Nominal) {
-  SetPRNGSeed(0);
   const double kFocal = 1000.0;
   size_t num_failures = 0;
   for (size_t k = 0; k < kNumTrials; ++k) {
@@ -190,7 +189,6 @@ TEST(RelativePoseSharedFocalEstimator, Nominal) {
 // Residuals are near-zero on exact points, grow with a wrong focal, and are
 // infinite for a non-positive focal.
 TEST(RelativePoseSharedFocalEstimator, Residuals) {
-  SetPRNGSeed(0);
   const double kFocal = 1000.0;
   const Rigid3d cam2_from_cam1 = TestCam2FromCam1();
   std::vector<Eigen::Vector2d> points1;
@@ -237,7 +235,6 @@ TEST(RelativePoseSharedFocalEstimator, Residuals) {
 
 // Refinement pulls a perturbed pose + focal back to the ground truth.
 TEST(RelativePoseSharedFocalEstimator, RefineFromInitialModel) {
-  SetPRNGSeed(0);
   const double kFocal = 1000.0;
   for (size_t k = 0; k < 50; ++k) {
     const Rigid3d cam2_from_cam1 = TestCam2FromCam1();

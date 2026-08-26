@@ -265,9 +265,10 @@ available) instead requires an attached display, so on such systems the CPU
 version is recommended for use on a server. In general, the GPU version is
 favorable, as it has a customized feature detection mode that often produces
 higher-quality features for high-contrast images.
-COLMAP also supports ALIKED feature extraction, a learned feature extractor
-using ONNX models, which can be selected via the ``--FeatureExtraction.type``
-option (see :ref:`Feature Extraction and Matching <features>` for details). If
+COLMAP also supports ALIKED and LoMa feature extraction, learned feature
+extractors using ONNX models, which can be selected via the
+``--FeatureExtraction.type`` option (see
+:ref:`Feature Extraction and Matching <features>` for details). If
 you import existing features, every image must have a text file next to it (e.g.,
 ``/path/to/image1.jpg`` and ``/path/to/image1.jpg.txt``) in the following format::
 

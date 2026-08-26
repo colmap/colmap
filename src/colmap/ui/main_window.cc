@@ -1462,9 +1462,6 @@ void MainWindow::ReconstructionReset() {
   reconstruction_manager_->Clear();
   reconstruction_manager_widget_->Update();
 
-  timer_.Reset();
-  UpdateTimer();
-
   EnableBlockingActions();
   action_reconstruction_start_->setText(tr("Start reconstruction"));
   action_reconstruction_pause_->setEnabled(false);
@@ -1571,6 +1568,8 @@ void MainWindow::RenderClear() {
   reconstruction_manager_widget_->SelectReconstruction(
       ReconstructionManagerWidget::kNewestReconstructionIdx);
   model_viewer_widget_->ClearReconstruction();
+  timer_.Reset();
+  UpdateTimer();
 }
 
 void MainWindow::RenderOptions() {

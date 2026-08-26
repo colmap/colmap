@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/image/warp.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
 
@@ -64,6 +65,9 @@ struct UndistortCameraOptions {
   // output dimensions. Points with norm exceeding this threshold are skipped.
   // Set to -1 to disable the check (default).
   double max_cam_point_norm = -1;
+
+  // Options controlling image warping during undistortion.
+  WarpImageOptions warp_options;
 };
 
 // Undistort camera by resizing the image and shifting the principal point.

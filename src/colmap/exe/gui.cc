@@ -33,7 +33,6 @@
 #include "colmap/ui/main_window.h"
 #endif
 #include "colmap/controllers/option_manager.h"
-#include "colmap/util/opengl_utils.h"
 
 namespace colmap {
 

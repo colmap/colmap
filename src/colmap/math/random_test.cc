@@ -40,6 +40,7 @@ namespace colmap {
 namespace {
 
 TEST(PRNGSeed, Nominal) {
+  PRNG.reset();
   EXPECT_TRUE(PRNG == nullptr);
   SetPRNGSeed();
   EXPECT_TRUE(PRNG != nullptr);
@@ -91,7 +92,6 @@ TEST(Repeatability, Nominal) {
 }
 
 TEST(RandomUniformInteger, Nominal) {
-  SetPRNGSeed();
   for (size_t i = 0; i < 1000; ++i) {
     EXPECT_GE(RandomUniformInteger(-100, 100), -100);
     EXPECT_LE(RandomUniformInteger(-100, 100), 100);
@@ -99,7 +99,6 @@ TEST(RandomUniformInteger, Nominal) {
 }
 
 TEST(RandomUniformReal, Nominal) {
-  SetPRNGSeed();
   for (size_t i = 0; i < 1000; ++i) {
     EXPECT_GE(RandomUniformReal(-100.0, 100.0), -100.0);
     EXPECT_LE(RandomUniformReal(-100.0, 100.0), 100.0);
@@ -107,7 +106,6 @@ TEST(RandomUniformReal, Nominal) {
 }
 
 TEST(RandomGaussian, Nominal) {
-  SetPRNGSeed(0);
   const double kMean = 1.0;
   const double kSigma = 1.0;
   const size_t kNumValues = 100000;
@@ -121,7 +119,6 @@ TEST(RandomGaussian, Nominal) {
 }
 
 TEST(ShuffleNone, Nominal) {
-  SetPRNGSeed();
   std::vector<int> numbers(0);
   Shuffle(0, &numbers);
   numbers = {1, 2, 3, 4, 5};
@@ -131,7 +128,6 @@ TEST(ShuffleNone, Nominal) {
 }
 
 TEST(ShuffleAll, Nominal) {
-  SetPRNGSeed(0);
   std::vector<int> numbers(1000);
   std::iota(numbers.begin(), numbers.end(), 0);
   std::vector<int> shuffled_numbers = numbers;

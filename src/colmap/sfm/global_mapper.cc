@@ -352,6 +352,13 @@ bool GlobalMapper::IterativeBundleAdjustment(
     if (!skip_fixed_rotation_stage) {
       BundleAdjustmentOptions opts_position_only = options;
       opts_position_only.constant_rig_from_world_rotation = true;
+      // Caspar's pose node is a single retracted Pose3 (rotation+
+      // translation together) with no mechanism to hold rotation
+      // constant while translation is free -- constant_rig_from_world_
+      // rotation is silently ignored when backend == CASPAR.
+      if (opts_position_only.backend == BundleAdjustmentBackend::CASPAR) {
+        opts_position_only.backend = BundleAdjustmentBackend::CERES;
+      }
       if (!RunBundleAdjustment(opts_position_only, *reconstruction_)) {
         return false;
       }

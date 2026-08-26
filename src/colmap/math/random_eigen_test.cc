@@ -39,7 +39,6 @@ namespace colmap {
 namespace {
 
 TEST(RandomEigenVectord, Range) {
-  SetPRNGSeed(0);
   for (int i = 0; i < 1000; ++i) {
     const Eigen::Vector3d vector = RandomEigenVectord<3>();
     EXPECT_TRUE((vector.array() >= -1).all());
@@ -56,7 +55,6 @@ TEST(RandomEigenVectord, Deterministic) {
 }
 
 TEST(RandomEigenVectorf, Range) {
-  SetPRNGSeed(0);
   for (int i = 0; i < 1000; ++i) {
     const Eigen::Vector2f vector = RandomEigenVectorf<2>();
     EXPECT_TRUE((vector.array() >= -1).all());
@@ -65,7 +63,6 @@ TEST(RandomEigenVectorf, Range) {
 }
 
 TEST(RandomEigenVectorXd, Dynamic) {
-  SetPRNGSeed(0);
   const Eigen::VectorXd vector = RandomEigenVectorXd(7);
   EXPECT_EQ(vector.size(), 7);
   EXPECT_TRUE((vector.array() >= -1).all());
@@ -73,14 +70,12 @@ TEST(RandomEigenVectorXd, Dynamic) {
 }
 
 TEST(RandomEigenMatrixd, Range) {
-  SetPRNGSeed(0);
   const Eigen::Matrix<double, 3, 4> matrix = RandomEigenMatrixd<3, 4>();
   EXPECT_TRUE((matrix.array() >= -1).all());
   EXPECT_TRUE((matrix.array() <= 1).all());
 }
 
 TEST(RandomEigenMatrixXf, Dynamic) {
-  SetPRNGSeed(0);
   const Eigen::MatrixXf matrix = RandomEigenMatrixXf(3, 5);
   EXPECT_EQ(matrix.rows(), 3);
   EXPECT_EQ(matrix.cols(), 5);
@@ -89,7 +84,6 @@ TEST(RandomEigenMatrixXf, Dynamic) {
 }
 
 TEST(RandomEigenQuaterniond, Unit) {
-  SetPRNGSeed(0);
   for (int i = 0; i < 1000; ++i) {
     const Eigen::Quaterniond quat = RandomEigenQuaterniond();
     EXPECT_NEAR(quat.norm(), 1.0, 1e-9);

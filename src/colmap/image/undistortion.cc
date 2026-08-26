@@ -291,7 +291,8 @@ void UndistortImage(const UndistortCameraOptions& options,
 
   *undistorted_camera = UndistortCamera(options, distorted_camera);
 
-  WarpImageBetweenCameras(distorted_camera,
+  WarpImageBetweenCameras(options.warp_options,
+                          distorted_camera,
                           *undistorted_camera,
                           distorted_bitmap,
                           undistorted_bitmap);
@@ -474,12 +475,14 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
   RectifyStereoCameras(
       *undistorted_camera, *undistorted_camera, cam2_from_cam1, &H1, &H2, Q);
 
-  WarpImageWithHomographyBetweenCameras(H1.inverse(),
+  WarpImageWithHomographyBetweenCameras(options.warp_options,
+                                        H1.inverse(),
                                         distorted_camera1,
                                         *undistorted_camera,
                                         distorted_image1,
                                         undistorted_image1);
-  WarpImageWithHomographyBetweenCameras(H2.inverse(),
+  WarpImageWithHomographyBetweenCameras(options.warp_options,
+                                        H2.inverse(),
                                         distorted_camera2,
                                         *undistorted_camera,
                                         distorted_image2,

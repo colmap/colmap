@@ -29,7 +29,6 @@
 
 #include "colmap/controllers/rotation_averaging.h"
 
-#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -60,8 +59,6 @@ void ExpectEqualRotations(const Reconstruction& gt,
 }
 
 TEST(RotationAveragingPipeline, WithoutNoise) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -86,8 +83,6 @@ TEST(RotationAveragingPipeline, WithoutNoise) {
 }
 
 TEST(RotationAveragingPipeline, WithNoiseAndOutliers) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);
@@ -127,8 +122,6 @@ void ExpectExactEqualRotations(const Reconstruction& reconstruction1,
 }
 
 TEST(RotationAveragingPipeline, WithRandomSeedStability) {
-  SetPRNGSeed(1);
-
   const auto database_path = CreateTestDir() / "database.db";
 
   auto database = Database::Open(database_path);

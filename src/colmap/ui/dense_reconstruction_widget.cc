@@ -38,7 +38,6 @@
 #include "colmap/mvs/poisson_meshing.h"
 #endif
 #include "colmap/ui/main_window.h"
-#include "colmap/ui/render_options.h"
 #include "colmap/util/controller_thread.h"
 
 namespace colmap {
@@ -392,7 +391,8 @@ void DenseReconstructionWidget::Stereo() {
     return;
   }
 
-#if defined(COLMAP_MVS_ENABLED) && defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_MVS_ENABLED) && \
+    (defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED))
   auto processor =
       std::make_unique<ControllerThread<mvs::PatchMatchController>>(
           std::make_shared<mvs::PatchMatchController>(

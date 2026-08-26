@@ -304,7 +304,6 @@ TEST(GravityAlignedRotation, Nominal) {
 }
 
 TEST(YAxisAngleFromRotation, Roundtrip) {
-  SetPRNGSeed(0);
   for (int i = 0; i < 100; ++i) {
     const double angle = RandomUniformReal<double>(-M_PI, M_PI);
     const Eigen::Matrix3d R = RotationFromYAxisAngle(angle);
@@ -350,7 +349,6 @@ TEST(QuaternionFromAngleAxis, SmallAngle) {
 }
 
 TEST(QuaternionFromAngleAxis, Roundtrip) {
-  SetPRNGSeed(0);
   for (int i = 0; i < 100; ++i) {
     const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
     const Eigen::Vector3d omega = aa.angle() * aa.axis();
@@ -369,7 +367,6 @@ TEST(LeftJacobianFromAngleAxis, IdentityAtZero) {
 
 TEST(LeftJacobianFromAngleAxis, RelationToRight) {
   // Jr(w) = Jl(-w) for all w.
-  SetPRNGSeed(0);
   for (int i = 0; i < 100; ++i) {
     const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
     const Eigen::Vector3d omega = aa.angle() * aa.axis();
@@ -390,7 +387,6 @@ TEST(RightJacobianFromAngleAxis, SmallAngle) {
 
 TEST(RightJacobianFromAngleAxis, NumericDerivative) {
   // Verify Jr by numeric differentiation of Exp(w + dw) ≈ Exp(w) * Exp(Jr*dw).
-  SetPRNGSeed(0);
   const double eps = 1e-7;
   for (int i = 0; i < 50; ++i) {
     const Eigen::AngleAxisd aa(RandomEigenQuaterniond());
@@ -414,7 +410,6 @@ TEST(RightJacobianFromAngleAxis, NumericDerivative) {
 
 TEST(LeftJacobianFromAngleAxis, NumericDerivative) {
   // Verify Jl by numeric differentiation of Exp(w + dw) ≈ Exp(Jl*dw) * Exp(w).
-  SetPRNGSeed(0);
   const double eps = 1e-7;
   for (int i = 0; i < 50; ++i) {
     const Eigen::AngleAxisd aa(RandomEigenQuaterniond());

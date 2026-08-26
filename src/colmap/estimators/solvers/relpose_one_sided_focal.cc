@@ -84,9 +84,9 @@ std::vector<Eigen::Vector3d> CalibratedRays(
 
 void RelativePoseOneSidedFocalEstimator::Estimate(
     const std::vector<X_t>& img_points1,
-    const std::vector<Y_t>& cam_rays2,
+    const std::vector<Y_t>& cam_rays2_with_jac,
     std::vector<M_t>* models) {
-  THROW_CHECK_EQ(img_points1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(img_points1.size(), cam_rays2_with_jac.size());
   THROW_CHECK_GE(img_points1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(models)->clear();
 
@@ -96,12 +96,13 @@ void RelativePoseOneSidedFocalEstimator::Estimate(
   // the pixel units of `img_points1`. So pass the centered points through as
   // plain homogeneous coordinates and do not pre-normalize them here.
   std::vector<Eigen::Vector3d> img_points1_homogeneous(img_points1.size());
-  std::vector<Eigen::Vector3d> normalized_cam_rays2(cam_rays2.size());
+  std::vector<Eigen::Vector3d> cam_rays2(cam_rays2_with_jac.size());
   for (size_t i = 0; i < img_points1.size(); ++i) {
     img_points1_homogeneous[i] = img_points1[i].homogeneous();
-    // The epipolar constraint is homogeneous in the rays, but normalizing keeps
-    // the nullspace computation well conditioned.
-    normalized_cam_rays2[i] = cam_rays2[i].normalized();
+    // Already unit bearings, which keeps the nullspace computation well
+    // conditioned. Renormalizing here would turn a zeroed entry, left behind by
+    // a failed unprojection, into NaN and poison the whole sample.
+    cam_rays2[i] = cam_rays2_with_jac[i].ray;
   }
 
   // Use the full elimination template (use_elim = false), which solves for the
@@ -112,7 +113,7 @@ void RelativePoseOneSidedFocalEstimator::Estimate(
   // variants end in the same eigendecomposition, which dominates.
   poselib::ImagePairVector image_pairs;
   poselib::relpose_6pt_onesided_focal(img_points1_homogeneous,
-                                      normalized_cam_rays2,
+                                      cam_rays2,
                                       &image_pairs,
                                       /*use_elim=*/false);
 
@@ -134,9 +135,9 @@ void RelativePoseOneSidedFocalEstimator::Estimate(
 
 bool RelativePoseOneSidedFocalEstimator::Refine(
     const std::vector<X_t>& img_points1,
-    const std::vector<Y_t>& cam_rays2,
+    const std::vector<Y_t>& cam_rays2_with_jac,
     M_t* model) {
-  THROW_CHECK_EQ(img_points1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(img_points1.size(), cam_rays2_with_jac.size());
   THROW_CHECK_GE(img_points1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(model);
 
@@ -146,9 +147,14 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
 
   // Decompose the current essential matrix into a relative pose, resolving the
   // four-fold ambiguity by cheirality. The first view's rays follow from the
-  // current focal estimate; the second view's are already calibrated.
+  // current focal estimate; the second view's are already calibrated. Only the
+  // bearings are materialized, since that is all PoseFromEssentialMatrix needs.
   const std::vector<Eigen::Vector3d> cam_rays1 =
       CalibratedRays(img_points1, model->focal);
+  std::vector<Eigen::Vector3d> cam_rays2(cam_rays2_with_jac.size());
+  for (size_t i = 0; i < cam_rays2_with_jac.size(); ++i) {
+    cam_rays2[i] = cam_rays2_with_jac[i].ray;
+  }
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(
@@ -159,14 +165,14 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   }
 
   // Nonlinear refinement of the joint 6-DoF (5-DoF pose plus the unknown focal)
-  // via ceres::TinySolver (fixed-size, allocation-free, autodiff), applying the
-  // one-sided focal relative pose manifold. The functor minimizes the same
-  // epipolar-line distance that Residuals() scores, so local optimization
-  // improves exactly the quantity LO-RANSAC measures. Plain least squares: the
-  // points are assumed to be the inlier set, so robustness comes from the
-  // RANSAC inlier selection.
-  TinyOneSidedFocalEpipolarErrorCostFunctor functor(img_points1, cam_rays2);
-  TinyOneSidedFocalEpipolarErrorCostFunctor::AutoDiffFunction f(functor);
+  // via colmap::TinySolver (fixed-size, allocation-free, analytic Jacobians),
+  // applying the one-sided focal relative pose manifold. The functor minimizes
+  // the same tangent Sampson error that Residuals() scores, so local
+  // optimization improves exactly the quantity LO-RANSAC measures. Plain least
+  // squares: the points are assumed to be the inlier set, so robustness comes
+  // from the RANSAC inlier selection.
+  TinyOneSidedFocalTangentSampsonErrorCostFunctor f(img_points1,
+                                                    cam_rays2_with_jac);
   using Solver = TinySolver<decltype(f), RelativePoseOneSidedFocalManifold>;
   Solver solver;
   Solver::Options options;
@@ -193,10 +199,10 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
 
 void RelativePoseOneSidedFocalEstimator::Residuals(
     const std::vector<X_t>& img_points1,
-    const std::vector<Y_t>& cam_rays2,
+    const std::vector<Y_t>& cam_rays2_with_jac,
     const M_t& model,
     std::vector<double>* residuals) {
-  THROW_CHECK_EQ(img_points1.size(), cam_rays2.size());
+  THROW_CHECK_EQ(img_points1.size(), cam_rays2_with_jac.size());
   THROW_CHECK_NOTNULL(residuals);
   if (!(model.focal > 0.0)) {
     residuals->assign(img_points1.size(), std::numeric_limits<double>::max());
@@ -206,18 +212,23 @@ void RelativePoseOneSidedFocalEstimator::Residuals(
   const Eigen::Matrix3d M_transpose = M.transpose();
   residuals->resize(img_points1.size());
   for (size_t i = 0; i < img_points1.size(); ++i) {
-    const Eigen::Vector3d& cam_ray2 = cam_rays2[i];
-    // Epipolar line induced in the first view by the second view's ray,
-    // expressed in the first view's pixel coordinates.
-    const Eigen::Vector3d line1 = M_transpose * cam_ray2;
-    const double squared_line_norm = line1.head<2>().squaredNorm();
-    if (!(squared_line_norm > 0)) {
-      // Degenerate line, e.g. from a zero ray left by a failed undistortion.
+    const Eigen::Vector3d& cam_ray2 = cam_rays2_with_jac[i].ray;
+    const Eigen::Vector3d Mpoint1 = M * img_points1[i].homogeneous();
+    const double num = cam_ray2.dot(Mpoint1);
+    // Constraint gradients in each view's own pixels. The first view needs no
+    // Jacobian, as its d(x, y, 1)/d(x, y) merely selects the first two rows.
+    // This is ComputeSquaredTangentSampsonError specialized to that structure,
+    // which is worth inlining here because RANSAC evaluates it per hypothesis
+    // per correspondence.
+    const double denom =
+        (M_transpose * cam_ray2).head<2>().squaredNorm() +
+        SquaredPixelGradientNorm(cam_rays2_with_jac[i].jacobian, Mpoint1);
+    if (!(denom > 0)) {
+      // Degenerate, e.g. a zeroed entry left by a failed unprojection.
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
-    const double num = cam_ray2.dot(M * img_points1[i].homogeneous());
-    (*residuals)[i] = num * num / squared_line_norm;
+    (*residuals)[i] = num * num / denom;
   }
 }
 

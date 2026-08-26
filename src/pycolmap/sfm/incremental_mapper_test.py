@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pycolmap
 
 
@@ -155,3 +157,41 @@ def test_incremental_pipeline_options_ba_global_backend_readwrite():
     assert options.ba_global_backend == pycolmap.BundleAdjustmentBackend.CERES
     options.ba_global_backend = pycolmap.BundleAdjustmentBackend.CASPAR
     assert options.ba_global_backend == pycolmap.BundleAdjustmentBackend.CASPAR
+
+
+def test_incremental_pipeline_run(tmp_path: Path):
+    pycolmap.set_random_seed(0)
+
+    database_path = tmp_path / "database.db"
+    with pycolmap.Database.open(database_path) as database:
+        synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
+        synthetic_dataset_options.num_rigs = 2
+        synthetic_dataset_options.num_cameras_per_rig = 1
+        synthetic_dataset_options.num_frames_per_rig = 7
+        synthetic_dataset_options.num_points3D = 50
+        synthetic_dataset_options.camera_has_prior_focal_length = False
+        gt_reconstruction = pycolmap.synthesize_dataset(
+            synthetic_dataset_options, database
+        )
+
+        reconstruction_manager = pycolmap.ReconstructionManager()
+        pipeline = pycolmap.IncrementalPipeline(
+            pycolmap.IncrementalPipelineOptions(),
+            database,
+            reconstruction_manager,
+        )
+        pipeline.run()
+
+    assert reconstruction_manager.size() == 1
+    reconstruction = reconstruction_manager.get(0)
+    assert reconstruction.num_reg_images() == gt_reconstruction.num_reg_images()
+    result = pycolmap.compare_reconstructions(
+        reconstruction,
+        gt_reconstruction,
+        alignment_error="proj_center",
+        max_proj_center_error=1e-4,
+    )
+    assert result is not None
+    for error in result["errors"]:
+        assert error.rotation_error_deg < 1e-2
+        assert error.proj_center_error < 1e-4

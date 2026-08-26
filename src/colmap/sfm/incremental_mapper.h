@@ -36,8 +36,6 @@
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/hash_containers.h"
 
-#include <optional>
-
 namespace colmap {
 
 // Class that provides all functionality for the incremental reconstruction

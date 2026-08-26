@@ -106,7 +106,7 @@ void RotationAveragingPipeline::Run() {
     // Compute largest connected component and invalidate pairs before gravity
     // refinement.
     const FlatHashSet<frame_t> active_frame_ids =
-        pose_graph.ComputeLargestConnectedFrameComponent(
+        pose_graph.LargestConnectedFrameComponent(
             *reconstruction_,
             /*filter_unregistered=*/false);
     FlatHashSet<image_t> active_image_ids;

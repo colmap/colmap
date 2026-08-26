@@ -142,11 +142,19 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 
 #ifdef COLMAP_CUDA_ENABLED
   bool cuda_solver_enabled = false;
+  const bool cuda_solver_requested =
+      use_gpu && num_images >= min_num_images_gpu_solver;
+  const bool use_cuda_solver = cuda_solver_requested && GetNumCudaDevices() > 0;
+  if (cuda_solver_requested && !use_cuda_solver) {
+    LOG_FIRST_N(WARNING, 1)
+        << "Requested to use GPU for bundle adjustment, but no CUDA GPU is "
+           "available. Falling back to CPU-based solvers.";
+  }
 
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 2)) && \
     !defined(CERES_NO_CUDA)
-  if (use_gpu && num_images >= min_num_images_gpu_solver) {
+  if (use_cuda_solver) {
     cuda_solver_enabled = true;
     custom_solver_options.dense_linear_algebra_library_type = ceres::CUDA;
     max_num_images_direct_dense_solver = max_num_images_direct_dense_gpu_solver;
@@ -163,7 +171,7 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 #if (CERES_VERSION_MAJOR >= 3 ||                                \
      (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 3)) && \
     !defined(CERES_NO_CUDSS)
-  if (use_gpu && num_images >= min_num_images_gpu_solver) {
+  if (use_cuda_solver) {
     cuda_solver_enabled = true;
     custom_solver_options.sparse_linear_algebra_library_type =
         ceres::CUDA_SPARSE;
@@ -769,6 +777,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       : CeresBundleAdjuster(options, config),
         loss_function_(options_.ceres->CreateLossFunction()),
         camera_prior_loss_function_(std::make_unique<ceres::HuberLoss>(1.0)) {
+    VLOG(2) << "Creating Ceres bundle adjuster";
     ceres::Problem::Options problem_options;
     problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
     problem_ = std::make_shared<ceres::Problem>(problem_options);
@@ -1083,6 +1092,8 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         prior_options_(prior_options),
         pose_priors_(std::move(pose_priors)),
         reconstruction_(reconstruction) {
+    VLOG(2) << "Creating Ceres pose prior bundle adjuster";
+
     THROW_CHECK(prior_options_.Check());
 
     // Filter irrelevant pose priors.
@@ -1097,16 +1108,17 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                        }),
         pose_priors_.end());
 
-    const bool use_prior_position = AlignReconstruction();
+    const bool use_prior_position =
+        pose_priors_.size() >= 3 && AlignReconstruction();
 
-    // Fix 7-DOFs of BA problem if not enough valid pose priors.
+    // Fix 7-DOFs of the BA problem if the pose priors cannot constrain them.
     if (use_prior_position) {
       // Normalize the reconstruction to avoid any numerical instability but
       // do not transform priors as they will be transformed when added to
       // ceres::Problem.
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
     } else {
-      config_.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+      config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     }
 
     // WARNING: Do not move this above the reconstruction normalization.
@@ -1162,7 +1174,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     Image& image = reconstruction.Image(image_id);
 
     const bool constant_sensor_from_rig =
-        !options_.refine_sensor_from_rig ||
+        image.IsRefInFrame() || !options_.refine_sensor_from_rig ||
         config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
     const bool constant_rig_from_world =
         !options_.refine_rig_from_world ||
@@ -1207,41 +1219,25 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           prior_loss_function_.get(),
           cam_from_rig.params.data(),
           rig_from_world.params.data());
+      // Reprojection residuals may omit constant poses, so the prior can add
+      // their parameter blocks after the default parameterization pass.
+      if (constant_sensor_from_rig) {
+        problem.SetParameterBlockConstant(cam_from_rig.params.data());
+      }
+    }
+    if (constant_rig_from_world) {
+      problem.SetParameterBlockConstant(rig_from_world.params.data());
     }
   }
 
   bool AlignReconstruction() {
-    RANSACOptions ransac_options = prior_options_.alignment_ransac_options;
-    if (ransac_options.max_error <= 0) {
-      std::vector<double> rms_vars;
-      rms_vars.reserve(pose_priors_.size());
-      for (const auto& pose_prior : pose_priors_) {
-        const double trace = pose_prior.position_covariance.trace();
-        if (trace <= 0.0) {
-          continue;
-        }
-        rms_vars.push_back(trace / 3.0);
-      }
-
-      if (rms_vars.empty()) {
-        LOG(WARNING) << "No pose priors with valid covariance found.";
-        rms_vars.push_back(prior_options_.prior_position_fallback_stddev *
-                           prior_options_.prior_position_fallback_stddev);
-      }
-
-      // Set max error using the median RMS variance of valid pose priors.
-      // Scaled by sqrt(chi-square 95% quantile, 3 DOF) to approximate a 95%
-      // confidence radius.
-      ransac_options.max_error =
-          std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
-    }
-
-    VLOG(2) << "Robustly aligning reconstruction with max_error="
-            << ransac_options.max_error;
-
     Sim3d metric_from_orig;
     if (!AlignReconstructionToPosePriors(
-            reconstruction_, pose_priors_, ransac_options, &metric_from_orig)) {
+            reconstruction_,
+            pose_priors_,
+            prior_options_.alignment_ransac_options,
+            prior_options_.prior_position_fallback_stddev,
+            &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
       return false;
     }

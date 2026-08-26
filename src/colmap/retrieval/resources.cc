@@ -42,6 +42,10 @@ const std::filesystem::path& GetVocabTreeUriForFeatureType(
       return kDefaultAlikedN16RotVocabTreeUri;
     case FeatureExtractorType::ALIKED_N32:
       return kDefaultAlikedN32VocabTreeUri;
+    case FeatureExtractorType::LOMA_B:
+      return kDefaultLomaBVocabTreeUri;
+    case FeatureExtractorType::LOMA_B128:
+      return kDefaultLomaB128VocabTreeUri;
     default:
       LOG(FATAL_THROW)
           << "No default vocabulary tree available for feature type: "

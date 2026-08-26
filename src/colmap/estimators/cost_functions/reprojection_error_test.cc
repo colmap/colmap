@@ -97,7 +97,6 @@ ceres::GradientChecker MakeGradientChecker(
 template <typename CameraModel>
 void TestAnalyticalReprojError(const std::vector<double>& camera_params) {
   SetPRNGSeed(42);
-
   constexpr double kJacEps = 1e-4;
   constexpr double kResEps = 1e-9;
 
@@ -157,7 +156,6 @@ template <typename CameraModel>
 void TestAnalyticalReprojErrorConstantPose(
     const std::vector<double>& camera_params) {
   SetPRNGSeed(42);
-
   constexpr double kJacEps = 1e-4;
   constexpr double kResEps = 1e-9;
 

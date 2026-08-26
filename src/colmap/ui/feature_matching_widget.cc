@@ -126,6 +126,12 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   add_matcher_type(FeatureMatcherType::SIFT_LIGHTGLUE);
   add_matcher_type(FeatureMatcherType::ALIKED_BRUTEFORCE);
   add_matcher_type(FeatureMatcherType::ALIKED_LIGHTGLUE);
+  add_matcher_type(FeatureMatcherType::LOMA_BRUTEFORCE);
+  add_matcher_type(FeatureMatcherType::LOMA_B);
+  add_matcher_type(FeatureMatcherType::LOMA_B128);
+  add_matcher_type(FeatureMatcherType::LOMA_R);
+  add_matcher_type(FeatureMatcherType::LOMA_L);
+  add_matcher_type(FeatureMatcherType::LOMA_G);
 #endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 

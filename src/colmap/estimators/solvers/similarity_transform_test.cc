@@ -102,8 +102,6 @@ TEST(Rigid3d, EstimateNonMinimalDegenerate) {
 }
 
 TEST(Rigid3d, EstimateRobust) {
-  SetPRNGSeed(0);
-
   const size_t num_inliers = 1000;
   const size_t num_outliers = 400;
 
@@ -174,8 +172,6 @@ TEST(Sim3d, EstimateNonMinimalDegenerate) {
 }
 
 TEST(Sim3d, EstimateRobust) {
-  SetPRNGSeed(0);
-
   const size_t num_inliers = 1000;
   const size_t num_outliers = 400;
 

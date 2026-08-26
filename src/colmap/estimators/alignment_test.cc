@@ -122,8 +122,41 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   ransac_options.max_error = 1e-2;
 
   Sim3d tgt_from_src;
-  ASSERT_TRUE(AlignReconstructionToPosePriors(
-      src_reconstruction, tgt_pose_priors, ransac_options, &tgt_from_src));
+  ASSERT_TRUE(
+      AlignReconstructionToPosePriors(src_reconstruction,
+                                      tgt_pose_priors,
+                                      ransac_options,
+                                      /*prior_position_fallback_stddev=*/1.0,
+                                      &tgt_from_src));
+  ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
+}
+
+TEST(Alignment, AlignReconstructionToPosePriorsWithAutomaticMaxError) {
+  Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  const Sim3d gt_tgt_from_src = TestSim3d();
+  tgt_reconstruction.Transform(gt_tgt_from_src);
+
+  std::vector<PosePrior> tgt_pose_priors;
+  for (const auto& [image_id, image] : tgt_reconstruction.Images()) {
+    PosePrior& pose_prior = tgt_pose_priors.emplace_back();
+    pose_prior.pose_prior_id = tgt_pose_priors.size();
+    pose_prior.corr_data_id = image.DataId();
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    pose_prior.position = image.ProjectionCenter();
+    pose_prior.position_covariance = 1e-4 * Eigen::Matrix3d::Identity();
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 0.0;
+  Sim3d tgt_from_src;
+  ASSERT_TRUE(
+      AlignReconstructionToPosePriors(src_reconstruction,
+                                      tgt_pose_priors,
+                                      ransac_options,
+                                      /*prior_position_fallback_stddev=*/1.0,
+                                      &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 

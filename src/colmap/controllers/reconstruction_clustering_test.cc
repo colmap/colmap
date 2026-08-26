@@ -121,8 +121,6 @@ void CreateTwoWeaklyConnectedClusters(Reconstruction* reconstruction,
 }
 
 TEST(ReconstructionClustererController, EmptyReconstruction) {
-  SetPRNGSeed(1);
-
   auto reconstruction = std::make_shared<Reconstruction>();
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
@@ -136,8 +134,6 @@ TEST(ReconstructionClustererController, EmptyReconstruction) {
 }
 
 TEST(ReconstructionClustererController, SingleCluster) {
-  SetPRNGSeed(1);
-
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Create a synthetic dataset with well-connected frames
@@ -167,8 +163,6 @@ TEST(ReconstructionClustererController, SingleCluster) {
 }
 
 TEST(ReconstructionClustererController, SingleClusterWithOutlierFrames) {
-  SetPRNGSeed(42);
-
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Create a well-connected reconstruction with more frames
@@ -235,8 +229,6 @@ TEST(ReconstructionClustererController, SingleClusterWithOutlierFrames) {
 }
 
 TEST(ReconstructionClustererController, MinNumRegFramesFilter) {
-  SetPRNGSeed(1);
-
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Create a small synthetic dataset
@@ -261,8 +253,6 @@ TEST(ReconstructionClustererController, MinNumRegFramesFilter) {
 }
 
 TEST(ReconstructionClustererController, TwoWeaklyConnectedClusters) {
-  SetPRNGSeed(42);
-
   auto reconstruction = std::make_shared<Reconstruction>();
 
   // Create a reconstruction with two clusters connected by only 10 weak links

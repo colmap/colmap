@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
-#include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
@@ -63,8 +62,6 @@ class ParameterizedBACovarianceTests
           std::pair<BACovarianceOptions, BACovarianceTestOptions>> {};
 
 TEST_P(ParameterizedBACovarianceTests, CompareWithCeres) {
-  SetPRNGSeed(42);
-
   const auto [options, test_options] = GetParam();
 
   const bool estimate_point_covs =

@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
@@ -73,6 +74,16 @@ class ImportFeaturesWidget : public ExtractionWidget {
 class AlikedExtractionWidget : public ExtractionWidget {
  public:
   AlikedExtractionWidget(QWidget* parent, OptionManager* options);
+
+  void Run() override;
+
+ private:
+  QComboBox* model_variant_cb_;
+};
+
+class LomaExtractionWidget : public ExtractionWidget {
+ public:
+  LomaExtractionWidget(QWidget* parent, OptionManager* options);
 
   void Run() override;
 
@@ -203,6 +214,55 @@ void AlikedExtractionWidget::Run() {
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
+
+LomaExtractionWidget::LomaExtractionWidget(QWidget* parent,
+                                           OptionManager* options)
+    : ExtractionWidget(parent, options) {
+  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
+  AddOptionFilePath(&options->image_reader->camera_mask_path,
+                    "camera_mask_path");
+
+  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
+  AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
+  AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
+  AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
+
+  model_variant_cb_ = new QComboBox(this);
+  model_variant_cb_->addItem("B (dedode_g)",
+                             static_cast<int>(FeatureExtractorType::LOMA_B));
+  model_variant_cb_->addItem("B128 (dedode_b)",
+                             static_cast<int>(FeatureExtractorType::LOMA_B128));
+  AddWidgetRow("loma.model_variant", model_variant_cb_);
+
+  LomaExtractionOptions& loma_options = *options->feature_extraction->loma;
+  AddOptionInt(&loma_options.max_num_features, "loma.max_num_features");
+  AddOptionDouble(&loma_options.min_score, "loma.min_score", 0.0, 1.0);
+  AddOptionBool(&loma_options.use_bf16, "loma.use_bf16");
+  AddOptionBool(&loma_options.use_fast_resize, "loma.use_fast_resize");
+  AddOptionText(&loma_options.detector_model_path, "loma.detector_model_path");
+  AddOptionText(&loma_options.descriptor_model_path,
+                "loma.descriptor_model_path");
+  AddOptionText(&loma_options.descriptor_model_path_bf16,
+                "loma.descriptor_model_path_bf16");
+  AddOptionText(&loma_options.descriptor_b128_model_path,
+                "loma.descriptor_b128_model_path");
+}
+
+void LomaExtractionWidget::Run() {
+  WriteOptions();
+
+  options_->feature_extraction->type = static_cast<FeatureExtractorType>(
+      model_variant_cb_->currentData().toInt());
+
+  ImageReaderOptions reader_options = *options_->image_reader;
+  reader_options.image_path = *options_->image_path;
+  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
+
+  auto extractor = CreateFeatureExtractorController(
+      *options_->database_path, reader_options, *options_->feature_extraction);
+  thread_control_widget_->StartThread(
+      "Extracting...", true, std::move(extractor));
+}
 #endif
 
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
@@ -233,6 +293,11 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
   aliked_widget->setAlignment(Qt::AlignHCenter);
   aliked_widget->setWidget(new AlikedExtractionWidget(this, options));
   tab_widget_->addTab(aliked_widget, tr("ALIKED"));
+
+  QScrollArea* loma_widget = new QScrollArea(this);
+  loma_widget->setAlignment(Qt::AlignHCenter);
+  loma_widget->setWidget(new LomaExtractionWidget(this, options));
+  tab_widget_->addTab(loma_widget, tr("LoMa"));
 #endif
 
   grid->addWidget(tab_widget_);

@@ -31,7 +31,6 @@
 
 #include "colmap/feature/types.h"
 #include "colmap/sensor/bitmap.h"
-#include "colmap/util/enum_utils.h"
 
 #include <memory>
 
@@ -39,12 +38,14 @@ namespace colmap {
 
 struct SiftExtractionOptions;
 struct AlikedExtractionOptions;
+struct LomaExtractionOptions;
 
 struct FeatureExtractionTypeOptions {
   explicit FeatureExtractionTypeOptions();
 
   std::shared_ptr<SiftExtractionOptions> sift;
   std::shared_ptr<AlikedExtractionOptions> aliked;
+  std::shared_ptr<LomaExtractionOptions> loma;
 
   FeatureExtractionTypeOptions(const FeatureExtractionTypeOptions& other);
   FeatureExtractionTypeOptions& operator=(

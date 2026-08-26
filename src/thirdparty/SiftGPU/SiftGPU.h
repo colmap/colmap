@@ -331,12 +331,17 @@ public:
 	//one homography and one fundamental matrix, the use is as follows
 	//1. for each image, first call SetDescriptor then call SetFeatureLocation
 	//2. Call GetGuidedSiftMatch
-	//input feature location is a tightly packed vector of [float x, float y,
-	//float z, float w], where (x, y, z) is a homogeneous direction in the space
-	//the guiding matrices live in and w is a validity flag: 0 rejects the
-	//feature outright, 1 accepts it. Pixel coordinates are passed as
-	//(x, y, 1, 1).
-	SIFTGPU_EXPORT virtual void SetFeatureLocation(int index, const float* locations);
+	//input feature location is a vector of [float x, float y, (float z,) float skip[gap]]
+	//ncomp: 2 for image plane points, whose third homogeneous coordinate is
+	//       implicitly 1, or 3 for general homogeneous vectors such as unit
+	//       bearing vectors of an omnidirectional camera.
+	//gap:   number of floats to skip AFTER each ncomp-tuple, i.e. stride - ncomp.
+	//       A tightly packed array of 3-vectors therefore uses gap = 0, ncomp = 3.
+	SIFTGPU_EXPORT virtual void SetFeatureLocation(int index, const float* locations, int gap = 0, int ncomp = 2);
+	inline void SetFeatureLocation(int index, const SiftGPU::SiftKeypoint * keys)
+	{
+		SetFeatureLocation(index, (const float*) keys, 2);
+	}
 
 	//use a guiding Homography H and a guiding Fundamental Matrix F to compute feature matches
 	//the function returns the number of matches.
@@ -348,7 +353,12 @@ public:
 					float ratiomax = 0.8,   //maximum distance ratio
 					float hdistmax = 32,    //threshold for |H * x1 - x2|_2
 					float fdistmax = 16,    //threshold for sampson error of x2'FX1
-					int mutual_best_match = 1); //mutual best or one wayx
+					int mutual_best_match = 1, //mutual best or one wayx
+					//Explicitly enable/disable each guiding model. Preferred over
+					//signalling "skip" with a threshold large enough to swallow the
+					//residual, which misbehaves when the residual is inf or NaN.
+					int use_h = 1,
+					int use_f = 1);
 };
 
 typedef SiftGPU::SiftKeypoint SiftKeypoint;

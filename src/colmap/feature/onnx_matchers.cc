@@ -35,6 +35,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 namespace colmap {
 namespace {
@@ -45,14 +46,18 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
  public:
   explicit BruteForceONNXFeatureMatcher(
       const FeatureMatchingOptions& options,
-      const BruteForceONNXMatchingOptions& brute_force_options)
-      : options_(options),
-        brute_force_options_(brute_force_options),
+      const BruteForceONNXMatchingOptions& brute_force_options,
+      std::vector<FeatureExtractorType> supported_feature_types,
+      bool normalize_descriptors)
+      : brute_force_options_(brute_force_options),
+        supported_feature_types_(std::move(supported_feature_types)),
+        normalize_descriptors_(normalize_descriptors),
         model_(brute_force_options.model_path,
                options.num_threads,
                options.use_gpu,
                options.gpu_index) {
     THROW_CHECK(options.Check());
+    THROW_CHECK(!supported_feature_types_.empty());
     THROW_CHECK_EQ(model_.input_shapes().size(), 5);
     ThrowCheckONNXNode(
         model_.input_names()[0], "descs1", model_.input_shapes()[0], {-1, -1});
@@ -186,7 +191,8 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
                    const Image& image1,
                    const Image& image2,
                    TwoViewGeometry* two_view_geometry) override {
-    LOG(FATAL_THROW) << "Guided matching not supported for ALIKED.";
+    LOG(FATAL_THROW) << "Guided matching not supported for ONNX brute-force "
+                        "matching.";
   }
 
  private:
@@ -198,26 +204,27 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
 
   Features FeaturesFromImage(const Image& image) {
     THROW_CHECK_NOTNULL(image.descriptors);
-    THROW_CHECK(image.descriptors->type ==
-                    FeatureExtractorType::ALIKED_N16ROT ||
-                image.descriptors->type == FeatureExtractorType::ALIKED_N32)
+    THROW_CHECK(std::find(supported_feature_types_.begin(),
+                          supported_feature_types_.end(),
+                          image.descriptors->type) !=
+                supported_feature_types_.end())
         << "Unsupported feature type: "
         << FeatureExtractorTypeToString(image.descriptors->type);
-    THROW_CHECK_EQ(image.descriptors->data.cols() % sizeof(float), 0);
+    FeatureDescriptorsFloat descriptors = image.descriptors->ToFloat();
+    if (normalize_descriptors_) {
+      L2NormalizeFeatureDescriptors(&descriptors.data);
+    }
 
-    const int num_keypoints = image.descriptors->data.rows();
-    const int descriptor_dim = image.descriptors->data.cols() / sizeof(float);
+    const int num_keypoints = descriptors.data.rows();
+    const int descriptor_dim = descriptors.data.cols();
     THROW_CHECK_GT(descriptor_dim, 0);
 
     Features features;
     features.image_id = image.image_id;
     features.descriptors_shape = {num_keypoints, descriptor_dim};
-    features.descriptors_data.resize(num_keypoints * descriptor_dim);
-    THROW_CHECK_EQ(image.descriptors->data.size(),
-                   features.descriptors_data.size() * sizeof(float));
-    std::memcpy(features.descriptors_data.data(),
-                reinterpret_cast<const void*>(image.descriptors->data.data()),
-                image.descriptors->data.size());
+    features.descriptors_data.assign(
+        descriptors.data.data(),
+        descriptors.data.data() + descriptors.data.size());
 
     return features;
   }
@@ -232,8 +239,9 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
         features.descriptors_shape.size());
   }
 
-  const FeatureMatchingOptions options_;
   const BruteForceONNXMatchingOptions brute_force_options_;
+  const std::vector<FeatureExtractorType> supported_feature_types_;
+  const bool normalize_descriptors_;
   ONNXModel model_;
 
   // Cached features for avoiding redundant data copies.
@@ -630,10 +638,24 @@ bool BruteForceONNXMatchingOptions::Check() const {
 
 std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
     const FeatureMatchingOptions& options,
-    const BruteForceONNXMatchingOptions& brute_force_options) {
+    const BruteForceONNXMatchingOptions& brute_force_options,
+    std::vector<FeatureExtractorType> supported_feature_types,
+    bool normalize_descriptors) {
 #ifdef COLMAP_ONNX_ENABLED
-  return std::make_unique<BruteForceONNXFeatureMatcher>(options,
-                                                        brute_force_options);
+  FeatureMatchingOptions effective_options = options;
+  if (SelectONNXExecutionProvider(effective_options.use_gpu) ==
+      ONNXExecutionProvider::COREML) {
+    // CoreML cannot handle the zero-length dynamic output from NonZero.
+    LOG_FIRST_N(WARNING, 1)
+        << "The ONNX brute-force matcher is not supported by CoreML; using "
+           "the CPU execution provider instead";
+    effective_options.use_gpu = false;
+  }
+  return std::make_unique<BruteForceONNXFeatureMatcher>(
+      effective_options,
+      brute_force_options,
+      std::move(supported_feature_types),
+      normalize_descriptors);
 #else
   throw std::runtime_error("Brute-force ONNX matching requires ONNX support.");
 #endif

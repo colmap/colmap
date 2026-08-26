@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
+#include "colmap/util/cuda_to_hip.h"
 
 namespace colmap {
 namespace mvs {
@@ -47,7 +47,7 @@ void CudaRotate(const T* input,
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifdef __CUDACC__
+#if defined(__CUDACC__) || defined(__HIPCC__)
 
 #define TILE_DIM_ROTATE 32
 
@@ -94,7 +94,7 @@ void CudaRotate(const T* input,
 
 #undef TILE_DIM_ROTATE
 
-#endif  // __CUDACC__
+#endif  // defined(__CUDACC__) || defined(__HIPCC__)
 
 }  // namespace mvs
 }  // namespace colmap

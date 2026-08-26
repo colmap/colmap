@@ -34,7 +34,6 @@
 #include "colmap/scene/reconstruction_io_text.h"
 
 #include <filesystem>
-#include <iostream>
 
 #include <Eigen/Core>
 

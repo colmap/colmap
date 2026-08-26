@@ -36,22 +36,19 @@
 
 #include <fstream>
 
-#include <cuda_runtime.h>
-#include <curand_kernel.h>
-
-#ifdef __CUDACC__
+#if defined(__CUDACC__) || defined(__HIPCC__)
 #include "colmap/mvs/cuda_flip.h"
 #include "colmap/mvs/cuda_rotate.h"
 #include "colmap/mvs/cuda_transpose.h"
-#endif  // __CUDACC__
+#endif
 
 namespace colmap {
 namespace mvs {
 
 // Lightweight, trivially-copyable view of GPU device memory suitable for
-// passing to CUDA kernels. GpuMat<T> is non-trivially copyable; passing it by
-// value to kernels is undefined behavior per CUDA spec. Use GpuMat::View() to
-// obtain a GpuMatView for kernel args.
+// passing to CUDA/HIP kernels. GpuMat<T> is non-trivially copyable; passing it
+// by value to kernels is undefined behavior per CUDA spec. Use GpuMat::View()
+// to obtain a GpuMatView for kernel args.
 template <typename T>
 struct GpuMatView {
   T* const ptr;
@@ -130,7 +127,7 @@ class GpuMat {
   size_t GetDepth() const;
 
   // Returns a lightweight, trivially-copyable view suitable for passing
-  // to CUDA kernels.
+  // to CUDA/HIP kernels.
   GpuMatView<T> View() const;
 
   void FillWithScalar(const T value);
@@ -193,7 +190,9 @@ GpuMat<T>::GpuMat(const size_t width, const size_t height, const size_t depth)
 
 template <typename T>
 GpuMat<T>::~GpuMat() {
-  cudaFree(array_ptr_);
+  // Errors during destruction would be invisible to callers anyway; explicitly
+  // discard the return value so HIP's [[nodiscard]] cudaFree does not warn.
+  (void)cudaFree(array_ptr_);
 }
 
 template <typename T>
@@ -340,9 +339,9 @@ void GpuMat<T>::ComputeCudaConfig() {
   gridSize_.z = 1;
 }
 
-// Methods that use CUDA kernel launch syntax (<<<>>>) or call functions
-// defined only inside __CUDACC__ blocks must remain guarded.
-#ifdef __CUDACC__
+// Methods that use CUDA/HIP kernel launch syntax (<<<>>>) or call functions
+// defined only inside __CUDACC__/__HIPCC__ blocks must remain guarded.
+#if defined(__CUDACC__) || defined(__HIPCC__)
 
 namespace internal {
 
@@ -456,13 +455,9 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
                output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();
-  // This is equivalent to the following code:
-  //   GpuMat<T> flipped_array(width_, height_, GetDepth());
-  //   FlipHorizontal(&flipped_array);
-  //   flipped_array.Transpose(output);
 }
 
-#endif  // __CUDACC__
+#endif  // __CUDACC__ || __HIPCC__
 
 }  // namespace mvs
 }  // namespace colmap

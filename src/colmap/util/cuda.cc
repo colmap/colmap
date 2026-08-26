@@ -35,8 +35,6 @@
 #include <algorithm>
 #include <iostream>
 
-#include <cuda_runtime.h>
-
 namespace colmap {
 namespace {
 
@@ -52,8 +50,14 @@ bool CompareCudaDevice(const cudaDeviceProp& d1, const cudaDeviceProp& d2) {
 }  // namespace
 
 int GetNumCudaDevices() {
-  int num_cuda_devices;
-  CUDA_SAFE_CALL(cudaGetDeviceCount(&num_cuda_devices));
+  int num_cuda_devices = 0;
+  const cudaError_t error = cudaGetDeviceCount(&num_cuda_devices);
+#ifdef COLMAP_CUDA_ENABLED
+  if (error == cudaErrorNoDevice || error == cudaErrorInsufficientDriver) {
+    return 0;
+  }
+#endif
+  CUDA_SAFE_CALL(error);
   return num_cuda_devices;
 }
 
@@ -64,12 +68,12 @@ int FindBestCudaDevice() {
   std::vector<int> indices(num_devices);
   for (int id = 0; id < num_devices; ++id) {
     indices[id] = id;
-    cudaGetDeviceProperties(&all_devices[id], id);
+    CUDA_SAFE_CALL(cudaGetDeviceProperties(&all_devices[id], id));
   }
   std::sort(indices.begin(), indices.end(), [&](int a, int b) {
     return CompareCudaDevice(all_devices[a], all_devices[b]);
   });
-  const int selected = indices[0];
+  const int selected = indices.front();
   VLOG(2) << "Found " << num_devices << " CUDA device(s), "
           << "selected device " << selected << " with name "
           << all_devices[selected].name;

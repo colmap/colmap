@@ -28,6 +28,13 @@
             "default-features": false
         },
         "metis",
+        {
+            "name": "openblas",
+            "features": [
+                "dynamic-arch"
+            ],
+            "platform": "linux"
+        },
         "openimageio",
         "sqlite3",
         {
@@ -37,16 +44,6 @@
         {
             "name": "vcpkg-cmake-config",
             "host": true
-        }
-    ],
-    "overrides": [
-        {
-            "name": "metis",
-            "version": "2022-07-27"
-        },
-        {
-            "name": "gklib",
-            "version": "2023-03-27"
         }
     ],
     "default-features": [

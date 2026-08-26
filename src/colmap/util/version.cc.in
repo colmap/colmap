@@ -67,12 +67,14 @@ std::string GetVersionInfo() {
 
 std::string GetBuildInfo() {
 #if defined(COLMAP_CUDA_ENABLED)
-  const char* cuda_info = "with CUDA";
+  const char* gpu_info = "with CUDA";
+#elif defined(COLMAP_HIP_ENABLED)
+  const char* gpu_info = "with HIP";
 #else
-  const char* cuda_info = "without CUDA";
+  const char* gpu_info = "without GPU support";
 #endif
   return StringPrintf(
-      "Commit %s on %s %s", COLMAP_COMMIT_ID, COLMAP_COMMIT_DATE, cuda_info);
+      "Commit %s on %s %s", COLMAP_COMMIT_ID, COLMAP_COMMIT_DATE, gpu_info);
 }
 
 }  // namespace colmap

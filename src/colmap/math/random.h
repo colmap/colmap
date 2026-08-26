@@ -31,10 +31,8 @@
 
 #include "colmap/util/logging.h"
 
-#include <chrono>
 #include <memory>
 #include <random>
-#include <thread>
 
 namespace colmap {
 

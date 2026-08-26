@@ -325,8 +325,12 @@ std::unique_ptr<FeatureMatcher> CreateAlikedFeatureMatcher(
 #ifdef COLMAP_ONNX_ENABLED
   switch (options.type) {
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
-      return CreateBruteForceONNXFeatureMatcher(options,
-                                                options.aliked->brute_force);
+      return CreateBruteForceONNXFeatureMatcher(
+          options,
+          options.aliked->brute_force,
+          {FeatureExtractorType::ALIKED_N16ROT,
+           FeatureExtractorType::ALIKED_N32},
+          /*normalize_descriptors=*/false);
     case FeatureMatcherType::ALIKED_LIGHTGLUE:
       return CreateLightGlueONNXFeatureMatcher(options,
                                                options.aliked->lightglue);

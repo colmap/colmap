@@ -8,6 +8,45 @@ def test_undistort_camera_options_default_init():
     assert options is not None
 
 
+def test_warp_image_interpolation_enum():
+    assert {
+        k: int(v)
+        for k, v in pycolmap.WarpImageOptions.Interpolation.__members__.items()
+    } == {
+        "NEAREST_NEIGHBOR": 0,
+        "BILINEAR": 1,
+    }
+
+
+def test_warp_image_options_interpolation_readwrite():
+    options = pycolmap.WarpImageOptions()
+    assert (
+        options.interpolation
+        == pycolmap.WarpImageOptions.Interpolation.BILINEAR
+    )
+    options.interpolation = (
+        pycolmap.WarpImageOptions.Interpolation.NEAREST_NEIGHBOR
+    )
+    assert (
+        options.interpolation
+        == pycolmap.WarpImageOptions.Interpolation.NEAREST_NEIGHBOR
+    )
+
+
+def test_warp_image_options_direct_warp_min_scale_readwrite():
+    options = pycolmap.WarpImageOptions()
+    assert options.direct_warp_min_scale == 0.5
+    options.direct_warp_min_scale = 0.4
+    assert options.direct_warp_min_scale == 0.4
+
+
+def test_undistort_camera_options_warp_options_readwrite():
+    options = pycolmap.UndistortCameraOptions()
+    assert isinstance(options.warp_options, pycolmap.WarpImageOptions)
+    options.warp_options.direct_warp_min_scale = 0.5
+    assert options.warp_options.direct_warp_min_scale == 0.5
+
+
 def test_undistort_camera_options_blank_pixels_readwrite():
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.blank_pixels, float)

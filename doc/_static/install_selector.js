@@ -65,8 +65,16 @@
     },
     macos: {
       label: "macOS",
-      methods: ["pip", "conda", "brew", "docker", "source"],
+      methods: ["binary", "pip", "conda", "brew", "docker", "source"],
       cells: {
+        binary: {
+          cuda: null,
+          cpu: link(
+            "Download from GitHub Releases",
+            "https://github.com/colmap/colmap/releases",
+            "Use the colmap-arm64-macos package."
+          ),
+        },
         pip: { cuda: null, cpu: cmd("pip install pycolmap") },
         conda: { cuda: null, cpu: cmd("conda install -c conda-forge colmap") },
         brew: { cuda: null, cpu: cmd("brew install colmap") },

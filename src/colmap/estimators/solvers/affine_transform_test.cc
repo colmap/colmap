@@ -96,8 +96,6 @@ TEST(Affine2d, EstimateNonMinimalDegenerate) {
 }
 
 TEST(Affine2d, EstimateRobust) {
-  SetPRNGSeed(0);
-
   const size_t num_inliers = 1000;
   const size_t num_outliers = 400;
 

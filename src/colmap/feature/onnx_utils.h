@@ -29,8 +29,6 @@
 
 #pragma once
 
-#include "colmap/util/logging.h"
-
 #include <memory>
 #include <string>
 #include <string_view>
@@ -40,6 +38,15 @@
 #include <onnxruntime_cxx_api.h>
 
 namespace colmap {
+
+enum class ONNXExecutionProvider {
+  CPU,
+  CUDA,
+  COREML,
+};
+
+// Resolve the execution provider requested by `use_gpu` for this build.
+ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu);
 
 // Format tensor shape as a string for logging/error messages.
 std::string FormatONNXTensorShape(const std::vector<int64_t>& shape);
@@ -55,10 +62,14 @@ void ThrowCheckONNXNode(std::string_view name,
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {
  public:
+  // A capability probe propagates initialization failures without logging an
+  // error. When a non-CPU provider is selected, it also requires that provider
+  // to support the complete graph instead of falling back to CPU.
   ONNXModel(std::string model_path,
             int num_threads,
             bool use_gpu,
-            const std::string& gpu_index);
+            const std::string& gpu_index,
+            bool is_capability_probe = false);
 
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
@@ -71,12 +82,16 @@ class ONNXModel {
     return output_shapes_;
   }
   const std::vector<char*>& output_names() const { return output_names_; }
+  ONNXExecutionProvider execution_provider() const {
+    return execution_provider_;
+  }
 
  private:
   void InitializeSession(const std::string& model_path,
                          int num_threads,
                          bool use_gpu,
-                         const std::string& gpu_index);
+                         const std::string& gpu_index,
+                         bool is_capability_probe);
 
   // Apply the common, provider-independent session options (threading,
   // execution mode, graph optimization). Resets any previously appended
@@ -88,6 +103,7 @@ class ONNXModel {
   Ort::AllocatorWithDefaultOptions allocator_;
   Ort::SessionOptions session_options_;
   std::unique_ptr<Ort::Session> session_;
+  ONNXExecutionProvider execution_provider_ = ONNXExecutionProvider::CPU;
   std::vector<std::vector<int64_t>> input_shapes_;
   std::vector<Ort::AllocatedStringPtr> input_name_strs_;
   std::vector<char*> input_names_;

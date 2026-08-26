@@ -561,6 +561,7 @@ void ModelViewerWidget::ClearReconstruction() {
   surface_texture_height = 0;
   selected_image_id_ = kInvalidImageId;
   selected_point3D_id_ = kInvalidPoint3DId;
+  statusbar_status_label->setText("0 Frames - 0 Images - 0 Points");
   Upload();
 }
 

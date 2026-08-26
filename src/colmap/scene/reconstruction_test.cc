@@ -1319,7 +1319,6 @@ TEST(Reconstruction, Point3DIds) {
 }
 
 TEST(Reconstruction, ReadWriteTextRoundtrip) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -1339,7 +1338,6 @@ TEST(Reconstruction, ReadWriteTextRoundtrip) {
 }
 
 TEST(Reconstruction, ReadWriteBinaryRoundtrip) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -1359,7 +1357,6 @@ TEST(Reconstruction, ReadWriteBinaryRoundtrip) {
 }
 
 TEST(Reconstruction, ReadAutoDetectFormat) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;

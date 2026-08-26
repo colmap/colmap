@@ -31,11 +31,12 @@ start from the ``src/colmap/tools/example.cc`` code template and implement the d
 functionality directly as a new binary within COLMAP.
 
 
-Choosing between SIFT and ALIKED features
------------------------------------------
+Choosing between SIFT, ALIKED, and LoMa features
+------------------------------------------------
 
-COLMAP supports two feature extraction algorithms: SIFT (default) and ALIKED
-(requires ONNX support). Here are some guidelines for choosing between them:
+COLMAP supports three feature extraction algorithms: SIFT (default), ALIKED,
+and LoMa (the latter two require ONNX support). Here are some guidelines for
+choosing between them:
 
 - **SIFT** is the most widely tested and robust choice. It works well for
   scenarios with moderate to high view overlap, sufficient scene texture,
@@ -47,11 +48,17 @@ COLMAP supports two feature extraction algorithms: SIFT (default) and ALIKED
   little scene texture, and drastic illumination changes. It requires ONNX
   Runtime at build time (``-DONNX_ENABLED=ON``).
 
-Both feature types support brute-force matching as well as LightGlue neural
+- **LoMa** is a learned feature extractor targeting the same difficult
+  scenarios as ALIKED, paired with dedicated matchers that trade inference
+  cost for matching quality. It also requires ONNX Runtime at build time.
+
+SIFT and ALIKED support brute-force matching as well as LightGlue neural
 network-based matching. LightGlue typically produces higher inlier ratios,
 especially for image pairs with large viewpoint or illumination changes, but
-requires ONNX support. See :ref:`Feature Extraction and Matching <features>`
-for details on available options.
+requires ONNX support. LoMa descriptors are matched either brute-force or with
+one of the dedicated LoMa matchers. See
+:ref:`Feature Extraction and Matching <features>` for details on available
+options.
 
 Do not mix different feature types (e.g., SIFT and ALIKED) in the same
 database, as the descriptors are incompatible.
@@ -475,7 +482,7 @@ extraction. The orientation is converted to a gravity direction vector in sensor
 coordinates, which is stored as part of the pose prior in the database. This
 gravity information is used during feature extraction and matching to improve
 robustness against image rotation. This is crucial for feature extractors/matchers
-with limited orientation invariance, such as ALIKED and LightGlue.
+with limited orientation invariance, such as ALIKED, LightGlue, and LoMa.
 
 
 

@@ -29,7 +29,6 @@
 
 #include "colmap/mvs/model.h"
 
-#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -42,7 +41,6 @@ namespace mvs {
 namespace {
 
 TEST(Model, ReadCOLMAP) {
-  SetPRNGSeed(0);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;

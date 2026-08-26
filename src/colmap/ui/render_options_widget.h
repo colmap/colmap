@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/sfm/incremental_mapper.h"
 #include "colmap/ui/model_viewer_widget.h"
 #include "colmap/ui/options_widget.h"
 

@@ -41,6 +41,10 @@ class DatasetBlendedMVS(Dataset):
     def position_accuracy_gt(self):
         return 0.001
 
+    @property
+    def supports_covisibility_filtering(self) -> bool:
+        return True
+
     def list_scenes(self):
         scene_infos = []
         for category_path in (self.data_path / "blended-mvs").iterdir():
