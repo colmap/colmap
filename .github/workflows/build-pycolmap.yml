@@ -40,7 +40,7 @@ jobs:
       CCACHE_COMPILERCHECK: content
       # Keep enough history for the COLMAP and pycolmap objects without
       # exhausting the repository-wide GitHub Actions cache quota.
-      CCACHE_MAXSIZE: 1G
+      CCACHE_MAXSIZE: 1500M
       FETCHCONTENT_CACHE_VERSION: 1
       FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/fetchcontent-cache
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.config.deploymentTarget }}
@@ -109,6 +109,7 @@ jobs:
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${{ github.workspace }}/build/vcpkg_installed"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.CMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.pybind11_DIR=${COMPILER_CACHE_DIR}/build-requirements/pybind11/share/cmake/pybind11"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.WERROR_ENABLED=ON"
           echo "CIBW_CONFIG_SETTINGS_MACOS=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
@@ -157,6 +158,8 @@ jobs:
           $CONFIG_SETTINGS = "cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=${VCPKG_INSTALLED_DIR}"
+          $PYBIND11_DIR = "${env:COMPILER_CACHE_DIR}/build-requirements/pybind11/share/cmake/pybind11".replace('\', '/')
+          $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.define.pybind11_DIR=${PYBIND11_DIR}"
           $CONFIG_SETTINGS = "${CONFIG_SETTINGS} cmake.args=-GNinja"
           echo "CIBW_CONFIG_SETTINGS_WINDOWS=${CONFIG_SETTINGS}" >> "${env:GITHUB_ENV}"
           $CCACHE_DIR = "${env:CCACHE_DIR}".replace('\', '/')
@@ -203,6 +206,7 @@ jobs:
           CONFIG_SETTINGS="cmake.define.CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.VCPKG_INSTALLED_DIR=/project/build/vcpkg_installed"
+          CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.pybind11_DIR=/compiler-cache/build-requirements/pybind11/share/cmake/pybind11"
           CONFIG_SETTINGS="${CONFIG_SETTINGS} cmake.define.WERROR_ENABLED=ON"
           echo "CIBW_CONFIG_SETTINGS_LINUX=${CONFIG_SETTINGS}" >> "$GITHUB_ENV"
 
