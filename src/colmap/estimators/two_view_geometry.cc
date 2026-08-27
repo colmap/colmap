@@ -98,8 +98,9 @@ FundamentalMatrixReport EstimateFundamentalMatrix(
       .Estimate(points1, points2);
 }
 
-using HomographyMatrixReport =
-    LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>::Report;
+using HomographyMatrixReport = LORANSAC<HomographyMatrixEstimator,
+                                        HomographyMatrixEstimator,
+                                        MEstimatorSupportMeasurer>::Report;
 
 // Robustly estimate the pixel-space homography of a distorted camera pair. A
 // world plane relates image points projectively only under a pinhole
@@ -125,8 +126,9 @@ HomographyMatrixReport EstimateHomographyMatrixFromRays(
 
   const HomographyMatrixRayEstimator estimator(&camera2);
   const auto ray_report =
-      LORANSAC<HomographyMatrixRayEstimator, HomographyMatrixRayEstimator>(
-          ransac_options, estimator, estimator)
+      LORANSAC<HomographyMatrixRayEstimator,
+               HomographyMatrixRayEstimator,
+               MEstimatorSupportMeasurer>(ransac_options, estimator, estimator)
           .Estimate(cam_rays1, cam_rays2);
 
   HomographyMatrixReport report;
@@ -474,10 +476,11 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
           static_cast<double>(E_report.support.num_inliers) / matches.size());
 
   const HomographyMatrixRayEstimator H_estimator(&camera2);
-  const auto H_report =
-      LORANSAC<HomographyMatrixRayEstimator, HomographyMatrixRayEstimator>(
-          H_ransac_options, H_estimator, H_estimator)
-          .Estimate(matched_cam_rays1, matched_cam_rays2);
+  const auto H_report = LORANSAC<HomographyMatrixRayEstimator,
+                                 HomographyMatrixRayEstimator,
+                                 MEstimatorSupportMeasurer>(
+                            H_ransac_options, H_estimator, H_estimator)
+                            .Estimate(matched_cam_rays1, matched_cam_rays2);
   if (H_report.success) {
     geometry.H = H_report.model;
   }
@@ -1040,16 +1043,13 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
       options.max_H_inlier_ratio *
           std::min(E_report.support.num_inliers, F_report.support.num_inliers) /
           matches.size());
-  LORANSAC<HomographyMatrixEstimator,
-           HomographyMatrixEstimator,
-           MEstimatorSupportMeasurer>
-      H_ransac(H_ransac_options);
   // Undistorted pinhole cameras keep the pixel estimator, where the two are
-  // algebraically equivalent, so that path stays bit-identical.
+  // algebraically equivalent.
   const auto H_report =
       (camera1.IsUndistorted() && camera2.IsUndistorted())
-          ? LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>(
-                H_ransac_options)
+          ? LORANSAC<HomographyMatrixEstimator,
+                     HomographyMatrixEstimator,
+                     MEstimatorSupportMeasurer>(H_ransac_options)
                 .Estimate(matched_img_points1, matched_img_points2)
           : EstimateHomographyMatrixFromRays(H_ransac_options,
                                              camera1,
