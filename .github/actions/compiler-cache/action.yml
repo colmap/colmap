@@ -14,6 +14,10 @@ inputs:
   key:
     description: Exact cache key returned by an earlier restore
     required: false
+  cache-hit:
+    description: Whether the exact cache key was restored before the build
+    required: false
+    default: "false"
   ccache-dir:
     description: Optional ccache directory to prune and recompress before saving
     required: false
@@ -62,7 +66,7 @@ runs:
         path: ${{ inputs.path }}
 
     - name: Compact ccache
-      if: ${{ inputs.mode == 'save' && inputs.ccache-dir != '' }}
+      if: ${{ success() && inputs.mode == 'save' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
@@ -91,7 +95,7 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw "ccache stats failed" }
 
     - name: Save compiler cache
-      if: ${{ inputs.mode == 'save' }}
+      if: ${{ success() && inputs.mode == 'save' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' }}
       uses: actions/cache/save@v6
       with:
         key: ${{ inputs.key }}

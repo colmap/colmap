@@ -358,11 +358,9 @@ jobs:
           echo "Number of ctcache files after: $(find $CTCACHE_DIR | wc -l)"
 
       - name: Save compiler cache
-        # Pull-request caches are scoped to the PR merge ref, cannot seed main,
-        # and still consume the repository-wide cache quota.
-        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-compiler.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/compiler-cache
         with:
           mode: save
           key: ${{ steps.cache-compiler.outputs.key }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+          cache-hit: ${{ steps.cache-compiler.outputs.cache-hit }}

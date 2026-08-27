@@ -272,14 +272,12 @@ jobs:
           path: wheelhouse/pycolmap*.whl
 
       - name: Save compiler cache
-        # Pull requests and manual branch builds restore the shared cache but
-        # do not create branch-scoped entries that consume the global quota.
-        if: ${{ success() && (github.event_name == 'push' || github.event_name == 'release') && steps.cache-compiler.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/compiler-cache
         with:
           mode: save
           key: ${{ steps.cache-compiler.outputs.key }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+          cache-hit: ${{ steps.cache-compiler.outputs.cache-hit }}
           ccache-dir: ${{ env.COMPILER_CACHE_DIR }}/ccache
 
   pypi-publish:

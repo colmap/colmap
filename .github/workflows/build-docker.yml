@@ -95,11 +95,9 @@ jobs:
           ccache --show-stats --verbose
 
       - name: Save compiler cache
-        # Pull-request caches are scoped to the PR merge ref, cannot seed main,
-        # and still consume the repository-wide cache quota.
-        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-ccache.outputs.cache-hit != 'true' }}
         uses: ./.github/actions/compiler-cache
         with:
           mode: save
           key: ${{ steps.cache-ccache.outputs.key }}
           path: ${{ env.CCACHE_DIR }}
+          cache-hit: ${{ steps.cache-ccache.outputs.cache-hit }}
