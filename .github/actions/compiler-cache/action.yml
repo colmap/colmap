@@ -73,8 +73,35 @@ runs:
         restore-keys: ${{ inputs.key-prefix }}-v${{ inputs.cache-version }}-${{ inputs.key-suffix }}-
         path: ${{ inputs.path }}
 
-    - name: Compact ccache
-      if: ${{ success() && inputs.mode == 'save' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
+    - name: Compact ccache (Linux/macOS)
+      if: ${{ success() && inputs.mode == 'save' && runner.os != 'Windows' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        cache_root="${{ inputs.path }}"
+        if [ -x "${cache_root}/bin/ccache" ]; then
+          ccache="${cache_root}/bin/ccache"
+        elif [ -x "${cache_root}/bin/ccache.exe" ]; then
+          ccache="${cache_root}/bin/ccache.exe"
+        elif command -v ccache >/dev/null 2>&1; then
+          ccache="$(command -v ccache)"
+        else
+          echo "ccache executable not found" >&2
+          exit 1
+        fi
+
+        # CCACHE_DIR is remapped to a container path by the PyCOLMAP Linux job,
+        # so it must be overridden here. CCACHE_MAXSIZE needs no override: the
+        # job-level value is inherited by composite action steps as-is.
+        export CCACHE_DIR="${{ inputs.ccache-dir }}"
+        "${ccache}" --evict-older-than "${{ inputs.evict-older-than }}"
+        "${ccache}" --recompress "${{ inputs.recompression-level }}"
+        "${ccache}" --cleanup
+        "${ccache}" --show-compression
+        "${ccache}" --show-stats --verbose
+
+    - name: Compact ccache (Windows)
+      if: ${{ success() && inputs.mode == 'save' && runner.os == 'Windows' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
