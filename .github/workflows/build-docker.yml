@@ -62,7 +62,7 @@ jobs:
           else
             cuda_archs="50"
           fi
-          mkdir -p build/.ccache build/_deps
+          mkdir -p build/.ccache
           docker_args=(
             --file docker/Dockerfile
             --build-arg CUDA_ARCHITECTURES="$cuda_archs"
@@ -76,9 +76,8 @@ jobs:
             "${docker_args[@]}" \
             --target cache-export \
             --output type=local,dest=build/cache-export
-          rm -rf build/.ccache build/_deps
+          rm -rf build/.ccache
           mv build/cache-export/.ccache build/.ccache
-          mv build/cache-export/_deps build/_deps
           rm -rf build/cache-export
           if [[ "${{ env.IS_RELEASE }}" == "true" ]]; then
             docker tag colmap/colmap:$dockertag colmap/colmap:latest

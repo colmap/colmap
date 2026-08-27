@@ -74,7 +74,6 @@ RUN cd /colmap && \
 #
 FROM scratch AS cache-export
 COPY --from=builder /colmap/build/.ccache/ /.ccache/
-COPY --from=builder /colmap/build/_deps/ /_deps/
 
 #
 # Docker runtime stage.

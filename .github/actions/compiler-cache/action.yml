@@ -90,6 +90,9 @@ runs:
           throw "ccache executable not found"
         }
 
+        # CCACHE_DIR is remapped to a container path by the PyCOLMAP Linux job,
+        # so it must be overridden here. CCACHE_MAXSIZE needs no override: the
+        # job-level value is inherited by composite action steps as-is.
         $env:CCACHE_DIR = "${{ inputs.ccache-dir }}"
         & $ccache --evict-older-than "${{ inputs.evict-older-than }}"
         if ($LASTEXITCODE -ne 0) { throw "ccache eviction failed" }
