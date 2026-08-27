@@ -115,6 +115,7 @@ bool SequentialPairingOptions::Check() const {
   CHECK_OPTION_GT(overlap, 0);
   CHECK_OPTION_GT(loop_detection_period, 0);
   CHECK_OPTION_GT(loop_detection_num_images, 0);
+  CHECK_OPTION_GE(loop_detection_min_image_distance, 0);
   CHECK_OPTION_GT(loop_detection_num_nearest_neighbors, 0);
   CHECK_OPTION_GT(loop_detection_num_checks, 0);
   return true;
@@ -235,11 +236,13 @@ std::vector<std::pair<image_t, image_t>> ExhaustivePairGenerator::Next() {
 VocabTreePairGenerator::VocabTreePairGenerator(
     const VocabTreePairingOptions& options,
     const std::shared_ptr<FeatureMatcherCache>& cache,
-    const std::vector<image_t>& query_image_ids)
+    const std::vector<image_t>& query_image_ids,
+    std::function<bool(image_t, image_t)> image_pair_filter)
     : options_(options),
       cache_(THROW_CHECK_NOTNULL(cache)),
       thread_pool_(options_.num_threads),
-      queue_(options_.num_threads) {
+      queue_(options_.num_threads),
+      image_pair_filter_(std::move(image_pair_filter)) {
   THROW_CHECK(options.Check());
   LOG(INFO) << "Generating image pairs with vocabulary tree...";
 
@@ -291,12 +294,14 @@ VocabTreePairGenerator::VocabTreePairGenerator(
 VocabTreePairGenerator::VocabTreePairGenerator(
     const VocabTreePairingOptions& options,
     const std::shared_ptr<Database>& database,
-    const std::vector<image_t>& query_image_ids)
+    const std::vector<image_t>& query_image_ids,
+    std::function<bool(image_t, image_t)> image_pair_filter)
     : VocabTreePairGenerator(
           options,
           std::make_shared<FeatureMatcherCache>(options.CacheSize(),
                                                 THROW_CHECK_NOTNULL(database)),
-          query_image_ids) {}
+          query_image_ids,
+          std::move(image_pair_filter)) {}
 
 void VocabTreePairGenerator::Reset() {
   query_idx_ = 0;
@@ -404,7 +409,13 @@ void VocabTreePairGenerator::Query(const image_t image_id) {
           &keypoints, &descriptors, options_.max_num_features);
     }
 
-    visual_index_->Query(query_options_,
+    auto query_options = query_options_;
+    if (image_pair_filter_) {
+      query_options.image_id_filter = [this, image_id](const int candidate_id) {
+        return image_pair_filter_(image_id, candidate_id);
+      };
+    }
+    visual_index_->Query(query_options,
                          keypoints,
                          descriptors.ToFloat(),
                          &retrieval.image_scores);
@@ -427,13 +438,22 @@ SequentialPairGenerator::SequentialPairGenerator(
   image_pairs_.reserve(options_.overlap);
 
   if (options_.loop_detection) {
+    image_id_to_idx_.reserve(image_ids_.size());
+    for (size_t i = 0; i < image_ids_.size(); ++i) {
+      image_id_to_idx_.emplace(image_ids_[i], i);
+    }
     std::vector<image_t> query_image_ids;
     for (size_t i = 0; i < image_ids_.size();
          i += options_.loop_detection_period) {
       query_image_ids.push_back(image_ids_[i]);
     }
     vocab_tree_pair_generator_ = std::make_unique<VocabTreePairGenerator>(
-        options_.VocabTreeOptions(), cache_, query_image_ids);
+        options_.VocabTreeOptions(),
+        cache_,
+        query_image_ids,
+        [this](const image_t image_id1, const image_t image_id2) {
+          return IsValidLoopDetectionPair(image_id1, image_id2);
+        });
   }
 
   if (options_.expand_rig_images) {
@@ -516,6 +536,17 @@ bool SequentialPairGenerator::IsValidSequentialNeighbor(
   // MaybeExpandRigImages().
   return cache_->GetImage(image_id1).CameraId() ==
          cache_->GetImage(image_id2).CameraId();
+}
+
+bool SequentialPairGenerator::IsValidLoopDetectionPair(
+    const image_t image_id1, const image_t image_id2) const {
+  const size_t image_idx1 = image_id_to_idx_.at(image_id1);
+  const size_t image_idx2 = image_id_to_idx_.at(image_id2);
+  const size_t image_distance = image_idx1 > image_idx2
+                                    ? image_idx1 - image_idx2
+                                    : image_idx2 - image_idx1;
+  return image_distance >=
+         static_cast<size_t>(options_.loop_detection_min_image_distance);
 }
 
 std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {

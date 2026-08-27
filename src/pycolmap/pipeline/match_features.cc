@@ -194,6 +194,12 @@ void BindMatchFeatures(py::module& m) {
                          "detection. This number should be significantly "
                          "larger than the sequential matching overlap.")
           .def_readwrite(
+              "loop_detection_min_image_distance",
+              &SequentialPairingOptions::loop_detection_min_image_distance,
+              "The minimum image index distance between a loop detection "
+              "query and a retrieved image. The index is determined by the "
+              "sequential image order. Set to 0 to disable this restriction.")
+          .def_readwrite(
               "loop_detection_num_nearest_neighbors",
               &SequentialPairingOptions::loop_detection_num_nearest_neighbors,
               "Number of nearest neighbors to retrieve per query feature.")

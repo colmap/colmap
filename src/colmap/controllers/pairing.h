@@ -37,6 +37,7 @@
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <functional>
 
 namespace colmap {
 
@@ -132,6 +133,11 @@ struct SequentialPairingOptions {
   // The number of images to retrieve in loop detection. This number should
   // be significantly larger than the sequential matching overlap.
   int loop_detection_num_images = 50;
+
+  // The minimum image index distance between a loop detection query and a
+  // retrieved image. The index is determined by the sequential image order.
+  // Set to 0 to disable this restriction.
+  int loop_detection_min_image_distance = 0;
 
   // Number of nearest neighbors to retrieve per query feature.
   int loop_detection_num_nearest_neighbors = 1;
@@ -273,13 +279,17 @@ class VocabTreePairGenerator : public PairGenerator {
  public:
   using PairingOptions = VocabTreePairingOptions;
 
-  VocabTreePairGenerator(const VocabTreePairingOptions& options,
-                         const std::shared_ptr<FeatureMatcherCache>& cache,
-                         const std::vector<image_t>& query_image_ids = {});
+  VocabTreePairGenerator(
+      const VocabTreePairingOptions& options,
+      const std::shared_ptr<FeatureMatcherCache>& cache,
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
-  VocabTreePairGenerator(const VocabTreePairingOptions& options,
-                         const std::shared_ptr<Database>& database,
-                         const std::vector<image_t>& query_image_ids = {});
+  VocabTreePairGenerator(
+      const VocabTreePairingOptions& options,
+      const std::shared_ptr<Database>& database,
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
   void Reset() override;
 
@@ -303,6 +313,7 @@ class VocabTreePairGenerator : public PairGenerator {
   JobQueue<Retrieval> queue_;
   std::unique_ptr<retrieval::VisualIndex> visual_index_;
   retrieval::VisualIndex::QueryOptions query_options_;
+  std::function<bool(image_t, image_t)> image_pair_filter_;
   std::vector<image_t> query_image_ids_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t query_idx_ = 0;
@@ -330,11 +341,14 @@ class SequentialPairGenerator : public PairGenerator {
 
   bool IsValidSequentialNeighbor(image_t image_id1, image_t image_id2) const;
 
+  bool IsValidLoopDetectionPair(image_t image_id1, image_t image_id2) const;
+
   std::vector<image_t> GetOrderedImageIds() const;
 
   const SequentialPairingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   std::vector<image_t> image_ids_;
+  FlatHashMap<image_t, size_t> image_id_to_idx_;
   // Optional mapping from frames to images and vice versa.
   NodeHashMap<frame_t, std::vector<image_t>> frame_to_image_ids_;
   NodeHashMap<image_t, frame_t> image_to_frame_id_;
