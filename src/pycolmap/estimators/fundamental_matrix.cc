@@ -2,6 +2,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
 
@@ -24,7 +25,8 @@ py::typing::Optional<py::dict> PyEstimateFundamentalMatrix(
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
   LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
+           FundamentalMatrixEightPointEstimator,
+           MEstimatorSupportMeasurer>
       ransac(options);
   const auto report = ransac.Estimate(points2D1, points2D2);
   py::gil_scoped_acquire acquire;
