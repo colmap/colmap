@@ -58,7 +58,8 @@ namespace {
 
 using FundamentalMatrixReport =
     LORANSAC<FundamentalMatrixSevenPointEstimator,
-             FundamentalMatrixEightPointEstimator>::Report;
+             FundamentalMatrixEightPointEstimator,
+             MEstimatorSupportMeasurer>::Report;
 
 // Whether a camera's intrinsics are known: it either carries a focal prior, or
 // is spherical and has no focal length to estimate in the first place.
@@ -66,14 +67,14 @@ bool IsCameraCalibrated(const Camera& camera) {
   return camera.IsSpherical() || camera.has_prior_focal_length;
 }
 
-// DEGENSAC uses a different estimator type, so its report is a distinct (but
-// structurally identical) type; adapt it to the plain report type.
+// DEGENSAC uses a different estimator type and support measurer, so its report
+// is a distinct type; adapt it to the plain report type.
 FundamentalMatrixReport ToFundamentalMatrixReport(
     const RANSAC<FundamentalMatrixDegensacEstimator>::Report& degensac_report) {
   FundamentalMatrixReport report;
   report.success = degensac_report.success;
   report.num_trials = degensac_report.num_trials;
-  report.support = degensac_report.support;
+  report.support.num_inliers = degensac_report.support.num_inliers;
   report.inlier_mask = degensac_report.inlier_mask;
   report.model = degensac_report.model;
   return report;
@@ -93,7 +94,8 @@ FundamentalMatrixReport EstimateFundamentalMatrix(
         EstimateFundamentalMatrixDegensac(points1, points2, degensac_options));
   }
   return LORANSAC<FundamentalMatrixSevenPointEstimator,
-                  FundamentalMatrixEightPointEstimator>(ransac_options)
+                  FundamentalMatrixEightPointEstimator,
+                  MEstimatorSupportMeasurer>(ransac_options)
       .Estimate(points1, points2);
 }
 
@@ -1566,9 +1568,7 @@ bool DetectWatermarkMatches(const Camera& camera1,
   ransac_options.max_error = options.watermark_detection_max_error;
   ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
-  LORANSAC<TranslationTransformEstimator<2>,
-           TranslationTransformEstimator<2>,
-           MEstimatorSupportMeasurer>
+  LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>>
       ransac(ransac_options);
   const auto report = ransac.Estimate(inlier_points1, inlier_points2);
 
