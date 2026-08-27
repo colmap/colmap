@@ -56,10 +56,9 @@
 namespace colmap {
 namespace {
 
-using FundamentalMatrixReport =
-    LORANSAC<FundamentalMatrixSevenPointEstimator,
-             FundamentalMatrixEightPointEstimator,
-             MEstimatorSupportMeasurer>::Report;
+using FundamentalMatrixReport = LORANSAC<FundamentalMatrixSevenPointEstimator,
+                                         FundamentalMatrixEightPointEstimator,
+                                         MEstimatorSupportMeasurer>::Report;
 
 // Whether a camera's intrinsics are known: it either carries a focal prior, or
 // is spherical and has no focal length to estimate in the first place.
