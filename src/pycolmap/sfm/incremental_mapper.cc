@@ -142,6 +142,19 @@ void BindIncrementalPipeline(py::module& m) {
           "ba_global_max_refinement_change",
           &Opts::ba_global_max_refinement_change,
           "The thresholds for iterative bundle adjustment refinements.")
+      .def_readwrite(
+          "ba_apply_plane_constraints",
+          &Opts::ba_apply_plane_constraints,
+          "Whether to pull the points of each annotated plane onto a common "
+          "plane during bundle adjustment.")
+      .def_readwrite("ba_plane_constraint_tolerance_px",
+                     &Opts::ba_plane_constraint_tolerance_px,
+                     "Off-plane distance, expressed as the reprojection error "
+                     "it causes in pixels, that costs one unit of residual.")
+      .def_readwrite("ba_plane_constraint_weight",
+                     &Opts::ba_plane_constraint_weight,
+                     "Overall weight of the plane constraints relative to the "
+                     "reprojection errors.")
       .def_readwrite("snapshot_path",
                      &Opts::snapshot_path,
                      "Path to a folder in which reconstruction snapshots will "

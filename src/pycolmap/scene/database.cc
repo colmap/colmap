@@ -178,6 +178,11 @@ void BindDatabase(py::module& m) {
            "keypoints"_a)
       .def("update_camera", &Database::UpdateCamera, "camera"_a)
       .def("update_image", &Database::UpdateImage, "image"_a)
+      .def("update_keypoints",
+           py::overload_cast<image_t, const FeatureKeypointsBlob&>(
+               &Database::UpdateKeypoints, py::const_),
+           "image_id"_a,
+           "keypoints"_a)
       .def("delete_matches",
            &Database::DeleteMatches,
            "image_id1"_a,

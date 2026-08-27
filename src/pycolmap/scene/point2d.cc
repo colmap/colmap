@@ -47,6 +47,7 @@ void BindPoint2D(py::module& m) {
       .def_readwrite("point3D_id", &Point2D::point3D_id)
       .def_readwrite("weight", &Point2D::weight)
       .def_readwrite("constraint_point_id", &Point2D::constraint_point_id)
+      .def_readwrite("constraint_plane_id", &Point2D::constraint_plane_id)
       .def("has_point3D", &Point2D::HasPoint3D);
   MakeDataclass(PyPoint2D);
 

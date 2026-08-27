@@ -44,7 +44,7 @@ void SwapFeatureMatchesBlob(FeatureMatchesBlob* matches) {
 }
 
 FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
-  const FeatureKeypointsBlob::Index kNumCols = 8;
+  const FeatureKeypointsBlob::Index kNumCols = 9;
   FeatureKeypointsBlob blob(keypoints.size(), kNumCols);
   for (size_t i = 0; i < keypoints.size(); ++i) {
     blob(i, 0) = keypoints[i].x;
@@ -58,6 +58,7 @@ FeatureKeypointsBlob FeatureKeypointsToBlob(const FeatureKeypoints& keypoints) {
     blob(i, 5) = keypoints[i].a12;
     blob(i, 6) = keypoints[i].a21;
     blob(i, 7) = keypoints[i].a22;
+    blob(i, 8) = float(keypoints[i].constraint_plane_id);
   }
   return blob;
 }
@@ -82,7 +83,7 @@ FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
                                      blob(i, 4),
                                      blob(i, 5));
     }
-  } else if (blob.cols() == 8) {
+  } else if (blob.cols() == 8 || blob.cols() == 9) {
     for (FeatureKeypointsBlob::Index i = 0; i < blob.rows(); ++i) {
       keypoints[i] = FeatureKeypoint(blob(i, 0),
                                      blob(i, 1),
@@ -92,11 +93,16 @@ FeatureKeypoints FeatureKeypointsFromBlob(const FeatureKeypointsBlob& blob) {
                                      blob(i, 5),
                                      blob(i, 6),
                                      blob(i, 7));
+      // Databases written before plane constraints existed have no 9th column
+      // and keep the default unlabeled plane id.
+      if (blob.cols() == 9) {
+        keypoints[i].constraint_plane_id = int(blob(i, 8));
+      }
     }
   } else {
     LOG(FATAL_THROW)
         << "Keypoint format not supported. Number of parameters detected: "
-        << blob.cols() << ". Expected 3, 4, 6, or 8.";
+        << blob.cols() << ". Expected 3, 4, 6, 8, or 9.";
   }
   return keypoints;
 }
@@ -898,6 +904,20 @@ void Database::UpdateImage(const Image& image) const {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
 }
 
+void Database::UpdateKeypoints(const image_t image_id,
+                               const FeatureKeypoints& keypoints) const {
+  UpdateKeypoints(image_id, FeatureKeypointsToBlob(keypoints));
+}
+
+void Database::UpdateKeypoints(const image_t image_id,
+                               const FeatureKeypointsBlob& blob) const {
+  WriteDynamicMatrixBlob(sql_stmt_update_keypoints_, blob, 1);
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_keypoints_, 4, image_id));
+
+  SQLITE3_CALL(sqlite3_step(sql_stmt_update_keypoints_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_update_keypoints_));
+}
+
 void Database::UpdatePosePrior(image_t image_id,
                                const PosePrior& pose_prior) const {
   WriteStaticMatrixBlob(sql_stmt_update_pose_prior_, pose_prior.position, 1);
@@ -1192,6 +1212,11 @@ void Database::PrepareSQLStatements() {
   SQLITE3_CALL(sqlite3_prepare_v2(
       database_, sql.c_str(), -1, &sql_stmt_update_image_, 0));
   sql_stmts_.push_back(sql_stmt_update_image_);
+
+  sql = "UPDATE keypoints SET rows=?, cols=?, data=? WHERE image_id=?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(
+      database_, sql.c_str(), -1, &sql_stmt_update_keypoints_, 0));
+  sql_stmts_.push_back(sql_stmt_update_keypoints_);
 
   sql =
       "UPDATE pose_priors SET position=?, coordinate_system=?, "

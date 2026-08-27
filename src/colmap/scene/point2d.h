@@ -54,6 +54,12 @@ struct Point2D {
   // -1 if no constrain
   int constraint_point_id = -1;
 
+  // ID of the constraining plane this observation was labeled with, -1 if the
+  // observation falls outside every annotated planar region. Bundle adjustment
+  // resolves one plane per 3D point from the labels of its whole track, so an
+  // observation may be unlabeled while its 3D point is still constrained.
+  int constraint_plane_id = -1;
+
   // Determin whether the 2D point observes a 3D point.
   inline bool HasPoint3D() const;
 

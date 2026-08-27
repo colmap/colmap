@@ -74,6 +74,8 @@ void BindReconstruction(py::module& m) {
       .def("num_points3D", &Reconstruction::NumPoints3D)
       .def("num_constraining_points3D",
            &Reconstruction::NumConstrainingPoints3D)
+      .def("num_constraining_planes3D",
+           &Reconstruction::NumConstrainingPlanes3D)
       .def_property_readonly("images",
                              &Reconstruction::Images,
                              py::return_value_policy::reference_internal)
@@ -96,6 +98,9 @@ void BindReconstruction(py::module& m) {
       .def_property_readonly("constraining_points3D",
                              &Reconstruction::ConstrainingPoints3D,
                              py::return_value_policy::reference_internal)
+      .def_property_readonly("constraining_planes3D",
+                             &Reconstruction::ConstrainingPlanes3D,
+                             py::return_value_policy::reference_internal)
       .def("point3D",
            py::overload_cast<point3D_t>(&Reconstruction::Point3D),
            "point3D_id"_a,
@@ -106,8 +111,14 @@ void BindReconstruction(py::module& m) {
            "point3D_id"_a,
            "Direct accessor for a ConstrainingPoint3D.",
            py::return_value_policy::reference_internal)
+      .def("constraining_plane3D",
+           py::overload_cast<int>(&Reconstruction::ConstrainingPlane3D),
+           "plane3D_id"_a,
+           "Direct accessor for a ConstrainingPlane3D.",
+           py::return_value_policy::reference_internal)
       .def("point3D_ids", &Reconstruction::Point3DIds)
       .def("constraining_point3D_ids", &Reconstruction::ConstrainingPoint3DIds)
+      .def("constraining_plane3D_ids", &Reconstruction::ConstrainingPlane3DIds)
       .def("reg_image_ids", &Reconstruction::RegImageIds)
       .def("exists_camera", &Reconstruction::ExistsCamera, "camera_id"_a)
       .def("exists_image", &Reconstruction::ExistsImage, "image_id"_a)
@@ -115,6 +126,9 @@ void BindReconstruction(py::module& m) {
       .def("exists_constraining_point3D",
            &Reconstruction::ExistsConstrainingPoint3D,
            "point3D_id"_a)
+      .def("exists_constraining_plane3D",
+           &Reconstruction::ExistsConstrainingPlane3D,
+           "plane3D_id"_a)
       .def("tear_down", &Reconstruction::TearDown)
       .def("add_camera",
            &Reconstruction::AddCamera,
@@ -142,6 +156,12 @@ void BindReconstruction(py::module& m) {
                &Reconstruction::AddConstrainingPoint3D),
            "Add new constraining 3D point, and return its unique ID.",
            "xyz"_a)
+      .def("add_constraining_plane3D",
+           &Reconstruction::AddConstrainingPlane3D,
+           "Add or replace the constraining plane under the given ID. The ID "
+           "must match the plane label carried by the observations.",
+           "plane3D_id"_a,
+           "plane3D"_a)
       .def("add_observation",
            &Reconstruction::AddObservation,
            "point3D_id"_a,

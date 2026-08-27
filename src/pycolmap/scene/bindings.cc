@@ -12,6 +12,7 @@ void BindImage(py::module& m);
 void BindPoint2D(py::module& m);
 void BindPoint3D(py::module& m);
 void BindConstrainingPoint3D(py::module& m);
+void BindConstrainingPlane3D(py::module& m);
 void BindReconstruction(py::module& m);
 void BindReconstructionManager(py::module& m);
 void BindSynthetic(py::module& m);
@@ -25,6 +26,7 @@ void BindScene(py::module& m) {
   BindTrack(m);
   BindPoint3D(m);
   BindConstrainingPoint3D(m);
+  BindConstrainingPlane3D(m);
   BindCorrespondenceGraph(m);
   BindReconstruction(m);
   BindReconstructionManager(m);

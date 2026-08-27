@@ -85,6 +85,13 @@ struct IncrementalPipelineOptions {
   bool ba_refine_extra_params = true;
   bool ba_apply_constraints = true;
 
+  // Off by default: early incremental structure is where a badly initialized
+  // plane does the most damage, so planes are usually enabled only for the
+  // global bundle adjustment of an already complete reconstruction.
+  bool ba_apply_plane_constraints = false;
+  double ba_plane_constraint_tolerance_px = 1.0;
+  double ba_plane_constraint_weight = 1.0;
+
   // The minimum number of residuals per bundle adjustment problem to
   // enable multi-threading solving of the problems.
   int ba_min_num_residuals_for_cpu_multi_threading = 50000;

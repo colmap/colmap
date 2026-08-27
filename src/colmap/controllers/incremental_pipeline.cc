@@ -119,6 +119,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.apply_constraints = ba_apply_constraints;
+  options.apply_plane_constraints = ba_apply_plane_constraints;
+  options.plane_constraint_tolerance_px = ba_plane_constraint_tolerance_px;
+  options.plane_constraint_weight = ba_plane_constraint_weight;
   options.min_num_residuals_for_cpu_multi_threading =
       ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_scale = 1.0;
@@ -152,6 +155,9 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.apply_constraints = ba_apply_constraints;
+  options.apply_plane_constraints = ba_apply_plane_constraints;
+  options.plane_constraint_tolerance_px = ba_plane_constraint_tolerance_px;
+  options.plane_constraint_weight = ba_plane_constraint_weight;
   options.min_num_residuals_for_cpu_multi_threading =
       ba_min_num_residuals_for_cpu_multi_threading;
   options.loss_function_type =

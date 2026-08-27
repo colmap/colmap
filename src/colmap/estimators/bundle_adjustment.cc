@@ -32,6 +32,7 @@
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/estimators/manifold.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/cuda.h"
@@ -39,6 +40,8 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 
 namespace colmap {
@@ -419,6 +422,288 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   }
 }
 
+// Robust loss for one plane's residuals, with its scale expressed as a multiple
+// of the off-plane tolerance.
+//
+// The residual of a point sitting exactly at the tolerance is not 1 but
+// `plane_constraint_weight * evidence_scale`, because the weight folds the focal
+// length and the tolerance into the residual itself. A fixed Cauchy scale would
+// therefore mean a different number of tolerances depending on the weight, the
+// camera and the number of points, and raising the weight would push every point
+// further into the loss's flat tail instead of pulling it harder. Scaling the
+// loss by the same factor keeps "how far off-plane counts as an outlier" fixed
+// and independent of how strongly the constraint is applied.
+std::unique_ptr<ceres::LossFunction> CreatePlaneLossFunction(
+    const BundleAdjustmentOptions& options, const double residual_at_tolerance) {
+  if (options.plane_constraint_loss_scale <= 0.0) {
+    return nullptr;
+  }
+  return std::make_unique<ceres::CauchyLoss>(
+      options.plane_constraint_loss_scale * residual_at_tolerance);
+}
+
+// Assignment of 3D points to constraining planes, resolved from the plane
+// labels carried by their observations.
+struct PlaneConstraintGroups {
+  std::unordered_map<int, std::vector<point3D_t>> point3D_ids_by_plane;
+  size_t num_labeled_observations = 0;
+  size_t num_conflicting_points = 0;
+};
+
+// Labels are per observation and annotated regions in different images only
+// partially overlap, so an unlabeled observation is treated as no evidence
+// rather than as evidence against the plane. Only disagreement between two
+// different plane labels on the same track is a conflict.
+PlaneConstraintGroups ResolvePlaneConstraintGroups(
+    const BundleAdjustmentOptions& options,
+    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    const Reconstruction& reconstruction) {
+  PlaneConstraintGroups groups;
+
+  for (const auto& [point3D_id, num_observations] : point3D_num_observations) {
+    const Point3D& point3D = reconstruction.Point3D(point3D_id);
+
+    std::unordered_map<int, size_t> votes;
+    for (const TrackElement& track_el : point3D.track.Elements()) {
+      const Point2D& point2D = reconstruction.Image(track_el.image_id)
+                                   .Point2D(track_el.point2D_idx);
+      if (point2D.constraint_plane_id < 0) {
+        continue;
+      }
+      votes[point2D.constraint_plane_id] += 1;
+      groups.num_labeled_observations += 1;
+    }
+
+    if (votes.empty()) {
+      continue;
+    }
+
+    int best_plane_id = -1;
+    size_t best_votes = 0;
+    size_t runner_up_votes = 0;
+    for (const auto& [plane_id, num_votes] : votes) {
+      if (num_votes > best_votes) {
+        runner_up_votes = best_votes;
+        best_votes = num_votes;
+        best_plane_id = plane_id;
+      } else if (num_votes > runner_up_votes) {
+        runner_up_votes = num_votes;
+      }
+    }
+
+    if (static_cast<double>(best_votes) <
+        options.plane_constraint_min_vote_ratio *
+            static_cast<double>(runner_up_votes)) {
+      groups.num_conflicting_points += 1;
+      continue;
+    }
+
+    groups.point3D_ids_by_plane[best_plane_id].push_back(point3D_id);
+  }
+
+  return groups;
+}
+
+// Reference view whose depth normalizes a point's plane residual. Prefers a
+// view whose pose is being optimized, so that the residual stays invariant to a
+// global similarity transform, and picks the median depth among the candidates
+// to avoid keying the normalization to a grazing or near-degenerate view.
+const Image* SelectPlaneReferenceImage(const Reconstruction& reconstruction,
+                                      const Point3D& point3D,
+                                      const ceres::Problem& problem,
+                                      bool* pose_is_variable) {
+  std::vector<std::pair<double, const Image*>> variable_views;
+  std::vector<std::pair<double, const Image*>> constant_views;
+
+  for (const TrackElement& track_el : point3D.track.Elements()) {
+    const Image& image = reconstruction.Image(track_el.image_id);
+    if (!image.HasPose()) {
+      continue;
+    }
+    const double depth = (image.CamFromWorld() * point3D.xyz).z();
+    if (depth <= 0.0) {
+      continue;
+    }
+    const double* rotation = image.CamFromWorld().rotation.coeffs().data();
+    if (problem.HasParameterBlock(rotation) &&
+        !problem.IsParameterBlockConstant(const_cast<double*>(rotation))) {
+      variable_views.emplace_back(depth, &image);
+    } else {
+      constant_views.emplace_back(depth, &image);
+    }
+  }
+
+  auto& views = variable_views.empty() ? constant_views : variable_views;
+  if (views.empty()) {
+    return nullptr;
+  }
+  *pose_is_variable = !variable_views.empty();
+
+  const size_t median = views.size() / 2;
+  std::nth_element(views.begin(),
+                   views.begin() + median,
+                   views.end(),
+                   [](const auto& lhs, const auto& rhs) {
+                     return lhs.first < rhs.first;
+                   });
+  return views[median].second;
+}
+
+void AddPlaneConstraintsToProblem(
+    const BundleAdjustmentOptions& options,
+    const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
+    std::vector<std::unique_ptr<ceres::LossFunction>>& plane_loss_functions,
+    Reconstruction& reconstruction,
+    ceres::Problem& problem) {
+  if (!options.apply_plane_constraints ||
+      options.plane_constraint_tolerance_px <= 0.0 ||
+      options.plane_constraint_weight <= 0.0) {
+    return;
+  }
+
+  const PlaneConstraintGroups groups = ResolvePlaneConstraintGroups(
+      options, point3D_num_observations, reconstruction);
+  if (groups.num_labeled_observations == 0) {
+    // Reaching here means plane constraints were asked for and did nothing.
+    // Warn rather than stay silent, so that a caller cannot mistake a lost or
+    // missing label for a constraint that ran.
+    LOG(WARNING) << "Plane constraints requested but no observation carries a "
+                    "plane label; nothing was constrained. Labels live on the "
+                    "keypoints in the database and are not stored in a written "
+                    "reconstruction.";
+    return;
+  }
+
+  size_t num_constrained_planes = 0;
+  size_t num_constrained_points = 0;
+  for (const auto& [plane_id, point3D_ids] : groups.point3D_ids_by_plane) {
+    if (static_cast<int>(point3D_ids.size()) <
+        options.plane_constraint_min_num_points) {
+      VLOG(2) << "Skipping plane " << plane_id << " with only "
+              << point3D_ids.size() << " labeled points";
+      continue;
+    }
+
+    if (!reconstruction.ExistsConstrainingPlane3D(plane_id)) {
+      std::vector<Eigen::Vector3d> points;
+      points.reserve(point3D_ids.size());
+      Eigen::Vector3d mean_view_direction = Eigen::Vector3d::Zero();
+      for (const point3D_t point3D_id : point3D_ids) {
+        const Point3D& point3D = reconstruction.Point3D(point3D_id);
+        points.push_back(point3D.xyz);
+        for (const TrackElement& track_el : point3D.track.Elements()) {
+          const Image& image = reconstruction.Image(track_el.image_id);
+          if (image.HasPose()) {
+            mean_view_direction += image.ProjectionCenter() - point3D.xyz;
+          }
+        }
+      }
+
+      struct ConstrainingPlane3D plane;
+      const ConstrainingPlaneFit fit =
+          FitConstrainingPlane3D(points, &plane, mean_view_direction);
+      if (!fit.success) {
+        LOG(WARNING) << "Failed to fit constraining plane " << plane_id
+                     << " to its " << points.size() << " labeled points";
+        continue;
+      }
+      VLOG(2) << "Initialized constraining plane " << plane_id << " from "
+              << points.size() << " points, rms distance " << fit.rms_distance
+              << ", in-plane extent ratio " << fit.InPlaneExtentRatio();
+      reconstruction.AddConstrainingPlane3D(plane_id, std::move(plane));
+    }
+
+    struct ConstrainingPlane3D& plane =
+        reconstruction.ConstrainingPlane3D(plane_id);
+    plane.Normalize();
+
+    const double effective_num_points = std::min<double>(
+        static_cast<double>(options.plane_constraint_max_effective_num_points),
+        static_cast<double>(point3D_ids.size()));
+    const double evidence_scale =
+        std::sqrt(effective_num_points /
+                  static_cast<double>(point3D_ids.size()));
+
+    // What a point sitting exactly at the tolerance contributes, which is what
+    // the robust loss's scale is measured against.
+    plane_loss_functions.push_back(CreatePlaneLossFunction(
+        options, options.plane_constraint_weight * evidence_scale));
+    ceres::LossFunction* loss_function = plane_loss_functions.back().get();
+
+    size_t num_plane_residuals = 0;
+    for (const point3D_t point3D_id : point3D_ids) {
+      Point3D& point3D = reconstruction.Point3D(point3D_id);
+      bool pose_is_variable = false;
+      const Image* reference_image = SelectPlaneReferenceImage(
+          reconstruction, point3D, problem, &pose_is_variable);
+      if (reference_image == nullptr) {
+        continue;
+      }
+
+      const double weight = options.plane_constraint_weight * evidence_scale *
+                            reference_image->CameraPtr()->MeanFocalLength() /
+                            options.plane_constraint_tolerance_px;
+
+      if (pose_is_variable) {
+        Rigid3d& cam_from_world =
+            reconstruction.Image(reference_image->ImageId()).CamFromWorld();
+        problem.AddResidualBlock(PointToPlaneCostFunctor::Create(weight),
+                                 loss_function,
+                                 cam_from_world.rotation.coeffs().data(),
+                                 cam_from_world.translation.data(),
+                                 plane.normal.data(),
+                                 &plane.offset,
+                                 point3D.xyz.data());
+      } else {
+        problem.AddResidualBlock(
+            PointToPlaneConstantPoseCostFunctor::Create(
+                reference_image->CamFromWorld(), weight),
+            loss_function,
+            plane.normal.data(),
+            &plane.offset,
+            point3D.xyz.data());
+      }
+      num_plane_residuals += 1;
+    }
+
+    if (num_plane_residuals == 0) {
+      continue;
+    }
+
+    if (plane.is_fixed) {
+      problem.SetParameterBlockConstant(plane.normal.data());
+      problem.SetParameterBlockConstant(&plane.offset);
+    } else {
+      SetSphereManifold<3>(&problem, plane.normal.data());
+      if (plane.HasNormalPrior()) {
+        Eigen::Vector3d prior_normal = plane.prior_normal.normalized();
+        // A plane is invariant to flipping its normal, the prior residual is
+        // not, so align the prior with the current normal once at setup.
+        if (prior_normal.dot(plane.normal) < 0.0) {
+          prior_normal = -prior_normal;
+        }
+        problem.AddResidualBlock(
+            PlaneNormalPriorCostFunctor::Create(
+                prior_normal, 1.0 / DegToRad(plane.prior_normal_sigma_deg)),
+            nullptr,
+            plane.normal.data());
+      }
+    }
+
+    num_constrained_planes += 1;
+    num_constrained_points += num_plane_residuals;
+  }
+
+  // Logged unconditionally: how many points a plane ends up constraining
+  // depends on how much of it the annotated frames cover, which is the main
+  // thing to check when a plane appears to have no effect.
+  LOG(INFO) << "Plane constraints: " << num_constrained_planes << " planes, "
+            << num_constrained_points << " constrained points, "
+            << groups.num_labeled_observations << " labeled observations, "
+            << groups.num_conflicting_points
+            << " points dropped for conflicting labels";
+}
+
 void ParameterizePoints(
     const BundleAdjustmentConfig& config,
     const std::unordered_map<point3D_t, size_t>& point3D_num_observations,
@@ -461,6 +746,12 @@ class DefaultBundleAdjuster : public BundleAdjuster {
     for (const auto point3D_id : config_.ConstantPoints()) {
       AddPointToProblem(point3D_id, reconstruction);
     }
+
+    AddPlaneConstraintsToProblem(options_,
+                                 point3D_num_observations_,
+                                 plane_loss_functions_,
+                                 reconstruction,
+                                 *problem_);
 
     ParameterizeCameras(
         options_, config_, camera_ids_, reconstruction, *problem_);
@@ -630,6 +921,9 @@ class DefaultBundleAdjuster : public BundleAdjuster {
  private:
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
+  // One per constrained plane, since each loss scale depends on that plane's
+  // point count. Held here so they outlive the solve.
+  std::vector<std::unique_ptr<ceres::LossFunction>> plane_loss_functions_;
 
   std::unordered_set<camera_t> camera_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
@@ -681,6 +975,12 @@ class RigBundleAdjuster : public BundleAdjuster {
     for (const auto point3D_id : config_.ConstantPoints()) {
       AddPointToProblem(point3D_id, reconstruction);
     }
+
+    AddPlaneConstraintsToProblem(options_,
+                                 point3D_num_observations_,
+                                 plane_loss_functions_,
+                                 reconstruction,
+                                 *problem_);
 
     ParameterizeCameras(
         options_, config_, camera_ids_, reconstruction, *problem_);
@@ -967,6 +1267,9 @@ class RigBundleAdjuster : public BundleAdjuster {
 
   std::shared_ptr<ceres::Problem> problem_;
   std::unique_ptr<ceres::LossFunction> loss_function_;
+  // One per constrained plane, since each loss scale depends on that plane's
+  // point count. Held here so they outlive the solve.
+  std::vector<std::unique_ptr<ceres::LossFunction>> plane_loss_functions_;
 
   std::unordered_set<camera_t> camera_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;

@@ -67,6 +67,15 @@ std::vector<int> FeatureKeypointsToConstraintIndicesVector(
   return constraint_point_indices;
 }
 
+std::vector<int> FeatureKeypointsToPlaneIndicesVector(
+    const FeatureKeypoints& keypoints) {
+  std::vector<int> constraint_plane_indices(keypoints.size());
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    constraint_plane_indices[i] = keypoints[i].constraint_plane_id;
+  }
+  return constraint_plane_indices;
+}
+
 }  // namespace
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(
@@ -168,7 +177,8 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
         image.SetPoints2D(
             FeatureKeypointsToPointsVector(image_keypoints),
             FeatureKeypointsToWeightsVector(image_keypoints),
-            FeatureKeypointsToConstraintIndicesVector(image_keypoints));
+            FeatureKeypointsToConstraintIndicesVector(image_keypoints),
+            FeatureKeypointsToPlaneIndicesVector(image_keypoints));
         cache->images_.emplace(image_id, std::move(image));
       }
     }

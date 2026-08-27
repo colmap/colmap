@@ -301,6 +301,113 @@ class ConstraintReprojErrorCostFunctor
   const ReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
+// Penalizes the distance of a 3D point from a plane in Hesse normal form,
+// `normal.dot(xyz) + offset`, expressed as the pixel displacement that moving
+// the point onto the plane would cause in a reference view:
+//
+//   residual = (focal / tolerance_px) * (normal.dot(xyz) + offset) / depth
+//
+// Dividing by the depth as computed from the live pose is what makes the term
+// invariant to a global similarity transform. A plain metric distance is not:
+// while the problem still has scale gauge freedom, the optimizer can shrink the
+// whole scene to drive the plane residuals to zero, which collapses the
+// reconstruction instead of flattening the plane.
+//
+// Working in pixels also keeps the term commensurate with the reprojection
+// residuals, so one tolerance transfers across reconstructions.
+class PointToPlaneCostFunctor
+    : public AutoDiffCostFunctor<PointToPlaneCostFunctor, 1, 4, 3, 3, 1, 3> {
+ public:
+  explicit PointToPlaneCostFunctor(const double weight) : weight_(weight) {}
+
+  template <typename T>
+  bool operator()(const T* const cam_from_world_rotation,
+                  const T* const cam_from_world_translation,
+                  const T* const plane_normal,
+                  const T* const plane_offset,
+                  const T* const point3D,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_world_rotation) *
+            EigenVector3Map<T>(point3D) +
+        EigenVector3Map<T>(cam_from_world_translation);
+    if (point3D_in_cam.z() <= T(1e-8)) {
+      return false;
+    }
+    residuals[0] = T(weight_) *
+                   (EigenVector3Map<T>(plane_normal)
+                        .dot(EigenVector3Map<T>(point3D)) +
+                    plane_offset[0]) /
+                   point3D_in_cam.z();
+    return true;
+  }
+
+ private:
+  const double weight_;
+};
+
+// Point-to-plane cost for a reference view whose pose is not optimized.
+class PointToPlaneConstantPoseCostFunctor
+    : public AutoDiffCostFunctor<PointToPlaneConstantPoseCostFunctor,
+                                 1,
+                                 3,
+                                 1,
+                                 3> {
+ public:
+  PointToPlaneConstantPoseCostFunctor(const Rigid3d& cam_from_world,
+                                      const double weight)
+      : cam_from_world_(cam_from_world), plane_cost_(weight) {}
+
+  template <typename T>
+  bool operator()(const T* const plane_normal,
+                  const T* const plane_offset,
+                  const T* const point3D,
+                  T* residuals) const {
+    const Eigen::Quaternion<T> cam_from_world_rotation =
+        cam_from_world_.rotation.cast<T>();
+    const Eigen::Matrix<T, 3, 1> cam_from_world_translation =
+        cam_from_world_.translation.cast<T>();
+    return plane_cost_(cam_from_world_rotation.coeffs().data(),
+                       cam_from_world_translation.data(),
+                       plane_normal,
+                       plane_offset,
+                       point3D,
+                       residuals);
+  }
+
+ private:
+  const Rigid3d cam_from_world_;
+  const PointToPlaneCostFunctor plane_cost_;
+};
+
+// Pulls a plane normal towards a prior direction. Regularizes the one
+// rotational degree of freedom that the point-to-plane residuals leave
+// unconstrained when a plane's points are close to collinear.
+//
+// For unit vectors the chordal distance `|normal - prior|` equals
+// `2 sin(angle / 2)`, so the residual is the angular deviation to first order.
+// The prior must be sign-aligned with the current normal by the caller, since
+// a plane is invariant to flipping its normal but this residual is not.
+class PlaneNormalPriorCostFunctor
+    : public AutoDiffCostFunctor<PlaneNormalPriorCostFunctor, 3, 3> {
+ public:
+  PlaneNormalPriorCostFunctor(const Eigen::Vector3d& prior_normal,
+                              const double weight)
+      : prior_normal_(prior_normal.normalized()), weight_(weight) {}
+
+  template <typename T>
+  bool operator()(const T* const plane_normal, T* residuals) const {
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> residuals_map(residuals);
+    residuals_map = T(weight_) * (EigenVector3Map<T>(plane_normal) -
+                                  prior_normal_.cast<T>());
+    return true;
+  }
+
+ private:
+  const Eigen::Vector3d prior_normal_;
+  const double weight_;
+};
+
 // Cost function for refining two-view geometry based on the Sampson-Error.
 //
 // First pose is assumed to be located at the origin with 0 rotation. Second

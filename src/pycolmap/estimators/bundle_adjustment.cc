@@ -104,6 +104,35 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("refine_extrinsics",
                          &BAOpts::refine_extrinsics,
                          "Whether to refine the extrinsic parameter group.")
+          .def_readwrite("apply_constraints", &BAOpts::apply_constraints)
+          .def_readwrite("apply_plane_constraints",
+                         &BAOpts::apply_plane_constraints,
+                         "Whether to pull 3D points whose observations carry a "
+                         "plane label onto a shared plane.")
+          .def_readwrite("plane_constraint_tolerance_px",
+                         &BAOpts::plane_constraint_tolerance_px,
+                         "Off-plane tolerance, as the reprojection "
+                         "displacement in pixels that moving a point onto its "
+                         "plane would cause.")
+          .def_readwrite("plane_constraint_weight",
+                         &BAOpts::plane_constraint_weight,
+                         "Overall strength of the plane term relative to the "
+                         "reprojection terms.")
+          .def_readwrite("plane_constraint_loss_scale",
+                         &BAOpts::plane_constraint_loss_scale,
+                         "Cauchy loss scale on the normalized plane residual.")
+          .def_readwrite("plane_constraint_min_num_points",
+                         &BAOpts::plane_constraint_min_num_points,
+                         "Minimum number of 3D points before a plane is "
+                         "constrained at all.")
+          .def_readwrite("plane_constraint_max_effective_num_points",
+                         &BAOpts::plane_constraint_max_effective_num_points,
+                         "Cap on the evidence a single plane may contribute, "
+                         "since labels within one region are correlated.")
+          .def_readwrite("plane_constraint_min_vote_ratio",
+                         &BAOpts::plane_constraint_min_vote_ratio,
+                         "Dominance a winning plane label needs over the "
+                         "runner-up to be assigned to a 3D point.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")

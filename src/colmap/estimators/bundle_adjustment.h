@@ -133,6 +133,55 @@ struct BundleAdjustmentOptions {
   // Disable constraints
   bool apply_constraints = true;
 
+  // Whether to pull 3D points whose observations carry a plane label onto a
+  // shared plane that is refined jointly with the scene. Opt-in, so that adding
+  // labels to a database cannot change the result of an existing pipeline until
+  // the caller asks for the constraint.
+  bool apply_plane_constraints = false;
+
+  // Off-plane tolerance, expressed as the reprojection displacement in pixels
+  // that moving a point onto its plane would cause. Working in pixels rather
+  // than scene units keeps the term commensurate with the reprojection error
+  // and makes one setting valid regardless of the reconstruction's scale.
+  double plane_constraint_tolerance_px = 1.0;
+
+  // Overall strength of the plane term relative to the reprojection terms.
+  //
+  // At 1 the term is measurable but not decisive: on a real facade every
+  // unlabeled observation of the same track pulls the other way, and the points
+  // settle centimetres off the plane. Values around 10 let the annotation decide
+  // the geometry, at the cost of flattening genuine relief inside the annotated
+  // region.
+  double plane_constraint_weight = 10.0;
+
+  // Cauchy loss scale, as a multiple of the off-plane tolerance. Lets genuinely
+  // non-planar structure inside an annotated region escape the plane instead of
+  // dragging it. Non-positive disables robustification.
+  //
+  // Beyond a few multiples of the tolerance the loss is flat, so a point that
+  // far out is barely pulled at all: set the tolerance to the off-plane error
+  // the surface actually has, not to the error wanted from it. A real facade
+  // that is flat to a centimetre sits tens of pixels off its plane at typical
+  // standoff, and declaring that an outlier turns the constraint off for the
+  // very points it was meant to move. Raising the weight cannot compensate,
+  // since the scale is relative.
+  double plane_constraint_loss_scale = 3.0;
+
+  // Minimum number of 3D points required before a plane is constrained at all.
+  // A plane costs 3 parameters, so fewer points remove no degrees of freedom
+  // and only add a poorly determined plane to the problem.
+  int plane_constraint_min_num_points = 10;
+
+  // Cap on the evidence a single plane may contribute. Labels within one
+  // annotated region share systematic error, so treating every labeled point as
+  // an independent measurement lets a large region outweigh every other term.
+  // Weights are scaled by sqrt(cap / num_points) once the cap is exceeded.
+  int plane_constraint_max_effective_num_points = 200;
+
+  // A 3D point whose track carries conflicting plane labels is only assigned
+  // when the winning label has at least this many times the runner-up's votes.
+  double plane_constraint_min_vote_ratio = 2.0;
+
   // Whether to print a final summary.
   bool print_summary = true;
 

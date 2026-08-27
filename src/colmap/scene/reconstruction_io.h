@@ -75,6 +75,29 @@ void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
 void ReadConstrainingPointsBinary(Reconstruction& reconstruction,
                                   const std::string& path);
 
+void ReadConstrainingPlanesText(Reconstruction& reconstruction,
+                                std::istream& stream);
+void ReadConstrainingPlanesText(Reconstruction& reconstruction,
+                                const std::string& path);
+
+void ReadConstrainingPlanesBinary(Reconstruction& reconstruction,
+                                  std::istream& stream);
+void ReadConstrainingPlanesBinary(Reconstruction& reconstruction,
+                                  const std::string& path);
+
+// Per-observation plane labels. Kept in their own file rather than in the
+// images record, because the images format carries no version marker and every
+// reconstruction folder already written would become unreadable if its layout
+// changed. Only labeled observations are stored, so the file stays small.
+void ReadPlaneLabelsText(Reconstruction& reconstruction, std::istream& stream);
+void ReadPlaneLabelsText(Reconstruction& reconstruction,
+                         const std::string& path);
+
+void ReadPlaneLabelsBinary(Reconstruction& reconstruction,
+                           std::istream& stream);
+void ReadPlaneLabelsBinary(Reconstruction& reconstruction,
+                           const std::string& path);
+
 void WriteCamerasText(const Reconstruction& reconstruction,
                       std::ostream& stream);
 void WriteCamerasText(const Reconstruction& reconstruction,
@@ -99,6 +122,16 @@ void WriteConstrainingPointsText(const Reconstruction& reconstruction,
 void WriteConstrainingPointsText(const Reconstruction& reconstruction,
                                  const std::string& path);
 
+void WriteConstrainingPlanesText(const Reconstruction& reconstruction,
+                                 std::ostream& stream);
+void WriteConstrainingPlanesText(const Reconstruction& reconstruction,
+                                 const std::string& path);
+
+void WritePlaneLabelsText(const Reconstruction& reconstruction,
+                          std::ostream& stream);
+void WritePlaneLabelsText(const Reconstruction& reconstruction,
+                          const std::string& path);
+
 void WriteCamerasBinary(const Reconstruction& reconstruction,
                         std::ostream& stream);
 void WriteCamerasBinary(const Reconstruction& reconstruction,
@@ -122,6 +155,16 @@ void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
                                    std::ostream& stream);
 void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
                                    const std::string& path);
+
+void WriteConstrainingPlanesBinary(const Reconstruction& reconstruction,
+                                   std::ostream& stream);
+void WriteConstrainingPlanesBinary(const Reconstruction& reconstruction,
+                                   const std::string& path);
+
+void WritePlaneLabelsBinary(const Reconstruction& reconstruction,
+                            std::ostream& stream);
+void WritePlaneLabelsBinary(const Reconstruction& reconstruction,
+                            const std::string& path);
 
 // Exports in NVM format http://ccwu.me/vsfm/doc.html#nvm. Only supports
 // SIMPLE_RADIAL camera model when exporting distortion parameters. When

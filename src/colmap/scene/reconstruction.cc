@@ -49,6 +49,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
       images_(other.images_),
       points3D_(other.points3D_),
       constrainingPoints3D_(other.constrainingPoints3D_),
+      constrainingPlanes3D_(other.constrainingPlanes3D_),
       reg_image_ids_(other.reg_image_ids_),
       max_point3D_id_(other.max_point3D_id_),
       max_constraining_point3D_id_(other.max_constraining_point3D_id_) {
@@ -64,6 +65,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     images_ = other.images_;
     points3D_ = other.points3D_;
     constrainingPoints3D_ = other.constrainingPoints3D_;
+    constrainingPlanes3D_ = other.constrainingPlanes3D_;
     reg_image_ids_ = other.reg_image_ids_;
     max_point3D_id_ = other.max_point3D_id_;
     max_constraining_point3D_id_ = other.max_constraining_point3D_id_;
@@ -95,6 +97,17 @@ std::unordered_set<point3D_t> Reconstruction::ConstrainingPoint3DIds() const {
   }
 
   return constraining_point3D_ids;
+}
+
+std::unordered_set<int> Reconstruction::ConstrainingPlane3DIds() const {
+  std::unordered_set<int> constraining_plane3D_ids;
+  constraining_plane3D_ids.reserve(constrainingPlanes3D_.size());
+
+  for (const auto& plane3D : constrainingPlanes3D_) {
+    constraining_plane3D_ids.insert(plane3D.first);
+  }
+
+  return constraining_plane3D_ids;
 }
 
 void Reconstruction::Load(const DatabaseCache& database_cache) {
@@ -193,6 +206,13 @@ void Reconstruction::AddConstrainingPoint3D(
       std::max(max_constraining_point3D_id_, point3D_id);
   THROW_CHECK(
       constrainingPoints3D_.emplace(point3D_id, std::move(point3D)).second);
+}
+
+void Reconstruction::AddConstrainingPlane3D(
+    const int plane3D_id, struct ConstrainingPlane3D plane3D) {
+  THROW_CHECK_GE(plane3D_id, 0);
+  plane3D.Normalize();
+  constrainingPlanes3D_[plane3D_id] = std::move(plane3D);
 }
 
 point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
@@ -624,11 +644,23 @@ void Reconstruction::ReadText(const std::string& path) {
   images_.clear();
   points3D_.clear();
   constrainingPoints3D_.clear();
+  constrainingPlanes3D_.clear();
   ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   ReadImagesText(*this, JoinPaths(path, "images.txt"));
   ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
   ReadConstrainingPointsText(*this,
                              JoinPaths(path, "constraining_points3D.txt"));
+  // Optional so that reconstruction folders written before plane constraints
+  // existed still load.
+  const std::string planes_path = JoinPaths(path, "constraining_planes3D.txt");
+  if (ExistsFile(planes_path)) {
+    ReadConstrainingPlanesText(*this, planes_path);
+  }
+  // Read after the images, whose observations the labels attach to.
+  const std::string labels_path = JoinPaths(path, "plane_labels.txt");
+  if (ExistsFile(labels_path)) {
+    ReadPlaneLabelsText(*this, labels_path);
+  }
 }
 
 void Reconstruction::ReadBinary(const std::string& path) {
@@ -636,11 +668,20 @@ void Reconstruction::ReadBinary(const std::string& path) {
   images_.clear();
   points3D_.clear();
   constrainingPoints3D_.clear();
+  constrainingPlanes3D_.clear();
   ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   ReadImagesBinary(*this, JoinPaths(path, "images.bin"));
   ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
   ReadConstrainingPointsBinary(*this,
                                JoinPaths(path, "constraining_points3D.bin"));
+  const std::string planes_path = JoinPaths(path, "constraining_planes3D.bin");
+  if (ExistsFile(planes_path)) {
+    ReadConstrainingPlanesBinary(*this, planes_path);
+  }
+  const std::string labels_path = JoinPaths(path, "plane_labels.bin");
+  if (ExistsFile(labels_path)) {
+    ReadPlaneLabelsBinary(*this, labels_path);
+  }
 }
 
 void Reconstruction::WriteText(const std::string& path) const {
@@ -650,6 +691,9 @@ void Reconstruction::WriteText(const std::string& path) const {
   WritePoints3DText(*this, JoinPaths(path, "points3D.txt"));
   WriteConstrainingPointsText(*this,
                               JoinPaths(path, "constraining_points3D.txt"));
+  WriteConstrainingPlanesText(*this,
+                              JoinPaths(path, "constraining_planes3D.txt"));
+  WritePlaneLabelsText(*this, JoinPaths(path, "plane_labels.txt"));
 }
 
 void Reconstruction::WriteBinary(const std::string& path) const {
@@ -659,6 +703,9 @@ void Reconstruction::WriteBinary(const std::string& path) const {
   WritePoints3DBinary(*this, JoinPaths(path, "points3D.bin"));
   WriteConstrainingPointsBinary(*this,
                                 JoinPaths(path, "constraining_points3D.bin"));
+  WriteConstrainingPlanesBinary(*this,
+                                JoinPaths(path, "constraining_planes3D.bin"));
+  WritePlaneLabelsBinary(*this, JoinPaths(path, "plane_labels.bin"));
 }
 
 std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
@@ -817,6 +864,7 @@ void Reconstruction::ReadTextLegacy(const std::string& path) {
   images_.clear();
   points3D_.clear();
   constrainingPoints3D_.clear();
+  constrainingPlanes3D_.clear();
   ReadCamerasText(*this, JoinPaths(path, "cameras.txt"));
   ReadImagesTextLegacy(*this, JoinPaths(path, "images.txt"));
   ReadPoints3DText(*this, JoinPaths(path, "points3D.txt"));
@@ -827,6 +875,7 @@ void Reconstruction::ReadBinaryLegacy(const std::string& path) {
   images_.clear();
   points3D_.clear();
   constrainingPoints3D_.clear();
+  constrainingPlanes3D_.clear();
   ReadCamerasBinary(*this, JoinPaths(path, "cameras.bin"));
   ReadImagesBinaryLegacy(*this, JoinPaths(path, "images.bin"));
   ReadPoints3DBinary(*this, JoinPaths(path, "points3D.bin"));

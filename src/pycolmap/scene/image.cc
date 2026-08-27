@@ -137,7 +137,8 @@ void BindImage(py::module& m) {
       .def("point2D",
            py::overload_cast<camera_t>(&Image::Point2D),
            "point2D_idx"_a,
-           "Direct accessor for a point2D.")
+           "Direct accessor for a point2D.",
+           py::return_value_policy::reference_internal)
       .def(
           "set_point3D_for_point2D",
           &Image::SetPoint3DForPoint2D,

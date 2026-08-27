@@ -61,6 +61,19 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points,
   }
 }
 
+void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points,
+                        const std::vector<float>& weights,
+                        const std::vector<int>& constraint_point_id,
+                        const std::vector<int>& constraint_plane_id) {
+  SetPoints2D(points, weights, constraint_point_id);
+  THROW_CHECK_EQ(constraint_plane_id.size(), points2D_.size());
+  for (point2D_t point2D_idx = 0; point2D_idx < points2D_.size();
+       ++point2D_idx) {
+    points2D_[point2D_idx].constraint_plane_id =
+        constraint_plane_id[point2D_idx];
+  }
+}
+
 void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
   THROW_CHECK(points2D_.empty());
   points2D_ = points;

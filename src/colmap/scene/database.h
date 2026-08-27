@@ -226,6 +226,13 @@ class Database {
   // making sure that the entry already exists.
   void UpdatePosePrior(image_t image_id, const PosePrior& pose_prior) const;
 
+  // Update the keypoints of an image in place, for example to attach plane
+  // labels after feature extraction. The user is responsible for making sure
+  // that the entry already exists.
+  void UpdateKeypoints(image_t image_id, const FeatureKeypoints& keypoints) const;
+  void UpdateKeypoints(image_t image_id,
+                       const FeatureKeypointsBlob& blob) const;
+
   // Delete matches of an image pair.
   void DeleteMatches(image_t image_id1, image_t image_id2) const;
 
@@ -348,6 +355,7 @@ class Database {
   sqlite3_stmt* sql_stmt_update_camera_ = nullptr;
   sqlite3_stmt* sql_stmt_update_image_ = nullptr;
   sqlite3_stmt* sql_stmt_update_pose_prior_ = nullptr;
+  sqlite3_stmt* sql_stmt_update_keypoints_ = nullptr;
 
   // read_*
   sqlite3_stmt* sql_stmt_read_camera_ = nullptr;

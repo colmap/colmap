@@ -1615,4 +1615,291 @@ void WriteConstrainingPointsBinary(const Reconstruction& reconstruction,
   WriteConstrainingPointsBinary(reconstruction, file);
 }
 
+void ReadConstrainingPlanesText(Reconstruction& reconstruction,
+                                std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  std::string line;
+  std::string item;
+
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream(line);
+
+    std::getline(line_stream, item, ' ');
+    const int plane3D_id = std::stoi(item);
+
+    struct ConstrainingPlane3D plane3D;
+
+    std::getline(line_stream, item, ' ');
+    plane3D.normal(0) = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    plane3D.normal(1) = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    plane3D.normal(2) = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    plane3D.offset = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    plane3D.is_fixed = std::stoi(item) != 0;
+
+    std::getline(line_stream, item, ' ');
+    plane3D.prior_normal(0) = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    plane3D.prior_normal(1) = std::stold(item);
+    std::getline(line_stream, item, ' ');
+    plane3D.prior_normal(2) = std::stold(item);
+
+    std::getline(line_stream, item, ' ');
+    plane3D.prior_normal_sigma_deg = std::stold(item);
+
+    reconstruction.AddConstrainingPlane3D(plane3D_id, std::move(plane3D));
+  }
+}
+
+void ReadConstrainingPlanesText(Reconstruction& reconstruction,
+                                const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadConstrainingPlanesText(reconstruction, file);
+}
+
+void ReadConstrainingPlanesBinary(Reconstruction& reconstruction,
+                                  std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const size_t num_planes3D = ReadBinaryLittleEndian<uint64_t>(&stream);
+  for (size_t i = 0; i < num_planes3D; ++i) {
+    struct ConstrainingPlane3D plane3D;
+
+    const int plane3D_id = ReadBinaryLittleEndian<int32_t>(&stream);
+
+    plane3D.normal(0) = ReadBinaryLittleEndian<double>(&stream);
+    plane3D.normal(1) = ReadBinaryLittleEndian<double>(&stream);
+    plane3D.normal(2) = ReadBinaryLittleEndian<double>(&stream);
+    plane3D.offset = ReadBinaryLittleEndian<double>(&stream);
+    plane3D.is_fixed = ReadBinaryLittleEndian<uint8_t>(&stream) != 0;
+    plane3D.prior_normal(0) = ReadBinaryLittleEndian<double>(&stream);
+    plane3D.prior_normal(1) = ReadBinaryLittleEndian<double>(&stream);
+    plane3D.prior_normal(2) = ReadBinaryLittleEndian<double>(&stream);
+    plane3D.prior_normal_sigma_deg = ReadBinaryLittleEndian<double>(&stream);
+
+    reconstruction.AddConstrainingPlane3D(plane3D_id, std::move(plane3D));
+  }
+}
+
+void ReadConstrainingPlanesBinary(Reconstruction& reconstruction,
+                                  const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadConstrainingPlanesBinary(reconstruction, file);
+}
+
+void WriteConstrainingPlanesText(const Reconstruction& reconstruction,
+                                 std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  // Ensure that we don't lose any precision by storing in text.
+  stream.precision(17);
+
+  stream << "# Constraining plane list with one line of data per plane:"
+         << std::endl;
+  stream << "#   PLANE3D_ID, NX, NY, NZ, OFFSET, IS_FIXED, PRIOR_NX, PRIOR_NY, "
+            "PRIOR_NZ, PRIOR_SIGMA_DEG"
+         << std::endl;
+  stream << "# Plane satisfies NORMAL.dot(XYZ) + OFFSET == 0" << std::endl;
+  stream << "# Number of planes: " << reconstruction.NumConstrainingPlanes3D()
+         << std::endl;
+
+  for (const auto& [plane3D_id, plane3D] : reconstruction.ConstrainingPlanes3D()) {
+    stream << plane3D_id << " ";
+    stream << plane3D.normal(0) << " ";
+    stream << plane3D.normal(1) << " ";
+    stream << plane3D.normal(2) << " ";
+    stream << plane3D.offset << " ";
+    stream << (plane3D.is_fixed ? 1 : 0) << " ";
+    stream << plane3D.prior_normal(0) << " ";
+    stream << plane3D.prior_normal(1) << " ";
+    stream << plane3D.prior_normal(2) << " ";
+    stream << plane3D.prior_normal_sigma_deg << std::endl;
+  }
+}
+
+void WriteConstrainingPlanesText(const Reconstruction& reconstruction,
+                                 const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteConstrainingPlanesText(reconstruction, file);
+}
+
+void WriteConstrainingPlanesBinary(const Reconstruction& reconstruction,
+                                   std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  WriteBinaryLittleEndian<uint64_t>(&stream,
+                                    reconstruction.NumConstrainingPlanes3D());
+
+  for (const auto& [plane3D_id, plane3D] : reconstruction.ConstrainingPlanes3D()) {
+    WriteBinaryLittleEndian<int32_t>(&stream, plane3D_id);
+    WriteBinaryLittleEndian<double>(&stream, plane3D.normal(0));
+    WriteBinaryLittleEndian<double>(&stream, plane3D.normal(1));
+    WriteBinaryLittleEndian<double>(&stream, plane3D.normal(2));
+    WriteBinaryLittleEndian<double>(&stream, plane3D.offset);
+    WriteBinaryLittleEndian<uint8_t>(&stream, plane3D.is_fixed ? 1 : 0);
+    WriteBinaryLittleEndian<double>(&stream, plane3D.prior_normal(0));
+    WriteBinaryLittleEndian<double>(&stream, plane3D.prior_normal(1));
+    WriteBinaryLittleEndian<double>(&stream, plane3D.prior_normal(2));
+    WriteBinaryLittleEndian<double>(&stream, plane3D.prior_normal_sigma_deg);
+  }
+}
+
+void WriteConstrainingPlanesBinary(const Reconstruction& reconstruction,
+                                   const std::string& path) {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WriteConstrainingPlanesBinary(reconstruction, file);
+}
+
+namespace {
+
+// Applies a label to an observation, tolerating ids that no longer resolve so
+// that a stale label file cannot make a reconstruction unreadable.
+void ApplyPlaneLabel(Reconstruction& reconstruction,
+                     const image_t image_id,
+                     const point2D_t point2D_idx,
+                     const int plane_id) {
+  if (!reconstruction.ExistsImage(image_id)) {
+    LOG(WARNING) << "Ignoring plane label for unknown image " << image_id;
+    return;
+  }
+  class Image& image = reconstruction.Image(image_id);
+  if (point2D_idx >= image.NumPoints2D()) {
+    LOG(WARNING) << "Ignoring plane label for out-of-range point2D "
+                 << point2D_idx << " of image " << image_id;
+    return;
+  }
+  image.Point2D(point2D_idx).constraint_plane_id = plane_id;
+}
+
+size_t NumPlaneLabels(const Reconstruction& reconstruction) {
+  size_t num_labels = 0;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    for (const struct Point2D& point2D : image.Points2D()) {
+      if (point2D.constraint_plane_id >= 0) {
+        num_labels += 1;
+      }
+    }
+  }
+  return num_labels;
+}
+
+}  // namespace
+
+void ReadPlaneLabelsText(Reconstruction& reconstruction, std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  std::string line;
+  while (std::getline(stream, line)) {
+    StringTrim(&line);
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+    std::stringstream line_stream(line);
+    image_t image_id;
+    point2D_t point2D_idx;
+    int plane_id;
+    line_stream >> image_id >> point2D_idx >> plane_id;
+    ApplyPlaneLabel(reconstruction, image_id, point2D_idx, plane_id);
+  }
+}
+
+void ReadPlaneLabelsText(Reconstruction& reconstruction,
+                         const std::string& path) {
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadPlaneLabelsText(reconstruction, file);
+}
+
+void ReadPlaneLabelsBinary(Reconstruction& reconstruction,
+                           std::istream& stream) {
+  THROW_CHECK(stream.good());
+
+  const size_t num_labels = ReadBinaryLittleEndian<uint64_t>(&stream);
+  for (size_t i = 0; i < num_labels; ++i) {
+    const image_t image_id = ReadBinaryLittleEndian<image_t>(&stream);
+    const point2D_t point2D_idx = ReadBinaryLittleEndian<point2D_t>(&stream);
+    const int plane_id = ReadBinaryLittleEndian<int32_t>(&stream);
+    ApplyPlaneLabel(reconstruction, image_id, point2D_idx, plane_id);
+  }
+}
+
+void ReadPlaneLabelsBinary(Reconstruction& reconstruction,
+                           const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  ReadPlaneLabelsBinary(reconstruction, file);
+}
+
+void WritePlaneLabelsText(const Reconstruction& reconstruction,
+                          std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  stream << "# Plane label list with one line of data per labeled observation:"
+         << std::endl;
+  stream << "#   IMAGE_ID, POINT2D_IDX, PLANE3D_ID" << std::endl;
+  stream << "# Observations without a label are omitted." << std::endl;
+  stream << "# Number of labels: " << NumPlaneLabels(reconstruction)
+         << std::endl;
+
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      const int plane_id = image.Point2D(point2D_idx).constraint_plane_id;
+      if (plane_id >= 0) {
+        stream << image_id << " " << point2D_idx << " " << plane_id
+               << std::endl;
+      }
+    }
+  }
+}
+
+void WritePlaneLabelsText(const Reconstruction& reconstruction,
+                          const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WritePlaneLabelsText(reconstruction, file);
+}
+
+void WritePlaneLabelsBinary(const Reconstruction& reconstruction,
+                            std::ostream& stream) {
+  THROW_CHECK(stream.good());
+
+  WriteBinaryLittleEndian<uint64_t>(&stream, NumPlaneLabels(reconstruction));
+
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      const int plane_id = image.Point2D(point2D_idx).constraint_plane_id;
+      if (plane_id >= 0) {
+        WriteBinaryLittleEndian<image_t>(&stream, image_id);
+        WriteBinaryLittleEndian<point2D_t>(&stream, point2D_idx);
+        WriteBinaryLittleEndian<int32_t>(&stream, plane_id);
+      }
+    }
+  }
+}
+
+void WritePlaneLabelsBinary(const Reconstruction& reconstruction,
+                            const std::string& path) {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  WritePlaneLabelsBinary(reconstruction, file);
+}
+
 }  // namespace colmap

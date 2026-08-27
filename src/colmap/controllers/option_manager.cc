@@ -471,6 +471,25 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extrinsics);
   AddAndRegisterDefaultOption("BundleAdjustment.apply_constraints",
                               &bundle_adjustment->apply_constraints);
+  AddAndRegisterDefaultOption("BundleAdjustment.apply_plane_constraints",
+                              &bundle_adjustment->apply_plane_constraints);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.plane_constraint_tolerance_px",
+      &bundle_adjustment->plane_constraint_tolerance_px);
+  AddAndRegisterDefaultOption("BundleAdjustment.plane_constraint_weight",
+                              &bundle_adjustment->plane_constraint_weight);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.plane_constraint_loss_scale",
+      &bundle_adjustment->plane_constraint_loss_scale);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.plane_constraint_min_num_points",
+      &bundle_adjustment->plane_constraint_min_num_points);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.plane_constraint_max_effective_num_points",
+      &bundle_adjustment->plane_constraint_max_effective_num_points);
+  AddAndRegisterDefaultOption(
+      "BundleAdjustment.plane_constraint_min_vote_ratio",
+      &bundle_adjustment->plane_constraint_min_vote_ratio);
   AddAndRegisterDefaultOption("BundleAdjustment.use_gpu",
                               &bundle_adjustment->use_gpu);
   AddAndRegisterDefaultOption("BundleAdjustment.gpu_index",
@@ -530,6 +549,12 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_extra_params);
   AddAndRegisterDefaultOption("Mapper.ba_apply_constraints",
                               &mapper->ba_apply_constraints);
+  AddAndRegisterDefaultOption("Mapper.ba_apply_plane_constraints",
+                              &mapper->ba_apply_plane_constraints);
+  AddAndRegisterDefaultOption("Mapper.ba_plane_constraint_tolerance_px",
+                              &mapper->ba_plane_constraint_tolerance_px);
+  AddAndRegisterDefaultOption("Mapper.ba_plane_constraint_weight",
+                              &mapper->ba_plane_constraint_weight);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",

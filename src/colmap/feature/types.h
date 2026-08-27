@@ -90,6 +90,12 @@ struct FeatureKeypoint {
   // ID of the constraint point, -1 if not constrained
   int constraint_point_id = -1;
 
+  // ID of the constraining plane this keypoint was labeled with, -1 if the
+  // keypoint is not covered by any annotated planar region. Labels are applied
+  // per observation; the 3D point the observation belongs to inherits the plane
+  // during bundle adjustment.
+  int constraint_plane_id = -1;
+
   // Affine shape of the feature.
   float a11;
   float a12;
