@@ -28,7 +28,6 @@ jobs:
           {os: ubuntu-24.04, cudaEnabled: true, ccacheMaxSize: 850M},
         ]
     env:
-      COMPILER_CACHE_VERSION: 2
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -70,7 +69,8 @@ jobs:
         with:
           mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-          key-prefix: pycolmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ env.CACHE_PLATFORM }}
+          key-prefix: pycolmap-compiler
+          key-suffix: ${{ env.CACHE_PLATFORM }}
 
       - name: Select Python
         if: github.event_name == 'pull_request' && runner.os != 'Windows'

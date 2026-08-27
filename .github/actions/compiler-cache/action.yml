@@ -9,8 +9,15 @@ inputs:
     description: Local compiler-cache directory
     required: true
   key-prefix:
-    description: Configuration-specific cache key prefix used for restore
+    description: Cache family prefix used for restore
     required: false
+  key-suffix:
+    description: Configuration-specific cache key suffix used for restore
+    required: false
+  cache-version:
+    description: Cache schema version
+    required: false
+    default: "2"
   key:
     description: Exact cache key returned by an earlier restore
     required: false
@@ -36,7 +43,7 @@ outputs:
     value: ${{ steps.restore.outputs.cache-hit }}
   key:
     description: Exact weekly key to use when saving the cache
-    value: ${{ inputs.key-prefix }}-${{ steps.epoch.outputs.value }}
+    value: ${{ inputs.key-prefix }}-v${{ inputs.cache-version }}-${{ inputs.key-suffix }}-${{ steps.epoch.outputs.value }}
 
 runs:
   using: composite
@@ -61,8 +68,8 @@ runs:
       id: restore
       uses: actions/cache/restore@v6
       with:
-        key: ${{ inputs.key-prefix }}-${{ steps.epoch.outputs.value }}
-        restore-keys: ${{ inputs.key-prefix }}-
+        key: ${{ inputs.key-prefix }}-v${{ inputs.cache-version }}-${{ inputs.key-suffix }}-${{ steps.epoch.outputs.value }}
+        restore-keys: ${{ inputs.key-prefix }}-v${{ inputs.cache-version }}-${{ inputs.key-suffix }}-
         path: ${{ inputs.path }}
 
     - name: Compact ccache

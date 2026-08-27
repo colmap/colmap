@@ -12,7 +12,6 @@ on:
 
 env:
   IS_RELEASE: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
-  COMPILER_CACHE_VERSION: 2
   CCACHE_DIR: build/.ccache
   CCACHE_MAXSIZE: 100M
 
@@ -40,7 +39,8 @@ jobs:
         with:
           mode: restore
           path: ${{ env.CCACHE_DIR }}
-          key-prefix: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-docker-release_${{ env.IS_RELEASE }}
+          key-prefix: colmap-compiler
+          key-suffix: docker-release_${{ env.IS_RELEASE }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4

@@ -40,7 +40,6 @@ jobs:
         ]
 
     env:
-      COMPILER_CACHE_VERSION: 2
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -85,7 +84,8 @@ jobs:
         with:
           mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-          key-prefix: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}
+          key-prefix: colmap-compiler
+          key-suffix: ${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}
 
       - name: Install compile cache
         shell: pwsh

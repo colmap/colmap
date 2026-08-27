@@ -102,7 +102,6 @@ jobs:
         ]
 
     env:
-      COMPILER_CACHE_VERSION: 2
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -132,7 +131,8 @@ jobs:
         with:
           mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-          key-prefix: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}
+          key-prefix: colmap-compiler
+          key-suffix: ${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}
 
       - name: Install compiler cache
         run: |
