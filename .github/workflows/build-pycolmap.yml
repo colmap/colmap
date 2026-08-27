@@ -280,6 +280,7 @@ jobs:
           mode: save
           key: ${{ steps.cache-compiler.outputs.key }}
           path: ${{ env.COMPILER_CACHE_DIR }}
+          ccache-dir: ${{ env.COMPILER_CACHE_DIR }}/ccache
 
   pypi-publish:
     name: Publish wheels to PyPI
