@@ -1,0 +1,58 @@
+name: Compiler cache
+description: Restore or save the weekly compiler cache
+
+inputs:
+  mode:
+    description: Whether to restore or save the cache
+    required: true
+  path:
+    description: Local compiler-cache directory
+    required: true
+  key-prefix:
+    description: Configuration-specific cache key prefix used for restore
+    required: false
+  key:
+    description: Exact cache key returned by an earlier restore
+    required: false
+
+outputs:
+  cache-hit:
+    description: Whether the exact weekly cache was restored
+    value: ${{ steps.restore.outputs.cache-hit }}
+  key:
+    description: Exact weekly key to use when saving the cache
+    value: ${{ inputs.key-prefix }}-${{ steps.epoch.outputs.value }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate mode
+      if: ${{ inputs.mode != 'restore' && inputs.mode != 'save' }}
+      shell: bash
+      run: |
+        echo "Unsupported compiler-cache mode: ${{ inputs.mode }}" >&2
+        exit 1
+
+    - name: Set cache epoch
+      if: ${{ inputs.mode == 'restore' }}
+      id: epoch
+      shell: bash
+      # GitHub cache entries are immutable. Rotate weekly so changed objects
+      # are incorporated without creating a new archive for every run.
+      run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore compiler cache
+      if: ${{ inputs.mode == 'restore' }}
+      id: restore
+      uses: actions/cache/restore@v6
+      with:
+        key: ${{ inputs.key-prefix }}-${{ steps.epoch.outputs.value }}
+        restore-keys: ${{ inputs.key-prefix }}-
+        path: ${{ inputs.path }}
+
+    - name: Save compiler cache
+      if: ${{ inputs.mode == 'save' }}
+      uses: actions/cache/save@v6
+      with:
+        key: ${{ inputs.key }}
+        path: ${{ inputs.path }}

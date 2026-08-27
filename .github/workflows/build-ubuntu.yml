@@ -32,6 +32,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            ccacheMaxSize: 100M,
           },
           {
             os: ubuntu-24.04,
@@ -44,6 +45,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: true,
             coverageEnabled: true,
+            ccacheMaxSize: 120M,
           },
           {
             os: ubuntu-22.04,
@@ -56,6 +58,7 @@ jobs:
             e2eTests: true,
             checkCodeFormat: true,
             coverageEnabled: false,
+            ccacheMaxSize: 100M,
           },
           {
             os: ubuntu-22.04,
@@ -68,6 +71,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            ccacheMaxSize: 120M,
           },
           {
             os: ubuntu-24.04,
@@ -80,6 +84,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            ccacheMaxSize: 120M,
           },
           {
             os: ubuntu-24.04,
@@ -92,6 +97,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            ccacheMaxSize: 150M,
           },
         ]
 
@@ -102,22 +108,13 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_NOHASHDIR: "true"
       CCACHE_COMPILERCHECK: content
-      CCACHE_MAXSIZE: 500M
+      CCACHE_MAXSIZE: ${{ matrix.config.ccacheMaxSize }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
-      FETCHCONTENT_CACHE_VERSION: 1
-      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
 
     steps:
       - uses: actions/checkout@v7
-
-      - name: Set compiler cache epoch
-        id: compiler-cache-epoch
-        shell: bash
-        # GitHub cache entries are immutable. Rotate weekly so changed objects
-        # are incorporated without creating a new archive for every run.
-        run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
 
       - name: Check code format
         if: matrix.config.checkCodeFormat
@@ -129,21 +126,13 @@ jobs:
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
-      - name: Restore Compiler cache
-        uses: actions/cache/restore@v6
+      - name: Restore compiler cache
+        uses: ./.github/actions/compiler-cache
         id: cache-compiler
         with:
-          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
-          restore-keys: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}-
+          mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-
-      - name: Restore FetchContent cache
-        uses: actions/cache/restore@v6
-        id: cache-fetchcontent
-        with:
-          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
-          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
-          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
+          key-prefix: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}
 
       - name: Install compiler cache
         run: |
@@ -261,8 +250,7 @@ jobs:
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
-            -DBLA_VENDOR=Intel10_64lp \
-            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
+            -DBLA_VENDOR=Intel10_64lp
           ninja -k 10000
 
       - name: Install and build sample
@@ -373,15 +361,8 @@ jobs:
         # Pull-request caches are scoped to the PR merge ref, cannot seed main,
         # and still consume the repository-wide cache quota.
         if: ${{ success() && github.event_name != 'pull_request' && steps.cache-compiler.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
+        uses: ./.github/actions/compiler-cache
         with:
-          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          mode: save
+          key: ${{ steps.cache-compiler.outputs.key }}
           path: ${{ env.COMPILER_CACHE_DIR }}
-
-      - name: Save FetchContent cache
-        # Avoid duplicate dependency archives that only this PR can restore.
-        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-fetchcontent.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
-          path: ${{ env.FETCHCONTENT_CACHE_DIR }}

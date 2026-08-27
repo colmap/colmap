@@ -27,6 +27,7 @@ jobs:
             cudaEnabled: true,
             testsEnabled: true,
             exportPackage: true,
+            ccacheMaxSize: 200M,
           },
           {
             os: windows-2025-vs2026,
@@ -34,6 +35,7 @@ jobs:
             cudaEnabled: false,
             testsEnabled: true,
             exportPackage: true,
+            ccacheMaxSize: 300M,
           },
         ]
 
@@ -44,9 +46,7 @@ jobs:
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_NOHASHDIR: "true"
       CCACHE_COMPILERCHECK: content
-      CCACHE_MAXSIZE: 500M
-      FETCHCONTENT_CACHE_VERSION: 1
-      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
+      CCACHE_MAXSIZE: ${{ matrix.config.ccacheMaxSize }}
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 13
@@ -55,13 +55,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-
-      - name: Set compiler cache epoch
-        id: compiler-cache-epoch
-        shell: bash
-        # GitHub cache entries are immutable. Rotate weekly so changed objects
-        # are incorporated without creating a new archive for every run.
-        run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
 
       # We define the vcpkg binary sources using separate variables for read and
       # write operations:
@@ -87,20 +80,12 @@ jobs:
           echo "VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}" >> "${env:GITHUB_ENV}"
 
       - name: Restore compiler cache
-        uses: actions/cache/restore@v6
+        uses: ./.github/actions/compiler-cache
         id: cache-compiler
         with:
-          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
-          restore-keys: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}-
+          mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-
-      - name: Restore FetchContent cache
-        uses: actions/cache/restore@v6
-        id: cache-fetchcontent
-        with:
-          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
-          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
-          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
+          key-prefix: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}
 
       - name: Install compile cache
         shell: pwsh
@@ -179,8 +164,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET=x64-windows-release `
             -DVCPKG_USE_LEGACY_APPLOCAL=ON `
-            -DCMAKE_INSTALL_PREFIX=install `
-            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
+            -DCMAKE_INSTALL_PREFIX=install
           ninja
 
       - name: Run tests
@@ -255,15 +239,8 @@ jobs:
         # Pull-request caches are scoped to the PR merge ref, cannot seed main,
         # and still consume the repository-wide cache quota.
         if: ${{ success() && github.event_name != 'pull_request' && steps.cache-compiler.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
+        uses: ./.github/actions/compiler-cache
         with:
-          key: colmap-compiler-v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}-${{ steps.compiler-cache-epoch.outputs.value }}
+          mode: save
+          key: ${{ steps.cache-compiler.outputs.key }}
           path: ${{ env.COMPILER_CACHE_DIR }}
-
-      - name: Save FetchContent cache
-        # Avoid duplicate dependency archives that only this PR can restore.
-        if: ${{ success() && github.event_name != 'pull_request' && steps.cache-fetchcontent.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
-          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
