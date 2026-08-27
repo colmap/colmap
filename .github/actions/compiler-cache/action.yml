@@ -11,6 +11,7 @@ inputs:
   key-prefix:
     description: Cache family prefix used for restore
     required: false
+    default: colmap-compiler
   key-suffix:
     description: Configuration-specific cache key suffix used for restore
     required: false

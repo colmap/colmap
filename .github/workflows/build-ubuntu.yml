@@ -131,7 +131,6 @@ jobs:
         with:
           mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-          key-prefix: colmap-compiler
           key-suffix: ${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}
 
       - name: Install compiler cache

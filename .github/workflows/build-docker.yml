@@ -39,7 +39,6 @@ jobs:
         with:
           mode: restore
           path: ${{ env.CCACHE_DIR }}
-          key-prefix: colmap-compiler
           key-suffix: docker-release_${{ env.IS_RELEASE }}
 
       - name: Set up QEMU

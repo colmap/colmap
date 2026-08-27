@@ -84,7 +84,6 @@ jobs:
         with:
           mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-          key-prefix: colmap-compiler
           key-suffix: ${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-cuda_${{ matrix.config.cudaEnabled }}
 
       - name: Install compile cache
