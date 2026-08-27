@@ -113,11 +113,7 @@ def download_eth3d(data_path: Path, variant: str = "undistorted") -> None:
             ("multi_view_training_rig_undistorted.7z", "rig"),
             ("multi_view_test_rig_undistorted.7z", "rig"),
         ],
-        # ETH3D's similarly named multi_view_*_dslr_raw.7z archives contain
-        # undeveloped camera RAW (.NEF), not distorted images COLMAP can read.
-        # The `distorted` variant deliberately means the _jpg.7z archives.
-        # Distorted rig data is intentionally not wired up, so this is
-        # DSLR-only.
+        # `distorted` uses DSLR JPEGs only; rig is not included.
         "distorted": [
             ("multi_view_training_dslr_jpg.7z", "dslr"),
             ("multi_view_test_dslr_jpg.7z", "dslr"),
