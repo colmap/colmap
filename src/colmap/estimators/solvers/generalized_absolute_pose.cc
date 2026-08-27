@@ -33,6 +33,7 @@
 #include "colmap/util/logging.h"
 
 #include <PoseLib/solvers/gp3p.h>
+#include <PoseLib/solvers/gp4ps.h>
 #include <PoseLib/solvers/p3p.h>
 
 namespace colmap {
