@@ -37,6 +37,61 @@
 #include <PoseLib/solvers/p3p.h>
 
 namespace colmap {
+namespace {
+
+
+void ComputeRaysAndOriginsInRig(
+    const std::vector<GP3PEstimator::X_t>& points2D,
+    std::vector<Eigen::Vector3d>* rays_in_rig,
+    std::vector<Eigen::Vector3d>* origins_in_rig) {
+  const size_t num_points = points2D.size();
+  rays_in_rig->resize(num_points);
+  origins_in_rig->resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    const Eigen::Matrix3d rig_from_cam_rotation =
+        points2D[i].cam_from_rig.leftCols<3>().transpose();
+    (*rays_in_rig)[i] =
+        (rig_from_cam_rotation * points2D[i].ray_in_cam).normalized();
+    (*origins_in_rig)[i] =
+        rig_from_cam_rotation * -points2D[i].cam_from_rig.col(3);
+  }
+}
+
+void ComputeRayResiduals(const std::vector<GP3PEstimator::X_t>& points2D,
+                         const std::vector<Eigen::Vector3d>& points3D,
+                         const Eigen::Matrix3x4d& rig_from_world_matrix,
+                         GP3PEstimator::ResidualType residual_type,
+                         std::vector<double>* residuals) {
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  residuals->resize(points2D.size(), 0);
+
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    const Eigen::Vector3d point3D_in_cam =
+        points2D[i].cam_from_rig *
+        (rig_from_world_matrix * points3D[i].homogeneous()).homogeneous();
+
+    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
+      const Eigen::Vector3d& ray = points2D[i].ray_in_cam;
+
+      if (residual_type == GP3PEstimator::ResidualType::CosineDistance) {
+        const double cosine_dist =
+            1 - point3D_in_cam.normalized().dot(ray.normalized());
+        (*residuals)[i] = cosine_dist * cosine_dist;
+      } else if (residual_type ==
+                 GP3PEstimator::ResidualType::ReprojectionError) {
+        const Eigen::Vector2d diff =
+            ray.hnormalized() - point3D_in_cam.hnormalized();
+        (*residuals)[i] = diff.squaredNorm();
+      } else {
+        LOG(FATAL_THROW) << "Invalid residual type";
+      }
+    } else {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+    }
+  }
+}
+
+}  // namespace
 
 GP3PEstimator::GP3PEstimator(ResidualType residual_type)
     : residual_type_(residual_type) {}
@@ -50,21 +105,13 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
 
   rigs_from_world->clear();
 
-  std::vector<Eigen::Vector3d> rays_in_rig(3);
-  std::vector<Eigen::Vector3d> origins_in_rig(3);
-  for (int i = 0; i < 3; ++i) {
-    const Eigen::Matrix3d rig_from_cam_rotation =
-        points2D[i].cam_from_rig.leftCols<3>().transpose();
-    rays_in_rig[i] =
-        (rig_from_cam_rotation * points2D[i].ray_in_cam).normalized();
-    origins_in_rig[i] =
-        rig_from_cam_rotation * -points2D[i].cam_from_rig.col(3);
-  }
+  std::vector<Eigen::Vector3d> rays_in_rig;
+  std::vector<Eigen::Vector3d> origins_in_rig;
+  ComputeRaysAndOriginsInRig(points2D, &rays_in_rig, &origins_in_rig);
 
   std::vector<poselib::CameraPose> poses;
   if (origins_in_rig[0].isApprox(origins_in_rig[1], 1e-6) &&
       origins_in_rig[0].isApprox(origins_in_rig[2], 1e-6)) {
-    // In case of a panoramic camera/rig, fall back to P3P.
     poselib::p3p(rays_in_rig, points3D, &poses);
     for (poselib::CameraPose& pose : poses) {
       pose.t += origins_in_rig[0];
@@ -83,36 +130,77 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
                               const M_t& rig_from_world,
                               std::vector<double>* residuals) const {
-  THROW_CHECK_EQ(points2D.size(), points3D.size());
-  residuals->resize(points2D.size(), 0);
+  ComputeRayResiduals(points2D,
+                      points3D,
+                      rig_from_world.ToMatrix(),
+                      residual_type_,
+                      residuals);
+}
 
-  // Precompute matrix to avoid repeated quaternion-to-matrix conversion.
-  const Eigen::Matrix3x4d rig_from_world_matrix = rig_from_world.ToMatrix();
+GP4PSEstimator::GP4PSEstimator(ResidualType residual_type)
+    : residual_type_(residual_type) {}
 
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    const Eigen::Vector3d point3D_in_cam =
-        points2D[i].cam_from_rig *
-        (rig_from_world_matrix * points3D[i].homogeneous()).homogeneous();
+void GP4PSEstimator::Estimate(const std::vector<X_t>& points2D,
+                              const std::vector<Y_t>& points3D,
+                              std::vector<M_t>* rigs_from_world) {
+  THROW_CHECK_EQ(points2D.size(), 4);
+  THROW_CHECK_EQ(points3D.size(), 4);
+  THROW_CHECK_NOTNULL(rigs_from_world);
 
-    // Check if 3D point is in front of camera.
-    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
-      const Eigen::Vector3d& ray = points2D[i].ray_in_cam;
+  rigs_from_world->clear();
 
-      if (residual_type_ == ResidualType::CosineDistance) {
-        const double cosine_dist =
-            1 - point3D_in_cam.normalized().dot(ray.normalized());
-        (*residuals)[i] = cosine_dist * cosine_dist;
-      } else if (residual_type_ == ResidualType::ReprojectionError) {
-        const Eigen::Vector2d diff =
-            ray.hnormalized() - point3D_in_cam.hnormalized();
-        (*residuals)[i] = diff.squaredNorm();
-      } else {
-        LOG(FATAL_THROW) << "Invalid residual type";
-      }
-    } else {
-      (*residuals)[i] = std::numeric_limits<double>::max();
-    }
+  std::vector<Eigen::Vector3d> rays_in_rig;
+  std::vector<Eigen::Vector3d> origins_in_rig;
+  ComputeRaysAndOriginsInRig(points2D, &rays_in_rig, &origins_in_rig);
+
+  // The scale is unobservable from a single projection center. Also reject
+  // panoramic samples of a non-panoramic rig, which would otherwise produce
+  // spurious models with arbitrary scale.
+  if (origins_in_rig[0].isApprox(origins_in_rig[1], 1e-6) &&
+      origins_in_rig[0].isApprox(origins_in_rig[2], 1e-6) &&
+      origins_in_rig[0].isApprox(origins_in_rig[3], 1e-6)) {
+    return;
   }
+
+  // PoseLib solves scale * p + lambda * x = R * X + t with p, x the camera
+  // centers and rays in the rig frame and X in the world frame, i.e., (R, t)
+  // maps world points into a rig frame whose geometry is scaled by scale.
+  std::vector<poselib::CameraPose> poses;
+  std::vector<double> scales;
+  poselib::gp4ps(origins_in_rig,
+                 rays_in_rig,
+                 points3D,
+                 &poses,
+                 &scales,
+                 /*filter_solutions=*/false);
+
+  rigs_from_world->reserve(poses.size());
+  for (size_t i = 0; i < poses.size(); ++i) {
+    const double scale = scales[i];
+    const Rigid3d scaled_rig_from_world = ConvertPoseLibPoseToRigid3d(poses[i]);
+    if (scale < std::numeric_limits<double>::epsilon() ||
+        !std::isfinite(scale) ||
+        !scaled_rig_from_world.params.allFinite()) {
+      continue;
+    }
+    // Renormalize to the unscaled rig frame:
+    //   p + (lambda / scale) * x = (R / scale) * X + t / scale.
+    rigs_from_world->emplace_back(
+        1 / scale,
+        scaled_rig_from_world.rotation(),
+        Eigen::Vector3d(scaled_rig_from_world.translation() / scale));
+  }
+}
+
+void GP4PSEstimator::Residuals(const std::vector<X_t>& points2D,
+                               const std::vector<Y_t>& points3D,
+                               const M_t& rig_from_world,
+                               std::vector<double>* residuals) const {
+  ComputeRayResiduals(points2D,
+                      points3D,
+                      rig_from_world.ToMatrix(),
+                      residual_type_,
+                      residuals);
 }
 
 }  // namespace colmap
