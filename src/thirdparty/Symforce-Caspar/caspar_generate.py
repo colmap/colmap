@@ -124,8 +124,12 @@ class ConstPinholeFocal(sf.V2):
 # [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1]
 #
 # This generator currently exposes only the narrow fixed-pose/fixed-calib
-# points-only BA factor for THIN_PRISM_FISHEYE. That keeps the generated diff
-# small while covering COLMAP's fixed-calibration rig use case.
+# fixed-calibration BA factors for THIN_PRISM_FISHEYE. That keeps the
+# generated diff small while covering COLMAP's calibrated rig use cases.
+class ThinPrismFisheyePose(sf.Pose3):
+    pass
+
+
 class ConstThinPrismFisheyePose(sf.Pose3):
     pass
 
@@ -373,6 +377,30 @@ def thin_prism_fisheye_project(
     return sf.V2([fx * (uu + du) + cx, fy * (vv + dv) + cy])
 
 
+def thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point(
+    pose: T.Annotated[ThinPrismFisheyePose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstThinPrismFisheyeSensorFromRig, mem.ConstantSequential
+    ],
+    focal_and_extra: T.Annotated[
+        ConstThinPrismFisheyeFocalAndExtra, mem.ConstantSequential
+    ],
+    principal_point: T.Annotated[
+        ConstThinPrismFisheyePrincipalPoint, mem.ConstantSequential
+    ],
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """THIN_PRISM_FISHEYE fixed-calib pose+point BA residual."""
+    cam_T_world = sensor_from_rig * pose
+    return (
+        thin_prism_fisheye_project(
+            cam_T_world * point, focal_and_extra, principal_point
+        )
+        - pixel
+    )
+
+
 def thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point(
     point: T.Annotated[Point, mem.TunableShared],
     sensor_from_rig: T.Annotated[
@@ -475,6 +503,9 @@ register_camera_model(
     pinhole_split_core,
     FIXABLE_PINHOLE_SPLIT,
     must_fix_one_of={"focal", "principal_point"},
+)
+caslib.add_factor(
+    thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point
 )
 caslib.add_factor(
     thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point

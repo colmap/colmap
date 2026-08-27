@@ -68,6 +68,10 @@ struct CasparSolverSizing {
   size_t num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point = 0;
   size_t num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point = 0;
 
+  size_t num_thin_prism_fisheye_poses = 0;
+  size_t
+      num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point =
+          0;
   size_t
       num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point =
           0;
@@ -532,9 +536,9 @@ class SimpleRadialAdapter : public ICasparModelAdapter {
 
 // ThinPrismFisheye implementation.
 //
-// This adapter intentionally exposes only the fixed-pose, fixed-intrinsics,
-// variable-point factor used by COLMAP's points-only BA workflow. Wider
-// THIN_PRISM_FISHEYE support needs additional generated kernels and tests.
+// This adapter intentionally exposes only fixed-intrinsics, fixed-sensor rig
+// factors: points-only BA and pose+point BA. Wider THIN_PRISM_FISHEYE support
+// needs additional generated kernels and tests.
 class ThinPrismFisheyeAdapter : public ICasparModelAdapter {
  public:
   CameraModelId ModelId() const override {
@@ -561,6 +565,10 @@ class ThinPrismFisheyeAdapter : public ICasparModelAdapter {
         continue;
       }
       switch (static_cast<FactorVariant>(v)) {
+        case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+          sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point =
+              n;
+          break;
         case FactorVariant::
             FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
           sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point =
@@ -569,8 +577,9 @@ class ThinPrismFisheyeAdapter : public ICasparModelAdapter {
         default:
           LOG(FATAL_THROW)
               << "THIN_PRISM_FISHEYE is currently supported by CASPAR only "
-                 "for fixed pose, fixed focal/extra parameters, fixed "
-                 "principal point, and variable points3D.";
+                 "for fixed focal/extra parameters, fixed principal point, "
+                 "fixed sensor_from_rig, and variable points3D with fixed or "
+                 "variable rig_from_world poses.";
       }
     }
   }
@@ -603,9 +612,15 @@ class ThinPrismFisheyeAdapter : public ICasparModelAdapter {
     UnsupportedIntrinsicsWrite();
   }
 
-  void SetPoseNodes(caspar::GraphSolver&, StorageType*, size_t) const override {
+  void SetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.SetThinPrismFisheyePoseNodesFromStackedHost(data, 0, n);
   }
-  void GetPoseNodes(caspar::GraphSolver&, StorageType*, size_t) const override {
+  void GetPoseNodes(caspar::GraphSolver& s,
+                    StorageType* data,
+                    size_t n) const override {
+    s.GetThinPrismFisheyePoseNodesToStackedHost(data, 0, n);
   }
   void SetFocalAndExtraNodes(caspar::GraphSolver&,
                              StorageType*,
@@ -627,27 +642,46 @@ class ThinPrismFisheyeAdapter : public ICasparModelAdapter {
   void SetVariantFactors(caspar::GraphSolver& s,
                          FactorVariant variant,
                          const VariantData& d) const override {
-    if (variant != FactorVariant::
-                       FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT) {
-      LOG(FATAL_THROW)
-          << "THIN_PRISM_FISHEYE is currently supported by CASPAR only for "
-             "fixed pose, fixed intrinsics, and variable points3D.";
-    }
     const size_t n = d.num_factors;
-    s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(
-        n);
-    s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
-        d.point_indices.data(), n);
-    s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
-        d.sensor_from_rig_data.data(), 0, n);
-    s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
-        d.const_poses.data(), 0, n);
-    s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
-        d.const_focal_and_extra.data(), 0, n);
-    s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
-        d.const_principal_point.data(), 0, n);
-    s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
-        d.pixels.data(), 0, n);
+    switch (variant) {
+      case FactorVariant::FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointNum(n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
+            d.pose_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      case FactorVariant::
+          FIXED_POSE_FIXED_FOCAL_AND_EXTRA_FIXED_PRINCIPAL_POINT:
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointNum(
+            n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+            d.point_indices.data(), n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+            d.sensor_from_rig_data.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPoseDataFromStackedHost(
+            d.const_poses.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+            d.const_focal_and_extra.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+            d.const_principal_point.data(), 0, n);
+        s.SetThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+            d.pixels.data(), 0, n);
+        break;
+      default:
+        LOG(FATAL_THROW)
+            << "THIN_PRISM_FISHEYE is currently supported by CASPAR only for "
+               "fixed intrinsics and fixed sensor_from_rig with variable "
+               "points3D and optionally variable rig_from_world poses.";
+    }
   }
 
  private:
@@ -1054,7 +1088,7 @@ inline std::unique_ptr<ICasparModelAdapter> CreateCasparAdapter(
 //   2. Factor counts, in registration order from caspar_generate.py:
 //        simple_radial (4) → pinhole (4) →
 //        simple_radial_split (11) → pinhole_split (11) →
-//        thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point
+//        thin_prism_fisheye fixed-calib variants
 inline caspar::GraphSolver CreateSolver(
     const caspar::SolverParams<StorageType>& params,
     const CasparSolverSizing& sz,
@@ -1065,7 +1099,8 @@ inline caspar::GraphSolver CreateSolver(
       //   PinholeCalib, PinholeFocal, PinholePose,
       //   PinholePrincipalPoint, Point,
       //   SimpleRadialCalib, SimpleRadialFocalAndExtra,
-      //   SimpleRadialPose, SimpleRadialPrincipalPoint
+      //   SimpleRadialPose, SimpleRadialPrincipalPoint,
+      //   ThinPrismFisheyePose
       sz.num_pinhole_calibs,        // PinholeCalib        (merged pool)
       sz.num_pinhole_calibs,        // PinholeFocal         (split pool)
       sz.num_pinhole_poses,         // PinholePose
@@ -1078,6 +1113,7 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_simple_radial_poses,   // SimpleRadialPose
       sz.num_simple_radial_calibs,  // SimpleRadialPrincipalPoint      (split
                                     // pool)
+      sz.num_thin_prism_fisheye_poses,  // ThinPrismFisheyePose
       // simple_radial factor counts (r=0..2 over {pose, point}):
       sz.num_simple_radial,                         // {}
       sz.num_simple_radial_fixed_pose,              // {pose}
@@ -1116,6 +1152,7 @@ inline caspar::GraphSolver CreateSolver(
       sz.num_pinhole_split_fixed_pose_fixed_focal_fixed_point,            // r=3
       sz.num_pinhole_split_fixed_pose_fixed_principal_point_fixed_point,  // r=3
       sz.num_pinhole_split_fixed_focal_fixed_principal_point_fixed_point,  // r=3
+      sz.num_thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point,
       sz.num_thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point,
       device_id);
 }

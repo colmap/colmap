@@ -881,6 +881,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
         it != num_poses_per_model_.end()) {
       sz.num_pinhole_poses = it->second;
     }
+    if (auto it = num_poses_per_model_.find(CameraModelId::kThinPrismFisheye);
+        it != num_poses_per_model_.end()) {
+      sz.num_thin_prism_fisheye_poses = it->second;
+    }
     auto get_md = [&](CameraModelId id) -> const ModelData* {
       auto it = model_data_per_model_.find(id);
       return it != model_data_per_model_.end() ? &it->second : nullptr;

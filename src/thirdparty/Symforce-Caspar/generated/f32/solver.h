@@ -56,6 +56,8 @@ public:
    * @param SimpleRadialPose_num_max the maximum number of SimpleRadialPoses
    * @param SimpleRadialPrincipalPoint_num_max the maximum number of
    * SimpleRadialPrincipalPoints
+   * @param ThinPrismFisheyePose_num_max the maximum number of
+   * ThinPrismFisheyePoses
    * @param simple_radial_num_max the maximum number of simple_radials
    * @param simple_radial_fixed_pose_num_max the maximum number of
    * simple_radial_fixed_poses
@@ -127,6 +129,10 @@ public:
    * the maximum number of
    * pinhole_split_fixed_focal_fixed_principal_point_fixed_points
    * @param
+   * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max
+   * the maximum number of
+   * thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_points
+   * @param
    * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max
    * the maximum number of
    * thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_points
@@ -137,7 +143,8 @@ public:
       size_t PinholePrincipalPoint_num_max, size_t Point_num_max,
       size_t SimpleRadialCalib_num_max,
       size_t SimpleRadialFocalAndExtra_num_max, size_t SimpleRadialPose_num_max,
-      size_t SimpleRadialPrincipalPoint_num_max, size_t simple_radial_num_max,
+      size_t SimpleRadialPrincipalPoint_num_max,
+      size_t ThinPrismFisheyePose_num_max, size_t simple_radial_num_max,
       size_t simple_radial_fixed_pose_num_max,
       size_t simple_radial_fixed_point_num_max,
       size_t simple_radial_fixed_pose_fixed_point_num_max,
@@ -172,6 +179,8 @@ public:
       size_t pinhole_split_fixed_pose_fixed_principal_point_fixed_point_num_max,
       size_t
           pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max,
+      size_t
+          thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max,
       size_t
           thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max,
       int device_id = 0);
@@ -616,6 +625,51 @@ public:
    * progress and can have performance impacts.
    */
   void SetSimpleRadialPrincipalPointNum(size_t num);
+
+  /**
+   * Set the current value for the ThinPrismFisheyePose nodes from the stacked
+   * host data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void SetThinPrismFisheyePoseNodesFromStackedHost(const float *const data,
+                                                   size_t offset, size_t num);
+
+  /**
+   * Set the current value for the ThinPrismFisheyePose nodes from the stacked
+   * device data.
+   *
+   * The offset can be used to start writing at a specific index.
+   */
+  void SetThinPrismFisheyePoseNodesFromStackedDevice(const float *const data,
+                                                     size_t offset, size_t num);
+
+  /**
+   * Read the current value for the ThinPrismFisheyePose nodes into the stacked
+   * output host data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void GetThinPrismFisheyePoseNodesToStackedHost(float *const data,
+                                                 size_t offset, size_t num);
+
+  /**
+   * Read the current value for the ThinPrismFisheyePose nodes into the stacked
+   * output device data.
+   *
+   * The offset can be used to start reading from a specific index.
+   */
+  void GetThinPrismFisheyePoseNodesToStackedDevice(float *const data,
+                                                   size_t offset, size_t num);
+
+  /**
+   * Set the current number of active nodes of type ThinPrismFisheyePose.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void SetThinPrismFisheyePoseNum(size_t num);
 
   /**
    * Set the indices for the pose argument for the SimpleRadial factor from
@@ -4048,6 +4102,141 @@ public:
   void SetPinholeSplitFixedFocalFixedPrincipalPointFixedPointNum(size_t num);
 
   /**
+   * Set the indices for the pose argument for the
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * host.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromHost(
+      const unsigned int *const indices, size_t num);
+
+  /**
+   * Set the indices for the pose argument for the
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * device.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPoseIndicesFromDevice(
+      const unsigned int *const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * host.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromHost(
+      const unsigned int *const indices, size_t num);
+
+  /**
+   * Set the indices for the point argument for the
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * device.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPointIndicesFromDevice(
+      const unsigned int *const indices, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedHost(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the sensor_from_rig consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointSensorFromRigDataFromStackedDevice(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedHost(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the focal_and_extra consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointFocalAndExtraDataFromStackedDevice(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedHost(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the principal_point consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPrincipalPointDataFromStackedDevice(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked host data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedHost(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the values for the pixel consts
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factor from
+   * stacked device data.
+   *
+   * The offset can be used to start writing from a specific index.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointPixelDataFromStackedDevice(
+      const float *const data, size_t offset, size_t num);
+
+  /**
+   * Set the current number of
+   * ThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPoint factors.
+   *
+   * The value is set during initialization and this function is only needed if
+   * you want to change the problem between optimization runs. This is work in
+   * progress and can have performance impacts.
+   */
+  void
+  SetThinPrismFisheyeSplitFixedFocalAndExtraFixedPrincipalPointNum(size_t num);
+
+  /**
    * Set the indices for the point argument for the
    * ThinPrismFisheyeSplitFixedPoseFixedFocalAndExtraFixedPrincipalPoint factor
    * from host.
@@ -4221,6 +4410,8 @@ private:
   size_t SimpleRadialPose_num_max_;
   size_t SimpleRadialPrincipalPoint_num_;
   size_t SimpleRadialPrincipalPoint_num_max_;
+  size_t ThinPrismFisheyePose_num_;
+  size_t ThinPrismFisheyePose_num_max_;
   size_t simple_radial_num_;
   size_t simple_radial_num_max_;
   size_t simple_radial_fixed_pose_num_;
@@ -4289,6 +4480,10 @@ private:
   size_t pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_;
   size_t pinhole_split_fixed_focal_fixed_principal_point_fixed_point_num_max_;
   size_t
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_;
+  size_t
+      thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point_num_max_;
+  size_t
       thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_;
   size_t
       thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point_num_max_;
@@ -4340,6 +4535,9 @@ private:
   float *nodes__SimpleRadialPrincipalPoint__storage_current_;
   float *nodes__SimpleRadialPrincipalPoint__storage_check_;
   float *nodes__SimpleRadialPrincipalPoint__storage_new_best_;
+  float *nodes__ThinPrismFisheyePose__storage_current_;
+  float *nodes__ThinPrismFisheyePose__storage_check_;
+  float *nodes__ThinPrismFisheyePose__storage_new_best_;
   SharedIndex *facs__simple_radial__args__pose__idx_shared_;
   float *facs__simple_radial__args__sensor_from_rig__data_;
   SharedIndex *facs__simple_radial__args__calib__idx_shared_;
@@ -4633,6 +4831,18 @@ private:
   float *
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__point__data_;
   SharedIndex *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__idx_shared_;
+  float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_;
+  float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__focal_and_extra__data_;
+  float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__principal_point__data_;
+  SharedIndex *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
+  float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pixel__data_;
+  SharedIndex *
       facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__idx_shared_;
   float *
       facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__sensor_from_rig__data_;
@@ -4681,6 +4891,8 @@ private:
   float *facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__res_;
   float
       *facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__res_;
+  float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__res_;
   float *
       facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__res_;
   float *facs__simple_radial__args__pose__jac_;
@@ -4768,6 +4980,10 @@ private:
   float *
       facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__args__pose__jac_;
   float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__pose__jac_;
+  float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
+  float *
       facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__args__point__jac_;
   float *nodes__PinholeCalib__z_;
   float *nodes__PinholeCalib__z_end__;
@@ -4787,6 +5003,8 @@ private:
   float *nodes__SimpleRadialPose__z_end__;
   float *nodes__SimpleRadialPrincipalPoint__z_;
   float *nodes__SimpleRadialPrincipalPoint__z_end__;
+  float *nodes__ThinPrismFisheyePose__z_;
+  float *nodes__ThinPrismFisheyePose__z_end__;
   float *nodes__PinholeCalib__p_;
   float *nodes__PinholeCalib__p_end__;
   float *nodes__PinholeFocal__p_;
@@ -4805,6 +5023,8 @@ private:
   float *nodes__SimpleRadialPose__p_end__;
   float *nodes__SimpleRadialPrincipalPoint__p_;
   float *nodes__SimpleRadialPrincipalPoint__p_end__;
+  float *nodes__ThinPrismFisheyePose__p_;
+  float *nodes__ThinPrismFisheyePose__p_end__;
   float *nodes__PinholeCalib__step_;
   float *nodes__PinholeCalib__step_end__;
   float *nodes__PinholeFocal__step_;
@@ -4823,6 +5043,8 @@ private:
   float *nodes__SimpleRadialPose__step_end__;
   float *nodes__SimpleRadialPrincipalPoint__step_;
   float *nodes__SimpleRadialPrincipalPoint__step_end__;
+  float *nodes__ThinPrismFisheyePose__step_;
+  float *nodes__ThinPrismFisheyePose__step_end__;
   float *marker__w_start_;
   float *nodes__PinholeCalib__w_;
   float *nodes__PinholeFocal__w_;
@@ -4833,6 +5055,7 @@ private:
   float *nodes__SimpleRadialFocalAndExtra__w_;
   float *nodes__SimpleRadialPose__w_;
   float *nodes__SimpleRadialPrincipalPoint__w_;
+  float *nodes__ThinPrismFisheyePose__w_;
   float *marker__w_end_;
   float *marker__r_0_start_;
   float *nodes__PinholeCalib__r_0_;
@@ -4844,6 +5067,7 @@ private:
   float *nodes__SimpleRadialFocalAndExtra__r_0_;
   float *nodes__SimpleRadialPose__r_0_;
   float *nodes__SimpleRadialPrincipalPoint__r_0_;
+  float *nodes__ThinPrismFisheyePose__r_0_;
   float *marker__r_0_end_;
   float *marker__r_k_start_;
   float *nodes__PinholeCalib__r_k_;
@@ -4855,6 +5079,7 @@ private:
   float *nodes__SimpleRadialFocalAndExtra__r_k_;
   float *nodes__SimpleRadialPose__r_k_;
   float *nodes__SimpleRadialPrincipalPoint__r_k_;
+  float *nodes__ThinPrismFisheyePose__r_k_;
   float *marker__r_k_end_;
   float *marker__Mp_start_;
   float *nodes__PinholeCalib__Mp_;
@@ -4866,6 +5091,7 @@ private:
   float *nodes__SimpleRadialFocalAndExtra__Mp_;
   float *nodes__SimpleRadialPose__Mp_;
   float *nodes__SimpleRadialPrincipalPoint__Mp_;
+  float *nodes__ThinPrismFisheyePose__Mp_;
   float *marker__Mp_end_;
   float *marker__precond_start_;
   float *nodes__PinholeCalib__precond_diag_;
@@ -4886,6 +5112,8 @@ private:
   float *nodes__SimpleRadialPose__precond_tril_;
   float *nodes__SimpleRadialPrincipalPoint__precond_diag_;
   float *nodes__SimpleRadialPrincipalPoint__precond_tril_;
+  float *nodes__ThinPrismFisheyePose__precond_diag_;
+  float *nodes__ThinPrismFisheyePose__precond_tril_;
   float *marker__precond_end_;
   float *marker__jp_start_;
   float *facs__simple_radial__jp_;
@@ -4923,6 +5151,8 @@ private:
   float *facs__pinhole_split_fixed_pose_fixed_focal_fixed_point__jp_;
   float *facs__pinhole_split_fixed_pose_fixed_principal_point_fixed_point__jp_;
   float *facs__pinhole_split_fixed_focal_fixed_principal_point_fixed_point__jp_;
+  float *
+      facs__thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point__jp_;
   float *
       facs__thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point__jp_;
   float *marker__jp_end_;

@@ -226,4 +226,16 @@ cudaError_t SimpleRadialPrincipalPointCasparToStacked(
     const float *cas_data, float *stacked_data, const unsigned int cas_stride,
     const unsigned int cas_offset, const unsigned int num_objects);
 
+cudaError_t ThinPrismFisheyePoseStackedToCaspar(const float *stacked_data,
+                                                float *cas_data,
+                                                const unsigned int cas_stride,
+                                                const unsigned int cas_offset,
+                                                const unsigned int num_objects);
+
+cudaError_t ThinPrismFisheyePoseCasparToStacked(const float *cas_data,
+                                                float *stacked_data,
+                                                const unsigned int cas_stride,
+                                                const unsigned int cas_offset,
+                                                const unsigned int num_objects);
+
 } // namespace caspar
