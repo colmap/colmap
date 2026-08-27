@@ -131,9 +131,10 @@ class FundamentalMatrixEightPointEstimator {
 // rank 2 and the scale gauge exact at every iterate, unlike the 8-point
 // algorithm, which truncates the smallest singular value after the fact.
 //
-// Points are centered and normalized internally, as in the 8-point estimator.
-// The fit is a plain least squares, so the points are expected to be an inlier
-// set; robustness comes from the surrounding RANSAC.
+// Points are centered and normalized internally, with a scale shared by both
+// views to keep the cost in pixel space. The fit is a plain least squares, so
+// the points are expected to be an inlier set; robustness comes from the
+// surrounding RANSAC.
 //
 // Returns false and leaves *F unchanged if it cannot be factorized (zero or
 // numerically rank 1) or if the solve leaves non-finite parameters.

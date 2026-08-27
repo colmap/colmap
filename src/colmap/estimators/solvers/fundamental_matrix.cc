@@ -39,6 +39,7 @@
 #include "colmap/util/logging.h"
 
 #include <cfloat>
+#include <cmath>
 #include <vector>
 
 #include <Eigen/Geometry>
@@ -87,6 +88,16 @@ bool FactorizeFundamentalMatrix(const Eigen::Matrix3d& F,
   params->segment<4>(4) = Eigen::Quaterniond(V).normalized().coeffs();
   (*params)(8) = singular_values(1) / singular_values(0);
   return params->allFinite();
+}
+
+// Rescale a normalizing transform and its points, keeping the centroid.
+void RescaleNormalizedImagePoints(double factor,
+                                  std::vector<Eigen::Vector2d>* normed_points,
+                                  Eigen::Matrix3d* normed_from_orig) {
+  for (Eigen::Vector2d& point : *normed_points) {
+    point *= factor;
+  }
+  normed_from_orig->topRows<2>() *= factor;
 }
 
 }  // namespace
@@ -247,6 +258,17 @@ bool RefineFundamentalMatrixSampson(const std::vector<Eigen::Vector2d>& points1,
   Eigen::Matrix3d normed_from_orig2;
   CenterAndNormalizeImagePoints(points1, &normed_points1, &normed_from_orig1);
   CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
+
+  // Rescale both views by a common factor. The Sampson error is invariant to a
+  // common scale, but not to two different ones, which would weight the two
+  // terms of its denominator differently.
+  const double scale1 = normed_from_orig1(0, 0);
+  const double scale2 = normed_from_orig2(0, 0);
+  const double scale = std::sqrt(scale1 * scale2);
+  RescaleNormalizedImagePoints(
+      scale / scale1, &normed_points1, &normed_from_orig1);
+  RescaleNormalizedImagePoints(
+      scale / scale2, &normed_points2, &normed_from_orig2);
 
   // Inverse of the map that the eight-point estimator applies to its solution.
   Eigen::Matrix<double, 9, 1> params;
