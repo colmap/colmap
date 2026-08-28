@@ -52,28 +52,7 @@ from .utils import (
     filter_smallest_scenes_per_category,
     get_scores,
     panorama_reconstruction,
-    resolve_dataset_name,
 )
-
-
-class TestResolveDatasetName:
-    KNOWN_DATASETS = {"eth3d", "eth3d-distorted", "imc2023"}
-
-    @pytest.mark.parametrize(
-        ("name", "expected"),
-        [
-            ("eth3d", "eth3d"),
-            ("eth3d-undistorted", "eth3d"),
-            ("eth3d-distorted", "eth3d-distorted"),
-            ("imc2023", "imc2023"),
-        ],
-    )
-    def test_resolves_name(self, name, expected):
-        assert resolve_dataset_name(name, self.KNOWN_DATASETS) == expected
-
-    def test_rejects_unknown_name(self):
-        with pytest.raises(ValueError, match="Unknown dataset"):
-            resolve_dataset_name("eth3d:distorted", self.KNOWN_DATASETS)
 
 
 def _make_scene_info(category: str, scene: str, num_images: int) -> SceneInfo:

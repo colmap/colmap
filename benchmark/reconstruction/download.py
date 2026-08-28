@@ -46,7 +46,6 @@ from evaluation.tartanair.tartanair_v2 import (
     scene_shards,
     shard_name,
 )
-from evaluation.utils import resolve_dataset_name
 
 import pycolmap
 
@@ -64,7 +63,7 @@ def download_file(url: str, target_folder: Path) -> str:
 def _publish_staged_tree(staging_path: Path, target_folder: Path) -> None:
     """Merge a staged archive into target_folder with rollback on failure."""
     with tempfile.TemporaryDirectory(
-        prefix=".eth3d-publish-", dir=target_folder
+        prefix=".publish-", dir=target_folder
     ) as transaction_dir:
         backups_path = Path(transaction_dir) / "backups"
         backups_path.mkdir()
@@ -392,10 +391,9 @@ def parse_args() -> argparse.Namespace:
         "--datasets",
         nargs="+",
         default=DEFAULT_DATASETS,
-        help="Datasets to download by name. Valid names: "
-        f"{', '.join(DOWNLOADERS)}. eth3d-distorted downloads the large "
-        "DSLR-only _jpg.7z archives into data/eth3d-distorted; "
-        "eth3d-undistorted is accepted as an alias for eth3d.",
+        choices=DOWNLOADERS.keys(),
+        help="Datasets to download by name. eth3d-distorted downloads the "
+        "large DSLR-only _jpg.7z archives into data/eth3d-distorted.",
     )
     parser.add_argument(
         "--categories",
@@ -415,14 +413,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    try:
-        dataset_names = [
-            resolve_dataset_name(name, DOWNLOADERS) for name in args.datasets
-        ]
-    except ValueError as error:
-        raise SystemExit(str(error)) from error
-
-    for name in dataset_names:
+    for name in args.datasets:
         if name == "tartanair-v2":
             download_tartanair_v2(
                 args.data_path / name, args.categories, args.scenes

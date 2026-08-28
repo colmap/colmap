@@ -56,25 +56,10 @@ from pycolmap import panorama
 from .covisibility import filter_covisibility  # noqa: F401
 from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
 
-DATASET_ALIASES = {"eth3d-undistorted": "eth3d"}
-
 # Sentinel GT component id in image_name_to_component marking an outlier image
 # that does not belong to any GT reconstruction. Outliers are never part of a
 # GT edge (relative metric) or a GT component (absolute metric).
 OUTLIER_COMPONENT_ID = -1
-
-
-def resolve_dataset_name(name: str, known_datasets: Iterable[str]) -> str:
-    """Resolve a dataset alias and validate the canonical name."""
-    resolved_name = DATASET_ALIASES.get(name, name)
-    known_datasets = tuple(known_datasets)
-    if resolved_name not in known_datasets:
-        valid_names = ", ".join(sorted(known_datasets))
-        raise ValueError(
-            f"Unknown dataset {name!r}. Valid datasets: {valid_names}"
-        )
-    return resolved_name
-
 
 _PR_SET_PDEATHSIG = 1
 _LIBC = (
@@ -350,8 +335,7 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         nargs="+",
         default=["eth3d", "blended-mvs", "imc2023", "imc2024"],
         help="Datasets to evaluate by name. Use eth3d-distorted for the "
-        "distorted DSLR JPEGs; eth3d-undistorted is accepted as an alias for "
-        "eth3d.",
+        "distorted DSLR JPEGs.",
     )
     parser.add_argument(
         "--categories",

@@ -34,7 +34,13 @@ from .utils import Dataset, SceneInfo
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 
 
-class DatasetETH3D(Dataset):
+class _DatasetETH3D(Dataset):
+    """Shared ETH3D scene discovery.
+
+    Subclasses supply `dataset_name`, `image_glob` and `calibration_glob` to
+    select one of the published ETH3D variants.
+    """
+
     dataset_name = ""
     image_glob = ""
     calibration_glob = ""
@@ -128,13 +134,20 @@ class DatasetETH3D(Dataset):
         pass
 
 
-class DatasetETH3DUndistorted(DatasetETH3D):
+class DatasetETH3DUndistorted(_DatasetETH3D):
+    """ETH3D undistorted reconstruction benchmark.
+
+    Built from the `*_undistorted.7z` downloads, which cover both the `dslr`
+    and `rig` categories. The images are already undistorted and the ground
+    truth uses PINHOLE cameras.
+    """
+
     dataset_name = "eth3d"
     image_glob = "*_images_undistorted"
     calibration_glob = "*_calibration_undistorted"
 
 
-class DatasetETH3DDistorted(DatasetETH3D):
+class DatasetETH3DDistorted(_DatasetETH3D):
     """ETH3D distorted DSLR JPEG reconstruction benchmark.
 
     The ground truth uses THIN_PRISM_FISHEYE cameras, and rig data is not

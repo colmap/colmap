@@ -55,8 +55,8 @@ Example:
     --run_path runs --run_name variance-meadow
 
   # Distorted ETH3D DSLR JPEGs (bare eth3d remains undistorted):
-  python evaluate.py --colmap_path /path/colmap \
-    --datasets eth3d-distorted --categories dslr \
+  python evaluate.py --colmap_path /path/colmap \\
+    --datasets eth3d-distorted --categories dslr \\
     --run_name eth3d-distorted
 """
 
@@ -79,7 +79,6 @@ from evaluation.utils import (
     filter_smallest_scenes_per_category,
     parse_args,
     process_scenes,
-    resolve_dataset_name,
 )
 
 import pycolmap
@@ -98,32 +97,15 @@ def _dataset_classes() -> dict[str, type[Dataset]]:
     }
 
 
-def _resolve_dataset_names(
-    names: list[str], datasets: dict[str, type[Dataset]]
-) -> list[str]:
-    resolved_names = []
-    seen_names = set()
-    for name in names:
-        dataset_name = resolve_dataset_name(name, datasets)
-        if dataset_name in seen_names:
-            raise ValueError(
-                f"Dataset {dataset_name!r} was requested more than once."
-            )
-        seen_names.add(dataset_name)
-        resolved_names.append(dataset_name)
-    return resolved_names
-
-
 def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
     """Evaluates all datasets once and writes args.report_name.
 
     Returns None if no scenes matched.
     """
     datasets = _dataset_classes()
-    dataset_names = _resolve_dataset_names(args.datasets, datasets)
 
     metrics: MetricsByDatasetByCatByScene = {}
-    for dataset_name in dataset_names:
+    for dataset_name in args.datasets:
         pycolmap.logging.info(f"Evaluating dataset: {dataset_name}")
 
         dataset = datasets[dataset_name](
@@ -215,10 +197,12 @@ def run_seeds(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = parse_args(__doc__)
-    try:
-        _resolve_dataset_names(args.datasets, _dataset_classes())
-    except ValueError as error:
-        raise SystemExit(str(error)) from error
+    unknown = [name for name in args.datasets if name not in _dataset_classes()]
+    if unknown:
+        raise SystemExit(
+            f"Unknown dataset(s): {', '.join(unknown)}. "
+            f"Valid datasets: {', '.join(_dataset_classes())}"
+        )
     if args.seeds is not None:
         run_seeds(args)
     else:
