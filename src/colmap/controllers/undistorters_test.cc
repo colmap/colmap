@@ -126,6 +126,8 @@ TEST(COLMAPUndistorter, StopsPendingWork) {
   undistorter.Run();
 
   EXPECT_TRUE(stop_checked);
+  EXPECT_FALSE(ExistsFile(output_path / "stereo/patch-match.cfg"));
+  EXPECT_FALSE(ExistsFile(output_path / "stereo/fusion.cfg"));
 }
 
 TEST(COLMAPUndistorter, SpecificImages) {

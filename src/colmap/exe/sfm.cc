@@ -41,6 +41,7 @@
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/cancellation.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
@@ -148,6 +149,12 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   reconstruction_options.mapper =
       AutomaticReconstructionController::MapperFromString(mapper);
 
+  std::unique_ptr<ScopedSignalHandler> signal_handler;
+  if (reconstruction_options.mapper ==
+      AutomaticReconstructionController::Mapper::INCREMENTAL) {
+    signal_handler = std::make_unique<ScopedSignalHandler>();
+  }
+
   StringToUpper(&mesher);
   reconstruction_options.mesher =
       AutomaticReconstructionController::MesherFromString(mesher);
@@ -170,6 +177,11 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     controller.Wait();
   }
 
+  if (signal_handler && signal_handler->ReceivedSignal() != 0) {
+    LOG(INFO) << "Graceful shutdown completed after receiving signal "
+              << signal_handler->ReceivedSignal();
+    return 128 + signal_handler->ReceivedSignal();
+  }
   return EXIT_SUCCESS;
 }
 

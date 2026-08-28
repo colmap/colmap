@@ -25,13 +25,16 @@ def test_cancelled_feature_extraction_raises(tmp_path):
 
 
 def test_cancelled_bundle_adjustment_raises():
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_cameras_per_rig = 1
+    options.num_frames_per_rig = 3
+    options.num_points3D = 50
+    reconstruction = pycolmap.synthesize_dataset(options)
     token = pycolmap.CancellationToken()
     token.cancel()
 
     with pytest.raises(InterruptedError):
-        pycolmap.bundle_adjustment(
-            pycolmap.Reconstruction(), cancellation_token=token
-        )
+        pycolmap.bundle_adjustment(reconstruction, cancellation_token=token)
 
 
 @pytest.mark.parametrize(

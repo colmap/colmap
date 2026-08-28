@@ -359,7 +359,8 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
 
   fuser.Run();
 
-  if (fuser.CheckIfStopped() && fuser.GetFusedPoints().empty()) {
+  const bool stopped = fuser.CheckIfStopped();
+  if (stopped && fuser.GetFusedPoints().empty()) {
     return {};
   }
 
@@ -373,16 +374,29 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
   // overwrite sparse point cloud with dense point cloud from fuser
   reconstruction.ImportPLY(fuser.GetFusedPoints());
 
-  LOG(INFO) << "Writing output: " << output_path;
+  std::filesystem::path write_path = output_path;
+  if (stopped) {
+    if (output_type == "ply") {
+      write_path = output_path.parent_path() /
+                   (output_path.stem().string() + ".partial" +
+                    output_path.extension().string());
+    } else {
+      write_path += ".partial";
+      CreateDirIfNotExists(write_path);
+    }
+    LOG(WARNING) << "Writing partial fusion output to " << write_path;
+  } else {
+    LOG(INFO) << "Writing output: " << write_path;
+  }
 
   // write output
   if (output_type == "bin") {
-    reconstruction.WriteBinary(output_path);
+    reconstruction.WriteBinary(write_path);
   } else if (output_type == "txt") {
-    reconstruction.WriteText(output_path);
+    reconstruction.WriteText(write_path);
   } else if (output_type == "ply") {
-    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-    mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
+    WriteBinaryPlyPoints(write_path, fuser.GetFusedPoints());
+    mvs::WritePointsVisibility(AddFileExtension(write_path, ".vis"),
                                fuser.GetFusedPointsVisibility());
   } else {
     LOG(FATAL_THROW) << "Invalid output_type: " << output_type;

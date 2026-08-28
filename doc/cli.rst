@@ -122,12 +122,14 @@ and can be continued with ``--input_path``::
         --input_path $DATASET_PATH/sparse/0 \
         --output_path $DATASET_PATH/sparse/0
 
-Point triangulation, image registration, bundle adjustment, and stereo fusion
-write their usable partial results before exiting. Image undistortion can be
-resumed by rerunning the same command. Ceres optimizations stop between
-iterations. The Caspar bundle-adjustment backend can only stop after its current
-solver invocation. The global mapper does not support graceful shutdown because
-its intermediate reconstructions cannot currently be resumed.
+Point triangulation, image registration, and bundle adjustment write their
+usable partial results before exiting. Stereo fusion writes non-empty partial
+results to a sibling path containing ``.partial`` so that an existing completed
+result is not overwritten. Interrupted image undistortion can be restarted by
+rerunning the same command. Ceres optimizations stop between iterations. The
+Caspar bundle-adjustment backend can only stop after its current solver
+invocation. The global mapper does not support graceful shutdown because its
+intermediate reconstructions cannot currently be resumed.
 
 The equivalent pycolmap functions accept an optional
 ``cancellation_token``. Cancellation finishes cleanup and then raises
