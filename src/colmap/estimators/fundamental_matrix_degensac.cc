@@ -36,6 +36,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/util/logging.h"
 
 #include <array>
@@ -544,7 +545,7 @@ void FundamentalMatrixDegensacEstimator::Residuals(
   ComputeSquaredSampsonError(points1, points2, F, residuals);
 }
 
-RANSAC<FundamentalMatrixDegensacEstimator>::Report
+RANSAC<FundamentalMatrixDegensacEstimator, MEstimatorSupportMeasurer>::Report
 EstimateFundamentalMatrixDegensac(
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2,
@@ -577,7 +578,8 @@ EstimateFundamentalMatrixDegensac(
       options.max_plane_parallax_trials,
       options.use_sampson_refinement);
   LORANSAC<FundamentalMatrixDegensacEstimator,
-           FundamentalMatrixDegensacEstimator>
+           FundamentalMatrixDegensacEstimator,
+           MEstimatorSupportMeasurer>
       ransac(options.ransac, estimator, estimator);
   return ransac.Estimate(points1, points2);
 }
