@@ -56,7 +56,7 @@ Example:
 
   # Distorted ETH3D DSLR JPEGs (bare eth3d remains undistorted):
   python evaluate.py --colmap_path /path/colmap \
-    --datasets eth3d:distorted --categories dslr \
+    --datasets eth3d-distorted --categories dslr \
     --run_name eth3d-distorted
 """
 
@@ -65,7 +65,7 @@ import json
 import pickle
 
 from evaluation.blended_mvs import DatasetBlendedMVS
-from evaluation.eth3d import DatasetETH3D
+from evaluation.eth3d import DatasetETH3DDistorted, DatasetETH3DUndistorted
 from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
 from evaluation.tartanair import (
     DatasetTartanAirPerspective,
@@ -73,52 +73,22 @@ from evaluation.tartanair import (
 )
 from evaluation.tartanair.tartanair_v2 import load_manifest
 from evaluation.utils import (
-    DATASET_VARIANTS,
     Dataset,
     MetricsByDatasetByCatByScene,
     create_result_table,
     filter_smallest_scenes_per_category,
     parse_args,
-    parse_dataset_spec,
     process_scenes,
+    resolve_dataset_name,
 )
 
 import pycolmap
 
 
-def _parse_dataset_specs(specs: list[str]) -> list[tuple[str, str | None]]:
-    datasets = {
-        "eth3d",
-        "blended-mvs",
-        "imc2023",
-        "imc2024",
-        "imc2025",
-        "tartanair-v2-perspective",
-        "tartanair-v2-spherical",
-    }
-    parsed_specs = []
-    seen_names = set()
-    for spec in specs:
-        dataset_name, variant = parse_dataset_spec(spec, datasets)
-        if dataset_name in seen_names:
-            raise ValueError(
-                f"Dataset {dataset_name!r} was requested more than once. "
-                "Run variants in separate invocations with different "
-                "--run_name and --report_name values, then compare them with "
-                "compare.py."
-            )
-        seen_names.add(dataset_name)
-        parsed_specs.append((dataset_name, variant))
-    return parsed_specs
-
-
-def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
-    """Evaluates all datasets once and writes args.report_name.
-
-    Returns None if no scenes matched.
-    """
-    datasets: dict[str, type[Dataset]] = {
-        "eth3d": DatasetETH3D,
+def _dataset_classes() -> dict[str, type[Dataset]]:
+    return {
+        "eth3d": DatasetETH3DUndistorted,
+        "eth3d-distorted": DatasetETH3DDistorted,
         "blended-mvs": DatasetBlendedMVS,
         "imc2023": DatasetIMC2023,
         "imc2024": DatasetIMC2024,
@@ -127,28 +97,41 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "tartanair-v2-spherical": DatasetTartanAirSpherical,
     }
 
-    parsed_specs = _parse_dataset_specs(args.datasets)
+
+def _resolve_dataset_names(
+    names: list[str], datasets: dict[str, type[Dataset]]
+) -> list[str]:
+    resolved_names = []
+    seen_names = set()
+    for name in names:
+        dataset_name = resolve_dataset_name(name, datasets)
+        if dataset_name in seen_names:
+            raise ValueError(
+                f"Dataset {dataset_name!r} was requested more than once."
+            )
+        seen_names.add(dataset_name)
+        resolved_names.append(dataset_name)
+    return resolved_names
+
+
+def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
+    """Evaluates all datasets once and writes args.report_name.
+
+    Returns None if no scenes matched.
+    """
+    datasets = _dataset_classes()
+    dataset_names = _resolve_dataset_names(args.datasets, datasets)
 
     metrics: MetricsByDatasetByCatByScene = {}
-    for dataset_name, variant in parsed_specs:
-        variant_label = variant
-        if variant_label is None and dataset_name in DATASET_VARIANTS:
-            variant_label = DATASET_VARIANTS[dataset_name][0]
-        variant_label = variant_label or "default"
-        pycolmap.logging.info(
-            f"Evaluating dataset: {dataset_name} (variant={variant_label})"
-        )
+    for dataset_name in dataset_names:
+        pycolmap.logging.info(f"Evaluating dataset: {dataset_name}")
 
-        # A missing variant means the dataset constructor's historical default;
-        # for ETH3D that is undistorted and must remain so for compatibility.
-        variant_kwargs = {"variant": variant} if variant is not None else {}
         dataset = datasets[dataset_name](
             data_path=args.data_path,
             categories=args.categories,
             scenes=args.scenes,
             run_path=args.run_path,
             run_name=args.run_name,
-            **variant_kwargs,
         )
 
         scene_infos = dataset.list_scenes()
@@ -178,14 +161,6 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
     metadata_path = report_path.with_suffix(".json")
     metadata = {
         "datasets": args.datasets,
-        "dataset_variants": {
-            name: (
-                variant
-                if variant is not None
-                else DATASET_VARIANTS.get(name, (None,))[0]
-            )
-            for name, variant in parsed_specs
-        },
         "pycolmap_version": pycolmap.__version__,
         "random_seed": args.random_seed,
         "feature": args.feature,
@@ -241,7 +216,7 @@ def run_seeds(args: argparse.Namespace) -> None:
 def main() -> None:
     args = parse_args(__doc__)
     try:
-        _parse_dataset_specs(args.datasets)
+        _resolve_dataset_names(args.datasets, _dataset_classes())
     except ValueError as error:
         raise SystemExit(str(error)) from error
     if args.seeds is not None:

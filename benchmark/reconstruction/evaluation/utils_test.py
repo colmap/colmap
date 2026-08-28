@@ -52,39 +52,28 @@ from .utils import (
     filter_smallest_scenes_per_category,
     get_scores,
     panorama_reconstruction,
-    parse_dataset_spec,
+    resolve_dataset_name,
 )
 
 
-class TestParseDatasetSpec:
-    KNOWN_DATASETS = {"eth3d", "imc2023"}
+class TestResolveDatasetName:
+    KNOWN_DATASETS = {"eth3d", "eth3d-distorted", "imc2023"}
 
     @pytest.mark.parametrize(
-        ("spec", "expected"),
+        ("name", "expected"),
         [
-            ("eth3d", ("eth3d", None)),
-            ("eth3d:undistorted", ("eth3d", "undistorted")),
-            ("eth3d:distorted", ("eth3d", "distorted")),
-            ("imc2023", ("imc2023", None)),
+            ("eth3d", "eth3d"),
+            ("eth3d-undistorted", "eth3d"),
+            ("eth3d-distorted", "eth3d-distorted"),
+            ("imc2023", "imc2023"),
         ],
     )
-    def test_valid_specs(self, spec, expected):
-        assert parse_dataset_spec(spec, self.KNOWN_DATASETS) == expected
+    def test_resolves_name(self, name, expected):
+        assert resolve_dataset_name(name, self.KNOWN_DATASETS) == expected
 
-    @pytest.mark.parametrize(
-        ("spec", "message"),
-        [
-            ("nope", "Unknown dataset"),
-            ("eth3d:", "variant must not be empty"),
-            ("eth3d:a:b", "expected NAME or NAME:VARIANT"),
-            ("imc2023:distorted", "does not support variants"),
-            ("eth3d:bogus", "Valid variants: undistorted, distorted"),
-            ("eth3d:raw", "Valid variants: undistorted, distorted"),
-        ],
-    )
-    def test_invalid_specs(self, spec, message):
-        with pytest.raises(ValueError, match=message):
-            parse_dataset_spec(spec, self.KNOWN_DATASETS)
+    def test_rejects_unknown_name(self):
+        with pytest.raises(ValueError, match="Unknown dataset"):
+            resolve_dataset_name("eth3d:distorted", self.KNOWN_DATASETS)
 
 
 def _make_scene_info(category: str, scene: str, num_images: int) -> SceneInfo:

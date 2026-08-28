@@ -46,7 +46,7 @@ from evaluation.tartanair.tartanair_v2 import (
     scene_shards,
     shard_name,
 )
-from evaluation.utils import parse_dataset_spec
+from evaluation.utils import resolve_dataset_name
 
 import pycolmap
 
@@ -104,26 +104,23 @@ def _publish_staged_tree(staging_path: Path, target_folder: Path) -> None:
             raise
 
 
-def download_eth3d(data_path: Path, variant: str = "undistorted") -> None:
-    # Bare `eth3d` must remain the undistorted variant for compatibility.
-    archives_by_variant = {
-        "undistorted": [
-            ("multi_view_training_dslr_undistorted.7z", "dslr"),
-            ("multi_view_test_dslr_undistorted.7z", "dslr"),
-            ("multi_view_training_rig_undistorted.7z", "rig"),
-            ("multi_view_test_rig_undistorted.7z", "rig"),
-        ],
-        # `distorted` uses DSLR JPEGs only; rig is not included.
-        "distorted": [
-            ("multi_view_training_dslr_jpg.7z", "dslr"),
-            ("multi_view_test_dslr_jpg.7z", "dslr"),
-        ],
-    }
-    if variant not in archives_by_variant:
-        raise ValueError(f"Unsupported ETH3D variant: {variant}")
+ETH3D_UNDISTORTED_ARCHIVES = [
+    ("multi_view_training_dslr_undistorted.7z", "dslr"),
+    ("multi_view_test_dslr_undistorted.7z", "dslr"),
+    ("multi_view_training_rig_undistorted.7z", "rig"),
+    ("multi_view_test_rig_undistorted.7z", "rig"),
+]
+ETH3D_DISTORTED_ARCHIVES = [
+    ("multi_view_training_dslr_jpg.7z", "dslr"),
+    ("multi_view_test_dslr_jpg.7z", "dslr"),
+]
 
+
+def _download_eth3d_archives(
+    data_path: Path, archives: list[tuple[str, str]], dataset_name: str
+) -> None:
     num_succeeded = 0
-    for filename, category in archives_by_variant[variant]:
+    for filename, category in archives:
         target_folder = data_path / category
         target_folder.mkdir(parents=True, exist_ok=True)
         archive_path = target_folder / filename
@@ -152,7 +149,21 @@ def download_eth3d(data_path: Path, variant: str = "undistorted") -> None:
             archive_path.unlink(missing_ok=True)
 
     if num_succeeded == 0:
-        raise RuntimeError(f"Failed to download any ETH3D {variant} archives")
+        raise RuntimeError(f"Failed to download any {dataset_name} archives")
+
+
+def download_eth3d(data_path: Path) -> None:
+    _download_eth3d_archives(
+        data_path, ETH3D_UNDISTORTED_ARCHIVES, dataset_name="ETH3D"
+    )
+
+
+def download_eth3d_distorted(data_path: Path) -> None:
+    _download_eth3d_archives(
+        data_path,
+        ETH3D_DISTORTED_ARCHIVES,
+        dataset_name="ETH3D distorted",
+    )
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -362,12 +373,14 @@ def download_tartanair_v2(
 
 DOWNLOADERS = {
     "eth3d": download_eth3d,
+    "eth3d-distorted": download_eth3d_distorted,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
     "imc2025": download_imc2025,
     "blended-mvs": download_blended_mvs,
     "tartanair-v2": download_tartanair_v2,
 }
+DEFAULT_DATASETS = [name for name in DOWNLOADERS if name != "eth3d-distorted"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -378,12 +391,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--datasets",
         nargs="+",
-        default=list(DOWNLOADERS),
-        help="Datasets to download as NAME or NAME:VARIANT. Valid names: "
-        f"{', '.join(DOWNLOADERS)}. Bare names keep their existing defaults; "
-        "eth3d is exactly eth3d:undistorted. eth3d:distorted downloads the "
-        "large DSLR-only _jpg.7z archives into the same data/eth3d tree, where "
-        "both variants can coexist.",
+        default=DEFAULT_DATASETS,
+        help="Datasets to download by name. Valid names: "
+        f"{', '.join(DOWNLOADERS)}. eth3d-distorted downloads the large "
+        "DSLR-only _jpg.7z archives into data/eth3d-distorted; "
+        "eth3d-undistorted is accepted as an alias for eth3d.",
     )
     parser.add_argument(
         "--categories",
@@ -404,21 +416,17 @@ def main() -> None:
     args = parse_args()
 
     try:
-        dataset_specs = [
-            parse_dataset_spec(spec, DOWNLOADERS) for spec in args.datasets
+        dataset_names = [
+            resolve_dataset_name(name, DOWNLOADERS) for name in args.datasets
         ]
     except ValueError as error:
         raise SystemExit(str(error)) from error
 
-    for name, variant in dataset_specs:
+    for name in dataset_names:
         if name == "tartanair-v2":
             download_tartanair_v2(
                 args.data_path / name, args.categories, args.scenes
             )
-        elif name == "eth3d":
-            # A bare `eth3d` leaves the downloader's undistorted default intact.
-            kwargs = {"variant": variant} if variant is not None else {}
-            download_eth3d(args.data_path / name, **kwargs)
         else:
             DOWNLOADERS[name](args.data_path / name)
 
