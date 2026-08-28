@@ -66,14 +66,15 @@ bool IsCameraCalibrated(const Camera& camera) {
   return camera.IsSpherical() || camera.has_prior_focal_length;
 }
 
-// DEGENSAC uses a different estimator type and support measurer, so its report
-// is a distinct type; adapt it to the plain report type.
+// DEGENSAC uses a different estimator type, so its report is a distinct type;
+// adapt it to the plain report type.
 FundamentalMatrixReport ToFundamentalMatrixReport(
-    const RANSAC<FundamentalMatrixDegensacEstimator>::Report& degensac_report) {
+    const RANSAC<FundamentalMatrixDegensacEstimator,
+                 MEstimatorSupportMeasurer>::Report& degensac_report) {
   FundamentalMatrixReport report;
   report.success = degensac_report.success;
   report.num_trials = degensac_report.num_trials;
-  report.support.num_inliers = degensac_report.support.num_inliers;
+  report.support = degensac_report.support;
   report.inlier_mask = degensac_report.inlier_mask;
   report.model = degensac_report.model;
   return report;
@@ -89,8 +90,18 @@ FundamentalMatrixReport EstimateFundamentalMatrix(
   if (options.use_degensac) {
     FundamentalMatrixDegensacOptions degensac_options;
     degensac_options.ransac = ransac_options;
+    degensac_options.use_sampson_refinement = options.use_sampson_refinement;
     return ToFundamentalMatrixReport(
         EstimateFundamentalMatrixDegensac(points1, points2, degensac_options));
+  }
+  // The two local estimators differ only in how they refit the inlier set, so
+  // both instantiations share the same report type, which depends on the
+  // hypothesis estimator alone.
+  if (options.use_sampson_refinement) {
+    return LORANSAC<FundamentalMatrixSevenPointEstimator,
+                    FundamentalMatrixSampsonEstimator,
+                    MEstimatorSupportMeasurer>(ransac_options)
+        .Estimate(points1, points2);
   }
   return LORANSAC<FundamentalMatrixSevenPointEstimator,
                   FundamentalMatrixEightPointEstimator,
