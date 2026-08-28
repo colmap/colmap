@@ -259,8 +259,8 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
       &options_->sequential_pairing->loop_detection_num_images,
       "loop_detection_num_images");
   options_widget_->AddOptionInt(
-      &options_->sequential_pairing->loop_detection_min_image_distance,
-      "loop_detection_min_image_distance",
+      &options_->sequential_pairing->loop_detection_min_index_distance,
+      "loop_detection_min_index_distance",
       0);
   options_widget_->AddOptionInt(
       &options_->sequential_pairing->loop_detection_num_nearest_neighbors,

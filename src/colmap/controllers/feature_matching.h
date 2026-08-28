@@ -91,7 +91,7 @@ std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
 //
 // Invoke loop detection if `(i mod loop_detection_period) == 0`, retrieve
 // most similar `loop_detection_num_images` images from vocabulary tree that
-// are at least `loop_detection_min_image_distance` away in the sequential
+// are at least `loop_detection_min_index_distance` away in the sequential
 // order, and perform matching and verification.
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,

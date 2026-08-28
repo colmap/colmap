@@ -137,7 +137,7 @@ struct SequentialPairingOptions {
   // The minimum image index distance between a loop detection query and a
   // retrieved image. The index is determined by the sequential image order.
   // Set to 0 to disable this restriction.
-  int loop_detection_min_image_distance = 0;
+  int loop_detection_min_index_distance = 0;
 
   // Number of nearest neighbors to retrieve per query feature.
   int loop_detection_num_nearest_neighbors = 1;

@@ -323,7 +323,7 @@ TEST(SequentialPairGenerator, Quadratic) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
-TEST(SequentialPairGenerator, LoopDetectionMinImageDistance) {
+TEST(SequentialPairGenerator, LoopDetectionMinIndexDistance) {
   constexpr int kNumImages = 6;
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   CreateSyntheticDatabase(kNumImages, *database);
@@ -337,7 +337,7 @@ TEST(SequentialPairGenerator, LoopDetectionMinImageDistance) {
   options.loop_detection = true;
   options.loop_detection_period = 2;
   options.loop_detection_num_images = 2;
-  options.loop_detection_min_image_distance = 2;
+  options.loop_detection_min_index_distance = 2;
   options.num_threads = 1;
   options.vocab_tree_path = CreateTestDir() / "vocab_tree.txt";
   CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
@@ -361,10 +361,10 @@ TEST(SequentialPairGenerator, LoopDetectionMinImageDistance) {
     for (const auto& [image_id1, image_id2] : pairs) {
       const size_t image_idx1 = image_id_to_idx.at(image_id1);
       const size_t image_idx2 = image_id_to_idx.at(image_id2);
-      const size_t image_distance = image_idx1 > image_idx2
-                                        ? image_idx1 - image_idx2
-                                        : image_idx2 - image_idx1;
-      EXPECT_GE(image_distance, options.loop_detection_min_image_distance);
+      const size_t image_idx_distance = image_idx1 > image_idx2
+                                            ? image_idx1 - image_idx2
+                                            : image_idx2 - image_idx1;
+      EXPECT_GE(image_idx_distance, options.loop_detection_min_index_distance);
     }
   }
   EXPECT_TRUE(generator.Next().empty());

@@ -332,7 +332,7 @@ matching modes, which are intended for different input scenarios:
   is matched against its visually most similar images
   (``--SequentialMatching.loop_detection_num_images``). Retrieved images can
   be restricted to those that are sufficiently far from the query in the
-  sequence (``--SequentialMatching.loop_detection_min_image_distance``), so
+  sequence (``--SequentialMatching.loop_detection_min_index_distance``), so
   that nearby images do not consume the loop detection budget. A value of zero
   disables this restriction. Note that image file names must be ordered
   sequentially (e.g., ``image0001.jpg``,

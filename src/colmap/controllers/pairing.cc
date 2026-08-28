@@ -115,7 +115,7 @@ bool SequentialPairingOptions::Check() const {
   CHECK_OPTION_GT(overlap, 0);
   CHECK_OPTION_GT(loop_detection_period, 0);
   CHECK_OPTION_GT(loop_detection_num_images, 0);
-  CHECK_OPTION_GE(loop_detection_min_image_distance, 0);
+  CHECK_OPTION_GE(loop_detection_min_index_distance, 0);
   CHECK_OPTION_GT(loop_detection_num_nearest_neighbors, 0);
   CHECK_OPTION_GT(loop_detection_num_checks, 0);
   return true;
@@ -542,11 +542,11 @@ bool SequentialPairGenerator::IsValidLoopDetectionPair(
     const image_t image_id1, const image_t image_id2) const {
   const size_t image_idx1 = image_id_to_idx_.at(image_id1);
   const size_t image_idx2 = image_id_to_idx_.at(image_id2);
-  const size_t image_distance = image_idx1 > image_idx2
-                                    ? image_idx1 - image_idx2
-                                    : image_idx2 - image_idx1;
-  return image_distance >=
-         static_cast<size_t>(options_.loop_detection_min_image_distance);
+  const size_t image_idx_distance = image_idx1 > image_idx2
+                                        ? image_idx1 - image_idx2
+                                        : image_idx2 - image_idx1;
+  return image_idx_distance >=
+         static_cast<size_t>(options_.loop_detection_min_index_distance);
 }
 
 std::vector<std::pair<image_t, image_t>> SequentialPairGenerator::Next() {
