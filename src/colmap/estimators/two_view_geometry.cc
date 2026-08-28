@@ -1214,7 +1214,9 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
   // Shared-focal relative pose. Residuals are pixel-space squared Sampson
   // error, so the pixel threshold in `ransac_options` is used unscaled (unlike
   // the calibrated essential-matrix path, which rescales it into ray space).
-  LORANSAC<RelativePoseSharedFocalEstimator, RelativePoseSharedFocalEstimator>
+  LORANSAC<RelativePoseSharedFocalEstimator,
+           RelativePoseSharedFocalEstimator,
+           MEstimatorSupportMeasurer>
       SF_ransac(ransac_options);
   const auto SF_report =
       SF_ransac.Estimate(matched_centered_points1, matched_centered_points2);
@@ -1228,8 +1230,10 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
       std::max(ransac_options.min_inlier_ratio,
                options.max_H_inlier_ratio * SF_report.support.num_inliers /
                    matches.size());
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      H_ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(H_ransac_options);
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -1408,7 +1412,8 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   // in `ransac_options` applies unscaled, matching the essential matrix,
   // fundamental matrix and homography paths.
   LORANSAC<RelativePoseOneSidedFocalEstimator,
-           RelativePoseOneSidedFocalEstimator>
+           RelativePoseOneSidedFocalEstimator,
+           MEstimatorSupportMeasurer>
       focal_ransac(ransac_options);
   const auto focal_report = focal_ransac.Estimate(matched_centered_points1,
                                                   matched_cam_rays2_with_jac);
@@ -1425,10 +1430,13 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
       std::max(ransac_options.min_inlier_ratio,
                options.max_H_inlier_ratio * focal_report.support.num_inliers /
                    matches.size());
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      H_ransac_options);
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator>::Report
-      H_report;
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>
+      H_ransac(H_ransac_options);
+  LORANSAC<HomographyMatrixEstimator,
+           HomographyMatrixEstimator,
+           MEstimatorSupportMeasurer>::Report H_report;
   if (has_image_plane) {
     H_report = H_ransac.Estimate(matched_img_points1, matched_img_points2);
   }
