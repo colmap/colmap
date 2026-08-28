@@ -27,11 +27,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-
-#include "colmap/util/version.h"
-
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
+#include "colmap/util/version.h"
 
 namespace colmap {
 namespace {
@@ -70,6 +68,8 @@ std::string GetBuildInfo() {
   const char* gpu_info = "with CUDA";
 #elif defined(COLMAP_HIP_ENABLED)
   const char* gpu_info = "with HIP";
+#elif defined(COLMAP_METAL_ENABLED)
+  const char* gpu_info = "with Metal dense stereo";
 #else
   const char* gpu_info = "without GPU support";
 #endif

@@ -47,6 +47,9 @@ if(HIP_ENABLED)
         list(APPEND OPTIONAL_LIBS colmap_mvs_cuda)
     endif()
 endif()
+if(METAL_ENABLED AND MVS_ENABLED)
+    list(APPEND OPTIONAL_LIBS colmap_mvs_metal)
+endif()
 if(GUI_ENABLED)
     list(APPEND OPTIONAL_LIBS
         colmap_ui

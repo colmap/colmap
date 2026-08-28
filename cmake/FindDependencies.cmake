@@ -6,6 +6,11 @@ endif()
 
 # Track all the compile definitions
 set(COLMAP_COMPILE_DEFINITIONS)
+
+if(METAL_ENABLED)
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_METAL_ENABLED)
+    message(STATUS "Enabling Apple Metal dense-stereo support")
+endif()
 if(LSD_ENABLED)
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_LSD_ENABLED)
     message(STATUS "Enabling LSD support")

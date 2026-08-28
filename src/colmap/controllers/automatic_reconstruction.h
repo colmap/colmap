@@ -94,8 +94,10 @@ class AutomaticReconstructionController : public Thread {
     // Whether to perform sparse mapping.
     bool sparse = true;
 
-// Whether to perform dense mapping.
-#if defined(COLMAP_CUDA_ENABLED) && defined(COLMAP_MVS_ENABLED)
+    // Whether to perform dense mapping.
+#if defined(COLMAP_MVS_ENABLED) &&                                  \
+    (defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED) || \
+     defined(COLMAP_METAL_ENABLED))
     bool dense = true;
 #else
     bool dense = false;
