@@ -46,6 +46,7 @@
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/optim/support_measurement.h"
 
 #include <algorithm>
 #include <chrono>
@@ -265,7 +266,8 @@ Stats RunConfig(Method method,
     ransac_options.random_seed = 5000 + p;
 
     LORANSAC<FundamentalMatrixSevenPointEstimator,
-             FundamentalMatrixEightPointEstimator>::Report report;
+             FundamentalMatrixEightPointEstimator,
+             MEstimatorSupportMeasurer>::Report report;
     const auto start = std::chrono::high_resolution_clock::now();
     if (method == Method::kDegensac) {
       FundamentalMatrixDegensacOptions options;
@@ -279,7 +281,8 @@ Stats RunConfig(Method method,
       report.model = r.model;
     } else {
       LORANSAC<FundamentalMatrixSevenPointEstimator,
-               FundamentalMatrixEightPointEstimator>
+               FundamentalMatrixEightPointEstimator,
+               MEstimatorSupportMeasurer>
           loransac(ransac_options);
       report = loransac.Estimate(scene.points1, scene.points2);
     }

@@ -2,6 +2,7 @@
 
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
 
@@ -24,14 +25,15 @@ py::typing::Optional<py::dict> PyEstimateFundamentalMatrix(
     const bool use_sampson_refinement) {
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
-  const auto report =
-      use_sampson_refinement
-          ? LORANSAC<FundamentalMatrixSevenPointEstimator,
-                     FundamentalMatrixSampsonEstimator>(options)
-                .Estimate(points2D1, points2D2)
-          : LORANSAC<FundamentalMatrixSevenPointEstimator,
-                     FundamentalMatrixEightPointEstimator>(options)
-                .Estimate(points2D1, points2D2);
+  const auto report = use_sampson_refinement
+                          ? LORANSAC<FundamentalMatrixSevenPointEstimator,
+                                     FundamentalMatrixSampsonEstimator,
+                                     MEstimatorSupportMeasurer>(options)
+                                .Estimate(points2D1, points2D2)
+                          : LORANSAC<FundamentalMatrixSevenPointEstimator,
+                                     FundamentalMatrixEightPointEstimator,
+                                     MEstimatorSupportMeasurer>(options)
+                                .Estimate(points2D1, points2D2);
   py::gil_scoped_acquire acquire;
   if (!report.success) {
     return py::none();

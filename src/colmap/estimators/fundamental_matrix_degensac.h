@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/optim/ransac.h"
+#include "colmap/optim/support_measurement.h"
 
 #include <array>
 #include <optional>
@@ -184,7 +185,7 @@ struct FundamentalMatrixDegensacOptions {
 // Robustly estimate the fundamental matrix from corresponding image points
 // using DEGENSAC inside LO-RANSAC (the DEGENSAC estimator is used as both the
 // hypothesis and the local-optimization solver).
-RANSAC<FundamentalMatrixDegensacEstimator>::Report
+RANSAC<FundamentalMatrixDegensacEstimator, MEstimatorSupportMeasurer>::Report
 EstimateFundamentalMatrixDegensac(
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2,
