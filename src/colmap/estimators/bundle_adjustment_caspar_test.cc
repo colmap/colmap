@@ -671,6 +671,96 @@ TEST(DefaultBundleAdjuster, ThinPrismFisheyeRigPosePointFixedCalibration) {
   EXPECT_GT(MaxCamFromWorldDelta(reconstruction, orig_reconstruction), 0.0);
 }
 
+TEST(DefaultBundleAdjuster, ThinPrismFisheyeBriefReport) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SynthesizeDataset(ThinPrismFisheyeRigOptions(), &reconstruction);
+
+  SyntheticNoiseOptions noise_opts;
+  noise_opts.point2D_stddev = 0.5;
+  noise_opts.point3D_stddev = 0.05;
+  noise_opts.rig_from_world_rotation_stddev = 0.3;
+  noise_opts.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_opts, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    config.SetConstantCamIntrinsics(camera_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.refine_focal_length = false;
+  options.refine_principal_point = false;
+  options.refine_extra_params = false;
+  options.refine_sensor_from_rig = false;
+  options.refine_rig_from_world = true;
+  options.refine_points3D = true;
+  options.caspar->solver_iter_max = 10;
+
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_NE(summary->termination_type,
+            BundleAdjustmentTerminationType::FAILURE);
+
+  const std::string report = summary->BriefReport();
+  EXPECT_THAT(report, testing::HasSubstr("Caspar bundle adjustment report"));
+  EXPECT_THAT(report, testing::HasSubstr("num_residuals"));
+  EXPECT_THAT(report, testing::HasSubstr("solver_iterations"));
+  EXPECT_THAT(report, testing::HasSubstr("initial_score"));
+  EXPECT_THAT(report, testing::HasSubstr("final_score"));
+  EXPECT_THAT(report, testing::HasSubstr("solver_time"));
+}
+
+TEST(DefaultBundleAdjuster,
+     ThinPrismFisheyeUnsupportedThreePointGaugeFailsClearly) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SynthesizeDataset(ThinPrismFisheyeRigOptions(), &reconstruction);
+
+  SyntheticNoiseOptions noise_opts;
+  noise_opts.point2D_stddev = 0.5;
+  noise_opts.point3D_stddev = 0.05;
+  noise_opts.rig_from_world_rotation_stddev = 0.3;
+  noise_opts.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_opts, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    config.SetConstantCamIntrinsics(camera_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+
+  BundleAdjustmentOptions options;
+  options.refine_focal_length = false;
+  options.refine_principal_point = false;
+  options.refine_extra_params = false;
+  options.refine_sensor_from_rig = false;
+  options.refine_rig_from_world = true;
+  options.refine_points3D = true;
+  options.caspar->solver_iter_max = 10;
+
+  std::unique_ptr<BundleAdjuster> bundle_adjuster =
+      CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
+
+  try {
+    bundle_adjuster->Solve();
+    FAIL() << "Expected unsupported THIN_PRISM_FISHEYE Caspar factor variant";
+  } catch (const std::exception& e) {
+    const std::string message = e.what();
+    EXPECT_THAT(message, testing::HasSubstr("THIN_PRISM_FISHEYE"));
+    EXPECT_THAT(message, testing::HasSubstr("fixed"));
+    EXPECT_THAT(message, testing::HasSubstr("variable rig_from_world poses"));
+  }
+}
+
 TEST(DefaultBundleAdjuster, ThinPrismFisheyeMatchesCeresPointsOnly) {
   SetPRNGSeed(0);
   Reconstruction reconstruction;
