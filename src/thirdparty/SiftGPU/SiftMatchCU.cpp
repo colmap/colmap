@@ -31,7 +31,7 @@
 #include <vector>
 using namespace std;
 
-#include <cuda_runtime.h>
+#include "colmap/util/cuda_to_hip.h"
 
 #include "CuTexImage.h"
 #include "GlobalUtil.h"

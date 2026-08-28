@@ -6,7 +6,7 @@ enum class Device { AUTO = -1, CPU = 0, CUDA = 1 };
 
 inline bool IsGPU(Device device) {
   if (device == Device::AUTO) {
-#ifdef COLMAP_CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
     return true;
 #else
     return false;

@@ -71,6 +71,14 @@ set(OPENMP_ENABLED @OPENMP_ENABLED@)
 set(CUDA_ENABLED @CUDA_ENABLED@)
 set(CUDA_MIN_VERSION @CUDA_MIN_VERSION@)
 
+set(HIP_ENABLED @HIP_ENABLED@)
+if(HIP_ENABLED)
+    # Record the ROCm installation the library was built against, so that a
+    # consumer recreates the same hip:: and roc:: targets even when ROCm is not
+    # installed in the default location. A user-provided ROCM_PATH still wins.
+    set(ROCM_PATH "@ROCM_PATH@" CACHE PATH "Path to ROCm installation")
+endif()
+
 set(ONNX_ENABLED @ONNX_ENABLED@)
 
 set(DOWNLOAD_ENABLED @DOWNLOAD_ENABLED@)

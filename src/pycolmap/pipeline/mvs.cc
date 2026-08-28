@@ -6,9 +6,9 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
-#ifdef COLMAP_CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
 #include "colmap/mvs/patch_match.h"
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 
 #include "colmap/util/logging.h"
 

@@ -413,14 +413,14 @@ class FeatureExtractorController : public Thread {
           CSVToVector<int>(extraction_options_.gpu_index);
       THROW_CHECK_GT(gpu_indices.size(), 0);
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
       if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
         const int num_cuda_devices = GetNumCudaDevices();
         THROW_CHECK_GT(num_cuda_devices, 0);
         gpu_indices.resize(num_cuda_devices);
         std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
       }
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 
       // Prevent nested threading, as we multi-thread at the controller level.
       worker_extraction_options.num_threads =

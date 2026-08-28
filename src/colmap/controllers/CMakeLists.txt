@@ -69,7 +69,7 @@ COLMAP_ADD_LIBRARY(
 if(MVS_ENABLED)
     target_link_libraries(colmap_controllers PRIVATE colmap_mvs)
 endif()
-if(CUDA_ENABLED)
+if(CUDA_ENABLED OR HIP_ENABLED)
     target_link_libraries(colmap_controllers PRIVATE colmap_util_cuda)
     if(MVS_ENABLED)
         target_link_libraries(colmap_controllers PRIVATE colmap_mvs_cuda)
