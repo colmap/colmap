@@ -34,6 +34,7 @@
 #include "colmap/util/eigen_alignment.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 
 #include <Eigen/Core>
@@ -80,6 +81,9 @@ class VisualIndex {
 
     // Number of threads to use.
     int num_threads = -1;
+
+    // Optional filter for restricting the retrieved image identifiers.
+    std::function<bool(int)> image_id_filter;
   };
 
   struct BuildOptions {

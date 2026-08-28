@@ -316,13 +316,13 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
       off_plane_idxs.push_back(i);
     }
   }
-  if (off_plane_idxs.size() < 2) {
+  const size_t num_off_plane = off_plane_idxs.size();
+  if (num_off_plane < 2) {
     return std::nullopt;
   }
 
   // Precompute the transferred plane points H * x1 and the off-plane points, so
   // the epipole search below scores over only the off-plane subset.
-  const size_t num_off_plane = off_plane_idxs.size();
   std::vector<Eigen::Vector3d> lines(num_off_plane);
   std::vector<Eigen::Vector2d> off_points1(num_off_plane);
   std::vector<Eigen::Vector2d> off_points2(num_off_plane);
@@ -350,7 +350,7 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     size_t a = RandomUniformInteger<size_t>(0, num_off_plane - 1);
     size_t b = RandomUniformInteger<size_t>(0, num_off_plane - 1);
     if (a == b) {
-      b = (b + 1) % num_off_plane;
+      b = (b + 1 == num_off_plane) ? 0 : b + 1;
     }
 
     // The epipole is the intersection of the two parallax lines.
@@ -449,14 +449,16 @@ FundamentalMatrixDegensacEstimator::FundamentalMatrixDegensacEstimator(
     const double plane_max_residual,
     const double off_plane_min_residual,
     const double min_sample_h_inlier_ratio,
-    const int max_plane_parallax_trials)
+    const int max_plane_parallax_trials,
+    const bool use_sampson_refinement)
     : points1_(THROW_CHECK_NOTNULL(points1)),
       points2_(THROW_CHECK_NOTNULL(points2)),
       sampson_max_residual_(sampson_max_residual),
       plane_max_residual_(plane_max_residual),
       off_plane_min_residual_(off_plane_min_residual),
       min_sample_h_inlier_ratio_(min_sample_h_inlier_ratio),
-      max_plane_parallax_trials_(max_plane_parallax_trials) {}
+      max_plane_parallax_trials_(max_plane_parallax_trials),
+      use_sampson_refinement_(use_sampson_refinement) {}
 
 void FundamentalMatrixDegensacEstimator::Estimate(
     const std::vector<X_t>& sample_points1,
@@ -507,6 +509,33 @@ void FundamentalMatrixDegensacEstimator::Estimate(
   }
 }
 
+bool FundamentalMatrixDegensacEstimator::Refine(const std::vector<X_t>& points1,
+                                                const std::vector<Y_t>& points2,
+                                                M_t* F) const {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_NOTNULL(F);
+
+  // Refit the inlier set with the full degeneracy handling.
+  std::vector<M_t> models;
+  Estimate(points1, points2, &models);
+  if (models.empty()) {
+    return false;
+  }
+  *F = models[0];
+
+  // Test the refit rather than the incoming model, so the gate applies to the
+  // model actually being polished.
+  if (use_sampson_refinement_ &&
+      !IsSampleHDegenerate(*F,
+                           points1,
+                           points2,
+                           plane_max_residual_,
+                           min_sample_h_inlier_ratio_)) {
+    RefineFundamentalMatrixSampson(points1, points2, F);
+  }
+  return true;
+}
+
 void FundamentalMatrixDegensacEstimator::Residuals(
     const std::vector<X_t>& points1,
     const std::vector<Y_t>& points2,
@@ -545,7 +574,8 @@ EstimateFundamentalMatrixDegensac(
       plane_max_residual,
       off_plane_min_residual,
       options.min_sample_h_inlier_ratio,
-      options.max_plane_parallax_trials);
+      options.max_plane_parallax_trials,
+      options.use_sampson_refinement);
   LORANSAC<FundamentalMatrixDegensacEstimator,
            FundamentalMatrixDegensacEstimator>
       ransac(options.ransac, estimator, estimator);

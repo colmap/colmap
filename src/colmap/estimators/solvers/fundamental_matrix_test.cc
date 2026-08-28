@@ -33,6 +33,9 @@
 #include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 
+#include <numeric>
+
+#include <Eigen/SVD>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -316,6 +319,93 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, NoiseStability) {
 INSTANTIATE_TEST_SUITE_P(FundamentalMatrixEightPointEstimator,
                          FundamentalMatrixEightPointEstimatorTests,
                          ::testing::Values(8, 64, 1024));
+
+// Adds isotropic Gaussian pixel noise to both point sets.
+void AddNoise(double stddev,
+              std::vector<Eigen::Vector2d>& points1,
+              std::vector<Eigen::Vector2d>& points2) {
+  for (size_t i = 0; i < points1.size(); ++i) {
+    points1[i] += Eigen::Vector2d(RandomGaussian<double>(0, stddev),
+                                  RandomGaussian<double>(0, stddev));
+    points2[i] += Eigen::Vector2d(RandomGaussian<double>(0, stddev),
+                                  RandomGaussian<double>(0, stddev));
+  }
+}
+
+double MeanSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
+                               const std::vector<Eigen::Vector2d>& points2,
+                               const Eigen::Matrix3d& F) {
+  std::vector<double> residuals;
+  ComputeSquaredSampsonError(points1, points2, F, &residuals);
+  return std::accumulate(residuals.begin(), residuals.end(), 0.0) /
+         residuals.size();
+}
+
+// The exact model is a fixed point on noise-free correspondences: the Sampson
+// error is already zero there, so the refinement must not move away from it.
+TEST(RefineFundamentalMatrixSampson, IsFixedPointAtOptimum) {
+  constexpr size_t kNumPoints = 64;
+  for (size_t k = 0; k < 20; ++k) {
+    const Eigen::Matrix3d K = RandomCalibrationMatrix();
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                                 RandomEigenVectord<3>());
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, K, kNumPoints, points1, points2);
+
+    Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
+        K, EssentialMatrixFromPose(cam2_from_cam1), K);
+    ASSERT_TRUE(RefineFundamentalMatrixSampson(points1, points2, &F));
+    EXPECT_LT(MeanSquaredSampsonError(points1, points2, F), 1e-15);
+  }
+}
+
+// The refined model stays rank 2 by construction, unlike an eight-point fit,
+// which has to truncate its smallest singular value.
+TEST(RefineFundamentalMatrixSampson, PreservesRankTwo) {
+  constexpr size_t kNumPoints = 100;
+  const Eigen::Matrix3d K = RandomCalibrationMatrix();
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  RandomEpipolarCorrespondences(
+      cam2_from_cam1, K, kNumPoints, points1, points2);
+  AddNoise(0.5, points1, points2);
+
+  Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
+      K, EssentialMatrixFromPose(cam2_from_cam1), K);
+  ASSERT_TRUE(RefineFundamentalMatrixSampson(points1, points2, &F));
+
+  const Eigen::Vector3d singular_values =
+      Eigen::JacobiSVD<Eigen::Matrix3d>(F).singularValues();
+  EXPECT_LT(singular_values(2), 1e-12 * singular_values(0));
+}
+
+// Models that cannot be factorized leave the input untouched, so local
+// optimization falls back to the model RANSAC already had.
+TEST(RefineFundamentalMatrixSampson, RejectsDegenerateModels) {
+  constexpr size_t kNumPoints = 32;
+  const Eigen::Matrix3d K = RandomCalibrationMatrix();
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  RandomEpipolarCorrespondences(
+      cam2_from_cam1, K, kNumPoints, points1, points2);
+
+  Eigen::Matrix3d zero_F = Eigen::Matrix3d::Zero();
+  EXPECT_FALSE(RefineFundamentalMatrixSampson(points1, points2, &zero_F));
+  EXPECT_EQ(zero_F, Eigen::Matrix3d::Zero());
+
+  // Rank 1: only one non-zero singular value, so the ratio is undefined.
+  Eigen::Matrix3d rank1_F =
+      Eigen::Vector3d(1, 2, 3) * Eigen::RowVector3d(4, 5, 6);
+  const Eigen::Matrix3d expected_rank1_F = rank1_F;
+  EXPECT_FALSE(RefineFundamentalMatrixSampson(points1, points2, &rank1_F));
+  EXPECT_EQ(rank1_F, expected_rank1_F);
+}
 
 }  // namespace
 }  // namespace colmap
