@@ -3,6 +3,7 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/controller_thread.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
@@ -21,6 +22,31 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
+
+void PatchMatchStereo(
+    const std::filesystem::path& workspace_path,
+    std::string workspace_format,
+    const std::string& pmvs_option_name,
+    const mvs::PatchMatchOptions& options,
+    const std::filesystem::path& config_path,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+#if defined(COLMAP_CUDA_ENABLED)
+  StringToLower(&workspace_format);
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` " << workspace_format
+      << " - supported values are 'COLMAP' or 'PMVS'.";
+
+  auto controller = std::make_shared<mvs::PatchMatchController>(
+      options, workspace_path, workspace_format, pmvs_option_name, config_path);
+  ControllerThread<mvs::PatchMatchController> thread(std::move(controller));
+  thread.Start();
+  PyWait(&thread, cancellation_token);
+#else
+  static_cast<void>(cancellation_token);
+  RunPatchMatchStereoImpl(
+      workspace_path, workspace_format, pmvs_option_name, options, config_path);
+#endif  // COLMAP_CUDA_ENABLED
+}
 
 void BindMVS(py::module& m) {
   using PMOpts = mvs::PatchMatchOptions;
@@ -117,12 +143,13 @@ void BindMVS(py::module& m) {
   MakeDataclass(PyPatchMatchOptions);
 
   m.def("patch_match_stereo",
-        &RunPatchMatchStereoImpl,
+        &PatchMatchStereo,
         "workspace_path"_a,
         "workspace_format"_a = "COLMAP",
         "pmvs_option_name"_a = "option-all",
         py::arg_v("options", mvs::PatchMatchOptions(), "PatchMatchOptions()"),
         "config_path"_a = "",
+        "cancellation_token"_a = py::none(),
         "Runs Patch-Match-Stereo (requires CUDA)",
         py::call_guard<py::gil_scoped_release>());
 

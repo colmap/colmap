@@ -27,39 +27,59 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/base_controller.h"
-
 #include "colmap/util/cancellation.h"
-#include "colmap/util/logging.h"
+
+#include <csignal>
+
+#include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
-BaseController::BaseController() {}
+volatile std::sig_atomic_t test_signal = 0;
 
-void BaseController::AddCallback(const int id, std::function<void()> func) {
-  CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  callbacks_.at(id).push_back(std::move(func));
+void RecordTestSignal(const int signal) { test_signal = signal; }
+
+TEST(CancellationToken, Cancel) {
+  CancellationToken token;
+  EXPECT_FALSE(token.IsCancelled());
+  token.Cancel();
+  EXPECT_TRUE(token.IsCancelled());
 }
 
-void BaseController::RegisterCallback(const int id) {
-  callbacks_.emplace(id, std::list<std::function<void()>>());
+TEST(ScopedSignalHandler, RecordsFirstSignal) {
+  ScopedSignalHandler signal_handler;
+  EXPECT_FALSE(ScopedSignalHandler::IsInterruptRequested());
+  std::raise(SIGINT);
+  EXPECT_TRUE(ScopedSignalHandler::IsInterruptRequested());
+  EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
 }
 
-void BaseController::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  for (const auto& callback : callbacks_.at(id)) {
-    callback();
+TEST(ScopedSignalHandler, SecondSignalTerminatesImmediately) {
+  EXPECT_EXIT(
+      {
+        ScopedSignalHandler signal_handler;
+        std::raise(SIGINT);
+        std::raise(SIGINT);
+      },
+      testing::ExitedWithCode(128 + SIGINT),
+      "");
+}
+
+TEST(ScopedSignalHandler, RestoresPreviousHandlerAndClearsState) {
+  test_signal = 0;
+  const auto previous_handler = std::signal(SIGINT, RecordTestSignal);
+  {
+    ScopedSignalHandler signal_handler;
+    std::raise(SIGINT);
+    EXPECT_TRUE(ScopedSignalHandler::IsInterruptRequested());
   }
+
+  EXPECT_FALSE(ScopedSignalHandler::IsInterruptRequested());
+  std::raise(SIGINT);
+  EXPECT_EQ(test_signal, SIGINT);
+  std::signal(SIGINT, previous_handler);
 }
 
-void BaseController::SetCheckIfStoppedFunc(std::function<bool()> func) {
-  check_if_stopped_fn_ = std::move(func);
-}
-
-bool BaseController::CheckIfStopped() {
-  return ScopedSignalHandler::IsInterruptRequested() ||
-         (check_if_stopped_fn_ && check_if_stopped_fn_());
-}
-
+}  // namespace
 }  // namespace colmap

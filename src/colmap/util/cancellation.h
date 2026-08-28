@@ -27,39 +27,45 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/base_controller.h"
+#pragma once
 
-#include "colmap/util/cancellation.h"
-#include "colmap/util/logging.h"
+#include <atomic>
+#include <csignal>
 
 namespace colmap {
 
-BaseController::BaseController() {}
+// Thread-safe cancellation state for cooperative cancellation of long-running
+// operations. Cancellation tokens are single-use and remain cancelled once a
+// cancellation request has been made.
+class CancellationToken {
+ public:
+  void Cancel();
+  bool IsCancelled() const;
 
-void BaseController::AddCallback(const int id, std::function<void()> func) {
-  CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  callbacks_.at(id).push_back(std::move(func));
-}
+ private:
+  std::atomic<bool> is_cancelled_{false};
+};
 
-void BaseController::RegisterCallback(const int id) {
-  callbacks_.emplace(id, std::list<std::function<void()>>());
-}
+// Scoped handler for process interruption signals. The handler only records
+// the first signal so that normal code can perform cleanup at a safe point. A
+// second signal terminates the process immediately.
+class ScopedSignalHandler {
+ public:
+  ScopedSignalHandler();
+  ~ScopedSignalHandler();
 
-void BaseController::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  for (const auto& callback : callbacks_.at(id)) {
-    callback();
-  }
-}
+  ScopedSignalHandler(const ScopedSignalHandler&) = delete;
+  ScopedSignalHandler& operator=(const ScopedSignalHandler&) = delete;
 
-void BaseController::SetCheckIfStoppedFunc(std::function<bool()> func) {
-  check_if_stopped_fn_ = std::move(func);
-}
+  int ReceivedSignal() const;
 
-bool BaseController::CheckIfStopped() {
-  return ScopedSignalHandler::IsInterruptRequested() ||
-         (check_if_stopped_fn_ && check_if_stopped_fn_());
-}
+  static bool IsInterruptRequested();
+
+ private:
+  using SignalHandler = void (*)(int);
+
+  SignalHandler previous_sigint_handler_ = SIG_DFL;
+  SignalHandler previous_sigterm_handler_ = SIG_DFL;
+};
 
 }  // namespace colmap

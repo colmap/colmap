@@ -18,6 +18,9 @@ namespace {
 
 bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
                          Reconstruction& reconstruction) {
+  if (options.check_if_stopped && options.check_if_stopped()) {
+    return true;
+  }
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
     return false;
@@ -45,6 +48,7 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
 RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
   RotationEstimatorOptions opts = rotation_averaging;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.check_if_stopped = check_if_stopped;
   if (random_seed >= 0) {
     opts.random_seed = random_seed;
   }
@@ -54,6 +58,7 @@ RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
 GlobalPositionerOptions GlobalMapperOptions::GlobalPositioning() const {
   GlobalPositionerOptions opts = global_positioning;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.check_if_stopped = check_if_stopped;
   opts.solver_options.num_threads = num_threads;
   if (random_seed >= 0) {
     opts.random_seed = random_seed;
@@ -65,6 +70,7 @@ GlobalPositionerOptions GlobalMapperOptions::GlobalPositioning() const {
 BundleAdjustmentOptions GlobalMapperOptions::BundleAdjustment() const {
   BundleAdjustmentOptions opts = bundle_adjustment;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.check_if_stopped = check_if_stopped;
   if (opts.ceres) {
     opts.ceres->solver_options.num_threads = num_threads;
     opts.ceres->gpu_index = ba_gpu_index;
@@ -120,6 +126,9 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
           custom_options, *pose_graph_, *reconstruction_, pose_priors)) {
     return false;
   }
+  if (options.check_if_stopped && options.check_if_stopped()) {
+    return true;
+  }
 
   // Second pass: re-solve on registered frames only to refine rotations
   // after outlier removal.
@@ -143,6 +152,9 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   // Build keypoints map from registered images.
   NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_id_to_keypoints;
   for (const auto image_id : reconstruction_->RegImageIds()) {
+    if (options.check_if_stopped && options.check_if_stopped()) {
+      return;
+    }
     const auto& image = reconstruction_->Image(image_id);
     std::vector<Eigen::Vector2d> points;
     points.reserve(image.NumPoints2D());
@@ -158,6 +170,9 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   UnionFind<Observation, PairHash> uf;
   FeatureMatches matches;
   for (const auto& [pair_id, edge] : pose_graph_->ValidEdges()) {
+    if (options.check_if_stopped && options.check_if_stopped()) {
+      return;
+    }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     THROW_CHECK(image_id_to_keypoints.count(image_id1))
         << "Missing keypoints for image " << image_id1;
@@ -191,6 +206,9 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   point3D_t next_point3D_id = 0;
 
   for (const auto& [track_id, observations] : track_map) {
+    if (options.check_if_stopped && options.check_if_stopped()) {
+      return;
+    }
     NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_id_set;
     Point3D point3D;
     bool is_consistent = true;
@@ -243,6 +261,9 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
   const size_t max_num_tracks =
       static_cast<size_t>(options.keep_max_num_tracks);
   for (const auto& [track_length, point3D_id] : track_lengths) {
+    if (options.check_if_stopped && options.check_if_stopped()) {
+      return;
+    }
     // Stop once the global track budget is exhausted. As tracks are sorted by
     // decreasing length, this keeps the longest tracks and bounds memory usage.
     if (reconstruction_->NumPoints3D() >= max_num_tracks) break;
@@ -283,6 +304,9 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
                                      double min_tri_angle_deg) {
   if (!RunGlobalPositioning(options, *pose_graph_, *reconstruction_)) {
     return false;
+  }
+  if (options.check_if_stopped && options.check_if_stopped()) {
+    return true;
   }
 
   // Filter tracks based on the estimation
@@ -364,12 +388,18 @@ bool GlobalMapper::IterativeBundleAdjustment(
       }
       LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
                 << num_iterations << ", fixed-rotation stage finished";
+      if (options.check_if_stopped && options.check_if_stopped()) {
+        break;
+      }
     }
 
     // Joint optimization stage: default BA
     if (!skip_joint_optimization_stage) {
       if (!RunBundleAdjustment(options, *reconstruction_)) {
         return false;
+      }
+      if (options.check_if_stopped && options.check_if_stopped()) {
+        break;
       }
     }
     LOG(INFO) << "Global bundle adjustment iteration " << ite + 1 << " / "
@@ -419,6 +449,10 @@ bool GlobalMapper::IterativeBundleAdjustment(
     }
   }
 
+  if (options.check_if_stopped && options.check_if_stopped()) {
+    return true;
+  }
+
   // Filter tracks based on the estimation
   LOG(INFO) << "Filtering tracks by reprojection ...";
   {
@@ -439,6 +473,10 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     const BundleAdjustmentOptions& ba_options,
     double max_normalized_reproj_error,
     double min_tri_angle_deg) {
+  if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+    return true;
+  }
+
   // Delete all existing 3D points and re-establish 2D-3D correspondences.
   reconstruction_->DeleteAllPoints2DAndPoints3D();
 
@@ -448,6 +486,10 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
 
   // Triangulate all registered images.
   for (const auto image_id : reconstruction_->RegImageIds()) {
+    if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+      mapper.EndReconstruction(/*discard=*/false);
+      return true;
+    }
     mapper.TriangulateImage(options, image_id);
   }
 
@@ -472,6 +514,10 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
                                    /*normalize_reconstruction=*/true);
 
   mapper.EndReconstruction(/*discard=*/false);
+
+  if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+    return true;
+  }
 
   // Final filtering and bundle adjustment.
   ObservationManager obs_manager(*reconstruction_);
@@ -515,11 +561,13 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   // would otherwise make intermediate visualizations inconsistent with the
   // final reconstruction.
   const auto report_and_check_stop = [&]() {
-    if (!on_progress) {
-      return false;
+    if (on_progress) {
+      reconstruction_->UpdatePoint3DErrors();
+      if (on_progress()) {
+        return true;
+      }
     }
-    reconstruction_->UpdatePoint3DErrors();
-    return on_progress();
+    return options.check_if_stopped && options.check_if_stopped();
   };
 
   // Run rotation averaging
@@ -532,6 +580,11 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
               << " seconds";
+    if (options.check_if_stopped && options.check_if_stopped()) {
+      // Rotations alone are not a usable reconstruction checkpoint because
+      // translations and 3D points have not been estimated yet.
+      return false;
+    }
   }
 
   // Track establishment and selection
@@ -542,6 +595,10 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     EstablishTracks(options);
     LOG(INFO) << "Track establishment done in " << run_timer.ElapsedSeconds()
               << " seconds";
+    if (options.check_if_stopped && options.check_if_stopped()) {
+      // Tracks do not have valid positions until global positioning finishes.
+      return false;
+    }
   }
 
   // Global positioning
@@ -581,6 +638,9 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
     }
     LOG(INFO) << "Iterative bundle adjustment done in "
               << run_timer.ElapsedSeconds() << " seconds";
+    if (options.check_if_stopped && options.check_if_stopped()) {
+      return true;
+    }
   }
 
   // Retriangulation

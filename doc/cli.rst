@@ -97,6 +97,50 @@ of commands as an alternative to the automatic reconstruction command::
         --input_path $DATASET_PATH/dense/meshed-poisson.ply \
         --output_path $DATASET_PATH/dense/textured
 
+Graceful shutdown and resuming
+------------------------------
+
+The feature extraction and matching commands, ``mapper``,
+``pose_prior_mapper``, ``global_mapper``, and ``patch_match_stereo`` handle
+``SIGINT`` and ``SIGTERM`` cooperatively. The first signal stops work at a safe
+point and writes any usable in-progress results. The process then exits with
+status 130 for ``SIGINT`` or 143 for ``SIGTERM``. A second signal terminates
+immediately and may interrupt an output write.
+
+Feature extraction and matching can be resumed by rerunning the same command
+against the same database. PatchMatch can likewise be rerun against the same
+workspace; complete depth and normal maps are skipped. An interrupted
+incremental reconstruction is written to its normal numbered model directory
+and can be continued with ``--input_path``::
+
+    $ colmap mapper \
+        --database_path $DATASET_PATH/database.db \
+        --image_path $DATASET_PATH/images \
+        --input_path $DATASET_PATH/sparse/0 \
+        --output_path $DATASET_PATH/sparse/0
+
+The global mapper also writes a coherent partial reconstruction when possible,
+but automatic continuation of the global pipeline from that model is not
+currently supported. Ceres optimizations stop between iterations. The Caspar
+bundle-adjustment backend can only stop after its current solver invocation.
+
+The equivalent pycolmap functions accept an optional
+``cancellation_token``. Cancellation finishes cleanup and then raises
+``InterruptedError``. Applications can connect cloud-preemption signals to the
+token without pycolmap replacing the application's signal handlers::
+
+    import signal
+    import pycolmap
+
+    token = pycolmap.CancellationToken()
+    signal.signal(signal.SIGTERM, lambda *_: token.cancel())
+    pycolmap.incremental_mapping(
+        database_path,
+        image_path,
+        output_path,
+        cancellation_token=token,
+    )
+
 To use the global SfM pipeline instead of the incremental mapper, replace the
 ``mapper`` step with ``global_mapper``. The global mapper depends on good focal
 length priors, so if reliable intrinsics are not available (e.g., from EXIF or

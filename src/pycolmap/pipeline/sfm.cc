@@ -67,7 +67,8 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     const IncrementalPipelineOptions& options,
     const std::filesystem::path& input_path,
     std::function<void()> initial_image_pair_callback,
-    std::function<void()> next_image_callback) {
+    std::function<void()> next_image_callback,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
@@ -80,23 +81,36 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
 
   PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
+  bool python_interrupt_raised = false;
+  const auto check_if_stopped = [&]() {
+    python_interrupt_raised = py_interrupt.Raised();
+    return python_interrupt_raised ||
+           (cancellation_token && cancellation_token->IsCancelled());
+  };
   auto next_image_callback_py_interruptible =
-      [&py_interrupt, next_image_callback = std::move(next_image_callback)]() {
-        if (py_interrupt.Raised()) {
-          throw py::error_already_set();
-        }
+      [next_image_callback = std::move(next_image_callback)]() {
         if (next_image_callback) {
           next_image_callback();
         }
       };
 
-  if (!RunIncrementalMapperImpl(database_path,
-                                image_path,
-                                output_path,
-                                options_,
-                                reconstruction_manager,
-                                initial_image_pair_callback,
-                                next_image_callback_py_interruptible)) {
+  const bool success =
+      RunIncrementalMapperImpl(database_path,
+                               image_path,
+                               output_path,
+                               options_,
+                               reconstruction_manager,
+                               initial_image_pair_callback,
+                               next_image_callback_py_interruptible,
+                               check_if_stopped);
+
+  if (python_interrupt_raised) {
+    ThrowPythonError();
+  }
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
+  if (!success) {
     return {};
   }
 
@@ -107,7 +121,8 @@ std::map<size_t, std::shared_ptr<Reconstruction>> GlobalMapping(
     const std::filesystem::path& database_path,
     const std::filesystem::path& image_path,
     const std::filesystem::path& output_path,
-    GlobalPipelineOptions options) {
+    GlobalPipelineOptions options,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
@@ -115,11 +130,27 @@ std::map<size_t, std::shared_ptr<Reconstruction>> GlobalMapping(
   py::gil_scoped_release release;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   auto options_ = std::make_shared<GlobalPipelineOptions>(std::move(options));
-  if (!RunGlobalMapperImpl(database_path,
-                           image_path,
-                           output_path,
-                           options_,
-                           reconstruction_manager)) {
+  PyInterrupt py_interrupt(1.0);
+  bool python_interrupt_raised = false;
+  const auto check_if_stopped = [&]() {
+    python_interrupt_raised = py_interrupt.Raised();
+    return python_interrupt_raised ||
+           (cancellation_token && cancellation_token->IsCancelled());
+  };
+  const bool success = RunGlobalMapperImpl(database_path,
+                                           image_path,
+                                           output_path,
+                                           options_,
+                                           reconstruction_manager,
+                                           check_if_stopped);
+
+  if (python_interrupt_raised) {
+    ThrowPythonError();
+  }
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
+  if (!success) {
     return {};
   }
 
@@ -221,6 +252,7 @@ void BindSfM(py::module& m) {
         "input_path"_a = py::str(""),
         "initial_image_pair_callback"_a = py::none(),
         "next_image_callback"_a = py::none(),
+        "cancellation_token"_a = py::none(),
         "Recover 3D points and unknown camera poses");
 
   m.def(
@@ -230,6 +262,7 @@ void BindSfM(py::module& m) {
       "image_path"_a,
       "output_path"_a,
       py::arg_v("options", GlobalPipelineOptions(), "GlobalPipelineOptions()"),
+      "cancellation_token"_a = py::none(),
       "Recover 3D points and camera poses using global SfM (GLOMAP)");
 
   m.def("hierarchical_mapping",

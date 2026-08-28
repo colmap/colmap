@@ -27,39 +27,49 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/base_controller.h"
-
 #include "colmap/util/cancellation.h"
-#include "colmap/util/logging.h"
+
+#include <atomic>
+#include <cstdlib>
 
 namespace colmap {
+namespace {
 
-BaseController::BaseController() {}
+std::atomic<int> received_signal{0};
+static_assert(std::atomic<int>::is_always_lock_free);
 
-void BaseController::AddCallback(const int id, std::function<void()> func) {
-  CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  callbacks_.at(id).push_back(std::move(func));
-}
-
-void BaseController::RegisterCallback(const int id) {
-  callbacks_.emplace(id, std::list<std::function<void()>>());
-}
-
-void BaseController::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  for (const auto& callback : callbacks_.at(id)) {
-    callback();
+void HandleSignal(const int signal) {
+  int expected = 0;
+  if (!received_signal.compare_exchange_strong(
+          expected, signal, std::memory_order_relaxed)) {
+    std::_Exit(128 + signal);
   }
 }
 
-void BaseController::SetCheckIfStoppedFunc(std::function<bool()> func) {
-  check_if_stopped_fn_ = std::move(func);
+}  // namespace
+
+void CancellationToken::Cancel() { is_cancelled_.store(true); }
+
+bool CancellationToken::IsCancelled() const { return is_cancelled_.load(); }
+
+ScopedSignalHandler::ScopedSignalHandler() {
+  received_signal.store(0, std::memory_order_relaxed);
+  previous_sigint_handler_ = std::signal(SIGINT, HandleSignal);
+  previous_sigterm_handler_ = std::signal(SIGTERM, HandleSignal);
 }
 
-bool BaseController::CheckIfStopped() {
-  return ScopedSignalHandler::IsInterruptRequested() ||
-         (check_if_stopped_fn_ && check_if_stopped_fn_());
+ScopedSignalHandler::~ScopedSignalHandler() {
+  std::signal(SIGINT, previous_sigint_handler_);
+  std::signal(SIGTERM, previous_sigterm_handler_);
+  received_signal.store(0, std::memory_order_relaxed);
+}
+
+int ScopedSignalHandler::ReceivedSignal() const {
+  return received_signal.load(std::memory_order_relaxed);
+}
+
+bool ScopedSignalHandler::IsInterruptRequested() {
+  return received_signal.load(std::memory_order_relaxed) != 0;
 }
 
 }  // namespace colmap

@@ -103,6 +103,9 @@ struct GlobalMapperOptions {
   bool skip_bundle_adjustment = false;
   bool skip_retriangulation = false;
 
+  // Optional cooperative cancellation callback used by long-running stages.
+  std::function<bool()> check_if_stopped;
+
   RotationEstimatorOptions RotationAveraging() const;
   GlobalPositionerOptions GlobalPositioning() const;
   BundleAdjustmentOptions BundleAdjustment() const;
@@ -121,7 +124,9 @@ class GlobalMapper {
   // Run the global SfM pipeline. The optional `on_progress` callback is invoked
   // after global positioning, after each bundle-adjustment iteration, and after
   // retriangulation/refinement; it returns true if a stop has been requested,
-  // in which case the pipeline terminates early and keeps the current result.
+  // in which case the pipeline terminates early and keeps the current result
+  // once global positioning has produced a usable reconstruction. Returns
+  // false on failure or interruption before that point.
   bool Solve(const GlobalMapperOptions& options,
              const std::function<bool()>& on_progress = {});
 

@@ -72,5 +72,83 @@ TEST(PointTriangulator, IncludesRegisteredImagesOutsideImageList) {
   EXPECT_EQ(reconstruction->NumRegImages(), 3);
 }
 
+TEST(IncrementalMapper, WritesInterruptedReconstruction) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+  database.reset();
+
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(output_path);
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->extract_colors = false;
+  options->multiple_models = false;
+  options->num_threads = 1;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  bool stop_requested = false;
+  EXPECT_TRUE(RunIncrementalMapperImpl(
+      database_path,
+      test_path,
+      output_path,
+      options,
+      reconstruction_manager,
+      [&stop_requested]() { stop_requested = true; },
+      {},
+      [&stop_requested]() { return stop_requested; }));
+
+  EXPECT_TRUE(stop_requested);
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  EXPECT_TRUE(ExistsFile(output_path / "0" / "cameras.bin"));
+  EXPECT_TRUE(ExistsFile(output_path / "0" / "images.bin"));
+  EXPECT_TRUE(ExistsFile(output_path / "0" / "points3D.bin"));
+}
+
+TEST(IncrementalMapper, DiscardsInterruptBeforeInitialPair) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+  database.reset();
+
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(output_path);
+  auto options = std::make_shared<IncrementalPipelineOptions>();
+  options->extract_colors = false;
+  options->multiple_models = false;
+  options->num_threads = 1;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+
+  int num_stop_checks = 0;
+  EXPECT_FALSE(RunIncrementalMapperImpl(
+      database_path,
+      test_path,
+      output_path,
+      options,
+      reconstruction_manager,
+      {},
+      {},
+      [&num_stop_checks]() { return ++num_stop_checks >= 2; }));
+
+  EXPECT_GE(num_stop_checks, 2);
+  EXPECT_EQ(reconstruction_manager->Size(), 0);
+  EXPECT_FALSE(ExistsDir(output_path / "0"));
+}
+
 }  // namespace
 }  // namespace colmap

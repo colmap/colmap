@@ -180,6 +180,36 @@ TEST(DefaultBundleAdjuster, NominalMultiCameraRig) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
+TEST(DefaultBundleAdjuster, Cancellation) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 20;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  int num_checks = 0;
+  BundleAdjustmentOptions options;
+  options.check_if_stopped = [&num_checks]() {
+    ++num_checks;
+    return true;
+  };
+  const auto summary =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
+          ->Solve();
+
+  EXPECT_GT(num_checks, 0);
+  EXPECT_EQ(summary->termination_type,
+            BundleAdjustmentTerminationType::USER_SUCCESS);
+}
+
 TEST(DefaultBundleAdjuster, ThreeViewSpherical) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;

@@ -37,12 +37,36 @@
 #endif
 #include "colmap/exe/sfm.h"
 #include "colmap/exe/vocab_tree.h"
+#include "colmap/util/cancellation.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/oiio_utils.h"
 #include "colmap/util/version.h"
+
+#include <memory>
 
 namespace {
 
 using command_func_t = std::function<int(int, char**)>;
+
+bool SupportsGracefulShutdown(const std::string& command) {
+  static const colmap::FlatHashSet<std::string> kSupportedCommands = {
+      "exhaustive_matcher",
+      "feature_extractor",
+      "feature_importer",
+      "geometric_verifier",
+      "global_mapper",
+      "guided_geometric_verifier",
+      "mapper",
+      "matches_importer",
+      "patch_match_stereo",
+      "pose_prior_mapper",
+      "sequential_matcher",
+      "spatial_matcher",
+      "transitive_matcher",
+      "vocab_tree_matcher",
+  };
+  return kSupportedCommands.count(command) > 0;
+}
 
 void ShowVersion() {
   std::cout << colmap::GetVersionInfo() << " (" << colmap::GetBuildInfo()
@@ -189,7 +213,18 @@ int main(int argc, char** argv) {
       int command_argc = argc - 1;
       char** command_argv = &argv[1];
       command_argv[0] = argv[0];
-      return matched_command_func(command_argc, command_argv);
+      std::unique_ptr<colmap::ScopedSignalHandler> signal_handler;
+      if (SupportsGracefulShutdown(command)) {
+        signal_handler = std::make_unique<colmap::ScopedSignalHandler>();
+      }
+
+      const int exit_code = matched_command_func(command_argc, command_argv);
+      if (signal_handler && signal_handler->ReceivedSignal() != 0) {
+        LOG(INFO) << "Graceful shutdown completed after receiving signal "
+                  << signal_handler->ReceivedSignal();
+        return 128 + signal_handler->ReceivedSignal();
+      }
+      return exit_code;
     }
   }
 

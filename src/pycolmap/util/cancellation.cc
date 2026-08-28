@@ -27,39 +27,19 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/util/base_controller.h"
-
 #include "colmap/util/cancellation.h"
-#include "colmap/util/logging.h"
 
-namespace colmap {
+#include <memory>
 
-BaseController::BaseController() {}
+#include <pybind11/pybind11.h>
 
-void BaseController::AddCallback(const int id, std::function<void()> func) {
-  CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  callbacks_.at(id).push_back(std::move(func));
+namespace py = pybind11;
+using namespace colmap;
+
+void BindCancellation(py::module& m) {
+  py::class_<CancellationToken, std::shared_ptr<CancellationToken>>(
+      m, "CancellationToken")
+      .def(py::init<>())
+      .def("cancel", &CancellationToken::Cancel)
+      .def_property_readonly("is_cancelled", &CancellationToken::IsCancelled);
 }
-
-void BaseController::RegisterCallback(const int id) {
-  callbacks_.emplace(id, std::list<std::function<void()>>());
-}
-
-void BaseController::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
-  for (const auto& callback : callbacks_.at(id)) {
-    callback();
-  }
-}
-
-void BaseController::SetCheckIfStoppedFunc(std::function<bool()> func) {
-  check_if_stopped_fn_ = std::move(func);
-}
-
-bool BaseController::CheckIfStopped() {
-  return ScopedSignalHandler::IsInterruptRequested() ||
-         (check_if_stopped_fn_ && check_if_stopped_fn_());
-}
-
-}  // namespace colmap

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "colmap/util/cancellation.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 #include "colmap/util/threading.h"
@@ -443,19 +444,41 @@ inline bool PyInterrupt::Raised() {
   return found;
 }
 
+[[noreturn]] inline void ThrowPythonError() {
+  py::gil_scoped_acquire acquire;
+  throw py::error_already_set();
+}
+
+[[noreturn]] inline void ThrowCancelled() {
+  py::gil_scoped_acquire acquire;
+  PyErr_SetString(PyExc_InterruptedError, "Operation cancelled");
+  throw py::error_already_set();
+}
+
 // Instead of thread.Wait() call this to allow interrupts through python
-inline void PyWait(colmap::Thread* thread, double gap = 2.0) {
+inline void PyWait(colmap::Thread* thread,
+                   const std::shared_ptr<colmap::CancellationToken>&
+                       cancellation_token = nullptr,
+                   double gap = 2.0) {
   PyInterrupt py_interrupt(gap);
   while (thread->IsRunning()) {
+    if (cancellation_token && cancellation_token->IsCancelled()) {
+      thread->Stop();
+      thread->Wait();
+      ThrowCancelled();
+    }
     if (py_interrupt.Raised()) {
       LOG(ERROR) << "Stopping thread...";
       thread->Stop();
       thread->Wait();
-      throw py::error_already_set();
+      ThrowPythonError();
     }
   }
   // after finishing join the thread to avoid abort
   thread->Wait();
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
 }
 
 // Test if pyceres is available

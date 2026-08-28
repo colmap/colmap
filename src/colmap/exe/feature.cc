@@ -36,10 +36,13 @@
 #include "colmap/exe/gui.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cancellation.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
+
+#include <chrono>
 
 namespace colmap {
 
@@ -417,13 +420,32 @@ void RunGuidedGeometricVerifierImpl(
     const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    int num_threads) {
+    int num_threads,
+    std::function<bool()> check_if_stopped) {
+  const auto should_stop = [&]() {
+    return ScopedSignalHandler::IsInterruptRequested() ||
+           (check_if_stopped && check_if_stopped());
+  };
+
   // Set all relative poses from a given reconstruction.
   auto database = Database::Open(database_path);
   std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
       database->ReadAllMatches();
-  database->ClearTwoViewGeometries();
+  if (should_stop()) {
+    return;
+  }
+
+  struct VerifiedGeometry {
+    image_t image_id1;
+    image_t image_id2;
+    TwoViewGeometry two_view_geometry;
+  };
+  std::vector<VerifiedGeometry> verified_geometries;
+  verified_geometries.reserve(all_matches.size());
   for (const auto& [pair_id, matches] : all_matches) {
+    if (should_stop()) {
+      return;
+    }
     if (matches.size() <
         static_cast<size_t>(geometry_options.min_num_inliers)) {
       continue;
@@ -445,7 +467,21 @@ void RunGuidedGeometricVerifierImpl(
     two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
     two_view_geometry.cam2_from_cam1 =
         cam2_from_world * Inverse(cam1_from_world);
-    database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    verified_geometries.push_back(
+        {image_id1, image_id2, std::move(two_view_geometry)});
+  }
+
+  if (should_stop()) {
+    return;
+  }
+
+  {
+    DatabaseTransaction database_transaction(database.get());
+    database->ClearTwoViewGeometries();
+    for (const auto& geometry : verified_geometries) {
+      database->WriteTwoViewGeometry(
+          geometry.image_id1, geometry.image_id2, geometry.two_view_geometry);
+    }
   }
 
   GeometricVerifierOptions verifier_options;
@@ -457,6 +493,13 @@ void RunGuidedGeometricVerifierImpl(
   auto verifier = CreateGeometricVerifier(
       verifier_options, pairing_options, geometry_options, database_path);
   verifier->Start();
+  while (verifier->IsRunning()) {
+    if (should_stop()) {
+      verifier->Stop();
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
   verifier->Wait();
 }
 

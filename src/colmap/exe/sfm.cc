@@ -235,7 +235,8 @@ bool RunIncrementalMapperImpl(
     const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager,
     std::function<void()> initial_image_pair_callback,
-    std::function<void()> next_image_callback) {
+    std::function<void()> next_image_callback,
+    std::function<bool()> check_if_stopped) {
   // If fix_existing_frames is enabled, we store the initial positions of
   // existing images in order to transform them back to the original coordinate
   // frame, as the reconstruction is normalized multiple times for numerical
@@ -253,24 +254,25 @@ bool RunIncrementalMapperImpl(
   auto database = Database::Open(database_path);
 
   IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
+  mapper.SetCheckIfStoppedFunc(std::move(check_if_stopped));
 
   // In case a new reconstruction is started, write results of individual sub-
   // models to as their reconstruction finishes instead of writing all results
   // after all reconstructions finished.
   size_t prev_num_reconstructions = 0;
+  const auto write_new_reconstructions = [&]() {
+    while (prev_num_reconstructions < reconstruction_manager->Size()) {
+      const auto reconstruction_path =
+          output_path / std::to_string(prev_num_reconstructions);
+      CreateDirIfNotExists(reconstruction_path);
+      reconstruction_manager->Get(prev_num_reconstructions)
+          ->Write(reconstruction_path);
+      ++prev_num_reconstructions;
+    }
+  };
   if (!exists_input_reconstruction) {
-    mapper.AddCallback(IncrementalPipeline::LAST_IMAGE_REG_CALLBACK, [&]() {
-      // If the number of reconstructions has not changed, the last model
-      // was discarded for some reason.
-      if (reconstruction_manager->Size() > prev_num_reconstructions) {
-        const auto reconstruction_path =
-            output_path / std::to_string(prev_num_reconstructions);
-        CreateDirIfNotExists(reconstruction_path);
-        reconstruction_manager->Get(prev_num_reconstructions)
-            ->Write(reconstruction_path);
-        prev_num_reconstructions = reconstruction_manager->Size();
-      }
-    });
+    mapper.AddCallback(IncrementalPipeline::LAST_IMAGE_REG_CALLBACK,
+                       write_new_reconstructions);
   }
 
   if (initial_image_pair_callback) {
@@ -284,6 +286,13 @@ bool RunIncrementalMapperImpl(
   }
 
   mapper.Run();
+
+  if (!exists_input_reconstruction) {
+    // The final callback is intentionally not invoked for an interrupted
+    // sub-model, so flush any reconstruction retained by the interruption
+    // path before returning.
+    write_new_reconstructions();
+  }
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "Failed to create any sparse model";
@@ -375,17 +384,21 @@ bool RunGlobalMapperImpl(
     const std::filesystem::path& image_path,
     const std::filesystem::path& output_path,
     const std::shared_ptr<GlobalPipelineOptions>& mapper_options,
-    std::shared_ptr<ReconstructionManager>& reconstruction_manager) {
+    std::shared_ptr<ReconstructionManager>& reconstruction_manager,
+    std::function<bool()> check_if_stopped) {
   GlobalPipelineOptions options = *mapper_options;
   options.image_path = image_path;
 
   GlobalPipeline global_mapper(std::move(options),
                                Database::Open(database_path),
                                reconstruction_manager);
+  global_mapper.SetCheckIfStoppedFunc(std::move(check_if_stopped));
   global_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
-    LOG(ERROR) << "Failed to create sparse model";
+    if (!global_mapper.CheckIfStopped()) {
+      LOG(ERROR) << "Failed to create sparse model";
+    }
     return false;
   }
 

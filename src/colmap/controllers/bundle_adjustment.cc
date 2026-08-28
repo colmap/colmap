@@ -35,30 +35,6 @@
 #include "colmap/util/timer.h"
 
 namespace colmap {
-namespace {
-
-// Callback functor called after each bundle adjustment iteration.
-class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
- public:
-  explicit BundleAdjustmentIterationCallback(BaseController* controller)
-      : controller_(controller) {}
-
-  virtual ceres::CallbackReturnType operator()(
-      const ceres::IterationSummary& summary) {
-    THROW_CHECK_NOTNULL(controller_);
-    if (controller_->CheckIfStopped()) {
-      return ceres::SOLVER_TERMINATE_SUCCESSFULLY;
-    } else {
-      return ceres::SOLVER_CONTINUE;
-    }
-  }
-
- private:
-  BaseController* controller_;
-};
-
-}  // namespace
-
 BundleAdjustmentController::BundleAdjustmentController(
     const OptionManager& options,
     std::shared_ptr<Reconstruction> reconstruction)
@@ -80,11 +56,7 @@ void BundleAdjustmentController::Run() {
   ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();
 
   BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
-
-  BundleAdjustmentIterationCallback iteration_callback(this);
-  if (ba_options.ceres) {
-    ba_options.ceres->solver_options.callbacks.push_back(&iteration_callback);
-  }
+  ba_options.check_if_stopped = [this]() { return CheckIfStopped(); };
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;

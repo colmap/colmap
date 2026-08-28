@@ -1088,17 +1088,21 @@ IncrementalMapper::AdjustLocalBundle(
 
     report.num_adjusted_observations = summary->num_residuals / 2;
 
-    // Merge refined tracks with other existing points.
-    report.num_merged_observations =
-        triangulator_->MergeTracks(tri_options, variable_point3D_ids);
-    // Complete tracks that may have failed to triangulate before refinement
-    // of camera pose and calibration in bundle-adjustment. This may avoid
-    // that some points are filtered and it helps for subsequent image
-    // registrations.
-    report.num_completed_observations =
-        triangulator_->CompleteTracks(tri_options, variable_point3D_ids);
-    report.num_completed_observations +=
-        triangulator_->CompleteImage(tri_options, image_id);
+    const bool stopped =
+        ba_options.check_if_stopped && ba_options.check_if_stopped();
+    if (!stopped) {
+      // Merge refined tracks with other existing points.
+      report.num_merged_observations =
+          triangulator_->MergeTracks(tri_options, variable_point3D_ids);
+      // Complete tracks that may have failed to triangulate before refinement
+      // of camera pose and calibration in bundle-adjustment. This may avoid
+      // that some points are filtered and it helps for subsequent image
+      // registrations.
+      report.num_completed_observations =
+          triangulator_->CompleteTracks(tri_options, variable_point3D_ids);
+      report.num_completed_observations +=
+          triangulator_->CompleteImage(tri_options, image_id);
+    }
   }
 
   // Filter both the modified images and all changed 3D points to make sure
@@ -1221,6 +1225,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
     if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
       return false;
     }
+    if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+      return true;
+    }
 
     ba_config = BundleAdjustmentConfig();
     for (const point3D_t point3D_id : redundant_point3D_ids) {
@@ -1254,6 +1261,10 @@ void IncrementalMapper::IterativeLocalRefinement(
     const image_t image_id) {
   BundleAdjustmentOptions custom_ba_options = ba_options;
   for (int i = 0; i < max_num_refinements; ++i) {
+    if (custom_ba_options.check_if_stopped &&
+        custom_ba_options.check_if_stopped()) {
+      break;
+    }
     const auto report = AdjustLocalBundle(options,
                                           custom_ba_options,
                                           tri_options,
@@ -1290,13 +1301,22 @@ void IncrementalMapper::IterativeGlobalRefinement(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const bool normalize_reconstruction) {
+  if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+    return;
+  }
   CompleteAndMergeTracks(tri_options);
   const size_t num_retriangulated_observations = Retriangulate(tri_options);
   VLOG(1) << "=> Retriangulated observations: "
           << num_retriangulated_observations;
   for (int i = 0; i < max_num_refinements; ++i) {
+    if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+      break;
+    }
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
+    if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+      break;
+    }
     if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
