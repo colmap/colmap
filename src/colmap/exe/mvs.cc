@@ -381,7 +381,13 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
                    (output_path.stem().string() + ".partial" +
                     output_path.extension().string());
     } else {
-      write_path += ".partial";
+      std::filesystem::path normalized_output_path =
+          output_path.lexically_normal();
+      if (normalized_output_path.filename().empty()) {
+        normalized_output_path = normalized_output_path.parent_path();
+      }
+      write_path = normalized_output_path.parent_path() /
+                   (normalized_output_path.filename().string() + ".partial");
       CreateDirIfNotExists(write_path);
     }
     LOG(WARNING) << "Writing partial fusion output to " << write_path;

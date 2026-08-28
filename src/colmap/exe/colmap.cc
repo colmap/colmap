@@ -49,6 +49,9 @@ namespace {
 using command_func_t = std::function<int(int, char**)>;
 
 bool SupportsGracefulShutdown(const std::string& command) {
+  // The automatic reconstructor installs its handler after parsing the mapper
+  // type, since only incremental mapping supports resumable shutdown. Keep it
+  // out of this list to avoid nesting ScopedSignalHandler instances.
   static const colmap::FlatHashSet<std::string> kSupportedCommands = {
       "bundle_adjuster",
       "exhaustive_matcher",
