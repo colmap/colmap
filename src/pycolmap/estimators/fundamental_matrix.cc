@@ -20,13 +20,18 @@ namespace py = pybind11;
 py::typing::Optional<py::dict> PyEstimateFundamentalMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
-    const RANSACOptions& options) {
+    const RANSACOptions& options,
+    const bool use_sampson_refinement) {
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
-  LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
-      ransac(options);
-  const auto report = ransac.Estimate(points2D1, points2D2);
+  const auto report =
+      use_sampson_refinement
+          ? LORANSAC<FundamentalMatrixSevenPointEstimator,
+                     FundamentalMatrixSampsonEstimator>(options)
+                .Estimate(points2D1, points2D2)
+          : LORANSAC<FundamentalMatrixSevenPointEstimator,
+                     FundamentalMatrixEightPointEstimator>(options)
+                .Estimate(points2D1, points2D2);
   py::gil_scoped_acquire acquire;
   if (!report.success) {
     return py::none();
@@ -45,5 +50,6 @@ void BindFundamentalMatrixEstimator(py::module& m) {
         "points2D1"_a,
         "points2D2"_a,
         py::arg_v("estimation_options", ransac_options, "RANSACOptions()"),
+        "use_sampson_refinement"_a = true,
         "Robustly estimate fundamental matrix with LO-RANSAC.");
 }

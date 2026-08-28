@@ -104,7 +104,8 @@ class FundamentalMatrixDegensacEstimator {
       double plane_max_residual,
       double off_plane_min_residual,
       double min_sample_h_inlier_ratio,
-      int max_plane_parallax_trials);
+      int max_plane_parallax_trials,
+      bool use_sampson_refinement);
 
   // Estimate fundamental matrix hypotheses from a sample (minimal 7-point or
   // non-minimal >= 8-point). For each hypothesis whose sample is H-degenerate,
@@ -113,6 +114,15 @@ class FundamentalMatrixDegensacEstimator {
   void Estimate(const std::vector<X_t>& sample_points1,
                 const std::vector<Y_t>& sample_points2,
                 std::vector<M_t>* models) const;
+
+  // Local optimization over an inlier set, used by LO-RANSAC. Refits via
+  // Estimate(), then polishes by minimizing the Sampson error, unless the refit
+  // is plane-degenerate: the Sampson cost is then nearly flat along the
+  // epipole, so refining it trades a large epipole excursion for a negligible
+  // cost reduction.
+  bool Refine(const std::vector<X_t>& points1,
+              const std::vector<Y_t>& points2,
+              M_t* F) const;
 
   // Squared Sampson error residuals over the given correspondences.
   void Residuals(const std::vector<X_t>& points1,
@@ -128,6 +138,7 @@ class FundamentalMatrixDegensacEstimator {
   double off_plane_min_residual_;
   double min_sample_h_inlier_ratio_;
   int max_plane_parallax_trials_;
+  bool use_sampson_refinement_;
 };
 
 struct FundamentalMatrixDegensacOptions {
@@ -164,6 +175,10 @@ struct FundamentalMatrixDegensacOptions {
   // runtime win (the inner pair loop is not the bottleneck), while more trials
   // (or dynamic termination) yield no accuracy gain at added cost.
   int max_plane_parallax_trials = 25;
+
+  // Polish the local-optimization refit by minimizing the Sampson error, on
+  // inlier sets that are not plane-degenerate.
+  bool use_sampson_refinement = true;
 };
 
 // Robustly estimate the fundamental matrix from corresponding image points

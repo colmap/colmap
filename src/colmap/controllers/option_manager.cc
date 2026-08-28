@@ -417,6 +417,8 @@ void OptionManager::AddTwoViewGeometryOptions() {
                    &two_view_geometry->stationary_matches_max_error);
   AddDefaultOption("TwoViewGeometry.use_degensac",
                    &two_view_geometry->use_degensac);
+  AddDefaultOption("TwoViewGeometry.use_sampson_refinement",
+                   &two_view_geometry->use_sampson_refinement);
   AddDefaultOption("TwoViewGeometry.max_error",
                    &two_view_geometry->ransac_options.max_error);
   AddDefaultOption("TwoViewGeometry.confidence",

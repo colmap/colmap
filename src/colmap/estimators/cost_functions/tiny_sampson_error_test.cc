@@ -40,6 +40,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/SVD>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -384,6 +385,122 @@ TEST(TinyOneSidedFocalTangentSampsonErrorCostFunctor, MatchesAutodiffFunction) {
     EXPECT_NEAR(residuals[i], residuals_ad[i], 1e-9);
     for (int l = 0; l < 8; ++l) {
       EXPECT_NEAR(jacobian[i + l * n], jacobian_ad[i + l * n], 1e-9);
+    }
+  }
+}
+
+// Image points shared by the fundamental matrix functor tests, in the
+// normalized frame the refiner solves in.
+std::vector<Eigen::Vector2d> FundamentalTestPoints1() {
+  return {
+      {0.10, 0.20}, {-0.30, 0.10}, {0.20, -0.25}, {-0.15, -0.35}, {0.40, 0.05}};
+}
+
+std::vector<Eigen::Vector2d> FundamentalTestPoints2() {
+  return {
+      {0.15, -0.10}, {0.05, 0.30}, {-0.20, -0.15}, {0.25, 0.35}, {-0.05, 0.45}};
+}
+
+Eigen::Matrix3d FundamentalFromParams(const double* params) {
+  return TinyFundamentalSampsonErrorCostFunctor::FundamentalFromParams(params);
+}
+
+// The factorized parameterization always yields a rank-2 matrix with singular
+// values (1, sigma, 0), which is what makes the truncation step of the 8-point
+// algorithm unnecessary.
+TEST(TinyFundamentalSampsonErrorCostFunctor, ParameterizationIsRankTwo) {
+  const Eigen::Quaterniond qU(
+      Eigen::AngleAxisd(0.8, Eigen::Vector3d(0.3, -1, 0.5).normalized()));
+  const Eigen::Quaterniond qV(
+      Eigen::AngleAxisd(-0.4, Eigen::Vector3d(1, 0.2, -0.7).normalized()));
+  const double sigma = 0.6;
+  const double params[9] = {
+      qU.x(), qU.y(), qU.z(), qU.w(), qV.x(), qV.y(), qV.z(), qV.w(), sigma};
+
+  const Eigen::Matrix3d F = FundamentalFromParams(params);
+  const Eigen::Vector3d singular_values =
+      Eigen::JacobiSVD<Eigen::Matrix3d>(F).singularValues();
+  EXPECT_NEAR(singular_values(0), 1.0, 1e-12);
+  EXPECT_NEAR(singular_values(1), sigma, 1e-12);
+  EXPECT_NEAR(singular_values(2), 0.0, 1e-12);
+}
+
+// The batched functor's squared residuals match ComputeSquaredSampsonError at
+// several points in the 9-parameter space.
+TEST(TinyFundamentalSampsonErrorCostFunctor, MatchesSquaredSampsonError) {
+  const std::vector<Eigen::Vector2d> points1 = FundamentalTestPoints1();
+  const std::vector<Eigen::Vector2d> points2 = FundamentalTestPoints2();
+  const TinyFundamentalSampsonErrorCostFunctor functor(points1, points2);
+
+  const std::array<Eigen::Quaterniond, 2> quaternions_U = {
+      Eigen::Quaterniond(
+          Eigen::AngleAxisd(0.9, Eigen::Vector3d(-1, 0.5, 2).normalized())),
+      Eigen::Quaterniond(
+          Eigen::AngleAxisd(0.2, Eigen::Vector3d(0.4, 1, -0.3).normalized()))};
+  const std::array<Eigen::Quaterniond, 2> quaternions_V = {
+      Eigen::Quaterniond(
+          Eigen::AngleAxisd(0.3, Eigen::Vector3d(0.2, -1, 0.7).normalized())),
+      Eigen::Quaterniond(
+          Eigen::AngleAxisd(-0.6, Eigen::Vector3d(1, 0.1, 0.2).normalized()))};
+  const std::array<double, 2> sigmas = {0.85, 0.35};
+
+  for (size_t k = 0; k < sigmas.size(); ++k) {
+    const Eigen::Quaterniond qU = quaternions_U[k].normalized();
+    const Eigen::Quaterniond qV = quaternions_V[k].normalized();
+    const double params[9] = {qU.x(),
+                              qU.y(),
+                              qU.z(),
+                              qU.w(),
+                              qV.x(),
+                              qV.y(),
+                              qV.z(),
+                              qV.w(),
+                              sigmas[k]};
+
+    std::vector<double> residuals(points1.size());
+    ASSERT_TRUE(functor(params, residuals.data(), nullptr));
+
+    std::vector<double> expected;
+    ComputeSquaredSampsonError(
+        points1, points2, FundamentalFromParams(params), &expected);
+    for (size_t i = 0; i < points1.size(); ++i) {
+      EXPECT_NEAR(residuals[i] * residuals[i], expected[i], 1e-12);
+    }
+  }
+}
+
+// The closed-form 9-parameter Jacobian matches central finite differences.
+TEST(TinyFundamentalSampsonErrorCostFunctor, JacobianMatchesFiniteDifference) {
+  const std::vector<Eigen::Vector2d> points1 = FundamentalTestPoints1();
+  const std::vector<Eigen::Vector2d> points2 = FundamentalTestPoints2();
+  const TinyFundamentalSampsonErrorCostFunctor functor(points1, points2);
+  const int n = static_cast<int>(points1.size());
+
+  const Eigen::Quaterniond qU(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(0.2, -1, 0.5).normalized()));
+  const Eigen::Quaterniond qV(
+      Eigen::AngleAxisd(0.5, Eigen::Vector3d(-0.6, 0.3, 1).normalized()));
+  double p[9] = {
+      qU.x(), qU.y(), qU.z(), qU.w(), qV.x(), qV.y(), qV.z(), qV.w(), 0.7};
+
+  std::vector<double> residuals(n), jacobian(n * 9);
+  ASSERT_TRUE(functor(p, residuals.data(), jacobian.data()));
+
+  constexpr double kEps = 1e-6;
+  for (int l = 0; l < 9; ++l) {
+    double p_plus[9], p_minus[9];
+    for (int k = 0; k < 9; ++k) {
+      p_plus[k] = p[k];
+      p_minus[k] = p[k];
+    }
+    p_plus[l] += kEps;
+    p_minus[l] -= kEps;
+    std::vector<double> res_plus(n), res_minus(n);
+    functor(p_plus, res_plus.data(), nullptr);
+    functor(p_minus, res_minus.data(), nullptr);
+    for (int i = 0; i < n; ++i) {
+      const double finite_diff = (res_plus[i] - res_minus[i]) / (2 * kEps);
+      EXPECT_NEAR(jacobian[i + l * n], finite_diff, 1e-5);
     }
   }
 }
