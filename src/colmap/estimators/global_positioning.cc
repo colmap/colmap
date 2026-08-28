@@ -16,22 +16,6 @@ Eigen::Vector3d RandVector3d(double low, double high) {
                          RandomUniformReal(low, high));
 }
 
-class CancellationCallback : public ceres::IterationCallback {
- public:
-  explicit CancellationCallback(std::function<bool()> check_if_stopped)
-      : check_if_stopped_(std::move(check_if_stopped)) {}
-
-  ceres::CallbackReturnType operator()(
-      const ceres::IterationSummary&) override {
-    return check_if_stopped_ && check_if_stopped_()
-               ? ceres::SOLVER_TERMINATE_SUCCESSFULLY
-               : ceres::SOLVER_CONTINUE;
-  }
-
- private:
-  std::function<bool()> check_if_stopped_;
-};
-
 }  // namespace
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
@@ -75,15 +59,10 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   LOG(INFO) << "Solving the global positioner problem";
 
   ceres::Solver::Summary summary;
-  ceres::Solver::Options solver_options = options_.solver_options;
-  solver_options.num_threads =
-      GetEffectiveNumThreads(solver_options.num_threads);
-  solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
-  CancellationCallback cancellation_callback(options_.check_if_stopped);
-  if (options_.check_if_stopped) {
-    solver_options.callbacks.push_back(&cancellation_callback);
-  }
-  ceres::Solve(solver_options, problem_.get(), &summary);
+  options_.solver_options.num_threads =
+      GetEffectiveNumThreads(options_.solver_options.num_threads);
+  options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
+  ceres::Solve(options_.solver_options, problem_.get(), &summary);
 
   if (VLOG_IS_ON(2)) {
     LOG(INFO) << summary.FullReport();

@@ -44,30 +44,6 @@ TEST(GlobalMapper, WithoutNoise) {
                                  /*max_proj_center_error=*/1e-4));
 }
 
-TEST(GlobalMapper, CancellationBeforeGlobalPositioningIsNotCheckpointed) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-
-  auto reconstruction = std::make_shared<Reconstruction>();
-  GlobalMapper global_mapper(CreateDatabaseCache(*database));
-  global_mapper.BeginReconstruction(reconstruction);
-
-  GlobalMapperOptions options;
-  options.check_if_stopped = []() { return true; };
-  EXPECT_FALSE(global_mapper.Solve(options));
-  EXPECT_EQ(reconstruction->NumPoints3D(), 0);
-}
-
 TEST(GlobalMapper, WithoutNoiseWithNonTrivialKnownRig) {
   const auto database_path = CreateTestDir() / "database.db";
 

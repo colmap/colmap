@@ -728,9 +728,6 @@ bool RotationAveragingSolver::SolveL1Regression(
   int iteration = 0;
 
   for (; iteration < options_.max_num_l1_iterations; iteration++) {
-    if (options_.check_if_stopped && options_.check_if_stopped()) {
-      break;
-    }
     VLOG(2) << "L1 ADMM iteration: " << iteration;
 
     problem.ComputeResiduals();
@@ -855,9 +852,6 @@ bool RotationAveragingSolver::SolveIRLS(RotationAveragingProblem& problem) {
   int iteration = 0;
   for (iteration = 0; iteration < options_.max_num_irls_iterations;
        iteration++) {
-    if (options_.check_if_stopped && options_.check_if_stopped()) {
-      break;
-    }
     problem.ComputeResiduals();
 
     auto weights_irls = ComputeIRLSWeights(problem, sigma);

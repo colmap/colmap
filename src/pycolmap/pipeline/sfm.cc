@@ -44,19 +44,34 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
     const std::filesystem::path& output_path,
     const bool clear_points,
     const IncrementalPipelineOptions& options,
-    const bool refine_intrinsics) {
+    const bool refine_intrinsics,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
   py::gil_scoped_release release;
+  PyInterrupt py_interrupt(1.0);
+  bool python_interrupt_raised = false;
+  const auto check_if_stopped = [&]() {
+    python_interrupt_raised = py_interrupt.Raised();
+    return python_interrupt_raised ||
+           (cancellation_token && cancellation_token->IsCancelled());
+  };
   RunPointTriangulatorImpl(reconstruction,
                            database_path,
                            image_path,
                            output_path,
                            options,
                            clear_points,
-                           refine_intrinsics);
+                           refine_intrinsics,
+                           check_if_stopped);
+  if (python_interrupt_raised) {
+    ThrowPythonError();
+  }
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
   return reconstruction;
 }
 
@@ -121,8 +136,7 @@ std::map<size_t, std::shared_ptr<Reconstruction>> GlobalMapping(
     const std::filesystem::path& database_path,
     const std::filesystem::path& image_path,
     const std::filesystem::path& output_path,
-    GlobalPipelineOptions options,
-    const std::shared_ptr<CancellationToken>& cancellation_token) {
+    GlobalPipelineOptions options) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
@@ -130,27 +144,11 @@ std::map<size_t, std::shared_ptr<Reconstruction>> GlobalMapping(
   py::gil_scoped_release release;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   auto options_ = std::make_shared<GlobalPipelineOptions>(std::move(options));
-  PyInterrupt py_interrupt(1.0);
-  bool python_interrupt_raised = false;
-  const auto check_if_stopped = [&]() {
-    python_interrupt_raised = py_interrupt.Raised();
-    return python_interrupt_raised ||
-           (cancellation_token && cancellation_token->IsCancelled());
-  };
-  const bool success = RunGlobalMapperImpl(database_path,
-                                           image_path,
-                                           output_path,
-                                           options_,
-                                           reconstruction_manager,
-                                           check_if_stopped);
-
-  if (python_interrupt_raised) {
-    ThrowPythonError();
-  }
-  if (cancellation_token && cancellation_token->IsCancelled()) {
-    ThrowCancelled();
-  }
-  if (!success) {
+  if (!RunGlobalMapperImpl(database_path,
+                           image_path,
+                           output_path,
+                           options_,
+                           reconstruction_manager)) {
     return {};
   }
 
@@ -181,14 +179,29 @@ std::map<size_t, std::shared_ptr<Reconstruction>> HierarchicalMapping(
   return ReconstructionManagerToMap(reconstruction_manager);
 }
 
-void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
-                      const BundleAdjustmentOptions& options) {
+void BundleAdjustment(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const BundleAdjustmentOptions& options,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   py::gil_scoped_release release;
   OptionManager option_manager;
   option_manager.bundle_adjustment =
       std::make_shared<BundleAdjustmentOptions>(options);
+  PyInterrupt py_interrupt(1.0);
+  bool python_interrupt_raised = false;
   BundleAdjustmentController controller(option_manager, reconstruction);
+  controller.SetCheckIfStoppedFunc([&]() {
+    python_interrupt_raised = py_interrupt.Raised();
+    return python_interrupt_raised ||
+           (cancellation_token && cancellation_token->IsCancelled());
+  });
   controller.Run();
+  if (python_interrupt_raised) {
+    ThrowPythonError();
+  }
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
 }
 
 bool ViewGraphCalibration(const std::filesystem::path& database_path,
@@ -239,6 +252,7 @@ void BindSfM(py::module& m) {
                   IncrementalPipelineOptions(),
                   "IncrementalPipelineOptions()"),
         "refine_intrinsics"_a = false,
+        "cancellation_token"_a = py::none(),
         "Triangulate 3D points from known camera poses");
 
   m.def("incremental_mapping",
@@ -262,7 +276,6 @@ void BindSfM(py::module& m) {
       "image_path"_a,
       "output_path"_a,
       py::arg_v("options", GlobalPipelineOptions(), "GlobalPipelineOptions()"),
-      "cancellation_token"_a = py::none(),
       "Recover 3D points and camera poses using global SfM (GLOMAP)");
 
   m.def("hierarchical_mapping",
@@ -293,5 +306,6 @@ void BindSfM(py::module& m) {
         "reconstruction"_a,
         py::arg_v(
             "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
+        "cancellation_token"_a = py::none(),
         "Jointly refine 3D points and camera poses");
 }

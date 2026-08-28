@@ -40,6 +40,7 @@
 #include "colmap/util/cancellation.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/oiio_utils.h"
+#include "colmap/util/string.h"
 #include "colmap/util/version.h"
 
 #include <memory>
@@ -48,20 +49,48 @@ namespace {
 
 using command_func_t = std::function<int(int, char**)>;
 
-bool SupportsGracefulShutdown(const std::string& command) {
+bool UsesIncrementalMapper(int argc, char** argv) {
+  for (int i = 2; i < argc; ++i) {
+    std::string argument = argv[i];
+    if (argument == "--mapper" && i + 1 < argc) {
+      argument = argv[++i];
+    } else if (argument.rfind("--mapper=", 0) == 0) {
+      argument = argument.substr(std::string("--mapper=").size());
+    } else {
+      continue;
+    }
+    colmap::StringToUpper(&argument);
+    return argument == "INCREMENTAL";
+  }
+  return true;
+}
+
+bool SupportsGracefulShutdown(const std::string& command,
+                              int argc,
+                              char** argv) {
+  if (command == "automatic_reconstructor") {
+    return UsesIncrementalMapper(argc, argv);
+  }
+
   static const colmap::FlatHashSet<std::string> kSupportedCommands = {
+      "bundle_adjuster",
       "exhaustive_matcher",
       "feature_extractor",
       "feature_importer",
       "geometric_verifier",
-      "global_mapper",
       "guided_geometric_verifier",
+      "image_rectifier",
+      "image_registrator",
+      "image_undistorter",
+      "image_undistorter_standalone",
       "mapper",
       "matches_importer",
       "patch_match_stereo",
+      "point_triangulator",
       "pose_prior_mapper",
       "sequential_matcher",
       "spatial_matcher",
+      "stereo_fusion",
       "transitive_matcher",
       "vocab_tree_matcher",
   };
@@ -214,7 +243,7 @@ int main(int argc, char** argv) {
       char** command_argv = &argv[1];
       command_argv[0] = argv[0];
       std::unique_ptr<colmap::ScopedSignalHandler> signal_handler;
-      if (SupportsGracefulShutdown(command)) {
+      if (SupportsGracefulShutdown(command, argc, argv)) {
         signal_handler = std::make_unique<colmap::ScopedSignalHandler>();
       }
 

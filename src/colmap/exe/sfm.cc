@@ -384,21 +384,17 @@ bool RunGlobalMapperImpl(
     const std::filesystem::path& image_path,
     const std::filesystem::path& output_path,
     const std::shared_ptr<GlobalPipelineOptions>& mapper_options,
-    std::shared_ptr<ReconstructionManager>& reconstruction_manager,
-    std::function<bool()> check_if_stopped) {
+    std::shared_ptr<ReconstructionManager>& reconstruction_manager) {
   GlobalPipelineOptions options = *mapper_options;
   options.image_path = image_path;
 
   GlobalPipeline global_mapper(std::move(options),
                                Database::Open(database_path),
                                reconstruction_manager);
-  global_mapper.SetCheckIfStoppedFunc(std::move(check_if_stopped));
   global_mapper.Run();
 
   if (reconstruction_manager->Size() == 0) {
-    if (!global_mapper.CheckIfStopped()) {
-      LOG(ERROR) << "Failed to create sparse model";
-    }
+    LOG(ERROR) << "Failed to create sparse model";
     return false;
   }
 
@@ -658,7 +654,8 @@ void RunPointTriangulatorImpl(
     const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
     const bool clear_points,
-    const bool refine_intrinsics) {
+    const bool refine_intrinsics,
+    std::function<bool()> check_if_stopped) {
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
   if (clear_points) {
@@ -679,6 +676,7 @@ void RunPointTriangulatorImpl(
   reconstruction_manager->Get(reconstruction_manager->Add()) = reconstruction;
   IncrementalPipeline mapper(
       custom_options, Database::Open(database_path), reconstruction_manager);
+  mapper.SetCheckIfStoppedFunc(std::move(check_if_stopped));
   mapper.TriangulateReconstruction(reconstruction);
   reconstruction->Write(output_path);
 }

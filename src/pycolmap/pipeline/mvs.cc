@@ -16,6 +16,9 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <atomic>
+#include <thread>
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -46,6 +49,44 @@ void PatchMatchStereo(
   RunPatchMatchStereoImpl(
       workspace_path, workspace_format, pmvs_option_name, options, config_path);
 #endif  // COLMAP_CUDA_ENABLED
+}
+
+Reconstruction StereoFusion(
+    const std::filesystem::path& output_path,
+    const std::filesystem::path& workspace_path,
+    std::string workspace_format,
+    const std::string& pmvs_option_name,
+    std::string input_type,
+    const mvs::StereoFusionOptions& options,
+    std::string output_type,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+  py::gil_scoped_release release;
+  PyInterrupt py_interrupt(1.0);
+  std::atomic<bool> python_interrupt_raised{false};
+  const std::thread::id calling_thread_id = std::this_thread::get_id();
+  Reconstruction reconstruction = RunStereoFuserImpl(
+      output_path,
+      workspace_path,
+      std::move(workspace_format),
+      pmvs_option_name,
+      std::move(input_type),
+      options,
+      std::move(output_type),
+      [&]() {
+        if (std::this_thread::get_id() == calling_thread_id &&
+            py_interrupt.Raised()) {
+          python_interrupt_raised.store(true, std::memory_order_relaxed);
+        }
+        return python_interrupt_raised.load(std::memory_order_relaxed) ||
+               (cancellation_token && cancellation_token->IsCancelled());
+      });
+  if (python_interrupt_raised.load(std::memory_order_relaxed)) {
+    ThrowPythonError();
+  }
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
+  return reconstruction;
 }
 
 void BindMVS(py::module& m) {
@@ -208,7 +249,7 @@ void BindMVS(py::module& m) {
 
   m.def(
       "stereo_fusion",
-      &RunStereoFuserImpl,
+      &StereoFusion,
       "output_path"_a,
       "workspace_path"_a,
       "workspace_format"_a = "COLMAP",
@@ -216,6 +257,6 @@ void BindMVS(py::module& m) {
       "input_type"_a = "geometric",
       py::arg_v("options", mvs::StereoFusionOptions(), "StereoFusionOptions()"),
       "output_type"_a = "bin",
-      "Stereo Fusion",
-      py::call_guard<py::gil_scoped_release>());
+      "cancellation_token"_a = py::none(),
+      "Stereo Fusion");
 }

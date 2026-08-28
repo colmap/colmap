@@ -99,9 +99,6 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
           base, /*filter_unregistered=*/false);
 
   for (const auto& input_component : input_components) {
-    if (options.check_if_stopped && options.check_if_stopped()) {
-      return result;
-    }
     if (static_cast<int>(NumFramesForImages(base, input_component)) <
         min_model_size) {
       ++result.num_too_small;
@@ -121,9 +118,6 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
                                          pose_priors)) {
       ++result.num_failed;
       continue;
-    }
-    if (options.check_if_stopped && options.check_if_stopped()) {
-      return result;
     }
 
     if (decomposition_options.max_rotation_error_deg > 0) {
@@ -189,18 +183,17 @@ GlobalPipeline::ReconstructSingleComponent(
   LOG(INFO) << "Reconstruction done in " << run_timer.ElapsedSeconds()
             << " seconds";
 
+  // A stop requested through the callback is reported as success, so false
+  // only denotes a genuine mapping failure. The caller removes failed
+  // reconstructions from the output manager.
   if (!success) {
-    if (!CheckIfStopped()) {
-      LOG(ERROR) << "Global mapping failed";
-    }
+    LOG(ERROR) << "Global mapping failed";
     return std::nullopt;
   }
 
   // Align reconstruction to the original metric scales in rig extrinsics.
-  if (!CheckIfStopped()) {
-    AlignReconstructionToOrigRigScales(database_cache->Rigs(),
-                                       reconstruction.get());
-  }
+  AlignReconstructionToOrigRigScales(database_cache->Rigs(),
+                                     reconstruction.get());
 
   return reconstruction;
 }
@@ -217,7 +210,6 @@ void GlobalPipeline::Run() {
   mapper_options.image_path = options_.image_path;
   mapper_options.num_threads = options_.num_threads;
   mapper_options.random_seed = options_.random_seed;
-  mapper_options.check_if_stopped = [this]() { return CheckIfStopped(); };
 
   const size_t first_reconstruction_idx = reconstruction_manager_->Size();
   ReconstructionStats stats;
@@ -229,10 +221,8 @@ void GlobalPipeline::Run() {
     if (!reconstruction.has_value()) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;
-    } else if ((*reconstruction)->NumRegFrames() == 0 ||
-               (!CheckIfStopped() &&
-                static_cast<int>((*reconstruction)->NumRegFrames()) <
-                    options_.min_model_size)) {
+    } else if (static_cast<int>((*reconstruction)->NumRegFrames()) <
+               options_.min_model_size) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_too_small;
     }
@@ -260,9 +250,6 @@ void GlobalPipeline::Run() {
 
   for (size_t i = first_reconstruction_idx; i < reconstruction_manager_->Size();
        ++i) {
-    if (CheckIfStopped()) {
-      break;
-    }
     if (!options_.image_path.empty()) {
       LOG(INFO) << "Extracting colors ...";
       reconstruction_manager_->Get(i)->ExtractColorsForAllImages(
@@ -347,15 +334,10 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
     if (!reconstruction.has_value()) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;
-    } else if ((*reconstruction)->NumRegFrames() == 0 ||
-               (!CheckIfStopped() &&
-                static_cast<int>((*reconstruction)->NumRegFrames()) <
-                    options_.min_model_size)) {
+    } else if (static_cast<int>((*reconstruction)->NumRegFrames()) <
+               options_.min_model_size) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_too_small;
-    }
-    if (CheckIfStopped()) {
-      return stats;
     }
   }
 

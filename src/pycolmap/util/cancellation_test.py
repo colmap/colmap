@@ -22,3 +22,26 @@ def test_cancelled_feature_extraction_raises(tmp_path):
             image_path,
             cancellation_token=token,
         )
+
+
+def test_cancelled_bundle_adjustment_raises():
+    token = pycolmap.CancellationToken()
+    token.cancel()
+
+    with pytest.raises(InterruptedError):
+        pycolmap.bundle_adjustment(
+            pycolmap.Reconstruction(), cancellation_token=token
+        )
+
+
+@pytest.mark.parametrize(
+    "function_name",
+    [
+        "bundle_adjustment",
+        "stereo_fusion",
+        "triangulate_points",
+        "undistort_images",
+    ],
+)
+def test_pipeline_accepts_cancellation_token(function_name):
+    assert "cancellation_token" in getattr(pycolmap, function_name).__doc__

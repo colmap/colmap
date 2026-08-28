@@ -51,6 +51,9 @@ void BundleAdjustmentController::Run() {
     LOG(ERROR) << "Need at least one registered frame.";
     return;
   }
+  if (CheckIfStopped()) {
+    return;
+  }
 
   // Avoid degeneracies in bundle adjustment.
   ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();

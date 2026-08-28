@@ -4,7 +4,6 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/hash_containers.h"
 
-#include <functional>
 #include <string>
 
 #include <ceres/ceres.h>
@@ -48,10 +47,6 @@ struct GlobalPositionerOptions {
 
   // The options for the solver
   ceres::Solver::Options solver_options;
-
-  // Optional cooperative cancellation callback, evaluated after each Ceres
-  // iteration.
-  std::function<bool()> check_if_stopped;
 
   GlobalPositionerOptions() {
     solver_options.num_threads = -1;

@@ -89,35 +89,6 @@ TEST(GlobalPositioning, Nominal) {
                                  /*num_obs_tolerance=*/0.0));
 }
 
-TEST(GlobalPositioning, DoesNotRetainCancellationCallback) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 4;
-  synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
-
-  DatabaseCache database_cache;
-  DatabaseCache::Options cache_options;
-  database_cache.Load(*database, cache_options);
-  PoseGraph pose_graph;
-  pose_graph.Load(*database_cache.CorrespondenceGraph());
-
-  GlobalPositionerOptions options;
-  options.use_gpu = false;
-  options.solver_options.max_num_iterations = 1;
-  options.check_if_stopped = []() { return false; };
-  GlobalPositioner positioner(options);
-
-  EXPECT_TRUE(positioner.Solve(pose_graph, reconstruction));
-  EXPECT_TRUE(positioner.GetOptions().solver_options.callbacks.empty());
-}
-
 TEST(GlobalPositioning, MultiCameraRig) {
   const auto database_path = CreateTestDir() / "database.db";
 

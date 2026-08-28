@@ -6,7 +6,6 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/hash_containers.h"
 
-#include <functional>
 #include <vector>
 
 #include <Eigen/Core>
@@ -94,10 +93,6 @@ struct RotationEstimatorOptions {
   // (consistent) system yields an identical solution regardless of reweighting.
   RotationAveragingReweighting reweighting =
       RotationAveragingReweighting::UNIFORM;
-
-  // Optional cooperative cancellation callback, evaluated between solver
-  // iterations.
-  std::function<bool()> check_if_stopped;
 };
 
 // High-level interface for rotation averaging.

@@ -335,7 +335,8 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
                                   const std::string& pmvs_option_name,
                                   std::string input_type,
                                   const mvs::StereoFusionOptions& options,
-                                  std::string output_type) {
+                                  std::string output_type,
+                                  std::function<bool()> check_if_stopped) {
   StringToLower(&workspace_format);
   THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
       << "Invalid `workspace_format` " << workspace_format
@@ -354,8 +355,13 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
 
   mvs::StereoFusion fuser(
       options, workspace_path, workspace_format, pmvs_option_name, input_type);
+  fuser.SetCheckIfStoppedFunc(std::move(check_if_stopped));
 
   fuser.Run();
+
+  if (fuser.CheckIfStopped() && fuser.GetFusedPoints().empty()) {
+    return {};
+  }
 
   Reconstruction reconstruction;
 

@@ -104,6 +104,30 @@ TEST(COLMAPUndistorter, Integration) {
   EXPECT_TRUE(ExistsFile(output_path / "stereo/fusion.cfg"));
 }
 
+TEST(COLMAPUndistorter, StopsPendingWork) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "output";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  const Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path, /*num_images=*/10);
+  COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+                                UndistortCameraOptions(),
+                                reconstruction,
+                                image_path,
+                                output_path);
+  bool stop_checked = false;
+  undistorter.SetCheckIfStoppedFunc([&stop_checked]() {
+    stop_checked = true;
+    return true;
+  });
+  undistorter.Run();
+
+  EXPECT_TRUE(stop_checked);
+}
+
 TEST(COLMAPUndistorter, SpecificImages) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";

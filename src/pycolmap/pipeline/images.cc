@@ -96,16 +96,18 @@ Camera InferCameraFromImage(const std::filesystem::path& image_path,
   return camera;
 }
 
-void UndistortImages(const std::filesystem::path& output_path,
-                     const std::filesystem::path& input_path,
-                     const std::filesystem::path& image_path,
-                     const std::vector<std::string>& image_names,
-                     const std::string& output_type,
-                     const FileCopyType copy_type,
-                     const int num_patch_match_src_images,
-                     const UndistortCameraOptions& undistort_camera_options,
-                     int jpeg_quality,
-                     int num_threads) {
+void UndistortImages(
+    const std::filesystem::path& output_path,
+    const std::filesystem::path& input_path,
+    const std::filesystem::path& image_path,
+    const std::vector<std::string>& image_names,
+    const std::string& output_type,
+    const FileCopyType copy_type,
+    const int num_patch_match_src_images,
+    const UndistortCameraOptions& undistort_camera_options,
+    int jpeg_quality,
+    int num_threads,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
@@ -171,7 +173,20 @@ void UndistortImages(const std::filesystem::path& output_path,
   }
 
   py::gil_scoped_release release;
+  PyInterrupt py_interrupt(1.0);
+  bool python_interrupt_raised = false;
+  undistorter->SetCheckIfStoppedFunc([&]() {
+    python_interrupt_raised = py_interrupt.Raised();
+    return python_interrupt_raised ||
+           (cancellation_token && cancellation_token->IsCancelled());
+  });
   undistorter->Run();
+  if (python_interrupt_raised) {
+    ThrowPythonError();
+  }
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
 }
 
 void BindImages(py::module& m) {
@@ -262,5 +277,6 @@ void BindImages(py::module& m) {
                   "UndistortCameraOptions()"),
         "jpeg_quality"_a = -1,
         "num_threads"_a = -1,
+        "cancellation_token"_a = py::none(),
         "Undistort images");
 }

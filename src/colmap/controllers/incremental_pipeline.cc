@@ -862,6 +862,9 @@ void IncrementalPipeline::TriangulateReconstruction(
   LOG(INFO) << "Iterative triangulation";
   size_t image_idx = 0;
   for (const image_t image_id : reconstruction->RegImageIds()) {
+    if (CheckIfStopped()) {
+      break;
+    }
     const auto& image = reconstruction->Image(image_id);
 
     LOG(INFO) << StringPrintf(
@@ -876,22 +879,26 @@ void IncrementalPipeline::TriangulateReconstruction(
             << (image.NumPoints3D() - num_existing_points3D) << " points";
   }
 
-  LOG(INFO) << "Retriangulation and Global bundle adjustment";
-  BundleAdjustmentOptions ba_options = options_->GlobalBundleAdjustment();
-  ba_options.check_if_stopped = [this]() { return CheckIfStopped(); };
-  mapper.IterativeGlobalRefinement(options_->ba_global_max_refinements,
-                                   options_->ba_global_max_refinement_change,
-                                   options_->Mapper(),
-                                   ba_options,
-                                   options_->Triangulation(),
-                                   /*normalize_reconstruction=*/false);
+  if (!CheckIfStopped()) {
+    LOG(INFO) << "Retriangulation and Global bundle adjustment";
+    BundleAdjustmentOptions ba_options = options_->GlobalBundleAdjustment();
+    ba_options.check_if_stopped = [this]() { return CheckIfStopped(); };
+    mapper.IterativeGlobalRefinement(options_->ba_global_max_refinements,
+                                     options_->ba_global_max_refinement_change,
+                                     options_->Mapper(),
+                                     ba_options,
+                                     options_->Triangulation(),
+                                     /*normalize_reconstruction=*/false);
+  }
   mapper.EndReconstruction(/*discard=*/false);
 
   reconstruction->UpdatePoint3DErrors();
 
-  LOG(INFO) << "Extracting colors";
-  reconstruction->ExtractColorsForAllImages(options_->image_path,
-                                            options_->num_threads);
+  if (!CheckIfStopped()) {
+    LOG(INFO) << "Extracting colors";
+    reconstruction->ExtractColorsForAllImages(options_->image_path,
+                                              options_->num_threads);
+  }
 }
 
 void IncrementalPipeline::RegisterCallbacks() {

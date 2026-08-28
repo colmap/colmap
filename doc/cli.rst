@@ -101,11 +101,14 @@ Graceful shutdown and resuming
 ------------------------------
 
 The feature extraction and matching commands, ``mapper``,
-``pose_prior_mapper``, ``global_mapper``, and ``patch_match_stereo`` handle
-``SIGINT`` and ``SIGTERM`` cooperatively. The first signal stops work at a safe
-point and writes any usable in-progress results. The process then exits with
-status 130 for ``SIGINT`` or 143 for ``SIGTERM``. A second signal terminates
-immediately and may interrupt an output write.
+``pose_prior_mapper``, ``bundle_adjuster``, ``point_triangulator``,
+``image_registrator``, the image undistortion commands,
+``patch_match_stereo``, and ``stereo_fusion`` handle ``SIGINT`` and ``SIGTERM``
+cooperatively. ``automatic_reconstructor`` supports graceful shutdown when
+using the incremental mapper. The first signal stops work at a safe point and
+writes any usable in-progress results. The process then exits with status 130
+for ``SIGINT`` or 143 for ``SIGTERM``. A second signal terminates immediately
+and may interrupt an output write.
 
 Feature extraction and matching can be resumed by rerunning the same command
 against the same database. PatchMatch can likewise be rerun against the same
@@ -119,10 +122,12 @@ and can be continued with ``--input_path``::
         --input_path $DATASET_PATH/sparse/0 \
         --output_path $DATASET_PATH/sparse/0
 
-The global mapper also writes a coherent partial reconstruction when possible,
-but automatic continuation of the global pipeline from that model is not
-currently supported. Ceres optimizations stop between iterations. The Caspar
-bundle-adjustment backend can only stop after its current solver invocation.
+Point triangulation, image registration, bundle adjustment, and stereo fusion
+write their usable partial results before exiting. Image undistortion can be
+resumed by rerunning the same command. Ceres optimizations stop between
+iterations. The Caspar bundle-adjustment backend can only stop after its current
+solver invocation. The global mapper does not support graceful shutdown because
+its intermediate reconstructions cannot currently be resumed.
 
 The equivalent pycolmap functions accept an optional
 ``cancellation_token``. Cancellation finishes cleanup and then raises

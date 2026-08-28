@@ -258,6 +258,9 @@ void StereoFusion::Run() {
                                     const Mat<char>& fused_pixel_mask) {
     const int row_end = std::min(height, row_start + kRowStride);
     for (int row = row_start; row < row_end; ++row) {
+      if (CheckIfStopped()) {
+        return;
+      }
       for (int col = 0; col < width; ++col) {
         if (fused_pixel_mask.Get(row, col) > 0) {
           continue;
@@ -291,6 +294,9 @@ void StereoFusion::Run() {
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
     for (int row_start = 0; row_start < height; row_start += kRowStride) {
+      if (CheckIfStopped()) {
+        break;
+      }
       thread_pool.AddTask(ProcessImageRows,
                           row_start,
                           height,
@@ -299,6 +305,9 @@ void StereoFusion::Run() {
                           fused_pixel_mask);
     }
     thread_pool.Wait();
+    if (CheckIfStopped()) {
+      break;
+    }
 
     num_fused_images += 1;
     fused_images_.at(image_idx) = true;

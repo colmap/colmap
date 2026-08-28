@@ -49,6 +49,35 @@ TEST(BundleAdjustmentController, EmptyReconstruction) {
   EXPECT_EQ(reconstruction->NumPoints3D(), 0);
 }
 
+TEST(BundleAdjustmentController, StopsBeforeOptimization) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction);
+
+  auto reconstruction = std::make_shared<Reconstruction>(gt_reconstruction);
+  OptionManager options;
+  BundleAdjustmentController controller(options, reconstruction);
+  bool stop_checked = false;
+  controller.SetCheckIfStoppedFunc([&stop_checked]() {
+    stop_checked = true;
+    return true;
+  });
+  controller.Run();
+
+  EXPECT_TRUE(stop_checked);
+  const frame_t frame_id = reconstruction->RegFrameIds().front();
+  EXPECT_EQ(reconstruction->Frame(frame_id).RigFromWorld(),
+            gt_reconstruction.Frame(frame_id).RigFromWorld());
+  const point3D_t point3D_id = *reconstruction->Point3DIds().begin();
+  EXPECT_TRUE(
+      reconstruction->Point3D(point3D_id)
+          .xyz.isApprox(gt_reconstruction.Point3D(point3D_id).xyz, 0.0));
+}
+
 TEST(BundleAdjustmentController, Reconstruction) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;

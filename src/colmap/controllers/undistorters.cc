@@ -200,6 +200,7 @@ void COLMAPUndistorter::Run() {
   image_names.reserve(num_images);
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
       break;
     }
 
@@ -586,6 +587,7 @@ void CMPMVSUndistorter::Run() {
 
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
       break;
     }
 
@@ -662,6 +664,7 @@ void StandaloneImageUndistorter::Run() {
 
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
       break;
     }
 
@@ -742,6 +745,7 @@ void StereoImageRectifier::Run() {
 
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
       break;
     }
 
