@@ -462,6 +462,8 @@ void OptionManager::AddSequentialPairingOptions() {
                    &sequential_pairing->loop_detection_period);
   AddDefaultOption("SequentialMatching.loop_detection_num_images",
                    &sequential_pairing->loop_detection_num_images);
+  AddDefaultOption("SequentialMatching.loop_detection_min_index_distance",
+                   &sequential_pairing->loop_detection_min_index_distance);
   AddDefaultOption("SequentialMatching.loop_detection_num_nearest_neighbors",
                    &sequential_pairing->loop_detection_num_nearest_neighbors);
   AddDefaultOption("SequentialMatching.loop_detection_num_checks",
