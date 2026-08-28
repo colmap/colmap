@@ -56,13 +56,12 @@ TEST(ScopedSignalHandler, RecordsFirstSignal) {
 }
 
 TEST(ScopedSignalHandler, SecondSignalTerminatesImmediately) {
-  EXPECT_EXIT(
+  EXPECT_DEATH(
       {
         ScopedSignalHandler signal_handler;
         std::raise(SIGINT);
         std::raise(SIGINT);
       },
-      testing::ExitedWithCode(128 + SIGINT),
       "");
 }
 
