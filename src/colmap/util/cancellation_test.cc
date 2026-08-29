@@ -30,6 +30,7 @@
 #include "colmap/util/cancellation.h"
 
 #include <csignal>
+#include <cstdlib>
 
 #include <gtest/gtest.h>
 
@@ -50,9 +51,11 @@ TEST(CancellationToken, Cancel) {
 TEST(ScopedSignalHandler, RecordsFirstSignal) {
   ScopedSignalHandler signal_handler;
   EXPECT_FALSE(ScopedSignalHandler::IsInterruptRequested());
+  EXPECT_EQ(signal_handler.GetExitCode(), EXIT_SUCCESS);
   std::raise(SIGINT);
   EXPECT_TRUE(ScopedSignalHandler::IsInterruptRequested());
   EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
+  EXPECT_EQ(signal_handler.GetExitCode(), 128 + SIGINT);
 }
 
 TEST(ScopedSignalHandler, SecondSignalTerminatesImmediately) {

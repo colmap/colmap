@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
       if (signal_handler && signal_handler->ReceivedSignal() != 0) {
         LOG(INFO) << "Graceful shutdown completed after receiving signal "
                   << signal_handler->ReceivedSignal();
-        return 128 + signal_handler->ReceivedSignal();
+        return signal_handler->GetExitCode();
       }
       return exit_code;
     }

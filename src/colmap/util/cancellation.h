@@ -58,6 +58,7 @@ class ScopedSignalHandler {
   ScopedSignalHandler& operator=(const ScopedSignalHandler&) = delete;
 
   int ReceivedSignal() const;
+  int GetExitCode() const;
 
   static bool IsInterruptRequested();
 

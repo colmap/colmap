@@ -68,6 +68,11 @@ int ScopedSignalHandler::ReceivedSignal() const {
   return received_signal.load(std::memory_order_relaxed);
 }
 
+int ScopedSignalHandler::GetExitCode() const {
+  const int signal = ReceivedSignal();
+  return signal == 0 ? EXIT_SUCCESS : 128 + signal;
+}
+
 bool ScopedSignalHandler::IsInterruptRequested() {
   return received_signal.load(std::memory_order_relaxed) != 0;
 }

@@ -20,6 +20,7 @@ def test_cancelled_feature_extraction_raises(tmp_path):
         pycolmap.extract_features(
             tmp_path / "database.db",
             image_path,
+            device=pycolmap.Device.cpu,
             cancellation_token=token,
         )
 

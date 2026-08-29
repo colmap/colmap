@@ -173,20 +173,10 @@ void UndistortImages(
   }
 
   py::gil_scoped_release release;
-  PyInterrupt py_interrupt(1.0);
-  bool python_interrupt_raised = false;
-  undistorter->SetCheckIfStoppedFunc([&]() {
-    python_interrupt_raised = py_interrupt.Raised();
-    return python_interrupt_raised ||
-           (cancellation_token && cancellation_token->IsCancelled());
-  });
+  PyInterruptChecker interrupt_checker(cancellation_token);
+  undistorter->SetCheckIfStoppedFunc(interrupt_checker.Callback());
   undistorter->Run();
-  if (python_interrupt_raised) {
-    ThrowPythonError();
-  }
-  if (cancellation_token && cancellation_token->IsCancelled()) {
-    ThrowCancelled();
-  }
+  interrupt_checker.CheckAndThrow();
 }
 
 void BindImages(py::module& m) {

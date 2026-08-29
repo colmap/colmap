@@ -51,13 +51,7 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
   CreateDirIfNotExists(output_path);
 
   py::gil_scoped_release release;
-  PyInterrupt py_interrupt(1.0);
-  bool python_interrupt_raised = false;
-  const auto check_if_stopped = [&]() {
-    python_interrupt_raised = py_interrupt.Raised();
-    return python_interrupt_raised ||
-           (cancellation_token && cancellation_token->IsCancelled());
-  };
+  PyInterruptChecker interrupt_checker(cancellation_token);
   RunPointTriangulatorImpl(reconstruction,
                            database_path,
                            image_path,
@@ -65,13 +59,8 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
                            options,
                            clear_points,
                            refine_intrinsics,
-                           check_if_stopped);
-  if (python_interrupt_raised) {
-    ThrowPythonError();
-  }
-  if (cancellation_token && cancellation_token->IsCancelled()) {
-    ThrowCancelled();
-  }
+                           interrupt_checker.Callback());
+  interrupt_checker.CheckAndThrow();
   return reconstruction;
 }
 
@@ -95,13 +84,7 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
   }
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
 
-  PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
-  bool python_interrupt_raised = false;
-  const auto check_if_stopped = [&]() {
-    python_interrupt_raised = py_interrupt.Raised();
-    return python_interrupt_raised ||
-           (cancellation_token && cancellation_token->IsCancelled());
-  };
+  PyInterruptChecker interrupt_checker(cancellation_token);
   auto next_image_callback_py_interruptible =
       [next_image_callback = std::move(next_image_callback)]() {
         if (next_image_callback) {
@@ -117,14 +100,9 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
                                reconstruction_manager,
                                initial_image_pair_callback,
                                next_image_callback_py_interruptible,
-                               check_if_stopped);
+                               interrupt_checker.Callback());
 
-  if (python_interrupt_raised) {
-    ThrowPythonError();
-  }
-  if (cancellation_token && cancellation_token->IsCancelled()) {
-    ThrowCancelled();
-  }
+  interrupt_checker.CheckAndThrow();
   if (!success) {
     return {};
   }
@@ -187,21 +165,11 @@ void BundleAdjustment(
   OptionManager option_manager;
   option_manager.bundle_adjustment =
       std::make_shared<BundleAdjustmentOptions>(options);
-  PyInterrupt py_interrupt(1.0);
-  bool python_interrupt_raised = false;
+  PyInterruptChecker interrupt_checker(cancellation_token);
   BundleAdjustmentController controller(option_manager, reconstruction);
-  controller.SetCheckIfStoppedFunc([&]() {
-    python_interrupt_raised = py_interrupt.Raised();
-    return python_interrupt_raised ||
-           (cancellation_token && cancellation_token->IsCancelled());
-  });
+  controller.SetCheckIfStoppedFunc(interrupt_checker.Callback());
   controller.Run();
-  if (python_interrupt_raised) {
-    ThrowPythonError();
-  }
-  if (cancellation_token && cancellation_token->IsCancelled()) {
-    ThrowCancelled();
-  }
+  interrupt_checker.CheckAndThrow();
 }
 
 bool ViewGraphCalibration(const std::filesystem::path& database_path,

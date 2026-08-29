@@ -131,10 +131,12 @@ Caspar bundle-adjustment backend can only stop after its current solver
 invocation. The global mapper does not support graceful shutdown because its
 intermediate reconstructions cannot currently be resumed.
 
-The equivalent pycolmap functions accept an optional
-``cancellation_token``. Cancellation finishes cleanup and then raises
-``InterruptedError``. Applications can connect cloud-preemption signals to the
-token without pycolmap replacing the application's signal handlers::
+The equivalent pycolmap functions automatically handle ``SIGINT`` (Ctrl-C) by
+performing a graceful shutdown and raising ``KeyboardInterrupt``. For other
+termination events, they accept an optional ``cancellation_token``. Explicit
+cancellation finishes cleanup and then raises ``InterruptedError``. This allows
+applications to connect cloud-preemption signals (like ``SIGTERM``) to the token
+without pycolmap replacing the host application's signal handlers::
 
     import signal
     import pycolmap

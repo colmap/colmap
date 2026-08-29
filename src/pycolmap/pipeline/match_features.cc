@@ -99,25 +99,14 @@ void GuidedGeometricVerification(
   THROW_CHECK_FILE_EXISTS(database_path);
 
   py::gil_scoped_release release;  // verification is multi-threaded
-  PyInterrupt py_interrupt(1.0);
-  bool python_interrupt_raised = false;
-  RunGuidedGeometricVerifierImpl(
-      reconstruction,
-      database_path,
-      pairing_options,
-      geometry_options,
-      num_threads,
-      [&]() {
-        python_interrupt_raised = py_interrupt.Raised();
-        return python_interrupt_raised ||
-               (cancellation_token && cancellation_token->IsCancelled());
-      });
-  if (python_interrupt_raised) {
-    ThrowPythonError();
-  }
-  if (cancellation_token && cancellation_token->IsCancelled()) {
-    ThrowCancelled();
-  }
+  PyInterruptChecker interrupt_checker(cancellation_token);
+  RunGuidedGeometricVerifierImpl(reconstruction,
+                                 database_path,
+                                 pairing_options,
+                                 geometry_options,
+                                 num_threads,
+                                 interrupt_checker.Callback());
+  interrupt_checker.CheckAndThrow();
 }
 
 void BindMatchFeatures(py::module& m) {

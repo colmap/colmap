@@ -7,17 +7,14 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
-#ifdef COLMAP_CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
 #include "colmap/mvs/patch_match.h"
-#endif  // COLMAP_CUDA_ENABLED
+#endif
 
 #include "colmap/util/logging.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
-
-#include <atomic>
-#include <thread>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -33,7 +30,7 @@ void PatchMatchStereo(
     const mvs::PatchMatchOptions& options,
     const std::filesystem::path& config_path,
     const std::shared_ptr<CancellationToken>& cancellation_token) {
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
   StringToLower(&workspace_format);
   THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
       << "Invalid `workspace_format` " << workspace_format
@@ -45,10 +42,15 @@ void PatchMatchStereo(
   thread.Start();
   PyWait(&thread, cancellation_token);
 #else
+  static_cast<void>(workspace_path);
+  static_cast<void>(workspace_format);
+  static_cast<void>(pmvs_option_name);
+  static_cast<void>(options);
+  static_cast<void>(config_path);
   static_cast<void>(cancellation_token);
-  RunPatchMatchStereoImpl(
-      workspace_path, workspace_format, pmvs_option_name, options, config_path);
-#endif  // COLMAP_CUDA_ENABLED
+  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA or HIP, "
+                      "neither of which is available on your system.";
+#endif
 }
 
 Reconstruction StereoFusion(
@@ -61,31 +63,17 @@ Reconstruction StereoFusion(
     std::string output_type,
     const std::shared_ptr<CancellationToken>& cancellation_token) {
   py::gil_scoped_release release;
-  PyInterrupt py_interrupt(1.0);
-  std::atomic<bool> python_interrupt_raised{false};
-  const std::thread::id calling_thread_id = std::this_thread::get_id();
-  Reconstruction reconstruction = RunStereoFuserImpl(
-      output_path,
-      workspace_path,
-      std::move(workspace_format),
-      pmvs_option_name,
-      std::move(input_type),
-      options,
-      std::move(output_type),
-      [&]() {
-        if (std::this_thread::get_id() == calling_thread_id &&
-            py_interrupt.Raised()) {
-          python_interrupt_raised.store(true, std::memory_order_relaxed);
-        }
-        return python_interrupt_raised.load(std::memory_order_relaxed) ||
-               (cancellation_token && cancellation_token->IsCancelled());
-      });
-  if (python_interrupt_raised.load(std::memory_order_relaxed)) {
-    ThrowPythonError();
-  }
-  if (cancellation_token && cancellation_token->IsCancelled()) {
-    ThrowCancelled();
-  }
+  PyInterruptChecker interrupt_checker(cancellation_token);
+  Reconstruction reconstruction =
+      RunStereoFuserImpl(output_path,
+                         workspace_path,
+                         std::move(workspace_format),
+                         pmvs_option_name,
+                         std::move(input_type),
+                         options,
+                         std::move(output_type),
+                         interrupt_checker.Callback());
+  interrupt_checker.CheckAndThrow();
   return reconstruction;
 }
 
