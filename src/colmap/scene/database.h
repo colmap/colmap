@@ -79,6 +79,11 @@ class Database {
   static void Register(Factory factory);
 
   // Open database and throw a runtime_error if none of the factories succeeds.
+  // If the environment variable `COLMAP_USE_LOCAL_DATABASE=1` is set, the
+  // database is transparently shadowed to local temporary storage (e.g., /tmp)
+  // to improve performance and reliability on high-latency network drives.
+  // The local shadow is synchronized back to the original path and cleaned up
+  // when the database object is destroyed.
   static std::shared_ptr<Database> Open(const std::filesystem::path& path);
 
   // Explicitly close the database before destruction.
