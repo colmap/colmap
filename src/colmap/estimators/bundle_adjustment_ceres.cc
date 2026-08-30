@@ -100,12 +100,6 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
 #endif  // CERES_VERSION_MAJOR
 }
 
-std::unique_ptr<ceres::LossFunction>
-CeresBundleAdjustmentOptions::CreateLossFunction() const {
-  return CreateCeresLossFunction(
-      loss_function_type, loss_function_scale, loss_function_weight);
-}
-
 ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
     const BundleAdjustmentConfig& config, const ceres::Problem& problem) const {
   ceres::Solver::Options custom_solver_options = solver_options;
@@ -618,7 +612,10 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         const BundleAdjustmentConfig& config,
                         Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
-        loss_function_(options_.ceres->CreateLossFunction()) {
+        loss_function_(
+            CreateCeresLossFunction(options_.ceres->loss_function_type,
+                                    options_.ceres->loss_function_scale,
+                                    options_.ceres->loss_function_weight)) {
     VLOG(2) << "Creating Ceres bundle adjuster";
 
     ceres::Problem::Options problem_options;

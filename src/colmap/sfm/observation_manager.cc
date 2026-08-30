@@ -493,8 +493,7 @@ ObservationManager::FindPoints3DWithSmallTriangulationAngle(
 }
 
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
-    const double min_tri_angle,
-    const FlatHashSet<point3D_t>& point3D_ids) {
+    const double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) {
   const std::vector<point3D_t> ordered_point3D_ids(point3D_ids.begin(),
                                                    point3D_ids.end());
   const std::vector<point3D_t> small_angle_point3D_ids =

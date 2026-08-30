@@ -56,12 +56,4 @@ std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
   return scaled_loss;
 }
 
-bool CeresLossFunctionConfig::Check() const {
-  return IsValidCeresLossFunction(type, scale, weight);
-}
-
-std::unique_ptr<ceres::LossFunction> CeresLossFunctionConfig::Create() const {
-  return CreateCeresLossFunction(type, scale, weight);
-}
-
 }  // namespace colmap

@@ -22,13 +22,4 @@ bool IsValidCeresLossFunction(CeresLossFunctionType type,
 std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
     CeresLossFunctionType type, double scale, double weight = 1.0);
 
-struct CeresLossFunctionConfig {
-  CeresLossFunctionType type = CeresLossFunctionType::TRIVIAL;
-  double scale = 1.0;
-  double weight = 1.0;
-
-  bool Check() const;
-  std::unique_ptr<ceres::LossFunction> Create() const;
-};
-
 }  // namespace colmap
