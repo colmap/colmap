@@ -29,15 +29,79 @@
 
 #include "colmap/estimators/solvers/generalized_absolute_pose.h"
 
+#include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/solvers/poselib_utils.h"
+#include "colmap/optim/tiny_solver.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
+
+#include <Eigen/Geometry>
 #include <PoseLib/solvers/gp3p.h>
 #include <PoseLib/solvers/gp4ps.h>
 #include <PoseLib/solvers/p3p.h>
+#include <ceres/tiny_solver_autodiff_function.h>
 
 namespace colmap {
 namespace {
+
+// The 7-DoF manifold of a scaled rig_from_world transform: rotation on SO(3),
+// with the translation and log-scale as Euclidean parameters. The ambient
+// parameter layout matches TinyScaledRigReprojCostFunctor:
+// [qx, qy, qz, qw, tx, ty, tz, log_s].
+using ScaledRigFromWorldManifold =
+    ProductManifold<EigenQuaternionManifold, EuclideanManifold<4>>;
+
+// Normalized-plane reprojection cost functor for fixed-size
+// (colmap::TinySolver) refinement of a scaled rig_from_world transform over
+// all given 2D-3D correspondences.
+class TinyScaledRigReprojCostFunctor {
+ public:
+  using Scalar = double;
+  static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
+  static constexpr int NUM_PARAMETERS = 8;
+
+  // ceres::TinySolver-compatible autodiff wrapper for this functor.
+  using AutoDiffFunction =
+      ceres::TinySolverAutoDiffFunction<TinyScaledRigReprojCostFunctor,
+                                        NUM_RESIDUALS,
+                                        NUM_PARAMETERS>;
+
+  TinyScaledRigReprojCostFunctor(
+      const std::vector<GP4PSEstimator::X_t>& points2D,
+      const std::vector<Eigen::Vector3d>& points3D)
+      : points2D_(points2D), points3D_(points3D) {}
+
+  int NumResiduals() const { return 2 * static_cast<int>(points2D_.size()); }
+
+  template <typename T>
+  bool operator()(const T* const params, T* residuals) const {
+    const Eigen::Map<const Eigen::Quaternion<T>> rotation(params);
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation(params + 4);
+    const T scale = ceres::exp(params[7]);
+    for (size_t i = 0; i < points2D_.size(); ++i) {
+      const Eigen::Matrix<T, 3, 1> point3D_in_rig =
+          scale * (rotation * points3D_[i].cast<T>()) + translation;
+      const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+          points2D_[i].cam_from_rig.cast<T>() * point3D_in_rig.homogeneous();
+      if (point3D_in_cam.z() > T(std::numeric_limits<double>::epsilon())) {
+        const Eigen::Matrix<T, 2, 1> diff =
+            points2D_[i].ray_in_cam.hnormalized().cast<T>() -
+            point3D_in_cam.hnormalized();
+        residuals[2 * i] = diff.x();
+        residuals[2 * i + 1] = diff.y();
+      } else {
+        residuals[2 * i] = T(0);
+        residuals[2 * i + 1] = T(0);
+      }
+    }
+    return true;
+  }
+
+ private:
+  const std::vector<GP4PSEstimator::X_t>& points2D_;
+  const std::vector<Eigen::Vector3d>& points3D_;
+};
 
 
 void ComputeRaysAndOriginsInRig(
@@ -190,6 +254,40 @@ void GP4PSEstimator::Estimate(const std::vector<X_t>& points2D,
         scaled_rig_from_world.rotation(),
         Eigen::Vector3d(scaled_rig_from_world.translation() / scale));
   }
+}
+
+bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
+                            const std::vector<Y_t>& points3D,
+                            M_t* rig_from_world) {
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_GE(points2D.size(), kMinNumSamples);
+  THROW_CHECK_NOTNULL(rig_from_world);
+
+  if (!(rig_from_world->scale() > 0)) {
+    return false;
+  }
+
+  TinyScaledRigReprojCostFunctor functor(points2D, points3D);
+  TinyScaledRigReprojCostFunctor::AutoDiffFunction f(functor);
+  using Solver = TinySolver<decltype(f), ScaledRigFromWorldManifold>;
+  Solver solver;
+  Solver::Options options;
+  options.max_num_iterations = 25;
+
+  Eigen::Matrix<double, 8, 1> x;
+  x.head<4>() = rig_from_world->rotation().normalized().coeffs();
+  x.segment<3>(4) = rig_from_world->translation();
+  x[7] = std::log(rig_from_world->scale());
+  solver.Solve(f, &x, options);
+
+  // Keep the refined estimate only if the solve stayed finite; otherwise fall
+  // back to the initial model.
+  if (x.allFinite()) {
+    *rig_from_world = Sim3d(std::exp(x[7]),
+                            Eigen::Quaterniond(x.data()).normalized(),
+                            x.segment<3>(4));
+  }
+  return true;
 }
 
 void GP4PSEstimator::Residuals(const std::vector<X_t>& points2D,
