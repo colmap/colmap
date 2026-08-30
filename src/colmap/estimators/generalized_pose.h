@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
@@ -155,6 +156,38 @@ bool RefineGeneralizedAbsolutePose(
     Rigid3d* rig_from_world,
     std::vector<Camera>* cameras,
     Eigen::Matrix6d* rig_from_world_cov = nullptr);
+
+// Refine generalized absolute pose and scale (optionally focal lengths)
+// from 2D-3D correspondences.
+//
+// @param options              Refinement options. Position priors are not
+//                             supported.
+// @param inlier_mask          Inlier mask for 2D-3D correspondences.
+// @param points2D             Corresponding 2D points.
+// @param points3D             Corresponding 3D points.
+// @param camera_idxs          Index of the rig camera for each correspondence.
+// @param cams_from_rig        Relative pose from rig to each camera frame.
+// @param rig_from_world       Estimated rig from world transform with scale,
+//                             as computed by
+//                             EstimateScaledGeneralizedAbsolutePose. Must
+//                             have positive scale.
+// @param cameras              Cameras for which to estimate pose. Modified
+//                             in-place to store the estimated focal lengths.
+// @param rig_from_world_cov   Estimated 7x7 covariance matrix of the rotation
+//                             (as axis-angle, in tangent space), translation,
+//                             and scale terms (optional).
+//
+// @return                     Whether the solution is usable.
+bool RefineScaledGeneralizedAbsolutePose(
+    const AbsolutePoseRefinementOptions& options,
+    const std::vector<char>& inlier_mask,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Rigid3d>& cams_from_rig,
+    Sim3d* rig_from_world,
+    std::vector<Camera>* cameras,
+    Eigen::Matrix7d* rig_from_world_cov = nullptr);
 
 struct StructureLessAbsolutePoseEstimationOptions {
   // Options used for RANSAC.
