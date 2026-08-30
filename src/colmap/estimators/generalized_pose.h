@@ -65,6 +65,37 @@ bool EstimateGeneralizedAbsolutePose(
     size_t* num_inliers,
     std::vector<char>* inlier_mask);
 
+// Estimate generalized absolute pose and scale from 2D-3D correspondences.
+//
+// In contrast to EstimateGeneralizedAbsolutePose, the internal rig geometry
+// is treated as rigid but of unknown global scale.
+//
+// @param options              RANSAC options.
+// @param points2D             Corresponding 2D points.
+// @param points3D             Corresponding 3D points.
+// @param camera_idxs          Index of the rig camera for each correspondence.
+// @param cams_from_rig        Relative pose from rig to each camera frame.
+// @param cameras              Cameras for which to estimate pose.
+// @param rig_from_world       Estimated rig from world transform, mapping
+//                             world points into the rig frame in which the
+//                             given cams_from_rig are valid. Its scale is the
+//                             inverse scale of the rig geometry relative to
+//                             the world.
+// @param num_inliers          Number of inliers in RANSAC.
+// @param inlier_mask          Inlier mask for 2D-3D correspondences.
+//
+// @return                     Whether pose is estimated successfully.
+bool EstimateScaledGeneralizedAbsolutePose(
+    const RANSACOptions& options,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Rigid3d>& cams_from_rig,
+    const std::vector<Camera>& cameras,
+    Sim3d* rig_from_world,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask);
+
 // Estimate generalized relative pose from 2D-2D correspondences.
 //
 // @param ransac_options       RANSAC options.
