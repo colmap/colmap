@@ -23,7 +23,7 @@ bool IsValidCeresLossFunction(const CeresLossFunctionType type,
     case CeresLossFunctionType::SOFT_L1:
     case CeresLossFunctionType::CAUCHY:
     case CeresLossFunctionType::HUBER:
-      return scale >= 0.0 && weight >= 0.0;
+      return scale >= 0.0 && weight > 0.0;
   }
   return false;
 }

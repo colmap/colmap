@@ -221,7 +221,6 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 bool CeresBundleAdjustmentOptions::Check() const {
   CHECK_OPTION(IsValidCeresLossFunction(
       loss_function_type, loss_function_scale, loss_function_weight));
-  CHECK_OPTION_GT(loss_function_weight, 0);
   CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
                   max_num_images_direct_sparse_cpu_solver);
   CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,

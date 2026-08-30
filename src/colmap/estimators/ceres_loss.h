@@ -12,8 +12,7 @@ namespace colmap {
 enum class CeresLossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
 
 // Standard construction accepts non-negative scale (including positive
-// infinity for compatibility) and finite non-negative weight. Callers may
-// enforce narrower policy without duplicating the common checks.
+// infinity for compatibility) and finite positive weight.
 bool IsValidCeresLossFunction(CeresLossFunctionType type,
                               double scale,
                               double weight = 1.0);
