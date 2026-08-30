@@ -131,10 +131,7 @@ class GP4PSEstimator {
   static bool Refine(const std::vector<X_t>& points2D,
                      const std::vector<Y_t>& points3D,
                      M_t* rig_from_world);
-
-  // Calculate the squared cosine distance or reprojection error between the
-  // rays given a set of 2D-3D point correspondences and the scaled rig pose
-  // of the generalized camera.
+                   
   void Residuals(const std::vector<X_t>& points2D,
                  const std::vector<Y_t>& points3D,
                  const M_t& rig_from_world,
