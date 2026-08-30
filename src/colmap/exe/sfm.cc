@@ -670,9 +670,6 @@ void RunPointTriangulatorImpl(
     std::function<bool()> check_if_stopped) {
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
-  if (check_if_stopped && check_if_stopped()) {
-    return;
-  }
   if (clear_points) {
     reconstruction->DeleteAllPoints2DAndPoints3D();
     reconstruction->TranscribeImageIdsToDatabase(
