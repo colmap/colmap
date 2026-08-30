@@ -91,24 +91,54 @@ TEST(PointTriangulator, WritesReconstructionWhenCancelled) {
   CreateDirIfNotExists(output_path);
   IncrementalPipelineOptions options;
   options.extract_colors = false;
-  bool stop_checked = false;
-  RunPointTriangulatorImpl(reconstruction,
-                           database_path,
-                           test_path,
-                           output_path,
-                           options,
-                           /*clear_points=*/false,
-                           /*refine_intrinsics=*/false,
-                           [&stop_checked]() {
-                             stop_checked = true;
-                             return true;
-                           });
+  size_t num_stop_checks = 0;
+  RunPointTriangulatorImpl(
+      reconstruction,
+      database_path,
+      test_path,
+      output_path,
+      options,
+      /*clear_points=*/false,
+      /*refine_intrinsics=*/false,
+      [&num_stop_checks]() { return ++num_stop_checks > 1; });
 
-  EXPECT_TRUE(stop_checked);
+  EXPECT_GT(num_stop_checks, 1);
   EXPECT_EQ(reconstruction->NumPoints3D(), num_points3D);
   EXPECT_TRUE(ExistsFile(output_path / "cameras.bin"));
   EXPECT_TRUE(ExistsFile(output_path / "images.bin"));
   EXPECT_TRUE(ExistsFile(output_path / "points3D.bin"));
+}
+
+TEST(PointTriangulator, DoesNotMutateReconstructionWhenAlreadyCancelled) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  auto database = Database::Open(database_path);
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 20;
+  SynthesizeDataset(synthetic_options, reconstruction.get(), database.get());
+  database.reset();
+
+  const size_t num_points3D = reconstruction->NumPoints3D();
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(output_path);
+  RunPointTriangulatorImpl(reconstruction,
+                           database_path,
+                           test_path,
+                           output_path,
+                           IncrementalPipelineOptions(),
+                           /*clear_points=*/true,
+                           /*refine_intrinsics=*/false,
+                           []() { return true; });
+
+  EXPECT_EQ(reconstruction->NumPoints3D(), num_points3D);
+  EXPECT_FALSE(ExistsFile(output_path / "cameras.bin"));
+  EXPECT_FALSE(ExistsFile(output_path / "images.bin"));
+  EXPECT_FALSE(ExistsFile(output_path / "points3D.bin"));
 }
 
 TEST(IncrementalMapper, WritesInterruptedReconstruction) {
