@@ -325,6 +325,48 @@ void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
         "Robustly estimate generalized absolute pose using LO-RANSAC"
         "followed by non-linear refinement.");
 
+  m.def("estimate_scaled_generalized_absolute_pose",
+        &PyEstimateScaledGeneralizedAbsolutePose,
+        "points2D"_a,
+        "points3D"_a,
+        "camera_idxs"_a,
+        "cams_from_rig"_a,
+        "cameras"_a,
+        py::arg_v("estimation_options", RANSACOptions(), "RANSACOptions()"),
+        "Robustly estimate generalized absolute pose and the scale of the "
+        "rig geometry using RANSAC.");
+
+  m.def("refine_scaled_generalized_absolute_pose",
+        &PyRefineScaledGeneralizedAbsolutePose,
+        "rig_from_world"_a,
+        "points2D"_a,
+        "points3D"_a,
+        "inlier_mask"_a,
+        "camera_idxs"_a,
+        "cams_from_rig"_a,
+        "cameras"_a,
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "return_covariance"_a = false,
+        "Refine generalized absolute pose and scale with non-linear "
+        "refinement.");
+
+  m.def("estimate_and_refine_scaled_generalized_absolute_pose",
+        &PyEstimateAndRefineScaledGeneralizedAbsolutePose,
+        "points2D"_a,
+        "points3D"_a,
+        "camera_idxs"_a,
+        "cams_from_rig"_a,
+        "cameras"_a,
+        py::arg_v("estimation_options", RANSACOptions(), "RANSACOptions()"),
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "return_covariance"_a = false,
+        "Robustly estimate generalized absolute pose and scale using "
+        "RANSAC followed by non-linear refinement.");
+
   m.def("estimate_generalized_relative_pose",
         &PyEstimateGeneralizedRelativePose,
         "points2D1"_a,
