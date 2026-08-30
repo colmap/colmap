@@ -76,9 +76,10 @@ bool OpenGLContextManager::MakeCurrent() {
   return context_.isValid();
 }
 
-void RunThreadWithOpenGLContext(Thread* thread) {
-  std::thread opengl_thread([thread]() {
-    thread->Start();
+void RunThreadWithOpenGLContext(Thread* thread,
+                                const Thread::StartMode start_mode) {
+  std::thread opengl_thread([thread, start_mode]() {
+    thread->Start(start_mode);
     thread->Wait();
     THROW_CHECK_NOTNULL(QCoreApplication::instance())->exit();
   });

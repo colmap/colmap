@@ -36,6 +36,7 @@ namespace colmap {
 
 Thread::Thread()
     : started_(false),
+      start_mode_(StartMode::DEFAULT),
       stopped_(false),
       paused_(false),
       pausing_(false),
@@ -46,13 +47,14 @@ Thread::Thread()
   RegisterCallback(FINISHED_CALLBACK);
 }
 
-void Thread::Start() {
+void Thread::Start(const StartMode mode) {
   std::unique_lock<std::mutex> lock(mutex_);
   THROW_CHECK(!started_ || finished_);
   Wait();
   timer_.Restart();
   thread_ = std::thread(&Thread::RunFunc, this);
   started_ = true;
+  start_mode_ = mode;
   stopped_ = false;
   paused_ = false;
   pausing_ = false;
@@ -95,7 +97,8 @@ bool Thread::IsStarted() {
 
 bool Thread::IsStopped() {
   std::unique_lock<std::mutex> lock(mutex_);
-  return stopped_ || ScopedSignalHandler::IsInterruptRequested();
+  return stopped_ || (start_mode_ == StartMode::HANDLE_SIGNALS &&
+                      ScopedSignalHandler::IsInterruptRequested());
 }
 
 bool Thread::IsPaused() {
@@ -132,6 +135,11 @@ void Thread::Callback(const int id) const {
 
 std::thread::id Thread::GetThreadId() const {
   return std::this_thread::get_id();
+}
+
+Thread::StartMode Thread::GetStartMode() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return start_mode_;
 }
 
 void Thread::SignalValidSetup() {

@@ -272,7 +272,7 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
 
   THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
-  feature_extractor_->Start();
+  feature_extractor_->Start(GetStartMode());
   feature_extractor_->Wait();
   feature_extractor_.reset();
   active_thread_ = nullptr;
@@ -297,7 +297,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 
   THROW_CHECK_NOTNULL(matcher);
   active_thread_ = matcher;
-  matcher->Start();
+  matcher->Start(GetStartMode());
   matcher->Wait();
   exhaustive_matcher_.reset();
   sequential_matcher_.reset();

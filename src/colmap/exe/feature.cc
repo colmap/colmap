@@ -146,9 +146,10 @@ int RunFeatureExtractor(int argc, char** argv) {
       *options.database_path, reader_options, *options.feature_extraction);
 
   if (app != nullptr) {
-    RunThreadWithOpenGLContext(feature_extractor.get());
+    RunThreadWithOpenGLContext(feature_extractor.get(),
+                               Thread::StartMode::HANDLE_SIGNALS);
   } else {
-    feature_extractor->Start();
+    feature_extractor->Start(Thread::StartMode::HANDLE_SIGNALS);
     feature_extractor->Wait();
   }
 
@@ -193,7 +194,7 @@ int RunFeatureImporter(int argc, char** argv) {
 
   auto feature_importer = CreateFeatureImporterController(
       *options.database_path, reader_options, import_path);
-  feature_importer->Start();
+  feature_importer->Start(Thread::StartMode::HANDLE_SIGNALS);
   feature_importer->Wait();
 
   return EXIT_SUCCESS;
@@ -218,9 +219,10 @@ int RunExhaustiveMatcher(int argc, char** argv) {
                                                 *options.database_path);
 
   if (app != nullptr) {
-    RunThreadWithOpenGLContext(matcher.get());
+    RunThreadWithOpenGLContext(matcher.get(),
+                               Thread::StartMode::HANDLE_SIGNALS);
   } else {
-    matcher->Start();
+    matcher->Start(Thread::StartMode::HANDLE_SIGNALS);
     matcher->Wait();
   }
 
@@ -269,9 +271,10 @@ int RunMatchesImporter(int argc, char** argv) {
   }
 
   if (app != nullptr) {
-    RunThreadWithOpenGLContext(matcher.get());
+    RunThreadWithOpenGLContext(matcher.get(),
+                               Thread::StartMode::HANDLE_SIGNALS);
   } else {
-    matcher->Start();
+    matcher->Start(Thread::StartMode::HANDLE_SIGNALS);
     matcher->Wait();
   }
 
@@ -297,9 +300,10 @@ int RunSequentialMatcher(int argc, char** argv) {
                                                 *options.database_path);
 
   if (app != nullptr) {
-    RunThreadWithOpenGLContext(matcher.get());
+    RunThreadWithOpenGLContext(matcher.get(),
+                               Thread::StartMode::HANDLE_SIGNALS);
   } else {
-    matcher->Start();
+    matcher->Start(Thread::StartMode::HANDLE_SIGNALS);
     matcher->Wait();
   }
 
@@ -325,9 +329,10 @@ int RunSpatialMatcher(int argc, char** argv) {
                                              *options.database_path);
 
   if (app != nullptr) {
-    RunThreadWithOpenGLContext(matcher.get());
+    RunThreadWithOpenGLContext(matcher.get(),
+                               Thread::StartMode::HANDLE_SIGNALS);
   } else {
-    matcher->Start();
+    matcher->Start(Thread::StartMode::HANDLE_SIGNALS);
     matcher->Wait();
   }
 
@@ -353,9 +358,10 @@ int RunTransitiveMatcher(int argc, char** argv) {
                                                 *options.database_path);
 
   if (app != nullptr) {
-    RunThreadWithOpenGLContext(matcher.get());
+    RunThreadWithOpenGLContext(matcher.get(),
+                               Thread::StartMode::HANDLE_SIGNALS);
   } else {
-    matcher->Start();
+    matcher->Start(Thread::StartMode::HANDLE_SIGNALS);
     matcher->Wait();
   }
 
@@ -381,9 +387,10 @@ int RunVocabTreeMatcher(int argc, char** argv) {
                                                *options.database_path);
 
   if (app != nullptr) {
-    RunThreadWithOpenGLContext(matcher.get());
+    RunThreadWithOpenGLContext(matcher.get(),
+                               Thread::StartMode::HANDLE_SIGNALS);
   } else {
-    matcher->Start();
+    matcher->Start(Thread::StartMode::HANDLE_SIGNALS);
     matcher->Wait();
   }
 
@@ -409,7 +416,7 @@ int RunGeometricVerifier(int argc, char** argv) {
                                           pairing_options,
                                           *options.two_view_geometry,
                                           *options.database_path);
-  verifier->Start();
+  verifier->Start(Thread::StartMode::HANDLE_SIGNALS);
   verifier->Wait();
 
   return EXIT_SUCCESS;
@@ -492,9 +499,9 @@ void RunGuidedGeometricVerifierImpl(
 
   auto verifier = CreateGeometricVerifier(
       verifier_options, pairing_options, geometry_options, database_path);
-  verifier->Start();
+  verifier->Start(Thread::StartMode::HANDLE_SIGNALS);
   while (verifier->IsRunning()) {
-    if (should_stop()) {
+    if (check_if_stopped && check_if_stopped()) {
       verifier->Stop();
       break;
     }

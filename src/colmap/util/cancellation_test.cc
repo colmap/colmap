@@ -29,8 +29,13 @@
 
 #include "colmap/util/cancellation.h"
 
+#include "colmap/util/threading.h"
+
+#include <atomic>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <thread>
 
 #include <gtest/gtest.h>
 
@@ -40,6 +45,34 @@ namespace {
 volatile std::sig_atomic_t test_signal = 0;
 
 void RecordTestSignal(const int signal) { test_signal = signal; }
+
+class StoppableThread : public Thread {
+ public:
+  bool ObservedStop() const { return observed_stop_.load(); }
+
+ private:
+  void Run() override {
+    while (!IsStopped()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    observed_stop_.store(true);
+  }
+
+  std::atomic<bool> observed_stop_{false};
+};
+
+class ParentThread : public Thread {
+ public:
+  bool ChildObservedStop() const { return child_.ObservedStop(); }
+
+ private:
+  void Run() override {
+    child_.Start(GetStartMode());
+    child_.Wait();
+  }
+
+  StoppableThread child_;
+};
 
 TEST(CancellationToken, Cancel) {
   CancellationToken token;
@@ -92,6 +125,38 @@ TEST(ScopedSignalHandler, RestoresPreviousHandlerAndClearsState) {
   std::raise(SIGINT);
   EXPECT_EQ(test_signal, SIGINT);
   std::signal(SIGINT, previous_handler);
+}
+
+TEST(ScopedSignalHandler, ThreadIgnoresSignalByDefault) {
+  ScopedSignalHandler signal_handler;
+  StoppableThread thread;
+  thread.Start();
+  std::raise(SIGINT);
+  EXPECT_FALSE(thread.IsStopped());
+  thread.Stop();
+  thread.Wait();
+}
+
+TEST(ScopedSignalHandler, ThreadHandlesSignalWhenRequested) {
+  ScopedSignalHandler signal_handler;
+  StoppableThread thread;
+  thread.Start(Thread::StartMode::HANDLE_SIGNALS);
+  std::raise(SIGINT);
+  thread.Wait();
+
+  EXPECT_TRUE(thread.ObservedStop());
+  EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
+}
+
+TEST(ScopedSignalHandler, PropagatesSignalHandlingToChildThread) {
+  ScopedSignalHandler signal_handler;
+  ParentThread thread;
+  thread.Start(Thread::StartMode::HANDLE_SIGNALS);
+  std::raise(SIGINT);
+  thread.Wait();
+
+  EXPECT_TRUE(thread.ChildObservedStop());
+  EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
 }
 
 }  // namespace
