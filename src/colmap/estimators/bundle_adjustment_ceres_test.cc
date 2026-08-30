@@ -205,7 +205,7 @@ TEST(DefaultBundleAdjuster, Cancellation) {
       CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
           ->Solve();
 
-  EXPECT_GT(num_checks, 0);
+  EXPECT_EQ(num_checks, 1);
   EXPECT_EQ(summary->termination_type,
             BundleAdjustmentTerminationType::USER_SUCCESS);
 }
