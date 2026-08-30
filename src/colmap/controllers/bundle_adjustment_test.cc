@@ -69,13 +69,7 @@ TEST(BundleAdjustmentController, StopsBeforeOptimization) {
   controller.Run();
 
   EXPECT_TRUE(stop_checked);
-  const frame_t frame_id = reconstruction->RegFrameIds().front();
-  EXPECT_EQ(reconstruction->Frame(frame_id).RigFromWorld(),
-            gt_reconstruction.Frame(frame_id).RigFromWorld());
-  const point3D_t point3D_id = *reconstruction->Point3DIds().begin();
-  EXPECT_TRUE(
-      reconstruction->Point3D(point3D_id)
-          .xyz.isApprox(gt_reconstruction.Point3D(point3D_id).xyz, 0.0));
+  EXPECT_THAT(*reconstruction, ReconstructionEq(gt_reconstruction));
 }
 
 TEST(BundleAdjustmentController, Reconstruction) {
