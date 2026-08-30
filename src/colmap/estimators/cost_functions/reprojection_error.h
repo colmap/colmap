@@ -416,6 +416,52 @@ class RigReprojErrorConstantRigCostFunctor
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
+// Rig reprojection cost function with a similarity rig_from_world transform,
+// parameterized as a Sim3d (quaternion, translation, scale).
+template <typename CameraModel>
+class ScaledRigReprojErrorCostFunctor
+    : public AutoDiffCostFunctor<ScaledRigReprojErrorCostFunctor<CameraModel>,
+                                 2,
+                                 3,
+                                 7,
+                                 8,
+                                 CameraModel::num_params> {
+ public:
+  explicit ScaledRigReprojErrorCostFunctor(const Eigen::Vector2d& point2D)
+      : point2D_(point2D) {}
+
+  template <typename T>
+  bool operator()(const T* const point3D_in_world,
+                  const T* const cam_from_rig,
+                  const T* const rig_from_world,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const Eigen::Matrix<T, 3, 1> point3D_in_rig =
+        rig_from_world[7] * (EigenQuaternionMap<T>(rig_from_world) *
+                             EigenVector3Map<T>(point3D_in_world)) +
+        EigenVector3Map<T>(rig_from_world + 4);
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_rig) * point3D_in_rig +
+        EigenVector3Map<T>(cam_from_rig + 4);
+    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
+    if (CameraModel::ImgFromCam(camera_params,
+                                point3D_in_cam[0],
+                                point3D_in_cam[1],
+                                point3D_in_cam[2],
+                                &residuals[0],
+                                &residuals[1])) {
+      residuals_vec -= point2D_.cast<T>();
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
+    } else {
+      residuals_vec.setZero();
+    }
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+};
+
 // Creates the analytical reprojection error cost function for camera models
 // that implement ImgFromCamWithJac(). The overloads are selected via SFINAE so
 // that AnalyticalReprojErrorCostFunction<CameraModel> is only ever named (and
