@@ -45,8 +45,7 @@ struct CeresBundleAdjustmentOptions {
   // Scaling factor determines residual at which robustification takes place.
   double loss_function_scale = 1.0;
 
-  // Weight applied to the complete loss. A value of 1 leaves the loss
-  // function unchanged.
+  // Multiplier applied to the loss function output.
   double loss_function_weight = 1.0;
 
   // Whether to use Ceres' CUDA linear algebra library, if available.

@@ -215,7 +215,7 @@ void BindBundleAdjuster(py::module& m) {
                          "robustification takes place.")
           .def_readwrite("loss_function_weight",
                          &CeresBAOpts::loss_function_weight,
-                         "Weight applied to the complete loss function.")
+                         "Multiplier applied to the loss function output.")
           .def_readwrite("use_gpu",
                          &CeresBAOpts::use_gpu,
                          "Whether to use Ceres' CUDA linear algebra library, "
