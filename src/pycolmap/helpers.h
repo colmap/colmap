@@ -8,6 +8,7 @@
 #include "pycolmap/feature/opaque_types.h"
 
 #include <atomic>
+#include <chrono>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -502,7 +503,8 @@ class PyInterruptChecker {
 inline void PyWait(colmap::Thread* thread,
                    const std::shared_ptr<colmap::CancellationToken>&
                        cancellation_token = nullptr,
-                   double gap = 2.0) {
+                   double gap = 1.0) {
+  const PyInterrupt::sec poll_interval(gap);
   PyInterrupt py_interrupt(gap);
   while (thread->IsRunning()) {
     if (cancellation_token && cancellation_token->IsCancelled()) {
@@ -516,6 +518,7 @@ inline void PyWait(colmap::Thread* thread,
       thread->Wait();
       ThrowPythonError();
     }
+    std::this_thread::sleep_for(poll_interval);
   }
   // after finishing join the thread to avoid abort
   thread->Wait();
