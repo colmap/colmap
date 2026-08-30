@@ -774,7 +774,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   BundleAdjustmentOptions abs_pose_refinement_options;
   if (abs_pose_refinement_options.ceres) {
     abs_pose_refinement_options.ceres->loss_function_type =
-        CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+        CeresLossFunctionType::CAUCHY;
     abs_pose_refinement_options.ceres->solver_options.logging_type =
         ceres::LoggingType::SILENT;
   }
@@ -1207,7 +1207,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
       prior_options.ceres->prior_position_loss_function_type =
-          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+          CeresLossFunctionType::CAUCHY;
     }
     prior_options.ceres->prior_position_loss_scale =
         options.prior_position_loss_scale;
@@ -1288,7 +1288,7 @@ void IncrementalMapper::IterativeLocalRefinement(
     // Only use robust cost function for first iteration.
     if (custom_ba_options.ceres) {
       custom_ba_options.ceres->loss_function_type =
-          CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+          CeresLossFunctionType::TRIVIAL;
     }
   }
   ClearModifiedPoints3D();

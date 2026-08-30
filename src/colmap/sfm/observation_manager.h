@@ -122,6 +122,13 @@ class ObservationManager {
   // @return    The number of filtered observations.
   size_t FilterObservationsWithNegativeDepth();
 
+  // Return points whose maximum triangulation angle is below the threshold.
+  // The threshold is in degrees. The explicit input domain is traversed in
+  // caller order; missing identifiers are skipped and duplicate rejected
+  // identifiers are retained in the result.
+  std::vector<point3D_t> FindPoints3DWithSmallTriangulationAngle(
+      double min_tri_angle, const std::vector<point3D_t>& point3D_ids) const;
+
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids);
 

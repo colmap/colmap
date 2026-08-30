@@ -1118,7 +1118,7 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
   PosePriorBundleAdjustmentOptions prior_ba_options;
   prior_ba_options.alignment_ransac_options.random_seed = 0;
   prior_ba_options.ceres->prior_position_loss_function_type =
-      CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+      CeresLossFunctionType::CAUCHY;
 
   BundleAdjustmentOptions ba_options;
   BundleAdjustmentConfig ba_config;
@@ -1216,7 +1216,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   PosePriorBundleAdjustmentOptions prior_ba_options;
   prior_ba_options.alignment_ransac_options.random_seed = 0;
   prior_ba_options.ceres->prior_position_loss_function_type =
-      CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+      CeresLossFunctionType::CAUCHY;
 
   BundleAdjustmentOptions ba_options;
   BundleAdjustmentConfig ba_config;

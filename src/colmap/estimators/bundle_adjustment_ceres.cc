@@ -30,6 +30,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/ceres_loss.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
@@ -39,6 +40,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <cmath>
 #include <iomanip>
 
 namespace colmap {
@@ -61,22 +63,6 @@ BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
   }
   LOG(FATAL_THROW) << "Unknown Ceres termination type: " << ceres_type;
   return BundleAdjustmentTerminationType::FAILURE;
-}
-
-std::unique_ptr<ceres::LossFunction> CreateLossFunction(
-    CeresBundleAdjustmentOptions::LossFunctionType loss_function_type,
-    double loss_function_scale) {
-  switch (loss_function_type) {
-    case CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL:
-      return std::make_unique<ceres::TrivialLoss>();
-    case CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1:
-      return std::make_unique<ceres::SoftLOneLoss>(loss_function_scale);
-    case CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY:
-      return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
-    case CeresBundleAdjustmentOptions::LossFunctionType::HUBER:
-      return std::make_unique<ceres::HuberLoss>(loss_function_scale);
-  }
-  return nullptr;
 }
 
 }  // namespace
@@ -116,7 +102,8 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
 
 std::unique_ptr<ceres::LossFunction>
 CeresBundleAdjustmentOptions::CreateLossFunction() const {
-  return colmap::CreateLossFunction(loss_function_type, loss_function_scale);
+  return CreateCeresLossFunction(
+      loss_function_type, loss_function_scale, loss_function_weight);
 }
 
 ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
@@ -232,7 +219,9 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 }
 
 bool CeresBundleAdjustmentOptions::Check() const {
-  CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION(IsValidCeresLossFunction(
+      loss_function_type, loss_function_scale, loss_function_weight));
+  CHECK_OPTION_GT(loss_function_weight, 0);
   CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
                   max_num_images_direct_sparse_cpu_solver);
   CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
@@ -965,7 +954,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         options_, config_, reconstruction);
 
     if (use_prior_position) {
-      prior_loss_function_ = CreateLossFunction(
+      prior_loss_function_ = CreateCeresLossFunction(
           prior_options_.ceres->prior_position_loss_function_type,
           prior_options_.ceres->prior_position_loss_scale);
 

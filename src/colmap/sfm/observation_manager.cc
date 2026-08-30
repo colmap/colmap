@@ -432,18 +432,18 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
   return num_filtered;
 }
 
-size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
-    const double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) {
-  // Number of filtered observations.
-  size_t num_filtered_observations = 0;
-
+std::vector<point3D_t>
+ObservationManager::FindPoints3DWithSmallTriangulationAngle(
+    const double min_tri_angle,
+    const std::vector<point3D_t>& point3D_ids) const {
   // Minimum triangulation angle in radians.
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
   // Cache for image projection centers.
   FlatHashMap<image_t, Eigen::Vector3d> proj_centers;
+  std::vector<point3D_t> small_angle_point3D_ids;
 
-  for (const auto point3D_id : point3D_ids) {
+  for (const point3D_t point3D_id : point3D_ids) {
     if (!reconstruction_.ExistsPoint3D(point3D_id)) {
       continue;
     }
@@ -485,11 +485,28 @@ size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     }
 
     if (!keep_point) {
-      num_filtered_observations += point3D.track.Length();
-      DeletePoint3D(point3D_id);
+      small_angle_point3D_ids.push_back(point3D_id);
     }
   }
 
+  return small_angle_point3D_ids;
+}
+
+size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
+    const double min_tri_angle,
+    const FlatHashSet<point3D_t>& point3D_ids) {
+  const std::vector<point3D_t> ordered_point3D_ids(point3D_ids.begin(),
+                                                   point3D_ids.end());
+  const std::vector<point3D_t> small_angle_point3D_ids =
+      FindPoints3DWithSmallTriangulationAngle(min_tri_angle,
+                                              ordered_point3D_ids);
+
+  size_t num_filtered_observations = 0;
+  for (const point3D_t point3D_id : small_angle_point3D_ids) {
+    num_filtered_observations +=
+        reconstruction_.Point3D(point3D_id).track.Length();
+    DeletePoint3D(point3D_id);
+  }
   return num_filtered_observations;
 }
 
