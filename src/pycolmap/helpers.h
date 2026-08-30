@@ -471,7 +471,8 @@ class PyInterruptChecker {
         calling_thread_id_(std::this_thread::get_id()) {}
 
   // The callback may run on worker threads, but Python signals may only be
-  // checked from the thread that created this object.
+  // checked from the thread that created this object. The returned callback
+  // borrows this object and must not outlive it.
   std::function<bool()> Callback() {
     return [this]() {
       if (std::this_thread::get_id() == calling_thread_id_ &&
@@ -499,12 +500,14 @@ class PyInterruptChecker {
   std::atomic<bool> python_interrupt_raised_{false};
 };
 
-// Instead of thread.Wait() call this to allow interrupts through python
+// Instead of thread.Wait() call this to allow interrupts through Python.
+// `poll_interval` controls lightweight thread-state and cancellation checks,
+// while `gap` throttles Python signal checks that require acquiring the GIL.
 inline void PyWait(colmap::Thread* thread,
                    const std::shared_ptr<colmap::CancellationToken>&
                        cancellation_token = nullptr,
-                   double gap = 1.0) {
-  const PyInterrupt::sec poll_interval(gap);
+                   double gap = 1.0,
+                   double poll_interval = 0.05) {
   PyInterrupt py_interrupt(gap);
   while (thread->IsRunning()) {
     if (cancellation_token && cancellation_token->IsCancelled()) {
@@ -518,7 +521,7 @@ inline void PyWait(colmap::Thread* thread,
       thread->Wait();
       ThrowPythonError();
     }
-    std::this_thread::sleep_for(poll_interval);
+    std::this_thread::sleep_for(PyInterrupt::sec(poll_interval));
   }
   // after finishing join the thread to avoid abort
   thread->Wait();

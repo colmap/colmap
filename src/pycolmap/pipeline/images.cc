@@ -125,6 +125,7 @@ void UndistortImages(
                             reconstruction.NumImages(),
                             reconstruction.NumPoints3D());
 
+  PyInterruptChecker interrupt_checker(cancellation_token);
   std::unique_ptr<BaseController> undistorter;
   if (output_type == "COLMAP") {
     COLMAPUndistorter::Options options;
@@ -173,7 +174,6 @@ void UndistortImages(
   }
 
   py::gil_scoped_release release;
-  PyInterruptChecker interrupt_checker(cancellation_token);
   undistorter->SetCheckIfStoppedFunc(interrupt_checker.Callback());
   undistorter->Run();
   interrupt_checker.CheckAndThrow();

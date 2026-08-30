@@ -136,7 +136,9 @@ performing a graceful shutdown and raising ``KeyboardInterrupt``. For other
 termination events, they accept an optional ``cancellation_token``. Explicit
 cancellation finishes cleanup and then raises ``InterruptedError``. This allows
 applications to connect cloud-preemption signals (like ``SIGTERM``) to the token
-without pycolmap replacing the host application's signal handlers::
+without pycolmap replacing the host application's signal handlers. Automatic
+``SIGINT`` handling requires calling the pycolmap function from Python's main
+thread; use a cancellation token when calling it from another thread::
 
     import signal
     import pycolmap
