@@ -51,6 +51,9 @@ Improvements
   retaining the camera-ray overloads for backwards compatibility.
 * Estimate homographies on camera rays for distorted and spherical cameras,
   enabling geometrically correct planar and panoramic detection.
+* Refine fundamental matrices with Sampson error by default and use MSAC for
+  robust two-view geometry estimation. Significantly improved accuracy
+  for recovered two-view geometries with small improvements on e2e metrics.
 * Added analytical reprojection Jacobians for every camera model and fixed-pose
   bundle adjustment. Benchmarks show approximately 1.2--1.55x faster
   incremental mapping for common pinhole and OpenCV camera configurations.
@@ -67,11 +70,9 @@ Improvements
 * Added optional match-count weighting for global rotation averaging.
 * Improved sequential pairing for camera rigs by avoiding unrelated
   cross-sensor temporal pairs.
-* Added ``SequentialMatching.loop_detection_min_image_distance`` to exclude
+* Added ``SequentialMatching.loop_detection_min_index_distance`` to exclude
   nearby frames from sequential loop detection without consuming the
   retrieval budget.
-* Refine fundamental matrices with Sampson error by default and use MSAC for
-  robust two-view geometry estimation.
 * Added configurable loading of all images during image registration.
 * Expanded reconstruction benchmarks with TartanAir panoramas, IMC2025
   datasets, multi-seed comparisons, and end-to-end incremental-mapping
