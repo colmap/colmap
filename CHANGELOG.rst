@@ -35,6 +35,10 @@ New Features
   ``TwoViewGeometry.use_degensac``.
 * Added nanosecond-resolution timestamps and conversion utilities in C++ and
   pycolmap.
+* Added graceful shutdown for long-running CLI processing pipelines. A first
+  ``SIGINT`` or ``SIGTERM`` preserves usable intermediate results, while a
+  second signal terminates immediately. PyCOLMAP exposes the same cooperative
+  cancellation through ``CancellationToken``.
 
 Improvements
 ------------
@@ -63,6 +67,11 @@ Improvements
 * Added optional match-count weighting for global rotation averaging.
 * Improved sequential pairing for camera rigs by avoiding unrelated
   cross-sensor temporal pairs.
+* Added ``SequentialMatching.loop_detection_min_image_distance`` to exclude
+  nearby frames from sequential loop detection without consuming the
+  retrieval budget.
+* Refine fundamental matrices with Sampson error by default and use MSAC for
+  robust two-view geometry estimation.
 * Added configurable loading of all images during image registration.
 * Expanded reconstruction benchmarks with TartanAir panoramas, IMC2025
   datasets, multi-seed comparisons, and end-to-end incremental-mapping
@@ -88,6 +97,8 @@ Bug Fixes
 * Restore the ``gflags::gflags`` target for downstream CMake consumers.
 * Fix stale reconstruction statistics and elapsed time in the viewer after
   clearing a reconstruction.
+* Fix dense reconstruction from the GUI in HIP-only builds.
+* Fix pose-prior bundle adjustment changing rig poses configured as constant.
 
 Breaking Changes
 ----------------
