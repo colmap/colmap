@@ -14,7 +14,7 @@ def test_estimate_affine2d_with_points() -> None:
         np.array([2.0, 1.0]),
         np.array([1.0, 2.0]),
     ]
-    result = pycolmap.estimate_affine2d(source, target)
+    result = pycolmap.estimate_affine2d(source, target)  # type: ignore[arg-type]
     assert result is not None
     result_array = np.array(result)
     assert result_array.shape == (2, 3)

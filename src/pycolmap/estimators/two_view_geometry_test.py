@@ -33,6 +33,6 @@ def test_compute_squared_sampson_error_with_identity() -> None:
     points1 = [np.array([1.0, 0.0]), np.array([0.0, 1.0])]
     points2 = [np.array([1.0, 0.0]), np.array([0.0, 1.0])]
     matrix = np.eye(3)
-    residuals = pycolmap.compute_squared_sampson_error(points1, points2, matrix)
+    residuals = pycolmap.compute_squared_sampson_error(points1, points2, matrix)  # type: ignore[arg-type]
     assert isinstance(residuals, list)
     assert len(residuals) == 2

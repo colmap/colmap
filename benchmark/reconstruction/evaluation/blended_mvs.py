@@ -151,7 +151,9 @@ class DatasetBlendedMVS(Dataset):
             frame = pycolmap.Frame(frame_id=i)
             frame.rig_id = i
             frame.add_data_id(image.data_id)
-            frame.rig_from_world = pycolmap.Rigid3d(extrinsic)
+            frame.rig_from_world = pycolmap.Rigid3d(  # type: ignore[arg-type]
+                extrinsic  # type: ignore[arg-type]
+            )
             sparse_gt.add_camera(camera)
             sparse_gt.add_rig(rig)
             sparse_gt.add_frame(frame)

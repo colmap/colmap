@@ -53,22 +53,22 @@ def test_two_view_geometry_config_readwrite() -> None:
 def test_two_view_geometry_e_readwrite() -> None:
     geometry = pycolmap.TwoViewGeometry()
     essential = np.eye(3)
-    geometry.E = essential
-    np.testing.assert_array_almost_equal(geometry.E, essential)
+    geometry.E = essential  # type: ignore[assignment]
+    np.testing.assert_array_almost_equal(geometry.E, essential)  # type: ignore[arg-type]
 
 
 def test_two_view_geometry_f_readwrite() -> None:
     geometry = pycolmap.TwoViewGeometry()
     fundamental = np.eye(3)
-    geometry.F = fundamental
-    np.testing.assert_array_almost_equal(geometry.F, fundamental)
+    geometry.F = fundamental  # type: ignore[assignment]
+    np.testing.assert_array_almost_equal(geometry.F, fundamental)  # type: ignore[arg-type]
 
 
 def test_two_view_geometry_h_readwrite() -> None:
     geometry = pycolmap.TwoViewGeometry()
     homography = np.eye(3)
-    geometry.H = homography
-    np.testing.assert_array_almost_equal(geometry.H, homography)
+    geometry.H = homography  # type: ignore[assignment]
+    np.testing.assert_array_almost_equal(geometry.H, homography)  # type: ignore[arg-type]
 
 
 def test_two_view_geometry_cam2_from_cam1_readwrite() -> None:

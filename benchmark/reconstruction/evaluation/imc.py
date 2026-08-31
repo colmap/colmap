@@ -106,6 +106,8 @@ def _read_sparse_sfm_without_points3D(
 
 
 class _DatasetIMC(Dataset):
+    year: int
+
     @property
     def position_accuracy_gt(self) -> float:
         return 0.02

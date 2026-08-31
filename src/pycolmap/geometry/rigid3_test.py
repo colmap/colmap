@@ -109,7 +109,7 @@ def test_rigid3d_interpolate() -> None:
 def test_get_covariance_for_inverse() -> None:
     rigid = pycolmap.Rigid3d()
     covariance = np.eye(6)
-    result = pycolmap.get_covariance_for_inverse(rigid, covariance)
+    result = pycolmap.get_covariance_for_inverse(rigid, covariance)  # type: ignore[arg-type]
     assert result.shape == (6, 6)
 
 
@@ -117,7 +117,8 @@ def test_get_covariance_for_composed_rigid3d() -> None:
     rigid = pycolmap.Rigid3d()
     joint_covariance = np.eye(12)
     result = pycolmap.get_covariance_for_composed_rigid3d(
-        rigid, joint_covariance
+        rigid,
+        joint_covariance,  # type: ignore[arg-type]
     )
     assert result.shape == (6, 6)
 
@@ -127,7 +128,9 @@ def test_get_covariance_for_relative_rigid3d() -> None:
     rigid2 = pycolmap.Rigid3d()
     joint_covariance = np.eye(12)
     result = pycolmap.get_covariance_for_relative_rigid3d(
-        rigid1, rigid2, joint_covariance
+        rigid1,
+        rigid2,
+        joint_covariance,  # type: ignore[arg-type]
     )
     assert result.shape == (6, 6)
 

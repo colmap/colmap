@@ -393,7 +393,7 @@ def sort_members(
 # autodoc_member_order=bysource does not work for C++-defined classes since they
 # cannot be introspected and do not have an __all__ list. Instead,
 # we extract the definition order from object.__dict__.
-autodoc.ClassDocumenter.sort_members = sort_members  # type: ignore[method-assign]
+autodoc.ClassDocumenter.sort_members = sort_members  # type: ignore[assignment, method-assign]
 
 
 def process_doc(

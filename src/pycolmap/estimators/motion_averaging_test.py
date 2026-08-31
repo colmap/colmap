@@ -37,7 +37,7 @@ def test_rotation_estimator_options_reweighting_readwrite() -> None:
         options.reweighting
         == pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
     )
-    options.reweighting = "UNIFORM"
+    options.reweighting = "UNIFORM"  # type: ignore[assignment]
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
 
 

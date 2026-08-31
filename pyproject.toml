@@ -119,3 +119,10 @@ module = [
   "src.pycolmap.*",
 ]
 disable_error_code = ["attr-defined", "name-defined"]
+
+# Stubs generated from pybind11 signatures still contain untyped overloads.
+[[tool.mypy.overrides]]
+module = ["pycolmap._core", "pycolmap._core.*"]
+check_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false

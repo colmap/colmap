@@ -17,7 +17,7 @@ def test_estimate_rigid3d_with_coplanar_points() -> None:
         np.array([0.0, 1.0, 0.0]),
         np.array([1.0, 1.0, 0.0]),
     ]
-    result = pycolmap.estimate_rigid3d(source, target)
+    result = pycolmap.estimate_rigid3d(source, target)  # type: ignore[arg-type]
     # May return None for degenerate configurations, but call should succeed
     assert result is None or isinstance(result, pycolmap.Rigid3d)
 
@@ -35,7 +35,7 @@ def test_estimate_sim3d_with_points() -> None:
         np.array([0.0, 2.0, 0.0]),
         np.array([0.0, 0.0, 2.0]),
     ]
-    result = pycolmap.estimate_sim3d(source, target)
+    result = pycolmap.estimate_sim3d(source, target)  # type: ignore[arg-type]
     assert result is None or isinstance(result, pycolmap.Sim3d)
 
 

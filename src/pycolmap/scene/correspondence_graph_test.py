@@ -112,7 +112,7 @@ def test_correspondence_graph_with_two_view_geometry(
 def test_correspondence_graph_extract_matches(
     graph_with_matches: pycolmap.CorrespondenceGraph,
 ) -> None:
-    matches = graph_with_matches.extract_matches_between_images(1, 2)
+    matches = graph_with_matches.extract_matches_between_images(1, 2)  # type: ignore[var-annotated]
     assert matches.shape[0] == 2
 
 

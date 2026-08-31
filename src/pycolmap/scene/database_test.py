@@ -78,7 +78,7 @@ def test_database_write_and_read_keypoints(
         dtype=np.float32,
     )
     database.write_keypoints(image_id, keypoints)
-    read_keypoints = database.read_keypoints(image_id)
+    read_keypoints = database.read_keypoints(image_id)  # type: ignore[var-annotated]
     assert read_keypoints.shape[0] == 2
 
 
@@ -105,7 +105,7 @@ def test_database_write_and_read_matches(
     image_id2 = database.write_image(image2)
     matches = np.array([[0, 0], [1, 1]], dtype=np.uint32)
     database.write_matches(image_id, image_id2, matches)
-    read_matches = database.read_matches(image_id, image_id2)
+    read_matches = database.read_matches(image_id, image_id2)  # type: ignore[var-annotated]
     assert read_matches.shape[0] == 2
 
 

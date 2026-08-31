@@ -77,7 +77,7 @@ def test_camera_params_readwrite(simple_camera: pycolmap.Camera) -> None:
     params = simple_camera.params
     assert len(params) > 0
     new_params = list(params)
-    new_params[0] = 600.0
+    new_params[0] = 600.0  # type: ignore[call-overload]
     simple_camera.params = new_params
     assert simple_camera.params[0] == 600.0
 
