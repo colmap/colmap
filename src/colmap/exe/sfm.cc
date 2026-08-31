@@ -690,7 +690,20 @@ void RunPointTriangulatorImpl(
       custom_options, Database::Open(database_path), reconstruction_manager);
   mapper.SetCheckIfStoppedFunc(std::move(check_if_stopped));
   mapper.TriangulateReconstruction(reconstruction);
-  reconstruction->Write(output_path);
+
+  std::filesystem::path write_path = output_path;
+  if (mapper.CheckIfStopped()) {
+    std::filesystem::path normalized_output_path =
+        output_path.lexically_normal();
+    if (normalized_output_path.filename().empty()) {
+      normalized_output_path = normalized_output_path.parent_path();
+    }
+    write_path = normalized_output_path.parent_path() /
+                 (normalized_output_path.filename().string() + ".partial");
+    CreateDirIfNotExists(write_path);
+    LOG(WARNING) << "Writing partial triangulation output to " << write_path;
+  }
+  reconstruction->Write(write_path);
 }
 
 int RunRotationAverager(int argc, char** argv) {

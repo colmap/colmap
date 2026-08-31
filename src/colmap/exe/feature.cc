@@ -429,46 +429,34 @@ void RunGuidedGeometricVerifierImpl(
 
   // Set all relative poses from a given reconstruction.
   auto database = Database::Open(database_path);
-  std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
-      database->ReadAllMatches();
-  if (should_stop()) {
-    return;
-  }
-
-  struct VerifiedGeometry {
-    image_t image_id1;
-    image_t image_id2;
-    TwoViewGeometry two_view_geometry;
-  };
-  std::vector<VerifiedGeometry> verified_geometries;
-  verified_geometries.reserve(all_matches.size());
-  for (const auto& [pair_id, matches] : all_matches) {
+  std::vector<std::pair<image_t, image_t>> verified_image_pairs;
+  {
+    const std::vector<std::pair<image_pair_t, int>> all_matches =
+        database->ReadNumMatches();
     if (should_stop()) {
       return;
     }
-    if (matches.size() <
-        static_cast<size_t>(geometry_options.min_num_inliers)) {
-      continue;
-    }
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (!reconstruction.ExistsImage(image_id1) ||
-        !reconstruction.ExistsImage(image_id2)) {
-      continue;
-    }
-    const Image& image1 = reconstruction.Image(image_id1);
-    const Image& image2 = reconstruction.Image(image_id2);
-    if (!image1.HasPose() || !image2.HasPose()) {
-      continue;
-    }
-    const Rigid3d cam1_from_world = image1.CamFromWorld();
-    const Rigid3d cam2_from_world = image2.CamFromWorld();
 
-    TwoViewGeometry two_view_geometry;
-    two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
-    two_view_geometry.cam2_from_cam1 =
-        cam2_from_world * Inverse(cam1_from_world);
-    verified_geometries.push_back(
-        {image_id1, image_id2, std::move(two_view_geometry)});
+    verified_image_pairs.reserve(all_matches.size());
+    for (const auto& [pair_id, num_matches] : all_matches) {
+      if (should_stop()) {
+        return;
+      }
+      if (num_matches < geometry_options.min_num_inliers) {
+        continue;
+      }
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (!reconstruction.ExistsImage(image_id1) ||
+          !reconstruction.ExistsImage(image_id2)) {
+        continue;
+      }
+      const Image& image1 = reconstruction.Image(image_id1);
+      const Image& image2 = reconstruction.Image(image_id2);
+      if (!image1.HasPose() || !image2.HasPose()) {
+        continue;
+      }
+      verified_image_pairs.emplace_back(image_id1, image_id2);
+    }
   }
 
   if (should_stop()) {
@@ -478,9 +466,17 @@ void RunGuidedGeometricVerifierImpl(
   {
     DatabaseTransaction database_transaction(database.get());
     database->ClearTwoViewGeometries();
-    for (const auto& geometry : verified_geometries) {
-      database->WriteTwoViewGeometry(
-          geometry.image_id1, geometry.image_id2, geometry.two_view_geometry);
+    for (const auto& [image_id1, image_id2] : verified_image_pairs) {
+      const Rigid3d cam1_from_world =
+          reconstruction.Image(image_id1).CamFromWorld();
+      const Rigid3d cam2_from_world =
+          reconstruction.Image(image_id2).CamFromWorld();
+
+      TwoViewGeometry two_view_geometry;
+      two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+      two_view_geometry.cam2_from_cam1 =
+          cam2_from_world * Inverse(cam1_from_world);
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
     }
   }
 

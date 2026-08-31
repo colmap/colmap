@@ -35,6 +35,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <stdexcept>
 #include <thread>
 
 #include <gtest/gtest.h>
@@ -112,6 +113,16 @@ TEST(ScopedSignalHandler, RestoresPreviousHandlerAndClearsState) {
   std::raise(SIGINT);
   EXPECT_EQ(test_signal, SIGINT);
   std::signal(SIGINT, previous_handler);
+}
+
+TEST(ScopedSignalHandler, RejectsNestedInstances) {
+  ScopedSignalHandler signal_handler;
+  EXPECT_THROW(
+      { const ScopedSignalHandler nested_signal_handler; },
+      std::invalid_argument);
+
+  std::raise(SIGINT);
+  EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
 }
 
 TEST(ScopedSignalHandler, ThreadHandlesSignal) {
