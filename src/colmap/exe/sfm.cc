@@ -167,16 +167,13 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 
   AutomaticReconstructionController controller(reconstruction_options,
                                                reconstruction_manager);
-  const Thread::StartMode start_mode = signal_handler
-                                           ? Thread::StartMode::HANDLE_SIGNALS
-                                           : Thread::StartMode::DEFAULT;
   if (controller.RequiresOpenGL()) {
     QApplication app(argc, argv);
     controller.Setup();
-    RunThreadWithOpenGLContext(&controller, start_mode);
+    RunThreadWithOpenGLContext(&controller);
   } else {
     controller.Setup();
-    controller.Start(start_mode);
+    controller.Start();
     controller.Wait();
   }
 

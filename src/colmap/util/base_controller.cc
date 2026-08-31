@@ -58,8 +58,6 @@ void BaseController::SetCheckIfStoppedFunc(std::function<bool()> func) {
 }
 
 bool BaseController::CheckIfStopped() {
-  // Controllers always honor process interrupt signals. Thread::StartMode only
-  // controls signal handling through Thread::IsStopped().
   return ScopedSignalHandler::IsInterruptRequested() ||
          (check_if_stopped_fn_ && check_if_stopped_fn_());
 }

@@ -96,13 +96,6 @@ namespace colmap {
 //
 class Thread {
  public:
-  // Whether IsStopped() also observes process interrupt signals while the
-  // thread is running.
-  enum class StartMode {
-    DEFAULT,
-    HANDLE_SIGNALS,
-  };
-
   enum {
     STARTED_CALLBACK = INT_MIN,
     FINISHED_CALLBACK,
@@ -112,7 +105,7 @@ class Thread {
   virtual ~Thread() = default;
 
   // Control the state of the thread.
-  virtual void Start(StartMode mode = StartMode::DEFAULT);
+  virtual void Start();
   virtual void Stop();
   virtual void Pause();
   virtual void Resume();
@@ -160,10 +153,6 @@ class Thread {
   // Get the unique identifier of the current thread.
   std::thread::id GetThreadId() const;
 
-  // Get the mode used to start this thread, e.g. to propagate signal handling
-  // to child threads.
-  StartMode GetStartMode();
-
   // Signal that the thread is setup. Only call this function once.
   void SignalValidSetup();
   void SignalInvalidSetup();
@@ -180,7 +169,6 @@ class Thread {
   Timer timer_;
 
   bool started_;
-  StartMode start_mode_;
   bool stopped_;
   bool paused_;
   bool pausing_;

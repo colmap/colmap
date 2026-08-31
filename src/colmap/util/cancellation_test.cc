@@ -61,19 +61,6 @@ class StoppableThread : public Thread {
   std::atomic<bool> observed_stop_{false};
 };
 
-class ParentThread : public Thread {
- public:
-  bool ChildObservedStop() const { return child_.ObservedStop(); }
-
- private:
-  void Run() override {
-    child_.Start(GetStartMode());
-    child_.Wait();
-  }
-
-  StoppableThread child_;
-};
-
 TEST(CancellationToken, Cancel) {
   CancellationToken token;
   EXPECT_FALSE(token.IsCancelled());
@@ -127,35 +114,14 @@ TEST(ScopedSignalHandler, RestoresPreviousHandlerAndClearsState) {
   std::signal(SIGINT, previous_handler);
 }
 
-TEST(ScopedSignalHandler, ThreadIgnoresSignalByDefault) {
+TEST(ScopedSignalHandler, ThreadHandlesSignal) {
   ScopedSignalHandler signal_handler;
   StoppableThread thread;
   thread.Start();
   std::raise(SIGINT);
-  EXPECT_FALSE(thread.IsStopped());
-  thread.Stop();
-  thread.Wait();
-}
-
-TEST(ScopedSignalHandler, ThreadHandlesSignalWhenRequested) {
-  ScopedSignalHandler signal_handler;
-  StoppableThread thread;
-  thread.Start(Thread::StartMode::HANDLE_SIGNALS);
-  std::raise(SIGINT);
   thread.Wait();
 
   EXPECT_TRUE(thread.ObservedStop());
-  EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
-}
-
-TEST(ScopedSignalHandler, PropagatesSignalHandlingToChildThread) {
-  ScopedSignalHandler signal_handler;
-  ParentThread thread;
-  thread.Start(Thread::StartMode::HANDLE_SIGNALS);
-  std::raise(SIGINT);
-  thread.Wait();
-
-  EXPECT_TRUE(thread.ChildObservedStop());
   EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
 }
 

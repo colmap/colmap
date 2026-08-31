@@ -99,7 +99,7 @@ TEST(RunThreadWithOpenGLContext, PreservesSignalHandler) {
   };
 
   TestThread thread;
-  RunThreadWithOpenGLContext(&thread, Thread::StartMode::HANDLE_SIGNALS);
+  RunThreadWithOpenGLContext(&thread);
 
   EXPECT_TRUE(thread.ObservedStop());
   EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);

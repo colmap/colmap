@@ -81,8 +81,7 @@ class OpenGLContextManager : public QObject {
 //    TestThread thread;
 //    RunThreadWithOpenGLContext(&thread);
 //
-void RunThreadWithOpenGLContext(
-    Thread* thread, Thread::StartMode start_mode = Thread::StartMode::DEFAULT);
+void RunThreadWithOpenGLContext(Thread* thread);
 
 #else
 
@@ -94,8 +93,7 @@ class OpenGLContextManager {
   inline bool MakeCurrent() { return false; }
 };
 
-inline void RunThreadWithOpenGLContext(
-    Thread*, Thread::StartMode = Thread::StartMode::DEFAULT) {}
+inline void RunThreadWithOpenGLContext(Thread* thread) {}
 
 #endif
 
