@@ -134,6 +134,14 @@ TEST_P(ParameterizedVisualIndexTests, Nominal) {
     EXPECT_EQ(image_scores[0].image_id, 1);
     EXPECT_EQ(image_scores[1].image_id, 2);
     EXPECT_GT(image_scores[0].score, image_scores[1].score);
+
+    query_options.max_num_images = 1;
+    query_options.image_id_filter = [](const int image_id) {
+      return image_id != 1;
+    };
+    visual_index->Query(query_options, descriptors1, &image_scores);
+    ASSERT_EQ(image_scores.size(), 1);
+    EXPECT_EQ(image_scores[0].image_id, 2);
   }
 }
 

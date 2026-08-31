@@ -4,6 +4,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
 
@@ -48,7 +49,8 @@ py::typing::Optional<py::dict> PyEstimateAndDecomposeEssentialMatrix(
   // The tangent Sampson residual is in pixels, so the pixel threshold is used
   // directly (no CamFromImgThreshold / focal-length conversion).
   LORANSAC<EssentialMatrixTangentSampsonEstimator,
-           EssentialMatrixTangentSampsonEstimator>
+           EssentialMatrixTangentSampsonEstimator,
+           MEstimatorSupportMeasurer>
       ransac(options);
 
   // Essential matrix estimation.

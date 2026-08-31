@@ -35,6 +35,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         base_controller.h base_controller.cc
         cache.h
+        cancellation.h cancellation.cc
         hash_containers.h
         controller_thread.h
         eigen_alignment.h
@@ -168,6 +169,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME cancellation_test
+    SRCS cancellation_test.cc
     LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(

@@ -571,12 +571,32 @@ std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
   return summary;
 }
 
+class CancellationCallback : public ceres::IterationCallback {
+ public:
+  explicit CancellationCallback(std::function<bool()> check_if_stopped)
+      : check_if_stopped_(std::move(check_if_stopped)) {}
+
+  ceres::CallbackReturnType operator()(
+      const ceres::IterationSummary&) override {
+    return check_if_stopped_ && check_if_stopped_()
+               ? ceres::SOLVER_TERMINATE_SUCCESSFULLY
+               : ceres::SOLVER_CONTINUE;
+  }
+
+ private:
+  std::function<bool()> check_if_stopped_;
+};
+
 ceres::Solver::Summary SolveWithGpuFallback(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     ceres::Problem* problem) {
-  const ceres::Solver::Options solver_options =
+  CancellationCallback cancellation_callback(options.check_if_stopped);
+  ceres::Solver::Options solver_options =
       options.ceres->CreateSolverOptions(config, *problem);
+  if (options.check_if_stopped) {
+    solver_options.callbacks.push_back(&cancellation_callback);
+  }
 
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(solver_options, problem, &ceres_summary);
@@ -592,8 +612,11 @@ ceres::Solver::Summary SolveWithGpuFallback(
       auto cpu_options =
           std::make_shared<CeresBundleAdjustmentOptions>(*options.ceres);
       cpu_options->use_gpu = false;
-      const ceres::Solver::Options cpu_solver_options =
+      ceres::Solver::Options cpu_solver_options =
           cpu_options->CreateSolverOptions(config, *problem);
+      if (options.check_if_stopped) {
+        cpu_solver_options.callbacks.push_back(&cancellation_callback);
+      }
       ceres::Solve(cpu_solver_options, problem, &ceres_summary);
     }
   }
@@ -990,7 +1013,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     Image& image = reconstruction.Image(image_id);
 
     const bool constant_sensor_from_rig =
-        !options_.refine_sensor_from_rig ||
+        image.IsRefInFrame() || !options_.refine_sensor_from_rig ||
         config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
     const bool constant_rig_from_world =
         !options_.refine_rig_from_world ||
@@ -1035,6 +1058,14 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           prior_loss_function_.get(),
           cam_from_rig.params.data(),
           rig_from_world.params.data());
+      // Reprojection residuals may omit constant poses, so the prior can add
+      // their parameter blocks after the default parameterization pass.
+      if (constant_sensor_from_rig) {
+        problem.SetParameterBlockConstant(cam_from_rig.params.data());
+      }
+    }
+    if (constant_rig_from_world) {
+      problem.SetParameterBlockConstant(rig_from_world.params.data());
     }
   }
 

@@ -35,6 +35,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/hash_containers.h"
 
+#include <functional>
 #include <memory>
 
 #include <Eigen/Core>
@@ -204,6 +205,10 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
 
   // Solver backend to use for bundle adjustment.
   BundleAdjustmentBackend backend = BundleAdjustmentBackend::CERES;
+
+  // Optional cooperative cancellation callback. Ceres evaluates this after
+  // each iteration. Other backends may only evaluate it between solver runs.
+  std::function<bool()> check_if_stopped;
 
   bool Check() const;
 };

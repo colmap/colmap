@@ -137,6 +137,16 @@ TEST(StereoFusion, Integration) {
   for (const auto& vis : visibility) {
     EXPECT_GT(vis.size(), 0);
   }
+
+  bool stop_checked = false;
+  StereoFusion cancelled_fusion(options, temp_dir, "COLMAP", "", "geometric");
+  cancelled_fusion.SetCheckIfStoppedFunc([&stop_checked]() {
+    stop_checked = true;
+    return true;
+  });
+  cancelled_fusion.Run();
+  EXPECT_TRUE(stop_checked);
+  EXPECT_TRUE(cancelled_fusion.GetFusedPoints().empty());
 }
 
 TEST(ReadPointsVisibility, RoundTrip) {

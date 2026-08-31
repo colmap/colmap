@@ -578,6 +578,17 @@ class FaissVisualIndex : public VisualIndex {
                             options.num_threads);
     inverted_index_.Query(descriptors, *word_ids, image_scores);
 
+    if (options.image_id_filter) {
+      image_scores->erase(
+          std::remove_if(image_scores->begin(),
+                         image_scores->end(),
+                         [&options](const ImageScore& image_score) {
+                           return !options.image_id_filter(
+                               image_score.image_id);
+                         }),
+          image_scores->end());
+    }
+
     auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
       return score1.score > score2.score;
     };

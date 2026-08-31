@@ -36,10 +36,13 @@
 #include "colmap/exe/gui.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cancellation.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
+
+#include <chrono>
 
 namespace colmap {
 
@@ -417,35 +420,64 @@ void RunGuidedGeometricVerifierImpl(
     const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    int num_threads) {
+    int num_threads,
+    std::function<bool()> check_if_stopped) {
+  const auto should_stop = [&]() {
+    return ScopedSignalHandler::IsInterruptRequested() ||
+           (check_if_stopped && check_if_stopped());
+  };
+
   // Set all relative poses from a given reconstruction.
   auto database = Database::Open(database_path);
-  std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
-      database->ReadAllMatches();
-  database->ClearTwoViewGeometries();
-  for (const auto& [pair_id, matches] : all_matches) {
-    if (matches.size() <
-        static_cast<size_t>(geometry_options.min_num_inliers)) {
-      continue;
+  std::vector<std::pair<image_t, image_t>> verified_image_pairs;
+  {
+    const std::vector<std::pair<image_pair_t, int>> all_matches =
+        database->ReadNumMatches();
+    if (should_stop()) {
+      return;
     }
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (!reconstruction.ExistsImage(image_id1) ||
-        !reconstruction.ExistsImage(image_id2)) {
-      continue;
-    }
-    const Image& image1 = reconstruction.Image(image_id1);
-    const Image& image2 = reconstruction.Image(image_id2);
-    if (!image1.HasPose() || !image2.HasPose()) {
-      continue;
-    }
-    const Rigid3d cam1_from_world = image1.CamFromWorld();
-    const Rigid3d cam2_from_world = image2.CamFromWorld();
 
-    TwoViewGeometry two_view_geometry;
-    two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
-    two_view_geometry.cam2_from_cam1 =
-        cam2_from_world * Inverse(cam1_from_world);
-    database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    verified_image_pairs.reserve(all_matches.size());
+    for (const auto& [pair_id, num_matches] : all_matches) {
+      if (should_stop()) {
+        return;
+      }
+      if (num_matches < geometry_options.min_num_inliers) {
+        continue;
+      }
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (!reconstruction.ExistsImage(image_id1) ||
+          !reconstruction.ExistsImage(image_id2)) {
+        continue;
+      }
+      const Image& image1 = reconstruction.Image(image_id1);
+      const Image& image2 = reconstruction.Image(image_id2);
+      if (!image1.HasPose() || !image2.HasPose()) {
+        continue;
+      }
+      verified_image_pairs.emplace_back(image_id1, image_id2);
+    }
+  }
+
+  if (should_stop()) {
+    return;
+  }
+
+  {
+    DatabaseTransaction database_transaction(database.get());
+    database->ClearTwoViewGeometries();
+    for (const auto& [image_id1, image_id2] : verified_image_pairs) {
+      const Rigid3d cam1_from_world =
+          reconstruction.Image(image_id1).CamFromWorld();
+      const Rigid3d cam2_from_world =
+          reconstruction.Image(image_id2).CamFromWorld();
+
+      TwoViewGeometry two_view_geometry;
+      two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+      two_view_geometry.cam2_from_cam1 =
+          cam2_from_world * Inverse(cam1_from_world);
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    }
   }
 
   GeometricVerifierOptions verifier_options;
@@ -457,6 +489,13 @@ void RunGuidedGeometricVerifierImpl(
   auto verifier = CreateGeometricVerifier(
       verifier_options, pairing_options, geometry_options, database_path);
   verifier->Start();
+  while (verifier->IsRunning()) {
+    if (should_stop()) {
+      verifier->Stop();
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
   verifier->Wait();
 }
 
