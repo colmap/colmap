@@ -46,6 +46,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -82,7 +83,7 @@ def _init_pool_worker() -> None:
 
 
 def _run_with_log(
-    cmd: list, log_path: Path, check: bool = True, **kwargs
+    cmd: list, log_path: Path, check: bool = True, **kwargs: Any
 ) -> int:
     """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
 
@@ -118,7 +119,7 @@ class SceneInfo:
     # Whether the dataset has camera priors.
     has_camera_priors: bool
     # Additional arguments for the COLMAP reconstruction command.
-    colmap_extra_args: list[str]
+    colmap_extra_args: list[str | Path] | None
     # Reconstruction backend. The default uses automatic_reconstructor.
     reconstruction_backend: str = "automatic"
     # Subdirectory below workspace_path containing models to evaluate.
@@ -195,7 +196,7 @@ class Dataset(ABC):
         scenes: list[Path],
         run_path: Path,
         run_name: str,
-    ):
+    ) -> None:
         self.data_path = data_path
         self.categories = categories
         self.scenes = scenes
@@ -235,7 +236,7 @@ class _PhaseTracker:
     """Worker-side helper that publishes the current phase for a scene to a
     shared dict. No-op when status_dict is None."""
 
-    def __init__(self, status_dict=None, scene_key: str = "") -> None:
+    def __init__(self, status_dict: Any = None, scene_key: str = "") -> None:
         self._dict = status_dict
         self._key = scene_key
 
@@ -249,7 +250,7 @@ def _scene_key(scene_info: SceneInfo) -> str:
 
 
 def _run_progress_monitor(
-    status_dict, total: int, stop_event: threading.Event
+    status_dict: Any, total: int, stop_event: threading.Event
 ) -> None:
     """Render a live progress display of in-flight scenes until stop_event is
     set. Counts entries marked "done" toward overall completion; everything
@@ -631,7 +632,7 @@ def colmap_reconstruction(
     image_path: Path,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
-    colmap_extra_args: list | None = None,
+    colmap_extra_args: list[str | Path] | None = None,
     num_threads: int = 1,
     gpu_index: str = "-1",
     phase_tracker: _PhaseTracker | None = None,
@@ -911,7 +912,7 @@ def process_scene(
     dataset: Dataset,
     num_threads: int,
     gpu_index: str = "-1",
-    progress_status=None,
+    progress_status: Any = None,
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -1053,7 +1054,7 @@ def _process_scene_with_gpu(
     args: argparse.Namespace,
     dataset: Dataset,
     num_threads: int,
-    progress_status=None,
+    progress_status: Any = None,
 ) -> SceneResult:
     scene_info, gpu_index = scene_info_and_gpu
     return process_scene(
@@ -1579,7 +1580,7 @@ def compute_auc(
         recalls = np.r_[0, recalls]
         errors = np.r_[0, errors]
 
-    aucs = np.zeros(len(thresholds), dtype=np.float64)
+    aucs: npt.NDArray[np.float64] = np.zeros(len(thresholds), dtype=np.float64)
     for i, t in enumerate(thresholds):
         last_index = np.searchsorted(errors, t, side="right")
         r = np.r_[recalls[:last_index], recalls[last_index - 1]]
@@ -1599,7 +1600,9 @@ def compute_recall(
     if num_elems == 0:
         raise ValueError("No errors to evaluate")
 
-    recalls = np.zeros(len(thresholds), dtype=np.float64)
+    recalls: npt.NDArray[np.float64] = np.zeros(
+        len(thresholds), dtype=np.float64
+    )
     for i, t in enumerate(thresholds):
         recalls[i] = 100 * np.sum(errors <= t) / num_elems
 
@@ -1631,7 +1634,7 @@ def compute_avg_metrics(
 def diff_metrics(
     metrics_a: MetricsByDatasetByCatByScene,
     metrics_b: MetricsByDatasetByCatByScene,
-):
+) -> MetricsByDatasetByCatByScene:
     """Computes difference between two sets of metrics.
 
     Raises exception if the metrics are inconsistent.

@@ -1,70 +1,72 @@
+from pathlib import Path
+
 import pycolmap
 
 
-def test_logging_level_enum():
+def test_logging_level_enum() -> None:
     assert pycolmap.logging.INFO is not None
     assert pycolmap.logging.WARNING is not None
     assert pycolmap.logging.ERROR is not None
     assert pycolmap.logging.FATAL is not None
 
 
-def test_logging_minloglevel_readwrite():
+def test_logging_minloglevel_readwrite() -> None:
     original = pycolmap.logging.minloglevel
     pycolmap.logging.minloglevel = 0
     assert pycolmap.logging.minloglevel == 0
     pycolmap.logging.minloglevel = original
 
 
-def test_logging_stderrthreshold_readwrite():
+def test_logging_stderrthreshold_readwrite() -> None:
     original = pycolmap.logging.stderrthreshold
     pycolmap.logging.stderrthreshold = 2
     assert pycolmap.logging.stderrthreshold == 2
     pycolmap.logging.stderrthreshold = original
 
 
-def test_logging_log_dir_readwrite():
+def test_logging_log_dir_readwrite() -> None:
     original = pycolmap.logging.log_dir
     assert isinstance(original, str)
     pycolmap.logging.log_dir = original
 
 
-def test_logging_logtostderr_readwrite():
+def test_logging_logtostderr_readwrite() -> None:
     original = pycolmap.logging.logtostderr
     pycolmap.logging.logtostderr = True
     assert pycolmap.logging.logtostderr is True
     pycolmap.logging.logtostderr = original
 
 
-def test_logging_alsologtostderr_readwrite():
+def test_logging_alsologtostderr_readwrite() -> None:
     original = pycolmap.logging.alsologtostderr
     pycolmap.logging.alsologtostderr = True
     assert pycolmap.logging.alsologtostderr is True
     pycolmap.logging.alsologtostderr = original
 
 
-def test_logging_verbose_level_readwrite():
+def test_logging_verbose_level_readwrite() -> None:
     original = pycolmap.logging.verbose_level
     pycolmap.logging.verbose_level = 1
     assert pycolmap.logging.verbose_level == 1
     pycolmap.logging.verbose_level = original
 
 
-def test_logging_info():
+def test_logging_info() -> None:
     pycolmap.logging.info("smoke test info message")
 
 
-def test_logging_warning():
+def test_logging_warning() -> None:
     pycolmap.logging.warning("smoke test warning message")
 
 
-def test_logging_error():
+def test_logging_error() -> None:
     pycolmap.logging.error("smoke test error message")
 
 
-def test_logging_verbose():
+def test_logging_verbose() -> None:
     pycolmap.logging.verbose(1, "smoke test verbose message")
 
 
-def test_logging_set_log_destination(tmp_path):
+def test_logging_set_log_destination(tmp_path: Path) -> None:
     log_dir = str(tmp_path)
     pycolmap.logging.set_log_destination(pycolmap.logging.INFO, log_dir)

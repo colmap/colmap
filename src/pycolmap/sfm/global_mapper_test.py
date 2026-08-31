@@ -3,55 +3,55 @@ from pathlib import Path
 import pycolmap
 
 
-def test_global_mapper_options_init():
+def test_global_mapper_options_init() -> None:
     options = pycolmap.GlobalMapperOptions()
     assert options is not None
 
 
-def test_global_mapper_options_image_path():
+def test_global_mapper_options_image_path() -> None:
     options = pycolmap.GlobalMapperOptions()
     options.image_path = "/tmp/images"
     assert options.image_path == Path("/tmp/images")
 
 
-def test_global_mapper_options_ba_gpu_index():
+def test_global_mapper_options_ba_gpu_index() -> None:
     options = pycolmap.GlobalMapperOptions()
     options.ba_gpu_index = "0"
     assert options.ba_gpu_index == "0"
 
 
-def test_global_mapper_options_get_rotation_averaging():
+def test_global_mapper_options_get_rotation_averaging() -> None:
     options = pycolmap.GlobalMapperOptions()
     assert options.get_rotation_averaging() is not None
 
 
-def test_global_mapper_options_get_global_positioning():
+def test_global_mapper_options_get_global_positioning() -> None:
     options = pycolmap.GlobalMapperOptions()
     assert options.get_global_positioning() is not None
 
 
-def test_global_mapper_options_get_bundle_adjustment():
+def test_global_mapper_options_get_bundle_adjustment() -> None:
     options = pycolmap.GlobalMapperOptions()
     assert options.get_bundle_adjustment() is not None
 
 
-def test_global_mapper_options_get_retriangulation():
+def test_global_mapper_options_get_retriangulation() -> None:
     options = pycolmap.GlobalMapperOptions()
     assert options.get_retriangulation() is not None
 
 
-def test_global_pipeline_options_init():
+def test_global_pipeline_options_init() -> None:
     options = pycolmap.GlobalPipelineOptions()
     assert options is not None
 
 
-def test_global_pipeline_options_nested_options():
+def test_global_pipeline_options_nested_options() -> None:
     options = pycolmap.GlobalPipelineOptions()
     options.mapper.min_tri_angle_deg = 2.0
     assert options.mapper.min_tri_angle_deg == 2.0
 
 
-def test_global_pipeline_options_from_dict():
+def test_global_pipeline_options_from_dict() -> None:
     options = pycolmap.GlobalPipelineOptions(
         min_num_matches=20, mapper={"ba_num_iterations": 5}
     )
@@ -59,11 +59,11 @@ def test_global_pipeline_options_from_dict():
     assert options.mapper.ba_num_iterations == 5
 
 
-def test_global_pipeline_callback_model_update():
+def test_global_pipeline_callback_model_update() -> None:
     assert pycolmap.GlobalPipelineCallback.MODEL_UPDATE_CALLBACK is not None
 
 
-def test_global_pipeline_run(tmp_path: Path):
+def test_global_pipeline_run(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -84,7 +84,7 @@ def test_global_pipeline_run(tmp_path: Path):
     with pycolmap.Database.open(database_path) as database:
         num_model_updates = 0
 
-        def on_model_update():
+        def on_model_update() -> None:
             nonlocal num_model_updates
             num_model_updates += 1
 

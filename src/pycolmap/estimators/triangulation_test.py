@@ -1,7 +1,7 @@
 import pycolmap
 
 
-def test_triangulation_residual_type_enum():
+def test_triangulation_residual_type_enum() -> None:
     assert {
         k: int(v)
         for k, v in pycolmap.TriangulationResidualType.__members__.items()
@@ -11,19 +11,19 @@ def test_triangulation_residual_type_enum():
     }
 
 
-def test_estimate_triangulation_options_default_init():
+def test_estimate_triangulation_options_default_init() -> None:
     options = pycolmap.EstimateTriangulationOptions()
     assert options is not None
 
 
-def test_estimate_triangulation_options_min_tri_angle_readwrite():
+def test_estimate_triangulation_options_min_tri_angle_readwrite() -> None:
     options = pycolmap.EstimateTriangulationOptions()
     assert isinstance(options.min_tri_angle, float)
     options.min_tri_angle = 0.1
     assert options.min_tri_angle == 0.1
 
 
-def test_estimate_triangulation_options_residual_type_readwrite():
+def test_estimate_triangulation_options_residual_type_readwrite() -> None:
     options = pycolmap.EstimateTriangulationOptions()
     options.residual_type = (
         pycolmap.TriangulationResidualType.REPROJECTION_ERROR
@@ -34,11 +34,11 @@ def test_estimate_triangulation_options_residual_type_readwrite():
     )
 
 
-def test_estimate_triangulation_options_ransac_property():
+def test_estimate_triangulation_options_ransac_property() -> None:
     options = pycolmap.EstimateTriangulationOptions()
     ransac = options.ransac
     assert isinstance(ransac, pycolmap.RANSACOptions)
 
 
-def test_estimate_triangulation_is_callable():
+def test_estimate_triangulation_is_callable() -> None:
     assert callable(pycolmap.estimate_triangulation)

@@ -56,8 +56,8 @@ test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
     mypy --package pycolmap && \
-    mypy --install-types --non-interactive python benchmark && \
-    mypy src/pycolmap && \
+    mypy --install-types --non-interactive python benchmark doc && \
+    mypy src/pycolmap src/thirdparty/Symforce-Caspar/caspar_generate.py && \
     pytest\
 """
 
@@ -83,7 +83,7 @@ test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
     mypy --package pycolmap && \
-    mypy src/pycolmap && \
+    mypy src/pycolmap src/thirdparty/Symforce-Caspar/caspar_generate.py && \
     pytest\
 """
 
@@ -101,6 +101,21 @@ norecursedirs = [
 ]
 
 [tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
 implicit_optional = true
 ignore_missing_imports = true
 explicit_package_bases = true
+
+# PyCOLMAP's public API is populated dynamically from the compiled extension,
+# so source-only checks cannot resolve its exported names.
+[[tool.mypy.overrides]]
+module = [
+  "benchmark.*",
+  "doc.tests.*",
+  "pycolmap",
+  "pycolmap.*",
+  "src.pycolmap.*",
+]
+disable_error_code = ["attr-defined", "name-defined"]

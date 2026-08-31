@@ -236,7 +236,7 @@ def create_database_from_relative_poses(
     return image_name_to_id
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Convert rotation averaging files to database format"
     )

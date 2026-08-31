@@ -13,7 +13,7 @@ from .tartanair_v2 import (
 )
 
 
-def test_manifest_invariants():
+def test_manifest_invariants() -> None:
     manifest = load_manifest()
     scenes = list_scenes(manifest)
 
@@ -43,7 +43,7 @@ def test_manifest_invariants():
     }
 
 
-def test_select_frame_window_maximizes_extent():
+def test_select_frame_window_maximizes_extent() -> None:
     poses = np.zeros((8, 7))
     poses[:, 6] = 1.0
     poses[:, 0] = [0.0, 0.1, 0.2, 0.3, 0.4, 1.3, 2.2, 3.1]
@@ -58,7 +58,7 @@ def test_select_frame_window_maximizes_extent():
     assert selected == range(4, 8)
 
 
-def test_select_frame_window_rejects_motion_gaps():
+def test_select_frame_window_rejects_motion_gaps() -> None:
     poses = np.zeros((4, 7))
     poses[:, 6] = 1.0
     poses[:, 0] = [0.0, 0.1, 2.0, 2.1]

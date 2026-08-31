@@ -5,22 +5,22 @@ import pytest
 import pycolmap
 
 
-def test_view_graph_calibration_options_init():
+def test_view_graph_calibration_options_init() -> None:
     options = pycolmap.ViewGraphCalibrationOptions()
     assert options is not None
 
 
-def test_global_mapper_options_init():
+def test_global_mapper_options_init() -> None:
     options = pycolmap.GlobalMapperOptions()
     assert options is not None
 
 
-def test_global_pipeline_options_init():
+def test_global_pipeline_options_init() -> None:
     options = pycolmap.GlobalPipelineOptions()
     assert options is not None
 
 
-def test_global_pipeline_options_min_num_matches():
+def test_global_pipeline_options_min_num_matches() -> None:
     options = pycolmap.GlobalPipelineOptions()
     options.min_num_matches = 20
     assert options.min_num_matches == 20
@@ -37,16 +37,16 @@ def test_global_pipeline_options_min_num_matches():
         "bundle_adjustment",
     ],
 )
-def test_public_api_callable(name):
+def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))
 
 
-def test_hierarchical_pipeline_options_init():
+def test_hierarchical_pipeline_options_init() -> None:
     options = pycolmap.HierarchicalPipelineOptions()
     assert options is not None
 
 
-def test_incremental_mapping(tmp_path: Path):
+def test_incremental_mapping(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -78,7 +78,7 @@ def test_incremental_mapping(tmp_path: Path):
     assert (output_path / "0").exists()
 
 
-def test_global_mapping(tmp_path: Path):
+def test_global_mapping(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -123,7 +123,7 @@ def test_global_mapping(tmp_path: Path):
         assert error.proj_center_error < 1e-4
 
 
-def test_hierarchical_mapping(tmp_path: Path):
+def test_hierarchical_mapping(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"

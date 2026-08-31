@@ -1,22 +1,24 @@
 import pycolmap
 
 
-def _make_sensor(sensor_type, sensor_id):
+def _make_sensor(
+    sensor_type: pycolmap.SensorType, sensor_id: int
+) -> pycolmap.sensor_t:
     return pycolmap.sensor_t(type=sensor_type, id=sensor_id)
 
 
-def test_rig_init():
+def test_rig_init() -> None:
     rig = pycolmap.Rig()
     assert rig is not None
 
 
-def test_rig_rig_id_readwrite():
+def test_rig_rig_id_readwrite() -> None:
     rig = pycolmap.Rig()
     rig.rig_id = 5
     assert rig.rig_id == 5
 
 
-def test_rig_add_ref_sensor():
+def test_rig_add_ref_sensor() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     rig.add_ref_sensor(ref_sensor)
@@ -24,7 +26,7 @@ def test_rig_add_ref_sensor():
     assert rig.is_ref_sensor(ref_sensor)
 
 
-def test_rig_add_sensor():
+def test_rig_add_sensor() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -33,7 +35,7 @@ def test_rig_add_sensor():
     assert rig.has_sensor(other_sensor)
 
 
-def test_rig_has_sensor():
+def test_rig_has_sensor() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     missing_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 99)
@@ -42,7 +44,7 @@ def test_rig_has_sensor():
     assert not rig.has_sensor(missing_sensor)
 
 
-def test_rig_is_ref_sensor():
+def test_rig_is_ref_sensor() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -52,7 +54,7 @@ def test_rig_is_ref_sensor():
     assert not rig.is_ref_sensor(other_sensor)
 
 
-def test_rig_num_sensors():
+def test_rig_num_sensors() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     rig.add_ref_sensor(ref_sensor)
@@ -62,14 +64,14 @@ def test_rig_num_sensors():
     assert rig.num_sensors() == 2
 
 
-def test_rig_ref_sensor_id():
+def test_rig_ref_sensor_id() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     rig.add_ref_sensor(ref_sensor)
     assert rig.ref_sensor_id == ref_sensor
 
 
-def test_rig_sensor_ids():
+def test_rig_sensor_ids() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -80,7 +82,7 @@ def test_rig_sensor_ids():
     assert other_sensor in sensor_ids
 
 
-def test_rig_non_ref_sensors():
+def test_rig_non_ref_sensors() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -90,7 +92,7 @@ def test_rig_non_ref_sensors():
     assert other_sensor in non_ref
 
 
-def test_rig_has_sensor_from_rig():
+def test_rig_has_sensor_from_rig() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -100,7 +102,7 @@ def test_rig_has_sensor_from_rig():
     assert not rig.has_sensor_from_rig(other_sensor)
 
 
-def test_rig_sensor_from_rig():
+def test_rig_sensor_from_rig() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -111,7 +113,7 @@ def test_rig_sensor_from_rig():
     assert result is None
 
 
-def test_rig_set_sensor_from_rig():
+def test_rig_set_sensor_from_rig() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -122,7 +124,7 @@ def test_rig_set_sensor_from_rig():
     assert rig.has_sensor_from_rig(other_sensor)
 
 
-def test_rig_reset_sensor_from_rig():
+def test_rig_reset_sensor_from_rig() -> None:
     rig = pycolmap.Rig()
     ref_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 0)
     other_sensor = _make_sensor(pycolmap.SensorType.CAMERA, 1)
@@ -133,12 +135,12 @@ def test_rig_reset_sensor_from_rig():
     assert not rig.has_sensor_from_rig(other_sensor)
 
 
-def test_rig_map_empty():
+def test_rig_map_empty() -> None:
     rig_map = pycolmap.RigMap()
     assert len(rig_map) == 0
 
 
-def test_rig_map_insert_and_access():
+def test_rig_map_insert_and_access() -> None:
     rig_map = pycolmap.RigMap()
     rig = pycolmap.Rig()
     rig.rig_id = 1

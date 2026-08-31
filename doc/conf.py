@@ -12,11 +12,12 @@
 
 import re
 import subprocess
+from typing import Any
 
 from sphinx.ext import autodoc
 
 
-def get_git_revision():
+def get_git_revision() -> str:
     try:
         commit_id = (
             subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
@@ -211,7 +212,7 @@ html_logo = "_static/colmap-logo.svg"
 html_favicon = "_static/favicon.svg"
 
 # Give the landing page a full-width layout by dropping the left sidebar.
-html_sidebars = {"index": [], "viewer": []}
+html_sidebars: dict[str, list[str]] = {"index": [], "viewer": []}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -272,7 +273,7 @@ htmlhelp_basename = "COLMAPdoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
-latex_elements = {
+latex_elements: dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
     # 'papersize': 'a4paper',
     # The font size ('10pt', '11pt' or '12pt').
@@ -371,7 +372,9 @@ autodoc_use_legacy_class_based = True
 
 
 def sort_members(
-    self, documenters: list[tuple[autodoc.Documenter, bool]], order: str
+    self: autodoc.ClassDocumenter,
+    documenters: list[tuple[autodoc.Documenter, bool]],
+    order: str,
 ) -> list[tuple[autodoc.Documenter, bool]]:
     """Order the members by their definition order."""
     class_names = list(self.object.__dict__)
@@ -390,10 +393,12 @@ def sort_members(
 # autodoc_member_order=bysource does not work for C++-defined classes since they
 # cannot be introspected and do not have an __all__ list. Instead,
 # we extract the definition order from object.__dict__.
-autodoc.ClassDocumenter.sort_members = sort_members
+autodoc.ClassDocumenter.sort_members = sort_members  # type: ignore[method-assign]
 
 
-def process_doc(app, what, name, obj, options, lines):
+def process_doc(
+    app: Any, what: str, name: str, obj: Any, options: Any, lines: list[str]
+) -> None:
     if not lines:
         return
     has_overload = lines[0] == "Overloaded function."
@@ -405,7 +410,15 @@ def process_doc(app, what, name, obj, options, lines):
             lines[i] = ". ".join([index, signature])
 
 
-def process_sig(app, what, name, obj, options, signature, return_annotation):
+def process_sig(
+    app: Any,
+    what: str,
+    name: str,
+    obj: Any,
+    options: Any,
+    signature: str | None,
+    return_annotation: Any,
+) -> tuple[str | None, Any]:
     if signature is None:
         return None, return_annotation
     signature = signature.replace("pycolmap._core", "pycolmap")
@@ -416,7 +429,7 @@ def process_sig(app, what, name, obj, options, signature, return_annotation):
     return signature, return_annotation
 
 
-def setup(app):
+def setup(app: Any) -> None:
     # Remap types from the C++ module pycolmap._core to the Python namespace.
     app.connect("autodoc-process-docstring", process_doc)
     app.connect("autodoc-process-signature", process_sig)
