@@ -633,7 +633,10 @@ class TestComputeAbsErrors:
         for frame in reconstruction.frames.values():
             world_from_rig = frame.rig_from_world.inverse()
             world_from_rig.rotation = (
-                world_from_rig.rotation * pycolmap.Rotation3d([0, 1, 0, 0])
+                world_from_rig.rotation
+                * pycolmap.Rotation3d(  # type: ignore[call-overload]
+                    [0, 1, 0, 0]
+                )
             )
             world_from_rig.translation += translation
             frame.rig_from_world = world_from_rig.inverse()
