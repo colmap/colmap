@@ -318,3 +318,31 @@ if(HIP_ENABLED)
     )
     set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
 endif()
+
+if(METAL_ENABLED)
+    find_library(METAL_FRAMEWORK Metal REQUIRED)
+    find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_mvs_metal
+        SRCS
+            patch_match.h patch_match.cc
+            patch_match_metal.h patch_match_metal.mm
+        PUBLIC_LINK_LIBS
+            colmap_mvs
+        PRIVATE_LINK_LIBS
+            ${METAL_FRAMEWORK}
+            ${FOUNDATION_FRAMEWORK}
+    )
+
+    set_source_files_properties(
+        patch_match_metal.mm
+        PROPERTIES COMPILE_FLAGS "-fobjc-arc"
+    )
+
+    COLMAP_ADD_TEST(
+        NAME patch_match_metal_test
+        SRCS patch_match_metal_test.cc
+        LINK_LIBS colmap_mvs_metal
+    )
+endif()

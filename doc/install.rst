@@ -293,6 +293,23 @@ Configure and compile COLMAP::
     ninja
     sudo ninja install
 
+To build the experimental native Metal dense-stereo backend on Apple Silicon,
+disable CUDA and enable Metal explicitly::
+
+    cmake .. -GNinja \
+        -DCMAKE_OSX_ARCHITECTURES=arm64 \
+        -DCMAKE_PREFIX_PATH=/opt/homebrew \
+        -DOpenMP_ROOT=/opt/homebrew/opt/libomp \
+        -DCUDA_ENABLED=OFF \
+        -DHIP_ENABLED=OFF \
+        -DMETAL_ENABLED=ON
+    ninja
+
+``METAL_ENABLED`` accelerates PatchMatch dense stereo through Apple's Metal
+compute API. It is independent of the existing OpenGL SIFT backend. The Metal
+backend currently exposes the system GPU as index ``0``; the default value
+``--PatchMatchStereo.gpu_index=-1`` selects it automatically.
+
 If you have Qt 5 installed on your system as well, you might have to temporarily
 link your Qt 5 installation while configuring CMake::
 
