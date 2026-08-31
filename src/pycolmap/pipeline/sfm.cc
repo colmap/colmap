@@ -44,19 +44,23 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
     const std::filesystem::path& output_path,
     const bool clear_points,
     const IncrementalPipelineOptions& options,
-    const bool refine_intrinsics) {
+    const bool refine_intrinsics,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
   py::gil_scoped_release release;
+  PyInterruptChecker interrupt_checker(cancellation_token);
   RunPointTriangulatorImpl(reconstruction,
                            database_path,
                            image_path,
                            output_path,
                            options,
                            clear_points,
-                           refine_intrinsics);
+                           refine_intrinsics,
+                           interrupt_checker.Callback());
+  interrupt_checker.CheckAndThrow();
   return reconstruction;
 }
 
@@ -67,7 +71,8 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     const IncrementalPipelineOptions& options,
     const std::filesystem::path& input_path,
     std::function<void()> initial_image_pair_callback,
-    std::function<void()> next_image_callback) {
+    std::function<void()> next_image_callback,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
@@ -79,24 +84,26 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
   }
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
 
-  PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
+  PyInterruptChecker interrupt_checker(cancellation_token);
   auto next_image_callback_py_interruptible =
-      [&py_interrupt, next_image_callback = std::move(next_image_callback)]() {
-        if (py_interrupt.Raised()) {
-          throw py::error_already_set();
-        }
+      [next_image_callback = std::move(next_image_callback)]() {
         if (next_image_callback) {
           next_image_callback();
         }
       };
 
-  if (!RunIncrementalMapperImpl(database_path,
-                                image_path,
-                                output_path,
-                                options_,
-                                reconstruction_manager,
-                                initial_image_pair_callback,
-                                next_image_callback_py_interruptible)) {
+  const bool success =
+      RunIncrementalMapperImpl(database_path,
+                               image_path,
+                               output_path,
+                               options_,
+                               reconstruction_manager,
+                               initial_image_pair_callback,
+                               next_image_callback_py_interruptible,
+                               interrupt_checker.Callback());
+
+  interrupt_checker.CheckAndThrow();
+  if (!success) {
     return {};
   }
 
@@ -150,14 +157,19 @@ std::map<size_t, std::shared_ptr<Reconstruction>> HierarchicalMapping(
   return ReconstructionManagerToMap(reconstruction_manager);
 }
 
-void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
-                      const BundleAdjustmentOptions& options) {
+void BundleAdjustment(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const BundleAdjustmentOptions& options,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   py::gil_scoped_release release;
   OptionManager option_manager;
   option_manager.bundle_adjustment =
       std::make_shared<BundleAdjustmentOptions>(options);
+  PyInterruptChecker interrupt_checker(cancellation_token);
   BundleAdjustmentController controller(option_manager, reconstruction);
+  controller.SetCheckIfStoppedFunc(interrupt_checker.Callback());
   controller.Run();
+  interrupt_checker.CheckAndThrow();
 }
 
 bool ViewGraphCalibration(const std::filesystem::path& database_path,
@@ -208,6 +220,7 @@ void BindSfM(py::module& m) {
                   IncrementalPipelineOptions(),
                   "IncrementalPipelineOptions()"),
         "refine_intrinsics"_a = false,
+        "cancellation_token"_a = py::none(),
         "Triangulate 3D points from known camera poses");
 
   m.def("incremental_mapping",
@@ -221,6 +234,7 @@ void BindSfM(py::module& m) {
         "input_path"_a = py::str(""),
         "initial_image_pair_callback"_a = py::none(),
         "next_image_callback"_a = py::none(),
+        "cancellation_token"_a = py::none(),
         "Recover 3D points and unknown camera poses");
 
   m.def(
@@ -260,5 +274,6 @@ void BindSfM(py::module& m) {
         "reconstruction"_a,
         py::arg_v(
             "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
+        "cancellation_token"_a = py::none(),
         "Jointly refine 3D points and camera poses");
 }

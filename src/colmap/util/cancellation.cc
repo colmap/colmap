@@ -27,38 +27,61 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/util/cancellation.h"
 
-#include "colmap/mvs/fusion.h"
-#include "colmap/mvs/patch_match_options.h"
-#include "colmap/scene/reconstruction.h"
+#include "colmap/util/logging.h"
 
-#include <filesystem>
-#include <functional>
+#include <atomic>
+#include <cstdlib>
 
 namespace colmap {
+namespace {
 
-void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
-                             const std::string& workspace_format,
-                             const std::string& pmvs_option_name,
-                             const mvs::PatchMatchOptions& options,
-                             const std::filesystem::path& config_path);
+std::atomic<int> received_signal{0};
+std::atomic<bool> signal_handler_active{false};
+static_assert(std::atomic<int>::is_always_lock_free);
 
-Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
-                                  const std::filesystem::path& workspace_path,
-                                  std::string workspace_format,
-                                  const std::string& pmvs_option_name,
-                                  std::string input_type,
-                                  const mvs::StereoFusionOptions& options,
-                                  std::string output_type,
-                                  std::function<bool()> check_if_stopped = {});
+void HandleSignal(const int signal) {
+  int expected = 0;
+  if (!received_signal.compare_exchange_strong(
+          expected, signal, std::memory_order_relaxed)) {
+    std::_Exit(128 + signal);
+  }
+}
 
-int RunAdvancingFrontMesher(int argc, char** argv);
-int RunDelaunayMesher(int argc, char** argv);
-int RunMeshSimplifier(int argc, char** argv);
-int RunMeshTexturer(int argc, char** argv);
-int RunPatchMatchStereo(int argc, char** argv);
-int RunPoissonMesher(int argc, char** argv);
-int RunStereoFuser(int argc, char** argv);
+}  // namespace
+
+void CancellationToken::Cancel() { is_cancelled_.store(true); }
+
+bool CancellationToken::IsCancelled() const { return is_cancelled_.load(); }
+
+ScopedSignalHandler::ScopedSignalHandler() {
+  bool expected = false;
+  THROW_CHECK(signal_handler_active.compare_exchange_strong(expected, true))
+      << "ScopedSignalHandler instances cannot be nested";
+  received_signal.store(0, std::memory_order_relaxed);
+  previous_sigint_handler_ = std::signal(SIGINT, HandleSignal);
+  previous_sigterm_handler_ = std::signal(SIGTERM, HandleSignal);
+}
+
+ScopedSignalHandler::~ScopedSignalHandler() {
+  std::signal(SIGINT, previous_sigint_handler_);
+  std::signal(SIGTERM, previous_sigterm_handler_);
+  received_signal.store(0, std::memory_order_relaxed);
+  signal_handler_active.store(false);
+}
+
+int ScopedSignalHandler::ReceivedSignal() const {
+  return received_signal.load(std::memory_order_relaxed);
+}
+
+int ScopedSignalHandler::GetExitCode() const {
+  const int signal = ReceivedSignal();
+  return signal == 0 ? EXIT_SUCCESS : 128 + signal;
+}
+
+bool ScopedSignalHandler::IsInterruptRequested() {
+  return received_signal.load(std::memory_order_relaxed) != 0;
+}
 
 }  // namespace colmap

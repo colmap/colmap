@@ -29,36 +29,44 @@
 
 #pragma once
 
-#include "colmap/mvs/fusion.h"
-#include "colmap/mvs/patch_match_options.h"
-#include "colmap/scene/reconstruction.h"
-
-#include <filesystem>
-#include <functional>
+#include <atomic>
+#include <csignal>
 
 namespace colmap {
 
-void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
-                             const std::string& workspace_format,
-                             const std::string& pmvs_option_name,
-                             const mvs::PatchMatchOptions& options,
-                             const std::filesystem::path& config_path);
+// Thread-safe cancellation state for cooperative cancellation of long-running
+// operations. Cancellation tokens are single-use and remain cancelled once a
+// cancellation request has been made.
+class CancellationToken {
+ public:
+  void Cancel();
+  bool IsCancelled() const;
 
-Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
-                                  const std::filesystem::path& workspace_path,
-                                  std::string workspace_format,
-                                  const std::string& pmvs_option_name,
-                                  std::string input_type,
-                                  const mvs::StereoFusionOptions& options,
-                                  std::string output_type,
-                                  std::function<bool()> check_if_stopped = {});
+ private:
+  std::atomic<bool> is_cancelled_{false};
+};
 
-int RunAdvancingFrontMesher(int argc, char** argv);
-int RunDelaunayMesher(int argc, char** argv);
-int RunMeshSimplifier(int argc, char** argv);
-int RunMeshTexturer(int argc, char** argv);
-int RunPatchMatchStereo(int argc, char** argv);
-int RunPoissonMesher(int argc, char** argv);
-int RunStereoFuser(int argc, char** argv);
+// Scoped handler for process interruption signals. The handler only records
+// the first signal so that normal code can perform cleanup at a safe point. A
+// second signal terminates the process immediately.
+class ScopedSignalHandler {
+ public:
+  ScopedSignalHandler();
+  ~ScopedSignalHandler();
+
+  ScopedSignalHandler(const ScopedSignalHandler&) = delete;
+  ScopedSignalHandler& operator=(const ScopedSignalHandler&) = delete;
+
+  int ReceivedSignal() const;
+  int GetExitCode() const;
+
+  static bool IsInterruptRequested();
+
+ private:
+  using SignalHandler = void (*)(int);
+
+  SignalHandler previous_sigint_handler_ = SIG_DFL;
+  SignalHandler previous_sigterm_handler_ = SIG_DFL;
+};
 
 }  // namespace colmap
