@@ -444,9 +444,9 @@ class ScaledRigReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_rig) * point3D_in_rig +
         EigenVector3Map<T>(cam_from_rig + 4);
     Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    // Reject the evaluation instead of zeroing the residual when a point 
-    // does not project. This functor refines a pose over fixed inlier 
-    // observations, where a zero residual would make a pose 
+    // Reject the evaluation instead of zeroing the residual when a point
+    // does not project. This functor refines a pose over fixed inlier
+    // observations, where a zero residual would make a pose
     // that fails to project its points appear as a perfect fit.
     if (!CameraModel::ImgFromCam(camera_params,
                                  point3D_in_cam[0],
