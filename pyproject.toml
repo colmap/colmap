@@ -116,25 +116,16 @@ module = [
   "doc.tests.*",
   "pycolmap",
   "pycolmap.*",
+  "src.pycolmap.*",
 ]
 disable_error_code = ["attr-defined", "name-defined"]
 
-# The generated pybind11 stubs use fixed-shape NumPy annotations that vary
-# between Python platforms and are stricter than the arrays accepted at
-# runtime. Keep annotation checks enabled while suppressing those binding-only
-# incompatibilities in the PyCOLMAP tests.
-[[tool.mypy.overrides]]
-module = ["src.pycolmap.*"]
-disable_error_code = [
-  "arg-type",
-  "assignment",
-  "attr-defined",
-  "name-defined",
-]
-
 # Stubs generated from pybind11 signatures still contain untyped overloads.
+# Some overloads differ only by NumPy shape metadata, which mypy intentionally
+# ignores when determining whether overloads overlap.
 [[tool.mypy.overrides]]
 module = ["pycolmap._core", "pycolmap._core.*"]
 check_untyped_defs = false
 disallow_incomplete_defs = false
 disallow_untyped_defs = false
+disable_error_code = ["overload-cannot-match"]

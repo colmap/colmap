@@ -48,9 +48,7 @@ def test_filter_database_by_covisibility(tmp_path: Path) -> None:
                 use_image_id=True,
             )
         geometry = pycolmap.TwoViewGeometry()
-        geometry.inlier_matches = np.array(  # type: ignore[arg-type, assignment]
-            [[0, 0]], dtype=np.uint32
-        )
+        geometry.inlier_matches = np.array([[0, 0]], dtype=np.uint32)
         database.write_two_view_geometry(1, 2, geometry)
         database.write_two_view_geometry(1, 3, geometry)
 

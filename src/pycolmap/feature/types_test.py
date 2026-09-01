@@ -182,7 +182,7 @@ def test_keypoints_to_from_matrix_roundtrip() -> None:
     keypoint.a21 = 0.0
     keypoint.a22 = 1.0
     keypoints.append(keypoint)
-    matrix = pycolmap.keypoints_to_matrix(keypoints)  # type: ignore[var-annotated]
+    matrix = pycolmap.keypoints_to_matrix(keypoints)
     assert matrix.shape[0] == 1
     assert matrix.shape[1] == 4
     recovered = pycolmap.keypoints_from_matrix(matrix)
@@ -195,7 +195,7 @@ def test_matches_to_from_matrix_roundtrip() -> None:
     matches = pycolmap.FeatureMatches()
     matches.append(pycolmap.FeatureMatch(0, 5))
     matches.append(pycolmap.FeatureMatch(1, 3))
-    matrix = pycolmap.matches_to_matrix(matches)  # type: ignore[var-annotated]
+    matrix = pycolmap.matches_to_matrix(matches)
     assert matrix.shape == (2, 2)
     recovered = pycolmap.matches_from_matrix(matrix)
     assert len(recovered) == 2
