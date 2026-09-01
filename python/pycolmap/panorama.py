@@ -133,7 +133,7 @@ def get_virtual_camera_rays(
     xy: NDArrayNx2 = np.column_stack([x.ravel(), y.ravel()])
     # The center of the upper left most pixel has coordinate (0.5, 0.5)
     xy += 0.5
-    xy_norm: NDArrayNx2 = camera.cam_from_img(image_points=xy)
+    xy_norm: npt.NDArray[np.float64] = camera.cam_from_img(image_points=xy)
     rays = np.concatenate([xy_norm, np.ones_like(xy_norm[:, :1])], -1)
     rays /= np.linalg.norm(rays, axis=-1, keepdims=True)
     return rays
