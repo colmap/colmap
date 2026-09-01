@@ -177,7 +177,10 @@ bool RefineGeneralizedAbsolutePose(
 //                             (as axis-angle, in tangent space), translation,
 //                             and scale terms (optional).
 //
-// @return                     Whether the solution is usable.
+// @return                     Whether the solution is usable. Fails if the
+//                             observations selected by the inlier mask project
+//                             from a single center (including an empty mask),
+//                             for which the scale is unobservable.
 bool RefineScaledGeneralizedAbsolutePose(
     const AbsolutePoseRefinementOptions& options,
     const std::vector<char>& inlier_mask,
