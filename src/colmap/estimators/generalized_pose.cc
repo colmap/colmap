@@ -55,6 +55,9 @@ void ThrowCheckCameras(const std::vector<size_t>& camera_idxs,
                        const std::vector<Camera>& cameras) {
   THROW_CHECK(!cameras.empty());
   THROW_CHECK_EQ(cams_from_rig.size(), cameras.size());
+  if (camera_idxs.empty()) {
+    return;
+  }
   const auto [min_camera_idx, max_camera_idx] =
       std::minmax_element(camera_idxs.begin(), camera_idxs.end());
   THROW_CHECK_GE(*min_camera_idx, 0);
@@ -512,15 +515,27 @@ bool RefineScaledGeneralizedAbsolutePose(
   THROW_CHECK_EQ(points2D.size(), inlier_mask.size());
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   THROW_CHECK_EQ(points2D.size(), camera_idxs.size());
-  THROW_CHECK_EQ(cams_from_rig.size(), cameras->size());
-  THROW_CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
-  THROW_CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
-                 cameras->size());
+  ThrowCheckCameras(camera_idxs, cams_from_rig, *cameras);
   THROW_CHECK_GT(rig_from_world->scale(), 0);
   THROW_CHECK(!options.use_position_prior)
       << "Position priors are not supported in scaled generalized pose "
          "refinement";
   options.Check();
+
+  // The scale of the rig geometry is unobservable if the active (inlier)
+  // observations project from a single center. This also rejects an empty
+  // inlier set.
+  std::vector<size_t> inlier_camera_idxs;
+  inlier_camera_idxs.reserve(camera_idxs.size());
+  for (size_t i = 0; i < camera_idxs.size(); ++i) {
+    if (inlier_mask[i]) {
+      inlier_camera_idxs.push_back(camera_idxs[i]);
+    }
+  }
+  if (inlier_camera_idxs.empty() ||
+      IsPanoramicRig(inlier_camera_idxs, cams_from_rig)) {
+    return false;
+  }
 
   const auto loss_function =
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
