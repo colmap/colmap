@@ -77,7 +77,7 @@ copyright = "2026, COLMAP Team"
 # built documents.
 #
 # The short MAJOR.MINOR.PATCH version.
-version = "4.2.0.dev0" + " | " + get_git_revision()
+version = "4.3.0.dev0" + " | " + get_git_revision()
 # The full version, including alpha/beta/rc tags.
 release = version
 
