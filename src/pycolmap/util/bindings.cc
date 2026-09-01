@@ -3,6 +3,7 @@
 namespace py = pybind11;
 
 void BindLogging(py::module& m);
+void BindCancellation(py::module& m);
 void BindOpenImageIO(py::module& m);
 void BindTimer(py::module& m);
 void BindTimestamp(py::module& m);
@@ -12,6 +13,7 @@ void BindCudaUtils(py::module& m);
 #endif  // COLMAP_CUDA_ENABLED
 
 void BindUtil(py::module& m) {
+  BindCancellation(m);
   BindUtilTypes(m);
   BindTimestamp(m);
   BindLogging(m);

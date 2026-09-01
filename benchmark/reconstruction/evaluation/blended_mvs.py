@@ -27,6 +27,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -38,14 +39,14 @@ from .utils import Dataset, SceneInfo
 
 class DatasetBlendedMVS(Dataset):
     @property
-    def position_accuracy_gt(self):
+    def position_accuracy_gt(self) -> float:
         return 0.001
 
     @property
     def supports_covisibility_filtering(self) -> bool:
         return True
 
-    def list_scenes(self):
+    def list_scenes(self) -> list[SceneInfo]:
         scene_infos = []
         for category_path in (self.data_path / "blended-mvs").iterdir():
             if not category_path.is_dir() or (
@@ -84,7 +85,10 @@ class DatasetBlendedMVS(Dataset):
                             num_images += 1
 
                 sparse_gt_path = scene_path / "sparse_gt"
-                colmap_extra_args = ["--image_list_path", image_list_path]
+                colmap_extra_args: list[str | Path] = [
+                    "--image_list_path",
+                    image_list_path,
+                ]
 
                 scene_info = SceneInfo(
                     dataset="blended-mvs",
@@ -102,7 +106,7 @@ class DatasetBlendedMVS(Dataset):
 
         return scene_infos
 
-    def prepare_scene(self, scene_info):
+    def prepare_scene(self, scene_info: SceneInfo) -> None:
         if scene_info.sparse_gt_path.exists():
             return
 
@@ -147,7 +151,9 @@ class DatasetBlendedMVS(Dataset):
             frame = pycolmap.Frame(frame_id=i)
             frame.rig_id = i
             frame.add_data_id(image.data_id)
-            frame.rig_from_world = pycolmap.Rigid3d(extrinsic)
+            frame.rig_from_world = pycolmap.Rigid3d(  # type: ignore[arg-type]
+                extrinsic  # type: ignore[arg-type]
+            )
             sparse_gt.add_camera(camera)
             sparse_gt.add_rig(rig)
             sparse_gt.add_frame(frame)

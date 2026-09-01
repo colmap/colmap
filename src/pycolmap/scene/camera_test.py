@@ -3,41 +3,41 @@ import numpy as np
 import pycolmap
 
 
-def test_camera_model_id_invalid():
+def test_camera_model_id_invalid() -> None:
     assert pycolmap.CameraModelId.INVALID is not None
 
 
-def test_camera_model_id_pinhole():
+def test_camera_model_id_pinhole() -> None:
     assert pycolmap.CameraModelId.PINHOLE is not None
 
 
-def test_camera_model_id_simple_pinhole():
+def test_camera_model_id_simple_pinhole() -> None:
     assert pycolmap.CameraModelId.SIMPLE_PINHOLE is not None
 
 
-def test_camera_model_id_simple_radial():
+def test_camera_model_id_simple_radial() -> None:
     assert pycolmap.CameraModelId.SIMPLE_RADIAL is not None
 
 
-def test_camera_model_id_radial():
+def test_camera_model_id_radial() -> None:
     assert pycolmap.CameraModelId.RADIAL is not None
 
 
-def test_camera_model_id_opencv():
+def test_camera_model_id_opencv() -> None:
     assert pycolmap.CameraModelId.OPENCV is not None
 
 
-def test_camera_model_id_string_construction():
+def test_camera_model_id_string_construction() -> None:
     model = pycolmap.CameraModelId("PINHOLE")
     assert model == pycolmap.CameraModelId.PINHOLE
 
 
-def test_camera_default_init():
+def test_camera_default_init() -> None:
     camera = pycolmap.Camera()
     assert camera is not None
 
 
-def test_camera_create_from_model_id():
+def test_camera_create_from_model_id() -> None:
     camera = pycolmap.Camera.create_from_model_id(
         1, pycolmap.CameraModelId.PINHOLE, 500.0, 1024, 768
     )
@@ -45,7 +45,7 @@ def test_camera_create_from_model_id():
     assert camera.camera_id == 1
 
 
-def test_camera_create_from_model_name():
+def test_camera_create_from_model_name() -> None:
     camera = pycolmap.Camera.create_from_model_name(
         2, "PINHOLE", 500.0, 1024, 768
     )
@@ -53,18 +53,18 @@ def test_camera_create_from_model_name():
     assert camera.camera_id == 2
 
 
-def test_camera_camera_id_readwrite(simple_camera):
+def test_camera_camera_id_readwrite(simple_camera: pycolmap.Camera) -> None:
     simple_camera.camera_id = 10
     assert simple_camera.camera_id == 10
 
 
-def test_camera_model_readwrite(simple_camera):
+def test_camera_model_readwrite(simple_camera: pycolmap.Camera) -> None:
     assert simple_camera.model == pycolmap.CameraModelId.PINHOLE
     simple_camera.model = pycolmap.CameraModelId.SIMPLE_PINHOLE
     assert simple_camera.model == pycolmap.CameraModelId.SIMPLE_PINHOLE
 
 
-def test_camera_width_height_readwrite(simple_camera):
+def test_camera_width_height_readwrite(simple_camera: pycolmap.Camera) -> None:
     assert simple_camera.width == 1024
     assert simple_camera.height == 768
     simple_camera.width = 2048
@@ -73,23 +73,25 @@ def test_camera_width_height_readwrite(simple_camera):
     assert simple_camera.height == 1536
 
 
-def test_camera_params_readwrite(simple_camera):
+def test_camera_params_readwrite(simple_camera: pycolmap.Camera) -> None:
     params = simple_camera.params
     assert len(params) > 0
     new_params = list(params)
-    new_params[0] = 600.0
+    new_params[0] = 600.0  # type: ignore[call-overload]
     simple_camera.params = new_params
     assert simple_camera.params[0] == 600.0
 
 
-def test_camera_has_prior_focal_length_readwrite(simple_camera):
+def test_camera_has_prior_focal_length_readwrite(
+    simple_camera: pycolmap.Camera,
+) -> None:
     simple_camera.has_prior_focal_length = True
     assert simple_camera.has_prior_focal_length is True
     simple_camera.has_prior_focal_length = False
     assert simple_camera.has_prior_focal_length is False
 
 
-def test_camera_focal_length_readwrite():
+def test_camera_focal_length_readwrite() -> None:
     camera = pycolmap.Camera.create_from_model_id(
         1, pycolmap.CameraModelId.SIMPLE_PINHOLE, 500.0, 1024, 768
     )
@@ -97,51 +99,51 @@ def test_camera_focal_length_readwrite():
     assert camera.focal_length == 600.0
 
 
-def test_camera_focal_length_x_y(simple_camera):
+def test_camera_focal_length_x_y(simple_camera: pycolmap.Camera) -> None:
     assert isinstance(simple_camera.focal_length_x, float)
     assert isinstance(simple_camera.focal_length_y, float)
 
 
-def test_camera_principal_point_x_y(simple_camera):
+def test_camera_principal_point_x_y(simple_camera: pycolmap.Camera) -> None:
     assert isinstance(simple_camera.principal_point_x, float)
     assert isinstance(simple_camera.principal_point_y, float)
 
 
-def test_camera_sensor_id_readonly(simple_camera):
+def test_camera_sensor_id_readonly(simple_camera: pycolmap.Camera) -> None:
     sensor_id = simple_camera.sensor_id
     assert sensor_id is not None
 
 
-def test_camera_model_name_readonly(simple_camera):
+def test_camera_model_name_readonly(simple_camera: pycolmap.Camera) -> None:
     assert simple_camera.model_name == "PINHOLE"
 
 
-def test_camera_params_info_readonly(simple_camera):
+def test_camera_params_info_readonly(simple_camera: pycolmap.Camera) -> None:
     info = simple_camera.params_info
     assert isinstance(info, str)
 
 
-def test_camera_mean_focal_length(simple_camera):
+def test_camera_mean_focal_length(simple_camera: pycolmap.Camera) -> None:
     mean_focal = simple_camera.mean_focal_length()
     assert isinstance(mean_focal, float)
 
 
-def test_camera_focal_length_idxs(simple_camera):
+def test_camera_focal_length_idxs(simple_camera: pycolmap.Camera) -> None:
     idxs = simple_camera.focal_length_idxs()
     assert len(idxs) > 0
 
 
-def test_camera_principal_point_idxs(simple_camera):
+def test_camera_principal_point_idxs(simple_camera: pycolmap.Camera) -> None:
     idxs = simple_camera.principal_point_idxs()
     assert len(idxs) > 0
 
 
-def test_camera_extra_params_idxs(simple_camera):
+def test_camera_extra_params_idxs(simple_camera: pycolmap.Camera) -> None:
     idxs = simple_camera.extra_params_idxs()
     assert isinstance(idxs, list)
 
 
-def test_camera_metadata_params_idxs(simple_camera):
+def test_camera_metadata_params_idxs(simple_camera: pycolmap.Camera) -> None:
     # Perspective models have no metadata parameters.
     assert simple_camera.metadata_params_idxs() == []
     # Spherical models carry their (w, h) image dimensions as metadata.
@@ -151,24 +153,27 @@ def test_camera_metadata_params_idxs(simple_camera):
     assert spherical_camera.metadata_params_idxs() == [0, 1]
 
 
-def test_camera_calibration_matrix(simple_camera):
+def test_camera_calibration_matrix(simple_camera: pycolmap.Camera) -> None:
     matrix = simple_camera.calibration_matrix()
     assert matrix.shape == (3, 3)
 
 
-def test_camera_cam_from_img_point2d(simple_camera):
+def test_camera_cam_from_img_point2d(simple_camera: pycolmap.Camera) -> None:
     point2d = np.array([512.0, 384.0])
     result = simple_camera.cam_from_img(point2d)
     assert result is not None
 
 
-def test_camera_cam_from_img_matrix(simple_camera):
+def test_camera_cam_from_img_matrix(simple_camera: pycolmap.Camera) -> None:
     points = np.array([[512.0, 384.0], [100.0, 200.0]])
     result = simple_camera.cam_from_img(points)
+    assert result is not None
     assert len(result) == 2
 
 
-def test_camera_cam_ray_from_img_point2d(simple_camera):
+def test_camera_cam_ray_from_img_point2d(
+    simple_camera: pycolmap.Camera,
+) -> None:
     point2d = np.array([512.0, 384.0])
     result = simple_camera.cam_ray_from_img(point2d)
     assert result is not None
@@ -176,41 +181,43 @@ def test_camera_cam_ray_from_img_point2d(simple_camera):
     assert np.isclose(np.linalg.norm(result), 1.0)
 
 
-def test_camera_cam_ray_from_img_matrix(simple_camera):
+def test_camera_cam_ray_from_img_matrix(simple_camera: pycolmap.Camera) -> None:
     points = np.array([[512.0, 384.0], [100.0, 200.0]])
     result = simple_camera.cam_ray_from_img(points)
+    assert result is not None
     assert len(result) == 2
     for ray in result:
         assert np.isclose(np.linalg.norm(ray), 1.0)
 
 
-def test_camera_img_from_cam_point3d(simple_camera):
+def test_camera_img_from_cam_point3d(simple_camera: pycolmap.Camera) -> None:
     point3d = np.array([0.0, 0.0, 1.0])
     result = simple_camera.img_from_cam(point3d)
     assert result is not None
 
 
-def test_camera_img_from_cam_matrix(simple_camera):
+def test_camera_img_from_cam_matrix(simple_camera: pycolmap.Camera) -> None:
     points = np.array([[0.0, 0.0, 1.0], [0.1, 0.2, 1.0]])
     result = simple_camera.img_from_cam(points)
+    assert result is not None
     assert len(result) == 2
 
 
-def test_camera_cam_from_img_threshold(simple_camera):
+def test_camera_cam_from_img_threshold(simple_camera: pycolmap.Camera) -> None:
     threshold = simple_camera.cam_from_img_threshold(1.0)
     assert isinstance(threshold, float)
 
 
-def test_camera_verify_params(simple_camera):
+def test_camera_verify_params(simple_camera: pycolmap.Camera) -> None:
     assert simple_camera.verify_params()
 
 
-def test_camera_is_undistorted(simple_camera):
+def test_camera_is_undistorted(simple_camera: pycolmap.Camera) -> None:
     result = simple_camera.is_undistorted()
     assert isinstance(result, bool)
 
 
-def test_camera_is_perspective(simple_camera):
+def test_camera_is_perspective(simple_camera: pycolmap.Camera) -> None:
     assert simple_camera.is_perspective() is True
     spherical_camera = pycolmap.Camera.create_from_model_name(
         3, "EQUIRECTANGULAR", 0.0, 1024, 512
@@ -218,7 +225,7 @@ def test_camera_is_perspective(simple_camera):
     assert spherical_camera.is_perspective() is False
 
 
-def test_camera_is_spherical(simple_camera):
+def test_camera_is_spherical(simple_camera: pycolmap.Camera) -> None:
     assert simple_camera.is_spherical() is False
     spherical_camera = pycolmap.Camera.create_from_model_name(
         3, "EQUIRECTANGULAR", 0.0, 1024, 512
@@ -226,7 +233,7 @@ def test_camera_is_spherical(simple_camera):
     assert spherical_camera.is_spherical() is True
 
 
-def test_camera_is_perspective_pinhole(simple_camera):
+def test_camera_is_perspective_pinhole(simple_camera: pycolmap.Camera) -> None:
     assert simple_camera.is_perspective_pinhole() is True
     fisheye_camera = pycolmap.Camera.create_from_model_name(
         3, "OPENCV_FISHEYE", 1.0, 1024, 512
@@ -240,41 +247,41 @@ def test_camera_is_perspective_pinhole(simple_camera):
     assert spherical_camera.is_perspective_pinhole() is False
 
 
-def test_camera_has_bogus_params(simple_camera):
+def test_camera_has_bogus_params(simple_camera: pycolmap.Camera) -> None:
     result = simple_camera.has_bogus_params(0.1, 100.0, 1.0)
     assert isinstance(result, bool)
 
 
-def test_camera_rescale_factor(simple_camera):
+def test_camera_rescale_factor(simple_camera: pycolmap.Camera) -> None:
     simple_camera.rescale(2.0)
     assert simple_camera.width == 2048
     assert simple_camera.height == 1536
 
 
-def test_camera_rescale_dimensions(simple_camera):
+def test_camera_rescale_dimensions(simple_camera: pycolmap.Camera) -> None:
     simple_camera.rescale(512, 384)
     assert simple_camera.width == 512
     assert simple_camera.height == 384
 
 
-def test_camera_params_to_string(simple_camera):
+def test_camera_params_to_string(simple_camera: pycolmap.Camera) -> None:
     params_string = simple_camera.params_to_string()
     assert isinstance(params_string, str)
     assert len(params_string) > 0
 
 
-def test_camera_set_params_from_string(simple_camera):
+def test_camera_set_params_from_string(simple_camera: pycolmap.Camera) -> None:
     params_string = simple_camera.params_to_string()
     simple_camera.set_params_from_string(params_string)
     assert simple_camera.verify_params()
 
 
-def test_camera_map_empty():
+def test_camera_map_empty() -> None:
     camera_map = pycolmap.CameraMap()
     assert len(camera_map) == 0
 
 
-def test_camera_map_insert_and_access(simple_camera):
+def test_camera_map_insert_and_access(simple_camera: pycolmap.Camera) -> None:
     camera_map = pycolmap.CameraMap()
     camera_map[1] = simple_camera
     assert len(camera_map) == 1

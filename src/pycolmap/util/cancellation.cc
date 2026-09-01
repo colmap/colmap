@@ -27,38 +27,19 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "colmap/util/cancellation.h"
 
-#include "colmap/mvs/fusion.h"
-#include "colmap/mvs/patch_match_options.h"
-#include "colmap/scene/reconstruction.h"
+#include <memory>
 
-#include <filesystem>
-#include <functional>
+#include <pybind11/pybind11.h>
 
-namespace colmap {
+namespace py = pybind11;
+using namespace colmap;
 
-void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
-                             const std::string& workspace_format,
-                             const std::string& pmvs_option_name,
-                             const mvs::PatchMatchOptions& options,
-                             const std::filesystem::path& config_path);
-
-Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
-                                  const std::filesystem::path& workspace_path,
-                                  std::string workspace_format,
-                                  const std::string& pmvs_option_name,
-                                  std::string input_type,
-                                  const mvs::StereoFusionOptions& options,
-                                  std::string output_type,
-                                  std::function<bool()> check_if_stopped = {});
-
-int RunAdvancingFrontMesher(int argc, char** argv);
-int RunDelaunayMesher(int argc, char** argv);
-int RunMeshSimplifier(int argc, char** argv);
-int RunMeshTexturer(int argc, char** argv);
-int RunPatchMatchStereo(int argc, char** argv);
-int RunPoissonMesher(int argc, char** argv);
-int RunStereoFuser(int argc, char** argv);
-
-}  // namespace colmap
+void BindCancellation(py::module& m) {
+  py::class_<CancellationToken, std::shared_ptr<CancellationToken>>(
+      m, "CancellationToken")
+      .def(py::init<>())
+      .def("cancel", &CancellationToken::Cancel)
+      .def_property_readonly("is_cancelled", &CancellationToken::IsCancelled);
+}

@@ -1,31 +1,31 @@
 import pycolmap
 
 
-def test_pose_graph_edge_default_init():
+def test_pose_graph_edge_default_init() -> None:
     edge = pycolmap.PoseGraphEdge()
     assert edge is not None
 
 
-def test_pose_graph_edge_init_with_rigid3d():
+def test_pose_graph_edge_init_with_rigid3d() -> None:
     rigid = pycolmap.Rigid3d()
     edge = pycolmap.PoseGraphEdge(cam2_from_cam1=rigid)
     assert edge is not None
 
 
-def test_pose_graph_edge_cam2_from_cam1_readwrite():
+def test_pose_graph_edge_cam2_from_cam1_readwrite() -> None:
     edge = pycolmap.PoseGraphEdge()
     rigid = pycolmap.Rigid3d()
     edge.cam2_from_cam1 = rigid
     assert isinstance(edge.cam2_from_cam1, pycolmap.Rigid3d)
 
 
-def test_pose_graph_edge_num_matches_readwrite():
+def test_pose_graph_edge_num_matches_readwrite() -> None:
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 100
     assert edge.num_matches == 100
 
 
-def test_pose_graph_edge_valid_readwrite():
+def test_pose_graph_edge_valid_readwrite() -> None:
     edge = pycolmap.PoseGraphEdge()
     edge.valid = True
     assert edge.valid is True
@@ -33,29 +33,29 @@ def test_pose_graph_edge_valid_readwrite():
     assert edge.valid is False
 
 
-def test_pose_graph_edge_invert():
+def test_pose_graph_edge_invert() -> None:
     edge = pycolmap.PoseGraphEdge()
     edge.valid = True
     edge.num_matches = 50
     edge.invert()
 
 
-def test_pose_graph_default_init():
+def test_pose_graph_default_init() -> None:
     graph = pycolmap.PoseGraph()
     assert graph is not None
 
 
-def test_pose_graph_empty():
+def test_pose_graph_empty() -> None:
     graph = pycolmap.PoseGraph()
     assert graph.empty is True
 
 
-def test_pose_graph_num_edges():
+def test_pose_graph_num_edges() -> None:
     graph = pycolmap.PoseGraph()
     assert graph.num_edges == 0
 
 
-def test_pose_graph_add_edge():
+def test_pose_graph_add_edge() -> None:
     graph = pycolmap.PoseGraph()
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 10
@@ -64,7 +64,7 @@ def test_pose_graph_add_edge():
     assert graph.num_edges == 1
 
 
-def test_pose_graph_has_edge():
+def test_pose_graph_has_edge() -> None:
     graph = pycolmap.PoseGraph()
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 10
@@ -74,7 +74,7 @@ def test_pose_graph_has_edge():
     assert not graph.has_edge(3, 4)
 
 
-def test_pose_graph_get_edge():
+def test_pose_graph_get_edge() -> None:
     graph = pycolmap.PoseGraph()
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 42
@@ -84,7 +84,7 @@ def test_pose_graph_get_edge():
     assert retrieved_edge.num_matches == 42
 
 
-def test_pose_graph_delete_edge():
+def test_pose_graph_delete_edge() -> None:
     graph = pycolmap.PoseGraph()
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 10
@@ -95,7 +95,7 @@ def test_pose_graph_delete_edge():
     assert graph.num_edges == 0
 
 
-def test_pose_graph_update_edge():
+def test_pose_graph_update_edge() -> None:
     graph = pycolmap.PoseGraph()
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 10
@@ -109,7 +109,7 @@ def test_pose_graph_update_edge():
     assert retrieved.num_matches == 99
 
 
-def test_pose_graph_clear():
+def test_pose_graph_clear() -> None:
     graph = pycolmap.PoseGraph()
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 10
@@ -120,7 +120,7 @@ def test_pose_graph_clear():
     assert graph.empty is True
 
 
-def test_pose_graph_edges_property():
+def test_pose_graph_edges_property() -> None:
     graph = pycolmap.PoseGraph()
     edge = pycolmap.PoseGraphEdge()
     edge.num_matches = 10
@@ -130,7 +130,7 @@ def test_pose_graph_edges_property():
     assert len(edges) == 1
 
 
-def test_pose_graph_edge_map_type():
+def test_pose_graph_edge_map_type() -> None:
     graph = pycolmap.PoseGraph()
     edges = graph.edges
     assert isinstance(edges, pycolmap.PoseGraphEdgeMap)

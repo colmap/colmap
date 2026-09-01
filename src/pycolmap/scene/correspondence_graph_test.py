@@ -4,62 +4,62 @@ import pytest
 import pycolmap
 
 
-def test_correspondence_default_init():
+def test_correspondence_default_init() -> None:
     correspondence = pycolmap.Correspondence()
     assert correspondence is not None
 
 
-def test_correspondence_init_with_args():
+def test_correspondence_init_with_args() -> None:
     correspondence = pycolmap.Correspondence(image_id=1, point2D_idx=5)
     assert correspondence.image_id == 1
     assert correspondence.point2D_idx == 5
 
 
-def test_correspondence_image_id_readwrite():
+def test_correspondence_image_id_readwrite() -> None:
     correspondence = pycolmap.Correspondence()
     correspondence.image_id = 10
     assert correspondence.image_id == 10
 
 
-def test_correspondence_point2d_idx_readwrite():
+def test_correspondence_point2d_idx_readwrite() -> None:
     correspondence = pycolmap.Correspondence()
     correspondence.point2D_idx = 20
     assert correspondence.point2D_idx == 20
 
 
-def test_correspondence_graph_default_init():
+def test_correspondence_graph_default_init() -> None:
     graph = pycolmap.CorrespondenceGraph()
     assert graph.num_images() == 0
 
 
-def test_correspondence_graph_add_image():
+def test_correspondence_graph_add_image() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 10)
     assert graph.exists_image(1)
 
 
-def test_correspondence_graph_exists_image():
+def test_correspondence_graph_exists_image() -> None:
     graph = pycolmap.CorrespondenceGraph()
     assert not graph.exists_image(99)
     graph.add_image(1, 10)
     assert graph.exists_image(1)
 
 
-def test_correspondence_graph_num_images():
+def test_correspondence_graph_num_images() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 10)
     graph.add_image(2, 10)
     assert graph.num_images() == 2
 
 
-def test_correspondence_graph_finalize():
+def test_correspondence_graph_finalize() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.finalize()
     assert graph.num_images() == 1
 
 
-def test_correspondence_graph_num_image_pairs():
+def test_correspondence_graph_num_image_pairs() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.add_image(2, 5)
@@ -67,21 +67,21 @@ def test_correspondence_graph_num_image_pairs():
     assert graph.num_image_pairs() >= 0
 
 
-def test_correspondence_graph_num_observations_for_image():
+def test_correspondence_graph_num_observations_for_image() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.finalize()
     assert graph.num_observations_for_image(1) >= 0
 
 
-def test_correspondence_graph_num_correspondences_for_image():
+def test_correspondence_graph_num_correspondences_for_image() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.finalize()
     assert graph.num_correspondences_for_image(1) >= 0
 
 
-def test_correspondence_graph_image_pairs():
+def test_correspondence_graph_image_pairs() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.add_image(2, 5)
@@ -91,7 +91,7 @@ def test_correspondence_graph_image_pairs():
 
 
 @pytest.fixture
-def graph_with_matches():
+def graph_with_matches() -> pycolmap.CorrespondenceGraph:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.add_image(2, 5)
@@ -103,25 +103,33 @@ def graph_with_matches():
     return graph
 
 
-def test_correspondence_graph_with_two_view_geometry(graph_with_matches):
+def test_correspondence_graph_with_two_view_geometry(
+    graph_with_matches: pycolmap.CorrespondenceGraph,
+) -> None:
     assert graph_with_matches.num_matches_between_images(1, 2) == 2
 
 
-def test_correspondence_graph_extract_matches(graph_with_matches):
-    matches = graph_with_matches.extract_matches_between_images(1, 2)
+def test_correspondence_graph_extract_matches(
+    graph_with_matches: pycolmap.CorrespondenceGraph,
+) -> None:
+    matches = graph_with_matches.extract_matches_between_images(1, 2)  # type: ignore[var-annotated]
     assert matches.shape[0] == 2
 
 
-def test_correspondence_graph_has_correspondences(graph_with_matches):
+def test_correspondence_graph_has_correspondences(
+    graph_with_matches: pycolmap.CorrespondenceGraph,
+) -> None:
     assert graph_with_matches.has_correspondences(1, 0)
 
 
-def test_correspondence_graph_find_correspondences(graph_with_matches):
+def test_correspondence_graph_find_correspondences(
+    graph_with_matches: pycolmap.CorrespondenceGraph,
+) -> None:
     result = graph_with_matches.find_correspondences(1, 0)
     assert result is not None
 
 
-def test_correspondence_graph_is_two_view_observation():
+def test_correspondence_graph_is_two_view_observation() -> None:
     graph = pycolmap.CorrespondenceGraph()
     graph.add_image(1, 5)
     graph.add_image(2, 5)

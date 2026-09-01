@@ -5,29 +5,29 @@ import numpy as np
 import pycolmap
 
 
-def test_feature_extractor_type_enum():
+def test_feature_extractor_type_enum() -> None:
     assert pycolmap.FeatureExtractorType.UNDEFINED is not None
     assert pycolmap.FeatureExtractorType.SIFT is not None
 
 
-def test_feature_extractor_type_int_construction():
+def test_feature_extractor_type_int_construction() -> None:
     sift = pycolmap.FeatureExtractorType.SIFT
     value = int(sift)
     assert isinstance(value, int)
 
 
-def test_feature_descriptors_default_init():
+def test_feature_descriptors_default_init() -> None:
     descriptors = pycolmap.FeatureDescriptors()
     assert descriptors is not None
 
 
-def test_feature_descriptors_type_readwrite():
+def test_feature_descriptors_type_readwrite() -> None:
     descriptors = pycolmap.FeatureDescriptors()
     descriptors.type = pycolmap.FeatureExtractorType.SIFT
     assert descriptors.type == pycolmap.FeatureExtractorType.SIFT
 
 
-def test_feature_descriptors_data_readwrite():
+def test_feature_descriptors_data_readwrite() -> None:
     data = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.uint8)
     descriptors = pycolmap.FeatureDescriptors(
         type=pycolmap.FeatureExtractorType.SIFT, data=data
@@ -38,18 +38,18 @@ def test_feature_descriptors_data_readwrite():
     np.testing.assert_array_equal(descriptors.data, new_data)
 
 
-def test_feature_descriptors_float_default_init():
+def test_feature_descriptors_float_default_init() -> None:
     descriptors = pycolmap.FeatureDescriptorsFloat()
     assert descriptors is not None
 
 
-def test_feature_descriptors_float_type_readwrite():
+def test_feature_descriptors_float_type_readwrite() -> None:
     descriptors = pycolmap.FeatureDescriptorsFloat()
     descriptors.type = pycolmap.FeatureExtractorType.SIFT
     assert descriptors.type == pycolmap.FeatureExtractorType.SIFT
 
 
-def test_feature_descriptors_float_data_readwrite():
+def test_feature_descriptors_float_data_readwrite() -> None:
     data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
     descriptors = pycolmap.FeatureDescriptorsFloat(
         type=pycolmap.FeatureExtractorType.SIFT, data=data
@@ -60,12 +60,12 @@ def test_feature_descriptors_float_data_readwrite():
     np.testing.assert_array_almost_equal(descriptors.data, new_data)
 
 
-def test_feature_keypoint_default_init():
+def test_feature_keypoint_default_init() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     assert keypoint is not None
 
 
-def test_feature_keypoint_xy_readwrite():
+def test_feature_keypoint_xy_readwrite() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     keypoint.x = 10.5
     keypoint.y = 20.5
@@ -73,7 +73,7 @@ def test_feature_keypoint_xy_readwrite():
     assert keypoint.y == 20.5
 
 
-def test_feature_keypoint_affine_readwrite():
+def test_feature_keypoint_affine_readwrite() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     keypoint.a11 = 1.0
     keypoint.a12 = 0.5
@@ -85,37 +85,37 @@ def test_feature_keypoint_affine_readwrite():
     assert keypoint.a22 == 1.0
 
 
-def test_feature_keypoint_compute_scale():
+def test_feature_keypoint_compute_scale() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     scale = keypoint.compute_scale()
     assert isinstance(scale, float)
 
 
-def test_feature_keypoint_compute_scale_x():
+def test_feature_keypoint_compute_scale_x() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     scale_x = keypoint.compute_scale_x()
     assert isinstance(scale_x, float)
 
 
-def test_feature_keypoint_compute_scale_y():
+def test_feature_keypoint_compute_scale_y() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     scale_y = keypoint.compute_scale_y()
     assert isinstance(scale_y, float)
 
 
-def test_feature_keypoint_compute_orientation():
+def test_feature_keypoint_compute_orientation() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     orientation = keypoint.compute_orientation()
     assert isinstance(orientation, float)
 
 
-def test_feature_keypoint_compute_shear():
+def test_feature_keypoint_compute_shear() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     shear = keypoint.compute_shear()
     assert isinstance(shear, float)
 
 
-def test_feature_keypoint_rescale():
+def test_feature_keypoint_rescale() -> None:
     keypoint = pycolmap.FeatureKeypoint()
     keypoint.x = 10.0
     keypoint.y = 20.0
@@ -128,7 +128,7 @@ def test_feature_keypoint_rescale():
     assert keypoint.y == 40.0
 
 
-def test_feature_keypoint_from_shape_parameters():
+def test_feature_keypoint_from_shape_parameters() -> None:
     keypoint = pycolmap.FeatureKeypoint.from_shape_parameters(
         1.0, 2.0, 2.0, 2.0, math.pi, 0.0
     )
@@ -137,12 +137,12 @@ def test_feature_keypoint_from_shape_parameters():
     assert keypoint.y == 2.0
 
 
-def test_feature_match_default_init():
+def test_feature_match_default_init() -> None:
     match = pycolmap.FeatureMatch()
     assert match is not None
 
 
-def test_feature_match_readwrite():
+def test_feature_match_readwrite() -> None:
     match = pycolmap.FeatureMatch()
     match.point2D_idx1 = 5
     match.point2D_idx2 = 10
@@ -150,7 +150,7 @@ def test_feature_match_readwrite():
     assert match.point2D_idx2 == 10
 
 
-def test_feature_keypoints_vector():
+def test_feature_keypoints_vector() -> None:
     keypoints = pycolmap.FeatureKeypoints()
     keypoint = pycolmap.FeatureKeypoint()
     keypoint.x = 1.0
@@ -165,14 +165,14 @@ def test_feature_keypoints_vector():
     assert count == 2
 
 
-def test_feature_matches_vector():
+def test_feature_matches_vector() -> None:
     matches = pycolmap.FeatureMatches()
     matches.append(pycolmap.FeatureMatch(0, 1))
     matches.append(pycolmap.FeatureMatch(2, 3))
     assert len(matches) == 2
 
 
-def test_keypoints_to_from_matrix_roundtrip():
+def test_keypoints_to_from_matrix_roundtrip() -> None:
     keypoints = pycolmap.FeatureKeypoints()
     keypoint = pycolmap.FeatureKeypoint()
     keypoint.x = 10.0
@@ -182,7 +182,7 @@ def test_keypoints_to_from_matrix_roundtrip():
     keypoint.a21 = 0.0
     keypoint.a22 = 1.0
     keypoints.append(keypoint)
-    matrix = pycolmap.keypoints_to_matrix(keypoints)
+    matrix = pycolmap.keypoints_to_matrix(keypoints)  # type: ignore[var-annotated]
     assert matrix.shape[0] == 1
     assert matrix.shape[1] == 4
     recovered = pycolmap.keypoints_from_matrix(matrix)
@@ -191,11 +191,11 @@ def test_keypoints_to_from_matrix_roundtrip():
     assert recovered[0].y == keypoint.y
 
 
-def test_matches_to_from_matrix_roundtrip():
+def test_matches_to_from_matrix_roundtrip() -> None:
     matches = pycolmap.FeatureMatches()
     matches.append(pycolmap.FeatureMatch(0, 5))
     matches.append(pycolmap.FeatureMatch(1, 3))
-    matrix = pycolmap.matches_to_matrix(matches)
+    matrix = pycolmap.matches_to_matrix(matches)  # type: ignore[var-annotated]
     assert matrix.shape == (2, 2)
     recovered = pycolmap.matches_from_matrix(matrix)
     assert len(recovered) == 2
