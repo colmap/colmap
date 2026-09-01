@@ -84,16 +84,18 @@ class TinyScaledRigReprojCostFunctor {
           scale * (rotation * points3D_[i].cast<T>()) + translation;
       const Eigen::Matrix<T, 3, 1> point3D_in_cam =
           points2D_[i].cam_from_rig.cast<T>() * point3D_in_rig.homogeneous();
-      if (point3D_in_cam.z() > T(std::numeric_limits<double>::epsilon())) {
-        const Eigen::Matrix<T, 2, 1> diff =
-            points2D_[i].ray_in_cam.hnormalized().cast<T>() -
-            point3D_in_cam.hnormalized();
-        residuals[2 * i] = diff.x();
-        residuals[2 * i + 1] = diff.y();
-      } else {
-        residuals[2 * i] = T(0);
-        residuals[2 * i + 1] = T(0);
+      // Reject the evaluation if a point does not project; a zero residual
+      // would otherwise make an invalid pose appear as a perfect fit. The
+      // solver treats this as a failed trial step and shrinks the trust
+      // region, or reports failure if the initial model is invalid.
+      if (point3D_in_cam.z() <= T(std::numeric_limits<double>::epsilon())) {
+        return false;
       }
+      const Eigen::Matrix<T, 2, 1> diff =
+          points2D_[i].ray_in_cam.hnormalized().cast<T>() -
+          point3D_in_cam.hnormalized();
+      residuals[2 * i] = diff.x();
+      residuals[2 * i + 1] = diff.y();
     }
     return true;
   }
@@ -103,11 +105,9 @@ class TinyScaledRigReprojCostFunctor {
   const std::vector<Eigen::Vector3d>& points3D_;
 };
 
-
-void ComputeRaysAndOriginsInRig(
-    const std::vector<GP3PEstimator::X_t>& points2D,
-    std::vector<Eigen::Vector3d>* rays_in_rig,
-    std::vector<Eigen::Vector3d>* origins_in_rig) {
+void ComputeRaysAndOriginsInRig(const std::vector<GP3PEstimator::X_t>& points2D,
+                                std::vector<Eigen::Vector3d>* rays_in_rig,
+                                std::vector<Eigen::Vector3d>* origins_in_rig) {
   const size_t num_points = points2D.size();
   rays_in_rig->resize(num_points);
   origins_in_rig->resize(num_points);
@@ -194,11 +194,8 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
                               const M_t& rig_from_world,
                               std::vector<double>* residuals) const {
-  ComputeRayResiduals(points2D,
-                      points3D,
-                      rig_from_world.ToMatrix(),
-                      residual_type_,
-                      residuals);
+  ComputeRayResiduals(
+      points2D, points3D, rig_from_world.ToMatrix(), residual_type_, residuals);
 }
 
 GP4PSEstimator::GP4PSEstimator(ResidualType residual_type)
@@ -243,8 +240,7 @@ void GP4PSEstimator::Estimate(const std::vector<X_t>& points2D,
     const double scale = scales[i];
     const Rigid3d scaled_rig_from_world = ConvertPoseLibPoseToRigid3d(poses[i]);
     if (scale < std::numeric_limits<double>::epsilon() ||
-        !std::isfinite(scale) ||
-        !scaled_rig_from_world.params.allFinite()) {
+        !std::isfinite(scale) || !scaled_rig_from_world.params.allFinite()) {
       continue;
     }
     // Renormalize to the unscaled rig frame:
@@ -278,7 +274,13 @@ bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
   x.head<4>() = rig_from_world->rotation().normalized().coeffs();
   x.segment<3>(4) = rig_from_world->translation();
   x[7] = std::log(rig_from_world->scale());
-  solver.Solve(f, &x, options);
+  const auto& summary = solver.Solve(f, &x, options);
+
+  // Reject models for which the cost cannot be evaluated, e.g., with points
+  // behind the cameras at the initial estimate.
+  if (summary.status == Solver::COST_FUNCTION_FAILED) {
+    return false;
+  }
 
   // Keep the refined estimate only if the solve stayed finite; otherwise fall
   // back to the initial model.
@@ -294,11 +296,8 @@ void GP4PSEstimator::Residuals(const std::vector<X_t>& points2D,
                                const std::vector<Y_t>& points3D,
                                const M_t& rig_from_world,
                                std::vector<double>* residuals) const {
-  ComputeRayResiduals(points2D,
-                      points3D,
-                      rig_from_world.ToMatrix(),
-                      residual_type_,
-                      residuals);
+  ComputeRayResiduals(
+      points2D, points3D, rig_from_world.ToMatrix(), residual_type_, residuals);
 }
 
 }  // namespace colmap
