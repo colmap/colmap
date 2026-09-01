@@ -56,8 +56,8 @@ test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
     mypy --package pycolmap && \
-    mypy --install-types --non-interactive python benchmark && \
-    mypy src/pycolmap && \
+    mypy --install-types --non-interactive python benchmark doc && \
+    mypy src/pycolmap src/thirdparty/Symforce-Caspar/caspar_generate.py && \
     pytest\
 """
 
@@ -83,7 +83,7 @@ test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
     mypy --package pycolmap && \
-    mypy src/pycolmap && \
+    mypy src/pycolmap src/thirdparty/Symforce-Caspar/caspar_generate.py && \
     pytest\
 """
 
@@ -101,6 +101,40 @@ norecursedirs = [
 ]
 
 [tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
 implicit_optional = true
 ignore_missing_imports = true
 explicit_package_bases = true
+
+# PyCOLMAP's public API is populated dynamically from the compiled extension,
+# so source-only checks cannot resolve its exported names.
+[[tool.mypy.overrides]]
+module = [
+  "benchmark.*",
+  "doc.tests.*",
+  "pycolmap",
+  "pycolmap.*",
+]
+disable_error_code = ["attr-defined", "name-defined"]
+
+# The generated pybind11 stubs use fixed-shape NumPy annotations that vary
+# between Python platforms and are stricter than the arrays accepted at
+# runtime. Keep annotation checks enabled while suppressing those binding-only
+# incompatibilities in the PyCOLMAP tests.
+[[tool.mypy.overrides]]
+module = ["src.pycolmap.*"]
+disable_error_code = [
+  "arg-type",
+  "assignment",
+  "attr-defined",
+  "name-defined",
+]
+
+# Stubs generated from pybind11 signatures still contain untyped overloads.
+[[tool.mypy.overrides]]
+module = ["pycolmap._core", "pycolmap._core.*"]
+check_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false

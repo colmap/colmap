@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 import pycolmap
@@ -8,7 +10,7 @@ from .panorama import (
 )
 
 
-def test_get_virtual_rotations():
+def test_get_virtual_rotations() -> None:
     rotations = get_virtual_rotations(4, [-35.0, 0.0, 35.0])
 
     assert len(rotations) == 12
@@ -31,7 +33,7 @@ def test_get_virtual_rotations():
         np.testing.assert_allclose(np.linalg.det(rotation), 1.0, atol=1e-15)
 
 
-def test_filter_database_by_covisibility(tmp_path):
+def test_filter_database_by_covisibility(tmp_path: Path) -> None:
     database_path = tmp_path / "database.db"
     with pycolmap.Database.open(database_path) as database:
         camera = pycolmap.Camera.create_from_model_name(
@@ -46,7 +48,9 @@ def test_filter_database_by_covisibility(tmp_path):
                 use_image_id=True,
             )
         geometry = pycolmap.TwoViewGeometry()
-        geometry.inlier_matches = np.array([[0, 0]], dtype=np.uint32)
+        geometry.inlier_matches = np.array(  # type: ignore[arg-type, assignment]
+            [[0, 0]], dtype=np.uint32
+        )
         database.write_two_view_geometry(1, 2, geometry)
         database.write_two_view_geometry(1, 3, geometry)
 

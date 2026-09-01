@@ -4,12 +4,12 @@ import pytest
 import pycolmap
 
 
-def test_two_view_geometry_options_default_init():
+def test_two_view_geometry_options_default_init() -> None:
     options = pycolmap.TwoViewGeometryOptions()
     assert options is not None
 
 
-def test_two_view_geometry_options_min_num_inliers_readwrite():
+def test_two_view_geometry_options_min_num_inliers_readwrite() -> None:
     options = pycolmap.TwoViewGeometryOptions()
     assert isinstance(options.min_num_inliers, int)
     options.min_num_inliers = 30
@@ -25,14 +25,14 @@ def test_two_view_geometry_options_min_num_inliers_readwrite():
         "compute_squared_sampson_error",
     ],
 )
-def test_public_api_callable(name):
+def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))
 
 
-def test_compute_squared_sampson_error_with_identity():
+def test_compute_squared_sampson_error_with_identity() -> None:
     points1 = [np.array([1.0, 0.0]), np.array([0.0, 1.0])]
     points2 = [np.array([1.0, 0.0]), np.array([0.0, 1.0])]
     matrix = np.eye(3)
-    residuals = pycolmap.compute_squared_sampson_error(points1, points2, matrix)
+    residuals = pycolmap.compute_squared_sampson_error(points1, points2, matrix)  # type: ignore[arg-type]
     assert isinstance(residuals, list)
     assert len(residuals) == 2

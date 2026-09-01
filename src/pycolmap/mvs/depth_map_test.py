@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -9,12 +11,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_depth_map_default_init():
+def test_depth_map_default_init() -> None:
     depth_map = pycolmap.DepthMap()
     assert depth_map is not None
 
 
-def test_depth_map_init_with_params():
+def test_depth_map_init_with_params() -> None:
     depth_map = pycolmap.DepthMap(64, 48, 0.1, 100.0)
     assert depth_map.width == 64
     assert depth_map.height == 48
@@ -22,31 +24,31 @@ def test_depth_map_init_with_params():
     assert depth_map.depth_max == pytest.approx(100.0)
 
 
-def test_depth_map_readonly_width():
+def test_depth_map_readonly_width() -> None:
     depth_map = pycolmap.DepthMap(64, 48, 0.1, 100.0)
     assert isinstance(depth_map.width, int)
     assert depth_map.width == 64
 
 
-def test_depth_map_readonly_height():
+def test_depth_map_readonly_height() -> None:
     depth_map = pycolmap.DepthMap(64, 48, 0.1, 100.0)
     assert isinstance(depth_map.height, int)
     assert depth_map.height == 48
 
 
-def test_depth_map_readonly_depth_min():
+def test_depth_map_readonly_depth_min() -> None:
     depth_map = pycolmap.DepthMap(64, 48, 0.5, 50.0)
     assert isinstance(depth_map.depth_min, float)
     assert depth_map.depth_min == pytest.approx(0.5)
 
 
-def test_depth_map_readonly_depth_max():
+def test_depth_map_readonly_depth_max() -> None:
     depth_map = pycolmap.DepthMap(64, 48, 0.5, 50.0)
     assert isinstance(depth_map.depth_max, float)
     assert depth_map.depth_max == pytest.approx(50.0)
 
 
-def test_depth_map_from_array_to_array_roundtrip():
+def test_depth_map_from_array_to_array_roundtrip() -> None:
     array = np.random.rand(48, 64).astype(np.float32)
     depth_map = pycolmap.DepthMap.from_array(
         array, depth_min=0.1, depth_max=10.0
@@ -55,21 +57,21 @@ def test_depth_map_from_array_to_array_roundtrip():
     np.testing.assert_array_almost_equal(array, result)
 
 
-def test_depth_map_rescale():
+def test_depth_map_rescale() -> None:
     depth_map = pycolmap.DepthMap(64, 48, 0.1, 100.0)
     depth_map.rescale(0.5)
     assert depth_map.width == 32
     assert depth_map.height == 24
 
 
-def test_depth_map_downsize():
+def test_depth_map_downsize() -> None:
     depth_map = pycolmap.DepthMap(64, 48, 0.1, 100.0)
     depth_map.downsize(32, 24)
     assert depth_map.width == 32
     assert depth_map.height == 24
 
 
-def test_depth_map_to_bitmap():
+def test_depth_map_to_bitmap() -> None:
     array = np.random.rand(48, 64).astype(np.float32)
     depth_map = pycolmap.DepthMap.from_array(
         array, depth_min=0.0, depth_max=1.0
@@ -78,7 +80,7 @@ def test_depth_map_to_bitmap():
     assert bitmap is not None
 
 
-def test_depth_map_write_read_roundtrip(tmp_path):
+def test_depth_map_write_read_roundtrip(tmp_path: Path) -> None:
     array = np.random.rand(48, 64).astype(np.float32)
     depth_map = pycolmap.DepthMap.from_array(
         array, depth_min=0.1, depth_max=10.0

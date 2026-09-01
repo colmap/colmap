@@ -414,7 +414,7 @@ def main_incremental_mapper(controller: IncrementalPipeline) -> None:
     ):
         return
 
-    def should_stop():
+    def should_stop() -> bool:
         return (
             mapper.num_total_reg_images() == num_images
             or controller.check_reached_max_runtime()

@@ -3,24 +3,24 @@ import numpy as np
 import pycolmap
 
 
-def test_pose_prior_coordinate_system_enum():
+def test_pose_prior_coordinate_system_enum() -> None:
     assert pycolmap.PosePriorCoordinateSystem.UNDEFINED is not None
     assert pycolmap.PosePriorCoordinateSystem.WGS84 is not None
     assert pycolmap.PosePriorCoordinateSystem.CARTESIAN is not None
 
 
-def test_pose_prior_default_init():
+def test_pose_prior_default_init() -> None:
     pose_prior = pycolmap.PosePrior()
     assert pose_prior is not None
 
 
-def test_pose_prior_position_readwrite():
+def test_pose_prior_position_readwrite() -> None:
     pose_prior = pycolmap.PosePrior()
     pose_prior.position = np.array([1.0, 2.0, 3.0])
     np.testing.assert_array_almost_equal(pose_prior.position, [1.0, 2.0, 3.0])
 
 
-def test_pose_prior_position_covariance_readwrite():
+def test_pose_prior_position_covariance_readwrite() -> None:
     pose_prior = pycolmap.PosePrior()
     covariance = np.eye(3) * 0.5
     pose_prior.position_covariance = covariance
@@ -29,7 +29,7 @@ def test_pose_prior_position_covariance_readwrite():
     )
 
 
-def test_pose_prior_coordinate_system_readwrite():
+def test_pose_prior_coordinate_system_readwrite() -> None:
     pose_prior = pycolmap.PosePrior()
     pose_prior.coordinate_system = pycolmap.PosePriorCoordinateSystem.WGS84
     assert (
@@ -37,35 +37,35 @@ def test_pose_prior_coordinate_system_readwrite():
     )
 
 
-def test_pose_prior_gravity_readwrite():
+def test_pose_prior_gravity_readwrite() -> None:
     pose_prior = pycolmap.PosePrior()
     gravity = np.array([0.0, 0.0, -9.81])
     pose_prior.gravity = gravity
     np.testing.assert_array_almost_equal(pose_prior.gravity, gravity)
 
 
-def test_pose_prior_has_position():
+def test_pose_prior_has_position() -> None:
     pose_prior = pycolmap.PosePrior()
     assert isinstance(pose_prior.has_position(), bool)
 
 
-def test_pose_prior_has_position_cov():
+def test_pose_prior_has_position_cov() -> None:
     pose_prior = pycolmap.PosePrior()
     assert isinstance(pose_prior.has_position_cov(), bool)
 
 
-def test_pose_prior_has_gravity():
+def test_pose_prior_has_gravity() -> None:
     pose_prior = pycolmap.PosePrior()
     assert isinstance(pose_prior.has_gravity(), bool)
 
 
-def test_pose_prior_pose_prior_id_readwrite():
+def test_pose_prior_pose_prior_id_readwrite() -> None:
     pose_prior = pycolmap.PosePrior()
     pose_prior.pose_prior_id = 42
     assert pose_prior.pose_prior_id == 42
 
 
-def test_pose_prior_corr_data_id_readwrite():
+def test_pose_prior_corr_data_id_readwrite() -> None:
     pose_prior = pycolmap.PosePrior()
     data_id = pycolmap.data_t(
         pycolmap.sensor_t(pycolmap.SensorType.CAMERA, 0), 5

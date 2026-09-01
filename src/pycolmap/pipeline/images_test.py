@@ -3,7 +3,7 @@ import pytest
 import pycolmap
 
 
-def test_camera_mode_enum():
+def test_camera_mode_enum() -> None:
     assert {k: int(v) for k, v in pycolmap.CameraMode.__members__.items()} == {
         "AUTO": 0,
         "SINGLE": 1,
@@ -12,7 +12,7 @@ def test_camera_mode_enum():
     }
 
 
-def test_file_copy_type_enum():
+def test_file_copy_type_enum() -> None:
     assert {
         k: int(v) for k, v in pycolmap.FileCopyType.__members__.items()
     } == {
@@ -22,18 +22,18 @@ def test_file_copy_type_enum():
     }
 
 
-def test_image_reader_options_init():
+def test_image_reader_options_init() -> None:
     options = pycolmap.ImageReaderOptions()
     assert options is not None
 
 
-def test_image_reader_options_camera_model():
+def test_image_reader_options_camera_model() -> None:
     options = pycolmap.ImageReaderOptions()
     options.camera_model = "SIMPLE_PINHOLE"
     assert options.camera_model == "SIMPLE_PINHOLE"
 
 
-def test_image_reader_options_check():
+def test_image_reader_options_check() -> None:
     options = pycolmap.ImageReaderOptions()
     assert options.check()
 
@@ -46,5 +46,5 @@ def test_image_reader_options_check():
         "undistort_images",
     ],
 )
-def test_public_api_callable(name):
+def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))

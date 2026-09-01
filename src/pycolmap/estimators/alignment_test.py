@@ -3,24 +3,24 @@ import pytest
 import pycolmap
 
 
-def test_image_alignment_error_default_init():
+def test_image_alignment_error_default_init() -> None:
     error = pycolmap.ImageAlignmentError()
     assert error is not None
 
 
-def test_image_alignment_error_image_name_readwrite():
+def test_image_alignment_error_image_name_readwrite() -> None:
     error = pycolmap.ImageAlignmentError()
     error.image_name = "test_image.jpg"
     assert error.image_name == "test_image.jpg"
 
 
-def test_image_alignment_error_rotation_error_deg_readwrite():
+def test_image_alignment_error_rotation_error_deg_readwrite() -> None:
     error = pycolmap.ImageAlignmentError()
     error.rotation_error_deg = 1.5
     assert error.rotation_error_deg == 1.5
 
 
-def test_image_alignment_error_proj_center_error_readwrite():
+def test_image_alignment_error_proj_center_error_readwrite() -> None:
     error = pycolmap.ImageAlignmentError()
     error.proj_center_error = 0.01
     assert error.proj_center_error == 0.01
@@ -35,11 +35,13 @@ def test_image_alignment_error_proj_center_error_readwrite():
         "compare_reconstructions",
     ],
 )
-def test_public_api_callable(name):
+def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))
 
 
-def test_compare_reconstructions_with_synthetic(synthetic_reconstruction):
+def test_compare_reconstructions_with_synthetic(
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
     result = pycolmap.compare_reconstructions(
         synthetic_reconstruction, synthetic_reconstruction
     )

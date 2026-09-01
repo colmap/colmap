@@ -222,7 +222,7 @@ class PanoProcessor:
         output_image_dir: Path,
         mask_dir: Path,
         render_options: PanoRenderOptions,
-    ):
+    ) -> None:
         self.render_options = render_options
         self.pano_image_dir = pano_image_dir
         self.output_image_dir = output_image_dir

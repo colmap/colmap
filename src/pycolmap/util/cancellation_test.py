@@ -1,16 +1,18 @@
+from pathlib import Path
+
 import pytest
 
 import pycolmap
 
 
-def test_cancellation_token():
+def test_cancellation_token() -> None:
     token = pycolmap.CancellationToken()
     assert not token.is_cancelled
     token.cancel()
     assert token.is_cancelled
 
 
-def test_cancelled_feature_extraction_raises(tmp_path):
+def test_cancelled_feature_extraction_raises(tmp_path: Path) -> None:
     image_path = tmp_path / "images"
     image_path.mkdir()
     token = pycolmap.CancellationToken()
@@ -25,7 +27,7 @@ def test_cancelled_feature_extraction_raises(tmp_path):
         )
 
 
-def test_cancelled_bundle_adjustment_raises():
+def test_cancelled_bundle_adjustment_raises() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.num_cameras_per_rig = 1
     options.num_frames_per_rig = 3
@@ -47,5 +49,5 @@ def test_cancelled_bundle_adjustment_raises():
         "undistort_images",
     ],
 )
-def test_pipeline_accepts_cancellation_token(function_name):
+def test_pipeline_accepts_cancellation_token(function_name: str) -> None:
     assert "cancellation_token" in getattr(pycolmap, function_name).__doc__
