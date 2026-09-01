@@ -272,9 +272,54 @@ TEST(GP4PSEstimator, Refine) {
           gt_rig_from_world, /*stol=*/1e-6, /*rtol=*/1e-6, /*ttol=*/1e-6));
 
   // A non-positive initial scale must be rejected without touching the model.
-  Sim3d invalid(-1, gt_rig_from_world.rotation(), gt_rig_from_world.translation());
+  Sim3d invalid(
+      -1, gt_rig_from_world.rotation(), gt_rig_from_world.translation());
   EXPECT_FALSE(GP4PSEstimator::Refine(points2D, points3D, &invalid));
   EXPECT_EQ(invalid.scale(), -1);
+}
+
+TEST(GP4PSEstimator, RefinePointsBehindCamerasFails) {
+  constexpr int kNumPoints = 8;
+  constexpr int kNumCams = 2;
+
+  const Sim3d gt_rig_from_world(RandomUniformReal<double>(0.5, 2),
+                                RandomEigenQuaterniond(),
+                                RandomEigenVectord<3>());
+  const Sim3d world_from_rig = Inverse(gt_rig_from_world);
+
+  std::vector<Rigid3d> cams_from_rig(kNumCams);
+  for (int i = 0; i < kNumCams; ++i) {
+    cams_from_rig[i] =
+        Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  }
+
+  std::vector<GP4PSEstimator::X_t> points2D;
+  std::vector<GP4PSEstimator::Y_t> points3D;
+  for (int i = 0; i < kNumPoints; ++i) {
+    const Rigid3d& cam_from_rig = cams_from_rig[i % kNumCams];
+    points2D.emplace_back();
+    points2D.back().cam_from_rig = cam_from_rig.ToMatrix();
+    points2D.back().ray_in_cam =
+        Eigen::Vector3d(RandomUniformReal<double>(-0.5, 0.5),
+                        RandomUniformReal<double>(-0.5, 0.5),
+                        1)
+            .normalized();
+    // Place all points behind the cameras.
+    const Eigen::Vector3d point3D_in_cam =
+        points2D.back().ray_in_cam * -RandomUniformReal<double>(0.1, 10);
+    points3D.push_back(world_from_rig *
+                       (Inverse(cam_from_rig) * point3D_in_cam));
+  }
+
+  // The cost cannot be evaluated at the initial model, so refinement must
+  // fail instead of accepting the invalid pose as a perfect fit.
+  Sim3d rig_from_world = gt_rig_from_world;
+  EXPECT_FALSE(GP4PSEstimator::Refine(points2D, points3D, &rig_from_world));
+  EXPECT_THAT(rig_from_world,
+              Sim3dNear(gt_rig_from_world,
+                        /*stol=*/1e-12,
+                        /*rtol=*/1e-12,
+                        /*ttol=*/1e-12));
 }
 
 TEST(GP4PSEstimator, PanoramicSampleHasNoSolution) {
