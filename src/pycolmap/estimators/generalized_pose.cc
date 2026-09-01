@@ -198,8 +198,7 @@ py::typing::Optional<py::dict> PyRefineScaledGeneralizedAbsolutePose(
   return result;
 }
 
-py::typing::Optional<py::dict>
-PyEstimateAndRefineScaledGeneralizedAbsolutePose(
+py::typing::Optional<py::dict> PyEstimateAndRefineScaledGeneralizedAbsolutePose(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
     const std::vector<size_t>& camera_idxs,
