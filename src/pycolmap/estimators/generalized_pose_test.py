@@ -9,6 +9,9 @@ import pycolmap
         "estimate_generalized_absolute_pose",
         "refine_generalized_absolute_pose",
         "estimate_and_refine_generalized_absolute_pose",
+        "estimate_scaled_generalized_absolute_pose",
+        "refine_scaled_generalized_absolute_pose",
+        "estimate_and_refine_scaled_generalized_absolute_pose",
         "estimate_generalized_relative_pose",
     ],
 )
