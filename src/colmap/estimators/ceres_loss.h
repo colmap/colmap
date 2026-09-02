@@ -11,8 +11,8 @@ namespace colmap {
 
 enum class CeresLossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
 
-// Standard construction accepts a non-negative `robust_scale` (including
-// positive infinity for compatibility) and finite positive `weight`.
+// Standard construction accepts a non-negative `robust_scale` and finite
+// positive `weight`.
 bool IsValidCeresLossFunction(CeresLossFunctionType type,
                               double robust_scale,
                               double weight = 1.0);
