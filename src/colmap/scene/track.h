@@ -32,6 +32,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
+#include <utility>
 #include <vector>
 
 namespace colmap {
@@ -48,6 +49,9 @@ struct TrackElement {
   inline bool operator==(const TrackElement& other) const;
   inline bool operator!=(const TrackElement& other) const;
 };
+
+// Identifies one observation in a Point3D track for per-observation lookup.
+using Point3DTrackElementKey = std::pair<point3D_t, uint64_t>;
 
 class Track {
  public:

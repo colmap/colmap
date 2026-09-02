@@ -1,3 +1,6 @@
+import gc
+
+import pyceres
 import pytest
 
 import pycolmap
@@ -70,6 +73,36 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
 def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
     assert options is not None
+    assert options.fix_observation_scale_gauge is True
+    assert options.downweight_uncalibrated_observations is True
+    options.fix_observation_scale_gauge = False
+    options.downweight_uncalibrated_observations = False
+    assert options.fix_observation_scale_gauge is False
+    assert options.downweight_uncalibrated_observations is False
+
+
+def test_global_positioner_retains_custom_loss():
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    options.random_seed = 42
+    loss = pyceres.CauchyLoss(0.1)
+    owner = pycolmap.create_default_global_positioner(
+        options,
+        pycolmap.PoseGraph(),
+        reconstruction,
+        loss_function=loss,
+    )
+    del loss
+    gc.collect()
+    assert owner.problem.num_residual_blocks() > 0
+    assert owner.solve().IsSolutionUsable()
 
 
 @pytest.mark.parametrize(

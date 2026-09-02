@@ -121,8 +121,7 @@ static void BM_GlobalPositioning(benchmark::State& state) {
     options.use_parameter_block_ordering = use_parameter_block_ordering;
     state.ResumeTiming();
 
-    colmap::GlobalPositioner positioner(options);
-    positioner.Solve(pose_graph, reconstruction_copy);
+    colmap::RunGlobalPositioning(options, pose_graph, reconstruction_copy);
   }
   state.counters["ord"] = use_parameter_block_ordering;
   state.counters["imgs"] = reconstruction.NumRegImages();

@@ -41,6 +41,44 @@ struct BATAPairwiseDirectionCostFunctor {
   const Eigen::Vector3d pos2_from_pos1_dir_;
 };
 
+// Covariance-weighted BATA residual with fixed camera rotation
+// (W = Sigma^(-1/2) * R_cam_from_world).
+struct WeightedBATAPairwiseDirectionCostFunctor {
+  WeightedBATAPairwiseDirectionCostFunctor(
+      const Eigen::Vector3d& pos2_from_pos1_dir,
+      const Eigen::Matrix3d& weight_matrix)
+      : pos2_from_pos1_dir_(pos2_from_pos1_dir),
+        weight_matrix_(weight_matrix) {}
+
+  template <typename T>
+  bool operator()(const T* pos1,
+                  const T* pos2,
+                  const T* scale,
+                  T* residuals) const {
+    using Vec3T = Eigen::Matrix<T, 3, 1>;
+    const Vec3T r_world = pos2_from_pos1_dir_.cast<T>() -
+                          scale[0] * (Eigen::Map<const Vec3T>(pos2) -
+                                      Eigen::Map<const Vec3T>(pos1));
+    Eigen::Map<Vec3T> residual_map(residuals);
+    residual_map = weight_matrix_.cast<T>() * r_world;
+    return true;
+  }
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& pos2_from_pos1_dir,
+                                     const Eigen::Matrix3d& weight_matrix) {
+    return new ceres::AutoDiffCostFunction<
+        WeightedBATAPairwiseDirectionCostFunctor,
+        3,
+        3,
+        3,
+        1>(new WeightedBATAPairwiseDirectionCostFunctor(pos2_from_pos1_dir,
+                                                        weight_matrix));
+  }
+
+  const Eigen::Vector3d pos2_from_pos1_dir_;
+  const Eigen::Matrix3d weight_matrix_;
+};
+
 // Computes the error between a translation direction and the direction formed
 // from a camera (c) and 3D point (p) with constant rig extrinsics, such that:
 // t_ij - scale * (p - c + t_rig) is minimized.
