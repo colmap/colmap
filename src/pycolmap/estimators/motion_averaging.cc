@@ -8,7 +8,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-PYBIND11_MAKE_OPAQUE(colmap::ObservationWhiteningMap);
+PYBIND11_MAKE_OPAQUE(colmap::ObservationCovarianceMap);
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -88,14 +88,14 @@ void BindGlobalPositioner(py::module& m) {
            &GlobalPositioner::SetParameterBlockOrdering)
       .def("finalize", &GlobalPositioner::Finalize, "summary"_a);
 
-  py::class_<ObservationWhiteningMap>(m, "_ObservationWhiteningMap");
+  py::class_<ObservationCovarianceMap>(m, "_ObservationCovarianceMap");
 
   m.def("create_default_global_positioner",
         &CreateDefaultGlobalPositioner,
         "options"_a,
         "pose_graph"_a,
         "reconstruction"_a,
-        "observation_whitening"_a = ObservationWhiteningMap(),
+        "observation_covariances"_a = ObservationCovarianceMap(),
         "loss_function"_a = nullptr,
         py::keep_alive<0, 3>());
 

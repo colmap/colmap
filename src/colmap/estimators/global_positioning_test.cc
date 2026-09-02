@@ -111,10 +111,16 @@ std::pair<size_t, size_t> ObservationScaleConstantCounts(
   return {num_constant_scales, num_scales};
 }
 
-ObservationWhiteningMap IdentityObservationWhiteningMap(
+std::pair<ObservationCovarianceMap, double> ObservationCovariancesAndCost(
     const GlobalPositionerOptions& options,
     const Reconstruction& reconstruction) {
-  ObservationWhiteningMap whitening;
+  const Eigen::Vector3d standard_deviations(0.5, 1.0, 2.0);
+  const Eigen::Matrix3d camera_covariance =
+      standard_deviations.array().square().matrix().asDiagonal();
+  const Eigen::Matrix3d camera_whitening =
+      standard_deviations.cwiseInverse().asDiagonal();
+  ObservationCovarianceMap covariances;
+  double expected_cost = 0.0;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() <
         static_cast<size_t>(options.min_num_view_per_track)) {
@@ -125,18 +131,36 @@ ObservationWhiteningMap IdentityObservationWhiteningMap(
       const TrackElement& observation = observations[index];
       if (!reconstruction.ExistsImage(observation.image_id)) continue;
       const Image& image = reconstruction.Image(observation.image_id);
-      if (!image.HasPose() ||
-          !image.CameraPtr()
-               ->CamRayFromImg(image.Point2D(observation.point2D_idx).xy)
-               .has_value()) {
+      const std::optional<Eigen::Vector3d> camera_ray =
+          image.CameraPtr()->CamRayFromImg(
+              image.Point2D(observation.point2D_idx).xy);
+      if (!image.HasPose() || !camera_ray.has_value()) {
         continue;
       }
-      whitening.emplace(
+      const Eigen::Matrix3d cam_from_world =
+          image.CamFromWorld().rotation().toRotationMatrix();
+      covariances.emplace(
           Point3DTrackElementKey{point3D_id, static_cast<uint64_t>(index)},
-          Eigen::Matrix3d::Identity());
+          cam_from_world.transpose() * camera_covariance * cam_from_world);
+
+      const Eigen::Vector3d frame_center =
+          image.FramePtr()->RigFromWorld().TgtOriginInSrc();
+      Eigen::Vector3d point_from_center = point3D.xyz - frame_center;
+      if (!image.IsRefInFrame()) {
+        const Rig& rig = reconstruction.Rig(image.FramePtr()->RigId());
+        const Rigid3d& cam_from_rig =
+            rig.SensorFromRig(image.CameraPtr()->SensorId());
+        point_from_center += image.CamFromWorld().rotation().inverse() *
+                             cam_from_rig.translation();
+      }
+      const Eigen::Vector3d residual =
+          image.CamFromWorld().rotation().inverse() * (*camera_ray) -
+          point_from_center;
+      expected_cost +=
+          0.5 * (camera_whitening * cam_from_world * residual).squaredNorm();
     }
   }
-  return whitening;
+  return {std::move(covariances), expected_cost};
 }
 
 Reconstruction CreateGlobalPositioningTestReconstruction() {
@@ -304,11 +328,11 @@ TEST(GlobalPositioning, InitializesWarmStartScalesFromCurrentScene) {
   EXPECT_EQ(ObservationScaleValues(positioner->Problem()), expected_scales);
 }
 
-TEST(GlobalPositioning, KeyedObservationWhitening) {
+TEST(GlobalPositioning, KeyedObservationCovariances) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions dataset_options;
   dataset_options.num_rigs = 1;
-  dataset_options.num_cameras_per_rig = 1;
+  dataset_options.num_cameras_per_rig = 2;
   dataset_options.num_frames_per_rig = 4;
   dataset_options.num_points3D = 30;
   SynthesizeDataset(dataset_options, &reconstruction);
@@ -317,32 +341,27 @@ TEST(GlobalPositioning, KeyedObservationWhitening) {
   options.use_gpu = false;
   options.generate_random_positions = false;
   options.generate_random_points = false;
-  const ObservationWhiteningMap whitening =
-      IdentityObservationWhiteningMap(options, reconstruction);
-  ASSERT_FALSE(whitening.empty());
-
-  Reconstruction unweighted_reconstruction = reconstruction;
-  auto unweighted = CreateDefaultGlobalPositioner(
-      options, PoseGraph(), &unweighted_reconstruction);
-  double unweighted_cost = 0.0;
-  ASSERT_TRUE(unweighted->Problem().Evaluate(ceres::Problem::EvaluateOptions(),
-                                             &unweighted_cost,
-                                             nullptr,
-                                             nullptr,
-                                             nullptr));
+  options.downweight_uncalibrated_observations = false;
+  auto [covariances, expected_cost] =
+      ObservationCovariancesAndCost(options, reconstruction);
+  ASSERT_FALSE(covariances.empty());
 
   Reconstruction weighted_reconstruction = reconstruction;
-  auto weighted = CreateDefaultGlobalPositioner(
-      options, PoseGraph(), &weighted_reconstruction, whitening);
+  auto weighted =
+      CreateDefaultGlobalPositioner(options,
+                                    PoseGraph(),
+                                    &weighted_reconstruction,
+                                    covariances,
+                                    std::make_shared<ceres::TrivialLoss>());
   double weighted_cost = 0.0;
   ASSERT_TRUE(weighted->Problem().Evaluate(ceres::Problem::EvaluateOptions(),
                                            &weighted_cost,
                                            nullptr,
                                            nullptr,
                                            nullptr));
-  EXPECT_NEAR(weighted_cost, unweighted_cost, 1e-12);
+  EXPECT_NEAR(weighted_cost, expected_cost, 1e-10);
 
-  ObservationWhiteningMap missing = whitening;
+  ObservationCovarianceMap missing = covariances;
   missing.erase(missing.begin());
   Reconstruction missing_reconstruction = reconstruction;
   EXPECT_THROW(CreateDefaultGlobalPositioner(

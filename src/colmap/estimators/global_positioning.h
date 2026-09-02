@@ -13,8 +13,9 @@
 
 namespace colmap {
 
-// Per-observation matrices that whiten default BATA residuals.
-using ObservationWhiteningMap =
+// Per-observation covariance matrices in world coordinates for default BATA
+// residuals.
+using ObservationCovarianceMap =
     FlatHashMap<Point3DTrackElementKey, Eigen::Matrix3d, PairHash>;
 
 struct GlobalPositionerOptions {
@@ -94,7 +95,7 @@ class GlobalPositioner {
   // Construct the problem without solving it.
   void Prepare(const PoseGraph& pose_graph,
                Reconstruction& reconstruction,
-               const ObservationWhiteningMap& observation_whitening,
+               const ObservationCovarianceMap& observation_covariances,
                std::shared_ptr<ceres::LossFunction> loss_function);
 
   void SetupProblem(std::shared_ptr<ceres::LossFunction> loss_function);
@@ -103,24 +104,16 @@ class GlobalPositioner {
   void InitializeRandomPositions(const PoseGraph& pose_graph,
                                  Reconstruction& reconstruction);
 
-  // Add regular constraints with optional keyed whitening.
+  // Add regular constraints with optional keyed covariances.
   void AddPointToCameraConstraints(
       Reconstruction& reconstruction,
-      const ObservationWhiteningMap& observation_whitening);
+      const ObservationCovarianceMap& observation_covariances);
 
   // Add a single point3D to the problem.
   void AddPoint3DToProblem(
       point3D_t point3D_id,
       Reconstruction& reconstruction,
-      const ObservationWhiteningMap& observation_whitening);
-
-  void AddObservationResidual(
-      const Eigen::Vector3d& point3D_bearing,
-      const Eigen::Matrix3d* observation_whitening_matrix,
-      ceres::LossFunction& loss_function,
-      Eigen::Vector3d& center,
-      Eigen::Vector3d& point3D,
-      double& scale);
+      const ObservationCovarianceMap& observation_covariances);
 
   // Parameterize the variables, set some variables to be constant if desired
   void ParameterizeVariables(Reconstruction& reconstruction);
@@ -158,7 +151,7 @@ class GlobalPositioner {
       const GlobalPositionerOptions&,
       const PoseGraph&,
       Reconstruction*,
-      const ObservationWhiteningMap&,
+      const ObservationCovarianceMap&,
       std::shared_ptr<ceres::LossFunction>);
 };
 
@@ -167,7 +160,7 @@ std::unique_ptr<GlobalPositioner> CreateDefaultGlobalPositioner(
     const GlobalPositionerOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction* reconstruction,
-    const ObservationWhiteningMap& observation_whitening = {},
+    const ObservationCovarianceMap& observation_covariances = {},
     std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 
 // Solve global positioning using point-to-camera constraints.

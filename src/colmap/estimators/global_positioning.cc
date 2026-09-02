@@ -1,11 +1,14 @@
 #include "colmap/estimators/global_positioning.h"
 
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
+
+#include <utility>
 
 namespace colmap {
 namespace {
@@ -14,6 +17,16 @@ Eigen::Vector3d RandVector3d(double low, double high) {
   return Eigen::Vector3d(RandomUniformReal(low, high),
                          RandomUniformReal(low, high),
                          RandomUniformReal(low, high));
+}
+
+template <typename CostFunctor, typename... Args>
+ceres::CostFunction* CreateBATACostFunction(const Eigen::Matrix3d* covariance,
+                                            Args&&... args) {
+  if (covariance == nullptr) {
+    return CostFunctor::Create(std::forward<Args>(args)...);
+  }
+  return CovarianceWeightedCostFunctor<CostFunctor>::Create(
+      *covariance, std::forward<Args>(args)...);
 }
 
 }  // namespace
@@ -47,7 +60,7 @@ bool GlobalPositioner::Finalize(const ceres::Solver::Summary& summary) {
 void GlobalPositioner::Prepare(
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction,
-    const ObservationWhiteningMap& observation_whitening,
+    const ObservationCovarianceMap& observation_covariances,
     std::shared_ptr<ceres::LossFunction> loss_function) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
@@ -69,7 +82,7 @@ void GlobalPositioner::Prepare(
   InitializeRandomPositions(pose_graph, reconstruction);
 
   // Add the point to camera constraints to the problem.
-  AddPointToCameraConstraints(reconstruction, observation_whitening);
+  AddPointToCameraConstraints(reconstruction, observation_covariances);
 
   // Parameterize the variables, set image poses / tracks / scales to be
   // constant if desired
@@ -143,7 +156,7 @@ void GlobalPositioner::InitializeRandomPositions(
 
 void GlobalPositioner::AddPointToCameraConstraints(
     Reconstruction& reconstruction,
-    const ObservationWhiteningMap& observation_whitening) {
+    const ObservationCovarianceMap& observation_covariances) {
   VLOG(2) << reconstruction.NumPoints3D()
           << " point to camera constraints were added to the position "
              "estimation problem.";
@@ -162,14 +175,14 @@ void GlobalPositioner::AddPointToCameraConstraints(
       continue;
     }
 
-    AddPoint3DToProblem(point3D_id, reconstruction, observation_whitening);
+    AddPoint3DToProblem(point3D_id, reconstruction, observation_covariances);
   }
 }
 
 void GlobalPositioner::AddPoint3DToProblem(
     point3D_t point3D_id,
     Reconstruction& reconstruction,
-    const ObservationWhiteningMap& observation_whitening) {
+    const ObservationCovarianceMap& observation_covariances) {
   const bool random_initialization =
       options_.optimize_points && options_.generate_random_points;
   Point3D& point3D = reconstruction.Point3D(point3D_id);
@@ -203,24 +216,20 @@ void GlobalPositioner::AddPoint3DToProblem(
     const Eigen::Vector3d cam_from_point3D_dir =
         image.CamFromWorld().rotation().inverse() * (*cam_ray);
     double& scale = scales_.emplace_back(1);
-    const Eigen::Matrix3d* whitening_matrix = nullptr;
-    if (!observation_whitening.empty()) {
+    const Eigen::Matrix3d* covariance = nullptr;
+    if (!observation_covariances.empty()) {
       const Point3DTrackElementKey key{
           point3D_id, static_cast<uint64_t>(track_element_index)};
-      const auto whitening_it = observation_whitening.find(key);
-      if (whitening_it == observation_whitening.end()) {
+      const auto covariance_it = observation_covariances.find(key);
+      if (covariance_it == observation_covariances.end()) {
         throw std::invalid_argument(
-            "observation whitening map is missing a reconstruction "
+            "observation covariance map is missing a reconstruction "
             "observation");
       }
-      if (!whitening_it->second.allFinite()) {
-        throw std::invalid_argument("observation weights must be finite");
+      if (!covariance_it->second.allFinite()) {
+        throw std::invalid_argument("observation covariance must be finite");
       }
-      whitening_matrix = &whitening_it->second;
-      if (!image.IsRefInFrame()) {
-        throw std::invalid_argument(
-            "weighted BATA does not support non-reference rig images");
-      }
+      covariance = &covariance_it->second;
     }
 
     if (!options_.generate_scales) {
@@ -242,12 +251,14 @@ void GlobalPositioner::AddPoint3DToProblem(
 
     // If the image is not part of a camera rig, use the standard BATA error
     if (image.IsRefInFrame()) {
-      AddObservationResidual(cam_from_point3D_dir,
-                             whitening_matrix,
-                             *loss_function,
-                             frame_centers_[image.FrameId()],
-                             point3D.xyz,
-                             scale);
+      ceres::CostFunction* cost_function =
+          CreateBATACostFunction<BATAPairwiseDirectionCostFunctor>(
+              covariance, cam_from_point3D_dir);
+      problem_->AddResidualBlock(cost_function,
+                                 loss_function,
+                                 frame_centers_[image.FrameId()].data(),
+                                 point3D.xyz.data(),
+                                 &scale);
     } else {
       // If the image is part of a camera rig, use the RigBATA error.
 
@@ -260,9 +271,9 @@ void GlobalPositioner::AddPoint3DToProblem(
             image.CamFromWorld().rotation().inverse() *
             cam_from_rig.translation();
 
-        ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionConstantRigCostFunctor::Create(
-                cam_from_point3D_dir, cam_from_rig_dir);
+        ceres::CostFunction* cost_function = CreateBATACostFunction<
+            RigBATAPairwiseDirectionConstantRigCostFunctor>(
+            covariance, cam_from_point3D_dir, cam_from_rig_dir);
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
@@ -283,7 +294,8 @@ void GlobalPositioner::AddPoint3DToProblem(
         }
 
         ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionCostFunctor::Create(
+            CreateBATACostFunction<RigBATAPairwiseDirectionCostFunctor>(
+                covariance,
                 cam_from_point3D_dir,
                 image.FramePtr()->RigFromWorld().rotation());
 
@@ -294,27 +306,9 @@ void GlobalPositioner::AddPoint3DToProblem(
                                    cams_in_rig_[sensor_id].data(),
                                    &scale);
       }
-
-      problem_->SetParameterLowerBound(&scale, 0, 1e-5);
     }
+    problem_->SetParameterLowerBound(&scale, 0, 1e-5);
   }
-}
-
-void GlobalPositioner::AddObservationResidual(
-    const Eigen::Vector3d& point3D_bearing,
-    const Eigen::Matrix3d* observation_whitening_matrix,
-    ceres::LossFunction& loss_function,
-    Eigen::Vector3d& center,
-    Eigen::Vector3d& point3D,
-    double& scale) {
-  ceres::CostFunction* cost_function =
-      observation_whitening_matrix == nullptr
-          ? BATAPairwiseDirectionCostFunctor::Create(point3D_bearing)
-          : WeightedBATAPairwiseDirectionCostFunctor::Create(
-                point3D_bearing, *observation_whitening_matrix);
-  problem_->AddResidualBlock(
-      cost_function, &loss_function, center.data(), point3D.data(), &scale);
-  problem_->SetParameterLowerBound(&scale, 0, 1e-5);
 }
 
 void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
@@ -510,7 +504,7 @@ std::unique_ptr<GlobalPositioner> CreateDefaultGlobalPositioner(
     const GlobalPositionerOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction* reconstruction,
-    const ObservationWhiteningMap& observation_whitening,
+    const ObservationCovarianceMap& observation_covariances,
     std::shared_ptr<ceres::LossFunction> loss_function) {
   if (reconstruction == nullptr) {
     throw std::invalid_argument("reconstruction must not be null");
@@ -518,7 +512,7 @@ std::unique_ptr<GlobalPositioner> CreateDefaultGlobalPositioner(
   std::unique_ptr<GlobalPositioner> positioner(new GlobalPositioner(options));
   positioner->Prepare(pose_graph,
                       *reconstruction,
-                      observation_whitening,
+                      observation_covariances,
                       std::move(loss_function));
   positioner->options_.solver_options.num_threads =
       GetEffectiveNumThreads(positioner->options_.solver_options.num_threads);
