@@ -187,6 +187,17 @@ void BindBundleAdjuster(py::module& m) {
           .value("CAUCHY", CeresLossFunctionType::CAUCHY)
           .value("HUBER", CeresLossFunctionType::HUBER);
   AddStringToEnumConstructor(PyCeresLossFunctionType);
+  m.def(
+      "create_ceres_loss_function",
+      [](const CeresLossFunctionType type,
+         const double scale,
+         const double weight) {
+        return std::shared_ptr<ceres::LossFunction>(
+            CreateCeresLossFunction(type, scale, weight));
+      },
+      "loss_function_type"_a,
+      "scale"_a,
+      "weight"_a = 1.0);
 
   auto PyCeresBundleAdjustmentOptions =
       py::classh<CeresBAOpts>(m, "CeresBundleAdjustmentOptions")
