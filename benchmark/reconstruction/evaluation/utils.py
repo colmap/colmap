@@ -791,8 +791,19 @@ def panorama_reconstruction(
     if sparse_path.exists():
         pycolmap.logging.info("Skipping reconstruction, as it already exists")
         return
-    if args.feature != "sift":
-        raise ValueError("Panorama reconstruction currently supports SIFT only")
+    if args.feature == "sift":
+        extractor_type = pycolmap.FeatureExtractorType.SIFT
+        matcher_type = pycolmap.FeatureMatcherType.SIFT_BRUTEFORCE
+    elif args.feature == "aliked":
+        # ALIKED_LIGHTGLUE rather than automatic_reconstructor's plain
+        # "--feature aliked" default (ALIKED_BRUTEFORCE): this benchmark
+        # exists to evaluate the ALIKED+LightGlue combination specifically.
+        extractor_type = pycolmap.FeatureExtractorType.ALIKED_N16ROT
+        matcher_type = pycolmap.FeatureMatcherType.ALIKED_LIGHTGLUE
+    else:
+        raise ValueError(
+            f"Unknown feature type for panorama reconstruction: {args.feature}"
+        )
     if args.mapper == "hierarchical":
         raise ValueError(
             "Panorama reconstruction does not support hierarchical mapping"
@@ -803,7 +814,11 @@ def panorama_reconstruction(
         )
 
     render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
-    if render_type not in {"perspective_overlapping", "spherical"}:
+    if render_type not in {
+        "perspective_overlapping",
+        "spherical",
+        "spherical_reprojected",
+    }:
         raise ValueError(
             f"Unknown panorama reconstruction backend: "
             f"{scene_info.reconstruction_backend}"
@@ -832,6 +847,8 @@ def panorama_reconstruction(
             matcher=panorama.Matcher.SEQUENTIAL,
             mapper=panorama.Mapper(args.mapper),
             render_type=panorama.PanoRenderType(render_type),
+            extractor_type=extractor_type,
+            matcher_type=matcher_type,
             random_seed=args.random_seed,
             num_threads=num_threads,
             gpu_index=gpu_index,
