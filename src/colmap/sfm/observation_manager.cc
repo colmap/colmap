@@ -435,7 +435,7 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
 std::vector<point3D_t>
 ObservationManager::FindPoints3DWithSmallTriangulationAngle(
     const double min_tri_angle,
-    const std::vector<point3D_t>& point3D_ids) const {
+    const FlatHashSet<point3D_t>& point3D_ids) const {
   // Minimum triangulation angle in radians.
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
@@ -494,11 +494,8 @@ ObservationManager::FindPoints3DWithSmallTriangulationAngle(
 
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     const double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) {
-  const std::vector<point3D_t> ordered_point3D_ids(point3D_ids.begin(),
-                                                   point3D_ids.end());
   const std::vector<point3D_t> small_angle_point3D_ids =
-      FindPoints3DWithSmallTriangulationAngle(min_tri_angle,
-                                              ordered_point3D_ids);
+      FindPoints3DWithSmallTriangulationAngle(min_tri_angle, point3D_ids);
 
   size_t num_filtered_observations = 0;
   for (const point3D_t point3D_id : small_angle_point3D_ids) {

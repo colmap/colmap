@@ -128,9 +128,9 @@ class ObservationManager {
   // @param point3D_ids      The points to be checked.
   //
   // @return                 The point identifiers with insufficient
-  //                         triangulation angle, in input order.
+  //                         triangulation angle.
   std::vector<point3D_t> FindPoints3DWithSmallTriangulationAngle(
-      double min_tri_angle, const std::vector<point3D_t>& point3D_ids) const;
+      double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) const;
 
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids);
