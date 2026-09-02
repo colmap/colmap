@@ -44,6 +44,7 @@ set(ESTIMATORS_SRCS
     gravity_refinement.h gravity_refinement.cc
     pose.h pose.cc
     rotation_averaging.h rotation_averaging.cc
+    rotation_averaging_ceres.h rotation_averaging_ceres.cc
     rotation_averaging_impl.h rotation_averaging_impl.cc
     triangulation.h triangulation.cc
     two_view_geometry.h two_view_geometry.cc
@@ -145,6 +146,12 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME rotation_averaging_test
     SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME rotation_averaging_ceres_test
+    SRCS rotation_averaging_ceres_test.cc
     LINK_LIBS colmap_estimators
 )
 
