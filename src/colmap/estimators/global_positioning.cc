@@ -524,12 +524,8 @@ std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
                           Reconstruction& reconstruction) {
-  if (reconstruction.NumImages() == 0) {
-    LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
-    return false;
-  }
-  if (reconstruction.NumPoints3D() == 0) {
-    LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
+  if (reconstruction.NumImages() == 0 || reconstruction.NumPoints3D() == 0) {
+    LOG(ERROR) << "Failed to run global positioning for empty incomplete reconstruction: " << reconstruction;
     return false;
   }
   auto positioner =
