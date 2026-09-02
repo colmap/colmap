@@ -500,7 +500,7 @@ void GlobalPositioner::SetParameterBlockOrdering() {
   options_.solver_options.linear_solver_ordering = std::move(ordering);
 }
 
-std::unique_ptr<GlobalPositioner> CreateDefaultGlobalPositioner(
+std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
     const GlobalPositionerOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction* reconstruction,
@@ -533,7 +533,7 @@ bool RunGlobalPositioning(const GlobalPositionerOptions& options,
     return false;
   }
   auto positioner =
-      CreateDefaultGlobalPositioner(options, pose_graph, &reconstruction);
+      GlobalPositioner::CreateDefault(options, pose_graph, &reconstruction);
   if (options.use_parameter_block_ordering) {
     positioner->SetParameterBlockOrdering();
   }

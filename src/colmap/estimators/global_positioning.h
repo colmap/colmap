@@ -75,6 +75,14 @@ struct GlobalPositionerOptions {
 
 class GlobalPositioner {
  public:
+  // The reconstruction must outlive the returned positioner.
+  static std::unique_ptr<GlobalPositioner> CreateDefault(
+      const GlobalPositionerOptions& options,
+      const PoseGraph& pose_graph,
+      Reconstruction* reconstruction,
+      const ObservationCovarianceMap& observation_covariances = {},
+      std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
+
   // Solve the prepared problem and publish its results.
   ceres::Solver::Summary Solve();
 
@@ -145,23 +153,7 @@ class GlobalPositioner {
   // Retained for late parameter ordering and Finalize().
   Reconstruction* reconstruction_ = nullptr;
   std::unique_ptr<ceres::Problem> problem_;
-
- private:
-  friend std::unique_ptr<GlobalPositioner> CreateDefaultGlobalPositioner(
-      const GlobalPositionerOptions&,
-      const PoseGraph&,
-      Reconstruction*,
-      const ObservationCovarianceMap&,
-      std::shared_ptr<ceres::LossFunction>);
 };
-
-// The reconstruction must outlive the returned positioner.
-std::unique_ptr<GlobalPositioner> CreateDefaultGlobalPositioner(
-    const GlobalPositionerOptions& options,
-    const PoseGraph& pose_graph,
-    Reconstruction* reconstruction,
-    const ObservationCovarianceMap& observation_covariances = {},
-    std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 
 // Solve global positioning using point-to-camera constraints.
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,

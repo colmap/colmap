@@ -91,7 +91,7 @@ void BindGlobalPositioner(py::module& m) {
   py::class_<ObservationCovarianceMap>(m, "_ObservationCovarianceMap");
 
   m.def("create_default_global_positioner",
-        &CreateDefaultGlobalPositioner,
+        &GlobalPositioner::CreateDefault,
         "options"_a,
         "pose_graph"_a,
         "reconstruction"_a,
