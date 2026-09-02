@@ -29,6 +29,25 @@ ceres::CostFunction* CreateBATACostFunction(const Eigen::Matrix3d* covariance,
       *covariance, std::forward<Args>(args)...);
 }
 
+class DefaultGlobalPositioner final : public GlobalPositioner {
+ public:
+  DefaultGlobalPositioner(
+      const GlobalPositionerOptions& options,
+      const PoseGraph& pose_graph,
+      Reconstruction& reconstruction,
+      const ObservationCovarianceMap& observation_covariances,
+      std::shared_ptr<ceres::LossFunction> loss_function)
+      : GlobalPositioner(options) {
+    Prepare(pose_graph,
+            reconstruction,
+            observation_covariances,
+            std::move(loss_function));
+    options_.solver_options.num_threads =
+        GetEffectiveNumThreads(options_.solver_options.num_threads);
+    options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
+  }
+};
+
 }  // namespace
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
@@ -506,16 +525,11 @@ std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
     Reconstruction& reconstruction,
     const ObservationCovarianceMap& observation_covariances,
     std::shared_ptr<ceres::LossFunction> loss_function) {
-  std::unique_ptr<GlobalPositioner> positioner(new GlobalPositioner(options));
-  positioner->Prepare(pose_graph,
-                      reconstruction,
-                      observation_covariances,
-                      std::move(loss_function));
-  positioner->options_.solver_options.num_threads =
-      GetEffectiveNumThreads(positioner->options_.solver_options.num_threads);
-  positioner->options_.solver_options.minimizer_progress_to_stdout =
-      VLOG_IS_ON(2);
-  return positioner;
+  return std::make_unique<DefaultGlobalPositioner>(options,
+                                                   pose_graph,
+                                                   reconstruction,
+                                                   observation_covariances,
+                                                   std::move(loss_function));
 }
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,

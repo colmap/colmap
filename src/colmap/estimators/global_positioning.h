@@ -75,6 +75,8 @@ struct GlobalPositionerOptions {
 
 class GlobalPositioner {
  public:
+  virtual ~GlobalPositioner() = default;
+
   // The reconstruction must outlive the returned positioner.
   static std::unique_ptr<GlobalPositioner> CreateDefault(
       const GlobalPositionerOptions& options,
