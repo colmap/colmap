@@ -50,7 +50,7 @@ struct TrackElement {
   inline bool operator!=(const TrackElement& other) const;
 };
 
-// Identifies one observation in a Point3D track for per-observation lookup.
+// Identifies a track element by its Point3D ID and index within the track.
 using Point3DTrackElementKey = std::pair<point3D_t, uint64_t>;
 
 class Track {
