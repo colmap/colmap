@@ -11,11 +11,11 @@
 namespace colmap {
 
 bool IsValidCeresLossFunction(const CeresLossFunctionType type,
-                              const double scale,
+                              const double robust_scale,
                               const double weight) {
   // Preserve the pre-centralization bundle-adjustment contract: non-negative
   // infinite scales were accepted, while NaN and negative scales were not.
-  if (std::isnan(scale) || !std::isfinite(weight)) {
+  if (std::isnan(robust_scale) || !std::isfinite(weight)) {
     return false;
   }
   switch (type) {
@@ -23,14 +23,16 @@ bool IsValidCeresLossFunction(const CeresLossFunctionType type,
     case CeresLossFunctionType::SOFT_L1:
     case CeresLossFunctionType::CAUCHY:
     case CeresLossFunctionType::HUBER:
-      return scale >= 0.0 && weight > 0.0;
+      return robust_scale >= 0.0 && weight > 0.0;
   }
   return false;
 }
 
 std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
-    const CeresLossFunctionType type, const double scale, const double weight) {
-  if (!IsValidCeresLossFunction(type, scale, weight)) {
+    const CeresLossFunctionType type,
+    const double robust_scale,
+    const double weight) {
+  if (!IsValidCeresLossFunction(type, robust_scale, weight)) {
     throw std::invalid_argument("invalid Ceres loss configuration");
   }
 
@@ -40,13 +42,13 @@ std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
       loss = std::make_unique<ceres::TrivialLoss>();
       break;
     case CeresLossFunctionType::SOFT_L1:
-      loss = std::make_unique<ceres::SoftLOneLoss>(scale);
+      loss = std::make_unique<ceres::SoftLOneLoss>(robust_scale);
       break;
     case CeresLossFunctionType::CAUCHY:
-      loss = std::make_unique<ceres::CauchyLoss>(scale);
+      loss = std::make_unique<ceres::CauchyLoss>(robust_scale);
       break;
     case CeresLossFunctionType::HUBER:
-      loss = std::make_unique<ceres::HuberLoss>(scale);
+      loss = std::make_unique<ceres::HuberLoss>(robust_scale);
       break;
   }
   if (weight == 1.0) return loss;

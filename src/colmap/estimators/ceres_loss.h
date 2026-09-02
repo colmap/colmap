@@ -11,15 +11,16 @@ namespace colmap {
 
 enum class CeresLossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
 
-// Standard construction accepts non-negative scale (including positive
-// infinity for compatibility) and finite positive weight.
+// Standard construction accepts a non-negative `robust_scale` (including
+// positive infinity for compatibility) and finite positive `weight`.
 bool IsValidCeresLossFunction(CeresLossFunctionType type,
-                              double scale,
+                              double robust_scale,
                               double weight = 1.0);
 
-// Constructs a standard Ceres loss and wraps it in an owning ScaledLoss when
-// weight differs from one.
+// Create a standard Ceres loss function. For robust losses, `robust_scale`
+// determines the residual at which robustification takes place. The weight
+// multiplies the loss function output.
 std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
-    CeresLossFunctionType type, double scale, double weight = 1.0);
+    CeresLossFunctionType type, double robust_scale, double weight = 1.0);
 
 }  // namespace colmap

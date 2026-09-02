@@ -190,13 +190,13 @@ void BindBundleAdjuster(py::module& m) {
   m.def(
       "create_ceres_loss_function",
       [](const CeresLossFunctionType type,
-         const double scale,
+         const double robust_scale,
          const double weight) {
         return std::shared_ptr<ceres::LossFunction>(
-            CreateCeresLossFunction(type, scale, weight));
+            CreateCeresLossFunction(type, robust_scale, weight));
       },
       "loss_function_type"_a,
-      "scale"_a,
+      "robust_scale"_a,
       "weight"_a = 1.0);
 
   auto PyCeresBundleAdjustmentOptions =
