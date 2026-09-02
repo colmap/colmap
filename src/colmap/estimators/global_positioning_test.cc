@@ -95,7 +95,7 @@ std::pair<size_t, size_t> ObservationScaleConstantCounts(
   SynthesizeDataset(dataset_options, &reconstruction);
 
   auto positioner =
-      GlobalPositioner::CreateDefault(options, PoseGraph(), &reconstruction);
+      GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
   ceres::Problem& problem = positioner->Problem();
   std::vector<double*> parameter_blocks;
   problem.GetParameterBlocks(&parameter_blocks);
@@ -226,7 +226,7 @@ TEST(GlobalPositioning, ComposableProblem) {
   options.use_gpu = false;
   auto loss = std::make_shared<ceres::CauchyLoss>(0.1);
   auto positioner = GlobalPositioner::CreateDefault(
-      options, PoseGraph(), &reconstruction, {}, loss);
+      options, PoseGraph(), reconstruction, {}, loss);
   loss.reset();
 
   const frame_t frame_id = reconstruction.Images().begin()->second.FrameId();
@@ -291,7 +291,7 @@ TEST(GlobalPositioning, UncalibratedObservationDownweightOption) {
     auto positioner =
         GlobalPositioner::CreateDefault(options,
                                         PoseGraph(),
-                                        &test_reconstruction,
+                                        test_reconstruction,
                                         {},
                                         std::make_shared<ceres::TrivialLoss>());
     double cost = 0.0;
@@ -324,7 +324,7 @@ TEST(GlobalPositioning, InitializesWarmStartScalesFromCurrentScene) {
   std::sort(expected_scales.begin(), expected_scales.end());
 
   auto positioner =
-      GlobalPositioner::CreateDefault(options, PoseGraph(), &reconstruction);
+      GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
   EXPECT_EQ(ObservationScaleValues(positioner->Problem()), expected_scales);
 }
 
@@ -350,7 +350,7 @@ TEST(GlobalPositioning, KeyedObservationCovariances) {
   auto weighted =
       GlobalPositioner::CreateDefault(options,
                                       PoseGraph(),
-                                      &weighted_reconstruction,
+                                      weighted_reconstruction,
                                       covariances,
                                       std::make_shared<ceres::TrivialLoss>());
   double weighted_cost = 0.0;
@@ -365,7 +365,7 @@ TEST(GlobalPositioning, KeyedObservationCovariances) {
   missing.erase(missing.begin());
   Reconstruction missing_reconstruction = reconstruction;
   EXPECT_THROW(GlobalPositioner::CreateDefault(
-                   options, PoseGraph(), &missing_reconstruction, missing),
+                   options, PoseGraph(), missing_reconstruction, missing),
                std::invalid_argument);
 }
 

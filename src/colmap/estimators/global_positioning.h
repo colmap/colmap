@@ -79,7 +79,7 @@ class GlobalPositioner {
   static std::unique_ptr<GlobalPositioner> CreateDefault(
       const GlobalPositionerOptions& options,
       const PoseGraph& pose_graph,
-      Reconstruction* reconstruction,
+      Reconstruction& reconstruction,
       const ObservationCovarianceMap& observation_covariances = {},
       std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 

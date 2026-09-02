@@ -503,15 +503,12 @@ void GlobalPositioner::SetParameterBlockOrdering() {
 std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
     const GlobalPositionerOptions& options,
     const PoseGraph& pose_graph,
-    Reconstruction* reconstruction,
+    Reconstruction& reconstruction,
     const ObservationCovarianceMap& observation_covariances,
     std::shared_ptr<ceres::LossFunction> loss_function) {
-  if (reconstruction == nullptr) {
-    throw std::invalid_argument("reconstruction must not be null");
-  }
   std::unique_ptr<GlobalPositioner> positioner(new GlobalPositioner(options));
   positioner->Prepare(pose_graph,
-                      *reconstruction,
+                      reconstruction,
                       observation_covariances,
                       std::move(loss_function));
   positioner->options_.solver_options.num_threads =
@@ -529,7 +526,7 @@ bool RunGlobalPositioning(const GlobalPositionerOptions& options,
     return false;
   }
   auto positioner =
-      GlobalPositioner::CreateDefault(options, pose_graph, &reconstruction);
+      GlobalPositioner::CreateDefault(options, pose_graph, reconstruction);
   if (options.use_parameter_block_ordering) {
     positioner->SetParameterBlockOrdering();
   }
