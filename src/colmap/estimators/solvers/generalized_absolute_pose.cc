@@ -55,6 +55,13 @@ using ScaledRigFromWorldManifold =
 // Normalized-plane reprojection cost functor for fixed-size
 // (colmap::TinySolver) refinement of a scaled rig_from_world transform over
 // all given 2D-3D correspondences.
+//
+// The functor is only defined on the domain where every observation projects
+// in front of its camera. GP4PSEstimator::Refine validates this at the
+// initial estimate and drops any observation that does not satisfy it. If a
+// trial step during the optimization moves an observation behind its camera,
+// the evaluation is rejected, which makes the solver discard the step and
+// shrink the trust region.
 class TinyScaledRigReprojCostFunctor {
  public:
   using Scalar = double;
@@ -260,14 +267,43 @@ bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
                             const std::vector<Y_t>& points3D,
                             M_t* rig_from_world) {
   THROW_CHECK_EQ(points2D.size(), points3D.size());
-  THROW_CHECK_GE(points2D.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(rig_from_world);
 
   if (!(rig_from_world->scale() > 0)) {
     return false;
   }
 
-  TinyScaledRigReprojCostFunctor functor(points2D, points3D);
+  // Only observations that project in front of their camera at the initial
+  // estimate constrain the reprojection cost; the others are stale inliers
+  // (or outliers) and are excluded from the refinement.
+  const Eigen::Matrix3x4d rig_from_world_matrix = rig_from_world->ToMatrix();
+  std::vector<X_t> valid_points2D;
+  std::vector<Y_t> valid_points3D;
+  valid_points2D.reserve(points2D.size());
+  valid_points3D.reserve(points3D.size());
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    const Eigen::Vector3d point3D_in_cam =
+        points2D[i].cam_from_rig *
+        (rig_from_world_matrix * points3D[i].homogeneous()).homogeneous();
+    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
+      valid_points2D.push_back(points2D[i]);
+      valid_points3D.push_back(points3D[i]);
+    }
+  }
+  if (valid_points2D.size() < static_cast<size_t>(kMinNumSamples)) {
+    return false;
+  }
+
+  // The scale is unobservable if the valid observations share a projection
+  // center.
+  std::vector<Eigen::Vector3d> rays_in_rig;
+  std::vector<Eigen::Vector3d> origins_in_rig;
+  ComputeRaysAndOriginsInRig(valid_points2D, &rays_in_rig, &origins_in_rig);
+  if (HasSingleProjectionCenter(origins_in_rig)) {
+    return false;
+  }
+
+  TinyScaledRigReprojCostFunctor functor(valid_points2D, valid_points3D);
   TinyScaledRigReprojCostFunctor::AutoDiffFunction f(functor);
   using Solver = TinySolver<decltype(f), ScaledRigFromWorldManifold>;
   Solver solver;
@@ -280,19 +316,15 @@ bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
   x[7] = std::log(rig_from_world->scale());
   const auto& summary = solver.Solve(f, &x, options);
 
-  // Reject models for which the cost cannot be evaluated, e.g., with points
-  // behind the cameras at the initial estimate.
-  if (summary.status == Solver::COST_FUNCTION_FAILED) {
+  // The cost is evaluable at the initial estimate by construction, but guard
+  // against numerical edge cases regardless.
+  if (summary.status == Solver::COST_FUNCTION_FAILED || !x.allFinite()) {
     return false;
   }
 
-  // Keep the refined estimate only if the solve stayed finite; otherwise fall
-  // back to the initial model.
-  if (x.allFinite()) {
-    *rig_from_world = Sim3d(std::exp(x[7]),
-                            Eigen::Quaterniond(x.data()).normalized(),
-                            x.segment<3>(4));
-  }
+  *rig_from_world = Sim3d(std::exp(x[7]),
+                          Eigen::Quaterniond(x.data()).normalized(),
+                          x.segment<3>(4));
   return true;
 }
 
