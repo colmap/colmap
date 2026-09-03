@@ -38,16 +38,6 @@ void BindGlobalPositioner(py::module& m) {
                          &GlobalPositionerOptions::optimize_scales,
                          "Whether to optimize scales.")
           .def_readwrite(
-              "fix_observation_scale_gauge",
-              &GlobalPositionerOptions::fix_observation_scale_gauge,
-              "Whether to fix the first active observation scale to remove "
-              "the scale gauge.")
-          .def_readwrite(
-              "downweight_uncalibrated_observations",
-              &GlobalPositionerOptions::downweight_uncalibrated_observations,
-              "Whether to down-weight observations from cameras without a "
-              "focal-length prior.")
-          .def_readwrite(
               "refine_sensor_from_rig",
               &GlobalPositionerOptions::refine_sensor_from_rig,
               "When False, treat sensor_from_rig as a fixed pre-calibrated "

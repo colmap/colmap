@@ -30,12 +30,6 @@ struct GlobalPositionerOptions {
   bool optimize_positions = true;
   bool optimize_points = true;
   bool optimize_scales = true;
-  // Whether to fix the first active observation scale to remove the gauge
-  // ambiguity when optimizing scales.
-  bool fix_observation_scale_gauge = true;
-  // Whether to down-weight observations from cameras without a focal-length
-  // prior, preserving the stock global-positioning objective by default.
-  bool downweight_uncalibrated_observations = true;
 
   // When false, treat sensor_from_rig as a fixed (pre-calibrated) parameter.
   bool refine_sensor_from_rig = true;

@@ -73,12 +73,6 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
 def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
     assert options is not None
-    assert options.fix_observation_scale_gauge is True
-    assert options.downweight_uncalibrated_observations is True
-    options.fix_observation_scale_gauge = False
-    options.downweight_uncalibrated_observations = False
-    assert options.fix_observation_scale_gauge is False
-    assert options.downweight_uncalibrated_observations is False
 
 
 def test_global_positioner_retains_custom_loss():
