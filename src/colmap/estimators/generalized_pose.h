@@ -160,6 +160,13 @@ bool RefineGeneralizedAbsolutePose(
 // Refine generalized absolute pose and scale (optionally focal lengths)
 // from 2D-3D correspondences.
 //
+// Only inlier observations that project in front of their camera at the
+// initial estimate constrain the refinement; the others (e.g., stale inliers)
+// are excluded. The remaining observations define the domain of the cost: a
+// trial step that moves one of them behind its camera is rejected by the
+// solver. The scale is optimized in log-space and therefore stays positive.
+// The output arguments are only modified after a successful solve.
+//
 // @param options              Refinement options. Position priors are not
 //                             supported.
 // @param inlier_mask          Inlier mask for 2D-3D correspondences.
@@ -170,17 +177,19 @@ bool RefineGeneralizedAbsolutePose(
 // @param rig_from_world       Estimated rig from world transform with scale,
 //                             as computed by
 //                             EstimateScaledGeneralizedAbsolutePose. Must
-//                             have positive scale.
-// @param cameras              Cameras for which to estimate pose. Modified
-//                             in-place to store the estimated focal lengths.
+//                             have positive scale. Overwritten with the
+//                             refined transform on success.
+// @param cameras              Cameras for which to estimate pose. Overwritten
+//                             with the refined focal lengths on success.
 // @param rig_from_world_cov   Estimated 7x7 covariance matrix of the rotation
 //                             (as axis-angle, in tangent space), translation,
 //                             and scale terms (optional).
 //
 // @return                     Whether the solution is usable. Fails if the
-//                             observations selected by the inlier mask project
-//                             from a single center (including an empty mask),
-//                             for which the scale is unobservable.
+//                             active observations, i.e., those selected by
+//                             the inlier mask that project at the initial
+//                             estimate, are empty or project from a single
+//                             center, for which the scale is unobservable.
 bool RefineScaledGeneralizedAbsolutePose(
     const AbsolutePoseRefinementOptions& options,
     const std::vector<char>& inlier_mask,
