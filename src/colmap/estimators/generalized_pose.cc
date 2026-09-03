@@ -540,14 +540,16 @@ bool RefineScaledGeneralizedAbsolutePose(
   const auto loss_function =
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
-  std::vector<double*> cameras_params_data(cameras->size());
-  for (size_t i = 0; i < cameras->size(); i++) {
-    cameras_params_data[i] = cameras->at(i).params.data();
-  }
-  std::vector<size_t> camera_counts(cameras->size(), 0);
-
+  // Optimize local copies and commit them to the output arguments only after
+  // a successful solve. The scale is optimized in log-space, which keeps it
+  // positive without explicit bounds.
+  Eigen::Vector8d rig_from_world_params = rig_from_world->params;
   // Cost function assumes unit quaternion.
-  rig_from_world->rotation().normalize();
+  Eigen::Map<Eigen::Quaterniond>(rig_from_world_params.data()).normalize();
+  rig_from_world_params(7) = std::log(rig_from_world->scale());
+
+  std::vector<Camera> refined_cameras = *cameras;
+  std::vector<size_t> camera_counts(refined_cameras.size(), 0);
 
   std::vector<Eigen::Vector3d> point3D_params = points3D;
   std::vector<Eigen::Vector7d> cam_from_rig_params(cams_from_rig.size());
