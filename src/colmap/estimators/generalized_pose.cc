@@ -661,9 +661,18 @@ bool RefineScaledGeneralizedAbsolutePose(
     }
     covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
                                                  rig_from_world_cov->data());
+    // Propagate the log-scale uncertainty to the scale: ds = s * dlog(s).
+    rig_from_world_cov->row(6) *= refined_scale;
+    rig_from_world_cov->col(6) *= refined_scale;
   }
 
-  return summary.IsSolutionUsable() && rig_from_world->scale() > 0;
+  *rig_from_world =
+      Sim3d(refined_scale,
+            Eigen::Quaterniond(rig_from_world_params.data()).normalized(),
+            rig_from_world_params.segment<3>(4));
+  *cameras = std::move(refined_cameras);
+
+  return true;
 }
 
 bool EstimateStructureLessAbsolutePose(
