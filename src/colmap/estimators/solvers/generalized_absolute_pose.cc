@@ -101,18 +101,6 @@ class TinyScaledRigReprojCostFunctor {
   const std::vector<Eigen::Vector3d>& points3D_;
 };
 
-// Whether the given projection centers all coincide, in which case the scale
-// of the rig geometry is unobservable.
-bool HasSingleProjectionCenter(
-    const std::vector<Eigen::Vector3d>& origins_in_rig) {
-  for (size_t i = 1; i < origins_in_rig.size(); ++i) {
-    if (!origins_in_rig[0].isApprox(origins_in_rig[i], 1e-6)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 void ComputeRaysAndOriginsInRig(const std::vector<GP3PEstimator::X_t>& points2D,
                                 std::vector<Eigen::Vector3d>* rays_in_rig,
                                 std::vector<Eigen::Vector3d>* origins_in_rig) {
@@ -164,6 +152,16 @@ void ComputeRayResiduals(const std::vector<GP3PEstimator::X_t>& points2D,
 }
 
 }  // namespace
+
+bool HasSingleProjectionCenter(
+    const std::vector<Eigen::Vector3d>& origins_in_rig) {
+  for (size_t i = 1; i < origins_in_rig.size(); ++i) {
+    if (!origins_in_rig[0].isApprox(origins_in_rig[i], 1e-6)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 GP3PEstimator::GP3PEstimator(ResidualType residual_type)
     : residual_type_(residual_type) {}
