@@ -54,7 +54,7 @@ std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
   if (weight == 1.0) return loss;
   auto scaled_loss = std::make_unique<ceres::ScaledLoss>(
       loss.get(), weight, ceres::TAKE_OWNERSHIP);
-  loss.release();
+  static_cast<void>(loss.release());
   return scaled_loss;
 }
 
