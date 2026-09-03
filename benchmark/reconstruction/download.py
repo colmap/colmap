@@ -116,53 +116,37 @@ ETH3D_DISTORTED_ARCHIVES = [
 
 
 def _download_eth3d_archives(
-    data_path: Path, archives: list[tuple[str, str]], dataset_name: str
+    data_path: Path, archives: list[tuple[str, str]]
 ) -> None:
-    num_succeeded = 0
     for filename, category in archives:
         target_folder = data_path / category
         target_folder.mkdir(parents=True, exist_ok=True)
-        archive_path = target_folder / filename
-        url = "https://www.eth3d.net/data/" + filename
-        try:
-            pycolmap.logging.info(
-                f"Downloading ETH3D category={category}, filename={filename}"
-            )
-            download_file(url, target_folder)
 
-            pycolmap.logging.info(
-                f"Extracting ETH3D category={category}, filename={filename}"
-            )
-            with tempfile.TemporaryDirectory(
-                prefix=f".{filename}.", dir=target_folder
-            ) as temporary_dir:
-                staging_path = Path(temporary_dir)
-                with py7zr.SevenZipFile(archive_path, mode="r") as archive:
-                    archive.extractall(path=staging_path)
-                _publish_staged_tree(staging_path, target_folder)
-            num_succeeded += 1
-        except Exception as error:
-            pycolmap.logging.error(
-                f"Failed to download or extract ETH3D archive {url}: {error}"
-            )
-            archive_path.unlink(missing_ok=True)
+        pycolmap.logging.info(
+            f"Downloading ETH3D category={category}, filename={filename}"
+        )
+        download_file("https://www.eth3d.net/data/" + filename, target_folder)
 
-    if num_succeeded == 0:
-        raise RuntimeError(f"Failed to download any {dataset_name} archives")
+        pycolmap.logging.info(
+            f"Extracting ETH3D category={category}, filename={filename}"
+        )
+        with tempfile.TemporaryDirectory(
+            prefix=f".{filename}.", dir=target_folder
+        ) as temporary_dir:
+            staging_path = Path(temporary_dir)
+            with py7zr.SevenZipFile(
+                target_folder / filename, mode="r"
+            ) as archive:
+                archive.extractall(path=staging_path)
+            _publish_staged_tree(staging_path, target_folder)
 
 
 def download_eth3d(data_path: Path) -> None:
-    _download_eth3d_archives(
-        data_path, ETH3D_UNDISTORTED_ARCHIVES, dataset_name="ETH3D"
-    )
+    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_ARCHIVES)
 
 
 def download_eth3d_distorted(data_path: Path) -> None:
-    _download_eth3d_archives(
-        data_path,
-        ETH3D_DISTORTED_ARCHIVES,
-        dataset_name="ETH3D distorted",
-    )
+    _download_eth3d_archives(data_path, ETH3D_DISTORTED_ARCHIVES)
 
 
 def download_imc2023(data_path: Path) -> None:

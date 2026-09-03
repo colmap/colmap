@@ -122,7 +122,7 @@ class _DatasetETH3D(Dataset):
 
                 scene_infos.append(scene_info)
 
-        if not scene_infos:
+        if not scene_infos and not dataset_path.is_dir():
             raise RuntimeError(
                 f"No {self.dataset_name} scenes found. Download them with "
                 f"`python download.py --datasets {self.dataset_name}`."
