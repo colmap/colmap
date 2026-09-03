@@ -118,12 +118,15 @@ if(FETCH_BOOST STREQUAL "ON")
     message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}...")
     FetchContent_MakeAvailable(Boost)
     message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}... done")
-    # The superproject defines Boost::headers where find_package defines
-    # Boost::boost. Alias via an interface target, since Boost::headers is itself
-    # an alias and cannot be aliased again.
+    # The superproject has no equivalent of find_package's monolithic
+    # Boost::boost, and its Boost::headers carries no library headers. Aggregate
+    # the libraries COLMAP includes, or they fall through to a system Boost.
     if(NOT TARGET Boost::boost)
         add_library(colmap_boost_headers INTERFACE)
-        target_link_libraries(colmap_boost_headers INTERFACE Boost::headers)
+        foreach(_colmap_boost_lib IN LISTS COLMAP_BOOST_LIBRARIES)
+            target_link_libraries(colmap_boost_headers
+                                  INTERFACE Boost::${_colmap_boost_lib})
+        endforeach()
         add_library(Boost::boost ALIAS colmap_boost_headers)
     endif()
     set(_colmap_boost_version "${COLMAP_FETCH_BOOST_VERSION}")
