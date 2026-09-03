@@ -3,12 +3,13 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/controller_thread.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
-#ifdef COLMAP_CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
 #include "colmap/mvs/patch_match.h"
-#endif  // COLMAP_CUDA_ENABLED
+#endif
 
 #include "colmap/util/logging.h"
 
@@ -21,6 +22,60 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
+
+void PatchMatchStereo(
+    const std::filesystem::path& workspace_path,
+    std::string workspace_format,
+    const std::string& pmvs_option_name,
+    const mvs::PatchMatchOptions& options,
+    const std::filesystem::path& config_path,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+  StringToLower(&workspace_format);
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` " << workspace_format
+      << " - supported values are 'COLMAP' or 'PMVS'.";
+
+  auto controller = std::make_shared<mvs::PatchMatchController>(
+      options, workspace_path, workspace_format, pmvs_option_name, config_path);
+  ControllerThread<mvs::PatchMatchController> thread(std::move(controller));
+  thread.Start();
+  PyWait(&thread, cancellation_token);
+#else
+  static_cast<void>(workspace_path);
+  static_cast<void>(workspace_format);
+  static_cast<void>(pmvs_option_name);
+  static_cast<void>(options);
+  static_cast<void>(config_path);
+  static_cast<void>(cancellation_token);
+  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA or HIP, "
+                      "neither of which is available on your system.";
+#endif
+}
+
+Reconstruction StereoFusion(
+    const std::filesystem::path& output_path,
+    const std::filesystem::path& workspace_path,
+    std::string workspace_format,
+    const std::string& pmvs_option_name,
+    std::string input_type,
+    const mvs::StereoFusionOptions& options,
+    std::string output_type,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+  py::gil_scoped_release release;
+  PyInterruptChecker interrupt_checker(cancellation_token);
+  Reconstruction reconstruction =
+      RunStereoFuserImpl(output_path,
+                         workspace_path,
+                         std::move(workspace_format),
+                         pmvs_option_name,
+                         std::move(input_type),
+                         options,
+                         std::move(output_type),
+                         interrupt_checker.Callback());
+  interrupt_checker.CheckAndThrow();
+  return reconstruction;
+}
 
 void BindMVS(py::module& m) {
   using PMOpts = mvs::PatchMatchOptions;
@@ -117,12 +172,13 @@ void BindMVS(py::module& m) {
   MakeDataclass(PyPatchMatchOptions);
 
   m.def("patch_match_stereo",
-        &RunPatchMatchStereoImpl,
+        &PatchMatchStereo,
         "workspace_path"_a,
         "workspace_format"_a = "COLMAP",
         "pmvs_option_name"_a = "option-all",
         py::arg_v("options", mvs::PatchMatchOptions(), "PatchMatchOptions()"),
         "config_path"_a = "",
+        "cancellation_token"_a = py::none(),
         "Runs Patch-Match-Stereo (requires CUDA)",
         py::call_guard<py::gil_scoped_release>());
 
@@ -181,7 +237,7 @@ void BindMVS(py::module& m) {
 
   m.def(
       "stereo_fusion",
-      &RunStereoFuserImpl,
+      &StereoFusion,
       "output_path"_a,
       "workspace_path"_a,
       "workspace_format"_a = "COLMAP",
@@ -189,6 +245,6 @@ void BindMVS(py::module& m) {
       "input_type"_a = "geometric",
       py::arg_v("options", mvs::StereoFusionOptions(), "StereoFusionOptions()"),
       "output_type"_a = "bin",
-      "Stereo Fusion",
-      py::call_guard<py::gil_scoped_release>());
+      "cancellation_token"_a = py::none(),
+      "Stereo Fusion");
 }

@@ -33,6 +33,7 @@
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -44,6 +45,10 @@ namespace retrieval {
 struct GlobalDescriptorQueryOptions {
   // Maximum number of most similar images to retrieve.
   int max_num_images = 100;
+
+  // Optional filter for restricting the retrieved image identifiers. The
+  // filter is applied before selecting the most similar `max_num_images`.
+  std::function<bool(image_t)> image_id_filter;
 };
 
 // Global descriptor index for image retrieval using pre-computed per-image

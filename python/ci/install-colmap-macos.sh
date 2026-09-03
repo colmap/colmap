@@ -8,6 +8,7 @@ find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' -delete
 brew uninstall cmake  # Workaround for CI failures.
 brew install git cmake ninja gfortran ccache libomp
 brew link --force libomp
+ccache --zero-stats
 
 sudo xcode-select --reset
 
@@ -37,10 +38,8 @@ cd ${CURRDIR}
     -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
     -DCMAKE_OSX_ARCHITECTURES="${CMAKE_OSX_ARCHITECTURES}" \
     -DFETCHCONTENT_BASE_DIR="${FETCHCONTENT_BASE_DIR}" \
-    -DFETCHCONTENT_FULLY_DISCONNECTED="${FETCHCONTENT_FULLY_DISCONNECTED}" \
     `if [[ ${CIBW_ARCHS_MACOS} == "arm64" ]]; then echo "-DSIMD_ENABLED=OFF"; fi`
-sudo cmake --build build/ --target install
+cmake --build build/
+sudo cmake --install build/
 
-ccache --show-stats --verbose
-ccache --evict-older-than 1d
 ccache --show-stats --verbose

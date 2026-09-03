@@ -578,6 +578,17 @@ class FaissVisualIndex : public VisualIndex {
                             options.num_threads);
     inverted_index_.Query(descriptors, *word_ids, image_scores);
 
+    if (options.image_id_filter) {
+      image_scores->erase(
+          std::remove_if(image_scores->begin(),
+                         image_scores->end(),
+                         [&options](const ImageScore& image_score) {
+                           return !options.image_id_filter(
+                               image_score.image_id);
+                         }),
+          image_scores->end());
+    }
+
     auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
       return score1.score > score2.score;
     };
@@ -660,6 +671,8 @@ std::unique_ptr<VisualIndex> VisualIndex::Create(int desc_dim,
     return std::make_unique<FaissVisualIndex<128, 64>>();
   } else if (desc_dim == 32 && embedding_dim == 16) {
     return std::make_unique<FaissVisualIndex<32, 16>>();
+  } else if (desc_dim == 256 && embedding_dim == 64) {
+    return std::make_unique<FaissVisualIndex<256, 64>>();
   } else {
     std::ostringstream error;
     error << "Visual index with descriptor dimension " << desc_dim

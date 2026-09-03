@@ -96,6 +96,8 @@ void BindGlobalMapper(py::module& m) {
         .def_readwrite("random_seed", &Opts::random_seed)
         .def_readwrite("decompose_relative_pose",
                        &Opts::decompose_relative_pose)
+        .def_readwrite("multiple_models", &Opts::multiple_models)
+        .def_readwrite("min_model_size", &Opts::min_model_size)
         .def_readwrite("mapper", &Opts::mapper);
     MakeDataclass(PyOpts);
   }

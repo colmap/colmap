@@ -27,20 +27,21 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from pathlib import Path
 
 from .utils import Dataset, SceneInfo
 
 
 class DatasetETH3D(Dataset):
     @property
-    def position_accuracy_gt(self):
+    def position_accuracy_gt(self) -> float:
         return 0.001
 
     @property
     def supports_covisibility_filtering(self) -> bool:
         return True
 
-    def list_scenes(self):
+    def list_scenes(self) -> list[SceneInfo]:
         scene_infos = []
         for category_path in (self.data_path / "eth3d").iterdir():
             if not category_path.is_dir() or (
@@ -66,7 +67,7 @@ class DatasetETH3D(Dataset):
                     scene_path.glob("*_calibration_undistorted")
                 )[0]
 
-                colmap_extra_args = []
+                colmap_extra_args: list[str | Path] = []
                 if category == "dslr":
                     colmap_extra_args.extend(["--data_type", "individual"])
                 elif category == "rig":
@@ -95,6 +96,6 @@ class DatasetETH3D(Dataset):
 
         return scene_infos
 
-    def prepare_scene(self, scene_info):
+    def prepare_scene(self, scene_info: SceneInfo) -> None:
         # Nothing to prepare for ETH3D.
         pass

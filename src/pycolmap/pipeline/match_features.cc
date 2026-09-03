@@ -27,11 +27,13 @@ template <typename PairingOptions,
                                                  const FeatureMatchingOptions&,
                                                  const TwoViewGeometryOptions&,
                                                  const std::filesystem::path&)>
-void MatchFeatures(const std::filesystem::path& database_path,
-                   FeatureMatchingOptions matching_options,
-                   const PairingOptions& pairing_options,
-                   const TwoViewGeometryOptions& verification_options,
-                   const Device device) {
+void MatchFeatures(
+    const std::filesystem::path& database_path,
+    FeatureMatchingOptions matching_options,
+    const PairingOptions& pairing_options,
+    const TwoViewGeometryOptions& verification_options,
+    const Device device,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   try {
     py::cast(pairing_options).attr("check").attr("__call__")();
@@ -48,14 +50,16 @@ void MatchFeatures(const std::filesystem::path& database_path,
   std::unique_ptr<Thread> matcher = MatcherFactory(
       pairing_options, matching_options, verification_options, database_path);
   matcher->Start();
-  PyWait(matcher.get());
+  PyWait(matcher.get(), cancellation_token);
 }
 
-void MatchRetrieval(const std::filesystem::path& database_path,
-                    FeatureMatchingOptions matching_options,
-                    RetrievalPairingOptions pairing_options,
-                    const TwoViewGeometryOptions& verification_options,
-                    const Device device) {
+void MatchRetrieval(
+    const std::filesystem::path& database_path,
+    FeatureMatchingOptions matching_options,
+    RetrievalPairingOptions pairing_options,
+    const TwoViewGeometryOptions& verification_options,
+    const Device device,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   // Forward the database path and validate global descriptor inputs,
   // mirroring the retrieval_matcher CLI.
   if (pairing_options.database_path.empty()) {
@@ -69,14 +73,17 @@ void MatchRetrieval(const std::filesystem::path& database_path,
       std::move(matching_options),
       pairing_options,
       verification_options,
-      device);
+      device,
+      cancellation_token);
 }
 
-void MatchSequential(const std::filesystem::path& database_path,
-                     FeatureMatchingOptions matching_options,
-                     SequentialPairingOptions pairing_options,
-                     const TwoViewGeometryOptions& verification_options,
-                     const Device device) {
+void MatchSequential(
+    const std::filesystem::path& database_path,
+    FeatureMatchingOptions matching_options,
+    SequentialPairingOptions pairing_options,
+    const TwoViewGeometryOptions& verification_options,
+    const Device device,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   // Forward the database path and validate global descriptor inputs for
   // loop detection, mirroring the sequential_matcher CLI.
   if (pairing_options.loop_detection) {
@@ -94,12 +101,15 @@ void MatchSequential(const std::filesystem::path& database_path,
       std::move(matching_options),
       pairing_options,
       verification_options,
-      device);
+      device,
+      cancellation_token);
 }
 
-void VerifyMatches(const std::filesystem::path& database_path,
-                   const std::filesystem::path& pairs_path,
-                   const TwoViewGeometryOptions& verification_options) {
+void VerifyMatches(
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& pairs_path,
+    const TwoViewGeometryOptions& verification_options,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_FILE_EXISTS(pairs_path);
   py::gil_scoped_release release;  // verification is multi-threaded
@@ -113,20 +123,22 @@ void VerifyMatches(const std::filesystem::path& database_path,
   std::unique_ptr<Thread> matcher = CreateImagePairsFeatureMatcher(
       pairing_options, matching_options, verification_options, database_path);
   matcher->Start();
-  PyWait(matcher.get());
+  PyWait(matcher.get(), cancellation_token);
 }
 
-void GeometricVerification(const std::filesystem::path& database_path,
-                           const GeometricVerifierOptions& verifier_options,
-                           const ExistingMatchedPairingOptions& pairing_options,
-                           const TwoViewGeometryOptions& geometry_options) {
+void GeometricVerification(
+    const std::filesystem::path& database_path,
+    const GeometricVerifierOptions& verifier_options,
+    const ExistingMatchedPairingOptions& pairing_options,
+    const TwoViewGeometryOptions& geometry_options,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
 
   py::gil_scoped_release release;  // verification is multi-threaded
   std::unique_ptr<Thread> verifier = CreateGeometricVerifier(
       verifier_options, pairing_options, geometry_options, database_path);
   verifier->Start();
-  PyWait(verifier.get());
+  PyWait(verifier.get(), cancellation_token);
 }
 
 void GuidedGeometricVerification(
@@ -134,15 +146,19 @@ void GuidedGeometricVerification(
     const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    int num_threads = -1) {
+    int num_threads,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
 
   py::gil_scoped_release release;  // verification is multi-threaded
+  PyInterruptChecker interrupt_checker(cancellation_token);
   RunGuidedGeometricVerifierImpl(reconstruction,
                                  database_path,
                                  pairing_options,
                                  geometry_options,
-                                 num_threads);
+                                 num_threads,
+                                 interrupt_checker.Callback());
+  interrupt_checker.CheckAndThrow();
 }
 
 void BindMatchFeatures(py::module& m) {
@@ -274,6 +290,12 @@ void BindMatchFeatures(py::module& m) {
                          &SequentialPairingOptions::loop_detection_period,
                          "The frequency at which loop detection is triggered, "
                          "in number of images.")
+          .def_readwrite(
+              "loop_detection_min_index_distance",
+              &SequentialPairingOptions::loop_detection_min_index_distance,
+              "The minimum image index distance between a loop detection "
+              "query and a retrieved image. The index is determined by the "
+              "sequential image order. Set to 0 to disable this restriction.")
           .def_readwrite("loop_detection_options",
                          &SequentialPairingOptions::loop_detection_options,
                          "Retrieval options for loop detection. The number of "
@@ -328,6 +350,7 @@ void BindMatchFeatures(py::module& m) {
                 TwoViewGeometryOptions(),
                 "TwoViewGeometryOptions()"),
       "device"_a = Device::AUTO,
+      "cancellation_token"_a = py::none(),
       "Exhaustive feature matching");
 
   m.def("match_spatial",
@@ -343,6 +366,7 @@ void BindMatchFeatures(py::module& m) {
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
         "device"_a = Device::AUTO,
+        "cancellation_token"_a = py::none(),
         "Spatial feature matching");
 
   m.def("match_retrieval",
@@ -358,6 +382,7 @@ void BindMatchFeatures(py::module& m) {
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
         "device"_a = Device::AUTO,
+        "cancellation_token"_a = py::none(),
         "Retrieval-based feature matching using a vocabulary tree or a "
         "global descriptor model");
 
@@ -374,6 +399,7 @@ void BindMatchFeatures(py::module& m) {
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
         "device"_a = Device::AUTO,
+        "cancellation_token"_a = py::none(),
         "Sequential feature matching");
 
   m.def("match_image_pairs",
@@ -389,6 +415,7 @@ void BindMatchFeatures(py::module& m) {
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
         "device"_a = Device::AUTO,
+        "cancellation_token"_a = py::none(),
         "Match features between image pairs specified in a file");
 
   m.def("verify_matches",
@@ -397,6 +424,7 @@ void BindMatchFeatures(py::module& m) {
         "pairs_path"_a,
         py::arg_v(
             "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"),
+        "cancellation_token"_a = py::none(),
         "Run geometric verification of the matches");
 
   m.def("geometric_verification",
@@ -411,6 +439,7 @@ void BindMatchFeatures(py::module& m) {
         py::arg_v("two_view_geometry_options",
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
+        "cancellation_token"_a = py::none(),
         "Run geometric verification on all image pairs in the database");
 
   m.def("guided_geometric_verification",
@@ -424,6 +453,7 @@ void BindMatchFeatures(py::module& m) {
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
         py::arg("num_threads") = -1,
+        "cancellation_token"_a = py::none(),
         "Run geometric verification given an existing colmap reconstruction on "
         "all image pairs in the database");
 

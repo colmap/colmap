@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import numpy as np
 
@@ -11,7 +12,7 @@ from . import (
 )
 
 
-def test_tartanair_world_from_camera():
+def test_tartanair_world_from_camera() -> None:
     translation = np.array([1.0, 2.0, 3.0])
     quaternion = np.array([0.0, 0.0, 0.0, 1.0])
 
@@ -23,7 +24,7 @@ def test_tartanair_world_from_camera():
     np.testing.assert_allclose(world_from_camera.translation, translation)
 
 
-def test_dataset_prepares_ground_truth(tmp_path):
+def test_dataset_prepares_ground_truth(tmp_path: Path) -> None:
     scene_path = (
         tmp_path / "data" / "tartanair-v2" / "domestic" / "House-easy-P000"
     )

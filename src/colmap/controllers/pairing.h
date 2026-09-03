@@ -41,6 +41,7 @@
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <functional>
 
 namespace colmap {
 
@@ -260,6 +261,11 @@ struct SequentialPairingOptions {
   // The frequency at which loop detection is triggered, in number of images.
   int loop_detection_period = 10;
 
+  // The minimum image index distance between a loop detection query and a
+  // retrieved image. The index is determined by the sequential image order.
+  // Set to 0 to disable this restriction.
+  int loop_detection_min_index_distance = 0;
+
   // Retrieval options for loop detection. The number of retrieved images
   // (num_images) should be significantly larger than the sequential matching
   // overlap.
@@ -389,13 +395,17 @@ class VocabTreePairGenerator : public PairGenerator {
  public:
   using PairingOptions = VocabTreePairingOptions;
 
-  VocabTreePairGenerator(const VocabTreePairingOptions& options,
-                         const std::shared_ptr<FeatureMatcherCache>& cache,
-                         const std::vector<image_t>& query_image_ids = {});
+  VocabTreePairGenerator(
+      const VocabTreePairingOptions& options,
+      const std::shared_ptr<FeatureMatcherCache>& cache,
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
-  VocabTreePairGenerator(const VocabTreePairingOptions& options,
-                         const std::shared_ptr<Database>& database,
-                         const std::vector<image_t>& query_image_ids = {});
+  VocabTreePairGenerator(
+      const VocabTreePairingOptions& options,
+      const std::shared_ptr<Database>& database,
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
   void Reset() override;
 
@@ -419,6 +429,7 @@ class VocabTreePairGenerator : public PairGenerator {
   JobQueue<Retrieval> queue_;
   std::unique_ptr<retrieval::VisualIndex> visual_index_;
   retrieval::VisualIndex::QueryOptions query_options_;
+  std::function<bool(image_t, image_t)> image_pair_filter_;
   std::vector<image_t> query_image_ids_;
   std::vector<std::pair<image_t, image_t>> image_pairs_;
   size_t query_idx_ = 0;
@@ -446,11 +457,14 @@ class SequentialPairGenerator : public PairGenerator {
 
   bool IsValidSequentialNeighbor(image_t image_id1, image_t image_id2) const;
 
+  bool IsValidLoopDetectionPair(image_t image_id1, image_t image_id2) const;
+
   std::vector<image_t> GetOrderedImageIds() const;
 
   const SequentialPairingOptions options_;
   const std::shared_ptr<FeatureMatcherCache> cache_;
   std::vector<image_t> image_ids_;
+  FlatHashMap<image_t, size_t> image_id_to_idx_;
   // Optional mapping from frames to images and vice versa.
   NodeHashMap<frame_t, std::vector<image_t>> frame_to_image_ids_;
   NodeHashMap<image_t, frame_t> image_to_frame_id_;
@@ -569,12 +583,14 @@ class GlobalDescriptorPairGenerator : public PairGenerator {
   GlobalDescriptorPairGenerator(
       const GlobalDescriptorPairingOptions& options,
       const std::shared_ptr<FeatureMatcherCache>& cache,
-      const std::vector<image_t>& query_image_ids = {});
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
   GlobalDescriptorPairGenerator(
       const GlobalDescriptorPairingOptions& options,
       const std::shared_ptr<Database>& database,
-      const std::vector<image_t>& query_image_ids = {});
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
   void Reset() override;
 
@@ -606,13 +622,19 @@ class RetrievalPairGenerator : public PairGenerator {
  public:
   using PairingOptions = RetrievalPairingOptions;
 
-  RetrievalPairGenerator(const RetrievalPairingOptions& options,
-                         const std::shared_ptr<FeatureMatcherCache>& cache,
-                         const std::vector<image_t>& query_image_ids = {});
+  // The optional image pair filter restricts the retrieved images of a query
+  // image before the most similar `num_images` images are selected.
+  RetrievalPairGenerator(
+      const RetrievalPairingOptions& options,
+      const std::shared_ptr<FeatureMatcherCache>& cache,
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
-  RetrievalPairGenerator(const RetrievalPairingOptions& options,
-                         const std::shared_ptr<Database>& database,
-                         const std::vector<image_t>& query_image_ids = {});
+  RetrievalPairGenerator(
+      const RetrievalPairingOptions& options,
+      const std::shared_ptr<Database>& database,
+      const std::vector<image_t>& query_image_ids = {},
+      std::function<bool(image_t, image_t)> image_pair_filter = {});
 
   void Reset() override;
 

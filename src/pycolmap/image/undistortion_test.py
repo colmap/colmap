@@ -3,12 +3,12 @@ import numpy as np
 import pycolmap
 
 
-def test_undistort_camera_options_default_init():
+def test_undistort_camera_options_default_init() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert options is not None
 
 
-def test_warp_image_interpolation_enum():
+def test_warp_image_interpolation_enum() -> None:
     assert {
         k: int(v)
         for k, v in pycolmap.WarpImageOptions.Interpolation.__members__.items()
@@ -18,7 +18,7 @@ def test_warp_image_interpolation_enum():
     }
 
 
-def test_warp_image_options_interpolation_readwrite():
+def test_warp_image_options_interpolation_readwrite() -> None:
     options = pycolmap.WarpImageOptions()
     assert (
         options.interpolation
@@ -33,77 +33,77 @@ def test_warp_image_options_interpolation_readwrite():
     )
 
 
-def test_warp_image_options_direct_warp_min_scale_readwrite():
+def test_warp_image_options_direct_warp_min_scale_readwrite() -> None:
     options = pycolmap.WarpImageOptions()
     assert options.direct_warp_min_scale == 0.5
     options.direct_warp_min_scale = 0.4
     assert options.direct_warp_min_scale == 0.4
 
 
-def test_undistort_camera_options_warp_options_readwrite():
+def test_undistort_camera_options_warp_options_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.warp_options, pycolmap.WarpImageOptions)
     options.warp_options.direct_warp_min_scale = 0.5
     assert options.warp_options.direct_warp_min_scale == 0.5
 
 
-def test_undistort_camera_options_blank_pixels_readwrite():
+def test_undistort_camera_options_blank_pixels_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.blank_pixels, float)
     options.blank_pixels = 1.0
     assert options.blank_pixels == 1.0
 
 
-def test_undistort_camera_options_min_scale_readwrite():
+def test_undistort_camera_options_min_scale_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.min_scale, float)
     options.min_scale = 0.5
     assert options.min_scale == 0.5
 
 
-def test_undistort_camera_options_max_scale_readwrite():
+def test_undistort_camera_options_max_scale_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.max_scale, float)
     options.max_scale = 1.5
     assert options.max_scale == 1.5
 
 
-def test_undistort_camera_options_max_image_size_readwrite():
+def test_undistort_camera_options_max_image_size_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.max_image_size, int)
     options.max_image_size = 2048
     assert options.max_image_size == 2048
 
 
-def test_undistort_camera_options_roi_min_x_readwrite():
+def test_undistort_camera_options_roi_min_x_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.roi_min_x, float)
     options.roi_min_x = 0.1
     assert options.roi_min_x == 0.1
 
 
-def test_undistort_camera_options_roi_min_y_readwrite():
+def test_undistort_camera_options_roi_min_y_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.roi_min_y, float)
     options.roi_min_y = 0.2
     assert options.roi_min_y == 0.2
 
 
-def test_undistort_camera_options_roi_max_x_readwrite():
+def test_undistort_camera_options_roi_max_x_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.roi_max_x, float)
     options.roi_max_x = 0.9
     assert options.roi_max_x == 0.9
 
 
-def test_undistort_camera_options_roi_max_y_readwrite():
+def test_undistort_camera_options_roi_max_y_readwrite() -> None:
     options = pycolmap.UndistortCameraOptions()
     assert isinstance(options.roi_max_y, float)
     options.roi_max_y = 0.8
     assert options.roi_max_y == 0.8
 
 
-def test_undistort_camera():
+def test_undistort_camera() -> None:
     options = pycolmap.UndistortCameraOptions()
     camera = pycolmap.Camera.create_from_model_id(
         1, pycolmap.CameraModelId.PINHOLE, 500.0, 1024, 768
@@ -112,7 +112,7 @@ def test_undistort_camera():
     assert isinstance(undistorted_camera, pycolmap.Camera)
 
 
-def test_undistort_image():
+def test_undistort_image() -> None:
     options = pycolmap.UndistortCameraOptions()
     camera = pycolmap.Camera.create_from_model_id(
         1, pycolmap.CameraModelId.PINHOLE, 500.0, 1024, 768

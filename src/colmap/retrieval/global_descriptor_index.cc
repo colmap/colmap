@@ -125,9 +125,13 @@ void GlobalDescriptorIndex::Query(const QueryOptions& options,
 
   const size_t query_idx = it->second;
 
-  // Retrieve one more than requested to account for potential self-match.
-  const int k = std::min(static_cast<int>(options.max_num_images) + 1,
-                         static_cast<int>(image_ids_.size()));
+  // Retrieve one more than requested to account for potential self-match. If
+  // a filter is set, retrieve all images such that filtered candidates do not
+  // consume the requested budget.
+  const int k = options.image_id_filter
+                    ? static_cast<int>(image_ids_.size())
+                    : std::min(static_cast<int>(options.max_num_images) + 1,
+                               static_cast<int>(image_ids_.size()));
 
   // FAISS search: the single query vector.
   const auto* index = static_cast<faiss::IndexFlatIP*>(faiss_index_.get());
@@ -149,6 +153,9 @@ void GlobalDescriptorIndex::Query(const QueryOptions& options,
       continue;
     }
     if (idx < 0 || static_cast<size_t>(idx) >= image_ids_.size()) {
+      continue;
+    }
+    if (options.image_id_filter && !options.image_id_filter(image_ids_[idx])) {
       continue;
     }
     ImageScore score;

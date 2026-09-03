@@ -346,6 +346,56 @@ TEST(SequentialPairGenerator, Quadratic) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
+TEST(SequentialPairGenerator, LoopDetectionMinIndexDistance) {
+  constexpr int kNumImages = 6;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  SequentialPairingOptions options;
+  options.overlap = 1;
+  options.quadratic_overlap = false;
+  options.expand_rig_images = false;
+  options.loop_detection = true;
+  options.loop_detection_period = 2;
+  options.loop_detection_min_index_distance = 2;
+  options.loop_detection_options.num_images = 2;
+  options.loop_detection_options.num_threads = 1;
+  options.loop_detection_options.vocab_tree_path =
+      CreateTestDir() / "vocab_tree.txt";
+  CreateSyntheticVisualIndex()->Write(
+      options.loop_detection_options.vocab_tree_path);
+
+  SequentialPairGenerator generator(options, database);
+  for (int i = 0; i < kNumImages; ++i) {
+    generator.Next();
+  }
+
+  FlatHashMap<image_t, size_t> image_id_to_idx;
+  for (size_t i = 0; i < images.size(); ++i) {
+    image_id_to_idx.emplace(images[i].ImageId(), i);
+  }
+
+  const int num_loop_detection_queries =
+      (kNumImages + options.loop_detection_period - 1) /
+      options.loop_detection_period;
+  for (int i = 0; i < num_loop_detection_queries; ++i) {
+    const auto pairs = generator.Next();
+    ASSERT_EQ(pairs.size(), options.loop_detection_options.num_images);
+    for (const auto& [image_id1, image_id2] : pairs) {
+      const size_t image_idx1 = image_id_to_idx.at(image_id1);
+      const size_t image_idx2 = image_id_to_idx.at(image_id2);
+      const size_t image_idx_distance = image_idx1 > image_idx2
+                                            ? image_idx1 - image_idx2
+                                            : image_idx2 - image_idx1;
+      EXPECT_GE(image_idx_distance, options.loop_detection_min_index_distance);
+    }
+  }
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+}
+
 TEST(SpatialPairGenerator, Nominal) {
   constexpr int kNumImages = 3;
   auto database = Database::Open(kInMemorySqliteDatabasePath);

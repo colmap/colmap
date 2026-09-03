@@ -22,6 +22,19 @@ jobs:
       matrix:
         config: [
           {
+            os: ubuntu-26.04,
+            qtVersion: 6,
+            cmakeBuildType: Release,
+            asanEnabled: false,
+            guiEnabled: true,
+            cudaEnabled: false,
+            casparEnabled: false,
+            e2eTests: false,
+            checkCodeFormat: false,
+            coverageEnabled: false,
+            ccacheMaxSize: 100M,
+          },
+          {
             os: ubuntu-24.04,
             qtVersion: 6,
             cmakeBuildType: Release,
@@ -32,6 +45,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: true,
             coverageEnabled: true,
+            ccacheMaxSize: 120M,
           },
           {
             os: ubuntu-22.04,
@@ -44,6 +58,7 @@ jobs:
             e2eTests: true,
             checkCodeFormat: true,
             coverageEnabled: false,
+            ccacheMaxSize: 100M,
           },
           {
             os: ubuntu-22.04,
@@ -56,6 +71,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            ccacheMaxSize: 120M,
           },
           {
             os: ubuntu-24.04,
@@ -68,6 +84,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            ccacheMaxSize: 120M,
           },
           {
             os: ubuntu-24.04,
@@ -80,17 +97,18 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            ccacheMaxSize: 150M,
           },
         ]
 
     env:
-      COMPILER_CACHE_VERSION: 1
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_COMPILERCHECK: content
+      CCACHE_MAXSIZE: ${{ matrix.config.ccacheMaxSize }}
       CTCACHE_DIR: ${{ github.workspace }}/compiler-cache/ctcache
-      FETCHCONTENT_CACHE_VERSION: 1
-      FETCHCONTENT_CACHE_DIR: ${{ github.workspace }}/build/_deps
       GLOG_v: 2
       GLOG_logtostderr: 1
 
@@ -107,42 +125,33 @@ jobs:
           git diff --name-only
           git diff --exit-code || (echo "Code formatting failed" && exit 1)
 
-      - name: Restore Compiler cache
-        uses: actions/cache@v6
+      - name: Restore compiler cache
+        uses: ./.github/actions/compiler-cache
         id: cache-compiler
         with:
-          key: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}-${{ github.run_id }}-${{ github.run_number }}
-          restore-keys: v${{ env.COMPILER_CACHE_VERSION }}-${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-${{ matrix.config.asanEnabled }}--${{ matrix.config.cudaEnabled }}
+          mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-
-      - name: Restore FetchContent cache
-        uses: actions/cache@v6
-        id: cache-fetchcontent
-        with:
-          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
-          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-${{ matrix.config.os }}-cuda_${{ matrix.config.cudaEnabled }}-
-          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
+          key-suffix: ${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}
 
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
           echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
 
-          if [ -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
-            exit 0
+          if [ ! -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
+            set -x
+            wget https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-x86_64-glibc.tar.xz
+            echo "508b2a1217dc6e04a23e967c7b95a0fb45d8a7e16fde9e180919698f2e2be060  ccache-4.13.6-linux-x86_64-glibc.tar.xz" | sha256sum --check
+            tar xfv ccache-4.13.6-linux-x86_64-glibc.tar.xz
+            mkdir -p "$COMPILER_CACHE_DIR/bin"
+            mv ./ccache-4.13.6-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
+            ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
+            wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
+            echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
+            unzip "${ctcache_commit_id}.zip"
+            mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
           fi
-
-          set -x
-          wget https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-x86_64-glibc.tar.xz
-          echo "508b2a1217dc6e04a23e967c7b95a0fb45d8a7e16fde9e180919698f2e2be060  ccache-4.13.6-linux-x86_64-glibc.tar.xz" | sha256sum --check
-          tar xfv ccache-4.13.6-linux-x86_64-glibc.tar.xz
-          mkdir -p "$COMPILER_CACHE_DIR/bin"
-          mv ./ccache-4.13.6-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
-          ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
-          wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
-          echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
-          unzip "${ctcache_commit_id}.zip"
-          mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
+          "$COMPILER_CACHE_DIR/bin/ccache" --zero-stats
 
       - name: Setup Ubuntu
         run: |
@@ -240,8 +249,7 @@ jobs:
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
-            -DBLA_VENDOR=Intel10_64lp \
-            -DFETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
+            -DBLA_VENDOR=Intel10_64lp
           ninja -k 10000
 
       - name: Install and build sample
@@ -338,8 +346,7 @@ jobs:
       - name: Cleanup compiler cache
         run: |
           set -x
-          ccache --show-stats --verbose
-          ccache --evict-older-than 1d
+          ccache --cleanup
           ccache --show-stats --verbose
 
           echo "Size of ctcache before: $(du -sh $CTCACHE_DIR)"
@@ -348,3 +355,11 @@ jobs:
           find "$CTCACHE_DIR"/*/ -mtime +10 -print0 | xargs -0 rm -rf
           echo "Size of ctcache after:  $(du -sh $CTCACHE_DIR)"
           echo "Number of ctcache files after: $(find $CTCACHE_DIR | wc -l)"
+
+      - name: Save compiler cache
+        uses: ./.github/actions/compiler-cache
+        with:
+          mode: save
+          key: ${{ steps.cache-compiler.outputs.key }}
+          path: ${{ env.COMPILER_CACHE_DIR }}
+          cache-hit: ${{ steps.cache-compiler.outputs.cache-hit }}

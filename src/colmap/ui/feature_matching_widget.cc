@@ -163,6 +163,12 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   add_matcher_type(FeatureMatcherType::SIFT_LIGHTGLUE);
   add_matcher_type(FeatureMatcherType::ALIKED_BRUTEFORCE);
   add_matcher_type(FeatureMatcherType::ALIKED_LIGHTGLUE);
+  add_matcher_type(FeatureMatcherType::LOMA_BRUTEFORCE);
+  add_matcher_type(FeatureMatcherType::LOMA_B);
+  add_matcher_type(FeatureMatcherType::LOMA_B128);
+  add_matcher_type(FeatureMatcherType::LOMA_R);
+  add_matcher_type(FeatureMatcherType::LOMA_L);
+  add_matcher_type(FeatureMatcherType::LOMA_G);
 #endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 
@@ -327,6 +333,10 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
   options_widget_->AddOptionInt(
       &options_->sequential_pairing->loop_detection_options.num_images,
       "loop_detection_num_images");
+  options_widget_->AddOptionInt(
+      &options_->sequential_pairing->loop_detection_min_index_distance,
+      "loop_detection_min_index_distance",
+      0);
   options_widget_->AddOptionInt(
       &options_->sequential_pairing->loop_detection_options
            .num_nearest_neighbors,

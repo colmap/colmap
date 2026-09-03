@@ -92,7 +92,8 @@ std::unique_ptr<Thread> CreateRetrievalFeatureMatcher(
 // Sequential order is determined based on the image names in ascending order.
 //
 // Invoke loop detection if `(i mod loop_detection_period) == 0`, retrieve
-// the most similar images using the configured retrieval method, and
+// the most similar images using the configured retrieval method that are at
+// least `loop_detection_min_index_distance` away in the sequential order, and
 // perform matching and verification.
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialPairingOptions& pairing_options,
