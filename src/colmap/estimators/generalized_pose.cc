@@ -651,11 +651,17 @@ bool RefineScaledGeneralizedAbsolutePose(
     PrintSolverSummary(summary, "Scaled generalized pose refinement report");
   }
 
-  if (problem.NumResiduals() > 0 && rig_from_world_cov != nullptr) {
+  if (!summary.IsSolutionUsable() || !rig_from_world_params.allFinite()) {
+    return false;
+  }
+
+  const double refined_scale = std::exp(rig_from_world_params(7));
+
+  if (rig_from_world_cov != nullptr) {
     ceres::Covariance::Options covariance_options;
     ceres::Covariance covariance(covariance_options);
     std::vector<const double*> parameter_blocks = {
-        rig_from_world->params.data()};
+        rig_from_world_params.data()};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }
