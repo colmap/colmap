@@ -39,6 +39,13 @@
 
 namespace colmap {
 
+// Whether the given projection centers (e.g., of the cameras in a rig, or of
+// the observations in a sample) all coincide up to a fixed tolerance. Such a
+// configuration is a central camera, for which the scale of the rig geometry
+// is unobservable.
+bool HasSingleProjectionCenter(
+    const std::vector<Eigen::Vector3d>& origins_in_rig);
+
 // Solver for the Generalized P3P problem.
 class GP3PEstimator {
  public:
