@@ -34,7 +34,6 @@ import json
 import shutil
 import subprocess
 import tarfile
-import tempfile
 import zipfile
 from pathlib import Path
 
@@ -58,49 +57,6 @@ def download_file(url: str, target_folder: Path) -> str:
             for chunk in req.iter_content(chunk_size=8192):
                 f.write(chunk)
     return filename
-
-
-def _publish_staged_tree(staging_path: Path, target_folder: Path) -> None:
-    """Merge a staged archive into target_folder with rollback on failure."""
-    with tempfile.TemporaryDirectory(
-        prefix=".publish-", dir=target_folder
-    ) as transaction_dir:
-        backups_path = Path(transaction_dir) / "backups"
-        backups_path.mkdir()
-        published: list[tuple[Path, Path | None]] = []
-
-        def publish(source: Path, destination: Path) -> None:
-            if source.is_dir() and destination.is_dir():
-                for child in source.iterdir():
-                    publish(child, destination / child.name)
-                return
-
-            backup = None
-            if destination.exists():
-                backup = backups_path / destination.relative_to(target_folder)
-                backup.parent.mkdir(parents=True, exist_ok=True)
-                destination.rename(backup)
-            try:
-                source.rename(destination)
-            except Exception:
-                if backup is not None:
-                    backup.rename(destination)
-                raise
-            published.append((destination, backup))
-
-        try:
-            for source in staging_path.iterdir():
-                publish(source, target_folder / source.name)
-        except Exception:
-            for destination, backup in reversed(published):
-                if destination.is_dir():
-                    shutil.rmtree(destination)
-                else:
-                    destination.unlink(missing_ok=True)
-                if backup is not None:
-                    backup.parent.mkdir(parents=True, exist_ok=True)
-                    backup.rename(destination)
-            raise
 
 
 ETH3D_UNDISTORTED_ARCHIVES = [
@@ -130,15 +86,8 @@ def _download_eth3d_archives(
         pycolmap.logging.info(
             f"Extracting ETH3D category={category}, filename={filename}"
         )
-        with tempfile.TemporaryDirectory(
-            prefix=f".{filename}.", dir=target_folder
-        ) as temporary_dir:
-            staging_path = Path(temporary_dir)
-            with py7zr.SevenZipFile(
-                target_folder / filename, mode="r"
-            ) as archive:
-                archive.extractall(path=staging_path)
-            _publish_staged_tree(staging_path, target_folder)
+        with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
+            archive.extractall(path=target_folder)
 
 
 def download_eth3d(data_path: Path) -> None:
@@ -397,13 +346,13 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    for name in args.datasets:
-        if name == "tartanair-v2":
+    for dataset in args.datasets:
+        if dataset == "tartanair-v2":
             download_tartanair_v2(
-                args.data_path / name, args.categories, args.scenes
+                args.data_path / dataset, args.categories, args.scenes
             )
         else:
-            DOWNLOADERS[name](args.data_path / name)
+            DOWNLOADERS[dataset](args.data_path / dataset)
 
 
 if __name__ == "__main__":
