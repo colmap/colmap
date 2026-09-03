@@ -84,10 +84,6 @@ class TinyScaledRigReprojCostFunctor {
           scale * (rotation * points3D_[i].cast<T>()) + translation;
       const Eigen::Matrix<T, 3, 1> point3D_in_cam =
           points2D_[i].cam_from_rig.cast<T>() * point3D_in_rig.homogeneous();
-      // Reject the evaluation if a point does not project; a zero residual
-      // would otherwise make an invalid pose appear as a perfect fit. The
-      // solver treats this as a failed trial step and shrinks the trust
-      // region, or reports failure if the initial model is invalid.
       if (point3D_in_cam.z() <= T(std::numeric_limits<double>::epsilon())) {
         return false;
       }
@@ -104,6 +100,18 @@ class TinyScaledRigReprojCostFunctor {
   const std::vector<GP4PSEstimator::X_t>& points2D_;
   const std::vector<Eigen::Vector3d>& points3D_;
 };
+
+// Whether the given projection centers all coincide, in which case the scale
+// of the rig geometry is unobservable.
+bool HasSingleProjectionCenter(
+    const std::vector<Eigen::Vector3d>& origins_in_rig) {
+  for (size_t i = 1; i < origins_in_rig.size(); ++i) {
+    if (!origins_in_rig[0].isApprox(origins_in_rig[i], 1e-6)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 void ComputeRaysAndOriginsInRig(const std::vector<GP3PEstimator::X_t>& points2D,
                                 std::vector<Eigen::Vector3d>* rays_in_rig,
@@ -217,9 +225,7 @@ void GP4PSEstimator::Estimate(const std::vector<X_t>& points2D,
   // The scale is unobservable from a single projection center. Also reject
   // panoramic samples of a non-panoramic rig, which would otherwise produce
   // spurious models with arbitrary scale.
-  if (origins_in_rig[0].isApprox(origins_in_rig[1], 1e-6) &&
-      origins_in_rig[0].isApprox(origins_in_rig[2], 1e-6) &&
-      origins_in_rig[0].isApprox(origins_in_rig[3], 1e-6)) {
+  if (HasSingleProjectionCenter(origins_in_rig)) {
     return;
   }
 
