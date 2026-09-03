@@ -68,17 +68,12 @@ bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
                     const std::vector<Rigid3d>& cams_from_rig) {
   const FlatHashSet<size_t> camera_idx_set(camera_idxs.begin(),
                                            camera_idxs.end());
-  const size_t first_camera_idx = *camera_idx_set.begin();
-  const Eigen::Vector3d first_origin_in_rig =
-      cams_from_rig[first_camera_idx].TgtOriginInSrc();
-  for (auto it = ++camera_idx_set.begin(); it != camera_idx_set.end(); ++it) {
-    const Eigen::Vector3d other_origin_in_rig =
-        cams_from_rig[*it].TgtOriginInSrc();
-    if (!first_origin_in_rig.isApprox(other_origin_in_rig, 1e-6)) {
-      return false;
-    }
+  std::vector<Eigen::Vector3d> origins_in_rig;
+  origins_in_rig.reserve(camera_idx_set.size());
+  for (const size_t camera_idx : camera_idx_set) {
+    origins_in_rig.push_back(cams_from_rig[camera_idx].TgtOriginInSrc());
   }
-  return true;
+  return HasSingleProjectionCenter(origins_in_rig);
 }
 
 double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
@@ -244,6 +239,21 @@ bool EstimateScaledGeneralizedAbsolutePose(
       UniqueInlierSupportMeasurer(std::move(unique_point3D_ids)));
   auto report = ransac.Estimate(rig_points2D, points3D);
   if (!report.success) {
+    return false;
+  }
+
+  // The scale is unobservable if the final consensus set only contains
+  // observations from a single projection center, even if the input
+  // observations do not.
+  std::vector<size_t> inlier_camera_idxs;
+  inlier_camera_idxs.reserve(report.inlier_mask.size());
+  for (size_t i = 0; i < report.inlier_mask.size(); ++i) {
+    if (report.inlier_mask[i]) {
+      inlier_camera_idxs.push_back(camera_idxs[i]);
+    }
+  }
+  if (inlier_camera_idxs.empty() ||
+      IsPanoramicRig(inlier_camera_idxs, cams_from_rig)) {
     return false;
   }
 
@@ -522,18 +532,31 @@ bool RefineScaledGeneralizedAbsolutePose(
          "refinement";
   options.Check();
 
-  // The scale of the rig geometry is unobservable if the active (inlier)
-  // observations project from a single center. This also rejects an empty
-  // inlier set.
-  std::vector<size_t> inlier_camera_idxs;
-  inlier_camera_idxs.reserve(camera_idxs.size());
-  for (size_t i = 0; i < camera_idxs.size(); ++i) {
-    if (inlier_mask[i]) {
-      inlier_camera_idxs.push_back(camera_idxs[i]);
+  // Select the active observations: inliers that project in front of their
+  // camera at the initial estimate. Observations that do not project (e.g.,
+  // stale inliers) do not constrain the reprojection cost and are excluded,
+  // so that they can neither abort the refinement nor make an invalid pose
+  // appear as a perfect fit.
+  std::vector<char> active_mask(points2D.size(), false);
+  std::vector<size_t> active_camera_idxs;
+  active_camera_idxs.reserve(camera_idxs.size());
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    if (!inlier_mask[i]) {
+      continue;
+    }
+    const size_t camera_idx = camera_idxs[i];
+    const Eigen::Vector3d point3D_in_cam =
+        cams_from_rig[camera_idx] * (*rig_from_world * points3D[i]);
+    if (cameras->at(camera_idx).ImgFromCam(point3D_in_cam).has_value()) {
+      active_mask[i] = true;
+      active_camera_idxs.push_back(camera_idx);
     }
   }
-  if (inlier_camera_idxs.empty() ||
-      IsPanoramicRig(inlier_camera_idxs, cams_from_rig)) {
+
+  // The scale of the rig geometry is unobservable if the active observations
+  // project from a single center. This also rejects an empty active set.
+  if (active_camera_idxs.empty() ||
+      IsPanoramicRig(active_camera_idxs, cams_from_rig)) {
     return false;
   }
 
@@ -562,8 +585,7 @@ bool RefineScaledGeneralizedAbsolutePose(
   ceres::Problem problem(problem_options);
 
   for (size_t i = 0; i < points2D.size(); ++i) {
-    // Skip outlier observations
-    if (!inlier_mask[i]) {
+    if (!active_mask[i]) {
       continue;
     }
     const size_t camera_idx = camera_idxs[i];
@@ -571,66 +593,66 @@ bool RefineScaledGeneralizedAbsolutePose(
 
     problem.AddResidualBlock(
         CreateCameraCostFunction<ScaledRigReprojErrorCostFunctor>(
-            cameras->at(camera_idx).model_id, points2D[i]),
+            refined_cameras[camera_idx].model_id,
+            points2D[i],
+            /*use_log_scale=*/true),
         loss_function.get(),
         point3D_params[i].data(),
         cam_from_rig_params[camera_idx].data(),
-        rig_from_world->params.data(),
-        cameras_params_data[camera_idx]);
+        rig_from_world_params.data(),
+        refined_cameras[camera_idx].params.data());
     problem.SetParameterBlockConstant(point3D_params[i].data());
   }
 
-  if (problem.NumResiduals() > 0) {
-    // Camera parameterization.
-    for (size_t i = 0; i < cameras->size(); i++) {
-      if (camera_counts[i] == 0) continue;
-      Camera& camera = cameras->at(i);
+  // Camera parameterization.
+  for (size_t i = 0; i < refined_cameras.size(); i++) {
+    if (camera_counts[i] == 0) continue;
+    Camera& camera = refined_cameras[i];
 
-      // We don't optimize the rig parameters (it's likely under-constrained).
-      problem.SetParameterBlockConstant(cam_from_rig_params[i].data());
+    // We don't optimize the rig parameters (it's likely under-constrained).
+    problem.SetParameterBlockConstant(cam_from_rig_params[i].data());
 
-      if (!options.refine_focal_length && !options.refine_extra_params) {
+    if (!options.refine_focal_length && !options.refine_extra_params) {
+      problem.SetParameterBlockConstant(camera.params.data());
+    } else {
+      // Always set the principal point as fixed.
+      std::vector<int> const_camera_params;
+      const span<const size_t> principal_point_idxs =
+          camera.PrincipalPointIdxs();
+      const_camera_params.insert(const_camera_params.end(),
+                                 principal_point_idxs.begin(),
+                                 principal_point_idxs.end());
+
+      if (!options.refine_focal_length) {
+        const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
+        const_camera_params.insert(const_camera_params.end(),
+                                   focal_length_idxs.begin(),
+                                   focal_length_idxs.end());
+      }
+
+      if (!options.refine_extra_params) {
+        const span<const size_t> extra_params_idxs = camera.ExtraParamsIdxs();
+        const_camera_params.insert(const_camera_params.end(),
+                                   extra_params_idxs.begin(),
+                                   extra_params_idxs.end());
+      }
+
+      if (const_camera_params.size() == camera.params.size()) {
         problem.SetParameterBlockConstant(camera.params.data());
       } else {
-        // Always set the principal point as fixed.
-        std::vector<int> const_camera_params;
-        const span<const size_t> principal_point_idxs =
-            camera.PrincipalPointIdxs();
-        const_camera_params.insert(const_camera_params.end(),
-                                   principal_point_idxs.begin(),
-                                   principal_point_idxs.end());
-
-        if (!options.refine_focal_length) {
-          const span<const size_t> focal_length_idxs = camera.FocalLengthIdxs();
-          const_camera_params.insert(const_camera_params.end(),
-                                     focal_length_idxs.begin(),
-                                     focal_length_idxs.end());
-        }
-
-        if (!options.refine_extra_params) {
-          const span<const size_t> extra_params_idxs = camera.ExtraParamsIdxs();
-          const_camera_params.insert(const_camera_params.end(),
-                                     extra_params_idxs.begin(),
-                                     extra_params_idxs.end());
-        }
-
-        if (const_camera_params.size() == camera.params.size()) {
-          problem.SetParameterBlockConstant(camera.params.data());
-        } else {
-          SetManifold(
-              &problem,
-              camera.params.data(),
-              CreateSubsetManifold(camera.params.size(), const_camera_params));
-        }
+        SetManifold(
+            &problem,
+            camera.params.data(),
+            CreateSubsetManifold(camera.params.size(), const_camera_params));
       }
     }
-
-    // Translation and scale are jointly Euclidean.
-    SetManifold(&problem,
-                rig_from_world->params.data(),
-                CreateProductManifold(CreateEigenQuaternionManifold(),
-                                      CreateEuclideanManifold<4>()));
   }
+
+  // Translation and log-scale are jointly Euclidean.
+  SetManifold(&problem,
+              rig_from_world_params.data(),
+              CreateProductManifold(CreateEigenQuaternionManifold(),
+                                    CreateEuclideanManifold<4>()));
 
   ceres::Solver::Options solver_options;
   solver_options.gradient_tolerance = options.gradient_tolerance;
