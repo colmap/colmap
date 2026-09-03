@@ -15,58 +15,120 @@ endif()
 
 find_package(OpenMP REQUIRED COMPONENTS C CXX)
 
-find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
-             graph
-             program_options
-             OPTIONAL_COMPONENTS
-             system)
-
-# Hash map backend selection for the scene/SfM containers. Adds the compile
-# definition consumed by src/colmap/util/hash_containers.h. Both backends are
-# header-only (boost-unordered is provided by the Boost::boost target), so no
-# extra linking is required.
-#
-# BOOST (boost::unordered_flat/node maps) is preferred, but its node maps
-# (boost::unordered_node_map) require Boost >= 1.84. When COLMAP_HASH_MAP_BACKEND
-# is empty we auto-select BOOST if the found Boost is new enough, else STD (so
-# e.g. builds against the system Boost on older distributions keep working).
-#
-# Note: downstream consumers re-run this file via find_package(colmap) with
-# COLMAP_HASH_MAP_BACKEND unset; they get the actual COLMAP_HASH_* macro from the
-# exported colmap targets, so the value re-derived here is only used to keep the
-# selection message and any local sources consistent.
-set(COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION "1.84.0")
-if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
-    set(_colmap_boost_version "${Boost_VERSION_STRING}")
-else()
-    set(_colmap_boost_version "${Boost_VERSION}")
-endif()
+# Hash map backend for the scene/SfM containers, consumed by
+# src/colmap/util/hash_containers.h. The containers are data members of classes
+# in public headers, so this is part of COLMAP's ABI: a fixed default, never one
+# derived from the build machine. Resolved before Boost because it decides which
+# Boost version COLMAP needs.
 string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
 if(NOT COLMAP_HASH_MAP_BACKEND)
-    if(_colmap_boost_version VERSION_GREATER_EQUAL
-       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
-        set(COLMAP_HASH_MAP_BACKEND "BOOST")
-    else()
-        set(COLMAP_HASH_MAP_BACKEND "STD")
-    endif()
+    set(COLMAP_HASH_MAP_BACKEND "BOOST")
 endif()
 if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
 elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
-    if(_colmap_boost_version VERSION_LESS
-       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
-        message(FATAL_ERROR
-                "COLMAP_HASH_MAP_BACKEND=BOOST requires Boost >= "
-                "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION} "
-                "(boost::unordered_node_map), but found Boost "
-                "${_colmap_boost_version}. Upgrade Boost or set "
-                "-DCOLMAP_HASH_MAP_BACKEND=STD.")
-    endif()
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_BOOST)
 else()
     message(FATAL_ERROR "Unknown COLMAP_HASH_MAP_BACKEND "
             "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST or empty)")
 endif()
+
+# The BOOST backend needs Boost >= 1.84 for boost::unordered_node_map, which
+# distributions predate for years. Fetch a pinned Boost then, so the default
+# backend is available everywhere. The fetched superproject replaces the system
+# Boost entirely, so no translation unit mixes headers from two Boost releases.
+# The STD backend imposes no minimum and keeps using the system Boost.
+set(COLMAP_FETCH_BOOST_VERSION "1.88.0")
+if(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
+    set(COLMAP_MIN_BOOST_VERSION "1.84.0")
+else()
+    set(COLMAP_MIN_BOOST_VERSION "0")
+endif()
+# Boost libraries COLMAP includes. Boost::headers aggregates exactly these.
+set(COLMAP_BOOST_LIBRARIES
+    algorithm
+    functional
+    graph
+    heap
+    predef
+    preprocessor
+    program_options
+    property_map
+    property_tree
+    unordered)
+
+string(TOUPPER "${FETCH_BOOST}" FETCH_BOOST)
+if(NOT FETCH_BOOST STREQUAL "ON")
+    # Read the version from the header, not via find_package, whose Boost::
+    # imported targets would collide with the fetched superproject's own.
+    find_path(COLMAP_SYSTEM_BOOST_INCLUDE_DIR boost/version.hpp
+              HINTS ${Boost_ROOT} ${BOOST_ROOT} $ENV{BOOST_ROOT}
+              PATH_SUFFIXES include)
+    set(_colmap_boost_version "0")
+    if(COLMAP_SYSTEM_BOOST_INCLUDE_DIR)
+        file(STRINGS "${COLMAP_SYSTEM_BOOST_INCLUDE_DIR}/boost/version.hpp"
+             _colmap_boost_version_line REGEX "^#define BOOST_VERSION ")
+        string(REGEX MATCH "[0-9]+" _colmap_boost_version_num
+               "${_colmap_boost_version_line}")
+        if(_colmap_boost_version_num)
+            math(EXPR _colmap_boost_major "${_colmap_boost_version_num} / 100000")
+            math(EXPR _colmap_boost_minor
+                 "${_colmap_boost_version_num} / 100 % 1000")
+            math(EXPR _colmap_boost_patch "${_colmap_boost_version_num} % 100")
+            set(_colmap_boost_version
+                "${_colmap_boost_major}.${_colmap_boost_minor}.${_colmap_boost_patch}")
+        endif()
+    endif()
+    if(_colmap_boost_version VERSION_GREATER_EQUAL "${COLMAP_MIN_BOOST_VERSION}")
+        set(FETCH_BOOST "OFF")
+        find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
+                     graph
+                     program_options
+                     OPTIONAL_COMPONENTS
+                     system)
+        if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
+            set(_colmap_boost_version "${Boost_VERSION_STRING}")
+        endif()
+    elseif(FETCH_BOOST STREQUAL "AUTO")
+        set(FETCH_BOOST "ON")
+    else()
+        message(FATAL_ERROR
+                "COLMAP_HASH_MAP_BACKEND=BOOST requires Boost >= "
+                "${COLMAP_MIN_BOOST_VERSION} but found ${_colmap_boost_version}. "
+                "Set -DFETCH_BOOST=ON to build against a fetched Boost "
+                "${COLMAP_FETCH_BOOST_VERSION}, or "
+                "-DCOLMAP_HASH_MAP_BACKEND=STD to keep the system Boost.")
+    endif()
+endif()
+
+if(FETCH_BOOST STREQUAL "ON")
+    include(FetchContent)
+    set(BOOST_ENABLE_CMAKE ON)
+    set(BOOST_INCLUDE_LIBRARIES ${COLMAP_BOOST_LIBRARIES})
+    # Boost skips install rules as a subproject. Re-enable them so it lands in
+    # COLMAP's prefix, where colmap-config.cmake points downstream consumers.
+    set(BOOST_SKIP_INSTALL_RULES OFF)
+    # Keep the ~100 MB archive in a stable location so CI can cache it. The
+    # extracted tree is far too large to cache.
+    FetchContent_Declare(Boost
+        URL https://github.com/boostorg/boost/releases/download/boost-${COLMAP_FETCH_BOOST_VERSION}/boost-${COLMAP_FETCH_BOOST_VERSION}-cmake.tar.xz
+        URL_HASH SHA256=f48b48390380cfb94a629872346e3a81370dc498896f16019ade727ab72eb1ec
+        DOWNLOAD_DIR ${FETCHCONTENT_BASE_DIR}/downloads
+    )
+    message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}...")
+    FetchContent_MakeAvailable(Boost)
+    message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}... done")
+    # The superproject defines Boost::headers where find_package defines
+    # Boost::boost. Alias via an interface target, since Boost::headers is itself
+    # an alias and cannot be aliased again.
+    if(NOT TARGET Boost::boost)
+        add_library(colmap_boost_headers INTERFACE)
+        target_link_libraries(colmap_boost_headers INTERFACE Boost::headers)
+        add_library(Boost::boost ALIAS colmap_boost_headers)
+    endif()
+    set(_colmap_boost_version "${COLMAP_FETCH_BOOST_VERSION}")
+endif()
+
 message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend "
         "(Boost ${_colmap_boost_version})")
 

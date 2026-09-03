@@ -67,6 +67,11 @@ option(LSD_ENABLED "Whether to enable the LSD library" ON)
 option(DOWNLOAD_ENABLED "Whether to enable (automatic) download of resources (requires Curl/OpenSSL)" ON)
 option(UNINSTALL_ENABLED "Whether to create a target to 'uninstall' colmap" ON)
 option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
+# AUTO fetches Boost only when the system one is too old for the selected hash
+# map backend (see COLMAP_HASH_MAP_BACKEND below).
+set(FETCH_BOOST "AUTO" CACHE STRING
+    "Whether to consume Boost using FetchContent: ON, OFF, or AUTO")
+set_property(CACHE FETCH_BOOST PROPERTY STRINGS AUTO ON OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
@@ -77,13 +82,12 @@ option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for V
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
 
-# Hash map backend used by the performance-critical scene/SfM containers (see
-# src/colmap/util/hash_containers.h). One of: STD, BOOST, or empty for auto.
-# Auto selects BOOST (faster boost::unordered_flat/node maps) when the available
-# Boost is new enough (>= 1.84, for boost::unordered_node_map) and STD otherwise.
-set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
-    "Hash map backend for scene/SfM containers: STD, BOOST, or empty for auto")
-set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST)
+# Hash map backend for the scene/SfM containers (see
+# src/colmap/util/hash_containers.h). Part of COLMAP's ABI, hence a fixed
+# default; FETCH_BOOST keeps BOOST available even on old system Boost.
+set(COLMAP_HASH_MAP_BACKEND "BOOST" CACHE STRING
+    "Hash map backend for scene/SfM containers: STD or BOOST")
+set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS BOOST STD)
 
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
@@ -476,6 +480,11 @@ if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_sift_gpu
     )
+endif()
+if(FETCH_BOOST STREQUAL "ON")
+    # Interface target standing in for Boost::boost, see FindDependencies.cmake.
+    # Boost itself installs its own targets and BoostConfig.cmake.
+    list(APPEND COLMAP_EXPORT_LIBS colmap_boost_headers)
 endif()
 if(FETCH_POSELIB)
     list(APPEND COLMAP_EXPORT_LIBS PoseLib)

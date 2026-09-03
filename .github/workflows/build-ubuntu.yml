@@ -25,6 +25,8 @@ jobs:
             os: ubuntu-26.04,
             qtVersion: 6,
             cmakeBuildType: Release,
+            # The only job building the non-default STD hash map backend.
+            hashMapBackend: STD,
             asanEnabled: false,
             guiEnabled: true,
             cudaEnabled: false,
@@ -169,9 +171,9 @@ jobs:
           fi
 
           # Ubuntu's apt Boost (1.74 on 22.04, 1.83 on 24.04) predates
-          # boost::unordered_node_map (Boost >= 1.84), so COLMAP auto-selects the
-          # STD hash map backend here. The BOOST backend is exercised on the
-          # macOS (brew) and Windows (vcpkg) jobs. See COLMAP_HASH_MAP_BACKEND.
+          # boost::unordered_node_map (Boost >= 1.84), so FETCH_BOOST=AUTO fetches
+          # and builds Boost on these jobs. See FETCH_BOOST and, for the hash map
+          # backend it makes available, COLMAP_HASH_MAP_BACKEND.
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
             cmake \
@@ -231,6 +233,17 @@ jobs:
             sudo apt-get install -y gcovr
           fi
 
+      # These jobs fetch Boost (see FETCH_BOOST), so cache the ~100 MB archive
+      # rather than re-downloading it every run. Only the download is cached, as
+      # the extracted tree is several hundred MB. A stale entry is harmless:
+      # FetchContent re-downloads on URL_HASH mismatch.
+      - name: Restore Boost download cache
+        uses: actions/cache@v6
+        with:
+          path: build/_deps/downloads
+          key: colmap-fetchcontent-v1-${{ hashFiles('cmake/FindDependencies.cmake') }}
+          restore-keys: colmap-fetchcontent-v1-
+
       - name: Configure and build
         run: |
           set -x
@@ -249,6 +262,7 @@ jobs:
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
+            -DCOLMAP_HASH_MAP_BACKEND=${{ matrix.config.hashMapBackend || 'BOOST' }} \
             -DBLA_VENDOR=Intel10_64lp
           ninja -k 10000
 

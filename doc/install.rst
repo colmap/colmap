@@ -162,16 +162,24 @@ Configure and compile COLMAP::
 
 .. note::
 
-    COLMAP can use ``boost::unordered`` flat/node hash maps for the
-    performance-critical scene and SfM containers, selected via
-    ``-DCOLMAP_HASH_MAP_BACKEND=BOOST|STD`` (default: auto). Auto selects
-    ``BOOST`` when Boost is recent enough (``boost::unordered_node_map`` requires
-    **Boost >= 1.84**) and falls back to ``STD`` (``std::unordered_map``)
-    otherwise. Ubuntu's default Boost is older than 1.84, so apt-based builds use
-    ``STD``; to use the faster ``BOOST`` backend, build against a newer Boost
-    (e.g. via vcpkg, which installs ``boost-unordered`` automatically) or install
-    Boost >= 1.84 manually. Explicitly requesting ``-DCOLMAP_HASH_MAP_BACKEND=BOOST``
-    with an older Boost is a configuration error.
+    The scene and SfM containers use ``boost::unordered`` flat/node hash maps,
+    selected via ``-DCOLMAP_HASH_MAP_BACKEND=BOOST|STD`` (default: ``BOOST``).
+
+    **The backend is part of COLMAP's ABI**: the containers are data members of
+    classes in public headers, so ``sizeof(Reconstruction)`` is 280 bytes with
+    ``BOOST`` and 320 with ``STD`` on x86-64 Linux, and a mismatch produces no
+    link error, only memory corruption. Every binary sharing COLMAP types in one
+    process must agree, the prebuilt ``pycolmap`` wheels included. Query a build
+    with ``colmap -h``, ``pycolmap.__hash_map_backend__`` or
+    ``colmap::kHashMapBackend``.
+
+    The default is therefore fixed, not derived from the Boost found on the build
+    machine. ``BOOST`` needs **Boost >= 1.84**, which Ubuntu's apt Boost predates,
+    so ``-DFETCH_BOOST`` decides where Boost comes from: ``AUTO`` (default) falls
+    back to a pinned Boost only when the system one is too old for the selected
+    backend, ``ON`` always fetches, ``OFF`` never does. A fetched Boost replaces
+    the system one entirely and is installed alongside COLMAP for downstream
+    ``find_package(colmap)`` users.
 
 Run COLMAP::
 

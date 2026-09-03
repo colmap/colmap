@@ -11,6 +11,10 @@ def test_ceres_version_is_str() -> None:
     assert len(pycolmap.__ceres_version__) > 0
 
 
+def test_hash_map_backend_is_known() -> None:
+    assert pycolmap.__hash_map_backend__ in ("std", "boost")
+
+
 def test_has_cuda_is_bool() -> None:
     assert isinstance(pycolmap.has_cuda, bool)
 

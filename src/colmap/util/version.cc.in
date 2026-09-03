@@ -30,6 +30,7 @@
 
 #include "colmap/util/version.h"
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 
@@ -73,8 +74,13 @@ std::string GetBuildInfo() {
 #else
   const char* gpu_info = "without GPU support";
 #endif
-  return StringPrintf(
-      "Commit %s on %s %s", COLMAP_COMMIT_ID, COLMAP_COMMIT_DATE, gpu_info);
+  // The hash map backend is part of the ABI and otherwise indistinguishable
+  // between two builds of the same commit.
+  return StringPrintf("Commit %s on %s %s, %s hash maps",
+                      COLMAP_COMMIT_ID,
+                      COLMAP_COMMIT_DATE,
+                      gpu_info,
+                      kHashMapBackend);
 }
 
 }  // namespace colmap
