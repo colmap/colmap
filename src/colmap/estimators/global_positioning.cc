@@ -345,9 +345,9 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
 
   // If not optimizing positions, set frame centers to be constant.
   if (!options_.optimize_positions) {
-    for (const auto& [frame_id, _] : frame_centers_) {
-      if (double* center = FrameCenterParameterBlock(frame_id)) {
-        problem_->SetParameterBlockConstant(center);
+    for (auto& [_, center] : frame_centers_) {
+      if (problem_->HasParameterBlock(center.data())) {
+        problem_->SetParameterBlockConstant(center.data());
       }
     }
   }
@@ -487,9 +487,9 @@ void GlobalPositioner::SetParameterBlockOrdering() {
       }
     }
   }
-  for (const auto& [frame_id, _] : frame_centers_) {
-    if (double* center = FrameCenterParameterBlock(frame_id)) {
-      if (!ordering->AddElementToGroup(center, 2)) {
+  for (auto& [_, center] : frame_centers_) {
+    if (problem_->HasParameterBlock(center.data())) {
+      if (!ordering->AddElementToGroup(center.data(), 2)) {
         throw std::logic_error("duplicate known parameter block address");
       }
     }
