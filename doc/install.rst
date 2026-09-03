@@ -164,14 +164,22 @@ Configure and compile COLMAP::
 
     COLMAP can use ``boost::unordered`` flat/node hash maps for the
     performance-critical scene and SfM containers, selected via
-    ``-DCOLMAP_HASH_MAP_BACKEND=BOOST|STD`` (default: auto). Auto selects
-    ``BOOST`` when Boost is recent enough (``boost::unordered_node_map`` requires
-    **Boost >= 1.84**) and falls back to ``STD`` (``std::unordered_map``)
-    otherwise. Ubuntu's default Boost is older than 1.84, so apt-based builds use
-    ``STD``; to use the faster ``BOOST`` backend, build against a newer Boost
-    (e.g. via vcpkg, which installs ``boost-unordered`` automatically) or install
-    Boost >= 1.84 manually. Explicitly requesting ``-DCOLMAP_HASH_MAP_BACKEND=BOOST``
-    with an older Boost is a configuration error.
+    ``-DCOLMAP_HASH_MAP_BACKEND=STD|BOOST`` (default: ``STD``). ``BOOST`` is
+    faster but requires **Boost >= 1.84** for ``boost::unordered_node_map``;
+    requesting it with an older Boost, such as Ubuntu's apt Boost, is a
+    configuration error. vcpkg installs a new enough ``boost-unordered``.
+
+    **The backend is part of COLMAP's ABI.** These containers are data members of
+    classes in public headers, so ``sizeof(Reconstruction)`` is 320 bytes with
+    ``STD`` and 280 with ``BOOST`` on x86-64 Linux, and a mismatch produces no
+    link error, only memory corruption. Every binary sharing COLMAP types in one
+    process must agree, including the prebuilt ``pycolmap`` wheels, which use the
+    default. Query a build with ``colmap -h``, ``pycolmap.__hash_map_backend__``
+    or ``colmap::kHashMapBackend``.
+
+    ``AUTO`` picks the backend from the available Boost version, as older COLMAP
+    releases did. Avoid it: two machines then build different ABIs from the same
+    source and arguments.
 
 Run COLMAP::
 

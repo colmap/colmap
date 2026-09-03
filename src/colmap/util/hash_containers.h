@@ -61,6 +61,12 @@
 // unchanged and the hashing semantics are held constant across backends.
 // boost::unordered internally re-mixes a non-avalanching hash such as the
 // identity std::hash<uint32_t>.
+//
+// WARNING: these aliases are data members of classes in public headers, so the
+// backend changes their size and member offsets. Both backends are header-only,
+// so nothing about the choice reaches the linker: mixing binaries built with
+// different backends corrupts memory instead of failing to link. Hence the
+// fixed CMake default, and kHashMapBackend below for checking a binary.
 
 #include <functional>
 
@@ -82,6 +88,9 @@ namespace colmap {
 
 #if defined(COLMAP_HASH_BOOST)
 
+// Identifies the layout of every class storing these containers.
+inline constexpr const char* kHashMapBackend = "boost";
+
 template <class Key,
           class Value,
           class Hash = std::hash<Key>,
@@ -101,6 +110,8 @@ template <class Key, class Hash = std::hash<Key>, class Eq = std::equal_to<Key>>
 using NodeHashSet = boost::unordered_node_set<Key, Hash, Eq>;
 
 #else  // COLMAP_HASH_STD
+
+inline constexpr const char* kHashMapBackend = "std";
 
 template <class Key,
           class Value,
