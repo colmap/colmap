@@ -12,6 +12,9 @@
 #include "colmap/estimators/caspar/caspar_model_adapter.h"
 #endif
 
+#include <iomanip>
+#include <sstream>
+
 namespace colmap {
 namespace {
 
@@ -881,6 +884,10 @@ class CasparBundleAdjuster : public BundleAdjuster {
         it != num_poses_per_model_.end()) {
       sz.num_pinhole_poses = it->second;
     }
+    if (auto it = num_poses_per_model_.find(CameraModelId::kThinPrismFisheye);
+        it != num_poses_per_model_.end()) {
+      sz.num_thin_prism_fisheye_poses = it->second;
+    }
     auto get_md = [&](CameraModelId id) -> const ModelData* {
       auto it = model_data_per_model_.find(id);
       return it != model_data_per_model_.end() ? &it->second : nullptr;
@@ -899,6 +906,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
       sz.num_pinhole_calibs = get_n(CameraModelId::kPinhole);
       adapters_.at(CameraModelId::kPinhole)
           ->FillSizing(sz, *md, sz.num_pinhole_calibs);
+    }
+    if (const ModelData* md = get_md(CameraModelId::kThinPrismFisheye)) {
+      adapters_.at(CameraModelId::kThinPrismFisheye)->FillSizing(sz, *md, 0);
     }
     return sz;
   }
@@ -966,6 +976,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
 
     auto summary = CasparBundleAdjustmentSummary::Create(result);
     summary->num_residuals = ComputeTotalResiduals();
+    if (options_.print_summary || VLOG_IS_ON(1)) {
+      LOG(INFO) << summary->BriefReport();
+    }
     return summary;
   }
 
@@ -1008,6 +1021,8 @@ CasparBundleAdjustmentSummary::Create(
   auto summary = std::make_shared<CasparBundleAdjustmentSummary>();
   summary->iteration_count = caspar_summary.iteration_count;
   summary->initial_score = caspar_summary.initial_score;
+  summary->final_score = caspar_summary.final_score;
+  summary->runtime = caspar_summary.runtime;
   summary->iterations = caspar_summary.iterations;
   switch (caspar_summary.exit_reason) {
     case caspar::ExitReason::CONVERGED_DIAG_EXIT:
@@ -1031,6 +1046,24 @@ CasparBundleAdjustmentSummary::Create(
       summary->termination_type = BundleAdjustmentTerminationType::FAILURE;
   }
   return summary;
+}
+
+std::string CasparBundleAdjustmentSummary::BriefReport() const {
+  std::ostringstream ss;
+  ss << "Caspar bundle adjustment report: termination="
+     << BundleAdjustmentTerminationTypeToString(termination_type)
+     << ", num_residuals=" << num_residuals
+     << ", solver_iterations=" << iteration_count << std::scientific
+     << std::setprecision(6) << ", initial_score=" << initial_score
+     << ", final_score=" << final_score;
+  if (initial_score != 0.0) {
+    ss << std::fixed << std::setprecision(6)
+       << ", relative_score_change="
+       << (initial_score - final_score) / initial_score;
+  }
+  ss << std::fixed << std::setprecision(3) << ", solver_time=" << runtime
+     << "s";
+  return ss.str();
 }
 
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
