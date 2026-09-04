@@ -63,11 +63,12 @@
 // boost::unordered_node_map requires Boost >= 1.84; see FETCH_BOOST_UNORDERED
 // in cmake/FindDependencies.cmake for how that is guaranteed.
 
+#include <functional>
+
 #include <boost/unordered/unordered_flat_map.hpp>
 #include <boost/unordered/unordered_flat_set.hpp>
 #include <boost/unordered/unordered_node_map.hpp>
 #include <boost/unordered/unordered_node_set.hpp>
-#include <functional>
 
 namespace colmap {
 
