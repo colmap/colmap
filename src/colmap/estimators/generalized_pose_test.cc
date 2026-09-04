@@ -535,9 +535,10 @@ TEST(RefineScaledGeneralizedAbsolutePose, PointsBehindCamerasFail) {
   ScaledGeneralizedAbsolutePoseProblem problem =
       BuildScaledGeneralizedAbsolutePoseProblem();
 
-  // Move every 3D point behind its observing camera. The reprojection cost
-  // cannot be evaluated at the initial estimate, so refinement must fail
-  // instead of accepting the invalid pose as a perfect fit.
+  // Move every 3D point behind its observing camera. No observation
+  // constrains the reprojection cost at the initial estimate, so refinement
+  // must fail instead of accepting the invalid pose as a perfect fit, and
+  // must leave the inputs untouched.
   for (size_t i = 0; i < problem.points3D.size(); ++i) {
     MovePointBehindCamera(&problem, i);
   }
