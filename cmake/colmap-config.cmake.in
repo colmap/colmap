@@ -87,9 +87,8 @@ set(FETCH_POSELIB @FETCH_POSELIB@)
 
 set(FETCH_FAISS @FETCH_FAISS@)
 
-# Backend COLMAP was built with. Pre-setting it keeps the value re-derived by
-# FindDependencies.cmake below in sync with the installed binaries rather than
-# with the consumer's Boost, turning a mismatch into a configure-time error.
+# Backend COLMAP was built with. Pre-setting it makes FindDependencies.cmake
+# below follow the installed binaries instead of the consumer's Boost.
 string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" _colmap_requested_hash_map_backend)
 if(_colmap_requested_hash_map_backend AND
    NOT _colmap_requested_hash_map_backend STREQUAL "@COLMAP_HASH_MAP_BACKEND@")

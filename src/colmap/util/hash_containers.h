@@ -63,10 +63,8 @@
 // identity std::hash<uint32_t>.
 //
 // WARNING: these aliases are data members of classes in public headers, so the
-// backend changes their size and member offsets. Both backends are header-only,
-// so nothing about the choice reaches the linker: mixing binaries built with
-// different backends corrupts memory instead of failing to link. Hence the
-// fixed CMake default, and kHashMapBackend below for checking a binary.
+// backend changes their layout. Nothing about the choice reaches the linker, so
+// mixing backends corrupts memory instead of failing to link.
 
 #include <functional>
 

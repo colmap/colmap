@@ -26,14 +26,10 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
 # header-only (boost-unordered is provided by the Boost::boost target), so no
 # extra linking is required.
 #
-# The containers are data members of classes in public headers, so the backend
-# determines their layout and is part of COLMAP's ABI. The default is therefore
-# fixed, never derived from what happens to be installed here. BOOST (faster,
-# requires Boost >= 1.84 for boost::unordered_node_map) must be applied to
-# everything that ends up in the same process, including the pycolmap wheels.
-#
-# find_package(colmap) re-runs this file with COLMAP_HASH_MAP_BACKEND pre-set to
-# the value COLMAP was built with (see colmap-config.cmake.in), so the selection
+# The backend is part of COLMAP's ABI, so the default is fixed rather than
+# derived from the Boost installed here. BOOST (faster, requires Boost >= 1.84
+# for boost::unordered_node_map) must be applied to everything in the process.
+# find_package(colmap) pre-sets the value COLMAP was built with, so the selection
 # below reproduces that choice instead of re-deriving it.
 set(COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION "1.84.0")
 if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)

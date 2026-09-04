@@ -166,8 +166,9 @@ Configure and compile COLMAP::
     performance-critical scene and SfM containers, selected via
     ``-DCOLMAP_HASH_MAP_BACKEND=STD|BOOST`` (default: ``STD``). ``BOOST`` is
     faster but requires **Boost >= 1.84** for ``boost::unordered_node_map``;
-    requesting it with an older Boost, such as Ubuntu's apt Boost, is a
-    configuration error. vcpkg installs a new enough ``boost-unordered``.
+    requesting it with an older Boost, such as the apt Boost on Ubuntu 24.04
+    (1.83) and earlier, is a configuration error. vcpkg installs a new enough
+    ``boost-unordered``.
 
     **The backend is part of COLMAP's ABI.** These containers are data members of
     classes in public headers, so ``sizeof(Reconstruction)`` is 320 bytes with

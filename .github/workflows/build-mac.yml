@@ -77,10 +77,8 @@ jobs:
           cmake --version
           mkdir -p build
           cd build
-          # The only job covering the non-default BOOST hash map backend: the
-          # Ubuntu jobs' apt Boost is too old, and the Windows job exports a
-          # linkable install tree, which must keep the default ABI. This job
-          # publishes a self-contained app bundle, so the backend stays private.
+          # Only CI coverage of the non-default BOOST hash map backend. The
+          # bundle ships no headers or libraries, so nothing links against it.
           cmake .. \
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
