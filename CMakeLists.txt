@@ -78,12 +78,13 @@ option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" O
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
 
 # Hash map backend used by the performance-critical scene/SfM containers (see
-# src/colmap/util/hash_containers.h). One of: STD, BOOST, or empty for auto.
-# Auto selects BOOST (faster boost::unordered_flat/node maps) when the available
-# Boost is new enough (>= 1.84, for boost::unordered_node_map) and STD otherwise.
+# src/colmap/util/hash_containers.h). Part of COLMAP's ABI, hence a fixed default
+# rather than one derived from the build machine. BOOST is faster but must be
+# applied to everything loaded alongside COLMAP. AUTO is the old host-dependent
+# selection, kept only for compatibility.
 set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
-    "Hash map backend for scene/SfM containers: STD, BOOST, or empty for auto")
-set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST)
+    "Hash map backend for scene/SfM containers: STD, BOOST, or AUTO")
+set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST AUTO)
 
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
