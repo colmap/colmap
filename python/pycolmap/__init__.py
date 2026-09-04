@@ -66,8 +66,7 @@ if TYPE_CHECKING:
 __all__ = import_module_symbols(
     globals(), _core, exclude={"cost_functions", "pyceres"}
 )
-__all__.extend(["__version__", "__ceres_version__", "__hash_map_backend__"])
+__all__.extend(["__version__", "__ceres_version__"])
 
 __version__ = _core.__version__
 __ceres_version__ = _core.__ceres_version__
-__hash_map_backend__ = _core.__hash_map_backend__

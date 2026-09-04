@@ -70,21 +70,13 @@ option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
+option(FETCH_BOOST_UNORDERED "Whether to consume boost-unordered using FetchContent when the available Boost is older than the required version" ON)
 option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Experimental
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
-
-# Hash map backend used by the performance-critical scene/SfM containers (see
-# src/colmap/util/hash_containers.h). Part of COLMAP's ABI, hence a fixed default
-# rather than one derived from the build machine. BOOST is faster but must be
-# applied to everything loaded alongside COLMAP. AUTO is the old host-dependent
-# selection, kept only for compatibility.
-set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
-    "Hash map backend for scene/SfM containers: STD, BOOST, or AUTO")
-set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST AUTO)
 
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
@@ -477,6 +469,9 @@ if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_sift_gpu
     )
+endif()
+if(TARGET colmap_boost_unordered)
+    list(APPEND COLMAP_EXPORT_LIBS colmap_boost_unordered)
 endif()
 if(FETCH_POSELIB)
     list(APPEND COLMAP_EXPORT_LIBS PoseLib)

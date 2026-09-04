@@ -21,56 +21,52 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
              OPTIONAL_COMPONENTS
              system)
 
-# Hash map backend selection for the scene/SfM containers. Adds the compile
-# definition consumed by src/colmap/util/hash_containers.h. Both backends are
-# header-only (boost-unordered is provided by the Boost::boost target), so no
-# extra linking is required.
-#
-# The backend is part of COLMAP's ABI, so the default is fixed rather than
-# derived from the Boost installed here. BOOST (faster, requires Boost >= 1.84
-# for boost::unordered_node_map) must be applied to everything in the process.
-# find_package(colmap) pre-sets the value COLMAP was built with, so the selection
-# below reproduces that choice instead of re-deriving it.
-set(COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION "1.84.0")
+# The scene/SfM containers in src/colmap/util/hash_containers.h are
+# boost::unordered flat/node maps. They are data members of classes in public
+# headers, so their layout is part of COLMAP's ABI and must not depend on the
+# build machine. boost::unordered_node_map requires Boost >= 1.84, which is
+# newer than the apt Boost on Ubuntu 24.04 (1.83) and earlier, so a pinned copy
+# of the header-only boost-unordered modules is vendored where the available
+# Boost is too old (see src/thirdparty/CMakeLists.txt).
+set(COLMAP_MIN_BOOST_UNORDERED_VERSION "1.84.0")
 if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
-    set(_colmap_boost_version "${Boost_VERSION_STRING}")
+    set(COLMAP_BOOST_VERSION "${Boost_VERSION_STRING}")
 else()
-    set(_colmap_boost_version "${Boost_VERSION}")
+    set(COLMAP_BOOST_VERSION "${Boost_VERSION}")
 endif()
-string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
-if(NOT COLMAP_HASH_MAP_BACKEND)
-    set(COLMAP_HASH_MAP_BACKEND "STD")
-elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "AUTO")
-    if(_colmap_boost_version VERSION_GREATER_EQUAL
-       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
-        set(COLMAP_HASH_MAP_BACKEND "BOOST")
+# find_package(colmap) pre-sets this to what COLMAP was built with, so consumers
+# follow the installed binaries instead of re-deciding from their own Boost.
+if(NOT DEFINED COLMAP_BOOST_UNORDERED_FROM_SYSTEM)
+    if(COLMAP_BOOST_VERSION VERSION_GREATER_EQUAL
+       "${COLMAP_MIN_BOOST_UNORDERED_VERSION}")
+        set(COLMAP_BOOST_UNORDERED_FROM_SYSTEM TRUE)
     else()
-        set(COLMAP_HASH_MAP_BACKEND "STD")
+        set(COLMAP_BOOST_UNORDERED_FROM_SYSTEM FALSE)
     endif()
-    message(WARNING
-            "COLMAP_HASH_MAP_BACKEND=AUTO selected ${COLMAP_HASH_MAP_BACKEND} "
-            "from Boost ${_colmap_boost_version}, making the ABI depend on the "
-            "build machine. Pass STD or BOOST for a reproducible ABI.")
 endif()
-if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
-    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
-elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
-    if(_colmap_boost_version VERSION_LESS
-       "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
+if(COLMAP_BOOST_UNORDERED_FROM_SYSTEM)
+    if(COLMAP_BOOST_VERSION VERSION_LESS
+       "${COLMAP_MIN_BOOST_UNORDERED_VERSION}")
         message(FATAL_ERROR
-                "COLMAP_HASH_MAP_BACKEND=BOOST requires Boost >= "
-                "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION} "
-                "(boost::unordered_node_map), but found Boost "
-                "${_colmap_boost_version}. Upgrade Boost or set "
-                "-DCOLMAP_HASH_MAP_BACKEND=STD.")
+                "COLMAP requires Boost >= ${COLMAP_MIN_BOOST_UNORDERED_VERSION} "
+                "for boost::unordered_node_map, but found Boost "
+                "${COLMAP_BOOST_VERSION}. Upgrade Boost or configure with "
+                "-DFETCH_BOOST_UNORDERED=ON to vendor a pinned copy.")
     endif()
-    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_BOOST)
+    message(STATUS "Using boost-unordered from Boost ${COLMAP_BOOST_VERSION}")
+elseif(FETCH_BOOST_UNORDERED)
+    # Vendored headers are installed here and exported as an include directory
+    # of the colmap_boost_unordered target, so consumers of the installed COLMAP
+    # compile its public headers against the same boost-unordered.
+    set(COLMAP_BOOST_UNORDERED_INSTALL_DIR
+        "${CMAKE_INSTALL_INCLUDEDIR}/colmap/thirdparty/boost-unordered")
 else()
-    message(FATAL_ERROR "Unknown COLMAP_HASH_MAP_BACKEND "
-            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST, AUTO or empty)")
+    message(FATAL_ERROR
+            "Boost ${COLMAP_BOOST_VERSION} is older than "
+            "${COLMAP_MIN_BOOST_UNORDERED_VERSION} and FETCH_BOOST_UNORDERED is "
+            "OFF, so boost::unordered_node_map is unavailable. Upgrade Boost or "
+            "set -DFETCH_BOOST_UNORDERED=ON.")
 endif()
-message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend "
-        "(Boost ${_colmap_boost_version})")
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})
 

@@ -62,6 +62,17 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
+if(TARGET colmap_boost_unordered)
+    # hash_containers.h is a public header, so the vendored boost-unordered has
+    # to reach every consumer of colmap_util. BEFORE puts it ahead of the system
+    # Boost include directory, which may hold an older boost/unordered.
+    target_link_libraries(colmap_util PUBLIC colmap_boost_unordered)
+    get_target_property(_boost_unordered_includes colmap_boost_unordered
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(colmap_util SYSTEM BEFORE PUBLIC
+                               ${_boost_unordered_includes})
+endif()
+
 if(DOWNLOAD_ENABLED)
     target_link_libraries(colmap_util PRIVATE CURL::libcurl)
     if(TARGET cryptopp::cryptopp)

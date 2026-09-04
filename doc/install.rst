@@ -162,25 +162,19 @@ Configure and compile COLMAP::
 
 .. note::
 
-    COLMAP can use ``boost::unordered`` flat/node hash maps for the
-    performance-critical scene and SfM containers, selected via
-    ``-DCOLMAP_HASH_MAP_BACKEND=STD|BOOST`` (default: ``STD``). ``BOOST`` is
-    faster but requires **Boost >= 1.84** for ``boost::unordered_node_map``;
-    requesting it with an older Boost, such as the apt Boost on Ubuntu 24.04
-    (1.83) and earlier, is a configuration error. vcpkg installs a new enough
-    ``boost-unordered``.
+    COLMAP uses ``boost::unordered`` flat/node hash maps for the
+    performance-critical scene and SfM containers. These are data members of
+    classes in public headers, so their layout is part of COLMAP's ABI, and a
+    mismatch between two COLMAP builds loaded into one process produces no link
+    error, only memory corruption. There is therefore no build option to swap
+    them for ``std::unordered_*``.
 
-    **The backend is part of COLMAP's ABI.** These containers are data members of
-    classes in public headers, so ``sizeof(Reconstruction)`` is 320 bytes with
-    ``STD`` and 280 with ``BOOST`` on x86-64 Linux, and a mismatch produces no
-    link error, only memory corruption. Every binary sharing COLMAP types in one
-    process must agree, including the prebuilt ``pycolmap`` wheels, which use the
-    default. Query a build with ``colmap -h``, ``pycolmap.__hash_map_backend__``
-    or ``colmap::kHashMapBackend``.
-
-    ``AUTO`` picks the backend from the available Boost version, as older COLMAP
-    releases did. Avoid it: two machines then build different ABIs from the same
-    source and arguments.
+    ``boost::unordered_node_map`` requires **Boost >= 1.84**, which is newer than
+    the apt Boost on Ubuntu 24.04 (1.83) and earlier. Where the available Boost
+    is too old, the build downloads a pinned copy of the header-only
+    ``boost-unordered`` modules (about 5 MB) and installs them alongside COLMAP's
+    own headers. Pass ``-DFETCH_BOOST_UNORDERED=OFF`` to require a new enough
+    system Boost instead and fail at configure time if there is none.
 
 Run COLMAP::
 

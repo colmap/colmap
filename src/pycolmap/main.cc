@@ -43,11 +43,6 @@ PYBIND11_MODULE(_core, m) {
   m.attr("has_cuda") = IsGPU(Device::AUTO);
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
-  // An extension linking its own COLMAP must share this backend, or the two
-  // disagree about the layout of Reconstruction and friends. Neither the link
-  // nor the import catches that, so expose it for downstreams to assert on.
-  m.attr("__hash_map_backend__") = py::str(kHashMapBackend);
-
   auto PyDevice = py::enum_<Device>(m, "Device")
                       .value("auto", Device::AUTO)
                       .value("cpu", Device::CPU)

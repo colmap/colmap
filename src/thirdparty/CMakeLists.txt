@@ -34,6 +34,52 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
     set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
 endif()
 
+# boost::unordered_node_map requires Boost >= 1.84, which is newer than the apt
+# Boost on Ubuntu 24.04 and earlier. The containers are part of COLMAP's ABI
+# (see cmake/FindDependencies.cmake), so rather than falling back to a second
+# container implementation, vendor a pinned copy of the header-only modules that
+# boost-unordered transitively includes. The list is the include closure of
+# boost/unordered/unordered_{flat,node}_{map,set}.hpp, ~5 MB in total.
+if(NOT COLMAP_BOOST_UNORDERED_FROM_SYSTEM AND FETCH_BOOST_UNORDERED)
+    include(FetchContent)
+    set(_boost_unordered_tag "boost-1.90.0")
+    set(_boost_unordered_modules
+        unordered       7dd15a1196e36de483fc287a5487210b596979761c4708b4c3067a717c765a05
+        assert          1f48f929e69146db222fdf9538ec81c7cbd3ca88b94343644942b477031a3bba
+        config          1390bd79fbf270e40cfe5ac6b899f4a9c4e47139b6e17b4c1f7f78822adaa9fc
+        container_hash  415d6a01b2d8a07ab36dbf9e31a8fec6fa0e51185d1015a087c153de28cfaba5
+        core            0444b7741bcf20f80ff6a4d191a920f6aba92d26734c81fa481f8fd0a274b487
+        describe        4ca9c54d50c5bd8ec68811475ef96ec1ac0abbfbf19f55789823aabcbb704812
+        mp11            ca52bde753586dcba29739cfd55abb473bf80c934c6d49a2b58023ed4e48adf6
+        predef          d9144eb3c7d965991e8798fc7e96d5ea862951bffcbdba0b8a23892fd5c99f7c
+        static_assert   3b7980c5968d585b04f980bbb4e81bbbf0b6d1a0b7c965c2a3426b0acb4a5f49
+        throw_exception 30e2834ba64587a363750e35c627ee045f89be05d0cc9eab7251414eba88e110
+    )
+    message(STATUS "Configuring boost-unordered (${_boost_unordered_tag})...")
+    add_library(colmap_boost_unordered INTERFACE)
+    while(_boost_unordered_modules)
+        list(POP_FRONT _boost_unordered_modules _module _hash)
+        # SOURCE_SUBDIR names a directory without a CMakeLists.txt so that the
+        # module is only downloaded, never add_subdirectory()'d. The per-module
+        # Boost CMake files expect the Boost superproject and would collide with
+        # the Boost:: targets from find_package(Boost).
+        FetchContent_Declare(boost_${_module}
+            URL https://github.com/boostorg/${_module}/archive/refs/tags/${_boost_unordered_tag}.tar.gz
+            URL_HASH SHA256=${_hash}
+            SOURCE_SUBDIR do-not-configure
+            ${_fetch_content_declare_args}
+        )
+        FetchContent_MakeAvailable(boost_${_module})
+        target_include_directories(colmap_boost_unordered SYSTEM INTERFACE
+            $<BUILD_INTERFACE:${boost_${_module}_SOURCE_DIR}/include>)
+        install(DIRECTORY "${boost_${_module}_SOURCE_DIR}/include/boost"
+                DESTINATION "${COLMAP_BOOST_UNORDERED_INSTALL_DIR}")
+    endwhile()
+    target_include_directories(colmap_boost_unordered SYSTEM INTERFACE
+        $<INSTALL_INTERFACE:${COLMAP_BOOST_UNORDERED_INSTALL_DIR}>)
+    message(STATUS "Configuring boost-unordered (${_boost_unordered_tag})... done")
+endif()
+
 if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(poselib
