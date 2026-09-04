@@ -36,7 +36,7 @@ set(ESTIMATORS_SRCS
     alignment.h alignment.cc
     bundle_adjustment.h bundle_adjustment.cc
     bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
-    ceres_loss.h ceres_loss.cc
+    ceres_loss_function.h ceres_loss_function.cc
     coordinate_frame.h coordinate_frame.cc
     covariance.h covariance.cc
     fundamental_matrix_degensac.h fundamental_matrix_degensac.cc

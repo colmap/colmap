@@ -30,7 +30,7 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
-#include "colmap/estimators/ceres_loss.h"
+#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/math/math.h"
 
 #include <ceres/ceres.h>

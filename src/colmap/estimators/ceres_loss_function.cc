@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/estimators/ceres_loss.h"
+#include "colmap/estimators/ceres_loss_function.h"
 
 #include <cmath>
 #include <stdexcept>
