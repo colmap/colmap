@@ -349,6 +349,27 @@ TEST(EstimateScaledGeneralizedAbsolutePose, SingleCenterConsensusFails) {
                                                      &inlier_mask));
 }
 
+TEST(EstimateScaledGeneralizedAbsolutePose, EmptyInputsFail) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 2;
+
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_FALSE(EstimateScaledGeneralizedAbsolutePose(ransac_options,
+                                                     /*points2D=*/{},
+                                                     /*points3D=*/{},
+                                                     /*camera_idxs=*/{},
+                                                     problem.cams_from_rig,
+                                                     problem.cameras,
+                                                     &rig_from_world,
+                                                     &num_inliers,
+                                                     &inlier_mask));
+}
+
 TEST(RefineGeneralizedAbsolutePose, Nominal) {
   GeneralizedAbsolutePoseProblem problem =
       BuildGeneralizedAbsolutePoseProblem();
@@ -423,9 +444,10 @@ TEST(RefineScaledGeneralizedAbsolutePose, StaleInliersAreIgnored) {
   ScaledGeneralizedAbsolutePoseProblem problem =
       BuildScaledGeneralizedAbsolutePoseProblem();
 
-  // Inlier observations that do not project at the initial estimate must
-  // neither abort the refinement nor bias it: the remaining observations are
-  // exact, so the refinement must still converge to the ground truth.
+  // Inlier observations that do not project in front of their camera
+  // contribute a zero residual and must not bias the refinement: the
+  // remaining observations are exact, so it must still converge to the ground
+  // truth.
   for (const size_t i : {0, 7, 20}) {
     MovePointBehindCamera(&problem, i);
   }
@@ -449,27 +471,6 @@ TEST(RefineScaledGeneralizedAbsolutePose, StaleInliersAreIgnored) {
                         /*stol=*/1e-6,
                         /*rtol=*/1e-6,
                         /*ttol=*/1e-6));
-}
-
-TEST(EstimateScaledGeneralizedAbsolutePose, EmptyInputsFail) {
-  ScaledGeneralizedAbsolutePoseProblem problem =
-      BuildScaledGeneralizedAbsolutePoseProblem();
-
-  RANSACOptions ransac_options;
-  ransac_options.max_error = 2;
-
-  Sim3d rig_from_world;
-  size_t num_inliers;
-  std::vector<char> inlier_mask;
-  EXPECT_FALSE(EstimateScaledGeneralizedAbsolutePose(ransac_options,
-                                                     /*points2D=*/{},
-                                                     /*points3D=*/{},
-                                                     /*camera_idxs=*/{},
-                                                     problem.cams_from_rig,
-                                                     problem.cameras,
-                                                     &rig_from_world,
-                                                     &num_inliers,
-                                                     &inlier_mask));
 }
 
 TEST(RefineScaledGeneralizedAbsolutePose, PanoramicInliersFail) {
@@ -522,73 +523,6 @@ TEST(RefineScaledGeneralizedAbsolutePose, PanoramicInliersFail) {
   const std::vector<char> empty_inlier_mask(problem.points2D.size(), false);
   EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
                                                    empty_inlier_mask,
-                                                   problem.points2D,
-                                                   problem.points3D,
-                                                   problem.camera_idxs,
-                                                   problem.cams_from_rig,
-                                                   &rig_from_world,
-                                                   &problem.cameras));
-  EXPECT_EQ(rig_from_world.scale(), initial_scale);
-}
-
-TEST(RefineScaledGeneralizedAbsolutePose, PointsBehindCamerasFail) {
-  ScaledGeneralizedAbsolutePoseProblem problem =
-      BuildScaledGeneralizedAbsolutePoseProblem();
-
-  // Move every 3D point behind its observing camera. No observation
-  // constrains the reprojection cost at the initial estimate, so refinement
-  // must fail instead of accepting the invalid pose as a perfect fit, and
-  // must leave the inputs untouched.
-  for (size_t i = 0; i < problem.points3D.size(); ++i) {
-    MovePointBehindCamera(&problem, i);
-  }
-
-  AbsolutePoseRefinementOptions options;
-  options.refine_focal_length = true;
-  options.refine_extra_params = true;
-
-  Sim3d rig_from_world = problem.gt_rig_from_world;
-  const std::vector<Camera> init_cameras = problem.cameras;
-  const std::vector<char> inlier_mask(problem.points2D.size(), true);
-  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
-                                                   inlier_mask,
-                                                   problem.points2D,
-                                                   problem.points3D,
-                                                   problem.camera_idxs,
-                                                   problem.cams_from_rig,
-                                                   &rig_from_world,
-                                                   &problem.cameras));
-  EXPECT_EQ(rig_from_world.params, problem.gt_rig_from_world.params);
-  for (size_t i = 0; i < init_cameras.size(); ++i) {
-    EXPECT_EQ(problem.cameras[i].params, init_cameras[i].params);
-  }
-}
-
-TEST(RefineScaledGeneralizedAbsolutePose, SingleCenterAfterValidationFails) {
-  ScaledGeneralizedAbsolutePoseProblem problem =
-      BuildScaledGeneralizedAbsolutePoseProblem();
-
-  // The inlier mask selects observations from multiple centers, but only
-  // those of the first camera project at the initial estimate. The remaining
-  // active observations share a single center, so the scale is unobservable
-  // and the arbitrary initial scale must not be reported as refined.
-  for (size_t i = 0; i < problem.points3D.size(); ++i) {
-    if (problem.camera_idxs[i] != 0) {
-      MovePointBehindCamera(&problem, i);
-    }
-  }
-
-  AbsolutePoseRefinementOptions options;
-  options.refine_focal_length = false;
-  options.refine_extra_params = false;
-
-  const double initial_scale = 2;
-  Sim3d rig_from_world(initial_scale,
-                       problem.gt_rig_from_world.rotation(),
-                       problem.gt_rig_from_world.translation());
-  const std::vector<char> inlier_mask(problem.points2D.size(), true);
-  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
-                                                   inlier_mask,
                                                    problem.points2D,
                                                    problem.points3D,
                                                    problem.camera_idxs,

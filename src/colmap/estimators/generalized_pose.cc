@@ -42,7 +42,6 @@
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
-#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>
@@ -64,16 +63,26 @@ void ThrowCheckCameras(const std::vector<size_t>& camera_idxs,
   THROW_CHECK_LT(*max_camera_idx, cameras.size());
 }
 
+// Whether the rig cameras referenced by the selected observations all share a
+// single projection center. An empty selection is reported as panoramic, as it
+// constrains the rig geometry just as little. If selection_mask is empty, all
+// observations are selected.
 bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
-                    const std::vector<Rigid3d>& cams_from_rig) {
-  const FlatHashSet<size_t> camera_idx_set(camera_idxs.begin(),
-                                           camera_idxs.end());
-  std::vector<Eigen::Vector3d> origins_in_rig;
-  origins_in_rig.reserve(camera_idx_set.size());
-  for (const size_t camera_idx : camera_idx_set) {
-    origins_in_rig.push_back(cams_from_rig[camera_idx].TgtOriginInSrc());
+                    const std::vector<Rigid3d>& cams_from_rig,
+                    const std::vector<char>& selection_mask = {}) {
+  std::vector<char> is_camera_selected(cams_from_rig.size(), false);
+  for (size_t i = 0; i < camera_idxs.size(); ++i) {
+    if (selection_mask.empty() || selection_mask[i]) {
+      is_camera_selected[camera_idxs[i]] = true;
+    }
   }
-  return HasSingleProjectionCenter(origins_in_rig);
+  std::vector<Eigen::Vector3d> origins_in_rig;
+  for (size_t i = 0; i < cams_from_rig.size(); ++i) {
+    if (is_camera_selected[i]) {
+      origins_in_rig.push_back(cams_from_rig[i].TgtOriginInSrc());
+    }
+  }
+  return colmap::IsPanoramicRig(origins_in_rig);
 }
 
 double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
@@ -245,15 +254,7 @@ bool EstimateScaledGeneralizedAbsolutePose(
   // The scale is unobservable if the final consensus set only contains
   // observations from a single projection center, even if the input
   // observations do not.
-  std::vector<size_t> inlier_camera_idxs;
-  inlier_camera_idxs.reserve(report.inlier_mask.size());
-  for (size_t i = 0; i < report.inlier_mask.size(); ++i) {
-    if (report.inlier_mask[i]) {
-      inlier_camera_idxs.push_back(camera_idxs[i]);
-    }
-  }
-  if (inlier_camera_idxs.empty() ||
-      IsPanoramicRig(inlier_camera_idxs, cams_from_rig)) {
+  if (IsPanoramicRig(camera_idxs, cams_from_rig, report.inlier_mask)) {
     return false;
   }
 
@@ -532,31 +533,9 @@ bool RefineScaledGeneralizedAbsolutePose(
          "refinement";
   options.Check();
 
-  // Select the active observations: inliers that project in front of their
-  // camera at the initial estimate. Observations that do not project (e.g.,
-  // stale inliers) do not constrain the reprojection cost and are excluded,
-  // so that they can neither abort the refinement nor make an invalid pose
-  // appear as a perfect fit.
-  std::vector<char> active_mask(points2D.size(), false);
-  std::vector<size_t> active_camera_idxs;
-  active_camera_idxs.reserve(camera_idxs.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    if (!inlier_mask[i]) {
-      continue;
-    }
-    const size_t camera_idx = camera_idxs[i];
-    const Eigen::Vector3d point3D_in_cam =
-        cams_from_rig[camera_idx] * (*rig_from_world * points3D[i]);
-    if (cameras->at(camera_idx).ImgFromCam(point3D_in_cam).has_value()) {
-      active_mask[i] = true;
-      active_camera_idxs.push_back(camera_idx);
-    }
-  }
-
-  // The scale of the rig geometry is unobservable if the active observations
-  // project from a single center. This also rejects an empty active set.
-  if (active_camera_idxs.empty() ||
-      IsPanoramicRig(active_camera_idxs, cams_from_rig)) {
+  // The scale of the rig geometry is unobservable if the inlier observations
+  // project from a single center. This also rejects an empty inlier set.
+  if (IsPanoramicRig(camera_idxs, cams_from_rig, inlier_mask)) {
     return false;
   }
 
@@ -564,8 +543,7 @@ bool RefineScaledGeneralizedAbsolutePose(
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   // Optimize local copies and commit them to the output arguments only after
-  // a successful solve. The scale is optimized in log-space, which keeps it
-  // positive without explicit bounds.
+  // a successful solve, because the scale is optimized in log-space.
   Eigen::Vector8d rig_from_world_params = rig_from_world->params;
   // Cost function assumes unit quaternion.
   Eigen::Map<Eigen::Quaterniond>(rig_from_world_params.data()).normalize();
@@ -585,7 +563,8 @@ bool RefineScaledGeneralizedAbsolutePose(
   ceres::Problem problem(problem_options);
 
   for (size_t i = 0; i < points2D.size(); ++i) {
-    if (!active_mask[i]) {
+    // Skip outlier observations
+    if (!inlier_mask[i]) {
       continue;
     }
     const size_t camera_idx = camera_idxs[i];

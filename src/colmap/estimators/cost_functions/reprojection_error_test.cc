@@ -456,6 +456,70 @@ TEST(RigReprojErrorCostFunctor, Nominal) {
   EXPECT_EQ(residuals[1], 2);
 }
 
+TEST(ScaledRigReprojErrorCostFunctor, Nominal) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero()));
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, -1};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 1, 0};
+  double point3D[3] = {0, 0, 1};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[4] = {
+      point3D, cam_from_rig, rig_from_world, camera_params};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+
+  point3D[1] = 1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 1);
+
+  camera_params[0] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+
+  point3D[0] = -1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -2);
+  EXPECT_EQ(residuals[1], 2);
+
+  // Observations behind the camera contribute a zero residual.
+  point3D[2] = -3;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+}
+
+TEST(ScaledRigReprojErrorCostFunctor, Scale) {
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, 0};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 1, std::log(2.)};
+  double point3D[3] = {0, 1, 0};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[4] = {
+      point3D, cam_from_rig, rig_from_world, camera_params};
+
+  std::unique_ptr<ceres::CostFunction> log_scale_cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero(), /*use_log_scale=*/true));
+  EXPECT_TRUE(
+      log_scale_cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+
+  // The same scale, stored directly instead of in log-space.
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero(), /*use_log_scale=*/false));
+  rig_from_world[7] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+}
+
 TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
   Rigid3d cam_from_rig;
   cam_from_rig.translation() << 0, 0, -1;
@@ -599,6 +663,20 @@ TEST(RigReprojErrorCostFunctor, EquirectangularSeamWrap) {
       [](const Eigen::Vector2d& point2D) {
         return RigReprojErrorCostFunctor<EquirectangularCameraModel>::Create(
             point2D);
+      },
+      {point3D, cam_from_rig, rig_from_world, camera_params});
+}
+
+TEST(ScaledRigReprojErrorCostFunctor, EquirectangularSeamWrap) {
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, 0};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};
+  double camera_params[2] = {kEquirectangularCameraWidth,
+                             kEquirectangularCameraHeight};
+  ExpectEquirectangularSeamWrap(
+      [](const Eigen::Vector2d& point2D) {
+        return ScaledRigReprojErrorCostFunctor<
+            EquirectangularCameraModel>::Create(point2D);
       },
       {point3D, cam_from_rig, rig_from_world, camera_params});
 }

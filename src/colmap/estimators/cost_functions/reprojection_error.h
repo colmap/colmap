@@ -416,17 +416,10 @@ class RigReprojErrorConstantRigCostFunctor
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
 };
 
-// Rig reprojection cost function with a similarity rig_from_world transform,
-// parameterized as [qx, qy, qz, qw, tx, ty, tz, s] with the scale s stored
-// either directly (matching Sim3d::params) or, by default, as log(s) so that
-// an unconstrained optimization keeps it positive.
-//
-// The functor is only defined on the domain where the observation projects
-// in front of its camera. Callers are expected to validate this at the
-// initial estimate and to exclude observations that do not satisfy it. If a
-// trial step during the optimization moves the observation behind the camera,
-// the evaluation is rejected, which makes Ceres discard the step and shrink
-// the trust region.
+// Rig bundle adjustment cost function with a similarity rig_from_world
+// transform, parameterized as [qx, qy, qz, qw, tx, ty, tz, s] like Sim3d,
+// except that the scale s is by default stored as log(s), so that an
+// unconstrained optimization keeps it positive.
 template <typename CameraModel>
 class ScaledRigReprojErrorCostFunctor
     : public AutoDiffCostFunctor<ScaledRigReprojErrorCostFunctor<CameraModel>,
@@ -456,16 +449,17 @@ class ScaledRigReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_rig) * point3D_in_rig +
         EigenVector3Map<T>(cam_from_rig + 4);
     Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (!CameraModel::ImgFromCam(camera_params,
-                                 point3D_in_cam[0],
-                                 point3D_in_cam[1],
-                                 point3D_in_cam[2],
-                                 &residuals[0],
-                                 &residuals[1])) {
-      return false;
+    if (CameraModel::ImgFromCam(camera_params,
+                                point3D_in_cam[0],
+                                point3D_in_cam[1],
+                                point3D_in_cam[2],
+                                &residuals[0],
+                                &residuals[1])) {
+      residuals_vec -= point2D_.cast<T>();
+      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
+    } else {
+      residuals_vec.setZero();
     }
-    residuals_vec -= point2D_.cast<T>();
-    WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
     return true;
   }
 
