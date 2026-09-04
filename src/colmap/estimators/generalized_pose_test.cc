@@ -581,7 +581,10 @@ TEST(RefineScaledGeneralizedAbsolutePose, SingleCenterAfterValidationFails) {
   options.refine_focal_length = false;
   options.refine_extra_params = false;
 
-  Sim3d rig_from_world = problem.gt_rig_from_world;
+  const double initial_scale = 2;
+  Sim3d rig_from_world(initial_scale,
+                       problem.gt_rig_from_world.rotation(),
+                       problem.gt_rig_from_world.translation());
   const std::vector<char> inlier_mask(problem.points2D.size(), true);
   EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
                                                    inlier_mask,
@@ -591,6 +594,7 @@ TEST(RefineScaledGeneralizedAbsolutePose, SingleCenterAfterValidationFails) {
                                                    problem.cams_from_rig,
                                                    &rig_from_world,
                                                    &problem.cameras));
+  EXPECT_EQ(rig_from_world.scale(), initial_scale);
 }
 
 TEST(RefineGeneralizedAbsolutePose, PositionPrior) {
