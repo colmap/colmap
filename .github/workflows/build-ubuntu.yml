@@ -22,6 +22,10 @@ jobs:
       matrix:
         config: [
           {
+            # Only distribution here whose apt Boost is >= 1.84, so this is the
+            # one Linux job that can cover the BOOST hash map backend. It also
+            # installs COLMAP and builds doc/sample-project against it, which
+            # checks that colmap-config.cmake propagates the backend.
             os: ubuntu-26.04,
             qtVersion: 6,
             cmakeBuildType: Release,
@@ -32,6 +36,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            hashMapBackend: BOOST,
             ccacheMaxSize: 100M,
           },
           {
@@ -45,6 +50,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: true,
             coverageEnabled: true,
+            hashMapBackend: STD,
             ccacheMaxSize: 120M,
           },
           {
@@ -58,6 +64,7 @@ jobs:
             e2eTests: true,
             checkCodeFormat: true,
             coverageEnabled: false,
+            hashMapBackend: STD,
             ccacheMaxSize: 100M,
           },
           {
@@ -71,6 +78,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            hashMapBackend: STD,
             ccacheMaxSize: 120M,
           },
           {
@@ -84,6 +92,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            hashMapBackend: STD,
             ccacheMaxSize: 120M,
           },
           {
@@ -97,6 +106,7 @@ jobs:
             e2eTests: false,
             checkCodeFormat: false,
             coverageEnabled: false,
+            hashMapBackend: STD,
             ccacheMaxSize: 150M,
           },
         ]
@@ -131,7 +141,7 @@ jobs:
         with:
           mode: restore
           path: ${{ env.COMPILER_CACHE_DIR }}
-          key-suffix: ${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}
+          key-suffix: ${{ matrix.config.os }}-${{ matrix.config.cmakeBuildType }}-qt_${{ matrix.config.qtVersion }}-gui_${{ matrix.config.guiEnabled }}-cuda_${{ matrix.config.cudaEnabled }}-asan_${{ matrix.config.asanEnabled }}-coverage_${{ matrix.config.coverageEnabled }}-caspar_${{ matrix.config.casparEnabled }}-hash_${{ matrix.config.hashMapBackend }}
 
       - name: Install compiler cache
         run: |
@@ -245,6 +255,7 @@ jobs:
             -DGUI_ENABLED=${{ matrix.config.guiEnabled }} \
             -DASAN_ENABLED=${{ matrix.config.asanEnabled }} \
             -DCOVERAGE_ENABLED=${{ matrix.config.coverageEnabled }} \
+            -DCOLMAP_HASH_MAP_BACKEND=${{ matrix.config.hashMapBackend }} \
             -DBLA_VENDOR=Intel10_64lp
           ninja -k 10000
 
