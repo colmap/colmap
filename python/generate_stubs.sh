@@ -6,7 +6,6 @@ OUTPUT=$2
 PACKAGE_NAME="_core"
 echo "Building stubs with $PYTHON_EXEC to $OUTPUT"
 $PYTHON_EXEC -m pybind11_stubgen $PACKAGE_NAME -o $OUTPUT \
-        --numpy-array-use-type-var \
         --enum-class-locations=.+:$PACKAGE_NAME \
         --ignore-invalid-expressions "ceres::*" \
         --print-invalid-expressions-as-is \

@@ -14,7 +14,7 @@ name = "pycolmap"
 # WARNING: This version must follow the MAJOR.MINOR.PATCH format. If only
 # MAJOR.MINOR is used, cibuildwheel will add a .dev0 patch version, which
 # results in releasing a pre-release version on PyPI.
-version = "4.2.0.dev0"
+version = "4.3.0.dev0"
 description = "COLMAP bindings"
 readme = "python/README.md"
 authors = [
@@ -44,6 +44,11 @@ wheel.packages = ["python/pycolmap"]
 [tool.cibuildwheel]
 build = "cp3{10,11,12,13,14}-{macosx,manylinux,win}*"
 archs = ["auto64"]
+# A fresh PEP 517 isolation directory changes compiler include paths on every
+# run, preventing ccache reuse. Install the same requirements into the stable
+# cibuildwheel Python environment instead.
+build-frontend = {name = "build", args = ["--no-isolation"]}
+before-build = "python {project}/python/ci/install-build-requirements.py"
 # pillow and requests are imported by the TartanAir packaging script, whose
 # tests are otherwise silently skipped.
 test-requires = "pytest>=8.0 mypy==2.1.0 enlighten==1.14.1 pillow requests"
@@ -51,8 +56,8 @@ test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
     mypy --package pycolmap && \
-    mypy --install-types --non-interactive python benchmark && \
-    mypy src/pycolmap && \
+    mypy --install-types --non-interactive python benchmark doc && \
+    mypy src/pycolmap src/thirdparty/Symforce-Caspar/caspar_generate.py && \
     pytest\
 """
 
@@ -64,7 +69,7 @@ before-all = "{project}/python/ci/install-colmap-macos.sh"
 
 [tool.cibuildwheel.windows]
 before-all = "pwsh -File {project}/python/ci/install-colmap-windows.ps1"
-before-build = "pip install delvewheel"
+before-build = "python {project}/python/ci/install-build-requirements.py && pip install delvewheel"
 test-command = "pwsh -File {project}/python/ci/test-colmap-windows.ps1"
 
 # Skip mypy on source files for Python 3.10. There's a bug in numpy's type
@@ -78,7 +83,7 @@ test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
     mypy --package pycolmap && \
-    mypy src/pycolmap && \
+    mypy src/pycolmap src/thirdparty/Symforce-Caspar/caspar_generate.py && \
     pytest\
 """
 
@@ -96,6 +101,31 @@ norecursedirs = [
 ]
 
 [tool.mypy]
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
 implicit_optional = true
 ignore_missing_imports = true
 explicit_package_bases = true
+
+# PyCOLMAP's public API is populated dynamically from the compiled extension,
+# so source-only checks cannot resolve its exported names.
+[[tool.mypy.overrides]]
+module = [
+  "benchmark.*",
+  "doc.tests.*",
+  "pycolmap",
+  "pycolmap.*",
+  "src.pycolmap.*",
+]
+disable_error_code = ["attr-defined", "name-defined"]
+
+# Stubs generated from pybind11 signatures still contain untyped overloads.
+# Some overloads differ only by NumPy shape metadata, which mypy intentionally
+# ignores when determining whether overloads overlap.
+[[tool.mypy.overrides]]
+module = ["pycolmap._core", "pycolmap._core.*"]
+check_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+disable_error_code = ["overload-cannot-match"]

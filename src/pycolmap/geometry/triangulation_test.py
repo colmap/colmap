@@ -3,20 +3,23 @@ import numpy as np
 import pycolmap
 
 
-def test_triangulate_point():
+def test_triangulate_point() -> None:
     cam1_from_world = np.eye(3, 4)
     cam2_from_world = np.eye(3, 4)
     cam2_from_world[0, 3] = -1.0
     point1 = np.array([0.0, 0.0])
     point2 = np.array([0.1, 0.0])
     result = pycolmap.triangulate_point(
-        cam1_from_world, cam2_from_world, point1, point2
+        cam1_from_world,
+        cam2_from_world,
+        point1,
+        point2,
     )
     if result is not None:
         assert result.shape == (3,)
 
 
-def test_calculate_triangulation_angle():
+def test_calculate_triangulation_angle() -> None:
     center1 = np.array([0.0, 0.0, 0.0])
     center2 = np.array([1.0, 0.0, 0.0])
     point3d = np.array([0.5, 0.0, 1.0])
@@ -25,11 +28,11 @@ def test_calculate_triangulation_angle():
     assert angle >= 0.0
 
 
-def test_triangulate_mid_point_callable():
+def test_triangulate_mid_point_callable() -> None:
     assert callable(pycolmap.triangulate_mid_point)
 
 
-def test_triangulate_point_from_rays():
+def test_triangulate_point_from_rays() -> None:
     cam1_from_world = np.eye(3, 4)
     cam2_from_world = np.eye(3, 4)
     cam2_from_world[0, 3] = -1.0
@@ -39,13 +42,16 @@ def test_triangulate_point_from_rays():
     ray2 = cam2_from_world @ np.append(point3d, 1.0)
     ray2 /= np.linalg.norm(ray2)
     result = pycolmap.triangulate_point(
-        cam1_from_world, cam2_from_world, ray1, ray2
+        cam1_from_world,
+        cam2_from_world,
+        ray1,
+        ray2,
     )
     assert result is not None
     np.testing.assert_allclose(result, point3d, atol=1e-6)
 
 
-def test_triangulate_multi_view_point():
+def test_triangulate_multi_view_point() -> None:
     cams_from_world = [np.eye(3, 4), np.eye(3, 4), np.eye(3, 4)]
     cams_from_world[1][0, 3] = -1.0
     cams_from_world[2][1, 3] = -1.0

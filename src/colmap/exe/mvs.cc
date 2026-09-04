@@ -335,7 +335,8 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
                                   const std::string& pmvs_option_name,
                                   std::string input_type,
                                   const mvs::StereoFusionOptions& options,
-                                  std::string output_type) {
+                                  std::string output_type,
+                                  std::function<bool()> check_if_stopped) {
   StringToLower(&workspace_format);
   THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
       << "Invalid `workspace_format` " << workspace_format
@@ -354,8 +355,14 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
 
   mvs::StereoFusion fuser(
       options, workspace_path, workspace_format, pmvs_option_name, input_type);
+  fuser.SetCheckIfStoppedFunc(std::move(check_if_stopped));
 
   fuser.Run();
+
+  const bool stopped = fuser.CheckIfStopped();
+  if (stopped && fuser.GetFusedPoints().empty()) {
+    return {};
+  }
 
   Reconstruction reconstruction;
 
@@ -367,16 +374,35 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
   // overwrite sparse point cloud with dense point cloud from fuser
   reconstruction.ImportPLY(fuser.GetFusedPoints());
 
-  LOG(INFO) << "Writing output: " << output_path;
+  std::filesystem::path write_path = output_path;
+  if (stopped) {
+    if (output_type == "ply") {
+      write_path = output_path.parent_path() /
+                   (output_path.stem().string() + ".partial" +
+                    output_path.extension().string());
+    } else {
+      std::filesystem::path normalized_output_path =
+          output_path.lexically_normal();
+      if (normalized_output_path.filename().empty()) {
+        normalized_output_path = normalized_output_path.parent_path();
+      }
+      write_path = normalized_output_path.parent_path() /
+                   (normalized_output_path.filename().string() + ".partial");
+      CreateDirIfNotExists(write_path);
+    }
+    LOG(WARNING) << "Writing partial fusion output to " << write_path;
+  } else {
+    LOG(INFO) << "Writing output: " << write_path;
+  }
 
   // write output
   if (output_type == "bin") {
-    reconstruction.WriteBinary(output_path);
+    reconstruction.WriteBinary(write_path);
   } else if (output_type == "txt") {
-    reconstruction.WriteText(output_path);
+    reconstruction.WriteText(write_path);
   } else if (output_type == "ply") {
-    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-    mvs::WritePointsVisibility(AddFileExtension(output_path, ".vis"),
+    WriteBinaryPlyPoints(write_path, fuser.GetFusedPoints());
+    mvs::WritePointsVisibility(AddFileExtension(write_path, ".vis"),
                                fuser.GetFusedPointsVisibility());
   } else {
     LOG(FATAL_THROW) << "Invalid output_type: " << output_type;

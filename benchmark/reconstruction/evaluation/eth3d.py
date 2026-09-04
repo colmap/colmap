@@ -27,6 +27,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from pathlib import Path
+
 import pycolmap
 
 from .utils import Dataset, SceneInfo
@@ -48,14 +50,14 @@ class _DatasetETH3D(Dataset):
     calibration_glob = ""
 
     @property
-    def position_accuracy_gt(self):
+    def position_accuracy_gt(self) -> float:
         return 0.001
 
     @property
     def supports_covisibility_filtering(self) -> bool:
         return True
 
-    def list_scenes(self):
+    def list_scenes(self) -> list[SceneInfo]:
         scene_infos = []
         dataset_path = self.data_path / self.dataset_name
         category_paths = dataset_path.iterdir() if dataset_path.is_dir() else []
@@ -96,7 +98,7 @@ class _DatasetETH3D(Dataset):
                 # image subdirectory prefix, such as dslr_images/DSC_0286.JPG.
                 sparse_gt_path = sparse_gt_paths[0]
 
-                colmap_extra_args = []
+                colmap_extra_args: list[str | Path] = []
                 if category == "dslr":
                     colmap_extra_args.extend(["--data_type", "individual"])
                 elif category == "rig":
@@ -129,7 +131,7 @@ class _DatasetETH3D(Dataset):
             )
         return scene_infos
 
-    def prepare_scene(self, scene_info):
+    def prepare_scene(self, scene_info: SceneInfo) -> None:
         # Nothing to prepare for ETH3D.
         pass
 

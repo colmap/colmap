@@ -571,12 +571,32 @@ std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
   return summary;
 }
 
+class CancellationCallback : public ceres::IterationCallback {
+ public:
+  explicit CancellationCallback(std::function<bool()> check_if_stopped)
+      : check_if_stopped_(std::move(check_if_stopped)) {}
+
+  ceres::CallbackReturnType operator()(
+      const ceres::IterationSummary&) override {
+    return check_if_stopped_ && check_if_stopped_()
+               ? ceres::SOLVER_TERMINATE_SUCCESSFULLY
+               : ceres::SOLVER_CONTINUE;
+  }
+
+ private:
+  std::function<bool()> check_if_stopped_;
+};
+
 ceres::Solver::Summary SolveWithGpuFallback(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     ceres::Problem* problem) {
-  const ceres::Solver::Options solver_options =
+  CancellationCallback cancellation_callback(options.check_if_stopped);
+  ceres::Solver::Options solver_options =
       options.ceres->CreateSolverOptions(config, *problem);
+  if (options.check_if_stopped) {
+    solver_options.callbacks.push_back(&cancellation_callback);
+  }
 
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(solver_options, problem, &ceres_summary);
@@ -592,8 +612,11 @@ ceres::Solver::Summary SolveWithGpuFallback(
       auto cpu_options =
           std::make_shared<CeresBundleAdjustmentOptions>(*options.ceres);
       cpu_options->use_gpu = false;
-      const ceres::Solver::Options cpu_solver_options =
+      ceres::Solver::Options cpu_solver_options =
           cpu_options->CreateSolverOptions(config, *problem);
+      if (options.check_if_stopped) {
+        cpu_solver_options.callbacks.push_back(&cancellation_callback);
+      }
       ceres::Solve(cpu_solver_options, problem, &ceres_summary);
     }
   }
