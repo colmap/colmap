@@ -539,12 +539,42 @@ TEST(RefineScaledGeneralizedAbsolutePose, PointsBehindCamerasFail) {
   // cannot be evaluated at the initial estimate, so refinement must fail
   // instead of accepting the invalid pose as a perfect fit.
   for (size_t i = 0; i < problem.points3D.size(); ++i) {
-    const Rigid3d& cam_from_rig = problem.cams_from_rig[problem.camera_idxs[i]];
-    Eigen::Vector3d point3D_in_cam =
-        cam_from_rig * (problem.gt_rig_from_world * problem.points3D[i]);
-    point3D_in_cam.z() = -std::abs(point3D_in_cam.z());
-    problem.points3D[i] = Inverse(problem.gt_rig_from_world) *
-                          (Inverse(cam_from_rig) * point3D_in_cam);
+    MovePointBehindCamera(&problem, i);
+  }
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = true;
+  options.refine_extra_params = true;
+
+  Sim3d rig_from_world = problem.gt_rig_from_world;
+  const std::vector<Camera> init_cameras = problem.cameras;
+  const std::vector<char> inlier_mask(problem.points2D.size(), true);
+  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
+                                                   inlier_mask,
+                                                   problem.points2D,
+                                                   problem.points3D,
+                                                   problem.camera_idxs,
+                                                   problem.cams_from_rig,
+                                                   &rig_from_world,
+                                                   &problem.cameras));
+  EXPECT_EQ(rig_from_world.params, problem.gt_rig_from_world.params);
+  for (size_t i = 0; i < init_cameras.size(); ++i) {
+    EXPECT_EQ(problem.cameras[i].params, init_cameras[i].params);
+  }
+}
+
+TEST(RefineScaledGeneralizedAbsolutePose, SingleCenterAfterValidationFails) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  // The inlier mask selects observations from multiple centers, but only
+  // those of the first camera project at the initial estimate. The remaining
+  // active observations share a single center, so the scale is unobservable
+  // and the arbitrary initial scale must not be reported as refined.
+  for (size_t i = 0; i < problem.points3D.size(); ++i) {
+    if (problem.camera_idxs[i] != 0) {
+      MovePointBehindCamera(&problem, i);
+    }
   }
 
   AbsolutePoseRefinementOptions options;
