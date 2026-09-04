@@ -42,18 +42,17 @@ endif()
 # boost/unordered/unordered_{flat,node}_{map,set}.hpp, ~5 MB in total.
 if(NOT COLMAP_BOOST_UNORDERED_FROM_SYSTEM AND FETCH_BOOST_UNORDERED)
     include(FetchContent)
-    set(_boost_unordered_tag "boost-1.90.0")
+    set(_boost_unordered_tag "boost-1.92.0")
     set(_boost_unordered_modules
-        unordered       7dd15a1196e36de483fc287a5487210b596979761c4708b4c3067a717c765a05
-        assert          1f48f929e69146db222fdf9538ec81c7cbd3ca88b94343644942b477031a3bba
-        config          1390bd79fbf270e40cfe5ac6b899f4a9c4e47139b6e17b4c1f7f78822adaa9fc
-        container_hash  415d6a01b2d8a07ab36dbf9e31a8fec6fa0e51185d1015a087c153de28cfaba5
-        core            0444b7741bcf20f80ff6a4d191a920f6aba92d26734c81fa481f8fd0a274b487
-        describe        4ca9c54d50c5bd8ec68811475ef96ec1ac0abbfbf19f55789823aabcbb704812
-        mp11            ca52bde753586dcba29739cfd55abb473bf80c934c6d49a2b58023ed4e48adf6
-        predef          d9144eb3c7d965991e8798fc7e96d5ea862951bffcbdba0b8a23892fd5c99f7c
-        static_assert   3b7980c5968d585b04f980bbb4e81bbbf0b6d1a0b7c965c2a3426b0acb4a5f49
-        throw_exception 30e2834ba64587a363750e35c627ee045f89be05d0cc9eab7251414eba88e110
+        unordered       cc2eac1c597c221f20d166273825bba3581e64b75c295e97eb67bd5444d4bef0
+        assert          8d49fc69df12e8fbc0e7fe3c4ede45044747199ccdeaf66c2aebb146becc54aa
+        config          b4171037f13373203ba79cbc141d612982052283e696a315185ab5bea46102a0
+        container_hash  f88aabbbc2f163db5eea65662b26e5af2bde0a0bff065c645b7347ed6a71a566
+        core            aa4eb2ccbe5577ded70f25b8f0d852a5246591f90cc34916160739e3d0dbfea6
+        describe        4ef61ea2ca967b803e171f4756e03e201680d5dd19d014324f9a848e0d06863b
+        mp11            a5754dc5ff9e7ff34119983889530e3ab8d8fb43ce2b4fea9c18673044df45d9
+        predef          4c870bcf7f547f3e3d1db26700b078a33f87c4c8232cd1c8d89ec82be6b54130
+        throw_exception 1ddbb967a43504e28bbe2a35a010df9f7ff5d1a49d3678c9fdfc035fd32ce005
     )
     message(STATUS "Configuring boost-unordered (${_boost_unordered_tag})...")
     add_library(colmap_boost_unordered INTERFACE)
