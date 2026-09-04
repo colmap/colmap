@@ -135,6 +135,28 @@ BuildScaledGeneralizedAbsolutePoseProblem() {
   return problem;
 }
 
+void MovePointBehindCamera(ScaledGeneralizedAbsolutePoseProblem* problem,
+                           const size_t i) {
+  const Rigid3d& cam_from_rig = problem->cams_from_rig[problem->camera_idxs[i]];
+  Eigen::Vector3d point3D_in_cam =
+      cam_from_rig * (problem->gt_rig_from_world * problem->points3D[i]);
+  point3D_in_cam.z() = -std::abs(point3D_in_cam.z());
+  problem->points3D[i] = Inverse(problem->gt_rig_from_world) *
+                         (Inverse(cam_from_rig) * point3D_in_cam);
+}
+
+Sim3d PerturbSim3d(const Sim3d& tform) {
+  const double rotation_noise_degree = 1;
+  const double translation_noise = 0.1;
+  const double scale_noise = 1.05;
+  const Sim3d perturbation(scale_noise,
+                           Eigen::Quaterniond(Eigen::AngleAxisd(
+                               DegToRad(rotation_noise_degree),
+                               RandomEigenVectord<3>().normalized())),
+                           RandomEigenVectord<3>() * translation_noise);
+  return perturbation * tform;
+}
+
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   GeneralizedAbsolutePoseProblem problem =
       BuildGeneralizedAbsolutePoseProblem();
