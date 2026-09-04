@@ -26,15 +26,11 @@ find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
 # header-only (boost-unordered is provided by the Boost::boost target), so no
 # extra linking is required.
 #
-# BOOST (boost::unordered_flat/node maps) is preferred, but its node maps
-# (boost::unordered_node_map) require Boost >= 1.84. When COLMAP_HASH_MAP_BACKEND
-# is empty we auto-select BOOST if the found Boost is new enough, else STD (so
-# e.g. builds against the system Boost on older distributions keep working).
-#
-# Note: downstream consumers re-run this file via find_package(colmap) with
-# COLMAP_HASH_MAP_BACKEND unset; they get the actual COLMAP_HASH_* macro from the
-# exported colmap targets, so the value re-derived here is only used to keep the
-# selection message and any local sources consistent.
+# The backend is part of COLMAP's ABI, so the default is fixed rather than
+# derived from the Boost installed here. BOOST (faster, requires Boost >= 1.84
+# for boost::unordered_node_map) must be applied to everything in the process.
+# find_package(colmap) pre-sets the value COLMAP was built with, so the selection
+# below reproduces that choice instead of re-deriving it.
 set(COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION "1.84.0")
 if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
     set(_colmap_boost_version "${Boost_VERSION_STRING}")
@@ -43,12 +39,18 @@ else()
 endif()
 string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" COLMAP_HASH_MAP_BACKEND)
 if(NOT COLMAP_HASH_MAP_BACKEND)
+    set(COLMAP_HASH_MAP_BACKEND "STD")
+elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "AUTO")
     if(_colmap_boost_version VERSION_GREATER_EQUAL
        "${COLMAP_HASH_MAP_BACKEND_MIN_BOOST_VERSION}")
         set(COLMAP_HASH_MAP_BACKEND "BOOST")
     else()
         set(COLMAP_HASH_MAP_BACKEND "STD")
     endif()
+    message(WARNING
+            "COLMAP_HASH_MAP_BACKEND=AUTO selected ${COLMAP_HASH_MAP_BACKEND} "
+            "from Boost ${_colmap_boost_version}, making the ABI depend on the "
+            "build machine. Pass STD or BOOST for a reproducible ABI.")
 endif()
 if(COLMAP_HASH_MAP_BACKEND STREQUAL "STD")
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_STD)
@@ -65,7 +67,7 @@ elseif(COLMAP_HASH_MAP_BACKEND STREQUAL "BOOST")
     list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_HASH_BOOST)
 else()
     message(FATAL_ERROR "Unknown COLMAP_HASH_MAP_BACKEND "
-            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST or empty)")
+            "'${COLMAP_HASH_MAP_BACKEND}' (expected STD, BOOST, AUTO or empty)")
 endif()
 message(STATUS "Using ${COLMAP_HASH_MAP_BACKEND} hash map backend "
         "(Boost ${_colmap_boost_version})")
