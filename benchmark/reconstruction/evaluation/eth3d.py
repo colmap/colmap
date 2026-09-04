@@ -37,12 +37,14 @@ _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 class _DatasetETH3D(Dataset):
     """Shared ETH3D scene discovery.
 
-    Subclasses supply `dataset_name`, `image_glob` and `calibration_glob` to
-    select one of the published ETH3D variants.
+    Subclasses supply `dataset_name` and `calibration_glob` to select one of
+    the published ETH3D variants. The image folders under images/ are named
+    per capture device (dslr_images_undistorted for the DSLR, one
+    images_rig_cam<i>_undistorted per camera for the rig), so they are not
+    matched by name.
     """
 
     dataset_name = ""
-    image_glob = ""
     calibration_glob = ""
 
     @property
@@ -74,13 +76,12 @@ class _DatasetETH3D(Dataset):
                     continue
 
                 image_path = scene_path / "images"
-                image_dirs = sorted(image_path.glob(self.image_glob))
                 sparse_gt_paths = sorted(scene_path.glob(self.calibration_glob))
-                if not image_dirs or not sparse_gt_paths:
+                if not image_path.is_dir() or not sparse_gt_paths:
                     pycolmap.logging.warning(
                         f"Skipping {self.dataset_name} scene "
                         f"{category}/{scene}: requires "
-                        f"images/{self.image_glob} and {self.calibration_glob}"
+                        f"images/ and {self.calibration_glob}"
                     )
                     continue
 
@@ -103,8 +104,7 @@ class _DatasetETH3D(Dataset):
 
                 num_images = sum(
                     1
-                    for image_dir in image_dirs
-                    for path in image_dir.rglob("*")
+                    for path in image_path.rglob("*")
                     if path.is_file() and path.suffix.lower() in _IMAGE_SUFFIXES
                 )
 
@@ -143,7 +143,6 @@ class DatasetETH3DUndistorted(_DatasetETH3D):
     """
 
     dataset_name = "eth3d"
-    image_glob = "*_images_undistorted"
     calibration_glob = "*_calibration_undistorted"
 
 
@@ -158,5 +157,4 @@ class DatasetETH3DDistorted(_DatasetETH3D):
     """
 
     dataset_name = "eth3d-distorted"
-    image_glob = "*_images"
     calibration_glob = "*_calibration_jpg"
