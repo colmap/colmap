@@ -305,20 +305,13 @@ TEST(RefineScaledGeneralizedAbsolutePose, Nominal) {
       BuildScaledGeneralizedAbsolutePoseProblem();
   const std::vector<char> gt_inlier_mask(problem.points2D.size(), true);
 
-  const double rotation_noise_degree = 1;
-  const double translation_noise = 0.1;
-  const double scale_noise = 1.05;
-  const Sim3d rig_from_gt_rig(scale_noise,
-                              Eigen::Quaterniond(Eigen::AngleAxisd(
-                                  DegToRad(rotation_noise_degree),
-                                  RandomEigenVectord<3>().normalized())),
-                              RandomEigenVectord<3>() * translation_noise);
-  Sim3d rig_from_world = rig_from_gt_rig * problem.gt_rig_from_world;
+  Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
 
   AbsolutePoseRefinementOptions options;
   options.refine_focal_length = false;
   options.refine_extra_params = false;
   Eigen::Matrix7d rig_from_world_cov = Eigen::Matrix7d::Zero();
+  const std::vector<Camera> gt_cameras = problem.cameras;
   EXPECT_TRUE(RefineScaledGeneralizedAbsolutePose(options,
                                                   gt_inlier_mask,
                                                   problem.points2D,
@@ -333,8 +326,47 @@ TEST(RefineScaledGeneralizedAbsolutePose, Nominal) {
                         /*stol=*/1e-6,
                         /*rtol=*/1e-6,
                         /*ttol=*/1e-6));
+  EXPECT_GT(rig_from_world.scale(), 0);
   EXPECT_NEAR(rig_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_NE(rig_from_world_cov, Eigen::Matrix7d::Zero());
+  EXPECT_TRUE(rig_from_world_cov.allFinite());
+  EXPECT_TRUE(rig_from_world_cov.isApprox(rig_from_world_cov.transpose()));
+  // Cameras are not refined and must be returned unchanged.
+  for (size_t i = 0; i < gt_cameras.size(); ++i) {
+    EXPECT_EQ(problem.cameras[i].params, gt_cameras[i].params);
+  }
+}
+
+TEST(RefineScaledGeneralizedAbsolutePose, StaleInliersAreIgnored) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  // Inlier observations that do not project at the initial estimate must
+  // neither abort the refinement nor bias it: the remaining observations are
+  // exact, so the refinement must still converge to the ground truth.
+  for (const size_t i : {0, 7, 20}) {
+    MovePointBehindCamera(&problem, i);
+  }
+
+  Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = false;
+  options.refine_extra_params = false;
+  const std::vector<char> inlier_mask(problem.points2D.size(), true);
+  EXPECT_TRUE(RefineScaledGeneralizedAbsolutePose(options,
+                                                  inlier_mask,
+                                                  problem.points2D,
+                                                  problem.points3D,
+                                                  problem.camera_idxs,
+                                                  problem.cams_from_rig,
+                                                  &rig_from_world,
+                                                  &problem.cameras));
+  EXPECT_THAT(rig_from_world,
+              Sim3dNear(problem.gt_rig_from_world,
+                        /*stol=*/1e-6,
+                        /*rtol=*/1e-6,
+                        /*ttol=*/1e-6));
 }
 
 TEST(EstimateScaledGeneralizedAbsolutePose, EmptyInputsFail) {
