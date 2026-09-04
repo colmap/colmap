@@ -289,6 +289,66 @@ TEST(EstimateScaledGeneralizedAbsolutePose, PanoramicRigFails) {
                                                      &inlier_mask));
 }
 
+TEST(EstimateScaledGeneralizedAbsolutePose, SingleCenterConsensusFails) {
+  // The first camera at the rig origin observing a scene in front of
+  // it, the second facing away from the scene and placed behind the first.
+  // For any model that is consistent with the observations of the first
+  // camera, the scene is scaled about the first camera's center, so it stays
+  // behind the second camera. The consensus set therefore only contains
+  // observations from a single projection center, for which the scale is
+  // unobservable, even though the input has multiple centers.
+  const Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1, CameraModelId::kPinhole, 500, 640, 480);
+  const std::vector<Camera> cameras = {camera, camera};
+  const std::vector<Rigid3d> cams_from_rig = {
+      Rigid3d(),
+      Rigid3d(Eigen::Quaterniond(
+                  Eigen::AngleAxisd(EIGEN_PI, Eigen::Vector3d::UnitX())),
+              Eigen::Vector3d(0, 0, -1))};
+  const Sim3d gt_rig_from_world(RandomUniformReal<double>(0.5, 2),
+                                RandomEigenQuaterniond(),
+                                RandomEigenVectord<3>());
+
+  constexpr int kNumPoints = 50;
+  std::vector<Eigen::Vector2d> points2D;
+  std::vector<Eigen::Vector3d> points3D;
+  std::vector<size_t> camera_idxs;
+  for (int i = 0; i < kNumPoints; ++i) {
+    const Eigen::Vector2d point2D(RandomUniformReal<double>(0, camera.width),
+                                  RandomUniformReal<double>(0, camera.height));
+    const Eigen::Vector3d point3D_in_rig =
+        RandomUniformReal<double>(1, 10) *
+        Eigen::Vector3d(camera.CamFromImg(point2D)->homogeneous());
+    const Eigen::Vector3d point3D = Inverse(gt_rig_from_world) * point3D_in_rig;
+    points2D.push_back(point2D);
+    points3D.push_back(point3D);
+    camera_idxs.push_back(0);
+    // The same point cannot be observed by the second camera; its arbitrary
+    // observation is an outlier for any model that fits the first camera.
+    points2D.emplace_back(RandomUniformReal<double>(0, camera.width),
+                          RandomUniformReal<double>(0, camera.height));
+    points3D.push_back(point3D);
+    camera_idxs.push_back(1);
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 2;
+  ransac_options.min_inlier_ratio = 0.1;
+
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_FALSE(EstimateScaledGeneralizedAbsolutePose(ransac_options,
+                                                     points2D,
+                                                     points3D,
+                                                     camera_idxs,
+                                                     cams_from_rig,
+                                                     cameras,
+                                                     &rig_from_world,
+                                                     &num_inliers,
+                                                     &inlier_mask));
+}
+
 TEST(RefineGeneralizedAbsolutePose, Nominal) {
   GeneralizedAbsolutePoseProblem problem =
       BuildGeneralizedAbsolutePoseProblem();
