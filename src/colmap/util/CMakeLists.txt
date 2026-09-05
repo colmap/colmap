@@ -57,7 +57,7 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         Eigen3::Eigen
         glog::glog
-        Boost::boost
+        ${COLMAP_BOOST_HEADER_LIBS}
         OpenImageIO::OpenImageIO
     PRIVATE_LINK_LIBS
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>

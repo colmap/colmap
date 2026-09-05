@@ -50,12 +50,28 @@ if(NOT DEFINED COLMAP_BOOST_FROM_SYSTEM)
     endif()
 endif()
 
+# The header-only Boost libraries COLMAP includes directly. A system Boost has
+# one include directory that Boost::headers already covers, but the CMake-native
+# Boost build keeps every library in its own directory and its own target, so
+# there they have to be named one by one. COLMAP_BOOST_HEADER_LIBS below is what
+# the targets link against.
+set(COLMAP_BOOST_HEADER_COMPONENTS
+    algorithm
+    container_hash
+    heap
+    preprocessor
+    property_map
+    property_tree
+    unordered
+    utility)
+
 if(COLMAP_BOOST_FROM_SYSTEM)
     find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
                  graph
                  program_options
                  OPTIONAL_COMPONENTS
                  system)
+    set(COLMAP_BOOST_HEADER_LIBS Boost::headers)
     if("${Boost_VERSION_STRING}" VERSION_LESS "${COLMAP_MIN_BOOST_VERSION}")
         message(FATAL_ERROR
                 "COLMAP requires Boost >= ${COLMAP_MIN_BOOST_VERSION} for "
@@ -69,7 +85,12 @@ elseif(COLMAP_BOOST_VENDORED_CONFIG_DIR)
     # rather than fetching and building a second copy.
     find_package(Boost ${COLMAP_FIND_TYPE} CONFIG
                  PATHS "${COLMAP_BOOST_VENDORED_CONFIG_DIR}" NO_DEFAULT_PATH
-                 COMPONENTS graph program_options)
+                 COMPONENTS graph program_options
+                            ${COLMAP_BOOST_HEADER_COMPONENTS})
+    set(COLMAP_BOOST_HEADER_LIBS Boost::headers)
+    foreach(_component IN LISTS COLMAP_BOOST_HEADER_COMPONENTS)
+        list(APPEND COLMAP_BOOST_HEADER_LIBS Boost::${_component})
+    endforeach()
     message(STATUS
             "Using Boost vendored by COLMAP at ${COLMAP_BOOST_VENDORED_CONFIG_DIR}")
 elseif(FETCH_BOOST)
@@ -79,16 +100,13 @@ elseif(FETCH_BOOST)
     # the rest of the archive is left alone. Building graph and program_options
     # from source is a few seconds of the total build.
     set(BOOST_INCLUDE_LIBRARIES
-        algorithm
-        container_hash
         graph
-        heap
-        predef
-        preprocessor
         program_options
-        property_map
-        property_tree
-        unordered)
+        ${COLMAP_BOOST_HEADER_COMPONENTS})
+    set(COLMAP_BOOST_HEADER_LIBS Boost::headers)
+    foreach(_component IN LISTS COLMAP_BOOST_HEADER_COMPONENTS)
+        list(APPEND COLMAP_BOOST_HEADER_LIBS Boost::${_component})
+    endforeach()
     set(BOOST_ENABLE_MPI OFF)
     set(BOOST_ENABLE_PYTHON OFF)
     set(BOOST_INSTALL_LAYOUT system)

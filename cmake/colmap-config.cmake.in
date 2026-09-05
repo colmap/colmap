@@ -113,9 +113,12 @@ endif()
 
 # Dependencies first: a vendored Boost is exported from its own export set
 # rather than imported, so colmap-targets.cmake checks that those targets
-# already exist and fails the whole package if they do not.
-include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
-include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
+# already exist and fails the whole package if they do not. The dependency
+# configs run their own @PACKAGE_INIT@ and overwrite PACKAGE_PREFIX_DIR with
+# their prefix, so remember COLMAP's before including them.
+set(COLMAP_PACKAGE_PREFIX_DIR ${PACKAGE_PREFIX_DIR})
+include(${COLMAP_PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
+include(${COLMAP_PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
 check_required_components(colmap)
 
 # Reset to previous value

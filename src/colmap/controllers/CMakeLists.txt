@@ -63,7 +63,7 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         colmap_sfm
         Ceres::ceres
-        Boost::boost
+        ${COLMAP_BOOST_HEADER_LIBS}
         faiss
 )
 if(MVS_ENABLED)
