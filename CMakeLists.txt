@@ -70,7 +70,9 @@ option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
-option(FETCH_BOOST "Whether to build a pinned Boost using FetchContent when the available Boost is older than the required version" ON)
+# Unlike the FETCH_* options above, this one is only a fallback: a system Boost
+# that is new enough is always preferred and nothing is downloaded then.
+option(FETCH_BOOST "Whether to fall back to building a pinned Boost using FetchContent if no system Boost of the required version is found" ON)
 option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 

@@ -94,6 +94,8 @@ elseif(COLMAP_BOOST_VENDORED_CONFIG_DIR)
     message(STATUS
             "Using Boost vendored by COLMAP at ${COLMAP_BOOST_VENDORED_CONFIG_DIR}")
 elseif(FETCH_BOOST)
+    # Fallback only, reached when the probe above found no system Boost of the
+    # required version. FETCH_BOOST being ON does not by itself download Boost.
     include(FetchContent)
     set(COLMAP_FETCH_BOOST_VERSION "1.92.0")
     # Only the libraries COLMAP uses, plus their dependencies, are configured;
