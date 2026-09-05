@@ -30,8 +30,11 @@
 #include "colmap/estimators/generalized_pose.h"
 
 #include "colmap/estimators/solvers/generalized_absolute_pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/geometry/sim3.h"
+#include "colmap/geometry/sim3_matchers.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
@@ -88,6 +91,72 @@ GeneralizedAbsolutePoseProblem BuildGeneralizedAbsolutePoseProblem() {
   return problem;
 }
 
+struct ScaledGeneralizedAbsolutePoseProblem {
+  Sim3d gt_rig_from_world;
+  std::vector<Eigen::Vector2d> points2D;
+  std::vector<Eigen::Vector3d> points3D;
+  std::vector<size_t> point3D_ids;
+  std::vector<size_t> camera_idxs;
+  std::vector<Rigid3d> cams_from_rig;
+  std::vector<Camera> cameras;
+};
+
+ScaledGeneralizedAbsolutePoseProblem
+BuildScaledGeneralizedAbsolutePoseProblem() {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  ScaledGeneralizedAbsolutePoseProblem problem;
+  problem.gt_rig_from_world = Sim3d(RandomUniformReal<double>(0.5, 2),
+                                    RandomEigenQuaterniond(),
+                                    RandomEigenVectord<3>());
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(image_id);
+    for (const auto& point2D : image.Points2D()) {
+      if (point2D.HasPoint3D()) {
+        problem.points2D.push_back(point2D.xy);
+        problem.points3D.push_back(
+            reconstruction.Point3D(point2D.point3D_id).xyz);
+        problem.point3D_ids.push_back(point2D.point3D_id);
+        problem.camera_idxs.push_back(problem.cameras.size());
+      }
+    }
+    problem.cameras.push_back(*image.CameraPtr());
+    // Rigid camera pose in the scaled rig frame. The uniform scaling of the
+    // camera frame leaves the image projections unchanged.
+    problem.cams_from_rig.push_back(
+        TransformCameraWorld(problem.gt_rig_from_world, image.CamFromWorld()));
+  }
+  return problem;
+}
+
+void MovePointBehindCamera(ScaledGeneralizedAbsolutePoseProblem* problem,
+                           const size_t i) {
+  const Rigid3d& cam_from_rig = problem->cams_from_rig[problem->camera_idxs[i]];
+  Eigen::Vector3d point3D_in_cam =
+      cam_from_rig * (problem->gt_rig_from_world * problem->points3D[i]);
+  point3D_in_cam.z() = -std::abs(point3D_in_cam.z());
+  problem->points3D[i] = Inverse(problem->gt_rig_from_world) *
+                         (Inverse(cam_from_rig) * point3D_in_cam);
+}
+
+Sim3d PerturbSim3d(const Sim3d& tform) {
+  const double rotation_noise_degree = 1;
+  const double translation_noise = 0.1;
+  const double scale_noise = 1.05;
+  const Sim3d perturbation(scale_noise,
+                           Eigen::Quaterniond(Eigen::AngleAxisd(
+                               DegToRad(rotation_noise_degree),
+                               RandomEigenVectord<3>().normalized())),
+                           RandomEigenVectord<3>() * translation_noise);
+  return perturbation * tform;
+}
+
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   GeneralizedAbsolutePoseProblem problem =
       BuildGeneralizedAbsolutePoseProblem();
@@ -139,6 +208,147 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
       Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
+TEST(EstimateScaledGeneralizedAbsolutePose, Nominal) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+  const size_t num_points = problem.points2D.size();
+
+  const double gt_inlier_ratio = 0.8;
+  const double outlier_distance = 50;
+  const size_t gt_num_inliers =
+      std::max(static_cast<size_t>(gt_inlier_ratio * num_points),
+               static_cast<size_t>(GP4PSEstimator::kMinNumSamples));
+  std::vector<size_t> shuffled_idxs(num_points);
+  std::iota(shuffled_idxs.begin(), shuffled_idxs.end(), 0);
+  std::shuffle(shuffled_idxs.begin(), shuffled_idxs.end(), *PRNG);
+
+  FlatHashSet<size_t> unique_inlier_ids;
+  unique_inlier_ids.reserve(gt_num_inliers);
+  for (size_t i = 0; i < gt_num_inliers; ++i) {
+    unique_inlier_ids.insert(problem.point3D_ids[shuffled_idxs[i]]);
+  }
+
+  std::vector<char> gt_inlier_mask(num_points, true);
+  for (size_t i = gt_num_inliers; i < num_points; ++i) {
+    problem.points2D[shuffled_idxs[i]] +=
+        RandomEigenVectord<2>().normalized() * outlier_distance;
+    gt_inlier_mask[shuffled_idxs[i]] = false;
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 2;
+  ransac_options.min_inlier_ratio = gt_inlier_ratio / 2;
+  ransac_options.confidence = 0.99999;
+
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_TRUE(EstimateScaledGeneralizedAbsolutePose(ransac_options,
+                                                    problem.points2D,
+                                                    problem.points3D,
+                                                    problem.camera_idxs,
+                                                    problem.cams_from_rig,
+                                                    problem.cameras,
+                                                    &rig_from_world,
+                                                    &num_inliers,
+                                                    &inlier_mask));
+  EXPECT_EQ(num_inliers, unique_inlier_ids.size());
+  EXPECT_EQ(inlier_mask, gt_inlier_mask);
+  EXPECT_THAT(rig_from_world,
+              Sim3dNear(problem.gt_rig_from_world,
+                        /*stol=*/1e-5,
+                        /*rtol=*/1e-5,
+                        /*ttol=*/1e-5));
+}
+
+TEST(EstimateScaledGeneralizedAbsolutePose, PanoramicRigFails) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  // Move all cameras to a shared projection center, making the rig geometry
+  // scale unobservable.
+  const Eigen::Vector3d center = RandomEigenVectord<3>();
+  for (Rigid3d& cam_from_rig : problem.cams_from_rig) {
+    cam_from_rig.translation() = cam_from_rig.rotation() * -center;
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 2;
+
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_FALSE(EstimateScaledGeneralizedAbsolutePose(ransac_options,
+                                                     problem.points2D,
+                                                     problem.points3D,
+                                                     problem.camera_idxs,
+                                                     problem.cams_from_rig,
+                                                     problem.cameras,
+                                                     &rig_from_world,
+                                                     &num_inliers,
+                                                     &inlier_mask));
+}
+
+TEST(EstimateScaledGeneralizedAbsolutePose, SingleCenterConsensusFails) {
+  // The first camera at the rig origin observing a scene in front of
+  // it, the second facing away from the scene and placed behind the first.
+  // For any model that is consistent with the observations of the first
+  // camera, the scene is scaled about the first camera's center, so it stays
+  // behind the second camera. The consensus set therefore only contains
+  // observations from a single projection center, for which the scale is
+  // unobservable, even though the input has multiple centers.
+  const Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1, CameraModelId::kPinhole, 500, 640, 480);
+  const std::vector<Camera> cameras = {camera, camera};
+  const std::vector<Rigid3d> cams_from_rig = {
+      Rigid3d(),
+      Rigid3d(Eigen::Quaterniond(
+                  Eigen::AngleAxisd(EIGEN_PI, Eigen::Vector3d::UnitX())),
+              Eigen::Vector3d(0, 0, -1))};
+  const Sim3d gt_rig_from_world(RandomUniformReal<double>(0.5, 2),
+                                RandomEigenQuaterniond(),
+                                RandomEigenVectord<3>());
+
+  constexpr int kNumPoints = 50;
+  std::vector<Eigen::Vector2d> points2D;
+  std::vector<Eigen::Vector3d> points3D;
+  std::vector<size_t> camera_idxs;
+  for (int i = 0; i < kNumPoints; ++i) {
+    const Eigen::Vector2d point2D(RandomUniformReal<double>(0, camera.width),
+                                  RandomUniformReal<double>(0, camera.height));
+    const Eigen::Vector3d point3D_in_rig =
+        RandomUniformReal<double>(1, 10) *
+        Eigen::Vector3d(camera.CamFromImg(point2D)->homogeneous());
+    const Eigen::Vector3d point3D = Inverse(gt_rig_from_world) * point3D_in_rig;
+    points2D.push_back(point2D);
+    points3D.push_back(point3D);
+    camera_idxs.push_back(0);
+    // The same point cannot be observed by the second camera; its arbitrary
+    // observation is an outlier for any model that fits the first camera.
+    points2D.emplace_back(RandomUniformReal<double>(0, camera.width),
+                          RandomUniformReal<double>(0, camera.height));
+    points3D.push_back(point3D);
+    camera_idxs.push_back(1);
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 2;
+  ransac_options.min_inlier_ratio = 0.1;
+
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_FALSE(EstimateScaledGeneralizedAbsolutePose(ransac_options,
+                                                     points2D,
+                                                     points3D,
+                                                     camera_idxs,
+                                                     cams_from_rig,
+                                                     cameras,
+                                                     &rig_from_world,
+                                                     &num_inliers,
+                                                     &inlier_mask));
+}
+
 TEST(RefineGeneralizedAbsolutePose, Nominal) {
   GeneralizedAbsolutePoseProblem problem =
       BuildGeneralizedAbsolutePoseProblem();
@@ -170,6 +380,222 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
       Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
   EXPECT_NEAR(rig_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_NE(rig_from_world_cov, Eigen::Matrix6d::Zero());
+}
+
+TEST(RefineScaledGeneralizedAbsolutePose, Nominal) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+  const std::vector<char> gt_inlier_mask(problem.points2D.size(), true);
+
+  Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = false;
+  options.refine_extra_params = false;
+  Eigen::Matrix7d rig_from_world_cov = Eigen::Matrix7d::Zero();
+  const std::vector<Camera> gt_cameras = problem.cameras;
+  EXPECT_TRUE(RefineScaledGeneralizedAbsolutePose(options,
+                                                  gt_inlier_mask,
+                                                  problem.points2D,
+                                                  problem.points3D,
+                                                  problem.camera_idxs,
+                                                  problem.cams_from_rig,
+                                                  &rig_from_world,
+                                                  &problem.cameras,
+                                                  &rig_from_world_cov));
+  EXPECT_THAT(rig_from_world,
+              Sim3dNear(problem.gt_rig_from_world,
+                        /*stol=*/1e-6,
+                        /*rtol=*/1e-6,
+                        /*ttol=*/1e-6));
+  EXPECT_GT(rig_from_world.scale(), 0);
+  EXPECT_NEAR(rig_from_world.rotation().norm(), 1.0, 1e-6);
+  EXPECT_NE(rig_from_world_cov, Eigen::Matrix7d::Zero());
+  EXPECT_TRUE(rig_from_world_cov.allFinite());
+  EXPECT_TRUE(rig_from_world_cov.isApprox(rig_from_world_cov.transpose()));
+  // Cameras are not refined and must be returned unchanged.
+  for (size_t i = 0; i < gt_cameras.size(); ++i) {
+    EXPECT_EQ(problem.cameras[i].params, gt_cameras[i].params);
+  }
+}
+
+TEST(RefineScaledGeneralizedAbsolutePose, StaleInliersAreIgnored) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  // Inlier observations that do not project at the initial estimate must
+  // neither abort the refinement nor bias it: the remaining observations are
+  // exact, so the refinement must still converge to the ground truth.
+  for (const size_t i : {0, 7, 20}) {
+    MovePointBehindCamera(&problem, i);
+  }
+
+  Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = false;
+  options.refine_extra_params = false;
+  const std::vector<char> inlier_mask(problem.points2D.size(), true);
+  EXPECT_TRUE(RefineScaledGeneralizedAbsolutePose(options,
+                                                  inlier_mask,
+                                                  problem.points2D,
+                                                  problem.points3D,
+                                                  problem.camera_idxs,
+                                                  problem.cams_from_rig,
+                                                  &rig_from_world,
+                                                  &problem.cameras));
+  EXPECT_THAT(rig_from_world,
+              Sim3dNear(problem.gt_rig_from_world,
+                        /*stol=*/1e-6,
+                        /*rtol=*/1e-6,
+                        /*ttol=*/1e-6));
+}
+
+TEST(EstimateScaledGeneralizedAbsolutePose, EmptyInputsFail) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 2;
+
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_FALSE(EstimateScaledGeneralizedAbsolutePose(ransac_options,
+                                                     /*points2D=*/{},
+                                                     /*points3D=*/{},
+                                                     /*camera_idxs=*/{},
+                                                     problem.cams_from_rig,
+                                                     problem.cameras,
+                                                     &rig_from_world,
+                                                     &num_inliers,
+                                                     &inlier_mask));
+}
+
+TEST(RefineScaledGeneralizedAbsolutePose, PanoramicInliersFail) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = false;
+  options.refine_extra_params = false;
+
+  // The scale is unobservable if the inlier mask only selects observations
+  // from a single projection center, so the arbitrary initial scale must not
+  // be reported as successfully refined.
+  const double initial_scale = 2;
+  Sim3d rig_from_world(initial_scale,
+                       problem.gt_rig_from_world.rotation(),
+                       problem.gt_rig_from_world.translation());
+  std::vector<char> single_camera_inlier_mask(problem.points2D.size());
+  for (size_t i = 0; i < problem.camera_idxs.size(); ++i) {
+    single_camera_inlier_mask[i] = problem.camera_idxs[i] == 0;
+  }
+  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
+                                                   single_camera_inlier_mask,
+                                                   problem.points2D,
+                                                   problem.points3D,
+                                                   problem.camera_idxs,
+                                                   problem.cams_from_rig,
+                                                   &rig_from_world,
+                                                   &problem.cameras));
+  EXPECT_EQ(rig_from_world.scale(), initial_scale);
+
+  // Same for a rig whose cameras share one projection center.
+  std::vector<Rigid3d> central_cams_from_rig = problem.cams_from_rig;
+  const Eigen::Vector3d center = RandomEigenVectord<3>();
+  for (Rigid3d& cam_from_rig : central_cams_from_rig) {
+    cam_from_rig.translation() = cam_from_rig.rotation() * -center;
+  }
+  const std::vector<char> all_inlier_mask(problem.points2D.size(), true);
+  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
+                                                   all_inlier_mask,
+                                                   problem.points2D,
+                                                   problem.points3D,
+                                                   problem.camera_idxs,
+                                                   central_cams_from_rig,
+                                                   &rig_from_world,
+                                                   &problem.cameras));
+  EXPECT_EQ(rig_from_world.scale(), initial_scale);
+
+  // An empty inlier set leaves the problem unconstrained.
+  const std::vector<char> empty_inlier_mask(problem.points2D.size(), false);
+  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
+                                                   empty_inlier_mask,
+                                                   problem.points2D,
+                                                   problem.points3D,
+                                                   problem.camera_idxs,
+                                                   problem.cams_from_rig,
+                                                   &rig_from_world,
+                                                   &problem.cameras));
+  EXPECT_EQ(rig_from_world.scale(), initial_scale);
+}
+
+TEST(RefineScaledGeneralizedAbsolutePose, PointsBehindCamerasFail) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  // Move every 3D point behind its observing camera. No observation
+  // constrains the reprojection cost at the initial estimate, so refinement
+  // must fail instead of accepting the invalid pose as a perfect fit, and
+  // must leave the inputs untouched.
+  for (size_t i = 0; i < problem.points3D.size(); ++i) {
+    MovePointBehindCamera(&problem, i);
+  }
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = true;
+  options.refine_extra_params = true;
+
+  Sim3d rig_from_world = problem.gt_rig_from_world;
+  const std::vector<Camera> init_cameras = problem.cameras;
+  const std::vector<char> inlier_mask(problem.points2D.size(), true);
+  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
+                                                   inlier_mask,
+                                                   problem.points2D,
+                                                   problem.points3D,
+                                                   problem.camera_idxs,
+                                                   problem.cams_from_rig,
+                                                   &rig_from_world,
+                                                   &problem.cameras));
+  EXPECT_EQ(rig_from_world.params, problem.gt_rig_from_world.params);
+  for (size_t i = 0; i < init_cameras.size(); ++i) {
+    EXPECT_EQ(problem.cameras[i].params, init_cameras[i].params);
+  }
+}
+
+TEST(RefineScaledGeneralizedAbsolutePose, SingleCenterAfterValidationFails) {
+  ScaledGeneralizedAbsolutePoseProblem problem =
+      BuildScaledGeneralizedAbsolutePoseProblem();
+
+  // The inlier mask selects observations from multiple centers, but only
+  // those of the first camera project at the initial estimate. The remaining
+  // active observations share a single center, so the scale is unobservable
+  // and the arbitrary initial scale must not be reported as refined.
+  for (size_t i = 0; i < problem.points3D.size(); ++i) {
+    if (problem.camera_idxs[i] != 0) {
+      MovePointBehindCamera(&problem, i);
+    }
+  }
+
+  AbsolutePoseRefinementOptions options;
+  options.refine_focal_length = false;
+  options.refine_extra_params = false;
+
+  const double initial_scale = 2;
+  Sim3d rig_from_world(initial_scale,
+                       problem.gt_rig_from_world.rotation(),
+                       problem.gt_rig_from_world.translation());
+  const std::vector<char> inlier_mask(problem.points2D.size(), true);
+  EXPECT_FALSE(RefineScaledGeneralizedAbsolutePose(options,
+                                                   inlier_mask,
+                                                   problem.points2D,
+                                                   problem.points3D,
+                                                   problem.camera_idxs,
+                                                   problem.cams_from_rig,
+                                                   &rig_from_world,
+                                                   &problem.cameras));
+  EXPECT_EQ(rig_from_world.scale(), initial_scale);
 }
 
 TEST(RefineGeneralizedAbsolutePose, PositionPrior) {

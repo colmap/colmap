@@ -31,6 +31,7 @@
 
 #include "colmap/estimators/pose.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
@@ -62,6 +63,37 @@ bool EstimateGeneralizedAbsolutePose(
     const std::vector<Rigid3d>& cams_from_rig,
     const std::vector<Camera>& cameras,
     Rigid3d* rig_from_world,
+    size_t* num_inliers,
+    std::vector<char>* inlier_mask);
+
+// Estimate generalized absolute pose and scale from 2D-3D correspondences.
+//
+// In contrast to EstimateGeneralizedAbsolutePose, the internal rig geometry
+// is treated as rigid but of unknown global scale.
+//
+// @param options              RANSAC options.
+// @param points2D             Corresponding 2D points.
+// @param points3D             Corresponding 3D points.
+// @param camera_idxs          Index of the rig camera for each correspondence.
+// @param cams_from_rig        Relative pose from rig to each camera frame.
+// @param cameras              Cameras for which to estimate pose.
+// @param rig_from_world       Estimated rig from world transform, mapping
+//                             world points into the rig frame in which the
+//                             given cams_from_rig are valid. Its scale is the
+//                             inverse scale of the rig geometry relative to
+//                             the world.
+// @param num_inliers          Number of inliers in RANSAC.
+// @param inlier_mask          Inlier mask for 2D-3D correspondences.
+//
+// @return                     Whether pose is estimated successfully.
+bool EstimateScaledGeneralizedAbsolutePose(
+    const RANSACOptions& options,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Rigid3d>& cams_from_rig,
+    const std::vector<Camera>& cameras,
+    Sim3d* rig_from_world,
     size_t* num_inliers,
     std::vector<char>* inlier_mask);
 
@@ -124,6 +156,50 @@ bool RefineGeneralizedAbsolutePose(
     Rigid3d* rig_from_world,
     std::vector<Camera>* cameras,
     Eigen::Matrix6d* rig_from_world_cov = nullptr);
+
+// Refine generalized absolute pose and scale (optionally focal lengths)
+// from 2D-3D correspondences.
+//
+// Only inlier observations that project in front of their camera at the
+// initial estimate constrain the refinement; the others (e.g., stale inliers)
+// are excluded. The remaining observations define the domain of the cost: a
+// trial step that moves one of them behind its camera is rejected by the
+// solver. The scale is optimized in log-space and therefore stays positive.
+// The output arguments are only modified after a successful solve.
+//
+// @param options              Refinement options. Position priors are not
+//                             supported.
+// @param inlier_mask          Inlier mask for 2D-3D correspondences.
+// @param points2D             Corresponding 2D points.
+// @param points3D             Corresponding 3D points.
+// @param camera_idxs          Index of the rig camera for each correspondence.
+// @param cams_from_rig        Relative pose from rig to each camera frame.
+// @param rig_from_world       Estimated rig from world transform with scale,
+//                             as computed by
+//                             EstimateScaledGeneralizedAbsolutePose. Must
+//                             have positive scale. Overwritten with the
+//                             refined transform on success.
+// @param cameras              Cameras for which to estimate pose. Overwritten
+//                             with the refined focal lengths on success.
+// @param rig_from_world_cov   Estimated 7x7 covariance matrix of the rotation
+//                             (as axis-angle, in tangent space), translation,
+//                             and scale terms (optional).
+//
+// @return                     Whether the solution is usable. Fails if the
+//                             active observations, i.e., those selected by
+//                             the inlier mask that project at the initial
+//                             estimate, are empty or project from a single
+//                             center, for which the scale is unobservable.
+bool RefineScaledGeneralizedAbsolutePose(
+    const AbsolutePoseRefinementOptions& options,
+    const std::vector<char>& inlier_mask,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Rigid3d>& cams_from_rig,
+    Sim3d* rig_from_world,
+    std::vector<Camera>* cameras,
+    Eigen::Matrix7d* rig_from_world_cov = nullptr);
 
 struct StructureLessAbsolutePoseEstimationOptions {
   // Options used for RANSAC.

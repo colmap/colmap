@@ -133,6 +133,128 @@ py::typing::Optional<py::dict> PyEstimateAndRefineGeneralizedAbsolutePose(
   return dict;
 }
 
+py::typing::Optional<py::dict> PyEstimateScaledGeneralizedAbsolutePose(
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Rigid3d>& cams_from_rig,
+    const std::vector<Camera>& cameras,
+    const RANSACOptions& estimation_options) {
+  py::gil_scoped_release release;
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  if (!EstimateScaledGeneralizedAbsolutePose(estimation_options,
+                                             points2D,
+                                             points3D,
+                                             camera_idxs,
+                                             cams_from_rig,
+                                             cameras,
+                                             &rig_from_world,
+                                             &num_inliers,
+                                             &inlier_mask)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+
+  py::gil_scoped_acquire acquire;
+  return py::dict("rig_from_world"_a = rig_from_world,
+                  "num_inliers"_a = num_inliers,
+                  "inlier_mask"_a = ToPythonMask(inlier_mask));
+}
+
+py::typing::Optional<py::dict> PyRefineScaledGeneralizedAbsolutePose(
+    const Sim3d& init_rig_from_world,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const PyInlierMask& inlier_mask,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Rigid3d>& cams_from_rig,
+    const std::vector<Camera>& cameras,
+    const AbsolutePoseRefinementOptions& refinement_options,
+    const bool return_covariance) {
+  py::gil_scoped_release release;
+  Sim3d refined_rig_from_world = init_rig_from_world;
+  // The STL conversion of the input is a temporary, so the refined cameras
+  // are returned explicitly.
+  std::vector<Camera> refined_cameras = cameras;
+  std::vector<char> inlier_mask_char(inlier_mask.size());
+  Eigen::Map<Eigen::Matrix<char, Eigen::Dynamic, 1>>(
+      inlier_mask_char.data(), inlier_mask.size()) = inlier_mask.cast<char>();
+  Eigen::Matrix7d covariance;
+  if (!RefineScaledGeneralizedAbsolutePose(
+          refinement_options,
+          inlier_mask_char,
+          points2D,
+          points3D,
+          camera_idxs,
+          cams_from_rig,
+          &refined_rig_from_world,
+          &refined_cameras,
+          return_covariance ? &covariance : nullptr)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+  py::gil_scoped_acquire acquire;
+  py::dict result("rig_from_world"_a = refined_rig_from_world,
+                  "cameras"_a = refined_cameras);
+  if (return_covariance) result["covariance"] = covariance;
+  return result;
+}
+
+py::typing::Optional<py::dict> PyEstimateAndRefineScaledGeneralizedAbsolutePose(
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Rigid3d>& cams_from_rig,
+    const std::vector<Camera>& cameras,
+    const RANSACOptions& ransac_options,
+    const AbsolutePoseRefinementOptions& refinement_options,
+    const bool return_covariance) {
+  py::gil_scoped_release release;
+  Sim3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  if (!EstimateScaledGeneralizedAbsolutePose(ransac_options,
+                                             points2D,
+                                             points3D,
+                                             camera_idxs,
+                                             cams_from_rig,
+                                             cameras,
+                                             &rig_from_world,
+                                             &num_inliers,
+                                             &inlier_mask)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+
+  // The STL conversion of the input is a temporary, so the refined cameras
+  // are returned explicitly.
+  std::vector<Camera> refined_cameras = cameras;
+  Eigen::Matrix7d covariance;
+  if (!RefineScaledGeneralizedAbsolutePose(
+          refinement_options,
+          inlier_mask,
+          points2D,
+          points3D,
+          camera_idxs,
+          cams_from_rig,
+          &rig_from_world,
+          &refined_cameras,
+          return_covariance ? &covariance : nullptr)) {
+    py::gil_scoped_acquire acquire;
+    return py::none();
+  }
+
+  py::gil_scoped_acquire acquire;
+  py::dict dict("rig_from_world"_a = rig_from_world,
+                "num_inliers"_a = num_inliers,
+                "inlier_mask"_a = ToPythonMask(inlier_mask),
+                "cameras"_a = refined_cameras);
+  if (return_covariance) dict["covariance"] = covariance;
+  return dict;
+}
+
 py::typing::Optional<py::dict> PyEstimateGeneralizedRelativePose(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
@@ -209,6 +331,51 @@ void BindGeneralizedAbsolutePoseEstimator(py::module& m) {
         "return_covariance"_a = false,
         "Robustly estimate generalized absolute pose using LO-RANSAC"
         "followed by non-linear refinement.");
+
+  m.def("estimate_scaled_generalized_absolute_pose",
+        &PyEstimateScaledGeneralizedAbsolutePose,
+        "points2D"_a,
+        "points3D"_a,
+        "camera_idxs"_a,
+        "cams_from_rig"_a,
+        "cameras"_a,
+        py::arg_v("estimation_options", RANSACOptions(), "RANSACOptions()"),
+        "Robustly estimate generalized absolute pose and the scale of the "
+        "rig geometry using LO-RANSAC.");
+
+  m.def("refine_scaled_generalized_absolute_pose",
+        &PyRefineScaledGeneralizedAbsolutePose,
+        "rig_from_world"_a,
+        "points2D"_a,
+        "points3D"_a,
+        "inlier_mask"_a,
+        "camera_idxs"_a,
+        "cams_from_rig"_a,
+        "cameras"_a,
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "return_covariance"_a = false,
+        "Refine generalized absolute pose and scale with non-linear "
+        "refinement. Returns the refined rig_from_world and cameras (and "
+        "optionally the 7x7 covariance), or None on failure.");
+
+  m.def("estimate_and_refine_scaled_generalized_absolute_pose",
+        &PyEstimateAndRefineScaledGeneralizedAbsolutePose,
+        "points2D"_a,
+        "points3D"_a,
+        "camera_idxs"_a,
+        "cams_from_rig"_a,
+        "cameras"_a,
+        py::arg_v("estimation_options", RANSACOptions(), "RANSACOptions()"),
+        py::arg_v("refinement_options",
+                  AbsolutePoseRefinementOptions(),
+                  "AbsolutePoseRefinementOptions()"),
+        "return_covariance"_a = false,
+        "Robustly estimate generalized absolute pose and scale using "
+        "LO-RANSAC followed by non-linear refinement. Returns the refined "
+        "rig_from_world, inliers, and cameras (and optionally the 7x7 "
+        "covariance), or None on failure.");
 
   m.def("estimate_generalized_relative_pose",
         &PyEstimateGeneralizedRelativePose,
