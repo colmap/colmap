@@ -56,6 +56,14 @@ if(NOT COLMAP_BOOST_UNORDERED_FROM_SYSTEM AND FETCH_BOOST_UNORDERED)
     )
     message(STATUS "Configuring boost-unordered (${_boost_unordered_tag})...")
     add_library(colmap_boost_unordered INTERFACE)
+    # These headers shadow the same modules in the older system Boost, so the
+    # rest of Boost (property_tree, graph, ...) ends up calling into them. Where
+    # the newer copy has since deprecated a symbol the older callers still use
+    # -- boost::swap in boost/core, called by property_tree -- the diagnostic is
+    # attributed to the instantiation site in COLMAP's own sources rather than
+    # to a system header, so it is not suppressed and -Werror rejects it.
+    target_compile_definitions(colmap_boost_unordered INTERFACE
+        BOOST_ALLOW_DEPRECATED)
     while(_boost_unordered_modules)
         list(POP_FRONT _boost_unordered_modules _module _hash)
         # SOURCE_SUBDIR names a directory without a CMakeLists.txt so that the
