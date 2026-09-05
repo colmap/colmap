@@ -149,11 +149,8 @@ jobs:
             # during CUDA compiler detection.
             $env:CUDAFLAGS = "-allow-unsupported-compiler"
           }
-          # The package ships no headers or libraries, so nothing links against
-          # it and it can use the faster non-default hash map backend.
           cmake .. `
             -GNinja `
-            -DCOLMAP_HASH_MAP_BACKEND=BOOST `
             -DCMAKE_MAKE_PROGRAM=ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DTESTS_ENABLED=${{ matrix.config.testsEnabled }} `

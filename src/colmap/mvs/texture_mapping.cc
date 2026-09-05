@@ -47,6 +47,10 @@
 
 #if defined(COLMAP_CGAL_ENABLED)
 #include <CGAL/version.h>
+// Older CGAL releases use boost::prior without including its header and rely
+// on another Boost header pulling it in. That no longer happens with the Boost
+// COLMAP pins, so include it here, ahead of the CGAL headers that need it.
+#include <boost/next_prior.hpp>
 #if CGAL_VERSION_MAJOR >= 6
 #include <CGAL/AABB_traits_3.h>
 #include <CGAL/AABB_triangle_primitive_3.h>

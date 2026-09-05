@@ -47,7 +47,7 @@ COLMAP_ADD_LIBRARY(
         Boost::graph
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
-        Boost::boost
+        ${COLMAP_BOOST_HEADER_LIBS}
         metis
 )
 

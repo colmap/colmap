@@ -70,21 +70,15 @@ option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
+# Unlike the FETCH_* options above, this one is only a fallback: a system Boost
+# that is new enough is always preferred and nothing is downloaded then.
+option(FETCH_BOOST "Whether to fall back to building a pinned Boost using FetchContent if no system Boost of the required version is found" ON)
 option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Experimental
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
-
-# Hash map backend used by the performance-critical scene/SfM containers (see
-# src/colmap/util/hash_containers.h). Part of COLMAP's ABI, hence a fixed default
-# rather than one derived from the build machine. BOOST is faster but must be
-# applied to everything loaded alongside COLMAP. AUTO is the old host-dependent
-# selection, kept only for compatibility.
-set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
-    "Hash map backend for scene/SfM containers: STD, BOOST, or AUTO")
-set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST AUTO)
 
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
@@ -145,6 +139,18 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 # COLMAP's static libraries.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# The build type has to be settled before the dependencies are configured. The
+# ones built as subprojects install per-configuration export files, and a
+# subproject configured with an empty CMAKE_BUILD_TYPE installs none, leaving
+# its imported targets without an IMPORTED_LOCATION for consumers.
+if(CMAKE_BUILD_TYPE)
+    message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
+else()
+    message(STATUS "Build type not specified, using Release")
+    set(CMAKE_BUILD_TYPE Release)
+    set(IS_DEBUG OFF)
+endif()
+
 ################################################################################
 # Dependency configuration
 ################################################################################
@@ -155,14 +161,6 @@ include(cmake/FindDependencies.cmake)
 ################################################################################
 # Compiler specific configuration
 ################################################################################
-
-if(CMAKE_BUILD_TYPE)
-    message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
-else()
-    message(STATUS "Build type not specified, using Release")
-    set(CMAKE_BUILD_TYPE Release)
-    set(IS_DEBUG OFF)
-endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_program(CLANG_TIDY_EXE NAMES clang-tidy)

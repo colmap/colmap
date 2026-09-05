@@ -162,25 +162,21 @@ Configure and compile COLMAP::
 
 .. note::
 
-    COLMAP can use ``boost::unordered`` flat/node hash maps for the
-    performance-critical scene and SfM containers, selected via
-    ``-DCOLMAP_HASH_MAP_BACKEND=STD|BOOST`` (default: ``STD``). ``BOOST`` is
-    faster but requires **Boost >= 1.84** for ``boost::unordered_node_map``;
-    requesting it with an older Boost, such as the apt Boost on Ubuntu 24.04
-    (1.83) and earlier, is a configuration error. vcpkg installs a new enough
-    ``boost-unordered``.
+    COLMAP uses ``boost::unordered`` flat/node hash maps for the
+    performance-critical scene and SfM containers. These are data members of
+    classes in public headers, so their layout is part of COLMAP's ABI, and a
+    mismatch between two COLMAP builds loaded into one process produces no link
+    error, only memory corruption. There is therefore no build option to swap
+    them for ``std::unordered_*``.
 
-    **The backend is part of COLMAP's ABI.** These containers are data members of
-    classes in public headers, so ``sizeof(Reconstruction)`` is 320 bytes with
-    ``STD`` and 280 with ``BOOST`` on x86-64 Linux, and a mismatch produces no
-    link error, only memory corruption. Every binary sharing COLMAP types in one
-    process must agree, including the prebuilt ``pycolmap`` wheels, which use the
-    default. Query a build with ``colmap -h``, ``pycolmap.__hash_map_backend__``
-    or ``colmap::kHashMapBackend``.
-
-    ``AUTO`` picks the backend from the available Boost version, as older COLMAP
-    releases did. Avoid it: two machines then build different ABIs from the same
-    source and arguments.
+    ``boost::unordered_node_map`` requires **Boost >= 1.84**, which is newer than
+    the apt Boost on Ubuntu 24.04 (1.83) and earlier. Where the available Boost
+    is new enough it is used as it is and nothing is downloaded. Only where it
+    is too old does the build download a pinned Boost release (about 100 MB) and
+    build the libraries COLMAP uses from source, installing them alongside
+    COLMAP. Only Boost is taken from that copy, so its headers and compiled
+    libraries always match. Pass ``-DFETCH_BOOST=OFF`` to require a new enough
+    system Boost instead and fail at configure time if there is none.
 
 Run COLMAP::
 

@@ -87,18 +87,20 @@ set(FETCH_POSELIB @FETCH_POSELIB@)
 
 set(FETCH_FAISS @FETCH_FAISS@)
 
-# Backend COLMAP was built with. Pre-setting it makes FindDependencies.cmake
-# below follow the installed binaries instead of the consumer's Boost.
-string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" _colmap_requested_hash_map_backend)
-if(_colmap_requested_hash_map_backend AND
-   NOT _colmap_requested_hash_map_backend STREQUAL "@COLMAP_HASH_MAP_BACKEND@")
-    message(WARNING
-            "Ignoring COLMAP_HASH_MAP_BACKEND="
-            "${_colmap_requested_hash_map_backend}: the installed COLMAP was "
-            "built with @COLMAP_HASH_MAP_BACKEND@.")
+set(FETCH_BOOST @FETCH_BOOST@)
+
+# Where the installed COLMAP got Boost from. Pre-setting this makes
+# FindDependencies.cmake below follow the installed binaries: if COLMAP built a
+# pinned Boost, that copy was installed alongside COLMAP and the consumer is
+# pointed at it; if COLMAP used the system Boost, the consumer's Boost has to be
+# new enough too, and gets a configure-time error rather than a silently
+# different container layout.
+set(COLMAP_BOOST_FROM_SYSTEM @COLMAP_BOOST_FROM_SYSTEM@)
+if(NOT COLMAP_BOOST_FROM_SYSTEM)
+    # The vendored Boost installed its own package config into COLMAP's prefix.
+    set(COLMAP_BOOST_VENDORED_CONFIG_DIR
+        "${PACKAGE_PREFIX_DIR}/@COLMAP_BOOST_INSTALL_CMAKEDIR@")
 endif()
-unset(_colmap_requested_hash_map_backend)
-set(COLMAP_HASH_MAP_BACKEND "@COLMAP_HASH_MAP_BACKEND@")
 
 set(FETCH_ONNX FALSE)
 if(@FETCH_ONNX@)
@@ -109,8 +111,14 @@ if(@FETCH_ONNX@)
     set(onnxruntime_LIBRARY_DIR_HINTS ${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@ CACHE PATH "ONNX Runtime library directory hints")
 endif()
 
-include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
-include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
+# Dependencies first: a vendored Boost is exported from its own export set
+# rather than imported, so colmap-targets.cmake checks that those targets
+# already exist and fails the whole package if they do not. The dependency
+# configs run their own @PACKAGE_INIT@ and overwrite PACKAGE_PREFIX_DIR with
+# their prefix, so remember COLMAP's before including them.
+set(COLMAP_PACKAGE_PREFIX_DIR ${PACKAGE_PREFIX_DIR})
+include(${COLMAP_PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
+include(${COLMAP_PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
 check_required_components(colmap)
 
 # Reset to previous value

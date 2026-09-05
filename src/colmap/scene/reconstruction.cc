@@ -418,6 +418,9 @@ void Reconstruction::AddRig(class Rig rig) {
   THROW_CHECK(rigs_.emplace(rig_id, std::move(rig)).second);
 }
 
+// Taken by value and moved into cameras_; clang-tidy does not recognize the
+// move through the variadic emplace of boost::unordered.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void Reconstruction::AddCamera(struct Camera camera) {
   const camera_t camera_id = camera.camera_id;
   THROW_CHECK(camera.VerifyParams());
