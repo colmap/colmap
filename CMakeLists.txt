@@ -139,6 +139,18 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 # COLMAP's static libraries.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# The build type has to be settled before the dependencies are configured. The
+# ones built as subprojects install per-configuration export files, and a
+# subproject configured with an empty CMAKE_BUILD_TYPE installs none, leaving
+# its imported targets without an IMPORTED_LOCATION for consumers.
+if(CMAKE_BUILD_TYPE)
+    message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
+else()
+    message(STATUS "Build type not specified, using Release")
+    set(CMAKE_BUILD_TYPE Release)
+    set(IS_DEBUG OFF)
+endif()
+
 ################################################################################
 # Dependency configuration
 ################################################################################
@@ -149,14 +161,6 @@ include(cmake/FindDependencies.cmake)
 ################################################################################
 # Compiler specific configuration
 ################################################################################
-
-if(CMAKE_BUILD_TYPE)
-    message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
-else()
-    message(STATUS "Build type not specified, using Release")
-    set(CMAKE_BUILD_TYPE Release)
-    set(IS_DEBUG OFF)
-endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_program(CLANG_TIDY_EXE NAMES clang-tidy)

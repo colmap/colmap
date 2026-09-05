@@ -116,10 +116,25 @@ elseif(FETCH_BOOST)
     # leave the headers out of COLMAP's install tree and keep its targets out of
     # any export set, breaking COLMAP's own install(EXPORT).
     set(BOOST_SKIP_INSTALL_RULES OFF)
-    # Boost installs its own package config into COLMAP's prefix; record where,
-    # so colmap-config.cmake can point consumers at the same copy.
+    # Install Boost into a COLMAP-private subdirectory rather than the prefix
+    # root. Installing with the default prefix would otherwise drop Boost 1.92
+    # into /usr/local/include/boost, which precedes /usr/include on the default
+    # search path and would shadow the system Boost for everything else built on
+    # that machine. Boost keys all of its install rules off the three variables
+    # below, so point them at the private directory for the subproject and
+    # restore COLMAP's own values afterwards.
+    set(COLMAP_BOOST_INSTALL_SUBDIR "colmap/thirdparty/boost")
+    set(_colmap_install_includedir "${CMAKE_INSTALL_INCLUDEDIR}")
+    set(_colmap_install_libdir "${CMAKE_INSTALL_LIBDIR}")
+    set(CMAKE_INSTALL_INCLUDEDIR
+        "${_colmap_install_includedir}/${COLMAP_BOOST_INSTALL_SUBDIR}")
+    set(CMAKE_INSTALL_LIBDIR
+        "${_colmap_install_libdir}/${COLMAP_BOOST_INSTALL_SUBDIR}")
+    set(BOOST_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake")
+    # Record where the package config lands, so colmap-config.cmake can point
+    # consumers at the same copy.
     set(COLMAP_BOOST_INSTALL_CMAKEDIR
-        "${CMAKE_INSTALL_LIBDIR}/cmake/Boost-${COLMAP_FETCH_BOOST_VERSION}")
+        "${BOOST_INSTALL_CMAKEDIR}/Boost-${COLMAP_FETCH_BOOST_VERSION}")
     message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}...")
     FetchContent_Declare(Boost
         URL https://github.com/boostorg/boost/releases/download/boost-${COLMAP_FETCH_BOOST_VERSION}/boost-${COLMAP_FETCH_BOOST_VERSION}-cmake.tar.xz
@@ -127,6 +142,8 @@ elseif(FETCH_BOOST)
         SYSTEM
     )
     FetchContent_MakeAvailable(Boost)
+    set(CMAKE_INSTALL_INCLUDEDIR "${_colmap_install_includedir}")
+    set(CMAKE_INSTALL_LIBDIR "${_colmap_install_libdir}")
     message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}... done")
 else()
     message(FATAL_ERROR
