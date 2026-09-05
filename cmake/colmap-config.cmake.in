@@ -87,6 +87,19 @@ set(FETCH_POSELIB @FETCH_POSELIB@)
 
 set(FETCH_FAISS @FETCH_FAISS@)
 
+# Backend COLMAP was built with. Pre-setting it makes FindDependencies.cmake
+# below follow the installed binaries instead of the consumer's Boost.
+string(TOUPPER "${COLMAP_HASH_MAP_BACKEND}" _colmap_requested_hash_map_backend)
+if(_colmap_requested_hash_map_backend AND
+   NOT _colmap_requested_hash_map_backend STREQUAL "@COLMAP_HASH_MAP_BACKEND@")
+    message(WARNING
+            "Ignoring COLMAP_HASH_MAP_BACKEND="
+            "${_colmap_requested_hash_map_backend}: the installed COLMAP was "
+            "built with @COLMAP_HASH_MAP_BACKEND@.")
+endif()
+unset(_colmap_requested_hash_map_backend)
+set(COLMAP_HASH_MAP_BACKEND "@COLMAP_HASH_MAP_BACKEND@")
+
 set(FETCH_ONNX FALSE)
 if(@FETCH_ONNX@)
     if(ONNX_ENABLED AND EXISTS ${PACKAGE_PREFIX_DIR}/share/onnxruntime/cmake)
