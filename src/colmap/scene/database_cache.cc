@@ -425,24 +425,33 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   return cache;
 }
 
+// The Add* members below take their argument by value and move it into the
+// container. clang-tidy does not recognize the move through the variadic
+// emplace of boost::unordered and reports the parameter as an unnecessary
+// copy, so performance-unnecessary-value-param is suppressed for each of them.
+
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddRig(class Rig rig) {
   const rig_t rig_id = rig.RigId();
   THROW_CHECK(!ExistsRig(rig_id));
   rigs_.emplace(rig_id, std::move(rig));
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddCamera(struct Camera camera) {
   const camera_t camera_id = camera.camera_id;
   THROW_CHECK(!ExistsCamera(camera_id));
   cameras_.emplace(camera_id, std::move(camera));
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddFrame(class Frame frame) {
   const rig_t frame_id = frame.FrameId();
   THROW_CHECK(!ExistsFrame(frame_id));
   frames_.emplace(frame_id, std::move(frame));
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddImage(class Image image) {
   const image_t image_id = image.ImageId();
   THROW_CHECK(!ExistsImage(image_id));
