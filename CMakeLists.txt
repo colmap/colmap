@@ -70,7 +70,7 @@ option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
-option(FETCH_BOOST_UNORDERED "Whether to consume boost-unordered using FetchContent when the available Boost is older than the required version" ON)
+option(FETCH_BOOST "Whether to build a pinned Boost using FetchContent when the available Boost is older than the required version" ON)
 option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
@@ -469,9 +469,6 @@ if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_sift_gpu
     )
-endif()
-if(TARGET colmap_boost_unordered)
-    list(APPEND COLMAP_EXPORT_LIBS colmap_boost_unordered)
 endif()
 if(FETCH_POSELIB)
     list(APPEND COLMAP_EXPORT_LIBS PoseLib)

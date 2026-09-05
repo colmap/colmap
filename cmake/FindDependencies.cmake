@@ -15,57 +15,97 @@ endif()
 
 find_package(OpenMP REQUIRED COMPONENTS C CXX)
 
-find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
-             graph
-             program_options
-             OPTIONAL_COMPONENTS
-             system)
-
 # The scene/SfM containers in src/colmap/util/hash_containers.h are
 # boost::unordered flat/node maps. They are data members of classes in public
 # headers, so their layout is part of COLMAP's ABI and must not depend on the
 # build machine. boost::unordered_node_map requires Boost >= 1.84, which is
-# newer than the apt Boost on Ubuntu 24.04 (1.83) and earlier, so a pinned copy
-# of the header-only boost-unordered modules is vendored where the available
-# Boost is too old (see src/thirdparty/CMakeLists.txt).
-set(COLMAP_MIN_BOOST_UNORDERED_VERSION "1.84.0")
-if(DEFINED Boost_VERSION_STRING AND Boost_VERSION_STRING)
-    set(COLMAP_BOOST_VERSION "${Boost_VERSION_STRING}")
-else()
-    set(COLMAP_BOOST_VERSION "${Boost_VERSION}")
-endif()
+# newer than the apt Boost on Ubuntu 24.04 (1.83) and earlier.
+#
+# Where the system Boost is too old, build a pinned Boost from source rather
+# than vendoring boost-unordered alone. A partial copy has to be placed ahead of
+# the system Boost on the include path to win, which also shadows the support
+# modules it brings with it (core, config, mp11, ...). The rest of the system
+# Boost then compiles against those newer headers -- including Boost.Graph and
+# Boost.ProgramOptions, whose compiled libraries were built against the older
+# ones. Taking all of Boost from one place keeps headers and libraries
+# consistent.
+set(COLMAP_MIN_BOOST_VERSION "1.84.0")
+
 # find_package(colmap) pre-sets this to what COLMAP was built with, so consumers
 # follow the installed binaries instead of re-deciding from their own Boost.
-if(NOT DEFINED COLMAP_BOOST_UNORDERED_FROM_SYSTEM)
-    if(COLMAP_BOOST_VERSION VERSION_GREATER_EQUAL
-       "${COLMAP_MIN_BOOST_UNORDERED_VERSION}")
-        set(COLMAP_BOOST_UNORDERED_FROM_SYSTEM TRUE)
+if(NOT DEFINED COLMAP_BOOST_FROM_SYSTEM)
+    find_package(Boost QUIET COMPONENTS graph program_options)
+    if(Boost_FOUND AND
+       "${Boost_VERSION_STRING}" VERSION_GREATER_EQUAL "${COLMAP_MIN_BOOST_VERSION}")
+        set(COLMAP_BOOST_FROM_SYSTEM TRUE)
     else()
-        set(COLMAP_BOOST_UNORDERED_FROM_SYSTEM FALSE)
+        set(COLMAP_BOOST_FROM_SYSTEM FALSE)
     endif()
 endif()
-if(COLMAP_BOOST_UNORDERED_FROM_SYSTEM)
-    if(COLMAP_BOOST_VERSION VERSION_LESS
-       "${COLMAP_MIN_BOOST_UNORDERED_VERSION}")
+
+if(COLMAP_BOOST_FROM_SYSTEM)
+    find_package(Boost ${COLMAP_FIND_TYPE} COMPONENTS
+                 graph
+                 program_options
+                 OPTIONAL_COMPONENTS
+                 system)
+    if("${Boost_VERSION_STRING}" VERSION_LESS "${COLMAP_MIN_BOOST_VERSION}")
         message(FATAL_ERROR
-                "COLMAP requires Boost >= ${COLMAP_MIN_BOOST_UNORDERED_VERSION} "
-                "for boost::unordered_node_map, but found Boost "
-                "${COLMAP_BOOST_VERSION}. Upgrade Boost or configure with "
-                "-DFETCH_BOOST_UNORDERED=ON to vendor a pinned copy.")
+                "COLMAP requires Boost >= ${COLMAP_MIN_BOOST_VERSION} for "
+                "boost::unordered_node_map, but found Boost "
+                "${Boost_VERSION_STRING}. Upgrade Boost or configure with "
+                "-DFETCH_BOOST=ON to build a pinned copy from source.")
     endif()
-    message(STATUS "Using boost-unordered from Boost ${COLMAP_BOOST_VERSION}")
-elseif(FETCH_BOOST_UNORDERED)
-    # Vendored headers are installed here and exported as an include directory
-    # of the colmap_boost_unordered target, so consumers of the installed COLMAP
-    # compile its public headers against the same boost-unordered.
-    set(COLMAP_BOOST_UNORDERED_INSTALL_DIR
-        "${CMAKE_INSTALL_INCLUDEDIR}/colmap/thirdparty/boost-unordered")
+    message(STATUS "Using system Boost ${Boost_VERSION_STRING}")
+elseif(COLMAP_BOOST_VENDORED_CONFIG_DIR)
+    # Consumer path: the installed COLMAP shipped its own Boost, so use that one
+    # rather than fetching and building a second copy.
+    find_package(Boost ${COLMAP_FIND_TYPE} CONFIG
+                 PATHS "${COLMAP_BOOST_VENDORED_CONFIG_DIR}" NO_DEFAULT_PATH
+                 COMPONENTS graph program_options)
+    message(STATUS
+            "Using Boost vendored by COLMAP at ${COLMAP_BOOST_VENDORED_CONFIG_DIR}")
+elseif(FETCH_BOOST)
+    include(FetchContent)
+    set(COLMAP_FETCH_BOOST_VERSION "1.92.0")
+    # Only the libraries COLMAP uses, plus their dependencies, are configured;
+    # the rest of the archive is left alone. Building graph and program_options
+    # from source is a few seconds of the total build.
+    set(BOOST_INCLUDE_LIBRARIES
+        algorithm
+        container_hash
+        graph
+        heap
+        predef
+        preprocessor
+        program_options
+        property_map
+        property_tree
+        unordered)
+    set(BOOST_ENABLE_MPI OFF)
+    set(BOOST_ENABLE_PYTHON OFF)
+    set(BOOST_INSTALL_LAYOUT system)
+    # As a subproject Boost skips its install rules by default, which would both
+    # leave the headers out of COLMAP's install tree and keep its targets out of
+    # any export set, breaking COLMAP's own install(EXPORT).
+    set(BOOST_SKIP_INSTALL_RULES OFF)
+    # Boost installs its own package config into COLMAP's prefix; record where,
+    # so colmap-config.cmake can point consumers at the same copy.
+    set(COLMAP_BOOST_INSTALL_CMAKEDIR
+        "${CMAKE_INSTALL_LIBDIR}/cmake/Boost-${COLMAP_FETCH_BOOST_VERSION}")
+    message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}...")
+    FetchContent_Declare(Boost
+        URL https://github.com/boostorg/boost/releases/download/boost-${COLMAP_FETCH_BOOST_VERSION}/boost-${COLMAP_FETCH_BOOST_VERSION}-cmake.tar.xz
+        URL_HASH SHA256=9bed76128d4e46755dbe818487788c6fceb6f72b378f4daa49b7e1e600d9088d
+        SYSTEM
+    )
+    FetchContent_MakeAvailable(Boost)
+    message(STATUS "Configuring Boost ${COLMAP_FETCH_BOOST_VERSION}... done")
 else()
     message(FATAL_ERROR
-            "Boost ${COLMAP_BOOST_VERSION} is older than "
-            "${COLMAP_MIN_BOOST_UNORDERED_VERSION} and FETCH_BOOST_UNORDERED is "
-            "OFF, so boost::unordered_node_map is unavailable. Upgrade Boost or "
-            "set -DFETCH_BOOST_UNORDERED=ON.")
+            "No Boost >= ${COLMAP_MIN_BOOST_VERSION} was found and FETCH_BOOST "
+            "is OFF, so boost::unordered_node_map is unavailable. Upgrade Boost "
+            "or set -DFETCH_BOOST=ON.")
 endif()
 
 find_package(Eigen3 ${COLMAP_FIND_TYPE})

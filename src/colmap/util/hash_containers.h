@@ -60,8 +60,8 @@
 // is part of COLMAP's ABI, and nothing about it reaches the linker. There is
 // deliberately no build option to swap them: two COLMAP builds that disagreed
 // would corrupt memory when loaded into one process instead of failing to link.
-// boost::unordered_node_map requires Boost >= 1.84; see FETCH_BOOST_UNORDERED
-// in cmake/FindDependencies.cmake for how that is guaranteed.
+// boost::unordered_node_map requires Boost >= 1.84; see FETCH_BOOST in
+// cmake/FindDependencies.cmake for how that is guaranteed.
 
 #include <functional>
 

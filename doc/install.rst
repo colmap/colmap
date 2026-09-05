@@ -171,9 +171,10 @@ Configure and compile COLMAP::
 
     ``boost::unordered_node_map`` requires **Boost >= 1.84**, which is newer than
     the apt Boost on Ubuntu 24.04 (1.83) and earlier. Where the available Boost
-    is too old, the build downloads a pinned copy of the header-only
-    ``boost-unordered`` modules (about 5 MB) and installs them alongside COLMAP's
-    own headers. Pass ``-DFETCH_BOOST_UNORDERED=OFF`` to require a new enough
+    is too old, the build downloads a pinned Boost release (about 100 MB) and
+    builds the libraries COLMAP uses from source, installing them alongside
+    COLMAP. Only Boost is taken from that copy, so its headers and compiled
+    libraries always match. Pass ``-DFETCH_BOOST=OFF`` to require a new enough
     system Boost instead and fail at configure time if there is none.
 
 Run COLMAP::

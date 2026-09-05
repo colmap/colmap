@@ -34,59 +34,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
     set(_fetch_content_declare_args "SYSTEM" "EXCLUDE_FROM_ALL")
 endif()
 
-# boost::unordered_node_map requires Boost >= 1.84, which is newer than the apt
-# Boost on Ubuntu 24.04 and earlier. The containers are part of COLMAP's ABI
-# (see cmake/FindDependencies.cmake), so rather than falling back to a second
-# container implementation, vendor a pinned copy of the header-only modules that
-# boost-unordered transitively includes. The list is the include closure of
-# boost/unordered/unordered_{flat,node}_{map,set}.hpp, ~5 MB in total.
-if(NOT COLMAP_BOOST_UNORDERED_FROM_SYSTEM AND FETCH_BOOST_UNORDERED)
-    include(FetchContent)
-    set(_boost_unordered_tag "boost-1.92.0")
-    set(_boost_unordered_modules
-        unordered       cc2eac1c597c221f20d166273825bba3581e64b75c295e97eb67bd5444d4bef0
-        assert          8d49fc69df12e8fbc0e7fe3c4ede45044747199ccdeaf66c2aebb146becc54aa
-        config          b4171037f13373203ba79cbc141d612982052283e696a315185ab5bea46102a0
-        container_hash  f88aabbbc2f163db5eea65662b26e5af2bde0a0bff065c645b7347ed6a71a566
-        core            aa4eb2ccbe5577ded70f25b8f0d852a5246591f90cc34916160739e3d0dbfea6
-        describe        4ef61ea2ca967b803e171f4756e03e201680d5dd19d014324f9a848e0d06863b
-        mp11            a5754dc5ff9e7ff34119983889530e3ab8d8fb43ce2b4fea9c18673044df45d9
-        predef          4c870bcf7f547f3e3d1db26700b078a33f87c4c8232cd1c8d89ec82be6b54130
-        throw_exception 1ddbb967a43504e28bbe2a35a010df9f7ff5d1a49d3678c9fdfc035fd32ce005
-    )
-    message(STATUS "Configuring boost-unordered (${_boost_unordered_tag})...")
-    add_library(colmap_boost_unordered INTERFACE)
-    # These headers shadow the same modules in the older system Boost, so the
-    # rest of Boost (property_tree, graph, ...) ends up calling into them. Where
-    # the newer copy has since deprecated a symbol the older callers still use
-    # -- boost::swap in boost/core, called by property_tree -- the diagnostic is
-    # attributed to the instantiation site in COLMAP's own sources rather than
-    # to a system header, so it is not suppressed and -Werror rejects it.
-    target_compile_definitions(colmap_boost_unordered INTERFACE
-        BOOST_ALLOW_DEPRECATED)
-    while(_boost_unordered_modules)
-        list(POP_FRONT _boost_unordered_modules _module _hash)
-        # SOURCE_SUBDIR names a directory without a CMakeLists.txt so that the
-        # module is only downloaded, never add_subdirectory()'d. The per-module
-        # Boost CMake files expect the Boost superproject and would collide with
-        # the Boost:: targets from find_package(Boost).
-        FetchContent_Declare(boost_${_module}
-            URL https://github.com/boostorg/${_module}/archive/refs/tags/${_boost_unordered_tag}.tar.gz
-            URL_HASH SHA256=${_hash}
-            SOURCE_SUBDIR do-not-configure
-            ${_fetch_content_declare_args}
-        )
-        FetchContent_MakeAvailable(boost_${_module})
-        target_include_directories(colmap_boost_unordered SYSTEM INTERFACE
-            $<BUILD_INTERFACE:${boost_${_module}_SOURCE_DIR}/include>)
-        install(DIRECTORY "${boost_${_module}_SOURCE_DIR}/include/boost"
-                DESTINATION "${COLMAP_BOOST_UNORDERED_INSTALL_DIR}")
-    endwhile()
-    target_include_directories(colmap_boost_unordered SYSTEM INTERFACE
-        $<INSTALL_INTERFACE:${COLMAP_BOOST_UNORDERED_INSTALL_DIR}>)
-    message(STATUS "Configuring boost-unordered (${_boost_unordered_tag})... done")
-endif()
-
 if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(poselib

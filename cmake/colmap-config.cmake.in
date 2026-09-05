@@ -87,15 +87,20 @@ set(FETCH_POSELIB @FETCH_POSELIB@)
 
 set(FETCH_FAISS @FETCH_FAISS@)
 
-set(FETCH_BOOST_UNORDERED @FETCH_BOOST_UNORDERED@)
+set(FETCH_BOOST @FETCH_BOOST@)
 
-# Where the installed COLMAP got boost-unordered from. Pre-setting this makes
-# FindDependencies.cmake below follow the installed binaries: if COLMAP vendored
-# the headers, the consumer picks them up from the exported
-# colmap_boost_unordered target regardless of its own Boost; if COLMAP used the
-# system Boost, the consumer's Boost has to be new enough too, and gets a
-# configure-time error rather than a silently different container layout.
-set(COLMAP_BOOST_UNORDERED_FROM_SYSTEM @COLMAP_BOOST_UNORDERED_FROM_SYSTEM@)
+# Where the installed COLMAP got Boost from. Pre-setting this makes
+# FindDependencies.cmake below follow the installed binaries: if COLMAP built a
+# pinned Boost, that copy was installed alongside COLMAP and the consumer is
+# pointed at it; if COLMAP used the system Boost, the consumer's Boost has to be
+# new enough too, and gets a configure-time error rather than a silently
+# different container layout.
+set(COLMAP_BOOST_FROM_SYSTEM @COLMAP_BOOST_FROM_SYSTEM@)
+if(NOT COLMAP_BOOST_FROM_SYSTEM)
+    # The vendored Boost installed its own package config into COLMAP's prefix.
+    set(COLMAP_BOOST_VENDORED_CONFIG_DIR
+        "${PACKAGE_PREFIX_DIR}/@COLMAP_BOOST_INSTALL_CMAKEDIR@")
+endif()
 
 set(FETCH_ONNX FALSE)
 if(@FETCH_ONNX@)
@@ -106,8 +111,11 @@ if(@FETCH_ONNX@)
     set(onnxruntime_LIBRARY_DIR_HINTS ${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@ CACHE PATH "ONNX Runtime library directory hints")
 endif()
 
-include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
+# Dependencies first: a vendored Boost is exported from its own export set
+# rather than imported, so colmap-targets.cmake checks that those targets
+# already exist and fails the whole package if they do not.
 include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
+include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
 check_required_components(colmap)
 
 # Reset to previous value
