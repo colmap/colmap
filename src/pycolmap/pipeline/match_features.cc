@@ -53,6 +53,58 @@ void MatchFeatures(
   PyWait(matcher.get(), cancellation_token);
 }
 
+void MatchRetrieval(
+    const std::filesystem::path& database_path,
+    FeatureMatchingOptions matching_options,
+    RetrievalPairingOptions pairing_options,
+    const TwoViewGeometryOptions& verification_options,
+    const Device device,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+  // Forward the database path and validate global descriptor inputs,
+  // mirroring the retrieval_matcher CLI.
+  if (pairing_options.database_path.empty()) {
+    pairing_options.database_path = database_path;
+  }
+  if (pairing_options.method == RetrievalMethod::GLOBAL_DESCRIPTOR) {
+    THROW_CHECK_DIR_EXISTS(pairing_options.image_path);
+  }
+  MatchFeatures<RetrievalPairingOptions, CreateRetrievalFeatureMatcher>(
+      database_path,
+      std::move(matching_options),
+      pairing_options,
+      verification_options,
+      device,
+      cancellation_token);
+}
+
+void MatchSequential(
+    const std::filesystem::path& database_path,
+    FeatureMatchingOptions matching_options,
+    SequentialPairingOptions pairing_options,
+    const TwoViewGeometryOptions& verification_options,
+    const Device device,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+  // Forward the database path and validate global descriptor inputs for
+  // loop detection, mirroring the sequential_matcher CLI.
+  if (pairing_options.loop_detection) {
+    RetrievalPairingOptions& loop_options =
+        pairing_options.loop_detection_options;
+    if (loop_options.database_path.empty()) {
+      loop_options.database_path = database_path;
+    }
+    if (loop_options.method == RetrievalMethod::GLOBAL_DESCRIPTOR) {
+      THROW_CHECK_DIR_EXISTS(loop_options.image_path);
+    }
+  }
+  MatchFeatures<SequentialPairingOptions, CreateSequentialFeatureMatcher>(
+      database_path,
+      std::move(matching_options),
+      pairing_options,
+      verification_options,
+      device,
+      cancellation_token);
+}
+
 void VerifyMatches(
     const std::filesystem::path& database_path,
     const std::filesystem::path& pairs_path,
@@ -141,39 +193,79 @@ void BindMatchFeatures(py::module& m) {
           .def("check", &SpatialPairingOptions::Check);
   MakeDataclass(PySpatialPairingOptions);
 
-  auto PyVocabTreePairingOptions =
-      py::classh<VocabTreePairingOptions>(m, "VocabTreePairingOptions")
+  auto PyRetrievalMethod =
+      py::enum_<RetrievalMethod>(m, "RetrievalMethod")
+          .value("VOCAB_TREE", RetrievalMethod::VOCAB_TREE)
+          .value("GLOBAL_DESCRIPTOR", RetrievalMethod::GLOBAL_DESCRIPTOR);
+  AddStringToEnumConstructor(PyRetrievalMethod);
+
+  auto PyRetrievalPairingOptions =
+      py::classh<RetrievalPairingOptions>(m, "RetrievalPairingOptions")
           .def(py::init<>())
+          .def_readwrite("method",
+                         &RetrievalPairingOptions::method,
+                         "The method used to retrieve similar images.")
           .def_readwrite("num_images",
-                         &VocabTreePairingOptions::num_images,
+                         &RetrievalPairingOptions::num_images,
                          "Number of images to retrieve for each query image.")
-          .def_readwrite(
-              "num_nearest_neighbors",
-              &VocabTreePairingOptions::num_nearest_neighbors,
-              "Number of nearest neighbors to retrieve per query feature.")
-          .def_readwrite(
-              "num_checks",
-              &VocabTreePairingOptions::num_checks,
-              "Number of nearest-neighbor checks to use in retrieval.")
-          .def_readwrite(
-              "num_images_after_verification",
-              &VocabTreePairingOptions::num_images_after_verification,
-              "How many images to return after spatial verification. Set to "
-              "0 to turn off spatial verification.")
-          .def_readwrite(
-              "max_num_features",
-              &VocabTreePairingOptions::max_num_features,
-              "The maximum number of features to use for indexing an image.")
-          .def_readwrite("vocab_tree_path",
-                         &VocabTreePairingOptions::vocab_tree_path,
-                         "Path to the vocabulary tree.")
+          .def_readwrite("num_threads", &RetrievalPairingOptions::num_threads)
           .def_readwrite(
               "match_list_path",
-              &VocabTreePairingOptions::match_list_path,
+              &RetrievalPairingOptions::match_list_path,
               "Optional path to file with specific image names to match.")
-          .def_readwrite("num_threads", &VocabTreePairingOptions::num_threads)
-          .def("check", &VocabTreePairingOptions::Check);
-  MakeDataclass(PyVocabTreePairingOptions);
+          .def_readwrite(
+              "num_nearest_neighbors",
+              &RetrievalPairingOptions::num_nearest_neighbors,
+              "Number of nearest neighbors to retrieve per query feature "
+              "(vocab tree).")
+          .def_readwrite(
+              "num_checks",
+              &RetrievalPairingOptions::num_checks,
+              "Number of nearest-neighbor checks to use in retrieval "
+              "(vocab tree).")
+          .def_readwrite(
+              "num_images_after_verification",
+              &RetrievalPairingOptions::num_images_after_verification,
+              "How many images to return after spatial verification. Set to "
+              "0 to turn off spatial verification (vocab tree).")
+          .def_readwrite(
+              "max_num_features",
+              &RetrievalPairingOptions::max_num_features,
+              "The maximum number of features to use for indexing an image "
+              "(vocab tree).")
+          .def_readwrite("vocab_tree_path",
+                         &RetrievalPairingOptions::vocab_tree_path,
+                         "Path to the vocabulary tree.")
+          .def_readwrite("model_type",
+                         &RetrievalPairingOptions::model_type,
+                         "Global descriptor model type (e.g. \"MixVPR\").")
+          .def_readwrite("model_precision",
+                         &RetrievalPairingOptions::model_precision,
+                         "Precision variant of the global descriptor model "
+                         "(e.g. \"fp16\", \"fp32\").")
+          .def_readwrite("model_path",
+                         &RetrievalPairingOptions::model_path,
+                         "Path to the global descriptor ONNX model file. "
+                         "Defaults to the selected model type's default URI.")
+          .def_readwrite("image_path",
+                         &RetrievalPairingOptions::image_path,
+                         "Path to the image directory, required for global "
+                         "descriptor retrieval.")
+          .def_readwrite("database_path",
+                         &RetrievalPairingOptions::database_path,
+                         "Path to the database file. Descriptor caches are "
+                         "stored alongside it.")
+          .def_readwrite("use_gpu",
+                         &RetrievalPairingOptions::use_gpu,
+                         "Whether to use GPU / CoreML for ONNX inference.")
+          .def_readwrite("gpu_index",
+                         &RetrievalPairingOptions::gpu_index,
+                         "GPU index for ONNX inference.")
+          .def_readwrite("batch_size",
+                         &RetrievalPairingOptions::batch_size,
+                         "Batch size for ONNX inference.")
+          .def("check", &RetrievalPairingOptions::Check);
+  MakeDataclass(PyRetrievalPairingOptions);
 
   auto PySequentialPairingOptions =
       py::classh<SequentialPairingOptions>(m, "SequentialPairingOptions")
@@ -198,46 +290,18 @@ void BindMatchFeatures(py::module& m) {
                          &SequentialPairingOptions::loop_detection_period,
                          "The frequency at which loop detection is triggered, "
                          "in number of images.")
-          .def_readwrite("loop_detection_num_images",
-                         &SequentialPairingOptions::loop_detection_num_images,
-                         "The number of images to retrieve in loop "
-                         "detection. This number should be significantly "
-                         "larger than the sequential matching overlap.")
           .def_readwrite(
               "loop_detection_min_index_distance",
               &SequentialPairingOptions::loop_detection_min_index_distance,
               "The minimum image index distance between a loop detection "
               "query and a retrieved image. The index is determined by the "
               "sequential image order. Set to 0 to disable this restriction.")
-          .def_readwrite(
-              "loop_detection_num_nearest_neighbors",
-              &SequentialPairingOptions::loop_detection_num_nearest_neighbors,
-              "Number of nearest neighbors to retrieve per query feature.")
-          .def_readwrite(
-              "loop_detection_num_checks",
-              &SequentialPairingOptions::loop_detection_num_checks,
-              "Number of nearest-neighbor checks to use in retrieval.")
-          .def_readwrite(
-              "loop_detection_num_images_after_verification",
-              &SequentialPairingOptions::
-                  loop_detection_num_images_after_verification,
-              "How many images to return after spatial verification. Set to "
-              "0 to turn off spatial verification.")
-          .def_readwrite(
-              "loop_detection_max_num_features",
-              &SequentialPairingOptions::loop_detection_max_num_features,
-              "The maximum number of features to use for indexing "
-              "an image. If an image has more features, only the "
-              "largest-scale features will be indexed.")
-          .def_readwrite("vocab_tree_path",
-                         &SequentialPairingOptions::vocab_tree_path,
-                         "Path to the vocabulary tree.")
-          .def_readwrite(
-              "num_threads",
-              &SequentialPairingOptions::num_threads,
-              "Number of threads for loop detection indexing and retrieval.")
-          .def("vocab_tree_options",
-               &SequentialPairingOptions::VocabTreeOptions)
+          .def_readwrite("loop_detection_options",
+                         &SequentialPairingOptions::loop_detection_options,
+                         "Retrieval options for loop detection. The number of "
+                         "retrieved images (num_images) should be "
+                         "significantly larger than the sequential matching "
+                         "overlap.")
           .def("check", &SequentialPairingOptions::Check);
   MakeDataclass(PySequentialPairingOptions);
 
@@ -305,38 +369,38 @@ void BindMatchFeatures(py::module& m) {
         "cancellation_token"_a = py::none(),
         "Spatial feature matching");
 
-  m.def("match_vocabtree",
-        &MatchFeatures<VocabTreePairingOptions, CreateVocabTreeFeatureMatcher>,
+  m.def("match_retrieval",
+        &MatchRetrieval,
         "database_path"_a,
         py::arg_v("matching_options",
                   FeatureMatchingOptions(),
                   "FeatureMatchingOptions()"),
         py::arg_v("pairing_options",
-                  VocabTreePairingOptions(),
-                  "VocabTreePairingOptions()"),
+                  RetrievalPairingOptions(),
+                  "RetrievalPairingOptions()"),
         py::arg_v("verification_options",
                   TwoViewGeometryOptions(),
                   "TwoViewGeometryOptions()"),
         "device"_a = Device::AUTO,
         "cancellation_token"_a = py::none(),
-        "Vocab tree feature matching");
+        "Retrieval-based feature matching using a vocabulary tree or a "
+        "global descriptor model");
 
-  m.def(
-      "match_sequential",
-      &MatchFeatures<SequentialPairingOptions, CreateSequentialFeatureMatcher>,
-      "database_path"_a,
-      py::arg_v("matching_options",
-                FeatureMatchingOptions(),
-                "FeatureMatchingOptions()"),
-      py::arg_v("pairing_options",
-                SequentialPairingOptions(),
-                "SequentialPairingOptions()"),
-      py::arg_v("verification_options",
-                TwoViewGeometryOptions(),
-                "TwoViewGeometryOptions()"),
-      "device"_a = Device::AUTO,
-      "cancellation_token"_a = py::none(),
-      "Sequential feature matching");
+  m.def("match_sequential",
+        &MatchSequential,
+        "database_path"_a,
+        py::arg_v("matching_options",
+                  FeatureMatchingOptions(),
+                  "FeatureMatchingOptions()"),
+        py::arg_v("pairing_options",
+                  SequentialPairingOptions(),
+                  "SequentialPairingOptions()"),
+        py::arg_v("verification_options",
+                  TwoViewGeometryOptions(),
+                  "TwoViewGeometryOptions()"),
+        "device"_a = Device::AUTO,
+        "cancellation_token"_a = py::none(),
+        "Sequential feature matching");
 
   m.def("match_image_pairs",
         &MatchFeatures<ImportedPairingOptions, CreateImagePairsFeatureMatcher>,
@@ -404,8 +468,8 @@ void BindMatchFeatures(py::module& m) {
                     const std::shared_ptr<Database>&>(),
            "options"_a,
            "database"_a);
-  py::classh<VocabTreePairGenerator, PairGenerator>(m, "VocabTreePairGenerator")
-      .def(py::init<const VocabTreePairingOptions&,
+  py::classh<RetrievalPairGenerator, PairGenerator>(m, "RetrievalPairGenerator")
+      .def(py::init<const RetrievalPairingOptions&,
                     const std::shared_ptr<Database>&,
                     const std::vector<image_t>&>(),
            "options"_a,

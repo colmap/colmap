@@ -49,12 +49,17 @@ class AutomaticReconstructionWidget : public OptionsWidget {
   MainWindow* main_window_;
   AutomaticReconstructionController::Options options_;
   ThreadControlWidget* thread_control_widget_;
+  void UpdateRetrievalFields();
+
   QComboBox* data_type_cb_;
   QComboBox* quality_cb_;
   QComboBox* mesher_cb_;
+  QComboBox* retrieval_type_cb_;
 #ifdef CASPAR_ENABLED
   QComboBox* ba_backend_cb_;
 #endif
+  QWidget* vocab_tree_row_ = nullptr;
+  QWidget* global_descriptor_row_ = nullptr;
   QAction* render_result_;
 };
 

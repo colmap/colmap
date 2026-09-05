@@ -130,6 +130,29 @@ TEST(VocabTreePairGenerator, Nominal) {
   }
 }
 
+TEST(RetrievalPairGenerator, VocabTree) {
+  constexpr int kNumImages = 5;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+
+  RetrievalPairingOptions options;
+  options.method = RetrievalMethod::VOCAB_TREE;
+  options.num_images = 3;
+  options.num_nearest_neighbors = 1;
+  options.vocab_tree_path = CreateTestDir() / "vocab_tree.txt";
+
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
+  CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
+
+  RetrievalPairGenerator generator(options, database);
+  for (int i = 0; i < kNumImages; ++i) {
+    const auto pairs = generator.Next();
+    EXPECT_EQ(pairs.size(), options.num_images);
+  }
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+}
+
 TEST(VocabTreePairGenerator, DoesNotDeadlockOnFailedQuery) {
   constexpr int kNumImages = 5;
   auto database = Database::Open(kInMemorySqliteDatabasePath);
@@ -336,11 +359,13 @@ TEST(SequentialPairGenerator, LoopDetectionMinIndexDistance) {
   options.expand_rig_images = false;
   options.loop_detection = true;
   options.loop_detection_period = 2;
-  options.loop_detection_num_images = 2;
   options.loop_detection_min_index_distance = 2;
-  options.num_threads = 1;
-  options.vocab_tree_path = CreateTestDir() / "vocab_tree.txt";
-  CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
+  options.loop_detection_options.num_images = 2;
+  options.loop_detection_options.num_threads = 1;
+  options.loop_detection_options.vocab_tree_path =
+      CreateTestDir() / "vocab_tree.txt";
+  CreateSyntheticVisualIndex()->Write(
+      options.loop_detection_options.vocab_tree_path);
 
   SequentialPairGenerator generator(options, database);
   for (int i = 0; i < kNumImages; ++i) {
@@ -357,7 +382,7 @@ TEST(SequentialPairGenerator, LoopDetectionMinIndexDistance) {
       options.loop_detection_period;
   for (int i = 0; i < num_loop_detection_queries; ++i) {
     const auto pairs = generator.Next();
-    ASSERT_EQ(pairs.size(), options.loop_detection_num_images);
+    ASSERT_EQ(pairs.size(), options.loop_detection_options.num_images);
     for (const auto& [image_id1, image_id2] : pairs) {
       const size_t image_idx1 = image_id_to_idx.at(image_id1);
       const size_t image_idx2 = image_id_to_idx.at(image_id2);

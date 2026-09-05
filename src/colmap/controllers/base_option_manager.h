@@ -132,11 +132,12 @@ class BaseOptionManager {
   std::vector<std::pair<std::string, const std::filesystem::path*>>
       options_path_;
 
-  // Storage for enum options: string value and conversion callback.
+  // Storage for enum options: string value and conversion callbacks.
   // Uses unique_ptr for pointer stability when the vector grows.
   struct EnumOptionInfo {
     std::string value;            // String value for parsing
     std::function<void()> apply;  // Callback to apply string->enum conversion
+    std::function<void()> sync;   // Callback to sync enum->string for writing
   };
   std::vector<std::unique_ptr<EnumOptionInfo>> enum_options_;
 
@@ -240,6 +241,9 @@ void BaseOptionManager::AddDefaultEnumOption(
   EnumOptionInfo* info_ptr = info.get();
   info->apply = [info_ptr, option, from_string_fn]() {
     *option = from_string_fn(info_ptr->value);
+  };
+  info->sync = [info_ptr, option, to_string_fn]() {
+    info_ptr->value = std::string(to_string_fn(*option));
   };
 
   // Register as a string option pointing to our storage

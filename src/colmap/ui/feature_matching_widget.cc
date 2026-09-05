@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/feature/sift.h"
+#include "colmap/retrieval/global_descriptor_model.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
 #endif
@@ -52,7 +53,7 @@ class FeatureMatchingTab : public QWidget {
   void showEvent(QShowEvent* event);
 
  protected:
-  void ReadOptions();
+  virtual void ReadOptions();
   void WriteOptions();
   void CreateGeneralOptions();
 
@@ -74,12 +75,48 @@ class SequentialMatchingTab : public FeatureMatchingTab {
  public:
   SequentialMatchingTab(QWidget* parent, OptionManager* options);
   void Run() override;
+
+ protected:
+  void ReadOptions() override;
+
+ private:
+  void UpdateLoopDetectionFields();
+  QComboBox* loop_detection_type_cb_;
+  // Rows added via AddOptionFilePath; we track the grid row of the lineEdit
+  // so we can hide the label (row, col 0), lineEdit (row, col 1), and
+  // button (row+1, col 1) together.
+  int vocab_tree_grid_row_ = -1;
+#ifdef COLMAP_ONNX_ENABLED
+  int global_descriptor_grid_row_ = -1;
+  int precision_grid_row_ = -1;
+  QComboBox* precision_cb_ = nullptr;
+  QLineEdit* model_path_edit_ = nullptr;
+#endif
 };
 
-class VocabTreeMatchingTab : public FeatureMatchingTab {
+class RetrievalMatchingTab : public FeatureMatchingTab {
  public:
-  VocabTreeMatchingTab(QWidget* parent, OptionManager* options);
+  RetrievalMatchingTab(QWidget* parent, OptionManager* options);
   void Run() override;
+
+ protected:
+  void ReadOptions() override;
+
+ private:
+  void UpdateMethodFields();
+  // Combo index 0 selects the vocabulary tree; the following entries are
+  // the global descriptor models from the model registry.
+  QComboBox* method_cb_;
+  int vocab_tree_start_row_ = -1;
+  int vocab_tree_end_row_ = -1;
+#ifdef COLMAP_ONNX_ENABLED
+  void RepopulatePrecisions(const std::string& selected_precision);
+  void UpdateModelPathField();
+  QComboBox* precision_cb_ = nullptr;
+  QLineEdit* model_path_edit_ = nullptr;
+  int global_descriptor_start_row_ = -1;
+  int global_descriptor_end_row_ = -1;
+#endif
 };
 
 class SpatialMatchingTab : public FeatureMatchingTab {
@@ -250,51 +287,252 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
                                 "overlap");
   options_widget_->AddOptionBool(
       &options_->sequential_pairing->quadratic_overlap, "quadratic_overlap");
-  options_widget_->AddOptionBool(&options_->sequential_pairing->loop_detection,
-                                 "loop_detection");
+
+  // Loop detection type selector.
+  loop_detection_type_cb_ = new QComboBox(this);
+  loop_detection_type_cb_->addItem("None");             // 0
+  loop_detection_type_cb_->addItem("Vocabulary Tree");  // 1
+#ifdef COLMAP_ONNX_ENABLED
+  loop_detection_type_cb_->addItem("MixVPR");   // 2
+  loop_detection_type_cb_->addItem("MegaLoc");  // 3
+#endif
+  options_widget_->AddWidgetRow("Loop detection", loop_detection_type_cb_);
+
+  // Use standard AddOptionFilePath for both path types — identical height,
+  // no layout jump when swapping.  We track the grid row of each lineEdit
+  // so we can hide the entire row (label + lineEdit + button) together
+  // via the QGridLayout.
+  if (QGridLayout* grid = options_widget_->findChild<QGridLayout*>()) {
+    // Vocab tree path.
+    vocab_tree_grid_row_ = grid->rowCount();
+    options_widget_->AddOptionFilePath(
+        &options_->sequential_pairing->loop_detection_options.vocab_tree_path,
+        "Vocab tree path");
+
+    // MixVPR/MegaLoc model precision and path (ONNX only).
+#ifdef COLMAP_ONNX_ENABLED
+    precision_grid_row_ = grid->rowCount();
+    precision_cb_ = new QComboBox(this);
+    options_widget_->AddWidgetRow("loop_detection_model_precision",
+                                  precision_cb_);
+    global_descriptor_grid_row_ = grid->rowCount();
+    model_path_edit_ = options_widget_->AddOptionFilePath(
+        &options_->sequential_pairing->loop_detection_options.model_path,
+        "Model path (ONNX, optional)");
+    connect(precision_cb_,
+            QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this,
+            &SequentialMatchingTab::UpdateLoopDetectionFields);
+#endif
+  }
+
+  // General loop detection parameters (visible when any type is selected).
   options_widget_->AddOptionInt(
       &options_->sequential_pairing->loop_detection_period,
       "loop_detection_period");
   options_widget_->AddOptionInt(
-      &options_->sequential_pairing->loop_detection_num_images,
+      &options_->sequential_pairing->loop_detection_options.num_images,
       "loop_detection_num_images");
   options_widget_->AddOptionInt(
       &options_->sequential_pairing->loop_detection_min_index_distance,
       "loop_detection_min_index_distance",
       0);
   options_widget_->AddOptionInt(
-      &options_->sequential_pairing->loop_detection_num_nearest_neighbors,
+      &options_->sequential_pairing->loop_detection_options
+           .num_nearest_neighbors,
       "loop_detection_num_nearest_neighbors");
   options_widget_->AddOptionInt(
-      &options_->sequential_pairing->loop_detection_num_checks,
+      &options_->sequential_pairing->loop_detection_options.num_checks,
       "loop_detection_num_checks",
       1);
   options_widget_->AddOptionInt(
-      &options_->sequential_pairing
-           ->loop_detection_num_images_after_verification,
+      &options_->sequential_pairing->loop_detection_options
+           .num_images_after_verification,
       "loop_detection_num_images_after_verification",
       0);
   options_widget_->AddOptionInt(
-      &options_->sequential_pairing->loop_detection_max_num_features,
+      &options_->sequential_pairing->loop_detection_options.max_num_features,
       "loop_detection_max_num_features",
       -1);
-  options_widget_->AddOptionFilePath(
-      &options_->sequential_pairing->vocab_tree_path, "vocab_tree_path");
+
+  connect(loop_detection_type_cb_,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this,
+          &SequentialMatchingTab::UpdateLoopDetectionFields);
 
   CreateGeneralOptions();
+
+  // Apply initial state: combo defaults to "None", hide both path rows.
+  UpdateLoopDetectionFields();
+}
+
+void SequentialMatchingTab::UpdateLoopDetectionFields() {
+  QGridLayout* grid = options_widget_->findChild<QGridLayout*>();
+  if (!grid) return;
+
+  const int idx = loop_detection_type_cb_->currentIndex();
+
+  // Helper: hide or show every widget in the two grid rows occupied by
+  // one AddOptionFilePath call (label at row, lineEdit at row, button at
+  // row+1).
+  auto SetRowVisible = [grid](int row, bool visible) {
+    for (int r = row; r <= row + 1; ++r) {
+      for (int c = 0; c < 2; ++c) {
+        QLayoutItem* item = grid->itemAtPosition(r, c);
+        if (item && item->widget()) {
+          item->widget()->setVisible(visible);
+        }
+      }
+    }
+  };
+
+  // 0 = None, 1 = Vocab Tree, 2+ = global descriptor (MixVPR / MegaLoc / ...)
+  SetRowVisible(vocab_tree_grid_row_, idx == 1);
+#ifdef COLMAP_ONNX_ENABLED
+  // The precision selector occupies a single grid row.
+  for (int c = 0; c < 2; ++c) {
+    QLayoutItem* item = grid->itemAtPosition(precision_grid_row_, c);
+    if (item && item->widget()) {
+      item->widget()->setVisible(idx >= 2);
+    }
+  }
+  SetRowVisible(global_descriptor_grid_row_, idx >= 2);
+  if (idx >= 2 && model_path_edit_ != nullptr) {
+    const RetrievalPairingOptions& loop_detection_options =
+        options_->sequential_pairing->loop_detection_options;
+    const std::string model_name =
+        loop_detection_type_cb_->currentText().toStdString();
+    const auto* model = retrieval::GlobalDescriptorModel::GetModel(model_name);
+    if (model == nullptr) {
+      return;
+    }
+    // Repopulate the precision variants of the selected model, keeping the
+    // current selection when possible.
+    {
+      const QSignalBlocker blocker(precision_cb_);
+      const std::string preferred =
+          precision_cb_->count() > 0
+              ? precision_cb_->currentText().toStdString()
+              : loop_detection_options.model_precision;
+      precision_cb_->clear();
+      int precision_index = 0;
+      for (const auto variant :
+           retrieval::GlobalDescriptorModel::VariantNames(model_name)) {
+        if (std::string(variant) == preferred) {
+          precision_index = precision_cb_->count();
+        }
+        precision_cb_->addItem(QString::fromStdString(std::string(variant)));
+      }
+      precision_cb_->setCurrentIndex(precision_index);
+    }
+    // Show the configured model path for the selected model variant, or
+    // the variant's default download URI otherwise.
+    const std::string precision = precision_cb_->currentText().toStdString();
+    const std::string default_uri =
+        retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
+                                                          precision);
+    if (!loop_detection_options.model_path.empty() &&
+        retrieval::GlobalDescriptorModel::GetModel(
+            loop_detection_options.model_type) == model &&
+        retrieval::GlobalDescriptorModel::DefaultModelUri(
+            loop_detection_options.model_type,
+            loop_detection_options.model_precision) == default_uri) {
+      model_path_edit_->setText(
+          QString::fromStdString(loop_detection_options.model_path.string()));
+    } else {
+      model_path_edit_->setText(QString::fromStdString(default_uri));
+    }
+  }
+#endif
+}
+
+void SequentialMatchingTab::ReadOptions() {
+  // Sync the loop detection combo from the stored options.
+  int index = 0;
+  if (options_->sequential_pairing->loop_detection) {
+    index = 1;  // Vocabulary tree.
+#ifdef COLMAP_ONNX_ENABLED
+    if (options_->sequential_pairing->loop_detection_options.method ==
+        RetrievalMethod::GLOBAL_DESCRIPTOR) {
+      // Normalize to the canonical model name for a case-insensitive match.
+      const auto* model = retrieval::GlobalDescriptorModel::GetModel(
+          options_->sequential_pairing->loop_detection_options.model_type);
+      const int model_index = model == nullptr
+                                  ? -1
+                                  : loop_detection_type_cb_->findText(
+                                        QString::fromStdString(model->name));
+      index = model_index >= 2 ? model_index : 2;
+    }
+#endif
+  }
+  loop_detection_type_cb_->setCurrentIndex(index);
+  FeatureMatchingTab::ReadOptions();
+  UpdateLoopDetectionFields();
 }
 
 void SequentialMatchingTab::Run() {
   WriteOptions();
 
-  // An empty path is valid: the matcher then resolves the default vocabulary
-  // tree for the database's feature type via GetVocabTreeUriForFeatureType.
-  if (options_->sequential_pairing->loop_detection &&
-      !options_->sequential_pairing->vocab_tree_path.empty() &&
-      !ExistsFile(options_->sequential_pairing->vocab_tree_path) &&
-      !IsURI(options_->sequential_pairing->vocab_tree_path.string())) {
-    QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
-    return;
+  // Sync loop detection state from combo box.
+  const int idx = loop_detection_type_cb_->currentIndex();
+  options_->sequential_pairing->loop_detection = (idx != 0);
+  RetrievalPairingOptions& loop_detection_options =
+      options_->sequential_pairing->loop_detection_options;
+  if (idx == 1) {
+    loop_detection_options.method = RetrievalMethod::VOCAB_TREE;
+  }
+#ifdef COLMAP_ONNX_ENABLED
+  else if (idx >= 2) {
+    // Global descriptor: set model type and precision from the combos.
+    loop_detection_options.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
+    loop_detection_options.model_type =
+        loop_detection_type_cb_->currentText().toStdString();
+    loop_detection_options.model_precision =
+        precision_cb_->currentText().toStdString();
+    loop_detection_options.database_path = *options_->database_path;
+  }
+#endif
+
+  if (options_->sequential_pairing->loop_detection) {
+#ifdef COLMAP_ONNX_ENABLED
+    if (idx >= 2) {
+      // Auto-derive image_path from the project.
+      loop_detection_options.image_path = *options_->image_path;
+      if (loop_detection_options.image_path.empty() ||
+          !ExistsDir(loop_detection_options.image_path)) {
+        QMessageBox::critical(
+            this,
+            "",
+            tr("Image path is not set or does not exist.\n\n"
+               "For %1 loop detection, the image folder must be "
+               "configured in the project settings (File > New Project).\n\n"
+               "Current path: %2")
+                .arg(loop_detection_type_cb_->currentText(),
+                     QString::fromStdString(
+                         loop_detection_options.image_path.string())));
+        return;
+      }
+      const auto& model_path = loop_detection_options.model_path;
+      if (!model_path.empty() && !ExistsFile(model_path) &&
+          !IsURI(model_path.string())) {
+        QMessageBox::critical(
+            this,
+            "",
+            tr("Invalid %1 model path. Leave empty for "
+               "auto-download, or provide a valid local file.")
+                .arg(loop_detection_type_cb_->currentText()));
+        return;
+      }
+    } else
+#endif
+    {
+      const auto& tree_path = loop_detection_options.vocab_tree_path;
+      if (!tree_path.empty() && !ExistsFile(tree_path) &&
+          !IsURI(tree_path.string())) {
+        QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+        return;
+      }
+    }
   }
 
   auto matcher = CreateSequentialFeatureMatcher(*options_->sequential_pairing,
@@ -304,41 +542,220 @@ void SequentialMatchingTab::Run() {
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
-VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
+RetrievalMatchingTab::RetrievalMatchingTab(QWidget* parent,
                                            OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  options_widget_->AddOptionInt(&options_->vocab_tree_pairing->num_images,
+  // Method selector: vocabulary tree or one of the global descriptor models
+  // from the model registry.
+  method_cb_ = new QComboBox(this);
+  method_cb_->addItem("Vocabulary Tree");  // 0
+#ifdef COLMAP_ONNX_ENABLED
+  for (auto name : retrieval::GlobalDescriptorModel::ModelNames()) {
+    method_cb_->addItem(QString::fromStdString(std::string(name)));  // 1..N
+  }
+#endif
+  options_widget_->AddWidgetRow("Method", method_cb_);
+
+  options_widget_->AddOptionInt(&options_->retrieval_pairing->num_images,
                                 "num_images");
+
+  QGridLayout* grid = options_widget_->findChild<QGridLayout*>();
+
+  // Vocabulary tree options.
+  vocab_tree_start_row_ = grid == nullptr ? -1 : grid->rowCount();
   options_widget_->AddOptionInt(
-      &options_->vocab_tree_pairing->num_nearest_neighbors,
+      &options_->retrieval_pairing->num_nearest_neighbors,
       "num_nearest_neighbors");
   options_widget_->AddOptionInt(
-      &options_->vocab_tree_pairing->num_checks, "num_checks", 1);
+      &options_->retrieval_pairing->num_checks, "num_checks", 1);
   options_widget_->AddOptionInt(
-      &options_->vocab_tree_pairing->num_images_after_verification,
+      &options_->retrieval_pairing->num_images_after_verification,
       "num_images_after_verification",
       0);
   options_widget_->AddOptionInt(
-      &options_->vocab_tree_pairing->max_num_features, "max_num_features", -1);
+      &options_->retrieval_pairing->max_num_features, "max_num_features", -1);
   options_widget_->AddOptionFilePath(
-      &options_->vocab_tree_pairing->vocab_tree_path, "vocab_tree_path");
+      &options_->retrieval_pairing->vocab_tree_path, "vocab_tree_path");
+  vocab_tree_end_row_ = grid == nullptr ? -1 : grid->rowCount();
+
+#ifdef COLMAP_ONNX_ENABLED
+  // Global descriptor options.
+  global_descriptor_start_row_ = grid == nullptr ? -1 : grid->rowCount();
+  precision_cb_ = new QComboBox(this);
+  options_widget_->AddWidgetRow("model_precision", precision_cb_);
+  options_widget_->AddOptionInt(
+      &options_->retrieval_pairing->batch_size, "batch_size", 1);
+  model_path_edit_ = options_widget_->AddOptionFilePath(
+      &options_->retrieval_pairing->model_path,
+      "Model path<br>(ONNX, optional)");
+  global_descriptor_end_row_ = grid == nullptr ? -1 : grid->rowCount();
+
+  connect(precision_cb_,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this,
+          &RetrievalMatchingTab::UpdateModelPathField);
+#endif
+
+  connect(method_cb_,
+          QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this,
+          &RetrievalMatchingTab::UpdateMethodFields);
 
   CreateGeneralOptions();
+
+  UpdateMethodFields();
 }
 
-void VocabTreeMatchingTab::Run() {
-  WriteOptions();
+void RetrievalMatchingTab::ReadOptions() {
+  // Sync the method combo from the stored options.
+  int index = 0;
+#ifdef COLMAP_ONNX_ENABLED
+  if (options_->retrieval_pairing->method ==
+      RetrievalMethod::GLOBAL_DESCRIPTOR) {
+    // Normalize to the canonical model name for a case-insensitive match.
+    const auto* model = retrieval::GlobalDescriptorModel::GetModel(
+        options_->retrieval_pairing->model_type);
+    const int model_index =
+        model == nullptr
+            ? -1
+            : method_cb_->findText(QString::fromStdString(model->name));
+    index = model_index > 0 ? model_index : 1;
+  }
+#endif
+  method_cb_->setCurrentIndex(index);
+  FeatureMatchingTab::ReadOptions();
+  UpdateMethodFields();
+#ifdef COLMAP_ONNX_ENABLED
+  if (index > 0) {
+    RepopulatePrecisions(options_->retrieval_pairing->model_precision);
+    UpdateModelPathField();
+  }
+#endif
+}
 
-  // An empty path is valid: the matcher then resolves the default vocabulary
-  // tree for the database's feature type via GetVocabTreeUriForFeatureType.
-  if (!options_->vocab_tree_pairing->vocab_tree_path.empty() &&
-      !ExistsFile(options_->vocab_tree_pairing->vocab_tree_path) &&
-      !IsURI(options_->vocab_tree_pairing->vocab_tree_path.string())) {
-    QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+void RetrievalMatchingTab::UpdateMethodFields() {
+  QGridLayout* grid = options_widget_->findChild<QGridLayout*>();
+  if (grid == nullptr) {
     return;
   }
 
-  auto matcher = CreateVocabTreeFeatureMatcher(*options_->vocab_tree_pairing,
+  const int idx = method_cb_->currentIndex();
+  const bool vocab_tree = idx == 0;
+
+  auto set_rows_visible = [grid](int start_row, int end_row, bool visible) {
+    for (int r = start_row; r < end_row; ++r) {
+      for (int c = 0; c < 2; ++c) {
+        QLayoutItem* item = grid->itemAtPosition(r, c);
+        if (item != nullptr && item->widget() != nullptr) {
+          item->widget()->setVisible(visible);
+        }
+      }
+    }
+  };
+
+  set_rows_visible(vocab_tree_start_row_, vocab_tree_end_row_, vocab_tree);
+#ifdef COLMAP_ONNX_ENABLED
+  set_rows_visible(
+      global_descriptor_start_row_, global_descriptor_end_row_, !vocab_tree);
+  if (!vocab_tree) {
+    RepopulatePrecisions(options_->retrieval_pairing->model_precision);
+    UpdateModelPathField();
+  }
+#endif
+}
+
+#ifdef COLMAP_ONNX_ENABLED
+void RetrievalMatchingTab::RepopulatePrecisions(
+    const std::string& selected_precision) {
+  const QSignalBlocker blocker(precision_cb_);
+  precision_cb_->clear();
+  int index = 0;
+  for (const auto variant : retrieval::GlobalDescriptorModel::VariantNames(
+           method_cb_->currentText().toStdString())) {
+    if (std::string(variant) == selected_precision) {
+      index = precision_cb_->count();
+    }
+    precision_cb_->addItem(QString::fromStdString(std::string(variant)));
+  }
+  precision_cb_->setCurrentIndex(index);
+}
+
+void RetrievalMatchingTab::UpdateModelPathField() {
+  // Show the configured model path for the selected model variant, or the
+  // variant's default download URI otherwise.
+  if (model_path_edit_ == nullptr) {
+    return;
+  }
+  const std::string model_name = method_cb_->currentText().toStdString();
+  const std::string precision = precision_cb_->currentText().toStdString();
+  const auto* model = retrieval::GlobalDescriptorModel::GetModel(model_name);
+  if (model == nullptr) {
+    return;
+  }
+  const RetrievalPairingOptions& pairing = *options_->retrieval_pairing;
+  if (!pairing.model_path.empty() &&
+      retrieval::GlobalDescriptorModel::GetModel(pairing.model_type) == model &&
+      retrieval::GlobalDescriptorModel::DefaultModelUri(
+          pairing.model_type, pairing.model_precision) ==
+          retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
+                                                            precision)) {
+    model_path_edit_->setText(
+        QString::fromStdString(pairing.model_path.string()));
+  } else {
+    model_path_edit_->setText(QString::fromStdString(
+        retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
+                                                          precision)));
+  }
+}
+#endif
+
+void RetrievalMatchingTab::Run() {
+  WriteOptions();
+
+  RetrievalPairingOptions& pairing = *options_->retrieval_pairing;
+  const int idx = method_cb_->currentIndex();
+  if (idx == 0) {
+    pairing.method = RetrievalMethod::VOCAB_TREE;
+    // An empty path is valid: the matcher then resolves the default
+    // vocabulary tree for the database's feature type.
+    if (!pairing.vocab_tree_path.empty() &&
+        !ExistsFile(pairing.vocab_tree_path) &&
+        !IsURI(pairing.vocab_tree_path.string())) {
+      QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+      return;
+    }
+  }
+#ifdef COLMAP_ONNX_ENABLED
+  else {
+    pairing.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
+    pairing.model_type = method_cb_->currentText().toStdString();
+    pairing.model_precision = precision_cb_->currentText().toStdString();
+    // Auto-derive paths from the project.
+    pairing.image_path = *options_->image_path;
+    pairing.database_path = *options_->database_path;
+
+    // Empty model path is valid: auto-download from the default URI.
+    if (!pairing.model_path.empty() && !ExistsFile(pairing.model_path) &&
+        !IsURI(pairing.model_path.string())) {
+      QMessageBox::critical(
+          this,
+          "",
+          tr("Invalid global descriptor model path. Leave empty for "
+             "auto-download, or provide a valid local file or URL."));
+      return;
+    }
+
+    if (pairing.image_path.empty()) {
+      QMessageBox::critical(
+          this,
+          "",
+          tr("Image path not set. Please set it in the project options."));
+      return;
+    }
+  }
+#endif
+
+  auto matcher = CreateRetrievalFeatureMatcher(pairing,
                                                *options_->feature_matching,
                                                *options_->two_view_geometry,
                                                *options_->database_path);
@@ -456,7 +873,7 @@ FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
                       tr("Exhaustive"));
   tab_widget_->addTab(new SequentialMatchingTab(this, options),
                       tr("Sequential"));
-  tab_widget_->addTab(new VocabTreeMatchingTab(this, options), tr("VocabTree"));
+  tab_widget_->addTab(new RetrievalMatchingTab(this, options), tr("Retrieval"));
   tab_widget_->addTab(new SpatialMatchingTab(this, options), tr("Spatial"));
   tab_widget_->addTab(new TransitiveMatchingTab(this, options),
                       tr("Transitive"));

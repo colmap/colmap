@@ -479,6 +479,45 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         choices=["incremental", "hierarchical", "global"],
     )
     parser.add_argument(
+        "--pano_matcher",
+        default="sequential",
+        choices=[str(m) for m in panorama.Matcher],
+        help="Matching mode used by the panorama reconstruction backends.",
+    )
+    parser.add_argument(
+        "--retrieval_method",
+        default="VOCAB_TREE",
+        choices=["VOCAB_TREE", "GLOBAL_DESCRIPTOR"],
+        help="Retrieval method used when --pano_matcher retrieval.",
+    )
+    parser.add_argument(
+        "--retrieval_model_type",
+        default="MixVPR",
+        help="Global descriptor model (e.g. MixVPR, MegaLoc).",
+    )
+    parser.add_argument(
+        "--retrieval_model_precision",
+        default="fp16",
+        help="Precision variant of the global descriptor model.",
+    )
+    parser.add_argument(
+        "--retrieval_model_path",
+        default="",
+        help="Optional local path or URI of the global descriptor model.",
+    )
+    parser.add_argument(
+        "--retrieval_num_images",
+        type=int,
+        default=50,
+        help="Number of images to retrieve for each query image.",
+    )
+    parser.add_argument(
+        "--retrieval_batch_size",
+        type=int,
+        default=16,
+        help="Batch size for global descriptor inference.",
+    )
+    parser.add_argument(
         "--quality", default="high", choices=["low", "medium", "high"]
     )
     parser.add_argument(
@@ -823,13 +862,31 @@ def panorama_reconstruction(
             else args.covisibility_min_shared_points
         )
 
+    retrieval_options = None
+    matcher = panorama.Matcher(args.pano_matcher)
+    if matcher == panorama.Matcher.RETRIEVAL:
+        retrieval_options = pycolmap.RetrievalPairingOptions()
+        retrieval_options.method = pycolmap.RetrievalMethod(
+            args.retrieval_method
+        )
+        retrieval_options.num_images = args.retrieval_num_images
+        retrieval_options.model_type = args.retrieval_model_type
+        retrieval_options.model_precision = args.retrieval_model_precision
+        retrieval_options.batch_size = args.retrieval_batch_size
+        if args.retrieval_model_path:
+            retrieval_options.model_path = args.retrieval_model_path
+        retrieval_options.use_gpu = args.use_gpu
+        retrieval_options.gpu_index = gpu_index
+        retrieval_options.num_threads = num_threads
+
     workspace_path.mkdir(parents=True, exist_ok=True)
     phase_tracker.set("reconstruction")
     panorama.reconstruct(
         scene_info.image_path,
         workspace_path,
         panorama.PanoramaReconstructionOptions(
-            matcher=panorama.Matcher.SEQUENTIAL,
+            matcher=matcher,
+            retrieval_options=retrieval_options,
             mapper=panorama.Mapper(args.mapper),
             render_type=panorama.PanoRenderType(render_type),
             random_seed=args.random_seed,
