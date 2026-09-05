@@ -181,17 +181,27 @@ void BindBundleAdjuster(py::module& m) {
   // Ceres-specific bundle adjustment options
   using CeresBAOpts = CeresBundleAdjustmentOptions;
   auto PyCeresLossFunctionType =
-      py::enum_<CeresBAOpts::LossFunctionType>(m, "LossFunctionType")
-          .value("TRIVIAL", CeresBAOpts::LossFunctionType::TRIVIAL)
-          .value("SOFT_L1", CeresBAOpts::LossFunctionType::SOFT_L1)
-          .value("CAUCHY", CeresBAOpts::LossFunctionType::CAUCHY)
-          .value("HUBER", CeresBAOpts::LossFunctionType::HUBER);
+      py::enum_<CeresLossFunctionType>(m, "LossFunctionType")
+          .value("TRIVIAL", CeresLossFunctionType::TRIVIAL)
+          .value("SOFT_L1", CeresLossFunctionType::SOFT_L1)
+          .value("CAUCHY", CeresLossFunctionType::CAUCHY)
+          .value("HUBER", CeresLossFunctionType::HUBER);
   AddStringToEnumConstructor(PyCeresLossFunctionType);
+  m.def(
+      "create_ceres_loss_function",
+      [](const CeresLossFunctionType type,
+         const double robust_scale,
+         const double weight) {
+        return std::shared_ptr<ceres::LossFunction>(
+            CreateCeresLossFunction(type, robust_scale, weight));
+      },
+      "loss_function_type"_a,
+      "robust_scale"_a,
+      "weight"_a = 1.0);
 
   auto PyCeresBundleAdjustmentOptions =
       py::classh<CeresBAOpts>(m, "CeresBundleAdjustmentOptions")
           .def(py::init<>())
-          .def("create_loss_function", &CeresBAOpts::CreateLossFunction)
           .def("create_solver_options",
                &CeresBAOpts::CreateSolverOptions,
                "config"_a,
@@ -204,6 +214,9 @@ void BindBundleAdjuster(py::module& m) {
                          &CeresBAOpts::loss_function_scale,
                          "Scaling factor determines residual at which "
                          "robustification takes place.")
+          .def_readwrite("loss_function_weight",
+                         &CeresBAOpts::loss_function_weight,
+                         "Multiplier applied to the loss function output.")
           .def_readwrite("use_gpu",
                          &CeresBAOpts::use_gpu,
                          "Whether to use Ceres' CUDA linear algebra library, "

@@ -99,6 +99,12 @@ void BindObservationManager(py::module& m) {
            &ObservationManager::FilterObservationsWithNegativeDepth,
            "Filter observations that have negative depth. Return the number of "
            "filtered observations.")
+      .def("find_points3D_with_small_triangulation_angle",
+           &ObservationManager::FindPoints3DWithSmallTriangulationAngle,
+           "min_tri_angle"_a,
+           "point3D_ids"_a,
+           "Find points with insufficient triangulation angle in degrees over "
+           "the explicit point-ID domain without modifying the reconstruction.")
       .def("filter_points3D_with_large_reprojection_error",
            &ObservationManager::FilterPoints3DWithLargeReprojectionError,
            "max_error"_a,
