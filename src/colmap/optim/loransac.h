@@ -273,6 +273,13 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
                 }
               }
 
+              // With support measures such as MSAC, a better model can have
+              // fewer inliers. Stop recursive refinement if the updated
+              // inlier set is too small for the local estimator.
+              if (X_inlier.size() < LocalEstimator::kMinNumSamples) {
+                break;
+              }
+
               local_models.clear();
               if constexpr (internal::SupportsRefineWithInitialModel<
                                 LocalEstimator>::value) {

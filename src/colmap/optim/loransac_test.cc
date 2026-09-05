@@ -35,6 +35,8 @@
 #include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
 
+#include <algorithm>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
@@ -72,6 +74,44 @@ SimilarityTransformTestData GenerateTestData(const size_t num_samples = 1000,
 
   return data;
 }
+
+class ShrinkingInlierEstimator {
+ public:
+  using X_t = double;
+  using Y_t = double;
+  using M_t = int;
+
+  static const int kMinNumSamples = 5;
+
+  static void Estimate(const std::vector<X_t>& X,
+                       const std::vector<Y_t>& Y,
+                       std::vector<M_t>* models) {
+    THROW_CHECK_EQ(X.size(), Y.size());
+    THROW_CHECK_GE(X.size(), kMinNumSamples);
+    models->assign(1, 0);
+  }
+
+  static bool Refine(const std::vector<X_t>& X,
+                     const std::vector<Y_t>& Y,
+                     M_t* model) {
+    THROW_CHECK_EQ(X.size(), Y.size());
+    THROW_CHECK_GE(X.size(), kMinNumSamples);
+    *model = 1;
+    return true;
+  }
+
+  static void Residuals(const std::vector<X_t>& X,
+                        const std::vector<Y_t>& Y,
+                        const M_t model,
+                        std::vector<double>* residuals) {
+    THROW_CHECK_EQ(X.size(), Y.size());
+    residuals->assign(X.size(), 0.9);
+    if (model == 1) {
+      residuals->assign(X.size(), 2.0);
+      std::fill_n(residuals->begin(), 4, 0.0);
+    }
+  }
+};
 
 template <typename Report>
 void ValidateReport(const Report& report,
@@ -128,6 +168,27 @@ TEST(LORANSAC, ParallelSimilarityTransform) {
   const auto report = loransac.Estimate(data.src, data.tgt);
 
   ValidateReport(report, data);
+}
+
+TEST(LORANSAC, RecursiveRefinementStopsBelowMinimumSampleCount) {
+  RANSACOptions options;
+  options.max_error = 1.0;
+  options.min_num_trials = 1;
+  options.max_num_trials = 1;
+  options.random_seed = kDefaultPRNGSeed;
+
+  LORANSAC<ShrinkingInlierEstimator,
+           ShrinkingInlierEstimator,
+           MEstimatorSupportMeasurer>
+      loransac(options);
+  const std::vector<double> samples(6, 0.0);
+
+  LORANSAC<ShrinkingInlierEstimator,
+           ShrinkingInlierEstimator,
+           MEstimatorSupportMeasurer>::Report report;
+  EXPECT_NO_THROW(report = loransac.Estimate(samples, samples));
+  EXPECT_FALSE(report.success);
+  EXPECT_EQ(report.support.num_inliers, 4);
 }
 
 }  // namespace
