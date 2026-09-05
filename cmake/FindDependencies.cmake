@@ -34,9 +34,16 @@ set(COLMAP_MIN_BOOST_VERSION "1.84.0")
 # find_package(colmap) pre-sets this to what COLMAP was built with, so consumers
 # follow the installed binaries instead of re-deciding from their own Boost.
 if(NOT DEFINED COLMAP_BOOST_FROM_SYSTEM)
-    find_package(Boost QUIET COMPONENTS graph program_options)
-    if(Boost_FOUND AND
-       "${Boost_VERSION_STRING}" VERSION_GREATER_EQUAL "${COLMAP_MIN_BOOST_VERSION}")
+    # The version requirement has to go into the find_package() call rather than
+    # be checked afterwards: a successful find defines the Boost:: imported
+    # targets, and those collide with the ALIAS targets the pinned Boost creates
+    # below. Requesting the minimum version makes a too-old Boost fail the
+    # version check before any target is defined. No COMPONENTS either: a
+    # missing component leaves Boost_FOUND false but still defines the header
+    # targets, so the probe only asks the version question and lets the real
+    # find_package() below report a missing graph or program_options.
+    find_package(Boost ${COLMAP_MIN_BOOST_VERSION} QUIET)
+    if(Boost_FOUND)
         set(COLMAP_BOOST_FROM_SYSTEM TRUE)
     else()
         set(COLMAP_BOOST_FROM_SYSTEM FALSE)
