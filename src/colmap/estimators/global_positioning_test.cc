@@ -43,6 +43,69 @@
 namespace colmap {
 namespace {
 
+std::pair<ObservationCovarianceMap, double> ObservationCovariancesAndCost(
+    const GlobalPositionerOptions& options,
+    const Reconstruction& reconstruction) {
+  const Eigen::Vector3d standard_deviations(0.5, 1.0, 2.0);
+  const Eigen::Matrix3d camera_covariance =
+      standard_deviations.array().square().matrix().asDiagonal();
+  const Eigen::Matrix3d camera_whitening =
+      standard_deviations.cwiseInverse().asDiagonal();
+  ObservationCovarianceMap covariances;
+  double expected_cost = 0.0;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.track.Length() <
+        static_cast<size_t>(options.min_num_view_per_track)) {
+      continue;
+    }
+    const std::vector<TrackElement>& observations = point3D.track.Elements();
+    for (std::size_t index = 0; index < observations.size(); ++index) {
+      const TrackElement& observation = observations[index];
+      if (!reconstruction.ExistsImage(observation.image_id)) continue;
+      const Image& image = reconstruction.Image(observation.image_id);
+      const std::optional<Eigen::Vector3d> camera_ray =
+          image.CameraPtr()->CamRayFromImg(
+              image.Point2D(observation.point2D_idx).xy);
+      if (!image.HasPose() || !camera_ray.has_value()) {
+        continue;
+      }
+      const Eigen::Matrix3d cam_from_world =
+          image.CamFromWorld().rotation().toRotationMatrix();
+      covariances.emplace(
+          Point3DTrackElementKey{point3D_id, static_cast<uint64_t>(index)},
+          cam_from_world.transpose() * camera_covariance * cam_from_world);
+
+      const Eigen::Vector3d frame_center =
+          image.FramePtr()->RigFromWorld().TgtOriginInSrc();
+      Eigen::Vector3d point_from_center = point3D.xyz - frame_center;
+      if (!image.IsRefInFrame()) {
+        const Rig& rig = reconstruction.Rig(image.FramePtr()->RigId());
+        const Rigid3d& cam_from_rig =
+            rig.SensorFromRig(image.CameraPtr()->SensorId());
+        point_from_center += image.CamFromWorld().rotation().inverse() *
+                             cam_from_rig.translation();
+      }
+      const Eigen::Vector3d residual =
+          image.CamFromWorld().rotation().inverse() * (*camera_ray) -
+          point_from_center;
+      expected_cost +=
+          0.5 * (camera_whitening * cam_from_world * residual).squaredNorm();
+    }
+  }
+  return {std::move(covariances), expected_cost};
+}
+
+Reconstruction CreateGlobalPositioningTestReconstruction() {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 4;
+  options.num_points3D = 30;
+  SynthesizeDataset(options, &reconstruction);
+  return reconstruction;
+}
+
 TEST(GlobalPositioning, Nominal) {
   const auto database_path = CreateTestDir() / "database.db";
 
@@ -87,6 +150,76 @@ TEST(GlobalPositioning, Nominal) {
                                  /*max_proj_center_error=*/0.5,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.0));
+}
+
+TEST(GlobalPositioning, ComposableProblem) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  auto loss = std::make_shared<ceres::CauchyLoss>(0.1);
+  auto positioner = GlobalPositioner::CreateDefault(
+      options, PoseGraph(), reconstruction, {}, loss);
+  loss.reset();
+
+  const frame_t frame_id = reconstruction.Images().begin()->second.FrameId();
+  double* center = positioner->FrameCenterParameterBlock(frame_id);
+  ASSERT_NE(center, nullptr);
+  EXPECT_TRUE(positioner->Problem().HasParameterBlock(center));
+  EXPECT_EQ(positioner->FrameCenterParameterBlock(kInvalidFrameId), nullptr);
+
+  double external_scale = 1.0;
+  positioner->Problem().AddParameterBlock(&external_scale, 1);
+  positioner->SetParameterBlockOrdering();
+  const auto& ordering = *positioner->SolverOptions().linear_solver_ordering;
+  EXPECT_EQ(ordering.GroupId(&external_scale), 0);
+  EXPECT_EQ(ordering.NumElements(), positioner->Problem().NumParameterBlocks());
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(positioner->SolverOptions(), &positioner->Problem(), &summary);
+  EXPECT_TRUE(positioner->Finalize(summary));
+}
+
+TEST(GlobalPositioning, KeyedObservationCovariances) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions dataset_options;
+  dataset_options.num_rigs = 1;
+  dataset_options.num_cameras_per_rig = 2;
+  dataset_options.num_frames_per_rig = 4;
+  dataset_options.num_points3D = 30;
+  SynthesizeDataset(dataset_options, &reconstruction);
+
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  options.generate_random_positions = false;
+  options.generate_random_points = false;
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    reconstruction.Camera(camera_id).has_prior_focal_length = true;
+  }
+  auto [covariances, expected_cost] =
+      ObservationCovariancesAndCost(options, reconstruction);
+  ASSERT_FALSE(covariances.empty());
+
+  Reconstruction weighted_reconstruction = reconstruction;
+  auto weighted =
+      GlobalPositioner::CreateDefault(options,
+                                      PoseGraph(),
+                                      weighted_reconstruction,
+                                      covariances,
+                                      std::make_shared<ceres::TrivialLoss>());
+  double weighted_cost = 0.0;
+  ASSERT_TRUE(weighted->Problem().Evaluate(ceres::Problem::EvaluateOptions(),
+                                           &weighted_cost,
+                                           nullptr,
+                                           nullptr,
+                                           nullptr));
+  EXPECT_NEAR(weighted_cost, expected_cost, 1e-10);
+
+  ObservationCovarianceMap missing = covariances;
+  missing.erase(missing.begin());
+  Reconstruction missing_reconstruction = reconstruction;
+  EXPECT_THROW(GlobalPositioner::CreateDefault(
+                   options, PoseGraph(), missing_reconstruction, missing),
+               std::invalid_argument);
 }
 
 TEST(GlobalPositioning, MultiCameraRig) {

@@ -8,6 +8,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+PYBIND11_MAKE_OPAQUE(colmap::ObservationCovarianceMap);
+
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
@@ -63,6 +65,29 @@ void BindGlobalPositioner(py::module& m) {
                          &GlobalPositionerOptions::use_parameter_block_ordering,
                          "Whether to use custom parameter block ordering.");
   MakeDataclass(PyGlobalPositionerOptions);
+
+  py::classh<GlobalPositioner>(m, "GlobalPositioner")
+      .def("solve", &GlobalPositioner::Solve)
+      .def_property_readonly("problem",
+                             &GlobalPositioner::Problem,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("solver_options",
+                             &GlobalPositioner::SolverOptions,
+                             py::return_value_policy::copy)
+      .def("set_parameter_block_ordering",
+           &GlobalPositioner::SetParameterBlockOrdering)
+      .def("finalize", &GlobalPositioner::Finalize, "summary"_a);
+
+  py::class_<ObservationCovarianceMap>(m, "_ObservationCovarianceMap");
+
+  m.def("create_default_global_positioner",
+        &GlobalPositioner::CreateDefault,
+        "options"_a,
+        "pose_graph"_a,
+        "reconstruction"_a,
+        "observation_covariances"_a = ObservationCovarianceMap(),
+        "loss_function"_a = nullptr,
+        py::keep_alive<0, 3>());
 
   m.def(
       "run_global_positioning",

@@ -1,11 +1,14 @@
 #include "colmap/estimators/global_positioning.h"
 
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
+
+#include <utility>
 
 namespace colmap {
 namespace {
@@ -16,6 +19,35 @@ Eigen::Vector3d RandVector3d(double low, double high) {
                          RandomUniformReal(low, high));
 }
 
+template <typename CostFunctor, typename... Args>
+ceres::CostFunction* CreateBATACostFunction(const Eigen::Matrix3d* covariance,
+                                            Args&&... args) {
+  if (covariance == nullptr) {
+    return CostFunctor::Create(std::forward<Args>(args)...);
+  }
+  return CovarianceWeightedCostFunctor<CostFunctor>::Create(
+      *covariance, std::forward<Args>(args)...);
+}
+
+class DefaultGlobalPositioner final : public GlobalPositioner {
+ public:
+  DefaultGlobalPositioner(
+      const GlobalPositionerOptions& options,
+      const PoseGraph& pose_graph,
+      Reconstruction& reconstruction,
+      const ObservationCovarianceMap& observation_covariances,
+      std::shared_ptr<ceres::LossFunction> loss_function)
+      : GlobalPositioner(options) {
+    Prepare(pose_graph,
+            reconstruction,
+            observation_covariances,
+            std::move(loss_function));
+    options_.solver_options.num_threads =
+        GetEffectiveNumThreads(options_.solver_options.num_threads);
+    options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
+  }
+};
+
 }  // namespace
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
@@ -25,61 +57,67 @@ GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
   }
 }
 
-bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
-                             Reconstruction& reconstruction) {
+ceres::Solver::Summary GlobalPositioner::Solve() {
+  LOG(INFO) << "Solving the global positioner problem";
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(options_.solver_options, problem_.get(), &summary);
+  Finalize(summary);
+  return summary;
+}
+
+bool GlobalPositioner::Finalize(const ceres::Solver::Summary& summary) {
+  if (VLOG_IS_ON(2)) {
+    LOG(INFO) << summary.FullReport();
+  } else {
+    LOG(INFO) << summary.BriefReport();
+  }
+  ConvertBackResults(*reconstruction_);
+  return summary.IsSolutionUsable();
+}
+
+void GlobalPositioner::Prepare(
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction,
+    const ObservationCovarianceMap& observation_covariances,
+    std::shared_ptr<ceres::LossFunction> loss_function) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
-    return false;
+    throw std::runtime_error("global positioning requires images");
   }
   if (reconstruction.NumPoints3D() == 0) {
     LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
-    return false;
+    throw std::runtime_error("global positioning requires 3D points");
   }
+  reconstruction_ = &reconstruction;
 
   LOG(INFO) << "Setting up the global positioner problem";
 
   // Setup the problem.
-  SetupProblem(pose_graph, reconstruction);
+  SetupProblem(std::move(loss_function));
 
   // Initialize camera translations to be random.
   // Also, convert the camera pose translation to be the camera center.
   InitializeRandomPositions(pose_graph, reconstruction);
 
   // Add the point to camera constraints to the problem.
-  AddPointToCameraConstraints(reconstruction);
-
-  if (options_.use_parameter_block_ordering) {
-    AddCamerasAndPointsToParameterGroups(reconstruction);
-  }
+  AddPointToCameraConstraints(reconstruction, observation_covariances);
 
   // Parameterize the variables, set image poses / tracks / scales to be
   // constant if desired
   ParameterizeVariables(reconstruction);
-
-  LOG(INFO) << "Solving the global positioner problem";
-
-  ceres::Solver::Summary summary;
-  options_.solver_options.num_threads =
-      GetEffectiveNumThreads(options_.solver_options.num_threads);
-  options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
-  ceres::Solve(options_.solver_options, problem_.get(), &summary);
-
-  if (VLOG_IS_ON(2)) {
-    LOG(INFO) << summary.FullReport();
-  } else {
-    LOG(INFO) << summary.BriefReport();
-  }
-
-  ConvertBackResults(reconstruction);
-  return summary.IsSolutionUsable();
 }
 
-void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
-                                    const Reconstruction& reconstruction) {
+void GlobalPositioner::SetupProblem(
+    std::shared_ptr<ceres::LossFunction> loss_function) {
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
-  loss_function_ = options_.CreateLossFunction();
+  if (loss_function != nullptr) {
+    loss_function_ = std::move(loss_function);
+  } else {
+    loss_function_ = options_.CreateLossFunction();
+  }
 
   // Clear temporary storage from previous runs.
   frame_centers_.clear();
@@ -90,7 +128,7 @@ void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
   // smaller.
   scales_.clear();
   size_t total_observations = 0;
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
     total_observations += point3D.track.Length();
   }
   scales_.reserve(total_observations);
@@ -136,7 +174,8 @@ void GlobalPositioner::InitializeRandomPositions(
 }
 
 void GlobalPositioner::AddPointToCameraConstraints(
-    Reconstruction& reconstruction) {
+    Reconstruction& reconstruction,
+    const ObservationCovarianceMap& observation_covariances) {
   VLOG(2) << reconstruction.NumPoints3D()
           << " point to camera constraints were added to the position "
              "estimation problem.";
@@ -152,15 +191,16 @@ void GlobalPositioner::AddPointToCameraConstraints(
       continue;
     }
 
-    AddPoint3DToProblem(point3D_id, reconstruction);
+    AddPoint3DToProblem(point3D_id, reconstruction, observation_covariances);
   }
 }
 
-void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
-                                           Reconstruction& reconstruction) {
+void GlobalPositioner::AddPoint3DToProblem(
+    point3D_t point3D_id,
+    Reconstruction& reconstruction,
+    const ObservationCovarianceMap& observation_covariances) {
   const bool random_initialization =
       options_.optimize_points && options_.generate_random_points;
-
   Point3D& point3D = reconstruction.Point3D(point3D_id);
 
   // Only set the points to be random if they are needed to be optimized
@@ -169,7 +209,11 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
   }
 
   // For each view in the track add the point to camera correspondences.
-  for (const auto& observation : point3D.track.Elements()) {
+  const std::vector<TrackElement>& observations = point3D.track.Elements();
+  for (std::size_t track_element_index = 0;
+       track_element_index < observations.size();
+       ++track_element_index) {
+    const TrackElement& observation = observations[track_element_index];
     if (!reconstruction.ExistsImage(observation.image_id)) continue;
 
     Image& image = reconstruction.Image(observation.image_id);
@@ -185,13 +229,24 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
           << ", feature_id=" << observation.point2D_idx;
       continue;
     }
-
     const Eigen::Vector3d cam_from_point3D_dir =
         image.CamFromWorld().rotation().inverse() * (*cam_ray);
-
-    CHECK_GE(scales_.capacity(), scales_.size())
-        << "Not enough capacity was reserved for the scales.";
     double& scale = scales_.emplace_back(1);
+    const Eigen::Matrix3d* covariance = nullptr;
+    if (!observation_covariances.empty()) {
+      const Point3DTrackElementKey key{
+          point3D_id, static_cast<uint64_t>(track_element_index)};
+      const auto covariance_it = observation_covariances.find(key);
+      if (covariance_it == observation_covariances.end()) {
+        throw std::invalid_argument(
+            "observation covariance map is missing a reconstruction "
+            "observation");
+      }
+      if (!covariance_it->second.allFinite()) {
+        throw std::invalid_argument("observation covariance must be finite");
+      }
+      covariance = &covariance_it->second;
+    }
 
     if (!options_.generate_scales && random_initialization) {
       const Eigen::Vector3d cam_from_point3D_translation =
@@ -213,8 +268,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     // If the image is not part of a camera rig, use the standard BATA error
     if (image.IsRefInFrame()) {
       ceres::CostFunction* cost_function =
-          BATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir);
-
+          CreateBATACostFunction<BATAPairwiseDirectionCostFunctor>(
+              covariance, cam_from_point3D_dir);
       problem_->AddResidualBlock(cost_function,
                                  loss_function,
                                  frame_centers_[image.FrameId()].data(),
@@ -232,9 +287,9 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
             image.CamFromWorld().rotation().inverse() *
             cam_from_rig.translation();
 
-        ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionConstantRigCostFunctor::Create(
-                cam_from_point3D_dir, cam_from_rig_dir);
+        ceres::CostFunction* cost_function = CreateBATACostFunction<
+            RigBATAPairwiseDirectionConstantRigCostFunctor>(
+            covariance, cam_from_point3D_dir, cam_from_rig_dir);
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
@@ -255,7 +310,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
         }
 
         ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionCostFunctor::Create(
+            CreateBATACostFunction<RigBATAPairwiseDirectionCostFunctor>(
+                covariance,
                 cam_from_point3D_dir,
                 image.FramePtr()->RigFromWorld().rotation());
 
@@ -267,46 +323,7 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
                                    &scale);
       }
     }
-
     problem_->SetParameterLowerBound(&scale, 0, 1e-5);
-  }
-}
-
-void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
-    Reconstruction& reconstruction) {
-  // Create a custom ordering for Schur-based problems.
-  options_.solver_options.linear_solver_ordering.reset(
-      new ceres::ParameterBlockOrdering);
-  ceres::ParameterBlockOrdering* parameter_ordering =
-      options_.solver_options.linear_solver_ordering.get();
-
-  // Add scale parameters to group 0 (large and independent)
-  for (double& scale : scales_) {
-    parameter_ordering->AddElementToGroup(&scale, 0);
-  }
-
-  // Add point parameters to group 1.
-  int group_id = 1;
-  if (reconstruction.NumPoints3D() > 0) {
-    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-      if (problem_->HasParameterBlock(point3D.xyz.data()))
-        parameter_ordering->AddElementToGroup(
-            reconstruction.Point3D(point3D_id).xyz.data(), group_id);
-    }
-    group_id++;
-  }
-
-  for (auto& [frame_id, center] : frame_centers_) {
-    if (problem_->HasParameterBlock(center.data())) {
-      parameter_ordering->AddElementToGroup(center.data(), group_id);
-    }
-  }
-
-  // Add the cam_in_rig to be estimated into the parameter group
-  for (auto& [sensor_id, center] : cams_in_rig_) {
-    if (problem_->HasParameterBlock(center.data())) {
-      parameter_ordering->AddElementToGroup(center.data(), group_id);
-    }
   }
 }
 
@@ -325,7 +342,7 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
 
   // If not optimizing positions, set frame centers to be constant.
   if (!options_.optimize_positions) {
-    for (auto& [frame_id, center] : frame_centers_) {
+    for (auto& [_, center] : frame_centers_) {
       if (problem_->HasParameterBlock(center.data())) {
         problem_->SetParameterBlockConstant(center.data());
       }
@@ -440,11 +457,90 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
   }
 }
 
+ceres::Problem& GlobalPositioner::Problem() { return *problem_; }
+
+const ceres::Solver::Options& GlobalPositioner::SolverOptions() const {
+  return options_.solver_options;
+}
+
+double* GlobalPositioner::FrameCenterParameterBlock(const frame_t frame_id) {
+  const auto center = frame_centers_.find(frame_id);
+  if (center == frame_centers_.end() ||
+      !problem_->HasParameterBlock(center->second.data())) {
+    return nullptr;
+  }
+  return center->second.data();
+}
+
+void GlobalPositioner::SetParameterBlockOrdering() {
+  auto ordering = std::make_shared<ceres::ParameterBlockOrdering>();
+
+  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
+    if (problem_->HasParameterBlock(point3D.xyz.data())) {
+      if (!ordering->AddElementToGroup(
+              reconstruction_->Point3D(point3D_id).xyz.data(), 1)) {
+        throw std::logic_error("duplicate known parameter block address");
+      }
+    }
+  }
+  for (auto& [_, center] : frame_centers_) {
+    if (problem_->HasParameterBlock(center.data())) {
+      if (!ordering->AddElementToGroup(center.data(), 2)) {
+        throw std::logic_error("duplicate known parameter block address");
+      }
+    }
+  }
+  for (auto& [sensor_id, center] : cams_in_rig_) {
+    if (problem_->HasParameterBlock(center.data())) {
+      if (!ordering->AddElementToGroup(center.data(), 2)) {
+        throw std::logic_error("duplicate known parameter block address");
+      }
+    }
+  }
+
+  std::vector<double*> parameter_blocks;
+  problem_->GetParameterBlocks(&parameter_blocks);
+  for (double* parameter_block : parameter_blocks) {
+    if (problem_->ParameterBlockSize(parameter_block) == 1 &&
+        !ordering->AddElementToGroup(parameter_block, 0)) {
+      throw std::logic_error("duplicate parameter block address");
+    }
+  }
+  if (ordering->NumElements() != problem_->NumParameterBlocks() ||
+      ordering->NumElements() != static_cast<int>(parameter_blocks.size())) {
+    throw std::logic_error(
+        "parameter block ordering does not cover the complete problem "
+        "exactly once");
+  }
+  options_.solver_options.linear_solver_ordering = std::move(ordering);
+}
+
+std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
+    const GlobalPositionerOptions& options,
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction,
+    const ObservationCovarianceMap& observation_covariances,
+    std::shared_ptr<ceres::LossFunction> loss_function) {
+  return std::make_unique<DefaultGlobalPositioner>(options,
+                                                   pose_graph,
+                                                   reconstruction,
+                                                   observation_covariances,
+                                                   std::move(loss_function));
+}
+
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
                           Reconstruction& reconstruction) {
-  GlobalPositioner positioner(options);
-  return positioner.Solve(pose_graph, reconstruction);
+  if (reconstruction.NumImages() == 0 || reconstruction.NumPoints3D() == 0) {
+    LOG(ERROR) << "Failed to run global positioning for empty incomplete reconstruction: " << reconstruction;
+    return false;
+  }
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, pose_graph, reconstruction);
+  if (options.use_parameter_block_ordering) {
+    positioner->SetParameterBlockOrdering();
+  }
+  return positioner->Solve().IsSolutionUsable();
 }
 
 }  // namespace colmap
