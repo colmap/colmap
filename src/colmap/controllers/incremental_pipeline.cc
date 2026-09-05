@@ -866,7 +866,7 @@ void IncrementalPipeline::TriangulateReconstruction(
     const auto& image = reconstruction->Image(image_id);
 
     LOG(INFO) << StringPrintf(
-        "Triangulating image #%d (%d)", image_id, image_idx++);
+        "Triangulating image #%d (%d)", image_id, ++image_idx);
     const size_t num_existing_points3D = image.NumPoints3D();
     LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
               << mapper.ObservationManager().NumObservations(image_id)
