@@ -54,7 +54,6 @@ COLMAP_ADD_LIBRARY(
         loma.h loma.cc
         matcher.h matcher.cc
         onnx_matchers.h onnx_matchers.cc
-        onnx_utils.h onnx_utils.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
@@ -83,7 +82,7 @@ if(OPENMP_FOUND)
 endif()
 
 if(ONNX_ENABLED)
-    target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
+    target_link_libraries(colmap_feature PRIVATE colmap_onnx_util)
 endif()
 
 if(ONNX_ENABLED)
@@ -97,13 +96,6 @@ if(ONNX_ENABLED)
     COLMAP_ADD_TEST(
         NAME onnx_matchers_test
         SRCS onnx_matchers_test.cc
-        LINK_LIBS
-            colmap_feature
-            onnxruntime::onnxruntime
-    )
-    COLMAP_ADD_TEST(
-        NAME onnx_utils_test
-        SRCS onnx_utils_test.cc
         LINK_LIBS
             colmap_feature
             onnxruntime::onnxruntime

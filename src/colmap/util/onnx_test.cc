@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/feature/onnx_utils.h"
+#include "colmap/util/onnx.h"
 
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"

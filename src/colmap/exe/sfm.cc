@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
+#include "colmap/controllers/camera_calibration.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
@@ -90,6 +91,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   std::string feature = "sift";
   std::string mapper = "incremental";
   std::string mesher = "poisson";
+  std::string calibrator = "anycalib";
   std::string ba_backend = "ceres";
 
   OptionManager options;
@@ -112,6 +114,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
   options.AddDefaultOption("extraction", &reconstruction_options.extraction);
+  options.AddDefaultOption("calibration", &reconstruction_options.calibration);
+  options.AddDefaultOption("calibrator", &calibrator, "{anycalib}");
+  options.AddDefaultOption("calibration_model_path",
+                           &reconstruction_options.calibration_model_path);
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
@@ -148,6 +154,10 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   StringToUpper(&mapper);
   reconstruction_options.mapper =
       AutomaticReconstructionController::MapperFromString(mapper);
+
+  StringToUpper(&calibrator);
+  reconstruction_options.calibrator =
+      CameraCalibratorTypeFromString(calibrator);
 
   std::unique_ptr<ScopedSignalHandler> signal_handler;
   if (reconstruction_options.mapper ==
@@ -809,6 +819,23 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   }
 
   LOG(INFO) << "View graph calibration completed successfully";
+  return EXIT_SUCCESS;
+}
+
+int RunCameraCalibrator(int argc, char** argv) {
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddCameraCalibrationOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  auto calibrator = CreateCameraCalibrationController(
+      *options.database_path, *options.image_path, *options.camera_calibration);
+  calibrator->Start();
+  calibrator->Wait();
+
   return EXIT_SUCCESS;
 }
 

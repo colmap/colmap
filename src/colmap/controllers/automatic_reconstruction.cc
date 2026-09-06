@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
+#include "colmap/controllers/camera_calibration.h"
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/global_pipeline.h"
@@ -203,6 +204,23 @@ void AutomaticReconstructionController::Setup() {
                                          *option_manager_.feature_extraction);
   }
 
+  if (options_.calibration) {
+    CameraCalibrationOptions& calibration_options =
+        *option_manager_.camera_calibration;
+    calibration_options.type = options_.calibrator;
+    calibration_options.camera_model = options_.camera_model;
+    if (!options_.calibration_model_path.empty()) {
+      calibration_options.anycalib.model_path = options_.calibration_model_path;
+    }
+    calibration_options.num_threads = options_.num_threads;
+    calibration_options.use_gpu = options_.use_gpu;
+    calibration_options.gpu_index = options_.gpu_index;
+    camera_calibrator_ =
+        CreateCameraCalibrationController(*option_manager_.database_path,
+                                          *option_manager_.image_path,
+                                          calibration_options);
+  }
+
   if (options_.matching) {
     exhaustive_matcher_ =
         CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_pairing,
@@ -246,6 +264,14 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
+  if (options_.calibration) {
+    RunCameraCalibration();
+  }
+
+  if (IsStopped()) {
+    return;
+  }
+
   if (options_.matching) {
     RunFeatureMatching();
   }
@@ -275,6 +301,17 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
   feature_extractor_->Start();
   feature_extractor_->Wait();
   feature_extractor_.reset();
+  active_thread_ = nullptr;
+}
+
+void AutomaticReconstructionController::RunCameraCalibration() {
+  LOG_HEADING1("Camera calibration");
+
+  THROW_CHECK_NOTNULL(camera_calibrator_);
+  active_thread_ = camera_calibrator_.get();
+  camera_calibrator_->Start();
+  camera_calibrator_->Wait();
+  camera_calibrator_.reset();
   active_thread_ = nullptr;
 }
 

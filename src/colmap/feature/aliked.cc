@@ -30,7 +30,7 @@
 #include "colmap/feature/aliked.h"
 
 #include "colmap/feature/onnx_matchers.h"
-#include "colmap/feature/onnx_utils.h"
+#include "colmap/util/onnx.h"
 
 #include <algorithm>
 #include <memory>

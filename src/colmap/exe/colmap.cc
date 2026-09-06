@@ -206,6 +206,9 @@ int main(int argc, char** argv) {
   commands.emplace_back("transitive_matcher",
                         &colmap::RunTransitiveMatcher,
                         kSupportsGracefulShutdown);
+  commands.emplace_back("camera_calibrator",
+                        &colmap::RunCameraCalibrator,
+                        kSupportsGracefulShutdown);
   commands.emplace_back("view_graph_calibrator",
                         &colmap::RunViewGraphCalibrator);
   commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
