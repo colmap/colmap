@@ -43,7 +43,6 @@
 #include "colmap/util/threading.h"
 
 #include <chrono>
-#include <string_view>
 
 namespace colmap {
 
