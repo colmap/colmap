@@ -72,7 +72,7 @@ namespace {
   std::string("{" + VectorToCSV(name##Strings()) + "}")
 
 std::string MakeCameraModelsHelpText() {
-  std::vector<CameraModelId> model_ids = CameraModelIdValues();
+  const std::vector<CameraModelId>& model_ids = CameraModelIdValues();
   std::vector<std::string> model_names;
   model_names.reserve(model_ids.size());
   for (const CameraModelId model_id : model_ids) {
