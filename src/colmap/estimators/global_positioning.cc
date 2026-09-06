@@ -66,14 +66,6 @@ void GlobalPositioner::Prepare(
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction,
     std::shared_ptr<ceres::LossFunction> loss_function) {
-  if (reconstruction.NumImages() == 0) {
-    LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
-    throw std::runtime_error("global positioning requires images");
-  }
-  if (reconstruction.NumPoints3D() == 0) {
-    LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
-    throw std::runtime_error("global positioning requires 3D points");
-  }
   reconstruction_ = &reconstruction;
 
   LOG(INFO) << "Setting up the global positioner problem";
