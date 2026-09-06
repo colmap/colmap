@@ -74,6 +74,21 @@ void BindGlobalPositioner(py::module& m) {
       .def_property_readonly("solver_options",
                              &GlobalPositioner::SolverOptions,
                              py::return_value_policy::copy)
+      .def(
+          "frame_center_parameter_block",
+          [](py::object self, frame_t frame_id) -> py::object {
+            double* center =
+                self.cast<GlobalPositioner&>().FrameCenterParameterBlock(
+                    frame_id);
+            if (center == nullptr) {
+              return py::none();
+            }
+            return py::array_t<double>({3}, {sizeof(double)}, center, self);
+          },
+          "frame_id"_a,
+          "Return a writable NumPy array sharing the frame-center parameter "
+          "block in world coordinates, or None if inactive. The array keeps "
+          "the positioner alive.")
       .def("set_parameter_block_ordering",
            &GlobalPositioner::SetParameterBlockOrdering)
       .def("finalize", &GlobalPositioner::Finalize, "summary"_a);

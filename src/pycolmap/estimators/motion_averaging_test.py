@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 import pycolmap
@@ -94,6 +95,35 @@ def test_global_positioner_retains_custom_loss() -> None:
     del loss
     assert owner.problem.num_residual_blocks() > 0
     assert owner.solve().IsSolutionUsable()
+
+
+def test_global_positioner_frame_center_parameter_block() -> None:
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    owner = pycolmap.create_default_global_positioner(
+        options, pycolmap.PoseGraph(), reconstruction
+    )
+    frame_id = next(iter(reconstruction.frames))
+    center = owner.frame_center_parameter_block(frame_id)
+    assert center.shape == (3,)
+    assert center.base is owner
+    center[:] = [1.0, 2.0, 3.0]
+    np.testing.assert_array_equal(
+        owner.frame_center_parameter_block(frame_id), center
+    )
+    assert (
+        owner.frame_center_parameter_block(max(reconstruction.frames) + 1)
+        is None
+    )
+    del owner
+    pytest.importorskip("pyceres")
+    assert center.base.problem.has_parameter_block(center)
 
 
 @pytest.mark.parametrize(
