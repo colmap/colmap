@@ -1,6 +1,3 @@
-import gc
-
-import pyceres
 import pytest
 
 import pycolmap
@@ -75,7 +72,8 @@ def test_global_positioner_options_default_init() -> None:
     assert options is not None
 
 
-def test_global_positioner_retains_custom_loss():
+def test_global_positioner_retains_custom_loss() -> None:
+    pyceres = pytest.importorskip("pyceres")
     dataset_options = pycolmap.SyntheticDatasetOptions()
     dataset_options.num_rigs = 1
     dataset_options.num_cameras_per_rig = 1
@@ -94,7 +92,6 @@ def test_global_positioner_retains_custom_loss():
         loss_function=loss,
     )
     del loss
-    gc.collect()
     assert owner.problem.num_residual_blocks() > 0
     assert owner.solve().IsSolutionUsable()
 
