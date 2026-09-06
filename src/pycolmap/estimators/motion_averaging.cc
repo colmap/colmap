@@ -3,7 +3,6 @@
 #include "colmap/estimators/rotation_averaging.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
@@ -111,13 +110,11 @@ void BindGlobalPositioner(py::module& m) {
       [](const GlobalPositionerOptions& options,
          const PoseGraph& pose_graph,
          Reconstruction& reconstruction,
-         const ObservationCovarianceMap& observation_covariances,
          const py::object& loss_function) {
         return GlobalPositioner::CreateDefault(
             options,
             pose_graph,
             reconstruction,
-            observation_covariances,
             loss_function.is_none()
                 ? nullptr
                 : loss_function.cast<std::shared_ptr<ceres::LossFunction>>());
@@ -125,12 +122,9 @@ void BindGlobalPositioner(py::module& m) {
       "options"_a,
       "pose_graph"_a,
       "reconstruction"_a,
-      "observation_covariances"_a = ObservationCovarianceMap(),
       "loss_function"_a = py::none(),
       py::keep_alive<0, 3>(),
-      "Observation covariances in world coordinates, keyed by "
-      "(point3D_id, track_index). Leave empty to disable; otherwise "
-      "provide a covariance for every included observation.");
+      "Prepare global positioning without solving.");
 
   m.def(
       "run_global_positioning",
