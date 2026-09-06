@@ -34,6 +34,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/pairing.h"
+#include "colmap/sensor/models.h"
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #endif
@@ -70,6 +71,18 @@ namespace {
 #define ENUM_HELP_TEXT(name) \
   std::string("{" + VectorToCSV(name##Strings()) + "}")
 
+std::string MakeCameraModelsHelpText() {
+  std::vector<CameraModelId> model_ids = CameraModelIdValues();
+  std::vector<std::string> model_names;
+  model_names.reserve(model_ids.size());
+  for (const CameraModelId model_id : model_ids) {
+    if (model_id == CameraModelId::kInvalid) {
+      continue;
+    }
+    model_names.push_back(CameraModelIdToName(model_id));
+  }
+  return "{" + VectorToCSV(model_names) + "}";
+}
 }  // namespace
 
 OptionManager::OptionManager(bool add_project_options)
@@ -240,7 +253,9 @@ void OptionManager::AddFeatureExtractionOptions() {
   added_feature_extraction_options_ = true;
 
   AddDefaultOption("ImageReader.mask_path", &image_reader->mask_path);
-  AddDefaultOption("ImageReader.camera_model", &image_reader->camera_model);
+  AddDefaultOption("ImageReader.camera_model",
+                   &image_reader->camera_model,
+                   MakeCameraModelsHelpText());
   AddDefaultOption("ImageReader.single_camera", &image_reader->single_camera);
   AddDefaultOption("ImageReader.single_camera_per_folder",
                    &image_reader->single_camera_per_folder);
