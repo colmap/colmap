@@ -138,7 +138,9 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
   const bool kResetPaths = true;
   ResetOptionsImpl(kResetPaths);
 
-  desc_ = std::make_shared<boost::program_options::options_description>();
+  desc_ = std::make_shared<boost::program_options::options_description>(
+      /*line_length=*/120,
+      /*min_description_length=*/80);
 
   options_bool_.clear();
   options_int_.clear();

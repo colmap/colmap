@@ -276,12 +276,10 @@ the available options, e.g.::
 
             -h [ --help ]
             --default_random_seed arg (=0)
-            --log_target arg (=stderr_and_file)
-                                  {stderr, stdout, file, stderr_and_file}
+            --log_target arg (=stderr_and_file)   {stderr, stdout, file, stderr_and_file}
             --log_path arg
             --log_level arg (=0)
-            --log_severity arg (=0)               {INFO = 0, WARNING = 1, ERROR = 2,
-                                                  FATAL = 3}
+            --log_severity arg (=0)               {INFO = 0, WARNING = 1, ERROR = 2, FATAL = 3}
             --log_color arg (=1)
             --project_path arg
             --database_path arg
@@ -292,14 +290,10 @@ the available options, e.g.::
                                                   {L1_ROOT, L2}
             --ImageReader.mask_path arg
             --ImageReader.camera_model arg (=SIMPLE_RADIAL)
-                                                  {SIMPLE_PINHOLE, PINHOLE,
-                                                  SIMPLE_RADIAL, RADIAL, OPENCV,
-                                                  OPENCV_FISHEYE, FULL_OPENCV, FOV,
-                                                  SIMPLE_RADIAL_FISHEYE, RADIAL_FISHEYE,
-                                                  THIN_PRISM_FISHEYE, RAD_TAN_THIN_PRISM_
-                                                  FISHEYE, SIMPLE_DIVISION, DIVISION,
-                                                  SIMPLE_FISHEYE, FISHEYE, EUCM,
-                                                  EQUIRECTANGULAR}
+                                                  {SIMPLE_PINHOLE, PINHOLE, SIMPLE_RADIAL, RADIAL, OPENCV, OPENCV_FISHEYE,
+                                                  FULL_OPENCV, FOV, SIMPLE_RADIAL_FISHEYE, RADIAL_FISHEYE, THIN_PRISM_FISHEYE,
+                                                  RAD_TAN_THIN_PRISM_FISHEYE, SIMPLE_DIVISION, DIVISION, SIMPLE_FISHEYE, FISHEYE,
+                                                  EUCM, EQUIRECTANGULAR}
             --ImageReader.single_camera arg (=0)
             --ImageReader.single_camera_per_folder arg (=0)
             --ImageReader.single_camera_per_image arg (=0)
@@ -307,8 +301,7 @@ the available options, e.g.::
             --ImageReader.camera_params arg
             --ImageReader.default_focal_length_factor arg (=1.2)
             --ImageReader.camera_mask_path arg
-            --FeatureExtraction.type arg (=SIFT)  {UNDEFINED, SIFT, ALIKED_N16ROT,
-                                                  ALIKED_N32, LOMA_B, LOMA_B128}
+            --FeatureExtraction.type arg (=SIFT)  {UNDEFINED, SIFT, ALIKED_N16ROT, ALIKED_N32, LOMA_B, LOMA_B128}
             --FeatureExtraction.max_image_size arg (=3200)
             --FeatureExtraction.num_threads arg (=-1)
             --FeatureExtraction.use_gpu arg (=1)
