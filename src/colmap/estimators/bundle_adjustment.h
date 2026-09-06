@@ -203,16 +203,18 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   bool print_summary = true;
 
   // Weights for soft priors on the camera intrinsics. A weight of 0 disables
-  // the respective prior. Focal length and principal point deviations are
-  // normalized by the maximum image dimension, such that the weights are
-  // resolution independent. Extra (distortion) parameters are unitless and
-  // used as is.
+  // the respective prior. The focal length and principal point weights are
+  // direct multipliers on deviations in pixels. The extra parameter weight is
+  // multiplied by the mean focal length at the time the problem is constructed
+  // to convert dimensionless deviations to pixel-like residuals.
   //
   // The focal length prior is only applied to cameras with
   // Camera::has_prior_focal_length and pulls towards the focal length at the
-  // time the problem is constructed. Note that it therefore acts as a damping
-  // term across successive bundle adjustment problems rather than as an anchor
-  // to the original prior, e.g. EXIF, focal length. The principal point and
+  // time the problem is constructed. Thus "initial" means the construction-time
+  // value for each bundle adjustment problem, not necessarily the original
+  // database value. The prior therefore acts as a damping term across successive
+  // problems rather than as an anchor to the original prior, e.g. EXIF focal
+  // length. The principal point and
   // extra parameter priors pull towards the values the camera model
   // initializes them to, i.e. the image center and, for most models, zero.
   double focal_length_prior_weight = 0;

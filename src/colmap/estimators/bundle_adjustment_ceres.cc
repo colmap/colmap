@@ -496,17 +496,20 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
       continue;
     }
 
-    // Normalize the focal length and principal point deviations by the image
-    // size, such that the weights are resolution independent.
-    const double inv_max_size = 1.0 / std::max(camera.width, camera.height);
+    // Focal length and principal point weights directly multiply deviations in
+    // pixels. Scale only dimensionless extra parameter deviations by the mean
+    // focal length at the time the problem is constructed to obtain pixel-like
+    // residuals.
+    const double mean_focal_length = camera.MeanFocalLength();
 
     // The principal point and extra parameters are pulled towards the values
     // the camera model initializes them to, which is not necessarily zero, e.g.
-    // for the beta parameter of the EUCM model. The targets are clamped into the
-    // valid parameter range, so that the prior never pulls a parameter towards a
-    // value that HasBogusParams rejects or that BoundCameraParams forbids.
+    // for the beta parameter of the EUCM model. The targets are clamped into
+    // the valid parameter range, so that the prior never pulls a parameter
+    // towards a value that HasBogusParams rejects or that BoundCameraParams
+    // forbids.
     std::vector<double> default_params = CameraModelInitializeParams(
-        camera.model_id, camera.MeanFocalLength(), camera.width, camera.height);
+        camera.model_id, mean_focal_length, camera.width, camera.height);
     std::vector<double> lower_bounds;
     std::vector<double> upper_bounds;
     CameraModelParamsBounds(camera.model_id,
@@ -530,7 +533,7 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
 
     if (prior_focal_length && camera.has_prior_focal_length) {
       for (const size_t idx : camera.FocalLengthIdxs()) {
-        weights[idx] = options.focal_length_prior_weight * inv_max_size;
+        weights[idx] = options.focal_length_prior_weight;
         priors[idx] = camera.params[idx];
         has_prior = true;
       }
@@ -538,7 +541,7 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
 
     if (prior_principal_point) {
       for (const size_t idx : camera.PrincipalPointIdxs()) {
-        weights[idx] = options.principal_point_prior_weight * inv_max_size;
+        weights[idx] = options.principal_point_prior_weight;
         priors[idx] = default_params[idx];
         has_prior = true;
       }
@@ -546,7 +549,7 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
 
     if (prior_extra_params) {
       for (const size_t idx : camera.ExtraParamsIdxs()) {
-        weights[idx] = options.extra_params_prior_weight;
+        weights[idx] = options.extra_params_prior_weight * mean_focal_length;
         priors[idx] = default_params[idx];
         has_prior = true;
       }

@@ -122,6 +122,102 @@ inline const ceres::Solver::Summary& GetCeresSummary(
   return ceres_summary->ceres_summary;
 }
 
+TEST(DefaultBundleAdjuster, CameraPriorUsesMixedUnitWeights) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 10;
+  synthetic_dataset_options.camera_width = 1024;
+  synthetic_dataset_options.camera_height = 768;
+  synthetic_dataset_options.camera_model_id = EUCMCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {800, 1200, 500, 390, 0.2, 0.8};
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+
+  BundleAdjustmentOptions options;
+  options.refine_principal_point = true;
+  options.focal_length_prior_weight = 2;
+  options.principal_point_prior_weight = 3;
+  options.extra_params_prior_weight = 4;
+
+  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+  ceres::Problem& problem = *bundle_adjuster->Problem();
+  Camera& camera = reconstruction.Camera(1);
+
+  std::vector<ceres::ResidualBlockId> camera_residual_blocks;
+  problem.GetResidualBlocksForParameterBlock(camera.params.data(),
+                                             &camera_residual_blocks);
+  std::vector<ceres::ResidualBlockId> prior_residual_blocks;
+  for (const ceres::ResidualBlockId residual_block : camera_residual_blocks) {
+    if (problem.GetCostFunctionForResidualBlock(residual_block)
+            ->num_residuals() == EUCMCameraModel::num_params) {
+      prior_residual_blocks.push_back(residual_block);
+    }
+  }
+  ASSERT_EQ(prior_residual_blocks.size(), 1);
+  EXPECT_EQ(problem.NumResiduals(),
+            config.NumResiduals(reconstruction) + EUCMCameraModel::num_params);
+  EXPECT_EQ(problem.NumResidualBlocks(),
+            config.NumResiduals(reconstruction) / 2 + 1);
+  std::vector<double*> parameter_blocks;
+  problem.GetParameterBlocksForResidualBlock(prior_residual_blocks.front(),
+                                             &parameter_blocks);
+  ASSERT_EQ(parameter_blocks.size(), 1);
+  EXPECT_EQ(parameter_blocks.front(), camera.params.data());
+
+  const ceres::LossFunction* loss_function =
+      problem.GetLossFunctionForResidualBlock(prior_residual_blocks.front());
+  ASSERT_NE(dynamic_cast<const ceres::HuberLoss*>(loss_function), nullptr);
+  double rho[3];
+  loss_function->Evaluate(4.0, rho);
+  EXPECT_DOUBLE_EQ(rho[0], 3.0);
+  EXPECT_DOUBLE_EQ(rho[1], 0.5);
+  EXPECT_DOUBLE_EQ(rho[2], -0.0625);
+
+  const std::vector<double> evaluated_params = {810, 1180, 515, 380, 0.21, 0.78};
+  std::copy(evaluated_params.begin(),
+            evaluated_params.end(),
+            camera.params.begin());
+  std::vector<double> residuals(EUCMCameraModel::num_params);
+  double cost = 0;
+  ASSERT_TRUE(problem.EvaluateResidualBlock(prior_residual_blocks.front(),
+                                            /*apply_loss_function=*/false,
+                                            &cost,
+                                            residuals.data(),
+                                            nullptr));
+  EXPECT_THAT(residuals,
+              testing::Pointwise(testing::DoubleNear(1e-12),
+                                 std::vector<double>(
+                                     {20, -40, 9, -12, 840, -880})));
+}
+
+TEST(DefaultBundleAdjuster, ZeroCameraPriorWeightsAreInactive) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 10;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  config.AddImage(1);
+  BundleAdjustmentOptions options;
+  options.refine_principal_point = true;
+
+  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+  EXPECT_EQ(bundle_adjuster->Problem()->NumResiduals(),
+            config.NumResiduals(reconstruction));
+}
+
 #ifdef COLMAP_CUDA_ENABLED
 TEST(CeresBundleAdjustmentOptions, FallsBackToCpuWithoutCudaDevice) {
   if (GetNumCudaDevices() > 0) {
