@@ -43,6 +43,7 @@
 #include "colmap/util/threading.h"
 
 #include <chrono>
+#include <string_view>
 
 namespace colmap {
 
@@ -93,16 +94,17 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
 int RunFeatureExtractor(int argc, char** argv) {
   std::filesystem::path image_list_path;
   int camera_mode = -1;
-  std::string descriptor_normalization = "l1_root";
+  std::string descriptor_normalization = "L1_ROOT";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddDefaultOption("descriptor_normalization",
-                           &descriptor_normalization,
-                           "{'l1_root', 'l2'}");
+  options.AddDefaultOption(
+      "descriptor_normalization",
+      &descriptor_normalization,
+      "{" + VectorToCSV(SiftExtractionOptions::NormalizationStrings()) + "}");
   options.AddFeatureExtractionOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
