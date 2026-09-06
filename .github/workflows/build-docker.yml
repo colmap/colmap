@@ -12,10 +12,8 @@ on:
 
 env:
   IS_RELEASE: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
-  FETCHCONTENT_CACHE_VERSION: 1
-  FETCHCONTENT_CACHE_DIR: build/_deps
-  COMPILER_CACHE_VERSION: 1
   CCACHE_DIR: build/.ccache
+  CCACHE_MAXSIZE: 100M
 
 jobs:
   build:
@@ -35,21 +33,13 @@ jobs:
 
       - uses: actions/checkout@v7
 
-      - name: Restore FetchContent cache
-        uses: actions/cache@v6
-        id: cache-fetchcontent
-        with:
-          key: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-docker-${{ hashFiles('cmake/FindDependencies.cmake', 'src/thirdparty/CMakeLists.txt') }}
-          restore-keys: fetchcontent-v${{ env.FETCHCONTENT_CACHE_VERSION }}-docker-
-          path: ${{ env.FETCHCONTENT_CACHE_DIR }}
-
       - name: Restore compiler cache
-        uses: actions/cache@v6
+        uses: ./.github/actions/compiler-cache
         id: cache-ccache
         with:
-          key: ccache-v${{ env.COMPILER_CACHE_VERSION }}-docker-${{ github.run_id }}
-          restore-keys: ccache-v${{ env.COMPILER_CACHE_VERSION }}-docker-
+          mode: restore
           path: ${{ env.CCACHE_DIR }}
+          key-suffix: docker-release_${{ env.IS_RELEASE }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -72,11 +62,11 @@ jobs:
           else
             cuda_archs="50"
           fi
-          mkdir -p build/.ccache build/_deps
+          mkdir -p build/.ccache
           docker_args=(
             --file docker/Dockerfile
             --build-arg CUDA_ARCHITECTURES="$cuda_archs"
-            --build-arg FETCHCONTENT_FULLY_DISCONNECTED=${{ steps.cache-fetchcontent.outputs.cache-hit == 'true' && 'ON' || 'OFF' }}
+            --build-arg CCACHE_MAXSIZE="${CCACHE_MAXSIZE}"
           )
           docker build . \
             "${docker_args[@]}" \
@@ -86,9 +76,8 @@ jobs:
             "${docker_args[@]}" \
             --target cache-export \
             --output type=local,dest=build/cache-export
-          rm -rf build/.ccache build/_deps
+          rm -rf build/.ccache
           mv build/cache-export/.ccache build/.ccache
-          mv build/cache-export/_deps build/_deps
           rm -rf build/cache-export
           if [[ "${{ env.IS_RELEASE }}" == "true" ]]; then
             docker tag colmap/colmap:$dockertag colmap/colmap:latest
@@ -100,6 +89,13 @@ jobs:
         run: |
           set -x
           sudo apt-get install -y ccache
+          ccache --cleanup
           ccache --show-stats --verbose
-          ccache --evict-older-than 1d
-          ccache --show-stats --verbose
+
+      - name: Save compiler cache
+        uses: ./.github/actions/compiler-cache
+        with:
+          mode: save
+          key: ${{ steps.cache-ccache.outputs.key }}
+          path: ${{ env.CCACHE_DIR }}
+          cache-hit: ${{ steps.cache-ccache.outputs.cache-hit }}

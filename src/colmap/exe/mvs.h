@@ -34,6 +34,7 @@
 #include "colmap/scene/reconstruction.h"
 
 #include <filesystem>
+#include <functional>
 
 namespace colmap {
 
@@ -49,7 +50,8 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
                                   const std::string& pmvs_option_name,
                                   std::string input_type,
                                   const mvs::StereoFusionOptions& options,
-                                  std::string output_type);
+                                  std::string output_type,
+                                  std::function<bool()> check_if_stopped = {});
 
 int RunAdvancingFrontMesher(int argc, char** argv);
 int RunDelaunayMesher(int argc, char** argv);

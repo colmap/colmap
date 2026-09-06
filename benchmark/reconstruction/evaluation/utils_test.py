@@ -28,7 +28,9 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -69,7 +71,9 @@ def _make_scene_info(category: str, scene: str, num_images: int) -> SceneInfo:
     )
 
 
-def test_panorama_reconstruction_uses_library_api(tmp_path, monkeypatch):
+def test_panorama_reconstruction_uses_library_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     covisibility_path = tmp_path / "covisibility.npz"
     covisibility_path.touch()
     scene_info = SceneInfo(
@@ -96,9 +100,11 @@ def test_panorama_reconstruction_uses_library_api(tmp_path, monkeypatch):
         random_seed=7,
         use_gpu=False,
     )
-    call = {}
+    call: dict[str, Any] = {}
 
-    def reconstruct(input_image_path, output_path, options):
+    def reconstruct(
+        input_image_path: Path, output_path: Path, options: Any
+    ) -> dict[str, Any]:
         call.update(
             input_image_path=input_image_path,
             output_path=output_path,
@@ -124,7 +130,7 @@ def test_panorama_reconstruction_uses_library_api(tmp_path, monkeypatch):
 
 
 class TestFilterSmallestScenesPerCategory:
-    def test_picks_smallest_per_category(self):
+    def test_picks_smallest_per_category(self) -> None:
         scenes = [
             _make_scene_info("a", "a3", 30),
             _make_scene_info("a", "a1", 10),
@@ -136,7 +142,7 @@ class TestFilterSmallestScenesPerCategory:
         names = [(s.category, s.scene) for s in result]
         assert names == [("a", "a1"), ("a", "a2"), ("b", "b2"), ("b", "b1")]
 
-    def test_preserves_input_order(self):
+    def test_preserves_input_order(self) -> None:
         scenes = [
             _make_scene_info("a", "a3", 30),
             _make_scene_info("a", "a1", 10),
@@ -147,7 +153,7 @@ class TestFilterSmallestScenesPerCategory:
         # be preserved among the kept scenes.
         assert [s.scene for s in result] == ["a1", "a2"]
 
-    def test_num_scenes_larger_than_category_size(self):
+    def test_num_scenes_larger_than_category_size(self) -> None:
         scenes = [
             _make_scene_info("a", "a1", 10),
             _make_scene_info("a", "a2", 20),
@@ -157,7 +163,7 @@ class TestFilterSmallestScenesPerCategory:
         # All scenes are kept since each category has fewer than num_scenes.
         assert [s.scene for s in result] == ["a1", "a2", "b1"]
 
-    def test_num_scenes_one(self):
+    def test_num_scenes_one(self) -> None:
         scenes = [
             _make_scene_info("a", "a1", 10),
             _make_scene_info("a", "a2", 5),
@@ -170,10 +176,10 @@ class TestFilterSmallestScenesPerCategory:
             ("b", "b2"),
         ]
 
-    def test_empty_input(self):
+    def test_empty_input(self) -> None:
         assert filter_smallest_scenes_per_category([], num_scenes=3) == []
 
-    def test_ties_broken_stably(self):
+    def test_ties_broken_stably(self) -> None:
         # When several scenes share the same num_images, sorting must be
         # stable so we keep the ones that appeared first in the input.
         scenes = [
@@ -190,29 +196,31 @@ class TestParseGpuIndex:
     def _make_args(gpu_index: str) -> argparse.Namespace:
         return argparse.Namespace(gpu_index=gpu_index)
 
-    def test_single_gpu(self):
+    def test_single_gpu(self) -> None:
         assert _parse_gpu_index(self._make_args("0")) == [0]
 
-    def test_multiple_gpus(self):
+    def test_multiple_gpus(self) -> None:
         assert _parse_gpu_index(self._make_args("0,1,2")) == [0, 1, 2]
 
-    def test_trailing_comma(self):
+    def test_trailing_comma(self) -> None:
         assert _parse_gpu_index(self._make_args("1,")) == [1]
 
-    def test_empty_string(self):
+    def test_empty_string(self) -> None:
         assert _parse_gpu_index(self._make_args("")) == [-1]
 
-    def test_only_commas(self):
+    def test_only_commas(self) -> None:
         assert _parse_gpu_index(self._make_args(",")) == [-1]
 
-    def test_auto_detect(self, monkeypatch):
+    def test_auto_detect(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(pycolmap, "has_cuda", True)
         monkeypatch.setattr(
             pycolmap, "get_num_cuda_devices", lambda: 3, raising=False
         )
         assert _parse_gpu_index(self._make_args("-1")) == [0, 1, 2]
 
-    def test_auto_detect_no_devices(self, monkeypatch):
+    def test_auto_detect_no_devices(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(pycolmap, "has_cuda", True)
         monkeypatch.setattr(
             pycolmap, "get_num_cuda_devices", lambda: 0, raising=False
@@ -221,7 +229,7 @@ class TestParseGpuIndex:
 
 
 class TestComputeAuc:
-    def test_simple_uniform_errors(self):
+    def test_simple_uniform_errors(self) -> None:
         errors = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         thresholds = np.array([0.25, 0.5, 1.0])
         aucs = compute_auc(errors, thresholds)
@@ -229,38 +237,38 @@ class TestComputeAuc:
         np.testing.assert_almost_equal(aucs[1], 50.0, decimal=5)
         np.testing.assert_almost_equal(aucs[2], 75.0, decimal=5)
 
-    def test_all_errors_zero(self):
+    def test_all_errors_zero(self) -> None:
         errors = np.array([0.0, 0.0, 0.0])
         thresholds = np.array([0.5, 1.0])
         aucs = compute_auc(errors, thresholds)
         np.testing.assert_array_almost_equal(aucs, [100.0, 100.0])
 
-    def test_empty_errors(self):
+    def test_empty_errors(self) -> None:
         errors = np.array([])
         thresholds = np.array([0.5, 1.0])
         with pytest.raises(ValueError, match="No errors to evaluate"):
             compute_auc(errors, thresholds)
 
-    def test_all_errors_above_threshold(self):
+    def test_all_errors_above_threshold(self) -> None:
         errors = np.array([10.0, 20.0, 30.0])
         thresholds = np.array([5.0])
         aucs = compute_auc(errors, thresholds)
         np.testing.assert_almost_equal(aucs[0], 0.0)
 
-    def test_all_errors_below_threshold(self):
+    def test_all_errors_below_threshold(self) -> None:
         errors = np.array([0.1, 0.2, 0.3])
         thresholds = np.array([1.0])
         aucs = compute_auc(errors, thresholds)
         np.testing.assert_almost_equal(aucs[0], 85.0, decimal=5)
 
-    def test_inf_errors(self):
+    def test_inf_errors(self) -> None:
         errors = np.array([0.1, 0.2, np.inf, np.inf])
         thresholds = np.array([0.5, 1.0])
         aucs = compute_auc(errors, thresholds)
         assert np.all(aucs >= 0)
         assert np.all(aucs <= 100)
 
-    def test_single_error(self):
+    def test_single_error(self) -> None:
         errors = np.array([0.5])
         thresholds = np.array([0.3, 1.0])
         aucs = compute_auc(errors, thresholds)
@@ -270,7 +278,7 @@ class TestComputeAuc:
 
 
 class TestComputeRecall:
-    def test_basic_recall(self):
+    def test_basic_recall(self) -> None:
         errors = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
         thresholds = np.array([0.05, 0.25, 0.5, 1.0])
         recalls = compute_recall(errors, thresholds)
@@ -279,31 +287,31 @@ class TestComputeRecall:
         assert np.all(recalls >= 0)
         assert np.all(recalls <= 100)
 
-    def test_empty_errors(self):
+    def test_empty_errors(self) -> None:
         errors = np.array([])
         thresholds = np.array([0.5, 1.0])
         with pytest.raises(ValueError, match="No errors to evaluate"):
             compute_recall(errors, thresholds)
 
-    def test_all_errors_above_threshold(self):
+    def test_all_errors_above_threshold(self) -> None:
         errors = np.array([10.0, 20.0, 30.0])
         thresholds = np.array([5.0])
         recalls = compute_recall(errors, thresholds)
         np.testing.assert_almost_equal(recalls[0], 0.0)
 
-    def test_all_errors_below_threshold(self):
+    def test_all_errors_below_threshold(self) -> None:
         errors = np.array([0.1, 0.2, 0.3])
         thresholds = np.array([1.0])
         recalls = compute_recall(errors, thresholds)
         np.testing.assert_almost_equal(recalls[0], 100.0)
 
-    def test_exact_threshold(self):
+    def test_exact_threshold(self) -> None:
         errors = np.array([0.1, 0.5, 0.9])
         thresholds = np.array([0.5])
         recalls = compute_recall(errors, thresholds)
         np.testing.assert_almost_equal(recalls[0], 200.0 / 3.0)
 
-    def test_multiple_thresholds(self):
+    def test_multiple_thresholds(self) -> None:
         errors = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         thresholds = np.array([2.0, 3.0, 4.0])
         recalls = compute_recall(errors, thresholds)
@@ -313,7 +321,7 @@ class TestComputeRecall:
 
 
 class TestComputeAvgMetrics:
-    def test_single_scene(self):
+    def test_single_scene(self) -> None:
         scene_metrics = {
             "scene1": Metrics(
                 aucs=np.array([10.0, 20.0, 30.0]),
@@ -330,7 +338,7 @@ class TestComputeAvgMetrics:
         np.testing.assert_array_equal(aucs, [10.0, 20.0, 30.0])
         np.testing.assert_array_equal(recalls, [15.0, 25.0, 35.0])
 
-    def test_multiple_scenes(self):
+    def test_multiple_scenes(self) -> None:
         scene_metrics = {
             "scene1": Metrics(
                 aucs=np.array([10.0, 20.0, 30.0]),
@@ -357,7 +365,7 @@ class TestComputeAvgMetrics:
         np.testing.assert_array_equal(aucs, [15.0, 25.0, 35.0])
         np.testing.assert_array_equal(recalls, [20.0, 30.0, 40.0])
 
-    def test_skip_special_scenes(self):
+    def test_skip_special_scenes(self) -> None:
         scene_metrics = {
             "scene1": Metrics(
                 aucs=np.array([10.0, 20.0, 30.0]),
@@ -398,7 +406,13 @@ class TestComputeAvgMetrics:
 
 class TestAggregateSceneMetrics:
     @staticmethod
-    def _make_metrics(aucs, recalls, errors, num_images=100, num_reg_images=90):
+    def _make_metrics(
+        aucs: Sequence[float],
+        recalls: Sequence[float],
+        errors: Sequence[float],
+        num_images: int = 100,
+        num_reg_images: int = 90,
+    ) -> Metrics:
         return Metrics(
             aucs=np.array(aucs, dtype=float),
             recalls=np.array(recalls, dtype=float),
@@ -412,7 +426,7 @@ class TestAggregateSceneMetrics:
             position_accuracy_gt=0.01,
         )
 
-    def test_avg_and_all(self):
+    def test_avg_and_all(self) -> None:
         scene_metrics = [
             (
                 "scene1",
@@ -443,7 +457,7 @@ class TestAggregateSceneMetrics:
         assert summary["__all__"].num_images == 200
         assert summary["__all__"].num_reg_images == 180
 
-    def test_skips_special_entries(self):
+    def test_skips_special_entries(self) -> None:
         real = self._make_metrics([10, 20, 30], [15, 25, 35], [0.1])
         special = self._make_metrics(
             [99, 99, 99], [99, 99, 99], [9.0], num_images=999
@@ -456,7 +470,7 @@ class TestAggregateSceneMetrics:
         np.testing.assert_array_equal(summary["__avg__"].aucs, real.aucs)
         np.testing.assert_array_equal(summary["__all__"].errors, [0.1])
 
-    def test_empty_input(self):
+    def test_empty_input(self) -> None:
         assert (
             aggregate_scene_metrics(
                 [],
@@ -466,7 +480,7 @@ class TestAggregateSceneMetrics:
             == {}
         )
 
-    def test_no_errors_omits_all(self):
+    def test_no_errors_omits_all(self) -> None:
         # When no scene carries raw errors (e.g. metrics restored without
         # the errors field), __all__ cannot be reconstructed.
         scene_metrics = [
@@ -483,7 +497,7 @@ class TestAggregateSceneMetrics:
 
 
 class TestGetScores:
-    def test_get_auc_scores(self):
+    def test_get_auc_scores(self) -> None:
         metrics = Metrics(
             aucs=np.array([10.0, 20.0, 30.0]),
             recalls=np.array([15.0, 25.0, 35.0]),
@@ -497,7 +511,7 @@ class TestGetScores:
         scores = get_scores("relative_auc", metrics)
         np.testing.assert_array_equal(scores, metrics.aucs)
 
-    def test_get_recall_scores(self):
+    def test_get_recall_scores(self) -> None:
         metrics = Metrics(
             aucs=np.array([10.0, 20.0, 30.0]),
             recalls=np.array([15.0, 25.0, 35.0]),
@@ -513,7 +527,7 @@ class TestGetScores:
 
 
 class TestDiffMetrics:
-    def test_nominal(self):
+    def test_nominal(self) -> None:
         metrics_a = {
             "dataset1": {
                 "category1": {
@@ -555,7 +569,7 @@ class TestDiffMetrics:
         assert scene_diff.num_components == 1
 
 
-def create_test_reconstruction():
+def create_test_reconstruction() -> pycolmap.Reconstruction:
     pycolmap.set_random_seed(0)
     synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
     synthetic_dataset_options.num_cameras_per_rig = 1
@@ -564,7 +578,9 @@ def create_test_reconstruction():
     return pycolmap.synthesize_dataset(synthetic_dataset_options)
 
 
-def extract_sub_reconstruction(reconstruction, keep_names):
+def extract_sub_reconstruction(
+    reconstruction: pycolmap.Reconstruction, keep_names: Iterable[str]
+) -> pycolmap.Reconstruction:
     """Build a copy of reconstruction containing only the given image names.
 
     Mirrors what a real sub-model loaded from disk looks like: its images map
@@ -598,7 +614,7 @@ def extract_sub_reconstruction(reconstruction, keep_names):
 
 
 class TestComputeAbsErrors:
-    def test_identical_reconstruction(self):
+    def test_identical_reconstruction(self) -> None:
         reconstruction = create_test_reconstruction()
 
         dts, dRs = compute_abs_errors(
@@ -610,7 +626,7 @@ class TestComputeAbsErrors:
         np.testing.assert_allclose(dts, 0.0, atol=1e-10)
         np.testing.assert_allclose(dRs, 0.0, atol=1e-10)
 
-    def test_transformed_reconstruction(self):
+    def test_transformed_reconstruction(self) -> None:
         gt_reconstruction = create_test_reconstruction()
         reconstruction = create_test_reconstruction()
         translation = np.array([1, 2, 3])
@@ -632,13 +648,15 @@ class TestComputeAbsErrors:
         np.testing.assert_allclose(dRs, 180.0, atol=1e-10)
 
 
-def _single_gt_cluster(reconstruction) -> dict[str, int]:
+def _single_gt_cluster(
+    reconstruction: pycolmap.Reconstruction,
+) -> dict[str, int]:
     """Map every image of a reconstruction to a single GT cluster (id 0)."""
     return {image.name: 0 for image in reconstruction.images.values()}
 
 
 class TestComputeGroupedRelErrors:
-    def test_identical_reconstruction(self):
+    def test_identical_reconstruction(self) -> None:
         reconstruction = create_test_reconstruction()
 
         errors = compute_grouped_rel_errors(
@@ -653,7 +671,7 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_images * (num_images - 1)
         np.testing.assert_allclose(errors, 0.0, atol=1e-5)
 
-    def test_transformed_reconstruction(self):
+    def test_transformed_reconstruction(self) -> None:
         gt_reconstruction = create_test_reconstruction()
         reconstruction = create_test_reconstruction()
         # A global similarity transform leaves relative poses unchanged.
@@ -676,7 +694,7 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_images * (num_images - 1)
         np.testing.assert_allclose(errors, 0.0, atol=1e-5)
 
-    def test_different_reconstructions(self):
+    def test_different_reconstructions(self) -> None:
         gt_reconstruction = create_test_reconstruction()
         reconstruction = create_test_reconstruction()
         for image in reconstruction.images.values():
@@ -697,7 +715,7 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_images * (num_images - 1)
         assert np.all(errors > 0.1)
 
-    def test_nothing_registered_maxes_all_gt_edges(self):
+    def test_nothing_registered_maxes_all_gt_edges(self) -> None:
         # No estimated sub-models: set A is empty, so every GT edge is in
         # B - A and must be scored as the maximum (180 degrees).
         reconstruction = create_test_reconstruction()
@@ -713,7 +731,9 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_images * (num_images - 1)
         np.testing.assert_allclose(errors, 180.0)
 
-    def test_merged_estimate_of_separate_gt_clusters_maxes_cross_edges(self):
+    def test_merged_estimate_of_separate_gt_clusters_maxes_cross_edges(
+        self,
+    ) -> None:
         # Two GT clusters, each perfectly reconstructed in its own sub-model.
         # There are no cross-cluster edges in B, and the within-cluster edges
         # are all in A n B with ~0 error.
@@ -741,7 +761,7 @@ class TestComputeGroupedRelErrors:
         np.testing.assert_allclose(np.sort(errors)[:num_within], 0.0, atol=1e-5)
         assert int(np.sum(np.isclose(errors, 180.0))) == num_cross
 
-    def test_fragmented_estimate_of_merged_gt_maxes_cross_edges(self):
+    def test_fragmented_estimate_of_merged_gt_maxes_cross_edges(self) -> None:
         # One GT cluster (merged reconstruction) that the estimate splits into
         # two disjoint sub-models (fragmented estimation). Within-fragment edges
         # are in A n B (scored ~0); the GT edges bridging the two fragments are
@@ -768,7 +788,7 @@ class TestComputeGroupedRelErrors:
         np.testing.assert_allclose(np.sort(errors)[:num_within], 0.0, atol=1e-5)
         assert int(np.sum(np.isclose(errors, 180.0))) == num_cross
 
-    def test_mismatched_gt_and_estimate_cluster_boundaries(self):
+    def test_mismatched_gt_and_estimate_cluster_boundaries(self) -> None:
         # GT splits the images 1/3 vs 2/3, but the estimate splits them 2/3 vs
         # 1/3, so the two cluster boundaries disagree. Ordered pairs that share
         # both an estimated sub-model and a GT cluster are scored (~0 for a
@@ -812,7 +832,7 @@ class TestComputeGroupedRelErrors:
         np.testing.assert_allclose(np.sort(errors)[:num_scored], 0.0, atol=1e-5)
         assert int(np.sum(np.isclose(errors, 180.0))) == num_maxed
 
-    def test_registered_outlier_edges_are_maxed(self):
+    def test_registered_outlier_edges_are_maxed(self) -> None:
         # A single sub-model connects an outlier to every real image. The
         # outlier is never in a GT reconstruction, so all edges touching it are
         # in A - B and set to 180; the remaining real edges are A n B (~0).
@@ -837,7 +857,7 @@ class TestComputeGroupedRelErrors:
         num_maxed = int(np.sum(np.isclose(errors, 180.0)))
         assert num_maxed == 2 * (num_images - 1)
 
-    def test_outlier_present_in_gt_maxes_its_edges(self):
+    def test_outlier_present_in_gt_maxes_its_edges(self) -> None:
         # An image that exists in the GT reconstruction and is perfectly
         # registered, but is flagged as an outlier, must still have large
         # edges: every edge touching it is in A - B and set to 180, while the
@@ -867,7 +887,7 @@ class TestComputeGroupedRelErrors:
             np.sort(errors)[: (n - 1) * (n - 2)], 0.0, atol=1e-5
         )
 
-    def test_outliers_excluded_from_gt_edges(self):
+    def test_outliers_excluded_from_gt_edges(self) -> None:
         # Nothing is registered, so every scored pair comes from B - A. The
         # outlier forms no GT edges, so it contributes none of them.
         reconstruction = create_test_reconstruction()
@@ -889,7 +909,7 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_real * (num_real - 1)
         np.testing.assert_allclose(errors, 180.0)
 
-    def test_gt_names_absent_from_sparse_gt_form_no_edges(self):
+    def test_gt_names_absent_from_sparse_gt_form_no_edges(self) -> None:
         # A name in image_name_to_component that does not exist in sparse_gt
         # cannot form a measurable GT edge and must not add spurious B - A
         # edges. Nothing is registered, so every scored pair comes from B - A.
@@ -914,7 +934,7 @@ class TestComputeGroupedRelErrors:
 
 
 class TestComputeGroupedAbsErrors:
-    def test_identical_single_cluster(self):
+    def test_identical_single_cluster(self) -> None:
         reconstruction = create_test_reconstruction()
 
         errors = compute_grouped_abs_errors(
@@ -926,7 +946,7 @@ class TestComputeGroupedAbsErrors:
         assert len(errors) == reconstruction.num_images()
         np.testing.assert_allclose(errors, 0.0, atol=1e-10)
 
-    def test_keeps_one_error_per_reconstruction(self):
+    def test_keeps_one_error_per_reconstruction(self) -> None:
         # An image registered in n sub-models contributes n errors (not just
         # the smallest). Here every image appears in both sub-models.
         reconstruction = create_test_reconstruction()
@@ -940,7 +960,7 @@ class TestComputeGroupedAbsErrors:
         assert len(errors) == 2 * reconstruction.num_images()
         np.testing.assert_allclose(errors, 0.0, atol=1e-10)
 
-    def test_keeps_only_best_cluster(self):
+    def test_keeps_only_best_cluster(self) -> None:
         # Cluster 0 is reconstructed perfectly; cluster 1 is offset. The
         # best-mean cluster (0) is kept intact and cluster 1 is maxed out.
         gt_reconstruction = create_test_reconstruction()
@@ -971,7 +991,7 @@ class TestComputeGroupedAbsErrors:
         np.testing.assert_allclose(finite, 0.0, atol=1e-10)
         assert int(np.sum(~np.isfinite(errors))) == len(names) - half
 
-    def test_images_without_cluster_id_are_maxed(self):
+    def test_images_without_cluster_id_are_maxed(self) -> None:
         # GT images missing from the mapping (cluster id None) are always maxed
         # out, even when perfectly registered.
         reconstruction = create_test_reconstruction()
@@ -993,7 +1013,7 @@ class TestComputeGroupedAbsErrors:
         assert len(finite) == len(names) - half
         np.testing.assert_allclose(finite, 0.0, atol=1e-10)
 
-    def test_outlier_cluster_is_maxed(self):
+    def test_outlier_cluster_is_maxed(self) -> None:
         # An outlier is never a selectable cluster, so it is maxed out even
         # though it is perfectly aligned; the real cluster is kept intact.
         reconstruction = create_test_reconstruction()
@@ -1015,7 +1035,7 @@ class TestComputeGroupedAbsErrors:
         assert len(finite) == len(names) - 1
         np.testing.assert_allclose(finite, 0.0, atol=1e-10)
 
-    def test_outlier_present_in_gt_gets_large_error(self):
+    def test_outlier_present_in_gt_gets_large_error(self) -> None:
         # An image that exists in the GT reconstruction and is perfectly
         # registered, but is flagged as an outlier, must still receive a large
         # error: being present and well-aligned does not rescue an outlier.
@@ -1042,7 +1062,7 @@ class TestComputeGroupedAbsErrors:
         others = [v for n, v in error_by_name.items() if n != outlier]
         np.testing.assert_allclose(others, 0.0, atol=1e-10)
 
-    def test_credits_multiple_clusters_across_sub_models(self):
+    def test_credits_multiple_clusters_across_sub_models(self) -> None:
         # Two sub-models each perfectly reconstruct a different GT cluster and
         # offset the other. Per-sub-model selection credits both clusters,
         # which a single global choice could not do.
@@ -1097,7 +1117,7 @@ class TestComputeGroupedAbsErrors:
                 assert not np.isfinite(err_sub0)
                 np.testing.assert_allclose(err_sub1, 0.0, atol=1e-10)
 
-    def test_mismatched_gt_and_estimate_cluster_boundaries(self):
+    def test_mismatched_gt_and_estimate_cluster_boundaries(self) -> None:
         # GT splits the images 1/3 vs 2/3 while the estimate splits them 2/3 vs
         # 1/3. sub_model_0 spans all of GT cluster 0 plus the cluster-1 images
         # that leaked in; it can credit only one GT cluster, so the leaked

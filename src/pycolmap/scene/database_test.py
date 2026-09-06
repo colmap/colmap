@@ -1,10 +1,12 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 import pycolmap
 
 
-def test_database_direct_construction_is_disallowed():
+def test_database_direct_construction_is_disallowed() -> None:
     # Regression test for https://github.com/colmap/colmap/issues/4422:
     # Database is abstract, so direct construction is disallowed. Use
     # Database.open() instead.
@@ -12,20 +14,24 @@ def test_database_direct_construction_is_disallowed():
         pycolmap.Database()
 
 
-def test_database_open_and_context_manager(tmp_path):
+def test_database_open_and_context_manager(tmp_path: Path) -> None:
     database_path = str(tmp_path / "test.db")
     with pycolmap.Database.open(database_path) as database:
         assert database is not None
 
 
-def test_database_write_and_read_camera(database, simple_camera):
+def test_database_write_and_read_camera(
+    database: pycolmap.Database, simple_camera: pycolmap.Camera
+) -> None:
     camera_id = database.write_camera(simple_camera)
     assert camera_id > 0
     read_camera = database.read_camera(camera_id)
     assert read_camera.model == pycolmap.CameraModelId.PINHOLE
 
 
-def test_database_update_camera(database, simple_camera):
+def test_database_update_camera(
+    database: pycolmap.Database, simple_camera: pycolmap.Camera
+) -> None:
     camera_id = database.write_camera(simple_camera)
     simple_camera.camera_id = camera_id
     simple_camera.width = 2048
@@ -34,14 +40,18 @@ def test_database_update_camera(database, simple_camera):
     assert updated_camera.width == 2048
 
 
-def test_database_write_and_read_image(populated_database):
+def test_database_write_and_read_image(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, camera_id, image_id = populated_database
     assert image_id > 0
     read_image = database.read_image(image_id)
     assert read_image.name == "test.jpg"
 
 
-def test_database_update_image(populated_database):
+def test_database_update_image(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, camera_id, image_id = populated_database
     image = database.read_image(image_id)
     image.name = "updated.jpg"
@@ -50,14 +60,18 @@ def test_database_update_image(populated_database):
     assert updated_image.name == "updated.jpg"
 
 
-def test_database_clear_cameras(database, simple_camera):
+def test_database_clear_cameras(
+    database: pycolmap.Database, simple_camera: pycolmap.Camera
+) -> None:
     database.write_camera(simple_camera)
     assert database.num_cameras() > 0
     database.clear_cameras()
     assert database.num_cameras() == 0
 
 
-def test_database_write_and_read_keypoints(populated_database):
+def test_database_write_and_read_keypoints(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, camera_id, image_id = populated_database
     keypoints = np.array(
         [[10.0, 20.0, 1.0, 0.0, 0.0, 1.0], [30.0, 40.0, 1.0, 0.0, 0.0, 1.0]],
@@ -68,7 +82,9 @@ def test_database_write_and_read_keypoints(populated_database):
     assert read_keypoints.shape[0] == 2
 
 
-def test_database_write_and_read_descriptors(populated_database):
+def test_database_write_and_read_descriptors(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, camera_id, image_id = populated_database
     descriptors = pycolmap.FeatureDescriptors(
         type=pycolmap.FeatureExtractorType.SIFT,
@@ -79,7 +95,9 @@ def test_database_write_and_read_descriptors(populated_database):
     assert read_descriptors is not None
 
 
-def test_database_write_and_read_matches(populated_database):
+def test_database_write_and_read_matches(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, camera_id, image_id = populated_database
     image2 = pycolmap.Image()
     image2.name = "test2.jpg"
@@ -91,7 +109,9 @@ def test_database_write_and_read_matches(populated_database):
     assert read_matches.shape[0] == 2
 
 
-def test_database_write_and_read_two_view_geometry(populated_database):
+def test_database_write_and_read_two_view_geometry(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, camera_id, image_id = populated_database
     image2 = pycolmap.Image()
     image2.name = "test2.jpg"
@@ -107,65 +127,83 @@ def test_database_write_and_read_two_view_geometry(populated_database):
     )
 
 
-def test_database_num_cameras(populated_database):
+def test_database_num_cameras(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, _, _ = populated_database
     assert database.num_cameras() >= 1
 
 
-def test_database_num_images(populated_database):
+def test_database_num_images(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, _, _ = populated_database
     assert database.num_images() >= 1
 
 
-def test_database_num_keypoints(database):
+def test_database_num_keypoints(database: pycolmap.Database) -> None:
     assert database.num_keypoints() >= 0
 
 
-def test_database_num_descriptors(database):
+def test_database_num_descriptors(database: pycolmap.Database) -> None:
     assert database.num_descriptors() >= 0
 
 
-def test_database_num_matches(database):
+def test_database_num_matches(database: pycolmap.Database) -> None:
     assert database.num_matches() >= 0
 
 
-def test_database_exists_camera(populated_database):
+def test_database_exists_camera(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, camera_id, _ = populated_database
     assert database.exists_camera(camera_id)
 
 
-def test_database_exists_image(populated_database):
+def test_database_exists_image(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, _, image_id = populated_database
     assert database.exists_image(image_id)
 
 
-def test_database_exists_keypoints(populated_database):
+def test_database_exists_keypoints(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, _, image_id = populated_database
     assert isinstance(database.exists_keypoints(image_id), bool)
 
 
-def test_database_exists_descriptors(populated_database):
+def test_database_exists_descriptors(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, _, image_id = populated_database
     assert isinstance(database.exists_descriptors(image_id), bool)
 
 
-def test_database_read_all_cameras(populated_database):
+def test_database_read_all_cameras(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, _, _ = populated_database
     assert len(database.read_all_cameras()) >= 1
 
 
-def test_database_read_all_images(populated_database):
+def test_database_read_all_images(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
     database, _, _ = populated_database
     assert len(database.read_all_images()) >= 1
 
 
-def test_database_clear_all_tables(database, simple_camera):
+def test_database_clear_all_tables(
+    database: pycolmap.Database, simple_camera: pycolmap.Camera
+) -> None:
     database.write_camera(simple_camera)
     database.clear_all_tables()
     assert database.num_cameras() == 0
 
 
-def test_database_merge(tmp_path):
+def test_database_merge(tmp_path: Path) -> None:
     path1 = str(tmp_path / "db1.db")
     path2 = str(tmp_path / "db2.db")
     path_merged = str(tmp_path / "merged.db")
@@ -186,7 +224,9 @@ def test_database_merge(tmp_path):
                 assert merged_database.num_cameras() == 2
 
 
-def test_database_transaction(database, simple_camera):
+def test_database_transaction(
+    database: pycolmap.Database, simple_camera: pycolmap.Camera
+) -> None:
     with pycolmap.DatabaseTransaction(database):
         database.write_camera(simple_camera)
     assert database.num_cameras() == 1

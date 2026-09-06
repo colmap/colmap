@@ -35,6 +35,7 @@
 #include "colmap/scene/reconstruction.h"
 
 #include <filesystem>
+#include <functional>
 
 namespace colmap {
 
@@ -86,7 +87,8 @@ void RunGuidedGeometricVerifierImpl(
     const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    int num_threads);
+    int num_threads,
+    std::function<bool()> check_if_stopped = {});
 
 int RunFeatureExtractor(int argc, char** argv);
 int RunFeatureImporter(int argc, char** argv);

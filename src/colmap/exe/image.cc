@@ -36,6 +36,7 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/base_controller.h"
+#include "colmap/util/cancellation.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
@@ -309,6 +310,9 @@ int RunImageRegistrator(int argc, char** argv) {
   const auto& obs_manager = mapper.ObservationManager();
 
   for (const auto& [image_id, image] : reconstruction->Images()) {
+    if (ScopedSignalHandler::IsInterruptRequested()) {
+      break;
+    }
     if (image.HasPose()) {
       continue;
     }

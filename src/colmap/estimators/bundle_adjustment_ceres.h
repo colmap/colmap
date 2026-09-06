@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/math/math.h"
 
 #include <ceres/ceres.h>
@@ -39,11 +40,13 @@ namespace colmap {
 // Ceres-specific bundle adjustment options.
 struct CeresBundleAdjustmentOptions {
   // Loss function types: Trivial (non-robust) and robust loss functions.
-  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
-  LossFunctionType loss_function_type = LossFunctionType::TRIVIAL;
+  CeresLossFunctionType loss_function_type = CeresLossFunctionType::TRIVIAL;
 
   // Scaling factor determines residual at which robustification takes place.
   double loss_function_scale = 1.0;
+
+  // Multiplier applied to the loss function output.
+  double loss_function_weight = 1.0;
 
   // Whether to use Ceres' CUDA linear algebra library, if available.
   bool use_gpu = false;
@@ -77,9 +80,6 @@ struct CeresBundleAdjustmentOptions {
 
   CeresBundleAdjustmentOptions();
 
-  // Create loss function for given options.
-  std::unique_ptr<ceres::LossFunction> CreateLossFunction() const;
-
   // Create options tailored for given bundle adjustment config and problem.
   ceres::Solver::Options CreateSolverOptions(
       const BundleAdjustmentConfig& config,
@@ -101,9 +101,8 @@ struct CeresBundleAdjustmentSummary : public BundleAdjustmentSummary {
 // Ceres-specific pose prior bundle adjustment options.
 struct CeresPosePriorBundleAdjustmentOptions {
   // Loss function for prior position loss.
-  CeresBundleAdjustmentOptions::LossFunctionType
-      prior_position_loss_function_type =
-          CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  CeresLossFunctionType prior_position_loss_function_type =
+      CeresLossFunctionType::TRIVIAL;
 
   // Threshold on the residual for the robust loss.
   double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);

@@ -30,6 +30,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/estimators/cost_functions/camera_prior.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
@@ -41,6 +42,7 @@
 #include "colmap/util/threading.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iomanip>
 
 namespace colmap {
@@ -63,22 +65,6 @@ BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
   }
   LOG(FATAL_THROW) << "Unknown Ceres termination type: " << ceres_type;
   return BundleAdjustmentTerminationType::FAILURE;
-}
-
-std::unique_ptr<ceres::LossFunction> CreateLossFunction(
-    CeresBundleAdjustmentOptions::LossFunctionType loss_function_type,
-    double loss_function_scale) {
-  switch (loss_function_type) {
-    case CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL:
-      return std::make_unique<ceres::TrivialLoss>();
-    case CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1:
-      return std::make_unique<ceres::SoftLOneLoss>(loss_function_scale);
-    case CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY:
-      return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
-    case CeresBundleAdjustmentOptions::LossFunctionType::HUBER:
-      return std::make_unique<ceres::HuberLoss>(loss_function_scale);
-  }
-  return nullptr;
 }
 
 }  // namespace
@@ -114,11 +100,6 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
 #if CERES_VERSION_MAJOR < 2
   solver_options.num_linear_solver_threads = -1;
 #endif  // CERES_VERSION_MAJOR
-}
-
-std::unique_ptr<ceres::LossFunction>
-CeresBundleAdjustmentOptions::CreateLossFunction() const {
-  return colmap::CreateLossFunction(loss_function_type, loss_function_scale);
 }
 
 ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
@@ -234,7 +215,8 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 }
 
 bool CeresBundleAdjustmentOptions::Check() const {
-  CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION(IsValidCeresLossFunction(
+      loss_function_type, loss_function_scale, loss_function_weight));
   CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
                   max_num_images_direct_sparse_cpu_solver);
   CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
@@ -742,12 +724,32 @@ std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
   return summary;
 }
 
+class CancellationCallback : public ceres::IterationCallback {
+ public:
+  explicit CancellationCallback(std::function<bool()> check_if_stopped)
+      : check_if_stopped_(std::move(check_if_stopped)) {}
+
+  ceres::CallbackReturnType operator()(
+      const ceres::IterationSummary&) override {
+    return check_if_stopped_ && check_if_stopped_()
+               ? ceres::SOLVER_TERMINATE_SUCCESSFULLY
+               : ceres::SOLVER_CONTINUE;
+  }
+
+ private:
+  std::function<bool()> check_if_stopped_;
+};
+
 ceres::Solver::Summary SolveWithGpuFallback(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     ceres::Problem* problem) {
-  const ceres::Solver::Options solver_options =
+  CancellationCallback cancellation_callback(options.check_if_stopped);
+  ceres::Solver::Options solver_options =
       options.ceres->CreateSolverOptions(config, *problem);
+  if (options.check_if_stopped) {
+    solver_options.callbacks.push_back(&cancellation_callback);
+  }
 
   ceres::Solver::Summary ceres_summary;
   ceres::Solve(solver_options, problem, &ceres_summary);
@@ -763,8 +765,11 @@ ceres::Solver::Summary SolveWithGpuFallback(
       auto cpu_options =
           std::make_shared<CeresBundleAdjustmentOptions>(*options.ceres);
       cpu_options->use_gpu = false;
-      const ceres::Solver::Options cpu_solver_options =
+      ceres::Solver::Options cpu_solver_options =
           cpu_options->CreateSolverOptions(config, *problem);
+      if (options.check_if_stopped) {
+        cpu_solver_options.callbacks.push_back(&cancellation_callback);
+      }
       ceres::Solve(cpu_solver_options, problem, &ceres_summary);
     }
   }
@@ -778,7 +783,10 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         const BundleAdjustmentConfig& config,
                         Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
-        loss_function_(options_.ceres->CreateLossFunction()),
+        loss_function_(
+            CreateCeresLossFunction(options_.ceres->loss_function_type,
+                                    options_.ceres->loss_function_scale,
+                                    options_.ceres->loss_function_weight)),
         camera_prior_loss_function_(std::make_unique<ceres::HuberLoss>(1.0)) {
     VLOG(2) << "Creating Ceres bundle adjuster";
     ceres::Problem::Options problem_options;
@@ -1129,7 +1137,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         options_, config_, reconstruction);
 
     if (use_prior_position) {
-      prior_loss_function_ = CreateLossFunction(
+      prior_loss_function_ = CreateCeresLossFunction(
           prior_options_.ceres->prior_position_loss_function_type,
           prior_options_.ceres->prior_position_loss_scale);
 

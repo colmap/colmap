@@ -3,39 +3,39 @@ from pathlib import Path
 import pycolmap
 
 
-def test_scene_clustering_options_init():
+def test_scene_clustering_options_init() -> None:
     options = pycolmap.SceneClusteringOptions()
     assert options is not None
 
 
-def test_scene_clustering_options_check():
+def test_scene_clustering_options_check() -> None:
     options = pycolmap.SceneClusteringOptions()
     assert options.check()
 
 
-def test_scene_clustering_options_leaf_max_num_images():
+def test_scene_clustering_options_leaf_max_num_images() -> None:
     options = pycolmap.SceneClusteringOptions()
     options.leaf_max_num_images = 100
     assert options.leaf_max_num_images == 100
 
 
-def test_hierarchical_pipeline_options_init():
+def test_hierarchical_pipeline_options_init() -> None:
     options = pycolmap.HierarchicalPipelineOptions()
     assert options is not None
 
 
-def test_hierarchical_pipeline_options_check():
+def test_hierarchical_pipeline_options_check() -> None:
     options = pycolmap.HierarchicalPipelineOptions()
     assert options.check()
 
 
-def test_hierarchical_pipeline_options_num_workers():
+def test_hierarchical_pipeline_options_num_workers() -> None:
     options = pycolmap.HierarchicalPipelineOptions()
     options.num_workers = 2
     assert options.num_workers == 2
 
 
-def test_hierarchical_pipeline_options_nested_options():
+def test_hierarchical_pipeline_options_nested_options() -> None:
     options = pycolmap.HierarchicalPipelineOptions()
     options.clustering_options.image_overlap = 10
     assert options.clustering_options.image_overlap == 10
@@ -43,7 +43,7 @@ def test_hierarchical_pipeline_options_nested_options():
     assert options.incremental_options.min_num_matches == 20
 
 
-def test_hierarchical_pipeline_options_from_dict():
+def test_hierarchical_pipeline_options_from_dict() -> None:
     options = pycolmap.HierarchicalPipelineOptions(
         num_workers=3, clustering_options={"leaf_max_num_images": 50}
     )
@@ -51,7 +51,7 @@ def test_hierarchical_pipeline_options_from_dict():
     assert options.clustering_options.leaf_max_num_images == 50
 
 
-def test_hierarchical_pipeline_run(tmp_path: Path):
+def test_hierarchical_pipeline_run(tmp_path: Path) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"

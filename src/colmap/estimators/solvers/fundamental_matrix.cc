@@ -29,13 +29,17 @@
 
 #include "colmap/estimators/solvers/fundamental_matrix.h"
 
+#include "colmap/estimators/cost_functions/tiny_manifold.h"
+#include "colmap/estimators/cost_functions/tiny_sampson_error.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/normalization.h"
 #include "colmap/math/polynomial.h"
+#include "colmap/optim/tiny_solver.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
 #include <cfloat>
+#include <cmath>
 #include <vector>
 
 #include <Eigen/Geometry>
@@ -43,6 +47,60 @@
 #include <Eigen/SVD>
 
 namespace colmap {
+namespace {
+
+// The 7-DoF manifold of a factorized fundamental matrix: the two rotations of
+// its SVD on SO(3), plus the singular value ratio as a 1-D Euclidean
+// parameter. The ambient layout matches
+// TinyFundamentalSampsonErrorCostFunctor: [qU (xyzw), qV (xyzw), sigma].
+using FactorizedFundamentalMatrixManifold =
+    ProductManifold<EigenQuaternionManifold,
+                    EigenQuaternionManifold,
+                    EuclideanManifold<1>>;
+
+// Factorize F = U * diag(1, sigma, 0) * V^T into [qU, qV, sigma], dropping any
+// rank-3 component as the eight-point estimator does. U and V are sign
+// corrected to proper rotations so they can be represented by quaternions,
+// which at most negates F and leaves the Sampson error unchanged.
+bool FactorizeFundamentalMatrix(const Eigen::Matrix3d& F,
+                                Eigen::Matrix<double, 9, 1>* params) {
+  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      F, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  const Eigen::Vector3d& singular_values = svd.singularValues();
+  // A zero or numerically rank-1 matrix has no meaningful factorization, as
+  // U's second column is arbitrary once the second singular value vanishes.
+  constexpr double kMinSingularValueRatio = 1e-12;
+  if (!(singular_values(0) > 0) ||
+      singular_values(1) <= kMinSingularValueRatio * singular_values(0)) {
+    return false;
+  }
+
+  Eigen::Matrix3d U = svd.matrixU();
+  Eigen::Matrix3d V = svd.matrixV();
+  if (U.determinant() < 0) {
+    U = -U;
+  }
+  if (V.determinant() < 0) {
+    V = -V;
+  }
+
+  params->segment<4>(0) = Eigen::Quaterniond(U).normalized().coeffs();
+  params->segment<4>(4) = Eigen::Quaterniond(V).normalized().coeffs();
+  (*params)(8) = singular_values(1) / singular_values(0);
+  return params->allFinite();
+}
+
+// Rescale a normalizing transform and its points, keeping the centroid.
+void RescaleNormalizedImagePoints(double factor,
+                                  std::vector<Eigen::Vector2d>* normed_points,
+                                  Eigen::Matrix3d* normed_from_orig) {
+  for (Eigen::Vector2d& point : *normed_points) {
+    point *= factor;
+  }
+  normed_from_orig->topRows<2>() *= factor;
+}
+
+}  // namespace
 
 void FundamentalMatrixSevenPointEstimator::Estimate(
     const std::vector<X_t>& points1,
@@ -181,6 +239,79 @@ void FundamentalMatrixEightPointEstimator::Residuals(
     const M_t& E,
     std::vector<double>* residuals) {
   ComputeSquaredSampsonError(points1, points2, E, residuals);
+}
+
+bool RefineFundamentalMatrixSampson(const std::vector<Eigen::Vector2d>& points1,
+                                    const std::vector<Eigen::Vector2d>& points2,
+                                    Eigen::Matrix3d* F) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(),
+                 FundamentalMatrixSampsonEstimator::kMinNumSamples);
+  THROW_CHECK_NOTNULL(F);
+
+  // Center and normalize image points for better numerical stability, as in the
+  // eight-point estimator. On raw pixel coordinates the 7x7 normal equations
+  // of the refinement are severely ill-conditioned.
+  std::vector<Eigen::Vector2d> normed_points1;
+  std::vector<Eigen::Vector2d> normed_points2;
+  Eigen::Matrix3d normed_from_orig1;
+  Eigen::Matrix3d normed_from_orig2;
+  CenterAndNormalizeImagePoints(points1, &normed_points1, &normed_from_orig1);
+  CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
+
+  // Rescale both views by a common factor. The Sampson error is invariant to a
+  // common scale, but not to two different ones, which would weight the two
+  // terms of its denominator differently.
+  const double scale1 = normed_from_orig1(0, 0);
+  const double scale2 = normed_from_orig2(0, 0);
+  const double scale = std::sqrt(scale1 * scale2);
+  RescaleNormalizedImagePoints(
+      scale / scale1, &normed_points1, &normed_from_orig1);
+  RescaleNormalizedImagePoints(
+      scale / scale2, &normed_points2, &normed_from_orig2);
+
+  // Inverse of the map that the eight-point estimator applies to its solution.
+  Eigen::Matrix<double, 9, 1> params;
+  if (!FactorizeFundamentalMatrix(normed_from_orig2.transpose().inverse() *
+                                      (*F) * normed_from_orig1.inverse(),
+                                  &params)) {
+    return false;
+  }
+
+  // Plain least squares: the points are assumed to be the inlier set, so
+  // robustness comes from the RANSAC inlier selection.
+  const TinyFundamentalSampsonErrorCostFunctor functor(normed_points1,
+                                                       normed_points2);
+  using Solver =
+      TinySolver<decltype(functor), FactorizedFundamentalMatrixManifold>;
+  Solver solver;
+  Solver::Options options;
+  options.max_num_iterations = 25;
+  solver.Solve(functor, &params, options);
+
+  if (!params.allFinite()) {
+    return false;
+  }
+
+  *F = normed_from_orig2.transpose() *
+       TinyFundamentalSampsonErrorCostFunctor::FundamentalFromParams(
+           params.data()) *
+       normed_from_orig1;
+  return true;
+}
+
+bool FundamentalMatrixSampsonEstimator::Refine(const std::vector<X_t>& points1,
+                                               const std::vector<Y_t>& points2,
+                                               M_t* F) {
+  return RefineFundamentalMatrixSampson(points1, points2, F);
+}
+
+void FundamentalMatrixSampsonEstimator::Residuals(
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    const M_t& F,
+    std::vector<double>* residuals) {
+  ComputeSquaredSampsonError(points1, points2, F, residuals);
 }
 
 }  // namespace colmap

@@ -53,6 +53,11 @@ Example:
     --threads_per_scene 1 --overwrite_two_view_geometries \\
     --data_path data --datasets eth3d --categories dslr --scenes meadow \\
     --run_path runs --run_name variance-meadow
+
+  # Distorted ETH3D DSLR JPEGs (bare eth3d remains undistorted):
+  python evaluate.py --colmap_path /path/colmap \\
+    --datasets eth3d-distorted --categories dslr \\
+    --run_name eth3d-distorted
 """
 
 import argparse
@@ -60,7 +65,7 @@ import json
 import pickle
 
 from evaluation.blended_mvs import DatasetBlendedMVS
-from evaluation.eth3d import DatasetETH3D
+from evaluation.eth3d import DatasetETH3DDistorted, DatasetETH3DUndistorted
 from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
 from evaluation.tartanair import (
     DatasetTartanAirPerspective,
@@ -79,13 +84,10 @@ from evaluation.utils import (
 import pycolmap
 
 
-def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
-    """Evaluates all datasets once and writes args.report_name.
-
-    Returns None if a dataset is unknown or no scenes matched.
-    """
-    datasets: dict[str, type[Dataset]] = {
-        "eth3d": DatasetETH3D,
+def _dataset_classes() -> dict[str, type[Dataset]]:
+    return {
+        "eth3d": DatasetETH3DUndistorted,
+        "eth3d-distorted": DatasetETH3DDistorted,
         "blended-mvs": DatasetBlendedMVS,
         "imc2023": DatasetIMC2023,
         "imc2024": DatasetIMC2024,
@@ -94,12 +96,16 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "tartanair-v2-spherical": DatasetTartanAirSpherical,
     }
 
+
+def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
+    """Evaluates all datasets once and writes args.report_name.
+
+    Returns None if no scenes matched.
+    """
+    datasets = _dataset_classes()
+
     metrics: MetricsByDatasetByCatByScene = {}
     for dataset_name in args.datasets:
-        if dataset_name not in datasets:
-            pycolmap.logging.error(f"Unknown dataset: {dataset_name}")
-            return None
-
         pycolmap.logging.info(f"Evaluating dataset: {dataset_name}")
 
         dataset = datasets[dataset_name](
@@ -191,6 +197,12 @@ def run_seeds(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = parse_args(__doc__)
+    unknown = [name for name in args.datasets if name not in _dataset_classes()]
+    if unknown:
+        raise SystemExit(
+            f"Unknown dataset(s): {', '.join(unknown)}. "
+            f"Valid datasets: {', '.join(_dataset_classes())}"
+        )
     if args.seeds is not None:
         run_seeds(args)
     else:

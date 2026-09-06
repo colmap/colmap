@@ -12,5 +12,5 @@ import pycolmap
         "estimate_generalized_relative_pose",
     ],
 )
-def test_public_api_callable(name):
+def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))

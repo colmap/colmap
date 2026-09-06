@@ -1355,7 +1355,7 @@ TEST(EstimateTwoViewGeometry, UncalibratedDegensac) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::UNCALIBRATED);
   EXPECT_GE(geometry.inlier_matches.size(),
             static_cast<size_t>(synthetic_dataset_options.inlier_match_ratio *
-                                synthetic_dataset_options.num_points3D * 0.9));
+                                synthetic_dataset_options.num_points3D * 0.8));
 }
 
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {

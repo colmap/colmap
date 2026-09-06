@@ -123,4 +123,49 @@ class FundamentalMatrixEightPointEstimator {
                         std::vector<double>* residuals);
 };
 
+// Refine a fundamental matrix in place by minimizing the Sampson error over the
+// given correspondences, starting from *F.
+//
+// Optimizes the SVD factorization of Bartoli and Sturm, "Non-Linear Estimation
+// of the Fundamental Matrix With Minimal Parameters", PAMI 2004, which keeps
+// rank 2 and the scale gauge exact at every iterate, unlike the 8-point
+// algorithm, which truncates the smallest singular value after the fact.
+//
+// Points are centered and normalized internally, with a scale shared by both
+// views to keep the cost in pixel space. The fit is a plain least squares, so
+// the points are expected to be an inlier set; robustness comes from the
+// surrounding RANSAC.
+//
+// Returns false and leaves *F unchanged if it cannot be factorized (zero or
+// numerically rank 1) or if the solve leaves non-finite parameters.
+bool RefineFundamentalMatrixSampson(const std::vector<Eigen::Vector2d>& points1,
+                                    const std::vector<Eigen::Vector2d>& points2,
+                                    Eigen::Matrix3d* F);
+
+// Fundamental matrix refiner for use as the local estimator of LO-RANSAC.
+//
+// Provides Refine() rather than Estimate(), so LO-RANSAC passes the current
+// best model as the initial value, which a non-minimal solver cannot use.
+class FundamentalMatrixSampsonEstimator {
+ public:
+  using X_t = Eigen::Vector2d;
+  using Y_t = Eigen::Vector2d;
+  using M_t = Eigen::Matrix3d;
+
+  // The minimum number of samples needed to refine a model. Refining an
+  // already determined model is only meaningful on an over-determined set.
+  static const int kMinNumSamples = 8;
+
+  // Refine *F in place, see RefineFundamentalMatrixSampson.
+  static bool Refine(const std::vector<X_t>& points1,
+                     const std::vector<Y_t>& points2,
+                     M_t* F);
+
+  // Squared Sampson error residuals, matching the estimators above.
+  static void Residuals(const std::vector<X_t>& points1,
+                        const std::vector<Y_t>& points2,
+                        const M_t& F,
+                        std::vector<double>* residuals);
+};
+
 }  // namespace colmap

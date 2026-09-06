@@ -3,9 +3,10 @@
 
 import inspect
 import sys
+from collections.abc import Callable
 from itertools import combinations
 from pathlib import Path
-from typing import Annotated, get_type_hints
+from typing import Annotated, Any, get_type_hints
 
 # Must be set before importing symforce.symbolic
 precision = sys.argv[2] if len(sys.argv) > 2 else "f32"
@@ -138,8 +139,12 @@ class ConstPinholeSensorFromRig(sf.Pose3):
 
 
 def _make_variant(
-    core_fn, name: str, base_params: list, hints: dict, fixed: dict
-):
+    core_fn: Callable[..., Any],
+    name: str,
+    base_params: list[str],
+    hints: dict[str, Any],
+    fixed: dict[str, Any],
+) -> Callable[..., Any]:
     new_hints = {}
     for p in base_params:
         if p in fixed:
@@ -153,14 +158,14 @@ def _make_variant(
 
     # Caspar calls factors as fn(**symbolic_args), so the wrapper accepts both
     # positional and keyword arguments.
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         merged = {**dict(zip(ordered, args, strict=False)), **kwargs}
         return core_fn(*[merged[p] for p in base_params])
 
     wrapper.__name__ = name
     wrapper.__annotations__ = {p: new_hints[p] for p in ordered}
     wrapper.__annotations__["return"] = hints.get("return")
-    wrapper.__signature__ = inspect.Signature(
+    wrapper.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
         [
             inspect.Parameter(p, inspect.Parameter.POSITIONAL_OR_KEYWORD)
             for p in ordered
@@ -170,13 +175,13 @@ def _make_variant(
 
 
 def register_camera_model(
-    caslib,
+    caslib: CasparLibrary,
     model_name: str,
-    core_fn,
-    fixable_params: dict,
-    must_fix_one_of: T.Optional[set] = None,
+    core_fn: Callable[..., Any],
+    fixable_params: dict[str, Any],
+    must_fix_one_of: set[str] | None = None,
     include_all_fixed: bool = False,
-):
+) -> None:
     hints = get_type_hints(core_fn, include_extras=True)
     base_params = list(inspect.signature(core_fn).parameters.keys())
     fixable_items = list(fixable_params.items())
@@ -229,7 +234,7 @@ def simple_radial_core(
     pose holds rig_from_world; sensor_from_rig is identity for single-camera
     rigs (cam_from_world == rig_from_world in that case).
     """
-    cam_T_world = sensor_from_rig * pose
+    cam_T_world = sensor_from_rig * pose  # type: ignore[operator]
     f, k, cx, cy = calib
     point_cam = cam_T_world * point
     depth = point_cam[2]
@@ -254,7 +259,7 @@ def pinhole_core(
     pose holds rig_from_world; sensor_from_rig is identity for single-camera
     rigs (cam_from_world == rig_from_world in that case).
     """
-    cam_T_world = sensor_from_rig * pose
+    cam_T_world = sensor_from_rig * pose  # type: ignore[operator]
     fx, fy, cx, cy = calib
     point_cam = cam_T_world * point
     depth = point_cam[2]
@@ -281,7 +286,7 @@ def simple_radial_split_core(
     point are tuned independently.
     focal_and_extra = [f, k], principal_point = [cx, cy].
     """
-    calib = sf.V4(
+    calib: Any = sf.V4(
         [
             focal_and_extra[0],
             focal_and_extra[1],
@@ -307,7 +312,9 @@ def pinhole_split_core(
     Used when focal lengths and principal point are tuned independently.
     focal = [fx, fy], principal_point = [cx, cy].
     """
-    calib = sf.V4([focal[0], focal[1], principal_point[0], principal_point[1]])
+    calib: Any = sf.V4(
+        [focal[0], focal[1], principal_point[0], principal_point[1]]
+    )
     return pinhole_core(pose, sensor_from_rig, calib, point, pixel)
 
 

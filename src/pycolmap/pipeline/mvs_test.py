@@ -8,12 +8,12 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_patch_match_options_init():
+def test_patch_match_options_init() -> None:
     options = pycolmap.PatchMatchOptions()
     assert options is not None
 
 
-def test_stereo_fusion_options_init():
+def test_stereo_fusion_options_init() -> None:
     options = pycolmap.StereoFusionOptions()
     assert options is not None
 
@@ -25,5 +25,5 @@ def test_stereo_fusion_options_init():
         "stereo_fusion",
     ],
 )
-def test_public_api_callable(name):
+def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))

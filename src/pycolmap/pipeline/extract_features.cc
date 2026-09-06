@@ -21,13 +21,15 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void ExtractFeatures(const std::filesystem::path& database_path,
-                     const std::filesystem::path& image_path,
-                     const std::vector<std::string>& image_names,
-                     const CameraMode camera_mode,
-                     ImageReaderOptions reader_options,
-                     FeatureExtractionOptions extraction_options,
-                     const Device device) {
+void ExtractFeatures(
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::vector<std::string>& image_names,
+    const CameraMode camera_mode,
+    ImageReaderOptions reader_options,
+    FeatureExtractionOptions extraction_options,
+    const Device device,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_DIR_EXISTS(image_path);
   extraction_options.use_gpu = IsGPU(device);
   THROW_CHECK(extraction_options.Check());
@@ -49,7 +51,7 @@ void ExtractFeatures(const std::filesystem::path& database_path,
   std::unique_ptr<Thread> extractor = CreateFeatureExtractorController(
       database_path, reader_options, extraction_options);
   extractor->Start();
-  PyWait(extractor.get());
+  PyWait(extractor.get(), cancellation_token);
 }
 
 void BindExtractFeatures(py::module& m) {
@@ -65,5 +67,6 @@ void BindExtractFeatures(py::module& m) {
                 FeatureExtractionOptions(),
                 "FeatureExtractionOptions()"),
       "device"_a = Device::AUTO,
+      "cancellation_token"_a = py::none(),
       "Extract SIFT Features and write them to database");
 }

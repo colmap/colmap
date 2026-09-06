@@ -1,36 +1,38 @@
 import pycolmap
 
 
-def test_image_pair_stat_init():
+def test_image_pair_stat_init() -> None:
     stat = pycolmap.ImagePairStat()
     assert stat is not None
 
 
-def test_image_pair_stat_num_tri_corrs():
+def test_image_pair_stat_num_tri_corrs() -> None:
     stat = pycolmap.ImagePairStat()
     stat.num_tri_corrs = 10
     assert stat.num_tri_corrs == 10
 
 
-def test_image_pair_stat_num_total_corrs():
+def test_image_pair_stat_num_total_corrs() -> None:
     stat = pycolmap.ImagePairStat()
     stat.num_total_corrs = 20
     assert stat.num_total_corrs == 20
 
 
-def test_reprojection_error_type_pixel():
+def test_reprojection_error_type_pixel() -> None:
     assert pycolmap.ReprojectionErrorType.PIXEL is not None
 
 
-def test_reprojection_error_type_normalized():
+def test_reprojection_error_type_normalized() -> None:
     assert pycolmap.ReprojectionErrorType.NORMALIZED is not None
 
 
-def test_reprojection_error_type_angular():
+def test_reprojection_error_type_angular() -> None:
     assert pycolmap.ReprojectionErrorType.ANGULAR is not None
 
 
-def _make_observation_manager(reconstruction):
+def _make_observation_manager(
+    reconstruction: pycolmap.Reconstruction,
+) -> pycolmap.ObservationManager:
     correspondence_graph = pycolmap.CorrespondenceGraph()
     for image_id in reconstruction.images:
         image = reconstruction.image(image_id)
@@ -39,25 +41,33 @@ def _make_observation_manager(reconstruction):
     return pycolmap.ObservationManager(reconstruction, correspondence_graph)
 
 
-def test_observation_manager_init(synthetic_reconstruction):
+def test_observation_manager_init(
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
     manager = _make_observation_manager(synthetic_reconstruction)
     assert manager is not None
 
 
-def test_observation_manager_image_pairs(synthetic_reconstruction):
+def test_observation_manager_image_pairs(
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
     manager = _make_observation_manager(synthetic_reconstruction)
     pairs = manager.image_pairs
     assert hasattr(pairs, "__len__")
 
 
-def test_observation_manager_num_observations(synthetic_reconstruction):
+def test_observation_manager_num_observations(
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
     manager = _make_observation_manager(synthetic_reconstruction)
     image_ids = list(synthetic_reconstruction.images.keys())
     count = manager.num_observations(image_ids[0])
     assert isinstance(count, int)
 
 
-def test_observation_manager_num_correspondences(synthetic_reconstruction):
+def test_observation_manager_num_correspondences(
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
     manager = _make_observation_manager(synthetic_reconstruction)
     image_ids = list(synthetic_reconstruction.images.keys())
     count = manager.num_correspondences(image_ids[0])

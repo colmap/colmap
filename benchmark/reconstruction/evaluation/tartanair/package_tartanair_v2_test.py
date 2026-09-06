@@ -16,14 +16,14 @@ from .package_tartanair_v2 import (  # noqa: E402
 
 
 class FakeResponse:
-    def __init__(self, content: bytes):
+    def __init__(self, content: bytes) -> None:
         self.content = content
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         pass
 
 
-def test_download_tartanair_license(monkeypatch):
+def test_download_tartanair_license(monkeypatch: pytest.MonkeyPatch) -> None:
     license_data = b"license text"
     monkeypatch.setattr(
         package_tartanair_v2,
@@ -38,7 +38,9 @@ def test_download_tartanair_license(monkeypatch):
     assert package_tartanair_v2.download_tartanair_license() == license_data
 
 
-def test_download_tartanair_license_rejects_unexpected_content(monkeypatch):
+def test_download_tartanair_license_rejects_unexpected_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         package_tartanair_v2.requests,
         "get",
@@ -48,7 +50,7 @@ def test_download_tartanair_license_rejects_unexpected_content(monkeypatch):
         package_tartanair_v2.download_tartanair_license()
 
 
-def test_encode_depth_png_min_pools_and_quantizes():
+def test_encode_depth_png_min_pools_and_quantizes() -> None:
     depth = np.full((1024, 2048), 10.0, dtype="<f4")
     depth[:4, :4] = 2.0
     rgba = depth.view(np.uint8).reshape(1024, 2048, 4)
@@ -64,7 +66,7 @@ def test_encode_depth_png_min_pools_and_quantizes():
     assert decoded[0, 1] == round(10.0 * DEPTH_SCALE)
 
 
-def test_encode_image_jpeg():
+def test_encode_image_jpeg() -> None:
     source = io.BytesIO()
     PILImage.new("RGB", (64, 32), (10, 20, 30)).save(source, format="PNG")
     encoded = encode_image_jpeg(source.getvalue())

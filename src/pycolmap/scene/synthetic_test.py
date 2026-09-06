@@ -1,7 +1,7 @@
 import pycolmap
 
 
-def test_synthetic_dataset_match_config_enum():
+def test_synthetic_dataset_match_config_enum() -> None:
     assert {
         k: int(v)
         for k, v in pycolmap.SyntheticDatasetMatchConfig.__members__.items()
@@ -12,54 +12,54 @@ def test_synthetic_dataset_match_config_enum():
     }
 
 
-def test_synthetic_dataset_options_default_init():
+def test_synthetic_dataset_options_default_init() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     assert options is not None
 
 
-def test_synthetic_dataset_options_num_rigs_readwrite():
+def test_synthetic_dataset_options_num_rigs_readwrite() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.num_rigs = 2
     assert options.num_rigs == 2
 
 
-def test_synthetic_dataset_options_num_cameras_per_rig_readwrite():
+def test_synthetic_dataset_options_num_cameras_per_rig_readwrite() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.num_cameras_per_rig = 3
     assert options.num_cameras_per_rig == 3
 
 
-def test_synthetic_dataset_options_num_frames_per_rig_readwrite():
+def test_synthetic_dataset_options_num_frames_per_rig_readwrite() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.num_frames_per_rig = 5
     assert options.num_frames_per_rig == 5
 
 
-def test_synthetic_dataset_options_num_points3d_readwrite():
+def test_synthetic_dataset_options_num_points3d_readwrite() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.num_points3D = 100
     assert options.num_points3D == 100
 
 
-def test_synthetic_dataset_options_track_length_readwrite():
+def test_synthetic_dataset_options_track_length_readwrite() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.track_length = 3
     assert options.track_length == 3
 
 
-def test_synthetic_dataset_options_camera_model_id_readwrite():
+def test_synthetic_dataset_options_camera_model_id_readwrite() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.camera_model_id = pycolmap.CameraModelId.PINHOLE
     assert options.camera_model_id == pycolmap.CameraModelId.PINHOLE
 
 
-def test_synthetic_dataset_options_match_config_readwrite():
+def test_synthetic_dataset_options_match_config_readwrite() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.match_config = pycolmap.SyntheticDatasetMatchConfig.CHAINED
     assert options.match_config == pycolmap.SyntheticDatasetMatchConfig.CHAINED
 
 
-def test_synthesize_dataset():
+def test_synthesize_dataset() -> None:
     options = pycolmap.SyntheticDatasetOptions()
     options.num_cameras_per_rig = 1
     options.num_frames_per_rig = 2
@@ -70,24 +70,24 @@ def test_synthesize_dataset():
     assert reconstruction.num_points3D() > 0
 
 
-def test_synthetic_noise_options_default_init():
+def test_synthetic_noise_options_default_init() -> None:
     options = pycolmap.SyntheticNoiseOptions()
     assert options is not None
 
 
-def test_synthetic_noise_options_point2d_stddev_readwrite():
+def test_synthetic_noise_options_point2d_stddev_readwrite() -> None:
     options = pycolmap.SyntheticNoiseOptions()
     options.point2D_stddev = 0.5
     assert options.point2D_stddev == 0.5
 
 
-def test_synthetic_noise_options_point3d_stddev_readwrite():
+def test_synthetic_noise_options_point3d_stddev_readwrite() -> None:
     options = pycolmap.SyntheticNoiseOptions()
     options.point3D_stddev = 0.1
     assert options.point3D_stddev == 0.1
 
 
-def test_synthesize_noise():
+def test_synthesize_noise() -> None:
     dataset_options = pycolmap.SyntheticDatasetOptions()
     dataset_options.num_cameras_per_rig = 1
     dataset_options.num_frames_per_rig = 2
@@ -100,12 +100,12 @@ def test_synthesize_noise():
     assert reconstruction.num_points3D() > 0
 
 
-def test_synthetic_image_options_default_init():
+def test_synthetic_image_options_default_init() -> None:
     options = pycolmap.SyntheticImageOptions()
     assert options is not None
 
 
-def test_synthetic_image_options_feature_peak_radius_readwrite():
+def test_synthetic_image_options_feature_peak_radius_readwrite() -> None:
     options = pycolmap.SyntheticImageOptions()
     options.feature_peak_radius = 5
     assert options.feature_peak_radius == 5

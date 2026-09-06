@@ -3,12 +3,12 @@ import numpy as np
 import pycolmap
 
 
-def test_sim3d_default_init():
+def test_sim3d_default_init() -> None:
     similarity = pycolmap.Sim3d()
     assert similarity is not None
 
 
-def test_sim3d_init_scale_rotation_translation():
+def test_sim3d_init_scale_rotation_translation() -> None:
     rotation = pycolmap.Rotation3d()
     translation = np.array([1.0, 2.0, 3.0])
     similarity = pycolmap.Sim3d(
@@ -17,13 +17,13 @@ def test_sim3d_init_scale_rotation_translation():
     assert similarity is not None
 
 
-def test_sim3d_init_from_matrix():
+def test_sim3d_init_from_matrix() -> None:
     matrix = np.eye(3, 4)
     similarity = pycolmap.Sim3d(matrix=matrix)
     assert similarity is not None
 
 
-def test_sim3d_params_readwrite():
+def test_sim3d_params_readwrite() -> None:
     similarity = pycolmap.Sim3d()
     params = similarity.params
     assert params.shape == (8,)
@@ -32,7 +32,7 @@ def test_sim3d_params_readwrite():
     np.testing.assert_array_almost_equal(similarity.params, new_params)
 
 
-def test_sim3d_scale_readwrite():
+def test_sim3d_scale_readwrite() -> None:
     similarity = pycolmap.Sim3d()
     scale = float(np.array(similarity.scale))
     assert isinstance(scale, float)
@@ -40,7 +40,7 @@ def test_sim3d_scale_readwrite():
     assert float(np.array(similarity.scale)) == 3.0
 
 
-def test_sim3d_rotation_readwrite():
+def test_sim3d_rotation_readwrite() -> None:
     similarity = pycolmap.Sim3d()
     rotation = similarity.rotation
     assert isinstance(rotation, pycolmap.Rotation3d)
@@ -49,7 +49,7 @@ def test_sim3d_rotation_readwrite():
     assert similarity.rotation is not None
 
 
-def test_sim3d_translation_readwrite():
+def test_sim3d_translation_readwrite() -> None:
     similarity = pycolmap.Sim3d()
     translation = similarity.translation
     assert np.array(translation).shape == (3,)
@@ -59,13 +59,13 @@ def test_sim3d_translation_readwrite():
     )
 
 
-def test_sim3d_matrix():
+def test_sim3d_matrix() -> None:
     similarity = pycolmap.Sim3d()
     matrix = similarity.matrix()
     assert matrix.shape == (3, 4)
 
 
-def test_sim3d_inverse():
+def test_sim3d_inverse() -> None:
     similarity = pycolmap.Sim3d(
         scale=2.0,
         rotation=pycolmap.Rotation3d(),
@@ -75,28 +75,28 @@ def test_sim3d_inverse():
     assert isinstance(inverse, pycolmap.Sim3d)
 
 
-def test_sim3d_multiply_sim3d():
+def test_sim3d_multiply_sim3d() -> None:
     similarity1 = pycolmap.Sim3d()
     similarity2 = pycolmap.Sim3d()
     result = similarity1 * similarity2
     assert isinstance(result, pycolmap.Sim3d)
 
 
-def test_sim3d_multiply_vector3d():
+def test_sim3d_multiply_vector3d() -> None:
     similarity = pycolmap.Sim3d()
     vector = np.array([1.0, 2.0, 3.0])
     result = similarity * vector
     assert result.shape == (3,)
 
 
-def test_sim3d_multiply_nx3_matrix():
+def test_sim3d_multiply_nx3_matrix() -> None:
     similarity = pycolmap.Sim3d()
     points = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
     result = similarity * points
     assert result.shape == (2, 3)
 
 
-def test_sim3d_transform_camera_world():
+def test_sim3d_transform_camera_world() -> None:
     similarity = pycolmap.Sim3d()
     rigid = pycolmap.Rigid3d()
     result = similarity.transform_camera_world(rigid)

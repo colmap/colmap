@@ -29,6 +29,7 @@
 
 #include "colmap/util/base_controller.h"
 
+#include "colmap/util/cancellation.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {
@@ -57,10 +58,8 @@ void BaseController::SetCheckIfStoppedFunc(std::function<bool()> func) {
 }
 
 bool BaseController::CheckIfStopped() {
-  if (check_if_stopped_fn_)
-    return check_if_stopped_fn_();
-  else
-    return false;
+  return ScopedSignalHandler::IsInterruptRequested() ||
+         (check_if_stopped_fn_ && check_if_stopped_fn_());
 }
 
 }  // namespace colmap

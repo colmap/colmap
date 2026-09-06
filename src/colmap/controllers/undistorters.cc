@@ -198,8 +198,11 @@ void COLMAPUndistorter::Run() {
   // when writing the MVS config files
   std::vector<std::string> image_names;
   image_names.reserve(num_images);
+  bool stopped = false;
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
+      stopped = true;
       break;
     }
 
@@ -209,6 +212,12 @@ void COLMAPUndistorter::Run() {
     if (futures[i].get()) {
       image_names.push_back(reconstruction_.Image(image_ids[i]).Name());
     }
+  }
+  if (stopped) {
+    LOG(WARNING) << "Stopped image undistortion before writing the sparse "
+                    "model and stereo configuration files.";
+    run_timer.PrintMinutes();
+    return;
   }
 
   LOG(INFO) << "Writing reconstruction...";
@@ -345,12 +354,11 @@ void PMVSUndistorter::Run() {
         thread_pool.AddTask(&PMVSUndistorter::Undistort, this, i));
   }
 
+  bool stopped = false;
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
       thread_pool.Stop();
-      LOG(WARNING) << "Stopped the undistortion process. Image point "
-                      "locations and camera parameters for not yet processed "
-                      "images in the Bundler output file is probably wrong.";
+      stopped = true;
       break;
     }
 
@@ -358,6 +366,12 @@ void PMVSUndistorter::Run() {
         "Undistorting image [%d/%d]", i + 1, futures.size());
 
     futures[i].get();
+  }
+  if (stopped) {
+    LOG(WARNING) << "Stopped image undistortion before writing the bundle and "
+                    "configuration files.";
+    run_timer.PrintMinutes();
+    return;
   }
 
   LOG(INFO) << "Writing bundle file...";
@@ -586,6 +600,7 @@ void CMPMVSUndistorter::Run() {
 
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
       break;
     }
 
@@ -662,6 +677,7 @@ void StandaloneImageUndistorter::Run() {
 
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
       break;
     }
 
@@ -742,6 +758,7 @@ void StereoImageRectifier::Run() {
 
   for (size_t i = 0; i < futures.size(); ++i) {
     if (CheckIfStopped()) {
+      thread_pool.Stop();
       break;
     }
 

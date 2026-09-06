@@ -1,40 +1,41 @@
 import os
+from pathlib import Path
 
 import pycolmap
 
 
-def test_reconstruction_manager_init():
+def test_reconstruction_manager_init() -> None:
     manager = pycolmap.ReconstructionManager()
     assert manager is not None
 
 
-def test_reconstruction_manager_size():
+def test_reconstruction_manager_size() -> None:
     manager = pycolmap.ReconstructionManager()
     assert manager.size() == 0
 
 
-def test_reconstruction_manager_add():
+def test_reconstruction_manager_add() -> None:
     manager = pycolmap.ReconstructionManager()
     idx = manager.add()
     assert idx == 0
     assert manager.size() == 1
 
 
-def test_reconstruction_manager_get():
+def test_reconstruction_manager_get() -> None:
     manager = pycolmap.ReconstructionManager()
     idx = manager.add()
     reconstruction = manager.get(idx)
     assert reconstruction is not None
 
 
-def test_reconstruction_manager_delete():
+def test_reconstruction_manager_delete() -> None:
     manager = pycolmap.ReconstructionManager()
     idx = manager.add()
     manager.delete(idx)
     assert manager.size() == 0
 
 
-def test_reconstruction_manager_clear():
+def test_reconstruction_manager_clear() -> None:
     manager = pycolmap.ReconstructionManager()
     manager.add()
     manager.add()
@@ -43,7 +44,9 @@ def test_reconstruction_manager_clear():
     assert manager.size() == 0
 
 
-def test_reconstruction_manager_write_read_roundtrip(tmp_path, simple_camera):
+def test_reconstruction_manager_write_read_roundtrip(
+    tmp_path: Path, simple_camera: pycolmap.Camera
+) -> None:
     manager = pycolmap.ReconstructionManager()
     idx = manager.add()
     reconstruction = manager.get(idx)

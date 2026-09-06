@@ -27,6 +27,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from collections.abc import Sequence
+
 import numpy as np
 
 import pycolmap
@@ -85,7 +87,7 @@ def _add_image(
 
 
 class TestEstimateDepthRanges:
-    def test_single_image_with_points(self):
+    def test_single_image_with_points(self) -> None:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
@@ -106,7 +108,7 @@ class TestEstimateDepthRanges:
         np.testing.assert_almost_equal(near, np.percentile(depths, 2.0))
         np.testing.assert_almost_equal(far, np.percentile(depths, 98.0))
 
-    def test_insufficient_points_returns_default(self):
+    def test_insufficient_points_returns_default(self) -> None:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
@@ -121,7 +123,7 @@ class TestEstimateDepthRanges:
         ranges = _estimate_depth_ranges(recon)
         assert ranges[1] == (0.1, 100.0)
 
-    def test_per_image_ranges_differ(self):
+    def test_per_image_ranges_differ(self) -> None:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
@@ -153,7 +155,7 @@ class TestEstimateDepthRanges:
 
 
 class TestSampleFrustumPoints:
-    def test_identity_camera_shape(self):
+    def test_identity_camera_shape(self) -> None:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
@@ -163,7 +165,7 @@ class TestSampleFrustumPoints:
         # num_steps=5 default: 5*5 grid at 5 depths = 125 points
         assert verts.shape == (125, 3)
 
-    def test_custom_num_steps(self):
+    def test_custom_num_steps(self) -> None:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
@@ -174,7 +176,7 @@ class TestSampleFrustumPoints:
         )
         assert verts.shape == (27, 3)
 
-    def test_vertices_depth_range(self):
+    def test_vertices_depth_range(self) -> None:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
@@ -187,7 +189,7 @@ class TestSampleFrustumPoints:
         np.testing.assert_almost_equal(verts[:, 2].min(), near)
         np.testing.assert_almost_equal(verts[:, 2].max(), far)
 
-    def test_translated_camera(self):
+    def test_translated_camera(self) -> None:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
         recon.add_camera_with_trivial_rig(cam)
@@ -205,7 +207,11 @@ class TestSampleFrustumPoints:
 
 class TestCheckFrustumCovisibility:
     def _build_two_camera_recon(
-        self, pos1, pos2, rot1=None, rot2=None
+        self,
+        pos1: Sequence[float],
+        pos2: Sequence[float],
+        rot1: pycolmap.Rotation3d | None = None,
+        rot2: pycolmap.Rotation3d | None = None,
     ) -> pycolmap.Reconstruction:
         recon = pycolmap.Reconstruction()
         cam = _make_camera()
@@ -214,7 +220,13 @@ class TestCheckFrustumCovisibility:
         _add_image(recon, 2, "img2.jpg", np.array(pos2), rot2)
         return recon
 
-    def _check(self, recon, max_angle=90.0, near=1.0, far=100.0):
+    def _check(
+        self,
+        recon: pycolmap.Reconstruction,
+        max_angle: float = 90.0,
+        near: float = 1.0,
+        far: float = 100.0,
+    ) -> bool:
         cam = recon.cameras[1]
         imgs = [recon.images[1], recon.images[2]]
         frustums = {
@@ -228,18 +240,18 @@ class TestCheckFrustumCovisibility:
             imgs[0], imgs[1], recon, frustums, max_angle
         )
 
-    def test_covisible_side_by_side(self):
+    def test_covisible_side_by_side(self) -> None:
         recon = self._build_two_camera_recon([-0.5, 0, -5], [0.5, 0, -5])
         assert self._check(recon)
 
-    def test_not_covisible_opposite_directions(self):
+    def test_not_covisible_opposite_directions(self) -> None:
         rot_180_y = pycolmap.Rotation3d(np.array([0, 1, 0, 0]))
         recon = self._build_two_camera_recon(
             [0, 0, -5], [0, 0, 5], rot2=rot_180_y
         )
         assert not self._check(recon)
 
-    def test_rejected_by_viewing_angle(self):
+    def test_rejected_by_viewing_angle(self) -> None:
         # 90 deg rotation around y-axis
         rot = pycolmap.Rotation3d(
             np.array([0, 1 / np.sqrt(2), 0, 1 / np.sqrt(2)])
@@ -248,7 +260,7 @@ class TestCheckFrustumCovisibility:
         # Viewing angle is 90 deg, threshold is 45 -> should be rejected
         assert not self._check(recon, max_angle=45.0)
 
-    def test_covisible_converging_cameras(self):
+    def test_covisible_converging_cameras(self) -> None:
         # Two cameras angled inward looking at the same point
         # Camera 1 at (-2,0,0) looking at +x (toward origin)
         rot1 = pycolmap.Rotation3d(
@@ -263,12 +275,12 @@ class TestCheckFrustumCovisibility:
         )
         assert self._check(recon, max_angle=180.0)
 
-    def test_not_covisible_far_apart_narrow_fov(self):
+    def test_not_covisible_far_apart_narrow_fov(self) -> None:
         # Two cameras far apart, both looking +z, with small frustum depth
         recon = self._build_two_camera_recon([0, 0, 0], [1000, 0, 0])
         assert self._check(recon, near=1.0, far=2.0) is False
 
-    def test_not_covisible_depth_out_of_range(self):
+    def test_not_covisible_depth_out_of_range(self) -> None:
         # Two cameras side by side looking +z. Their frustums project into
         # each other's images, but the depth ranges don't overlap: camera 1
         # expects depths 1-5 while camera 2 expects 50-100. Each camera's
@@ -292,7 +304,7 @@ class TestCheckFrustumCovisibility:
         # Sanity: with matching depth ranges, these cameras are covisible.
         assert self._check(recon, near=1.0, far=100.0)
 
-    def test_covisible_identical_cameras(self):
+    def test_covisible_identical_cameras(self) -> None:
         recon = self._build_two_camera_recon([0, 0, 0], [0, 0, 0])
         assert self._check(recon)
 
@@ -332,7 +344,7 @@ def _make_recon_with_tracks(
 
 
 class TestBuildImagePoint3DSets:
-    def test_basic_tracks(self):
+    def test_basic_tracks(self) -> None:
         # 2 images, 5 points2D each, 3 shared tracks
         recon = _make_recon_with_tracks(
             num_images=2,
@@ -348,7 +360,7 @@ class TestBuildImagePoint3DSets:
         assert len(sets[2]) == 3
         assert len(sets[1] & sets[2]) == 3
 
-    def test_no_shared_tracks(self):
+    def test_no_shared_tracks(self) -> None:
         recon = _make_recon_with_tracks(
             num_images=2,
             num_points2D_per_image=5,
@@ -362,7 +374,7 @@ class TestBuildImagePoint3DSets:
         sets = _build_image_point3D_sets(recon)
         assert len(sets[1] & sets[2]) == 0
 
-    def test_no_tracks(self):
+    def test_no_tracks(self) -> None:
         recon = _make_recon_with_tracks(
             num_images=2,
             num_points2D_per_image=5,
@@ -372,7 +384,7 @@ class TestBuildImagePoint3DSets:
         assert len(sets[1]) == 0
         assert len(sets[2]) == 0
 
-    def test_partial_overlap(self):
+    def test_partial_overlap(self) -> None:
         # 3 images: img1-img2 share 5 points
         # img2-img3 share 2, img1-img3 share 0
         recon = _make_recon_with_tracks(

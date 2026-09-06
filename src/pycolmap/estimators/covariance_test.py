@@ -1,7 +1,7 @@
 import pycolmap
 
 
-def test_ba_covariance_options_params_enum():
+def test_ba_covariance_options_params_enum() -> None:
     assert {
         k: int(v)
         for k, v in pycolmap.BACovarianceOptionsParams.__members__.items()
@@ -13,34 +13,34 @@ def test_ba_covariance_options_params_enum():
     }
 
 
-def test_ba_covariance_options_default_init():
+def test_ba_covariance_options_default_init() -> None:
     options = pycolmap.BACovarianceOptions()
     assert options is not None
 
 
-def test_ba_covariance_options_params_readwrite():
+def test_ba_covariance_options_params_readwrite() -> None:
     options = pycolmap.BACovarianceOptions()
     options.params = pycolmap.BACovarianceOptionsParams.POINTS
     assert options.params == pycolmap.BACovarianceOptionsParams.POINTS
 
 
-def test_ba_covariance_options_damping_readwrite():
+def test_ba_covariance_options_damping_readwrite() -> None:
     options = pycolmap.BACovarianceOptions()
     assert isinstance(options.damping, float)
     options.damping = 1e-6
     assert options.damping == 1e-6
 
 
-def test_experimental_pose_param_default_init():
+def test_experimental_pose_param_default_init() -> None:
     param = pycolmap.ExperimentalPoseParam()
     assert param is not None
 
 
-def test_experimental_pose_param_image_id_readwrite():
+def test_experimental_pose_param_image_id_readwrite() -> None:
     param = pycolmap.ExperimentalPoseParam()
     param.image_id = 42
     assert param.image_id == 42
 
 
-def test_estimate_ba_covariance_is_callable():
+def test_estimate_ba_covariance_is_callable() -> None:
     assert callable(pycolmap.estimate_ba_covariance)

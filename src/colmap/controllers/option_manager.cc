@@ -417,6 +417,8 @@ void OptionManager::AddTwoViewGeometryOptions() {
                    &two_view_geometry->stationary_matches_max_error);
   AddDefaultOption("TwoViewGeometry.use_degensac",
                    &two_view_geometry->use_degensac);
+  AddDefaultOption("TwoViewGeometry.use_sampson_refinement",
+                   &two_view_geometry->use_sampson_refinement);
   AddDefaultOption("TwoViewGeometry.max_error",
                    &two_view_geometry->ransac_options.max_error);
   AddDefaultOption("TwoViewGeometry.confidence",
@@ -462,6 +464,8 @@ void OptionManager::AddSequentialPairingOptions() {
                    &sequential_pairing->loop_detection_period);
   AddDefaultOption("SequentialMatching.loop_detection_num_images",
                    &sequential_pairing->loop_detection_num_images);
+  AddDefaultOption("SequentialMatching.loop_detection_min_index_distance",
+                   &sequential_pairing->loop_detection_min_index_distance);
   AddDefaultOption("SequentialMatching.loop_detection_num_nearest_neighbors",
                    &sequential_pairing->loop_detection_num_nearest_neighbors);
   AddDefaultOption("SequentialMatching.loop_detection_num_checks",

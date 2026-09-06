@@ -1,17 +1,17 @@
 import pycolmap
 
 
-def test_normalization_enum():
+def test_normalization_enum() -> None:
     assert pycolmap.Normalization.L1_ROOT is not None
     assert pycolmap.Normalization.L2 is not None
 
 
-def test_sift_extraction_options_default_init():
+def test_sift_extraction_options_default_init() -> None:
     options = pycolmap.SiftExtractionOptions()
     assert options is not None
 
 
-def test_sift_extraction_options_num_octaves_readwrite():
+def test_sift_extraction_options_num_octaves_readwrite() -> None:
     options = pycolmap.SiftExtractionOptions()
     original = options.num_octaves
     assert isinstance(original, int)
@@ -19,94 +19,94 @@ def test_sift_extraction_options_num_octaves_readwrite():
     assert options.num_octaves == 5
 
 
-def test_sift_extraction_options_max_num_features_readwrite():
+def test_sift_extraction_options_max_num_features_readwrite() -> None:
     options = pycolmap.SiftExtractionOptions()
     assert isinstance(options.max_num_features, int)
     options.max_num_features = 4096
     assert options.max_num_features == 4096
 
 
-def test_sift_extraction_options_peak_threshold_readwrite():
+def test_sift_extraction_options_peak_threshold_readwrite() -> None:
     options = pycolmap.SiftExtractionOptions()
     assert isinstance(options.peak_threshold, float)
     options.peak_threshold = 0.01
     assert abs(options.peak_threshold - 0.01) < 1e-6
 
 
-def test_sift_extraction_options_check():
+def test_sift_extraction_options_check() -> None:
     options = pycolmap.SiftExtractionOptions()
     result = options.check()
     assert isinstance(result, bool)
     assert result is True
 
 
-def test_feature_extraction_options_default_init():
+def test_feature_extraction_options_default_init() -> None:
     options = pycolmap.FeatureExtractionOptions()
     assert options is not None
 
 
-def test_feature_extraction_options_type_readwrite():
+def test_feature_extraction_options_type_readwrite() -> None:
     options = pycolmap.FeatureExtractionOptions()
     options.type = pycolmap.FeatureExtractorType.SIFT
     assert options.type == pycolmap.FeatureExtractorType.SIFT
 
 
-def test_feature_extraction_options_max_image_size_readwrite():
+def test_feature_extraction_options_max_image_size_readwrite() -> None:
     options = pycolmap.FeatureExtractionOptions()
     options.max_image_size = 2048
     assert options.max_image_size == 2048
 
 
-def test_feature_extraction_options_num_threads_readwrite():
+def test_feature_extraction_options_num_threads_readwrite() -> None:
     options = pycolmap.FeatureExtractionOptions()
     options.num_threads = 4
     assert options.num_threads == 4
 
 
-def test_feature_extraction_options_use_gpu_readwrite():
+def test_feature_extraction_options_use_gpu_readwrite() -> None:
     options = pycolmap.FeatureExtractionOptions()
     options.use_gpu = False
     assert options.use_gpu is False
 
 
-def test_feature_extraction_options_sift_property():
+def test_feature_extraction_options_sift_property() -> None:
     options = pycolmap.FeatureExtractionOptions()
     sift = options.sift
     assert isinstance(sift, pycolmap.SiftExtractionOptions)
 
 
-def test_feature_extraction_options_requires_rgb():
+def test_feature_extraction_options_requires_rgb() -> None:
     options = pycolmap.FeatureExtractionOptions()
     result = options.requires_rgb()
     assert isinstance(result, bool)
 
 
-def test_feature_extraction_options_requires_opengl():
+def test_feature_extraction_options_requires_opengl() -> None:
     options = pycolmap.FeatureExtractionOptions()
     result = options.requires_opengl()
     assert isinstance(result, bool)
 
 
-def test_feature_extraction_options_eff_max_image_size():
+def test_feature_extraction_options_eff_max_image_size() -> None:
     options = pycolmap.FeatureExtractionOptions()
     result = options.eff_max_image_size()
     assert isinstance(result, int)
     assert result > 0
 
 
-def test_feature_extraction_options_check():
+def test_feature_extraction_options_check() -> None:
     options = pycolmap.FeatureExtractionOptions()
     result = options.check()
     assert isinstance(result, bool)
     assert result is True
 
 
-def test_feature_extractor_create():
+def test_feature_extractor_create() -> None:
     extractor = pycolmap.FeatureExtractor.create(device=pycolmap.Device.cpu)
     assert extractor is not None
 
 
-def test_sift_deprecated_class():
+def test_sift_deprecated_class() -> None:
     if hasattr(pycolmap, "Sift"):
         import warnings
 

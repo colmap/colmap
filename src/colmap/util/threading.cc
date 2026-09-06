@@ -29,6 +29,7 @@
 
 #include "colmap/util/threading.h"
 
+#include "colmap/util/cancellation.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {
@@ -94,7 +95,7 @@ bool Thread::IsStarted() {
 
 bool Thread::IsStopped() {
   std::unique_lock<std::mutex> lock(mutex_);
-  return stopped_;
+  return stopped_ || ScopedSignalHandler::IsInterruptRequested();
 }
 
 bool Thread::IsPaused() {

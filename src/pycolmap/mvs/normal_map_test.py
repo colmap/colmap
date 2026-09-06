@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -9,58 +11,58 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_normal_map_default_init():
+def test_normal_map_default_init() -> None:
     normal_map = pycolmap.NormalMap()
     assert normal_map is not None
 
 
-def test_normal_map_init_with_params():
+def test_normal_map_init_with_params() -> None:
     normal_map = pycolmap.NormalMap(64, 48)
     assert normal_map.width == 64
     assert normal_map.height == 48
 
 
-def test_normal_map_readonly_width():
+def test_normal_map_readonly_width() -> None:
     normal_map = pycolmap.NormalMap(64, 48)
     assert isinstance(normal_map.width, int)
     assert normal_map.width == 64
 
 
-def test_normal_map_readonly_height():
+def test_normal_map_readonly_height() -> None:
     normal_map = pycolmap.NormalMap(64, 48)
     assert isinstance(normal_map.height, int)
     assert normal_map.height == 48
 
 
-def test_normal_map_from_array_to_array_roundtrip():
+def test_normal_map_from_array_to_array_roundtrip() -> None:
     array = np.random.rand(48, 64, 3).astype(np.float32)
     normal_map = pycolmap.NormalMap.from_array(array)
     result = normal_map.to_array()
     np.testing.assert_array_almost_equal(array, result)
 
 
-def test_normal_map_rescale():
+def test_normal_map_rescale() -> None:
     normal_map = pycolmap.NormalMap(64, 48)
     normal_map.rescale(0.5)
     assert normal_map.width == 32
     assert normal_map.height == 24
 
 
-def test_normal_map_downsize():
+def test_normal_map_downsize() -> None:
     normal_map = pycolmap.NormalMap(64, 48)
     normal_map.downsize(32, 24)
     assert normal_map.width <= 32
     assert normal_map.height <= 24
 
 
-def test_normal_map_to_bitmap():
+def test_normal_map_to_bitmap() -> None:
     array = np.random.rand(48, 64, 3).astype(np.float32)
     normal_map = pycolmap.NormalMap.from_array(array)
     bitmap = normal_map.to_bitmap()
     assert bitmap is not None
 
 
-def test_normal_map_write_read_roundtrip(tmp_path):
+def test_normal_map_write_read_roundtrip(tmp_path: Path) -> None:
     array = np.random.rand(48, 64, 3).astype(np.float32)
     normal_map = pycolmap.NormalMap.from_array(array)
     filepath = str(tmp_path / "normal.bin")
