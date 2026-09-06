@@ -102,6 +102,45 @@ def test_global_positioner_prepared_problem() -> None:
     assert owner.solve().IsSolutionUsable()
 
 
+def test_global_positioner_observation_covariance_dict() -> None:
+    pyceres = pytest.importorskip("pyceres")
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    options.generate_random_positions = False
+    options.generate_random_points = False
+    covariances = {
+        (point_id, index): 4.0 * np.eye(3)
+        for point_id, point in reconstruction.points3D.items()
+        for index in range(point.track.length())
+    }
+    plain = pycolmap.create_default_global_positioner(
+        options, pycolmap.PoseGraph(), reconstruction
+    )
+    weighted = pycolmap.create_default_global_positioner(
+        options,
+        pycolmap.PoseGraph(),
+        reconstruction,
+        observation_covariances=covariances,
+    )
+    evaluation = pyceres.EvaluateOptions()
+    evaluation.apply_loss_function = False
+    residuals = np.asarray(plain.problem.evaluate_residuals(evaluation))
+    weighted_residuals = np.asarray(
+        weighted.problem.evaluate_residuals(evaluation)
+    )
+    assert residuals.size > 0
+    np.testing.assert_allclose(
+        np.dot(weighted_residuals, weighted_residuals),
+        0.25 * np.dot(residuals, residuals),
+    )
+
+
 def test_global_positioner_frame_center_parameter_block() -> None:
     dataset_options = pycolmap.SyntheticDatasetOptions()
     dataset_options.num_rigs = 1

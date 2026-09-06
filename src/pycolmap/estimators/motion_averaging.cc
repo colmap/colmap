@@ -3,13 +3,12 @@
 #include "colmap/estimators/rotation_averaging.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-
-PYBIND11_MAKE_OPAQUE(colmap::ObservationCovarianceMap);
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -107,16 +106,31 @@ void BindGlobalPositioner(py::module& m) {
           "the positioner alive.")
       .def("finalize", &GlobalPositioner::Finalize, "summary"_a);
 
-  py::class_<ObservationCovarianceMap>(m, "_ObservationCovarianceMap");
-
-  m.def("create_default_global_positioner",
-        &GlobalPositioner::CreateDefault,
-        "options"_a,
-        "pose_graph"_a,
-        "reconstruction"_a,
-        "observation_covariances"_a = ObservationCovarianceMap(),
-        "loss_function"_a = nullptr,
-        py::keep_alive<0, 3>());
+  m.def(
+      "create_default_global_positioner",
+      [](const GlobalPositionerOptions& options,
+         const PoseGraph& pose_graph,
+         Reconstruction& reconstruction,
+         const ObservationCovarianceMap& observation_covariances,
+         const py::object& loss_function) {
+        return GlobalPositioner::CreateDefault(
+            options,
+            pose_graph,
+            reconstruction,
+            observation_covariances,
+            loss_function.is_none()
+                ? nullptr
+                : loss_function.cast<std::shared_ptr<ceres::LossFunction>>());
+      },
+      "options"_a,
+      "pose_graph"_a,
+      "reconstruction"_a,
+      "observation_covariances"_a = ObservationCovarianceMap(),
+      "loss_function"_a = py::none(),
+      py::keep_alive<0, 3>(),
+      "Observation covariances in world coordinates, keyed by "
+      "(point3D_id, track_index). Leave empty to disable; otherwise "
+      "provide a covariance for every included observation.");
 
   m.def(
       "run_global_positioning",

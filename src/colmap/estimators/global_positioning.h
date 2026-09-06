@@ -15,7 +15,7 @@
 namespace colmap {
 
 // Per-observation covariance matrices in world coordinates for default BATA
-// residuals.
+// residuals. Matrices must be positive definite.
 using ObservationCovarianceMap =
     FlatHashMap<Point3DTrackElementKey, Eigen::Matrix3d, PairHash>;
 
