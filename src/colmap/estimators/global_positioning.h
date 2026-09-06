@@ -84,8 +84,8 @@ class GlobalPositioner {
   double* FrameCenterParameterBlock(frame_t frame_id);
   bool Finalize(const ceres::Solver::Summary& summary);
   // Extends an existing ordering after adding parameter blocks.
-  // Independent single-residual scalars use group 0; other new blocks use group 3.
-  // Optional parameter_groups override existing assignments.
+  // Independent single-residual scalars use group 0; other new blocks use
+  // group 3. Optional parameter_groups override existing assignments.
   void ExtendParameterBlockOrdering(
       const std::vector<std::pair<double*, int>>& parameter_groups = {});
 

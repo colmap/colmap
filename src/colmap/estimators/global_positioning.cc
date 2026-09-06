@@ -21,11 +21,10 @@ Eigen::Vector3d RandVector3d(double low, double high) {
 
 class DefaultGlobalPositioner final : public GlobalPositioner {
  public:
-  DefaultGlobalPositioner(
-      const GlobalPositionerOptions& options,
-      const PoseGraph& pose_graph,
-      Reconstruction& reconstruction,
-      std::shared_ptr<ceres::LossFunction> loss_function)
+  DefaultGlobalPositioner(const GlobalPositionerOptions& options,
+                          const PoseGraph& pose_graph,
+                          Reconstruction& reconstruction,
+                          std::shared_ptr<ceres::LossFunction> loss_function)
       : GlobalPositioner(options) {
     Prepare(pose_graph, reconstruction, std::move(loss_function));
     options_.solver_options.num_threads =
@@ -532,17 +531,17 @@ std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction,
     std::shared_ptr<ceres::LossFunction> loss_function) {
-  return std::make_unique<DefaultGlobalPositioner>(options,
-                                                   pose_graph,
-                                                   reconstruction,
-                                                   std::move(loss_function));
+  return std::make_unique<DefaultGlobalPositioner>(
+      options, pose_graph, reconstruction, std::move(loss_function));
 }
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
                           Reconstruction& reconstruction) {
   if (reconstruction.NumImages() == 0 || reconstruction.NumPoints3D() == 0) {
-    LOG(ERROR) << "Failed to run global positioning for empty incomplete reconstruction: " << reconstruction;
+    LOG(ERROR) << "Failed to run global positioning for empty incomplete "
+                  "reconstruction: "
+               << reconstruction;
     return false;
   }
   auto positioner =
