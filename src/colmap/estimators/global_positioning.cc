@@ -8,6 +8,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <algorithm>
 #include <utility>
 
 namespace colmap {
@@ -102,6 +103,10 @@ void GlobalPositioner::Prepare(
 
   // Add the point to camera constraints to the problem.
   AddPointToCameraConstraints(reconstruction, observation_covariances);
+
+  if (options_.use_parameter_block_ordering) {
+    AddCamerasAndPointsToParameterGroups(reconstruction);
+  }
 
   // Parameterize the variables, set image poses / tracks / scales to be
   // constant if desired
@@ -327,6 +332,44 @@ void GlobalPositioner::AddPoint3DToProblem(
   }
 }
 
+void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
+    Reconstruction& reconstruction) {
+  // Create a custom ordering for Schur-based problems.
+  options_.solver_options.linear_solver_ordering.reset(
+      new ceres::ParameterBlockOrdering);
+  ceres::ParameterBlockOrdering* parameter_ordering =
+      options_.solver_options.linear_solver_ordering.get();
+
+  // Add scale parameters to group 0 (large and independent)
+  for (double& scale : scales_) {
+    parameter_ordering->AddElementToGroup(&scale, 0);
+  }
+
+  // Add point parameters to group 1.
+  int group_id = 1;
+  if (reconstruction.NumPoints3D() > 0) {
+    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+      if (problem_->HasParameterBlock(point3D.xyz.data()))
+        parameter_ordering->AddElementToGroup(
+            reconstruction.Point3D(point3D_id).xyz.data(), group_id);
+    }
+    group_id++;
+  }
+
+  for (auto& [frame_id, center] : frame_centers_) {
+    if (problem_->HasParameterBlock(center.data())) {
+      parameter_ordering->AddElementToGroup(center.data(), group_id);
+    }
+  }
+
+  // Add the cam_in_rig to be estimated into the parameter group
+  for (auto& [sensor_id, center] : cams_in_rig_) {
+    if (problem_->HasParameterBlock(center.data())) {
+      parameter_ordering->AddElementToGroup(center.data(), group_id);
+    }
+  }
+}
+
 void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
   // For the global positioning, do not set any camera to be constant for easier
   // convergence
@@ -472,47 +515,59 @@ double* GlobalPositioner::FrameCenterParameterBlock(const frame_t frame_id) {
   return center->second.data();
 }
 
-void GlobalPositioner::SetParameterBlockOrdering() {
-  auto ordering = std::make_shared<ceres::ParameterBlockOrdering>();
-
-  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
-    if (problem_->HasParameterBlock(point3D.xyz.data())) {
-      if (!ordering->AddElementToGroup(
-              reconstruction_->Point3D(point3D_id).xyz.data(), 1)) {
-        throw std::logic_error("duplicate known parameter block address");
-      }
+void GlobalPositioner::ExtendParameterBlockOrdering(
+    const std::vector<std::pair<double*, int>>& parameter_groups) {
+  const auto& ordering = options_.solver_options.linear_solver_ordering;
+  THROW_CHECK_NOTNULL(ordering.get());
+  for (const auto& [parameter, group] : parameter_groups) {
+    if (group < 0 || !problem_->HasParameterBlock(parameter)) {
+      throw std::invalid_argument("invalid parameter block group assignment");
     }
-  }
-  for (auto& [_, center] : frame_centers_) {
-    if (problem_->HasParameterBlock(center.data())) {
-      if (!ordering->AddElementToGroup(center.data(), 2)) {
-        throw std::logic_error("duplicate known parameter block address");
-      }
-    }
-  }
-  for (auto& [sensor_id, center] : cams_in_rig_) {
-    if (problem_->HasParameterBlock(center.data())) {
-      if (!ordering->AddElementToGroup(center.data(), 2)) {
-        throw std::logic_error("duplicate known parameter block address");
-      }
-    }
+    ordering->AddElementToGroup(parameter, group);
   }
 
+  struct ScalarUsage {
+    int num_residuals = 0;
+    ceres::ResidualBlockId residual = nullptr;
+  };
+  FlatHashMap<double*, ScalarUsage> scalar_usages;
   std::vector<double*> parameter_blocks;
   problem_->GetParameterBlocks(&parameter_blocks);
   for (double* parameter_block : parameter_blocks) {
-    if (problem_->ParameterBlockSize(parameter_block) == 1 &&
-        !ordering->AddElementToGroup(parameter_block, 0)) {
-      throw std::logic_error("duplicate parameter block address");
+    if (ordering->IsMember(parameter_block)) continue;
+    ordering->AddElementToGroup(parameter_block, 3);
+    if (problem_->ParameterBlockSize(parameter_block) == 1) {
+      scalar_usages.emplace(parameter_block, ScalarUsage{});
     }
   }
-  if (ordering->NumElements() != problem_->NumParameterBlocks() ||
-      ordering->NumElements() != static_cast<int>(parameter_blocks.size())) {
-    throw std::logic_error(
-        "parameter block ordering does not cover the complete problem "
-        "exactly once");
+  if (!scalar_usages.empty()) {
+    // Count scalar uses in one pass to avoid repeated full-problem scans.
+    std::vector<ceres::ResidualBlockId> residuals;
+    std::vector<double*> residual_parameters;
+    problem_->GetResidualBlocks(&residuals);
+    for (const ceres::ResidualBlockId residual : residuals) {
+      problem_->GetParameterBlocksForResidualBlock(residual,
+                                                   &residual_parameters);
+      for (double* parameter : residual_parameters) {
+        const auto it = scalar_usages.find(parameter);
+        if (it == scalar_usages.end()) continue;
+        ++it->second.num_residuals;
+        it->second.residual = residual;
+      }
+    }
+    for (double* parameter : parameter_blocks) {
+      const auto it = scalar_usages.find(parameter);
+      if (it == scalar_usages.end() || it->second.num_residuals != 1) continue;
+      problem_->GetParameterBlocksForResidualBlock(it->second.residual,
+                                                   &residual_parameters);
+      if (std::none_of(
+              residual_parameters.begin(),
+              residual_parameters.end(),
+              [&](double* other) { return ordering->GroupId(other) == 0; })) {
+        ordering->AddElementToGroup(parameter, 0);
+      }
+    }
   }
-  options_.solver_options.linear_solver_ordering = std::move(ordering);
 }
 
 std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
@@ -537,9 +592,6 @@ bool RunGlobalPositioning(const GlobalPositionerOptions& options,
   }
   auto positioner =
       GlobalPositioner::CreateDefault(options, pose_graph, reconstruction);
-  if (options.use_parameter_block_ordering) {
-    positioner->SetParameterBlockOrdering();
-  }
   return positioner->Solve().IsSolutionUsable();
 }
 

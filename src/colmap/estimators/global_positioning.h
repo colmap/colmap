@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <ceres/ceres.h>
@@ -89,9 +90,11 @@ class GlobalPositioner {
   // nullptr if the frame is not active.
   double* FrameCenterParameterBlock(frame_t frame_id);
   bool Finalize(const ceres::Solver::Summary& summary);
-  // Rebuilds the solver ordering after extending Problem(), ensuring parameter
-  // blocks introduced after construction are included before solving.
-  void SetParameterBlockOrdering();
+  // Extends an existing ordering after adding parameter blocks.
+  // Independent single-residual scalars use group 0; other new blocks use group 3.
+  // Optional parameter_groups override existing assignments.
+  void ExtendParameterBlockOrdering(
+      const std::vector<std::pair<double*, int>>& parameter_groups = {});
 
  protected:
   explicit GlobalPositioner(const GlobalPositionerOptions& options);
@@ -118,6 +121,9 @@ class GlobalPositioner {
       point3D_t point3D_id,
       Reconstruction& reconstruction,
       const ObservationCovarianceMap& observation_covariances);
+
+  // Set the parameter groups
+  void AddCamerasAndPointsToParameterGroups(Reconstruction& reconstruction);
 
   // Parameterize the variables, set some variables to be constant if desired
   void ParameterizeVariables(Reconstruction& reconstruction);
@@ -146,7 +152,7 @@ class GlobalPositioner {
   // and needs to be estimated.
   NodeHashMap<sensor_t, Eigen::Vector3d> cams_in_rig_;
 
-  // Retained for late parameter ordering and Finalize().
+  // Retained for Finalize().
   Reconstruction* reconstruction_ = nullptr;
   std::unique_ptr<ceres::Problem> problem_;
 };

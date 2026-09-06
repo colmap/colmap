@@ -5,6 +5,7 @@
 #include "pycolmap/helpers.h"
 
 #include <pybind11/eigen.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -75,6 +76,21 @@ void BindGlobalPositioner(py::module& m) {
                              &GlobalPositioner::SolverOptions,
                              py::return_value_policy::copy)
       .def(
+          "extend_parameter_block_ordering",
+          [](GlobalPositioner& self,
+             std::vector<std::pair<py::array_t<double, py::array::c_style>,
+                                   int>> parameter_groups) {
+            std::vector<std::pair<double*, int>> groups;
+            groups.reserve(parameter_groups.size());
+            for (auto& [parameter, group] : parameter_groups) {
+              groups.emplace_back(parameter.mutable_data(), group);
+            }
+            self.ExtendParameterBlockOrdering(groups);
+          },
+          "parameter_groups"_a = py::list(),
+          "Extend an existing ordering after adding parameter blocks. "
+          "Optional (registered parameter array, group) pairs override groups.")
+      .def(
           "frame_center_parameter_block",
           [](py::object self, frame_t frame_id) -> py::object {
             double* center =
@@ -89,8 +105,6 @@ void BindGlobalPositioner(py::module& m) {
           "Return a writable NumPy array sharing the frame-center parameter "
           "block in world coordinates, or None if inactive. The array keeps "
           "the positioner alive.")
-      .def("set_parameter_block_ordering",
-           &GlobalPositioner::SetParameterBlockOrdering)
       .def("finalize", &GlobalPositioner::Finalize, "summary"_a);
 
   py::class_<ObservationCovarianceMap>(m, "_ObservationCovarianceMap");

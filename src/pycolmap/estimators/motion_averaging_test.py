@@ -73,7 +73,7 @@ def test_global_positioner_options_default_init() -> None:
     assert options is not None
 
 
-def test_global_positioner_retains_custom_loss() -> None:
+def test_global_positioner_prepared_problem() -> None:
     pyceres = pytest.importorskip("pyceres")
     dataset_options = pycolmap.SyntheticDatasetOptions()
     dataset_options.num_rigs = 1
@@ -93,6 +93,11 @@ def test_global_positioner_retains_custom_loss() -> None:
         loss_function=loss,
     )
     del loss
+    point = next(iter(reconstruction.points3D.values())).xyz
+    owner.extend_parameter_block_ordering()
+    owner.extend_parameter_block_ordering([(point, 1)])
+    with pytest.raises(ValueError, match="group assignment"):
+        owner.extend_parameter_block_ordering([(point.copy(), 1)])
     assert owner.problem.num_residual_blocks() > 0
     assert owner.solve().IsSolutionUsable()
 

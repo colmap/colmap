@@ -29,12 +29,14 @@
 
 #include "colmap/estimators/global_positioning.h"
 
+#include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
 #include <map>
 #include <utility>
 
@@ -42,6 +44,14 @@
 
 namespace colmap {
 namespace {
+
+struct ScaleDifferenceCostFunctor {
+  template <typename T>
+  bool operator()(const T* scale, const T* extension, T* residual) const {
+    residual[0] = scale[0] - extension[0];
+    return true;
+  }
+};
 
 std::pair<ObservationCovarianceMap, double> ObservationCovariancesAndCost(
     const GlobalPositionerOptions& options,
@@ -156,6 +166,7 @@ TEST(GlobalPositioning, ComposableProblem) {
   Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
   GlobalPositionerOptions options;
   options.use_gpu = false;
+  options.random_seed = 42;
   auto loss = std::make_shared<ceres::CauchyLoss>(0.1);
   auto positioner = GlobalPositioner::CreateDefault(
       options, PoseGraph(), reconstruction, {}, loss);
@@ -167,16 +178,78 @@ TEST(GlobalPositioning, ComposableProblem) {
   EXPECT_TRUE(positioner->Problem().HasParameterBlock(center));
   EXPECT_EQ(positioner->FrameCenterParameterBlock(kInvalidFrameId), nullptr);
 
-  double external_scale = 1.0;
-  positioner->Problem().AddParameterBlock(&external_scale, 1);
-  positioner->SetParameterBlockOrdering();
-  const auto& ordering = *positioner->SolverOptions().linear_solver_ordering;
-  EXPECT_EQ(ordering.GroupId(&external_scale), 0);
-  EXPECT_EQ(ordering.NumElements(), positioner->Problem().NumParameterBlocks());
+  const auto initial_ordering =
+      positioner->SolverOptions().linear_solver_ordering;
+  ASSERT_NE(initial_ordering, nullptr);
+  const auto stock = *initial_ordering;
+  auto& problem = positioner->Problem();
+  const auto& native_scales = stock.group_to_elements().at(0);
+  const auto native = std::find_if(
+      native_scales.begin(), native_scales.end(), [&](double* scale) {
+        return !problem.IsParameterBlockConstant(scale);
+      });
+  ASSERT_NE(native, native_scales.end());
+  const auto point_id = reconstruction.Points3D().begin()->first;
+  double* point = reconstruction.Point3D(point_id).xyz.data();
+  double independent = 1.0, shared = 1.0, blocked = 1.0;
+  double coupled[2] = {1.0, 1.0};
+  Eigen::Vector2d external_vector = Eigen::Vector2d::Zero();
+  problem.AddParameterBlock(external_vector.data(), 2);
+  for (double* scale : {&independent, &shared, &shared}) {
+    problem.AddResidualBlock(
+        BATAPairwiseDirectionCostFunctor::Create(Eigen::Vector3d::UnitX()),
+        nullptr,
+        center,
+        point,
+        scale);
+  }
+  for (const auto& [a, b] :
+       {std::pair{*native, &blocked}, std::pair{&coupled[0], &coupled[1]}}) {
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<ScaleDifferenceCostFunctor, 1, 1, 1>(
+            new ScaleDifferenceCostFunctor()),
+        nullptr,
+        a,
+        b);
+  }
 
+  positioner->ExtendParameterBlockOrdering();
+  const auto ordering = positioner->SolverOptions().linear_solver_ordering;
+  EXPECT_EQ(ordering, initial_ordering);
+  EXPECT_EQ(ordering->GroupId(&independent), 0);
+  EXPECT_EQ(ordering->GroupId(&shared), 3);
+  EXPECT_EQ(ordering->GroupId(&blocked), 3);
+  EXPECT_EQ(ordering->GroupId(external_vector.data()), 3);
+  EXPECT_EQ(ordering->NumElements(), problem.NumParameterBlocks());
+  for (const auto& [group, blocks] : stock.group_to_elements()) {
+    for (double* block : blocks) EXPECT_EQ(ordering->GroupId(block), group);
+  }
+  EXPECT_EQ(
+      std::min(ordering->GroupId(&coupled[0]), ordering->GroupId(&coupled[1])),
+      0);
+  EXPECT_EQ(
+      std::max(ordering->GroupId(&coupled[0]), ordering->GroupId(&coupled[1])),
+      3);
+  positioner->ExtendParameterBlockOrdering({{&independent, 3},
+                                            {&shared, 0},
+                                            {&coupled[0], 3},
+                                            {&coupled[1], 0},
+                                            {center, 4}});
+  positioner->ExtendParameterBlockOrdering();
+  EXPECT_EQ(ordering->GroupId(&independent), 3);
+  EXPECT_EQ(ordering->GroupId(&shared), 0);
+  EXPECT_EQ(ordering->GroupId(&coupled[0]), 3);
+  EXPECT_EQ(ordering->GroupId(&coupled[1]), 0);
+  EXPECT_EQ(ordering->GroupId(center), 4);
   ceres::Solver::Summary summary;
-  ceres::Solve(positioner->SolverOptions(), &positioner->Problem(), &summary);
+  ceres::Solve(positioner->SolverOptions(), &problem, &summary);
   EXPECT_TRUE(positioner->Finalize(summary));
+
+  options.use_parameter_block_ordering = false;
+  auto unordered =
+      GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+  EXPECT_EQ(unordered->SolverOptions().linear_solver_ordering, nullptr);
+  EXPECT_TRUE(unordered->Solve().IsSolutionUsable());
 }
 
 TEST(GlobalPositioning, KeyedObservationCovariances) {
