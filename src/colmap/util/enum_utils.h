@@ -78,18 +78,39 @@
     throw std::runtime_error("Unknown string value: " + std::string(str) +   \
                              " for enum: " + BOOST_PP_STRINGIZE(name));      \
   }                                                                          \
-  [[maybe_unused]] static const std::vector<name>& name##Values() {          \
+  [[maybe_unused]] static std::vector<name> name##Values(                    \
+      bool (*filter)(name) = nullptr) {                                      \
     static const std::vector<name> values = {BOOST_PP_SEQ_FOR_EACH(          \
         ENUM_VALUE_ELEMENT, name, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};   \
-    return values;                                                           \
+    if (filter == nullptr) {                                                 \
+      return values;                                                         \
+    }                                                                        \
+    std::vector<name> filtered;                                              \
+    for (const name value : values) {                                        \
+      if (filter(value)) {                                                   \
+        filtered.push_back(value);                                           \
+      }                                                                      \
+    }                                                                        \
+    return filtered;                                                         \
   }                                                                          \
-  [[maybe_unused]] static const std::vector<std::string_view>&               \
-      name##Strings() {                                                      \
+  [[maybe_unused]] static std::vector<std::string_view> name##Strings(       \
+      bool (*filter)(name) = nullptr) {                                      \
     static const std::vector<std::string_view> strings = {                   \
         BOOST_PP_SEQ_FOR_EACH(ENUM_NAMES_STRINGIZE_PROCESS_ELEMENT,          \
                               _,                                             \
                               BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};       \
-    return strings;                                                          \
+    if (filter == nullptr) {                                                 \
+      return strings;                                                        \
+    }                                                                        \
+    std::vector<std::string_view> filtered;                                  \
+    int value = start_idx;                                                   \
+    for (const std::string_view string : strings) {                          \
+      if (filter(static_cast<name>(value))) {                                \
+        filtered.push_back(string);                                          \
+      }                                                                      \
+      ++value;                                                               \
+    }                                                                        \
+    return filtered;                                                         \
   }
 
 #define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) \

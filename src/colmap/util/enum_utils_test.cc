@@ -58,6 +58,10 @@ TEST(MakeEnum, Nominal) {
   EXPECT_EQ(stream.str(), "0");
   EXPECT_THAT(MyEnumValues(), testing::ElementsAre(VAL_A, VAL_B));
   EXPECT_THAT(MyEnumStrings(), testing::ElementsAre("VAL_A", "VAL_B"));
+  EXPECT_THAT(MyEnumValues([](MyEnum value) { return value != VAL_A; }),
+              testing::ElementsAre(VAL_B));
+  EXPECT_THAT(MyEnumStrings([](MyEnum value) { return value != VAL_A; }),
+              testing::ElementsAre("VAL_B"));
 }
 
 TEST(MakeEnumClass, Nominal) {
@@ -82,6 +86,14 @@ TEST(MakeEnumClass, Nominal) {
           MyEnumClass::UNDEFINED, MyEnumClass::VAL_A, MyEnumClass::VAL_B));
   EXPECT_THAT(MyEnumClassStrings(),
               testing::ElementsAre("UNDEFINED", "VAL_A", "VAL_B"));
+  EXPECT_THAT(MyEnumClassValues([](MyEnumClass value) {
+                return value != MyEnumClass::UNDEFINED;
+              }),
+              testing::ElementsAre(MyEnumClass::VAL_A, MyEnumClass::VAL_B));
+  EXPECT_THAT(MyEnumClassStrings([](MyEnumClass value) {
+                return value != MyEnumClass::UNDEFINED;
+              }),
+              testing::ElementsAre("VAL_A", "VAL_B"));
 }
 
 TEST(MakeEnum, Nested) {
@@ -103,6 +115,16 @@ TEST(MakeEnum, Nested) {
                                    NestedEnumHolder::NestedEnum::VAL_B));
   EXPECT_THAT(NestedEnumHolder::NestedEnumStrings(),
               testing::ElementsAre("VAL_A", "VAL_B"));
+  EXPECT_THAT(NestedEnumHolder::NestedEnumValues(
+                  [](NestedEnumHolder::NestedEnum value) {
+                    return value != NestedEnumHolder::NestedEnum::VAL_A;
+                  }),
+              testing::ElementsAre(NestedEnumHolder::NestedEnum::VAL_B));
+  EXPECT_THAT(NestedEnumHolder::NestedEnumStrings(
+                  [](NestedEnumHolder::NestedEnum value) {
+                    return value != NestedEnumHolder::NestedEnum::VAL_A;
+                  }),
+              testing::ElementsAre("VAL_B"));
 }
 
 TEST(MakeEnumClass, Nested) {
@@ -127,6 +149,19 @@ TEST(MakeEnumClass, Nested) {
                                    NestedEnumClassHolder::NestedEnum::VAL_B));
   EXPECT_THAT(NestedEnumClassHolder::NestedEnumStrings(),
               testing::ElementsAre("UNDEFINED", "VAL_A", "VAL_B"));
+  EXPECT_THAT(NestedEnumClassHolder::NestedEnumValues(
+                  [](NestedEnumClassHolder::NestedEnum value) {
+                    return value !=
+                           NestedEnumClassHolder::NestedEnum::UNDEFINED;
+                  }),
+              testing::ElementsAre(NestedEnumClassHolder::NestedEnum::VAL_A,
+                                   NestedEnumClassHolder::NestedEnum::VAL_B));
+  EXPECT_THAT(NestedEnumClassHolder::NestedEnumStrings(
+                  [](NestedEnumClassHolder::NestedEnum value) {
+                    return value !=
+                           NestedEnumClassHolder::NestedEnum::UNDEFINED;
+                  }),
+              testing::ElementsAre("VAL_A", "VAL_B"));
 }
 
 }  // namespace

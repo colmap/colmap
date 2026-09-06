@@ -67,20 +67,26 @@ namespace colmap {
 namespace {
 
 // Expands to a help text listing all values of an enum created with
-// MAKE_ENUM(_CLASS), e.g. "{C1, C2, C3}".
-#define ENUM_HELP_TEXT(name) \
-  std::string("{" + VectorToCSV(name##Strings()) + "}")
+// MAKE_ENUM(_CLASS), e.g. "{C1, C2, C3}". Optionally accepts a filter over
+// the enum values, e.g. to exclude invalid/undefined sentinel values.
+#define ENUM_HELP_TEXT(name, ...) \
+  std::string("{" + VectorToCSV(name##Strings(__VA_ARGS__)) + "}")
 
+// The user-facing camera model names (e.g. "SIMPLE_PINHOLE") differ from the
+// CameraModelId enumerator names (kSimplePinhole) for every model, so this
+// cannot use ENUM_HELP_TEXT.
 std::string MakeCameraModelsHelpText() {
-  const std::vector<CameraModelId>& model_ids = CameraModelIdValues();
+  const std::vector<CameraModelId>& model_ids =
+      CameraModelIdValues([](CameraModelId model_id) {
+        return model_id != CameraModelId::kInvalid;
+      });
   std::vector<std::string> model_names;
   model_names.reserve(model_ids.size());
-  for (const CameraModelId model_id : model_ids) {
-    if (model_id == CameraModelId::kInvalid) {
-      continue;
-    }
-    model_names.push_back(CameraModelIdToName(model_id));
-  }
+  std::transform(
+      model_ids.begin(),
+      model_ids.end(),
+      std::back_inserter(model_names),
+      [](CameraModelId model_id) { return CameraModelIdToName(model_id); });
   return "{" + VectorToCSV(model_names) + "}";
 }
 }  // namespace
@@ -269,11 +275,14 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("ImageReader.camera_mask_path",
                    &image_reader->camera_mask_path);
 
-  AddDefaultEnumOption("FeatureExtraction.type",
-                       &feature_extraction->type,
-                       FeatureExtractorTypeToString,
-                       FeatureExtractorTypeFromString,
-                       ENUM_HELP_TEXT(FeatureExtractorType));
+  AddDefaultEnumOption(
+      "FeatureExtraction.type",
+      &feature_extraction->type,
+      FeatureExtractorTypeToString,
+      FeatureExtractorTypeFromString,
+      ENUM_HELP_TEXT(FeatureExtractorType, [](FeatureExtractorType type) {
+        return type != FeatureExtractorType::UNDEFINED;
+      }));
   AddDefaultOption("FeatureExtraction.num_threads",
                    &feature_extraction->num_threads);
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
@@ -342,11 +351,14 @@ void OptionManager::AddFeatureMatchingOptions() {
   }
   added_feature_matching_options_ = true;
 
-  AddDefaultEnumOption("FeatureMatching.type",
-                       &feature_matching->type,
-                       FeatureMatcherTypeToString,
-                       FeatureMatcherTypeFromString,
-                       ENUM_HELP_TEXT(FeatureMatcherType));
+  AddDefaultEnumOption(
+      "FeatureMatching.type",
+      &feature_matching->type,
+      FeatureMatcherTypeToString,
+      FeatureMatcherTypeFromString,
+      ENUM_HELP_TEXT(FeatureMatcherType, [](FeatureMatcherType type) {
+        return type != FeatureMatcherType::UNDEFINED;
+      }));
   AddDefaultOption("FeatureMatching.num_threads",
                    &feature_matching->num_threads);
   AddDefaultOption("FeatureMatching.use_gpu", &feature_matching->use_gpu);

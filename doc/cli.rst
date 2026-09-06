@@ -301,7 +301,7 @@ the available options, e.g.::
             --ImageReader.camera_params arg
             --ImageReader.default_focal_length_factor arg (=1.2)
             --ImageReader.camera_mask_path arg
-            --FeatureExtraction.type arg (=SIFT)  {UNDEFINED, SIFT, ALIKED_N16ROT, ALIKED_N32, LOMA_B, LOMA_B128}
+            --FeatureExtraction.type arg (=SIFT)  {SIFT, ALIKED_N16ROT, ALIKED_N32, LOMA_B, LOMA_B128}
             --FeatureExtraction.max_image_size arg (=3200)
             --FeatureExtraction.num_threads arg (=-1)
             --FeatureExtraction.use_gpu arg (=1)
