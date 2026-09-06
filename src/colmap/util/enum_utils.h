@@ -43,6 +43,8 @@
 // [New code]: MAKE_ENUM_CLASS(MyEnum, 0, C1, C2, C3);
 //             MyEnumToString(MyEnum::C1);  -> "C1"
 //             MyEnumFromString("C2");      -> MyEnum::C2
+//             MyEnumValues();              -> {MyEnum::C1, MyEnum::C2, ...}
+//             MyEnumStrings();             -> {"C1", "C2", "C3"}
 
 #define ENUM_TO_STRING_PROCESS_ELEMENT(r, start_idx, idx, elem) \
   case ((idx) + (start_idx)):                                   \
@@ -51,6 +53,9 @@
   if (str == BOOST_PP_STRINGIZE(elem)) {                     \
     return name::elem;                                       \
   }
+#define ENUM_VALUE_ELEMENT(r, name, elem) name::elem,
+#define ENUM_NAMES_STRINGIZE_PROCESS_ELEMENT(r, data, elem) \
+  BOOST_PP_STRINGIZE(elem),
 
 #define DEFINE_ENUM_TO_FROM_STRING(name, start_idx, ...)                     \
   [[maybe_unused]] static std::string_view name##ToString(int value) {       \
@@ -72,6 +77,19 @@
                             BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__));          \
     throw std::runtime_error("Unknown string value: " + std::string(str) +   \
                              " for enum: " + BOOST_PP_STRINGIZE(name));      \
+  }                                                                          \
+  [[maybe_unused]] static const std::vector<name>& name##Values() {          \
+    static const std::vector<name> values = {BOOST_PP_SEQ_FOR_EACH(          \
+        ENUM_VALUE_ELEMENT, name, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};   \
+    return values;                                                           \
+  }                                                                          \
+  [[maybe_unused]] static const std::vector<std::string_view>&               \
+      name##Strings() {                                                      \
+    static const std::vector<std::string_view> strings = {                   \
+        BOOST_PP_SEQ_FOR_EACH(ENUM_NAMES_STRINGIZE_PROCESS_ELEMENT,          \
+                              _,                                             \
+                              BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};       \
+    return strings;                                                          \
   }
 
 #define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) \
