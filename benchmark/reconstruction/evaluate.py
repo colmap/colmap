@@ -142,6 +142,11 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "feature": args.feature,
         "mapper": args.mapper,
         "use_gpu": args.use_gpu,
+        "uncalibrated": args.uncalibrated,
+        "calibration": args.calibration,
+        "calibration_model_path": str(args.calibration_model_path)
+        if args.calibration_model_path is not None
+        else None,
     }
     if any(name.startswith("tartanair-v2-") for name in args.datasets):
         metadata["tartanair_manifest_version"] = load_manifest()["version"]

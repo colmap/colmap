@@ -490,6 +490,21 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "This is useful for evaluating the performance of self-calibration.",
     )
     parser.add_argument(
+        "--calibration",
+        default=False,
+        action="store_true",
+        help="Whether to run learned single-image camera calibration after "
+        "feature extraction, replacing EXIF-based intrinsics before matching "
+        "and mapping.",
+    )
+    parser.add_argument(
+        "--calibration_model_path",
+        type=Path,
+        default=None,
+        help="Path to the calibration model (e.g. anycalib_gen.onnx). "
+        "Required when --calibration is set.",
+    )
+    parser.add_argument(
         "--filter_covisibility",
         default=True,
         action=argparse.BooleanOptionalAction,
@@ -569,6 +584,8 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     args.seed_flag = "--seeds" if args.seeds is not None else "--random_seed"
     if args.fast and args.fast_num_scenes <= 0:
         parser.error("--fast_num_scenes must be > 0 when --fast is set")
+    if args.calibration and args.calibration_model_path is None:
+        parser.error("--calibration requires --calibration_model_path")
     if args.progress is None:
         args.progress = sys.stdout.isatty()
     if args.num_threads <= 0:
@@ -702,20 +719,32 @@ def colmap_reconstruction(
         args.quality,
     ]
 
+    # Learned calibration runs in the extraction step: the automatic
+    # reconstructor runs extraction and calibration sequentially in one
+    # process, so intrinsics are replaced before matching and mapping. It is
+    # intentionally not passed to the matching/sparse steps below, which would
+    # otherwise recalibrate every time they run.
+    extraction_args = [
+        "--extraction",
+        "1",
+        "--matching",
+        "0",
+        "--sparse",
+        "0",
+        "--dense",
+        "0",
+    ]
+    if args.calibration:
+        extraction_args += [
+            "--calibration",
+            "1",
+            "--calibration_model_path",
+            args.calibration_model_path,
+        ]
+
     phase_tracker.set("extraction")
     _run_with_log(
-        colmap_args
-        + (colmap_extra_args or [])
-        + [
-            "--extraction",
-            "1",
-            "--matching",
-            "0",
-            "--sparse",
-            "0",
-            "--dense",
-            "0",
-        ],
+        colmap_args + (colmap_extra_args or []) + extraction_args,
         workspace_path / "extraction.log",
         cwd=workspace_path,
     )
