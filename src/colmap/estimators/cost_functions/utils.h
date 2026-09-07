@@ -153,14 +153,11 @@ class CovarianceWeightedCostFunction<
   }
 
  private:
-  static constexpr int kParameterDimsArray[] = {ParameterDims...};
-
-  template <size_t kIndex>
+  template <size_t kIndex, int kDim>
   void WhitenJacobian(double** jacobians) const {
     if (jacobians[kIndex] == nullptr) {
       return;
     }
-    constexpr int kDim = kParameterDimsArray[kIndex];
     // Eigen requires single-column matrices to be column major.
     constexpr int kOptions = kDim == 1 ? Eigen::ColMajor : Eigen::RowMajor;
     Eigen::Map<Eigen::Matrix<double, kNumResiduals, kDim, kOptions>>(
@@ -168,10 +165,13 @@ class CovarianceWeightedCostFunction<
         .applyOnTheLeft(left_sqrt_info_);
   }
 
+  // Expands the index and the dimension packs in parallel, so that each
+  // dimension is a template argument rather than a lookup into a static
+  // constexpr array, which clang rejects in a constant expression here.
   template <size_t... kIndices>
   void WhitenJacobians(double** jacobians,
                        std::index_sequence<kIndices...>) const {
-    (WhitenJacobian<kIndices>(jacobians), ...);
+    (WhitenJacobian<kIndices, ParameterDims>(jacobians), ...);
   }
 
   const CovMat left_sqrt_info_;
