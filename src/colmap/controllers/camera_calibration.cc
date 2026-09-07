@@ -119,24 +119,25 @@ class CameraCalibrationController : public Thread {
       const auto camera_it = cameras.find(image.CameraId());
       THROW_CHECK(camera_it != cameras.end())
           << "Image references missing camera " << image.CameraId();
+      const Camera& camera = camera_it->second;
       // The fitted intrinsics live in the pixel frame of the bitmap, while
       // only the parameters (not the dimensions) are written back to the
       // database camera. Mismatching dimensions would therefore silently
       // store focal length and principal point at the wrong scale.
-      if (bitmap.Width() != static_cast<int>(camera_it->second.width) ||
-          bitmap.Height() != static_cast<int>(camera_it->second.height)) {
+      if (bitmap.Width() != static_cast<int>(camera.width) ||
+          bitmap.Height() != static_cast<int>(camera.height)) {
         LOG(WARNING) << StringPrintf(
             "  Image dimensions %d x %d do not match camera #%d dimensions "
             "%d x %d, skipping",
             bitmap.Width(),
             bitmap.Height(),
-            camera_it->second.camera_id,
-            static_cast<int>(camera_it->second.width),
-            static_cast<int>(camera_it->second.height));
+            camera.camera_id,
+            static_cast<int>(camera.width),
+            static_cast<int>(camera.height));
         ++num_failed;
         continue;
       }
-      Camera calibrated = camera_it->second;
+      Camera calibrated = camera;
       const auto pose_prior_it = pose_priors.find(image.ImageId());
       const PosePrior pose_prior = pose_prior_it == pose_priors.end()
                                        ? PosePrior()
@@ -168,17 +169,16 @@ class CameraCalibrationController : public Thread {
     }
 
     // Aggregate per-camera parameters and update the database.
+    const CameraModelId model_id =
+        CameraModelNameToId(calibration_options_.camera_model);
     DatabaseTransaction database_transaction(database_.get());
     size_t num_cameras_updated = 0;
     for (auto& [camera_id, params_list] : params_per_camera) {
       auto it = cameras.find(camera_id);
       THROW_CHECK(it != cameras.end())
           << "Image references missing camera " << camera_id;
-      // The model must be set before aggregating, so that the aggregate can be
-      // validated against it.
       Camera camera = it->second;
-      camera.model_id = CameraModelNameToId(calibration_options_.camera_model);
-      if (AggregateCameraCalibrations(params_list, &camera)) {
+      if (AggregateCameraCalibrations(model_id, params_list, &camera)) {
         database_->UpdateCamera(camera);
         ++num_cameras_updated;
         VLOG(1) << "Updated camera " << camera_id << ": "

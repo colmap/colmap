@@ -36,17 +36,43 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 namespace colmap {
 namespace {
 
-// Whether the intrinsics are numerically well behaved: finite parameters,
-// positive focal lengths, and a projection that round-trips over the image.
-// A coefficient-wise aggregate of individually valid calibrations is not
-// itself guaranteed to be valid, because it breaks the correlation between
-// coefficients of high-order distortion models.
+// Index of the calibration closest to `reference` under a spread-normalized
+// L1 distance, so that parameters on different scales (e.g. focal lengths and
+// distortion coefficients) contribute comparably.
+size_t FindClosestCalibrationIdx(
+    const std::vector<std::vector<double>>& params_list,
+    const std::vector<double>& reference) {
+  const size_t num_calibrations = params_list.size();
+  std::vector<double> distances(num_calibrations, 0.0);
+  std::vector<double> deviations(num_calibrations);
+  std::vector<double> sorted_deviations(num_calibrations);
+  for (size_t d = 0; d < reference.size(); ++d) {
+    for (size_t i = 0; i < num_calibrations; ++i) {
+      deviations[i] = std::abs(params_list[i][d] - reference[d]);
+    }
+    // Normalize by the median absolute deviation. Dimensions without spread
+    // then contribute nothing to the distance.
+    sorted_deviations = deviations;
+    const double mad = Median(sorted_deviations);
+    if (mad > 0) {
+      for (size_t i = 0; i < num_calibrations; ++i) {
+        distances[i] += deviations[i] / mad;
+      }
+    }
+  }
+  return std::min_element(distances.begin(), distances.end()) -
+         distances.begin();
+}
+
+}  // namespace
+
 bool IsValidCalibration(const Camera& camera) {
+  THROW_CHECK_GT(camera.width, 0);
+  THROW_CHECK_GT(camera.height, 0);
   if (!std::all_of(camera.params.begin(),
                    camera.params.end(),
                    [](const double param) { return std::isfinite(param); }) ||
@@ -57,9 +83,6 @@ bool IsValidCalibration(const Camera& camera) {
     if (camera.params[idx] <= 0) {
       return false;
     }
-  }
-  if (camera.width == 0 || camera.height == 0) {
-    return true;
   }
   // Unproject a coarse grid of pixels to rays and project them back. Diverging
   // distortion shows up as either a failed or an inaccurate round-trip.
@@ -88,46 +111,10 @@ bool IsValidCalibration(const Camera& camera) {
   return true;
 }
 
-// Index of the calibration closest to `reference` under a spread-normalized
-// L1 distance, so that parameters on different scales (e.g. focal lengths and
-// distortion coefficients) contribute comparably.
-size_t FindClosestCalibrationIdx(
-    const std::vector<std::vector<double>>& params_list,
-    const std::vector<double>& reference) {
-  const size_t dim = reference.size();
-  std::vector<double> scales(dim, 1.0);
-  std::vector<double> deviations;
-  deviations.reserve(params_list.size());
-  for (size_t d = 0; d < dim; ++d) {
-    deviations.clear();
-    for (const auto& params : params_list) {
-      deviations.push_back(std::abs(params[d] - reference[d]));
-    }
-    // Median absolute deviation, with a fallback for constant dimensions,
-    // which then contribute nothing to the distance.
-    const double mad = Median(deviations);
-    scales[d] = (mad > 0) ? 1.0 / mad : 0.0;
-  }
-
-  size_t closest_idx = 0;
-  double closest_distance = std::numeric_limits<double>::infinity();
-  for (size_t i = 0; i < params_list.size(); ++i) {
-    double distance = 0;
-    for (size_t d = 0; d < dim; ++d) {
-      distance += scales[d] * std::abs(params_list[i][d] - reference[d]);
-    }
-    if (distance < closest_distance) {
-      closest_distance = distance;
-      closest_idx = i;
-    }
-  }
-  return closest_idx;
-}
-
-}  // namespace
-
 bool AggregateCameraCalibrations(
-    const std::vector<std::vector<double>>& params_list, Camera* camera) {
+    const CameraModelId model_id,
+    const std::vector<std::vector<double>>& params_list,
+    Camera* camera) {
   THROW_CHECK_NOTNULL(camera);
   if (params_list.empty()) {
     return false;
@@ -146,25 +133,28 @@ bool AggregateCameraCalibrations(
     median[d] = Median(values);
   }
 
-  const std::vector<double> original_params = camera->params;
-  camera->params = median;
-  if (!IsValidCalibration(*camera)) {
+  // Validate on a candidate, so that `camera` is only modified on success.
+  Camera candidate = *camera;
+  candidate.model_id = model_id;
+  candidate.params = std::move(median);
+  if (!IsValidCalibration(candidate)) {
     // Fall back to the individually validated calibration closest to the
     // median, which trades the noise averaging of the median for a parameter
     // vector that is guaranteed to have been observed.
-    const size_t closest_idx = FindClosestCalibrationIdx(params_list, median);
-    camera->params = params_list[closest_idx];
     LOG(WARNING) << "Aggregated calibration for camera " << camera->camera_id
                  << " is invalid, falling back to the closest single-image "
                     "calibration";
-    if (!IsValidCalibration(*camera)) {
+    candidate.params =
+        params_list[FindClosestCalibrationIdx(params_list, candidate.params)];
+    if (!IsValidCalibration(candidate)) {
       LOG(WARNING) << "Fallback calibration for camera " << camera->camera_id
                    << " is invalid too, keeping existing intrinsics";
-      camera->params = original_params;
       return false;
     }
   }
 
+  camera->model_id = candidate.model_id;
+  camera->params = std::move(candidate.params);
   camera->has_prior_focal_length = true;
   return true;
 }

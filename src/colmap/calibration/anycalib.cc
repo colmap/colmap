@@ -172,23 +172,12 @@ class AnyCalibCalibrator : public CameraCalibrator {
     calibrated.height = bitmap.Height();
     calibrated.params = fitted.params;
     calibrated.has_prior_focal_length = true;
-    if (!calibrated.VerifyParams() ||
-        !std::all_of(calibrated.params.begin(),
-                     calibrated.params.end(),
-                     [](const double param) { return std::isfinite(param); })) {
-      return false;
-    }
-    for (const size_t idx : calibrated.FocalLengthIdxs()) {
-      if (!std::isfinite(calibrated.params[idx]) ||
-          calibrated.params[idx] <= 0) {
-        return false;
-      }
-    }
     // Reject implausible predictions, which are numerically well behaved but
     // far from the true intrinsics. NOTE: this is only checked per image,
     // because the coefficient-wise median of calibrations that all satisfy
     // these per-coefficient bounds satisfies them as well.
-    if (calibrated.HasBogusParams(options_.min_focal_length_ratio,
+    if (!IsValidCalibration(calibrated) ||
+        calibrated.HasBogusParams(options_.min_focal_length_ratio,
                                   options_.max_focal_length_ratio,
                                   options_.max_extra_param)) {
       return false;

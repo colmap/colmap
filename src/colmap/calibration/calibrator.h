@@ -46,16 +46,24 @@ struct AnyCalibCalibrationOptions;
 // (e.g. GeoCalib) plug in here without changing the pipeline or CLI.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraCalibratorType, 0, ANYCALIB);
 
-// Aggregate per-image fitted parameters into a single camera by taking the
-// coefficient-wise median. Because the median of individually valid
-// calibrations is not itself guaranteed to be valid, the aggregate is
-// re-validated and, if it fails, replaced by the single-image calibration
-// closest to it. Sets `has_prior_focal_length` on success. Returns false if
-// `params_list` is empty or no valid calibration is found, leaving `camera`
-// unmodified. The model and dimensions of `camera` must already be those of
-// the calibrations in `params_list`.
+// Whether the intrinsics are numerically well behaved: finite parameters,
+// positive focal lengths, and a projection that round-trips over the image.
+// Note that this says nothing about whether the intrinsics are plausible; see
+// `Camera::HasBogusParams` for that.
+bool IsValidCalibration(const Camera& camera);
+
+// Aggregate per-image fitted parameters for the given target model into a
+// single camera by taking the coefficient-wise median. Because the median of
+// individually valid calibrations is not itself guaranteed to be valid, the
+// aggregate is re-validated and, if it fails, replaced by the single-image
+// calibration closest to it. Sets the model, parameters, and
+// `has_prior_focal_length` on success. Returns false if `params_list` is empty
+// or no valid calibration is found, leaving `camera` unmodified. The
+// dimensions of `camera` must be those of the images it was calibrated from.
 bool AggregateCameraCalibrations(
-    const std::vector<std::vector<double>>& params_list, Camera* camera);
+    CameraModelId model_id,
+    const std::vector<std::vector<double>>& params_list,
+    Camera* camera);
 
 struct CameraCalibrationTypeOptions {
   explicit CameraCalibrationTypeOptions();
