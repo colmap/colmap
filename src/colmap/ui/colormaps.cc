@@ -32,6 +32,11 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/hash_containers.h"
 
+#include <algorithm>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 namespace colmap {
 
 PointColormapBase::PointColormapBase()
@@ -253,6 +258,51 @@ void ImageColormapNameFilter::ComputeColor(const Image& image,
 
   *plane_color = kDefaultPlaneColor;
   *frame_color = kDefaultFrameColor;
+}
+
+void ImageColormapReprojectionError::Prepare(
+    NodeHashMap<camera_t, Camera>& cameras,
+    NodeHashMap<image_t, Image>& images,
+    NodeHashMap<point3D_t, Point3D>& points3D,
+    std::vector<image_t>& reg_image_ids) {
+  // Accumulate the sum and count of per-observation reprojection errors for
+  // every image from the 3D point tracks, then store the per-image mean.
+  std::unordered_map<image_t, std::pair<double, int>> error_sums;
+  for (const auto& point3D : points3D) {
+    const double error = point3D.second.error;
+    for (const auto& track_el : point3D.second.track.Elements()) {
+      auto& sum = error_sums[track_el.image_id];
+      sum.first += error;
+      sum.second += 1;
+    }
+  }
+
+  image_errors_.clear();
+  image_errors_.reserve(error_sums.size());
+  for (const auto& [image_id, sum] : error_sums) {
+    const float mean_error =
+        sum.second > 0 ? static_cast<float>(sum.first / sum.second) : 0.0f;
+    image_errors_.emplace(image_id, mean_error);
+  }
+}
+
+void ImageColormapReprojectionError::ComputeColor(
+    const Image& image,
+    Eigen::Vector4f* plane_color,
+    Eigen::Vector4f* frame_color) {
+  float gray = 0.0f;
+  const auto it = image_errors_.find(image.ImageId());
+  if (it != image_errors_.end() && max_error > 0.0f) {
+    // Absolute scale: 0 px -> 0 (blue), max_error px -> 1 (red).
+    gray = std::min(std::max(it->second / max_error, 0.0f), 1.0f);
+  }
+  const float red = JetColormap::Red(gray);
+  const float green = JetColormap::Green(gray);
+  const float blue = JetColormap::Blue(gray);
+  // Keep the frame opaque and the plane translucent, matching the default
+  // image colors' alpha values.
+  *plane_color = Eigen::Vector4f(red, green, blue, kDefaultPlaneColor.w());
+  *frame_color = Eigen::Vector4f(red, green, blue, kDefaultFrameColor.w());
 }
 
 }  // namespace colmap
