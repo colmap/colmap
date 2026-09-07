@@ -90,34 +90,40 @@ class CameraCalibrationController : public Thread {
         return;
       }
       const Image& image = images[i];
+      LOG(INFO) << StringPrintf(
+          "Calibrating image [%d/%d]", i + 1, images.size());
+      LOG(INFO) << StringPrintf("  Name:            %s", image.Name().c_str());
+
       Bitmap bitmap;
       if (!bitmap.Read(image_path_ / image.Name(), /*as_rgb=*/true)) {
-        LOG(WARNING) << "Failed to read image: " << image.Name();
+        LOG(WARNING) << "  Failed to read image";
         ++num_failed;
         continue;
       }
+      LOG(INFO) << StringPrintf(
+          "  Dimensions:      %d x %d", bitmap.Width(), bitmap.Height());
+
       Camera calibrated;
       calibrated.camera_id = image.CameraId();
       bool success = false;
+      std::string failure_message;
       try {
         success = calibrator_->Calibrate(bitmap, &calibrated);
       } catch (const std::exception& e) {
-        LOG(WARNING) << "Calibration failed for image " << image.Name() << ": "
-                     << e.what();
+        failure_message = e.what();
       }
       if (success) {
         params_per_camera[image.CameraId()].push_back(calibrated.params);
         ++num_succeeded;
-        VLOG(1) << "Calibrated image " << image.Name() << ": "
-                << calibrated.ParamsToString();
+        LOG(INFO) << StringPrintf("  Camera:          #%d - %s",
+                                  calibrated.camera_id,
+                                  calibrated.ModelName().c_str());
+        LOG(INFO) << "  Parameters:      " << calibrated.ParamsToString();
       } else {
         ++num_failed;
-        VLOG(1) << "Calibration failed for image " << image.Name()
-                << ", keeping existing intrinsics";
-      }
-      if ((i + 1) % 10 == 0 || i + 1 == images.size()) {
-        LOG(INFO) << StringPrintf(
-            "Calibrated %d/%d images", i + 1, images.size());
+        LOG(WARNING) << "  Calibration failed"
+                     << (failure_message.empty() ? "" : ": ") << failure_message
+                     << ", keeping existing intrinsics";
       }
     }
 
@@ -143,13 +149,11 @@ class CameraCalibrationController : public Thread {
       }
     }
 
-    LOG(INFO) << StringPrintf(
-        "Calibrated %d/%d images, updated %d/%d cameras in %.3fs",
-        num_succeeded,
-        images.size(),
-        num_cameras_updated,
-        cameras.size(),
-        run_timer.ElapsedSeconds());
+    LOG(INFO) << StringPrintf("Calibrated %d/%d images, updated %d/%d cameras",
+                              num_succeeded,
+                              images.size(),
+                              num_cameras_updated,
+                              cameras.size());
     if (num_succeeded == 0) {
       LOG(ERROR) << "All image calibrations failed, cameras unchanged";
     } else if (num_failed > 0) {
@@ -157,6 +161,7 @@ class CameraCalibrationController : public Thread {
                    << " image calibrations failed, keeping existing "
                       "intrinsics for those";
     }
+    run_timer.PrintMinutes();
   }
 
   const std::filesystem::path image_path_;
