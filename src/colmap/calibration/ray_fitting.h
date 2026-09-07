@@ -51,6 +51,11 @@ struct RayFittingOptions {
   // ignored during linear initialization. Matches AnyCalib's default.
   double max_fov_deg = 170.0;
 
+  // Relative weight of the mean squared focal-length prior error compared to
+  // the mean squared pixel reprojection error. A value of zero disables the
+  // prior.
+  double prior_focal_length_weight = 0.1;
+
   bool Check() const;
 };
 
@@ -60,7 +65,8 @@ struct FittedCamera {
   std::vector<double> params;
   // Whether fitting succeeded (linear init valid and refinement converged).
   bool success = false;
-  // Mean squared pixel residual before/after refinement.
+  // Mean squared objective before/after refinement, including the focal-length
+  // prior when enabled.
   double initial_cost = std::numeric_limits<double>::infinity();
   double final_cost = std::numeric_limits<double>::infinity();
 };
@@ -78,10 +84,14 @@ struct FittedCamera {
 //
 // Only perspective models are supported; spherical/panoramic models (e.g.
 // EQUIRECTANGULAR) return `success == false`.
-FittedCamera FitCameraFromRays(CameraModelId model_id,
-                               const std::vector<Eigen::Vector2d>& img_points,
-                               const std::vector<Eigen::Vector3d>& cam_rays,
-                               const RayFittingOptions& options);
+// If provided, `prior_focal_lengths` must follow the target model's focal
+// parameter order and is weighted according to `prior_focal_length_weight`.
+FittedCamera FitCameraFromRays(
+    CameraModelId model_id,
+    const std::vector<Eigen::Vector2d>& img_points,
+    const std::vector<Eigen::Vector3d>& cam_rays,
+    const RayFittingOptions& options,
+    const std::vector<double>& prior_focal_lengths = {});
 
 // Map fitted parameters from a resampled frame back to the original image,
 // inverting `f' = s * f`, `c' = s * c + t` for focal lengths and principal

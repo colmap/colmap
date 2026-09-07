@@ -103,8 +103,10 @@ class CameraCalibrationController : public Thread {
       LOG(INFO) << StringPrintf(
           "  Dimensions:      %d x %d", bitmap.Width(), bitmap.Height());
 
-      Camera calibrated;
-      calibrated.camera_id = image.CameraId();
+      const auto camera_it = cameras.find(image.CameraId());
+      THROW_CHECK(camera_it != cameras.end())
+          << "Image references missing camera " << image.CameraId();
+      Camera calibrated = camera_it->second;
       bool success = false;
       std::string failure_message;
       try {

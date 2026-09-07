@@ -141,6 +141,32 @@ TEST(RayFittingTest, EUCMConstraintsHoldForMismatchedRays) {
   EXPECT_GT(fitted.params[EUCMCameraModel::extra_params_idxs[1]], 0.0);
 }
 
+TEST(RayFittingTest, FocalLengthPriorPullsEstimate) {
+  Camera camera;
+  camera.model_id = CameraModelId::kSimplePinhole;
+  camera.width = 64;
+  camera.height = 64;
+  camera.params = {60, 32, 32};
+
+  std::vector<Eigen::Vector2d> img_points;
+  std::vector<Eigen::Vector3d> cam_rays;
+  SynthesizeCorrespondences(
+      camera, camera.width, camera.height, &img_points, &cam_rays);
+
+  RayFittingOptions options;
+  options.prior_focal_length_weight = 1.0;
+  const std::vector<double> prior_focal_lengths = {80};
+  const FittedCamera fitted = FitCameraFromRays(CameraModelId::kSimplePinhole,
+                                                img_points,
+                                                cam_rays,
+                                                options,
+                                                prior_focal_lengths);
+
+  ASSERT_TRUE(fitted.success);
+  EXPECT_GT(fitted.params[0], camera.params[0]);
+  EXPECT_LT(fitted.params[0], prior_focal_lengths[0]);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     AllPerspectiveModels,
     RayFittingTest,

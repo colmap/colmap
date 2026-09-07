@@ -84,11 +84,11 @@ class CameraCalibrator {
   static std::unique_ptr<CameraCalibrator> Create(
       const CameraCalibrationOptions& options);
 
-  // Calibrate the camera for `bitmap`, writing the target-model intrinsics at
-  // full image resolution into `camera` (model, dimensions, params, and focal
+  // Calibrate the camera for `bitmap`, optionally using an existing focal
+  // length prior in `camera`, and write the target-model intrinsics at full
+  // image resolution into `camera` (model, dimensions, params, and focal
   // length prior flag). Returns false if calibration fails, in which case
-  // `camera` is left unmodified and callers should keep the existing (e.g.
-  // EXIF) intrinsics.
+  // `camera` is left unmodified.
   virtual bool Calibrate(const Bitmap& bitmap, Camera* camera) const = 0;
 };
 

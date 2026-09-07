@@ -135,8 +135,23 @@ class AnyCalibCalibrator : public CameraCalibrator {
       }
     }
 
-    const FittedCamera fitted = FitCameraFromRays(
-        model_id, img_points, cam_rays, options_.anycalib.fitting);
+    std::vector<double> prior_focal_lengths;
+    if (options_.anycalib.fitting.prior_focal_length_weight > 0.0 &&
+        camera->has_prior_focal_length && camera->IsPerspective()) {
+      const double prior_fx = camera->FocalLengthX() * input.scale_xy.x();
+      const double prior_fy = camera->FocalLengthY() * input.scale_xy.y();
+      if (CameraModelFocalLengthIdxs(model_id).size() == 1) {
+        prior_focal_lengths.push_back(0.5 * (prior_fx + prior_fy));
+      } else {
+        prior_focal_lengths = {prior_fx, prior_fy};
+      }
+    }
+
+    const FittedCamera fitted = FitCameraFromRays(model_id,
+                                                  img_points,
+                                                  cam_rays,
+                                                  options_.anycalib.fitting,
+                                                  prior_focal_lengths);
     if (!fitted.success) {
       return false;
     }
