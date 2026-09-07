@@ -1029,32 +1029,43 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
     const Eigen::Vector3d normalized_position =
         normalized_from_metric_ * pose_prior.position;
-    const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
+    // The fallback is isotropic and stays isotropic under the similarity
+    // transform, so it only needs a scale rather than a whitening matrix.
+    const double normalized_position_stddev =
         normalized_from_metric_.scale() *
-        normalized_from_metric_.rotation().toRotationMatrix();
-    const Eigen::Matrix3d position_cov =
-        pose_prior.HasPositionCov()
-            ? pose_prior.position_covariance
-            : (prior_options_.prior_position_fallback_stddev *
-               prior_options_.prior_position_fallback_stddev *
-               Eigen::Matrix3d::Identity());
-    const Eigen::Matrix3d normalized_position_cov =
-        normalized_from_metric_scaled_rotation * position_cov *
-        normalized_from_metric_scaled_rotation.transpose();
+        prior_options_.prior_position_fallback_stddev;
+    Eigen::Matrix3d normalized_position_cov;
+    if (pose_prior.HasPositionCov()) {
+      const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
+          normalized_from_metric_.scale() *
+          normalized_from_metric_.rotation().toRotationMatrix();
+      normalized_position_cov =
+          normalized_from_metric_scaled_rotation *
+          pose_prior.position_covariance *
+          normalized_from_metric_scaled_rotation.transpose();
+    }
 
     if (image.IsRefInFrame()) {
       problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
+          pose_prior.HasPositionCov()
+              ? CovarianceWeightedCostFunctor<
+                    AbsolutePosePositionPriorCostFunctor>::
+                    Create(normalized_position_cov, normalized_position)
+              : ScaleWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+                    Create(normalized_position_stddev, normalized_position),
           prior_loss_function_.get(),
           rig_from_world.params.data());
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
       problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<
-              AbsoluteRigPosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
+          pose_prior.HasPositionCov()
+              ? CovarianceWeightedCostFunctor<
+                    AbsoluteRigPosePositionPriorCostFunctor>::
+                    Create(normalized_position_cov, normalized_position)
+              : ScaleWeightedCostFunctor<
+                    AbsoluteRigPosePositionPriorCostFunctor>::
+                    Create(normalized_position_stddev, normalized_position),
           prior_loss_function_.get(),
           cam_from_rig.params.data(),
           rig_from_world.params.data());
