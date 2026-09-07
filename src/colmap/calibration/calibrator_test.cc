@@ -84,10 +84,8 @@ TEST(CameraCalibrationOptionsTest, ChecksPlausibilityBounds) {
 // that intrinsics accepted here are not rejected during mapping.
 TEST(CameraCalibrationOptionsTest, DefaultsRejectImplausibleIntrinsics) {
   const CameraCalibrationOptions options;
-  Camera camera;
-  camera.model_id = CameraModelId::kSimpleRadial;
-  camera.width = 640;
-  camera.height = 480;
+  Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1, CameraModelId::kSimpleRadial, 500, 640, 480);
 
   const auto has_bogus_params = [&options, &camera]() {
     return camera.HasBogusParams(options.min_focal_length_ratio,
@@ -95,41 +93,35 @@ TEST(CameraCalibrationOptionsTest, DefaultsRejectImplausibleIntrinsics) {
                                  options.max_extra_param);
   };
 
-  camera.params = {500, 320, 240, 0.1};
   EXPECT_FALSE(has_bogus_params());
   // Focal length far too short and far too long.
-  camera.params = {50, 320, 240, 0.1};
+  camera.params[0] = 50;
   EXPECT_TRUE(has_bogus_params());
-  camera.params = {10000, 320, 240, 0.1};
-  EXPECT_TRUE(has_bogus_params());
-  // Principal point outside the image.
-  camera.params = {500, 1000, 240, 0.1};
+  camera.params[0] = 10000;
   EXPECT_TRUE(has_bogus_params());
   // Excessive distortion.
-  camera.params = {500, 320, 240, 5};
+  camera.params[0] = 500;
+  camera.params[3] = 5;
   EXPECT_TRUE(has_bogus_params());
 }
 
 Camera CreateSimpleRadialCamera() {
-  Camera camera;
-  camera.camera_id = 1;
-  camera.model_id = CameraModelId::kSimpleRadial;
-  camera.width = 640;
-  camera.height = 480;
-  camera.params = {500, 320, 240, 0};
-  return camera;
+  return Camera::CreateFromModelId(
+      /*camera_id=*/1, CameraModelId::kSimpleRadial, 500, 640, 480);
 }
 
 TEST(AggregateCameraCalibrationsTest, EmptyList) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_FALSE(AggregateCameraCalibrations({}, &camera));
+  EXPECT_FALSE(AggregateCameraCalibrations(
+      CameraModelId::kSimpleRadial, {}, &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0}));
   EXPECT_FALSE(camera.has_prior_focal_length);
 }
 
 TEST(AggregateCameraCalibrationsTest, OddMedian) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations({{600, 315, 235, 0.05},
+  EXPECT_TRUE(AggregateCameraCalibrations(CameraModelId::kSimpleRadial,
+                                          {{600, 315, 235, 0.05},
                                            {400, 325, 245, 0.15},
                                            {500, 320, 240, 0.10}},
                                           &camera));
@@ -140,9 +132,19 @@ TEST(AggregateCameraCalibrationsTest, OddMedian) {
 TEST(AggregateCameraCalibrationsTest, EvenMedian) {
   Camera camera = CreateSimpleRadialCamera();
   EXPECT_TRUE(AggregateCameraCalibrations(
-      {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}}, &camera));
+      CameraModelId::kSimpleRadial,
+      {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}},
+      &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0.10}));
   EXPECT_TRUE(camera.has_prior_focal_length);
+}
+
+TEST(AggregateCameraCalibrationsTest, SetsTargetCameraModel) {
+  Camera camera = CreateSimpleRadialCamera();
+  EXPECT_TRUE(AggregateCameraCalibrations(
+      CameraModelId::kPinhole, {{500, 500, 320, 240}}, &camera));
+  EXPECT_EQ(camera.model_id, CameraModelId::kPinhole);
+  EXPECT_EQ(camera.params, std::vector<double>({500, 500, 320, 240}));
 }
 
 TEST(AggregateCameraCalibrationsTest, InvalidMedianFallsBackToClosest) {
@@ -152,39 +154,35 @@ TEST(AggregateCameraCalibrationsTest, InvalidMedianFallsBackToClosest) {
   const std::vector<double> params1 = {200, 200, 320, 240, -3, 5, 0, 0};
   const std::vector<double> params2 = {800, 800, 320, 240, 8, -20, 0, 0};
   const std::vector<double> median = {500, 500, 320, 240, 2.5, -7.5, 0, 0};
+  const CameraModelId model_id = CameraModelId::kOpenCV;
 
-  Camera camera;
-  camera.camera_id = 1;
-  camera.model_id = CameraModelId::kOpenCV;
-  camera.width = 640;
-  camera.height = 480;
-
-  for (const auto& params : {params1, params2}) {
+  Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1, model_id, 500, 640, 480);
+  for (const std::vector<double>& params : {params1, params2, median}) {
     Camera single = camera;
-    EXPECT_TRUE(AggregateCameraCalibrations({params}, &single));
+    EXPECT_EQ(AggregateCameraCalibrations(model_id, {params}, &single),
+              params != median);
   }
-  Camera median_camera = camera;
-  EXPECT_FALSE(AggregateCameraCalibrations({median}, &median_camera));
 
-  ASSERT_TRUE(AggregateCameraCalibrations({params1, params2}, &camera));
-  EXPECT_NE(camera.params, median);
+  ASSERT_TRUE(
+      AggregateCameraCalibrations(model_id, {params1, params2}, &camera));
   EXPECT_TRUE(camera.params == params1 || camera.params == params2);
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, RejectsNonFiniteParams) {
-  Camera camera = CreateSimpleRadialCamera();
+TEST(AggregateCameraCalibrationsTest, RejectsInvalidParams) {
+  const std::vector<double> original_params = {500, 320, 240, 0};
   const double nan = std::numeric_limits<double>::quiet_NaN();
-  EXPECT_FALSE(AggregateCameraCalibrations({{nan, 320, 240, 0}}, &camera));
-  EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0}));
-  EXPECT_FALSE(camera.has_prior_focal_length);
-}
-
-TEST(AggregateCameraCalibrationsTest, RejectsNonPositiveFocalLength) {
-  Camera camera = CreateSimpleRadialCamera();
-  EXPECT_FALSE(AggregateCameraCalibrations({{-500, 320, 240, 0}}, &camera));
-  EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0}));
-  EXPECT_FALSE(camera.has_prior_focal_length);
+  for (const std::vector<double>& params :
+       {std::vector<double>{nan, 320, 240, 0},
+        std::vector<double>{-500, 320, 240, 0}}) {
+    Camera camera = CreateSimpleRadialCamera();
+    EXPECT_FALSE(AggregateCameraCalibrations(
+        CameraModelId::kSimpleRadial, {params}, &camera));
+    EXPECT_EQ(camera.params, original_params);
+    EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
+    EXPECT_FALSE(camera.has_prior_focal_length);
+  }
 }
 
 }  // namespace

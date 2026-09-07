@@ -204,25 +204,27 @@ void AutomaticReconstructionController::Setup() {
                                          *option_manager_.feature_extraction);
   }
 
-  if (options_.camera_calibration && !options_.camera_params.empty()) {
-    // Explicit intrinsics are written to the database by the image reader and
-    // must not be overwritten by the calibration.
-    LOG(WARNING) << "Skipping camera calibration, because explicit "
-                    "camera parameters were provided";
-  } else if (options_.camera_calibration) {
-    CameraCalibrationOptions& calibration_options =
-        *option_manager_.camera_calibration;
-    calibration_options.camera_model = options_.camera_model;
-    calibration_options.num_threads = options_.num_threads;
-    calibration_options.use_gpu = options_.use_gpu;
-    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
-    THROW_CHECK(!gpu_indices.empty());
-    calibration_options.gpu_index = std::to_string(gpu_indices.front());
-    camera_calibrator_ =
-        CreateCameraCalibrationController(*option_manager_.database_path,
-                                          *option_manager_.image_path,
-                                          calibration_options,
-                                          options_.image_names);
+  if (options_.camera_calibration) {
+    if (!options_.camera_params.empty()) {
+      // Explicit intrinsics are written to the database by the image reader
+      // and must not be overwritten by the calibration.
+      LOG(WARNING) << "Skipping camera calibration, because explicit "
+                      "camera parameters were provided";
+    } else {
+      CameraCalibrationOptions& calibration_options =
+          *option_manager_.camera_calibration;
+      calibration_options.camera_model = options_.camera_model;
+      calibration_options.num_threads = options_.num_threads;
+      calibration_options.use_gpu = options_.use_gpu;
+      const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+      THROW_CHECK(!gpu_indices.empty());
+      calibration_options.gpu_index = std::to_string(gpu_indices.front());
+      camera_calibrator_ =
+          CreateCameraCalibrationController(*option_manager_.database_path,
+                                            *option_manager_.image_path,
+                                            calibration_options,
+                                            options_.image_names);
+    }
   }
 
   if (options_.matching) {
