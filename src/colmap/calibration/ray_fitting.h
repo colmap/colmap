@@ -54,7 +54,7 @@ struct RayFittingOptions {
   // Relative weight of the mean squared focal-length prior error compared to
   // the mean squared pixel reprojection error. A value of zero disables the
   // prior.
-  double prior_focal_length_weight = 0.1;
+  double prior_focal_length_weight = 0.0;
 
   bool Check() const;
 };
