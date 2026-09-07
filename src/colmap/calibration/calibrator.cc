@@ -212,6 +212,7 @@ std::unique_ptr<CameraCalibrator> CameraCalibrator::Create(
     default:
       LOG(FATAL_THROW) << "Unknown camera calibrator type";
   }
+  return nullptr;
 }
 
 }  // namespace colmap
