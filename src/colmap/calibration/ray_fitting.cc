@@ -224,12 +224,10 @@ bool HasRadialDistortionPrefix(CameraModelId model_id, int* num_k) {
 }
 
 // Pixel residuals of projecting the observed ray: r_i = project(params,
-// cam_ray_i) - img_point_i. Unprojectable points contribute zero residuals,
-// following the convention of COLMAP's Ceres cost functions. Templated on the
-// camera model (cf. the reprojection error costs), enabling static Ceres
-// autodiff without runtime model dispatch. Autodiff is possible because
-// projection (as opposed to unprojection) is templated for Jets in every
-// model.
+// cam_ray_i) - img_point_i. Templated on the camera model (cf. the reprojection
+// error costs), enabling static Ceres autodiff without runtime model dispatch.
+// Autodiff is possible because projection (as opposed to unprojection) is
+// templated for Jets in every model.
 template <typename CameraModel>
 struct RayReprojectionResidual {
   RayReprojectionResidual(const Eigen::Vector2d& img_point,
@@ -246,9 +244,10 @@ struct RayReprojectionResidual {
                                  &x,
                                  &y,
                                  /*check_cheirality=*/true)) {
-      residuals[0] = T(0.0);
-      residuals[1] = T(0.0);
-      return true;
+      // Projection validity can depend on the optimized parameters (e.g. for
+      // DIVISION and EUCM). Reject an invalid trial step rather than making
+      // its residual disappear and thereby rewarding invalid parameters.
+      return false;
     }
     residuals[0] = x - T(img_point.x());
     residuals[1] = y - T(img_point.y());
@@ -352,6 +351,8 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
 
   ceres::Problem problem;
   size_t num_residuals = 0;
+  std::vector<size_t> residual_indices;
+  residual_indices.reserve(img_points.size());
   for (size_t i = 0; i < img_points.size(); ++i) {
     Eigen::Vector2d projection;
     if (!CameraModel::ImgFromCam(params->data(),
@@ -371,10 +372,24 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
                                                      cam_rays[i]));
     problem.AddResidualBlock(
         cost_function, /*loss_function=*/nullptr, params->data());
+    residual_indices.push_back(i);
     num_residuals += 2;
   }
   if (num_residuals == 0) {
     return false;
+  }
+
+  for (const size_t idx : CameraModel::focal_length_idxs) {
+    problem.SetParameterLowerBound(
+        params->data(), idx, std::numeric_limits<double>::epsilon());
+  }
+  if constexpr (CameraModel::model_id == CameraModelId::kEUCM) {
+    const size_t alpha_idx = CameraModel::extra_params_idxs[0];
+    const size_t beta_idx = CameraModel::extra_params_idxs[1];
+    problem.SetParameterLowerBound(params->data(), alpha_idx, 0.0);
+    problem.SetParameterUpperBound(params->data(), alpha_idx, 1.0);
+    problem.SetParameterLowerBound(
+        params->data(), beta_idx, std::numeric_limits<double>::epsilon());
   }
 
   ceres::Solver::Options solver_options;
@@ -393,7 +408,25 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
   // Keep the refinement unless it made the cost worse. Ceres only accepts
   // non-increasing steps, so equality means the initialization was already
   // optimal (or refinement was disabled with zero iterations).
-  if (summary.IsSolutionUsable() && *final_cost <= *initial_cost) {
+  if (summary.IsSolutionUsable() && std::isfinite(*final_cost) &&
+      *final_cost <= *initial_cost &&
+      std::all_of(params->begin(), params->end(), [](const double param) {
+        return std::isfinite(param);
+      })) {
+    for (const size_t i : residual_indices) {
+      Eigen::Vector2d projection;
+      if (!CameraModel::ImgFromCam(params->data(),
+                                   cam_rays[i].x(),
+                                   cam_rays[i].y(),
+                                   cam_rays[i].z(),
+                                   &projection.x(),
+                                   &projection.y(),
+                                   /*check_cheirality=*/true) ||
+          !projection.allFinite()) {
+        *params = init_params;
+        return false;
+      }
+    }
     return true;
   }
   *params = init_params;

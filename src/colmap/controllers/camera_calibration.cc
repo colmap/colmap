@@ -31,11 +31,11 @@
 
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
-#include <map>
-
+#include <algorithm>
 namespace colmap {
 namespace {
 
@@ -44,9 +44,11 @@ class CameraCalibrationController : public Thread {
   CameraCalibrationController(
       const std::filesystem::path& database_path,
       const std::filesystem::path& image_path,
-      const CameraCalibrationOptions& calibration_options)
+      const CameraCalibrationOptions& calibration_options,
+      const std::vector<std::string>& image_names)
       : image_path_(image_path),
         calibration_options_(calibration_options),
+        image_names_(image_names.begin(), image_names.end()),
         database_(Database::Open(database_path)) {
     THROW_CHECK(calibration_options_.Check());
     THROW_CHECK_DIR_EXISTS(image_path_);
@@ -60,19 +62,27 @@ class CameraCalibrationController : public Thread {
     Timer run_timer;
     run_timer.Start();
 
-    const std::vector<Image> images = database_->ReadAllImages();
+    std::vector<Image> images = database_->ReadAllImages();
+    if (!image_names_.empty()) {
+      images.erase(std::remove_if(images.begin(),
+                                  images.end(),
+                                  [this](const Image& image) {
+                                    return !image_names_.contains(image.Name());
+                                  }),
+                   images.end());
+    }
     if (images.empty()) {
-      LOG(WARNING) << "No images in database, skipping calibration";
+      LOG(WARNING) << "No selected images in database, skipping calibration";
       return;
     }
 
-    std::map<camera_t, Camera> cameras;
+    FlatHashMap<camera_t, Camera> cameras;
     for (const Camera& camera : database_->ReadAllCameras()) {
       cameras[camera.camera_id] = camera;
     }
 
     // Calibrate each image; group fitted parameters by camera.
-    std::map<camera_t, std::vector<std::vector<double>>> params_per_camera;
+    FlatHashMap<camera_t, std::vector<std::vector<double>>> params_per_camera;
     size_t num_succeeded = 0;
     size_t num_failed = 0;
     for (size_t i = 0; i < images.size(); ++i) {
@@ -151,6 +161,7 @@ class CameraCalibrationController : public Thread {
 
   const std::filesystem::path image_path_;
   const CameraCalibrationOptions calibration_options_;
+  const FlatHashSet<std::string> image_names_;
   std::shared_ptr<Database> database_;
   std::unique_ptr<CameraCalibrator> calibrator_;
 };
@@ -160,9 +171,10 @@ class CameraCalibrationController : public Thread {
 std::unique_ptr<Thread> CreateCameraCalibrationController(
     const std::filesystem::path& database_path,
     const std::filesystem::path& image_path,
-    const CameraCalibrationOptions& calibration_options) {
+    const CameraCalibrationOptions& calibration_options,
+    const std::vector<std::string>& image_names) {
   return std::make_unique<CameraCalibrationController>(
-      database_path, image_path, calibration_options);
+      database_path, image_path, calibration_options, image_names);
 }
 
 }  // namespace colmap

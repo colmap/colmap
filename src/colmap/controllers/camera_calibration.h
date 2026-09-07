@@ -34,16 +34,20 @@
 
 #include <filesystem>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace colmap {
 
-// Calibrate all images in the database with a learned single-image
+// Calibrate the selected images in the database with a learned single-image
 // calibrator and update the database cameras, replacing e.g. EXIF-based
-// initialization. Images are processed sequentially with a single shared
-// calibrator instance, as calibration models are large (cf. ALIKED/LoMa).
+// initialization. An empty `image_names` selects all database images. Images
+// are processed sequentially with a single shared calibrator instance, as
+// calibration models are large (cf. ALIKED/LoMa).
 std::unique_ptr<Thread> CreateCameraCalibrationController(
     const std::filesystem::path& database_path,
     const std::filesystem::path& image_path,
-    const CameraCalibrationOptions& calibration_options);
+    const CameraCalibrationOptions& calibration_options,
+    const std::vector<std::string>& image_names = {});
 
 }  // namespace colmap

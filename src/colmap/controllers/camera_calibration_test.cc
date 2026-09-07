@@ -63,13 +63,14 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
 
   const auto test_dir = CreateTestDir();
   const auto database_path = test_dir / "database.db";
+  const std::vector<double> initial_params = {50, 32, 24, 0};
   {
     auto database = Database::Open(database_path);
     Camera camera;
     camera.model_id = CameraModelId::kSimpleRadial;
     camera.width = 64;
     camera.height = 48;
-    camera.params = {50, 32, 24, 0};
+    camera.params = initial_params;
     const camera_t camera_id = database->WriteCamera(camera);
     for (int i = 0; i < 2; ++i) {
       Bitmap bitmap(64, 48, /*as_rgb=*/true);
@@ -92,10 +93,17 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
   }
 
   CameraCalibrationOptions options;
+  options.num_threads = 1;
   options.use_gpu = false;
   options.anycalib.model_path = model_path;
-  auto controller =
-      CreateCameraCalibrationController(database_path, test_dir, options);
+  Bitmap selected_bitmap;
+  ASSERT_TRUE(selected_bitmap.Read(test_dir / "image0.png", /*as_rgb=*/true));
+  Camera expected_camera;
+  const bool expected_success = CameraCalibrator::Create(options)->Calibrate(
+      selected_bitmap, &expected_camera);
+
+  auto controller = CreateCameraCalibrationController(
+      database_path, test_dir, options, {"image0.png"});
   controller->Start();
   controller->Wait();
 
@@ -104,6 +112,8 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
   ASSERT_EQ(cameras.size(), 1);
   EXPECT_EQ(cameras[0].width, 64);
   EXPECT_EQ(cameras[0].height, 48);
+  EXPECT_EQ(cameras[0].params,
+            expected_success ? expected_camera.params : initial_params);
 }
 
 }  // namespace

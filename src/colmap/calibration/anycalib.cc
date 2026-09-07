@@ -33,6 +33,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/onnx.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace colmap {
@@ -147,7 +149,10 @@ class AnyCalibCalibrator : public CameraCalibrator {
     calibrated.height = bitmap.Height();
     calibrated.params = params;
     calibrated.has_prior_focal_length = true;
-    if (!calibrated.VerifyParams()) {
+    if (!calibrated.VerifyParams() ||
+        !std::all_of(calibrated.params.begin(),
+                     calibrated.params.end(),
+                     [](const double param) { return std::isfinite(param); })) {
       return false;
     }
     for (const size_t idx : calibrated.FocalLengthIdxs()) {
