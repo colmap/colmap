@@ -243,10 +243,8 @@ void OptionManager::AddCameraCalibrationOptions() {
   AddDefaultOption("CameraCalibration.use_gpu", &camera_calibration->use_gpu);
   AddDefaultOption("CameraCalibration.gpu_index",
                    &camera_calibration->gpu_index);
-  AddDefaultOption("CameraCalibration.anycalib_landscape_model_path",
-                   &camera_calibration->anycalib.landscape_model_path);
-  AddDefaultOption("CameraCalibration.anycalib_portrait_model_path",
-                   &camera_calibration->anycalib.portrait_model_path);
+  AddDefaultOption("CameraCalibration.anycalib_model_path",
+                   &camera_calibration->anycalib.model_path);
   AddDefaultOption("CameraCalibration.max_num_iterations",
                    &camera_calibration->anycalib.fitting.max_num_iterations);
   AddDefaultOption("CameraCalibration.max_num_points",

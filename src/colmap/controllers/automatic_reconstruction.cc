@@ -209,13 +209,8 @@ void AutomaticReconstructionController::Setup() {
         *option_manager_.camera_calibration;
     calibration_options.type = options_.calibrator;
     calibration_options.camera_model = options_.camera_model;
-    if (!options_.calibration_landscape_model_path.empty()) {
-      calibration_options.anycalib.landscape_model_path =
-          options_.calibration_landscape_model_path;
-    }
-    if (!options_.calibration_portrait_model_path.empty()) {
-      calibration_options.anycalib.portrait_model_path =
-          options_.calibration_portrait_model_path;
+    if (!options_.calibration_model_path.empty()) {
+      calibration_options.anycalib.model_path = options_.calibration_model_path;
     }
     calibration_options.num_threads = options_.num_threads;
     calibration_options.use_gpu = options_.use_gpu;

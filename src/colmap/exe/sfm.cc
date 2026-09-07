@@ -116,12 +116,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("extraction", &reconstruction_options.extraction);
   options.AddDefaultOption("calibration", &reconstruction_options.calibration);
   options.AddDefaultOption("calibrator", &calibrator, "{anycalib}");
-  options.AddDefaultOption(
-      "calibration_landscape_model_path",
-      &reconstruction_options.calibration_landscape_model_path);
-  options.AddDefaultOption(
-      "calibration_portrait_model_path",
-      &reconstruction_options.calibration_portrait_model_path);
+  options.AddDefaultOption("calibration_model_path",
+                           &reconstruction_options.calibration_model_path);
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
