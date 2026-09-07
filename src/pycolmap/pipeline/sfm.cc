@@ -160,15 +160,27 @@ std::map<size_t, std::shared_ptr<Reconstruction>> HierarchicalMapping(
 void BundleAdjustment(
     const std::shared_ptr<Reconstruction>& reconstruction,
     const BundleAdjustmentOptions& options,
+    const std::shared_ptr<BundleAdjustmentConfig>& config,
+    const std::vector<PosePrior>& pose_priors,
+    bool use_prior_position,
+    const PosePriorBundleAdjustmentOptions& prior_options,
     const std::shared_ptr<CancellationToken>& cancellation_token) {
   py::gil_scoped_release release;
-  OptionManager option_manager;
-  option_manager.bundle_adjustment =
-      std::make_shared<BundleAdjustmentOptions>(options);
+  BundleAdjustmentConfig custom_config;
+  if (config != nullptr) {
+    custom_config = *config;
+  } else {
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      custom_config.AddImage(image_id);
+    }
+  }
   PyInterruptChecker interrupt_checker(cancellation_token);
-  BundleAdjustmentController controller(option_manager, reconstruction);
-  controller.SetCheckIfStoppedFunc(interrupt_checker.Callback());
-  controller.Run();
+  RunBundleAdjustmentImpl(options,
+                          custom_config,
+                          reconstruction,
+                          use_prior_position ? &prior_options : nullptr,
+                          use_prior_position ? &pose_priors : nullptr,
+                          interrupt_checker.Callback());
   interrupt_checker.CheckAndThrow();
 }
 
@@ -274,6 +286,12 @@ void BindSfM(py::module& m) {
         "reconstruction"_a,
         py::arg_v(
             "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
+        py::arg_v("config", std::shared_ptr<BundleAdjustmentConfig>(), "None"),
+        py::arg_v("pose_priors", std::vector<PosePrior>(), "[]"),
+        "use_prior_position"_a = false,
+        py::arg_v("prior_options",
+                  PosePriorBundleAdjustmentOptions(),
+                  "PosePriorBundleAdjustmentOptions()"),
         "cancellation_token"_a = py::none(),
         "Jointly refine 3D points and camera poses");
 }
