@@ -151,7 +151,9 @@ class CovarianceWeightedCostFunctor {
     auto residuals_ptr = LastValueParameterPack(args...);
     using T = typename std::remove_reference<decltype(*residuals_ptr)>::type;
     Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(left_sqrt_info_.template cast<T>());
+    // Ceres defines mixed Jet/scalar traits, so keeping the weight in double
+    // avoids materializing an N x N matrix of Jets with all-zero derivatives.
+    residuals.applyOnTheLeft(left_sqrt_info_);
     return true;
   }
 
@@ -161,6 +163,65 @@ class CovarianceWeightedCostFunctor {
   }
 
   const CovMat left_sqrt_info_;
+  const CostFunctor cost_;
+};
+
+// A cost function wrapper that whitens residuals with per-residual standard
+// deviations, broadcasting a single one over all residuals. Equivalent to
+// CovarianceWeightedCostFunctor with a diagonal covariance, but avoids its
+// inverse, Cholesky factorization, and dense product on every evaluation.
+// For example, to weight the reprojection error with isotropic image
+// measurement noise, one can wrap it as:
+//
+//    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
+//    ceres::CostFunction* cost_function =
+//        ScaleWeightedCostFunctor<ReprojCostFunctor>::Create(stddev, point2D);
+template <class CostFunctor>
+class ScaleWeightedCostFunctor {
+ public:
+  static constexpr int kNumResiduals = CostFunctor::kNumResiduals;
+  using kParameterDims = typename CostFunctor::kParameterDims;
+
+  using StddevVec = Eigen::Matrix<double, kNumResiduals, 1>;
+
+  template <typename... Args>
+  explicit ScaleWeightedCostFunctor(const StddevVec& stddevs, Args&&... args)
+      : sqrt_info_(stddevs.cwiseInverse()),
+        cost_(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  explicit ScaleWeightedCostFunctor(double stddev, Args&&... args)
+      : sqrt_info_(StddevVec::Constant(1.0 / stddev)),
+        cost_(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  static ceres::CostFunction* Create(const StddevVec& stddevs, Args&&... args) {
+    return CreateAutoDiffCostFunction(new ScaleWeightedCostFunctor<CostFunctor>(
+        stddevs, std::forward<Args>(args)...));
+  }
+
+  template <typename... Args>
+  static ceres::CostFunction* Create(double stddev, Args&&... args) {
+    return CreateAutoDiffCostFunction(new ScaleWeightedCostFunctor<CostFunctor>(
+        stddev, std::forward<Args>(args)...));
+  }
+
+  template <typename... Args>
+  bool operator()(Args... args) const {
+    if (!cost_(args...)) {
+      return false;
+    }
+
+    auto residuals_ptr = LastValueParameterPack(args...);
+    using T = typename std::remove_reference<decltype(*residuals_ptr)>::type;
+    Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
+    residuals.array() *= sqrt_info_.array();
+    return true;
+  }
+
+ private:
+  // Inverse stddevs, so that evaluation multiplies rather than divides.
+  const StddevVec sqrt_info_;
   const CostFunctor cost_;
 };
 
