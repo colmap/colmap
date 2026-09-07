@@ -34,6 +34,8 @@
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 
+#include <memory>
+
 namespace colmap {
 
 template <typename CostFunctor, int kNumResiduals, int... kParameterDims>
@@ -113,9 +115,70 @@ auto LastValueParameterPack(Args&&... args) {
   return std::get<sizeof...(Args) - 1>(std::forward_as_tuple(args...));
 }
 
-// A cost function wrapper that whitens residuals with a given covariance.
-// For example, to weight the reprojection error with an image measurement
-// covariance, one can wrap it as:
+// Whitens the residuals and jacobians of an inner cost function with a given
+// covariance. Specialized on the inner parameter dims so that each jacobian
+// block is a fixed-size map. Whitening is linear, so applying it to the
+// evaluated jacobians is equivalent to, and cheaper than, propagating it
+// through autodiff.
+template <class CostFunctor, class ParameterDims>
+class CovarianceWeightedCostFunction;
+
+template <class CostFunctor, int... ParameterDims>
+class CovarianceWeightedCostFunction<CostFunctor,
+                                     std::integer_sequence<int, ParameterDims...>>
+    : public ceres::SizedCostFunction<CostFunctor::kNumResiduals,
+                                      ParameterDims...> {
+ public:
+  static constexpr int kNumResiduals = CostFunctor::kNumResiduals;
+  using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
+
+  CovarianceWeightedCostFunction(const CovMat& cov, ceres::CostFunction* cost)
+      : left_sqrt_info_(cov.inverse().llt().matrixL().transpose()), cost_(cost) {}
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    if (!cost_->Evaluate(parameters, residuals, jacobians)) {
+      return false;
+    }
+    Eigen::Map<Eigen::Matrix<double, kNumResiduals, 1>>(residuals)
+        .applyOnTheLeft(left_sqrt_info_);
+    if (jacobians != nullptr) {
+      WhitenJacobians(jacobians,
+                      std::make_index_sequence<sizeof...(ParameterDims)>{});
+    }
+    return true;
+  }
+
+ private:
+  static constexpr int kParameterDimsArray[] = {ParameterDims...};
+
+  template <size_t kIndex>
+  void WhitenJacobian(double** jacobians) const {
+    if (jacobians[kIndex] == nullptr) {
+      return;
+    }
+    constexpr int kDim = kParameterDimsArray[kIndex];
+    // Eigen requires single-column matrices to be column major.
+    constexpr int kOptions = kDim == 1 ? Eigen::ColMajor : Eigen::RowMajor;
+    Eigen::Map<Eigen::Matrix<double, kNumResiduals, kDim, kOptions>>(
+        jacobians[kIndex])
+        .applyOnTheLeft(left_sqrt_info_);
+  }
+
+  template <size_t... kIndices>
+  void WhitenJacobians(double** jacobians,
+                       std::index_sequence<kIndices...>) const {
+    (WhitenJacobian<kIndices>(jacobians), ...);
+  }
+
+  const CovMat left_sqrt_info_;
+  const std::unique_ptr<ceres::CostFunction> cost_;
+};
+
+// Creates a cost function that whitens the given cost functor with a
+// covariance. For example, to weight the reprojection error with an image
+// measurement covariance, one can wrap it as:
 //
 //    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
 //    ceres::CostFunction* cost_function =
@@ -131,45 +194,20 @@ class CovarianceWeightedCostFunctor {
   using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
 
   template <typename... Args>
-  explicit CovarianceWeightedCostFunctor(const CovMat& cov, Args&&... args)
-      : left_sqrt_info_(LeftSqrtInformation(cov)),
-        cost_(std::forward<Args>(args)...) {}
-
-  template <typename... Args>
   static ceres::CostFunction* Create(const CovMat& cov, Args&&... args) {
-    return CreateAutoDiffCostFunction(
-        new CovarianceWeightedCostFunctor<CostFunctor>(
-            cov, std::forward<Args>(args)...));
+    return new CovarianceWeightedCostFunction<CostFunctor, kParameterDims>(
+        cov,
+        CreateAutoDiffCostFunction(
+            new CostFunctor(std::forward<Args>(args)...)));
   }
-
-  template <typename... Args>
-  bool operator()(Args... args) const {
-    if (!cost_(args...)) {
-      return false;
-    }
-
-    auto residuals_ptr = LastValueParameterPack(args...);
-    using T = typename std::remove_reference<decltype(*residuals_ptr)>::type;
-    Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
-    // Ceres defines mixed Jet/scalar traits, so keeping the weight in double
-    // avoids materializing an N x N matrix of Jets with all-zero derivatives.
-    residuals.applyOnTheLeft(left_sqrt_info_);
-    return true;
-  }
-
- private:
-  CovMat LeftSqrtInformation(const CovMat& cov) {
-    return cov.inverse().llt().matrixL().transpose();
-  }
-
-  const CovMat left_sqrt_info_;
-  const CostFunctor cost_;
 };
 
 // A cost function wrapper that whitens residuals with per-residual standard
 // deviations, broadcasting a single one over all residuals. Equivalent to
 // CovarianceWeightedCostFunctor with a diagonal covariance, but avoids its
 // inverse, Cholesky factorization, and dense product on every evaluation.
+// Unlike the covariance case, whitening a diagonal through autodiff is as
+// cheap as applying it to the evaluated jacobians, so this stays a functor.
 // For example, to weight the reprojection error with isotropic image
 // measurement noise, one can wrap it as:
 //
