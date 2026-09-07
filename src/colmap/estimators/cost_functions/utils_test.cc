@@ -157,7 +157,7 @@ TEST(ScaleWeightedCostFunctor, MatchesCovarianceWeighted) {
 
   std::unique_ptr<ceres::CostFunction> scale_cost_function(
       ScaleWeightedCostFunctor<NormalPriorCostFunctor<3>>::Create(stddevs,
-                                                                 prior));
+                                                                  prior));
   std::unique_ptr<ceres::CostFunction> cov_cost_function(
       CovarianceWeightedCostFunctor<NormalPriorCostFunctor<3>>::Create(
           stddevs.cwiseAbs2().asDiagonal(), prior));

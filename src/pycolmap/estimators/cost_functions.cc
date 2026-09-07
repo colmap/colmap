@@ -126,30 +126,30 @@ void BindCostFunctions(py::module& m_parent) {
         "point2D"_a,
         "cam_from_world"_a,
         "Reprojection error with constant camera pose and 2D detection noise.");
-  m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<
-            ScaleWeightedReprojErrorConstantPoseCostFunctor,
-            double,
-            const Eigen::Vector2d&,
-            const Rigid3d&>,
-        "camera_model_id"_a,
-        "point2D_stddev"_a,
-        "point2D"_a,
-        "cam_from_world"_a,
-        "Reprojection error with constant camera pose and isotropic 2D "
-        "detection noise.");
-  m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<
-            ScaleWeightedReprojErrorConstantPoseCostFunctor,
-            const Eigen::Vector2d&,
-            const Eigen::Vector2d&,
-            const Rigid3d&>,
-        "camera_model_id"_a,
-        "point2D_stddev"_a,
-        "point2D"_a,
-        "cam_from_world"_a,
-        "Reprojection error with constant camera pose and per-axis 2D "
-        "detection noise.");
+  m.def(
+      "ReprojErrorCost",
+      &CreateCameraCostFunction<ScaleWeightedReprojErrorConstantPoseCostFunctor,
+                                double,
+                                const Eigen::Vector2d&,
+                                const Rigid3d&>,
+      "camera_model_id"_a,
+      "point2D_stddev"_a,
+      "point2D"_a,
+      "cam_from_world"_a,
+      "Reprojection error with constant camera pose and isotropic 2D "
+      "detection noise.");
+  m.def(
+      "ReprojErrorCost",
+      &CreateCameraCostFunction<ScaleWeightedReprojErrorConstantPoseCostFunctor,
+                                const Eigen::Vector2d&,
+                                const Eigen::Vector2d&,
+                                const Rigid3d&>,
+      "camera_model_id"_a,
+      "point2D_stddev"_a,
+      "point2D"_a,
+      "cam_from_world"_a,
+      "Reprojection error with constant camera pose and per-axis 2D "
+      "detection noise.");
 
   m.def("ReprojErrorCost",
         &CreateCameraCostFunction<ReprojErrorConstantPoint3DCostFunctor,
@@ -313,13 +313,13 @@ void BindCostFunctions(py::module& m_parent) {
       "position_in_world_prior"_a,
       "3-DoF error on the absolute camera pose's position with prior "
       "covariance.");
-  m.def("AbsolutePosePositionPriorCost",
-        ScaleCost<AbsolutePosePositionPriorCostFunctor,
-                  const Eigen::Vector3d&>(),
-        "position_stddev_in_world_prior"_a,
-        "position_in_world_prior"_a,
-        "3-DoF error on the absolute camera pose's position with isotropic "
-        "prior standard deviation.");
+  m.def(
+      "AbsolutePosePositionPriorCost",
+      ScaleCost<AbsolutePosePositionPriorCostFunctor, const Eigen::Vector3d&>(),
+      "position_stddev_in_world_prior"_a,
+      "position_in_world_prior"_a,
+      "3-DoF error on the absolute camera pose's position with isotropic "
+      "prior standard deviation.");
   m.def("AbsolutePosePositionPriorCost",
         ScaleVecCost<AbsolutePosePositionPriorCostFunctor,
                      const Eigen::Vector3d&>(),
@@ -373,13 +373,12 @@ void BindCostFunctions(py::module& m_parent) {
         "use_log_scale"_a = true,
         "Error between 3D points transformed by a 3D similarity transform, "
         "with an isotropic prior standard deviation.");
-  m.def("Point3DAlignmentCost",
-        ScaleVecCost<Point3DAlignmentCostFunctor,
-                     const Eigen::Vector3d&,
-                     bool>(),
-        "point_stddev_in_b_prior"_a,
-        "point_in_b_prior"_a,
-        "use_log_scale"_a = true,
-        "Error between 3D points transformed by a 3D similarity transform, "
-        "with per-axis prior standard deviations.");
+  m.def(
+      "Point3DAlignmentCost",
+      ScaleVecCost<Point3DAlignmentCostFunctor, const Eigen::Vector3d&, bool>(),
+      "point_stddev_in_b_prior"_a,
+      "point_in_b_prior"_a,
+      "use_log_scale"_a = true,
+      "Error between 3D points transformed by a 3D similarity transform, "
+      "with per-axis prior standard deviations.");
 }
