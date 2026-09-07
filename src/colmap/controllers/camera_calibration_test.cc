@@ -57,8 +57,14 @@ TEST(CreateCameraCalibrationControllerTest, MissingModelDoesNotThrow) {
   Database::Open(database_path);
   CameraCalibrationOptions options;
   options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
-  EXPECT_NO_THROW(
-      CreateCameraCalibrationController(database_path, test_dir, options));
+  std::unique_ptr<Thread> controller;
+  EXPECT_NO_THROW(controller = CreateCameraCalibrationController(
+                      database_path, test_dir, options));
+  // The calibrator is created in the worker thread, where an escaping
+  // exception would terminate the process instead of failing the stage.
+  ASSERT_NE(controller, nullptr);
+  controller->Start();
+  EXPECT_NO_THROW(controller->Wait());
 }
 
 // Full-controller integration test, run only when the exported model is
