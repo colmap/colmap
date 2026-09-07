@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/option_manager.h"
 
+#include "colmap/calibration/anycalib.h"
 #include "colmap/calibration/calibrator.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
@@ -243,17 +244,23 @@ void OptionManager::AddCameraCalibrationOptions() {
   AddDefaultOption("CameraCalibration.use_gpu", &camera_calibration->use_gpu);
   AddDefaultOption("CameraCalibration.gpu_index",
                    &camera_calibration->gpu_index);
+  AddDefaultOption("CameraCalibration.min_focal_length_ratio",
+                   &camera_calibration->min_focal_length_ratio);
+  AddDefaultOption("CameraCalibration.max_focal_length_ratio",
+                   &camera_calibration->max_focal_length_ratio);
+  AddDefaultOption("CameraCalibration.max_extra_param",
+                   &camera_calibration->max_extra_param);
   AddDefaultOption("CameraCalibration.anycalib_model_path",
-                   &camera_calibration->anycalib.model_path);
+                   &camera_calibration->anycalib->model_path);
   AddDefaultOption("CameraCalibration.max_num_iterations",
-                   &camera_calibration->anycalib.fitting.max_num_iterations);
+                   &camera_calibration->anycalib->fitting.max_num_iterations);
   AddDefaultOption("CameraCalibration.max_num_points",
-                   &camera_calibration->anycalib.fitting.max_num_points);
+                   &camera_calibration->anycalib->fitting.max_num_points);
   AddDefaultOption("CameraCalibration.max_fov_deg",
-                   &camera_calibration->anycalib.fitting.max_fov_deg);
+                   &camera_calibration->anycalib->fitting.max_fov_deg);
   AddDefaultOption(
       "CameraCalibration.prior_focal_length_weight",
-      &camera_calibration->anycalib.fitting.prior_focal_length_weight);
+      &camera_calibration->anycalib->fitting.prior_focal_length_weight);
 }
 
 void OptionManager::AddFeatureExtractionOptions() {

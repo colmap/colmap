@@ -95,7 +95,7 @@ def test_panorama_reconstruction_uses_library_api(
         feature="sift",
         mapper="global",
         uncalibrated=False,
-        calibration=False,
+        camera_calibration=False,
         filter_covisibility=True,
         covisibility_min_shared_points=5,
         random_seed=7,
@@ -148,7 +148,7 @@ def test_panorama_reconstruction_rejects_calibration(tmp_path: Path) -> None:
         feature="sift",
         mapper="global",
         uncalibrated=False,
-        calibration=True,
+        camera_calibration=True,
     )
 
     with pytest.raises(
@@ -173,7 +173,7 @@ def test_learned_calibration_disables_gt_camera_priors(
     )
     args = argparse.Namespace(
         uncalibrated=False,
-        calibration=True,
+        camera_calibration=True,
         filter_covisibility=False,
     )
 

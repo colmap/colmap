@@ -50,7 +50,6 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
-#include <optional>
 #include <utility>
 
 #include <Eigen/Dense>
@@ -466,28 +465,6 @@ bool RayFittingOptions::Check() const {
   CHECK_OPTION_LT(max_fov_deg, 180.0);
   CHECK_OPTION_GE(prior_focal_length_weight, 0.0);
   return true;
-}
-
-std::vector<double> ReverseScaleAndShiftParams(
-    CameraModelId model_id,
-    const std::vector<double>& params,
-    const Eigen::Vector2d& scale_xy,
-    const Eigen::Vector2d& shift_xy) {
-  THROW_CHECK(CameraModelVerifyParams(model_id, params));
-  std::vector<double> out = params;
-  const span<const size_t> focal_idxs = CameraModelFocalLengthIdxs(model_id);
-  const span<const size_t> pp_idxs = CameraModelPrincipalPointIdxs(model_id);
-  THROW_CHECK_EQ(pp_idxs.size(), 2);
-  if (focal_idxs.size() == 1) {
-    out[focal_idxs[0]] /= 0.5 * (scale_xy.x() + scale_xy.y());
-  } else {
-    THROW_CHECK_EQ(focal_idxs.size(), 2);
-    out[focal_idxs[0]] /= scale_xy.x();
-    out[focal_idxs[1]] /= scale_xy.y();
-  }
-  out[pp_idxs[0]] = (out[pp_idxs[0]] - shift_xy.x()) / scale_xy.x();
-  out[pp_idxs[1]] = (out[pp_idxs[1]] - shift_xy.y()) / scale_xy.y();
-  return out;
 }
 
 std::vector<size_t> StrideSubsampleIndices(size_t num_points,

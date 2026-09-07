@@ -204,7 +204,12 @@ void AutomaticReconstructionController::Setup() {
                                          *option_manager_.feature_extraction);
   }
 
-  if (options_.camera_calibration) {
+  if (options_.camera_calibration && !options_.camera_params.empty()) {
+    // Explicit intrinsics are written to the database by the image reader and
+    // must not be overwritten by the calibration.
+    LOG(WARNING) << "Skipping camera calibration, because explicit "
+                    "camera parameters were provided";
+  } else if (options_.camera_calibration) {
     CameraCalibrationOptions& calibration_options =
         *option_manager_.camera_calibration;
     calibration_options.camera_model = options_.camera_model;
@@ -263,7 +268,7 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
-  if (options_.camera_calibration) {
+  if (camera_calibrator_ != nullptr) {
     RunCameraCalibration();
   }
 

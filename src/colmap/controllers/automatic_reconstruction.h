@@ -89,7 +89,8 @@ class AutomaticReconstructionController : public Thread {
     bool extraction = true;
 
     // Whether to perform learned camera calibration after feature extraction,
-    // replacing EXIF-based intrinsics before matching and mapping.
+    // replacing EXIF-based intrinsics before matching and mapping. Ignored if
+    // explicit `camera_params` are provided, which always take precedence.
     bool camera_calibration = false;
 
     // Whether to perform feature matching.

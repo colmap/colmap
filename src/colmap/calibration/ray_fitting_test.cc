@@ -240,21 +240,6 @@ TEST(RayFittingDeathTest, RejectsNonPerspectiveModel) {
   EXPECT_FALSE(fitted.success);
 }
 
-TEST(ReverseScaleAndShiftParamsTest, InvertsDigitizingTransform) {
-  // 640x480 image center-cropped to 480-square and resized to 322.
-  const Eigen::Vector2d scale(322.0 / 480, 322.0 / 480);
-  const Eigen::Vector2d shift(-80 * 322.0 / 480, 0);
-  const std::vector<double> params322 = {300, 161, 161, 0.05};
-  const std::vector<double> params = ReverseScaleAndShiftParams(
-      CameraModelId::kSimpleRadial, params322, scale, shift);
-  ASSERT_EQ(params.size(), 4);
-  EXPECT_NEAR(params[0], 300 / scale.x(), 1e-9);
-  EXPECT_NEAR(params[1], (161 - shift.x()) / scale.x(), 1e-9);
-  EXPECT_NEAR(params[2], 161 / scale.y(), 1e-9);
-  // Distortion is scale-invariant.
-  EXPECT_EQ(params[3], 0.05);
-}
-
 TEST(StrideSubsampleIndicesTest, CoversBounds) {
   EXPECT_EQ(StrideSubsampleIndices(0, 100).size(), 0);
   const auto all = StrideSubsampleIndices(10, 100);

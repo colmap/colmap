@@ -45,11 +45,6 @@ namespace colmap {
 class CameraCalibrator;
 struct CameraCalibrationOptions;
 
-// Fixed square network input size: round(sqrt(102400) / 14) * 14, the square
-// training resolution of AnyCalib. See `scripts/anycalib/export_onnx.py` for
-// why dynamic input sizes are not supported.
-constexpr int kAnyCalibInputSize = 322;
-
 struct AnyCalibCalibrationOptions {
   // Path or download URI of the exported AnyCalib ONNX model.
   std::string model_path = kDefaultAnyCalibGenUri;
