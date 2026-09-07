@@ -122,6 +122,16 @@ class ObservationManager {
   // @return    The number of filtered observations.
   size_t FilterObservationsWithNegativeDepth();
 
+  // Find 3D points with insufficient triangulation angle.
+  //
+  // @param min_tri_angle    The minimum triangulation angle in degrees.
+  // @param point3D_ids      The points to be checked.
+  //
+  // @return                 The point identifiers with insufficient
+  //                         triangulation angle.
+  std::vector<point3D_t> FindPoints3DWithSmallTriangulationAngle(
+      double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids) const;
+
   size_t FilterPoints3DWithSmallTriangulationAngle(
       double min_tri_angle, const FlatHashSet<point3D_t>& point3D_ids);
 
@@ -190,6 +200,12 @@ class ObservationManager {
  private:
   friend std::ostream& operator<<(std::ostream& stream,
                                   const ObservationManager& obs_manager);
+
+  // Check if a single 3D point has a sufficient triangulation angle.
+  bool HasPoint3DSufficientTriangulationAngle(
+      point3D_t point3D_id,
+      double min_tri_angle_rad,
+      FlatHashMap<image_t, Eigen::Vector3d>& proj_centers) const;
 
   void SetObservationAsTriangulated(image_t image_id,
                                     point2D_t point2D_idx,

@@ -134,6 +134,21 @@ TEST(ObservationManager, FilterPoints3D) {
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
 }
 
+TEST(ObservationManager, FindPoints3DWithSmallTriangulationAngle) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, reconstruction);
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), Track());
+  reconstruction.AddObservation(point3D_id, TrackElement(1, 0));
+  reconstruction.AddObservation(point3D_id, TrackElement(2, 0));
+
+  ObservationManager obs_manager(reconstruction);
+  const auto point3D_ids = obs_manager.FindPoints3DWithSmallTriangulationAngle(
+      1e-3, FlatHashSet<point3D_t>{point3D_id});
+  EXPECT_EQ(point3D_ids, std::vector<point3D_t>{point3D_id});
+  EXPECT_TRUE(reconstruction.ExistsPoint3D(point3D_id));
+}
+
 TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
   Reconstruction reconstruction;
   const camera_t kCameraId = 1;

@@ -80,7 +80,7 @@ COLMAP_ADD_LIBRARY(
     PUBLIC_LINK_LIBS
         ${COLMAP_EXE_PUBLIC_LIBS}
     PRIVATE_LINK_LIBS
-        Boost::boost
+        ${COLMAP_BOOST_HEADER_LIBS}
         colmap_sfm
 )
 
@@ -121,7 +121,7 @@ COLMAP_ADD_EXECUTABLE(
         colmap_sfm
         colmap_util
         ${OPTIONAL_LIBS}
-        Boost::boost
+        ${COLMAP_BOOST_HEADER_LIBS}
 )
 if(HIP_ENABLED)
     target_link_libraries(colmap_main hip::host hip::hiprand roc::rocrand)

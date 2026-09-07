@@ -42,13 +42,11 @@ using PoseGraphEdgeMap =
 PYBIND11_MAKE_OPAQUE(PoseGraphEdgeMap);
 
 // Generic caster for non-opaque NodeHashMap returns (e.g.
-// CorrespondenceGraph::NumMatchesBetweenAllImages). Only needed for the BOOST
-// backend; for STD the alias is std::unordered_map, handled by pybind11. Kept
+// CorrespondenceGraph::NumMatchesBetweenAllImages). Kept
 // here next to the PYBIND11_MAKE_OPAQUE element-store aliases above so that the
 // opaque full specializations always take precedence over this partial one (the
 // flat casters, which never collide with opaque types, live in
 // pycolmap/pybind11_extension.h). Requires <pybind11/stl.h> for map_caster.
-#if defined(COLMAP_HASH_BOOST)
 namespace pybind11 {
 namespace detail {
 
@@ -58,4 +56,3 @@ struct type_caster<colmap::NodeHashMap<Key, Value, Hash, Equal>>
 
 }  // namespace detail
 }  // namespace pybind11
-#endif

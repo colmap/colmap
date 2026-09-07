@@ -162,16 +162,21 @@ Configure and compile COLMAP::
 
 .. note::
 
-    COLMAP can use ``boost::unordered`` flat/node hash maps for the
-    performance-critical scene and SfM containers, selected via
-    ``-DCOLMAP_HASH_MAP_BACKEND=BOOST|STD`` (default: auto). Auto selects
-    ``BOOST`` when Boost is recent enough (``boost::unordered_node_map`` requires
-    **Boost >= 1.84**) and falls back to ``STD`` (``std::unordered_map``)
-    otherwise. Ubuntu's default Boost is older than 1.84, so apt-based builds use
-    ``STD``; to use the faster ``BOOST`` backend, build against a newer Boost
-    (e.g. via vcpkg, which installs ``boost-unordered`` automatically) or install
-    Boost >= 1.84 manually. Explicitly requesting ``-DCOLMAP_HASH_MAP_BACKEND=BOOST``
-    with an older Boost is a configuration error.
+    COLMAP uses ``boost::unordered`` flat/node hash maps for the
+    performance-critical scene and SfM containers. These are data members of
+    classes in public headers, so their layout is part of COLMAP's ABI, and a
+    mismatch between two COLMAP builds loaded into one process produces no link
+    error, only memory corruption. There is therefore no build option to swap
+    them for ``std::unordered_*``.
+
+    ``boost::unordered_node_map`` requires **Boost >= 1.84**, which is newer than
+    the apt Boost on Ubuntu 24.04 (1.83) and earlier. Where the available Boost
+    is new enough it is used as it is and nothing is downloaded. Only where it
+    is too old does the build download a pinned Boost release (about 100 MB) and
+    build the libraries COLMAP uses from source, installing them alongside
+    COLMAP. Only Boost is taken from that copy, so its headers and compiled
+    libraries always match. Pass ``-DFETCH_BOOST=OFF`` to require a new enough
+    system Boost instead and fail at configure time if there is none.
 
 Run COLMAP::
 
