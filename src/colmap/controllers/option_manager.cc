@@ -251,6 +251,9 @@ void OptionManager::AddCameraCalibrationOptions() {
                    &camera_calibration->anycalib.fitting.max_num_points);
   AddDefaultOption("CameraCalibration.max_fov_deg",
                    &camera_calibration->anycalib.fitting.max_fov_deg);
+  AddDefaultOption(
+      "CameraCalibration.prior_focal_length_weight",
+      &camera_calibration->anycalib.fitting.prior_focal_length_weight);
 }
 
 void OptionManager::AddFeatureExtractionOptions() {

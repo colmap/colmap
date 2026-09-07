@@ -51,9 +51,11 @@
 #include <limits>
 #include <numeric>
 #include <optional>
+#include <utility>
 
 #include <Eigen/Dense>
 #include <ceres/ceres.h>
+#include <ceres/normal_prior.h>
 
 namespace colmap {
 namespace {
@@ -340,6 +342,7 @@ template <typename CameraModel>
 bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
                         const std::vector<Eigen::Vector3d>& cam_rays,
                         const RayFittingOptions& options,
+                        const std::vector<double>& prior_focal_lengths,
                         std::vector<double>* params,
                         double* initial_cost,
                         double* final_cost) {
@@ -379,6 +382,26 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
     return false;
   }
 
+  if (!prior_focal_lengths.empty() && options.prior_focal_length_weight > 0.0) {
+    THROW_CHECK_EQ(prior_focal_lengths.size(),
+                   CameraModel::focal_length_idxs.size());
+    ceres::Matrix stiffness = ceres::Matrix::Zero(prior_focal_lengths.size(),
+                                                  CameraModel::num_params);
+    ceres::Vector prior = Eigen::Map<const Eigen::VectorXd>(
+        params->data(), CameraModel::num_params);
+    const double scale = std::sqrt(options.prior_focal_length_weight *
+                                   num_residuals / prior_focal_lengths.size());
+    for (size_t i = 0; i < prior_focal_lengths.size(); ++i) {
+      const size_t idx = CameraModel::focal_length_idxs[i];
+      stiffness(i, idx) = scale;
+      prior[idx] = prior_focal_lengths[i];
+    }
+    problem.AddResidualBlock(
+        new ceres::NormalPrior(stiffness, std::move(prior)),
+        /*loss_function=*/nullptr,
+        params->data());
+  }
+
   for (const size_t idx : CameraModel::focal_length_idxs) {
     problem.SetParameterLowerBound(
         params->data(), idx, std::numeric_limits<double>::epsilon());
@@ -401,8 +424,9 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
 
-  // Report mean squared pixel residuals (Ceres costs are halved sums of
-  // squares).
+  // Report the mean squared objective (Ceres costs are halved sums of
+  // squares). The focal prior is scaled by `num_residuals`, so its relative
+  // contribution is independent of correspondence subsampling.
   *initial_cost = 2 * summary.initial_cost / num_residuals;
   *final_cost = 2 * summary.final_cost / num_residuals;
   // Keep the refinement unless it made the cost worse. Ceres only accepts
@@ -440,6 +464,7 @@ bool RayFittingOptions::Check() const {
   CHECK_OPTION_GT(max_num_points, 0);
   CHECK_OPTION_GT(max_fov_deg, 0.0);
   CHECK_OPTION_LT(max_fov_deg, 180.0);
+  CHECK_OPTION_GE(prior_focal_length_weight, 0.0);
   return true;
 }
 
@@ -485,7 +510,8 @@ std::vector<size_t> StrideSubsampleIndices(size_t num_points,
 FittedCamera FitCameraFromRays(CameraModelId model_id,
                                const std::vector<Eigen::Vector2d>& img_points,
                                const std::vector<Eigen::Vector3d>& cam_rays,
-                               const RayFittingOptions& options) {
+                               const RayFittingOptions& options,
+                               const std::vector<double>& prior_focal_lengths) {
   FittedCamera result;
   THROW_CHECK(options.Check());
   if (img_points.empty() || img_points.size() != cam_rays.size()) {
@@ -493,6 +519,16 @@ FittedCamera FitCameraFromRays(CameraModelId model_id,
   }
   if (!CameraModelIsPerspective(model_id)) {
     LOG(ERROR) << "Ray fitting only supports perspective camera models";
+    return result;
+  }
+  if (!prior_focal_lengths.empty() &&
+      (prior_focal_lengths.size() !=
+           CameraModelFocalLengthIdxs(model_id).size() ||
+       !std::all_of(prior_focal_lengths.begin(),
+                    prior_focal_lengths.end(),
+                    [](const double focal_length) {
+                      return std::isfinite(focal_length) && focal_length > 0.0;
+                    }))) {
     return result;
   }
 
@@ -524,6 +560,7 @@ FittedCamera FitCameraFromRays(CameraModelId model_id,
     refined = RefineCameraParams<Model>(sampled_img_points,   \
                                         sampled_cam_rays,     \
                                         options,              \
+                                        prior_focal_lengths,  \
                                         &params,              \
                                         &result.initial_cost, \
                                         &result.final_cost);  \

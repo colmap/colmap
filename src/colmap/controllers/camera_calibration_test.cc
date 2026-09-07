@@ -71,6 +71,7 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
     camera.width = 64;
     camera.height = 48;
     camera.params = initial_params;
+    camera.has_prior_focal_length = true;
     const camera_t camera_id = database->WriteCamera(camera);
     for (int i = 0; i < 2; ++i) {
       Bitmap bitmap(64, 48, /*as_rgb=*/true);
@@ -99,6 +100,11 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
   Bitmap selected_bitmap;
   ASSERT_TRUE(selected_bitmap.Read(test_dir / "image0.png", /*as_rgb=*/true));
   Camera expected_camera;
+  expected_camera.model_id = CameraModelId::kSimpleRadial;
+  expected_camera.width = 64;
+  expected_camera.height = 48;
+  expected_camera.params = initial_params;
+  expected_camera.has_prior_focal_length = true;
   const bool expected_success = CameraCalibrator::Create(options)->Calibrate(
       selected_bitmap, &expected_camera);
 
