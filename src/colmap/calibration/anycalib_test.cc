@@ -121,13 +121,13 @@ TEST(PrepareAnyCalibInputTest, GravityRotationMapsBackToOriginal) {
 
 TEST(CreateAnyCalibCalibratorTest, EmptyModelPathThrows) {
   CameraCalibrationOptions options;
-  options.anycalib.model_path = "";
+  options.anycalib->model_path = "";
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
 TEST(CreateAnyCalibCalibratorTest, MissingModelFileThrows) {
   CameraCalibrationOptions options;
-  options.anycalib.model_path = "/nonexistent/anycalib_gen.onnx";
+  options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
@@ -150,7 +150,7 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
   }
   CameraCalibrationOptions options;
   options.use_gpu = false;
-  options.anycalib.model_path = model_path;
+  options.anycalib->model_path = model_path;
   auto calibrator = CameraCalibrator::Create(options);
   Camera camera;
   // Random noise is not expected to calibrate; the test only checks that

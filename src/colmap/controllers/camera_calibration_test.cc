@@ -29,6 +29,7 @@
 
 #include "colmap/controllers/camera_calibration.h"
 
+#include "colmap/calibration/anycalib.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/testing.h"
@@ -40,15 +41,24 @@
 namespace colmap {
 namespace {
 
-TEST(CreateCameraCalibrationControllerTest, MissingModelThrows) {
+// NOTE: The controller creates its calibrator lazily when it runs, mirroring
+// the feature extraction and matching controllers, so that the network is not
+// held in device memory during preceding pipeline stages. A missing model
+// therefore surfaces when creating the calibrator, not the controller.
+TEST(CameraCalibratorTest, MissingModelThrows) {
+  CameraCalibrationOptions options;
+  options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
+  EXPECT_THROW(CameraCalibrator::Create(options), std::exception);
+}
+
+TEST(CreateCameraCalibrationControllerTest, MissingModelDoesNotThrow) {
   const auto test_dir = CreateTestDir();
   const auto database_path = test_dir / "database.db";
   Database::Open(database_path);
   CameraCalibrationOptions options;
-  options.anycalib.model_path = "/nonexistent/anycalib_gen.onnx";
-  EXPECT_THROW(
-      CreateCameraCalibrationController(database_path, test_dir, options),
-      std::exception);
+  options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
+  EXPECT_NO_THROW(
+      CreateCameraCalibrationController(database_path, test_dir, options));
 }
 
 // Full-controller integration test, run only when the exported model is
@@ -96,7 +106,7 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
   CameraCalibrationOptions options;
   options.num_threads = 1;
   options.use_gpu = false;
-  options.anycalib.model_path = model_path;
+  options.anycalib->model_path = model_path;
   Bitmap selected_bitmap;
   ASSERT_TRUE(selected_bitmap.Read(test_dir / "image0.png", /*as_rgb=*/true));
   Camera expected_camera;

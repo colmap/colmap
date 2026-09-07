@@ -40,6 +40,11 @@
 namespace colmap {
 namespace {
 
+// Fixed square network input size: round(sqrt(102400) / 14) * 14, the square
+// training resolution of AnyCalib. See `scripts/anycalib/export_onnx.py` for
+// why dynamic input sizes are not supported.
+constexpr int kAnyCalibInputSize = 322;
+
 // Separate fixed landscape and portrait exports preserve more image content,
 // but the landscape export consistently reduced reconstruction AUC relative
 // to this square model on ETH3D DSLR. That dataset did not exercise the
@@ -73,7 +78,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
  public:
   explicit AnyCalibCalibrator(const CameraCalibrationOptions& options)
       : options_(options),
-        model_(options.anycalib.model_path,
+        model_(options.anycalib->model_path,
                options.num_threads,
                options.use_gpu,
                options.gpu_index) {
@@ -143,7 +148,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
     }
 
     std::vector<double> prior_focal_lengths;
-    if (options_.anycalib.fitting.prior_focal_length_weight > 0.0 &&
+    if (options_.anycalib->fitting.prior_focal_length_weight > 0.0 &&
         camera->has_prior_focal_length && camera->IsPerspective()) {
       if (CameraModelFocalLengthIdxs(model_id).size() == 1) {
         prior_focal_lengths.push_back(camera->MeanFocalLength());
@@ -155,7 +160,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
     const FittedCamera fitted = FitCameraFromRays(model_id,
                                                   img_points,
                                                   cam_rays,
-                                                  options_.anycalib.fitting,
+                                                  options_.anycalib->fitting,
                                                   prior_focal_lengths);
     if (!fitted.success) {
       return false;
@@ -178,6 +183,15 @@ class AnyCalibCalibrator : public CameraCalibrator {
           calibrated.params[idx] <= 0) {
         return false;
       }
+    }
+    // Reject implausible predictions, which are numerically well behaved but
+    // far from the true intrinsics. NOTE: this is only checked per image,
+    // because the coefficient-wise median of calibrations that all satisfy
+    // these per-coefficient bounds satisfies them as well.
+    if (calibrated.HasBogusParams(options_.min_focal_length_ratio,
+                                  options_.max_focal_length_ratio,
+                                  options_.max_extra_param)) {
+      return false;
     }
     *camera = calibrated;
     return true;

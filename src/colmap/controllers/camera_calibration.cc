@@ -52,8 +52,6 @@ class CameraCalibrationController : public Thread {
         database_(Database::Open(database_path)) {
     THROW_CHECK(calibration_options_.Check());
     THROW_CHECK_DIR_EXISTS(image_path_);
-    // Create the calibrator eagerly to fail fast on missing models.
-    calibrator_ = CameraCalibrator::Create(calibration_options_);
   }
 
  private:
@@ -61,6 +59,13 @@ class CameraCalibrationController : public Thread {
     LOG_HEADING1("Camera calibration");
     Timer run_timer;
     run_timer.Start();
+
+    // NOTE: The calibrator is created lazily, because it loads a large network
+    // onto the device. Creating it in the constructor would hold that memory
+    // for the entire duration of any preceding pipeline stage (e.g. feature
+    // extraction in the automatic reconstruction pipeline).
+    const std::unique_ptr<CameraCalibrator> calibrator =
+        CameraCalibrator::Create(calibration_options_);
 
     std::vector<Image> images = database_->ReadAllImages();
     if (!image_names_.empty()) {
@@ -114,6 +119,23 @@ class CameraCalibrationController : public Thread {
       const auto camera_it = cameras.find(image.CameraId());
       THROW_CHECK(camera_it != cameras.end())
           << "Image references missing camera " << image.CameraId();
+      // The fitted intrinsics live in the pixel frame of the bitmap, while
+      // only the parameters (not the dimensions) are written back to the
+      // database camera. Mismatching dimensions would therefore silently
+      // store focal length and principal point at the wrong scale.
+      if (bitmap.Width() != static_cast<int>(camera_it->second.width) ||
+          bitmap.Height() != static_cast<int>(camera_it->second.height)) {
+        LOG(WARNING) << StringPrintf(
+            "  Image dimensions %d x %d do not match camera #%d dimensions "
+            "%d x %d, skipping",
+            bitmap.Width(),
+            bitmap.Height(),
+            camera_it->second.camera_id,
+            static_cast<int>(camera_it->second.width),
+            static_cast<int>(camera_it->second.height));
+        ++num_failed;
+        continue;
+      }
       Camera calibrated = camera_it->second;
       const auto pose_prior_it = pose_priors.find(image.ImageId());
       const PosePrior pose_prior = pose_prior_it == pose_priors.end()
@@ -122,7 +144,7 @@ class CameraCalibrationController : public Thread {
       bool success = false;
       std::string failure_message;
       try {
-        success = calibrator_->Calibrate(bitmap, &calibrated, pose_prior);
+        success = calibrator->Calibrate(bitmap, &calibrated, pose_prior);
       } catch (const std::exception& e) {
         failure_message = e.what();
       }
@@ -152,10 +174,11 @@ class CameraCalibrationController : public Thread {
       auto it = cameras.find(camera_id);
       THROW_CHECK(it != cameras.end())
           << "Image references missing camera " << camera_id;
-      Camera& camera = it->second;
+      // The model must be set before aggregating, so that the aggregate can be
+      // validated against it.
+      Camera camera = it->second;
+      camera.model_id = CameraModelNameToId(calibration_options_.camera_model);
       if (AggregateCameraCalibrations(params_list, &camera)) {
-        camera.model_id =
-            CameraModelNameToId(calibration_options_.camera_model);
         database_->UpdateCamera(camera);
         ++num_cameras_updated;
         VLOG(1) << "Updated camera " << camera_id << ": "
@@ -182,7 +205,6 @@ class CameraCalibrationController : public Thread {
   const CameraCalibrationOptions calibration_options_;
   const FlatHashSet<std::string> image_names_;
   std::shared_ptr<Database> database_;
-  std::unique_ptr<CameraCalibrator> calibrator_;
 };
 
 }  // namespace

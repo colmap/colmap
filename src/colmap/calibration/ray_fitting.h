@@ -31,6 +31,7 @@
 
 #include "colmap/sensor/models.h"
 
+#include <limits>
 #include <vector>
 
 #include <Eigen/Core>
@@ -92,16 +93,6 @@ FittedCamera FitCameraFromRays(
     const std::vector<Eigen::Vector3d>& cam_rays,
     const RayFittingOptions& options,
     const std::vector<double>& prior_focal_lengths = {});
-
-// Map fitted parameters from a resampled frame back to the original image,
-// inverting `f' = s * f`, `c' = s * c + t` for focal lengths and principal
-// point. Distortion parameters are scale-invariant and left untouched.
-// Matches `BaseCamera.reverse_scale_and_shift` in AnyCalib.
-std::vector<double> ReverseScaleAndShiftParams(
-    CameraModelId model_id,
-    const std::vector<double>& params,
-    const Eigen::Vector2d& scale_xy,
-    const Eigen::Vector2d& shift_xy);
 
 // Uniform stride indices subsampling `num_points` to at most `max_num_points`.
 std::vector<size_t> StrideSubsampleIndices(size_t num_points,

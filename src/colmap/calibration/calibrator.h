@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/calibration/anycalib.h"
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/bitmap.h"
@@ -41,17 +40,40 @@
 
 namespace colmap {
 
+struct AnyCalibCalibrationOptions;
+
 // Backend for learned single-image camera calibration. Additional backends
 // (e.g. GeoCalib) plug in here without changing the pipeline or CLI.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraCalibratorType, 0, ANYCALIB);
 
 // Aggregate per-image fitted parameters into a single camera by taking the
-// coefficient-wise median. Sets `has_prior_focal_length` on success. Returns
-// false if `params_list` is empty, leaving `camera` unmodified.
+// coefficient-wise median. Because the median of individually valid
+// calibrations is not itself guaranteed to be valid, the aggregate is
+// re-validated and, if it fails, replaced by the single-image calibration
+// closest to it. Sets `has_prior_focal_length` on success. Returns false if
+// `params_list` is empty or no valid calibration is found, leaving `camera`
+// unmodified. The model and dimensions of `camera` must already be those of
+// the calibrations in `params_list`.
 bool AggregateCameraCalibrations(
     const std::vector<std::vector<double>>& params_list, Camera* camera);
 
-struct CameraCalibrationOptions {
+struct CameraCalibrationTypeOptions {
+  explicit CameraCalibrationTypeOptions();
+
+  std::shared_ptr<AnyCalibCalibrationOptions> anycalib;
+
+  CameraCalibrationTypeOptions(const CameraCalibrationTypeOptions& other);
+  CameraCalibrationTypeOptions& operator=(
+      const CameraCalibrationTypeOptions& other);
+  CameraCalibrationTypeOptions(CameraCalibrationTypeOptions&& other) = default;
+  CameraCalibrationTypeOptions& operator=(
+      CameraCalibrationTypeOptions&& other) = default;
+};
+
+struct CameraCalibrationOptions : public CameraCalibrationTypeOptions {
+  explicit CameraCalibrationOptions(
+      CameraCalibratorType type = CameraCalibratorType::ANYCALIB);
+
   CameraCalibratorType type = CameraCalibratorType::ANYCALIB;
 
   // Target COLMAP camera model for the fitted intrinsics. Any perspective
@@ -71,7 +93,19 @@ struct CameraCalibrationOptions {
   // Index of the GPU used for inference. Only a single GPU is supported.
   std::string gpu_index = "-1";
 
-  AnyCalibCalibrationOptions anycalib;
+  // Plausibility bounds on the calibrated intrinsics, matching the defaults of
+  // the incremental mapper. A learned prediction can be perfectly
+  // self-consistent and still be far off, in which case the existing (e.g.
+  // EXIF) intrinsics are kept instead. Focal length ratios are relative to the
+  // maximum image dimension and correspond to opening angles of ~130 and ~5
+  // degrees.
+  double min_focal_length_ratio = 0.1;
+  double max_focal_length_ratio = 10.0;
+  // Maximum absolute value of any distortion parameter. NOTE: this is a single
+  // bound for all coefficients of the target model, so high-order models with
+  // legitimately large coefficients (e.g. the rational denominator terms k4,
+  // k5, k6 of FULL_OPENCV) may require a larger value.
+  double max_extra_param = 1.0;
 
   bool Check() const;
 };
