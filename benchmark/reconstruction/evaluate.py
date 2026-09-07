@@ -150,8 +150,15 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "use_gpu": args.use_gpu,
         "uncalibrated": args.uncalibrated,
         "calibration": args.calibration,
-        "calibration_model_path": str(args.calibration_model_path)
-        if args.calibration_model_path is not None
+        "calibration_landscape_model_path": str(
+            args.calibration_landscape_model_path
+        )
+        if args.calibration_landscape_model_path is not None
+        else None,
+        "calibration_portrait_model_path": str(
+            args.calibration_portrait_model_path
+        )
+        if args.calibration_portrait_model_path is not None
         else None,
     }
     if any(name.startswith("tartanair-v2-") for name in args.datasets):

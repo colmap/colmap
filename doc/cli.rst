@@ -48,7 +48,10 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap camera_calibrator \
        --database_path $DATASET_PATH/database.db \
        --image_path $DATASET_PATH/images \
-       --CameraCalibration.anycalib_model_path /path/to/anycalib_gen.onnx
+       --CameraCalibration.anycalib_landscape_model_path \
+         /path/to/anycalib_gen_landscape.onnx \
+       --CameraCalibration.anycalib_portrait_model_path \
+         /path/to/anycalib_gen_portrait.onnx
 
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db

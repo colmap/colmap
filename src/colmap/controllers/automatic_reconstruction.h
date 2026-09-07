@@ -96,8 +96,9 @@ class AutomaticReconstructionController : public Thread {
     // The calibration backend to use.
     CameraCalibratorType calibrator = CameraCalibratorType::ANYCALIB;
 
-    // Path or download URI of the calibration model.
-    std::string calibration_model_path;
+    // Paths or download URIs of the landscape and portrait calibration models.
+    std::string calibration_landscape_model_path;
+    std::string calibration_portrait_model_path;
 
     // Whether to perform feature matching.
     bool matching = true;

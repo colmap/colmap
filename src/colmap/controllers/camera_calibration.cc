@@ -80,6 +80,14 @@ class CameraCalibrationController : public Thread {
     for (const Camera& camera : database_->ReadAllCameras()) {
       cameras[camera.camera_id] = camera;
     }
+    FlatHashMap<image_t, PosePrior> pose_priors;
+    for (PosePrior& pose_prior : database_->ReadAllPosePriors()) {
+      if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {
+        const image_t image_id = pose_prior.corr_data_id.id;
+        THROW_CHECK(pose_priors.emplace(image_id, std::move(pose_prior)).second)
+            << "Duplicate pose prior for image " << image_id;
+      }
+    }
 
     // Calibrate each image; group fitted parameters by camera.
     FlatHashMap<camera_t, std::vector<std::vector<double>>> params_per_camera;
@@ -107,10 +115,14 @@ class CameraCalibrationController : public Thread {
       THROW_CHECK(camera_it != cameras.end())
           << "Image references missing camera " << image.CameraId();
       Camera calibrated = camera_it->second;
+      const auto pose_prior_it = pose_priors.find(image.ImageId());
+      const PosePrior pose_prior = pose_prior_it == pose_priors.end()
+                                       ? PosePrior()
+                                       : pose_prior_it->second;
       bool success = false;
       std::string failure_message;
       try {
-        success = calibrator_->Calibrate(bitmap, &calibrated);
+        success = calibrator_->Calibrate(bitmap, &calibrated, pose_prior);
       } catch (const std::exception& e) {
         failure_message = e.what();
       }

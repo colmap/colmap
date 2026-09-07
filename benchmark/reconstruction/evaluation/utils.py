@@ -500,11 +500,18 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "and mapping.",
     )
     parser.add_argument(
-        "--calibration_model_path",
+        "--calibration_landscape_model_path",
         type=Path,
         default=None,
-        help="Path to the calibration model (e.g. anycalib_gen.onnx). "
-        "Required when --calibration is set.",
+        help="Path to the landscape calibration model. Required when "
+        "--calibration is set.",
+    )
+    parser.add_argument(
+        "--calibration_portrait_model_path",
+        type=Path,
+        default=None,
+        help="Path to the portrait calibration model. Required when "
+        "--calibration is set.",
     )
     parser.add_argument(
         "--filter_covisibility",
@@ -586,8 +593,14 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     args.seed_flag = "--seeds" if args.seeds is not None else "--random_seed"
     if args.fast and args.fast_num_scenes <= 0:
         parser.error("--fast_num_scenes must be > 0 when --fast is set")
-    if args.calibration and args.calibration_model_path is None:
-        parser.error("--calibration requires --calibration_model_path")
+    if args.calibration and (
+        args.calibration_landscape_model_path is None
+        or args.calibration_portrait_model_path is None
+    ):
+        parser.error(
+            "--calibration requires --calibration_landscape_model_path and "
+            "--calibration_portrait_model_path"
+        )
     if args.progress is None:
         args.progress = sys.stdout.isatty()
     if args.num_threads <= 0:
@@ -740,8 +753,10 @@ def colmap_reconstruction(
         extraction_args += [
             "--calibration",
             "1",
-            "--calibration_model_path",
-            args.calibration_model_path,
+            "--calibration_landscape_model_path",
+            args.calibration_landscape_model_path,
+            "--calibration_portrait_model_path",
+            args.calibration_portrait_model_path,
         ]
 
     phase_tracker.set("extraction")

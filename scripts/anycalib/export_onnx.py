@@ -13,29 +13,23 @@ from a single image in two stages:
 This script exports stage 1 to ONNX. Stage 2 is ported to C++ in
 ``src/colmap/calibration`` and consumes the exported model's outputs.
 
-The exported model maps::
+The script exports two fixed-shape models::
 
-    image : (1, 3, 322, 322), RGB in [0, 1]
-      -> rays           : (1, 322*322, 3) unit camera-ray vectors (x right,
+    landscape image : (1, 3, 266, 392), RGB in [0, 1]
+    portrait image  : (1, 3, 392, 266), RGB in [0, 1]
+      -> rays           : (1, H*W, 3) unit camera-ray vectors (x right,
                            y down, z forward), matching ``AnyCalib.forward``.
-      -> tangent_coords : (1, 322*322, 2) FoV field in the tangent plane at
+      -> tangent_coords : (1, H*W, 2) FoV field in the tangent plane at
                            (0, 0, 1).
 
 ImageNet normalization is part of the exported graph (DINOv2 wrapper buffers),
 so callers must feed plain RGB in [0, 1], exactly like the PyTorch model.
 
-The input size is fixed to 322x322 (the square training resolution
-``round(sqrt(102400) / 14) * 14``). Upstream AnyCalib supports aspect ratios in
-[0.5, 2] via dynamic resampling of the DINOv2 positional embeddings, but that
-resampling bakes the input size into the graph under both the legacy tracer
-and torch.export (the ``float(w0 + 0.1)`` scale factors specialize to
-constants; forcing the explicit-size branch deviates from upstream by ~8e-3).
-A fixed square input keeps the graph static -- maximizing execution-provider
-compatibility -- at the cost of center-cropping non-square images to square in
-preprocessing, mirroring ``AnyCalib.set_im_size`` with target AR 1. Square
-inputs are in-distribution for the network. If full aspect-ratio support is
-needed later, the fallback is a two-input export taking a precomputed,
-bicubic-resampled positional embedding alongside the image.
+Both input shapes are static for execution-provider compatibility. Their
+dimensions are divisible by the DINOv2 patch size (14) and are close to the
+102400-pixel AnyCalib training resolution. COLMAP rotates an image upright
+from its gravity prior, then chooses the closer aspect ratio and center-crops
+to that model's aspect ratio.
 
 Requirements: torch (CPU is fine, *without* xformers so attention traces to
 plain matmul+softmax), onnx, onnxruntime, pillow, numpy. Example::
@@ -106,7 +100,13 @@ def parse_args() -> argparse.Namespace:
         help="Optional local .pt weights file (else downloaded from GitHub).",
     )
     parser.add_argument(
-        "--output", type=Path, required=True, help="Output .onnx path."
+        "--output",
+        type=Path,
+        required=True,
+        help=(
+            "Output .onnx base path. The script appends _landscape and "
+            "_portrait to its stem."
+        ),
     )
     parser.add_argument(
         "--opset", type=int, default=17, help="ONNX opset version."
@@ -162,99 +162,96 @@ def main() -> None:
 
     module = AnyCalibFeedForward(model).eval()
 
-    # 322 = round(sqrt(102400) / 14) * 14: square training resolution.
-    dummy = torch.rand(1, 3, 322, 322)
-    with torch.inference_mode():
-        ref_rays, ref_tangent = module(dummy)
-
-    _ = ref_rays, ref_tangent  # recomputed in the parity check below
-
-    print(f"Exporting to {args.output} (opset {args.opset}) ...")
-    torch.onnx.export(
-        module,
-        (dummy,),
-        args.output,
-        input_names=["image"],
-        output_names=["rays", "tangent_coords"],
-        opset_version=args.opset,
-        dynamo=True,
-    )
-
     import onnx
-    from onnx import TensorProto
-
-    # dynamo export stores weights in a ``.onnx.data`` sidecar; merge them into
-    # a single self-contained file, the format COLMAP loads.
-    model = onnx.load(args.output)
-    for init in model.graph.initializer:
-        if (
-            init.HasField("data_location")
-            and init.data_location == TensorProto.EXTERNAL
-        ):
-            init.ClearField("external_data")
-            init.data_location = TensorProto.DEFAULT
-    onnx.save_model(model, args.output)
-    # onnx appends ".data" to the full file name (model.onnx.data).
-    sidecar = args.output.with_name(args.output.name + ".data")
-    if sidecar.exists():
-        sidecar.unlink()
-    onnx.checker.check_model(onnx.load(args.output, load_external_data=False))
-    print("ONNX checker passed (single file).")
-
-    # Parity check: ONNX Runtime vs torch on dummy input and test image sizes.
     import onnxruntime as ort
+    from onnx import TensorProto
     from PIL import Image
 
-    session = ort.InferenceSession(
-        args.output, providers=["CPUExecutionProvider"]
-    )
-    assert [i.name for i in session.get_inputs()] == ["image"]
-    assert [o.name for o in session.get_outputs()] == [
-        "rays",
-        "tangent_coords",
-    ]
-
-    def prepare(im: Image.Image, size: tuple[int, int]) -> np.ndarray:
-        arr = np.array(im.convert("RGB")).astype(np.float32) / 255.0
-        if arr.shape[:2] != size:
-            tmp = Image.fromarray((arr * 255).astype(np.uint8))
-            arr = (
-                np.array(tmp.resize((size[1], size[0]), Image.BICUBIC)).astype(
-                    np.float32
-                )
-                / 255.0
+    def prepare(im: Image.Image, height: int, width: int) -> np.ndarray:
+        im = im.convert("RGB")
+        if im.height < height or im.width < width:
+            scale = max(height / im.height, width / im.width)
+            im = im.resize(
+                (int(im.width * scale), int(im.height * scale)),
+                Image.Resampling.BICUBIC,
             )
-        return arr.transpose(2, 0, 1)[None].astype(np.float32)
+        target_aspect = width / height
+        image_aspect = im.width / im.height
+        if image_aspect > target_aspect:
+            crop_width = int(im.height * target_aspect + 0.5)
+            left = (im.width - crop_width) // 2
+            im = im.crop((left, 0, left + crop_width, im.height))
+        else:
+            crop_height = int(im.width / target_aspect + 0.5)
+            top = (im.height - crop_height) // 2
+            im = im.crop((0, top, im.width, top + crop_height))
+        im = im.resize((width, height), Image.Resampling.BICUBIC)
+        arr = np.asarray(im, dtype=np.float32) / 255.0
+        return arr.transpose(2, 0, 1)[None]
 
-    test_inputs = {"dummy-322x322": dummy.numpy()}
-    if args.test_image is not None:
-        # Center-crop to square, mirroring the COLMAP preprocessing, so the
-        # parity check covers a realistic input.
-        im = Image.open(args.test_image).convert("RGB")
-        side = min(im.size)
-        left = (im.size[0] - side) // 2
-        top = (im.size[1] - side) // 2
-        test_inputs["img-322x322"] = prepare(
-            im.crop((left, top, left + side, top + side)), (322, 322)
+    sizes = {"landscape": (266, 392), "portrait": (392, 266)}
+    for orientation, (height, width) in sizes.items():
+        output = args.output.with_name(
+            f"{args.output.stem}_{orientation}{args.output.suffix}"
+        )
+        dummy = torch.rand(1, 3, height, width)
+        print(f"Exporting to {output} (opset {args.opset}) ...")
+        torch.onnx.export(
+            module,
+            (dummy,),
+            output,
+            input_names=["image"],
+            output_names=["rays", "tangent_coords"],
+            opset_version=args.opset,
+            dynamo=True,
         )
 
-    with torch.inference_mode():
-        for name, inp in test_inputs.items():
-            torch_rays, torch_tangent = module(torch.from_numpy(inp))
-            ort_rays, ort_tangent = session.run(None, {"image": inp})
-            rays_diff = float(np.abs(torch_rays.numpy() - ort_rays).max())
-            tangent_diff = float(
-                np.abs(torch_tangent.numpy() - ort_tangent).max()
-            )
-            print(
-                f"{name}: max|torch - onnx| rays={rays_diff:.3e} "
-                f"tangent={tangent_diff:.3e}"
-            )
-            if max(rays_diff, tangent_diff) > args.parity_tol:
-                raise RuntimeError(f"Parity check failed for {name}")
+        # dynamo export stores weights in a ``.onnx.data`` sidecar; merge them
+        # into a single self-contained file, the format COLMAP loads.
+        onnx_model = onnx.load(output)
+        for init in onnx_model.graph.initializer:
+            if (
+                init.HasField("data_location")
+                and init.data_location == TensorProto.EXTERNAL
+            ):
+                init.ClearField("external_data")
+                init.data_location = TensorProto.DEFAULT
+        onnx.save_model(onnx_model, output)
+        sidecar = output.with_name(output.name + ".data")
+        if sidecar.exists():
+            sidecar.unlink()
+        onnx.checker.check_model(onnx.load(output, load_external_data=False))
 
-    print("Parity check passed.")
-    print(f"Done: {args.output}")
+        session = ort.InferenceSession(
+            output, providers=["CPUExecutionProvider"]
+        )
+        assert [i.name for i in session.get_inputs()] == ["image"]
+        assert [o.name for o in session.get_outputs()] == [
+            "rays",
+            "tangent_coords",
+        ]
+        test_inputs = {f"dummy-{width}x{height}": dummy.numpy()}
+        if args.test_image is not None:
+            test_inputs[f"image-{width}x{height}"] = prepare(
+                Image.open(args.test_image), height, width
+            )
+        with torch.inference_mode():
+            for name, inp in test_inputs.items():
+                torch_rays, torch_tangent = module(torch.from_numpy(inp))
+                ort_rays, ort_tangent = session.run(None, {"image": inp})
+                rays_diff = float(np.abs(torch_rays.numpy() - ort_rays).max())
+                tangent_diff = float(
+                    np.abs(torch_tangent.numpy() - ort_tangent).max()
+                )
+                print(
+                    f"{name}: max|torch - onnx| rays={rays_diff:.3e} "
+                    f"tangent={tangent_diff:.3e}"
+                )
+                if max(rays_diff, tangent_diff) > args.parity_tol:
+                    raise RuntimeError(f"Parity check failed for {name}")
+        print(f"Checked: {output}")
+
+    print("Parity checks passed.")
 
 
 if __name__ == "__main__":
