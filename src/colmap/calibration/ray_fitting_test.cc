@@ -31,6 +31,8 @@
 
 #include "colmap/scene/camera.h"
 
+#include <algorithm>
+#include <cmath>
 #include <unordered_set>
 
 #include <gtest/gtest.h>
@@ -91,6 +93,10 @@ TEST_P(RayFittingTest, RoundTripRecoversParameters) {
       FitCameraFromRays(model_id, img_points, cam_rays, options);
   ASSERT_TRUE(fitted.success);
   ASSERT_EQ(fitted.params.size(), test_case.params.size());
+  EXPECT_TRUE(std::all_of(
+      fitted.params.begin(), fitted.params.end(), [](const double param) {
+        return std::isfinite(param);
+      }));
   EXPECT_LT(fitted.final_cost, fitted.initial_cost);
   EXPECT_LT(fitted.final_cost, 1e-10);
   const span<const size_t> extra_idxs = CameraModelExtraParamsIdxs(model_id);
@@ -109,6 +115,30 @@ TEST_P(RayFittingTest, RoundTripRecoversParameters) {
     EXPECT_LT((projected.value() - img_points[i]).norm(), 1e-3)
         << "projection mismatch for " << test_case.model_name;
   }
+}
+
+TEST(RayFittingTest, EUCMConstraintsHoldForMismatchedRays) {
+  Camera source_camera;
+  source_camera.model_id = CameraModelId::kFOV;
+  source_camera.width = 64;
+  source_camera.height = 64;
+  source_camera.params = {60, 61, 31, 33, 0.7};
+
+  std::vector<Eigen::Vector2d> img_points;
+  std::vector<Eigen::Vector3d> cam_rays;
+  SynthesizeCorrespondences(source_camera,
+                            source_camera.width,
+                            source_camera.height,
+                            &img_points,
+                            &cam_rays);
+
+  const FittedCamera fitted = FitCameraFromRays(
+      CameraModelId::kEUCM, img_points, cam_rays, RayFittingOptions());
+  ASSERT_TRUE(fitted.success);
+  ASSERT_EQ(fitted.params.size(), EUCMCameraModel::num_params);
+  EXPECT_GE(fitted.params[EUCMCameraModel::extra_params_idxs[0]], 0.0);
+  EXPECT_LE(fitted.params[EUCMCameraModel::extra_params_idxs[0]], 1.0);
+  EXPECT_GT(fitted.params[EUCMCameraModel::extra_params_idxs[1]], 0.0);
 }
 
 INSTANTIATE_TEST_SUITE_P(

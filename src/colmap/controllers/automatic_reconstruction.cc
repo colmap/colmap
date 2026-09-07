@@ -214,11 +214,14 @@ void AutomaticReconstructionController::Setup() {
     }
     calibration_options.num_threads = options_.num_threads;
     calibration_options.use_gpu = options_.use_gpu;
-    calibration_options.gpu_index = options_.gpu_index;
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+    THROW_CHECK(!gpu_indices.empty());
+    calibration_options.gpu_index = std::to_string(gpu_indices.front());
     camera_calibrator_ =
         CreateCameraCalibrationController(*option_manager_.database_path,
                                           *option_manager_.image_path,
-                                          calibration_options);
+                                          calibration_options,
+                                          options_.image_names);
   }
 
   if (options_.matching) {

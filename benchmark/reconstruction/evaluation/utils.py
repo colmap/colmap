@@ -832,6 +832,10 @@ def panorama_reconstruction(
         raise ValueError(
             "Equirectangular panorama reconstruction has fixed calibration"
         )
+    if args.calibration:
+        raise ValueError(
+            "Panorama reconstruction does not support learned calibration"
+        )
 
     render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
     if render_type not in {"perspective_overlapping", "spherical"}:
@@ -967,7 +971,9 @@ def process_scene(
             image_path=scene_info.image_path,
             camera_priors_sparse_gt=(
                 sparse_gt
-                if not args.uncalibrated and scene_info.has_camera_priors
+                if not args.uncalibrated
+                and not args.calibration
+                and scene_info.has_camera_priors
                 else None
             ),
             covisibility_sparse_gt=(
