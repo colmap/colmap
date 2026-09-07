@@ -31,10 +31,10 @@
 
 #include "colmap/util/eigen_alignment.h"
 
+#include <memory>
+
 #include <Eigen/Core>
 #include <ceres/ceres.h>
-
-#include <memory>
 
 namespace colmap {
 
@@ -124,8 +124,9 @@ template <class CostFunctor, class ParameterDims>
 class CovarianceWeightedCostFunction;
 
 template <class CostFunctor, int... ParameterDims>
-class CovarianceWeightedCostFunction<CostFunctor,
-                                     std::integer_sequence<int, ParameterDims...>>
+class CovarianceWeightedCostFunction<
+    CostFunctor,
+    std::integer_sequence<int, ParameterDims...>>
     : public ceres::SizedCostFunction<CostFunctor::kNumResiduals,
                                       ParameterDims...> {
  public:
@@ -133,7 +134,8 @@ class CovarianceWeightedCostFunction<CostFunctor,
   using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
 
   CovarianceWeightedCostFunction(const CovMat& cov, ceres::CostFunction* cost)
-      : left_sqrt_info_(cov.inverse().llt().matrixL().transpose()), cost_(cost) {}
+      : left_sqrt_info_(cov.inverse().llt().matrixL().transpose()),
+        cost_(cost) {}
 
   bool Evaluate(double const* const* parameters,
                 double* residuals,
