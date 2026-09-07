@@ -29,7 +29,6 @@
 
 #pragma once
 
-#include "colmap/calibration/calibrator.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/reconstruction_manager.h"
@@ -91,13 +90,7 @@ class AutomaticReconstructionController : public Thread {
 
     // Whether to perform learned camera calibration after feature extraction,
     // replacing EXIF-based intrinsics before matching and mapping.
-    bool calibration = false;
-
-    // The calibration backend to use.
-    CameraCalibratorType calibrator = CameraCalibratorType::ANYCALIB;
-
-    // Path or download URI of the calibration model.
-    std::string calibration_model_path;
+    bool camera_calibration = false;
 
     // Whether to perform feature matching.
     bool matching = true;

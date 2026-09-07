@@ -44,7 +44,8 @@ plain matmul+softmax), onnx, onnxruntime, pillow, numpy. Example::
 
     uv venv && uv pip install torch onnx onnxruntime pillow numpy
     python scripts/anycalib/export_onnx.py --model_id anycalib_gen \
-        --anycalib_dir /path/to/AnyCalib --output anycalib_gen.onnx
+        --anycalib_dir /path/to/AnyCalib \
+        --output anycalib_gen_v1.0.0_322x322.onnx
 """
 
 import argparse

@@ -33,11 +33,16 @@
 
 namespace colmap {
 
-// TODO: Upload the exported `anycalib_gen.onnx` model (see
-// `scripts/anycalib/export_onnx.py`) to a colmap release and fill in the URI
-// with its SHA256 checksum, following the `feature/resources.h` convention:
-// "<url>;<filename>;<sha256>". Until then, users must pass an explicit
-// `--camera_calibration.anycalib_model_path`.
+#ifdef COLMAP_DOWNLOAD_ENABLED
+// Exported from AnyCalib v1.0.0 (upstream commit 027a8497) at its square
+// training resolution using `scripts/anycalib/export_onnx.py`.
+inline const std::string kDefaultAnyCalibGenUri =
+    "https://github.com/colmap/colmap/releases/download/"
+    "models-anycalib-v1.0.0/anycalib_gen_v1.0.0_322x322.onnx;"
+    "anycalib_gen_v1.0.0_322x322.onnx;"
+    "a3afb0d236bb5021c6c34dda6dcf5377687d39c541d06b779d420aca2e28e0ff";
+#else
 inline const std::string kDefaultAnyCalibGenUri = "";
+#endif
 
 }  // namespace colmap
