@@ -55,6 +55,10 @@ class PanoRenderType(StrEnum):
     # Reconstruct directly on the panoramas with the native EQUIRECTANGULAR
     # camera model instead of rendering perspective images.
     SPHERICAL = enum.auto()
+    # Extract features on the perspective renderings, reproject the keypoints
+    # onto the panoramas, and reconstruct directly on the panoramas with the
+    # native EQUIRECTANGULAR camera model.
+    SPHERICAL_REPROJECTED = enum.auto()
 
 
 N = TypeVar("N", bound=int)
@@ -86,6 +90,13 @@ PANO_RENDER_OPTIONS: dict[PanoRenderType, PanoRenderOptions] = {
         vfov_deg=90.0,
     ),
 }
+# The spherical_reprojected mode extracts features on the same perspective
+# rendering as the overlapping mode (whose pitched views extend the feature
+# coverage to 80° elevation, leaving only small featureless polar caps) but
+# reconstructs on the original panoramas.
+PANO_RENDER_OPTIONS[PanoRenderType.SPHERICAL_REPROJECTED] = PANO_RENDER_OPTIONS[
+    PanoRenderType.PERSPECTIVE_OVERLAPPING
+]
 
 
 @dataclass(kw_only=True)
@@ -93,6 +104,12 @@ class PanoramaReconstructionOptions:
     matcher: Matcher = Matcher.SEQUENTIAL
     mapper: Mapper = Mapper.INCREMENTAL
     render_type: PanoRenderType = PanoRenderType.PERSPECTIVE_OVERLAPPING
+    extractor_type: pycolmap.FeatureExtractorType = (
+        pycolmap.FeatureExtractorType.SIFT
+    )
+    matcher_type: pycolmap.FeatureMatcherType = (
+        pycolmap.FeatureMatcherType.SIFT_BRUTEFORCE
+    )
     random_seed: int = 0
     num_threads: int = -1
     gpu_index: str = "-1"
@@ -123,6 +140,18 @@ def create_virtual_camera(
     # Not set by create_from_model_id.
     camera.has_prior_focal_length = True
     return camera
+
+
+def create_pano_camera(pano_width: int, pano_height: int) -> pycolmap.Camera:
+    """Create the native EQUIRECTANGULAR camera for the panoramas."""
+    return pycolmap.Camera.create_from_model_id(
+        camera_id=1,
+        model=pycolmap.CameraModelId.EQUIRECTANGULAR,
+        # The EQUIRECTANGULAR model has no focal length; only (w, h) params.
+        focal_length=0.0,
+        width=pano_width,
+        height=pano_height,
+    )
 
 
 def get_virtual_camera_rays(
@@ -339,6 +368,26 @@ class PanoProcessor:
                 return cam_idx, image_name[len(prefix) :]
         raise ValueError(f"Unknown virtual camera for image {image_name!r}.")
 
+    @property
+    def pano_size(self) -> tuple[int, int]:
+        """Size (width, height) of the input panoramas."""
+        if self._pano_size is None:
+            raise RuntimeError("No panorama was rendered yet.")
+        return self._pano_size
+
+    def pano_xy_from_cam_xy(
+        self, cam_idx: int, xy: npt.NDArray[np.floating]
+    ) -> npt.NDArray[np.floating]:
+        """Project 2D points from a virtual camera image onto the panorama."""
+        if self._camera is None or self._pano_size is None:
+            raise RuntimeError("No panorama was rendered yet.")
+        rays_in_cam: npt.NDArray[np.floating] = np.asarray(
+            self._camera.cam_ray_from_img(image_points=xy)
+        )
+        rays_in_cam /= np.linalg.norm(rays_in_cam, axis=-1, keepdims=True)
+        rays_in_pano = rays_in_cam @ self.cams_from_pano_rotation[cam_idx]
+        return spherical_img_from_cam(self._pano_size, rays_in_pano)
+
     def convert_to_equirectangular(
         self, reconstruction: pycolmap.Reconstruction
     ) -> pycolmap.Reconstruction:
@@ -357,13 +406,7 @@ class PanoProcessor:
         pano_width, pano_height = self._pano_size
 
         equirect = pycolmap.Reconstruction()
-        equirect_camera = pycolmap.Camera.create_from_model_id(
-            camera_id=1,
-            model=pycolmap.CameraModelId.EQUIRECTANGULAR,
-            focal_length=0.0,
-            width=pano_width,
-            height=pano_height,
-        )
+        equirect_camera = create_pano_camera(pano_width, pano_height)
         equirect.add_camera_with_trivial_rig(equirect_camera)
 
         # The rig reference sensor is virtual camera 0 (see
@@ -422,18 +465,7 @@ class PanoProcessor:
                     NDArrayNx2,
                     np.array([point2D.xy for point2D in image.points2D]),
                 )
-                rays_in_cam: npt.NDArray[np.floating] = np.asarray(
-                    self._camera.cam_ray_from_img(image_points=xy)
-                )
-                rays_in_cam /= np.linalg.norm(
-                    rays_in_cam, axis=-1, keepdims=True
-                )
-                rays_in_pano = (
-                    rays_in_cam @ self.cams_from_pano_rotation[cam_idx]
-                )
-                xy_in_pano = spherical_img_from_cam(
-                    self._pano_size, rays_in_pano
-                )
+                xy_in_pano = self.pano_xy_from_cam_xy(cam_idx, xy)
 
                 base_idx = len(keypoints)
                 keypoints.extend(xy_in_pano)
@@ -511,6 +543,7 @@ def run_matcher(
     database_path: Path,
     matching_options: pycolmap.FeatureMatchingOptions,
 ) -> None:
+    matching_options.type = options.matcher_type
     matching_options.use_gpu = options.use_gpu
     matching_options.gpu_index = options.gpu_index
     matching_options.num_threads = options.num_threads
@@ -588,6 +621,7 @@ def run_spherical(
 
     reader_options = pycolmap.ImageReaderOptions(camera_model="EQUIRECTANGULAR")
     extraction_options = pycolmap.FeatureExtractionOptions(
+        type=options.extractor_type,
         use_gpu=options.use_gpu,
         gpu_index=options.gpu_index,
         num_threads=options.num_threads,
@@ -637,20 +671,15 @@ def run_spherical(
     return recs
 
 
-def run_perspective(
+def render_and_extract_features(
     input_image_path: Path,
-    output_path: Path,
-    options: PanoramaReconstructionOptions,
+    image_dir: Path,
+    mask_dir: Path,
     database_path: Path,
-    rec_path: Path,
-) -> dict[int, pycolmap.Reconstruction]:
-    """Render the panoramas into a rig of perspective virtual cameras and
-    reconstruct from those."""
-
-    logging.info("Reconstructing with rig of perspective virtual cameras")
-
-    image_dir = output_path / "images"
-    mask_dir = output_path / "masks"
+    options: PanoramaReconstructionOptions,
+) -> PanoProcessor:
+    """Render the panoramas into perspective virtual camera images and
+    extract features on the renderings."""
     image_dir.mkdir(exist_ok=True, parents=True)
     mask_dir.mkdir(exist_ok=True, parents=True)
 
@@ -671,11 +700,11 @@ def run_perspective(
         PANO_RENDER_OPTIONS[options.render_type],
         options.show_progress,
     )
-    rig_config = processor.rig_config
 
-    rendered_camera = rig_config.cameras[0].camera
+    rendered_camera = processor.rig_config.cameras[0].camera
     assert rendered_camera is not None  # Make mypy happy.
     extraction_options = pycolmap.FeatureExtractionOptions(
+        type=options.extractor_type,
         use_gpu=options.use_gpu,
         gpu_index=options.gpu_index,
         num_threads=options.num_threads,
@@ -691,6 +720,27 @@ def run_perspective(
         camera_mode=pycolmap.CameraMode.PER_FOLDER,
         extraction_options=extraction_options,
     )
+    return processor
+
+
+def run_perspective(
+    input_image_path: Path,
+    output_path: Path,
+    options: PanoramaReconstructionOptions,
+    database_path: Path,
+    rec_path: Path,
+) -> dict[int, pycolmap.Reconstruction]:
+    """Render the panoramas into a rig of perspective virtual cameras and
+    reconstruct from those."""
+
+    logging.info("Reconstructing with rig of perspective virtual cameras")
+
+    image_dir = output_path / "images"
+    mask_dir = output_path / "masks"
+    processor = render_and_extract_features(
+        input_image_path, image_dir, mask_dir, database_path, options
+    )
+    rig_config = processor.rig_config
 
     with pycolmap.Database.open(database_path) as db:
         pycolmap.apply_rig_config([rig_config], db)
@@ -757,6 +807,186 @@ def run_perspective(
     return recs
 
 
+def create_pano_database_from_renderings(
+    rendering_database_path: Path,
+    pano_database_path: Path,
+    processor: PanoProcessor,
+) -> dict[str, int]:
+    """Create the panorama database from the rendering database: a single
+    shared EQUIRECTANGULAR camera and one image with a trivial frame per
+    panorama, whose keypoints are the features extracted on the perspective
+    renderings reprojected onto the panorama, together with the corresponding
+    descriptors and GPS pose priors (if any).
+
+    Returns the number of injected keypoints per panorama."""
+    num_keypoints_per_pano: dict[str, int] = {}
+    with (
+        pycolmap.Database.open(rendering_database_path) as rendering_db,
+        pycolmap.Database.open(pano_database_path) as pano_db,
+    ):
+        images_by_pano: dict[str, list[tuple[int, pycolmap.Image]]] = (
+            collections.defaultdict(list)
+        )
+        for image in rendering_db.read_all_images():
+            cam_idx, pano_name = processor.split_image_name(image.name)
+            images_by_pano[pano_name].append((cam_idx, image))
+
+        # extract_features imports the GPS EXIF tags (carried over to the
+        # renderings) as pose priors, keyed by the rendered image's data id.
+        pose_priors = {
+            prior.corr_data_id: prior
+            for prior in rendering_db.read_all_pose_priors()
+        }
+
+        pano_camera = create_pano_camera(*processor.pano_size)
+        with pycolmap.DatabaseTransaction(pano_db):
+            pano_db.write_camera(pano_camera, use_camera_id=True)
+            for pano_name, images in sorted(images_by_pano.items()):
+                keypoint_blobs: list[npt.NDArray[np.floating]] = []
+                descriptor_blobs: list[npt.NDArray] = []
+                descriptor_type = None
+                pose_prior = None
+                for cam_idx, image in sorted(images, key=lambda item: item[0]):
+                    if pose_prior is None:
+                        pose_prior = pose_priors.get(image.data_id)
+                    keypoints = rendering_db.read_keypoints(image.image_id)
+                    if keypoints.shape[0] == 0:
+                        continue
+                    descriptors = rendering_db.read_descriptors(image.image_id)
+                    descriptor_type = descriptors.type
+                    # Only the keypoint centers are reprojected; the remaining
+                    # shape (scale/orientation) columns stay in the rendered
+                    # image frame. This is fine for SIFT (whose matcher only
+                    # compares descriptors, and mapping only uses the centers)
+                    # and for ALIKED (whose extractor never populates a
+                    # non-identity affine shape to begin with -- see
+                    # ALIKEDFeatureExtractor in aliked.cc -- so there is
+                    # nothing meaningful left inconsistent for ALIKED_LIGHTGLUE
+                    # either). A future extractor/matcher pair that does rely
+                    # on a non-identity keypoint shape would need this shape
+                    # reprojected too.
+                    keypoints[:, :2] = processor.pano_xy_from_cam_xy(
+                        cam_idx, keypoints[:, :2]
+                    )
+                    keypoint_blobs.append(keypoints)
+                    descriptor_blobs.append(np.asarray(descriptors.data))
+
+                if not keypoint_blobs:
+                    logging.warning(
+                        f"Skipping panorama {pano_name} without any features."
+                    )
+                    continue
+                assert descriptor_type is not None  # Make mypy happy.
+
+                pano_image = pycolmap.Image(
+                    name=pano_name, camera_id=pano_camera.camera_id
+                )
+                pano_image.image_id = pano_db.write_image(pano_image)
+                keypoints = np.concatenate(keypoint_blobs)
+                pano_db.write_keypoints(pano_image.image_id, keypoints)
+                pano_db.write_descriptors(
+                    pano_image.image_id,
+                    pycolmap.FeatureDescriptors(
+                        descriptor_type, np.concatenate(descriptor_blobs)
+                    ),
+                )
+                if pose_prior is not None:
+                    pose_prior.corr_data_id = pano_image.data_id
+                    pano_db.write_pose_prior(pose_prior)
+                num_keypoints_per_pano[pano_name] = keypoints.shape[0]
+
+        # Create a trivial rig and frame for each panorama.
+        pycolmap.apply_rig_config([], pano_db)
+
+    return num_keypoints_per_pano
+
+
+def run_spherical_reprojected(
+    input_image_path: Path,
+    options: PanoramaReconstructionOptions,
+    database_path: Path,
+    rec_path: Path,
+    rendering_database_path: Path,
+    rendering_image_dir: Path,
+    rendering_mask_dir: Path,
+) -> dict[int, pycolmap.Reconstruction]:
+    """Extract features on the perspective renderings, reproject the
+    keypoints onto the panoramas, and reconstruct directly on the panoramas
+    with the native EQUIRECTANGULAR camera model.
+
+    Extracting on the low-distortion renderings yields features of similar
+    quality as the perspective modes (extraction on the raw panoramas
+    degrades towards the poles), while matching and mapping run on one image
+    per panorama without a rig, with the image-pair count of the spherical
+    mode (each panorama carries the union of all renderings' features)."""
+
+    logging.info(
+        "Reconstructing with features extracted on perspective renderings "
+        "and reprojected onto the panoramas"
+    )
+
+    if rendering_database_path.exists():
+        rendering_database_path.unlink()
+    processor = render_and_extract_features(
+        input_image_path,
+        rendering_image_dir,
+        rendering_mask_dir,
+        rendering_database_path,
+        options,
+    )
+
+    logging.info("Reprojecting the keypoints onto the panoramas")
+    num_keypoints_per_pano = create_pano_database_from_renderings(
+        rendering_database_path, database_path, processor
+    )
+
+    matching_options = pycolmap.FeatureMatchingOptions()
+    # Each panorama carries the union of all renderings' features, which can
+    # exceed the default matcher capacity; the GPU matcher would then
+    # silently drop the descriptors beyond max_num_matches.
+    if num_keypoints_per_pano:
+        matching_options.max_num_matches = max(
+            matching_options.max_num_matches,
+            max(num_keypoints_per_pano.values()),
+        )
+
+    # A single EQUIRECTANGULAR camera observes the whole sphere from one
+    # center, so there is no rig and no per-frame image-pair skipping.
+    run_matcher(options, database_path, matching_options)
+    if options.covisibility_path is not None:
+        filter_database_by_covisibility(
+            database_path,
+            options.covisibility_path,
+            options.covisibility_min_shared_points,
+        )
+
+    # The EQUIRECTANGULAR model has no focal length, principal point, or
+    # distortion to refine; its (w, h) params are held constant in bundle
+    # adjustment.
+    if options.mapper == Mapper.INCREMENTAL:
+        incremental_options = pycolmap.IncrementalPipelineOptions(
+            num_threads=options.num_threads, random_seed=options.random_seed
+        )
+        recs = pycolmap.incremental_mapping(
+            database_path,
+            input_image_path,
+            rec_path,
+            incremental_options,
+        )
+    elif options.mapper == Mapper.GLOBAL:
+        global_options = pycolmap.GlobalPipelineOptions(
+            num_threads=options.num_threads, random_seed=options.random_seed
+        )
+        recs = pycolmap.global_mapping(
+            database_path, input_image_path, rec_path, global_options
+        )
+    else:
+        raise ValueError(f"Unknown mapper: {options.mapper}")
+    for idx, rec in recs.items():
+        logging.info(f"#{idx} {rec.summary()}")
+    return recs
+
+
 def reconstruct(
     input_image_path: Path,
     output_path: Path,
@@ -775,6 +1005,16 @@ def reconstruct(
 
     if options.render_type == PanoRenderType.SPHERICAL:
         return run_spherical(input_image_path, options, database_path, rec_path)
+    if options.render_type == PanoRenderType.SPHERICAL_REPROJECTED:
+        return run_spherical_reprojected(
+            input_image_path,
+            options,
+            database_path,
+            rec_path,
+            rendering_database_path=output_path / "database_renderings.db",
+            rendering_image_dir=output_path / "images",
+            rendering_mask_dir=output_path / "masks",
+        )
     return run_perspective(
         input_image_path,
         output_path,
