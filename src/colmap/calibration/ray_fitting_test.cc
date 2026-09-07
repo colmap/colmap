@@ -97,7 +97,11 @@ TEST_P(RayFittingTest, RoundTripRecoversParameters) {
       fitted.params.begin(), fitted.params.end(), [](const double param) {
         return std::isfinite(param);
       }));
-  EXPECT_LT(fitted.final_cost, fitted.initial_cost);
+  // Refinement must not regress, but may report equal costs when the
+  // closed-form initialization already sits at the optimum (e.g. noise-free
+  // pinhole data), in which case Ceres terminates without taking a step. The
+  // product's own success contract is `final <= initial`.
+  EXPECT_LE(fitted.final_cost, fitted.initial_cost);
   EXPECT_LT(fitted.final_cost, 1e-10);
   const span<const size_t> extra_idxs = CameraModelExtraParamsIdxs(model_id);
   const std::unordered_set<size_t> extra_set(extra_idxs.begin(),
