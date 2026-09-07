@@ -63,9 +63,17 @@ class CameraCalibrationController : public Thread {
     // NOTE: The calibrator is created lazily, because it loads a large network
     // onto the device. Creating it in the constructor would hold that memory
     // for the entire duration of any preceding pipeline stage (e.g. feature
-    // extraction in the automatic reconstruction pipeline).
-    const std::unique_ptr<CameraCalibrator> calibrator =
-        CameraCalibrator::Create(calibration_options_);
+    // extraction in the automatic reconstruction pipeline). Because this runs
+    // in a worker thread, an exception must not escape, as it would terminate
+    // the whole process rather than fail this stage.
+    std::unique_ptr<CameraCalibrator> calibrator;
+    try {
+      calibrator = CameraCalibrator::Create(calibration_options_);
+    } catch (const std::exception& e) {
+      LOG(ERROR) << "Failed to create camera calibrator: " << e.what()
+                 << ", cameras unchanged";
+      return;
+    }
 
     std::vector<Image> images = database_->ReadAllImages();
     if (!image_names_.empty()) {
