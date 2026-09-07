@@ -47,8 +47,7 @@ of commands as an alternative to the automatic reconstruction command::
     # calibration (AnyCalib) before matching.
     $ colmap camera_calibrator \
        --database_path $DATASET_PATH/database.db \
-       --image_path $DATASET_PATH/images \
-       --CameraCalibration.anycalib_model_path /path/to/anycalib_gen.onnx
+       --image_path $DATASET_PATH/images
 
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db
