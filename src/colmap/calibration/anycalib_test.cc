@@ -51,14 +51,13 @@ void CreateSolidRgbImage(int width, int height, uint8_t value, Bitmap* bitmap) {
 TEST(PrepareAnyCalibInputTest, LandscapeImage) {
   Bitmap bitmap;
   CreateSolidRgbImage(640, 480, 255, &bitmap);
-  const AnyCalibInput input = PrepareAnyCalibInput(bitmap);
-  ASSERT_EQ(input.data.size(), 3 * 322 * 322);
-  // Center-crop to 480-square: shift_x = -(160 / 2), then scale by 322/480.
-  const double s = 322.0 / 480;
-  EXPECT_DOUBLE_EQ(input.scale_xy.x(), s);
-  EXPECT_DOUBLE_EQ(input.scale_xy.y(), s);
-  EXPECT_DOUBLE_EQ(input.shift_xy.x(), -80 * s);
-  EXPECT_DOUBLE_EQ(input.shift_xy.y(), 0);
+  const AnyCalibInput input = PrepareAnyCalibInput(
+      bitmap, kAnyCalibLandscapeWidth, kAnyCalibLandscapeHeight);
+  ASSERT_EQ(input.data.size(), 3 * 392 * 266);
+  EXPECT_DOUBLE_EQ(input.scale_xy.x(), 392.0 / 640);
+  EXPECT_DOUBLE_EQ(input.scale_xy.y(), 266.0 / 434);
+  EXPECT_DOUBLE_EQ(input.shift_xy.x(), 0);
+  EXPECT_DOUBLE_EQ(input.shift_xy.y(), -23 * 266.0 / 434);
   for (const float v : input.data) {
     EXPECT_FLOAT_EQ(v, 1.0f);
   }
@@ -67,13 +66,13 @@ TEST(PrepareAnyCalibInputTest, LandscapeImage) {
 TEST(PrepareAnyCalibInputTest, PortraitImage) {
   Bitmap bitmap;
   CreateSolidRgbImage(100, 200, 0, &bitmap);
-  const AnyCalibInput input = PrepareAnyCalibInput(bitmap);
-  ASSERT_EQ(input.data.size(), 3 * 322 * 322);
-  // Upscale by 3.22 to 322x644, then center-crop to 322-square.
-  EXPECT_DOUBLE_EQ(input.scale_xy.x(), 3.22);
-  EXPECT_DOUBLE_EQ(input.scale_xy.y(), 3.22);
+  const AnyCalibInput input = PrepareAnyCalibInput(
+      bitmap, kAnyCalibPortraitWidth, kAnyCalibPortraitHeight);
+  ASSERT_EQ(input.data.size(), 3 * 266 * 392);
+  EXPECT_DOUBLE_EQ(input.scale_xy.x(), 2.66);
+  EXPECT_DOUBLE_EQ(input.scale_xy.y(), 2.66);
   EXPECT_DOUBLE_EQ(input.shift_xy.x(), 0);
-  EXPECT_DOUBLE_EQ(input.shift_xy.y(), -161);
+  EXPECT_DOUBLE_EQ(input.shift_xy.y(), -70);
   for (const float v : input.data) {
     EXPECT_FLOAT_EQ(v, 0.0f);
   }
@@ -82,37 +81,71 @@ TEST(PrepareAnyCalibInputTest, PortraitImage) {
 TEST(PrepareAnyCalibInputTest, SmallLandscapeImage) {
   Bitmap bitmap;
   CreateSolidRgbImage(100, 80, 128, &bitmap);
-  const AnyCalibInput input = PrepareAnyCalibInput(bitmap);
-  ASSERT_EQ(input.data.size(), 3 * 322 * 322);
-  // Upscale by max(322/80, 322/100) = 4.025 to 402x322, center-crop to
-  // 322-square, no further rescaling.
-  EXPECT_DOUBLE_EQ(input.scale_xy.x(), 402.0 / 100);
-  EXPECT_DOUBLE_EQ(input.scale_xy.y(), 322.0 / 80);
-  EXPECT_DOUBLE_EQ(input.shift_xy.x(), -40);
-  EXPECT_DOUBLE_EQ(input.shift_xy.y(), 0);
+  const AnyCalibInput input = PrepareAnyCalibInput(
+      bitmap, kAnyCalibLandscapeWidth, kAnyCalibLandscapeHeight);
+  ASSERT_EQ(input.data.size(), 3 * 392 * 266);
+  EXPECT_DOUBLE_EQ(input.scale_xy.x(), 392.0 / 100);
+  EXPECT_DOUBLE_EQ(input.scale_xy.y(), 313.0 / 80);
+  EXPECT_DOUBLE_EQ(input.shift_xy.x(), 0);
+  EXPECT_DOUBLE_EQ(input.shift_xy.y(), -23);
   for (const float v : input.data) {
     EXPECT_FLOAT_EQ(v, 128 / 255.0f);
   }
 }
 
+TEST(PrepareAnyCalibInputTest, GravityRotationMapsBackToOriginal) {
+  Bitmap bitmap;
+  CreateSolidRgbImage(640, 480, 255, &bitmap);
+  PosePrior pose_prior;
+  pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
+  const AnyCalibInput input = PrepareAnyCalibInput(
+      bitmap, kAnyCalibPortraitWidth, kAnyCalibPortraitHeight, pose_prior);
+  EXPECT_EQ(input.image_rot90, 3);
+  EXPECT_EQ(input.upright_width, 480);
+  EXPECT_EQ(input.upright_height, 640);
+
+  const Eigen::Vector2d original_point(100, 200);
+  const Eigen::Vector2d upright_point(480 - original_point.y(),
+                                      original_point.x());
+  const Eigen::Vector2d network_point =
+      upright_point.cwiseProduct(input.scale_xy) + input.shift_xy;
+  EXPECT_TRUE(input.ImagePointToOriginal(network_point)
+                  .isApprox(original_point, 1e-12));
+
+  const Eigen::Vector3d original_ray(1, 2, 3);
+  const Eigen::Vector3d upright_ray(
+      -original_ray.y(), original_ray.x(), original_ray.z());
+  EXPECT_EQ(input.CameraRayToOriginal(upright_ray), original_ray);
+}
+
 TEST(CreateAnyCalibCalibratorTest, EmptyModelPathThrows) {
   CameraCalibrationOptions options;
-  options.anycalib.model_path = "";
+  options.anycalib.landscape_model_path = "";
+  options.anycalib.portrait_model_path = "";
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
 TEST(CreateAnyCalibCalibratorTest, MissingModelFileThrows) {
   CameraCalibrationOptions options;
-  options.anycalib.model_path = "/nonexistent/anycalib_gen.onnx";
+  options.anycalib.landscape_model_path =
+      "/nonexistent/anycalib_gen_landscape.onnx";
+  options.anycalib.portrait_model_path =
+      "/nonexistent/anycalib_gen_portrait.onnx";
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
 // Full-model smoke test, run only when the exported model is available:
-// COLMAP_ANYCALIB_MODEL_PATH=/path/to/anycalib_gen.onnx ctest -R anycalib_test
+// COLMAP_ANYCALIB_LANDSCAPE_MODEL_PATH=/path/to/landscape.onnx
+// COLMAP_ANYCALIB_PORTRAIT_MODEL_PATH=/path/to/portrait.onnx ctest -R
+// anycalib_test
 TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
-  const char* model_path = std::getenv("COLMAP_ANYCALIB_MODEL_PATH");
-  if (model_path == nullptr) {
-    GTEST_SKIP() << "Set COLMAP_ANYCALIB_MODEL_PATH to run this test";
+  const char* landscape_model_path =
+      std::getenv("COLMAP_ANYCALIB_LANDSCAPE_MODEL_PATH");
+  const char* portrait_model_path =
+      std::getenv("COLMAP_ANYCALIB_PORTRAIT_MODEL_PATH");
+  if (landscape_model_path == nullptr || portrait_model_path == nullptr) {
+    GTEST_SKIP() << "Set COLMAP_ANYCALIB_LANDSCAPE_MODEL_PATH and "
+                    "COLMAP_ANYCALIB_PORTRAIT_MODEL_PATH to run this test";
   }
   Bitmap bitmap(64, 48, /*as_rgb=*/true);
   for (int r = 0; r < 48; ++r) {
@@ -126,7 +159,8 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
   }
   CameraCalibrationOptions options;
   options.use_gpu = false;
-  options.anycalib.model_path = model_path;
+  options.anycalib.landscape_model_path = landscape_model_path;
+  options.anycalib.portrait_model_path = portrait_model_path;
   auto calibrator = CameraCalibrator::Create(options);
   Camera camera;
   // Random noise is not expected to calibrate; the test only checks that

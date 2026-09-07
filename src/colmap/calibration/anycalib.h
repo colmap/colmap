@@ -31,6 +31,7 @@
 
 #include "colmap/calibration/ray_fitting.h"
 #include "colmap/calibration/resources.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/sensor/bitmap.h"
 
 #include <memory>
@@ -44,14 +45,17 @@ namespace colmap {
 class CameraCalibrator;
 struct CameraCalibrationOptions;
 
-// Fixed square network input size: round(sqrt(102400) / 14) * 14, the square
-// training resolution of AnyCalib. See `scripts/anycalib/export_onnx.py` for
-// why dynamic input sizes are not supported.
-constexpr int kAnyCalibInputSize = 322;
+// Fixed 3:2 network input sizes near AnyCalib's 102400-pixel training
+// resolution, with dimensions divisible by the DINOv2 patch size (14).
+constexpr int kAnyCalibLandscapeWidth = 392;
+constexpr int kAnyCalibLandscapeHeight = 266;
+constexpr int kAnyCalibPortraitWidth = kAnyCalibLandscapeHeight;
+constexpr int kAnyCalibPortraitHeight = kAnyCalibLandscapeWidth;
 
 struct AnyCalibCalibrationOptions {
-  // Path or download URI of the exported AnyCalib ONNX model.
-  std::string model_path = kDefaultAnyCalibGenUri;
+  // Paths or download URIs of the exported AnyCalib ONNX models.
+  std::string landscape_model_path = kDefaultAnyCalibGenLandscapeUri;
+  std::string portrait_model_path = kDefaultAnyCalibGenPortraitUri;
 
   // Fitting options shared with future ray-based backends.
   RayFittingOptions fitting;
@@ -59,18 +63,30 @@ struct AnyCalibCalibrationOptions {
   bool Check() const;
 };
 
-// Network input plus the transform mapping fitted intrinsics back to the
-// original image, mirroring `AnyCalib.set_im_size` with target aspect ratio 1
-// (upsample small images, center-crop to square, downsample to 322x322).
+// Network input plus the transform from the original image to the upright,
+// cropped, and resized network image, mirroring `AnyCalib.set_im_size`.
 struct AnyCalibInput {
   // RGB in [0, 1], row-major [C, H, W].
   std::vector<float> data;
   // Per-axis scale and shift of the intrinsics digitizing transform.
   Eigen::Vector2d scale_xy = Eigen::Vector2d::Ones();
   Eigen::Vector2d shift_xy = Eigen::Vector2d::Zero();
+  int width = 0;
+  int height = 0;
+  int upright_width = 0;
+  int upright_height = 0;
+  int image_rot90 = 0;
+
+  // Map network-image coordinates and camera rays back to the original image
+  // orientation and resolution.
+  Eigen::Vector2d ImagePointToOriginal(const Eigen::Vector2d& point) const;
+  Eigen::Vector3d CameraRayToOriginal(const Eigen::Vector3d& ray) const;
 };
 
-AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap);
+AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
+                                   int target_width,
+                                   int target_height,
+                                   const PosePrior& pose_prior = PosePrior());
 
 std::unique_ptr<CameraCalibrator> CreateAnyCalibCalibrator(
     const CameraCalibrationOptions& options);

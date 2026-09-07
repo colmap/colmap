@@ -30,6 +30,7 @@
 #pragma once
 
 #include "colmap/calibration/anycalib.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/enum_utils.h"
@@ -85,11 +86,13 @@ class CameraCalibrator {
       const CameraCalibrationOptions& options);
 
   // Calibrate the camera for `bitmap`, optionally using an existing focal
-  // length prior in `camera`, and write the target-model intrinsics at full
-  // image resolution into `camera` (model, dimensions, params, and focal
-  // length prior flag). Returns false if calibration fails, in which case
-  // `camera` is left unmodified.
-  virtual bool Calibrate(const Bitmap& bitmap, Camera* camera) const = 0;
+  // length prior in `camera` and gravity in `pose_prior`, and write the
+  // target-model intrinsics at full image resolution into `camera` (model,
+  // dimensions, params, and focal length prior flag). Returns false if
+  // calibration fails, in which case `camera` is left unmodified.
+  virtual bool Calibrate(const Bitmap& bitmap,
+                         Camera* camera,
+                         const PosePrior& pose_prior = PosePrior()) const = 0;
 };
 
 }  // namespace colmap

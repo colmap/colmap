@@ -45,20 +45,28 @@ TEST(CreateCameraCalibrationControllerTest, MissingModelThrows) {
   const auto database_path = test_dir / "database.db";
   Database::Open(database_path);
   CameraCalibrationOptions options;
-  options.anycalib.model_path = "/nonexistent/anycalib_gen.onnx";
+  options.anycalib.landscape_model_path =
+      "/nonexistent/anycalib_gen_landscape.onnx";
+  options.anycalib.portrait_model_path =
+      "/nonexistent/anycalib_gen_portrait.onnx";
   EXPECT_THROW(
       CreateCameraCalibrationController(database_path, test_dir, options),
       std::exception);
 }
 
 // Full-controller integration test, run only when the exported model is
-// available: COLMAP_ANYCALIB_MODEL_PATH=/path/to/anycalib_gen.onnx ctest -R
-// camera_calibration_test. Uses random-noise images, which are not expected
-// to calibrate; the test checks graceful handling end to end.
+// available: set COLMAP_ANYCALIB_LANDSCAPE_MODEL_PATH and
+// COLMAP_ANYCALIB_PORTRAIT_MODEL_PATH, then run ctest -R
+// camera_calibration_test. Uses random-noise images, which are not expected to
+// calibrate; the test checks graceful handling end to end.
 TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
-  const char* model_path = std::getenv("COLMAP_ANYCALIB_MODEL_PATH");
-  if (model_path == nullptr) {
-    GTEST_SKIP() << "Set COLMAP_ANYCALIB_MODEL_PATH to run this test";
+  const char* landscape_model_path =
+      std::getenv("COLMAP_ANYCALIB_LANDSCAPE_MODEL_PATH");
+  const char* portrait_model_path =
+      std::getenv("COLMAP_ANYCALIB_PORTRAIT_MODEL_PATH");
+  if (landscape_model_path == nullptr || portrait_model_path == nullptr) {
+    GTEST_SKIP() << "Set COLMAP_ANYCALIB_LANDSCAPE_MODEL_PATH and "
+                    "COLMAP_ANYCALIB_PORTRAIT_MODEL_PATH to run this test";
   }
 
   const auto test_dir = CreateTestDir();
@@ -96,7 +104,8 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
   CameraCalibrationOptions options;
   options.num_threads = 1;
   options.use_gpu = false;
-  options.anycalib.model_path = model_path;
+  options.anycalib.landscape_model_path = landscape_model_path;
+  options.anycalib.portrait_model_path = portrait_model_path;
   Bitmap selected_bitmap;
   ASSERT_TRUE(selected_bitmap.Read(test_dir / "image0.png", /*as_rgb=*/true));
   Camera expected_camera;
