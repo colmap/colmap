@@ -112,19 +112,18 @@ Camera CreateSimpleRadialCamera() {
 
 TEST(AggregateCameraCalibrationsTest, EmptyList) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_FALSE(AggregateCameraCalibrations(
-      CameraModelId::kSimpleRadial, {}, &camera));
+  EXPECT_FALSE(
+      AggregateCameraCalibrations(CameraModelId::kSimpleRadial, {}, &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0}));
   EXPECT_FALSE(camera.has_prior_focal_length);
 }
 
 TEST(AggregateCameraCalibrationsTest, OddMedian) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations(CameraModelId::kSimpleRadial,
-                                          {{600, 315, 235, 0.05},
-                                           {400, 325, 245, 0.15},
-                                           {500, 320, 240, 0.10}},
-                                          &camera));
+  EXPECT_TRUE(AggregateCameraCalibrations(
+      CameraModelId::kSimpleRadial,
+      {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}, {500, 320, 240, 0.10}},
+      &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0.10}));
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
