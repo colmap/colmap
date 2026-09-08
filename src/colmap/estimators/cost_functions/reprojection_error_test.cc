@@ -32,7 +32,9 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_matchers.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -423,6 +425,98 @@ TEST(CovarianceWeightedCostFunctor, ReprojErrorCostFunctor) {
   EXPECT_TRUE(cost_function2->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -1);
   EXPECT_EQ(residuals[1], 1);
+}
+
+// The weighted dispatch must agree with whitening the dispatched cost function
+// by hand, for every camera model. This is what lets the inner cost function
+// keep its analytical jacobian.
+template <typename CameraModel>
+void TestWeightedCameraCostFunction() {
+  const Eigen::Vector2d point2D(0.7, -0.3);
+  const double stddev = 2.0;
+  const Eigen::Matrix2d covariance =
+      stddev * stddev * Eigen::Matrix2d::Identity();
+
+  double cam_from_world[7] = {0, 0, 0, 1, 0.1, 0.2, 3.0};
+  double point3D[3] = {0.3, -0.2, 5.0};
+  std::vector<double> camera_params(CameraModel::num_params, 0.0);
+  for (size_t i = 0; i < camera_params.size(); ++i) {
+    camera_params[i] = 0.1 * (i + 1);
+  }
+  camera_params[0] = 100.0;
+  const double* parameters[3] = {point3D, cam_from_world, camera_params.data()};
+
+  std::unique_ptr<ceres::CostFunction> unweighted(
+      CreateCameraCostFunction<ReprojErrorCostFunctor>(CameraModel::model_id,
+                                                       point2D));
+  std::unique_ptr<ceres::CostFunction> cov_weighted(
+      CreateCovarianceWeightedCameraCostFunction<ReprojErrorCostFunctor>(
+          CameraModel::model_id, covariance, point2D));
+  std::unique_ptr<ceres::CostFunction> scale_weighted(
+      CreateScaleWeightedCameraCostFunction<ReprojErrorCostFunctor>(
+          CameraModel::model_id, stddev, point2D));
+
+  const int num_params = CameraModel::num_params;
+  Eigen::Vector2d unweighted_residuals;
+  Eigen::Vector2d cov_residuals;
+  Eigen::Vector2d scale_residuals;
+  Eigen::Matrix<double, 2, 3, Eigen::RowMajor> unweighted_jacobian_point;
+  Eigen::Matrix<double, 2, 7, Eigen::RowMajor> unweighted_jacobian_pose;
+  Eigen::MatrixXd unweighted_jacobian_params(2, num_params);
+  Eigen::Matrix<double, 2, 3, Eigen::RowMajor> cov_jacobian_point;
+  Eigen::Matrix<double, 2, 7, Eigen::RowMajor> cov_jacobian_pose;
+  Eigen::MatrixXd cov_jacobian_params(2, num_params);
+  Eigen::Matrix<double, 2, 3, Eigen::RowMajor> scale_jacobian_point;
+  Eigen::Matrix<double, 2, 7, Eigen::RowMajor> scale_jacobian_pose;
+  Eigen::MatrixXd scale_jacobian_params(2, num_params);
+  double* unweighted_jacobians[3] = {unweighted_jacobian_point.data(),
+                                     unweighted_jacobian_pose.data(),
+                                     unweighted_jacobian_params.data()};
+  double* cov_jacobians[3] = {cov_jacobian_point.data(),
+                              cov_jacobian_pose.data(),
+                              cov_jacobian_params.data()};
+  double* scale_jacobians[3] = {scale_jacobian_point.data(),
+                                scale_jacobian_pose.data(),
+                                scale_jacobian_params.data()};
+
+  ASSERT_TRUE(unweighted->Evaluate(
+      parameters, unweighted_residuals.data(), unweighted_jacobians));
+  ASSERT_TRUE(
+      cov_weighted->Evaluate(parameters, cov_residuals.data(), cov_jacobians));
+  ASSERT_TRUE(scale_weighted->Evaluate(
+      parameters, scale_residuals.data(), scale_jacobians));
+
+  // Whitening by an isotropic covariance is a division by stddev.
+  EXPECT_THAT(
+      cov_residuals,
+      EigenMatrixNear(Eigen::Vector2d(unweighted_residuals / stddev), 1e-10));
+  EXPECT_THAT(cov_jacobian_point,
+              EigenMatrixNear(Eigen::Matrix<double, 2, 3, Eigen::RowMajor>(
+                                  unweighted_jacobian_point / stddev),
+                              1e-10));
+  EXPECT_THAT(cov_jacobian_pose,
+              EigenMatrixNear(Eigen::Matrix<double, 2, 7, Eigen::RowMajor>(
+                                  unweighted_jacobian_pose / stddev),
+                              1e-10));
+  EXPECT_THAT(cov_jacobian_params,
+              EigenMatrixNear(
+                  Eigen::MatrixXd(unweighted_jacobian_params / stddev), 1e-10));
+
+  // The scale form must match the equivalent isotropic covariance.
+  EXPECT_THAT(scale_residuals, EigenMatrixNear(cov_residuals, 1e-10));
+  EXPECT_THAT(scale_jacobian_point, EigenMatrixNear(cov_jacobian_point, 1e-10));
+  EXPECT_THAT(scale_jacobian_pose, EigenMatrixNear(cov_jacobian_pose, 1e-10));
+  EXPECT_THAT(scale_jacobian_params,
+              EigenMatrixNear(cov_jacobian_params, 1e-10));
+}
+
+TEST(WeightedCameraCostFunction, MatchesDispatchedCostFunction) {
+  TestWeightedCameraCostFunction<SimplePinholeCameraModel>();
+  TestWeightedCameraCostFunction<PinholeCameraModel>();
+  TestWeightedCameraCostFunction<SimpleRadialCameraModel>();
+  TestWeightedCameraCostFunction<RadialCameraModel>();
+  TestWeightedCameraCostFunction<OpenCVCameraModel>();
+  TestWeightedCameraCostFunction<FullOpenCVCameraModel>();
 }
 
 TEST(RigReprojErrorCostFunctor, Nominal) {
