@@ -30,8 +30,10 @@
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
 
 #include <memory>
+#include <vector>
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -116,11 +118,10 @@ auto LastValueParameterPack(Args&&... args) {
 }
 
 // Whitens the residuals and jacobians of an inner cost function with a given
-// covariance. Specialized on the inner parameter dims so that each jacobian
-// block is a fixed-size map. Whitening is linear, so applying it to the
-// evaluated jacobians is equivalent to, and cheaper than, propagating it
-// through autodiff.
-template <class CostFunctor, class ParameterDims>
+// covariance. Whitening is linear, so applying it to the evaluated jacobians
+// is equivalent to, and cheaper than, propagating it through autodiff.
+template <class CostFunctor,
+          class ParameterDims = typename CostFunctor::kParameterDims>
 class CovarianceWeightedCostFunction;
 
 template <class CostFunctor, int... ParameterDims>
@@ -135,7 +136,15 @@ class CovarianceWeightedCostFunction<
 
   CovarianceWeightedCostFunction(const CovMat& cov, ceres::CostFunction* cost)
       : left_sqrt_info_(cov.inverse().llt().matrixL().transpose()),
-        cost_(cost) {}
+        cost_(cost) {
+    // The wrapped cost function need not come from CostFunctor, so a shape
+    // mismatch would run the jacobian maps past the buffers Ceres allocates.
+    THROW_CHECK_EQ(cost_->num_residuals(), kNumResiduals);
+    const std::vector<int32_t> expected_parameter_block_sizes = {
+        ParameterDims...};
+    THROW_CHECK(cost_->parameter_block_sizes() ==
+                expected_parameter_block_sizes);
+  }
 
   bool Evaluate(double const* const* parameters,
                 double* residuals,
@@ -165,9 +174,8 @@ class CovarianceWeightedCostFunction<
         .applyOnTheLeft(left_sqrt_info_);
   }
 
-  // Expands the index and the dimension packs in parallel, so that each
-  // dimension is a template argument rather than a lookup into a static
-  // constexpr array, which clang rejects in a constant expression here.
+  // Expands the index and dimension packs in parallel. Indexing a static
+  // constexpr array here instead is rejected by clang.
   template <size_t... kIndices>
   void WhitenJacobians(double** jacobians,
                        std::index_sequence<kIndices...>) const {
@@ -178,9 +186,8 @@ class CovarianceWeightedCostFunction<
   const std::unique_ptr<ceres::CostFunction> cost_;
 };
 
-// Creates a cost function that whitens the given cost functor with a
-// covariance. For example, to weight the reprojection error with an image
-// measurement covariance, one can wrap it as:
+// Whitens the given cost functor with a covariance. For example, to weight
+// the reprojection error with an image measurement covariance:
 //
 //    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
 //    ceres::CostFunction* cost_function =
@@ -197,21 +204,19 @@ class CovarianceWeightedCostFunctor {
 
   template <typename... Args>
   static ceres::CostFunction* Create(const CovMat& cov, Args&&... args) {
-    return new CovarianceWeightedCostFunction<CostFunctor, kParameterDims>(
+    return new CovarianceWeightedCostFunction<CostFunctor>(
         cov,
         CreateAutoDiffCostFunction(
             new CostFunctor(std::forward<Args>(args)...)));
   }
 };
 
-// A cost function wrapper that whitens residuals with per-residual standard
-// deviations, broadcasting a single one over all residuals. Equivalent to
-// CovarianceWeightedCostFunctor with a diagonal covariance, but avoids its
-// inverse, Cholesky factorization, and dense product on every evaluation.
-// Unlike the covariance case, whitening a diagonal through autodiff is as
-// cheap as applying it to the evaluated jacobians, so this stays a functor.
-// For example, to weight the reprojection error with isotropic image
-// measurement noise, one can wrap it as:
+// Whitens residuals with per-residual standard deviations, broadcasting a
+// single one over all residuals. Equivalent to CovarianceWeightedCostFunctor
+// with a diagonal covariance, but avoids its inverse, Cholesky factorization,
+// and dense product. A diagonal is as cheap through autodiff as applied to the
+// evaluated jacobians, so this stays a functor. For example, to weight the
+// reprojection error with isotropic image measurement noise:
 //
 //    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
 //    ceres::CostFunction* cost_function =
