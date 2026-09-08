@@ -56,12 +56,9 @@ using ScaledRigFromWorldManifold =
 // (colmap::TinySolver) refinement of a scaled rig_from_world transform over
 // all given 2D-3D correspondences.
 //
-// The functor is only defined on the domain where every observation projects
-// in front of its camera. GP4PSEstimator::Refine validates this at the
-// initial estimate and drops any observation that does not satisfy it. If a
-// trial step during the optimization moves an observation behind its camera,
-// the evaluation is rejected, which makes the solver discard the step and
-// shrink the trust region.
+// Observations that do not project in front of their camera contribute a zero
+// residual, as in the other reprojection cost functors. Cheirality is instead
+// enforced by GP4PSEstimator::Residuals when the refined model is scored.
 class TinyScaledRigReprojCostFunctor {
  public:
   using Scalar = double;
@@ -92,7 +89,9 @@ class TinyScaledRigReprojCostFunctor {
       const Eigen::Matrix<T, 3, 1> point3D_in_cam =
           points2D_[i].cam_from_rig.cast<T>() * point3D_in_rig.homogeneous();
       if (point3D_in_cam.z() <= T(std::numeric_limits<double>::epsilon())) {
-        return false;
+        residuals[2 * i] = T(0);
+        residuals[2 * i + 1] = T(0);
+        continue;
       }
       const Eigen::Matrix<T, 2, 1> diff =
           points2D_[i].ray_in_cam.hnormalized().cast<T>() -
@@ -107,6 +106,16 @@ class TinyScaledRigReprojCostFunctor {
   const std::vector<GP4PSEstimator::X_t>& points2D_;
   const std::vector<Eigen::Vector3d>& points3D_;
 };
+
+void ComputeOriginsInRig(const std::vector<GP3PEstimator::X_t>& points2D,
+                         std::vector<Eigen::Vector3d>* origins_in_rig) {
+  const size_t num_points = points2D.size();
+  origins_in_rig->resize(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    (*origins_in_rig)[i] = points2D[i].cam_from_rig.leftCols<3>().transpose() *
+                           -points2D[i].cam_from_rig.col(3);
+  }
+}
 
 void ComputeRaysAndOriginsInRig(const std::vector<GP3PEstimator::X_t>& points2D,
                                 std::vector<Eigen::Vector3d>* rays_in_rig,
@@ -160,8 +169,7 @@ void ComputeRayResiduals(const std::vector<GP3PEstimator::X_t>& points2D,
 
 }  // namespace
 
-bool HasSingleProjectionCenter(
-    const std::vector<Eigen::Vector3d>& origins_in_rig) {
+bool IsPanoramicRig(const std::vector<Eigen::Vector3d>& origins_in_rig) {
   for (size_t i = 1; i < origins_in_rig.size(); ++i) {
     if (!origins_in_rig[0].isApprox(origins_in_rig[i], 1e-6)) {
       return false;
@@ -187,8 +195,8 @@ void GP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   ComputeRaysAndOriginsInRig(points2D, &rays_in_rig, &origins_in_rig);
 
   std::vector<poselib::CameraPose> poses;
-  if (origins_in_rig[0].isApprox(origins_in_rig[1], 1e-6) &&
-      origins_in_rig[0].isApprox(origins_in_rig[2], 1e-6)) {
+  if (IsPanoramicRig(origins_in_rig)) {
+    // In case of a panoramic camera/rig, fall back to P3P.
     poselib::p3p(rays_in_rig, points3D, &poses);
     for (poselib::CameraPose& pose : poses) {
       pose.t += origins_in_rig[0];
@@ -230,7 +238,7 @@ void GP4PSEstimator::Estimate(const std::vector<X_t>& points2D,
   // The scale is unobservable from a single projection center. Also reject
   // panoramic samples of a non-panoramic rig, which would otherwise produce
   // spurious models with arbitrary scale.
-  if (HasSingleProjectionCenter(origins_in_rig)) {
+  if (IsPanoramicRig(origins_in_rig)) {
     return;
   }
 
@@ -269,41 +277,27 @@ bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   THROW_CHECK_NOTNULL(rig_from_world);
 
+  // The RANSAC loop can propose non-positive scales, for which the log-space
+  // parameterization below is undefined. Unlike the public refinement in
+  // generalized_pose.h, which throws on such an input, this is a soft failure
+  // that only skips the local optimization.
   if (!(rig_from_world->scale() > 0)) {
     return false;
   }
 
-  // Only observations that project in front of their camera at the initial
-  // estimate constrain the reprojection cost; the others are stale inliers
-  // (or outliers) and are excluded from the refinement.
-  const Eigen::Matrix3x4d rig_from_world_matrix = rig_from_world->ToMatrix();
-  std::vector<X_t> valid_points2D;
-  std::vector<Y_t> valid_points3D;
-  valid_points2D.reserve(points2D.size());
-  valid_points3D.reserve(points3D.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    const Eigen::Vector3d point3D_in_cam =
-        points2D[i].cam_from_rig *
-        (rig_from_world_matrix * points3D[i].homogeneous()).homogeneous();
-    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
-      valid_points2D.push_back(points2D[i]);
-      valid_points3D.push_back(points3D[i]);
-    }
-  }
-  if (valid_points2D.size() < static_cast<size_t>(kMinNumSamples)) {
+  if (points2D.size() < static_cast<size_t>(kMinNumSamples)) {
     return false;
   }
 
-  // The scale is unobservable if the valid observations share a projection
+  // The scale of the rig geometry is unobservable from a single projection
   // center.
-  std::vector<Eigen::Vector3d> rays_in_rig;
   std::vector<Eigen::Vector3d> origins_in_rig;
-  ComputeRaysAndOriginsInRig(valid_points2D, &rays_in_rig, &origins_in_rig);
-  if (HasSingleProjectionCenter(origins_in_rig)) {
+  ComputeOriginsInRig(points2D, &origins_in_rig);
+  if (IsPanoramicRig(origins_in_rig)) {
     return false;
   }
 
-  TinyScaledRigReprojCostFunctor functor(valid_points2D, valid_points3D);
+  TinyScaledRigReprojCostFunctor functor(points2D, points3D);
   TinyScaledRigReprojCostFunctor::AutoDiffFunction f(functor);
   using Solver = TinySolver<decltype(f), ScaledRigFromWorldManifold>;
   Solver solver;
@@ -314,11 +308,9 @@ bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
   x.head<4>() = rig_from_world->rotation().normalized().coeffs();
   x.segment<3>(4) = rig_from_world->translation();
   x[7] = std::log(rig_from_world->scale());
-  const auto& summary = solver.Solve(f, &x, options);
+  solver.Solve(f, &x, options);
 
-  // The cost is evaluable at the initial estimate by construction, but guard
-  // against numerical edge cases regardless.
-  if (summary.status == Solver::COST_FUNCTION_FAILED || !x.allFinite()) {
+  if (!x.allFinite()) {
     return false;
   }
 

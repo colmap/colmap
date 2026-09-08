@@ -311,8 +311,9 @@ TEST(GP4PSEstimator, Refine) {
 TEST(GP4PSEstimator, RefineIgnoresStaleInliers) {
   GP4PSProblem problem = BuildGP4PSProblem(/*num_points=*/32, /*num_cams=*/3);
 
-  // Observations that do not project at the initial estimate must neither
-  // abort the refinement nor bias it: the remaining observations are exact.
+  // Observations that do not project in front of their camera contribute a
+  // zero residual and must not bias the refinement: the remaining
+  // observations are exact.
   for (const size_t i : {0, 7, 20}) {
     MovePointBehindCamera(&problem, i);
   }
@@ -325,19 +326,6 @@ TEST(GP4PSEstimator, RefineIgnoresStaleInliers) {
                         /*stol=*/1e-6,
                         /*rtol=*/1e-6,
                         /*ttol=*/1e-6));
-}
-
-TEST(GP4PSEstimator, RefinePointsBehindCamerasFails) {
-  GP4PSProblem problem = BuildGP4PSProblem(/*num_points=*/8, /*num_cams=*/2);
-
-  for (size_t i = 0; i + 3 < problem.points3D.size(); ++i) {
-    MovePointBehindCamera(&problem, i);
-  }
-
-  Sim3d rig_from_world = problem.gt_rig_from_world;
-  EXPECT_FALSE(GP4PSEstimator::Refine(
-      problem.points2D, problem.points3D, &rig_from_world));
-  EXPECT_EQ(rig_from_world.params, problem.gt_rig_from_world.params);
 }
 
 TEST(GP4PSEstimator, RefineSingleProjectionCenterFails) {
@@ -357,18 +345,6 @@ TEST(GP4PSEstimator, RefineSingleProjectionCenterFails) {
   EXPECT_FALSE(GP4PSEstimator::Refine(
       single_cam_points2D, single_cam_points3D, &rig_from_world));
   EXPECT_EQ(rig_from_world.params, init_rig_from_world.params);
-
-  // Same if the observations from the other centers do not project at the
-  // initial estimate and are therefore excluded from the refinement.
-  for (size_t i = 0; i < problem.points2D.size(); ++i) {
-    if (i % 3 != 0) {
-      MovePointBehindCamera(&problem, i);
-    }
-  }
-  rig_from_world = problem.gt_rig_from_world;
-  EXPECT_FALSE(GP4PSEstimator::Refine(
-      problem.points2D, problem.points3D, &rig_from_world));
-  EXPECT_EQ(rig_from_world.params, problem.gt_rig_from_world.params);
 }
 
 TEST(GP4PSEstimator, PanoramicSampleHasNoSolution) {

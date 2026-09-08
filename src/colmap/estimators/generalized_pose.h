@@ -160,12 +160,11 @@ bool RefineGeneralizedAbsolutePose(
 // Refine generalized absolute pose and scale (optionally focal lengths)
 // from 2D-3D correspondences.
 //
-// Only inlier observations that project in front of their camera at the
-// initial estimate constrain the refinement; the others (e.g., stale inliers)
-// are excluded. The remaining observations define the domain of the cost: a
-// trial step that moves one of them behind its camera is rejected by the
-// solver. The scale is optimized in log-space and therefore stays positive.
-// The output arguments are only modified after a successful solve.
+// In contrast to RefineGeneralizedAbsolutePose, the internal rig geometry is
+// treated as rigid but of unknown global scale. The scale is optimized in
+// log-space and therefore stays positive. The output arguments are only
+// modified after a successful solve. Observations that do not project in
+// front of their camera contribute a zero residual, as elsewhere in COLMAP.
 //
 // @param options              Refinement options. Position priors are not
 //                             supported.
@@ -186,10 +185,9 @@ bool RefineGeneralizedAbsolutePose(
 //                             and scale terms (optional).
 //
 // @return                     Whether the solution is usable. Fails if the
-//                             active observations, i.e., those selected by
-//                             the inlier mask that project at the initial
-//                             estimate, are empty or project from a single
-//                             center, for which the scale is unobservable.
+//                             inlier observations are empty or project from a
+//                             single center, for which the scale is
+//                             unobservable.
 bool RefineScaledGeneralizedAbsolutePose(
     const AbsolutePoseRefinementOptions& options,
     const std::vector<char>& inlier_mask,
