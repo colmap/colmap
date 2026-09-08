@@ -14,50 +14,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-template <typename CameraModel>
-using CovarianceWeightedReprojErrorCostFunctor =
-    CovarianceWeightedCostFunctor<ReprojErrorCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using CovarianceWeightedReprojErrorConstantPoseCostFunctor =
-    CovarianceWeightedCostFunctor<
-        ReprojErrorConstantPoseCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using CovarianceWeightedReprojErrorConstantPoint3DCostFunctor =
-    CovarianceWeightedCostFunctor<
-        ReprojErrorConstantPoint3DCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using CovarianceWeightedRigReprojErrorCostFunctor =
-    CovarianceWeightedCostFunctor<RigReprojErrorCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using CovarianceWeightedRigReprojErrorConstantRigCostFunctor =
-    CovarianceWeightedCostFunctor<
-        RigReprojErrorConstantRigCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using ScaleWeightedReprojErrorCostFunctor =
-    ScaleWeightedCostFunctor<ReprojErrorCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using ScaleWeightedReprojErrorConstantPoseCostFunctor =
-    ScaleWeightedCostFunctor<ReprojErrorConstantPoseCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using ScaleWeightedReprojErrorConstantPoint3DCostFunctor =
-    ScaleWeightedCostFunctor<
-        ReprojErrorConstantPoint3DCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using ScaleWeightedRigReprojErrorCostFunctor =
-    ScaleWeightedCostFunctor<RigReprojErrorCostFunctor<CameraModel>>;
-
-template <typename CameraModel>
-using ScaleWeightedRigReprojErrorConstantRigCostFunctor =
-    ScaleWeightedCostFunctor<RigReprojErrorConstantRigCostFunctor<CameraModel>>;
-
 // Create is overloaded on single and per-residual stddevs, so taking its
 // address needs a target signature to disambiguate.
 template <class CostFunctor, typename... Args>
@@ -83,25 +39,25 @@ void BindCostFunctions(py::module& m_parent) {
       "point2D"_a,
       "Reprojection error.");
   m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<CovarianceWeightedReprojErrorCostFunctor,
-                                  const Eigen::Matrix2d&,
-                                  const Eigen::Vector2d&>,
+        &CreateCovarianceWeightedCameraCostFunction<ReprojErrorCostFunctor,
+                                                    Eigen::Matrix2d,
+                                                    const Eigen::Vector2d&>,
         "camera_model_id"_a,
         "point2D_cov"_a,
         "point2D"_a,
         "Reprojection error with 2D detection noise.");
   m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<ScaleWeightedReprojErrorCostFunctor,
-                                  double,
-                                  const Eigen::Vector2d&>,
+        &CreateScaleWeightedCameraCostFunction<ReprojErrorCostFunctor,
+                                               double,
+                                               const Eigen::Vector2d&>,
         "camera_model_id"_a,
         "point2D_stddev"_a,
         "point2D"_a,
         "Reprojection error with isotropic 2D detection noise.");
   m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<ScaleWeightedReprojErrorCostFunctor,
-                                  const Eigen::Vector2d&,
-                                  const Eigen::Vector2d&>,
+        &CreateScaleWeightedCameraCostFunction<ReprojErrorCostFunctor,
+                                               Eigen::Vector2d,
+                                               const Eigen::Vector2d&>,
         "camera_model_id"_a,
         "point2D_stddev"_a,
         "point2D"_a,
@@ -116,9 +72,9 @@ void BindCostFunctions(py::module& m_parent) {
         "cam_from_world"_a,
         "Reprojection error with constant camera pose.");
   m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<
-            CovarianceWeightedReprojErrorConstantPoseCostFunctor,
-            const Eigen::Matrix2d&,
+        &CreateCovarianceWeightedCameraCostFunction<
+            ReprojErrorConstantPoseCostFunctor,
+            Eigen::Matrix2d,
             const Eigen::Vector2d&,
             const Rigid3d&>,
         "camera_model_id"_a,
@@ -128,10 +84,10 @@ void BindCostFunctions(py::module& m_parent) {
         "Reprojection error with constant camera pose and 2D detection noise.");
   m.def(
       "ReprojErrorCost",
-      &CreateCameraCostFunction<ScaleWeightedReprojErrorConstantPoseCostFunctor,
-                                double,
-                                const Eigen::Vector2d&,
-                                const Rigid3d&>,
+      &CreateScaleWeightedCameraCostFunction<ReprojErrorConstantPoseCostFunctor,
+                                             double,
+                                             const Eigen::Vector2d&,
+                                             const Rigid3d&>,
       "camera_model_id"_a,
       "point2D_stddev"_a,
       "point2D"_a,
@@ -140,10 +96,10 @@ void BindCostFunctions(py::module& m_parent) {
       "detection noise.");
   m.def(
       "ReprojErrorCost",
-      &CreateCameraCostFunction<ScaleWeightedReprojErrorConstantPoseCostFunctor,
-                                const Eigen::Vector2d&,
-                                const Eigen::Vector2d&,
-                                const Rigid3d&>,
+      &CreateScaleWeightedCameraCostFunction<ReprojErrorConstantPoseCostFunctor,
+                                             Eigen::Vector2d,
+                                             const Eigen::Vector2d&,
+                                             const Rigid3d&>,
       "camera_model_id"_a,
       "point2D_stddev"_a,
       "point2D"_a,
@@ -160,9 +116,9 @@ void BindCostFunctions(py::module& m_parent) {
         "point3D"_a,
         "Reprojection error with constant 3D point.");
   m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<
-            CovarianceWeightedReprojErrorConstantPoint3DCostFunctor,
-            const Eigen::Matrix2d&,
+        &CreateCovarianceWeightedCameraCostFunction<
+            ReprojErrorConstantPoint3DCostFunctor,
+            Eigen::Matrix2d,
             const Eigen::Vector2d&,
             const Eigen::Vector3d&>,
         "camera_model_id"_a,
@@ -171,8 +127,8 @@ void BindCostFunctions(py::module& m_parent) {
         "point3D"_a,
         "Reprojection error with constant 3D point and 2D detection noise.");
   m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<
-            ScaleWeightedReprojErrorConstantPoint3DCostFunctor,
+        &CreateScaleWeightedCameraCostFunction<
+            ReprojErrorConstantPoint3DCostFunctor,
             double,
             const Eigen::Vector2d&,
             const Eigen::Vector3d&>,
@@ -183,9 +139,9 @@ void BindCostFunctions(py::module& m_parent) {
         "Reprojection error with constant 3D point and isotropic 2D detection "
         "noise.");
   m.def("ReprojErrorCost",
-        &CreateCameraCostFunction<
-            ScaleWeightedReprojErrorConstantPoint3DCostFunctor,
-            const Eigen::Vector2d&,
+        &CreateScaleWeightedCameraCostFunction<
+            ReprojErrorConstantPoint3DCostFunctor,
+            Eigen::Vector2d,
             const Eigen::Vector2d&,
             const Eigen::Vector3d&>,
         "camera_model_id"_a,
@@ -202,25 +158,25 @@ void BindCostFunctions(py::module& m_parent) {
         "point2D"_a,
         "Reprojection error for camera rig.");
   m.def("RigReprojErrorCost",
-        &CreateCameraCostFunction<CovarianceWeightedRigReprojErrorCostFunctor,
-                                  const Eigen::Matrix2d&,
-                                  const Eigen::Vector2d&>,
+        &CreateCovarianceWeightedCameraCostFunction<RigReprojErrorCostFunctor,
+                                                    Eigen::Matrix2d,
+                                                    const Eigen::Vector2d&>,
         "camera_model_id"_a,
         "point2D_cov"_a,
         "point2D"_a,
         "Reprojection error for camera rig with 2D detection noise.");
   m.def("RigReprojErrorCost",
-        &CreateCameraCostFunction<ScaleWeightedRigReprojErrorCostFunctor,
-                                  double,
-                                  const Eigen::Vector2d&>,
+        &CreateScaleWeightedCameraCostFunction<RigReprojErrorCostFunctor,
+                                               double,
+                                               const Eigen::Vector2d&>,
         "camera_model_id"_a,
         "point2D_stddev"_a,
         "point2D"_a,
         "Reprojection error for camera rig with isotropic 2D detection noise.");
   m.def("RigReprojErrorCost",
-        &CreateCameraCostFunction<ScaleWeightedRigReprojErrorCostFunctor,
-                                  const Eigen::Vector2d&,
-                                  const Eigen::Vector2d&>,
+        &CreateScaleWeightedCameraCostFunction<RigReprojErrorCostFunctor,
+                                               Eigen::Vector2d,
+                                               const Eigen::Vector2d&>,
         "camera_model_id"_a,
         "point2D_stddev"_a,
         "point2D"_a,
@@ -235,9 +191,9 @@ void BindCostFunctions(py::module& m_parent) {
         "cam_from_rig"_a,
         "Reprojection error for camera rig with constant cam-from-rig pose.");
   m.def("RigReprojErrorCost",
-        &CreateCameraCostFunction<
-            CovarianceWeightedRigReprojErrorConstantRigCostFunctor,
-            const Eigen::Matrix2d&,
+        &CreateCovarianceWeightedCameraCostFunction<
+            RigReprojErrorConstantRigCostFunctor,
+            Eigen::Matrix2d,
             const Eigen::Vector2d&,
             const Rigid3d&>,
         "camera_model_id"_a,
@@ -247,8 +203,8 @@ void BindCostFunctions(py::module& m_parent) {
         "Reprojection error for camera rig with constant cam-from-rig pose and "
         "2D detection noise.");
   m.def("RigReprojErrorCost",
-        &CreateCameraCostFunction<
-            ScaleWeightedRigReprojErrorConstantRigCostFunctor,
+        &CreateScaleWeightedCameraCostFunction<
+            RigReprojErrorConstantRigCostFunctor,
             double,
             const Eigen::Vector2d&,
             const Rigid3d&>,
@@ -259,9 +215,9 @@ void BindCostFunctions(py::module& m_parent) {
         "Reprojection error for camera rig with constant cam-from-rig pose and "
         "isotropic 2D detection noise.");
   m.def("RigReprojErrorCost",
-        &CreateCameraCostFunction<
-            ScaleWeightedRigReprojErrorConstantRigCostFunctor,
-            const Eigen::Vector2d&,
+        &CreateScaleWeightedCameraCostFunction<
+            RigReprojErrorConstantRigCostFunctor,
+            Eigen::Vector2d,
             const Eigen::Vector2d&,
             const Rigid3d&>,
         "camera_model_id"_a,

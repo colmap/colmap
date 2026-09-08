@@ -482,4 +482,50 @@ ceres::CostFunction* CreateCameraCostFunction(
   // NOLINTEND(bugprone-macro-parentheses)
 }
 
+// Same as CreateCameraCostFunction, but whitens the result. The weight is a
+// separate parameter so that the inner cost function is still built from the
+// unwrapped functor, which keeps the analytical jacobian for camera models
+// that provide one.
+template <template <typename> class CostFunctor,
+          typename Covariance,
+          typename... Args>
+ceres::CostFunction* CreateCovarianceWeightedCameraCostFunction(
+    const CameraModelId camera_model_id,
+    const Covariance& covariance,
+    Args&&... args) {
+  switch (camera_model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                       \
+  case CameraModel::model_id:                                                \
+    return CreateCovarianceWeightedCostFunction<CostFunctor<CameraModel>>(   \
+        covariance,                                                          \
+        CreateCameraCostFunction<CostFunctor>(camera_model_id,               \
+                                              std::forward<Args>(args)...)); \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+}
+
+template <template <typename> class CostFunctor,
+          typename Stddev,
+          typename... Args>
+ceres::CostFunction* CreateScaleWeightedCameraCostFunction(
+    const CameraModelId camera_model_id, const Stddev& stddev, Args&&... args) {
+  switch (camera_model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                       \
+  case CameraModel::model_id:                                                \
+    return CreateScaleWeightedCostFunction<CostFunctor<CameraModel>>(        \
+        stddev,                                                              \
+        CreateCameraCostFunction<CostFunctor>(camera_model_id,               \
+                                              std::forward<Args>(args)...)); \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+}
+
 }  // namespace colmap
