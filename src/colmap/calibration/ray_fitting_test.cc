@@ -64,11 +64,12 @@ void SynthesizeCorrespondences(const Camera& camera,
 struct RayFittingCase {
   std::string model_name;
   std::vector<double> params;
-  // Tolerance for distortion parameters. High-order polynomial coefficients
+  // Skip distortion parameter assertions, keeping only the (binding)
+  // projection check below. High-order polynomial coefficients
   // (FULL_OPENCV's k1..k6 up to r^12) are weakly identifiable, admitting
-  // projection-equivalent solutions; the projection check below is the
-  // binding assertion for those.
-  double distortion_tol = 1e-4;
+  // projection-equivalent solutions; from a naive start the refinement may
+  // land on a different one than the ground truth.
+  bool skip_extra_param_check = false;
 };
 
 class RayFittingTest : public ::testing::TestWithParam<RayFittingCase> {};
@@ -98,18 +99,19 @@ TEST_P(RayFittingTest, RoundTripRecoversParameters) {
       fitted.params.begin(), fitted.params.end(), [](const double param) {
         return std::isfinite(param);
       }));
-  // Refinement must not regress, but may report equal costs when the
-  // closed-form initialization already sits at the optimum (e.g. noise-free
-  // pinhole data), in which case Ceres terminates without taking a step. The
-  // product's own success contract is `final <= initial`.
+  // Refinement must not regress (Ceres only accepts non-increasing steps);
+  // equal costs mean it terminated without taking a step (e.g. with zero
+  // iterations). The product's own success contract is `final <= initial`.
   EXPECT_LE(fitted.final_cost, fitted.initial_cost);
   EXPECT_LT(fitted.final_cost, 1e-10);
   const span<const size_t> extra_idxs = CameraModelExtraParamsIdxs(model_id);
   const std::unordered_set<size_t> extra_set(extra_idxs.begin(),
                                              extra_idxs.end());
   for (size_t i = 0; i < test_case.params.size(); ++i) {
-    const double tol = extra_set.count(i) ? test_case.distortion_tol : 1e-4;
-    EXPECT_NEAR(fitted.params[i], test_case.params[i], tol)
+    if (extra_set.count(i) > 0 && test_case.skip_extra_param_check) {
+      continue;
+    }
+    EXPECT_NEAR(fitted.params[i], test_case.params[i], 1e-4)
         << "param " << i << " of " << test_case.model_name;
   }
   // The fitted model must project identically to the ground truth.
@@ -119,51 +121,6 @@ TEST_P(RayFittingTest, RoundTripRecoversParameters) {
     ASSERT_TRUE(projected.has_value());
     EXPECT_LT((projected.value() - img_points[i]).norm(), 1e-3)
         << "projection mismatch for " << test_case.model_name;
-  }
-}
-
-TEST(RayFittingTest, ClosedFormInitRecoversWideFisheyeWithoutRefinement) {
-  // With refinement disabled, the fitted parameters are exactly the
-  // closed-form initialization. At wide FOV, only the equidistant
-  // (fisheye-aware) linear fit recovers these models, whose distortion is
-  // fully covered by the fitted k1[, k2] prefix.
-  struct InitCase {
-    std::string model_name;
-    std::vector<double> params;
-  };
-  const std::vector<InitCase> cases = {
-      {"SIMPLE_FISHEYE", {30, 32, 32}},
-      {"FISHEYE", {30, 31, 31, 33}},
-      {"SIMPLE_RADIAL_FISHEYE", {30, 32, 32, 0.05}},
-      {"RADIAL_FISHEYE", {30, 32, 32, 0.05, -0.005}},
-  };
-  for (const auto& test_case : cases) {
-    const CameraModelId model_id = CameraModelNameToId(test_case.model_name);
-    Camera camera;
-    camera.model_id = model_id;
-    camera.width = 64;
-    camera.height = 64;
-    camera.params = test_case.params;
-    ASSERT_TRUE(camera.VerifyParams());
-
-    std::vector<Eigen::Vector2d> img_points;
-    std::vector<Eigen::Vector3d> cam_rays;
-    SynthesizeCorrespondences(
-        camera, camera.width, camera.height, &img_points, &cam_rays);
-    ASSERT_GT(img_points.size(), 1000);
-
-    RayFittingOptions options;
-    options.max_num_iterations = 0;
-    const FittedCamera fitted =
-        FitCameraFromRays(model_id, img_points, cam_rays, options);
-    ASSERT_TRUE(fitted.success) << test_case.model_name;
-    ASSERT_EQ(fitted.params.size(), test_case.params.size())
-        << test_case.model_name;
-    for (size_t i = 0; i < test_case.params.size(); ++i) {
-      EXPECT_NEAR(fitted.params[i], test_case.params[i], 1e-6)
-          << "param " << i << " of " << test_case.model_name;
-    }
-    EXPECT_LT(fitted.initial_cost, 1e-10) << test_case.model_name;
   }
 }
 
@@ -239,7 +196,7 @@ INSTANTIATE_TEST_SUITE_P(
                         -0.001,
                         0.0005,
                         0.0002},
-                       /*distortion_tol=*/1e-2},
+                       /*skip_extra_param_check=*/true},
         RayFittingCase{"FOV", {60, 61, 31, 33, 0.7}},
         RayFittingCase{"FOV", {60, 61, 31, 33, 0.05}},
         RayFittingCase{"SIMPLE_DIVISION", {60, 32, 32, -1e-5}},
@@ -249,9 +206,8 @@ INSTANTIATE_TEST_SUITE_P(
         RayFittingCase{"OPENCV_FISHEYE", {60, 61, 31, 33, 0.01, -0.001, 0, 0}},
         RayFittingCase{"SIMPLE_RADIAL_FISHEYE", {60, 32, 32, 0.01}},
         RayFittingCase{"RADIAL_FISHEYE", {60, 32, 32, 0.01, -0.001}},
-        // Wide-FOV fisheye cases (f=30 on 64x64 px, ~170 deg FOV), where
-        // the X/Z projection is a poor approximation of the equidistant
-        // projection, exercising the fisheye closed-form init.
+        // Wide-FOV fisheye cases (f=30 on 64x64 px, ~170 deg FOV),
+        // exercising the refinement under strongly nonlinear distortion.
         RayFittingCase{"SIMPLE_FISHEYE", {30, 32, 32}},
         RayFittingCase{"FISHEYE", {30, 31, 31, 33}},
         RayFittingCase{"OPENCV_FISHEYE",
@@ -354,14 +310,6 @@ TEST(RayFittingOptionsTest, CheckValidatesBounds) {
 
   options = RayFittingOptions();
   options.max_num_points = 0;
-  EXPECT_FALSE(options.Check());
-
-  options = RayFittingOptions();
-  options.max_fov_deg = 0;
-  EXPECT_FALSE(options.Check());
-
-  options = RayFittingOptions();
-  options.max_fov_deg = 180;
   EXPECT_FALSE(options.Check());
 
   options = RayFittingOptions();
