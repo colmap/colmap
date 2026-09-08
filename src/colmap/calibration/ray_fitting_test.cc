@@ -122,6 +122,51 @@ TEST_P(RayFittingTest, RoundTripRecoversParameters) {
   }
 }
 
+TEST(RayFittingTest, ClosedFormInitRecoversWideFisheyeWithoutRefinement) {
+  // With refinement disabled, the fitted parameters are exactly the
+  // closed-form initialization. At wide FOV, only the equidistant
+  // (fisheye-aware) linear fit recovers these models, whose distortion is
+  // fully covered by the fitted k1[, k2] prefix.
+  struct InitCase {
+    std::string model_name;
+    std::vector<double> params;
+  };
+  const std::vector<InitCase> cases = {
+      {"SIMPLE_FISHEYE", {30, 32, 32}},
+      {"FISHEYE", {30, 31, 31, 33}},
+      {"SIMPLE_RADIAL_FISHEYE", {30, 32, 32, 0.05}},
+      {"RADIAL_FISHEYE", {30, 32, 32, 0.05, -0.005}},
+  };
+  for (const auto& test_case : cases) {
+    const CameraModelId model_id = CameraModelNameToId(test_case.model_name);
+    Camera camera;
+    camera.model_id = model_id;
+    camera.width = 64;
+    camera.height = 64;
+    camera.params = test_case.params;
+    ASSERT_TRUE(camera.VerifyParams());
+
+    std::vector<Eigen::Vector2d> img_points;
+    std::vector<Eigen::Vector3d> cam_rays;
+    SynthesizeCorrespondences(
+        camera, camera.width, camera.height, &img_points, &cam_rays);
+    ASSERT_GT(img_points.size(), 1000);
+
+    RayFittingOptions options;
+    options.max_num_iterations = 0;
+    const FittedCamera fitted =
+        FitCameraFromRays(model_id, img_points, cam_rays, options);
+    ASSERT_TRUE(fitted.success) << test_case.model_name;
+    ASSERT_EQ(fitted.params.size(), test_case.params.size())
+        << test_case.model_name;
+    for (size_t i = 0; i < test_case.params.size(); ++i) {
+      EXPECT_NEAR(fitted.params[i], test_case.params[i], 1e-6)
+          << "param " << i << " of " << test_case.model_name;
+    }
+    EXPECT_LT(fitted.initial_cost, 1e-10) << test_case.model_name;
+  }
+}
+
 TEST(RayFittingTest, EUCMConstraintsHoldForMismatchedRays) {
   Camera source_camera;
   source_camera.model_id = CameraModelId::kFOV;
@@ -204,6 +249,15 @@ INSTANTIATE_TEST_SUITE_P(
         RayFittingCase{"OPENCV_FISHEYE", {60, 61, 31, 33, 0.01, -0.001, 0, 0}},
         RayFittingCase{"SIMPLE_RADIAL_FISHEYE", {60, 32, 32, 0.01}},
         RayFittingCase{"RADIAL_FISHEYE", {60, 32, 32, 0.01, -0.001}},
+        // Wide-FOV fisheye cases (f=30 on 64x64 px, ~170 deg FOV), where
+        // the X/Z projection is a poor approximation of the equidistant
+        // projection, exercising the fisheye closed-form init.
+        RayFittingCase{"SIMPLE_FISHEYE", {30, 32, 32}},
+        RayFittingCase{"FISHEYE", {30, 31, 31, 33}},
+        RayFittingCase{"OPENCV_FISHEYE",
+                       {30, 31, 31, 33, 0.05, -0.005, 0.001, -0.0005}},
+        RayFittingCase{"SIMPLE_RADIAL_FISHEYE", {30, 32, 32, 0.05}},
+        RayFittingCase{"RADIAL_FISHEYE", {30, 32, 32, 0.05, -0.005}},
         RayFittingCase{"THIN_PRISM_FISHEYE",
                        {60,
                         61,
@@ -224,6 +278,36 @@ INSTANTIATE_TEST_SUITE_P(
                         33,
                         0.01,
                         -0.001,
+                        0.0005,
+                        -0.0005,
+                        0.0002,
+                        -0.0002,
+                        0.0001,
+                        0.0001,
+                        0.00005,
+                        -0.00005,
+                        0.00002,
+                        0.00002}},
+        RayFittingCase{"THIN_PRISM_FISHEYE",
+                       {30,
+                        31,
+                        31,
+                        33,
+                        0.05,
+                        -0.005,
+                        0.0005,
+                        -0.0005,
+                        0.0002,
+                        -0.0002,
+                        0.0001,
+                        0.0001}},
+        RayFittingCase{"RAD_TAN_THIN_PRISM_FISHEYE",
+                       {30,
+                        31,
+                        31,
+                        33,
+                        0.05,
+                        -0.005,
                         0.0005,
                         -0.0005,
                         0.0002,
