@@ -304,23 +304,35 @@ import numpy as np
 import pycolmap
 from PIL import Image, ImageOps
 
-# Input should be grayscale image with range [0, 1].
+# Input should be a grayscale bitmap.
 img = Image.open('image.jpg').convert('RGB')
 img = ImageOps.grayscale(img)
-img = np.array(img).astype(np.float) / 255.
+bitmap = pycolmap.Bitmap.from_array(np.array(img))
 
 # Optional parameters:
-# - options: dict or pycolmap.SiftExtractionOptions
+# - options: pycolmap.FeatureExtractionOptions (default: SIFT)
 # - device: default pycolmap.Device.auto uses the GPU if available
-sift = pycolmap.Sift()
+extractor = pycolmap.FeatureExtractor.create()
 
 # Parameters:
-# - image: HxW float array
-keypoints, descriptors = sift.extract(img)
+# - bitmap: pycolmap.Bitmap (grayscale for SIFT)
+keypoints, descriptors = extractor.extract(bitmap)
 # Returns:
-# - keypoints: Nx4 array; format: x (j), y (i), scale, orientation
-# - descriptors: Nx128 array; L2-normalized descriptors
+# - keypoints: pycolmap.FeatureKeypoints; use
+#   pycolmap.keypoints_to_matrix(keypoints) for the Nx4 array with
+#   format: x (j), y (i), scale, orientation
+# - descriptors: pycolmap.FeatureDescriptors; use
+#   descriptors.to_float().data / 512 for the Nx128 array of
+#   L2-normalized descriptors
 ```
+
+Note: unlike the removed `pycolmap.Sift.extract`, `extract` processes the
+image as-is. It does not downscale large images to
+`options.eff_max_image_size()` (3200 by default) and does not rescale the
+keypoint coordinates and scales back to the original resolution. Downscale
+large images yourself before extraction to reproduce the old behavior; in
+particular, the GPU backend requires images within its configured maximum
+dimension.
 
 ## Bitmap
 

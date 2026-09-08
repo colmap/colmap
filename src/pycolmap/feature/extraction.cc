@@ -21,8 +21,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
-
 namespace {
 
 class PyFeatureExtractor : public FeatureExtractor,
