@@ -50,6 +50,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include <optional>
 #include <utility>
 
 #include <Eigen/Dense>
@@ -60,10 +61,29 @@ namespace colmap {
 namespace {
 
 // Whether a camera ray is within the admissible field of view (AnyCalib
-// `check_within_fov` in `pinhole.py`).
-bool IsWithinFov(const Eigen::Vector3d& cam_ray, double max_fov_deg) {
+// `check_within_fov` in `pinhole.py`). The fisheye variant compares the
+// incidence angle, which stays well-defined for wide-angle rays where the
+// tangent-based pinhole form overflows; the two predicates agree for
+// forward-hemisphere rays.
+bool IsWithinFov(const Eigen::Vector3d& cam_ray,
+                 double max_fov_deg,
+                 bool fisheye) {
   const double max_fov = std::min(max_fov_deg, 179.0) * EIGEN_PI / 180.0;
+  if (fisheye) {
+    return std::atan2(cam_ray.head<2>().norm(), cam_ray.z()) < 0.5 * max_fov;
+  }
   return cam_ray.head<2>().norm() < cam_ray.z() * std::tan(0.5 * max_fov);
+}
+
+// Equidistant projection of a camera ray: unit(X, Y) * atan2(rho, Z), where
+// rho = ||(X, Y)||. This is the linear-fit analogue of
+// `BasePerspectiveFisheyeCameraModel::FisheyeFromNormal`.
+Eigen::Vector2d EquidistantProjection(const Eigen::Vector3d& cam_ray) {
+  const double rho = cam_ray.head<2>().norm();
+  if (rho <= std::numeric_limits<double>::epsilon()) {
+    return Eigen::Vector2d::Zero();
+  }
+  return cam_ray.head<2>() / rho * std::atan2(rho, cam_ray.z());
 }
 
 struct LinearSolution {
@@ -111,10 +131,12 @@ struct PinholeFit {
 
 // Closed-form pinhole fit, ported from `Pinhole.fit` (unknown principal
 // point, no covariances): solves for inverse focals and scaled principal
-// point in the reparameterized error space.
+// point in the reparameterized error space. With `fisheye`, fits the
+// equidistant projection instead (undistorted fisheye init).
 PinholeFit FitPinholeLinear(const std::vector<Eigen::Vector2d>& img_points,
                             const std::vector<Eigen::Vector3d>& cam_rays,
-                            double max_fov_deg) {
+                            double max_fov_deg,
+                            bool fisheye) {
   PinholeFit result;
   const double eps = std::numeric_limits<double>::epsilon();
 
@@ -130,11 +152,12 @@ PinholeFit FitPinholeLinear(const std::vector<Eigen::Vector2d>& img_points,
   Eigen::Matrix4d AtA = Eigen::Matrix4d::Zero();
   Eigen::Vector4d Atb = Eigen::Vector4d::Zero();
   for (size_t i = 0; i < img_points.size(); ++i) {
-    if (!IsWithinFov(cam_rays[i], max_fov_deg)) {
+    if (!IsWithinFov(cam_rays[i], max_fov_deg, fisheye)) {
       continue;
     }
     const Eigen::Vector2d proj =
-        cam_rays[i].head<2>() / std::max(cam_rays[i].z(), eps);
+        fisheye ? EquidistantProjection(cam_rays[i])
+                : cam_rays[i].head<2>() / std::max(cam_rays[i].z(), eps);
     Eigen::Matrix<double, 2, 4> A = Eigen::Matrix<double, 2, 4>::Zero();
     A(0, 0) = img_points[i].x() / norm_factor.x();
     A(1, 1) = img_points[i].y() / norm_factor.y();
@@ -169,10 +192,13 @@ struct RadialFit {
 
 // Closed-form radial fit, ported from `Radial.fit` (unknown principal point,
 // no covariances). Projection: u = fx * X/Z * (1 + k1 r^2 + ...) + cx.
+// With `fisheye`, the equidistant analogue: u = fx * theta_hat * (1 + k1
+// theta^2 + ...) + cx, matching the COLMAP fisheye distortion models.
 RadialFit FitRadialLinear(const std::vector<Eigen::Vector2d>& img_points,
                           const std::vector<Eigen::Vector3d>& cam_rays,
                           int num_k,
-                          double max_fov_deg) {
+                          double max_fov_deg,
+                          bool fisheye) {
   RadialFit result;
   const double eps = std::numeric_limits<double>::epsilon();
 
@@ -189,11 +215,14 @@ RadialFit FitRadialLinear(const std::vector<Eigen::Vector2d>& img_points,
   Eigen::MatrixXd AtA = Eigen::MatrixXd::Zero(dim, dim);
   Eigen::VectorXd Atb = Eigen::VectorXd::Zero(dim);
   for (size_t i = 0; i < img_points.size(); ++i) {
-    if (!IsWithinFov(cam_rays[i], max_fov_deg)) {
+    if (!IsWithinFov(cam_rays[i], max_fov_deg, fisheye)) {
       continue;
     }
+    // For fisheye models, `proj` is the equidistant vector, so `radii_u2`
+    // below is theta^2, matching the theta-polynomial distortion.
     const Eigen::Vector2d proj =
-        cam_rays[i].head<2>() / std::max(cam_rays[i].z(), eps);
+        fisheye ? EquidistantProjection(cam_rays[i])
+                : cam_rays[i].head<2>() / std::max(cam_rays[i].z(), eps);
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(2, dim);
     A(0, 0) = img_points[i].x() / fac.x();
     A(1, 1) = img_points[i].y() / fac.y();
@@ -225,20 +254,33 @@ RadialFit FitRadialLinear(const std::vector<Eigen::Vector2d>& img_points,
   return result;
 }
 
-// Whether the model's distortion starts with radial k1[, k2] coefficients
-// matching AnyCalib's radial projection, so closed-form radial init applies.
-bool HasRadialDistortionPrefix(CameraModelId model_id, int* num_k) {
+// If the model's distortion starts with radial k1[, k2] coefficients matching
+// AnyCalib's radial projection (or its equidistant analogue for fisheye
+// models), returns the number of leading coefficients to fit in closed form
+// and whether the model is fisheye; std::nullopt otherwise. Only the leading
+// coefficients are fitted; higher-order terms (FULL_OPENCV's k3..k6,
+// OPENCV_FISHEYE's k3..k4, ...) start at zero for the refinement, as do
+// tangential and thin-prism terms.
+std::optional<std::pair<int, bool>> HasRadialDistortionPrefix(
+    CameraModelId model_id) {
   switch (model_id) {
     case CameraModelId::kSimpleRadial:
-      *num_k = 1;
-      return true;
+      return std::make_pair(1, false);
     case CameraModelId::kRadial:
     case CameraModelId::kOpenCV:
     case CameraModelId::kFullOpenCV:
-      *num_k = 2;
-      return true;
+      return std::make_pair(2, false);
+    case CameraModelId::kSimpleRadialFisheye:
+      return std::make_pair(1, true);
+    case CameraModelId::kRadialFisheye:
+    case CameraModelId::kOpenCVFisheye:
+    case CameraModelId::kThinPrismFisheye:
+    case CameraModelId::kRadTanThinPrismFisheye:
+      // The leading extra parameters are the contiguous radial prefix (k1,
+      // k2) resp. (k0, k1) for all of these models.
+      return std::make_pair(2, true);
     default:
-      return false;
+      return std::nullopt;
   }
 }
 
@@ -279,8 +321,9 @@ struct RayReprojectionResidual {
 
 // Closed-form initialization of `model_id` parameters: radial fit for radial
 // models, pinhole fit otherwise (with pinhole fallback if radial fails).
-// Extra parameters start at zero (undistorted), except radial k1[, k2] and
-// the FOV/EUCM inits below.
+// Fisheye models use the equidistant variants of both fits. Extra parameters
+// start at zero (undistorted), except radial k1[, k2] and the FOV/EUCM inits
+// below.
 bool InitializeCameraParams(CameraModelId model_id,
                             const std::vector<Eigen::Vector2d>& img_points,
                             const std::vector<Eigen::Vector3d>& cam_rays,
@@ -298,22 +341,27 @@ bool InitializeCameraParams(CameraModelId model_id,
   double fx = 0, fy = 0, cx = 0, cy = 0;
   Eigen::VectorXd k_init;
   int num_k = 0;
-  bool use_radial_init = HasRadialDistortionPrefix(model_id, &num_k);
-  if (use_radial_init) {
+  bool use_radial_init = false;
+  if (const auto radial_prefix = HasRadialDistortionPrefix(model_id)) {
+    num_k = radial_prefix->first;
+    const bool fisheye = radial_prefix->second;
     const RadialFit fit =
-        FitRadialLinear(img_points, cam_rays, num_k, max_fov_deg);
+        FitRadialLinear(img_points, cam_rays, num_k, max_fov_deg, fisheye);
     if (fit.success) {
       fx = fit.fx;
       fy = fit.fy;
       cx = fit.cx;
       cy = fit.cy;
       k_init = fit.k;
-    } else {
-      use_radial_init = false;
+      use_radial_init = true;
     }
   }
   if (!use_radial_init) {
-    const PinholeFit fit = FitPinholeLinear(img_points, cam_rays, max_fov_deg);
+    const PinholeFit fit =
+        FitPinholeLinear(img_points,
+                         cam_rays,
+                         max_fov_deg,
+                         CameraModelIsPerspectiveFisheye(model_id));
     if (!fit.success) {
       return false;
     }

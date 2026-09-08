@@ -81,7 +81,15 @@ struct FittedCamera {
 // refinement minimizes pixel residuals of the projected rays with Ceres
 // autodiff directly on any COLMAP perspective model, whose projections are
 // all templated for Jets. Distortion parameters are initialized in closed
-// form for radial models and to zero otherwise.
+// form for radial and radial-fisheye models (leading k1[, k2] coefficients,
+// equidistant projection for fisheye) and to zero otherwise; undistorted
+// fisheye models use the equidistant closed-form init for focal length and
+// principal point.
+//
+// Empirically, the refinement reaches the same optimum from naive starts
+// (focal ~= image span, centered principal point, zero distortion); the
+// closed-form init exists to save Ceres iterations and to support init-only
+// fitting with `max_num_iterations = 0`.
 //
 // Only perspective models are supported; spherical/panoramic models (e.g.
 // EQUIRECTANGULAR) return `success == false`.
