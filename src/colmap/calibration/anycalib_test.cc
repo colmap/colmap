@@ -33,7 +33,6 @@
 #include "colmap/math/random.h"
 
 #include <algorithm>
-#include <cstdlib>
 #include <limits>
 #include <vector>
 
@@ -201,13 +200,9 @@ TEST(CreateAnyCalibCalibratorTest, MissingModelFileThrows) {
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
-// Full-model smoke test, run only when the exported model is available:
-// COLMAP_ANYCALIB_MODEL_PATH=/path/to/anycalib_gen.onnx ctest -R anycalib_test
+// Full-model smoke test with real inference. Like the ALIKED/LoMa tests, this
+// downloads the default model on first run (hash-verified cache).
 TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
-  const char* model_path = std::getenv("COLMAP_ANYCALIB_MODEL_PATH");
-  if (model_path == nullptr) {
-    GTEST_SKIP() << "Set COLMAP_ANYCALIB_MODEL_PATH to run this test";
-  }
   Bitmap bitmap(64, 48, /*as_rgb=*/true);
   for (int r = 0; r < 48; ++r) {
     for (int c = 0; c < 64; ++c) {
@@ -220,7 +215,6 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
   }
   CameraCalibrationOptions options;
   options.use_gpu = false;
-  options.anycalib->model_path = model_path;
   auto calibrator = CameraCalibrator::Create(options);
   Camera camera;
   // Random noise is not expected to calibrate; the test only checks that
