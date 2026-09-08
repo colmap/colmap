@@ -48,10 +48,6 @@ struct RayFittingOptions {
   // are stride-subsampled to this size.
   int max_num_points = 16384;
 
-  // Rays with incidence angles above this field of view (in degrees) are
-  // ignored during linear initialization. Matches AnyCalib's default.
-  double max_fov_deg = 170.0;
-
   // Relative weight of the mean squared focal-length prior error compared to
   // the mean squared pixel reprojection error. A value of zero disables the
   // prior.
@@ -64,7 +60,7 @@ struct FittedCamera {
   // Fitted parameters for the target model, in the frame of the input
   // image coordinates.
   std::vector<double> params;
-  // Whether fitting succeeded (linear init valid and refinement converged).
+  // Whether fitting succeeded (valid initialization and refinement converged).
   bool success = false;
   // Mean squared objective before/after refinement, including the focal-length
   // prior when enabled.
@@ -73,23 +69,22 @@ struct FittedCamera {
 };
 
 // Fit intrinsics of `model_id` to dense image-point/camera-ray correspondences,
-// following AnyCalib (Tirado-Garin & Civera, ICCV 2025): closed-form linear
-// initialization, then nonlinear refinement with Ceres.
+// following AnyCalib (Tirado-Garin & Civera, ICCV 2025): naive initialization
+// (focal length from the image span, principal point at the data center, zero
+// distortion), then nonlinear refinement with Ceres.
 //
 // Unlike upstream AnyCalib, which implements one closed-form solver and one
 // analytic Jacobian per camera model over tangent-space residuals, the
 // refinement minimizes pixel residuals of the projected rays with Ceres
 // autodiff directly on any COLMAP perspective model, whose projections are
-// all templated for Jets. Distortion parameters are initialized in closed
-// form for radial and radial-fisheye models (leading k1[, k2] coefficients,
-// equidistant projection for fisheye) and to zero otherwise; undistorted
-// fisheye models use the equidistant closed-form init for focal length and
-// principal point.
+// all templated for Jets.
 //
-// Empirically, the refinement reaches the same optimum from naive starts
-// (focal ~= image span, centered principal point, zero distortion); the
-// closed-form init exists to save Ceres iterations and to support init-only
-// fitting with `max_num_iterations = 0`.
+// Note: an AnyCalib-style closed-form linear init (incl. an equidistant
+// variant for fisheye models) was evaluated and deliberately dropped. Stress
+// tests over strong distortion (incl. near-pole division), noise, sparsity,
+// partial coverage, and outliers showed the refinement reaches the same
+// optimum from the naive start every time, so the linear init only saved
+// Ceres iterations at the cost of ~270 lines of solver machinery.
 //
 // Only perspective models are supported; spherical/panoramic models (e.g.
 // EQUIRECTANGULAR) return `success == false`.
