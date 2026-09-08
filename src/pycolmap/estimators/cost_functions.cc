@@ -246,7 +246,7 @@ void BindCostFunctions(py::module& m_parent) {
         "6-DoF error on the absolute camera pose with prior covariance.");
   m.def("AbsolutePosePriorCost",
         ScaleVecCost<AbsolutePosePriorCostFunctor, const Rigid3d&>(),
-        "cam_from_world_prior_stddevs"_a,
+        "cam_stddev_from_world_prior"_a,
         "cam_from_world_prior"_a,
         "6-DoF error on the absolute camera pose with per-DoF prior standard "
         "deviations. The first three are on the rotation and the last three on "
@@ -293,7 +293,7 @@ void BindCostFunctions(py::module& m_parent) {
         "relative pose with prior covariance.");
   m.def("RelativePosePriorCost",
         ScaleVecCost<RelativePosePriorCostFunctor, const Rigid3d&>(),
-        "i_from_j_prior_stddevs"_a,
+        "i_stddev_from_j_prior"_a,
         "i_from_j_prior"_a,
         "6-DoF error between two absolute camera poses based on a prior "
         "relative pose with per-DoF prior standard deviations. The first three "
