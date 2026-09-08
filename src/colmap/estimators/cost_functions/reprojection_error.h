@@ -493,6 +493,7 @@ ceres::CostFunction* CreateCovarianceWeightedCameraCostFunction(
     const CameraModelId camera_model_id,
     const Covariance& covariance,
     Args&&... args) {
+  // NOLINTBEGIN(bugprone-macro-parentheses)
   switch (camera_model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                       \
   case CameraModel::model_id:                                                \
@@ -506,6 +507,7 @@ ceres::CostFunction* CreateCovarianceWeightedCameraCostFunction(
 
 #undef CAMERA_MODEL_CASE
   }
+  // NOLINTEND(bugprone-macro-parentheses)
 }
 
 template <template <typename> class CostFunctor,
@@ -513,6 +515,7 @@ template <template <typename> class CostFunctor,
           typename... Args>
 ceres::CostFunction* CreateScaleWeightedCameraCostFunction(
     const CameraModelId camera_model_id, const Stddev& stddev, Args&&... args) {
+  // NOLINTBEGIN(bugprone-macro-parentheses)
   switch (camera_model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                       \
   case CameraModel::model_id:                                                \
@@ -526,6 +529,7 @@ ceres::CostFunction* CreateScaleWeightedCameraCostFunction(
 
 #undef CAMERA_MODEL_CASE
   }
+  // NOLINTEND(bugprone-macro-parentheses)
 }
 
 }  // namespace colmap
