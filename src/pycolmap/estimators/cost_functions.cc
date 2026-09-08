@@ -245,17 +245,12 @@ void BindCostFunctions(py::module& m_parent) {
         "cam_from_world_prior"_a,
         "6-DoF error on the absolute camera pose with prior covariance.");
   m.def("AbsolutePosePriorCost",
-        ScaleCost<AbsolutePosePriorCostFunctor, const Rigid3d&>(),
-        "cam_stddev_from_world_prior"_a,
-        "cam_from_world_prior"_a,
-        "6-DoF error on the absolute camera pose with isotropic prior "
-        "standard deviation.");
-  m.def("AbsolutePosePriorCost",
         ScaleVecCost<AbsolutePosePriorCostFunctor, const Rigid3d&>(),
-        "cam_stddev_from_world_prior"_a,
+        "cam_from_world_prior_stddevs"_a,
         "cam_from_world_prior"_a,
         "6-DoF error on the absolute camera pose with per-DoF prior standard "
-        "deviations.");
+        "deviations. The first three are on the rotation and the last three on "
+        "the translation, so they do not share a unit.");
 
   m.def("AbsolutePosePositionPriorCost",
         &AbsolutePosePositionPriorCostFunctor::Create<const Eigen::Vector3d&>,
@@ -297,17 +292,13 @@ void BindCostFunctions(py::module& m_parent) {
         "6-DoF error between two absolute camera poses based on a prior "
         "relative pose with prior covariance.");
   m.def("RelativePosePriorCost",
-        ScaleCost<RelativePosePriorCostFunctor, const Rigid3d&>(),
-        "i_stddev_from_j_prior"_a,
-        "i_from_j_prior"_a,
-        "6-DoF error between two absolute camera poses based on a prior "
-        "relative pose with isotropic prior standard deviation.");
-  m.def("RelativePosePriorCost",
         ScaleVecCost<RelativePosePriorCostFunctor, const Rigid3d&>(),
-        "i_stddev_from_j_prior"_a,
+        "i_from_j_prior_stddevs"_a,
         "i_from_j_prior"_a,
         "6-DoF error between two absolute camera poses based on a prior "
-        "relative pose with per-DoF prior standard deviations.");
+        "relative pose with per-DoF prior standard deviations. The first three "
+        "are on the rotation and the last three on the translation, so they do "
+        "not share a unit.");
 
   m.def("Point3DAlignmentCost",
         &Point3DAlignmentCostFunctor::Create<const Eigen::Vector3d&, bool>,
