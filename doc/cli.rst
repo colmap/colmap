@@ -108,7 +108,7 @@ Graceful shutdown and resuming
 
 The feature extraction and matching commands, ``mapper``,
 ``pose_prior_mapper``, ``bundle_adjuster``, ``point_triangulator``,
-``image_registrator``, the image undistortion commands,
+``image_registrator``, ``camera_calibrator``, the image undistortion commands,
 ``patch_match_stereo``, and ``stereo_fusion`` handle ``SIGINT`` and ``SIGTERM``
 cooperatively. ``automatic_reconstructor`` supports graceful shutdown when
 using the incremental mapper. The first signal stops work at a safe point and
@@ -224,6 +224,7 @@ The available commands can be listed using the command::
           gui
           automatic_reconstructor
           bundle_adjuster
+          camera_calibrator
           color_extractor
           database_cleaner
           database_creator
@@ -345,6 +346,9 @@ available as ``colmap [command]``:
   to select the feature extraction algorithm, ``--mapper`` (INCREMENTAL,
   HIERARCHICAL, GLOBAL) to choose the SfM pipeline, and ``--mesher`` (POISSON,
   DELAUNAY, ADVANCING_FRONT) to select the surface reconstruction method.
+  ``--camera_calibration`` enables learned single-image camera calibration
+  after feature extraction (ignored if explicit ``--camera_params`` are given);
+  ``--CameraCalibration.*`` tunes the calibration backend.
 
 - ``project_generator``: Generate project files at different quality settings.
 
@@ -502,6 +506,12 @@ available as ``colmap [command]``:
   geometric relations. Should be run before ``global_mapper``, if no good
   prior camera intrinsics are known, since the global mapper
   depends on reasonably good focal length priors to perform well.
+
+- ``camera_calibrator``: Calibrate camera intrinsics from single images with a
+  learned model (AnyCalib), replacing e.g. EXIF-based initialization. Run
+  after ``feature_extractor`` and before matching and mapping, or enable
+  ``--camera_calibration`` in ``automatic_reconstructor``. Supports
+  ``--image_list_path`` to calibrate a subset of the database images.
 
 
 Visualization

@@ -46,9 +46,17 @@ plain matmul+softmax), onnx, onnxruntime, pillow, numpy. Example::
     python scripts/anycalib/export_onnx.py --model_id anycalib_gen \
         --anycalib_dir /path/to/AnyCalib \
         --output anycalib_gen_v1.0.0_322x322.onnx
+
+The weights file is hashed (SHA256) before loading and verified against
+``--weights_sha256`` when given. Export provenance (weights hash and source,
+AnyCalib revision, opset, parity tolerance, and package versions) is recorded
+both as ONNX ``metadata_props`` and as a ``<output>.provenance.json`` sidecar.
 """
 
 import argparse
+import hashlib
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -83,6 +91,35 @@ class AnyCalibFeedForward(torch.nn.Module):
         return rays, tangent_coords
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _git_revision(path: Path) -> str:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(path), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
+
+
+def _package_version(name: str) -> str:
+    try:
+        from importlib.metadata import version
+
+        return version(name)
+    except Exception:
+        return "unknown"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -107,6 +144,13 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Optional local .pt weights file (else downloaded from GitHub).",
+    )
+    parser.add_argument(
+        "--weights_sha256",
+        default=None,
+        help="Expected SHA256 of the .pt weights. When given, the weights "
+        "(downloaded or local) are verified against it before loading. "
+        "Always recorded in the provenance sidecar when absent.",
     )
     parser.add_argument(
         "--output", type=Path, required=True, help="Output .onnx path."
@@ -147,19 +191,42 @@ def main() -> None:
 
     print(f"Loading {args.model_id} ...")
     model = AnyCalib(model_id=None)
+    weights_source = ""
     if args.weights is not None:
-        state_dict = torch.load(args.weights, map_location="cpu")
+        weights_path = args.weights
+        weights_source = f"local:{args.weights}"
     else:
         url = (
             "https://github.com/javrtg/AnyCalib/releases/download/"
             f"v1.0.0/{args.model_id}.pt"
         )
-        state_dict = torch.hub.load_state_dict_from_url(
-            url,
-            f"{torch.hub.get_dir()}/anycalib",
-            map_location="cpu",
-            file_name=f"{args.model_id}.pt",
+        weights_source = url
+        # Download to the hub cache explicitly (instead of
+        # load_state_dict_from_url) so the raw file can be hashed first.
+        weights_path = (
+            Path(torch.hub.get_dir()) / "anycalib" / f"{args.model_id}.pt"
         )
+        weights_path.parent.mkdir(parents=True, exist_ok=True)
+        if not weights_path.exists():
+            print(f"Downloading {url} ...")
+            torch.hub.download_url_to_file(url, weights_path)
+        else:
+            print(f"Reusing cached weights at {weights_path}")
+    weights_sha256 = _sha256_file(weights_path)
+    print(f"Weights SHA256: {weights_sha256}")
+    if args.weights_sha256 is not None:
+        if weights_sha256 != args.weights_sha256.lower():
+            raise RuntimeError(
+                f"Weights hash mismatch for {weights_path}: expected "
+                f"{args.weights_sha256}, got {weights_sha256}"
+            )
+        print("Weights hash verified.")
+    else:
+        print(
+            "WARNING: no --weights_sha256 given, weights are not "
+            "integrity-checked."
+        )
+    state_dict = torch.load(weights_path, map_location="cpu")
     model.load_state_dict(state_dict, strict=True)
     model.eval()
 
@@ -257,6 +324,44 @@ def main() -> None:
                 raise RuntimeError(f"Parity check failed for {name}")
 
     print("Parity check passed.")
+
+    # Record export provenance both as a JSON sidecar and as ONNX metadata, so
+    # that a downstream user can verify exactly which weights and toolchain
+    # produced the model.
+    provenance = {
+        "model_id": args.model_id,
+        "weights_source": weights_source,
+        "weights_sha256": weights_sha256,
+        "weights_sha256_verified": args.weights_sha256 is not None,
+        "anycalib_revision": _git_revision(args.anycalib_dir),
+        "opset": args.opset,
+        "input_size": [322, 322],
+        "parity_tol": args.parity_tol,
+        "versions": {
+            "torch": _package_version("torch"),
+            "onnx": _package_version("onnx"),
+            "onnxruntime": _package_version("onnxruntime"),
+            "numpy": _package_version("numpy"),
+            "pillow": _package_version("pillow"),
+        },
+    }
+    exported = onnx.load(args.output)
+    for key, value in provenance.items():
+        if key == "versions":
+            for pkg, ver in value.items():
+                entry = exported.metadata_props.add()
+                entry.key = f"provenance.version.{pkg}"
+                entry.value = str(ver)
+        else:
+            entry = exported.metadata_props.add()
+            entry.key = f"provenance.{key}"
+            entry.value = str(value)
+    onnx.save_model(exported, args.output)
+    provenance["output_sha256"] = _sha256_file(args.output)
+    sidecar = args.output.with_name(args.output.name + ".provenance.json")
+    sidecar.write_text(json.dumps(provenance, indent=2) + "\n")
+    print(f"Provenance written to {sidecar}")
+
     print(f"Done: {args.output}")
 
 

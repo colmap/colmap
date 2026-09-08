@@ -32,10 +32,10 @@
 #include "colmap/calibration/anycalib.h"
 #include "colmap/math/math.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace colmap {
 namespace {
@@ -71,8 +71,9 @@ size_t FindClosestCalibrationIdx(
 }  // namespace
 
 bool IsValidCalibration(const Camera& camera) {
-  THROW_CHECK_GT(camera.width, 0);
-  THROW_CHECK_GT(camera.height, 0);
+  if (camera.width == 0 || camera.height == 0) {
+    return false;
+  }
   if (!std::all_of(camera.params.begin(),
                    camera.params.end(),
                    [](const double param) { return std::isfinite(param); }) ||
@@ -85,16 +86,18 @@ bool IsValidCalibration(const Camera& camera) {
     }
   }
   // Unproject a coarse grid of pixels to rays and project them back. Diverging
-  // distortion shows up as either a failed or an inaccurate round-trip.
+  // distortion shows up as either a failed or an inaccurate round-trip. The
+  // grid covers bin centers rather than the exact image edges, and the
+  // tolerance admits small numerical errors while rejecting divergence.
   constexpr int kNumGridSteps = 8;
-  constexpr double kMaxRelativeRoundTripError = 0.01;
+  constexpr double kMaxRelativeRoundTripError = 0.001;
   const double max_error =
       kMaxRelativeRoundTripError * std::max(camera.width, camera.height);
   for (int y = 0; y <= kNumGridSteps; ++y) {
     for (int x = 0; x <= kNumGridSteps; ++x) {
       const Eigen::Vector2d image_point(
-          camera.width * static_cast<double>(x) / kNumGridSteps,
-          camera.height * static_cast<double>(y) / kNumGridSteps);
+          camera.width * (static_cast<double>(x) + 0.5) / (kNumGridSteps + 1),
+          camera.height * (static_cast<double>(y) + 0.5) / (kNumGridSteps + 1));
       const std::optional<Eigen::Vector3d> cam_ray =
           camera.CamRayFromImg(image_point);
       if (!cam_ray.has_value() || !cam_ray->allFinite()) {
@@ -138,9 +141,9 @@ bool AggregateCameraCalibrations(
   candidate.model_id = model_id;
   candidate.params = std::move(median);
   if (!IsValidCalibration(candidate)) {
-    // Fall back to the individually validated calibration closest to the
-    // median, which trades the noise averaging of the median for a parameter
-    // vector that is guaranteed to have been observed.
+    // Fall back to the single-image calibration closest to the median, which
+    // trades the noise averaging of the median for a parameter vector that is
+    // guaranteed to have been observed (and is re-validated below).
     LOG(WARNING) << "Aggregated calibration for camera " << camera->camera_id
                  << " is invalid, falling back to the closest single-image "
                     "calibration";
@@ -195,10 +198,12 @@ bool CameraCalibrationOptions::Check() const {
   CHECK_OPTION_GT(max_extra_param, 0.0);
   switch (type) {
     case CameraCalibratorType::ANYCALIB:
-      CHECK_OPTION(THROW_CHECK_NOTNULL(anycalib)->Check());
+      CHECK_OPTION(anycalib != nullptr);
+      CHECK_OPTION(anycalib->Check());
       break;
     default:
-      LOG(FATAL_THROW) << "Unknown camera calibrator type";
+      LOG(ERROR) << "Unknown camera calibrator type";
+      return false;
   }
   return true;
 }

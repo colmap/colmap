@@ -33,6 +33,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <unordered_set>
 
 #include <gtest/gtest.h>
@@ -235,7 +236,7 @@ INSTANTIATE_TEST_SUITE_P(
                         0.00002}},
         RayFittingCase{"EUCM", {60, 61, 31, 33, 0.6, 2.0}}));
 
-TEST(RayFittingDeathTest, RejectsNonPerspectiveModel) {
+TEST(RayFittingTest, RejectsNonPerspectiveModel) {
   const CameraModelId model_id = CameraModelId::kEquirectangular;
   const std::vector<Eigen::Vector2d> img_points(10, Eigen::Vector2d(1, 1));
   const std::vector<Eigen::Vector3d> cam_rays(10, Eigen::Vector3d(0, 0, 1));
@@ -244,7 +245,48 @@ TEST(RayFittingDeathTest, RejectsNonPerspectiveModel) {
   EXPECT_FALSE(fitted.success);
 }
 
+TEST(RayFittingTest, RejectsEmptyAndMismatchedInputs) {
+  const std::vector<Eigen::Vector2d> img_points(10, Eigen::Vector2d(1, 1));
+  const std::vector<Eigen::Vector3d> cam_rays(10, Eigen::Vector3d(0, 0, 1));
+  EXPECT_FALSE(FitCameraFromRays(
+                   CameraModelId::kSimplePinhole, {}, {}, RayFittingOptions())
+                   .success);
+  const std::vector<Eigen::Vector3d> mismatched_rays(5,
+                                                     Eigen::Vector3d(0, 0, 1));
+  EXPECT_FALSE(FitCameraFromRays(CameraModelId::kSimplePinhole,
+                                 img_points,
+                                 mismatched_rays,
+                                 RayFittingOptions())
+                   .success);
+}
+
+TEST(RayFittingOptionsTest, CheckValidatesBounds) {
+  RayFittingOptions options;
+  EXPECT_TRUE(options.Check());
+
+  options = RayFittingOptions();
+  options.max_num_iterations = -1;
+  EXPECT_FALSE(options.Check());
+
+  options = RayFittingOptions();
+  options.max_num_points = 0;
+  EXPECT_FALSE(options.Check());
+
+  options = RayFittingOptions();
+  options.max_fov_deg = 0;
+  EXPECT_FALSE(options.Check());
+
+  options = RayFittingOptions();
+  options.max_fov_deg = 180;
+  EXPECT_FALSE(options.Check());
+
+  options = RayFittingOptions();
+  options.prior_focal_length_weight = -1;
+  EXPECT_FALSE(options.Check());
+}
+
 TEST(StrideSubsampleIndicesTest, CoversBounds) {
+  EXPECT_THROW(StrideSubsampleIndices(10, 0), std::exception);
   EXPECT_EQ(StrideSubsampleIndices(0, 100).size(), 0);
   const auto all = StrideSubsampleIndices(10, 100);
   ASSERT_EQ(all.size(), 10);

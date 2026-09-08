@@ -67,8 +67,21 @@ bool IsWithinFov(const Eigen::Vector3d& cam_ray, double max_fov_deg) {
 }
 
 struct LinearSolution {
+  // Solution of the normal equations in the reparameterized error space:
+  // inverse focals (x, y) and focal-scaled principal point (z, w),
+  // optionally followed by radial distortion coefficients.
   Eigen::VectorXd params;
   bool success = false;
+
+  // Whether the solution is usable: the normal equations solved and the
+  // inverse focals (the first two parameters) are safely away from zero.
+  bool IsValid() const {
+    // Legitimate inverse focals are O(0.01-1); near-zero values would produce
+    // astronomical focal lengths that still pass the `fx > 0` check below.
+    constexpr double kMinAbsInverseFocal = 1e-9;
+    return success && std::abs(params.x()) > kMinAbsInverseFocal &&
+           std::abs(params.y()) > kMinAbsInverseFocal;
+  }
 };
 
 LinearSolution SolveNormalEquations(const Eigen::MatrixXd& AtA,
@@ -79,7 +92,12 @@ LinearSolution SolveNormalEquations(const Eigen::MatrixXd& AtA,
     return result;
   }
   result.params = ldlt.solve(Atb);
-  result.success = result.params.allFinite();
+  // LDLT reports success for singular and semi-definite systems (e.g. an all
+  // zero `AtA` when every point is out of the field of view), in which case
+  // the solution is finite garbage. Positive definiteness requires a strictly
+  // positive D diagonal.
+  result.success =
+      result.params.allFinite() && (ldlt.vectorD().array() > 0).all();
   return result;
 }
 
@@ -127,7 +145,7 @@ PinholeFit FitPinholeLinear(const std::vector<Eigen::Vector2d>& img_points,
   }
 
   const LinearSolution sol = SolveNormalEquations(AtA, Atb);
-  if (!sol.success || sol.params.x() == 0 || sol.params.y() == 0) {
+  if (!sol.IsValid()) {
     return result;
   }
   result.fx = norm_factor.x() / sol.params.x();
@@ -193,7 +211,7 @@ RadialFit FitRadialLinear(const std::vector<Eigen::Vector2d>& img_points,
   }
 
   const LinearSolution sol = SolveNormalEquations(AtA, Atb);
-  if (!sol.success || sol.params.x() == 0 || sol.params.y() == 0) {
+  if (!sol.IsValid()) {
     return result;
   }
   result.fx = fac.x() / sol.params.x();
@@ -413,6 +431,14 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
     problem.SetParameterLowerBound(
         params->data(), beta_idx, std::numeric_limits<double>::epsilon());
   }
+  if constexpr (CameraModel::model_id == CameraModelId::kFOV) {
+    // Omega is the field-of-view angle in radians; outside (0, pi) the
+    // `tan(omega / 2)` distortion term is singular or meaningless.
+    const size_t omega_idx = CameraModel::extra_params_idxs[0];
+    problem.SetParameterLowerBound(
+        params->data(), omega_idx, std::numeric_limits<double>::epsilon());
+    problem.SetParameterUpperBound(params->data(), omega_idx, EIGEN_PI);
+  }
 
   ceres::Solver::Options solver_options;
   solver_options.linear_solver_type = ceres::DENSE_QR;
@@ -469,6 +495,7 @@ bool RayFittingOptions::Check() const {
 
 std::vector<size_t> StrideSubsampleIndices(size_t num_points,
                                            size_t max_num_points) {
+  THROW_CHECK_GT(max_num_points, 0);
   if (num_points <= max_num_points) {
     std::vector<size_t> indices(num_points);
     std::iota(indices.begin(), indices.end(), 0);

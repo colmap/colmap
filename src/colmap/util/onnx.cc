@@ -34,6 +34,7 @@
 #include "colmap/util/threading.h"
 
 #include <iostream>
+#include <iterator>
 #include <mutex>
 #include <sstream>
 
@@ -67,6 +68,24 @@ constexpr char kDisableCpuEpFallback[] = "session.disable_cpu_ep_fallback";
     LOG(ERROR) << "Unknown exception during ONNX execution";
     throw;
   }
+}
+
+const char* FormatONNXElementType(ONNXTensorElementDataType type) {
+  // Names in `TensorProto::DataType` order. The enum is auto-numbered from
+  // zero and only ever extended by appending, so indexing is stable across
+  // runtime versions; entries past an older runtime's maximum are simply
+  // unreachable there.
+  static constexpr const char* kNames[] = {
+      "undefined", "float",   "uint8",   "int8",   "uint16",
+      "int16",     "int32",   "int64",   "string", "bool",
+      "float16",   "double",  "uint32",  "uint64", "complex64",
+      "complex128", "bfloat16", "float8e4m3fn", "float8e4m3fnuz", "float8e5m2",
+      "float8e5m2fnuz", "uint4", "int4", "float4e2m1", "uint2",
+      "int2", "float8e8m0"};
+  if (type < 0 || static_cast<size_t>(type) >= std::size(kNames)) {
+    return "unknown";
+  }
+  return kNames[type];
 }
 }  // namespace
 
@@ -113,6 +132,15 @@ void ThrowCheckONNXNode(const std::string_view name,
           << " != " << FormatONNXTensorShape(expected_shape);
     }
   }
+}
+
+void ThrowCheckONNXElementType(const std::string_view name,
+                               const ONNXTensorElementDataType type,
+                               const ONNXTensorElementDataType expected_type) {
+  THROW_CHECK_EQ(type, expected_type)
+      << "Invalid element type for " << name << ": "
+      << FormatONNXElementType(type)
+      << " != " << FormatONNXElementType(expected_type);
 }
 
 ONNXModel::ONNXModel(std::string model_path,
@@ -235,12 +263,16 @@ void ONNXModel::InitializeSession(const std::string& model_path,
   input_name_strs_.reserve(num_inputs);
   input_names_.reserve(num_inputs);
   input_shapes_.reserve(num_inputs);
+  input_element_types_.reserve(num_inputs);
   for (int i = 0; i < num_inputs; ++i) {
     input_name_strs_.emplace_back(
         session_->GetInputNameAllocated(i, allocator_));
     input_names_.emplace_back(input_name_strs_[i].get());
     input_shapes_.emplace_back(
         session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    input_element_types_.emplace_back(session_->GetInputTypeInfo(i)
+                                          .GetTensorTypeAndShapeInfo()
+                                          .GetElementType());
   }
 
   VLOG(2) << "Parsing the outputs";
@@ -248,12 +280,16 @@ void ONNXModel::InitializeSession(const std::string& model_path,
   output_name_strs_.reserve(num_outputs);
   output_names_.reserve(num_outputs);
   output_shapes_.reserve(num_outputs);
+  output_element_types_.reserve(num_outputs);
   for (int i = 0; i < num_outputs; ++i) {
     output_name_strs_.emplace_back(
         session_->GetOutputNameAllocated(i, allocator_));
     output_names_.emplace_back(output_name_strs_[i].get());
     output_shapes_.emplace_back(
         session_->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    output_element_types_.emplace_back(session_->GetOutputTypeInfo(i)
+                                           .GetTensorTypeAndShapeInfo()
+                                           .GetElementType());
   }
 }
 

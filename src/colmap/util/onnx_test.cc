@@ -122,10 +122,16 @@ TEST(ONNXModelTest, MetadataAndInference) {
   EXPECT_STREQ(model.input_names()[0], "input");
   ASSERT_EQ(model.input_shapes().size(), 1);
   EXPECT_EQ(model.input_shapes()[0], (std::vector<int64_t>{1, 2}));
+  ASSERT_EQ(model.input_element_types().size(), 1);
+  EXPECT_EQ(model.input_element_types()[0],
+            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
   ASSERT_EQ(model.output_names().size(), 1);
   EXPECT_STREQ(model.output_names()[0], "output");
   ASSERT_EQ(model.output_shapes().size(), 1);
   EXPECT_EQ(model.output_shapes()[0], (std::vector<int64_t>{1, 2}));
+  ASSERT_EQ(model.output_element_types().size(), 1);
+  EXPECT_EQ(model.output_element_types()[0],
+            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
   std::vector<float> input_data{1.25f, -2.5f};
   const std::vector<int64_t> input_shape{1, 2};
@@ -138,6 +144,24 @@ TEST(ONNXModelTest, MetadataAndInference) {
   const float* output_data = outputs[0].GetTensorData<float>();
   EXPECT_FLOAT_EQ(output_data[0], input_data[0]);
   EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
+}
+
+TEST(ThrowCheckONNXElementTypeTest, AcceptsMatchingType) {
+  EXPECT_NO_THROW(
+      ThrowCheckONNXElementType("image",
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT));
+  EXPECT_NO_THROW(
+      ThrowCheckONNXElementType("max_keypoints",
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64,
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64));
+}
+
+TEST(ThrowCheckONNXElementTypeTest, RejectsMismatchedType) {
+  EXPECT_THROW(ThrowCheckONNXElementType("image",
+                                         ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE,
+                                         ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT),
+               std::exception);
 }
 
 TEST(ONNXModelTest, InvalidInputTypeRethrows) {

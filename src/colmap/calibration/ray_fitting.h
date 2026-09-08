@@ -87,6 +87,8 @@ struct FittedCamera {
 // EQUIRECTANGULAR) return `success == false`.
 // If provided, `prior_focal_lengths` must follow the target model's focal
 // parameter order and is weighted according to `prior_focal_length_weight`.
+// An invalid prior (wrong size or non-positive/non-finite values) is ignored
+// with a warning instead of failing the fit.
 FittedCamera FitCameraFromRays(
     CameraModelId model_id,
     const std::vector<Eigen::Vector2d>& img_points,

@@ -182,19 +182,31 @@ class LomaFeatureExtractor : public FeatureExtractor {
                        "image",
                        detector_.input_shapes()[0],
                        {1, 3, -1, -1});
+    ThrowCheckONNXElementType(detector_.input_names()[0],
+                              detector_.input_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(detector_.input_names()[1],
                        "num_keypoints",
                        detector_.input_shapes()[1],
                        {1});
+    ThrowCheckONNXElementType(detector_.input_names()[1],
+                              detector_.input_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64);
     THROW_CHECK_EQ(detector_.output_shapes().size(), 2);
     ThrowCheckONNXNode(detector_.output_names()[0],
                        "keypoints",
                        detector_.output_shapes()[0],
                        {1, -1, 2});
+    ThrowCheckONNXElementType(detector_.output_names()[0],
+                              detector_.output_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(detector_.output_names()[1],
                        "keypoint_probs",
                        detector_.output_shapes()[1],
                        {1, -1});
+    ThrowCheckONNXElementType(detector_.output_names()[1],
+                              detector_.output_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
     // Descriptor: image [1, 3, S, S], keypoints [1, N, 2] -> descriptions
     // [1, N, D]. Variant-specific (dim differs between DeDoDe-B / DeDoDe-G).
@@ -204,6 +216,9 @@ class LomaFeatureExtractor : public FeatureExtractor {
     for (size_t i = 0; i < descriptor_.input_names().size(); ++i) {
       const std::string_view name = descriptor_.input_names()[i];
       const auto& shape = descriptor_.input_shapes()[i];
+      ThrowCheckONNXElementType(name,
+                                descriptor_.input_element_types()[i],
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
       if (name == "image") {
         ThrowCheckONNXNode(name, "image", shape, {1, 3, -1, -1});
         THROW_CHECK_GT(shape[2], 0);
@@ -220,6 +235,9 @@ class LomaFeatureExtractor : public FeatureExtractor {
     THROW_CHECK(found_image_input);
     THROW_CHECK(found_keypoints_input);
     THROW_CHECK_EQ(descriptor_.output_shapes().size(), 1);
+    ThrowCheckONNXElementType(descriptor_.output_names()[0],
+                              descriptor_.output_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     const auto& desc_out_shape = descriptor_.output_shapes()[0];
     THROW_CHECK_EQ(desc_out_shape.size(), 3);
     descriptor_dim_ = static_cast<int>(desc_out_shape[2]);
