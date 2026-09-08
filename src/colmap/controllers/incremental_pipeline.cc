@@ -220,8 +220,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
     options.ceres->min_num_residuals_for_cpu_multi_threading =
         ba_min_num_residuals_for_cpu_multi_threading;
     options.ceres->loss_function_scale = 1.0;
-    options.ceres->loss_function_type =
-        CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+    options.ceres->loss_function_type = CeresLossFunctionType::SOFT_L1;
     options.ceres->use_gpu = ba_use_gpu;
     options.ceres->gpu_index = ba_gpu_index;
   }
@@ -269,8 +268,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
 #endif  // CERES_VERSION_MAJOR
     options.ceres->min_num_residuals_for_cpu_multi_threading =
         ba_min_num_residuals_for_cpu_multi_threading;
-    options.ceres->loss_function_type =
-        CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+    options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
     options.ceres->use_gpu = ba_use_gpu;
     options.ceres->gpu_index = ba_gpu_index;
   }
@@ -868,7 +866,7 @@ void IncrementalPipeline::TriangulateReconstruction(
     const auto& image = reconstruction->Image(image_id);
 
     LOG(INFO) << StringPrintf(
-        "Triangulating image #%d (%d)", image_id, image_idx++);
+        "Triangulating image #%d (%d)", image_id, ++image_idx);
     const size_t num_existing_points3D = image.NumPoints3D();
     LOG(INFO) << "=> Image sees " << num_existing_points3D << " / "
               << mapper.ObservationManager().NumObservations(image_id)

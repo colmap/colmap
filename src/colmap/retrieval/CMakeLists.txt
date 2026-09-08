@@ -45,7 +45,7 @@ COLMAP_ADD_LIBRARY(
         colmap_util
         colmap_math
         colmap_feature_types
-        Boost::boost
+        ${COLMAP_BOOST_HEADER_LIBS}
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
         colmap_estimators

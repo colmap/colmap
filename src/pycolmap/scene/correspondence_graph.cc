@@ -136,13 +136,4 @@ void BindCorrespondenceGraph(py::module& m) {
              return CorrespondenceGraph(self);
            })
       .def("__repr__", &CreateRepresentation<CorrespondenceGraph>);
-  DefDeprecation(PyCorrespondenceGraph,
-                 "num_correspondences_between_images",
-                 "num_matches_between_images");
-  DefDeprecation(PyCorrespondenceGraph,
-                 "num_correspondences_between_all_images",
-                 "num_matches_between_all_images");
-  DefDeprecation(PyCorrespondenceGraph,
-                 "find_correspondences_between_images",
-                 "extract_matches_between_images");
 }

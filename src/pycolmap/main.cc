@@ -1,4 +1,5 @@
 #include "colmap/math/random.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/version.h"
 
 #include "pycolmap/helpers.h"
@@ -42,7 +43,6 @@ PYBIND11_MODULE(_core, m) {
   m.attr("has_cuda") = IsGPU(Device::AUTO);
   m.attr("COLMAP_version") = py::str(GetVersionInfo());
   m.attr("COLMAP_build") = py::str(GetBuildInfo());
-
   auto PyDevice = py::enum_<Device>(m, "Device")
                       .value("auto", Device::AUTO)
                       .value("cpu", Device::CPU)

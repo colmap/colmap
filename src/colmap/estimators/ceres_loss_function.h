@@ -27,56 +27,26 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+#pragma once
 
-#include "colmap/util/version.h"
+#include <memory>
 
-#include "colmap/util/logging.h"
-#include "colmap/util/string.h"
+#include <ceres/loss_function.h>
 
 namespace colmap {
-namespace {
 
-const char* COLMAP_VERSION = "${COLMAP_VERSION}";
-const char* COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
-const char* COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
+enum class CeresLossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
 
-constexpr int kVersionMajor = ${COLMAP_VERSION_MAJOR};
-constexpr int kVersionMinor = ${COLMAP_VERSION_MINOR};
-constexpr int kVersionPatch = ${COLMAP_VERSION_PATCH};
+// Standard construction accepts a non-negative `robust_scale` and finite
+// positive `weight`.
+bool IsValidCeresLossFunction(CeresLossFunctionType type,
+                              double robust_scale,
+                              double weight = 1.0);
 
-// Increment for database schema changes within a release.
-constexpr int kDatabaseSchemaRevision = 0;
-
-}  // namespace
-
-int MakeDatabaseVersionNumber(int major, int minor, int patch, int revision) {
-  THROW_CHECK_LT(minor, 100);
-  THROW_CHECK_LT(patch, 100);
-  THROW_CHECK_LT(revision, 100);
-  return major * 1000000 + minor * 10000 + patch * 100 + revision;
-}
-
-int GetDatabaseVersionNumber() {
-  return MakeDatabaseVersionNumber(
-      kVersionMajor, kVersionMinor, kVersionPatch, kDatabaseSchemaRevision);
-}
-
-std::string GetVersionInfo() {
-  return StringPrintf("COLMAP %s", COLMAP_VERSION);
-}
-
-std::string GetBuildInfo() {
-#if defined(COLMAP_CUDA_ENABLED)
-  const char* gpu_info = "with CUDA";
-#elif defined(COLMAP_HIP_ENABLED)
-  const char* gpu_info = "with HIP";
-#else
-  const char* gpu_info = "without GPU support";
-#endif
-  return StringPrintf("Commit %s on %s %s",
-                      COLMAP_COMMIT_ID,
-                      COLMAP_COMMIT_DATE,
-                      gpu_info);
-}
+// Create a standard Ceres loss function. For robust losses, `robust_scale`
+// determines the residual at which robustification takes place. The weight
+// multiplies the loss function output.
+std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
+    CeresLossFunctionType type, double robust_scale, double weight = 1.0);
 
 }  // namespace colmap

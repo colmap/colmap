@@ -104,15 +104,3 @@ def test_feature_extraction_options_check() -> None:
 def test_feature_extractor_create() -> None:
     extractor = pycolmap.FeatureExtractor.create(device=pycolmap.Device.cpu)
     assert extractor is not None
-
-
-def test_sift_deprecated_class() -> None:
-    if hasattr(pycolmap, "Sift"):
-        import warnings
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", DeprecationWarning)
-            sift = pycolmap.Sift(device=pycolmap.Device.cpu)
-            assert sift is not None
-            assert sift.options is not None
-            assert sift.device is not None
