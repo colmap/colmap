@@ -76,12 +76,13 @@ const char* FormatONNXElementType(ONNXTensorElementDataType type) {
   // runtime versions; entries past an older runtime's maximum are simply
   // unreachable there.
   static constexpr const char* kNames[] = {
-      "undefined", "float",   "uint8",   "int8",   "uint16",
-      "int16",     "int32",   "int64",   "string", "bool",
-      "float16",   "double",  "uint32",  "uint64", "complex64",
-      "complex128", "bfloat16", "float8e4m3fn", "float8e4m3fnuz", "float8e5m2",
-      "float8e5m2fnuz", "uint4", "int4", "float4e2m1", "uint2",
-      "int2", "float8e8m0"};
+      "undefined",      "float",        "uint8",          "int8",
+      "uint16",         "int16",        "int32",          "int64",
+      "string",         "bool",         "float16",        "double",
+      "uint32",         "uint64",       "complex64",      "complex128",
+      "bfloat16",       "float8e4m3fn", "float8e4m3fnuz", "float8e5m2",
+      "float8e5m2fnuz", "uint4",        "int4",           "float4e2m1",
+      "uint2",          "int2",         "float8e8m0"};
   if (type < 0 || static_cast<size_t>(type) >= std::size(kNames)) {
     return "unknown";
   }
