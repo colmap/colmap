@@ -43,8 +43,8 @@ of commands as an alternative to the automatic reconstruction command::
        --database_path $DATASET_PATH/database.db \
        --image_path $DATASET_PATH/images
 
-    # Optionally replace EXIF-based intrinsics with learned single-image
-    # calibration (AnyCalib) before matching.
+    # Optionally replace intrinsics with learned single-image
+    # calibration (AnyCalib) before matching and geometric verification.
     $ colmap camera_calibrator \
        --database_path $DATASET_PATH/database.db \
        --image_path $DATASET_PATH/images
