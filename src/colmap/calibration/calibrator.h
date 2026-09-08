@@ -66,7 +66,7 @@ bool AggregateCameraCalibrations(
     Camera* camera);
 
 struct CameraCalibrationTypeOptions {
-  explicit CameraCalibrationTypeOptions();
+  CameraCalibrationTypeOptions();
 
   std::shared_ptr<AnyCalibCalibrationOptions> anycalib;
 
@@ -92,7 +92,7 @@ struct CameraCalibrationOptions : public CameraCalibrationTypeOptions {
   int num_threads = -1;
 
   // Whether to use the GPU for neural-network inference.
-#ifdef COLMAP_GPU_ENABLED
+#if defined(COLMAP_GPU_ENABLED) || defined(COLMAP_COREML_ENABLED)
   bool use_gpu = true;
 #else
   bool use_gpu = false;
@@ -124,6 +124,9 @@ class CameraCalibrator {
  public:
   virtual ~CameraCalibrator() = default;
 
+  // Create the calibrator backend selected by `options.type`. Throws if the
+  // options are invalid, the type is unknown, or the backend cannot be created
+  // (e.g. the network model cannot be loaded); never returns nullptr.
   static std::unique_ptr<CameraCalibrator> Create(
       const CameraCalibrationOptions& options);
 

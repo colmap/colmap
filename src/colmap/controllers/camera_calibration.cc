@@ -36,6 +36,7 @@
 #include "colmap/util/timer.h"
 
 #include <algorithm>
+
 namespace colmap {
 namespace {
 
@@ -45,10 +46,12 @@ class CameraCalibrationController : public Thread {
       const std::filesystem::path& database_path,
       const std::filesystem::path& image_path,
       const CameraCalibrationOptions& calibration_options,
-      const std::vector<std::string>& image_names)
+      const std::vector<std::string>& image_names,
+      CameraCalibratorFactory calibrator_factory)
       : image_path_(image_path),
         calibration_options_(calibration_options),
         image_names_(image_names.begin(), image_names.end()),
+        calibrator_factory_(std::move(calibrator_factory)),
         database_(Database::Open(database_path)) {
     THROW_CHECK(calibration_options_.Check());
     THROW_CHECK_DIR_EXISTS(image_path_);
@@ -60,21 +63,8 @@ class CameraCalibrationController : public Thread {
     Timer run_timer;
     run_timer.Start();
 
-    // NOTE: The calibrator is created lazily, because it loads a large network
-    // onto the device. Creating it in the constructor would hold that memory
-    // for the entire duration of any preceding pipeline stage (e.g. feature
-    // extraction in the automatic reconstruction pipeline). Because this runs
-    // in a worker thread, an exception must not escape, as it would terminate
-    // the whole process rather than fail this stage.
-    std::unique_ptr<CameraCalibrator> calibrator;
-    try {
-      calibrator = CameraCalibrator::Create(calibration_options_);
-    } catch (const std::exception& e) {
-      LOG(ERROR) << "Failed to create camera calibrator: " << e.what()
-                 << ", cameras unchanged";
-      return;
-    }
-
+    // Select the images to calibrate before creating the calibrator, so that
+    // an empty selection does not pay for loading the network model.
     std::vector<Image> images = database_->ReadAllImages();
     if (!image_names_.empty()) {
       images.erase(std::remove_if(images.begin(),
@@ -86,6 +76,21 @@ class CameraCalibrationController : public Thread {
     }
     if (images.empty()) {
       LOG(WARNING) << "No selected images in database, skipping calibration";
+      return;
+    }
+
+    // NOTE: The calibrator is created lazily, because it loads a large network
+    // onto the device. Creating it in the constructor would hold that memory
+    // for the entire duration of any preceding pipeline stage (e.g. feature
+    // extraction in the automatic reconstruction pipeline).
+    std::unique_ptr<CameraCalibrator> calibrator;
+    try {
+      calibrator = calibrator_factory_
+                       ? calibrator_factory_(calibration_options_)
+                       : CameraCalibrator::Create(calibration_options_);
+    } catch (const std::exception& e) {
+      LOG(ERROR) << "Failed to create camera calibrator: " << e.what()
+                 << ", cameras unchanged";
       return;
     }
 
@@ -212,7 +217,8 @@ class CameraCalibrationController : public Thread {
   const std::filesystem::path image_path_;
   const CameraCalibrationOptions calibration_options_;
   const FlatHashSet<std::string> image_names_;
-  std::shared_ptr<Database> database_;
+  const CameraCalibratorFactory calibrator_factory_;
+  const std::shared_ptr<Database> database_;
 };
 
 }  // namespace
@@ -221,9 +227,14 @@ std::unique_ptr<Thread> CreateCameraCalibrationController(
     const std::filesystem::path& database_path,
     const std::filesystem::path& image_path,
     const CameraCalibrationOptions& calibration_options,
-    const std::vector<std::string>& image_names) {
+    const std::vector<std::string>& image_names,
+    CameraCalibratorFactory calibrator_factory) {
   return std::make_unique<CameraCalibrationController>(
-      database_path, image_path, calibration_options, image_names);
+      database_path,
+      image_path,
+      calibration_options,
+      image_names,
+      std::move(calibrator_factory));
 }
 
 }  // namespace colmap

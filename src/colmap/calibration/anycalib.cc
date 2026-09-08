@@ -84,14 +84,25 @@ class AnyCalibCalibrator : public CameraCalibrator {
                options.gpu_index) {
     THROW_CHECK(options_.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 1);
+    THROW_CHECK_EQ(model_.input_element_types().size(), 1);
     ThrowCheckONNXNode(model_.input_names()[0],
                        "image",
                        model_.input_shapes()[0],
                        {1, 3, kAnyCalibInputSize, kAnyCalibInputSize});
+    ThrowCheckONNXElementType(model_.input_names()[0],
+                              model_.input_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     THROW_CHECK_EQ(model_.output_shapes().size(), 2);
+    THROW_CHECK_EQ(model_.output_element_types().size(), 2);
     for (size_t i = 0; i < model_.output_names().size(); ++i) {
       const std::string_view name = model_.output_names()[i];
       const auto& shape = model_.output_shapes()[i];
+      // The outputs are read as float below; validate the element type with
+      // the same rigor as the shapes rather than relying on the ORT version's
+      // `GetTensorData` checking.
+      ThrowCheckONNXElementType(name,
+                                model_.output_element_types()[i],
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
       if (name == "rays") {
         ThrowCheckONNXNode(name,
                            "rays",
@@ -241,6 +252,8 @@ Eigen::Vector3d AnyCalibInput::CameraRayToOriginal(
 AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
                                    const PosePrior& pose_prior) {
   THROW_CHECK(bitmap.IsRGB());
+  THROW_CHECK_GT(bitmap.Width(), 0);
+  THROW_CHECK_GT(bitmap.Height(), 0);
   constexpr int kSize = kAnyCalibInputSize;
   AnyCalibInput input;
   Eigen::Vector2d& scale_xy = input.scale_xy;
@@ -261,8 +274,8 @@ AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
   if (height < kSize || width < kSize) {
     const double s = std::max(static_cast<double>(kSize) / height,
                               static_cast<double>(kSize) / width);
-    const int new_width = static_cast<int>(width * s);
-    const int new_height = static_cast<int>(height * s);
+    const int new_width = std::lround(width * s);
+    const int new_height = std::lround(height * s);
     image.Rescale(new_width, new_height);
     scale_xy.x() = static_cast<double>(image.Width()) / width;
     scale_xy.y() = static_cast<double>(image.Height()) / height;
@@ -309,6 +322,10 @@ AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
 std::unique_ptr<CameraCalibrator> CreateAnyCalibCalibrator(
     const CameraCalibrationOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
+  // Validate before constructing: the constructor dereferences
+  // `options.anycalib` in its initializer list and loads the network model, so
+  // invalid options must be rejected before any of that happens.
+  THROW_CHECK(options.Check());
   return std::make_unique<AnyCalibCalibrator>(options);
 #else
   throw std::runtime_error("AnyCalib calibration requires ONNX support.");

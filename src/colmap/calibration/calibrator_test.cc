@@ -63,9 +63,21 @@ TEST(CameraCalibrationOptionsTest, CopyDeepCopiesTypeOptions) {
   EXPECT_EQ(assigned.anycalib->model_path, "original");
 }
 
-TEST(CameraCalibrationOptionsTest, ChecksPlausibilityBounds) {
+TEST(CameraCalibrationOptionsTest, CheckValidatesAllFields) {
   CameraCalibrationOptions options;
   EXPECT_TRUE(options.Check());
+
+  options = CameraCalibrationOptions();
+  options.camera_model = "DOES_NOT_EXIST";
+  EXPECT_FALSE(options.Check());
+
+  options = CameraCalibrationOptions();
+  options.camera_model = "EQUIRECTANGULAR";
+  EXPECT_FALSE(options.Check());
+
+  options = CameraCalibrationOptions();
+  options.num_threads = -2;
+  EXPECT_FALSE(options.Check());
 
   options = CameraCalibrationOptions();
   options.min_focal_length_ratio = 0;
@@ -78,6 +90,32 @@ TEST(CameraCalibrationOptionsTest, ChecksPlausibilityBounds) {
   options = CameraCalibrationOptions();
   options.max_extra_param = 0;
   EXPECT_FALSE(options.Check());
+
+  options = CameraCalibrationOptions();
+  options.anycalib = nullptr;
+  EXPECT_FALSE(options.Check());
+
+  options = CameraCalibrationOptions();
+  options.anycalib->fitting.max_num_points = 0;
+  EXPECT_FALSE(options.Check());
+
+  options = CameraCalibrationOptions();
+  options.type = static_cast<CameraCalibratorType>(-1);
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(CameraCalibrationOptionsTest, MovePreservesTypeOptions) {
+  CameraCalibrationOptions options;
+  options.anycalib->model_path = "original";
+
+  CameraCalibrationOptions moved = std::move(options);
+  ASSERT_NE(moved.anycalib, nullptr);
+  EXPECT_EQ(moved.anycalib->model_path, "original");
+
+  CameraCalibrationOptions assigned;
+  assigned = std::move(moved);
+  ASSERT_NE(assigned.anycalib, nullptr);
+  EXPECT_EQ(assigned.anycalib->model_path, "original");
 }
 
 // The plausibility bounds match the defaults of the incremental mapper, so
@@ -103,6 +141,34 @@ TEST(CameraCalibrationOptionsTest, DefaultsRejectImplausibleIntrinsics) {
   camera.params[0] = 500;
   camera.params[3] = 5;
   EXPECT_TRUE(has_bogus_params());
+}
+
+TEST(IsValidCalibrationTest, RejectsInvalidCameras) {
+  Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1, CameraModelId::kSimpleRadial, 500, 640, 480);
+  EXPECT_TRUE(IsValidCalibration(camera));
+
+  Camera zero_dims = camera;
+  zero_dims.width = 0;
+  EXPECT_FALSE(IsValidCalibration(zero_dims));
+  zero_dims.width = 640;
+  zero_dims.height = 0;
+  EXPECT_FALSE(IsValidCalibration(zero_dims));
+
+  Camera non_finite = camera;
+  non_finite.params[0] = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(IsValidCalibration(non_finite));
+
+  Camera negative_focal = camera;
+  negative_focal.params[0] = -500;
+  EXPECT_FALSE(IsValidCalibration(negative_focal));
+
+  // Diverging distortion fails the projection round-trip: the undistortion
+  // iteration does not converge back to the input pixels.
+  Camera diverging = Camera::CreateFromModelId(
+      /*camera_id=*/1, CameraModelId::kOpenCV, 500, 640, 480);
+  diverging.params = {500, 500, 320, 240, 2.5, -7.5, 0, 0};
+  EXPECT_FALSE(IsValidCalibration(diverging));
 }
 
 Camera CreateSimpleRadialCamera() {
@@ -134,7 +200,11 @@ TEST(AggregateCameraCalibrationsTest, EvenMedian) {
       CameraModelId::kSimpleRadial,
       {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}},
       &camera));
-  EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0.10}));
+  ASSERT_EQ(camera.params.size(), 4);
+  EXPECT_DOUBLE_EQ(camera.params[0], 500);
+  EXPECT_DOUBLE_EQ(camera.params[1], 320);
+  EXPECT_DOUBLE_EQ(camera.params[2], 240);
+  EXPECT_DOUBLE_EQ(camera.params[3], 0.10);
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
@@ -165,8 +235,18 @@ TEST(AggregateCameraCalibrationsTest, InvalidMedianFallsBackToClosest) {
 
   ASSERT_TRUE(
       AggregateCameraCalibrations(model_id, {params1, params2}, &camera));
-  EXPECT_TRUE(camera.params == params1 || camera.params == params2);
+  // The two candidates are symmetric around the median, so their distances
+  // tie exactly and `min_element` deterministically picks the first.
+  EXPECT_EQ(camera.params, params1);
   EXPECT_TRUE(camera.has_prior_focal_length);
+}
+
+TEST(AggregateCameraCalibrationsTest, RejectsRaggedParams) {
+  Camera camera = CreateSimpleRadialCamera();
+  EXPECT_THROW(AggregateCameraCalibrations(CameraModelId::kSimpleRadial,
+                                           {{500, 320, 240, 0}, {500, 320}},
+                                           &camera),
+               std::exception);
 }
 
 TEST(AggregateCameraCalibrationsTest, RejectsInvalidParams) {

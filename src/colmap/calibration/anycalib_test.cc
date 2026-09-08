@@ -32,7 +32,10 @@
 #include "colmap/calibration/calibrator.h"
 #include "colmap/math/random.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <limits>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -48,6 +51,14 @@ void CreateSolidRgbImage(int width, int height, uint8_t value, Bitmap* bitmap) {
   }
 }
 
+void ExpectAllTensorValues(const AnyCalibInput& input, float expected) {
+  ASSERT_FALSE(input.data.empty());
+  const auto [min_it, max_it] =
+      std::minmax_element(input.data.begin(), input.data.end());
+  EXPECT_FLOAT_EQ(*min_it, expected);
+  EXPECT_FLOAT_EQ(*max_it, expected);
+}
+
 TEST(PrepareAnyCalibInputTest, LandscapeImage) {
   Bitmap bitmap;
   CreateSolidRgbImage(640, 480, 255, &bitmap);
@@ -59,9 +70,7 @@ TEST(PrepareAnyCalibInputTest, LandscapeImage) {
   EXPECT_DOUBLE_EQ(input.scale_xy.y(), s);
   EXPECT_DOUBLE_EQ(input.shift_xy.x(), -80 * s);
   EXPECT_DOUBLE_EQ(input.shift_xy.y(), 0);
-  for (const float v : input.data) {
-    EXPECT_FLOAT_EQ(v, 1.0f);
-  }
+  ExpectAllTensorValues(input, 1.0f);
 }
 
 TEST(PrepareAnyCalibInputTest, PortraitImage) {
@@ -74,9 +83,7 @@ TEST(PrepareAnyCalibInputTest, PortraitImage) {
   EXPECT_DOUBLE_EQ(input.scale_xy.y(), 3.22);
   EXPECT_DOUBLE_EQ(input.shift_xy.x(), 0);
   EXPECT_DOUBLE_EQ(input.shift_xy.y(), -161);
-  for (const float v : input.data) {
-    EXPECT_FLOAT_EQ(v, 0.0f);
-  }
+  ExpectAllTensorValues(input, 0.0f);
 }
 
 TEST(PrepareAnyCalibInputTest, SmallLandscapeImage) {
@@ -84,44 +91,107 @@ TEST(PrepareAnyCalibInputTest, SmallLandscapeImage) {
   CreateSolidRgbImage(100, 80, 128, &bitmap);
   const AnyCalibInput input = PrepareAnyCalibInput(bitmap);
   ASSERT_EQ(input.data.size(), 3 * 322 * 322);
-  // Upscale by max(322/80, 322/100) = 4.025 to 402x322, center-crop to
-  // 322-square, no further rescaling.
-  EXPECT_DOUBLE_EQ(input.scale_xy.x(), 402.0 / 100);
+  // Upscale by max(322/80, 322/100) = 4.025 to 403x322 (rounded), center-crop
+  // to 322-square, no further rescaling.
+  EXPECT_DOUBLE_EQ(input.scale_xy.x(), 403.0 / 100);
   EXPECT_DOUBLE_EQ(input.scale_xy.y(), 322.0 / 80);
   EXPECT_DOUBLE_EQ(input.shift_xy.x(), -40);
   EXPECT_DOUBLE_EQ(input.shift_xy.y(), 0);
-  for (const float v : input.data) {
-    EXPECT_FLOAT_EQ(v, 128 / 255.0f);
-  }
+  ExpectAllTensorValues(input, 128 / 255.0f);
+}
+
+TEST(PrepareAnyCalibInputTest, RejectsEmptyBitmap) {
+  Bitmap bitmap;
+  EXPECT_THROW(PrepareAnyCalibInput(bitmap), std::exception);
 }
 
 TEST(PrepareAnyCalibInputTest, GravityRotationMapsBackToOriginal) {
-  Bitmap bitmap;
-  CreateSolidRgbImage(640, 480, 255, &bitmap);
-  PosePrior pose_prior;
-  pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
-  const AnyCalibInput input = PrepareAnyCalibInput(bitmap, pose_prior);
-  EXPECT_EQ(input.image_rot90, 3);
-  EXPECT_EQ(input.upright_width, 480);
-  EXPECT_EQ(input.upright_height, 640);
-
+  // Gravity direction per upright rotation, see `ComputeRot90FromGravity`.
+  const std::vector<Eigen::Vector3d> gravities = {
+      Eigen::Vector3d(0, 1, 0),
+      Eigen::Vector3d(-1, 0, 0),
+      Eigen::Vector3d(0, -1, 0),
+      Eigen::Vector3d(1, 0, 0),
+  };
   const Eigen::Vector2d original_point(100, 200);
-  const Eigen::Vector2d upright_point(480 - original_point.y(),
-                                      original_point.x());
-  const Eigen::Vector2d network_point =
-      upright_point.cwiseProduct(input.scale_xy) + input.shift_xy;
-  EXPECT_TRUE(input.ImagePointToOriginal(network_point)
-                  .isApprox(original_point, 1e-12));
-
   const Eigen::Vector3d original_ray(1, 2, 3);
-  const Eigen::Vector3d upright_ray(
-      -original_ray.y(), original_ray.x(), original_ray.z());
-  EXPECT_EQ(input.CameraRayToOriginal(upright_ray), original_ray);
+  for (int rot90 = 0; rot90 < 4; ++rot90) {
+    Bitmap bitmap;
+    CreateSolidRgbImage(640, 480, 255, &bitmap);
+    PosePrior pose_prior;
+    pose_prior.gravity = gravities[rot90];
+    const AnyCalibInput input = PrepareAnyCalibInput(bitmap, pose_prior);
+    EXPECT_EQ(input.image_rot90, rot90) << "rot90=" << rot90;
+    const bool swap_dims = (rot90 == 1 || rot90 == 3);
+    EXPECT_EQ(input.upright_width, swap_dims ? 480 : 640);
+    EXPECT_EQ(input.upright_height, swap_dims ? 640 : 480);
+
+    // Forward map of the original point/ray to the upright image, inverse of
+    // `ImagePointToOriginal` / `CameraRayToOriginal` up to scale and shift.
+    Eigen::Vector2d upright_point;
+    Eigen::Vector3d upright_ray;
+    switch (rot90) {
+      case 0:
+        upright_point = original_point;
+        upright_ray = original_ray;
+        break;
+      case 1:
+        upright_point =
+            Eigen::Vector2d(original_point.y(), 640 - original_point.x());
+        upright_ray = Eigen::Vector3d(
+            original_ray.y(), -original_ray.x(), original_ray.z());
+        break;
+      case 2:
+        upright_point =
+            Eigen::Vector2d(640 - original_point.x(), 480 - original_point.y());
+        upright_ray = Eigen::Vector3d(
+            -original_ray.x(), -original_ray.y(), original_ray.z());
+        break;
+      case 3:
+        upright_point =
+            Eigen::Vector2d(480 - original_point.y(), original_point.x());
+        upright_ray = Eigen::Vector3d(
+            -original_ray.y(), original_ray.x(), original_ray.z());
+        break;
+    }
+    const Eigen::Vector2d network_point =
+        upright_point.cwiseProduct(input.scale_xy) + input.shift_xy;
+    EXPECT_TRUE(input.ImagePointToOriginal(network_point)
+                    .isApprox(original_point, 1e-12))
+        << "rot90=" << rot90;
+    EXPECT_TRUE(
+        input.CameraRayToOriginal(upright_ray).isApprox(original_ray, 1e-12))
+        << "rot90=" << rot90;
+  }
+}
+
+TEST(PrepareAnyCalibInputTest, DegenerateGravityDoesNotCrash) {
+  Bitmap bitmap;
+  CreateSolidRgbImage(64, 48, 255, &bitmap);
+  PosePrior zero_gravity;
+  zero_gravity.gravity = Eigen::Vector3d::Zero();
+  const AnyCalibInput input = PrepareAnyCalibInput(bitmap, zero_gravity);
+  EXPECT_GE(input.image_rot90, 0);
+  EXPECT_LT(input.image_rot90, 4);
+  EXPECT_EQ(input.data.size(), 3 * 322 * 322);
+
+  // Non-finite gravity counts as absent.
+  PosePrior nan_gravity;
+  nan_gravity.gravity =
+      Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0, 0);
+  EXPECT_EQ(PrepareAnyCalibInput(bitmap, nan_gravity).image_rot90, 0);
 }
 
 TEST(CreateAnyCalibCalibratorTest, EmptyModelPathThrows) {
   CameraCalibrationOptions options;
   options.anycalib->model_path = "";
+  // Route through the public factory, like production callers.
+  EXPECT_THROW(CameraCalibrator::Create(options), std::exception);
+}
+
+TEST(CreateAnyCalibCalibratorTest, NullAnyCalibOptionsThrows) {
+  CameraCalibrationOptions options;
+  options.anycalib = nullptr;
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
