@@ -128,19 +128,21 @@ class GP4PSEstimator {
   // Nonlinear local optimization of the scaled rig pose over the given 2D-3D
   // correspondences, starting from *rig_from_world. It is required because
   // the minimal solver consumes exactly four points and has no non-minimal
-  // counterpart. Minimizes the reprojection error between the normalized
-  // rays, with the scale optimized in log-space so that it stays positive.
-  // Observations that do not project in front of their camera contribute a
-  // zero residual.
+  // counterpart. Minimizes the estimator's residual: the reprojection error
+  // between the normalized rays, or the sine of the angle between the
+  // observed and projected rays for cosine-distance scoring (same minimizer,
+  // but with a non-vanishing Jacobian at zero). The scale is optimized in
+  // log-space so that it stays positive. Observations that do not project
+  // in front of their camera contribute a zero residual.
   //
   // Returns true and overwrites *rig_from_world with the refined transform on
   // success. Returns false and leaves *rig_from_world unchanged if the
   // initial scale is not positive, if fewer than kMinNumSamples observations
   // are given, or if they share a single projection center, for which the
   // scale is unobservable.
-  static bool Refine(const std::vector<X_t>& points2D,
-                     const std::vector<Y_t>& points3D,
-                     M_t* rig_from_world);
+  bool Refine(const std::vector<X_t>& points2D,
+              const std::vector<Y_t>& points3D,
+              M_t* rig_from_world) const;
 
   void Residuals(const std::vector<X_t>& points2D,
                  const std::vector<Y_t>& points3D,

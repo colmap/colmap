@@ -208,6 +208,27 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
       Rigid3dNear(problem.gt_rig_from_world, /*rtol=*/1e-6, /*ttol=*/1e-6));
 }
 
+TEST(EstimateGeneralizedAbsolutePose, EmptyInputsFail) {
+  GeneralizedAbsolutePoseProblem problem =
+      BuildGeneralizedAbsolutePoseProblem();
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = 2;
+
+  Rigid3d rig_from_world;
+  size_t num_inliers;
+  std::vector<char> inlier_mask;
+  EXPECT_FALSE(EstimateGeneralizedAbsolutePose(ransac_options,
+                                               /*points2D=*/{},
+                                               /*points3D=*/{},
+                                               /*camera_idxs=*/{},
+                                               problem.cams_from_rig,
+                                               problem.cameras,
+                                               &rig_from_world,
+                                               &num_inliers,
+                                               &inlier_mask));
+}
+
 TEST(EstimateScaledGeneralizedAbsolutePose, Nominal) {
   ScaledGeneralizedAbsolutePoseProblem problem =
       BuildScaledGeneralizedAbsolutePoseProblem();

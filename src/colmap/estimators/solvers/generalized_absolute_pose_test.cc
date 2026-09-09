@@ -289,22 +289,27 @@ TEST(GP4PSEstimator, Refine) {
   const GP4PSProblem problem =
       BuildGP4PSProblem(/*num_points=*/32, /*num_cams=*/3);
 
-  Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
-  EXPECT_TRUE(GP4PSEstimator::Refine(
-      problem.points2D, problem.points3D, &rig_from_world));
-  EXPECT_THAT(rig_from_world,
-              Sim3dNear(problem.gt_rig_from_world,
-                        /*stol=*/1e-6,
-                        /*rtol=*/1e-6,
-                        /*ttol=*/1e-6));
-  EXPECT_GT(rig_from_world.scale(), 0);
+  for (const auto residual_type :
+       {GP4PSEstimator::ResidualType::CosineDistance,
+        GP4PSEstimator::ResidualType::ReprojectionError}) {
+    Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
+    EXPECT_TRUE(
+        GP4PSEstimator(residual_type)
+            .Refine(problem.points2D, problem.points3D, &rig_from_world));
+    EXPECT_THAT(rig_from_world,
+                Sim3dNear(problem.gt_rig_from_world,
+                          /*stol=*/1e-6,
+                          /*rtol=*/1e-6,
+                          /*ttol=*/1e-6));
+    EXPECT_GT(rig_from_world.scale(), 0);
+  }
 
   // A non-positive initial scale must be rejected without touching the model.
   Sim3d invalid(-1,
                 problem.gt_rig_from_world.rotation(),
                 problem.gt_rig_from_world.translation());
-  EXPECT_FALSE(
-      GP4PSEstimator::Refine(problem.points2D, problem.points3D, &invalid));
+  EXPECT_FALSE(GP4PSEstimator(GP4PSEstimator::ResidualType::ReprojectionError)
+                   .Refine(problem.points2D, problem.points3D, &invalid));
   EXPECT_EQ(invalid.scale(), -1);
 }
 
@@ -319,8 +324,8 @@ TEST(GP4PSEstimator, RefineIgnoresStaleInliers) {
   }
 
   Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
-  EXPECT_TRUE(GP4PSEstimator::Refine(
-      problem.points2D, problem.points3D, &rig_from_world));
+  EXPECT_TRUE(GP4PSEstimator(GP4PSEstimator::ResidualType::ReprojectionError)
+                  .Refine(problem.points2D, problem.points3D, &rig_from_world));
   EXPECT_THAT(rig_from_world,
               Sim3dNear(problem.gt_rig_from_world,
                         /*stol=*/1e-6,
@@ -342,8 +347,9 @@ TEST(GP4PSEstimator, RefineSingleProjectionCenterFails) {
   }
   Sim3d rig_from_world = PerturbSim3d(problem.gt_rig_from_world);
   const Sim3d init_rig_from_world = rig_from_world;
-  EXPECT_FALSE(GP4PSEstimator::Refine(
-      single_cam_points2D, single_cam_points3D, &rig_from_world));
+  EXPECT_FALSE(
+      GP4PSEstimator(GP4PSEstimator::ResidualType::ReprojectionError)
+          .Refine(single_cam_points2D, single_cam_points3D, &rig_from_world));
   EXPECT_EQ(rig_from_world.params, init_rig_from_world.params);
 }
 

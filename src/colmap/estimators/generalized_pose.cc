@@ -44,6 +44,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
+
 #include <Eigen/Core>
 
 namespace colmap {
@@ -54,6 +56,9 @@ void ThrowCheckCameras(const std::vector<size_t>& camera_idxs,
                        const std::vector<Camera>& cameras) {
   THROW_CHECK(!cameras.empty());
   THROW_CHECK_EQ(cams_from_rig.size(), cameras.size());
+  // Empty input is valid; all callers reject it explicitly (via an empty
+  // check or the panoramic-rig check, which reports empty selections as
+  // panoramic).
   if (camera_idxs.empty()) {
     return;
   }

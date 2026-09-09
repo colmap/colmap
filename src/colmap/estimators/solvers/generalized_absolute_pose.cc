@@ -47,19 +47,24 @@ namespace {
 
 // The 7-DoF manifold of a scaled rig_from_world transform: rotation on SO(3),
 // with the translation and log-scale as Euclidean parameters. The ambient
-// parameter layout matches TinyScaledRigReprojCostFunctor:
+// parameter layout matches TinyScaledRigCostFunctor:
 // [qx, qy, qz, qw, tx, ty, tz, log_s].
 using ScaledRigFromWorldManifold =
     ProductManifold<EigenQuaternionManifold, EuclideanManifold<4>>;
 
-// Normalized-plane reprojection cost functor for fixed-size
-// (colmap::TinySolver) refinement of a scaled rig_from_world transform over
-// all given 2D-3D correspondences.
+// Cost functor for fixed-size (colmap::TinySolver) refinement of a scaled
+// rig_from_world transform over all given 2D-3D correspondences, minimizing
+// either the normalized-plane reprojection error (two residuals per
+// observation) or, for cosine-distance scoring, the sine of the angle between
+// the observed and projected rays (as a 3-vector cross product per
+// observation). The sine shares the cosine distance's minimizer but, unlike
+// 1 - cos, has a non-vanishing Jacobian at zero, which the
+// Levenberg-Marquardt iterations require to converge.
 //
 // Observations that do not project in front of their camera contribute a zero
 // residual, as in the other reprojection cost functors. Cheirality is instead
 // enforced by GP4PSEstimator::Residuals when the refined model is scored.
-class TinyScaledRigReprojCostFunctor {
+class TinyScaledRigCostFunctor {
  public:
   using Scalar = double;
   static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
@@ -67,37 +72,57 @@ class TinyScaledRigReprojCostFunctor {
 
   // ceres::TinySolver-compatible autodiff wrapper for this functor.
   using AutoDiffFunction =
-      ceres::TinySolverAutoDiffFunction<TinyScaledRigReprojCostFunctor,
+      ceres::TinySolverAutoDiffFunction<TinyScaledRigCostFunctor,
                                         NUM_RESIDUALS,
                                         NUM_PARAMETERS>;
 
-  TinyScaledRigReprojCostFunctor(
-      const std::vector<GP4PSEstimator::X_t>& points2D,
-      const std::vector<Eigen::Vector3d>& points3D)
-      : points2D_(points2D), points3D_(points3D) {}
+  TinyScaledRigCostFunctor(const std::vector<GP4PSEstimator::X_t>& points2D,
+                           const std::vector<Eigen::Vector3d>& points3D,
+                           GP4PSEstimator::ResidualType residual_type)
+      : points2D_(points2D),
+        points3D_(points3D),
+        residual_type_(residual_type) {}
 
-  int NumResiduals() const { return 2 * static_cast<int>(points2D_.size()); }
+  int NumResiduals() const {
+    if (residual_type_ == GP4PSEstimator::ResidualType::ReprojectionError) {
+      return 2 * static_cast<int>(points2D_.size());
+    } else {
+      return 3 * static_cast<int>(points2D_.size());
+    }
+  }
 
   template <typename T>
   bool operator()(const T* const params, T* residuals) const {
     const Eigen::Map<const Eigen::Quaternion<T>> rotation(params);
     const Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation(params + 4);
     const T scale = ceres::exp(params[7]);
+    const bool use_reprojection_error =
+        residual_type_ == GP4PSEstimator::ResidualType::ReprojectionError;
     for (size_t i = 0; i < points2D_.size(); ++i) {
       const Eigen::Matrix<T, 3, 1> point3D_in_rig =
           scale * (rotation * points3D_[i].cast<T>()) + translation;
       const Eigen::Matrix<T, 3, 1> point3D_in_cam =
           points2D_[i].cam_from_rig.cast<T>() * point3D_in_rig.homogeneous();
-      if (point3D_in_cam.z() <= T(std::numeric_limits<double>::epsilon())) {
-        residuals[2 * i] = T(0);
-        residuals[2 * i + 1] = T(0);
-        continue;
+      if (use_reprojection_error) {
+        if (point3D_in_cam.z() <= T(std::numeric_limits<double>::epsilon())) {
+          residuals[2 * i] = T(0);
+          residuals[2 * i + 1] = T(0);
+          continue;
+        }
+        const Eigen::Matrix<T, 2, 1> diff =
+            points2D_[i].ray_in_cam.hnormalized().cast<T>() -
+            point3D_in_cam.hnormalized();
+        residuals[2 * i] = diff.x();
+        residuals[2 * i + 1] = diff.y();
+      } else {
+        Eigen::Map<Eigen::Matrix<T, 3, 1>> residual_vec(residuals + 3 * i);
+        if (point3D_in_cam.z() <= T(std::numeric_limits<double>::epsilon())) {
+          residual_vec.setZero();
+          continue;
+        }
+        residual_vec = point3D_in_cam.normalized().cross(
+            points2D_[i].ray_in_cam.normalized().cast<T>());
       }
-      const Eigen::Matrix<T, 2, 1> diff =
-          points2D_[i].ray_in_cam.hnormalized().cast<T>() -
-          point3D_in_cam.hnormalized();
-      residuals[2 * i] = diff.x();
-      residuals[2 * i + 1] = diff.y();
     }
     return true;
   }
@@ -105,6 +130,7 @@ class TinyScaledRigReprojCostFunctor {
  private:
   const std::vector<GP4PSEstimator::X_t>& points2D_;
   const std::vector<Eigen::Vector3d>& points3D_;
+  const GP4PSEstimator::ResidualType residual_type_;
 };
 
 void ComputeOriginsInRig(const std::vector<GP3PEstimator::X_t>& points2D,
@@ -273,7 +299,7 @@ void GP4PSEstimator::Estimate(const std::vector<X_t>& points2D,
 
 bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
                             const std::vector<Y_t>& points3D,
-                            M_t* rig_from_world) {
+                            M_t* rig_from_world) const {
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   THROW_CHECK_NOTNULL(rig_from_world);
 
@@ -297,8 +323,13 @@ bool GP4PSEstimator::Refine(const std::vector<X_t>& points2D,
     return false;
   }
 
-  TinyScaledRigReprojCostFunctor functor(points2D, points3D);
-  TinyScaledRigReprojCostFunctor::AutoDiffFunction f(functor);
+  if (residual_type_ != ResidualType::ReprojectionError &&
+      residual_type_ != ResidualType::CosineDistance) {
+    LOG(FATAL_THROW) << "Invalid residual type";
+  }
+
+  TinyScaledRigCostFunctor functor(points2D, points3D, residual_type_);
+  TinyScaledRigCostFunctor::AutoDiffFunction f(functor);
   using Solver = TinySolver<decltype(f), ScaledRigFromWorldManifold>;
   Solver solver;
   Solver::Options options;
