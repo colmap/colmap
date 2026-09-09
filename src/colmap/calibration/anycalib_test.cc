@@ -152,6 +152,9 @@ TEST(PrepareAnyCalibInputTest, GravityRotationMapsBackToOriginal) {
         upright_ray = Eigen::Vector3d(
             -original_ray.y(), original_ray.x(), original_ray.z());
         break;
+      default:
+        FAIL() << "Invalid rotation: " << rot90;
+        break;
     }
     const Eigen::Vector2d network_point =
         upright_point.cwiseProduct(input.scale_xy) + input.shift_xy;

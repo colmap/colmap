@@ -100,6 +100,7 @@ TEST(CameraCalibrationOptionsTest, CheckValidatesAllFields) {
   EXPECT_FALSE(options.Check());
 
   options = CameraCalibrationOptions();
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
   options.type = static_cast<CameraCalibratorType>(-1);
   EXPECT_FALSE(options.Check());
 }
