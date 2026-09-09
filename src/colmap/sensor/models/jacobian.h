@@ -30,12 +30,11 @@
 #pragma once
 
 // Analytical image-projection Jacobian implementations (ImgFromCamWithJac) for
-// the perspective camera models declared in models.h. These low-level kernels
-// are split into a separate header to keep models.h manageable. models.h
-// includes this header at its bottom, so including models.h alone still
-// provides these definitions.
+// the camera models declared in the other sensor/models/ headers. This header
+// is included last by the sensor/models.h umbrella, so including the umbrella
+// alone still provides these definitions.
 
-#include "colmap/sensor/models.h"
+#include "colmap/sensor/models/runtime.h"
 
 #include <cmath>
 #include <limits>

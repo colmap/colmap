@@ -36,7 +36,19 @@ COLMAP_ADD_LIBRARY(
         bitmap.h bitmap.cc
         database.h database.cc
         models.h models.cc
-        models_jacobian.h
+        models/base.h
+        models/division.h
+        models/eucm.h
+        models/fisheye.h
+        models/fisheye_radial.h
+        models/fov.h
+        models/jacobian.h
+        models/opencv.h
+        models/pinhole.h
+        models/radial.h
+        models/runtime.h
+        models/spherical.h
+        models/thin_prism.h
         rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS

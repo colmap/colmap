@@ -363,7 +363,7 @@ std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
     return std::nullopt;
   }
   const std::optional<Eigen::Matrix3x2d> J_ray =
-      CamRayFromImgJacobian(*cam_ray, J_uvw);
+      CamRayFromImgJac(*cam_ray, J_uvw);
   if (!J_ray.has_value()) {
     return std::nullopt;
   }
