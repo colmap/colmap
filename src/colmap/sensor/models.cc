@@ -39,13 +39,10 @@ bool ExistsCameraModelWithName(const std::string& model_name) {
 
 bool ExistsCameraModelWithId(const CameraModelId model_id) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel) \
-  case CameraModel::model_id:          \
-    return true;
-
+#define CAMERA_MODEL_CASE(CameraModel) case CameraModel::model_id:
     CAMERA_MODEL_CASES
-
 #undef CAMERA_MODEL_CASE
+    return true;
     default:
       return false;
   }
