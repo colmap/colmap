@@ -70,11 +70,6 @@ __global__ void CudaRotateKernel(T* output_data,
   int output_x = input_y;
   int output_y = width - 1 - input_x;
 
-  // Byte offsets must be computed in size_t: for wide element types
-  // (curandState is 48 bytes) a row offset of `y * pitch` exceeds
-  // INT_MAX above ~44.7 MP, wrapping negative and touching memory before
-  // the allocation (colmap/colmap#3207: illegal memory access on
-  // 8000x6000 images).
   *((T*)((char*)output_data + static_cast<size_t>(output_y) * output_pitch) +
     output_x) =
       *((T*)((char*)input_data + static_cast<size_t>(input_y) * input_pitch) +
