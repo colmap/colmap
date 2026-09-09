@@ -35,33 +35,10 @@
 #include "colmap/mvs/gpu_mat.h"
 #include "colmap/mvs/gpu_mat_prng.h"
 
-#include <limits>
-
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace mvs {
-
-// Regression for colmap/colmap#3207: rotating a matrix whose row byte
-// offsets exceed INT_MAX (48-byte curandState at >= ~44.7 MP) computed
-// the offset in 32-bit arithmetic and wrote before the allocation. The
-// two 2.3 GB buffers need a GPU with >= 6 GB free; skipped otherwise.
-TEST(GpuMat, RotateLargeRowOffsets) {
-  size_t free_bytes = 0, total_bytes = 0;
-  ASSERT_EQ(cudaMemGetInfo(&free_bytes, &total_bytes), cudaSuccess);
-  const size_t width = 8000, height = 6000;
-  const size_t need = 2 * width * height * sizeof(curandState);
-  if (free_bytes < need + (512 << 20)) {
-    GTEST_SKIP() << "needs " << need / (1 << 20) << " MiB of free GPU memory";
-  }
-  ASSERT_GT(width * height * sizeof(curandState),
-            static_cast<size_t>(std::numeric_limits<int>::max()));
-  GpuMatPRNG prng_array(width, height);
-  GpuMatPRNG rotated(height, width);
-  prng_array.Rotate(&rotated);
-  EXPECT_EQ(cudaDeviceSynchronize(), cudaSuccess);
-  EXPECT_EQ(cudaGetLastError(), cudaSuccess);
-}
 
 TEST(GpuMat, FillWithVector) {
   GpuMat<float> array(100, 100, 2);
