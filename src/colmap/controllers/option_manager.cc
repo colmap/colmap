@@ -34,6 +34,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/pairing.h"
+#include "colmap/sensor/models.h"
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #endif
@@ -56,11 +57,37 @@
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/version.h"
 
 namespace config = boost::program_options;
 
 namespace colmap {
+namespace {
+
+// Formats values as a help text listing all valid values of an option,
+// e.g. "{C1, C2, C3}".
+template <typename T>
+std::string EnumHelpText(const std::vector<T>& values) {
+  return "{" + VectorToCSV(values) + "}";
+}
+
+// The user-facing camera model names (e.g. "SIMPLE_PINHOLE") differ from the
+// CameraModelId enumerator names (kSimplePinhole) for every model, so this
+// cannot use CameraModelIdStrings().
+std::string MakeCameraModelsHelpText() {
+  const std::vector<CameraModelId> model_ids =
+      CameraModelIdValues([](CameraModelId model_id) {
+        return model_id != CameraModelId::kInvalid;
+      });
+  std::vector<std::string> model_names;
+  model_names.reserve(model_ids.size());
+  for (const CameraModelId model_id : model_ids) {
+    model_names.push_back(CameraModelIdToName(model_id));
+  }
+  return EnumHelpText(model_names);
+}
+}  // namespace
 
 OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
@@ -230,7 +257,9 @@ void OptionManager::AddFeatureExtractionOptions() {
   added_feature_extraction_options_ = true;
 
   AddDefaultOption("ImageReader.mask_path", &image_reader->mask_path);
-  AddDefaultOption("ImageReader.camera_model", &image_reader->camera_model);
+  AddDefaultOption("ImageReader.camera_model",
+                   &image_reader->camera_model,
+                   MakeCameraModelsHelpText());
   AddDefaultOption("ImageReader.single_camera", &image_reader->single_camera);
   AddDefaultOption("ImageReader.single_camera_per_folder",
                    &image_reader->single_camera_per_folder);
@@ -244,10 +273,14 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("ImageReader.camera_mask_path",
                    &image_reader->camera_mask_path);
 
-  AddDefaultEnumOption("FeatureExtraction.type",
-                       &feature_extraction->type,
-                       FeatureExtractorTypeToString,
-                       FeatureExtractorTypeFromString);
+  AddDefaultEnumOption(
+      "FeatureExtraction.type",
+      &feature_extraction->type,
+      FeatureExtractorTypeToString,
+      FeatureExtractorTypeFromString,
+      EnumHelpText(FeatureExtractorTypeStrings([](FeatureExtractorType type) {
+        return type != FeatureExtractorType::UNDEFINED;
+      })));
   AddDefaultOption("FeatureExtraction.num_threads",
                    &feature_extraction->num_threads);
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
@@ -316,10 +349,14 @@ void OptionManager::AddFeatureMatchingOptions() {
   }
   added_feature_matching_options_ = true;
 
-  AddDefaultEnumOption("FeatureMatching.type",
-                       &feature_matching->type,
-                       FeatureMatcherTypeToString,
-                       FeatureMatcherTypeFromString);
+  AddDefaultEnumOption(
+      "FeatureMatching.type",
+      &feature_matching->type,
+      FeatureMatcherTypeToString,
+      FeatureMatcherTypeFromString,
+      EnumHelpText(FeatureMatcherTypeStrings([](FeatureMatcherType type) {
+        return type != FeatureMatcherType::UNDEFINED;
+      })));
   AddDefaultOption("FeatureMatching.num_threads",
                    &feature_matching->num_threads);
   AddDefaultOption("FeatureMatching.use_gpu", &feature_matching->use_gpu);
@@ -594,7 +631,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
   AddDefaultEnumOption("BundleAdjustment.backend",
                        &bundle_adjustment->backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
 
   // Ceres-specific options
   AddDefaultOption(
@@ -735,11 +773,13 @@ void OptionManager::AddMapperOptions() {
   AddDefaultEnumOption("Mapper.ba_local_backend",
                        &mapper->ba_local_backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultEnumOption("Mapper.ba_global_backend",
                        &mapper->ba_global_backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultOption("Mapper.ba_min_num_residuals_for_cpu_multi_threading",
                    &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
@@ -915,7 +955,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultEnumOption("GlobalMapper.ba_backend",
                        &global_mapper->mapper.bundle_adjustment.backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultOption("GlobalMapper.ba_gpu_index",
                    &global_mapper->mapper.ba_gpu_index);
   // Bundle adjustment options (Ceres-specific).
@@ -953,7 +994,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultEnumOption("GlobalMapper.ra_reweighting",
                        &global_mapper->mapper.rotation_averaging.reweighting,
                        RotationAveragingReweightingToString,
-                       RotationAveragingReweightingFromString);
+                       RotationAveragingReweightingFromString,
+                       EnumHelpText(RotationAveragingReweightingStrings()));
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",

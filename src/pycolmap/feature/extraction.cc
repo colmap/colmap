@@ -21,16 +21,6 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-template <typename dtype>
-using pyimage_t =
-    Eigen::Matrix<dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    descriptors_t;
-typedef std::tuple<FeatureKeypointsMatrix, descriptors_t> sift_output_t;
-
-static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
-
 namespace {
 
 class PyFeatureExtractor : public FeatureExtractor,
@@ -59,58 +49,6 @@ class PyFeatureExtractor : public FeatureExtractor,
 };
 
 }  // namespace
-
-class Sift {
- public:
-  Sift(std::optional<FeatureExtractionOptions> options, Device device)
-      : use_gpu_(IsGPU(device)) {
-    PyErr_WarnEx(PyExc_DeprecationWarning,
-                 "pycolmap.Sift is deprecated, use "
-                 "pycolmap.FeatureExtractor.create() instead.",
-                 1);
-    if (options) {
-      options_ = std::move(*options);
-    }
-    options_.use_gpu = use_gpu_;
-    extractor_ = THROW_CHECK_NOTNULL(CreateSiftFeatureExtractor(options_));
-  }
-
-  sift_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
-    Bitmap bitmap(image.cols(), image.rows(), /*as_rgb=*/false);
-    std::memcpy(bitmap.RowMajorData().data(), image.data(), bitmap.NumBytes());
-
-    const double scale = bitmap.Thumbnail(options_.EffMaxImageSize());
-
-    FeatureKeypoints feature_keypoints;
-    FeatureDescriptors feature_descriptors;
-    THROW_CHECK(
-        extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
-
-    FeatureKeypointsMatrix keypoints = KeypointsToMatrix(feature_keypoints);
-    const double inv_scale = 1.0 / scale;
-    keypoints.col(0) *= inv_scale;
-    keypoints.col(1) *= inv_scale;
-    keypoints.col(2) *= inv_scale;
-    descriptors_t descriptors = feature_descriptors.ToFloat().data;
-    descriptors /= 512.0f;
-
-    return std::make_tuple(std::move(keypoints), std::move(descriptors));
-  }
-
-  sift_output_t Extract(const Eigen::Ref<const pyimage_t<float>>& image) {
-    const pyimage_t<uint8_t> image_f = (image * 255.0f).cast<uint8_t>();
-    return Extract(image_f);
-  }
-
-  const FeatureExtractionOptions& Options() const { return options_; };
-
-  Device GetDevice() const { return (use_gpu_) ? Device::CUDA : Device::CPU; };
-
- private:
-  std::unique_ptr<FeatureExtractor> extractor_;
-  FeatureExtractionOptions options_;
-  bool use_gpu_ = false;
-};
 
 void BindFeatureExtraction(py::module& m) {
   auto PyNormalization =
@@ -333,19 +271,4 @@ void BindFeatureExtraction(py::module& m) {
           "Extract features from a float32 numpy array with values in "
           "[0, 1] and shape (H, W) or (H, W, 3). Returns "
           "(FeatureKeypoints, FeatureDescriptors).");
-
-  py::classh<Sift>(m, "Sift")
-      .def(py::init<std::optional<FeatureExtractionOptions>, Device>(),
-           "options"_a = std::nullopt,
-           "device"_a = Device::AUTO)
-      .def("extract",
-           py::overload_cast<const Eigen::Ref<const pyimage_t<uint8_t>>&>(
-               &Sift::Extract),
-           "image"_a.noconvert())
-      .def("extract",
-           py::overload_cast<const Eigen::Ref<const pyimage_t<float>>&>(
-               &Sift::Extract),
-           "image"_a.noconvert())
-      .def_property_readonly("options", &Sift::Options)
-      .def_property_readonly("device", &Sift::GetDevice);
 }

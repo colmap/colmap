@@ -1199,34 +1199,18 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
     Rigid3d& rig_from_world = frame.RigFromWorld();
 
-    const Eigen::Vector3d normalized_position =
-        normalized_from_metric_ * pose_prior.position;
-    const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
-        normalized_from_metric_.scale() *
-        normalized_from_metric_.rotation().toRotationMatrix();
-    const Eigen::Matrix3d position_cov =
-        pose_prior.HasPositionCov()
-            ? pose_prior.position_covariance
-            : (prior_options_.prior_position_fallback_stddev *
-               prior_options_.prior_position_fallback_stddev *
-               Eigen::Matrix3d::Identity());
-    const Eigen::Matrix3d normalized_position_cov =
-        normalized_from_metric_scaled_rotation * position_cov *
-        normalized_from_metric_scaled_rotation.transpose();
-
     if (image.IsRefInFrame()) {
       problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
+          CreatePositionPriorCostFunction<AbsolutePosePositionPriorCostFunctor>(
+              pose_prior),
           prior_loss_function_.get(),
           rig_from_world.params.data());
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
       problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<
-              AbsoluteRigPosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
+          CreatePositionPriorCostFunction<
+              AbsoluteRigPosePositionPriorCostFunctor>(pose_prior),
           prior_loss_function_.get(),
           cam_from_rig.params.data(),
           rig_from_world.params.data());
@@ -1239,6 +1223,30 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     if (constant_rig_from_world) {
       problem.SetParameterBlockConstant(rig_from_world.params.data());
     }
+  }
+
+  // Weights the prior by its covariance, or by the isotropic fallback stddev
+  // when it has none. An isotropic covariance stays isotropic under the
+  // similarity transform, so the fallback only needs a scale.
+  template <typename CostFunctor>
+  ceres::CostFunction* CreatePositionPriorCostFunction(
+      const PosePrior& pose_prior) const {
+    const Eigen::Vector3d normalized_position =
+        normalized_from_metric_ * pose_prior.position;
+    if (pose_prior.HasPositionCov()) {
+      const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
+          normalized_from_metric_.scale() *
+          normalized_from_metric_.rotation().toRotationMatrix();
+      return CovarianceWeightedCostFunctor<CostFunctor>::Create(
+          normalized_from_metric_scaled_rotation *
+              pose_prior.position_covariance *
+              normalized_from_metric_scaled_rotation.transpose(),
+          normalized_position);
+    }
+    return ScaleWeightedCostFunctor<CostFunctor>::Create(
+        normalized_from_metric_.scale() *
+            prior_options_.prior_position_fallback_stddev,
+        normalized_position);
   }
 
   bool AlignReconstruction() {

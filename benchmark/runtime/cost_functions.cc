@@ -195,6 +195,35 @@ void BM_ReprojErrorConstantPose(benchmark::State& state, bool analytic) {
   }
 }
 
+// Covariance-weighted reprojection error. Guards that the weighted dispatch
+// still routes to the analytical jacobian: if it regresses to autodiff, this
+// drops to the AutoDiff timing above.
+template <typename CameraModel>
+void BM_WeightedReprojError(benchmark::State& state, bool analytic) {
+  ReprojErrorData data = CreateReprojErrorData<CameraModel>();
+  const Eigen::Matrix2d covariance = 4.0 * Eigen::Matrix2d::Identity();
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      analytic
+          ? CreateCovarianceWeightedCameraCostFunction<ReprojErrorCostFunctor>(
+                CameraModel::model_id, covariance, data.point2D)
+          : CovarianceWeightedCostFunctor<
+                ReprojErrorCostFunctor<CameraModel>>::Create(covariance,
+                                                             data.point2D));
+
+  const double* parameters[3] = {data.point3D.data(),
+                                 data.cam_from_world.params.data(),
+                                 data.camera_params.data()};
+  double residuals[2];
+  double jacobian_point[2 * 3];
+  double jacobian_pose[2 * 7];
+  double jacobian_params[2 * CameraModel::num_params];
+  double* jacobians[3] = {jacobian_point, jacobian_pose, jacobian_params};
+
+  for (auto _ : state) {
+    cost_function->Evaluate(parameters, residuals, jacobians);
+  }
+}
+
 }  // namespace
 
 #define REGISTER_MODEL(Model)                                                \
@@ -203,7 +232,11 @@ void BM_ReprojErrorConstantPose(benchmark::State& state, bool analytic) {
   BENCHMARK_CAPTURE(                                                         \
       BM_ReprojErrorConstantPose<Model>, Model##_ConstPose_AutoDiff, false); \
   BENCHMARK_CAPTURE(                                                         \
-      BM_ReprojErrorConstantPose<Model>, Model##_ConstPose_Analytic, true);
+      BM_ReprojErrorConstantPose<Model>, Model##_ConstPose_Analytic, true);  \
+  BENCHMARK_CAPTURE(                                                         \
+      BM_WeightedReprojError<Model>, Model##_Weighted_AutoDiff, false);      \
+  BENCHMARK_CAPTURE(                                                         \
+      BM_WeightedReprojError<Model>, Model##_Weighted_Analytic, true);
 
 REGISTER_MODEL(SimplePinholeCameraModel)
 REGISTER_MODEL(PinholeCameraModel)
