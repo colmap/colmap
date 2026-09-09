@@ -81,7 +81,7 @@ COLMAP_ADD_TEST(
 )
 COLMAP_ADD_TEST(
     NAME models_jacobian_test
-    SRCS models_jacobian_test.cc
+    SRCS models/jacobian_test.cc
     LINK_LIBS colmap_sensor
 )
 COLMAP_ADD_TEST(
