@@ -36,7 +36,19 @@ COLMAP_ADD_LIBRARY(
         bitmap.h bitmap.cc
         database.h database.cc
         models.h models.cc
-        models_jacobian.h
+        models/base.h
+        models/division.h
+        models/eucm.h
+        models/fisheye.h
+        models/fisheye_radial.h
+        models/fov.h
+        models/jacobian.h
+        models/opencv.h
+        models/pinhole.h
+        models/radial.h
+        models/runtime.h
+        models/spherical.h
+        models/thin_prism.h
         rig.h rig.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
@@ -69,7 +81,7 @@ COLMAP_ADD_TEST(
 )
 COLMAP_ADD_TEST(
     NAME models_jacobian_test
-    SRCS models_jacobian_test.cc
+    SRCS models/jacobian_test.cc
     LINK_LIBS colmap_sensor
 )
 COLMAP_ADD_TEST(

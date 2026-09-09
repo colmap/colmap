@@ -333,6 +333,7 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/scene SCENE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/sensor SENSOR_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/sensor/models SENSOR_MODELS_SRCS *.h)
 COLMAP_ADD_SOURCE_DIR(src/colmap/sfm SFM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
@@ -363,6 +364,7 @@ if(ALL_SOURCE_TARGET)
         ${RETRIEVAL_SRCS}
         ${SCENE_SRCS}
         ${SENSOR_SRCS}
+        ${SENSOR_MODELS_SRCS}
         ${SFM_SRCS}
         ${TOOLS_SRCS}
         ${UI_SRCS}

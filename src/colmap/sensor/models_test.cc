@@ -212,7 +212,7 @@ void TestModel(const std::vector<double>& params) {
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 
   // Analytic ImgFromCamWithJac is validated separately in
-  // models_jacobian_test.cc.
+  // models/jacobian_test.cc.
 }
 
 TEST(SimplePinhole, Nominal) {
