@@ -118,6 +118,8 @@ int RunFeatureExtractor(int argc, char** argv) {
                                            (CameraMode)camera_mode);
   }
 
+  // Accept lowercase values (e.g. from existing config files), as
+  // NormalizationFromString is case-sensitive.
   StringToUpper(&descriptor_normalization);
   options.feature_extraction->sift->normalization =
       SiftExtractionOptions::NormalizationFromString(descriptor_normalization);

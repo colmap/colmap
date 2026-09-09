@@ -32,6 +32,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <boost/preprocessor.hpp>
 
@@ -54,8 +55,6 @@
     return name::elem;                                       \
   }
 #define ENUM_VALUE_ELEMENT(r, name, elem) name::elem,
-#define ENUM_NAMES_STRINGIZE_PROCESS_ELEMENT(r, data, elem) \
-  BOOST_PP_STRINGIZE(elem),
 
 #define DEFINE_ENUM_TO_FROM_STRING(name, start_idx, ...)                     \
   [[maybe_unused]] static std::string_view name##ToString(int value) {       \
@@ -86,6 +85,7 @@
       return values;                                                         \
     }                                                                        \
     std::vector<name> filtered;                                              \
+    filtered.reserve(values.size());                                         \
     for (const name value : values) {                                        \
       if (filter(value)) {                                                   \
         filtered.push_back(value);                                           \
@@ -95,22 +95,13 @@
   }                                                                          \
   [[maybe_unused]] static std::vector<std::string_view> name##Strings(       \
       bool (*filter)(name) = nullptr) {                                      \
-    static const std::vector<std::string_view> strings = {                   \
-        BOOST_PP_SEQ_FOR_EACH(ENUM_NAMES_STRINGIZE_PROCESS_ELEMENT,          \
-                              _,                                             \
-                              BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};       \
-    if (filter == nullptr) {                                                 \
-      return strings;                                                        \
+    const std::vector<name> values = name##Values(filter);                   \
+    std::vector<std::string_view> strings;                                   \
+    strings.reserve(values.size());                                          \
+    for (const name value : values) {                                        \
+      strings.push_back(name##ToString(value));                              \
     }                                                                        \
-    std::vector<std::string_view> filtered;                                  \
-    int value = start_idx;                                                   \
-    for (const std::string_view string : strings) {                          \
-      if (filter(static_cast<name>(value))) {                                \
-        filtered.push_back(string);                                          \
-      }                                                                      \
-      ++value;                                                               \
-    }                                                                        \
-    return filtered;                                                         \
+    return strings;                                                          \
   }
 
 #define ENUM_PROCESS_ELEMENT(r, start_idx, idx, elem) \

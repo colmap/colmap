@@ -63,31 +63,29 @@
 namespace config = boost::program_options;
 
 namespace colmap {
-
 namespace {
 
-// Expands to a help text listing all values of an enum created with
-// MAKE_ENUM(_CLASS), e.g. "{C1, C2, C3}". Optionally accepts a filter over
-// the enum values, e.g. to exclude invalid/undefined sentinel values.
-#define ENUM_HELP_TEXT(name, ...) \
-  std::string("{" + VectorToCSV(name##Strings(__VA_ARGS__)) + "}")
+// Formats values as a help text listing all valid values of an option,
+// e.g. "{C1, C2, C3}".
+template <typename T>
+std::string EnumHelpText(const std::vector<T>& values) {
+  return "{" + VectorToCSV(values) + "}";
+}
 
 // The user-facing camera model names (e.g. "SIMPLE_PINHOLE") differ from the
 // CameraModelId enumerator names (kSimplePinhole) for every model, so this
-// cannot use ENUM_HELP_TEXT.
+// cannot use CameraModelIdStrings().
 std::string MakeCameraModelsHelpText() {
-  const std::vector<CameraModelId>& model_ids =
+  const std::vector<CameraModelId> model_ids =
       CameraModelIdValues([](CameraModelId model_id) {
         return model_id != CameraModelId::kInvalid;
       });
   std::vector<std::string> model_names;
   model_names.reserve(model_ids.size());
-  std::transform(
-      model_ids.begin(),
-      model_ids.end(),
-      std::back_inserter(model_names),
-      [](CameraModelId model_id) { return CameraModelIdToName(model_id); });
-  return "{" + VectorToCSV(model_names) + "}";
+  for (const CameraModelId model_id : model_ids) {
+    model_names.push_back(CameraModelIdToName(model_id));
+  }
+  return EnumHelpText(model_names);
 }
 }  // namespace
 
@@ -280,9 +278,9 @@ void OptionManager::AddFeatureExtractionOptions() {
       &feature_extraction->type,
       FeatureExtractorTypeToString,
       FeatureExtractorTypeFromString,
-      ENUM_HELP_TEXT(FeatureExtractorType, [](FeatureExtractorType type) {
+      EnumHelpText(FeatureExtractorTypeStrings([](FeatureExtractorType type) {
         return type != FeatureExtractorType::UNDEFINED;
-      }));
+      })));
   AddDefaultOption("FeatureExtraction.num_threads",
                    &feature_extraction->num_threads);
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
@@ -356,9 +354,9 @@ void OptionManager::AddFeatureMatchingOptions() {
       &feature_matching->type,
       FeatureMatcherTypeToString,
       FeatureMatcherTypeFromString,
-      ENUM_HELP_TEXT(FeatureMatcherType, [](FeatureMatcherType type) {
+      EnumHelpText(FeatureMatcherTypeStrings([](FeatureMatcherType type) {
         return type != FeatureMatcherType::UNDEFINED;
-      }));
+      })));
   AddDefaultOption("FeatureMatching.num_threads",
                    &feature_matching->num_threads);
   AddDefaultOption("FeatureMatching.use_gpu", &feature_matching->use_gpu);
@@ -620,7 +618,7 @@ void OptionManager::AddBundleAdjustmentOptions() {
                        &bundle_adjustment->backend,
                        BundleAdjustmentBackendToString,
                        BundleAdjustmentBackendFromString,
-                       ENUM_HELP_TEXT(BundleAdjustmentBackend));
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
 
   // Ceres-specific options
   AddDefaultOption(
@@ -756,12 +754,12 @@ void OptionManager::AddMapperOptions() {
                        &mapper->ba_local_backend,
                        BundleAdjustmentBackendToString,
                        BundleAdjustmentBackendFromString,
-                       ENUM_HELP_TEXT(BundleAdjustmentBackend));
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultEnumOption("Mapper.ba_global_backend",
                        &mapper->ba_global_backend,
                        BundleAdjustmentBackendToString,
                        BundleAdjustmentBackendFromString,
-                       ENUM_HELP_TEXT(BundleAdjustmentBackend));
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultOption("Mapper.ba_min_num_residuals_for_cpu_multi_threading",
                    &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
@@ -918,7 +916,7 @@ void OptionManager::AddGlobalMapperOptions() {
                        &global_mapper->mapper.bundle_adjustment.backend,
                        BundleAdjustmentBackendToString,
                        BundleAdjustmentBackendFromString,
-                       ENUM_HELP_TEXT(BundleAdjustmentBackend));
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultOption("GlobalMapper.ba_gpu_index",
                    &global_mapper->mapper.ba_gpu_index);
   // Bundle adjustment options (Ceres-specific).
@@ -957,7 +955,7 @@ void OptionManager::AddGlobalMapperOptions() {
                        &global_mapper->mapper.rotation_averaging.reweighting,
                        RotationAveragingReweightingToString,
                        RotationAveragingReweightingFromString,
-                       ENUM_HELP_TEXT(RotationAveragingReweighting));
+                       EnumHelpText(RotationAveragingReweightingStrings()));
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
