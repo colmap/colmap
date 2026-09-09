@@ -203,6 +203,12 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
+  options.focal_length_prior_weight = ba_focal_length_prior_weight;
+  options.principal_point_prior_weight = ba_principal_point_prior_weight;
+  options.extra_params_prior_weight = ba_extra_params_prior_weight;
+  // Local bundle adjustment only optimizes a small subset of the problem, so
+  // the intrinsics are not bounded here but only during global refinement.
+  options.bound_camera_params = false;
   if (options.ceres) {
     options.ceres->solver_options.function_tolerance =
         ba_local_function_tolerance;
@@ -246,6 +252,13 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.refine_sensor_from_rig = ba_refine_sensor_from_rig;
+  options.focal_length_prior_weight = ba_focal_length_prior_weight;
+  options.principal_point_prior_weight = ba_principal_point_prior_weight;
+  options.extra_params_prior_weight = ba_extra_params_prior_weight;
+  options.bound_camera_params = true;
+  options.min_focal_length_ratio = min_focal_length_ratio;
+  options.max_focal_length_ratio = max_focal_length_ratio;
+  options.max_extra_param = max_extra_param;
   if (options.ceres) {
     options.ceres->solver_options.function_tolerance =
         ba_global_function_tolerance;
@@ -313,6 +326,9 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(min_focal_length_ratio, 0);
   CHECK_OPTION_GT(max_focal_length_ratio, 0);
   CHECK_OPTION_GE(max_extra_param, 0);
+  CHECK_OPTION_GE(ba_focal_length_prior_weight, 0);
+  CHECK_OPTION_GE(ba_principal_point_prior_weight, 0);
+  CHECK_OPTION_GE(ba_extra_params_prior_weight, 0);
   CHECK_OPTION_GE(ba_local_max_num_iterations, -1);
   CHECK_OPTION_GT(ba_global_frames_ratio, 1.0);
   CHECK_OPTION_GT(ba_global_points_ratio, 1.0);

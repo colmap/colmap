@@ -345,6 +345,43 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")
+          .def_readwrite("focal_length_prior_weight",
+                         &BAOpts::focal_length_prior_weight,
+                         "Direct pixel-space weight of the soft prior pulling "
+                         "the focal length towards its value when each bundle "
+                         "adjustment problem is constructed. Only applied to "
+                         "cameras with a prior focal length. Zero disables the "
+                         "prior.")
+          .def_readwrite("principal_point_prior_weight",
+                         &BAOpts::principal_point_prior_weight,
+                         "Direct pixel-space weight of the soft prior pulling "
+                         "the principal point towards the value initialized by "
+                         "the camera model, usually the image center. Zero "
+                         "disables the prior.")
+          .def_readwrite("extra_params_prior_weight",
+                         &BAOpts::extra_params_prior_weight,
+                         "Weight of the soft prior pulling the extra "
+                         "parameters towards the values the camera model "
+                         "initializes them to, which is zero for most models. "
+                         "Multiplied by the mean focal length when each bundle "
+                         "adjustment problem is constructed to produce "
+                         "pixel-like residuals. Zero disables the prior.")
+          .def_readwrite("bound_camera_params",
+                         &BAOpts::bound_camera_params,
+                         "Whether to constrain the camera parameters to bounds "
+                         "consistent with Camera.has_bogus_params.")
+          .def_readwrite("min_focal_length_ratio",
+                         &BAOpts::min_focal_length_ratio,
+                         "Minimum ratio of focal length to maximum image "
+                         "dimension, if bound_camera_params is enabled.")
+          .def_readwrite("max_focal_length_ratio",
+                         &BAOpts::max_focal_length_ratio,
+                         "Maximum ratio of focal length to maximum image "
+                         "dimension, if bound_camera_params is enabled.")
+          .def_readwrite("max_extra_param",
+                         &BAOpts::max_extra_param,
+                         "Maximum magnitude of the extra parameters, if "
+                         "bound_camera_params is enabled.")
           .def_readwrite("backend",
                          &BAOpts::backend,
                          "Solver backend to use for bundle adjustment.")

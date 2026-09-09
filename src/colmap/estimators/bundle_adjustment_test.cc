@@ -100,6 +100,13 @@ TEST(BundleAdjustmentOptions, Copy) {
   options.refine_focal_length = false;
   options.refine_principal_point = true;
   options.min_track_length = 5;
+  options.focal_length_prior_weight = 1.5;
+  options.principal_point_prior_weight = 2.5;
+  options.extra_params_prior_weight = 3.5;
+  options.bound_camera_params = false;
+  options.min_focal_length_ratio = 0.2;
+  options.max_focal_length_ratio = 5.0;
+  options.max_extra_param = 0.5;
   options.ceres->solver_options.max_num_iterations = 42;
 
   BundleAdjustmentOptions copy = options;
@@ -108,6 +115,13 @@ TEST(BundleAdjustmentOptions, Copy) {
   EXPECT_EQ(copy.refine_focal_length, false);
   EXPECT_EQ(copy.refine_principal_point, true);
   EXPECT_EQ(copy.min_track_length, 5);
+  EXPECT_EQ(copy.focal_length_prior_weight, 1.5);
+  EXPECT_EQ(copy.principal_point_prior_weight, 2.5);
+  EXPECT_EQ(copy.extra_params_prior_weight, 3.5);
+  EXPECT_EQ(copy.bound_camera_params, false);
+  EXPECT_EQ(copy.min_focal_length_ratio, 0.2);
+  EXPECT_EQ(copy.max_focal_length_ratio, 5.0);
+  EXPECT_EQ(copy.max_extra_param, 0.5);
   EXPECT_EQ(copy.ceres->solver_options.max_num_iterations, 42);
 
   // Verify deep copy of shared_ptr (different pointer instances)
@@ -850,6 +864,161 @@ TEST_P(BundleAdjusterBackendTest, IgnorePoint) {
 INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
                          BundleAdjusterBackendTest,
                          ::testing::ValuesIn(BundleAdjustmentBackends()));
+
+// Synthesizes a small noise-free dataset and returns the config that includes
+// all of its images.
+BundleAdjustmentConfig SynthesizeCameraPriorDataset(
+    bool camera_has_prior_focal_length, Reconstruction* reconstruction) {
+  SetPRNGSeed(0);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_has_prior_focal_length =
+      camera_has_prior_focal_length;
+  SynthesizeDataset(synthetic_dataset_options, reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction->RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  return config;
+}
+
+// Solves bundle adjustment for a reconstruction whose focal length was scaled
+// by the given factor and returns the resulting focal length.
+double SolveWithPerturbedFocalLength(bool camera_has_prior_focal_length,
+                                     double focal_length_prior_weight,
+                                     double focal_length_scale) {
+  Reconstruction reconstruction;
+  const BundleAdjustmentConfig config = SynthesizeCameraPriorDataset(
+      camera_has_prior_focal_length, &reconstruction);
+
+  const camera_t camera_id = reconstruction.Cameras().begin()->first;
+  Camera& camera = reconstruction.Camera(camera_id);
+  camera.SetFocalLength(focal_length_scale * camera.FocalLength());
+
+  BundleAdjustmentOptions options;
+  options.print_summary = false;
+  options.refine_extra_params = false;
+  options.bound_camera_params = false;
+  options.focal_length_prior_weight = focal_length_prior_weight;
+
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  EXPECT_TRUE(summary->IsSolutionUsable());
+
+  return camera.FocalLength();
+}
+
+TEST(DefaultBundleAdjuster, FocalLengthPrior) {
+  constexpr double kGtFocalLength = 1280;
+  constexpr double kFocalLengthScale = 1.2;
+
+  // Without a prior, the focal length converges back to ground truth.
+  EXPECT_NEAR(SolveWithPerturbedFocalLength(
+                  /*camera_has_prior_focal_length=*/true,
+                  /*focal_length_prior_weight=*/0,
+                  kFocalLengthScale),
+              kGtFocalLength,
+              1);
+
+  // With a strong prior, the focal length stays near its initial value.
+  EXPECT_NEAR(SolveWithPerturbedFocalLength(
+                  /*camera_has_prior_focal_length=*/true,
+                  /*focal_length_prior_weight=*/1e6,
+                  kFocalLengthScale),
+              kFocalLengthScale * kGtFocalLength,
+              1);
+}
+
+TEST(DefaultBundleAdjuster, FocalLengthPriorWithoutPriorFocalLength) {
+  constexpr double kGtFocalLength = 1280;
+  constexpr double kFocalLengthScale = 1.2;
+
+  // The prior is ignored for cameras without a prior focal length.
+  EXPECT_NEAR(SolveWithPerturbedFocalLength(
+                  /*camera_has_prior_focal_length=*/false,
+                  /*focal_length_prior_weight=*/1e6,
+                  kFocalLengthScale),
+              kGtFocalLength,
+              1);
+}
+
+TEST(DefaultBundleAdjuster, BoundCameraParams) {
+  Reconstruction reconstruction;
+  const BundleAdjustmentConfig config = SynthesizeCameraPriorDataset(
+      /*camera_has_prior_focal_length=*/false, &reconstruction);
+
+  const camera_t camera_id = reconstruction.Cameras().begin()->first;
+  Camera& camera = reconstruction.Camera(camera_id);
+
+  BundleAdjustmentOptions options;
+  options.print_summary = false;
+  options.refine_principal_point = true;
+  options.bound_camera_params = true;
+
+  // Start from parameters that grossly violate the bounds, which requires
+  // clamping them before the bounds are registered with the solver.
+  camera.SetFocalLength(100 * std::max(camera.width, camera.height));
+  camera.SetPrincipalPointX(-100);
+  camera.params[camera.ExtraParamsIdxs()[0]] = 10 * options.max_extra_param;
+
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  EXPECT_TRUE(summary->IsSolutionUsable());
+
+  EXPECT_FALSE(camera.HasBogusParams(options.min_focal_length_ratio,
+                                     options.max_focal_length_ratio,
+                                     options.max_extra_param));
+}
+
+// Bundle adjustment must respect the model-specific parameter validity of the
+// EUCM model, whose beta parameter defaults to 1 and must stay strictly
+// positive, unlike the distortion parameters of all other models.
+TEST(DefaultBundleAdjuster, EUCMPriorsAndBounds) {
+  SetPRNGSeed(0);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.camera_model_id = EUCMCameraModel::model_id;
+  // fx, fy, cx, cy, alpha, beta, at the model's default extra parameters.
+  synthetic_dataset_options.camera_params = {1280, 1280, 512, 384, 0.0, 1.0};
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  const camera_t camera_id = reconstruction.Cameras().begin()->first;
+  Camera& camera = reconstruction.Camera(camera_id);
+  const size_t beta_idx = camera.ExtraParamsIdxs()[1];
+  camera.params[beta_idx] = 0.4;
+
+  BundleAdjustmentOptions options;
+  options.print_summary = false;
+  options.refine_principal_point = true;
+  options.bound_camera_params = true;
+  options.extra_params_prior_weight = 1e3;
+
+  const auto summary =
+      CreateDefaultBundleAdjuster(options, config, reconstruction)->Solve();
+  EXPECT_TRUE(summary->IsSolutionUsable());
+
+  // The prior pulls beta towards its default of 1, not towards 0, which the
+  // bogus parameter check considers degenerate.
+  EXPECT_NEAR(camera.params[beta_idx], 1.0, 0.1);
+  EXPECT_FALSE(camera.HasBogusParams(options.min_focal_length_ratio,
+                                     options.max_focal_length_ratio,
+                                     options.max_extra_param));
+}
 
 // Parameterized test for generic PosePriorBundleAdjuster interface across
 // backends.

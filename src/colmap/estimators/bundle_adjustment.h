@@ -203,6 +203,37 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // Whether to print a final summary.
   bool print_summary = true;
 
+  // Weights for soft priors on the camera intrinsics. A weight of 0 disables
+  // the respective prior. The focal length and principal point weights are
+  // direct multipliers on deviations in pixels. The extra parameter weight is
+  // multiplied by the mean focal length at the time the problem is constructed
+  // to convert dimensionless deviations to pixel-like residuals.
+  //
+  // The focal length prior is only applied to cameras with
+  // Camera::has_prior_focal_length and pulls towards the focal length at the
+  // time the problem is constructed. Thus "initial" means the construction-time
+  // value for each bundle adjustment problem, not necessarily the original
+  // database value. The prior therefore acts as a damping term across successive
+  // problems rather than as an anchor to the original prior, e.g. EXIF focal
+  // length. The principal point and
+  // extra parameter priors pull towards the values the camera model
+  // initializes them to, i.e. the image center and, for most models, zero.
+  double focal_length_prior_weight = 0;
+  double principal_point_prior_weight = 0;
+  double extra_params_prior_weight = 0;
+
+  // Whether to constrain the camera parameters to bounds that are consistent
+  // with Camera::HasBogusParams, such that the intrinsics cannot leave the
+  // region that the bogus parameter filter considers valid. Parameters that
+  // already violate the bounds are clamped into them.
+  bool bound_camera_params = true;
+
+  // Bounds for the camera parameters, only used if bound_camera_params is set.
+  // The focal length bounds are relative to the maximum image dimension.
+  double min_focal_length_ratio = 0.1;
+  double max_focal_length_ratio = 10.0;
+  double max_extra_param = 1.0;
+
   // Solver backend to use for bundle adjustment.
   BundleAdjustmentBackend backend = BundleAdjustmentBackend::CERES;
 
