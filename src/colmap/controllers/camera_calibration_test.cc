@@ -355,6 +355,7 @@ TEST(CameraCalibrationControllerTest, StopWhileCalibrating) {
 // camera_calibration_test. Uses random-noise images, which are not expected
 // to calibrate; the test checks graceful handling end to end.
 TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const char* model_path = std::getenv("COLMAP_ANYCALIB_MODEL_PATH");
   if (model_path == nullptr) {
     GTEST_SKIP() << "Set COLMAP_ANYCALIB_MODEL_PATH to run this test";

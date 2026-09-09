@@ -150,7 +150,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
     cam_rays.reserve(size * size);
     for (int y = 0; y < size; ++y) {
       for (int x = 0; x < size; ++x) {
-        const size_t i = static_cast<size_t>(y * size + x);
+        const size_t i = static_cast<size_t>(y) * size + x;
         img_points.push_back(
             input.ImagePointToOriginal(Eigen::Vector2d(x + 0.5, y + 0.5)));
         cam_rays.push_back(input.CameraRayToOriginal(Eigen::Vector3d(
@@ -217,7 +217,7 @@ bool AnyCalibCalibrationOptions::Check() const {
 
 Eigen::Vector2d AnyCalibInput::ImagePointToOriginal(
     const Eigen::Vector2d& point) const {
-  const Eigen::Vector2d upright = (point - shift_xy).cwiseQuotient(scale_xy);
+  Eigen::Vector2d upright = (point - shift_xy).cwiseQuotient(scale_xy);
   switch (image_rot90) {
     case 0:
       return upright;
@@ -228,6 +228,8 @@ Eigen::Vector2d AnyCalibInput::ImagePointToOriginal(
                              upright_height - upright.y());
     case 3:
       return Eigen::Vector2d(upright.y(), upright_width - upright.x());
+    default:
+      break;
   }
   LOG(FATAL_THROW) << "Invalid image rotation: " << image_rot90;
   return Eigen::Vector2d::Zero();
@@ -244,6 +246,8 @@ Eigen::Vector3d AnyCalibInput::CameraRayToOriginal(
       return Eigen::Vector3d(-ray.x(), -ray.y(), ray.z());
     case 3:
       return Eigen::Vector3d(ray.y(), -ray.x(), ray.z());
+    default:
+      break;
   }
   LOG(FATAL_THROW) << "Invalid image rotation: " << image_rot90;
   return Eigen::Vector3d::Zero();
@@ -286,12 +290,16 @@ AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
   // `Bitmap::Rescale`; the network is robust to the resampling kernel.
   const int w = image.Width();
   const int h = image.Height();
+  // NOTE: the integer divisions below are intentional: they reproduce the
+  // integer crop offsets computed in `CenterCropToSquare`.
   if (w > h) {
     const int crop_w = w - h;
-    shift_xy.x() = -(crop_w / 2);
+    const int shift_x = -(crop_w / 2);
+    shift_xy.x() = shift_x;
   } else {
     const int crop_h = h - w;
-    shift_xy.y() = -(crop_h / 2);
+    const int shift_y = -(crop_h / 2);
+    shift_xy.y() = shift_y;
   }
   image = CenterCropToSquare(image);
 
