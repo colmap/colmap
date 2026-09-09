@@ -72,8 +72,8 @@ __global__ void CudaFlipHorizontalKernel(T* output_data,
   for (int i = 0; i < TILE_DIM_FLIP; i += BLOCK_ROWS_FLIP) {
     const int x = min(x_index, width - 1);
     const int y = min(y_index, height - i - 1);
-    tile[tile_y + i][tile_x] =
-        *((T*)((char*)input_data + y * input_pitch + i * input_pitch) + x);
+    tile[tile_y + i][tile_x] = *(
+        (T*)((char*)input_data + static_cast<size_t>(y + i) * input_pitch) + x);
   }
 
   __syncthreads();
@@ -82,7 +82,8 @@ __global__ void CudaFlipHorizontalKernel(T* output_data,
   if (x_index < width) {
     for (int i = 0; i < TILE_DIM_FLIP; i += BLOCK_ROWS_FLIP) {
       if (y_index + i < height) {
-        *((T*)((char*)output_data + y_index * output_pitch + i * output_pitch) +
+        *((T*)((char*)output_data +
+               static_cast<size_t>(y_index + i) * output_pitch) +
           x_index) = tile[threadIdx.y + i][threadIdx.x];
       }
     }
