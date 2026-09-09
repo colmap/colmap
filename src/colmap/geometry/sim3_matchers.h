@@ -72,7 +72,7 @@ template <typename T>
 class Sim3dNearMatcher : public testing::MatcherInterface<T> {
  public:
   Sim3dNearMatcher(T rhs, double stol, double rtol, double ttol)
-      : rhs_(std::forward<T>(rhs)), stol_(rtol), rtol_(rtol), ttol_(ttol) {}
+      : rhs_(std::forward<T>(rhs)), stol_(stol), rtol_(rtol), ttol_(ttol) {}
 
   void DescribeTo(std::ostream* os) const override { *os << rhs_; }
 
