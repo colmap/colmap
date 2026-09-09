@@ -345,27 +345,34 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")
-          .def_readwrite("focal_length_prior_weight",
-                         &BAOpts::focal_length_prior_weight,
-                         "Direct pixel-space weight of the soft prior pulling "
-                         "the focal length towards its value when each bundle "
-                         "adjustment problem is constructed. Only applied to "
-                         "cameras with a prior focal length. Zero disables the "
-                         "prior.")
+          .def_readwrite(
+              "focal_length_prior_weight",
+              &BAOpts::focal_length_prior_weight,
+              "Direct pixel-space weight of the soft prior pulling "
+              "the focal length towards its value when each bundle "
+              "adjustment problem is constructed. The weight is an "
+              "inverse standard deviation, i.e. weight = 1 / stddev. "
+              "Only applied to cameras with a prior focal length. "
+              "Zero disables the prior.")
           .def_readwrite("principal_point_prior_weight",
                          &BAOpts::principal_point_prior_weight,
                          "Direct pixel-space weight of the soft prior pulling "
                          "the principal point towards the value initialized by "
-                         "the camera model, usually the image center. Zero "
-                         "disables the prior.")
+                         "the camera model, usually the image center. The "
+                         "weight is an inverse standard deviation, i.e. "
+                         "weight = 1 / stddev. Zero disables the prior.")
           .def_readwrite("extra_params_prior_weight",
                          &BAOpts::extra_params_prior_weight,
                          "Weight of the soft prior pulling the extra "
                          "parameters towards the values the camera model "
                          "initializes them to, which is zero for most models. "
-                         "Multiplied by the mean focal length when each bundle "
-                         "adjustment problem is constructed to produce "
-                         "pixel-like residuals. Zero disables the prior.")
+                         "The weight is an inverse standard deviation, i.e. "
+                         "weight = 1 / stddev, multiplied by the mean focal "
+                         "length when each bundle adjustment problem is "
+                         "constructed to produce pixel-like residuals. The "
+                         "prior is therefore stronger for small field-of-view "
+                         "cameras at equal resolution. Zero disables the "
+                         "prior.")
           .def_readwrite("bound_camera_params",
                          &BAOpts::bound_camera_params,
                          "Whether to constrain the camera parameters to bounds "

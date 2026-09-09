@@ -2842,10 +2842,6 @@ bool EUCMCameraModel::HasBogusExtraParams(const std::vector<T>& params,
   return alpha < T(0) || alpha > T(1) || beta <= T(0);
 }
 
-// A box constraint cannot express the strict beta > 0 that HasBogusExtraParams
-// requires, so beta is bounded from below by this small positive value.
-constexpr double kMinEUCMBeta = 1e-6;
-
 void EUCMCameraModel::ParamsBounds(const size_t width,
                                    const size_t height,
                                    const double min_focal_length_ratio,
@@ -2861,10 +2857,13 @@ void EUCMCameraModel::ParamsBounds(const size_t width,
       max_extra_param,
       lower_bounds,
       upper_bounds);
-  // alpha is restricted to [0, 1] and beta must be strictly positive.
+  // alpha is restricted to [0, 1] and beta must be strictly positive. A box
+  // constraint cannot express the strict beta > 0 that HasBogusExtraParams
+  // requires, so beta is bounded from below by this small positive value.
+  constexpr double kMinBeta = 1e-6;
   (*lower_bounds)[4] = std::max(0.0, (*lower_bounds)[4]);
   (*upper_bounds)[4] = std::min(1.0, (*upper_bounds)[4]);
-  (*lower_bounds)[5] = std::max(kMinEUCMBeta, (*lower_bounds)[5]);
+  (*lower_bounds)[5] = std::max(kMinBeta, (*lower_bounds)[5]);
 }
 
 std::vector<double> EUCMCameraModel::InitializeParams(const double focal_length,

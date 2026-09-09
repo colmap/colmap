@@ -31,6 +31,8 @@
 
 #include "colmap/util/eigen_matchers.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -134,6 +136,29 @@ TEST(ScaleWeightedCostFunctor, NormalPriorCostFunctorStddevVec) {
                                               (param[1] - prior[1]) / 1.0,
                                               (param[2] - prior[2]) / 0.5),
                               1e-10));
+}
+
+TEST(ScaleWeightedCostFunctor, InfiniteStddevIsUnconstrained) {
+  const Eigen::Vector3d prior(1, 2, 3);
+  const Eigen::Vector3d param(4, 1000, -1000);
+  const double kInf = std::numeric_limits<double>::infinity();
+
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaleWeightedCostFunctor<NormalPriorCostFunctor<3>>::Create(
+          Eigen::Vector3d(2.0, kInf, kInf), prior));
+
+  Eigen::Vector3d residuals;
+  Eigen::Matrix3d jacobian;
+  const double* parameters[1] = {param.data()};
+  double* jacobians[1] = {jacobian.data()};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals.data(), jacobians));
+  EXPECT_THAT(residuals,
+              EigenMatrixNear(
+                  Eigen::Vector3d((param[0] - prior[0]) / 2.0, 0, 0), 1e-10));
+  EXPECT_THAT(
+      jacobian,
+      EigenMatrixNear(Eigen::Matrix3d(Eigen::Vector3d(0.5, 0, 0).asDiagonal()),
+                      1e-10));
 }
 
 TEST(ScaleWeightedCostFunctor, NormalErrorCostFunctorSingleStddev) {

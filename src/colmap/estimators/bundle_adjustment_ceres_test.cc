@@ -180,10 +180,10 @@ TEST(DefaultBundleAdjuster, CameraPriorUsesMixedUnitWeights) {
   EXPECT_DOUBLE_EQ(rho[1], 0.5);
   EXPECT_DOUBLE_EQ(rho[2], -0.0625);
 
-  const std::vector<double> evaluated_params = {810, 1180, 515, 380, 0.21, 0.78};
-  std::copy(evaluated_params.begin(),
-            evaluated_params.end(),
-            camera.params.begin());
+  const std::vector<double> evaluated_params = {
+      810, 1180, 515, 380, 0.21, 0.78};
+  std::copy(
+      evaluated_params.begin(), evaluated_params.end(), camera.params.begin());
   std::vector<double> residuals(EUCMCameraModel::num_params);
   double cost = 0;
   ASSERT_TRUE(problem.EvaluateResidualBlock(prior_residual_blocks.front(),
@@ -191,10 +191,10 @@ TEST(DefaultBundleAdjuster, CameraPriorUsesMixedUnitWeights) {
                                             &cost,
                                             residuals.data(),
                                             nullptr));
-  EXPECT_THAT(residuals,
-              testing::Pointwise(testing::DoubleNear(1e-12),
-                                 std::vector<double>(
-                                     {20, -40, 9, -12, 840, -880})));
+  EXPECT_THAT(
+      residuals,
+      testing::Pointwise(testing::DoubleNear(1e-12),
+                         std::vector<double>({20, -40, 9, -12, 840, -880})));
 }
 
 TEST(DefaultBundleAdjuster, ZeroCameraPriorWeightsAreInactive) {

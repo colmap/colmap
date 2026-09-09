@@ -111,6 +111,11 @@ struct IncrementalPipelineOptions {
   double ba_principal_point_prior_weight = 0;
   double ba_extra_params_prior_weight = 0;
 
+  // Whether to constrain the camera intrinsics during bundle adjustment to
+  // the same bounds that the degenerate intrinsics filter above applies. See
+  // BundleAdjustmentOptions::bound_camera_params.
+  bool ba_bound_camera_params = false;
+
   // Whether to optimize rig poses during the reconstruction.
   bool ba_refine_sensor_from_rig = true;
 

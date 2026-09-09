@@ -206,9 +206,10 @@ BundleAdjustmentOptions IncrementalPipelineOptions::LocalBundleAdjustment()
   options.focal_length_prior_weight = ba_focal_length_prior_weight;
   options.principal_point_prior_weight = ba_principal_point_prior_weight;
   options.extra_params_prior_weight = ba_extra_params_prior_weight;
-  // Local bundle adjustment only optimizes a small subset of the problem, so
-  // the intrinsics are not bounded here but only during global refinement.
-  options.bound_camera_params = false;
+  options.bound_camera_params = ba_bound_camera_params;
+  options.min_focal_length_ratio = min_focal_length_ratio;
+  options.max_focal_length_ratio = max_focal_length_ratio;
+  options.max_extra_param = max_extra_param;
   if (options.ceres) {
     options.ceres->solver_options.function_tolerance =
         ba_local_function_tolerance;
@@ -255,7 +256,7 @@ BundleAdjustmentOptions IncrementalPipelineOptions::GlobalBundleAdjustment()
   options.focal_length_prior_weight = ba_focal_length_prior_weight;
   options.principal_point_prior_weight = ba_principal_point_prior_weight;
   options.extra_params_prior_weight = ba_extra_params_prior_weight;
-  options.bound_camera_params = true;
+  options.bound_camera_params = ba_bound_camera_params;
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;

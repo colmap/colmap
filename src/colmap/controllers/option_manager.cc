@@ -744,6 +744,8 @@ void OptionManager::AddMapperOptions() {
                    &mapper->ba_principal_point_prior_weight);
   AddDefaultOption("Mapper.ba_extra_params_prior_weight",
                    &mapper->ba_extra_params_prior_weight);
+  AddDefaultOption("Mapper.ba_bound_camera_params",
+                   &mapper->ba_bound_camera_params);
   AddDefaultOption("Mapper.ba_local_function_tolerance",
                    &mapper->ba_local_function_tolerance);
   AddDefaultOption("Mapper.ba_local_max_num_iterations",

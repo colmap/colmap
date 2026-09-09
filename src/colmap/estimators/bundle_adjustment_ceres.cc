@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/ceres_loss_function.h"
-#include "colmap/estimators/cost_functions/camera_prior.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
@@ -44,6 +43,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <limits>
 
 namespace colmap {
 
@@ -452,6 +452,13 @@ void ParameterizeCameras(const BundleAdjustmentOptions& options,
   }
 }
 
+// Soft prior on the parameters of a camera, weighted by a per-parameter
+// standard deviation. An infinite standard deviation leaves the corresponding
+// parameter unconstrained.
+template <typename CameraModel>
+using CameraParamsPriorCostFunctor =
+    ScaleWeightedCostFunctor<NormalPriorCostFunctor<CameraModel::num_params>>;
+
 // Adds a weighted prior residual block on the intrinsics of each camera. The
 // residuals pull the focal length towards its current value (only for cameras
 // with a prior focal length) and the principal point and extra parameters
@@ -478,10 +485,10 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
       continue;
     }
 
-    // Focal length and principal point weights directly multiply deviations in
-    // pixels. Scale only dimensionless extra parameter deviations by the mean
-    // focal length at the time the problem is constructed to obtain pixel-like
-    // residuals.
+    // Focal length and principal point weights directly multiply deviations
+    // in pixels, so their standard deviations are in pixels too. Scale only
+    // the dimensionless extra parameter deviations by the mean focal length at
+    // the time the problem is constructed to obtain pixel-like residuals.
     const double mean_focal_length = camera.MeanFocalLength();
 
     // The principal point and extra parameters are pulled towards the values
@@ -509,13 +516,16 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
       }
     }
 
-    std::vector<double> weights(camera.params.size(), 0.0);
-    std::vector<double> priors(camera.params.size(), 0.0);
+    // Parameters without a prior get an infinite standard deviation, which the
+    // cost functor inverts to a zero multiplier and thus leaves unconstrained.
+    Eigen::VectorXd stddevs = Eigen::VectorXd::Constant(
+        camera.params.size(), std::numeric_limits<double>::infinity());
+    Eigen::VectorXd priors = Eigen::VectorXd::Zero(camera.params.size());
     bool has_prior = false;
 
     if (prior_focal_length && camera.has_prior_focal_length) {
       for (const size_t idx : camera.FocalLengthIdxs()) {
-        weights[idx] = options.focal_length_prior_weight;
+        stddevs[idx] = 1.0 / options.focal_length_prior_weight;
         priors[idx] = camera.params[idx];
         has_prior = true;
       }
@@ -523,7 +533,7 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
 
     if (prior_principal_point) {
       for (const size_t idx : camera.PrincipalPointIdxs()) {
-        weights[idx] = options.principal_point_prior_weight;
+        stddevs[idx] = 1.0 / options.principal_point_prior_weight;
         priors[idx] = default_params[idx];
         has_prior = true;
       }
@@ -531,7 +541,8 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
 
     if (prior_extra_params) {
       for (const size_t idx : camera.ExtraParamsIdxs()) {
-        weights[idx] = options.extra_params_prior_weight * mean_focal_length;
+        stddevs[idx] =
+            1.0 / (options.extra_params_prior_weight * mean_focal_length);
         priors[idx] = default_params[idx];
         has_prior = true;
       }
@@ -543,7 +554,7 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
 
     problem.AddResidualBlock(
         CreateCameraCostFunction<CameraParamsPriorCostFunctor>(
-            camera.model_id, weights, priors),
+            camera.model_id, stddevs, priors),
         loss_function,
         camera.params.data());
   }
@@ -578,28 +589,26 @@ void BoundCameraParams(const BundleAdjustmentOptions& options,
                             &lower_bounds,
                             &upper_bounds);
 
-    const auto bound_param =
-        [&camera, &problem, &lower_bounds, &upper_bounds](const size_t idx) {
-          const double lower = lower_bounds[idx];
-          const double upper = upper_bounds[idx];
-          if (upper < lower) {
-            // Empty interval, e.g. for a strictly positive parameter with a
-            // max_extra_param of zero. There is no feasible value to clamp to.
-            return;
-          }
-          camera.params[idx] = std::clamp(camera.params[idx], lower, upper);
-          if (upper == lower) {
-            // Ceres rejects an empty bound interval as infeasible. The clamp
-            // above already pins the parameter to the only feasible value.
-            return;
-          }
-          if (std::isfinite(lower)) {
-            problem.SetParameterLowerBound(camera.params.data(), idx, lower);
-          }
-          if (std::isfinite(upper)) {
-            problem.SetParameterUpperBound(camera.params.data(), idx, upper);
-          }
-        };
+    const auto bound_param = [&camera, &problem, &lower_bounds, &upper_bounds](
+                                 const size_t idx) {
+      const double lower = lower_bounds[idx];
+      const double upper = upper_bounds[idx];
+      // Ordered explicitly, because std::clamp is undefined for an empty
+      // interval, e.g. for a strictly positive parameter with a
+      // max_extra_param of zero.
+      camera.params[idx] = std::max(std::min(camera.params[idx], upper), lower);
+      if (upper <= lower) {
+        // Ceres rejects a degenerate interval as infeasible. The clamp
+        // above already pins the parameter to the closest feasible value.
+        return;
+      }
+      if (std::isfinite(lower)) {
+        problem.SetParameterLowerBound(camera.params.data(), idx, lower);
+      }
+      if (std::isfinite(upper)) {
+        problem.SetParameterUpperBound(camera.params.data(), idx, upper);
+      }
+    };
 
     if (options.refine_focal_length) {
       for (const size_t idx : camera.FocalLengthIdxs()) {
@@ -816,7 +825,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         *problem_);
 
     // Bound the camera parameters before adding the priors, so that the priors
-    // are anchored at feasible values.
+    // are anchored at feasible values. Notice that BoundCameraParams() clamps
+    // the input camera parameters to the valid range.
     if (options_.bound_camera_params) {
       BoundCameraParams(
           options_, parameterized_camera_ids_, reconstruction, *problem_);
