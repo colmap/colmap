@@ -70,8 +70,10 @@ __global__ void CudaRotateKernel(T* output_data,
   int output_x = input_y;
   int output_y = width - 1 - input_x;
 
-  *((T*)((char*)output_data + output_y * output_pitch) + output_x) =
-      *((T*)((char*)input_data + input_y * input_pitch) + input_x);
+  *((T*)((char*)output_data + static_cast<size_t>(output_y) * output_pitch) +
+    output_x) =
+      *((T*)((char*)input_data + static_cast<size_t>(input_y) * input_pitch) +
+        input_x);
 }
 
 }  // namespace internal

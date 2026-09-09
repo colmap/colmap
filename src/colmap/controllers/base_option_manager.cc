@@ -80,7 +80,7 @@ void BaseOptionManager::AddLogOptions() {
   AddDefaultOption("log_level", &FLAGS_v);
   AddDefaultOption("log_severity",
                    &FLAGS_minloglevel,
-                   "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
+                   "{INFO = 0, WARNING = 1, ERROR = 2, FATAL = 3}");
 #if COLMAP_GLOG_HAS_COLOR_SUPPORT
   AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
 #endif
