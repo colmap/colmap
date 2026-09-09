@@ -90,6 +90,18 @@ TEST(Sim3d, Near) {
   mock.TestMethod(y);
 }
 
+TEST(Sim3d, NearUsesIndependentScaleTolerance) {
+  const Sim3d x(2, RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  Sim3d y = x;
+  y.scale() += 1e-7;
+  // The scale difference is above stol but below rtol/ttol, so only the
+  // scale check must reject the match. This fails if the scale comparison
+  // wrongly uses rtol instead of stol.
+  EXPECT_THAT(
+      x, testing::Not(Sim3dNear(y, /*stol=*/1e-8, /*rtol=*/1, /*ttol=*/1)));
+  EXPECT_THAT(x, Sim3dNear(y, /*stol=*/1e-6, /*rtol=*/1e-8, /*ttol=*/1e-8));
+}
+
 TEST(Sim3d, LeftScaleNearIdentity) {
   Sim3d x(1, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   Sim3d y = x;
