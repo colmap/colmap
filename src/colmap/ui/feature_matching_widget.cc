@@ -178,7 +178,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->two_view_geometry->ransac_options.max_num_trials,
       "max_num_trials");
   options_widget_->AddOptionDouble(
-      &options_->two_view_geometry->ransac_options.min_inlier_ratio,
+      &options_->two_view_geometry->min_inlier_ratio,
       "min_inlier_ratio",
       0,
       1,

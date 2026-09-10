@@ -460,7 +460,7 @@ void OptionManager::AddTwoViewGeometryOptions() {
   AddDefaultOption("TwoViewGeometry.max_num_trials",
                    &two_view_geometry->ransac_options.max_num_trials);
   AddDefaultOption("TwoViewGeometry.min_inlier_ratio",
-                   &two_view_geometry->ransac_options.min_inlier_ratio);
+                   &two_view_geometry->min_inlier_ratio);
   AddDefaultOption("TwoViewGeometry.random_seed",
                    &two_view_geometry->ransac_options.random_seed);
 }
