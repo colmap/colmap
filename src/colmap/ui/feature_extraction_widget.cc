@@ -49,6 +49,13 @@ class ExtractionWidget : public OptionsWidget {
   virtual void Run() = 0;
 
  protected:
+  void AddSharedOptions();
+  QComboBox* AddModelVariantRow(
+      const std::string& label_text,
+      std::initializer_list<std::pair<const char*, FeatureExtractorType>>
+          variants);
+  void RunExtraction();
+
   OptionManager* options_;
   ThreadControlWidget* thread_control_widget_;
 };
@@ -97,17 +104,46 @@ ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
       options_(options),
       thread_control_widget_(new ThreadControlWidget(this)) {}
 
+void ExtractionWidget::AddSharedOptions() {
+  AddOptionDirPath(&options_->image_reader->mask_path, "mask_path");
+  AddOptionFilePath(&options_->image_reader->camera_mask_path,
+                    "camera_mask_path");
+
+  AddOptionInt(&options_->feature_extraction->max_image_size, "max_image_size");
+  AddOptionInt(&options_->feature_extraction->num_threads, "num_threads", -1);
+  AddOptionBool(&options_->feature_extraction->use_gpu, "use_gpu");
+  AddOptionText(&options_->feature_extraction->gpu_index, "gpu_index");
+}
+
+QComboBox* ExtractionWidget::AddModelVariantRow(
+    const std::string& label_text,
+    std::initializer_list<std::pair<const char*, FeatureExtractorType>>
+        variants) {
+  QComboBox* combo_box = new QComboBox(this);
+  for (const auto& [label, type] : variants) {
+    combo_box->addItem(label, static_cast<int>(type));
+  }
+  AddWidgetRow(label_text, combo_box);
+  return combo_box;
+}
+
+void ExtractionWidget::RunExtraction() {
+  WriteOptions();
+
+  ImageReaderOptions reader_options = *options_->image_reader;
+  reader_options.image_path = *options_->image_path;
+  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
+
+  auto extractor = CreateFeatureExtractorController(
+      *options_->database_path, reader_options, *options_->feature_extraction);
+  thread_control_widget_->StartThread(
+      "Extracting...", true, std::move(extractor));
+}
+
 SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
-  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
-  AddOptionFilePath(&options->image_reader->camera_mask_path,
-                    "camera_mask_path");
-
-  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
-  AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
-  AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
-  AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
+  AddSharedOptions();
 
   SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
   AddOptionInt(&sift_options.max_num_features, "sift.max_num_features");
@@ -134,18 +170,8 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
 }
 
 void SIFTExtractionWidget::Run() {
-  WriteOptions();
-
   options_->feature_extraction->type = FeatureExtractorType::SIFT;
-
-  ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.image_path = *options_->image_path;
-  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
-
-  auto extractor = CreateFeatureExtractorController(
-      *options_->database_path, reader_options, *options_->feature_extraction);
-  thread_control_widget_->StartThread(
-      "Extracting...", true, std::move(extractor));
+  RunExtraction();
 }
 
 ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
@@ -175,21 +201,12 @@ void ImportFeaturesWidget::Run() {
 AlikedExtractionWidget::AlikedExtractionWidget(QWidget* parent,
                                                OptionManager* options)
     : ExtractionWidget(parent, options) {
-  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
-  AddOptionFilePath(&options->image_reader->camera_mask_path,
-                    "camera_mask_path");
+  AddSharedOptions();
 
-  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
-  AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
-  AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
-  AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
-
-  model_variant_cb_ = new QComboBox(this);
-  model_variant_cb_->addItem(
-      "n16rot", static_cast<int>(FeatureExtractorType::ALIKED_N16ROT));
-  model_variant_cb_->addItem(
-      "n32", static_cast<int>(FeatureExtractorType::ALIKED_N32));
-  AddWidgetRow("aliked.model_variant", model_variant_cb_);
+  model_variant_cb_ =
+      AddModelVariantRow("aliked.model_variant",
+                         {{"n16rot", FeatureExtractorType::ALIKED_N16ROT},
+                          {"n32", FeatureExtractorType::ALIKED_N32}});
 
   AlikedExtractionOptions& aliked_options =
       *options->feature_extraction->aliked;
@@ -200,39 +217,20 @@ AlikedExtractionWidget::AlikedExtractionWidget(QWidget* parent,
 }
 
 void AlikedExtractionWidget::Run() {
-  WriteOptions();
-
   options_->feature_extraction->type = static_cast<FeatureExtractorType>(
       model_variant_cb_->currentData().toInt());
-
-  ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.image_path = *options_->image_path;
-  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
-
-  auto extractor = CreateFeatureExtractorController(
-      *options_->database_path, reader_options, *options_->feature_extraction);
-  thread_control_widget_->StartThread(
-      "Extracting...", true, std::move(extractor));
+  RunExtraction();
 }
 
 LomaExtractionWidget::LomaExtractionWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
-  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
-  AddOptionFilePath(&options->image_reader->camera_mask_path,
-                    "camera_mask_path");
+  AddSharedOptions();
 
-  AddOptionInt(&options->feature_extraction->max_image_size, "max_image_size");
-  AddOptionInt(&options->feature_extraction->num_threads, "num_threads", -1);
-  AddOptionBool(&options->feature_extraction->use_gpu, "use_gpu");
-  AddOptionText(&options->feature_extraction->gpu_index, "gpu_index");
-
-  model_variant_cb_ = new QComboBox(this);
-  model_variant_cb_->addItem("B (dedode_g)",
-                             static_cast<int>(FeatureExtractorType::LOMA_B));
-  model_variant_cb_->addItem("B128 (dedode_b)",
-                             static_cast<int>(FeatureExtractorType::LOMA_B128));
-  AddWidgetRow("loma.model_variant", model_variant_cb_);
+  model_variant_cb_ = AddModelVariantRow(
+      "loma.model_variant",
+      {{"B (dedode_g)", FeatureExtractorType::LOMA_B},
+       {"B128 (dedode_b)", FeatureExtractorType::LOMA_B128}});
 
   LomaExtractionOptions& loma_options = *options->feature_extraction->loma;
   AddOptionInt(&loma_options.max_num_features, "loma.max_num_features");
@@ -249,19 +247,9 @@ LomaExtractionWidget::LomaExtractionWidget(QWidget* parent,
 }
 
 void LomaExtractionWidget::Run() {
-  WriteOptions();
-
   options_->feature_extraction->type = static_cast<FeatureExtractorType>(
       model_variant_cb_->currentData().toInt());
-
-  ImageReaderOptions reader_options = *options_->image_reader;
-  reader_options.image_path = *options_->image_path;
-  reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
-
-  auto extractor = CreateFeatureExtractorController(
-      *options_->database_path, reader_options, *options_->feature_extraction);
-  thread_control_widget_->StartThread(
-      "Extracting...", true, std::move(extractor));
+  RunExtraction();
 }
 #endif
 
@@ -278,26 +266,19 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
 
   tab_widget_ = new QTabWidget(this);
 
-  QScrollArea* sift_widget = new QScrollArea(this);
-  sift_widget->setAlignment(Qt::AlignHCenter);
-  sift_widget->setWidget(new SIFTExtractionWidget(this, options));
-  tab_widget_->addTab(sift_widget, tr("SIFT"));
+  auto AddTab = [this](QWidget* widget, const char* title) {
+    QScrollArea* scroll_area = new QScrollArea(this);
+    scroll_area->setAlignment(Qt::AlignHCenter);
+    scroll_area->setWidget(widget);
+    tab_widget_->addTab(scroll_area, tr(title));
+  };
 
-  QScrollArea* import_widget = new QScrollArea(this);
-  import_widget->setAlignment(Qt::AlignHCenter);
-  import_widget->setWidget(new ImportFeaturesWidget(this, options));
-  tab_widget_->addTab(import_widget, tr("SIFT (Import)"));
+  AddTab(new SIFTExtractionWidget(this, options), "SIFT");
+  AddTab(new ImportFeaturesWidget(this, options), "SIFT (Import)");
 
 #ifdef COLMAP_ONNX_ENABLED
-  QScrollArea* aliked_widget = new QScrollArea(this);
-  aliked_widget->setAlignment(Qt::AlignHCenter);
-  aliked_widget->setWidget(new AlikedExtractionWidget(this, options));
-  tab_widget_->addTab(aliked_widget, tr("ALIKED"));
-
-  QScrollArea* loma_widget = new QScrollArea(this);
-  loma_widget->setAlignment(Qt::AlignHCenter);
-  loma_widget->setWidget(new LomaExtractionWidget(this, options));
-  tab_widget_->addTab(loma_widget, tr("LoMa"));
+  AddTab(new AlikedExtractionWidget(this, options), "ALIKED");
+  AddTab(new LomaExtractionWidget(this, options), "LoMa");
 #endif
 
   grid->addWidget(tab_widget_);
