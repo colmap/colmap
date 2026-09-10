@@ -203,6 +203,7 @@ class JetColormap {
   static float Red(float gray);
   static float Green(float gray);
   static float Blue(float gray);
+  static BitmapColor<uint8_t> ToBitmapColor(float gray);
 
  private:
   static float Interpolate(float val, float y0, float x0, float y1, float x1);

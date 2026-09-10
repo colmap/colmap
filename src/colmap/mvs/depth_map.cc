@@ -114,10 +114,7 @@ Bitmap DepthMap::ToBitmap(const float min_percentile,
             std::max(robust_depth_min, std::min(robust_depth_max, depth));
         const float gray =
             (robust_depth - robust_depth_min) / robust_depth_range;
-        const BitmapColor<float> color(255 * JetColormap::Red(gray),
-                                       255 * JetColormap::Green(gray),
-                                       255 * JetColormap::Blue(gray));
-        bitmap.SetPixel(x, y, color.Cast<uint8_t>());
+        bitmap.SetPixel(x, y, JetColormap::ToBitmapColor(gray));
       } else {
         bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
