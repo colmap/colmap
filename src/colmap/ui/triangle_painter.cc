@@ -29,101 +29,27 @@
 
 #include "colmap/ui/triangle_painter.h"
 
-#include "colmap/util/opengl_utils.h"
-
 namespace colmap {
 
-TrianglePainter::TrianglePainter() : num_geoms_(0) {}
-
-TrianglePainter::~TrianglePainter() {
-  vao_.destroy();
-  vbo_.destroy();
-}
-
 void TrianglePainter::Setup() {
-  vao_.destroy();
-  vbo_.destroy();
-  if (shader_program_.isLinked()) {
-    shader_program_.release();
-    shader_program_.removeAllShaders();
-  }
-
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Vertex,
-                                          ":/shaders/triangles.v.glsl");
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Fragment,
-                                          ":/shaders/triangles.f.glsl");
-  shader_program_.link();
-  shader_program_.bind();
-
-  vao_.create();
-  vbo_.create();
-
-#if DEBUG
-  glDebugLog();
-#endif
+  SetupShaders({{QOpenGLShader::Vertex, ":/shaders/triangles.v.glsl"},
+                {QOpenGLShader::Fragment, ":/shaders/triangles.f.glsl"}});
 }
 
 void TrianglePainter::Upload(const std::vector<TrianglePainter::Data>& data) {
-  num_geoms_ = data.size();
-  if (num_geoms_ == 0) {
-    return;
-  }
-
-  vao_.bind();
-  vbo_.bind();
-
-  // Upload data array to GPU
-  vbo_.setUsagePattern(QOpenGLBuffer::DynamicDraw);
-  vbo_.allocate(data.data(),
-                static_cast<int>(data.size() * sizeof(TrianglePainter::Data)));
-
-  // in_position
-  shader_program_.enableAttributeArray("a_position");
-  shader_program_.setAttributeBuffer(
-      "a_position", GL_FLOAT, 0, 3, sizeof(PointPainter::Data));
-
-  // in_color: use glVertexAttribPointer directly because Qt's
-  // setAttributeBuffer does not support the normalized parameter,
-  // which is needed to map uint8 [0,255] to float [0.0,1.0] in the shader.
-  shader_program_.enableAttributeArray("a_color");
-  QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
-  gl_funcs->glVertexAttribPointer(
-      shader_program_.attributeLocation("a_color"),
-      4,
-      GL_UNSIGNED_BYTE,
-      GL_TRUE,
-      sizeof(PointPainter::Data),
-      reinterpret_cast<const void*>(  // NOLINT(performance-no-int-to-ptr)
-          3 * sizeof(GLfloat)));
-
-  // Make sure they are not changed from the outside
-  vbo_.release();
-  vao_.release();
-
-#if DEBUG
-  glDebugLog();
-#endif
+  UploadGeoms(data, "a_position", sizeof(PointPainter::Data));
 }
 
 void TrianglePainter::Render(const QMatrix4x4& pmv_matrix) {
-  if (num_geoms_ == 0) {
+  if (!BeginRender()) {
     return;
   }
 
-  shader_program_.bind();
-  vao_.bind();
-
   shader_program_.setUniformValue("u_pmv_matrix", pmv_matrix);
 
-  QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
-  gl_funcs->glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(3 * num_geoms_));
+  GLFunctions()->glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(3 * num_geoms_));
 
-  // Make sure the VAO is not changed from the outside
-  vao_.release();
-
-#if DEBUG
-  glDebugLog();
-#endif
+  EndRender();
 }
 
 }  // namespace colmap

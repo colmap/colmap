@@ -27,40 +27,59 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-#include "colmap/ui/point_painter.h"
-
-#include <cstddef>
+#include "colmap/ui/painter_base.h"
 
 namespace colmap {
 
-// PainterBase uploads vertices as 3 floats + 4 bytes with the color at byte
-// offset 12; line and triangle painters additionally rely on Data being a
-// contiguous array of vertices.
-static_assert(sizeof(PointPainter::Data) ==
-              3 * sizeof(float) + 4 * sizeof(uint8_t));
-static_assert(offsetof(PointPainter::Data, r) == 3 * sizeof(float));
+PainterBase::PainterBase() : num_geoms_(0) {}
 
-void PointPainter::Setup() {
-  SetupShaders({{QOpenGLShader::Vertex, ":/shaders/points.v.glsl"},
-                {QOpenGLShader::Fragment, ":/shaders/points.f.glsl"}});
+PainterBase::~PainterBase() { DestroyGL(); }
+
+void PainterBase::DestroyGL() {
+  vao_.destroy();
+  vbo_.destroy();
 }
 
-void PointPainter::Upload(const std::vector<PointPainter::Data>& data) {
-  UploadGeoms(data, "a_position", sizeof(PointPainter::Data));
-}
-
-void PointPainter::Render(const QMatrix4x4& pmv_matrix,
-                          const float point_size) {
-  if (!BeginRender()) {
-    return;
+void PainterBase::SetupShaders(
+    std::initializer_list<std::pair<QOpenGLShader::ShaderType, const char*>>
+        shaders) {
+  DestroyGL();
+  if (shader_program_.isLinked()) {
+    shader_program_.release();
+    shader_program_.removeAllShaders();
   }
 
-  shader_program_.setUniformValue("u_pmv_matrix", pmv_matrix);
-  shader_program_.setUniformValue("u_point_size", point_size);
+  for (const auto& [type, path] : shaders) {
+    shader_program_.addShaderFromSourceFile(type, path);
+  }
+  shader_program_.link();
+  shader_program_.bind();
 
-  GLFunctions()->glDrawArrays(GL_POINTS, 0, (GLsizei)num_geoms_);
+  vao_.create();
+  vbo_.create();
 
-  EndRender();
+  glDebugLog();
+}
+
+bool PainterBase::BeginRender() {
+  if (num_geoms_ == 0) {
+    return false;
+  }
+
+  shader_program_.bind();
+  vao_.bind();
+  return true;
+}
+
+void PainterBase::EndRender() {
+  // Make sure the VAO is not changed from the outside
+  vao_.release();
+
+  glDebugLog();
+}
+
+QOpenGLFunctions* PainterBase::GLFunctions() {
+  return QOpenGLContext::currentContext()->functions();
 }
 
 }  // namespace colmap

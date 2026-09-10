@@ -29,15 +29,17 @@
 
 #pragma once
 
+#include "colmap/ui/painter_base.h"
+
 #include <QtCore>
 #include <QtOpenGL>
 #include <cstdint>
 
 namespace colmap {
 
-class MeshPainter {
+class MeshPainter : public PainterBase {
  public:
-  MeshPainter();
+  MeshPainter() = default;
   ~MeshPainter();
 
   struct Data {
@@ -114,11 +116,6 @@ class MeshPainter {
               bool color);
 
  private:
-  QOpenGLShaderProgram shader_program_;
-  QOpenGLVertexArrayObject vao_;
-  QOpenGLBuffer vbo_;
-
-  size_t num_vertices_;
   GLuint texture_id_ = 0;
   bool has_texture_ = false;
 };

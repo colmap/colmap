@@ -36,10 +36,10 @@
 
 namespace colmap {
 
-class LinePainter {
+class LinePainter : public PainterBase {
  public:
-  LinePainter();
-  ~LinePainter();
+  LinePainter() = default;
+  ~LinePainter() = default;
 
   struct Data {
     Data() {}
@@ -56,13 +56,6 @@ class LinePainter {
               int width,
               int height,
               float line_width);
-
- private:
-  QOpenGLShaderProgram shader_program_;
-  QOpenGLVertexArrayObject vao_;
-  QOpenGLBuffer vbo_;
-
-  size_t num_geoms_;
 };
 
 }  // namespace colmap
