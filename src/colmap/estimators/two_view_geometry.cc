@@ -355,6 +355,13 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   geometry.inlier_matches = ExtractInlierMatches(
       matches, H_report.support.num_inliers, H_report.inlier_mask);
+
+  // Check inlier ratio threshold.
+  if (!CheckMinInlierRatioOrDegenerate(
+          H_report.support.num_inliers, matches.size(), options, &geometry)) {
+    return geometry;
+  }
+
   MaybeMarkWatermark(camera1,
                      matched_img_points1,
                      camera2,
@@ -391,10 +398,11 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Estimate epipolar model.
 
-  const auto F_report = EstimateFundamentalMatrix(options,
-                                                  options.ransac_options,
-                                                  matched_img_points1,
-                                                  matched_img_points2);
+  const auto F_report =
+      EstimateFundamentalMatrix(options,
+                                RansacOptionsWithMinInlierRatio(options),
+                                matched_img_points1,
+                                matched_img_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model. Estimated on image points rather than
@@ -442,6 +450,12 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   geometry.inlier_matches =
       ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
+
+  // Check inlier ratio threshold.
+  if (!CheckMinInlierRatioOrDegenerate(
+          num_inliers, matches.size(), options, &geometry)) {
+    return geometry;
+  }
 
   MaybeMarkWatermark(camera1,
                      matched_img_points1,
@@ -635,6 +649,8 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
 
 bool TwoViewGeometryOptions::Check() const {
   CHECK_OPTION_GE(min_num_inliers, 0);
+  CHECK_OPTION_GE(min_inlier_ratio, 0);
+  CHECK_OPTION_LE(min_inlier_ratio, 1);
   CHECK_OPTION_GE(min_E_F_inlier_ratio, 0);
   CHECK_OPTION_LE(min_E_F_inlier_ratio, 1);
   CHECK_OPTION_GE(max_H_inlier_ratio, 0);
@@ -818,7 +834,7 @@ EstimateRigTwoViewGeometries(
   std::optional<Rigid3d> maybe_pano2_from_pano1;
   size_t num_inliers;
   std::vector<char> inlier_mask;
-  if (!EstimateGeneralizedRelativePose(options.ransac_options,
+  if (!EstimateGeneralizedRelativePose(RansacOptionsWithMinInlierRatio(options),
                                        points1,
                                        points2,
                                        camera_idxs1,
@@ -830,6 +846,13 @@ EstimateRigTwoViewGeometries(
                                        &num_inliers,
                                        &inlier_mask) ||
       num_inliers < static_cast<size_t>(options.min_num_inliers)) {
+    return {};
+  }
+
+  // Check inlier ratio threshold over the aggregate correspondences.
+  if (options.min_inlier_ratio > 0 &&
+      static_cast<double>(num_inliers) / corrs.size() <
+          options.min_inlier_ratio) {
     return {};
   }
 
