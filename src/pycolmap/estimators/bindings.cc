@@ -7,6 +7,7 @@ void BindAffineTransformEstimator(py::module& m);
 void BindAlignmentEstimator(py::module& m);
 void BindBundleAdjuster(py::module& m);
 void BindCeres(py::module& m);
+void BindCeresRotationAverager(py::module& m);
 void BindCostFunctions(py::module& m);
 void BindCovarianceEstimator(py::module& m);
 void BindEssentialMatrixEstimator(py::module& m);
@@ -25,6 +26,7 @@ void BindEstimators(py::module& m) {
   BindAlignmentEstimator(m);
   BindBundleAdjuster(m);
   BindCostFunctions(m);
+  BindCeresRotationAverager(m);
   BindCovarianceEstimator(m);
   BindEssentialMatrixEstimator(m);
   BindFundamentalMatrixEstimator(m);

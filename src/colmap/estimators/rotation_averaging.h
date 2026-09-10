@@ -137,6 +137,10 @@ class RotationEstimator {
   const RotationEstimatorOptions options_;
 };
 
+// Computes per-image rotations from the stock maximum spanning tree.
+NodeHashMap<image_t, Rigid3d> ComputeImageRotationsFromMaximumSpanningTree(
+    const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids);
+
 // Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
 // then computes rig_from_world for each frame.

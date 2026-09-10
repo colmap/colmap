@@ -500,10 +500,8 @@ bool RotationEstimator::SolveRotationAveraging(
   return true;
 }
 
-void RotationEstimator::InitializeFromMaximumSpanningTree(
-    const PoseGraph& pose_graph,
-    const FlatHashSet<image_t>& active_image_ids,
-    Reconstruction& reconstruction) {
+NodeHashMap<image_t, Rigid3d> ComputeImageRotationsFromMaximumSpanningTree(
+    const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids) {
   // Compute maximum spanning tree over active images.
   NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
@@ -513,8 +511,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   // Iterate through the tree to initialize the rotation.
   // Establish child info.
   NodeHashMap<image_t, std::vector<image_t>> children;
-  for (const auto& [image_id, image] : reconstruction.Images()) {
-    if (!active_image_ids.count(image_id)) continue;
+  for (const image_t image_id : active_image_ids) {
     children.emplace(image_id, std::vector<image_t>());
   }
   for (auto& [child, parent] : parents) {
@@ -526,6 +523,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   indexes.push(root);
 
   NodeHashMap<image_t, Rigid3d> cams_from_world;
+  cams_from_world.emplace(root, Rigid3d());
   while (!indexes.empty()) {
     image_t curr = indexes.front();
     indexes.pop();
@@ -542,8 +540,17 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
         (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation();
   }
 
-  InitializeRigRotationsFromImages(
-      cams_from_world, reconstruction, options_.refine_sensor_from_rig);
+  return cams_from_world;
+}
+
+void RotationEstimator::InitializeFromMaximumSpanningTree(
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& active_image_ids,
+    Reconstruction& reconstruction) {
+  InitializeRigRotationsFromImages(ComputeImageRotationsFromMaximumSpanningTree(
+                                       pose_graph, active_image_ids),
+                                   reconstruction,
+                                   options_.refine_sensor_from_rig);
 }
 
 bool InitializeRigRotationsFromImages(
