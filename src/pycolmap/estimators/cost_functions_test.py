@@ -9,6 +9,14 @@ def test_reproj_error_cost_exists() -> None:
     assert hasattr(pycolmap._core.cost_functions, "ReprojErrorCost")
 
 
+def test_rig_reproj_error_cost_exists() -> None:
+    assert hasattr(pycolmap._core.cost_functions, "RigReprojErrorCost")
+
+
+def test_scaled_rig_reproj_error_cost_exists() -> None:
+    assert hasattr(pycolmap._core.cost_functions, "ScaledRigReprojErrorCost")
+
+
 def test_sampson_error_cost_exists() -> None:
     assert hasattr(pycolmap._core.cost_functions, "SampsonErrorCost")
 
