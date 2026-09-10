@@ -121,6 +121,32 @@ class ConstPinholeFocal(sf.V2):
     pass
 
 
+# ThinPrismFisheye: params =
+# [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1]
+#
+# This generator currently exposes only the narrow fixed-pose/fixed-calib
+# fixed-calibration BA factors for THIN_PRISM_FISHEYE. That keeps the
+# generated diff small while covering COLMAP's calibrated rig use cases.
+class ThinPrismFisheyePose(sf.Pose3):
+    pass
+
+
+class ConstThinPrismFisheyePose(sf.Pose3):
+    pass
+
+
+class ConstThinPrismFisheyeSensorFromRig(sf.Pose3):
+    pass
+
+
+class ConstThinPrismFisheyePrincipalPoint(sf.V2):
+    pass  # [cx, cy]
+
+
+class ConstThinPrismFisheyeFocalAndExtra(sf.Matrix(10, 1).__class__):
+    pass  # [fx, fy, k1, k2, p1, p2, k3, k4, sx1, sy1]
+
+
 # Constant sensor-from-rig calibration, stored as ConstantSequential
 # (7 floats = 28 B f32 / 56 B f64 loaded from global memory per factor).
 # ConstantShared would deduplicate to one slot per unique sensor per block,
@@ -318,6 +344,94 @@ def pinhole_split_core(
     return pinhole_core(pose, sensor_from_rig, calib, point, pixel)
 
 
+def thin_prism_fisheye_project(
+    point_cam, focal_and_extra, principal_point
+) -> sf.V2:
+    """COLMAP THIN_PRISM_FISHEYE projection.
+
+    COLMAP order is
+    [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1].
+    The split CASPAR constant layout is
+    focal_and_extra = [fx, fy, k1, k2, p1, p2, k3, k4, sx1, sy1],
+    principal_point = [cx, cy].
+
+    COLMAP first maps normalized pinhole coordinates into fisheye coordinates
+    uu,vv, then applies radial/tangential/thin-prism distortion in that
+    fisheye coordinate system.
+    """
+    fx, fy, k1, k2, p1, p2, k3, k4, sx1, sy1 = focal_and_extra
+    cx, cy = principal_point
+    depth = point_cam[2]
+    p = sf.V2(point_cam[:2]) / (depth + sf.epsilon() * sf.sign_no_zero(depth))
+
+    r = sf.sqrt(p.squared_norm())
+    theta = sf.atan(r)
+    fisheye_scale = theta / (r + sf.epsilon() * sf.sign_no_zero(r))
+    uu = fisheye_scale * p[0]
+    vv = fisheye_scale * p[1]
+
+    uu2 = uu * uu
+    uuvv = uu * vv
+    vv2 = vv * vv
+    rr2 = uu2 + vv2
+    rr4 = rr2 * rr2
+    rr6 = rr4 * rr2
+    rr8 = rr6 * rr2
+    radial = k1 * rr2 + k2 * rr4 + k3 * rr6 + k4 * rr8
+    du = uu * radial + 2 * p1 * uuvv + p2 * (rr2 + 2 * uu2) + sx1 * rr2
+    dv = vv * radial + 2 * p2 * uuvv + p1 * (rr2 + 2 * vv2) + sy1 * rr2
+
+    return sf.V2([fx * (uu + du) + cx, fy * (vv + dv) + cy])
+
+
+def thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point(
+    pose: T.Annotated[ThinPrismFisheyePose, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstThinPrismFisheyeSensorFromRig, mem.ConstantSequential
+    ],
+    focal_and_extra: T.Annotated[
+        ConstThinPrismFisheyeFocalAndExtra, mem.ConstantSequential
+    ],
+    principal_point: T.Annotated[
+        ConstThinPrismFisheyePrincipalPoint, mem.ConstantSequential
+    ],
+    point: T.Annotated[Point, mem.TunableShared],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """THIN_PRISM_FISHEYE fixed-calib pose+point BA residual."""
+    cam_T_world = sensor_from_rig * pose
+    return (
+        thin_prism_fisheye_project(
+            cam_T_world * point, focal_and_extra, principal_point
+        )
+        - pixel
+    )
+
+
+def thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point(
+    point: T.Annotated[Point, mem.TunableShared],
+    sensor_from_rig: T.Annotated[
+        ConstThinPrismFisheyeSensorFromRig, mem.ConstantSequential
+    ],
+    pose: T.Annotated[ConstThinPrismFisheyePose, mem.ConstantSequential],
+    focal_and_extra: T.Annotated[
+        ConstThinPrismFisheyeFocalAndExtra, mem.ConstantSequential
+    ],
+    principal_point: T.Annotated[
+        ConstThinPrismFisheyePrincipalPoint, mem.ConstantSequential
+    ],
+    pixel: T.Annotated[ConstPixel, mem.ConstantSequential],
+) -> sf.V2:
+    """THIN_PRISM_FISHEYE fixed-pose/fixed-calib point BA residual."""
+    cam_T_world = sensor_from_rig * pose
+    return (
+        thin_prism_fisheye_project(
+            cam_T_world * point, focal_and_extra, principal_point
+        )
+        - pixel
+    )
+
+
 dtype = mem.DType.DOUBLE if precision == "f64" else mem.DType.FLOAT
 caslib = CasparLibrary(name="caspar_lib", dtype=dtype)
 
@@ -396,6 +510,12 @@ register_camera_model(
     pinhole_split_core,
     FIXABLE_PINHOLE_SPLIT,
     must_fix_one_of={"focal", "principal_point"},
+)
+caslib.add_factor(
+    thin_prism_fisheye_split_fixed_focal_and_extra_fixed_principal_point
+)
+caslib.add_factor(
+    thin_prism_fisheye_split_fixed_pose_fixed_focal_and_extra_fixed_principal_point
 )
 
 out_dir = Path(f"{sys.argv[1]}")

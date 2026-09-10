@@ -131,8 +131,12 @@ std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
 struct CasparBundleAdjustmentSummary : public BundleAdjustmentSummary {
   static std::shared_ptr<CasparBundleAdjustmentSummary> Create(
       const caspar::SolveResult& caspar_summary);
+  std::string BriefReport() const override;
+
   int iteration_count = 0;
   double initial_score = 0.0;
+  double final_score = 0.0;
+  double runtime = 0.0;
   std::vector<caspar::IterationData> iterations;
 };
 #endif
