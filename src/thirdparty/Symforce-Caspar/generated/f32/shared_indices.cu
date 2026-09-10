@@ -3,10 +3,7 @@
  * This source code is under the Apache 2.0 license found in the LICENSE file.
  * ---------------------------------------------------------------------------- */
 
-#include <cooperative_groups.h>
-#include <cooperative_groups/memcpy_async.h>
-#include <cooperative_groups/reduce.h>
-
+#include "cuda_to_hip.h"
 #include "shared_indices.h"
 
 namespace cg = cooperative_groups;
@@ -111,16 +108,31 @@ __forceinline__ __device__ uint GetOrd(const uint* values, const uint length, co
 __global__ void SharedIndicesKernel(const uint* const __restrict__ indices,
                                     SharedIndex* const __restrict__ shared_indices_out,
                                     const uint size) {
-  const auto block = cg::this_thread_block();
+  auto block = cg::this_thread_block();
 
   const auto gtrank = cg::this_grid().thread_rank();
   const auto btrank = block.thread_rank();
+#if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
+  // HIP's group_dim() is non-const; use blockDim directly
+  const int start = blockIdx.x * blockDim.x;
+#else
   const int start = block.group_index().x * block.group_dim().x;
+#endif
   const int num = min(1024, size - start) * sizeof(uint);
 
   __shared__ uint indices_loc[1024];
+#if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
+  // HIP lacks cg::memcpy_async; use synchronous block-strided copy
+  const uint* src = indices + start;
+  const uint num_elements = num / sizeof(uint);
+  for (uint i = btrank; i < num_elements; i += block.size()) {
+    indices_loc[i] = src[i];
+  }
+  __syncthreads();
+#else
   cg::memcpy_async(block, indices_loc, indices + start, num);
   cg::wait(block);
+#endif
 
   const uint val = gtrank < size ? indices_loc[btrank] : 0xFFFFFFFF;
 

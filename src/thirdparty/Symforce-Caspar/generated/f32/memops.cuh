@@ -7,11 +7,7 @@
 
 #include <stdio.h>
 
-#include <cooperative_groups.h>
-#include <cooperative_groups/memcpy_async.h>
-#include <cooperative_groups/reduce.h>
-#include <cuda_runtime.h>
-
+#include "cuda_to_hip.h"
 #include "shared_indices.h"
 
 namespace cg = cooperative_groups;
@@ -260,6 +256,32 @@ __forceinline__ __device__ void FlushSumShared(StorageT* const output, const uin
   if (idx.argsort != 0xffff) {  // 0xffff indicates the thread is not used.
     unique = indices[indices[idx.argsort].target].unique;
   }
+
+#if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
+  // HIP lacks cg::labeled_partition; use per-lane atomicAdd fallback.
+  // The butterfly approach doesn't work for non-contiguous label groups (lanes at
+  // arbitrary positions share a label, but XOR only pairs specific distances).
+  // Per-lane atomicAdd is simpler and correct (shared-memory atomics are fast).
+
+#pragma unroll
+  for (int i = 0; i < dim_target; i++) {
+    const SharedIndex idx_inner = indices[threadIdx.x];
+    StorageT val = StorageT(0);
+    if (idx_inner.argsort != 0xffff) {
+      // Read value BEFORE zeroing (order matters!)
+      val = inout_shared[idx_inner.argsort * dim_target + i];
+    }
+    __syncthreads();
+    inout_shared[threadIdx.x * dim_target + i] = 0.0f;
+    __syncthreads();
+
+    if (idx_inner.argsort != 0xffff) {
+      // Each lane with valid data does its own atomicAdd to the target location
+      atomicAdd_block(&inout_shared[indices[idx_inner.argsort].target * dim_target + i], val);
+    }
+    __syncthreads();
+  }
+#else
   const cg::coalesced_group group = cg::labeled_partition(cg::coalesced_threads(), unique);
 
 #pragma unroll
@@ -279,6 +301,7 @@ __forceinline__ __device__ void FlushSumShared(StorageT* const output, const uin
     }
     __syncthreads();
   }
+#endif
 
   constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
   for (int i = 0; i < dim_target; i++) {
@@ -303,6 +326,29 @@ template <uint dim_target, typename StorageT>
 __forceinline__ __device__ void FlushSumBlock(StorageT* const output, StorageT* const inout_shared,
                                               const bool valid) {
   __syncthreads();
+#if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
+  // HIP coalesced_group lacks shfl_xor; use shared-memory atomics directly.
+  constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
+
+#pragma unroll
+  for (int i = 0; i < dim_target; i++) {
+    StorageT val = StorageT(0);
+    if (valid) {
+      val = inout_shared[threadIdx.x * dim_target + i];
+    }
+    __syncthreads();
+    inout_shared[threadIdx.x * dim_target + i] = 0.0f;
+    __syncthreads();
+
+    if (valid) {
+      atomicAdd_block(&inout_shared[i], val);
+    }
+    __syncthreads();
+  }
+  for (int i = threadIdx.x; i < dim_target; i += blockDim.x) {
+    output[blockIdx.x * dim_aligned + i] = inout_shared[i];
+  }
+#else
   const cg::coalesced_group group = cg::binary_partition(cg::coalesced_threads(), valid);
   constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
 
@@ -326,6 +372,7 @@ __forceinline__ __device__ void FlushSumBlock(StorageT* const output, StorageT* 
   for (int i = threadIdx.x; i < dim_target; i += blockDim.x) {
     output[blockIdx.x * dim_aligned + i] = inout_shared[i];
   }
+#endif
 }
 template <typename StorageT>
 __forceinline__ __device__ void SumStore(StorageT* const shared_tmp, StorageT* const inout_shared,
@@ -333,17 +380,33 @@ __forceinline__ __device__ void SumStore(StorageT* const shared_tmp, StorageT* c
   auto group = cg::tiled_partition<32>(cg::this_thread_block());
 
   __syncthreads();
+#if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
+  // HIP lacks cg::reduce; use butterfly reduction within the tile
+  StorageT tot = valid ? data : StorageT(0);
+  for (unsigned int o = group.size() / 2; o > 0; o >>= 1) {
+    tot += group.shfl_xor(tot, o);
+  }
+#else
   StorageT tot = cg::reduce(group, valid ? data : 0.0f, cg::plus<StorageT>());
+#endif
   if (group.thread_rank() == 0) {
     inout_shared[group.meta_group_rank()] = tot;
   }
   __syncthreads();
   if (group.meta_group_rank() == 0) {
+#if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
+    tot = inout_shared[group.thread_rank()];
+    for (unsigned int o = group.size() / 2; o > 0; o >>= 1) {
+      tot += group.shfl_xor(tot, o);
+    }
+#else
     tot = cg::reduce(group, inout_shared[group.thread_rank()], cg::plus<StorageT>());
+#endif
     if (group.thread_rank() == 0) {
       shared_tmp[offset] = tot;
     }
   }
+  __syncthreads();
 }
 
 template <typename StorageT>
@@ -364,6 +427,29 @@ template <uint dim_target, typename StorageT>
 __forceinline__ __device__ void FlushSumBlockAdd(StorageT* const output,
                                                  StorageT* const inout_shared, const bool valid) {
   __syncthreads();
+#if defined(USE_HIP) || defined(__HIP_PLATFORM_AMD__)
+  // HIP coalesced_group lacks shfl_xor; use shared-memory atomics directly.
+  constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
+
+#pragma unroll
+  for (int i = 0; i < dim_target; i++) {
+    StorageT val = StorageT(0);
+    if (valid) {
+      val = inout_shared[threadIdx.x * dim_target + i];
+    }
+    __syncthreads();
+    inout_shared[threadIdx.x * dim_target + i] = 0.0f;
+    __syncthreads();
+
+    if (valid) {
+      atomicAdd_block(&inout_shared[i], val);
+    }
+    __syncthreads();
+  }
+  for (int i = threadIdx.x; i < dim_target; i += blockDim.x) {
+    output[blockIdx.x * dim_aligned + i] += inout_shared[i];
+  }
+#else
   const cg::coalesced_group group = cg::binary_partition(cg::coalesced_threads(), valid);
   constexpr uint dim_aligned = dim_target == 3 ? 4 : dim_target;
 
@@ -387,6 +473,7 @@ __forceinline__ __device__ void FlushSumBlockAdd(StorageT* const output,
   for (int i = threadIdx.x; i < dim_target; i += blockDim.x) {
     output[blockIdx.x * dim_aligned + i] += inout_shared[i];
   }
+#endif
 }
 
 // READ SHARED

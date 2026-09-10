@@ -3,8 +3,7 @@
  * This source code is under the Apache 2.0 license found in the LICENSE file.
  * ---------------------------------------------------------------------------- */
 
-#include <cub/cub.cuh>
-
+#include "cuda_to_hip.h"
 #include "sort_indices.h"
 
 namespace {
