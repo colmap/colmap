@@ -160,32 +160,6 @@ class OptionManager : public BaseOptionManager {
   std::filesystem::path mapper_constant_rig_list_path_;
   std::filesystem::path mapper_constant_camera_list_path_;
   std::filesystem::path global_mapper_image_list_path_;
-
-  bool added_feature_extraction_options_ = false;
-  bool added_feature_matching_options_ = false;
-  bool added_two_view_geometry_options_ = false;
-  bool added_exhaustive_pairing_options_ = false;
-  bool added_sequential_pairing_options_ = false;
-  bool added_vocab_tree_pairing_options_ = false;
-  bool added_spatial_pairing_options_ = false;
-  bool added_transitive_pairing_options_ = false;
-  bool added_image_pairs_pairing_options_ = false;
-  bool added_ba_options_ = false;
-  bool added_mapper_options_ = false;
-  bool added_global_mapper_options_ = false;
-  bool added_hierarchical_mapper_options_ = false;
-  bool added_gravity_refiner_options_ = false;
-  bool added_reconstruction_clusterer_options_ = false;
-#if defined(COLMAP_MVS_ENABLED)
-  bool added_patch_match_stereo_options_ = false;
-  bool added_stereo_fusion_options_ = false;
-  bool added_poisson_meshing_options_ = false;
-  bool added_delaunay_meshing_options_ = false;
-  bool added_advancing_front_meshing_options_ = false;
-  bool added_mesh_texture_mapping_options_ = false;
-  bool added_mesh_simplification_options_ = false;
-#endif
-  bool added_render_options_ = false;
 };
 
 }  // namespace colmap

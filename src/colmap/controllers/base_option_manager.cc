@@ -57,20 +57,27 @@ BaseOptionManager::BaseOptionManager(bool add_project_options) {
   AddLogOptions();
 }
 
+bool BaseOptionManager::RegisterOptionGroupOnce(
+    const std::string& option_group) {
+  return added_option_groups_.insert(option_group).second;
+}
+
+bool BaseOptionManager::HasOptionGroup(const std::string& option_group) const {
+  return added_option_groups_.count(option_group) > 0;
+}
+
 void BaseOptionManager::AddRandomOptions() {
-  if (added_random_options_) {
+  if (!RegisterOptionGroupOnce("random")) {
     return;
   }
-  added_random_options_ = true;
 
   AddDefaultOption("default_random_seed", &kDefaultPRNGSeed);
 }
 
 void BaseOptionManager::AddLogOptions() {
-  if (added_log_options_) {
+  if (!RegisterOptionGroupOnce("log")) {
     return;
   }
-  added_log_options_ = true;
 
   AddDefaultOption(
       "log_target", &log_target_, "{stderr, stdout, file, stderr_and_file}");
@@ -87,19 +94,17 @@ void BaseOptionManager::AddLogOptions() {
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
-  if (added_database_options_) {
+  if (!RegisterOptionGroupOnce("database")) {
     return;
   }
-  added_database_options_ = true;
 
   AddRequiredOption("database_path", database_path.get());
 }
 
 void BaseOptionManager::AddImageOptions() {
-  if (added_image_options_) {
+  if (!RegisterOptionGroupOnce("image")) {
     return;
   }
-  added_image_options_ = true;
 
   AddRequiredOption("image_path", image_path.get());
 }
@@ -146,10 +151,7 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
   options_string_.clear();
   options_path_.clear();
 
-  added_random_options_ = false;
-  added_log_options_ = false;
-  added_database_options_ = false;
-  added_image_options_ = false;
+  added_option_groups_.clear();
 }
 
 void BaseOptionManager::ResetOptionsImpl(const bool reset_paths) {
@@ -163,14 +165,14 @@ void BaseOptionManager::ResetOptionsImpl(const bool reset_paths) {
 bool BaseOptionManager::Check() {
   bool success = true;
 
-  if (added_database_options_) {
+  if (HasOptionGroup("database")) {
     const auto database_parent_path = GetParentDir(*database_path);
     success = success && CHECK_OPTION_IMPL(!ExistsDir(*database_path)) &&
               CHECK_OPTION_IMPL(database_parent_path.empty() ||
                                 ExistsDir(database_parent_path));
   }
 
-  if (added_image_options_) {
+  if (HasOptionGroup("image")) {
     success = success && CHECK_OPTION_IMPL(ExistsDir(*image_path));
   }
 
