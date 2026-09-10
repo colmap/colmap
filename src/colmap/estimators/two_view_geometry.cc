@@ -250,10 +250,9 @@ RANSACOptions RansacOptionsWithMinInlierRatio(
 // Budget the homography search for the inlier ratio it must reach to be
 // selected over the competing model, since a weaker one is discarded anyway.
 RANSACOptions HomographyRansacOptions(const TwoViewGeometryOptions& options,
+                                      const RANSACOptions& base_ransac_options,
                                       size_t competing_num_inliers,
                                       size_t num_matches) {
-  const RANSACOptions base_ransac_options =
-      RansacOptionsWithMinInlierRatio(options);
   RANSACOptions H_ransac_options = base_ransac_options;
   H_ransac_options.min_inlier_ratio = std::max(
       base_ransac_options.min_inlier_ratio,
@@ -408,8 +407,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   LORANSAC<HomographyMatrixEstimator,
            HomographyMatrixEstimator,
            MEstimatorSupportMeasurer>
-      H_ransac(HomographyRansacOptions(
-          options, F_report.support.num_inliers, matches.size()));
+      H_ransac(HomographyRansacOptions(options,
+                                       options.ransac_options,
+                                       F_report.support.num_inliers,
+                                       matches.size()));
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -572,8 +573,10 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
       LORANSAC<HomographyMatrixRayEstimator,
                HomographyMatrixRayEstimator,
                MEstimatorSupportMeasurer>(
-          HomographyRansacOptions(
-              options, E_report.support.num_inliers, matches.size()),
+          HomographyRansacOptions(options,
+                                  RansacOptionsWithMinInlierRatio(options),
+                                  E_report.support.num_inliers,
+                                  matches.size()),
           H_estimator,
           H_estimator)
           .Estimate(matched_cam_rays1, matched_cam_rays2);
@@ -1125,11 +1128,17 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
                      HomographyMatrixEstimator,
                      MEstimatorSupportMeasurer>(
                 HomographyRansacOptions(
-                    options, competing_num_inliers, matches.size()))
+                    options,
+                    RansacOptionsWithMinInlierRatio(options),
+                    competing_num_inliers,
+                    matches.size()))
                 .Estimate(matched_img_points1, matched_img_points2)
           : EstimateHomographyMatrixFromRays(
                 HomographyRansacOptions(
-                    options, competing_num_inliers, matches.size()),
+                    options,
+                    RansacOptionsWithMinInlierRatio(options),
+                    competing_num_inliers,
+                    matches.size()),
                 camera1,
                 matched_img_points1,
                 camera2,
@@ -1280,8 +1289,10 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
   LORANSAC<HomographyMatrixEstimator,
            HomographyMatrixEstimator,
            MEstimatorSupportMeasurer>
-      H_ransac(HomographyRansacOptions(
-          options, SF_report.support.num_inliers, matches.size()));
+      H_ransac(HomographyRansacOptions(options,
+                                       RansacOptionsWithMinInlierRatio(options),
+                                       SF_report.support.num_inliers,
+                                       matches.size()));
   const auto H_report =
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
@@ -1462,8 +1473,10 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   LORANSAC<HomographyMatrixEstimator,
            HomographyMatrixEstimator,
            MEstimatorSupportMeasurer>
-      H_ransac(HomographyRansacOptions(
-          options, focal_report.support.num_inliers, matches.size()));
+      H_ransac(HomographyRansacOptions(options,
+                                       RansacOptionsWithMinInlierRatio(options),
+                                       focal_report.support.num_inliers,
+                                       matches.size()));
   LORANSAC<HomographyMatrixEstimator,
            HomographyMatrixEstimator,
            MEstimatorSupportMeasurer>::Report H_report;
