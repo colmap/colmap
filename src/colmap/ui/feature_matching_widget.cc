@@ -226,7 +226,6 @@ void FeatureMatchingTab::WriteOptions() {
 }
 
 void FeatureMatchingTab::RunMatcher(std::unique_ptr<Thread> matcher) {
-  WriteOptions();
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -251,6 +250,8 @@ ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
 }
 
 void ExhaustiveMatchingTab::Run() {
+  WriteOptions();
+
   RunMatcher(CreateExhaustiveFeatureMatcher(*options_->exhaustive_pairing,
                                             *options_->feature_matching,
                                             *options_->two_view_geometry,
@@ -364,6 +365,8 @@ SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
 }
 
 void SpatialMatchingTab::Run() {
+  WriteOptions();
+
   RunMatcher(CreateSpatialFeatureMatcher(*options_->spatial_pairing,
                                          *options_->feature_matching,
                                          *options_->two_view_geometry,
@@ -382,6 +385,8 @@ TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
 }
 
 void TransitiveMatchingTab::Run() {
+  WriteOptions();
+
   RunMatcher(CreateTransitiveFeatureMatcher(*options_->transitive_pairing,
                                             *options_->feature_matching,
                                             *options_->two_view_geometry,
