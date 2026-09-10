@@ -72,9 +72,9 @@ void ThrowCheckCameras(const std::vector<size_t>& camera_idxs,
 // single projection center. An empty selection is reported as panoramic, as it
 // constrains the rig geometry just as little. If selection_mask is empty, all
 // observations are selected.
-bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
-                    const std::vector<Rigid3d>& cams_from_rig,
-                    const std::vector<char>& selection_mask = {}) {
+bool IsPanoramicCameraSelection(const std::vector<size_t>& camera_idxs,
+                                const std::vector<Rigid3d>& cams_from_rig,
+                                const std::vector<char>& selection_mask = {}) {
   std::vector<char> is_camera_selected(cams_from_rig.size(), false);
   for (size_t i = 0; i < camera_idxs.size(); ++i) {
     if (selection_mask.empty() || selection_mask[i]) {
@@ -87,7 +87,7 @@ bool IsPanoramicRig(const std::vector<size_t>& camera_idxs,
       origins_in_rig.push_back(cams_from_rig[i].TgtOriginInSrc());
     }
   }
-  return colmap::IsPanoramicRig(origins_in_rig);
+  return IsPanoramicRig(origins_in_rig);
 }
 
 double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
@@ -222,7 +222,7 @@ bool EstimateScaledGeneralizedAbsolutePose(
 
   // The scale of the rig geometry is unobservable from a single projection
   // center.
-  if (IsPanoramicRig(camera_idxs, cams_from_rig)) {
+  if (IsPanoramicCameraSelection(camera_idxs, cams_from_rig)) {
     return false;
   }
 
@@ -260,7 +260,8 @@ bool EstimateScaledGeneralizedAbsolutePose(
   // The scale is unobservable if the final consensus set only contains
   // observations from a single projection center, even if the input
   // observations do not.
-  if (IsPanoramicRig(camera_idxs, cams_from_rig, report.inlier_mask)) {
+  if (IsPanoramicCameraSelection(
+          camera_idxs, cams_from_rig, report.inlier_mask)) {
     return false;
   }
 
@@ -296,8 +297,8 @@ bool EstimateGeneralizedRelativePose(
   // Both branches below score with the pixel-unit tangent Sampson error, so the
   // RANSAC threshold is the plain pixel ransac_options throughout. No
   // per-camera conversion to normalized/angular units is needed.
-  if (IsPanoramicRig(camera_idxs1, cams_from_rig) &&
-      IsPanoramicRig(camera_idxs2, cams_from_rig)) {
+  if (IsPanoramicCameraSelection(camera_idxs1, cams_from_rig) &&
+      IsPanoramicCameraSelection(camera_idxs2, cams_from_rig)) {
     Rigid3d cam2_from_cam1;
     // EstimateRelativePose treats the panoramic rig as one central camera, so
     // each ray carries its unprojection Jacobian, rotated into the rig frame by
@@ -541,7 +542,7 @@ bool RefineScaledGeneralizedAbsolutePose(
 
   // The scale of the rig geometry is unobservable if the inlier observations
   // project from a single center. This also rejects an empty inlier set.
-  if (IsPanoramicRig(camera_idxs, cams_from_rig, inlier_mask)) {
+  if (IsPanoramicCameraSelection(camera_idxs, cams_from_rig, inlier_mask)) {
     return false;
   }
 
@@ -705,7 +706,7 @@ bool EstimateStructureLessAbsolutePose(
   ThrowCheckCameras(world_camera_idxs, world_cams_from_world, world_cameras);
   options.Check();
 
-  if (IsPanoramicRig(world_camera_idxs, world_cams_from_world)) {
+  if (IsPanoramicCameraSelection(world_camera_idxs, world_cams_from_world)) {
     return false;
   }
 

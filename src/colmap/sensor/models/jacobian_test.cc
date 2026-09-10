@@ -92,10 +92,10 @@ void TestImgFromCamWithJac(const std::vector<double>& params,
 
 // Validate the runtime dispatch and the unprojection Jacobian derived from it.
 template <typename CameraModel>
-void TestCamRayJacobian(const std::vector<double>& params,
-                        const double u,
-                        const double v,
-                        const double w) {
+void TestCamRayJac(const std::vector<double>& params,
+                   const double u,
+                   const double v,
+                   const double w) {
   const Eigen::Vector3d uvw(u, v, w);
 
   // Reference: the templated per-model kernel, written 2x3 row-major.
@@ -138,7 +138,7 @@ void TestCamRayJacobian(const std::vector<double>& params,
   // The closed-form pseudo-inverse is only valid at a unit bearing.
   const Eigen::Vector3d cam_ray = uvw.normalized();
   const std::optional<Eigen::Matrix3x2d> J_ray =
-      CamRayFromImgJacobian(cam_ray, J_uvw);
+      CamRayFromImgJac(cam_ray, J_uvw);
   ASSERT_TRUE(J_ray.has_value());
 
   // 3. Pseudo-inverse round trip: J_uvw is surjective onto image space.
@@ -161,7 +161,7 @@ void TestModelImgFromCamWithJac(const std::vector<double>& params) {
     for (double v = -0.5; v <= 0.5; v += 0.1) {
       for (const double w : {0.5, 1.0, 2.0}) {
         TestImgFromCamWithJac<CameraModel>(params, u, v, w);
-        TestCamRayJacobian<CameraModel>(params, u, v, w);
+        TestCamRayJac<CameraModel>(params, u, v, w);
       }
     }
   }
@@ -320,22 +320,22 @@ TEST(Equirectangular, ImgFromCamWithJac) {
   TestModelImgFromCamWithJac<EquirectangularCameraModel>({1000, 500});
 }
 
-TEST(CamRayFromImgJacobian, RankDeficientReturnsNullopt) {
+TEST(CamRayFromImgJac, RankDeficientReturnsNullopt) {
   // Rank 1: both image directions respond identically, so the projection is
   // not locally invertible and there is no unprojection Jacobian.
   const Eigen::Vector3d cam_ray(0.0, 0.0, 1.0);
   Eigen::Matrix2x3d rank1;
   rank1 << 1.0, 2.0, 3.0, 2.0, 4.0, 6.0;
-  EXPECT_FALSE(CamRayFromImgJacobian(cam_ray, rank1).has_value());
+  EXPECT_FALSE(CamRayFromImgJac(cam_ray, rank1).has_value());
 
   EXPECT_FALSE(
-      CamRayFromImgJacobian(cam_ray, Eigen::Matrix2x3d::Zero()).has_value());
+      CamRayFromImgJac(cam_ray, Eigen::Matrix2x3d::Zero()).has_value());
 
   // A well-conditioned Jacobian is accepted and inverts cleanly.
   Eigen::Matrix2x3d full_rank;
   full_rank << 100.0, 0.0, 0.0, 0.0, 100.0, 0.0;
   const std::optional<Eigen::Matrix3x2d> J_ray =
-      CamRayFromImgJacobian(cam_ray, full_rank);
+      CamRayFromImgJac(cam_ray, full_rank);
   ASSERT_TRUE(J_ray.has_value());
   EXPECT_LE((full_rank * *J_ray - Eigen::Matrix2d::Identity()).norm(), 1e-12);
 }
