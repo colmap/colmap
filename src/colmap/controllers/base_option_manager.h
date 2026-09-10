@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -108,6 +109,14 @@ class BaseOptionManager {
   template <typename T>
   void RegisterOption(const std::string& name, const T* option);
 
+  // Mark an option group as added. Returns false if the group was already
+  // added, in which case the caller must return early to keep Add*Options()
+  // calls idempotent.
+  bool RegisterOptionGroupOnce(const std::string& option_group);
+
+  // Whether the option group was added through RegisterOptionGroupOnce().
+  bool HasOptionGroup(const std::string& option_group) const;
+
   // Hook for subclasses to perform post-parse processing.
   // Called after successful parsing but before Check().
   virtual void PostParse();
@@ -140,10 +149,9 @@ class BaseOptionManager {
   };
   std::vector<std::unique_ptr<EnumOptionInfo>> enum_options_;
 
-  bool added_random_options_ = false;
-  bool added_log_options_ = false;
-  bool added_database_options_ = false;
-  bool added_image_options_ = false;
+  // Names of the option groups added so far. Shared with subclasses, so that
+  // all Add*Options() calls are idempotent through RegisterOptionGroupOnce().
+  FlatHashSet<std::string> added_option_groups_;
 
  private:
   // Non-virtual implementations called from constructor and virtual methods.

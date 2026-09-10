@@ -251,10 +251,9 @@ void OptionManager::AddAllOptions() {
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
-  if (added_feature_extraction_options_) {
+  if (!RegisterOptionGroupOnce("feature_extraction")) {
     return;
   }
-  added_feature_extraction_options_ = true;
 
   AddDefaultOption("ImageReader.mask_path", &image_reader->mask_path);
   AddDefaultOption("ImageReader.camera_model",
@@ -344,10 +343,9 @@ void OptionManager::AddFeatureExtractionOptions() {
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
-  if (added_feature_matching_options_) {
+  if (!RegisterOptionGroupOnce("feature_matching")) {
     return;
   }
-  added_feature_matching_options_ = true;
 
   AddDefaultEnumOption(
       "FeatureMatching.type",
@@ -432,10 +430,9 @@ void OptionManager::AddFeatureMatchingOptions() {
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
-  if (added_two_view_geometry_options_) {
+  if (!RegisterOptionGroupOnce("two_view_geometry")) {
     return;
   }
-  added_two_view_geometry_options_ = true;
   AddDefaultOption("TwoViewGeometry.min_num_inliers",
                    &two_view_geometry->min_num_inliers);
   AddDefaultOption("TwoViewGeometry.multiple_models",
@@ -469,10 +466,9 @@ void OptionManager::AddTwoViewGeometryOptions() {
 }
 
 void OptionManager::AddExhaustivePairingOptions() {
-  if (added_exhaustive_pairing_options_) {
+  if (!RegisterOptionGroupOnce("exhaustive_pairing")) {
     return;
   }
-  added_exhaustive_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -482,10 +478,9 @@ void OptionManager::AddExhaustivePairingOptions() {
 }
 
 void OptionManager::AddSequentialPairingOptions() {
-  if (added_sequential_pairing_options_) {
+  if (!RegisterOptionGroupOnce("sequential_pairing")) {
     return;
   }
-  added_sequential_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -519,10 +514,9 @@ void OptionManager::AddSequentialPairingOptions() {
 }
 
 void OptionManager::AddVocabTreePairingOptions() {
-  if (added_vocab_tree_pairing_options_) {
+  if (!RegisterOptionGroupOnce("vocab_tree_pairing")) {
     return;
   }
-  added_vocab_tree_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -546,10 +540,9 @@ void OptionManager::AddVocabTreePairingOptions() {
 }
 
 void OptionManager::AddSpatialPairingOptions() {
-  if (added_spatial_pairing_options_) {
+  if (!RegisterOptionGroupOnce("spatial_pairing")) {
     return;
   }
-  added_spatial_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -564,10 +557,9 @@ void OptionManager::AddSpatialPairingOptions() {
 }
 
 void OptionManager::AddTransitivePairingOptions() {
-  if (added_transitive_pairing_options_) {
+  if (!RegisterOptionGroupOnce("transitive_pairing")) {
     return;
   }
-  added_transitive_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -579,10 +571,9 @@ void OptionManager::AddTransitivePairingOptions() {
 }
 
 void OptionManager::AddImportedPairingOptions() {
-  if (added_image_pairs_pairing_options_) {
+  if (!RegisterOptionGroupOnce("imported_pairing")) {
     return;
   }
-  added_image_pairs_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -592,10 +583,9 @@ void OptionManager::AddImportedPairingOptions() {
 }
 
 void OptionManager::AddBundleAdjustmentOptions() {
-  if (added_ba_options_) {
+  if (!RegisterOptionGroupOnce("bundle_adjustment")) {
     return;
   }
-  added_ba_options_ = true;
 
   // Solver-agnostic options
   AddDefaultOption("BundleAdjustment.refine_focal_length",
@@ -690,10 +680,9 @@ void OptionManager::AddBundleAdjustmentOptions() {
 }
 
 void OptionManager::AddMapperOptions() {
-  if (added_mapper_options_) {
+  if (!RegisterOptionGroupOnce("mapper")) {
     return;
   }
-  added_mapper_options_ = true;
 
   AddDefaultOption("Mapper.min_num_matches", &mapper->min_num_matches);
   AddDefaultOption("Mapper.ignore_watermarks", &mapper->ignore_watermarks);
@@ -830,10 +819,9 @@ void OptionManager::AddMapperOptions() {
 }
 
 void OptionManager::AddGlobalMapperOptions() {
-  if (added_global_mapper_options_) {
+  if (!RegisterOptionGroupOnce("global_mapper")) {
     return;
   }
-  added_global_mapper_options_ = true;
 
   // Global mapper options.
   AddDefaultOption("GlobalMapper.image_list_path",
@@ -967,10 +955,9 @@ void OptionManager::AddGlobalMapperOptions() {
 }
 
 void OptionManager::AddHierarchicalMapperOptions() {
-  if (added_hierarchical_mapper_options_) {
+  if (!RegisterOptionGroupOnce("hierarchical_mapper")) {
     return;
   }
-  added_hierarchical_mapper_options_ = true;
 
   // The per-cluster reconstruction is configured through the incremental mapper
   // options (Mapper.*), so only the hierarchical-specific options are added
@@ -995,10 +982,9 @@ void OptionManager::AddHierarchicalMapperOptions() {
 }
 
 void OptionManager::AddGravityRefinerOptions() {
-  if (added_gravity_refiner_options_) {
+  if (!RegisterOptionGroupOnce("gravity_refiner")) {
     return;
   }
-  added_gravity_refiner_options_ = true;
 
   AddDefaultOption("GravityRefiner.max_outlier_ratio",
                    &gravity_refiner->max_outlier_ratio);
@@ -1009,10 +995,9 @@ void OptionManager::AddGravityRefinerOptions() {
 }
 
 void OptionManager::AddReconstructionClustererOptions() {
-  if (added_reconstruction_clusterer_options_) {
+  if (!RegisterOptionGroupOnce("reconstruction_clusterer")) {
     return;
   }
-  added_reconstruction_clusterer_options_ = true;
 
   AddDefaultOption("ReconstructionClusterer.min_covisibility_count",
                    &reconstruction_clusterer->min_covisibility_count);
@@ -1024,10 +1009,9 @@ void OptionManager::AddReconstructionClustererOptions() {
 
 #if defined(COLMAP_MVS_ENABLED)
 void OptionManager::AddPatchMatchStereoOptions() {
-  if (added_patch_match_stereo_options_) {
+  if (!RegisterOptionGroupOnce("patch_match_stereo")) {
     return;
   }
-  added_patch_match_stereo_options_ = true;
 
   AddDefaultOption("PatchMatchStereo.max_image_size",
                    &patch_match_stereo->max_image_size);
@@ -1081,10 +1065,9 @@ void OptionManager::AddPatchMatchStereoOptions() {
 }
 
 void OptionManager::AddStereoFusionOptions() {
-  if (added_stereo_fusion_options_) {
+  if (!RegisterOptionGroupOnce("stereo_fusion")) {
     return;
   }
-  added_stereo_fusion_options_ = true;
 
   AddDefaultOption("StereoFusion.mask_path", &stereo_fusion->mask_path);
   AddDefaultOption("StereoFusion.num_threads", &stereo_fusion->num_threads);
@@ -1109,10 +1092,9 @@ void OptionManager::AddStereoFusionOptions() {
 }
 
 void OptionManager::AddPoissonMeshingOptions() {
-  if (added_poisson_meshing_options_) {
+  if (!RegisterOptionGroupOnce("poisson_meshing")) {
     return;
   }
-  added_poisson_meshing_options_ = true;
 
   AddDefaultOption("PoissonMeshing.point_weight",
                    &poisson_meshing->point_weight);
@@ -1123,10 +1105,9 @@ void OptionManager::AddPoissonMeshingOptions() {
 }
 
 void OptionManager::AddDelaunayMeshingOptions() {
-  if (added_delaunay_meshing_options_) {
+  if (!RegisterOptionGroupOnce("delaunay_meshing")) {
     return;
   }
-  added_delaunay_meshing_options_ = true;
 
   AddDefaultOption("DelaunayMeshing.max_proj_dist",
                    &delaunay_meshing->max_proj_dist);
@@ -1147,10 +1128,9 @@ void OptionManager::AddDelaunayMeshingOptions() {
 }
 
 void OptionManager::AddAdvancingFrontMeshingOptions() {
-  if (added_advancing_front_meshing_options_) {
+  if (!RegisterOptionGroupOnce("advancing_front_meshing")) {
     return;
   }
-  added_advancing_front_meshing_options_ = true;
 
   AddDefaultOption("AdvancingFrontMeshing.max_edge_length",
                    &advancing_front_meshing->max_edge_length);
@@ -1172,10 +1152,9 @@ void OptionManager::AddAdvancingFrontMeshingOptions() {
 }
 
 void OptionManager::AddMeshTextureMappingOptions() {
-  if (added_mesh_texture_mapping_options_) {
+  if (!RegisterOptionGroupOnce("mesh_texture_mapping")) {
     return;
   }
-  added_mesh_texture_mapping_options_ = true;
 
   AddDefaultOption("MeshTextureMapping.min_cos_normal_angle",
                    &mesh_texture_mapping->min_cos_normal_angle);
@@ -1198,10 +1177,9 @@ void OptionManager::AddMeshTextureMappingOptions() {
 }
 
 void OptionManager::AddMeshSimplificationOptions() {
-  if (added_mesh_simplification_options_) {
+  if (!RegisterOptionGroupOnce("mesh_simplification")) {
     return;
   }
-  added_mesh_simplification_options_ = true;
 
   AddDefaultOption("MeshSimplification.target_face_ratio",
                    &mesh_simplification->target_face_ratio);
@@ -1217,10 +1195,9 @@ void OptionManager::AddMeshSimplificationOptions() {
 #endif  // COLMAP_MVS_ENABLED
 
 void OptionManager::AddRenderOptions() {
-  if (added_render_options_) {
+  if (!RegisterOptionGroupOnce("render")) {
     return;
   }
-  added_render_options_ = true;
 
   AddDefaultOption("Render.min_track_len", &render->min_track_len);
   AddDefaultOption("Render.max_error", &render->max_error);
@@ -1231,32 +1208,8 @@ void OptionManager::AddRenderOptions() {
 }
 
 void OptionManager::Reset(bool reset_logging) {
+  // BaseOptionManager::Reset() clears the shared set of added option groups.
   BaseOptionManager::Reset(reset_logging);
-
-  added_feature_extraction_options_ = false;
-  added_feature_matching_options_ = false;
-  added_two_view_geometry_options_ = false;
-  added_exhaustive_pairing_options_ = false;
-  added_sequential_pairing_options_ = false;
-  added_vocab_tree_pairing_options_ = false;
-  added_spatial_pairing_options_ = false;
-  added_transitive_pairing_options_ = false;
-  added_image_pairs_pairing_options_ = false;
-  added_ba_options_ = false;
-  added_mapper_options_ = false;
-  added_global_mapper_options_ = false;
-  added_gravity_refiner_options_ = false;
-  added_reconstruction_clusterer_options_ = false;
-#if defined(COLMAP_MVS_ENABLED)
-  added_patch_match_stereo_options_ = false;
-  added_stereo_fusion_options_ = false;
-  added_poisson_meshing_options_ = false;
-  added_delaunay_meshing_options_ = false;
-  added_advancing_front_meshing_options_ = false;
-  added_mesh_texture_mapping_options_ = false;
-  added_mesh_simplification_options_ = false;
-#endif
-  added_render_options_ = false;
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {
