@@ -72,6 +72,16 @@ if(DOWNLOAD_ENABLED)
         target_compile_definitions(colmap_util PRIVATE COLMAP_USE_OPENSSL)
     endif()
 endif()
+if(ONNX_ENABLED)
+    # Dedicated ONNX helper library, so that only ONNX consumers link
+    # against onnxruntime instead of every colmap_util dependent.
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_onnx_util
+        SRCS onnx.h onnx.cc
+        PUBLIC_LINK_LIBS onnxruntime::onnxruntime
+        PRIVATE_LINK_LIBS colmap_util
+    )
+endif()
 if(GUI_ENABLED)
     set(COLMAP_UTIL_QT_LIBS
         Qt${QT_VERSION_MAJOR}::Core
@@ -216,6 +226,16 @@ COLMAP_ADD_TEST(
     SRCS ply_test.cc
     LINK_LIBS colmap_util
 )
+if(ONNX_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME onnx_test
+        SRCS onnx_test.cc
+        LINK_LIBS
+            colmap_onnx_util
+            colmap_util
+            onnxruntime::onnxruntime
+    )
+endif()
 COLMAP_ADD_TEST(
     NAME string_test
     SRCS string_test.cc

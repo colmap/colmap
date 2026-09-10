@@ -1,0 +1,379 @@
+// Copyright (c), ETH Zurich and UNC Chapel Hill.
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+//     * Redistributions of source code must retain the above copyright
+//       notice, this list of conditions and the following disclaimer.
+//
+//     * Redistributions in binary form must reproduce the above copyright
+//       notice, this list of conditions and the following disclaimer in the
+//       documentation and/or other materials provided with the distribution.
+//
+//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+//       its contributors may be used to endorse or promote products derived
+//       from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+
+// Fitting of camera intrinsics to dense image-point/camera-ray correspondences,
+// following
+// AnyCalib (https://github.com/javrtg/AnyCalib, Apache-2.0):
+//
+//   Tirado-Garin & Civera, "AnyCalib: On-Manifold Learning for Model-Agnostic
+//   Single-View Camera Calibration", ICCV 2025.
+//
+// The parameters are initialized naively (focal length from the image span,
+// principal point at the data center, zero distortion) and refined by
+// minimizing pixel residuals of the projected rays with Ceres (autodiff)
+// directly on any COLMAP perspective model. This differs from upstream
+// `GaussNewtonCalib`, which refines tangent-space residuals with per-model
+// analytic Jacobians; the pixel formulation needs no per-model derivatives,
+// as every model's projection is already templated for Jets.
+
+#include "colmap/calibration/ray_fitting.h"
+
+#include "colmap/util/logging.h"
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <numeric>
+#include <utility>
+
+#include <Eigen/Dense>
+#include <ceres/ceres.h>
+#include <ceres/normal_prior.h>
+
+namespace colmap {
+namespace {
+
+// Pixel residuals of projecting the observed ray: r_i = project(params,
+// cam_ray_i) - img_point_i. Templated on the camera model (cf. the reprojection
+// error costs), enabling static Ceres autodiff without runtime model dispatch.
+// Autodiff is possible because projection (as opposed to unprojection) is
+// templated for Jets in every model.
+template <typename CameraModel>
+struct RayReprojectionResidual {
+  RayReprojectionResidual(const Eigen::Vector2d& img_point,
+                          const Eigen::Vector3d& cam_ray)
+      : img_point(img_point), cam_ray(cam_ray) {}
+
+  template <typename T>
+  bool operator()(const T* params, T* residuals) const {
+    T x, y;
+    if (!CameraModel::ImgFromCam(params,
+                                 T(cam_ray.x()),
+                                 T(cam_ray.y()),
+                                 T(cam_ray.z()),
+                                 &x,
+                                 &y,
+                                 /*check_cheirality=*/true)) {
+      // Projection validity can depend on the optimized parameters (e.g. for
+      // DIVISION and EUCM). Reject an invalid trial step rather than making
+      // its residual disappear and thereby rewarding invalid parameters.
+      return false;
+    }
+    residuals[0] = x - T(img_point.x());
+    residuals[1] = y - T(img_point.y());
+    return true;
+  }
+
+  Eigen::Vector2d img_point;
+  Eigen::Vector3d cam_ray;
+};
+
+// Naive initialization of `model_id` parameters: focal lengths from the image
+// span heuristic, principal point at the data bounding-box center, and zero
+// distortion. The nonlinear refinement reaches the same optimum from this
+// start in practice (see header), at the cost of extra Ceres iterations.
+bool InitializeCameraParams(CameraModelId model_id,
+                            const std::vector<Eigen::Vector2d>& img_points,
+                            std::vector<double>* params) {
+  THROW_CHECK_NOTNULL(params);
+  const span<const size_t> focal_idxs = CameraModelFocalLengthIdxs(model_id);
+  const span<const size_t> pp_idxs = CameraModelPrincipalPointIdxs(model_id);
+  if (focal_idxs.size() > 2 || pp_idxs.size() != 2) {
+    LOG(ERROR) << "Unsupported parameter layout for "
+               << CameraModelIdToName(model_id);
+    return false;
+  }
+  if (img_points.empty()) {
+    return false;
+  }
+
+  Eigen::Vector2d lo = img_points[0];
+  Eigen::Vector2d hi = img_points[0];
+  for (const auto& img_point : img_points) {
+    lo = lo.cwiseMin(img_point);
+    hi = hi.cwiseMax(img_point);
+  }
+  const double data_span = std::max(hi.x() - lo.x(), hi.y() - lo.y());
+  if (!(data_span > 0) || !std::isfinite(data_span)) {
+    return false;
+  }
+  const double fx = data_span;
+  const double fy = data_span;
+  const double cx = 0.5 * (lo.x() + hi.x());
+  const double cy = 0.5 * (lo.y() + hi.y());
+
+  params->assign(CameraModelNumParams(model_id), 0.0);
+  if (focal_idxs.size() == 1) {
+    (*params)[focal_idxs[0]] = 0.5 * (fx + fy);
+  } else {
+    (*params)[focal_idxs[0]] = fx;
+    (*params)[focal_idxs[1]] = fy;
+  }
+  (*params)[pp_idxs[0]] = cx;
+  (*params)[pp_idxs[1]] = cy;
+  const span<const size_t> extra_idxs = CameraModelExtraParamsIdxs(model_id);
+  // Non-zero inits where zero is a stationary point of the cost: FOV's
+  // distortion factor depends on omega^2 to first order, and EUCM's
+  // denominator has vanishing alpha/beta derivatives at the origin.
+  if (model_id == CameraModelId::kFOV) {
+    (*params)[extra_idxs[0]] = 0.5;
+  } else if (model_id == CameraModelId::kEUCM) {
+    (*params)[extra_idxs[0]] = 0.5;
+    (*params)[extra_idxs[1]] = 1.0;
+  }
+  return true;
+}
+
+// Nonlinear refinement of `params` (in: initialization, out: refined
+// parameters, or the initialization if refinement failed). Only points
+// projectable at the initialization become residual blocks; the set stays
+// fixed during optimization, as Ceres requires a static problem structure.
+// Returns true unless refinement failed or made the cost worse.
+template <typename CameraModel>
+bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
+                        const std::vector<Eigen::Vector3d>& cam_rays,
+                        const RayFittingOptions& options,
+                        const std::vector<double>& prior_focal_lengths,
+                        std::vector<double>* params,
+                        double* initial_cost,
+                        double* final_cost) {
+  THROW_CHECK_NOTNULL(params);
+  THROW_CHECK_NOTNULL(initial_cost);
+  THROW_CHECK_NOTNULL(final_cost);
+  THROW_CHECK_EQ(params->size(), CameraModel::num_params);
+  const std::vector<double> init_params = *params;
+
+  ceres::Problem problem;
+  size_t num_residuals = 0;
+  std::vector<size_t> residual_indices;
+  residual_indices.reserve(img_points.size());
+  for (size_t i = 0; i < img_points.size(); ++i) {
+    Eigen::Vector2d projection;
+    if (!CameraModel::ImgFromCam(params->data(),
+                                 cam_rays[i].x(),
+                                 cam_rays[i].y(),
+                                 cam_rays[i].z(),
+                                 &projection.x(),
+                                 &projection.y(),
+                                 /*check_cheirality=*/true)) {
+      continue;
+    }
+    auto* cost_function =
+        new ceres::AutoDiffCostFunction<RayReprojectionResidual<CameraModel>,
+                                        2,
+                                        CameraModel::num_params>(
+            new RayReprojectionResidual<CameraModel>(img_points[i],
+                                                     cam_rays[i]));
+    problem.AddResidualBlock(
+        cost_function, /*loss_function=*/nullptr, params->data());
+    residual_indices.push_back(i);
+    num_residuals += 2;
+  }
+  if (num_residuals == 0) {
+    return false;
+  }
+
+  if (!prior_focal_lengths.empty() && options.prior_focal_length_weight > 0.0) {
+    THROW_CHECK_EQ(prior_focal_lengths.size(),
+                   CameraModel::focal_length_idxs.size());
+    ceres::Matrix stiffness = ceres::Matrix::Zero(prior_focal_lengths.size(),
+                                                  CameraModel::num_params);
+    ceres::Vector prior = Eigen::Map<const Eigen::VectorXd>(
+        params->data(), CameraModel::num_params);
+    const double scale = std::sqrt(options.prior_focal_length_weight *
+                                   num_residuals / prior_focal_lengths.size());
+    for (size_t i = 0; i < prior_focal_lengths.size(); ++i) {
+      const size_t idx = CameraModel::focal_length_idxs[i];
+      stiffness(i, idx) = scale;
+      prior[idx] = prior_focal_lengths[i];
+    }
+    problem.AddResidualBlock(
+        new ceres::NormalPrior(stiffness, std::move(prior)),
+        /*loss_function=*/nullptr,
+        params->data());
+  }
+
+  for (const size_t idx : CameraModel::focal_length_idxs) {
+    problem.SetParameterLowerBound(
+        params->data(), idx, std::numeric_limits<double>::epsilon());
+  }
+  if constexpr (CameraModel::model_id == CameraModelId::kEUCM) {
+    const size_t alpha_idx = CameraModel::extra_params_idxs[0];
+    const size_t beta_idx = CameraModel::extra_params_idxs[1];
+    problem.SetParameterLowerBound(params->data(), alpha_idx, 0.0);
+    problem.SetParameterUpperBound(params->data(), alpha_idx, 1.0);
+    problem.SetParameterLowerBound(
+        params->data(), beta_idx, std::numeric_limits<double>::epsilon());
+  }
+  if constexpr (CameraModel::model_id == CameraModelId::kFOV) {
+    // Omega is the field-of-view angle in radians; outside (0, pi) the
+    // `tan(omega / 2)` distortion term is singular or meaningless.
+    const size_t omega_idx = CameraModel::extra_params_idxs[0];
+    problem.SetParameterLowerBound(
+        params->data(), omega_idx, std::numeric_limits<double>::epsilon());
+    problem.SetParameterUpperBound(params->data(), omega_idx, EIGEN_PI);
+  }
+
+  ceres::Solver::Options solver_options;
+  solver_options.linear_solver_type = ceres::DENSE_QR;
+  solver_options.max_num_iterations = options.max_num_iterations;
+  // Parallelism happens across images in the calling controller.
+  solver_options.num_threads = 1;
+  solver_options.minimizer_progress_to_stdout = false;
+  ceres::Solver::Summary summary;
+  ceres::Solve(solver_options, &problem, &summary);
+
+  // Report the mean squared objective (Ceres costs are halved sums of
+  // squares). The focal prior is scaled by `num_residuals`, so its relative
+  // contribution is independent of correspondence subsampling.
+  *initial_cost = 2 * summary.initial_cost / num_residuals;
+  *final_cost = 2 * summary.final_cost / num_residuals;
+  // Keep the refinement unless it made the cost worse. Ceres only accepts
+  // non-increasing steps, so equality means the initialization was already
+  // optimal (or refinement was disabled with zero iterations).
+  if (summary.IsSolutionUsable() && std::isfinite(*final_cost) &&
+      *final_cost <= *initial_cost &&
+      std::all_of(params->begin(), params->end(), [](const double param) {
+        return std::isfinite(param);
+      })) {
+    for (const size_t i : residual_indices) {
+      Eigen::Vector2d projection;
+      if (!CameraModel::ImgFromCam(params->data(),
+                                   cam_rays[i].x(),
+                                   cam_rays[i].y(),
+                                   cam_rays[i].z(),
+                                   &projection.x(),
+                                   &projection.y(),
+                                   /*check_cheirality=*/true) ||
+          !projection.allFinite()) {
+        *params = init_params;
+        return false;
+      }
+    }
+    return true;
+  }
+  *params = init_params;
+  return false;
+}
+
+}  // namespace
+
+bool RayFittingOptions::Check() const {
+  CHECK_OPTION_GE(max_num_iterations, 0);
+  CHECK_OPTION_GT(max_num_points, 0);
+  CHECK_OPTION_GE(prior_focal_length_weight, 0.0);
+  return true;
+}
+
+std::vector<size_t> StrideSubsampleIndices(size_t num_points,
+                                           size_t max_num_points) {
+  THROW_CHECK_GT(max_num_points, 0);
+  if (num_points <= max_num_points) {
+    std::vector<size_t> indices(num_points);
+    std::iota(indices.begin(), indices.end(), 0);
+    return indices;
+  }
+  const size_t step =
+      (num_points + max_num_points - 1) / max_num_points;  // ceil div
+  std::vector<size_t> indices;
+  indices.reserve((num_points + step - 1) / step);
+  for (size_t i = 0; i < num_points; i += step) {
+    indices.push_back(i);
+  }
+  return indices;
+}
+
+FittedCamera FitCameraFromRays(CameraModelId model_id,
+                               const std::vector<Eigen::Vector2d>& img_points,
+                               const std::vector<Eigen::Vector3d>& cam_rays,
+                               const RayFittingOptions& options,
+                               const std::vector<double>& prior_focal_lengths) {
+  FittedCamera result;
+  THROW_CHECK(options.Check());
+  if (img_points.empty() || img_points.size() != cam_rays.size()) {
+    return result;
+  }
+  if (!CameraModelIsPerspective(model_id)) {
+    LOG(ERROR) << "Ray fitting only supports perspective camera models";
+    return result;
+  }
+  if (!prior_focal_lengths.empty() &&
+      (prior_focal_lengths.size() !=
+           CameraModelFocalLengthIdxs(model_id).size() ||
+       !std::all_of(prior_focal_lengths.begin(),
+                    prior_focal_lengths.end(),
+                    [](const double focal_length) {
+                      return std::isfinite(focal_length) && focal_length > 0.0;
+                    }))) {
+    return result;
+  }
+
+  // Stride-subsample dense correspondences.
+  const std::vector<size_t> indices =
+      StrideSubsampleIndices(img_points.size(), options.max_num_points);
+  std::vector<Eigen::Vector2d> sampled_img_points;
+  std::vector<Eigen::Vector3d> sampled_cam_rays;
+  sampled_img_points.reserve(indices.size());
+  sampled_cam_rays.reserve(indices.size());
+  for (const size_t i : indices) {
+    sampled_img_points.push_back(img_points[i]);
+    sampled_cam_rays.push_back(cam_rays[i]);
+  }
+
+  std::vector<double> params;
+  if (!InitializeCameraParams(model_id, sampled_img_points, &params)) {
+    return result;
+  }
+
+  bool refined = false;
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(Model)                              \
+  case Model::model_id:                                       \
+    refined = RefineCameraParams<Model>(sampled_img_points,   \
+                                        sampled_cam_rays,     \
+                                        options,              \
+                                        prior_focal_lengths,  \
+                                        &params,              \
+                                        &result.initial_cost, \
+                                        &result.final_cost);  \
+    break;
+    PERSPECTIVE_CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+    default:
+      LOG(ERROR) << "Unsupported camera model for refinement: "
+                 << CameraModelIdToName(model_id);
+      return result;
+  }
+
+  result.params = params;
+  result.success = refined;
+  return result;
+}
+
+}  // namespace colmap

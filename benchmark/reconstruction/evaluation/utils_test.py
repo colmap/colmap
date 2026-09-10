@@ -95,6 +95,7 @@ def test_panorama_reconstruction_uses_library_api(
         feature="sift",
         mapper="global",
         uncalibrated=False,
+        camera_calibration=False,
         filter_covisibility=True,
         covisibility_min_shared_points=5,
         random_seed=7,
@@ -127,6 +128,78 @@ def test_panorama_reconstruction_uses_library_api(
     assert options.covisibility_path == covisibility_path
     assert options.covisibility_min_shared_points == 1
     assert not options.show_progress
+
+
+def test_panorama_reconstruction_rejects_calibration(tmp_path: Path) -> None:
+    scene_info = SceneInfo(
+        dataset="tartanair-v2-spherical",
+        category="test",
+        scene="scene",
+        num_images=2,
+        workspace_path=tmp_path / "workspace",
+        image_path=tmp_path / "images",
+        sparse_gt_path=tmp_path / "sparse_gt",
+        has_camera_priors=False,
+        colmap_extra_args=[],
+        reconstruction_backend="panorama-spherical",
+    )
+    args = argparse.Namespace(
+        overwrite_reconstruction=False,
+        feature="sift",
+        mapper="global",
+        uncalibrated=False,
+        camera_calibration=True,
+    )
+
+    with pytest.raises(
+        ValueError, match="does not support learned calibration"
+    ):
+        panorama_reconstruction(args, scene_info, num_threads=1, gpu_index="-1")
+
+
+def test_learned_calibration_disables_gt_camera_priors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scene_info = SceneInfo(
+        dataset="dummy",
+        category="test",
+        scene="scene",
+        num_images=1,
+        workspace_path=tmp_path / "workspace",
+        image_path=tmp_path / "images",
+        sparse_gt_path=tmp_path / "sparse_gt",
+        has_camera_priors=True,
+        colmap_extra_args=[],
+    )
+    args = argparse.Namespace(
+        uncalibrated=False,
+        camera_calibration=True,
+        filter_covisibility=False,
+    )
+
+    dataset: Any = argparse.Namespace(
+        position_accuracy_gt=0.0,
+        supports_covisibility_filtering=False,
+        prepare_scene=lambda _: None,
+    )
+
+    sparse_gt = object()
+    call: dict[str, Any] = {}
+
+    monkeypatch.setattr(utils.pycolmap, "Reconstruction", lambda _: sparse_gt)
+
+    class StopAfterReconstruction(Exception):
+        pass
+
+    def reconstruct(**kwargs: Any) -> None:
+        call.update(kwargs)
+        raise StopAfterReconstruction
+
+    monkeypatch.setattr(utils, "colmap_reconstruction", reconstruct)
+    with pytest.raises(StopAfterReconstruction):
+        utils.process_scene(args, scene_info, dataset, num_threads=1)
+
+    assert call["camera_priors_sparse_gt"] is None
 
 
 class TestFilterSmallestScenesPerCategory:

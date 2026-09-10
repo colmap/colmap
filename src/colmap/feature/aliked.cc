@@ -30,7 +30,7 @@
 #include "colmap/feature/aliked.h"
 
 #include "colmap/feature/onnx_matchers.h"
-#include "colmap/feature/onnx_utils.h"
+#include "colmap/util/onnx.h"
 
 #include <algorithm>
 #include <memory>
@@ -133,10 +133,19 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        "image",
                        model_.input_shapes()[0],
                        {-1, 3, -1, -1});
+    ThrowCheckONNXElementType(model_.input_names()[0],
+                              model_.input_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(
         model_.input_names()[1], "max_keypoints", model_.input_shapes()[1], {});
+    ThrowCheckONNXElementType(model_.input_names()[1],
+                              model_.input_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64);
     ThrowCheckONNXNode(
         model_.input_names()[2], "min_score", model_.input_shapes()[2], {});
+    ThrowCheckONNXElementType(model_.input_names()[2],
+                              model_.input_element_types()[2],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
     // Validate sparse model outputs: keypoints [1, K, 2], descriptors [1, K,
     // D], scores [1, K]. Note: Some dimensions may be dynamic (-1) in ONNX.
@@ -145,10 +154,16 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        "keypoints",
                        model_.output_shapes()[0],
                        {-1, -1, -1});
+    ThrowCheckONNXElementType(model_.output_names()[0],
+                              model_.output_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(model_.output_names()[1],
                        "descriptors",
                        model_.output_shapes()[1],
                        {-1, -1, -1});
+    ThrowCheckONNXElementType(model_.output_names()[1],
+                              model_.output_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     descriptor_dim_ = static_cast<int>(model_.output_shapes()[1][2]);
     THROW_CHECK_GT(descriptor_dim_, 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
@@ -156,6 +171,9 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        "scores",
                        model_.output_shapes()[2],
                        {-1, -1});
+    ThrowCheckONNXElementType(model_.output_names()[2],
+                              model_.output_element_types()[2],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
   }
 
   bool Extract(const Bitmap& bitmap,

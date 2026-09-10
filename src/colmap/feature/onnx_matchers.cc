@@ -29,9 +29,9 @@
 
 #include "colmap/feature/onnx_matchers.h"
 
-#include "colmap/feature/onnx_utils.h"
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/util/onnx.h"
 
 #include <algorithm>
 #include <memory>

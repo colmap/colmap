@@ -29,6 +29,8 @@
 
 #include "colmap/controllers/option_manager.h"
 
+#include "colmap/calibration/anycalib.h"
+#include "colmap/calibration/calibrator.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/image_reader.h"
@@ -92,6 +94,7 @@ std::string MakeCameraModelsHelpText() {
 OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
+  camera_calibration = std::make_shared<CameraCalibrationOptions>();
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
@@ -227,6 +230,7 @@ void OptionManager::ModifyForExtremeQuality() {
 
 void OptionManager::AddAllOptions() {
   BaseOptionManager::AddAllOptions();
+  AddCameraCalibrationOptions();
   AddFeatureExtractionOptions();
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -248,6 +252,40 @@ void OptionManager::AddAllOptions() {
   AddMeshSimplificationOptions();
 #endif
   AddRenderOptions();
+}
+
+void OptionManager::AddCameraCalibrationOptions() {
+  if (added_camera_calibration_options_) {
+    return;
+  }
+  added_camera_calibration_options_ = true;
+
+  AddDefaultEnumOption("CameraCalibration.type",
+                       &camera_calibration->type,
+                       CameraCalibratorTypeToString,
+                       CameraCalibratorTypeFromString);
+  AddDefaultOption("CameraCalibration.camera_model",
+                   &camera_calibration->camera_model);
+  AddDefaultOption("CameraCalibration.num_threads",
+                   &camera_calibration->num_threads);
+  AddDefaultOption("CameraCalibration.use_gpu", &camera_calibration->use_gpu);
+  AddDefaultOption("CameraCalibration.gpu_index",
+                   &camera_calibration->gpu_index);
+  AddDefaultOption("CameraCalibration.min_focal_length_ratio",
+                   &camera_calibration->min_focal_length_ratio);
+  AddDefaultOption("CameraCalibration.max_focal_length_ratio",
+                   &camera_calibration->max_focal_length_ratio);
+  AddDefaultOption("CameraCalibration.max_extra_param",
+                   &camera_calibration->max_extra_param);
+  AddDefaultOption("CameraCalibration.anycalib_model_path",
+                   &camera_calibration->anycalib->model_path);
+  AddDefaultOption("CameraCalibration.max_num_iterations",
+                   &camera_calibration->anycalib->fitting.max_num_iterations);
+  AddDefaultOption("CameraCalibration.max_num_points",
+                   &camera_calibration->anycalib->fitting.max_num_points);
+  AddDefaultOption(
+      "CameraCalibration.prior_focal_length_weight",
+      &camera_calibration->anycalib->fitting.prior_focal_length_weight);
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
@@ -1233,6 +1271,7 @@ void OptionManager::AddRenderOptions() {
 void OptionManager::Reset(bool reset_logging) {
   BaseOptionManager::Reset(reset_logging);
 
+  added_camera_calibration_options_ = false;
   added_feature_extraction_options_ = false;
   added_feature_matching_options_ = false;
   added_two_view_geometry_options_ = false;
@@ -1261,6 +1300,7 @@ void OptionManager::Reset(bool reset_logging) {
 
 void OptionManager::ResetOptions(const bool reset_paths) {
   *image_reader = ImageReaderOptions();
+  *camera_calibration = CameraCalibrationOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
   *exhaustive_pairing = ExhaustivePairingOptions();
@@ -1296,6 +1336,7 @@ bool OptionManager::Check() {
   bool success = true;
 
   if (image_reader) success = success && image_reader->Check();
+  if (camera_calibration) success = success && camera_calibration->Check();
   if (feature_extraction) success = success && feature_extraction->Check();
 
   if (feature_matching) success = success && feature_matching->Check();

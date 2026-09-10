@@ -67,6 +67,7 @@ if(COVERAGE_ENABLED)
     add_link_options(-coverage)
 endif()
 
+add_subdirectory(calibration)
 add_subdirectory(controllers)
 add_subdirectory(estimators)
 add_subdirectory(exe)

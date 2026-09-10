@@ -492,6 +492,14 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "This is useful for evaluating the performance of self-calibration.",
     )
     parser.add_argument(
+        "--camera_calibration",
+        default=False,
+        action="store_true",
+        help="Whether to run learned single-image camera calibration after "
+        "feature extraction, replacing EXIF-based intrinsics before matching "
+        "and mapping.",
+    )
+    parser.add_argument(
         "--filter_covisibility",
         default=True,
         action=argparse.BooleanOptionalAction,
@@ -704,20 +712,27 @@ def colmap_reconstruction(
         args.quality,
     ]
 
+    # Learned calibration runs in the extraction step: the automatic
+    # reconstructor runs extraction and calibration sequentially in one
+    # process, so intrinsics are replaced before matching and mapping. It is
+    # intentionally not passed to the matching/sparse steps below, which would
+    # otherwise recalibrate every time they run.
+    extraction_args = [
+        "--extraction",
+        "1",
+        "--matching",
+        "0",
+        "--sparse",
+        "0",
+        "--dense",
+        "0",
+    ]
+    if args.camera_calibration:
+        extraction_args += ["--camera_calibration", "1"]
+
     phase_tracker.set("extraction")
     _run_with_log(
-        colmap_args
-        + (colmap_extra_args or [])
-        + [
-            "--extraction",
-            "1",
-            "--matching",
-            "0",
-            "--sparse",
-            "0",
-            "--dense",
-            "0",
-        ],
+        colmap_args + (colmap_extra_args or []) + extraction_args,
         workspace_path / "extraction.log",
         cwd=workspace_path,
     )
@@ -802,6 +817,10 @@ def panorama_reconstruction(
     if args.uncalibrated:
         raise ValueError(
             "Equirectangular panorama reconstruction has fixed calibration"
+        )
+    if args.camera_calibration:
+        raise ValueError(
+            "Panorama reconstruction does not support learned calibration"
         )
 
     render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
@@ -938,7 +957,9 @@ def process_scene(
             image_path=scene_info.image_path,
             camera_priors_sparse_gt=(
                 sparse_gt
-                if not args.uncalibrated and scene_info.has_camera_priors
+                if not args.uncalibrated
+                and not args.camera_calibration
+                and scene_info.has_camera_priors
                 else None
             ),
             covisibility_sparse_gt=(

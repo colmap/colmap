@@ -36,6 +36,7 @@
 namespace colmap {
 
 struct ImageReaderOptions;
+struct CameraCalibrationOptions;
 struct FeatureExtractionOptions;
 struct FeatureMatchingOptions;
 struct SiftMatchingOptions;
@@ -90,6 +91,7 @@ class OptionManager : public BaseOptionManager {
   void ModifyForExtremeQuality();
 
   void AddAllOptions() override;
+  void AddCameraCalibrationOptions();
   void AddFeatureExtractionOptions();
   void AddFeatureMatchingOptions();
   void AddTwoViewGeometryOptions();
@@ -123,6 +125,7 @@ class OptionManager : public BaseOptionManager {
             bool allow_unregistered = true) override;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
+  std::shared_ptr<CameraCalibrationOptions> camera_calibration;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
   std::shared_ptr<FeatureMatchingOptions> feature_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
@@ -161,6 +164,7 @@ class OptionManager : public BaseOptionManager {
   std::filesystem::path mapper_constant_camera_list_path_;
   std::filesystem::path global_mapper_image_list_path_;
 
+  bool added_camera_calibration_options_ = false;
   bool added_feature_extraction_options_ = false;
   bool added_feature_matching_options_ = false;
   bool added_two_view_geometry_options_ = false;

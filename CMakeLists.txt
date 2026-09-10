@@ -430,6 +430,7 @@ endif()
 
 set(COLMAP_EXPORT_LIBS
     # Internal.
+    colmap_calibration
     colmap_controllers
     colmap_estimators
     colmap_estimators_cost_functions
@@ -453,6 +454,9 @@ set(COLMAP_EXPORT_LIBS
 )
 if(MVS_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS colmap_mvs)
+endif()
+if(ONNX_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS colmap_onnx_util)
 endif()
 if(LSD_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
