@@ -61,6 +61,7 @@ COLMAP_ADD_LIBRARY(
         model_viewer_widget.h model_viewer_widget.cc
         movie_grabber_widget.h movie_grabber_widget.cc
         options_widget.h options_widget.cc
+        painter_base.h painter_base.cc
         point_painter.h point_painter.cc
         point_viewer_widget.h point_viewer_widget.cc
         project_widget.h project_widget.cc

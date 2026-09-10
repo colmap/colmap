@@ -29,57 +29,32 @@
 
 #include "colmap/ui/mesh_painter.h"
 
-#include "colmap/util/opengl_utils.h"
-
 #include <algorithm>
 
 namespace colmap {
 
-MeshPainter::MeshPainter() : num_vertices_(0) {}
-
 MeshPainter::~MeshPainter() {
-  vao_.destroy();
-  vbo_.destroy();
   if (texture_id_ != 0) {
-    QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
-    gl_funcs->glDeleteTextures(1, &texture_id_);
+    QOpenGLContext::currentContext()->functions()->glDeleteTextures(
+        1, &texture_id_);
   }
 }
 
 void MeshPainter::Setup() {
-  vao_.destroy();
-  vbo_.destroy();
   if (texture_id_ != 0) {
-    QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
-    gl_funcs->glDeleteTextures(1, &texture_id_);
+    QOpenGLContext::currentContext()->functions()->glDeleteTextures(
+        1, &texture_id_);
     texture_id_ = 0;
     has_texture_ = false;
   }
-  if (shader_program_.isLinked()) {
-    shader_program_.release();
-    shader_program_.removeAllShaders();
-  }
-
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Vertex,
-                                          ":/shaders/mesh.v.glsl");
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Geometry,
-                                          ":/shaders/mesh.g.glsl");
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Fragment,
-                                          ":/shaders/mesh.f.glsl");
-  shader_program_.link();
-  shader_program_.bind();
-
-  vao_.create();
-  vbo_.create();
-
-#if DEBUG
-  glDebugLog();
-#endif
+  SetupShaders({{QOpenGLShader::Vertex, ":/shaders/mesh.v.glsl"},
+                {QOpenGLShader::Geometry, ":/shaders/mesh.g.glsl"},
+                {QOpenGLShader::Fragment, ":/shaders/mesh.f.glsl"}});
 }
 
 void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
-  num_vertices_ = data.size();
-  if (num_vertices_ == 0) {
+  num_geoms_ = data.size();
+  if (num_geoms_ == 0) {
     return;
   }
 
@@ -124,9 +99,7 @@ void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
   vbo_.release();
   vao_.release();
 
-#if DEBUG
   glDebugLog();
-#endif
 }
 
 void MeshPainter::UploadTexture(std::vector<uint8_t> data,
@@ -187,12 +160,9 @@ void MeshPainter::Render(const QMatrix4x4& pmv_matrix,
                          const QMatrix4x4& model_view_matrix,
                          const bool wireframe,
                          const bool color) {
-  if (num_vertices_ == 0) {
+  if (!BeginRender()) {
     return;
   }
-
-  shader_program_.bind();
-  vao_.bind();
 
   shader_program_.setUniformValue("u_pmv_matrix", pmv_matrix);
   shader_program_.setUniformValue("u_model_view_matrix", model_view_matrix);
@@ -211,17 +181,13 @@ void MeshPainter::Render(const QMatrix4x4& pmv_matrix,
   }
 
   gl_funcs->glEnable(GL_DEPTH_TEST);
-  gl_funcs->glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(num_vertices_));
+  gl_funcs->glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(num_geoms_));
 
   if (has_texture_) {
     gl_funcs->glBindTexture(GL_TEXTURE_2D, 0);
   }
 
-  vao_.release();
-
-#if DEBUG
-  glDebugLog();
-#endif
+  EndRender();
 }
 
 }  // namespace colmap

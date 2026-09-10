@@ -36,10 +36,10 @@
 
 namespace colmap {
 
-class TrianglePainter {
+class TrianglePainter : public PainterBase {
  public:
-  TrianglePainter();
-  ~TrianglePainter();
+  TrianglePainter() = default;
+  ~TrianglePainter() = default;
 
   struct Data {
     Data() {}
@@ -56,13 +56,6 @@ class TrianglePainter {
   void Setup();
   void Upload(const std::vector<TrianglePainter::Data>& data);
   void Render(const QMatrix4x4& pmv_matrix);
-
- private:
-  QOpenGLShaderProgram shader_program_;
-  QOpenGLVertexArrayObject vao_;
-  QOpenGLBuffer vbo_;
-
-  size_t num_geoms_;
 };
 
 }  // namespace colmap

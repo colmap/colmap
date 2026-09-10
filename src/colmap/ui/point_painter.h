@@ -29,16 +29,18 @@
 
 #pragma once
 
+#include "colmap/ui/painter_base.h"
+
 #include <QtCore>
 #include <QtOpenGL>
 #include <cstdint>
 
 namespace colmap {
 
-class PointPainter {
+class PointPainter : public PainterBase {
  public:
-  PointPainter();
-  ~PointPainter();
+  PointPainter() = default;
+  ~PointPainter() = default;
 
   struct Data {
     Data() : x(0), y(0), z(0), r(0), g(0), b(0), a(0) {}
@@ -52,13 +54,6 @@ class PointPainter {
   void Setup();
   void Upload(const std::vector<PointPainter::Data>& data);
   void Render(const QMatrix4x4& pmv_matrix, float point_size);
-
- private:
-  QOpenGLShaderProgram shader_program_;
-  QOpenGLVertexArrayObject vao_;
-  QOpenGLBuffer vbo_;
-
-  size_t num_geoms_;
 };
 
 }  // namespace colmap
