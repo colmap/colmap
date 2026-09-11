@@ -48,6 +48,15 @@ const static std::string kPoissonMeshedFileName = "meshed-poisson.ply";
 const static std::string kDelaunayMeshedFileName = "meshed-delaunay.ply";
 
 #if defined(COLMAP_MVS_ENABLED)
+void AddCacheSizeOption(OptionsWidget* widget, double* cache_size) {
+  widget->AddOptionDouble(cache_size,
+                          "cache_size [gigabytes]",
+                          0,
+                          std::numeric_limits<double>::max(),
+                          0.1,
+                          1);
+}
+
 class StereoOptionsTab : public OptionsWidget {
  public:
   StereoOptionsTab(QWidget* parent, OptionManager* options)
@@ -92,12 +101,7 @@ class StereoOptionsTab : public OptionsWidget {
     AddOptionDouble(
         &options->patch_match_stereo->filter_geom_consistency_max_cost,
         "filter_geom_consistency_max_cost");
-    AddOptionDouble(&options->patch_match_stereo->cache_size,
-                    "cache_size [gigabytes]",
-                    0,
-                    std::numeric_limits<double>::max(),
-                    0.1,
-                    1);
+    AddCacheSizeOption(this, &options->patch_match_stereo->cache_size);
     AddOptionBool(&options->patch_match_stereo->write_consistency_graph,
                   "write_consistency_graph");
     AddOptionInt(&options->patch_match_stereo->num_threads, "num_threads", -1);
@@ -125,12 +129,7 @@ class FusionOptionsTab : public OptionsWidget {
         &options->stereo_fusion->max_normal_error, "max_normal_error", 0, 180);
     AddOptionInt(
         &options->stereo_fusion->check_num_images, "check_num_images", 1);
-    AddOptionDouble(&options->stereo_fusion->cache_size,
-                    "cache_size [gigabytes]",
-                    0,
-                    std::numeric_limits<double>::max(),
-                    0.1,
-                    1);
+    AddCacheSizeOption(this, &options->stereo_fusion->cache_size);
     AddOptionBool(&options->stereo_fusion->use_cache, "use_cache");
   }
 };
@@ -234,40 +233,23 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
 
   QGridLayout* grid = new QGridLayout(this);
 
-  undistortion_button_ = new QPushButton(tr("Undistortion"), this);
-  connect(undistortion_button_,
-          &QPushButton::released,
-          this,
-          &DenseReconstructionWidget::Undistort);
-  grid->addWidget(undistortion_button_, 0, 0, Qt::AlignLeft);
+  auto AddButton = [this, grid](const char* label,
+                                int col,
+                                void (DenseReconstructionWidget::*slot)()) {
+    QPushButton* button = new QPushButton(tr(label), this);
+    connect(button, &QPushButton::released, this, slot);
+    grid->addWidget(button, 0, col, Qt::AlignLeft);
+    return button;
+  };
 
-  stereo_button_ = new QPushButton(tr("Stereo"), this);
-  connect(stereo_button_,
-          &QPushButton::released,
-          this,
-          &DenseReconstructionWidget::Stereo);
-  grid->addWidget(stereo_button_, 0, 1, Qt::AlignLeft);
-
-  fusion_button_ = new QPushButton(tr("Fusion"), this);
-  connect(fusion_button_,
-          &QPushButton::released,
-          this,
-          &DenseReconstructionWidget::Fusion);
-  grid->addWidget(fusion_button_, 0, 2, Qt::AlignLeft);
-
-  poisson_meshing_button_ = new QPushButton(tr("Poisson"), this);
-  connect(poisson_meshing_button_,
-          &QPushButton::released,
-          this,
-          &DenseReconstructionWidget::PoissonMeshing);
-  grid->addWidget(poisson_meshing_button_, 0, 3, Qt::AlignLeft);
-
-  delaunay_meshing_button_ = new QPushButton(tr("Delaunay"), this);
-  connect(delaunay_meshing_button_,
-          &QPushButton::released,
-          this,
-          &DenseReconstructionWidget::DelaunayMeshing);
-  grid->addWidget(delaunay_meshing_button_, 0, 4, Qt::AlignLeft);
+  undistortion_button_ =
+      AddButton("Undistortion", 0, &DenseReconstructionWidget::Undistort);
+  stereo_button_ = AddButton("Stereo", 1, &DenseReconstructionWidget::Stereo);
+  fusion_button_ = AddButton("Fusion", 2, &DenseReconstructionWidget::Fusion);
+  poisson_meshing_button_ =
+      AddButton("Poisson", 3, &DenseReconstructionWidget::PoissonMeshing);
+  delaunay_meshing_button_ =
+      AddButton("Delaunay", 4, &DenseReconstructionWidget::DelaunayMeshing);
 
   QPushButton* options_button = new QPushButton(tr("Options"), this);
   connect(options_button,

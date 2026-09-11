@@ -732,6 +732,12 @@ float JetColormap::Green(const float gray) { return Base(gray); }
 
 float JetColormap::Blue(const float gray) { return Base(gray + 0.25f); }
 
+BitmapColor<uint8_t> JetColormap::ToBitmapColor(const float gray) {
+  return BitmapColor<float>(
+             255 * Red(gray), 255 * Green(gray), 255 * Blue(gray))
+      .Cast<uint8_t>();
+}
+
 float JetColormap::Base(const float val) {
   // NOLINTNEXTLINE(bugprone-branch-clone)
   if (val <= 0.125f) {

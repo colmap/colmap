@@ -58,16 +58,22 @@ OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {
   setLayout(grid_layout_);
 }
 
-void OptionsWidget::AddOptionRow(const std::string& label_text,
-                                 QWidget* widget,
-                                 void* option) {
+QLabel* OptionsWidget::CreateRowLabel(const std::string& label_text) {
   QLabel* label = new QLabel(tr(label_text.c_str()), this);
   label->setFont(font());
   label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
+  return label;
+}
+
+void OptionsWidget::AddOptionRow(const std::string& label_text,
+                                 QWidget* widget,
+                                 void* option) {
+  QLabel* label = CreateRowLabel(label_text);
+  const int row = grid_layout_->rowCount();
+  grid_layout_->addWidget(label, row, 0);
 
   widget->setFont(font());
-  grid_layout_->addWidget(widget, grid_layout_->rowCount() - 1, 1);
+  grid_layout_->addWidget(widget, row, 1);
 
   option_rows_.emplace(option, std::make_pair(label, widget));
   widget_rows_.emplace(widget, std::make_pair(label, widget));
@@ -75,29 +81,27 @@ void OptionsWidget::AddOptionRow(const std::string& label_text,
 
 void OptionsWidget::AddWidgetRow(const std::string& label_text,
                                  QWidget* widget) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
+  QLabel* label = CreateRowLabel(label_text);
+  const int row = grid_layout_->rowCount();
+  grid_layout_->addWidget(label, row, 0);
 
   widget->setFont(font());
-  grid_layout_->addWidget(widget, grid_layout_->rowCount() - 1, 1);
+  grid_layout_->addWidget(widget, row, 1);
 
   widget_rows_.emplace(widget, std::make_pair(label, widget));
 }
 
 void OptionsWidget::AddLayoutRow(const std::string& label_text,
                                  QLayout* layout) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
+  QLabel* label = CreateRowLabel(label_text);
+  const int row = grid_layout_->rowCount();
+  grid_layout_->addWidget(label, row, 0);
 
   QWidget* layout_widget = new QWidget(this);
   layout_widget->setLayout(layout);
   layout->setContentsMargins(0, 0, 0, 0);
 
-  grid_layout_->addWidget(layout_widget, grid_layout_->rowCount() - 1, 1);
+  grid_layout_->addWidget(layout_widget, row, 1);
 
   layout_rows_.emplace(layout, std::make_pair(label, layout_widget));
 }
@@ -198,18 +202,22 @@ QLineEdit* OptionsWidget::AddOptionText(std::string* option,
   return line_edit;
 }
 
-QLineEdit* OptionsWidget::AddOptionFilePath(std::filesystem::path* option,
-                                            const std::string& label_text) {
+QLineEdit* OptionsWidget::AddOptionPath(std::filesystem::path* option,
+                                        const std::string& label_text,
+                                        bool directory) {
   QLineEdit* line_edit = new QLineEdit(this);
   line_edit->setText(QString::fromStdString(option->string()));
 
   AddOptionRow(label_text, line_edit, option);
 
-  auto SelectPathFunc = [this, line_edit]() {
-    line_edit->setText(QFileDialog::getOpenFileName(this, tr("Select file")));
+  auto SelectPathFunc = [this, line_edit, directory]() {
+    line_edit->setText(
+        directory ? QFileDialog::getExistingDirectory(this, tr("Select folder"))
+                  : QFileDialog::getOpenFileName(this, tr("Select file")));
   };
 
-  QPushButton* select_button = new QPushButton(tr("Select file"), this);
+  QPushButton* select_button = new QPushButton(
+      directory ? tr("Select folder") : tr("Select file"), this);
   select_button->setFont(font());
   connect(select_button, &QPushButton::released, this, SelectPathFunc);
   grid_layout_->addWidget(select_button, grid_layout_->rowCount(), 1);
@@ -219,26 +227,14 @@ QLineEdit* OptionsWidget::AddOptionFilePath(std::filesystem::path* option,
   return line_edit;
 }
 
+QLineEdit* OptionsWidget::AddOptionFilePath(std::filesystem::path* option,
+                                            const std::string& label_text) {
+  return AddOptionPath(option, label_text, /*directory=*/false);
+}
+
 QLineEdit* OptionsWidget::AddOptionDirPath(std::filesystem::path* option,
                                            const std::string& label_text) {
-  QLineEdit* line_edit = new QLineEdit(this);
-  line_edit->setText(QString::fromStdString(option->string()));
-
-  AddOptionRow(label_text, line_edit, option);
-
-  auto SelectPathFunc = [this, line_edit]() {
-    line_edit->setText(
-        QFileDialog::getExistingDirectory(this, tr("Select folder")));
-  };
-
-  QPushButton* select_button = new QPushButton(tr("Select folder"), this);
-  select_button->setFont(font());
-  connect(select_button, &QPushButton::released, this, SelectPathFunc);
-  grid_layout_->addWidget(select_button, grid_layout_->rowCount(), 1);
-
-  options_path_.emplace_back(line_edit, option);
-
-  return line_edit;
+  return AddOptionPath(option, label_text, /*directory=*/true);
 }
 
 void OptionsWidget::AddSpacer() {
@@ -323,39 +319,27 @@ void OptionsWidget::closeEvent(QCloseEvent* event) { WriteOptions(); }
 void OptionsWidget::hideEvent(QHideEvent* event) { WriteOptions(); }
 
 void OptionsWidget::ShowOption(void* option) {
-  auto& option_row = option_rows_.at(option);
-  option_row.first->show();
-  option_row.second->show();
+  SetRowVisible(option_rows_, option, /*visible=*/true);
 }
 
 void OptionsWidget::HideOption(void* option) {
-  auto& option_row = option_rows_.at(option);
-  option_row.first->hide();
-  option_row.second->hide();
+  SetRowVisible(option_rows_, option, /*visible=*/false);
 }
 
 void OptionsWidget::ShowWidget(QWidget* widget) {
-  auto& widget_row = widget_rows_.at(widget);
-  widget_row.first->show();
-  widget_row.second->show();
+  SetRowVisible(widget_rows_, widget, /*visible=*/true);
 }
 
 void OptionsWidget::HideWidget(QWidget* widget) {
-  auto& widget_row = widget_rows_.at(widget);
-  widget_row.first->hide();
-  widget_row.second->hide();
+  SetRowVisible(widget_rows_, widget, /*visible=*/false);
 }
 
 void OptionsWidget::ShowLayout(QLayout* layout) {
-  auto& layout_row = layout_rows_.at(layout);
-  layout_row.first->show();
-  layout_row.second->show();
+  SetRowVisible(layout_rows_, layout, /*visible=*/true);
 }
 
 void OptionsWidget::HideLayout(QLayout* layout) {
-  auto& layout_row = layout_rows_.at(layout);
-  layout_row.first->hide();
-  layout_row.second->hide();
+  SetRowVisible(layout_rows_, layout, /*visible=*/false);
 }
 
 }  // namespace colmap

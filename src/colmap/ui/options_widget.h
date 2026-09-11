@@ -110,6 +110,22 @@ class OptionsWidget : public QWidget {
   std::vector<std::pair<QCheckBox*, bool*>> options_bool_;
   std::vector<std::pair<QLineEdit*, std::string*>> options_text_;
   std::vector<std::pair<QLineEdit*, std::filesystem::path*>> options_path_;
+
+ private:
+  QLabel* CreateRowLabel(const std::string& label_text);
+  QLineEdit* AddOptionPath(std::filesystem::path* option,
+                           const std::string& label_text,
+                           bool directory);
+
+  template <typename Key>
+  static void SetRowVisible(
+      NodeHashMap<Key, std::pair<QLabel*, QWidget*>>& rows,
+      const Key& key,
+      bool visible) {
+    auto& row = rows.at(key);
+    row.first->setVisible(visible);
+    row.second->setVisible(visible);
+  }
 };
 
 }  // namespace colmap
