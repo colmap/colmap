@@ -1,7 +1,3 @@
-if(NOT IS_MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funroll-loops -ffast-math")
-endif()
-
 COLMAP_ADD_LIBRARY(
     NAME colmap_poisson_recon
     SRCS
@@ -10,6 +6,9 @@ COLMAP_ADD_LIBRARY(
 )
 target_compile_definitions(colmap_poisson_recon PRIVATE RELEASE)
 target_include_directories(colmap_poisson_recon PRIVATE .)
+if(NOT IS_MSVC)
+    target_compile_options(colmap_poisson_recon PRIVATE -funroll-loops)
+endif()
 if(OPENMP_FOUND)
     target_link_libraries(colmap_poisson_recon PRIVATE OpenMP::OpenMP_CXX)
 endif()
