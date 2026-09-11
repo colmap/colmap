@@ -149,8 +149,14 @@ void BundleAdjustmentWidget::Run() {
 
   WriteOptions();
 
+  BundleAdjustmentConfig ba_config;
+  for (const image_t image_id : reconstruction_->RegImageIds()) {
+    ba_config.AddImage(image_id);
+  }
+
   auto thread = std::make_unique<ControllerThread<BundleAdjustmentController>>(
-      std::make_shared<BundleAdjustmentController>(*options_, reconstruction_));
+      std::make_shared<BundleAdjustmentController>(
+          *options_->bundle_adjustment, ba_config, reconstruction_));
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 

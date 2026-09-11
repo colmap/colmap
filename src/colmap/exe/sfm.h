@@ -39,6 +39,14 @@
 
 namespace colmap {
 
+std::shared_ptr<BundleAdjustmentSummary> RunBundleAdjustmentImpl(
+    const BundleAdjustmentOptions& ba_options,
+    const BundleAdjustmentConfig& ba_config,
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const PosePriorBundleAdjustmentOptions* prior_options = nullptr,
+    const std::vector<PosePrior>* pose_priors = nullptr,
+    std::function<bool()> check_if_stopped = {});
+
 void RunPointTriangulatorImpl(
     const std::shared_ptr<Reconstruction>& reconstruction,
     const std::filesystem::path& database_path,

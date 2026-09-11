@@ -36,10 +36,12 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/rotation_averaging.h"
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/reconstruction_pruning.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/cancellation.h"
 #include "colmap/util/file.h"
@@ -185,14 +187,58 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+std::shared_ptr<BundleAdjustmentSummary> RunBundleAdjustmentImpl(
+    const BundleAdjustmentOptions& ba_options,
+    const BundleAdjustmentConfig& ba_config,
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const PosePriorBundleAdjustmentOptions* prior_options,
+    const std::vector<PosePrior>* pose_priors,
+    std::function<bool()> check_if_stopped) {
+  THROW_CHECK_NOTNULL(reconstruction);
+
+  std::unique_ptr<BundleAdjustmentController> ba_controller;
+  if (prior_options != nullptr && pose_priors != nullptr &&
+      !pose_priors->empty()) {
+    ba_controller = std::make_unique<BundleAdjustmentController>(
+        ba_options, ba_config, *prior_options, *pose_priors, reconstruction);
+  } else {
+    ba_controller = std::make_unique<BundleAdjustmentController>(
+        ba_options, ba_config, reconstruction);
+  }
+  ba_controller->SetCheckIfStoppedFunc(std::move(check_if_stopped));
+  ba_controller->Run();
+  return ba_controller->Summary();
+}
+
 int RunBundleAdjuster(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
+  std::filesystem::path database_path;
+
+  BundleAdjustmentOptions ba_options;
+  PosePriorBundleAdjustmentOptions prior_ba_options;
+  bool use_prior_position = false;
+  bool use_robust_loss_on_prior_position = false;
+  bool ba_global_ignore_redundant_points3D = false;
+  double ba_global_ignore_redundant_points3D_min_coverage_gain = 0.05;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddBundleAdjustmentOptions();
+  options.AddDefaultOption("use_prior_position", &use_prior_position);
+  options.AddDefaultOption("database_path", &database_path);
+  options.AddDefaultOption("use_robust_loss_on_prior_position",
+                           &use_robust_loss_on_prior_position);
+  options.AddDefaultOption("prior_position_loss_scale",
+                           &prior_ba_options.ceres->prior_position_loss_scale);
+  options.AddDefaultOption("prior_position_fallback_stddev",
+                           &prior_ba_options.prior_position_fallback_stddev);
+  options.AddDefaultOption("ba_global_ignore_redundant_points3D",
+                           &ba_global_ignore_redundant_points3D);
+  options.AddDefaultOption(
+      "ba_global_ignore_redundant_points3D_min_coverage_gain",
+      &ba_global_ignore_redundant_points3D_min_coverage_gain);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -207,11 +253,64 @@ int RunBundleAdjuster(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  ba_options = *options.bundle_adjustment;
+  if (use_robust_loss_on_prior_position) {
+    prior_ba_options.ceres->prior_position_loss_function_type =
+        CeresLossFunctionType::CAUCHY;
+  }
+  std::vector<PosePrior> pose_priors;
+  if (use_prior_position) {
+    auto database = Database::Open(database_path);
+    pose_priors = database->ReadAllPosePriors();
+  }
+
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);
 
-  BundleAdjustmentController ba_controller(options, reconstruction);
-  ba_controller.Run();
+  BundleAdjustmentConfig ba_config;
+  for (const image_t image_id : reconstruction->RegImageIds()) {
+    ba_config.AddImage(image_id);
+  }
+
+  std::vector<point3D_t> redundant_point3D_ids;
+  if (ba_global_ignore_redundant_points3D) {
+    redundant_point3D_ids = FindRedundantPoints3D(
+        ba_global_ignore_redundant_points3D_min_coverage_gain, *reconstruction);
+    VLOG(1) << "=> Ignoring " << redundant_point3D_ids.size() << " / "
+            << reconstruction->NumPoints3D() << " redundant 3D points";
+    for (const point3D_t point3D_id : redundant_point3D_ids) {
+      ba_config.IgnorePoint(point3D_id);
+    }
+  }
+
+  std::shared_ptr<BundleAdjustmentSummary> summary =
+      RunBundleAdjustmentImpl(ba_options,
+                              ba_config,
+                              reconstruction,
+                              use_prior_position ? &prior_ba_options : nullptr,
+                              use_prior_position ? &pose_priors : nullptr);
+
+  // Optimize the redundant 3D points with all other parameters fixed.
+  if (ba_global_ignore_redundant_points3D && !redundant_point3D_ids.empty() &&
+      summary != nullptr && summary->IsSolutionUsable()) {
+    BundleAdjustmentConfig redundant_config;
+    for (const point3D_t point3D_id : redundant_point3D_ids) {
+      redundant_config.AddVariablePoint(point3D_id);
+    }
+    for (const frame_t frame_id : reconstruction->RegFrameIds()) {
+      redundant_config.SetConstantRigFromWorldPose(frame_id);
+    }
+    for (const auto& [camera_id, _] : reconstruction->Cameras()) {
+      redundant_config.SetConstantCamIntrinsics(camera_id);
+    }
+    for (const auto& [_, rig] : reconstruction->Rigs()) {
+      for (const auto& [sensor_id, _] : rig.NonRefSensors()) {
+        redundant_config.SetConstantSensorFromRigPose(sensor_id);
+      }
+    }
+
+    RunBundleAdjustmentImpl(ba_options, redundant_config, reconstruction);
+  }
 
   reconstruction->Write(output_path);
 
