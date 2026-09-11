@@ -1,5 +1,7 @@
 # AGENTS.md — COLMAP Guide
 
+If an optional `AGENTS.override.md` exists alongside this file, read it and follow it; its instructions take precedence over this file.
+
 ## Project Overview
 
 COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo (MVS) pipeline that reconstructs 3D models from 2D image collections. Written in C++17 with optional CUDA support. Single binary (colmap) with many subcommands, a Qt GUI, and Python bindings (pycolmap).
