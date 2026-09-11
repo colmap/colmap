@@ -1100,19 +1100,17 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   // and homography paths below, so all three share the same unscaled pixel
   // threshold. This also removes the former CamFromImgThreshold conversion,
   // whose single per-camera focal length is only exact at the principal point.
+  const RANSACOptions ransac_options = RansacOptionsWithMinInlierRatio(options);
   LORANSAC<EssentialMatrixTangentSampsonEstimator,
            EssentialMatrixTangentSampsonEstimator,
            MEstimatorSupportMeasurer>
-      E_ransac(RansacOptionsWithMinInlierRatio(options));
+      E_ransac(ransac_options);
   const auto E_report =
       E_ransac.Estimate(matched_cam_rays1_with_jac, matched_cam_rays2_with_jac);
   geometry.E = E_report.model;
 
-  const auto F_report =
-      EstimateFundamentalMatrix(options,
-                                RansacOptionsWithMinInlierRatio(options),
-                                matched_img_points1,
-                                matched_img_points2);
+  const auto F_report = EstimateFundamentalMatrix(
+      options, ransac_options, matched_img_points1, matched_img_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
@@ -1122,27 +1120,19 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
       std::min(E_report.support.num_inliers, F_report.support.num_inliers);
   // Undistorted pinhole cameras keep the pixel estimator, where the two are
   // algebraically equivalent.
+  const RANSACOptions H_ransac_options = HomographyRansacOptions(
+      options, ransac_options, competing_num_inliers, matches.size());
   const auto H_report =
       (camera1.IsUndistorted() && camera2.IsUndistorted())
           ? LORANSAC<HomographyMatrixEstimator,
                      HomographyMatrixEstimator,
-                     MEstimatorSupportMeasurer>(
-                HomographyRansacOptions(
-                    options,
-                    RansacOptionsWithMinInlierRatio(options),
-                    competing_num_inliers,
-                    matches.size()))
+                     MEstimatorSupportMeasurer>(H_ransac_options)
                 .Estimate(matched_img_points1, matched_img_points2)
-          : EstimateHomographyMatrixFromRays(
-                HomographyRansacOptions(
-                    options,
-                    RansacOptionsWithMinInlierRatio(options),
-                    competing_num_inliers,
-                    matches.size()),
-                camera1,
-                matched_img_points1,
-                camera2,
-                matched_img_points2);
+          : EstimateHomographyMatrixFromRays(H_ransac_options,
+                                             camera1,
+                                             matched_img_points1,
+                                             camera2,
+                                             matched_img_points2);
   geometry.H = H_report.model;
 
   if ((!E_report.success && !F_report.success && !H_report.success) ||
@@ -1273,8 +1263,9 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
   }
 
   // Shared-focal relative pose. Residuals are pixel-space squared Sampson
-  // error, so the pixel threshold is used unscaled, unlike the calibrated
-  // essential-matrix path, which rescales it into ray space.
+  // error, so the pixel threshold is used unscaled, as in the calibrated
+  // essential-matrix path, whose tangent Sampson residual is likewise in
+  // pixels.
   LORANSAC<RelativePoseSharedFocalEstimator,
            RelativePoseSharedFocalEstimator,
            MEstimatorSupportMeasurer>
