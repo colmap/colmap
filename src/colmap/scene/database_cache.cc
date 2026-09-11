@@ -34,6 +34,8 @@
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
+#include <algorithm>
+
 namespace colmap {
 namespace {
 
@@ -143,6 +145,20 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
 
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries =
       database.ReadTwoViewGeometries();
+
+  // Undefined rows are only written by outdated producers; current
+  // verification never stores them. They are skipped below, warn loudly.
+  const size_t num_undefined_two_view_geometries = std::count_if(
+      two_view_geometries.begin(),
+      two_view_geometries.end(),
+      [](const auto& pair_id_and_geometry) {
+        return pair_id_and_geometry.second.config == TwoViewGeometry::UNDEFINED;
+      });
+  LOG_IF(WARNING, num_undefined_two_view_geometries > 0)
+      << num_undefined_two_view_geometries
+      << " two-view geometries with UNDEFINED configuration (written by an "
+         "outdated producer); they are skipped, clear and re-run "
+         "verification to remove them.";
 
   LOG(INFO) << StringPrintf(
       " %d in %.3fs", two_view_geometries.size(), timer.ElapsedSeconds());
@@ -419,11 +435,15 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (cache->images_.count(image_id1) > 0 &&
         cache->images_.count(image_id2) > 0) {
+      TwoViewGeometry two_view_geometry = source_graph->ExtractTwoViewGeometry(
+          image_id1, image_id2, /*extract_inlier_matches=*/true);
+      if (!UseInlierMatchesCheck(options,
+                                 two_view_geometry.config,
+                                 two_view_geometry.inlier_matches.size())) {
+        continue;
+      }
       cache->correspondence_graph_->AddTwoViewGeometry(
-          image_id1,
-          image_id2,
-          source_graph->ExtractTwoViewGeometry(
-              image_id1, image_id2, /*extract_inlier_matches=*/true));
+          image_id1, image_id2, std::move(two_view_geometry));
     }
   }
 

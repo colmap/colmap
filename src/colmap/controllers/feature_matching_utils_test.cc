@@ -318,11 +318,9 @@ TEST(FeatureMatcherController, MatchSkipGeometricVerification) {
   // Matches should be written even without geometric verification
   EXPECT_EQ(data.database->ReadAllMatches().size(), 1);
 
-  // Verify geometric verification was skipped: TVG should have UNDEFINED config
-  const auto tvg =
-      data.database->ReadTwoViewGeometry(data.image_ids[0], data.image_ids[1]);
-  EXPECT_EQ(tvg.config, TwoViewGeometry::UNDEFINED);
-  EXPECT_TRUE(tvg.inlier_matches.empty());
+  // Geometric verification was skipped: no TVG row is stored at all.
+  EXPECT_FALSE(data.database->ExistsTwoViewGeometry(data.image_ids[0],
+                                                    data.image_ids[1]));
 }
 
 TEST(GeometricVerifierController, OptionsAccessor) {
@@ -468,6 +466,48 @@ TEST(FeatureMatcherController, MatchClearsDegenerateGeometry) {
   EXPECT_FALSE(tvg.F.has_value());
   EXPECT_FALSE(tvg.H.has_value());
   EXPECT_FALSE(tvg.E.has_value());
+  EXPECT_EQ(data.database->ReadMatches(pair_data.image_id1, pair_data.image_id2)
+                .size(),
+            100);
+}
+
+TEST(FeatureMatcherController, MatchSkippedPairsStoreNoTwoViewGeometry) {
+  auto pair_data = CreateLowRatioPairData();
+  auto& data = pair_data.data;
+  // No descriptors and no pre-existing matches: matching is skipped.
+  data.database->ClearMatches();
+
+  FeatureMatchingOptions matching_options = DefaultMatchingOptions();
+  TwoViewGeometryOptions geometry_options;
+  FeatureMatcherController controller(
+      matching_options, geometry_options, data.cache);
+  ASSERT_TRUE(controller.Setup());
+
+  controller.Match({{pair_data.image_id1, pair_data.image_id2}});
+
+  // Skipped pairs leave no row: absence means never verified.
+  EXPECT_FALSE(data.database->ExistsTwoViewGeometry(pair_data.image_id1,
+                                                    pair_data.image_id2));
+}
+
+TEST(GeometricVerifierController, VerifySkippedPairsStoreNoTwoViewGeometry) {
+  auto pair_data = CreateLowRatioPairData();
+  auto& data = pair_data.data;
+
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = 1;
+  TwoViewGeometryOptions geometry_options;
+  geometry_options.min_num_inliers = 200;  // Above the 100 stored matches.
+  GeometricVerifierController controller(
+      verifier_options, geometry_options, data.cache);
+  ASSERT_TRUE(controller.Setup());
+
+  controller.Verify({{pair_data.image_id1, pair_data.image_id2}});
+
+  // Skipped pairs leave no row: absence means never verified.
+  EXPECT_FALSE(data.database->ExistsTwoViewGeometry(pair_data.image_id1,
+                                                    pair_data.image_id2));
+  // Raw matches are preserved.
   EXPECT_EQ(data.database->ReadMatches(pair_data.image_id1, pair_data.image_id2)
                 .size(),
             100);
