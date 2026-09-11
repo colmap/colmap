@@ -40,6 +40,13 @@ namespace {
 bool UseInlierMatchesCheck(const DatabaseCache::Options& options,
                            int two_view_geometry_config,
                            size_t num_matches) {
+  // Missing or rejected geometries never contribute, regardless of any
+  // stored inlier matches. Verification clears such pairs, and this also
+  // repairs databases written before that clearing existed.
+  if (two_view_geometry_config == TwoViewGeometry::UNDEFINED ||
+      two_view_geometry_config == TwoViewGeometry::DEGENERATE) {
+    return false;
+  }
   return num_matches >= options.min_num_matches &&
          (!options.ignore_watermarks ||
           two_view_geometry_config != TwoViewGeometry::WATERMARK);

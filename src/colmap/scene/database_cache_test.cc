@@ -371,5 +371,52 @@ TEST(DatabaseCache, NonConstCorrespondenceGraph) {
               Rigid3dNear(new_pose, 1e-6, 1e-6));
 }
 
+TEST(DatabaseCache, SkipsUndefinedAndDegenerateGeometries) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  const camera_t camera_id = database->WriteCamera(camera);
+  Image image1;
+  image1.SetName("image1");
+  image1.SetCameraId(camera_id);
+  Image image2;
+  image2.SetName("image2");
+  image2.SetCameraId(camera_id);
+  Image image3;
+  image3.SetName("image3");
+  image3.SetCameraId(camera_id);
+  const image_t image_id1 = database->WriteImage(image1);
+  const image_t image_id2 = database->WriteImage(image2);
+  const image_t image_id3 = database->WriteImage(image3);
+  database->WriteKeypoints(image_id1, FeatureKeypoints(10));
+  database->WriteKeypoints(image_id2, FeatureKeypoints(10));
+  database->WriteKeypoints(image_id3, FeatureKeypoints(10));
+
+  // Same inlier matches under different configs: only the meaningfully
+  // labeled pair may enter the correspondence graph.
+  TwoViewGeometry good_geometry;
+  good_geometry.inlier_matches = {{0, 0}, {1, 1}};
+  good_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+  database->WriteTwoViewGeometry(image_id1, image_id2, good_geometry);
+
+  TwoViewGeometry degenerate_geometry = good_geometry;
+  degenerate_geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  database->WriteTwoViewGeometry(image_id2, image_id3, degenerate_geometry);
+
+  TwoViewGeometry undefined_geometry = good_geometry;
+  undefined_geometry.config = TwoViewGeometry::ConfigurationType::UNDEFINED;
+  database->WriteTwoViewGeometry(image_id1, image_id3, undefined_geometry);
+
+  const auto cache = DatabaseCache::Create(*database, {});
+  const auto correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id1, image_id2),
+            2);
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id2, image_id3),
+            0);
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id1, image_id3),
+            0);
+}
+
 }  // namespace
 }  // namespace colmap

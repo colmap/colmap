@@ -243,6 +243,15 @@ class VerifierWorker : public Thread {
   JobQueue<Output>* output_queue_;
 };
 
+// Clears a degenerate two-view geometry while keeping its DEGENERATE config
+// as the diagnosis. Downstream consumers exclude the pair by its empty
+// inlier set. Resetting wholesale (rather than field by field) also clears
+// any fields added to TwoViewGeometry in the future.
+void ClearDegenerateTwoViewGeometry(TwoViewGeometry* two_view_geometry) {
+  *two_view_geometry = TwoViewGeometry();
+  two_view_geometry->config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+}
+
 }  // namespace
 
 FeatureMatcherController::FeatureMatcherController(
@@ -504,9 +513,11 @@ void FeatureMatcherController::Match(
       output.matches = {};
     }
 
-    if (output.two_view_geometry.inlier_matches.size() <
-        static_cast<size_t>(geometry_options_.min_num_inliers)) {
-      output.two_view_geometry = TwoViewGeometry();
+    // Estimators label below-minimum results DEGENERATE, so clearing on the
+    // label alone suffices; anything else reaches the database untouched.
+    if (output.two_view_geometry.config ==
+        TwoViewGeometry::ConfigurationType::DEGENERATE) {
+      ClearDegenerateTwoViewGeometry(&output.two_view_geometry);
     }
 
     cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
@@ -649,9 +660,11 @@ void GeometricVerifierController::Verify(
       output.matches = {};
     }
 
-    if (output.two_view_geometry.inlier_matches.size() <
-        static_cast<size_t>(geometry_options_.min_num_inliers)) {
-      output.two_view_geometry = TwoViewGeometry();
+    // Estimators label below-minimum results DEGENERATE, so clearing on the
+    // label alone suffices; anything else reaches the database untouched.
+    if (output.two_view_geometry.config ==
+        TwoViewGeometry::ConfigurationType::DEGENERATE) {
+      ClearDegenerateTwoViewGeometry(&output.two_view_geometry);
     }
 
     if (cache_->ExistsTwoViewGeometry(output.image_id1, output.image_id2)) {
