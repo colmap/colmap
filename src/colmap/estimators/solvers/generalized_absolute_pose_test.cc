@@ -142,7 +142,7 @@ INSTANTIATE_TEST_SUITE_P(GP3PEstimatorTests,
                                            std::make_pair(1, true),
                                            std::make_pair(2, true)));
 
-struct GP3PSProblem {
+struct GP3PProblem {
   Rigid3d gt_rig_from_world;
   std::vector<Rigid3d> cams_from_rig;
   std::vector<GP3PEstimator::X_t> points2D;
@@ -151,8 +151,8 @@ struct GP3PSProblem {
 
 // Synthesizes a rig with random camera poses and points observed in
 // front of the cameras. Point i is observed by camera i % num_cams.
-GP3PSProblem BuildGP3PSProblem(const int num_points, const int num_cams) {
-  GP3PSProblem problem;
+GP3PProblem BuildGP3PProblem(const int num_points, const int num_cams) {
+  GP3PProblem problem;
   problem.gt_rig_from_world =
       Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
   const Rigid3d world_from_rig = Inverse(problem.gt_rig_from_world);
@@ -181,7 +181,7 @@ GP3PSProblem BuildGP3PSProblem(const int num_points, const int num_cams) {
 }
 
 // Moves the i-th 3D point behind its observing camera.
-void MovePointBehindCamera(GP3PSProblem* problem, const size_t i) {
+void MovePointBehindCamera(GP3PProblem* problem, const size_t i) {
   const Rigid3d cam_from_rig =
       Rigid3d::FromMatrix(problem->points2D[i].cam_from_rig);
   Eigen::Vector3d point3D_in_cam =
@@ -199,8 +199,8 @@ Rigid3d PerturbRigid3d(const Rigid3d& tform) {
 }
 
 TEST(GP3PEstimator, Refine) {
-  const GP3PSProblem problem =
-      BuildGP3PSProblem(/*num_points=*/32, /*num_cams=*/3);
+  const GP3PProblem problem =
+      BuildGP3PProblem(/*num_points=*/32, /*num_cams=*/3);
 
   for (const auto residual_type :
        {GP3PEstimator::ResidualType::CosineDistance,
@@ -217,7 +217,7 @@ TEST(GP3PEstimator, Refine) {
 }
 
 TEST(GP3PEstimator, RefineIgnoresStaleInliers) {
-  GP3PSProblem problem = BuildGP3PSProblem(/*num_points=*/32, /*num_cams=*/3);
+  GP3PProblem problem = BuildGP3PProblem(/*num_points=*/32, /*num_cams=*/3);
 
   // Observations that do not project in front of their camera contribute a
   // zero residual and must not bias the refinement: the remaining
@@ -236,7 +236,7 @@ TEST(GP3PEstimator, RefineIgnoresStaleInliers) {
 }
 
 TEST(GP3PEstimator, RefineSingleProjectionCenter) {
-  GP3PSProblem problem = BuildGP3PSProblem(/*num_points=*/32, /*num_cams=*/3);
+  GP3PProblem problem = BuildGP3PProblem(/*num_points=*/32, /*num_cams=*/3);
 
   // Unlike the scale of the scaled variant, the rigid pose stays observable
   // for observations from a single projection center.
