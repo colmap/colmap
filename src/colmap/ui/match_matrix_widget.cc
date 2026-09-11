@@ -80,11 +80,9 @@ void MatchMatrixWidget::Show() {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       const size_t idx1 = image_id_to_idx.at(image_id1);
       const size_t idx2 = image_id_to_idx.at(image_id2);
-      const BitmapColor<float> color(255 * JetColormap::Red(value),
-                                     255 * JetColormap::Green(value),
-                                     255 * JetColormap::Blue(value));
-      match_matrix.SetPixel(idx1, idx2, color.Cast<uint8_t>());
-      match_matrix.SetPixel(idx2, idx1, color.Cast<uint8_t>());
+      const auto color = JetColormap::ToBitmapColor(value);
+      match_matrix.SetPixel(idx1, idx2, color);
+      match_matrix.SetPixel(idx2, idx1, color);
     }
   }
 

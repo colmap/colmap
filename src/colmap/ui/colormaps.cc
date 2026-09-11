@@ -33,6 +33,27 @@
 #include "colmap/util/hash_containers.h"
 
 namespace colmap {
+namespace {
+
+Eigen::Vector4f JetColorRGBA(float gray) {
+  return Eigen::Vector4f(JetColormap::Red(gray),
+                         JetColormap::Green(gray),
+                         JetColormap::Blue(gray),
+                         1.0f);
+}
+
+template <typename Func>
+std::vector<float> CollectValues(
+    const NodeHashMap<point3D_t, Point3D>& points3D, Func func) {
+  std::vector<float> values;
+  values.reserve(points3D.size());
+  for (const auto& point3D : points3D) {
+    values.push_back(func(point3D.second));
+  }
+  return values;
+}
+
+}  // namespace
 
 PointColormapBase::PointColormapBase()
     : scale(1.0f),
@@ -83,46 +104,29 @@ void PointColormapError::Prepare(NodeHashMap<camera_t, Camera>& cameras,
                                  NodeHashMap<image_t, Image>& images,
                                  NodeHashMap<point3D_t, Point3D>& points3D,
                                  std::vector<image_t>& reg_image_ids) {
-  std::vector<float> errors;
-  errors.reserve(points3D.size());
-
-  for (const auto& point3D : points3D) {
-    errors.push_back(static_cast<float>(point3D.second.error));
-  }
-
+  auto errors = CollectValues(points3D, [](const Point3D& point3D) {
+    return static_cast<float>(point3D.error);
+  });
   UpdateScale(&errors);
 }
 
 Eigen::Vector4f PointColormapError::ComputeColor(const point3D_t point3D_id,
                                                  const Point3D& point3D) {
-  const float gray = AdjustScale(static_cast<float>(point3D.error));
-  return Eigen::Vector4f(JetColormap::Red(gray),
-                         JetColormap::Green(gray),
-                         JetColormap::Blue(gray),
-                         1.0f);
+  return JetColorRGBA(AdjustScale(static_cast<float>(point3D.error)));
 }
 
 void PointColormapTrackLen::Prepare(NodeHashMap<camera_t, Camera>& cameras,
                                     NodeHashMap<image_t, Image>& images,
                                     NodeHashMap<point3D_t, Point3D>& points3D,
                                     std::vector<image_t>& reg_image_ids) {
-  std::vector<float> track_lengths;
-  track_lengths.reserve(points3D.size());
-
-  for (const auto& point3D : points3D) {
-    track_lengths.push_back(point3D.second.track.Length());
-  }
-
+  auto track_lengths = CollectValues(
+      points3D, [](const Point3D& point3D) { return point3D.track.Length(); });
   UpdateScale(&track_lengths);
 }
 
 Eigen::Vector4f PointColormapTrackLen::ComputeColor(const point3D_t point3D_id,
                                                     const Point3D& point3D) {
-  const float gray = AdjustScale(point3D.track.Length());
-  return Eigen::Vector4f(JetColormap::Red(gray),
-                         JetColormap::Green(gray),
-                         JetColormap::Blue(gray),
-                         1.0f);
+  return JetColorRGBA(AdjustScale(point3D.track.Length()));
 }
 
 void PointColormapGroundResolution::Prepare(
@@ -201,11 +205,7 @@ void PointColormapGroundResolution::Prepare(
 
 Eigen::Vector4f PointColormapGroundResolution::ComputeColor(
     const point3D_t point3D_id, const Point3D& point3D) {
-  const float gray = AdjustScale(resolutions_[point3D_id]);
-  return Eigen::Vector4f(JetColormap::Red(gray),
-                         JetColormap::Green(gray),
-                         JetColormap::Blue(gray),
-                         1.0f);
+  return JetColorRGBA(AdjustScale(resolutions_[point3D_id]));
 }
 
 const Eigen::Vector4f ImageColormapBase::kDefaultPlaneColor = {
