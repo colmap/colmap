@@ -55,6 +55,7 @@ class FeatureMatchingTab : public QWidget {
   void ReadOptions();
   void WriteOptions();
   void CreateGeneralOptions();
+  void RunMatcher(std::unique_ptr<Thread> matcher);
 
   OptionManager* options_;
   OptionsWidget* options_widget_;
@@ -224,6 +225,21 @@ void FeatureMatchingTab::WriteOptions() {
       matcher_types_[matcher_type_cb_->currentIndex()];
 }
 
+void FeatureMatchingTab::RunMatcher(std::unique_ptr<Thread> matcher) {
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+}
+
+// An empty path is valid: the matcher then resolves the default vocabulary
+// tree for the database's feature type via GetVocabTreeUriForFeatureType.
+bool CheckVocabTreePath(QWidget* parent, const std::filesystem::path& path) {
+  if (!path.empty() && !ExistsFile(path) && !IsURI(path.string())) {
+    QMessageBox::critical(
+        parent, "", parent->tr("Invalid vocabulary tree path."));
+    return false;
+  }
+  return true;
+}
+
 ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
                                              OptionManager* options)
     : FeatureMatchingTab(parent, options) {
@@ -236,11 +252,10 @@ ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
 void ExhaustiveMatchingTab::Run() {
   WriteOptions();
 
-  auto matcher = CreateExhaustiveFeatureMatcher(*options_->exhaustive_pairing,
-                                                *options_->feature_matching,
-                                                *options_->two_view_geometry,
-                                                *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+  RunMatcher(CreateExhaustiveFeatureMatcher(*options_->exhaustive_pairing,
+                                            *options_->feature_matching,
+                                            *options_->two_view_geometry,
+                                            *options_->database_path));
 }
 
 SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
@@ -287,21 +302,16 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
 void SequentialMatchingTab::Run() {
   WriteOptions();
 
-  // An empty path is valid: the matcher then resolves the default vocabulary
-  // tree for the database's feature type via GetVocabTreeUriForFeatureType.
   if (options_->sequential_pairing->loop_detection &&
-      !options_->sequential_pairing->vocab_tree_path.empty() &&
-      !ExistsFile(options_->sequential_pairing->vocab_tree_path) &&
-      !IsURI(options_->sequential_pairing->vocab_tree_path.string())) {
-    QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+      !CheckVocabTreePath(this,
+                          options_->sequential_pairing->vocab_tree_path)) {
     return;
   }
 
-  auto matcher = CreateSequentialFeatureMatcher(*options_->sequential_pairing,
-                                                *options_->feature_matching,
-                                                *options_->two_view_geometry,
-                                                *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+  RunMatcher(CreateSequentialFeatureMatcher(*options_->sequential_pairing,
+                                            *options_->feature_matching,
+                                            *options_->two_view_geometry,
+                                            *options_->database_path));
 }
 
 VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
@@ -329,20 +339,15 @@ VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
 void VocabTreeMatchingTab::Run() {
   WriteOptions();
 
-  // An empty path is valid: the matcher then resolves the default vocabulary
-  // tree for the database's feature type via GetVocabTreeUriForFeatureType.
-  if (!options_->vocab_tree_pairing->vocab_tree_path.empty() &&
-      !ExistsFile(options_->vocab_tree_pairing->vocab_tree_path) &&
-      !IsURI(options_->vocab_tree_pairing->vocab_tree_path.string())) {
-    QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+  if (!CheckVocabTreePath(this,
+                          options_->vocab_tree_pairing->vocab_tree_path)) {
     return;
   }
 
-  auto matcher = CreateVocabTreeFeatureMatcher(*options_->vocab_tree_pairing,
-                                               *options_->feature_matching,
-                                               *options_->two_view_geometry,
-                                               *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+  RunMatcher(CreateVocabTreeFeatureMatcher(*options_->vocab_tree_pairing,
+                                           *options_->feature_matching,
+                                           *options_->two_view_geometry,
+                                           *options_->database_path));
 }
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
@@ -362,11 +367,10 @@ SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
 void SpatialMatchingTab::Run() {
   WriteOptions();
 
-  auto matcher = CreateSpatialFeatureMatcher(*options_->spatial_pairing,
-                                             *options_->feature_matching,
-                                             *options_->two_view_geometry,
-                                             *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+  RunMatcher(CreateSpatialFeatureMatcher(*options_->spatial_pairing,
+                                         *options_->feature_matching,
+                                         *options_->two_view_geometry,
+                                         *options_->database_path));
 }
 
 TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
@@ -383,11 +387,10 @@ TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
 void TransitiveMatchingTab::Run() {
   WriteOptions();
 
-  auto matcher = CreateTransitiveFeatureMatcher(*options_->transitive_pairing,
-                                                *options_->feature_matching,
-                                                *options_->two_view_geometry,
-                                                *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+  RunMatcher(CreateTransitiveFeatureMatcher(*options_->transitive_pairing,
+                                            *options_->feature_matching,
+                                            *options_->two_view_geometry,
+                                            *options_->database_path));
 }
 
 CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
@@ -437,7 +440,7 @@ void CustomMatchingTab::Run() {
                                                *options_->database_path);
   }
 
-  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
+  RunMatcher(std::move(matcher));
 }
 
 FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,

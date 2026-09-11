@@ -53,21 +53,11 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
 
   AddSpacer();
 
-  QLabel* data_type_label = new QLabel(tr("Data type"), this);
-  data_type_label->setFont(font());
-  data_type_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(data_type_label, grid_layout_->rowCount(), 0);
-
   data_type_cb_ = new QComboBox(this);
   data_type_cb_->addItem("Individual images");
   data_type_cb_->addItem("Video frames");
   data_type_cb_->addItem("Internet images");
-  grid_layout_->addWidget(data_type_cb_, grid_layout_->rowCount() - 1, 1);
-
-  QLabel* quality_label = new QLabel(tr("Quality"), this);
-  quality_label->setFont(font());
-  quality_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(quality_label, grid_layout_->rowCount(), 0);
+  AddWidgetRow("Data type", data_type_cb_);
 
   quality_cb_ = new QComboBox(this);
   quality_cb_->addItem("Low");
@@ -75,7 +65,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   quality_cb_->addItem("High");
   quality_cb_->addItem("Extreme");
   quality_cb_->setCurrentIndex(2);
-  grid_layout_->addWidget(quality_cb_, grid_layout_->rowCount() - 1, 1);
+  AddWidgetRow("Quality", quality_cb_);
 
   AddSpacer();
 
@@ -85,16 +75,11 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddOptionBool(&options_.sparse, "Sparse model");
   AddOptionBool(&options_.dense, "Dense model");
 
-  QLabel* mesher_label = new QLabel(tr("Mesher"), this);
-  mesher_label->setFont(font());
-  mesher_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(mesher_label, grid_layout_->rowCount(), 0);
-
   mesher_cb_ = new QComboBox(this);
   mesher_cb_->addItem("Poisson");
   mesher_cb_->addItem("Delaunay");
   mesher_cb_->setCurrentIndex(0);
-  grid_layout_->addWidget(mesher_cb_, grid_layout_->rowCount() - 1, 1);
+  AddWidgetRow("Mesher", mesher_cb_);
 
   AddSpacer();
 
