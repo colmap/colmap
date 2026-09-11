@@ -69,7 +69,9 @@
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/boost/graph/Euler_operations.h>
 #include <boost/functional/hash.hpp>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace {
 
@@ -757,11 +759,13 @@ colmap::PlyMesh ReconstructBlocks(
     thread_pool.AddTask([&, block_idx]() {
       // Disable OMP parallelism within each block task to avoid
       // oversubscription since ThreadPool handles inter-block parallelism.
+#ifdef _OPENMP
       omp_set_num_threads(1);
 #ifdef _MSC_VER
       omp_set_nested(0);
 #else
       omp_set_max_active_levels(1);
+#endif
 #endif
 
       const auto& indices = block_point_indices[block_idx];
@@ -890,11 +894,13 @@ void AdvancingFrontMeshing(const AdvancingFrontMeshingOptions& options,
     }
 #pragma omp parallel num_threads(1)
     {
+#ifdef _OPENMP
       omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
 #ifdef _MSC_VER
       omp_set_nested(1);
 #else
       omp_set_max_active_levels(1);
+#endif
 #endif
       mesh = ReconstructBlock(ply_points, rays, options);
     }
