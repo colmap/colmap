@@ -29,7 +29,12 @@
 
 #include "colmap/ui/image_viewer_widget.h"
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/ui/model_viewer_widget.h"
+
+#include <algorithm>
+#include <cmath>
+#include <optional>
 
 namespace colmap {
 
@@ -258,6 +263,12 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
       options_(options) {
   setWindowTitle("Image information");
 
+  // Track the cursor over the image so a viewing ray for the pixel under the
+  // mouse can be drawn in the 3D model viewer.
+  graphics_view_->setMouseTracking(true);
+  graphics_view_->viewport()->setMouseTracking(true);
+  graphics_view_->viewport()->installEventFilter(this);
+
   table_widget_ = new QTableWidget(this);
   table_widget_->setColumnCount(2);
   table_widget_->setRowCount(8);
@@ -378,6 +389,90 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
 
   const auto path = *options_->image_path / image.Name();
   ReadAndShowWithKeypoints(path, keypoints, tri_mask);
+
+  // Extract the state needed to back-project hovered pixels once per image,
+  // rather than on every mouse move.
+  hover_ray_context_.reset();
+  if (image.HasPose()) {
+    const Rigid3d& cam_from_world = image.CamFromWorld();
+    HoverRayContext context;
+    context.camera = *image.CameraPtr();
+    context.origin = image.ProjectionCenter();
+    context.world_from_cam_rotation = cam_from_world.rotation().inverse();
+    // Scale the ray to the scene: reach the farthest point observed by this
+    // image, so that it stays visible regardless of the model's scale and does
+    // not degenerate when the camera sits near the world origin.
+    double max_sq_dist = 0;
+    for (const Point2D& point2D : image.Points2D()) {
+      if (!point2D.HasPoint3D()) {
+        continue;
+      }
+      const auto point3D_it =
+          model_viewer_widget_->points3D.find(point2D.point3D_id);
+      if (point3D_it != model_viewer_widget_->points3D.end()) {
+        max_sq_dist =
+            std::max(max_sq_dist,
+                     (point3D_it->second.xyz - context.origin).squaredNorm());
+      }
+    }
+    context.length = (max_sq_dist > 0) ? std::sqrt(max_sq_dist) : 1.0;
+    hover_ray_context_ = std::move(context);
+  }
+}
+
+bool DatabaseImageViewerWidget::eventFilter(QObject* watched, QEvent* event) {
+  if (watched == graphics_view_->viewport()) {
+    if (event->type() == QEvent::MouseMove) {
+      const QPointF scene_pos =
+          graphics_view_->mapToScene(static_cast<QMouseEvent*>(event)->pos());
+      UpdateHoverRay(scene_pos);
+    } else if (event->type() == QEvent::Leave) {
+      if (model_viewer_widget_ != nullptr) {
+        model_viewer_widget_->ClearHoverRay();
+      }
+    }
+  }
+  return FeatureImageViewerWidget::eventFilter(watched, event);
+}
+
+void DatabaseImageViewerWidget::UpdateHoverRay(const QPointF& scene_pos) {
+  if (model_viewer_widget_ == nullptr) {
+    return;
+  }
+  if (!hover_ray_context_.has_value()) {
+    model_viewer_widget_->ClearHoverRay();
+    return;
+  }
+  const HoverRayContext& context = *hover_ray_context_;
+  const Camera& camera = context.camera;
+
+  // Scene coordinates -> original image pixel coordinates (the displayed pixmap
+  // may differ in resolution from the camera).
+  double px = scene_pos.x();
+  double py = scene_pos.y();
+  const QGraphicsPixmapItem* pixmap_item = graphics_scene_.ImagePixmapItem();
+  if (pixmap_item != nullptr && pixmap_item->pixmap().width() > 0 &&
+      pixmap_item->pixmap().height() > 0) {
+    px *= static_cast<double>(camera.width) / pixmap_item->pixmap().width();
+    py *= static_cast<double>(camera.height) / pixmap_item->pixmap().height();
+  }
+  if (px < 0 || py < 0 || px >= static_cast<double>(camera.width) ||
+      py >= static_cast<double>(camera.height)) {
+    model_viewer_widget_->ClearHoverRay();
+    return;
+  }
+
+  // Unproject the pixel to a world-space viewing ray from the camera center.
+  const std::optional<Eigen::Vector2d> cam_point =
+      camera.CamFromImg(Eigen::Vector2d(px, py));
+  if (!cam_point.has_value()) {
+    model_viewer_widget_->ClearHoverRay();
+    return;
+  }
+  const Eigen::Vector3d cam_ray = cam_point->homogeneous().normalized();
+  const Eigen::Vector3d world_ray = context.world_from_cam_rotation * cam_ray;
+
+  model_viewer_widget_->SetHoverRay(context.origin, world_ray, context.length);
 }
 
 void DatabaseImageViewerWidget::ResizeTable() {

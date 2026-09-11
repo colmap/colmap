@@ -35,6 +35,7 @@
 
 #include <QtCore>
 #include <QtWidgets>
+#include <optional>
 
 namespace colmap {
 
@@ -61,15 +62,15 @@ class ImageViewerWidget : public QWidget {
  private:
   static const double kZoomFactor;
 
-  ImageViewerGraphicsScene graphics_scene_;
-  QGraphicsView* graphics_view_;
-
  protected:
   void resizeEvent(QResizeEvent* event);
   void closeEvent(QCloseEvent* event);
   void ZoomIn();
   void ZoomOut();
   void Save();
+
+  ImageViewerGraphicsScene graphics_scene_;
+  QGraphicsView* graphics_view_;
 
   QGridLayout* grid_layout_;
   QHBoxLayout* button_layout_;
@@ -107,9 +108,28 @@ class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
 
   void ShowImageWithId(image_t image_id);
 
+ protected:
+  // Intercept hover events on the image so a viewing ray can be drawn in the 3D
+  // model viewer for the pixel under the cursor.
+  bool eventFilter(QObject* watched, QEvent* event) override;
+
  private:
   void ResizeTable();
   void DeleteImage();
+  void UpdateHoverRay(const QPointF& scene_pos);
+
+  // Per-image state for the hover viewing ray, extracted once in
+  // ShowImageWithId() instead of on every mouse move.
+  struct HoverRayContext {
+    Camera camera;
+    // Center of the camera in world coordinates.
+    Eigen::Vector3d origin;
+    // Rotation from camera to world coordinates.
+    Eigen::Quaterniond world_from_cam_rotation;
+    // Length of the drawn ray, scaled to the extent of the observed scene.
+    double length;
+  };
+  std::optional<HoverRayContext> hover_ray_context_;
 
   ModelViewerWidget* model_viewer_widget_;
 
