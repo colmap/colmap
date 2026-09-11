@@ -757,8 +757,8 @@ colmap::PlyMesh ReconstructBlocks(
     }
 
     thread_pool.AddTask([&, block_idx]() {
-      // Disable OMP parallelism within each block task to avoid
-      // oversubscription since ThreadPool handles inter-block parallelism.
+    // Disable OMP parallelism within each block task to avoid
+    // oversubscription since ThreadPool handles inter-block parallelism.
 #ifdef _OPENMP
       omp_set_num_threads(1);
 #ifdef _MSC_VER
