@@ -31,6 +31,7 @@
 
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
