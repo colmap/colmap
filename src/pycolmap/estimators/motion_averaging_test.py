@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 import pycolmap
@@ -70,6 +71,64 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
 def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
     assert options is not None
+
+
+def test_global_positioner_prepared_problem() -> None:
+    pyceres = pytest.importorskip("pyceres")
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    options.random_seed = 42
+    loss = pyceres.CauchyLoss(0.1)
+    owner = pycolmap.create_default_global_positioner(
+        options,
+        pycolmap.PoseGraph(),
+        reconstruction,
+        loss_function=loss,
+    )
+    del loss
+    point = next(iter(reconstruction.points3D.values())).xyz
+    owner.extend_parameter_block_ordering()
+    owner.extend_parameter_block_ordering([(point, 1)])
+    with pytest.raises(ValueError, match="group assignment"):
+        owner.extend_parameter_block_ordering([(point.copy(), 1)])
+    assert owner.problem.num_residual_blocks() > 0
+    assert owner.solve().IsSolutionUsable()
+
+
+def test_global_positioner_frame_center_parameter_block() -> None:
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    owner = pycolmap.create_default_global_positioner(
+        options, pycolmap.PoseGraph(), reconstruction
+    )
+    frame_id = next(iter(reconstruction.frames))
+    center = owner.frame_center_parameter_block(frame_id)
+    assert center.shape == (3,)
+    assert center.base is owner
+    center[:] = [1.0, 2.0, 3.0]
+    np.testing.assert_array_equal(
+        owner.frame_center_parameter_block(frame_id), center
+    )
+    assert (
+        owner.frame_center_parameter_block(max(reconstruction.frames) + 1)
+        is None
+    )
+    del owner
+    pytest.importorskip("pyceres")
+    assert center.base.problem.has_parameter_block(center)
 
 
 @pytest.mark.parametrize(

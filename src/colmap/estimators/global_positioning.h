@@ -4,7 +4,10 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/hash_containers.h"
 
+#include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <ceres/ceres.h>
 
@@ -61,18 +64,40 @@ struct GlobalPositionerOptions {
 
 class GlobalPositioner {
  public:
-  explicit GlobalPositioner(const GlobalPositionerOptions& options);
+  virtual ~GlobalPositioner() = default;
 
-  // Returns true if the optimization was a success, false if there was a
-  // failure.
-  // Assume tracks here are already filtered
-  bool Solve(const PoseGraph& pose_graph, Reconstruction& reconstruction);
+  // The reconstruction must outlive the returned positioner.
+  static std::unique_ptr<GlobalPositioner> CreateDefault(
+      const GlobalPositionerOptions& options,
+      const PoseGraph& pose_graph,
+      Reconstruction& reconstruction,
+      std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 
-  GlobalPositionerOptions& GetOptions() { return options_; }
+  // Solve the prepared problem and publish its results.
+  ceres::Solver::Summary Solve();
+
+  ceres::Problem& Problem();
+  const ceres::Solver::Options& SolverOptions() const;
+  // Returns the temporary frame-center block used by the prepared problem,
+  // allowing additional residuals to constrain the same variable. Returns
+  // nullptr if the frame is not active.
+  double* FrameCenterParameterBlock(frame_t frame_id);
+  bool Finalize(const ceres::Solver::Summary& summary);
+  // Extends an existing ordering after adding parameter blocks.
+  // Independent single-residual scalars use group 0; other new blocks use
+  // group 3. Optional parameter_groups override existing assignments.
+  void ExtendParameterBlockOrdering(
+      const std::vector<std::pair<double*, int>>& parameter_groups = {});
 
  protected:
-  void SetupProblem(const PoseGraph& pose_graph,
-                    const Reconstruction& reconstruction);
+  explicit GlobalPositioner(const GlobalPositionerOptions& options);
+
+  // Construct the problem without solving it.
+  void Prepare(const PoseGraph& pose_graph,
+               Reconstruction& reconstruction,
+               std::shared_ptr<ceres::LossFunction> loss_function);
+
+  void SetupProblem(std::shared_ptr<ceres::LossFunction> loss_function);
 
   // Initialize all cameras to be random.
   void InitializeRandomPositions(const PoseGraph& pose_graph,
@@ -97,15 +122,14 @@ class GlobalPositioner {
 
   GlobalPositionerOptions options_;
 
-  std::unique_ptr<ceres::Problem> problem_;
+ private:
+  std::vector<double> scales_;
 
+ protected:
   // Loss functions for reweighted terms.
   std::shared_ptr<ceres::LossFunction> loss_function_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_uncalibrated_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_calibrated_;
-
-  // Auxiliary scale variables.
-  std::vector<double> scales_;
 
   // Temporary storage for frame centers (world coordinates) during
   // optimization. This allows keeping RigFromWorld().translation() in
@@ -115,6 +139,10 @@ class GlobalPositioner {
   // Temporary storage for camera-in-rig positions when cam_from_rig is unknown
   // and needs to be estimated.
   NodeHashMap<sensor_t, Eigen::Vector3d> cams_in_rig_;
+
+  // Retained for Finalize().
+  Reconstruction* reconstruction_ = nullptr;
+  std::unique_ptr<ceres::Problem> problem_;
 };
 
 // Solve global positioning using point-to-camera constraints.
