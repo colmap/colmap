@@ -37,8 +37,8 @@ endif()
 if(FETCH_POSELIB)
     include(FetchContent)
     FetchContent_Declare(poselib
-        URL https://github.com/PoseLib/PoseLib/archive/fa7280fee27f97aff31ae7f98bab7f583fac7d08.zip
-        URL_HASH SHA256=5408d4ae8ce367cb2f076bc6c5f0f6f78abd3573d2c015304b04e46f23455f5b
+        URL https://github.com/PoseLib/PoseLib/archive/1758bd6d20f607c276388d28b5ba88f3651e85e9.zip
+        URL_HASH SHA256=fc93201ee580038ae859751e29c1d4f19b47ec03f9e3dd7d57691881879105c5
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring PoseLib...")
