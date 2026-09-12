@@ -198,6 +198,54 @@ class classh_ext : public classh<type_, options...> {
     Parent::def_property(std::forward<Args>(args)...);
     return *this;
   }
+
+  template <typename... Args>
+  classh_ext& def_static(Args&&... args) {
+    Parent::def_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_property_readonly(Args&&... args) {
+    Parent::def_property_readonly(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_property_readonly_static(Args&&... args) {
+    Parent::def_property_readonly_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_property_static(Args&&... args) {
+    Parent::def_property_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_readonly(Args&&... args) {
+    Parent::def_readonly(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_readonly_static(Args&&... args) {
+    Parent::def_readonly_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_readwrite_static(Args&&... args) {
+    Parent::def_readwrite_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_buffer(Args&&... args) {
+    Parent::def_buffer(std::forward<Args>(args)...);
+    return *this;
+  }
 };
 
 }  // namespace PYBIND11_NAMESPACE
