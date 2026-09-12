@@ -390,6 +390,17 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
   return data;
 }
 
+TEST(TwoViewGeometryOptions, CheckMinInlierRatioBounds) {
+  TwoViewGeometryOptions options;
+  EXPECT_TRUE(options.Check());
+  options.min_inlier_ratio = -0.1;
+  EXPECT_FALSE(options.Check());
+  options.min_inlier_ratio = 1.1;
+  EXPECT_FALSE(options.Check());
+  options.min_inlier_ratio = 1.0;
+  EXPECT_TRUE(options.Check());
+}
+
 TEST(EstimateTwoViewGeometry, Spherical) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;

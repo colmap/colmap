@@ -1383,7 +1383,10 @@ def compute_grouped_rel_errors(
         gt_edges.update(itertools.permutations(group_names, 2))
 
     errors: list[float] = []
-    for edge in set(tgt_from_src_est_edges) | gt_edges:
+    # Score edges in sorted order: set iteration order depends on the
+    # per-process hash seed, so an unsorted union would permute the error
+    # array from run to run.
+    for edge in sorted(set(tgt_from_src_est_edges) | gt_edges):
         src_name, tgt_name = edge
         tgt_from_src_ests = tgt_from_src_est_edges.get(edge, [])
         if edge in gt_edges:
