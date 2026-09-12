@@ -41,7 +41,9 @@
 #include <vector>
 
 #include <faiss/IndexFlat.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -674,7 +676,9 @@ SpatialPairGenerator::SpatialPairGenerator(
   index_matrix_.resize(num_positions, knn_);
   distance_squared_matrix_.resize(num_positions, knn_);
 
+#ifdef _OPENMP
   omp_set_num_threads(GetEffectiveNumThreads(options_.num_threads));
+#endif
 
   search_index.search(position_matrix.rows(),
                       position_matrix.data(),
