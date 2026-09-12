@@ -33,6 +33,7 @@
 #include "colmap/util/timer.h"
 
 #include <climits>
+#include <exception>
 #include <functional>
 #include <future>
 #include <list>
