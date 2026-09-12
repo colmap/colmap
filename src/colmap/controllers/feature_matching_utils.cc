@@ -230,6 +230,13 @@ class VerifierWorker : public Thread {
               camera1, points1, camera2, points2, data.matches, options_);
         }
 
+        // The estimator must always return a defined configuration:
+        // UNDEFINED at the output stage means the pair was skipped, so an
+        // UNDEFINED estimate would be silently dropped there.
+        THROW_CHECK_NE(data.two_view_geometry.config,
+                       TwoViewGeometry::ConfigurationType::UNDEFINED)
+            << "Two-view estimation must not return UNDEFINED.";
+
         THROW_CHECK(output_queue_->Push(std::move(data)));
       }
     }
@@ -242,6 +249,16 @@ class VerifierWorker : public Thread {
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 };
+
+// Clears the payload (models, pose, inlier matches) of a two-view geometry
+// while keeping its config as the diagnosis. Downstream consumers exclude
+// the pair by its empty inlier set. Resetting wholesale (rather than field
+// by field) also clears any fields added to TwoViewGeometry in the future.
+void ClearTwoViewGeometryPayload(TwoViewGeometry* two_view_geometry) {
+  const int config = two_view_geometry->config;
+  *two_view_geometry = TwoViewGeometry();
+  two_view_geometry->config = config;
+}
 
 }  // namespace
 
@@ -504,12 +521,20 @@ void FeatureMatcherController::Match(
       output.matches = {};
     }
 
-    if (output.two_view_geometry.inlier_matches.size() <
-        static_cast<size_t>(geometry_options_.min_num_inliers)) {
-      output.two_view_geometry = TwoViewGeometry();
-    }
-
     cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
+
+    // Unattempted (UNDEFINED) pairs are not stored at all: the absence of a
+    // row means the pair was never verified. Rejected (DEGENERATE) pairs
+    // keep their diagnosis but no payload. Estimators label every
+    // below-minimum result, so anything else reaches the database untouched.
+    if (output.two_view_geometry.config ==
+        TwoViewGeometry::ConfigurationType::UNDEFINED) {
+      continue;
+    }
+    if (output.two_view_geometry.config ==
+        TwoViewGeometry::ConfigurationType::DEGENERATE) {
+      ClearTwoViewGeometryPayload(&output.two_view_geometry);
+    }
     cache_->WriteTwoViewGeometry(
         output.image_id1, output.image_id2, output.two_view_geometry);
   }
@@ -649,13 +674,21 @@ void GeometricVerifierController::Verify(
       output.matches = {};
     }
 
-    if (output.two_view_geometry.inlier_matches.size() <
-        static_cast<size_t>(geometry_options_.min_num_inliers)) {
-      output.two_view_geometry = TwoViewGeometry();
-    }
-
     if (cache_->ExistsTwoViewGeometry(output.image_id1, output.image_id2)) {
       cache_->DeleteTwoViewGeometry(output.image_id1, output.image_id2);
+    }
+
+    // Unattempted (UNDEFINED) pairs are not stored at all: the absence of a
+    // row means the pair was never verified. Rejected (DEGENERATE) pairs
+    // keep their diagnosis but no payload. Estimators label every
+    // below-minimum result, so anything else reaches the database untouched.
+    if (output.two_view_geometry.config ==
+        TwoViewGeometry::ConfigurationType::UNDEFINED) {
+      continue;
+    }
+    if (output.two_view_geometry.config ==
+        TwoViewGeometry::ConfigurationType::DEGENERATE) {
+      ClearTwoViewGeometryPayload(&output.two_view_geometry);
     }
     cache_->WriteTwoViewGeometry(
         output.image_id1, output.image_id2, output.two_view_geometry);
