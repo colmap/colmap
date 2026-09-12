@@ -179,6 +179,11 @@ Custom keys reuse the `std::hash` specializations / `PairHash` in `util/types.h`
 Keep `std::map`/`std::set` only when sorted iteration is required (deterministic
 output, Ceres block order, `lower_bound`).
 
+### License Headers
+
+Start every new source file with a one-line SPDX header, e.g.
+`// SPDX-License-Identifier: BSD-3-Clause`.
+
 ### Formatting
 
 ```bash
