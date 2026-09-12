@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Run Structure-from-Motion on 360-degree panorama images."""
 
 import argparse

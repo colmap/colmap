@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Invoke from anywhere to perform an incremental build of pycolmap bindings.
 # Make sure to install the requirements from pyproject.toml. If colmap is not

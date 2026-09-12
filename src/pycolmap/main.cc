@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/math/random.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/version.h"

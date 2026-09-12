@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/scene/reconstruction_manager.h"
 
 #include "pycolmap/pybind11_extension.h"

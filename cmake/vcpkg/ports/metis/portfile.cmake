@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Newer METIS revisions crash in METIS_PartGraphKway on Windows. Keep this
 # known-good revision and make its compiler flags portable in build-fixes.patch.
 vcpkg_check_linkage(ONLY_STATIC_LIBRARY)

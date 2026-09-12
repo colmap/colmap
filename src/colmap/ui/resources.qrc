@@ -47,6 +47,6 @@
 
     <file>media/colmap-logo.svg</file>
 
-    <file alias="COPYING.txt">../../../COPYING.txt</file>
+    <file alias="LICENSE">../../../LICENSE</file>
 </qresource>
 </RCC>

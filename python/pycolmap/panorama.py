@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Structure-from-Motion pipelines for 360-degree panorama images."""
 
 import collections

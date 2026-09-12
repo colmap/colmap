@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 if(COLMAP_FIND_QUIETLY)
     set(COLMAP_FIND_TYPE QUIET)
 else()

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_manager.h"

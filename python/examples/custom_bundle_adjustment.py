@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Python reimplementation of the bundle adjustment for the incremental mapper of
 C++ with equivalent logic. As a result, one can add customized residuals on top

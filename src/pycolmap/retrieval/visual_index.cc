@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/retrieval/visual_index.h"
 
 #include "colmap/feature/types.h"

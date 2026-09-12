@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 find_package(benchmark REQUIRED)
 
 add_executable(benchmark_cost_functions cost_functions.cc)

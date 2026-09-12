@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Install PEP 517 build requirements into the active Python environment."""
 
 import importlib

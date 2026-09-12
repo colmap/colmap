@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/pairing.h"
 #include "colmap/estimators/two_view_geometry.h"
