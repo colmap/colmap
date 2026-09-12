@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/sift.h"
 #ifdef COLMAP_ONNX_ENABLED

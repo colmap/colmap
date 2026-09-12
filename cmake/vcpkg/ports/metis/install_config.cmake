@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 install(EXPORT metisTargets
         FILE metisTargets.cmake
         DESTINATION share/metis

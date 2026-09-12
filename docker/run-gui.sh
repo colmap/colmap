@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: BSD-3-Clause
+
 #
 # A robust script to run the COLMAP GUI inside a Docker container,
 # with automatic GPU detection and flexible argument passing.

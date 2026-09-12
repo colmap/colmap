@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/scene/correspondence_graph.h"
 
 #include "colmap/feature/types.h"

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Python reimplementation of the C++ incremental mapper with equivalent logic.
 """

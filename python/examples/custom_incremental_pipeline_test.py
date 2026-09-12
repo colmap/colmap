@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Equivalent tests to src/colmap/controllers/incremental_pipeline_test.cc
 
 from pathlib import Path

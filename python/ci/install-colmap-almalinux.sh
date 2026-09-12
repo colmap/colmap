@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: BSD-3-Clause
+
 set -e -x
 uname -a
 CURRDIR=$(pwd)

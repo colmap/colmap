@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 
 #include "colmap/estimators/bundle_adjustment.h"

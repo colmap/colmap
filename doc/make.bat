@@ -1,4 +1,5 @@
 @ECHO OFF
+rem SPDX-License-Identifier: BSD-3-Clause
 
 REM Command file for Sphinx documentation
 

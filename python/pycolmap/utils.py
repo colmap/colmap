@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 from collections.abc import MutableSequence
 from types import ModuleType
 from typing import Any

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/exe/sfm.h"
 
 #include "colmap/controllers/bundle_adjustment.h"

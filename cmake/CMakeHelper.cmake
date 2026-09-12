@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 if(POLICY CMP0043)
     cmake_policy(SET CMP0043 NEW)
 endif()

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "pycolmap/helpers.h"
 
 #include <ceres/ceres.h>

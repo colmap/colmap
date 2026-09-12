@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/scene/pose_graph.h"
 
 #include "colmap/util/hash_containers.h"
