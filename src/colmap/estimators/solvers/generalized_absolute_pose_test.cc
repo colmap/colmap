@@ -142,6 +142,120 @@ INSTANTIATE_TEST_SUITE_P(GP3PEstimatorTests,
                                            std::make_pair(1, true),
                                            std::make_pair(2, true)));
 
+struct GP3PProblem {
+  Rigid3d gt_rig_from_world;
+  std::vector<Rigid3d> cams_from_rig;
+  std::vector<GP3PEstimator::X_t> points2D;
+  std::vector<GP3PEstimator::Y_t> points3D;
+};
+
+// Synthesizes a rig with random camera poses and points observed in
+// front of the cameras. Point i is observed by camera i % num_cams.
+GP3PProblem BuildGP3PProblem(const int num_points, const int num_cams) {
+  GP3PProblem problem;
+  problem.gt_rig_from_world =
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  const Rigid3d world_from_rig = Inverse(problem.gt_rig_from_world);
+
+  problem.cams_from_rig.resize(num_cams);
+  for (int i = 0; i < num_cams; ++i) {
+    problem.cams_from_rig[i] =
+        Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  }
+
+  for (int i = 0; i < num_points; ++i) {
+    const Rigid3d& cam_from_rig = problem.cams_from_rig[i % num_cams];
+    problem.points2D.emplace_back();
+    problem.points2D.back().cam_from_rig = cam_from_rig.ToMatrix();
+    problem.points2D.back().ray_in_cam =
+        Eigen::Vector3d(RandomUniformReal<double>(-0.5, 0.5),
+                        RandomUniformReal<double>(-0.5, 0.5),
+                        1)
+            .normalized();
+    const Eigen::Vector3d point3D_in_cam =
+        problem.points2D.back().ray_in_cam * RandomUniformReal<double>(0.1, 10);
+    problem.points3D.push_back(world_from_rig *
+                               (Inverse(cam_from_rig) * point3D_in_cam));
+  }
+  return problem;
+}
+
+// Moves the i-th 3D point behind its observing camera.
+void MovePointBehindCamera(GP3PProblem* problem, const size_t i) {
+  const Rigid3d cam_from_rig =
+      Rigid3d::FromMatrix(problem->points2D[i].cam_from_rig);
+  Eigen::Vector3d point3D_in_cam =
+      cam_from_rig * (problem->gt_rig_from_world * problem->points3D[i]);
+  point3D_in_cam.z() = -std::abs(point3D_in_cam.z());
+  problem->points3D[i] = Inverse(problem->gt_rig_from_world) *
+                         (Inverse(cam_from_rig) * point3D_in_cam);
+}
+
+Rigid3d PerturbRigid3d(const Rigid3d& tform) {
+  const Rigid3d perturbation(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.02, Eigen::Vector3d::UnitY())),
+      Eigen::Vector3d(0.05, -0.05, 0.05));
+  return perturbation * tform;
+}
+
+TEST(GP3PEstimator, Refine) {
+  const GP3PProblem problem =
+      BuildGP3PProblem(/*num_points=*/32, /*num_cams=*/3);
+
+  for (const auto residual_type :
+       {GP3PEstimator::ResidualType::CosineDistance,
+        GP3PEstimator::ResidualType::ReprojectionError}) {
+    Rigid3d rig_from_world = PerturbRigid3d(problem.gt_rig_from_world);
+    EXPECT_TRUE(
+        GP3PEstimator(residual_type)
+            .Refine(problem.points2D, problem.points3D, &rig_from_world));
+    EXPECT_THAT(rig_from_world,
+                Rigid3dNear(problem.gt_rig_from_world,
+                            /*rtol=*/1e-6,
+                            /*ttol=*/1e-6));
+  }
+}
+
+TEST(GP3PEstimator, RefineIgnoresStaleInliers) {
+  GP3PProblem problem = BuildGP3PProblem(/*num_points=*/32, /*num_cams=*/3);
+
+  // Observations that do not project in front of their camera contribute a
+  // zero residual and must not bias the refinement: the remaining
+  // observations are exact.
+  for (const size_t i : {0, 7, 20}) {
+    MovePointBehindCamera(&problem, i);
+  }
+
+  Rigid3d rig_from_world = PerturbRigid3d(problem.gt_rig_from_world);
+  EXPECT_TRUE(GP3PEstimator(GP3PEstimator::ResidualType::ReprojectionError)
+                  .Refine(problem.points2D, problem.points3D, &rig_from_world));
+  EXPECT_THAT(rig_from_world,
+              Rigid3dNear(problem.gt_rig_from_world,
+                          /*rtol=*/1e-6,
+                          /*ttol=*/1e-6));
+}
+
+TEST(GP3PEstimator, RefineSingleProjectionCenter) {
+  GP3PProblem problem = BuildGP3PProblem(/*num_points=*/32, /*num_cams=*/3);
+
+  // Unlike the scale of the scaled variant, the rigid pose stays observable
+  // for observations from a single projection center.
+  std::vector<GP3PEstimator::X_t> single_cam_points2D;
+  std::vector<GP3PEstimator::Y_t> single_cam_points3D;
+  for (size_t i = 0; i < problem.points2D.size(); i += 3) {
+    single_cam_points2D.push_back(problem.points2D[i]);
+    single_cam_points3D.push_back(problem.points3D[i]);
+  }
+  Rigid3d rig_from_world = PerturbRigid3d(problem.gt_rig_from_world);
+  EXPECT_TRUE(
+      GP3PEstimator(GP3PEstimator::ResidualType::ReprojectionError)
+          .Refine(single_cam_points2D, single_cam_points3D, &rig_from_world));
+  EXPECT_THAT(rig_from_world,
+              Rigid3dNear(problem.gt_rig_from_world,
+                          /*rtol=*/1e-6,
+                          /*ttol=*/1e-6));
+}
+
 class ParameterizedGP4PSEstimatorTests
     : public ::testing::TestWithParam</*num_cams=*/int> {};
 

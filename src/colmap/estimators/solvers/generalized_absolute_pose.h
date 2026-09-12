@@ -81,6 +81,23 @@ class GP3PEstimator {
                        const std::vector<Y_t>& points3D,
                        std::vector<M_t>* models);
 
+  // Nonlinear local optimization of the rig pose over the given 2D-3D
+  // correspondences, starting from *rig_from_world. It is required because
+  // the minimal solver consumes exactly three points and has no non-minimal
+  // counterpart. Minimizes the estimator's residual: the reprojection error
+  // between the normalized rays, or the sine of the angle between the
+  // observed and projected rays for cosine-distance scoring (same minimizer,
+  // but with a non-vanishing Jacobian at zero). Observations that do not
+  // project in front of their camera contribute a zero residual.
+  //
+  // Returns true and overwrites *rig_from_world with the refined transform on
+  // success. Returns false and leaves *rig_from_world unchanged if fewer
+  // than kMinNumSamples observations are given. Unlike the scaled variant,
+  // the rigid pose stays observable for a single projection center.
+  bool Refine(const std::vector<X_t>& points2D,
+              const std::vector<Y_t>& points3D,
+              M_t* rig_from_world) const;
+
   // Calculate the squared cosine distance error between the rays given a set of
   // 2D-3D point correspondences and the rig pose of the generalized camera.
   void Residuals(const std::vector<X_t>& points2D,

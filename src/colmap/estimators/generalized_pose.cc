@@ -185,8 +185,9 @@ bool EstimateGeneralizedAbsolutePose(
   options_copy.max_error =
       ComputeMaxErrorInCamera(camera_idxs, cameras, options.max_error);
 
-  RANSAC<GP3PEstimator, UniqueInlierSupportMeasurer> ransac(
+  LORANSAC<GP3PEstimator, GP3PEstimator, UniqueInlierSupportMeasurer> ransac(
       options_copy,
+      GP3PEstimator(GP3PEstimator::ResidualType::ReprojectionError),
       GP3PEstimator(GP3PEstimator::ResidualType::ReprojectionError),
       UniqueInlierSupportMeasurer(std::move(unique_point3D_ids)));
   auto report = ransac.Estimate(rig_points2D, points3D);
