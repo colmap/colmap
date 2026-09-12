@@ -246,6 +246,12 @@ class classh_ext : public classh<type_, options...> {
     Parent::def_buffer(std::forward<Args>(args)...);
     return *this;
   }
+
+  template <typename... Args>
+  classh_ext& def_cast(Args&&... args) {
+    Parent::def_cast(std::forward<Args>(args)...);
+    return *this;
+  }
 };
 
 }  // namespace PYBIND11_NAMESPACE
