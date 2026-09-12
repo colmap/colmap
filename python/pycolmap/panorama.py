@@ -482,7 +482,7 @@ def render_perspective_images(
     )
 
     num_panos = len(pano_image_names)
-    max_workers = min(32, (os.cpu_count() or 2) - 1)
+    max_workers = max(1, min(32, (os.cpu_count() or 2) - 1))
 
     pbar = None
     if show_progress:

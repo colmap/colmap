@@ -1,12 +1,16 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import pycolmap
 
 from .panorama import (
+    PanoProcessor,
+    PanoRenderOptions,
     filter_database_by_covisibility,
     get_virtual_rotations,
+    render_perspective_images,
 )
 
 
@@ -31,6 +35,37 @@ def test_get_virtual_rotations() -> None:
     for rotation in rotations:
         np.testing.assert_allclose(rotation @ rotation.T, np.eye(3), atol=1e-15)
         np.testing.assert_allclose(np.linalg.det(rotation), 1.0, atol=1e-15)
+
+
+@pytest.mark.parametrize("cpu_count", [1, None, 4, 64])
+def test_render_perspective_images_cpu_count(
+    cpu_count: int | None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("pycolmap.panorama.os.cpu_count", lambda: cpu_count)
+    processed_names: list[str] = []
+
+    def process(self: PanoProcessor, pano_name: str) -> None:
+        processed_names.append(pano_name)
+
+    # Keep the real executor without optional image-processing dependencies.
+    monkeypatch.setattr(PanoProcessor, "process", process)
+    image_names = ["pano1.jpg", "pano2.jpg", "pano3.jpg"]
+    processor = render_perspective_images(
+        image_names,
+        tmp_path / "input",
+        tmp_path / "output",
+        tmp_path / "masks",
+        PanoRenderOptions(
+            num_steps_yaw=1,
+            pitches_deg=(0.0,),
+            hfov_deg=90.0,
+            vfov_deg=90.0,
+        ),
+        show_progress=False,
+    )
+
+    assert isinstance(processor, PanoProcessor)
+    assert sorted(processed_names) == image_names
 
 
 def test_filter_database_by_covisibility(tmp_path: Path) -> None:
