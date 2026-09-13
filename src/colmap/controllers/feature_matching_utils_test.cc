@@ -296,6 +296,34 @@ TEST(FeatureMatcherController, MatchSkipGeometricVerification) {
                                                     data.image_ids[1]));
 }
 
+TEST(FeatureMatcherController, MatchSkipGeometricVerificationTwice) {
+  auto data = CreateTestData(3);
+  data.database->ClearMatches();
+  data.database->ClearTwoViewGeometries();
+
+  FeatureMatchingOptions matching_options = DefaultMatchingOptions();
+  matching_options.skip_geometric_verification = true;
+  TwoViewGeometryOptions geometry_options;
+
+  FeatureMatcherController controller(
+      matching_options, geometry_options, data.cache);
+  ASSERT_TRUE(controller.Setup());
+
+  ASSERT_GE(data.image_ids.size(), 2);
+  const std::vector<std::pair<image_t, image_t>> pairs = {
+      {data.image_ids[0], data.image_ids[1]}};
+  controller.Match(pairs);
+
+  // Rematching pairs with existing matches must be a no-op. Without stored
+  // two-view geometries, there is nothing to verify and no verifier workers
+  // exist to drain the verifier queue.
+  controller.Match(pairs);
+
+  EXPECT_EQ(data.database->ReadAllMatches().size(), 1);
+  EXPECT_FALSE(data.database->ExistsTwoViewGeometry(data.image_ids[0],
+                                                    data.image_ids[1]));
+}
+
 TEST(GeometricVerifierController, OptionsAccessor) {
   auto data = CreateTestData(3);
 
