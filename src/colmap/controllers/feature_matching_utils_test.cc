@@ -444,7 +444,8 @@ TEST(FeatureMatcherController, MatchClearsDegenerateGeometry) {
             100);
 }
 
-TEST(FeatureMatcherController, MatchSkippedPairsStoreNoTwoViewGeometry) {
+TEST(FeatureMatcherController,
+     MatchSkippedPairsStoreDegenerateTwoViewGeometry) {
   auto pair_data = CreateLowRatioPairData();
   auto& data = pair_data.data;
   // No descriptors and no pre-existing matches: matching is skipped.
@@ -458,12 +459,21 @@ TEST(FeatureMatcherController, MatchSkippedPairsStoreNoTwoViewGeometry) {
 
   controller.Match({{pair_data.image_id1, pair_data.image_id2}});
 
-  // Skipped pairs leave no row: absence means never verified.
-  EXPECT_FALSE(data.database->ExistsTwoViewGeometry(pair_data.image_id1,
-                                                    pair_data.image_id2));
+  // Skipped pairs are labeled DEGENERATE but store no payload.
+  const auto tvg = data.database->ReadTwoViewGeometry(pair_data.image_id1,
+                                                      pair_data.image_id2);
+  EXPECT_EQ(tvg.config, TwoViewGeometry::DEGENERATE);
+  EXPECT_TRUE(tvg.inlier_matches.empty());
+  EXPECT_FALSE(tvg.F.has_value());
+  EXPECT_FALSE(tvg.H.has_value());
+  EXPECT_FALSE(tvg.E.has_value());
+  EXPECT_TRUE(
+      data.database->ReadMatches(pair_data.image_id1, pair_data.image_id2)
+          .empty());
 }
 
-TEST(GeometricVerifierController, VerifySkippedPairsStoreNoTwoViewGeometry) {
+TEST(GeometricVerifierController,
+     VerifySkippedPairsStoreDegenerateTwoViewGeometry) {
   auto pair_data = CreateLowRatioPairData();
   auto& data = pair_data.data;
 
@@ -477,9 +487,14 @@ TEST(GeometricVerifierController, VerifySkippedPairsStoreNoTwoViewGeometry) {
 
   controller.Verify({{pair_data.image_id1, pair_data.image_id2}});
 
-  // Skipped pairs leave no row: absence means never verified.
-  EXPECT_FALSE(data.database->ExistsTwoViewGeometry(pair_data.image_id1,
-                                                    pair_data.image_id2));
+  // Below-minimum pairs are labeled DEGENERATE but store no payload.
+  const auto tvg = data.database->ReadTwoViewGeometry(pair_data.image_id1,
+                                                      pair_data.image_id2);
+  EXPECT_EQ(tvg.config, TwoViewGeometry::DEGENERATE);
+  EXPECT_TRUE(tvg.inlier_matches.empty());
+  EXPECT_FALSE(tvg.F.has_value());
+  EXPECT_FALSE(tvg.H.has_value());
+  EXPECT_FALSE(tvg.E.has_value());
   // Raw matches are preserved.
   EXPECT_EQ(data.database->ReadMatches(pair_data.image_id1, pair_data.image_id2)
                 .size(),

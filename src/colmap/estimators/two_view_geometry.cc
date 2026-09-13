@@ -210,6 +210,23 @@ bool CheckMinMatchesOrDegenerate(const FeatureMatches& matches,
   return true;
 }
 
+// Enforce the global inlier-ratio threshold, marking the geometry as
+// degenerate on failure. Returns false (with the config set) when the
+// threshold is not met.
+bool CheckMinInlierRatioOrDegenerate(size_t num_inliers,
+                                     size_t num_matches,
+                                     const TwoViewGeometryOptions& options,
+                                     TwoViewGeometry* geometry) {
+  if (options.min_inlier_ratio > 0) {
+    const double inlier_ratio = static_cast<double>(num_inliers) / num_matches;
+    if (inlier_ratio < options.min_inlier_ratio) {
+      geometry->config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+      return false;
+    }
+  }
+  return true;
+}
+
 // Override the RANSAC inlier-ratio threshold with the global option, if set.
 RANSACOptions RansacOptionsWithMinInlierRatio(
     const TwoViewGeometryOptions& options) {
@@ -253,23 +270,6 @@ void MaybeMarkWatermark(const Camera& camera1,
                                                          options)) {
     geometry->config = TwoViewGeometry::ConfigurationType::WATERMARK;
   }
-}
-
-// Enforce the global inlier-ratio threshold, marking the geometry as
-// degenerate on failure. Returns false (with the config set) when the
-// threshold is not met.
-bool CheckMinInlierRatioOrDegenerate(size_t num_inliers,
-                                     size_t num_matches,
-                                     const TwoViewGeometryOptions& options,
-                                     TwoViewGeometry* geometry) {
-  if (options.min_inlier_ratio > 0) {
-    const double inlier_ratio = static_cast<double>(num_inliers) / num_matches;
-    if (inlier_ratio < options.min_inlier_ratio) {
-      geometry->config = TwoViewGeometry::ConfigurationType::DEGENERATE;
-      return false;
-    }
-  }
-  return true;
 }
 
 // Fit a two-view model from already-filtered inlier correspondences with a

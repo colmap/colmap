@@ -170,8 +170,12 @@ class VerifierWorker : public Thread {
       if (input_job.IsValid()) {
         auto& data = input_job.Data();
 
+        // Early abort pairs with too few matches to avoid data lookup,
+        // labeling them DEGENERATE so the rejection is stored downstream.
         if (data.matches.size() <
             static_cast<size_t>(options_.min_num_inliers)) {
+          data.two_view_geometry.config =
+              TwoViewGeometry::ConfigurationType::DEGENERATE;
           THROW_CHECK(output_queue_->Push(std::move(data)));
           continue;
         }
@@ -496,18 +500,21 @@ void FeatureMatcherController::Match(
 
     cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
 
-    // Unattempted (UNDEFINED) pairs are not stored at all: the absence of a
-    // row means the pair was never verified. Rejected (DEGENERATE) pairs
-    // keep their diagnosis but no payload. Estimators label every
-    // below-minimum result, so anything else reaches the database untouched.
+    // Pairs that bypassed geometric verification arrive as UNDEFINED (with
+    // skip_geometric_verification, matchers write directly to the output)
+    // and are not stored at all: the absence of a row means the pair was
+    // never verified. Rejected (DEGENERATE) pairs keep their diagnosis but
+    // no payload. Anything else reaches the database untouched.
     if (output.two_view_geometry.config ==
         TwoViewGeometry::ConfigurationType::UNDEFINED) {
       continue;
     }
+
     if (output.two_view_geometry.config ==
         TwoViewGeometry::ConfigurationType::DEGENERATE) {
       ClearTwoViewGeometryPayload(&output.two_view_geometry);
     }
+
     cache_->WriteTwoViewGeometry(
         output.image_id1, output.image_id2, output.two_view_geometry);
   }
@@ -651,10 +658,11 @@ void GeometricVerifierController::Verify(
       cache_->DeleteTwoViewGeometry(output.image_id1, output.image_id2);
     }
 
-    // Unattempted (UNDEFINED) pairs are not stored at all: the absence of a
-    // row means the pair was never verified. Rejected (DEGENERATE) pairs
-    // keep their diagnosis but no payload. Estimators label every
-    // below-minimum result, so anything else reaches the database untouched.
+    // All verifier outputs are labeled (below-minimum pairs are DEGENERATE
+    // and estimators must return defined configurations), so UNDEFINED
+    // should not occur here; skip storing it defensively. Rejected
+    // (DEGENERATE) pairs keep their diagnosis but no payload. Anything else
+    // reaches the database untouched.
     if (output.two_view_geometry.config ==
         TwoViewGeometry::ConfigurationType::UNDEFINED) {
       continue;
