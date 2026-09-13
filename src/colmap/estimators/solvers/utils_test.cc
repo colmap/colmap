@@ -46,6 +46,16 @@ TEST(SolveEpipolarConstraintMatrix, ExactRecoveryIsRankTwo) {
   }
 }
 
+TEST(CalibratedRays, Nominal) {
+  const std::vector<Eigen::Vector2d> points = {{100.0, 0.0}, {0.0, -200.0}};
+  const std::vector<Eigen::Vector3d> rays = CalibratedRays(points, 100.0);
+  ASSERT_EQ(rays.size(), 2);
+  EXPECT_THAT(rays[0],
+              EigenMatrixNear(Eigen::Vector3d(1, 0, 1).normalized(), 1e-12));
+  EXPECT_THAT(rays[1],
+              EigenMatrixNear(Eigen::Vector3d(0, -2, 1).normalized(), 1e-12));
+}
+
 TEST(RaysFromCamRaysWithJac, Nominal) {
   const std::vector<CamRayWithJac> rays_with_jac = {
       {Eigen::Vector3d(1, 0, 0), Eigen::Matrix3x2d::Ones()},

@@ -37,6 +37,17 @@ Eigen::Matrix3d SolveEpipolarConstraintMatrix(
          svd.matrixV().transpose();
 }
 
+std::vector<Eigen::Vector3d> CalibratedRays(
+    const std::vector<Eigen::Vector2d>& points, const double focal) {
+  const double inv_f = 1.0 / focal;
+  std::vector<Eigen::Vector3d> rays(points.size());
+  for (size_t i = 0; i < points.size(); ++i) {
+    rays[i] = Eigen::Vector3d(points[i].x() * inv_f, points[i].y() * inv_f, 1.0)
+                  .normalized();
+  }
+  return rays;
+}
+
 std::vector<Eigen::Vector3d> RaysFromCamRaysWithJac(
     const std::vector<CamRayWithJac>& cam_rays_with_jac) {
   std::vector<Eigen::Vector3d> rays(cam_rays_with_jac.size());
