@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
+#include "colmap/estimators/solvers/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/normalization.h"
 #include "colmap/math/polynomial.h"
@@ -179,28 +180,7 @@ void FundamentalMatrixEightPointEstimator::Estimate(
         normed_points1[i].transpose().homogeneous();
   }
 
-  // Solve for the nullspace of the constraint matrix.
-  Eigen::Matrix3d Q;
-  if (points1.size() == 8) {
-    Eigen::Matrix<double, 9, 9> QQ =
-        A.transpose().householderQr().householderQ();
-    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-        QQ.col(8).data());
-  } else {
-    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        A, Eigen::ComputeFullV);
-    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-        svd.matrixV().col(8).data());
-  }
-
-  // Enforcing the internal constraint that two singular values must non-zero
-  // and one must be zero.
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      Q, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Vector3d singular_values = svd.singularValues();
-  singular_values(2) = 0.0;
-  const Eigen::Matrix3d F =
-      svd.matrixU() * singular_values.asDiagonal() * svd.matrixV().transpose();
+  const Eigen::Matrix3d F = SolveEpipolarConstraintMatrix(A);
 
   models->resize(1);
   (*models)[0] = normed_from_orig2.transpose() * F * normed_from_orig1;
