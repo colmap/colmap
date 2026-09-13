@@ -29,6 +29,12 @@ class TinyTangentSampsonErrorCostFunctor {
   static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
   static constexpr int NUM_PARAMETERS = 7;
 
+  // The wrapped functor must outlive this reference-owning adapter.
+  using AutoDiffFunction =
+      ceres::TinySolverAutoDiffFunction<TinyTangentSampsonErrorCostFunctor,
+                                        NUM_RESIDUALS,
+                                        NUM_PARAMETERS>;
+
   TinyTangentSampsonErrorCostFunctor(
       const std::vector<CamRayWithJac>& cam_rays1_with_jac,
       const std::vector<CamRayWithJac>& cam_rays2_with_jac)
@@ -39,68 +45,39 @@ class TinyTangentSampsonErrorCostFunctor {
     return static_cast<int>(cam_rays1_with_jac_.size());
   }
 
+  template <typename T>
+  bool operator()(const T* const params, T* residuals) const {
+    const Eigen::Matrix<T, 3, 3> E = EssentialMatrixFromPoseParams(params);
+    for (size_t i = 0; i < cam_rays1_with_jac_.size(); ++i) {
+      residuals[i] =
+          TangentSampsonError<T>(E,
+                                 cam_rays1_with_jac_[i].ray.cast<T>(),
+                                 cam_rays1_with_jac_[i].jacobian.cast<T>(),
+                                 cam_rays2_with_jac_[i].ray.cast<T>(),
+                                 cam_rays2_with_jac_[i].jacobian.cast<T>());
+    }
+    return true;
+  }
+
   // jacobian is NUM_RESIDUALS x 7, column-major (or null for residuals only).
   bool operator()(const double* params,
                   double* residuals,
                   double* jacobian) const {
-    const Eigen::Map<const Eigen::Quaterniond> q(params);
-    const Eigen::Matrix3d R = q.toRotationMatrix();
-    Eigen::Matrix3d t_x;
-    t_x << 0, -params[6], params[5], params[6], 0, -params[4], -params[5],
-        params[4], 0;
-    const Eigen::Matrix3d E = t_x * R;
-
     Eigen::Matrix3d dE[7];
-    if (jacobian != nullptr) {
-      const double x = params[0], y = params[1], z = params[2], w = params[3];
-      Eigen::Matrix3d dR[4];
-      dR[0] << 0, 2 * y, 2 * z, 2 * y, -4 * x, -2 * w, 2 * z, 2 * w,
-          -4 * x;  // dR/dqx
-      dR[1] << -4 * y, 2 * x, 2 * w, 2 * x, 0, 2 * z, -2 * w, 2 * z,
-          -4 * y;  // dR/dqy
-      dR[2] << -4 * z, -2 * w, 2 * x, 2 * w, -4 * z, 2 * y, 2 * x, 2 * y,
-          0;                                                          // dR/dqz
-      dR[3] << 0, -2 * z, 2 * y, 2 * z, 0, -2 * x, -2 * y, 2 * x, 0;  // dR/dqw
-      for (int l = 0; l < 4; ++l) dE[l] = t_x * dR[l];
-      Eigen::Matrix3d ex, ey, ez;
-      ex << 0, 0, 0, 0, 0, -1, 0, 1, 0;
-      ey << 0, 0, 1, 0, 0, 0, -1, 0, 0;
-      ez << 0, -1, 0, 1, 0, 0, 0, 0, 0;
-      dE[4] = ex * R;  // dE/dtx
-      dE[5] = ey * R;  // dE/dty
-      dE[6] = ez * R;  // dE/dtz
-    }
+    const Eigen::Matrix3d E = EssentialMatrixAndJacFromPoseParams(
+        params, jacobian != nullptr ? dE : nullptr);
 
     const int n = static_cast<int>(cam_rays1_with_jac_.size());
     for (int i = 0; i < n; ++i) {
-      const Eigen::Vector3d& ray1 = cam_rays1_with_jac_[i].ray;
-      const Eigen::Vector3d& ray2 = cam_rays2_with_jac_[i].ray;
-      const Eigen::Matrix3x2d& J1 = cam_rays1_with_jac_[i].jacobian;
-      const Eigen::Matrix3x2d& J2 = cam_rays2_with_jac_[i].jacobian;
-      const Eigen::Vector3d Eray1 = E * ray1;
-      const Eigen::Vector3d Etray2 = E.transpose() * ray2;
-      const double num = ray2.dot(Eray1);
-      const Eigen::Vector2d a = J1.transpose() * Etray2;
-      const Eigen::Vector2d b = J2.transpose() * Eray1;
-      const double denom = a.squaredNorm() + b.squaredNorm();
-      const double sqrt_denom = std::sqrt(denom);
-      if (sqrt_denom == 0.0) {
-        residuals[i] = 0.0;
-        if (jacobian != nullptr) {
-          for (int l = 0; l < 7; ++l) jacobian[i + l * n] = 0.0;
-        }
-        continue;
-      }
-      residuals[i] = num / sqrt_denom;
+      Eigen::Matrix3d drdE;
+      residuals[i] =
+          TangentSampsonErrorAndJacWrtE(E,
+                                        cam_rays1_with_jac_[i].ray,
+                                        cam_rays1_with_jac_[i].jacobian,
+                                        cam_rays2_with_jac_[i].ray,
+                                        cam_rays2_with_jac_[i].jacobian,
+                                        jacobian != nullptr ? &drdE : nullptr);
       if (jacobian != nullptr) {
-        // dr/dE = (1/sqrt_denom) ray2 ray1^T
-        //         - (num/denom^1.5) (ray2 (J1 a)^T + (J2 b) ray1^T).
-        const Eigen::Vector3d J1a = J1 * a;
-        const Eigen::Vector3d J2b = J2 * b;
-        const double coef = num / (denom * sqrt_denom);
-        const Eigen::Matrix3d drdE =
-            (1.0 / sqrt_denom) * (ray2 * ray1.transpose()) -
-            coef * (ray2 * J1a.transpose() + J2b * ray1.transpose());
         for (int l = 0; l < 7; ++l) {
           jacobian[i + l * n] = drdE.cwiseProduct(dE[l]).sum();
         }
@@ -257,34 +234,13 @@ class TinyOneSidedFocalTangentSampsonErrorCostFunctor {
   bool operator()(const double* params,
                   double* residuals,
                   double* jacobian) const {
-    const Eigen::Map<const Eigen::Quaterniond> q(params);
-    const Eigen::Matrix3d R = q.toRotationMatrix();
-    Eigen::Matrix3d t_x;
-    t_x << 0, -params[6], params[5], params[6], 0, -params[4], -params[5],
-        params[4], 0;
+    Eigen::Matrix3d dM[8];
+    Eigen::Matrix3d M = EssentialMatrixAndJacFromPoseParams(
+        params, jacobian != nullptr ? dM : nullptr);
     const double inv_f1 = std::exp(-params[7]);
-    Eigen::Matrix3d M = t_x * R;
     M.leftCols<2>() *= inv_f1;
 
-    Eigen::Matrix3d dM[8];
     if (jacobian != nullptr) {
-      const double x = params[0], y = params[1], z = params[2], w = params[3];
-      Eigen::Matrix3d dR[4];
-      dR[0] << 0, 2 * y, 2 * z, 2 * y, -4 * x, -2 * w, 2 * z, 2 * w,
-          -4 * x;  // dR/dqx
-      dR[1] << -4 * y, 2 * x, 2 * w, 2 * x, 0, 2 * z, -2 * w, 2 * z,
-          -4 * y;  // dR/dqy
-      dR[2] << -4 * z, -2 * w, 2 * x, 2 * w, -4 * z, 2 * y, 2 * x, 2 * y,
-          0;                                                          // dR/dqz
-      dR[3] << 0, -2 * z, 2 * y, 2 * z, 0, -2 * x, -2 * y, 2 * x, 0;  // dR/dqw
-      for (int l = 0; l < 4; ++l) dM[l] = t_x * dR[l];
-      Eigen::Matrix3d ex, ey, ez;
-      ex << 0, 0, 0, 0, 0, -1, 0, 1, 0;
-      ey << 0, 0, 1, 0, 0, 0, -1, 0, 0;
-      ez << 0, -1, 0, 1, 0, 0, 0, 0, 0;
-      dM[4] = ex * R;  // dE/dtx
-      dM[5] = ey * R;  // dE/dty
-      dM[6] = ez * R;  // dE/dtz
       // The pose derivatives are of E, so carry them through the same column
       // scaling that turns E into M.
       for (int l = 0; l < 7; ++l) dM[l].leftCols<2>() *= inv_f1;
@@ -294,36 +250,21 @@ class TinyOneSidedFocalTangentSampsonErrorCostFunctor {
       dM[7].col(2).setZero();
     }
 
+    // d(x, y, 1) / d(x, y).
+    const Eigen::Matrix3x2d J1 =
+        (Eigen::Matrix3x2d() << 1, 0, 0, 1, 0, 0).finished();
     const int n = static_cast<int>(img_points1_.size());
     for (int i = 0; i < n; ++i) {
       const Eigen::Vector3d point1 = img_points1_[i].homogeneous();
-      const Eigen::Vector3d& ray2 = cam_rays2_with_jac_[i].ray;
-      const Eigen::Matrix3x2d& J2 = cam_rays2_with_jac_[i].jacobian;
-      const Eigen::Vector3d Mpoint1 = M * point1;
-      const double num = ray2.dot(Mpoint1);
-      // Constraint gradients in view-1 and view-2 pixels. The former needs no
-      // Jacobian, as d(x, y, 1)/d(x, y) merely selects the first two rows.
-      const Eigen::Vector2d g1 = (M.transpose() * ray2).head<2>();
-      const Eigen::Vector2d g2 = J2.transpose() * Mpoint1;
-      const double denom = g1.squaredNorm() + g2.squaredNorm();
-      const double sqrt_denom = std::sqrt(denom);
-      if (sqrt_denom == 0.0) {
-        residuals[i] = 0.0;
-        if (jacobian != nullptr) {
-          for (int l = 0; l < 8; ++l) jacobian[i + l * n] = 0.0;
-        }
-        continue;
-      }
-      residuals[i] = num / sqrt_denom;
+      Eigen::Matrix3d drdM;
+      residuals[i] =
+          TangentSampsonErrorAndJacWrtE(M,
+                                        point1,
+                                        J1,
+                                        cam_rays2_with_jac_[i].ray,
+                                        cam_rays2_with_jac_[i].jacobian,
+                                        jacobian != nullptr ? &drdM : nullptr);
       if (jacobian != nullptr) {
-        // dr/dM = (1/sqrt_denom) ray2 point1^T
-        //         - (num/denom^1.5) (ray2 [g1; 0]^T + (J2 g2) point1^T).
-        const Eigen::Vector3d J1g1(g1.x(), g1.y(), 0.0);
-        const Eigen::Vector3d J2g2 = J2 * g2;
-        const double coef = num / (denom * sqrt_denom);
-        const Eigen::Matrix3d drdM =
-            (1.0 / sqrt_denom) * (ray2 * point1.transpose()) -
-            coef * (ray2 * J1g1.transpose() + J2g2 * point1.transpose());
         for (int l = 0; l < 8; ++l) {
           jacobian[i + l * n] = drdM.cwiseProduct(dM[l]).sum();
         }
@@ -404,36 +345,17 @@ class TinyFundamentalSampsonErrorCostFunctor {
       dF[8] = U.col(1) * V.col(1).transpose();
     }
 
+    // d(x, y, 1) / d(x, y).
+    const Eigen::Matrix3x2d J0 =
+        (Eigen::Matrix3x2d() << 1, 0, 0, 1, 0, 0).finished();
     const int n = static_cast<int>(points1_.size());
     for (int i = 0; i < n; ++i) {
       const Eigen::Vector3d point1 = points1_[i].homogeneous();
       const Eigen::Vector3d point2 = points2_[i].homogeneous();
-      const Eigen::Vector3d Fpoint1 = F * point1;
-      const Eigen::Vector3d Ftpoint2 = F.transpose() * point2;
-      const double num = point2.dot(Fpoint1);
-      // Only the first two components of each constraint gradient enter, as
-      // the homogeneous third coordinate is not a free variable.
-      const double denom =
-          Fpoint1.head<2>().squaredNorm() + Ftpoint2.head<2>().squaredNorm();
-      const double sqrt_denom = std::sqrt(denom);
-      if (sqrt_denom == 0.0) {
-        residuals[i] = 0.0;
-        if (jacobian != nullptr) {
-          for (int l = 0; l < 9; ++l) jacobian[i + l * n] = 0.0;
-        }
-        continue;
-      }
-      residuals[i] = num / sqrt_denom;
+      Eigen::Matrix3d drdF;
+      residuals[i] = TangentSampsonErrorAndJacWrtE(
+          F, point1, J0, point2, J0, jacobian != nullptr ? &drdF : nullptr);
       if (jacobian != nullptr) {
-        // dr/dF = (1/sqrt_denom) point2 point1^T
-        //         - (num/denom^1.5) (g2 point1^T + point2 g1^T), where g1 and
-        // g2 are F^T point2 and F point1 with the third component dropped.
-        const Eigen::Vector3d g1(Ftpoint2.x(), Ftpoint2.y(), 0.0);
-        const Eigen::Vector3d g2(Fpoint1.x(), Fpoint1.y(), 0.0);
-        const double coef = num / (denom * sqrt_denom);
-        const Eigen::Matrix3d drdF =
-            (1.0 / sqrt_denom) * (point2 * point1.transpose()) -
-            coef * (g2 * point1.transpose() + point2 * g1.transpose());
         for (int l = 0; l < 9; ++l) {
           jacobian[i + l * n] = drdF.cwiseProduct(dF[l]).sum();
         }
