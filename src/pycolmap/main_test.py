@@ -33,5 +33,12 @@ def test_device_enum() -> None:
     assert pycolmap.Device.cuda is not None
 
 
+def test_device_enum_str_and_repr() -> None:
+    assert str(pycolmap.Device.auto) == "auto"
+    assert repr(pycolmap.Device.auto) == "Device.auto"
+    # str() round-trips through the string constructor.
+    assert pycolmap.Device(str(pycolmap.Device.cuda)) == pycolmap.Device.cuda
+
+
 def test_set_random_seed() -> None:
     pycolmap.set_random_seed(42)

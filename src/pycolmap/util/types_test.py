@@ -17,6 +17,16 @@ def test_sensor_type_string_construction() -> None:
     assert pycolmap.SensorType("INVALID") == pycolmap.SensorType.INVALID
 
 
+def test_sensor_type_str_and_repr() -> None:
+    assert str(pycolmap.SensorType.CAMERA) == "CAMERA"
+    assert repr(pycolmap.SensorType.CAMERA) == "SensorType.CAMERA"
+    # str() round-trips through the string constructor.
+    assert (
+        pycolmap.SensorType(str(pycolmap.SensorType.IMU))
+        == pycolmap.SensorType.IMU
+    )
+
+
 def test_sensor_t_default_init() -> None:
     sensor = pycolmap.sensor_t()
     assert sensor is not None

@@ -82,7 +82,7 @@ else()
 endif()
 find_package(Python REQUIRED COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
-find_package(pybind11 3.0.2 REQUIRED)
+find_package(pybind11 3.1.0 REQUIRED)
 
 file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/../src/pycolmap/*.cc")
 if(NOT MVS_ENABLED)
