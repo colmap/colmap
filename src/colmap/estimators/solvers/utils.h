@@ -17,6 +17,10 @@ namespace colmap {
 Eigen::Matrix3d SolveEpipolarConstraintMatrix(
     const Eigen::Matrix<double, Eigen::Dynamic, 9>& A);
 
+// Convert centered image points to normalized rays.
+std::vector<Eigen::Vector3d> CalibratedRays(
+    const std::vector<Eigen::Vector2d>& points, double focal);
+
 // Extract rays while discarding their measurement Jacobians.
 std::vector<Eigen::Vector3d> RaysFromCamRaysWithJac(
     const std::vector<CamRayWithJac>& cam_rays_with_jac);
