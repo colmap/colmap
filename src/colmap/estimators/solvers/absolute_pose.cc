@@ -485,47 +485,16 @@ void EPNPEstimator::SolveForSign() {
 }
 
 void EPNPEstimator::EstimateRT(Eigen::Matrix3d* R, Eigen::Vector3d* t) {
-  Eigen::Vector3d pc0 = Eigen::Vector3d::Zero();
-  Eigen::Vector3d pw0 = Eigen::Vector3d::Zero();
-
-  for (size_t i = 0; i < points3D_->size(); ++i) {
-    pc0 += pcs_[i];
-    pw0 += (*points3D_)[i];
-  }
-  pc0 /= points3D_->size();
-  pw0 /= points3D_->size();
-
-  Eigen::Matrix3d abt = Eigen::Matrix3d::Zero();
-  for (size_t i = 0; i < points3D_->size(); ++i) {
-    for (int j = 0; j < 3; ++j) {
-      abt(j, 0) += (pcs_[i][j] - pc0[j]) * ((*points3D_)[i][0] - pw0[0]);
-      abt(j, 1) += (pcs_[i][j] - pc0[j]) * ((*points3D_)[i][1] - pw0[1]);
-      abt(j, 2) += (pcs_[i][j] - pc0[j]) * ((*points3D_)[i][2] - pw0[2]);
-    }
-  }
-
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      abt, Eigen::ComputeFullV | Eigen::ComputeFullU);
-  const Eigen::Matrix3d& abt_U = svd.matrixU();
-  const Eigen::Matrix3d& abt_V = svd.matrixV();
-
-  for (int i = 0; i < 3; ++i) {
-    for (int j = 0; j < 3; ++j) {
-      (*R)(i, j) = abt_U.row(i) * abt_V.row(j).transpose();
-    }
-  }
-
-  if (R->determinant() < 0) {
-    Eigen::Matrix3d Abt_v_prime = abt_V;
-    Abt_v_prime.col(2) = -abt_V.col(2);
-    for (int i = 0; i < 3; ++i) {
-      for (int j = 0; j < 3; ++j) {
-        (*R)(i, j) = abt_U.row(i) * Abt_v_prime.row(j).transpose();
-      }
-    }
-  }
-
-  *t = pc0 - *R * pw0;
+  // Align world points to camera-frame points without scale.
+  using Matrix3X = Eigen::Matrix<double, 3, Eigen::Dynamic>;
+  const Eigen::Map<const Matrix3X> src(
+      reinterpret_cast<const double*>(points3D_->data()), 3, points3D_->size());
+  const Eigen::Map<const Matrix3X> tgt(
+      reinterpret_cast<const double*>(pcs_.data()), 3, pcs_.size());
+  const Eigen::Matrix4d cam_from_world =
+      Eigen::umeyama(src, tgt, /*with_scaling=*/false);
+  *R = cam_from_world.topLeftCorner<3, 3>();
+  *t = cam_from_world.topRightCorner<3, 1>();
 }
 
 double EPNPEstimator::ComputeTotalError(const Eigen::Matrix3d& R,

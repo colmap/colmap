@@ -114,38 +114,16 @@ Eigen::Vector3d ComputeRotationBetweenPoints(
     const std::vector<Eigen::Vector6d>& plueckers2) {
   THROW_CHECK_EQ(plueckers1.size(), plueckers2.size());
 
-  // Compute the center of all observed points.
-  Eigen::Vector3d points_center1 = Eigen::Vector3d::Zero();
-  Eigen::Vector3d points_center2 = Eigen::Vector3d::Zero();
-  for (size_t i = 0; i < plueckers1.size(); i++) {
-    points_center1 += plueckers1[i].head<3>();
-    points_center2 += plueckers2[i].head<3>();
+  // Align view-2 rays to view 1; the caller transposes this initialization.
+  Eigen::Matrix3Xd dirs1(3, plueckers1.size());
+  Eigen::Matrix3Xd dirs2(3, plueckers2.size());
+  for (size_t i = 0; i < plueckers1.size(); ++i) {
+    dirs1.col(i) = plueckers1[i].head<3>();
+    dirs2.col(i) = plueckers2[i].head<3>();
   }
-  points_center1 = points_center1 / plueckers1.size();
-  points_center2 = points_center2 / plueckers1.size();
-
-  Eigen::Matrix3d Hcross = Eigen::Matrix3d::Zero();
-  for (size_t i = 0; i < plueckers1.size(); i++) {
-    const Eigen::Vector3d f1 = plueckers1[i].head<3>() - points_center1;
-    const Eigen::Vector3d f2 = plueckers2[i].head<3>() - points_center2;
-    Hcross += f2 * f1.transpose();
-  }
-
-  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      Hcross, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Eigen::Matrix3d& V = svd.matrixV();
-  const Eigen::Matrix3d& U = svd.matrixU();
-
-  Eigen::Matrix3d R = V * U.transpose();
-  if (R.determinant() < 0) {
-    Eigen::Matrix3d V_prime;
-    V_prime.col(0) = V.col(0);
-    V_prime.col(1) = V.col(1);
-    V_prime.col(2) = -V.col(2);
-    R = V_prime * U.transpose();
-  }
-
-  return RotationMatrixToCaley(R);
+  const Eigen::Matrix4d rig1_from_rig2 =
+      Eigen::umeyama(dirs2, dirs1, /*with_scaling=*/false);
+  return RotationMatrixToCaley(rig1_from_rig2.topLeftCorner<3, 3>().eval());
 }
 
 Eigen::Matrix4d ComposeG(const Eigen::Matrix3d& xxF,
