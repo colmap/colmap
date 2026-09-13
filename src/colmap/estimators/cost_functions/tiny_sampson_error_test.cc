@@ -167,6 +167,45 @@ TEST(TinyTangentSampsonErrorCostFunctor, MatchesAutodiffCostFunctor) {
   }
 }
 
+TEST(TinyTangentSampsonErrorCostFunctor, MatchesAutodiffFunction) {
+  auto make = [](const Eigen::Vector3d& ray, const Eigen::Matrix3x2d& jac) {
+    return CamRayWithJac{ray.normalized(), jac};
+  };
+  const std::vector<CamRayWithJac> cam_rays1_with_jac = {
+      make({0.1, 0.2, 1},
+           (Eigen::Matrix3x2d() << 1.0, 0.1, 0.05, 1.0, 0.2, -0.1).finished()),
+      make({-0.3, 0.1, 1},
+           (Eigen::Matrix3x2d() << 0.9, -0.1, 0.15, 1.1, -0.05, 0.2)
+               .finished())};
+  const std::vector<CamRayWithJac> cam_rays2_with_jac = {
+      make({0.15, -0.1, 1},
+           (Eigen::Matrix3x2d() << 1.0, 0.05, -0.1, 1.0, 0.2, 0.0).finished()),
+      make({0.05, 0.3, 1},
+           (Eigen::Matrix3x2d() << 0.8, 0.2, 0.1, 1.2, 0.0, -0.15).finished())};
+  const TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
+                                                   cam_rays2_with_jac);
+  TinyTangentSampsonErrorCostFunctor::AutoDiffFunction autodiff(functor);
+  const int n = static_cast<int>(cam_rays1_with_jac.size());
+
+  const Eigen::Quaterniond q(
+      Eigen::AngleAxisd(0.6, Eigen::Vector3d(0.3, -0.7, 0.5).normalized()));
+  const Eigen::Vector3d t = Eigen::Vector3d(0.4, 0.9, -0.2).normalized();
+  double p[7] = {q.x(), q.y(), q.z(), q.w(), t.x(), t.y(), t.z()};
+
+  std::vector<double> residuals(n), jacobian(n * 7);
+  ASSERT_TRUE(functor(p, residuals.data(), jacobian.data()));
+
+  std::vector<double> residuals_ad(n), jacobian_ad(n * 7);
+  ASSERT_TRUE(autodiff(p, residuals_ad.data(), jacobian_ad.data()));
+
+  for (int i = 0; i < n; ++i) {
+    EXPECT_NEAR(residuals[i], residuals_ad[i], 1e-9);
+    for (int l = 0; l < 7; ++l) {
+      EXPECT_NEAR(jacobian[i + l * n], jacobian_ad[i + l * n], 1e-9);
+    }
+  }
+}
+
 // The batched focal functor's residuals match the pixel-space squared Sampson
 // error of the fundamental matrix F = diag(1/f, 1/f, 1) * E * diag(1/f, 1/f, 1)
 // implied by the pose and shared focal, at several poses and focal lengths.

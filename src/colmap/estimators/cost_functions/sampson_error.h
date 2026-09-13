@@ -6,6 +6,8 @@
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/geometry/pose.h"
 
+#include <cmath>
+
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 
@@ -70,6 +72,68 @@ T TangentSampsonError(const Eigen::Matrix<T, 3, 3>& E,
   return num / denom_norm;
 }
 
+// Tangent Sampson residual and optional closed-form Jacobian w.r.t. E.
+// Returns a zero residual and Jacobian when the denominator vanishes.
+inline double TangentSampsonErrorAndJacWrtE(const Eigen::Matrix3d& E,
+                                            const Eigen::Vector3d& cam_ray1,
+                                            const Eigen::Matrix3x2d& J_ray1,
+                                            const Eigen::Vector3d& cam_ray2,
+                                            const Eigen::Matrix3x2d& J_ray2,
+                                            Eigen::Matrix3d* drdE = nullptr) {
+  const Eigen::Vector3d Eray1 = E * cam_ray1;
+  const Eigen::Vector3d Etray2 = E.transpose() * cam_ray2;
+  const double num = cam_ray2.dot(Eray1);
+  const Eigen::Vector2d a = J_ray1.transpose() * Etray2;
+  const Eigen::Vector2d b = J_ray2.transpose() * Eray1;
+  const double denom = a.squaredNorm() + b.squaredNorm();
+  const double sqrt_denom = std::sqrt(denom);
+  if (sqrt_denom == 0.0) {
+    if (drdE != nullptr) {
+      drdE->setZero();
+    }
+    return 0.0;
+  }
+  if (drdE != nullptr) {
+    // dr/dE = (1/sqrt_denom) ray2 ray1^T
+    //         - (num/denom^1.5) (ray2 (J1 a)^T + (J2 b) ray1^T).
+    const Eigen::Vector3d J1a = J_ray1 * a;
+    const Eigen::Vector3d J2b = J_ray2 * b;
+    const double coef = num / (denom * sqrt_denom);
+    *drdE = (1.0 / sqrt_denom) * (cam_ray2 * cam_ray1.transpose()) -
+            coef * (cam_ray2 * J1a.transpose() + J2b * cam_ray1.transpose());
+  }
+  return num / sqrt_denom;
+}
+
+// E = [t]_x R and optional derivatives for [qx, qy, qz, qw, tx, ty, tz].
+inline Eigen::Matrix3d EssentialMatrixAndJacFromPoseParams(
+    const double* params, Eigen::Matrix3d* dE /*[7] or nullptr*/) {
+  const Eigen::Map<const Eigen::Quaterniond> q(params);
+  const Eigen::Matrix3d R = q.toRotationMatrix();
+  Eigen::Matrix3d t_x;
+  t_x << 0, -params[6], params[5], params[6], 0, -params[4], -params[5],
+      params[4], 0;
+  if (dE != nullptr) {
+    const double x = params[0], y = params[1], z = params[2], w = params[3];
+    Eigen::Matrix3d dR[4];
+    dR[0] << 0, 2 * y, 2 * z, 2 * y, -4 * x, -2 * w, 2 * z, 2 * w,
+        -4 * x;  // dR/dqx
+    dR[1] << -4 * y, 2 * x, 2 * w, 2 * x, 0, 2 * z, -2 * w, 2 * z,
+        -4 * y;  // dR/dqy
+    dR[2] << -4 * z, -2 * w, 2 * x, 2 * w, -4 * z, 2 * y, 2 * x, 2 * y,
+        0;                                                          // dR/dqz
+    dR[3] << 0, -2 * z, 2 * y, 2 * z, 0, -2 * x, -2 * y, 2 * x, 0;  // dR/dqw
+    for (int l = 0; l < 4; ++l) dE[l] = t_x * dR[l];
+    Eigen::Matrix3d ex, ey, ez;
+    ex << 0, 0, 0, 0, 0, -1, 0, 1, 0;
+    ey << 0, 0, 1, 0, 0, 0, -1, 0, 0;
+    ez << 0, -1, 0, 1, 0, 0, 0, 0, 0;
+    dE[4] = ex * R;  // dE/dtx
+    dE[5] = ey * R;  // dE/dty
+    dE[6] = ez * R;  // dE/dtz
+  }
+  return t_x * R;
+}
 // Refines a relative pose by the Sampson error of image-plane point
 // correspondences. See SampsonError. The pose is [qx, qy, qz, qw, tx, ty, tz]
 // with the translation on the unit sphere, so it needs a SphereManifold on
