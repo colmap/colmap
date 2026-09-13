@@ -135,6 +135,24 @@ inline Eigen::Matrix3d EssentialMatrixAndJacFromPoseParams(
   return t_x * R;
 }
 
+// Pack a pose as [qx, qy, qz, qw, tx, ty, tz], normalizing both components.
+inline Eigen::Matrix<double, 7, 1> PoseParamsFromRigid3d(
+    const Rigid3d& cam2_from_cam1) {
+  Eigen::Matrix<double, 7, 1> params;
+  params.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
+  params.tail<3>() = cam2_from_cam1.translation().normalized();
+  return params;
+}
+
+// Unpack a pose, normalizing its quaternion.
+inline Rigid3d Rigid3dFromPoseParams(const double* params) {
+  const Eigen::Quaterniond rotation =
+      Eigen::Map<const Eigen::Quaterniond>(params).normalized();
+  const Eigen::Vector3d translation =
+      Eigen::Map<const Eigen::Vector3d>(params + 4);
+  return Rigid3d(rotation, translation);
+}
+
 // Refines a relative pose by the Sampson error of image-plane point
 // correspondences. See SampsonError. The pose is [qx, qy, qz, qw, tx, ty, tz]
 // with the translation on the unit sphere, so it needs a SphereManifold on
