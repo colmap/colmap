@@ -150,3 +150,39 @@ def test_rigid3d_pickle_roundtrip() -> None:
     restored = pickle.loads(data)
     assert isinstance(restored, pycolmap.Rigid3d)
     assert restored == rigid
+
+
+# --- Tests on dataclasses with enum and string attributes ---
+
+
+def test_incremental_mapper_options_repr_uses_qualified_enums() -> None:
+    options = pycolmap.IncrementalMapperOptions()
+    representation = repr(options)
+    assert (
+        "image_selection_method=ImageSelectionMethod.MIN_UNCERTAINTY"
+        in representation
+    )
+
+
+def test_incremental_mapper_options_summary_uses_qualified_enums() -> None:
+    options = pycolmap.IncrementalMapperOptions()
+    summary = options.summary()
+    assert "ImageSelectionMethod.MIN_UNCERTAINTY" in summary
+
+
+def test_ceres_ba_options_repr_quotes_strings() -> None:
+    options = pycolmap.CeresBundleAdjustmentOptions()
+    assert "gpu_index='-1'" in repr(options)
+    # repr() escapes strings that manual single-quote wrapping would corrupt.
+    options.gpu_index = "a'b"
+    assert 'gpu_index="a\'b"' in repr(options)
+
+
+def test_dataclass_docstrings_show_qualified_enum_defaults() -> None:
+    doc = pycolmap.IncrementalMapperOptions.image_selection_method.__doc__
+    assert "ImageSelectionMethod.MIN_UNCERTAINTY" in doc
+
+
+def test_dataclass_docstrings_quote_string_defaults() -> None:
+    doc = pycolmap.CeresBundleAdjustmentOptions.gpu_index.__doc__
+    assert "default: '-1'" in doc
