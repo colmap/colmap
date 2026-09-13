@@ -34,7 +34,8 @@ void BindMvs(py::module& m);
 #endif
 void BindUtil(py::module& m);
 
-PYBIND11_MODULE(_core, m) {
+// Explicitly declare that the extension requires the GIL (the default).
+PYBIND11_MODULE(_core, m, py::mod_gil_used()) {
   m.doc() = "COLMAP plugin";
 #ifdef VERSION_INFO
   m.attr("__version__") = py::str(VERSION_INFO);
