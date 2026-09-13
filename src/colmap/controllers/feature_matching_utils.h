@@ -94,6 +94,10 @@ class FeatureMatcherController {
   TwoViewGeometryOptions geometry_options_;
   std::shared_ptr<FeatureMatcherCache> cache_;
 
+  // Whether the matchers write directly to the output queue, bypassing the
+  // verifier queue. In this case, no verifier workers exist.
+  bool skip_geometric_verification_;
+
   bool is_setup_;
 
   std::vector<std::unique_ptr<FeatureMatcherWorker>> matchers_;
