@@ -22,12 +22,18 @@ The wheels are automatically built and pushed to [PyPI](https://pypi.org/project
      ```bash
      python -m pip install .
      ```
-   - On Windows, after installing COLMAP [via VCPKG](https://colmap.github.io/install.html#id3), run in powershell:
-     ```powershell
-     python -m pip install . `
-         --cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-         --cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
-     ```
+   - On Windows, after installing COLMAP via VCPKG per the installation guide above:
+     1. Determine the installed COLMAP version: `<VCPKG_ROOT>\packages\colmap_<TRIPLET>\tools\colmap\colmap.exe help`
+     2. Check out the corresponding version tag: `git checkout tags/3.XX.X`
+     3. Run the following in PowerShell, replacing `$VCPKG_ROOT` with your vcpkg installation root:
+        ```powershell
+        python -m pip install . `
+            -C skbuild.cmake.define.CMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -C skbuild.cmake.define.VCPKG_TARGET_TRIPLET="x64-windows"
+        ```
+
+   If you get linker errors when building PyCOLMAP on Windows, ensure the repository version matches the COLMAP version installed via VCPKG.
+
 
 </details>
 
