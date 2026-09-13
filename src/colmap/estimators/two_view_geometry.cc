@@ -227,6 +227,29 @@ bool CheckMinInlierRatioOrDegenerate(size_t num_inliers,
   return true;
 }
 
+// A RANSAC report is usable only if estimation succeeded (at least
+// Estimator::kMinNumSamples inliers) and it meets the geometry threshold,
+// which RANSAC itself does not enforce.
+template <typename Report>
+bool RansacReportPassed(const Report& report, size_t min_num_inliers) {
+  return report.success && report.support.num_inliers >= min_num_inliers;
+}
+
+// Mark the geometry as degenerate unless at least one RANSAC report is
+// usable. Returns false (with the config set) when all reports failed or
+// fall below the threshold.
+template <typename... Reports>
+bool CheckRansacResultOrDegenerate(size_t min_num_inliers,
+                                   TwoViewGeometry* geometry,
+                                   const Reports&... reports) {
+  static_assert(sizeof...(Reports) > 0);
+  if ((RansacReportPassed(reports, min_num_inliers) || ...)) {
+    return true;
+  }
+  geometry->config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  return false;
+}
+
 // Override the RANSAC inlier-ratio threshold with the global option, if set.
 RANSACOptions RansacOptionsWithMinInlierRatio(
     const TwoViewGeometryOptions& options) {
@@ -320,8 +343,7 @@ TwoViewGeometry EstimateCalibratedHomography(
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
 
-  if (!H_report.success || H_report.support.num_inliers < min_num_inliers) {
-    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  if (!CheckRansacResultOrDegenerate(min_num_inliers, &geometry, H_report)) {
     return geometry;
   } else {
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
@@ -395,10 +417,8 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
 
-  if ((!F_report.success && !H_report.success) ||
-      (F_report.support.num_inliers < min_num_inliers &&
-       H_report.support.num_inliers < min_num_inliers)) {
-    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  if (!CheckRansacResultOrDegenerate(
+          min_num_inliers, &geometry, F_report, H_report)) {
     return geometry;
   }
 
@@ -568,9 +588,8 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
     geometry.H = H_report.model;
   }
 
-  if ((!E_report.success || E_report.support.num_inliers < min_num_inliers) &&
-      (!H_report.success || H_report.support.num_inliers < min_num_inliers)) {
-    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  if (!CheckRansacResultOrDegenerate(
+          min_num_inliers, &geometry, E_report, H_report)) {
     return geometry;
   }
 
@@ -579,7 +598,7 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
   const double H_E_inlier_ratio =
       static_cast<double>(H_report.support.num_inliers) /
       E_report.support.num_inliers;
-  if (E_report.success && E_report.support.num_inliers >= min_num_inliers &&
+  if (RansacReportPassed(E_report, min_num_inliers) &&
       H_E_inlier_ratio <= options.max_H_inlier_ratio) {
     geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
   } else {
@@ -1128,11 +1147,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
                                              matched_img_points2);
   geometry.H = H_report.model;
 
-  if ((!E_report.success && !F_report.success && !H_report.success) ||
-      (E_report.support.num_inliers < min_num_inliers &&
-       F_report.support.num_inliers < min_num_inliers &&
-       H_report.support.num_inliers < min_num_inliers)) {
-    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  if (!CheckRansacResultOrDegenerate(
+          min_num_inliers, &geometry, E_report, F_report, H_report)) {
     return geometry;
   }
 
@@ -1151,8 +1167,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   const std::vector<char>* best_inlier_mask = nullptr;
   size_t num_inliers = 0;
 
-  if (E_report.success && E_F_inlier_ratio > options.min_E_F_inlier_ratio &&
-      E_report.support.num_inliers >= min_num_inliers) {
+  if (RansacReportPassed(E_report, min_num_inliers) &&
+      E_F_inlier_ratio > options.min_E_F_inlier_ratio) {
     // Calibrated configuration.
 
     // Always use the model with maximum matches.
@@ -1173,8 +1189,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     } else {
       geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
     }
-  } else if (F_report.success &&
-             F_report.support.num_inliers >= min_num_inliers) {
+  } else if (RansacReportPassed(F_report, min_num_inliers)) {
     // Uncalibrated configuration.
 
     num_inliers = F_report.support.num_inliers;
@@ -1189,8 +1204,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     } else {
       geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
     }
-  } else if (H_report.success &&
-             H_report.support.num_inliers >= min_num_inliers) {
+  } else if (RansacReportPassed(H_report, min_num_inliers)) {
     num_inliers = H_report.support.num_inliers;
     best_inlier_mask = &H_report.inlier_mask;
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
@@ -1279,10 +1293,8 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
       H_ransac.Estimate(matched_img_points1, matched_img_points2);
   geometry.H = H_report.model;
 
-  if ((!SF_report.success && !H_report.success) ||
-      (SF_report.support.num_inliers < min_num_inliers &&
-       H_report.support.num_inliers < min_num_inliers)) {
-    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  if (!CheckRansacResultOrDegenerate(
+          min_num_inliers, &geometry, SF_report, H_report)) {
     return geometry;
   }
 
@@ -1293,7 +1305,7 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
   const std::vector<char>* best_inlier_mask = nullptr;
   size_t num_inliers = 0;
 
-  if (SF_report.success && SF_report.support.num_inliers >= min_num_inliers &&
+  if (RansacReportPassed(SF_report, min_num_inliers) &&
       H_SF_inlier_ratio <= options.max_H_inlier_ratio) {
     // Shared-focal configuration. Labeled UNCALIBRATED (the focal is estimated,
     // not a trusted prior); the estimated intrinsics are surfaced via
@@ -1319,8 +1331,7 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
     K(1, 2) = principal_point.y();
     const Eigen::Matrix3d K_inv = K.inverse();
     geometry.F = K_inv.transpose() * SF_report.model.E * K_inv;
-  } else if (H_report.success &&
-             H_report.support.num_inliers >= min_num_inliers) {
+  } else if (RansacReportPassed(H_report, min_num_inliers)) {
     num_inliers = H_report.support.num_inliers;
     best_inlier_mask = &H_report.inlier_mask;
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
@@ -1470,10 +1481,8 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
     geometry.H = H_report.model;
   }
 
-  if ((!focal_report.success && !H_report.success) ||
-      (focal_report.support.num_inliers < min_num_inliers &&
-       H_report.support.num_inliers < min_num_inliers)) {
-    geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  if (!CheckRansacResultOrDegenerate(
+          min_num_inliers, &geometry, focal_report, H_report)) {
     return geometry;
   }
 
@@ -1484,8 +1493,7 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
   const std::vector<char>* best_inlier_mask = nullptr;
   size_t num_inliers = 0;
 
-  if (focal_report.success &&
-      focal_report.support.num_inliers >= min_num_inliers &&
+  if (RansacReportPassed(focal_report, min_num_inliers) &&
       H_focal_inlier_ratio <= options.max_H_inlier_ratio) {
     // The focal is estimated rather than a trusted prior, hence UNCALIBRATED,
     // and is surfaced via camera1 so consumers can tell this apart from a plain
@@ -1509,8 +1517,7 @@ TwoViewGeometry EstimateOneSidedFocalTwoViewGeometry(
       const Eigen::Matrix3d K2_inv = camera2.CalibrationMatrix().inverse();
       geometry.F = K2_inv.transpose() * focal_report.model.E * K1_inv;
     }
-  } else if (H_report.success &&
-             H_report.support.num_inliers >= min_num_inliers) {
+  } else if (RansacReportPassed(H_report, min_num_inliers)) {
     num_inliers = H_report.support.num_inliers;
     best_inlier_mask = &H_report.inlier_mask;
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
