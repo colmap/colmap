@@ -180,9 +180,9 @@ def test_ceres_ba_options_repr_quotes_strings() -> None:
 
 def test_dataclass_docstrings_show_qualified_enum_defaults() -> None:
     doc = pycolmap.IncrementalMapperOptions.image_selection_method.__doc__
-    assert "ImageSelectionMethod.MIN_UNCERTAINTY" in doc
+    assert doc is not None and "ImageSelectionMethod.MIN_UNCERTAINTY" in doc
 
 
 def test_dataclass_docstrings_quote_string_defaults() -> None:
     doc = pycolmap.CeresBundleAdjustmentOptions.gpu_index.__doc__
-    assert "default: '-1'" in doc
+    assert doc is not None and "default: '-1'" in doc
