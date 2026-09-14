@@ -42,7 +42,7 @@ set(COLMAP_EXE_PUBLIC_LIBS
 )
 if(MVS_ENABLED)
     list(APPEND COLMAP_EXE_SRCS mvs.h mvs.cc)
-    list(APPEND COLMAP_EXE_PUBLIC_LIBS colmap_mvs)
+    list(APPEND COLMAP_EXE_PUBLIC_LIBS colmap_mvs colmap_mvs_estimator)
 endif()
 
 COLMAP_ADD_LIBRARY(

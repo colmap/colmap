@@ -9,7 +9,7 @@
 #include "colmap/mvs/gpu_mat_ref_image.h"
 #include "colmap/mvs/image.h"
 #include "colmap/mvs/normal_map.h"
-#include "colmap/mvs/patch_match.h"
+#include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/cuda_to_hip.h"
 
 #include <iostream>
@@ -21,8 +21,24 @@ namespace mvs {
 
 class PatchMatchCuda {
  public:
-  PatchMatchCuda(const PatchMatchOptions& options,
-                 const PatchMatch::Problem& problem);
+  struct Problem {
+    // Index of the reference image.
+    int ref_image_idx = -1;
+
+    // Indices of the source images.
+    std::vector<int> src_image_idxs;
+
+    // Input images for the photometric consistency term.
+    std::vector<Image>* images = nullptr;
+
+    // Input depth maps for the geometric consistency term.
+    std::vector<DepthMap>* depth_maps = nullptr;
+
+    // Input normal maps for the geometric consistency term.
+    std::vector<NormalMap>* normal_maps = nullptr;
+  };
+
+  PatchMatchCuda(const PatchMatchOptions& options, const Problem& problem);
 
   void Run();
 
@@ -48,7 +64,7 @@ class PatchMatchCuda {
   void Rotate();
 
   const PatchMatchOptions options_;
-  const PatchMatch::Problem problem_;
+  const Problem problem_;
 
   // Dimensions for sweeping from top to bottom, i.e. one thread per column.
   dim3 sweep_block_size_;

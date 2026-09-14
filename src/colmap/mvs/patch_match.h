@@ -2,14 +2,10 @@
 
 #pragma once
 
-#include "colmap/mvs/depth_map.h"
-#include "colmap/mvs/image.h"
-#include "colmap/mvs/normal_map.h"
+#include "colmap/mvs/mvs_estimator.h"
 #include "colmap/mvs/patch_match_options.h"
-#ifndef __CUDACC__
 #include "colmap/util/base_controller.h"
 #include "colmap/util/threading.h"
-#endif
 
 #include <filesystem>
 #include <memory>
@@ -18,54 +14,22 @@
 namespace colmap {
 namespace mvs {
 
-class ConsistencyGraph;
-class PatchMatchCuda;
 class Workspace;
 
-// This is a wrapper class around the actual PatchMatchCuda implementation. This
-// class is necessary to hide Cuda code from any boost or Eigen code, since
-// NVCC/MSVC cannot compile complex C++ code.
-class PatchMatch {
+// PatchMatch stereo estimator, which requires a CUDA or HIP enabled build. The
+// actual implementation in PatchMatchCuda is hidden from any boost or Eigen
+// code, since NVCC/MSVC cannot compile complex C++ code.
+class PatchMatch : public MVSEstimator {
  public:
-  struct Problem {
-    // Index of the reference image.
-    int ref_image_idx = -1;
+  using Options = PatchMatchOptions;
 
-    // Indices of the source images.
-    std::vector<int> src_image_idxs;
+  explicit PatchMatch(Options options);
 
-    // Input images for the photometric consistency term.
-    std::vector<Image>* images = nullptr;
-
-    // Input depth maps for the geometric consistency term.
-    std::vector<DepthMap>* depth_maps = nullptr;
-
-    // Input normal maps for the geometric consistency term.
-    std::vector<NormalMap>* normal_maps = nullptr;
-
-    // Print the configuration to stdout.
-    void Print() const;
-  };
-
-  PatchMatch(const PatchMatchOptions& options, const Problem& problem);
-  ~PatchMatch();
-
-  // Check the options and the problem for validity.
-  void Check() const;
-
-  // Run the patch match algorithm.
-  void Run();
-
-  // Get the computed values after running the algorithm.
-  DepthMap GetDepthMap() const;
-  NormalMap GetNormalMap() const;
-  ConsistencyGraph GetConsistencyGraph() const;
-  Mat<float> GetSelProbMap() const;
+  Capabilities GetCapabilities() const override;
+  Result Estimate(const Problem& problem, Pass pass) override;
 
  private:
-  const PatchMatchOptions options_;
-  const Problem problem_;
-  std::unique_ptr<PatchMatchCuda> patch_match_cuda_;
+  Options options_;
 };
 
 // This thread processes all problems in a workspace. A workspace has the
@@ -97,8 +61,6 @@ class PatchMatch {
 // images. Note that all specified images must be reconstructed in the COLMAP
 // reconstruction provided in the `sparse` folder.
 
-#ifndef __CUDACC__
-
 class PatchMatchController : public BaseController {
  public:
   PatchMatchController(const PatchMatchOptions& options,
@@ -112,7 +74,7 @@ class PatchMatchController : public BaseController {
   void ReadWorkspace();
   void ReadProblems();
   void ReadGpuIndices();
-  void ProcessProblem(const PatchMatchOptions& options, size_t problem_idx);
+  void ProcessProblem(MVSEstimator::Pass pass, size_t problem_idx);
 
   const PatchMatchOptions options_;
   const std::filesystem::path workspace_path_;
@@ -128,8 +90,6 @@ class PatchMatchController : public BaseController {
   std::vector<int> gpu_indices_;
   std::vector<std::pair<float, float>> depth_ranges_;
 };
-
-#endif
 
 }  // namespace mvs
 }  // namespace colmap

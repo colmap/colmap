@@ -12,62 +12,50 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <algorithm>
 #include <numeric>
 #include <set>
+#include <utility>
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option << std::endl
 
 namespace colmap {
 namespace mvs {
 
-PatchMatch::PatchMatch(const PatchMatchOptions& options, const Problem& problem)
-    : options_(options), problem_(problem) {}
+namespace {
 
-PatchMatch::~PatchMatch() {}
+void CheckProblem(const PatchMatchOptions& options,
+                  const MVSEstimator::Problem& problem) {
+  THROW_CHECK(options.Check());
 
-void PatchMatch::Problem::Print() const {
-  LOG_HEADING2("PatchMatch::Problem");
-  LOG(INFO) << "ref_image_idx: " << ref_image_idx;
-  THROW_CHECK(!src_image_idxs.empty());
-  std::ostringstream src_image_idxs_stream;
-  for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
-    src_image_idxs_stream << src_image_idxs[i] << " ";
-  }
-  src_image_idxs_stream << src_image_idxs.back();
-  LOG(INFO) << "src_image_idxs: " << src_image_idxs_stream.str();
-}
-
-void PatchMatch::Check() const {
-  THROW_CHECK(options_.Check());
-
-  THROW_CHECK(!options_.gpu_index.empty());
-  const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+  THROW_CHECK(!options.gpu_index.empty());
+  const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
   THROW_CHECK_EQ(gpu_indices.size(), 1);
   THROW_CHECK_GE(gpu_indices[0], -1);
 
-  THROW_CHECK_NOTNULL(problem_.images);
-  if (options_.geom_consistency) {
-    THROW_CHECK_NOTNULL(problem_.depth_maps);
-    THROW_CHECK_NOTNULL(problem_.normal_maps);
-    THROW_CHECK_EQ(problem_.depth_maps->size(), problem_.images->size());
-    THROW_CHECK_EQ(problem_.normal_maps->size(), problem_.images->size());
+  THROW_CHECK_NOTNULL(problem.images);
+  if (options.geom_consistency) {
+    THROW_CHECK_NOTNULL(problem.depth_maps);
+    THROW_CHECK_NOTNULL(problem.normal_maps);
+    THROW_CHECK_EQ(problem.depth_maps->size(), problem.images->size());
+    THROW_CHECK_EQ(problem.normal_maps->size(), problem.images->size());
   }
 
-  THROW_CHECK_GT(problem_.src_image_idxs.size(), 0);
+  THROW_CHECK_GT(problem.src_image_idxs.size(), 0);
 
   // Check that there are no duplicate images and that the reference image
   // is not defined as a source image.
-  std::set<int> unique_image_idxs(problem_.src_image_idxs.begin(),
-                                  problem_.src_image_idxs.end());
-  unique_image_idxs.insert(problem_.ref_image_idx);
-  THROW_CHECK_EQ(problem_.src_image_idxs.size() + 1, unique_image_idxs.size());
+  std::set<int> unique_image_idxs(problem.src_image_idxs.begin(),
+                                  problem.src_image_idxs.end());
+  unique_image_idxs.insert(problem.ref_image_idx);
+  THROW_CHECK_EQ(problem.src_image_idxs.size() + 1, unique_image_idxs.size());
 
   // Check that input data is well-formed.
   for (const int image_idx : unique_image_idxs) {
     THROW_CHECK_GE(image_idx, 0) << image_idx;
-    THROW_CHECK_LT(image_idx, problem_.images->size()) << image_idx;
+    THROW_CHECK_LT(image_idx, problem.images->size()) << image_idx;
 
-    const Image& image = problem_.images->at(image_idx);
+    const Image& image = problem.images->at(image_idx);
     THROW_CHECK_GT(image.GetBitmap().Width(), 0) << image_idx;
     THROW_CHECK_GT(image.GetBitmap().Height(), 0) << image_idx;
     THROW_CHECK(image.GetBitmap().IsGrey()) << image_idx;
@@ -81,49 +69,80 @@ void PatchMatch::Check() const {
     THROW_CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
     THROW_CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
 
-    if (options_.geom_consistency) {
-      THROW_CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
-      const DepthMap& depth_map = problem_.depth_maps->at(image_idx);
+    if (options.geom_consistency) {
+      THROW_CHECK_LT(image_idx, problem.depth_maps->size()) << image_idx;
+      const DepthMap& depth_map = problem.depth_maps->at(image_idx);
       THROW_CHECK_EQ(image.GetWidth(), depth_map.GetWidth()) << image_idx;
       THROW_CHECK_EQ(image.GetHeight(), depth_map.GetHeight()) << image_idx;
     }
   }
 
-  if (options_.geom_consistency) {
-    const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
+  if (options.geom_consistency) {
+    const Image& ref_image = problem.images->at(problem.ref_image_idx);
     const NormalMap& ref_normal_map =
-        problem_.normal_maps->at(problem_.ref_image_idx);
+        problem.normal_maps->at(problem.ref_image_idx);
     THROW_CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
     THROW_CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
   }
 }
 
-void PatchMatch::Run() {
-  LOG_HEADING2("PatchMatch::Run");
+}  // namespace
 
-  Check();
+PatchMatch::PatchMatch(Options options) : options_(std::move(options)) {}
 
-  patch_match_cuda_ = std::make_unique<PatchMatchCuda>(options_, problem_);
-  patch_match_cuda_->Run();
+MVSEstimator::Capabilities PatchMatch::GetCapabilities() const {
+  Capabilities capabilities;
+  capabilities.requires_rgb = false;
+  capabilities.supports_geometric_pass = true;
+  capabilities.min_num_source_images = 1;
+  return capabilities;
 }
 
-DepthMap PatchMatch::GetDepthMap() const {
-  return patch_match_cuda_->GetDepthMap();
-}
+MVSEstimator::Result PatchMatch::Estimate(const Problem& problem,
+                                          const Pass pass) {
+  THROW_CHECK_GT(problem.depth_min, 0);
+  THROW_CHECK_LE(problem.depth_min, problem.depth_max);
 
-NormalMap PatchMatch::GetNormalMap() const {
-  return patch_match_cuda_->GetNormalMap();
-}
+  Options options = options_;
+  options.depth_min = problem.depth_min;
+  options.depth_max = problem.depth_max;
+  if (options.sigma_spatial <= 0) {
+    options.sigma_spatial = options.window_radius;
+  }
+  options.geom_consistency = pass == Pass::GEOMETRIC;
+  // If geometric consistency is enabled, the photometric output initializes
+  // the geometric pass and must not be filtered.
+  if (pass == Pass::PHOTOMETRIC && options_.geom_consistency) {
+    options.filter = false;
+  }
+  options.filter_min_num_consistent =
+      std::min(options.filter_min_num_consistent,
+               static_cast<int>(problem.src_image_idxs.size()));
+  options.Print();
 
-Mat<float> PatchMatch::GetSelProbMap() const {
-  return patch_match_cuda_->GetSelProbMap();
-}
+  CheckProblem(options, problem);
 
-ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
-  const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
-  return ConsistencyGraph(ref_image.GetWidth(),
-                          ref_image.GetHeight(),
-                          patch_match_cuda_->GetConsistentImageIdxs());
+  PatchMatchCuda::Problem cuda_problem;
+  cuda_problem.ref_image_idx = problem.ref_image_idx;
+  cuda_problem.src_image_idxs = problem.src_image_idxs;
+  cuda_problem.images = problem.images;
+  cuda_problem.depth_maps = problem.depth_maps;
+  cuda_problem.normal_maps = problem.normal_maps;
+
+  PatchMatchCuda patch_match_cuda(options, cuda_problem);
+  patch_match_cuda.Run();
+
+  Result result;
+  result.depth_map = patch_match_cuda.GetDepthMap();
+  result.normal_map = patch_match_cuda.GetNormalMap();
+  if (options.write_consistency_graph) {
+    const Image& ref_image = problem.images->at(problem.ref_image_idx);
+    result.consistency_graph =
+        ConsistencyGraph(ref_image.GetWidth(),
+                         ref_image.GetHeight(),
+                         patch_match_cuda.GetConsistentImageIdxs());
+  }
+  return result;
 }
 
 PatchMatchController::PatchMatchController(
@@ -152,26 +171,25 @@ void PatchMatchController::Run() {
       GetEffectiveNumThreads(options_.num_threads));
 
   // If geometric consistency is enabled, then photometric output must be
-  // computed first for all images without filtering.
+  // computed first for all images.
   if (options_.geom_consistency) {
-    auto photometric_options = options_;
-    photometric_options.geom_consistency = false;
-    photometric_options.filter = false;
-
     for (size_t problem_idx = 0; problem_idx < problems_.size();
          ++problem_idx) {
       thread_pool_->AddTask(&PatchMatchController::ProcessProblem,
                             this,
-                            photometric_options,
+                            MVSEstimator::Pass::PHOTOMETRIC,
                             problem_idx);
     }
 
     thread_pool_->Wait();
   }
 
+  const MVSEstimator::Pass pass = options_.geom_consistency
+                                      ? MVSEstimator::Pass::GEOMETRIC
+                                      : MVSEstimator::Pass::PHOTOMETRIC;
   for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
     thread_pool_->AddTask(
-        &PatchMatchController::ProcessProblem, this, options_, problem_idx);
+        &PatchMatchController::ProcessProblem, this, pass, problem_idx);
   }
 
   thread_pool_->Wait();
@@ -355,7 +373,7 @@ void PatchMatchController::ReadGpuIndices() {
   }
 }
 
-void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
+void PatchMatchController::ProcessProblem(const MVSEstimator::Pass pass,
                                           const size_t problem_idx) {
   if (CheckIfStopped()) {
     return;
@@ -367,9 +385,11 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   const int gpu_index = gpu_indices_.at(thread_pool_->GetThreadIndex());
   THROW_CHECK_GE(gpu_index, -1);
 
+  const bool geom_consistency = pass == MVSEstimator::Pass::GEOMETRIC;
+
   const std::string& stereo_folder = workspace_->GetOptions().stereo_folder;
   const std::string output_type =
-      options.geom_consistency ? "geometric" : "photometric";
+      geom_consistency ? "geometric" : "photometric";
   const std::string image_name = model.GetImageName(problem.ref_image_idx);
   const std::string file_name =
       StringPrintf("%s.%s.bin", image_name.c_str(), output_type.c_str());
@@ -381,7 +401,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
       workspace_path_ / stereo_folder / "consistency_graphs" / file_name;
 
   if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
-      (!options.write_consistency_graph ||
+      (!options_.write_consistency_graph ||
        ExistsFile(consistency_graph_path))) {
     return;
   }
@@ -391,29 +411,21 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
                             problems_.size(),
                             image_name.c_str()));
 
-  auto patch_match_options = options;
-
-  if (patch_match_options.depth_min < 0 || patch_match_options.depth_max < 0) {
-    patch_match_options.depth_min =
-        depth_ranges_.at(problem.ref_image_idx).first;
-    patch_match_options.depth_max =
-        depth_ranges_.at(problem.ref_image_idx).second;
-    THROW_CHECK(patch_match_options.depth_min > 0 &&
-                patch_match_options.depth_max > 0)
+  if (options_.depth_min < 0 || options_.depth_max < 0) {
+    problem.depth_min = depth_ranges_.at(problem.ref_image_idx).first;
+    problem.depth_max = depth_ranges_.at(problem.ref_image_idx).second;
+    THROW_CHECK(problem.depth_min > 0 && problem.depth_max > 0)
         << " - You must manually set the minimum and maximum depth, since no "
            "sparse model is provided in the workspace.";
-  }
-
-  patch_match_options.gpu_index = std::to_string(gpu_index);
-
-  if (patch_match_options.sigma_spatial <= 0.0f) {
-    patch_match_options.sigma_spatial = patch_match_options.window_radius;
+  } else {
+    problem.depth_min = static_cast<float>(options_.depth_min);
+    problem.depth_max = static_cast<float>(options_.depth_max);
   }
 
   std::vector<Image> images = model.images;
   std::vector<DepthMap> depth_maps;
   std::vector<NormalMap> normal_maps;
-  if (options.geom_consistency) {
+  if (geom_consistency) {
     depth_maps.resize(model.images.size());
     normal_maps.resize(model.images.size());
   }
@@ -427,10 +439,6 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     FlatHashSet<int> used_image_idxs(problem.src_image_idxs.begin(),
                                      problem.src_image_idxs.end());
     used_image_idxs.insert(problem.ref_image_idx);
-
-    patch_match_options.filter_min_num_consistent =
-        std::min(static_cast<int>(used_image_idxs.size()) - 1,
-                 patch_match_options.filter_min_num_consistent);
 
     // Only access workspace from one thread at a time and only spawn resample
     // threads from one master thread at a time.
@@ -447,9 +455,9 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
       const auto normal_path = workspace_->GetNormalMapPath(image_idx);
 
       if (!ExistsFile(image_path) ||
-          (options.geom_consistency && !ExistsFile(depth_path)) ||
-          (options.geom_consistency && !ExistsFile(normal_path))) {
-        if (options.allow_missing_files) {
+          (geom_consistency && !ExistsFile(depth_path)) ||
+          (geom_consistency && !ExistsFile(normal_path))) {
+        if (options_.allow_missing_files) {
           LOG(WARNING) << StringPrintf(
               "Skipping source image %d: %s for missing "
               "image or depth/normal map",
@@ -476,7 +484,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     for (const auto image_idx : valid_image_idxs) {
       futures.push_back(io_thread_pool_->AddTask([&, image_idx]() {
         images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
-        if (options.geom_consistency) {
+        if (geom_consistency) {
           depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
           normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
         }
@@ -490,20 +498,21 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   }
 
   problem.Print();
-  patch_match_options.Print();
 
-  PatchMatch patch_match(patch_match_options, problem);
-  patch_match.Run();
+  PatchMatchOptions patch_match_options = options_;
+  patch_match_options.gpu_index = std::to_string(gpu_index);
+  PatchMatch patch_match(std::move(patch_match_options));
+  const MVSEstimator::Result result = patch_match.Estimate(problem, pass);
 
   LOG(INFO) << std::endl
             << StringPrintf("Writing %s output for %s",
                             output_type.c_str(),
                             image_name.c_str());
 
-  patch_match.GetDepthMap().Write(depth_map_path);
-  patch_match.GetNormalMap().Write(normal_map_path);
-  if (options.write_consistency_graph) {
-    patch_match.GetConsistencyGraph().Write(consistency_graph_path);
+  result.depth_map.Write(depth_map_path);
+  result.normal_map.Write(normal_map_path);
+  if (result.consistency_graph.has_value()) {
+    result.consistency_graph->Write(consistency_graph_path);
   }
 }
 

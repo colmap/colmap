@@ -1261,7 +1261,7 @@ __global__ void SweepFromTopToBottom(
 }
 
 PatchMatchCuda::PatchMatchCuda(const PatchMatchOptions& options,
-                               const PatchMatch::Problem& problem)
+                               const Problem& problem)
     : options_(options),
       problem_(problem),
       ref_width_(0),

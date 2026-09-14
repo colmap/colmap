@@ -55,5 +55,5 @@ COLMAP_ADD_LIBRARY(
         ${COLMAP_UI_QT_LIBS}
 )
 if(MVS_ENABLED)
-    target_link_libraries(colmap_ui PUBLIC colmap_mvs)
+    target_link_libraries(colmap_ui PUBLIC colmap_mvs colmap_mvs_estimator)
 endif()

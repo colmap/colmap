@@ -108,7 +108,6 @@ if(CUDA_ENABLED)
         SRCS
             gpu_mat_prng.h gpu_mat_prng.cu
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
-            patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu
         PUBLIC_LINK_LIBS
             colmap_mvs
@@ -267,7 +266,6 @@ if(HIP_ENABLED)
         SRCS
             gpu_mat_prng.h gpu_mat_prng.cu
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
-            patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu
         PUBLIC_LINK_LIBS
             colmap_mvs
@@ -290,3 +288,27 @@ if(HIP_ENABLED)
     )
     set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
 endif()
+
+# The estimators and their controllers use the CUDA/HIP code in colmap_mvs_cuda,
+# so they live in a separate library on top of colmap_mvs and colmap_mvs_cuda.
+set(COLMAP_MVS_ESTIMATOR_SRCS
+    mvs_estimator.h mvs_estimator.cc
+)
+if(CUDA_ENABLED OR HIP_ENABLED)
+    list(APPEND COLMAP_MVS_ESTIMATOR_SRCS patch_match.h patch_match.cc)
+endif()
+COLMAP_ADD_LIBRARY(
+    NAME colmap_mvs_estimator
+    SRCS ${COLMAP_MVS_ESTIMATOR_SRCS}
+    PUBLIC_LINK_LIBS
+        colmap_mvs
+)
+if(CUDA_ENABLED OR HIP_ENABLED)
+    target_link_libraries(colmap_mvs_estimator PRIVATE colmap_mvs_cuda)
+endif()
+
+COLMAP_ADD_TEST(
+    NAME mvs_estimator_test
+    SRCS mvs_estimator_test.cc
+    LINK_LIBS colmap_mvs_estimator
+)
