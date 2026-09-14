@@ -82,7 +82,8 @@ OptionManager::OptionManager(bool add_project_options)
   reconstruction_clusterer =
       std::make_shared<ReconstructionClusteringOptions>();
 #if defined(COLMAP_MVS_ENABLED)
-  patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
+  mvs_estimator = std::make_shared<mvs::MVSEstimator::Options>();
+  patch_match_stereo = mvs_estimator->patch_match;
   stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
   poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
   delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
@@ -136,6 +137,7 @@ void OptionManager::ModifyForLowQuality() {
   mapper->ba_global_max_refinements = 2;
 #if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 1000;
+  mvs_estimator->mvsformer_pp->max_image_size = 1024;
   patch_match_stereo->window_radius = 4;
   patch_match_stereo->window_step = 2;
   patch_match_stereo->num_samples /= 2;
@@ -162,6 +164,7 @@ void OptionManager::ModifyForMediumQuality() {
   mapper->ba_global_max_refinements = 2;
 #if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 1600;
+  mvs_estimator->mvsformer_pp->max_image_size = 1280;
   patch_match_stereo->window_radius = 4;
   patch_match_stereo->window_step = 2;
   patch_match_stereo->num_samples /= 1.5;
@@ -184,6 +187,7 @@ void OptionManager::ModifyForHighQuality() {
   mapper->ba_global_max_num_iterations = 75;
 #if defined(COLMAP_MVS_ENABLED)
   patch_match_stereo->max_image_size = 2400;
+  mvs_estimator->mvsformer_pp->max_image_size = 1536;
   stereo_fusion->max_image_size = 2400;
 #endif
 }
@@ -196,6 +200,9 @@ void OptionManager::ModifyForExtremeQuality() {
   mapper->ba_local_max_num_iterations = 40;
   mapper->ba_local_max_refinements = 3;
   mapper->ba_global_max_num_iterations = 100;
+#if defined(COLMAP_MVS_ENABLED)
+  mvs_estimator->mvsformer_pp->max_image_size = 1920;
+#endif
 }
 
 void OptionManager::AddAllOptions() {
@@ -212,6 +219,7 @@ void OptionManager::AddAllOptions() {
   AddBundleAdjustmentOptions();
   AddMapperOptions();
 #if defined(COLMAP_MVS_ENABLED)
+  AddMVSEstimatorOptions();
   AddPatchMatchStereoOptions();
   AddStereoFusionOptions();
   AddPoissonMeshingOptions();
@@ -981,6 +989,43 @@ void OptionManager::AddReconstructionClustererOptions() {
 }
 
 #if defined(COLMAP_MVS_ENABLED)
+void OptionManager::AddMVSEstimatorOptions() {
+  if (!RegisterOptionGroupOnce("mvs_estimator")) {
+    return;
+  }
+  AddDefaultEnumOption("MVSEstimator.type",
+                       &mvs_estimator->type,
+                       mvs::MVSEstimator::TypeToString,
+                       mvs::MVSEstimator::TypeFromString,
+                       EnumHelpText(mvs::MVSEstimator::TypeStrings()));
+
+  auto& options = *mvs_estimator->mvsformer_pp;
+  AddDefaultOption("MVSFormerPlusPlus.model_path", &options.model_path);
+  AddDefaultOption("MVSFormerPlusPlus.num_views", &options.num_views);
+  AddDefaultOption("MVSFormerPlusPlus.max_image_size", &options.max_image_size);
+  AddDefaultOption("MVSFormerPlusPlus.depth_min", &options.depth_min);
+  AddDefaultOption("MVSFormerPlusPlus.depth_max", &options.depth_max);
+  AddDefaultOption("MVSFormerPlusPlus.min_confidence", &options.min_confidence);
+  AddDefaultOption("MVSFormerPlusPlus.filter_max_reproj_error",
+                   &options.filter_max_reproj_error);
+  AddDefaultOption("MVSFormerPlusPlus.filter_max_depth_error",
+                   &options.filter_max_depth_error);
+  AddDefaultOption("MVSFormerPlusPlus.filter_max_normal_error",
+                   &options.filter_max_normal_error);
+  AddDefaultOption("MVSFormerPlusPlus.filter_min_num_consistent",
+                   &options.filter_min_num_consistent);
+  AddDefaultOption("MVSFormerPlusPlus.cache_size", &options.cache_size);
+  AddDefaultOption("MVSFormerPlusPlus.use_gpu", &options.use_gpu);
+  AddDefaultOption("MVSFormerPlusPlus.gpu_index", &options.gpu_index);
+  AddDefaultOption("MVSFormerPlusPlus.num_threads", &options.num_threads);
+  AddDefaultOption("MVSFormerPlusPlus.geom_consistency",
+                   &options.geom_consistency);
+  AddDefaultOption("MVSFormerPlusPlus.allow_missing_files",
+                   &options.allow_missing_files);
+  AddDefaultOption("MVSFormerPlusPlus.write_consistency_graph",
+                   &options.write_consistency_graph);
+}
+
 void OptionManager::AddPatchMatchStereoOptions() {
   if (!RegisterOptionGroupOnce("patch_match_stereo")) {
     return;
@@ -1202,7 +1247,8 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *gravity_refiner = GravityRefinerOptions();
   *reconstruction_clusterer = ReconstructionClusteringOptions();
 #if defined(COLMAP_MVS_ENABLED)
-  *patch_match_stereo = mvs::PatchMatchOptions();
+  *mvs_estimator = mvs::MVSEstimator::Options();
+  patch_match_stereo = mvs_estimator->patch_match;
   *stereo_fusion = mvs::StereoFusionOptions();
   *poisson_meshing = mvs::PoissonMeshingOptions();
   *delaunay_meshing = mvs::DelaunayMeshingOptions();
@@ -1237,6 +1283,7 @@ bool OptionManager::Check() {
   if (mapper) success = success && mapper->Check();
 
 #if defined(COLMAP_MVS_ENABLED)
+  if (mvs_estimator) success = success && mvs_estimator->Check();
   if (patch_match_stereo) success = success && patch_match_stereo->Check();
   if (stereo_fusion) success = success && stereo_fusion->Check();
   if (poisson_meshing) success = success && poisson_meshing->Check();

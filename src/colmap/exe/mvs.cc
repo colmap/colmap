@@ -8,6 +8,7 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/mesh_simplification.h"
 #include "colmap/mvs/model.h"
+#include "colmap/mvs/mvs_estimator_controller.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/mvs/poisson_meshing.h"
@@ -225,6 +226,53 @@ int RunPatchMatchStereo(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunMVSEstimator(int argc, char** argv) {
+  std::filesystem::path workspace_path;
+  std::string workspace_format = "COLMAP";
+  std::string pmvs_option_name = "option-all";
+  std::filesystem::path config_path;
+
+  OptionManager options;
+  options.AddRequiredOption(
+      "workspace_path",
+      &workspace_path,
+      "Path to the folder containing the undistorted images");
+  options.AddDefaultOption(
+      "workspace_format", &workspace_format, "{COLMAP, PMVS}");
+  options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
+  options.AddDefaultOption("config_path", &config_path);
+  options.AddMVSEstimatorOptions();
+  options.AddPatchMatchStereoOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+  RunMVSEstimatorImpl(workspace_path,
+                      workspace_format,
+                      pmvs_option_name,
+                      *options.mvs_estimator,
+                      config_path);
+  return EXIT_SUCCESS;
+}
+
+void RunMVSEstimatorImpl(const std::filesystem::path& workspace_path,
+                         const std::string& workspace_format,
+                         const std::string& pmvs_option_name,
+                         const mvs::MVSEstimator::Options& options,
+                         const std::filesystem::path& config_path) {
+  std::string workspace_format_lower = workspace_format;
+  StringToLower(&workspace_format_lower);
+  THROW_CHECK(workspace_format_lower == "colmap" ||
+              workspace_format_lower == "pmvs")
+      << "Invalid `workspace_format` " << workspace_format_lower
+      << " - supported values are 'COLMAP' or 'PMVS'.";
+  mvs::MVSEstimatorController controller(options,
+                                         workspace_path,
+                                         workspace_format_lower,
+                                         pmvs_option_name,
+                                         config_path);
+  controller.Run();
+}
+
 void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
                              const std::string& workspace_format,
                              const std::string& pmvs_option_name,
@@ -283,7 +331,9 @@ int RunStereoFuser(int argc, char** argv) {
       "workspace_format", &workspace_format, "{COLMAP, PMVS}");
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption(
-      "input_type", &input_type, "{photometric, geometric}");
+      "input_type",
+      &input_type,
+      "Depth-map set, e.g. geometric or mvsformer_pp_5.geometric");
   options.AddDefaultOption("output_type", &output_type, "{BIN, TXT, PLY}");
   options.AddRequiredOption("output_path", &output_path);
   options.AddStereoFusionOptions();
@@ -316,9 +366,12 @@ Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
       << " - supported values are 'COLMAP' or 'PMVS'.";
 
   StringToLower(&input_type);
-  THROW_CHECK(input_type == "photometric" || input_type == "geometric")
+  THROW_CHECK(
+      !input_type.empty() && input_type.find("..") == std::string::npos &&
+      input_type.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789_.-") ==
+          std::string::npos)
       << "Invalid `input_type` " << input_type
-      << " - supported values are 'photometric' and 'geometric'.";
+      << " - expected a path-safe MVS depth-map suffix.";
 
   StringToLower(&output_type);
   THROW_CHECK(output_type == "bin" || output_type == "ply" ||

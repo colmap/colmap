@@ -62,15 +62,16 @@ of commands as an alternative to the automatic reconstruction command::
         --output_type COLMAP \
         --max_image_size 2000
 
-    $ colmap patch_match_stereo \
+    $ colmap mvs_depth_estimator \
         --workspace_path $DATASET_PATH/dense \
         --workspace_format COLMAP \
-        --PatchMatchStereo.geom_consistency true
+        --MVSEstimator.type MVSFORMER_PP \
+        --MVSFormerPlusPlus.model_path /path/to/mvsformer_pp_5.onnx
 
     $ colmap stereo_fusion \
         --workspace_path $DATASET_PATH/dense \
         --workspace_format COLMAP \
-        --input_type geometric \
+        --input_type mvsformer_pp_5.geometric \
         --output_path $DATASET_PATH/dense/fused.ply
 
     $ colmap poisson_mesher \
@@ -393,6 +394,10 @@ available as ``colmap [command]``:
 
 - ``patch_match_stereo``: Dense 3D reconstruction / mapping using MVS after
   running the ``image_undistorter`` to initialize the workspace.
+
+- ``mvs_depth_estimator``: Dense depth and normal-map estimation using either
+  PatchMatch or the learned MVSFormer++ ONNX model. PatchMatch remains
+  available through the legacy command above.
 
 - ``stereo_fusion``: Fusion of ``patch_match_stereo`` results into to a colored
   point cloud.

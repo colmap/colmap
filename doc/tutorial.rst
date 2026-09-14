@@ -491,7 +491,8 @@ reconstruction results. The first step is to ``undistort`` the images, second to
 compute the depth and normal maps using ``stereo``, third to ``fuse`` the depth
 and normal maps into a point cloud, followed by a final, optional point cloud
 ``meshing`` step. These steps are also available from the command-line as the
-``image_undistorter``, ``patch_match_stereo``, ``stereo_fusion``, and
+``image_undistorter``, ``mvs_depth_estimator`` (or the legacy
+``patch_match_stereo``), ``stereo_fusion``, and
 ``poisson_mesher`` / ``delaunay_mesher`` commands, respectively. During the
 stereo reconstruction process, the display might
 freeze due to heavy compute load and, if your GPU does not have enough memory,
@@ -501,6 +502,15 @@ information on how to avoid these problems. Note that the reconstructed normals
 of the point cloud cannot be visualized directly in COLMAP, but can be viewed in
 external tools such as Meshlab by enabling ``Render > Show Normal/Curvature``. Similarly, the reconstructed
 dense surface mesh model must be visualized with external software.
+
+When ONNX support is enabled, ``mvs_depth_estimator`` defaults to MVSFormer++.
+It accepts five- and ten-view ONNX models and requires image dimensions that
+are divisible by 64; COLMAP pads and crops images automatically. Use
+``--MVSEstimator.type PATCH_MATCH`` to select the classical implementation.
+MVSFormer++ model files can be provided with
+``--MVSFormerPlusPlus.model_path``. The reproducible ONNX conversion and model
+artifacts are maintained in the
+`COLMAP MVSFormer++ ONNX repository <https://github.com/colmap/mvsformerplusplus-onnx>`_.
 
 In addition to the internal dense reconstruction functionality, COLMAP can
 export to several other dense reconstruction libraries, such as CMVS/PMVS

@@ -67,11 +67,20 @@ class AutomaticReconstructionController : public Thread {
     // Whether to perform sparse mapping.
     bool sparse = true;
 
-// Whether to perform dense mapping.
-#if defined(COLMAP_CUDA_ENABLED) && defined(COLMAP_MVS_ENABLED)
+    // Whether to perform dense mapping.
+#if defined(COLMAP_MVS_ENABLED) &&                                  \
+    (defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED) || \
+     defined(COLMAP_ONNX_ENABLED))
     bool dense = true;
 #else
     bool dense = false;
+#endif
+
+#if defined(COLMAP_MVS_ENABLED)
+    mvs::MVSEstimator::Type dense_estimator =
+        mvs::MVSEstimator::Options::DefaultType();
+    std::string mvs_model_path;
+    int mvs_num_views = 5;
 #endif
 
     // The feature extraction/matching algorithm to be used.

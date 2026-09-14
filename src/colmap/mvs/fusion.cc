@@ -69,7 +69,7 @@ void StereoFusionOptions::Print() const {
 }
 
 bool StereoFusionOptions::Check() const {
-  CHECK_OPTION_GE(min_num_pixels, 0);
+  CHECK_OPTION_GE(min_num_pixels, -1);
   CHECK_OPTION_LE(min_num_pixels, max_num_pixels);
   CHECK_OPTION_GT(max_traversal_depth, 0);
   CHECK_OPTION_GE(max_reproj_error, 0);
@@ -80,12 +80,27 @@ bool StereoFusionOptions::Check() const {
   return true;
 }
 
+int StereoFusionOptions::EffectiveMinNumPixels(
+    const std::string& input_type) const {
+  if (min_num_pixels >= 0) {
+    return min_num_pixels;
+  }
+  auto input_type_lower_case = input_type;
+  StringToLower(&input_type_lower_case);
+  return input_type_lower_case.rfind("mvsformer_pp_", 0) == 0 ? 2 : 5;
+}
+
 StereoFusion::StereoFusion(const StereoFusionOptions& options,
                            const std::filesystem::path& workspace_path,
                            const std::string& workspace_format,
                            const std::string& pmvs_option_name,
                            const std::string& input_type)
-    : options_(options),
+    : options_([&options, &input_type]() {
+        auto effective_options = options;
+        effective_options.min_num_pixels =
+            options.EffectiveMinNumPixels(input_type);
+        return effective_options;
+      }()),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
       pmvs_option_name_(pmvs_option_name),

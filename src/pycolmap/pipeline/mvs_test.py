@@ -15,6 +15,12 @@ def test_patch_match_options_init() -> None:
     assert options is not None
 
 
+def test_mvs_estimator_options_init() -> None:
+    options = pycolmap.MVSEstimatorOptions()
+    assert options.mvsformer_pp.num_views == 5
+    assert options.patch_match is not None
+
+
 def test_stereo_fusion_options_init() -> None:
     options = pycolmap.StereoFusionOptions()
     assert options is not None
@@ -24,6 +30,7 @@ def test_stereo_fusion_options_init() -> None:
     "name",
     [
         "patch_match_stereo",
+        "mvs_depth_estimation",
         "stereo_fusion",
     ],
 )

@@ -81,6 +81,7 @@ class OptionManager : public BaseOptionManager {
   void AddGravityRefinerOptions();
   void AddReconstructionClustererOptions();
 #if defined(COLMAP_MVS_ENABLED)
+  void AddMVSEstimatorOptions();
   void AddPatchMatchStereoOptions();
   void AddStereoFusionOptions();
   void AddPoissonMeshingOptions();
@@ -116,6 +117,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<GravityRefinerOptions> gravity_refiner;
 
 #if defined(COLMAP_MVS_ENABLED)
+  std::shared_ptr<mvs::MVSEstimator::Options> mvs_estimator;
   std::shared_ptr<mvs::PatchMatchStereo::Options> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;
   std::shared_ptr<mvs::PoissonMeshingOptions> poisson_meshing;
