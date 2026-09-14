@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/feature/onnx_utils.h"
+#include "colmap/util/onnx_utils.h"
 
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
