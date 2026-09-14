@@ -27,25 +27,7 @@ class Workspace;
 // NVCC/MSVC cannot compile complex C++ code.
 class PatchMatch {
  public:
-  struct Problem {
-    // Index of the reference image.
-    int ref_image_idx = -1;
-
-    // Indices of the source images.
-    std::vector<int> src_image_idxs;
-
-    // Input images for the photometric consistency term.
-    std::vector<Image>* images = nullptr;
-
-    // Input depth maps for the geometric consistency term.
-    std::vector<DepthMap>* depth_maps = nullptr;
-
-    // Input normal maps for the geometric consistency term.
-    std::vector<NormalMap>* normal_maps = nullptr;
-
-    // Print the configuration to stdout.
-    void Print() const;
-  };
+  using Problem = MVSEstimator::Problem;
 
   PatchMatch(const PatchMatchOptions& options, const Problem& problem);
   ~PatchMatch();
