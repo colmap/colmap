@@ -14,6 +14,7 @@
 #include "colmap/mvs/advancing_front_meshing.h"
 #include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mvs_estimator_controller.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/mvs/poisson_meshing.h"
 #endif
@@ -96,7 +97,14 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.vocab_tree_pairing->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
 #if defined(COLMAP_MVS_ENABLED)
+  option_manager_.mvs_estimator->type = options_.dense_estimator;
+  option_manager_.mvs_estimator->mvsformer_pp->model_path =
+      options_.mvs_model_path;
+  option_manager_.mvs_estimator->mvsformer_pp->num_views =
+      options_.mvs_num_views;
   option_manager_.patch_match_stereo->num_threads = options_.num_threads;
+  option_manager_.mvs_estimator->mvsformer_pp->num_threads =
+      options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
   option_manager_.delaunay_meshing->num_threads = options_.num_threads;
 #endif
@@ -146,6 +154,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.feature_matching->gpu_index = options_.gpu_index;
 #if defined(COLMAP_MVS_ENABLED)
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
+  option_manager_.mvs_estimator->mvsformer_pp->gpu_index = options_.gpu_index;
+  option_manager_.mvs_estimator->mvsformer_pp->use_gpu = options_.use_gpu;
 #endif
   option_manager_.mapper->ba_gpu_index = options_.gpu_index;
   if (option_manager_.bundle_adjustment->ceres) {
@@ -381,7 +391,10 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
       UndistortCameraOptions undistortion_options;
       undistortion_options.max_image_size =
-          option_manager_.patch_match_stereo->max_image_size;
+          option_manager_.mvs_estimator->type ==
+                  mvs::MVSEstimator::Type::PATCH_MATCH
+              ? option_manager_.patch_match_stereo->max_image_size
+              : option_manager_.mvs_estimator->mvsformer_pp->max_image_size;
       COLMAPUndistorter::Options undistorter_options;
       undistorter_options.num_threads = options_.num_threads;
       COLMAPUndistorter undistorter(std::move(undistorter_options),
@@ -399,18 +412,12 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
-#if defined(COLMAP_CUDA_ENABLED)
     {
-      mvs::PatchMatchController patch_match_controller(
-          *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
-      patch_match_controller.SetCheckIfStoppedFunc(
-          [&]() { return IsStopped(); });
-      patch_match_controller.Run();
+      mvs::MVSEstimatorController estimator_controller(
+          *option_manager_.mvs_estimator, dense_path, "COLMAP", "");
+      estimator_controller.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
+      estimator_controller.Run();
     }
-#else   // COLMAP_CUDA_ENABLED
-    LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
-    return;
-#endif  // COLMAP_CUDA_ENABLED
 
     if (IsStopped()) {
       return;
@@ -429,8 +436,18 @@ void AutomaticReconstructionController::RunDenseMapper() {
           dense_path,
           "COLMAP",
           "",
-          option_manager_.patch_match_stereo->geom_consistency ? "geometric"
-                                                               : "photometric");
+          option_manager_.mvs_estimator->type ==
+                  mvs::MVSEstimator::Type::PATCH_MATCH
+              ? (option_manager_.patch_match_stereo->geom_consistency
+                     ? "geometric"
+                     : "photometric")
+              : StringPrintf(
+                    "mvsformer_pp_%d.%s",
+                    option_manager_.mvs_estimator->mvsformer_pp->num_views,
+                    option_manager_.mvs_estimator->mvsformer_pp
+                            ->geom_consistency
+                        ? "geometric"
+                        : "photometric"));
       fuser.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
       fuser.Run();
 

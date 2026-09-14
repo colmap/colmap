@@ -10,6 +10,7 @@
 
 #include <cfloat>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 #include <Eigen/Core>
@@ -27,8 +28,9 @@ struct StereoFusionOptions {
   // Maximum image size in either dimension.
   int max_image_size = -1;
 
-  // Minimum number of fused pixels to produce a point.
-  int min_num_pixels = 5;
+  // Minimum number of fused pixels to produce a point. A value of -1 selects
+  // an estimator-specific default: 2 for MVSFormer++ and 5 otherwise.
+  int min_num_pixels = -1;
 
   // Maximum number of pixels to fuse into a single point.
   int max_num_pixels = 10000;
@@ -64,6 +66,9 @@ struct StereoFusionOptions {
 
   // Check the options for validity.
   bool Check() const;
+
+  // Resolve the minimum number of fused pixels for the input depth-map type.
+  int EffectiveMinNumPixels(const std::string& input_type) const;
 
   // Print the options to stdout.
   void Print() const;

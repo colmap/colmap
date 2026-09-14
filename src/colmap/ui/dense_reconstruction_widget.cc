@@ -7,6 +7,7 @@
 #if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mvs_estimator_controller.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/mvs/poisson_meshing.h"
 #endif
@@ -21,6 +22,23 @@ const static std::string kPoissonMeshedFileName = "meshed-poisson.ply";
 const static std::string kDelaunayMeshedFileName = "meshed-delaunay.ply";
 
 #if defined(COLMAP_MVS_ENABLED)
+std::string EstimatorOutputType(const OptionManager& options,
+                                const bool geometric) {
+  const std::string pass = geometric ? "geometric" : "photometric";
+  if (options.mvs_estimator->type == mvs::MVSEstimator::Type::PATCH_MATCH) {
+    return pass;
+  }
+  return StringPrintf("mvsformer_pp_%d.%s",
+                      options.mvs_estimator->mvsformer_pp->num_views,
+                      pass.c_str());
+}
+
+bool HasSuffix(const std::string& value, const std::string& suffix) {
+  return value.size() >= suffix.size() &&
+         value.compare(value.size() - suffix.size(), suffix.size(), suffix) ==
+             0;
+}
+
 void AddCacheSizeOption(OptionsWidget* widget, double* cache_size) {
   widget->AddOptionDouble(cache_size,
                           "cache_size [gigabytes]",
@@ -34,6 +52,29 @@ class StereoOptionsTab : public OptionsWidget {
  public:
   StereoOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
+    auto* estimator_combo = new QComboBox(this);
+#if defined(COLMAP_ONNX_ENABLED)
+    estimator_combo->addItem(
+        "MVSFormer++", static_cast<int>(mvs::MVSEstimator::Type::MVSFORMER_PP));
+#endif
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+    estimator_combo->addItem(
+        "PatchMatch", static_cast<int>(mvs::MVSEstimator::Type::PATCH_MATCH));
+#endif
+    const int estimator_index = estimator_combo->findData(
+        static_cast<int>(options->mvs_estimator->type));
+    if (estimator_index >= 0) {
+      estimator_combo->setCurrentIndex(estimator_index);
+    }
+    connect(estimator_combo,
+            QOverload<int>::of(&QComboBox::currentIndexChanged),
+            [options, estimator_combo](int) {
+              options->mvs_estimator->type =
+                  static_cast<mvs::MVSEstimator::Type>(
+                      estimator_combo->currentData().toInt());
+            });
+    AddWidgetRow("Estimator", estimator_combo);
+
     // Set a relatively small default image size to avoid too long computation.
     if (options->patch_match_stereo->max_image_size == -1) {
       options->patch_match_stereo->max_image_size = 2000;
@@ -78,6 +119,31 @@ class StereoOptionsTab : public OptionsWidget {
     AddOptionBool(&options->patch_match_stereo->write_consistency_graph,
                   "write_consistency_graph");
     AddOptionInt(&options->patch_match_stereo->num_threads, "num_threads", -1);
+
+    AddSection("MVSFormer++");
+    auto& mvsformer = *options->mvs_estimator->mvsformer_pp;
+    AddOptionText(&mvsformer.model_path, "model_path");
+    AddOptionInt(&mvsformer.num_views, "num_views", 5, 10);
+    AddOptionInt(&mvsformer.max_image_size, "max_image_size", 64);
+    AddOptionDouble(&mvsformer.depth_min, "depth_min", -1);
+    AddOptionDouble(&mvsformer.depth_max, "depth_max", -1);
+    AddOptionDouble(&mvsformer.min_confidence, "min_confidence", 0, 1);
+    AddOptionBool(&mvsformer.geom_consistency, "geom_consistency");
+    AddOptionDouble(
+        &mvsformer.filter_max_reproj_error, "filter_max_reproj_error", 0);
+    AddOptionDouble(
+        &mvsformer.filter_max_depth_error, "filter_max_depth_error", 0, 1);
+    AddOptionDouble(
+        &mvsformer.filter_max_normal_error, "filter_max_normal_error", 0, 180);
+    AddOptionInt(
+        &mvsformer.filter_min_num_consistent, "filter_min_num_consistent", 1);
+    AddOptionBool(&mvsformer.use_gpu, "use_gpu");
+    AddOptionText(&mvsformer.gpu_index, "gpu_index");
+    AddCacheSizeOption(this, &mvsformer.cache_size);
+    AddOptionBool(&mvsformer.allow_missing_files, "allow_missing_files");
+    AddOptionBool(&mvsformer.write_consistency_graph,
+                  "write_consistency_graph");
+    AddOptionInt(&mvsformer.num_threads, "num_threads", -1);
   }
 };
 
@@ -86,7 +152,7 @@ class FusionOptionsTab : public OptionsWidget {
   FusionOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     AddOptionInt(&options->stereo_fusion->max_image_size, "max_image_size", -1);
-    AddOptionInt(&options->stereo_fusion->min_num_pixels, "min_num_pixels", 0);
+    AddOptionInt(&options->stereo_fusion->min_num_pixels, "min_num_pixels", -1);
     AddOptionInt(&options->stereo_fusion->max_num_pixels, "max_num_pixels", 0);
     AddOptionInt(
         &options->stereo_fusion->max_traversal_depth, "max_traversal_depth", 1);
@@ -346,12 +412,13 @@ void DenseReconstructionWidget::Stereo() {
     return;
   }
 
-#if defined(COLMAP_MVS_ENABLED) && \
-    (defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED))
+#if defined(COLMAP_MVS_ENABLED) &&                                  \
+    (defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED) || \
+     defined(COLMAP_ONNX_ENABLED))
   auto processor =
-      std::make_unique<ControllerThread<mvs::PatchMatchController>>(
-          std::make_shared<mvs::PatchMatchController>(
-              *options_->patch_match_stereo, workspace_path, "COLMAP", ""));
+      std::make_unique<ControllerThread<mvs::MVSEstimatorController>>(
+          std::make_shared<mvs::MVSEstimatorController>(
+              *options_->mvs_estimator, workspace_path, "COLMAP", ""));
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Stereo...", true, std::move(processor));
@@ -382,9 +449,9 @@ void DenseReconstructionWidget::Fusion() {
 
   std::string input_type;
   if (geometric_done_) {
-    input_type = "geometric";
+    input_type = EstimatorOutputType(*options_, true);
   } else if (photometric_done_) {
-    input_type = "photometric";
+    input_type = EstimatorOutputType(*options_, false);
   } else {
     QMessageBox::critical(
         this, "", tr("All images must be processed prior to fusion"));
@@ -558,9 +625,15 @@ void DenseReconstructionWidget::RefreshWorkspace() {
     table_widget_->setCellWidget(i, 1, image_button);
 
     table_widget_->setCellWidget(
-        i, 2, GenerateTableButtonWidget(image_name, "photometric"));
+        i,
+        2,
+        GenerateTableButtonWidget(image_name,
+                                  EstimatorOutputType(*options_, false)));
     table_widget_->setCellWidget(
-        i, 3, GenerateTableButtonWidget(image_name, "geometric"));
+        i,
+        3,
+        GenerateTableButtonWidget(image_name,
+                                  EstimatorOutputType(*options_, true)));
 
     QTableWidgetItem* src_images_item =
         new QTableWidgetItem(QString::fromStdString(src_images));
@@ -588,8 +661,8 @@ void DenseReconstructionWidget::WriteSurfaceMesh() {
 
 QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
     const std::string& image_name, const std::string& type) {
-  THROW_CHECK(type == "photometric" || type == "geometric");
-  const bool photometric = type == "photometric";
+  const bool photometric = HasSuffix(type, "photometric");
+  THROW_CHECK(photometric || HasSuffix(type, "geometric"));
 
   if (photometric) {
     photometric_done_ = true;

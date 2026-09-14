@@ -3,6 +3,7 @@
 #pragma once
 
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mvs_estimator.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
 
@@ -16,6 +17,12 @@ void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
                              const std::string& pmvs_option_name,
                              const mvs::PatchMatchOptions& options,
                              const std::filesystem::path& config_path);
+
+void RunMVSEstimatorImpl(const std::filesystem::path& workspace_path,
+                         const std::string& workspace_format,
+                         const std::string& pmvs_option_name,
+                         const mvs::MVSEstimator::Options& options,
+                         const std::filesystem::path& config_path);
 
 Reconstruction RunStereoFuserImpl(const std::filesystem::path& output_path,
                                   const std::filesystem::path& workspace_path,
@@ -31,6 +38,7 @@ int RunDelaunayMesher(int argc, char** argv);
 int RunMeshSimplifier(int argc, char** argv);
 int RunMeshTexturer(int argc, char** argv);
 int RunPatchMatchStereo(int argc, char** argv);
+int RunMVSEstimator(int argc, char** argv);
 int RunPoissonMesher(int argc, char** argv);
 int RunStereoFuser(int argc, char** argv);
 

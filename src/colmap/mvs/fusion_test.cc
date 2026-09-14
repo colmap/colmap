@@ -15,6 +15,20 @@ namespace colmap {
 namespace mvs {
 namespace {
 
+TEST(StereoFusionOptions, EffectiveMinNumPixels) {
+  StereoFusionOptions options;
+  EXPECT_EQ(options.EffectiveMinNumPixels("geometric"), 5);
+  EXPECT_EQ(options.EffectiveMinNumPixels("mvsformer_pp_5.photometric"), 2);
+  EXPECT_EQ(options.EffectiveMinNumPixels("MVSFORMER_PP_10.GEOMETRIC"), 2);
+
+  options.min_num_pixels = 0;
+  EXPECT_EQ(options.EffectiveMinNumPixels("mvsformer_pp_5.photometric"), 0);
+
+  options.min_num_pixels = 7;
+  EXPECT_EQ(options.EffectiveMinNumPixels("geometric"), 7);
+  EXPECT_EQ(options.EffectiveMinNumPixels("mvsformer_pp_5.photometric"), 7);
+}
+
 TEST(StereoFusion, Integration) {
   const auto temp_dir = CreateTestDir();
   CreateDirIfNotExists(temp_dir / "sparse");

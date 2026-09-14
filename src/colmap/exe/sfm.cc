@@ -88,6 +88,17 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
+#if defined(COLMAP_MVS_ENABLED)
+  options.AddDefaultEnumOption("dense_estimator",
+                               &reconstruction_options.dense_estimator,
+                               mvs::MVSEstimator::TypeToString,
+                               mvs::MVSEstimator::TypeFromString,
+                               "{PATCH_MATCH, MVSFORMER_PP}");
+  options.AddDefaultOption("mvs_model_path",
+                           &reconstruction_options.mvs_model_path);
+  options.AddDefaultOption("mvs_num_views",
+                           &reconstruction_options.mvs_num_views);
+#endif
   options.AddDefaultOption(
       "feature", &feature, "{sift, aliked, loma, loma128}");
   options.AddDefaultOption(
