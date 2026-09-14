@@ -294,6 +294,8 @@ endif()
 set(COLMAP_MVS_ESTIMATOR_SRCS
     mvs_estimator.h mvs_estimator.cc
     mvs_estimator_controller.h mvs_estimator_controller.cc
+    mvsformer_plus_plus.cc
+    resources.h
 )
 if(CUDA_ENABLED OR HIP_ENABLED)
     list(APPEND COLMAP_MVS_ESTIMATOR_SRCS patch_match.h patch_match.cc)
@@ -306,6 +308,14 @@ COLMAP_ADD_LIBRARY(
 )
 if(CUDA_ENABLED OR HIP_ENABLED)
     target_link_libraries(colmap_mvs_estimator PRIVATE colmap_mvs_cuda)
+endif()
+if(ONNX_ENABLED)
+    target_link_libraries(colmap_mvs_estimator PRIVATE colmap_onnx_util)
+    COLMAP_ADD_TEST(
+        NAME mvsformer_plus_plus_test
+        SRCS mvsformer_plus_plus_test.cc
+        LINK_LIBS colmap_mvs_estimator onnxruntime::onnxruntime
+    )
 endif()
 
 COLMAP_ADD_TEST(
