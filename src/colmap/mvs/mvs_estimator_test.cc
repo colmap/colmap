@@ -10,7 +10,11 @@ namespace {
 
 TEST(MVSEstimatorOptions, Defaults) {
   const MVSEstimator::Options options;
+#ifdef COLMAP_ONNX_ENABLED
+  EXPECT_EQ(options.type, MVSEstimator::Type::MVSFORMER_PP);
+#else
   EXPECT_EQ(options.type, MVSEstimator::Type::PATCH_MATCH);
+#endif
   ASSERT_NE(options.patch_match, nullptr);
   ASSERT_NE(options.mvsformer_pp, nullptr);
   EXPECT_TRUE(options.Check());
