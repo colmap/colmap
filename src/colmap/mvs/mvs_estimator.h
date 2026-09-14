@@ -72,6 +72,9 @@ class MVSEstimator {
     // Whether the estimator expects RGB images instead of grayscale images.
     bool requires_rgb = false;
 
+    // Whether the estimator produces confidence maps.
+    bool produces_confidence = false;
+
     // Whether the estimator supports the geometric pass.
     bool supports_geometric_pass = true;
 

@@ -51,16 +51,19 @@ class Workspace {
   virtual const Bitmap& GetBitmap(int image_idx);
   virtual const DepthMap& GetDepthMap(int image_idx);
   virtual const NormalMap& GetNormalMap(int image_idx);
+  virtual const Mat<float>& GetConfidenceMap(int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
   std::filesystem::path GetBitmapPath(int image_idx) const;
   std::filesystem::path GetDepthMapPath(int image_idx) const;
   std::filesystem::path GetNormalMapPath(int image_idx) const;
+  std::filesystem::path GetConfidenceMapPath(int image_idx) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
   bool HasBitmap(int image_idx) const;
   bool HasDepthMap(int image_idx) const;
   bool HasNormalMap(int image_idx) const;
+  bool HasConfidenceMap(int image_idx) const;
 
  protected:
   std::string GetFileName(int image_idx) const;
@@ -71,9 +74,11 @@ class Workspace {
  private:
   std::filesystem::path depth_map_path_;
   std::filesystem::path normal_map_path_;
+  std::filesystem::path confidence_map_path_;
   std::vector<std::unique_ptr<Bitmap>> bitmaps_;
   std::vector<std::unique_ptr<DepthMap>> depth_maps_;
   std::vector<std::unique_ptr<NormalMap>> normal_maps_;
+  std::vector<std::unique_ptr<Mat<float>>> confidence_maps_;
 };
 
 class CachedWorkspace : public Workspace {
@@ -87,6 +92,7 @@ class CachedWorkspace : public Workspace {
   const Bitmap& GetBitmap(int image_idx) override;
   const DepthMap& GetDepthMap(int image_idx) override;
   const NormalMap& GetNormalMap(int image_idx) override;
+  const Mat<float>& GetConfidenceMap(int image_idx) override;
 
  private:
   class CachedImage {
@@ -100,6 +106,7 @@ class CachedWorkspace : public Workspace {
     std::unique_ptr<Bitmap> bitmap;
     std::unique_ptr<DepthMap> depth_map;
     std::unique_ptr<NormalMap> normal_map;
+    std::unique_ptr<Mat<float>> confidence_map;
 
    private:
     NON_COPYABLE(CachedImage)

@@ -293,6 +293,7 @@ endif()
 # so they live in a separate library on top of colmap_mvs and colmap_mvs_cuda.
 set(COLMAP_MVS_ESTIMATOR_SRCS
     mvs_estimator.h mvs_estimator.cc
+    mvs_estimator_controller.h mvs_estimator_controller.cc
 )
 if(CUDA_ENABLED OR HIP_ENABLED)
     list(APPEND COLMAP_MVS_ESTIMATOR_SRCS patch_match.h patch_match.cc)
@@ -310,5 +311,10 @@ endif()
 COLMAP_ADD_TEST(
     NAME mvs_estimator_test
     SRCS mvs_estimator_test.cc
+    LINK_LIBS colmap_mvs_estimator
+)
+COLMAP_ADD_TEST(
+    NAME mvs_estimator_controller_test
+    SRCS mvs_estimator_controller_test.cc
     LINK_LIBS colmap_mvs_estimator
 )

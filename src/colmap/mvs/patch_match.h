@@ -5,7 +5,6 @@
 #include "colmap/mvs/mvs_estimator.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/base_controller.h"
-#include "colmap/util/threading.h"
 
 #include <filesystem>
 #include <memory>
@@ -15,6 +14,7 @@ namespace colmap {
 namespace mvs {
 
 class Workspace;
+class MVSEstimatorController;
 
 // PatchMatch stereo estimator, which requires a CUDA or HIP enabled build. The
 // actual implementation in PatchMatchCuda is hidden from any boost or Eigen
@@ -68,27 +68,11 @@ class PatchMatchController : public BaseController {
                        const std::string& workspace_format,
                        const std::string& pmvs_option_name,
                        const std::filesystem::path& config_path = "");
+  ~PatchMatchController();
   void Run();
 
  private:
-  void ReadWorkspace();
-  void ReadProblems();
-  void ReadGpuIndices();
-  void ProcessProblem(MVSEstimator::Pass pass, size_t problem_idx);
-
-  const PatchMatchOptions options_;
-  const std::filesystem::path workspace_path_;
-  const std::string workspace_format_;
-  const std::string pmvs_option_name_;
-  const std::filesystem::path config_path_;
-
-  std::unique_ptr<ThreadPool> thread_pool_;
-  std::unique_ptr<ThreadPool> io_thread_pool_;
-  std::mutex workspace_mutex_;
-  std::unique_ptr<Workspace> workspace_;
-  std::vector<PatchMatch::Problem> problems_;
-  std::vector<int> gpu_indices_;
-  std::vector<std::pair<float, float>> depth_ranges_;
+  std::unique_ptr<MVSEstimatorController> estimator_controller_;
 };
 
 }  // namespace mvs

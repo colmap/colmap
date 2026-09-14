@@ -24,6 +24,8 @@ Workspace::Workspace(const Options& options) : options_(options) {
       options_.workspace_path / options_.stereo_folder / "depth_maps";
   normal_map_path_ =
       options_.workspace_path / options_.stereo_folder / "normal_maps";
+  confidence_map_path_ =
+      options_.workspace_path / options_.stereo_folder / "confidence_maps";
 }
 
 std::string Workspace::GetFileName(const int image_idx) const {
@@ -37,6 +39,7 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
   bitmaps_.resize(num_images);
   depth_maps_.resize(num_images);
   normal_maps_.resize(num_images);
+  confidence_maps_.resize(num_images);
 
   auto LoadWorkspaceData = [&, this](const int image_idx) {
     const size_t width = model_.images.at(image_idx).GetWidth();
@@ -66,6 +69,12 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
       normal_map->Downsize(width, height);
     }
     normal_maps_[image_idx] = std::move(normal_map);
+
+    if (HasConfidenceMap(image_idx)) {
+      auto confidence_map = std::make_unique<Mat<float>>();
+      confidence_map->Read(GetConfidenceMapPath(image_idx));
+      confidence_maps_[image_idx] = std::move(confidence_map);
+    }
   };
 
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
@@ -101,6 +110,10 @@ const NormalMap& Workspace::GetNormalMap(const int image_idx) {
   return *THROW_CHECK_NOTNULL(normal_maps_.at(image_idx));
 }
 
+const Mat<float>& Workspace::GetConfidenceMap(const int image_idx) {
+  return *THROW_CHECK_NOTNULL(confidence_maps_.at(image_idx));
+}
+
 std::filesystem::path Workspace::GetBitmapPath(const int image_idx) const {
   return model_.images.at(image_idx).GetPath();
 }
@@ -111,6 +124,11 @@ std::filesystem::path Workspace::GetDepthMapPath(const int image_idx) const {
 
 std::filesystem::path Workspace::GetNormalMapPath(const int image_idx) const {
   return normal_map_path_ / GetFileName(image_idx);
+}
+
+std::filesystem::path Workspace::GetConfidenceMapPath(
+    const int image_idx) const {
+  return confidence_map_path_ / GetFileName(image_idx);
 }
 
 bool Workspace::HasBitmap(const int image_idx) const {
@@ -125,11 +143,16 @@ bool Workspace::HasNormalMap(const int image_idx) const {
   return ExistsFile(GetNormalMapPath(image_idx));
 }
 
+bool Workspace::HasConfidenceMap(const int image_idx) const {
+  return ExistsFile(GetConfidenceMapPath(image_idx));
+}
+
 CachedWorkspace::CachedImage::CachedImage(CachedImage&& other) noexcept {
   num_bytes = other.num_bytes;
   bitmap = std::move(other.bitmap);
   depth_map = std::move(other.depth_map);
   normal_map = std::move(other.normal_map);
+  confidence_map = std::move(other.confidence_map);
 }
 
 CachedWorkspace::CachedImage& CachedWorkspace::CachedImage::operator=(
@@ -139,6 +162,7 @@ CachedWorkspace::CachedImage& CachedWorkspace::CachedImage::operator=(
     bitmap = std::move(other.bitmap);
     depth_map = std::move(other.depth_map);
     normal_map = std::move(other.normal_map);
+    confidence_map = std::move(other.confidence_map);
   }
   return *this;
 }
@@ -222,6 +246,25 @@ const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
   return *cached_image->normal_map;
 }
 
+const Mat<float>& CachedWorkspace::GetConfidenceMap(const int image_idx) {
+  std::shared_ptr<CachedImage> cached_image;
+  {
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    cached_image = cache_.Get(image_idx);
+  }
+  std::lock_guard<std::mutex> lock(cached_image->mutex);
+  if (!cached_image->confidence_map) {
+    cached_image->confidence_map = std::make_unique<Mat<float>>();
+    cached_image->confidence_map->Read(GetConfidenceMapPath(image_idx));
+    cached_image->num_bytes += cached_image->confidence_map->GetNumBytes();
+    std::lock_guard<std::mutex> cache_lock(cache_mutex_);
+    if (cache_.Exists(image_idx)) {
+      cache_.UpdateNumBytes(image_idx);
+    }
+  }
+  return *cached_image->confidence_map;
+}
+
 void ImportPMVSWorkspace(const Workspace& workspace,
                          const std::string& option_name) {
   const auto& workspace_path = workspace.GetOptions().workspace_path;
@@ -230,6 +273,7 @@ void ImportPMVSWorkspace(const Workspace& workspace,
   CreateDirIfNotExists(workspace_path / stereo_folder);
   CreateDirIfNotExists(workspace_path / stereo_folder / "depth_maps");
   CreateDirIfNotExists(workspace_path / stereo_folder / "normal_maps");
+  CreateDirIfNotExists(workspace_path / stereo_folder / "confidence_maps");
   CreateDirIfNotExists(workspace_path / stereo_folder / "consistency_graphs");
 
   const auto option_lines = ReadTextFileLines(workspace_path / option_name);
