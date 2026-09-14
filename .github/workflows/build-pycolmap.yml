@@ -19,6 +19,9 @@ jobs:
   build:
     name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
+    permissions:
+      contents: read
+      actions: write
     strategy:
       matrix:
         config: [

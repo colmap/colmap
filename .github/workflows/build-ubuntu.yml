@@ -18,6 +18,9 @@ jobs:
   build:
     name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }} ${{ matrix.config.coverageEnabled && 'Coverage' || '' }}
     runs-on: ${{ matrix.config.os }}
+    permissions:
+      contents: read
+      actions: write
     strategy:
       matrix:
         config: [

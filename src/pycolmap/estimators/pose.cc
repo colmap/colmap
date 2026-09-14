@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/pose.h"
 
 #include "colmap/geometry/rigid3.h"

@@ -1,5 +1,5 @@
 name: Compiler cache
-description: Restore or save the weekly compiler cache
+description: Restore or save the daily compiler cache
 
 inputs:
   mode:
@@ -37,13 +37,17 @@ inputs:
     description: Zstandard level used to recompress ccache entries before saving
     required: false
     default: "6"
+  retain-generations:
+    description: Newest cache generations to keep per family when pruning
+    required: false
+    default: "2"
 
 outputs:
   cache-hit:
-    description: Whether the exact weekly cache was restored
+    description: Whether the exact daily cache was restored
     value: ${{ steps.restore.outputs.cache-hit }}
   key:
-    description: Exact weekly key to use when saving the cache
+    description: Exact daily key to use when saving the cache
     value: ${{ inputs.key-prefix }}-v${{ inputs.cache-version }}-${{ inputs.key-suffix }}-${{ steps.epoch.outputs.value }}
 
 runs:
@@ -60,9 +64,10 @@ runs:
       if: ${{ inputs.mode == 'restore' }}
       id: epoch
       shell: bash
-      # GitHub cache entries are immutable. Rotate weekly so changed objects
-      # are incorporated without creating a new archive for every run.
-      run: echo "value=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      # GitHub cache entries are immutable. Rotate daily so changed objects
+      # are incorporated within a day. Superseded generations are pruned
+      # after each save to stay within the repository quota.
+      run: echo "value=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
     - name: Restore compiler cache
       if: ${{ inputs.mode == 'restore' }}
@@ -74,7 +79,7 @@ runs:
         path: ${{ inputs.path }}
 
     - name: Compact ccache (Linux/macOS)
-      if: ${{ success() && inputs.mode == 'save' && runner.os != 'Windows' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
+      if: ${{ success() && inputs.mode == 'save' && runner.os != 'Windows' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -101,7 +106,7 @@ runs:
         "${ccache}" --show-stats --verbose
 
     - name: Compact ccache (Windows)
-      if: ${{ success() && inputs.mode == 'save' && runner.os == 'Windows' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
+      if: ${{ success() && inputs.mode == 'save' && runner.os == 'Windows' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release') && inputs.cache-hit != 'true' && inputs.ccache-dir != '' }}
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
@@ -133,8 +138,47 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw "ccache stats failed" }
 
     - name: Save compiler cache
-      if: ${{ success() && inputs.mode == 'save' && (github.event_name == 'push' || github.event_name == 'release') && inputs.cache-hit != 'true' }}
+      if: ${{ success() && inputs.mode == 'save' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release') && inputs.cache-hit != 'true' }}
       uses: actions/cache/save@v6
       with:
         key: ${{ inputs.key }}
         path: ${{ inputs.path }}
+
+    - name: Prune superseded compiler caches
+      if: ${{ success() && inputs.mode == 'save' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release') && inputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      # Best-effort quota hygiene: pruning must never fail the build.
+      continue-on-error: true
+      run: |
+        # Delete superseded generations of this cache family on this ref,
+        # keeping the newest generations (normally the key just saved plus
+        # the previous generation as a restore fallback). Each family is
+        # pruned independently, so rarely built configurations keep their
+        # most recent generations instead of being evicted by busier ones.
+        family="${{ inputs.key-prefix }}-v${{ inputs.cache-version }}-${{ inputs.key-suffix }}-"
+        ref="${{ github.ref }}"
+        retain_generations="${{ inputs.retain-generations }}"
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "gh CLI not found, skipping cache prune."
+          exit 0
+        fi
+        case "${retain_generations}" in
+          ''|*[!0-9]*)
+            echo "Invalid retain-generations: '${retain_generations}', skipping cache prune."
+            exit 0
+            ;;
+        esac
+        ids_to_delete="$(gh cache list --key "${family}" --ref "${ref}" --sort created_at --order asc --limit 100 --json id,key,createdAt \
+          | jq -r --arg family "${family}" --argjson retain "${retain_generations}" \
+            '[.[] | select(.key | startswith($family))] | sort_by(.createdAt) | reverse | .[$retain:] | .[].id')" || ids_to_delete=""
+        if [ -z "${ids_to_delete}" ]; then
+          echo "No superseded caches to prune for family '${family}' on '${ref}'."
+          exit 0
+        fi
+        printf '%s\n' "${ids_to_delete}" | while IFS= read -r cache_id; do
+          [ -n "${cache_id}" ] || continue
+          echo "Deleting superseded cache id ${cache_id}."
+          gh cache delete "${cache_id}" || echo "Failed to delete cache id ${cache_id}, ignoring."
+        done

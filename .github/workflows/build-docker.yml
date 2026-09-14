@@ -19,6 +19,9 @@ jobs:
   build:
     name: ubuntu-24.04
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@v1.3.1

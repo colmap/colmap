@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/exe/feature.h"
