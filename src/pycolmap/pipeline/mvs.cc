@@ -3,6 +3,7 @@
 #include "colmap/exe/mvs.h"
 
 #include "colmap/mvs/fusion.h"
+#include "colmap/mvs/mvs_estimator_controller.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/controller_thread.h"
@@ -55,6 +56,23 @@ void PatchMatchStereo(
 #endif
 }
 
+void EstimateMVSDepth(
+    const std::filesystem::path& workspace_path,
+    std::string workspace_format,
+    const std::string& pmvs_option_name,
+    const mvs::MVSEstimator::Options& options,
+    const std::filesystem::path& config_path,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+  StringToLower(&workspace_format);
+  THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
+      << "Invalid `workspace_format` " << workspace_format;
+  auto controller = std::make_shared<mvs::MVSEstimatorController>(
+      options, workspace_path, workspace_format, pmvs_option_name, config_path);
+  ControllerThread<mvs::MVSEstimatorController> thread(std::move(controller));
+  thread.Start();
+  PyWait(&thread, cancellation_token);
+}
+
 Reconstruction StereoFusion(
     const std::filesystem::path& output_path,
     const std::filesystem::path& workspace_path,
@@ -80,6 +98,40 @@ Reconstruction StereoFusion(
 }
 
 void BindMVS(py::module& m) {
+  py::enum_<mvs::MVSEstimator::Type>(m, "MVSEstimatorType")
+      .value("PATCH_MATCH", mvs::MVSEstimator::Type::PATCH_MATCH)
+      .value("MVSFORMER_PP", mvs::MVSEstimator::Type::MVSFORMER_PP)
+      .export_values();
+
+  using MFOpts = mvs::MVSFormerPlusPlus::Options;
+  auto PyMVSFormerOptions =
+      py::classh<MFOpts>(m, "MVSFormerPlusPlusOptions")
+          .def(py::init<>())
+          .def_readwrite("model_path", &MFOpts::model_path)
+          .def_readwrite("num_views", &MFOpts::num_views)
+          .def_readwrite("max_image_size", &MFOpts::max_image_size)
+          .def_readwrite("depth_min", &MFOpts::depth_min)
+          .def_readwrite("depth_max", &MFOpts::depth_max)
+          .def_readwrite("min_confidence", &MFOpts::min_confidence)
+          .def_readwrite("filter_max_reproj_error",
+                         &MFOpts::filter_max_reproj_error)
+          .def_readwrite("filter_max_depth_error",
+                         &MFOpts::filter_max_depth_error)
+          .def_readwrite("filter_max_normal_error",
+                         &MFOpts::filter_max_normal_error)
+          .def_readwrite("filter_min_num_consistent",
+                         &MFOpts::filter_min_num_consistent)
+          .def_readwrite("cache_size", &MFOpts::cache_size)
+          .def_readwrite("use_gpu", &MFOpts::use_gpu)
+          .def_readwrite("gpu_index", &MFOpts::gpu_index)
+          .def_readwrite("num_threads", &MFOpts::num_threads)
+          .def_readwrite("geom_consistency", &MFOpts::geom_consistency)
+          .def_readwrite("allow_missing_files", &MFOpts::allow_missing_files)
+          .def_readwrite("write_consistency_graph",
+                         &MFOpts::write_consistency_graph)
+          .def("check", &MFOpts::Check);
+  MakeDataclass(PyMVSFormerOptions);
+
   using PMOpts = mvs::PatchMatchOptions;
   auto PyPatchMatchOptions =
       py::classh<PMOpts>(m, "PatchMatchOptions")
@@ -172,6 +224,29 @@ void BindMVS(py::module& m) {
                          "-1 uses all available threads.")
           .def("check", &PMOpts::Check);
   MakeDataclass(PyPatchMatchOptions);
+
+  using MVSEOpts = mvs::MVSEstimator::Options;
+  auto PyMVSEstimatorOptions =
+      py::classh<MVSEOpts>(m, "MVSEstimatorOptions")
+          .def(py::init<mvs::MVSEstimator::Type>(),
+               "type"_a = MVSEOpts::DefaultType())
+          .def_readwrite("type", &MVSEOpts::type)
+          .def_readwrite("patch_match", &MVSEOpts::patch_match)
+          .def_readwrite("mvsformer_pp", &MVSEOpts::mvsformer_pp)
+          .def("check", &MVSEOpts::Check);
+  MakeDataclass(PyMVSEstimatorOptions);
+
+  m.def("mvs_depth_estimation",
+        &EstimateMVSDepth,
+        "workspace_path"_a,
+        "workspace_format"_a = "COLMAP",
+        "pmvs_option_name"_a = "option-all",
+        py::arg_v(
+            "options", mvs::MVSEstimator::Options(), "MVSEstimatorOptions()"),
+        "config_path"_a = "",
+        "cancellation_token"_a = py::none(),
+        "Runs the selected multi-view stereo depth estimator",
+        py::call_guard<py::gil_scoped_release>());
 
   m.def("patch_match_stereo",
         &PatchMatchStereo,

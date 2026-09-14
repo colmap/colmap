@@ -150,6 +150,9 @@ int main(int argc, char** argv) {
   commands.emplace_back("model_splitter", &colmap::RunModelSplitter);
   commands.emplace_back("model_transformer", &colmap::RunModelTransformer);
 #if defined(COLMAP_MVS_ENABLED)
+  commands.emplace_back("mvs_depth_estimator",
+                        &colmap::RunMVSEstimator,
+                        kSupportsGracefulShutdown);
   commands.emplace_back("patch_match_stereo",
                         &colmap::RunPatchMatchStereo,
                         kSupportsGracefulShutdown);

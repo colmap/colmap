@@ -48,6 +48,21 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddOptionBool(&options_.sparse, "Sparse model");
   AddOptionBool(&options_.dense, "Dense model");
 
+#if defined(COLMAP_MVS_ENABLED)
+  mvs_estimator_cb_ = new QComboBox(this);
+#if defined(COLMAP_ONNX_ENABLED)
+  mvs_estimator_cb_->addItem(
+      "MVSFormer++", static_cast<int>(mvs::MVSEstimator::Type::MVSFORMER_PP));
+#endif
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+  mvs_estimator_cb_->addItem(
+      "PatchMatch", static_cast<int>(mvs::MVSEstimator::Type::PATCH_MATCH));
+#endif
+  AddWidgetRow("Dense estimator", mvs_estimator_cb_);
+  AddOptionText(&options_.mvs_model_path, "MVS model path");
+  AddOptionInt(&options_.mvs_num_views, "MVS views", 5, 10);
+#endif
+
   mesher_cb_ = new QComboBox(this);
   mesher_cb_->addItem("Poisson");
   mesher_cb_->addItem("Delaunay");
@@ -149,6 +164,11 @@ void AutomaticReconstructionWidget::Run() {
       options_.mesher = AutomaticReconstructionController::Mesher::POISSON;
       break;
   }
+
+#if defined(COLMAP_MVS_ENABLED)
+  options_.dense_estimator = static_cast<mvs::MVSEstimator::Type>(
+      mvs_estimator_cb_->currentData().toInt());
+#endif
 
 #ifdef CASPAR_ENABLED
   options_.ba_backend =

@@ -24,6 +24,9 @@ class AutomaticReconstructionWidget : public OptionsWidget {
   ThreadControlWidget* thread_control_widget_;
   QComboBox* data_type_cb_;
   QComboBox* quality_cb_;
+#if defined(COLMAP_MVS_ENABLED)
+  QComboBox* mvs_estimator_cb_;
+#endif
   QComboBox* mesher_cb_;
 #ifdef CASPAR_ENABLED
   QComboBox* ba_backend_cb_;
