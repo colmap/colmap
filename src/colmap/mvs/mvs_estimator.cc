@@ -143,6 +143,7 @@ MVSFormerPlusPlus::~MVSFormerPlusPlus() = default;
 MVSEstimator::Capabilities MVSFormerPlusPlus::GetCapabilities() const {
   Capabilities capabilities;
   capabilities.requires_rgb = true;
+  capabilities.produces_confidence = true;
   capabilities.supports_geometric_pass = true;
   capabilities.min_num_source_images = 4;
   capabilities.max_num_source_images = 4;

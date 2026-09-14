@@ -45,6 +45,7 @@ class MVSEstimator {
 
   struct Capabilities {
     bool requires_rgb = false;
+    bool produces_confidence = false;
     bool supports_geometric_pass = true;
     bool supports_repeated_source_images = false;
     size_t min_num_source_images = 1;

@@ -15,6 +15,7 @@ COLMAP_ADD_LIBRARY(
         mesh_simplification.h mesh_simplification.cc
         model.h model.cc
         mvs_estimator.h mvs_estimator.cc
+        mvs_estimator_controller.h mvs_estimator_controller.cc
         poisson_meshing.h poisson_meshing.cc
         normal_map.h normal_map.cc
         patch_match_options.h patch_match_options.cc
@@ -90,6 +91,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME mvs_estimator_test
     SRCS mvs_estimator_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME mvs_estimator_controller_test
+    SRCS mvs_estimator_controller_test.cc
     LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
@@ -300,6 +306,10 @@ endif()
 if(TESTS_ENABLED AND (CUDA_ENABLED OR HIP_ENABLED))
     target_link_libraries(
         colmap_mvs_mvs_estimator_test
+        colmap_mvs_cuda
+    )
+    target_link_libraries(
+        colmap_mvs_mvs_estimator_controller_test
         colmap_mvs_cuda
     )
 endif()
