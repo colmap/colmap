@@ -106,8 +106,9 @@ inline double TangentSampsonErrorAndJacWrtE(const Eigen::Matrix3d& E,
 }
 
 // E = [t]_x R and optional derivatives for [qx, qy, qz, qw, tx, ty, tz].
+// dE must hold 7 matrices; pass nullptr (the default) to skip derivatives.
 inline Eigen::Matrix3d EssentialMatrixAndJacFromPoseParams(
-    const double* params, Eigen::Matrix3d* dE /*[7] or nullptr*/) {
+    const double* params, Eigen::Matrix3d dE[7] = nullptr) {
   const Eigen::Map<const Eigen::Quaterniond> q(params);
   const Eigen::Matrix3d R = q.toRotationMatrix();
   Eigen::Matrix3d t_x;

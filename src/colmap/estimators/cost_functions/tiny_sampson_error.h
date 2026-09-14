@@ -29,12 +29,6 @@ class TinyTangentSampsonErrorCostFunctor {
   static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
   static constexpr int NUM_PARAMETERS = 7;
 
-  // The wrapped functor must outlive this reference-owning adapter.
-  using AutoDiffFunction =
-      ceres::TinySolverAutoDiffFunction<TinyTangentSampsonErrorCostFunctor,
-                                        NUM_RESIDUALS,
-                                        NUM_PARAMETERS>;
-
   TinyTangentSampsonErrorCostFunctor(
       const std::vector<CamRayWithJac>& cam_rays1_with_jac,
       const std::vector<CamRayWithJac>& cam_rays2_with_jac)
@@ -43,20 +37,6 @@ class TinyTangentSampsonErrorCostFunctor {
 
   int NumResiduals() const {
     return static_cast<int>(cam_rays1_with_jac_.size());
-  }
-
-  template <typename T>
-  bool operator()(const T* const params, T* residuals) const {
-    const Eigen::Matrix<T, 3, 3> E = EssentialMatrixFromPoseParams(params);
-    for (size_t i = 0; i < cam_rays1_with_jac_.size(); ++i) {
-      residuals[i] =
-          TangentSampsonError<T>(E,
-                                 cam_rays1_with_jac_[i].ray.cast<T>(),
-                                 cam_rays1_with_jac_[i].jacobian.cast<T>(),
-                                 cam_rays2_with_jac_[i].ray.cast<T>(),
-                                 cam_rays2_with_jac_[i].jacobian.cast<T>());
-    }
-    return true;
   }
 
   // jacobian is NUM_RESIDUALS x 7, column-major (or null for residuals only).

@@ -175,31 +175,6 @@ TEST(TinyTangentSampsonErrorCostFunctor, MatchesAutodiffCostFunctor) {
   }
 }
 
-// The same closed-form Jacobian also matches the TinySolver autodiff adapter
-// built from the functor's own templated operator().
-TEST(TinyTangentSampsonErrorCostFunctor, MatchesAutodiffFunction) {
-  // The functor holds references, so the ray vectors must outlive it.
-  const std::vector<CamRayWithJac> cam_rays1_with_jac = TestCamRays1();
-  const std::vector<CamRayWithJac> cam_rays2_with_jac = TestCamRays2();
-  const TinyTangentSampsonErrorCostFunctor functor(cam_rays1_with_jac,
-                                                   cam_rays2_with_jac);
-  TinyTangentSampsonErrorCostFunctor::AutoDiffFunction autodiff(functor);
-  const int n = functor.NumResiduals();
-  std::array<double, 7> p = TestPoseParams();
-
-  std::vector<double> residuals(n), jacobian(n * 7);
-  ASSERT_TRUE(functor(p.data(), residuals.data(), jacobian.data()));
-  std::vector<double> residuals_ad(n), jacobian_ad(n * 7);
-  ASSERT_TRUE(autodiff(p.data(), residuals_ad.data(), jacobian_ad.data()));
-
-  for (int i = 0; i < n; ++i) {
-    EXPECT_NEAR(residuals[i], residuals_ad[i], 1e-9);
-  }
-  for (int i = 0; i < n * 7; ++i) {
-    EXPECT_NEAR(jacobian[i], jacobian_ad[i], 1e-9);
-  }
-}
-
 // The batched focal functor's residuals match the pixel-space squared Sampson
 // error of the fundamental matrix F = diag(1/f, 1/f, 1) * E * diag(1/f, 1/f, 1)
 // implied by the pose and shared focal, at several poses and focal lengths.
