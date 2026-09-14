@@ -26,7 +26,11 @@ void MVSEstimator::Problem::Print() const {
 }
 
 MVSEstimator::Type MVSEstimator::Options::DefaultType() {
+#ifdef COLMAP_ONNX_ENABLED
+  return Type::MVSFORMER_PP;
+#else
   return Type::PATCH_MATCH;
+#endif
 }
 
 MVSEstimator::Options::Options(const Type type)
@@ -129,29 +133,6 @@ bool MVSFormerPlusPlus::Options::Check() const {
   CHECK_OPTION_GT(filter_min_num_consistent, 0);
   CHECK_OPTION_GE(num_threads, -1);
   return true;
-}
-
-class MVSFormerPlusPlus::Impl {};
-
-MVSFormerPlusPlus::MVSFormerPlusPlus(Options, int)
-    : impl_(std::make_unique<Impl>()) {
-  throw std::runtime_error("MVSFormer++ support is not available");
-}
-
-MVSFormerPlusPlus::~MVSFormerPlusPlus() = default;
-
-MVSEstimator::Capabilities MVSFormerPlusPlus::GetCapabilities() const {
-  Capabilities capabilities;
-  capabilities.requires_rgb = true;
-  capabilities.produces_confidence = true;
-  capabilities.supports_geometric_pass = true;
-  capabilities.min_num_source_images = 4;
-  capabilities.max_num_source_images = 4;
-  return capabilities;
-}
-
-MVSEstimator::Result MVSFormerPlusPlus::Estimate(const Problem&, Pass) {
-  throw std::runtime_error("MVSFormer++ support is not available");
 }
 
 }  // namespace mvs

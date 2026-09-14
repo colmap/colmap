@@ -16,7 +16,9 @@ COLMAP_ADD_LIBRARY(
         model.h model.cc
         mvs_estimator.h mvs_estimator.cc
         mvs_estimator_controller.h mvs_estimator_controller.cc
+        mvsformer_plus_plus.cc
         poisson_meshing.h poisson_meshing.cc
+        resources.h
         normal_map.h normal_map.cc
         patch_match_options.h patch_match_options.cc
         texture_mapping.h texture_mapping.cc
@@ -36,6 +38,13 @@ if(CGAL_ENABLED)
 endif()
 if(OPENMP_FOUND)
     target_link_libraries(colmap_mvs PRIVATE OpenMP::OpenMP_CXX)
+endif()
+if(ONNX_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME mvsformer_plus_plus_test
+        SRCS mvsformer_plus_plus_test.cc
+        LINK_LIBS colmap_mvs onnxruntime::onnxruntime
+    )
 endif()
 
 COLMAP_ADD_TEST(
@@ -310,6 +319,13 @@ if(TESTS_ENABLED AND (CUDA_ENABLED OR HIP_ENABLED))
     )
     target_link_libraries(
         colmap_mvs_mvs_estimator_controller_test
+        colmap_mvs_cuda
+    )
+endif()
+
+if(TESTS_ENABLED AND ONNX_ENABLED AND (CUDA_ENABLED OR HIP_ENABLED))
+    target_link_libraries(
+        colmap_mvs_mvsformer_plus_plus_test
         colmap_mvs_cuda
     )
 endif()
