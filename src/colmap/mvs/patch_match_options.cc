@@ -15,7 +15,7 @@ const static size_t kMaxPatchMatchWindowRadius = 32;
 
 #define PrintOption(option) LOG(INFO) << #option ": " << option
 
-void PatchMatchOptions::Print() const {
+void PatchMatchStereo::Options::Print() const {
   LOG_HEADING2("PatchMatchOptions");
   PrintOption(max_image_size);
   PrintOption(gpu_index);
@@ -43,7 +43,7 @@ void PatchMatchOptions::Print() const {
   PrintOption(num_threads);
 }
 
-bool PatchMatchOptions::Check() const {
+bool PatchMatchStereo::Options::Check() const {
   if (depth_min != -1.0f || depth_max != -1.0f) {
     CHECK_OPTION_LE(depth_min, depth_max);
     CHECK_OPTION_GE(depth_min, 0.0f);

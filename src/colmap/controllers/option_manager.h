@@ -3,6 +3,9 @@
 #pragma once
 
 #include "colmap/controllers/base_option_manager.h"
+#if defined(COLMAP_MVS_ENABLED)
+#include "colmap/mvs/mvs_estimator.h"
+#endif
 
 #include <memory>
 
@@ -29,7 +32,6 @@ struct ReconstructionClusteringOptions;
 
 #if defined(COLMAP_MVS_ENABLED)
 namespace mvs {
-struct PatchMatchOptions;
 struct StereoFusionOptions;
 struct PoissonMeshingOptions;
 struct DelaunayMeshingOptions;
@@ -114,7 +116,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<GravityRefinerOptions> gravity_refiner;
 
 #if defined(COLMAP_MVS_ENABLED)
-  std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
+  std::shared_ptr<mvs::PatchMatchStereo::Options> patch_match_stereo;
   std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;
   std::shared_ptr<mvs::PoissonMeshingOptions> poisson_meshing;
   std::shared_ptr<mvs::DelaunayMeshingOptions> delaunay_meshing;

@@ -25,18 +25,6 @@ PatchMatch::PatchMatch(const PatchMatchOptions& options, const Problem& problem)
 
 PatchMatch::~PatchMatch() {}
 
-void PatchMatch::Problem::Print() const {
-  LOG_HEADING2("PatchMatch::Problem");
-  LOG(INFO) << "ref_image_idx: " << ref_image_idx;
-  THROW_CHECK(!src_image_idxs.empty());
-  std::ostringstream src_image_idxs_stream;
-  for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
-    src_image_idxs_stream << src_image_idxs[i] << " ";
-  }
-  src_image_idxs_stream << src_image_idxs.back();
-  LOG(INFO) << "src_image_idxs: " << src_image_idxs_stream.str();
-}
-
 void PatchMatch::Check() const {
   THROW_CHECK(options_.Check());
 
@@ -124,6 +112,35 @@ ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
   return ConsistencyGraph(ref_image.GetWidth(),
                           ref_image.GetHeight(),
                           patch_match_cuda_->GetConsistentImageIdxs());
+}
+
+PatchMatchStereo::PatchMatchStereo(Options options)
+    : options_(std::move(options)) {}
+
+MVSEstimator::Capabilities PatchMatchStereo::GetCapabilities() const {
+  Capabilities capabilities;
+  capabilities.requires_rgb = false;
+  capabilities.supports_geometric_pass = true;
+  capabilities.min_num_source_images = 1;
+  return capabilities;
+}
+
+MVSEstimator::Result PatchMatchStereo::Estimate(const Problem& problem,
+                                                const Pass pass) {
+  Options options = options_;
+  options.depth_min = problem.depth_min;
+  options.depth_max = problem.depth_max;
+  options.geom_consistency = pass == Pass::GEOMETRIC;
+  PatchMatch patch_match(options, problem);
+  patch_match.Run();
+
+  Result result;
+  result.depth_map = patch_match.GetDepthMap();
+  result.normal_map = patch_match.GetNormalMap();
+  if (options.write_consistency_graph) {
+    result.consistency_graph = patch_match.GetConsistencyGraph();
+  }
+  return result;
 }
 
 PatchMatchController::PatchMatchController(
