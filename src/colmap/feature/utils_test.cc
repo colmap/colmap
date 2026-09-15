@@ -3,6 +3,7 @@
 #include "colmap/feature/utils.h"
 
 #include "colmap/math/random_eigen.h"
+#include "colmap/sensor/bitmap.h"
 
 #include <gtest/gtest.h>
 
@@ -84,6 +85,47 @@ TEST(ExtractTopScaleFeatures, Nominal) {
   EXPECT_EQ(top_keypoints5.size(), 5);
   EXPECT_EQ(top_descriptors6.data.rows(), 5);
   EXPECT_EQ(top_descriptors6.data, descriptors.data);
+}
+
+TEST(HWCToCHW, Nominal) {
+  // 2x1 image, pitch with 2 padding bytes.
+  const int width = 2;
+  const int height = 1;
+  const int pitch = 8;
+  std::vector<uint8_t> data(pitch * height, 0);
+  data[0] = 255;
+  data[1] = 0;
+  data[2] = 128;
+  data[3] = 0;
+  data[4] = 255;
+  data[5] = 64;
+  const std::vector<float> chw = HWCToCHW(data.data(), width, height, pitch);
+  ASSERT_EQ(chw.size(), 6);
+  EXPECT_FLOAT_EQ(chw[0], 1.0f);
+  EXPECT_FLOAT_EQ(chw[1], 0.0f);
+  EXPECT_FLOAT_EQ(chw[2], 0.0f);
+  EXPECT_FLOAT_EQ(chw[3], 1.0f);
+  EXPECT_FLOAT_EQ(chw[4], 128.0f / 255.0f);
+  EXPECT_FLOAT_EQ(chw[5], 64.0f / 255.0f);
+}
+
+TEST(BitmapToCHW, Nominal) {
+  Bitmap bitmap(2, 1, /*as_rgb=*/true);
+  EXPECT_TRUE(bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255, 0, 128)));
+  EXPECT_TRUE(bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(0, 255, 64)));
+  const std::vector<float> chw = BitmapToCHW(bitmap);
+  ASSERT_EQ(chw.size(), 6);
+  EXPECT_FLOAT_EQ(chw[0], 1.0f);
+  EXPECT_FLOAT_EQ(chw[1], 0.0f);
+  EXPECT_FLOAT_EQ(chw[2], 0.0f);
+  EXPECT_FLOAT_EQ(chw[3], 1.0f);
+  EXPECT_FLOAT_EQ(chw[4], 128.0f / 255.0f);
+  EXPECT_FLOAT_EQ(chw[5], 64.0f / 255.0f);
+}
+
+TEST(BitmapToCHW, GreyThrows) {
+  const Bitmap bitmap(2, 1, /*as_rgb=*/false);
+  EXPECT_THROW(BitmapToCHW(bitmap), std::invalid_argument);
 }
 
 }  // namespace
