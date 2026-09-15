@@ -34,6 +34,11 @@
 #define CHECK_OPTION_LT(val1, val2) CHECK_OPTION_OP(_LT, <, val1, val2)
 #define CHECK_OPTION_GE(val1, val2) CHECK_OPTION_OP(_GE, >=, val1, val2)
 #define CHECK_OPTION_GT(val1, val2) CHECK_OPTION_OP(_GT, >, val1, val2)
+#define CHECK_OPTION_IN_RANGE(val, min, max) \
+  do {                                       \
+    CHECK_OPTION_GE(val, min);               \
+    CHECK_OPTION_LE(val, max);               \
+  } while (false)
 
 // Alternative checks to throw an exception instead of aborting the program.
 // Usage: THROW_CHECK(condition) << message;
