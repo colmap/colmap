@@ -32,6 +32,32 @@ bool HasCollinearTriplet(const std::vector<Eigen::Vector2d>& points) {
          is_collinear(0, 2, 3) || is_collinear(1, 2, 3);
 }
 
+// Solve a 2Nx9 DLT system using LU for N == 4 and SVD otherwise.
+// Returns false for rank-deficient, non-finite, or near-singular solutions.
+bool SolveHomographyFromConstraintMatrix(
+    const Eigen::Matrix<double, Eigen::Dynamic, 9>& A, Eigen::Matrix3d* H) {
+  constexpr double kMinDeterminant = 1e-8;
+  if (A.rows() == 8) {
+    const Eigen::Matrix<double, 9, 1> h = A.block<8, 8>(0, 0)
+                                              .partialPivLu()
+                                              .solve(-A.block<8, 1>(0, 8))
+                                              .homogeneous();
+    if (h.hasNaN()) {
+      return false;
+    }
+    *H = Eigen::Map<const Eigen::Matrix3d>(h.data()).transpose();
+  } else {
+    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
+        A, Eigen::ComputeFullV);
+    if (svd.rank() < 8) {
+      return false;
+    }
+    const Eigen::VectorXd nullspace = svd.matrixV().col(8);
+    *H = Eigen::Map<const Eigen::Matrix3d>(nullspace.data()).transpose();
+  }
+  return std::abs(H->determinant()) >= kMinDeterminant;
+}
+
 }  // namespace
 
 void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
@@ -66,27 +92,7 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   }
 
   Eigen::Matrix3d H;
-  if (num_points == 4) {
-    const Eigen::Matrix<double, 9, 1> h = A.block<8, 8>(0, 0)
-                                              .partialPivLu()
-                                              .solve(-A.block<8, 1>(0, 8))
-                                              .homogeneous();
-    if (h.hasNaN()) {
-      return;
-    }
-    H = Eigen::Map<const Eigen::Matrix3d>(h.data()).transpose();
-  } else {
-    // Solve for the nullspace of the constraint matrix.
-    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        A, Eigen::ComputeFullV);
-    if (svd.rank() < 8) {
-      return;
-    }
-    const Eigen::VectorXd nullspace = svd.matrixV().col(8);
-    H = Eigen::Map<const Eigen::Matrix3d>(nullspace.data()).transpose();
-  }
-
-  if (std::abs(H.determinant()) < 1e-8) {
+  if (!SolveHomographyFromConstraintMatrix(A, &H)) {
     return;
   }
 
@@ -173,27 +179,7 @@ void HomographyMatrixRayEstimator::Estimate(const std::vector<X_t>& cam_rays1,
   }
 
   Eigen::Matrix3d H;
-  if (num_rays == 4) {
-    const Eigen::Matrix<double, 9, 1> h = A.block<8, 8>(0, 0)
-                                              .partialPivLu()
-                                              .solve(-A.block<8, 1>(0, 8))
-                                              .homogeneous();
-    if (h.hasNaN()) {
-      return;
-    }
-    H = Eigen::Map<const Eigen::Matrix3d>(h.data()).transpose();
-  } else {
-    // Solve for the nullspace of the constraint matrix.
-    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        A, Eigen::ComputeFullV);
-    if (svd.rank() < 8) {
-      return;
-    }
-    const Eigen::VectorXd nullspace = svd.matrixV().col(8);
-    H = Eigen::Map<const Eigen::Matrix3d>(nullspace.data()).transpose();
-  }
-
-  if (std::abs(H.determinant()) < 1e-8) {
+  if (!SolveHomographyFromConstraintMatrix(A, &H)) {
     return;
   }
 
