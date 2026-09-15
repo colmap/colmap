@@ -6,6 +6,7 @@
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
+#include "colmap/feature/utils.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -25,38 +26,19 @@ FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
       loma(std::make_shared<LomaMatchingOptions>()) {}
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
-    const FeatureMatchingTypeOptions& other) {
-  if (other.sift) {
-    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
-  }
-  if (other.loma) {
-    loma = std::make_shared<LomaMatchingOptions>(*other.loma);
-  }
-}
+    const FeatureMatchingTypeOptions& other)
+    : sift(CloneSharedPtr(other.sift)),
+      aliked(CloneSharedPtr(other.aliked)),
+      loma(CloneSharedPtr(other.loma)) {}
 
 FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
     const FeatureMatchingTypeOptions& other) {
   if (this == &other) {
     return *this;
   }
-  if (other.sift) {
-    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
-  } else {
-    sift.reset();
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
-  } else {
-    aliked.reset();
-  }
-  if (other.loma) {
-    loma = std::make_shared<LomaMatchingOptions>(*other.loma);
-  } else {
-    loma.reset();
-  }
+  sift = CloneSharedPtr(other.sift);
+  aliked = CloneSharedPtr(other.aliked);
+  loma = CloneSharedPtr(other.loma);
   return *this;
 }
 
@@ -89,13 +71,8 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
 }
 
 bool FeatureMatchingOptions::Check() const {
-  if (use_gpu) {
-    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
-#ifndef COLMAP_GPU_ENABLED
-    LOG(ERROR) << "Cannot use GPU feature matching without CUDA or OpenGL "
-                  "support. Set use_gpu or use_gpu to false.";
+  if (!CheckGPUOptions(use_gpu, gpu_index, "feature matching")) {
     return false;
-#endif
   }
   CHECK_OPTION_GE(max_num_matches, 0);
   switch (type) {
