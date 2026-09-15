@@ -24,38 +24,19 @@ FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
       loma(std::make_shared<LomaExtractionOptions>()) {}
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
-    const FeatureExtractionTypeOptions& other) {
-  if (other.sift) {
-    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedExtractionOptions>(*other.aliked);
-  }
-  if (other.loma) {
-    loma = std::make_shared<LomaExtractionOptions>(*other.loma);
-  }
-}
+    const FeatureExtractionTypeOptions& other)
+    : sift(CloneSharedPtr(other.sift)),
+      aliked(CloneSharedPtr(other.aliked)),
+      loma(CloneSharedPtr(other.loma)) {}
 
 FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
     const FeatureExtractionTypeOptions& other) {
   if (this == &other) {
     return *this;
   }
-  if (other.sift) {
-    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
-  } else {
-    sift.reset();
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedExtractionOptions>(*other.aliked);
-  } else {
-    aliked.reset();
-  }
-  if (other.loma) {
-    loma = std::make_shared<LomaExtractionOptions>(*other.loma);
-  } else {
-    loma.reset();
-  }
+  sift = CloneSharedPtr(other.sift);
+  aliked = CloneSharedPtr(other.aliked);
+  loma = CloneSharedPtr(other.loma);
   return *this;
 }
 
