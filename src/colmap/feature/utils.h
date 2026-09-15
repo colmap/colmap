@@ -4,7 +4,13 @@
 
 #include "colmap/feature/types.h"
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 namespace colmap {
+
+class Bitmap;
 
 // Convert feature keypoints to vector of points.
 std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
@@ -30,5 +36,24 @@ FeatureDescriptorsData FeatureDescriptorsToUnsignedByte(
 void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
                              FeatureDescriptors* descriptors,
                              size_t num_features);
+
+// Convert an HWC uint8 image buffer to a row-major CHW float tensor,
+// normalized to [0, 1]. The pitch is the scan-line size in bytes.
+std::vector<float> HWCToCHW(const uint8_t* data,
+                            int width,
+                            int height,
+                            int pitch);
+
+// Convert an RGB bitmap to a row-major CHW float tensor, normalized to [0, 1].
+std::vector<float> BitmapToCHW(const Bitmap& bitmap);
+
+// Check shared keypoint detection options (ALIKED, LoMa, ...).
+bool CheckDetectionOptions(int max_num_features, double min_score);
+
+// Check shared GPU options for feature extraction/matching. The feature_kind
+// is used in the error message, e.g. "feature extraction".
+bool CheckGPUOptions(bool use_gpu,
+                     const std::string& gpu_index,
+                     const char* feature_kind);
 
 }  // namespace colmap
