@@ -37,13 +37,7 @@ std::filesystem::path WriteIdentityModel() {
 
 template <typename T>
 Ort::Value MakeTensor(std::vector<T>* data, const std::vector<int64_t>& shape) {
-  return Ort::Value::CreateTensor<T>(
-      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                 OrtMemType::OrtMemTypeCPU),
-      data->data(),
-      data->size(),
-      shape.data(),
-      shape.size());
+  return CreateONNXTensor(*data, shape);
 }
 
 class ErrorLogSink : public google::LogSink {
@@ -139,6 +133,107 @@ TEST(ONNXModelTest, CapabilityProbeRethrowsWithoutErrorLog) {
                          /*is_capability_probe=*/true),
                Ort::Exception);
   EXPECT_EQ(log_sink.NumErrorLogs(), 0);
+}
+
+TEST(CreateONNXTensorTest, FloatVector) {
+  std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f};
+  const std::vector<int64_t> shape{2, 2};
+  Ort::Value tensor = CreateONNXTensor(data, shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  const float* tensor_data = tensor.GetTensorData<float>();
+  EXPECT_EQ(tensor_data, data.data());
+  EXPECT_FLOAT_EQ(tensor_data[0], 1.0f);
+  EXPECT_FLOAT_EQ(tensor_data[3], 4.0f);
+}
+
+TEST(CreateONNXTensorTest, Int64Pointer) {
+  std::vector<int64_t> data{5, 6};
+  const std::vector<int64_t> shape{1, 2};
+  Ort::Value tensor = CreateONNXTensor(data.data(), data.size(), shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  EXPECT_EQ(tensor.GetTensorData<int64_t>(), data.data());
+}
+
+TEST(CreateONNXScalarTensorTest, Nominal) {
+  float value = 0.25f;
+  Ort::Value tensor = CreateONNXScalarTensor(value);
+  EXPECT_TRUE(tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_FLOAT_EQ(*tensor.GetTensorData<float>(), 0.25f);
+
+  int64_t int_value = 7;
+  Ort::Value int_tensor = CreateONNXScalarTensor(int_value);
+  EXPECT_TRUE(int_tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_EQ(*int_tensor.GetTensorData<int64_t>(), 7);
+}
+
+struct DummyCacheFeatures {
+  image_t image_id = kInvalidImageId;
+  int value = 0;
+};
+
+struct DummyCacheImage {
+  image_t image_id = kInvalidImageId;
+};
+
+TEST(TwoImageFeatureCacheTest, CachingAndSwap) {
+  TwoImageFeatureCache<DummyCacheFeatures> cache;
+  int num_creates = 0;
+  auto create = [&](const DummyCacheImage& image) {
+    ++num_creates;
+    DummyCacheFeatures features;
+    features.image_id = image.image_id;
+    features.value = static_cast<int>(image.image_id);
+    return features;
+  };
+
+  const DummyCacheImage imageA{1};
+  const DummyCacheImage imageB{2};
+  const DummyCacheImage imageC{3};
+
+  cache.Update(imageA, imageB, create);
+  EXPECT_EQ(num_creates, 2);
+  EXPECT_EQ(cache.first().image_id, 1);
+  EXPECT_EQ(cache.second().image_id, 2);
+
+  // Same pair hits the cache.
+  cache.Update(imageA, imageB, create);
+  EXPECT_EQ(num_creates, 2);
+
+  // (B, C) swaps B from second to first slot, only C is created.
+  cache.Update(imageB, imageC, create);
+  EXPECT_EQ(num_creates, 3);
+  EXPECT_EQ(cache.first().image_id, 2);
+  EXPECT_EQ(cache.second().image_id, 3);
+  EXPECT_EQ(cache.first().value, 2);
+
+  // Self-match copies first to second without creating.
+  cache.Update(imageA, imageB, create);
+  EXPECT_EQ(cache.first().image_id, 1);
+  EXPECT_EQ(cache.second().image_id, 2);
+  const int creates_before_self = num_creates;
+  cache.Update(imageA, imageA, create);
+  EXPECT_EQ(num_creates, creates_before_self);
+  EXPECT_EQ(cache.first().image_id, 1);
+  EXPECT_EQ(cache.second().image_id, 1);
+}
+
+TEST(TwoImageFeatureCacheTest, InvalidIdAlwaysRecreates) {
+  TwoImageFeatureCache<DummyCacheFeatures> cache;
+  int num_creates = 0;
+  auto create = [&](const DummyCacheImage& image) {
+    ++num_creates;
+    DummyCacheFeatures features;
+    features.image_id = image.image_id;
+    return features;
+  };
+
+  const DummyCacheImage invalid;
+  const DummyCacheImage imageA{1};
+  cache.Update(invalid, imageA, create);
+  EXPECT_EQ(num_creates, 2);
+  cache.Update(invalid, imageA, create);
+  // Invalid first slot is never cached.
+  EXPECT_EQ(num_creates, 3);
 }
 
 }  // namespace
