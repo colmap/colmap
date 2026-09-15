@@ -3,6 +3,7 @@
 #include "colmap/feature/utils.h"
 
 #include "colmap/math/math.h"
+#include "colmap/util/logging.h"
 
 namespace colmap {
 
@@ -76,6 +77,13 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
 
   *keypoints = std::move(top_scale_keypoints);
   *descriptors = std::move(top_scale_descriptors);
+}
+
+bool CheckDetectionOptions(int max_num_features, double min_score) {
+  CHECK_OPTION_GT(max_num_features, 0);
+  CHECK_OPTION_GE(min_score, 0);
+  CHECK_OPTION_LE(min_score, 1);
+  return true;
 }
 
 }  // namespace colmap

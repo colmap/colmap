@@ -444,10 +444,7 @@ class LomaFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 bool LomaExtractionOptions::Check() const {
-  CHECK_OPTION_GT(max_num_features, 0);
-  CHECK_OPTION_GE(min_score, 0);
-  CHECK_OPTION_LE(min_score, 1);
-  return true;
+  return CheckDetectionOptions(max_num_features, min_score);
 }
 
 std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(

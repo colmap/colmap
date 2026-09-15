@@ -86,5 +86,15 @@ TEST(ExtractTopScaleFeatures, Nominal) {
   EXPECT_EQ(top_descriptors6.data, descriptors.data);
 }
 
+TEST(CheckDetectionOptions, Nominal) {
+  EXPECT_TRUE(CheckDetectionOptions(100, 0.5));
+  EXPECT_TRUE(CheckDetectionOptions(1, 0));
+  EXPECT_TRUE(CheckDetectionOptions(1, 1));
+  EXPECT_FALSE(CheckDetectionOptions(0, 0.5));
+  EXPECT_FALSE(CheckDetectionOptions(-1, 0.5));
+  EXPECT_FALSE(CheckDetectionOptions(100, -0.1));
+  EXPECT_FALSE(CheckDetectionOptions(100, 1.1));
+}
+
 }  // namespace
 }  // namespace colmap

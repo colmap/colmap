@@ -31,4 +31,7 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
                              FeatureDescriptors* descriptors,
                              size_t num_features);
 
+// Check shared keypoint detection options (ALIKED, LoMa, ...).
+bool CheckDetectionOptions(int max_num_features, double min_score);
+
 }  // namespace colmap
