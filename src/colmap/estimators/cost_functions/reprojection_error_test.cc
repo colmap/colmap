@@ -72,6 +72,7 @@ TEST(AnalyticalReprojError, BehindCameraZeroesResidualsAndJacobians) {
   for (double v : j_pose) EXPECT_EQ(v, 0);
   for (double v : j_params) EXPECT_EQ(v, 0);
 
+  for (double& v : residuals) v = 1;
   for (double& v : j_point) v = 1;
   for (double& v : j_params) v = 1;
   const double* const_pose_parameters[2] = {point3D, camera_params};
