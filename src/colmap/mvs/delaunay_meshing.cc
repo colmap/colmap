@@ -68,14 +68,12 @@ namespace mvs {
 
 bool DelaunayMeshingOptions::Check() const {
   CHECK_OPTION_GE(max_proj_dist, 0);
-  CHECK_OPTION_GE(max_depth_dist, 0);
-  CHECK_OPTION_LE(max_depth_dist, 1);
+  CHECK_OPTION_IN(max_depth_dist, 0, 1);
   CHECK_OPTION_GT(visibility_sigma, 0);
   CHECK_OPTION_GT(distance_sigma_factor, 0);
   CHECK_OPTION_GE(quality_regularization, 0);
   CHECK_OPTION_GE(max_side_length_factor, 0);
-  CHECK_OPTION_GE(max_side_length_percentile, 0);
-  CHECK_OPTION_LE(max_side_length_percentile, 100);
+  CHECK_OPTION_IN(max_side_length_percentile, 0, 100);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_NE(num_threads, 0);
   return true;

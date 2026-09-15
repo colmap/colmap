@@ -483,8 +483,7 @@ std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
 }
 
 bool LomaMatchingOptions::Check() const {
-  CHECK_OPTION_GE(min_score, 0);
-  CHECK_OPTION_LE(min_score, 1);
+  CHECK_OPTION_IN(min_score, 0, 1);
   return brute_force.Check();
 }
 

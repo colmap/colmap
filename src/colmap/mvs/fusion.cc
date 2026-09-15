@@ -69,8 +69,7 @@ void StereoFusionOptions::Print() const {
 }
 
 bool StereoFusionOptions::Check() const {
-  CHECK_OPTION_GE(min_num_pixels, 0);
-  CHECK_OPTION_LE(min_num_pixels, max_num_pixels);
+  CHECK_OPTION_IN(min_num_pixels, 0, max_num_pixels);
   CHECK_OPTION_GT(max_traversal_depth, 0);
   CHECK_OPTION_GE(max_reproj_error, 0);
   CHECK_OPTION_GE(max_depth_error, 0);

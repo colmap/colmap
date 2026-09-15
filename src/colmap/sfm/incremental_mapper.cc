@@ -50,14 +50,12 @@ size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
 bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GT(init_min_num_inliers, 0);
   CHECK_OPTION_GT(init_max_error, 0.0);
-  CHECK_OPTION_GE(init_max_forward_motion, 0.0);
-  CHECK_OPTION_LE(init_max_forward_motion, 1.0);
+  CHECK_OPTION_IN(init_max_forward_motion, 0.0, 1.0);
   CHECK_OPTION_GE(init_min_tri_angle, 0.0);
   CHECK_OPTION_GE(init_max_reg_trials, 1);
   CHECK_OPTION_GT(abs_pose_max_error, 0.0);
   CHECK_OPTION_GT(abs_pose_min_num_inliers, 0);
-  CHECK_OPTION_GE(abs_pose_min_inlier_ratio, 0.0);
-  CHECK_OPTION_LE(abs_pose_min_inlier_ratio, 1.0);
+  CHECK_OPTION_IN(abs_pose_min_inlier_ratio, 0.0, 1.0);
   CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_min_tri_angle, 0.0);
   CHECK_OPTION_GE(ba_global_ignore_redundant_points3D_min_coverage_gain, 0.0);
