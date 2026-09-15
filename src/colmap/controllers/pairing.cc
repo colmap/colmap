@@ -112,8 +112,7 @@ VocabTreePairingOptions SequentialPairingOptions::VocabTreeOptions() const {
 bool SpatialPairingOptions::Check() const {
   CHECK_OPTION_GE(max_distance, 0.0);
   CHECK_OPTION_GT(max_num_neighbors, 0);
-  CHECK_OPTION_LE(min_num_neighbors, max_num_neighbors);
-  CHECK_OPTION_GE(min_num_neighbors, 0);
+  CHECK_OPTION_IN(min_num_neighbors, 0, max_num_neighbors);
   CHECK_OPTION(max_distance > 0.0 || min_num_neighbors > 0);
   return true;
 }

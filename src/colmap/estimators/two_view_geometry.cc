@@ -638,21 +638,14 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
 
 bool TwoViewGeometryOptions::Check() const {
   CHECK_OPTION_GE(min_num_inliers, 0);
-  CHECK_OPTION_GE(min_inlier_ratio, 0);
-  CHECK_OPTION_LE(min_inlier_ratio, 1);
-  CHECK_OPTION_GE(min_E_F_inlier_ratio, 0);
-  CHECK_OPTION_LE(min_E_F_inlier_ratio, 1);
-  CHECK_OPTION_GE(max_H_inlier_ratio, 0);
-  CHECK_OPTION_LE(max_H_inlier_ratio, 1);
-  CHECK_OPTION_GE(watermark_min_inlier_ratio, 0);
-  CHECK_OPTION_LE(watermark_min_inlier_ratio, 1);
-  CHECK_OPTION_GE(watermark_border_size, 0);
-  CHECK_OPTION_LE(watermark_border_size, 1);
+  CHECK_OPTION_IN(min_inlier_ratio, 0, 1);
+  CHECK_OPTION_IN(min_E_F_inlier_ratio, 0, 1);
+  CHECK_OPTION_IN(max_H_inlier_ratio, 0, 1);
+  CHECK_OPTION_IN(watermark_min_inlier_ratio, 0, 1);
+  CHECK_OPTION_IN(watermark_border_size, 0, 1);
   CHECK_OPTION_GT(ransac_options.max_error, 0);
-  CHECK_OPTION_GE(ransac_options.min_inlier_ratio, 0);
-  CHECK_OPTION_LE(ransac_options.min_inlier_ratio, 1);
-  CHECK_OPTION_GE(ransac_options.confidence, 0);
-  CHECK_OPTION_LE(ransac_options.confidence, 1);
+  CHECK_OPTION_IN(ransac_options.min_inlier_ratio, 0, 1);
+  CHECK_OPTION_IN(ransac_options.confidence, 0, 1);
   CHECK_OPTION_LE(ransac_options.min_num_trials, ransac_options.max_num_trials);
   CHECK_OPTION_GE(ransac_options.random_seed, -1);
   return true;

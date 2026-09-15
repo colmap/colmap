@@ -1013,8 +1013,7 @@ void InpaintAtlas(Bitmap* atlas,
 bool MeshTextureMappingOptions::Check() const {
   CHECK_OPTION_GT(min_cos_normal_angle, 0.0);
   CHECK_OPTION_LE(min_cos_normal_angle, 1.0);
-  CHECK_OPTION_GE(min_visible_vertices, 1);
-  CHECK_OPTION_LE(min_visible_vertices, 3);
+  CHECK_OPTION_IN(min_visible_vertices, 1, 3);
   CHECK_OPTION_GE(view_selection_smoothing_iterations, 0);
   CHECK_OPTION_GE(atlas_patch_padding, 0);
   CHECK_OPTION_GE(inpaint_radius, 0);

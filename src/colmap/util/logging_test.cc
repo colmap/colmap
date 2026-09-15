@@ -18,6 +18,11 @@ void ThrowCheck(const bool cond) { THROW_CHECK(cond) << "Error!"; }
 
 void ThrowCheckEqual(const int val) { THROW_CHECK_EQ(val, 1) << "Error!"; }
 
+bool CheckIn(const double val) {
+  CHECK_OPTION_IN(val, 0, 1);
+  return true;
+}
+
 TEST(ExceptionLogging, Nominal) {
   EXPECT_NO_THROW(ThrowCheck(true));
   EXPECT_THROW(ThrowCheck(false), std::invalid_argument);
@@ -45,6 +50,14 @@ TEST(ExceptionLogging, NumConditionEvals) {
     LOG(INFO) << "Caught exception";
   }
   EXPECT_EQ(num_calls, 2);
+}
+
+TEST(CheckOptionIn, Nominal) {
+  EXPECT_TRUE(CheckIn(0));
+  EXPECT_TRUE(CheckIn(0.5));
+  EXPECT_TRUE(CheckIn(1));
+  EXPECT_FALSE(CheckIn(-0.1));
+  EXPECT_FALSE(CheckIn(1.1));
 }
 
 TEST(ExceptionLogging, Nested) {

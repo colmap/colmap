@@ -48,8 +48,7 @@ bool IncrementalTriangulator::Options::Check() const {
   CHECK_OPTION_GT(complete_max_reproj_error, 0);
   CHECK_OPTION_GE(complete_max_transitivity, 0);
   CHECK_OPTION_GT(re_max_angle_error, 0);
-  CHECK_OPTION_GE(re_min_ratio, 0);
-  CHECK_OPTION_LE(re_min_ratio, 1);
+  CHECK_OPTION_IN(re_min_ratio, 0, 1);
   CHECK_OPTION_GE(re_max_trials, 0);
   CHECK_OPTION_GT(min_angle, 0);
   CHECK_OPTION_GE(random_seed, -1);

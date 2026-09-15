@@ -602,10 +602,8 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
 }  // namespace
 
 bool BruteForceONNXMatchingOptions::Check() const {
-  CHECK_OPTION_GE(min_cossim, -1);
-  CHECK_OPTION_LE(min_cossim, 1);
-  CHECK_OPTION_GE(max_ratio, 0);
-  CHECK_OPTION_LE(max_ratio, 1);
+  CHECK_OPTION_IN(min_cossim, -1, 1);
+  CHECK_OPTION_IN(max_ratio, 0, 1);
   return true;
 }
 
@@ -635,8 +633,7 @@ std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
 }
 
 bool LightGlueONNXMatchingOptions::Check() const {
-  CHECK_OPTION_GE(min_score, 0);
-  CHECK_OPTION_LE(min_score, 1);
+  CHECK_OPTION_IN(min_score, 0, 1);
   return true;
 }
 
