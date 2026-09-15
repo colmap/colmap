@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include "colmap/util/types.h"
+
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #ifdef COLMAP_ONNX_ENABLED
@@ -30,6 +33,80 @@ void ThrowCheckONNXNode(std::string_view name,
                         std::string_view expected_name,
                         const std::vector<int64_t>& shape,
                         const std::vector<int64_t>& expected_shape);
+
+// Create a CPU ONNX tensor that references the given data. The caller must
+// keep the data alive until the tensor is consumed by ONNXModel::Run().
+template <typename T>
+inline Ort::Value CreateONNXTensor(T* data,
+                                   size_t num_elements,
+                                   const std::vector<int64_t>& shape) {
+  return Ort::Value::CreateTensor<T>(
+      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                 OrtMemType::OrtMemTypeCPU),
+      data,
+      num_elements,
+      shape.data(),
+      shape.size());
+}
+
+template <typename T>
+inline Ort::Value CreateONNXTensor(std::vector<T>& data,
+                                   const std::vector<int64_t>& shape) {
+  return CreateONNXTensor(data.data(), data.size(), shape);
+}
+
+// Create a scalar (rank-0) CPU ONNX tensor.
+template <typename T>
+inline Ort::Value CreateONNXScalarTensor(T& value) {
+  static const std::vector<int64_t> kEmptyShape;
+  return CreateONNXTensor(&value, 1, kEmptyShape);
+}
+
+// Cache for features of the two most recently matched images. Swaps cached
+// features when possible to avoid redundant copies (e.g., matching (A, B)
+// then (B, C)). Features must expose an image_id member and be copyable;
+// images must expose an image_id member.
+template <typename Features>
+class TwoImageFeatureCache {
+ public:
+  template <typename Image, typename CreateFn>
+  void Update(const Image& image1, const Image& image2, CreateFn&& create);
+
+  Features& first() { return first_; }
+  const Features& first() const { return first_; }
+  Features& second() { return second_; }
+  const Features& second() const { return second_; }
+
+ private:
+  Features first_;
+  Features second_;
+};
+
+template <typename Features>
+template <typename Image, typename CreateFn>
+void TwoImageFeatureCache<Features>::Update(const Image& image1,
+                                            const Image& image2,
+                                            CreateFn&& create) {
+  if (first_.image_id == kInvalidImageId ||
+      first_.image_id != image1.image_id) {
+    if (image1.image_id != kInvalidImageId &&
+        second_.image_id == image1.image_id) {
+      std::swap(first_, second_);
+    } else {
+      first_ = create(image1);
+    }
+  }
+  if (second_.image_id == kInvalidImageId ||
+      second_.image_id != image2.image_id) {
+    if (image2.image_id != kInvalidImageId &&
+        first_.image_id == image2.image_id) {
+      // Self-matching an image.
+      second_ = first_;
+    } else {
+      second_ = create(image2);
+    }
+  }
+}
 
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.

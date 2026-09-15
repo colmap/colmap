@@ -155,33 +155,15 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     image_shape[3] = padder.padded_width;
 
     std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        padded_input->data(),
-        padded_input->size(),
-        image_shape.data(),
-        image_shape.size()));
+    input_tensors.emplace_back(CreateONNXTensor(*padded_input, image_shape));
 
     // Prepare max_keypoints input tensor (scalar).
     int64_t max_keypoints = options_.aliked->max_num_features;
-    input_tensors.emplace_back(Ort::Value::CreateTensor<int64_t>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &max_keypoints,
-        1,
-        model_.input_shapes()[1].data(),
-        model_.input_shapes()[1].size()));
+    input_tensors.emplace_back(CreateONNXScalarTensor(max_keypoints));
 
     // Prepare min_score input tensor (scalar).
     float min_score = static_cast<float>(options_.aliked->min_score);
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &min_score,
-        1,
-        model_.input_shapes()[2].data(),
-        model_.input_shapes()[2].size()));
+    input_tensors.emplace_back(CreateONNXScalarTensor(min_score));
 
     // Run model inference.
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
