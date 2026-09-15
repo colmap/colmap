@@ -208,15 +208,12 @@ bool EssentialMatrixTangentSampsonEstimator::Refine(
   Solver::Options options;
   options.max_num_iterations = 25;
 
-  Eigen::Matrix<double, 7, 1> x;
-  x.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
-  x.tail<3>() = cam2_from_cam1.translation().normalized();
+  RelPoseParams x = RelPoseParamsFromRigid3d(cam2_from_cam1);
   solver.Solve(f, &x, options);
 
   // Keep the refined pose only if the solve stayed finite.
   if (x.allFinite()) {
-    cam2_from_cam1 =
-        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), x.tail<3>());
+    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
   }
   *E = EssentialMatrixFromPose(cam2_from_cam1);
   return true;

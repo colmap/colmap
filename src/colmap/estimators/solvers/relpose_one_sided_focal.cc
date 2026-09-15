@@ -5,6 +5,7 @@
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
 #include "colmap/estimators/solvers/poselib_utils.h"
+#include "colmap/estimators/solvers/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/tiny_solver.h"
@@ -38,19 +39,6 @@ Eigen::Matrix3d MixedEpipolarMatrix(const Eigen::Matrix3d& E,
   const Eigen::DiagonalMatrix<double, 3> K1_inv(
       1.0 / focal1, 1.0 / focal1, 1.0);
   return E * K1_inv;
-}
-
-// Focal-calibrated, normalized camera rays (x / f, y / f, 1) from centered
-// image points.
-std::vector<Eigen::Vector3d> CalibratedRays(
-    const std::vector<Eigen::Vector2d>& points, const double focal) {
-  const double inv_f = 1.0 / focal;
-  std::vector<Eigen::Vector3d> rays(points.size());
-  for (size_t i = 0; i < points.size(); ++i) {
-    rays[i] = Eigen::Vector3d(points[i].x() * inv_f, points[i].y() * inv_f, 1.0)
-                  .normalized();
-  }
-  return rays;
 }
 
 }  // namespace
@@ -120,18 +108,14 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
 
   // Decompose the current essential matrix into a relative pose, resolving the
   // four-fold ambiguity by cheirality. The first view's rays follow from the
-  // current focal estimate; the second view's are already calibrated. Only the
-  // bearings are materialized, since that is all PoseFromEssentialMatrix needs.
-  const std::vector<Eigen::Vector3d> cam_rays1 =
-      CalibratedRays(img_points1, model->focal);
-  std::vector<Eigen::Vector3d> cam_rays2(cam_rays2_with_jac.size());
-  for (size_t i = 0; i < cam_rays2_with_jac.size(); ++i) {
-    cam_rays2[i] = cam_rays2_with_jac[i].ray;
-  }
+  // current focal estimate; the second view's are already calibrated.
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
-  PoseFromEssentialMatrix(
-      model->E, cam_rays1, cam_rays2, &cam2_from_cam1, &valid_indices);
+  PoseFromEssentialMatrix(model->E,
+                          CalibratedRays(img_points1, model->focal),
+                          RaysFromCamRaysWithJac(cam_rays2_with_jac),
+                          &cam2_from_cam1,
+                          &valid_indices);
   if (valid_indices.empty()) {
     // Degenerate configuration: leave the initial model unchanged.
     return false;
@@ -152,8 +136,7 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   options.max_num_iterations = 25;
 
   Eigen::Matrix<double, 8, 1> x;
-  x.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
-  x.segment<3>(4) = cam2_from_cam1.translation().normalized();
+  x.head<7>() = RelPoseParamsFromRigid3d(cam2_from_cam1);
   x[7] = std::log(model->focal);
   solver.Solve(f, &x, options);
 
@@ -162,8 +145,7 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   // seed focal.
   const Eigen::Vector3d translation = x.segment<3>(4);
   if (x.allFinite() && translation.squaredNorm() > 0) {
-    cam2_from_cam1 =
-        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), translation);
+    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
     model->E = EssentialMatrixFromPose(cam2_from_cam1);
     model->focal = std::exp(x[7]);
   }
