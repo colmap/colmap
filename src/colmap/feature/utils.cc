@@ -3,6 +3,7 @@
 #include "colmap/feature/utils.h"
 
 #include "colmap/math/math.h"
+#include "colmap/sensor/bitmap.h"
 
 namespace colmap {
 
@@ -76,6 +77,37 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
 
   *keypoints = std::move(top_scale_keypoints);
   *descriptors = std::move(top_scale_descriptors);
+}
+
+std::vector<float> HWCToCHW(const uint8_t* data,
+                            int width,
+                            int height,
+                            int pitch) {
+  THROW_CHECK_NOTNULL(data);
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  THROW_CHECK_GE(pitch, 3 * width);
+
+  const int num_pixels = width * height;
+  std::vector<float> chw(static_cast<size_t>(3) * num_pixels);
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      for (int c = 0; c < 3; ++c) {
+        constexpr float kImageNormalization = 1.0f / 255.0f;
+        chw[c * num_pixels + y * width + x] =
+            kImageNormalization * data[y * pitch + 3 * x + c];
+      }
+    }
+  }
+  return chw;
+}
+
+std::vector<float> BitmapToCHW(const Bitmap& bitmap) {
+  THROW_CHECK(bitmap.IsRGB());
+  return HWCToCHW(bitmap.RowMajorData().data(),
+                  bitmap.Width(),
+                  bitmap.Height(),
+                  bitmap.Pitch());
 }
 
 }  // namespace colmap

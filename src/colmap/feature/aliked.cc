@@ -4,6 +4,7 @@
 
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/onnx_utils.h"
+#include "colmap/feature/utils.h"
 
 #include <algorithm>
 #include <memory>
@@ -23,30 +24,6 @@ const std::string& GetExtractorModelPath(
     default:
       throw std::runtime_error("Unknown ALIKED feature extractor type.");
   }
-}
-
-// Convert bitmap to row-major [C, H, W] float tensor, normalized to [0, 1].
-std::vector<float> BitmapToInputTensor(const Bitmap& bitmap) {
-  THROW_CHECK(bitmap.IsRGB());
-
-  const int width = bitmap.Width();
-  const int height = bitmap.Height();
-  const int pitch = bitmap.Pitch();
-  const int num_pixels = width * height;
-
-  std::vector<float> input(num_pixels * 3);
-  const std::vector<uint8_t>& data = bitmap.RowMajorData();
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      for (int c = 0; c < 3; ++c) {
-        constexpr float kImageNormalization = 1.0f / 255.0f;
-        input[c * num_pixels + y * width + x] =
-            kImageNormalization * data[y * pitch + 3 * x + c];
-      }
-    }
-  }
-
-  return input;
 }
 
 // Pads image dimensions to be divisible by a given factor.
@@ -141,7 +118,7 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     const int width = bitmap.Width();
     const int height = bitmap.Height();
 
-    std::vector<float> input = BitmapToInputTensor(bitmap);
+    std::vector<float> input = BitmapToCHW(bitmap);
 
     // Pad image to dimensions divisible by 32.
     InputPadder padder(height, width, /*divisor=*/32);
