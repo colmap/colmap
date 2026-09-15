@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <locale>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -44,6 +45,10 @@ std::string VectorToCSV(const std::vector<T>& values);
 // Remove an argument from the list of command-line arguments.
 void RemoveCommandLineArgument(const std::string& arg, int* argc, char** argv);
 
+// Deep-copy a shared pointer, preserving null.
+template <typename T>
+std::shared_ptr<T> CloneSharedPtr(const std::shared_ptr<T>& ptr);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -60,6 +65,14 @@ bool VectorContainsDuplicateValues(const std::vector<T>& vector) {
   std::vector<T> unique_vector = vector;
   return std::unique(unique_vector.begin(), unique_vector.end()) !=
          unique_vector.end();
+}
+
+template <typename T>
+std::shared_ptr<T> CloneSharedPtr(const std::shared_ptr<T>& ptr) {
+  if (ptr) {
+    return std::make_shared<T>(*ptr);
+  }
+  return nullptr;
 }
 
 template <typename T>
