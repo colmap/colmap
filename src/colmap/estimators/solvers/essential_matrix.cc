@@ -208,12 +208,12 @@ bool EssentialMatrixTangentSampsonEstimator::Refine(
   Solver::Options options;
   options.max_num_iterations = 25;
 
-  Eigen::Matrix<double, 7, 1> x = PoseParamsFromRigid3d(cam2_from_cam1);
+  RelPoseParams x = RelPoseParamsFromRigid3d(cam2_from_cam1);
   solver.Solve(f, &x, options);
 
   // Keep the refined pose only if the solve stayed finite.
   if (x.allFinite()) {
-    cam2_from_cam1 = Rigid3dFromPoseParams(x.data());
+    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
   }
   *E = EssentialMatrixFromPose(cam2_from_cam1);
   return true;

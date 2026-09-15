@@ -136,7 +136,7 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   options.max_num_iterations = 25;
 
   Eigen::Matrix<double, 8, 1> x;
-  x.head<7>() = PoseParamsFromRigid3d(cam2_from_cam1);
+  x.head<7>() = RelPoseParamsFromRigid3d(cam2_from_cam1);
   x[7] = std::log(model->focal);
   solver.Solve(f, &x, options);
 
@@ -145,7 +145,7 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   // seed focal.
   const Eigen::Vector3d translation = x.segment<3>(4);
   if (x.allFinite() && translation.squaredNorm() > 0) {
-    cam2_from_cam1 = Rigid3dFromPoseParams(x.data());
+    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
     model->E = EssentialMatrixFromPose(cam2_from_cam1);
     model->focal = std::exp(x[7]);
   }

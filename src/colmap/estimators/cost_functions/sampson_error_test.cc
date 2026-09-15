@@ -31,11 +31,11 @@ TEST(SampsonErrorCostFunctor, Nominal) {
   EXPECT_NEAR(residuals[0] * residuals[0], 0.5, 1e-6);
 }
 
-TEST(PoseParamsFromRigid3d, RoundTrip) {
+TEST(RelPoseParamsFromRigid3d, RoundTrip) {
   const Rigid3d pose(Eigen::Quaterniond(Eigen::AngleAxisd(
                          0.7, Eigen::Vector3d(0.2, -1, 0.5).normalized())),
                      Eigen::Vector3d(0.6, -0.3, 1.0));
-  const Eigen::Matrix<double, 7, 1> params = PoseParamsFromRigid3d(pose);
+  const RelPoseParams params = RelPoseParamsFromRigid3d(pose);
   const Eigen::Vector4d quat_coeffs = pose.rotation().normalized().coeffs();
   const Eigen::Vector3d unit_translation = pose.translation().normalized();
   EXPECT_THAT(Eigen::Vector4d(params.head<4>()),
@@ -43,7 +43,7 @@ TEST(PoseParamsFromRigid3d, RoundTrip) {
   EXPECT_THAT(Eigen::Vector3d(params.tail<3>()),
               EigenMatrixNear(unit_translation, 1e-12));
 
-  const Rigid3d round_trip = Rigid3dFromPoseParams(params.data());
+  const Rigid3d round_trip = Rigid3dFromRelPoseParams(params.data());
   EXPECT_THAT(Eigen::Vector4d(round_trip.rotation().coeffs()),
               EigenMatrixNear(quat_coeffs, 1e-12));
   EXPECT_THAT(Eigen::Vector3d(round_trip.translation()),

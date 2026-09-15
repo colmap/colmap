@@ -70,17 +70,29 @@ T TangentSampsonError(const Eigen::Matrix<T, 3, 3>& E,
   return num / denom_norm;
 }
 
-// Pack a pose as [qx, qy, qz, qw, tx, ty, tz], normalizing both components.
-inline Eigen::Matrix<double, 7, 1> PoseParamsFromRigid3d(
-    const Rigid3d& cam2_from_cam1) {
-  Eigen::Matrix<double, 7, 1> params;
+// Ambient 7-vector of a relative pose in the Rigid3d parameter layout
+// [qx, qy, qz, qw, tx, ty, tz], with the translation on the unit sphere. This
+// is the ambient space of the 5-DoF relative pose manifold (rotation on SO(3),
+// translation on S^2) that the Sampson refinement drivers optimize over; the
+// translation scale is unobservable there.
+using RelPoseParams = Eigen::Matrix<double, 7, 1>;
+
+// Pack a relative pose into its ambient 7-vector, projecting onto the manifold:
+// the quaternion is normalized to a unit rotation and the translation is
+// normalized onto the unit sphere. The input translation scale is intentionally
+// discarded, since the essential matrix only constrains the baseline direction.
+inline RelPoseParams RelPoseParamsFromRigid3d(const Rigid3d& cam2_from_cam1) {
+  RelPoseParams params;
   params.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
   params.tail<3>() = cam2_from_cam1.translation().normalized();
   return params;
 }
 
-// Unpack a pose, normalizing its quaternion.
-inline Rigid3d Rigid3dFromPoseParams(const double* params) {
+// Unpack a relative pose from its ambient 7-vector, normalizing the quaternion
+// to a unit rotation. The translation is taken as-is and is expected to
+// already be unit length, as maintained by the manifold-constrained solvers
+// that produce these vectors.
+inline Rigid3d Rigid3dFromRelPoseParams(const double* params) {
   const Eigen::Quaterniond rotation =
       Eigen::Map<const Eigen::Quaterniond>(params).normalized();
   const Eigen::Vector3d translation =
