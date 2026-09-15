@@ -3,6 +3,8 @@
 #include "colmap/feature/utils.h"
 
 #include "colmap/math/math.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 namespace colmap {
 
@@ -76,6 +78,22 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
 
   *keypoints = std::move(top_scale_keypoints);
   *descriptors = std::move(top_scale_descriptors);
+}
+
+bool CheckGPUOptions(bool use_gpu,
+                     const std::string& gpu_index,
+                     const char* feature_kind) {
+  if (!use_gpu) {
+    return true;
+  }
+  CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+#ifndef COLMAP_GPU_ENABLED
+  LOG(ERROR) << "Cannot use GPU " << feature_kind
+             << " without CUDA or OpenGL support. "
+                "Consider setting use_gpu to false.";
+  return false;
+#endif
+  return true;
 }
 
 }  // namespace colmap

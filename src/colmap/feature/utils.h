@@ -4,6 +4,7 @@
 
 #include "colmap/feature/types.h"
 
+#include <string>
 namespace colmap {
 
 // Convert feature keypoints to vector of points.
@@ -30,5 +31,11 @@ FeatureDescriptorsData FeatureDescriptorsToUnsignedByte(
 void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
                              FeatureDescriptors* descriptors,
                              size_t num_features);
+
+// Check shared GPU options for feature extraction/matching. The feature_kind
+// is used in the error message, e.g. "feature extraction".
+bool CheckGPUOptions(bool use_gpu,
+                     const std::string& gpu_index,
+                     const char* feature_kind);
 
 }  // namespace colmap

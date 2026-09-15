@@ -86,5 +86,19 @@ TEST(ExtractTopScaleFeatures, Nominal) {
   EXPECT_EQ(top_descriptors6.data, descriptors.data);
 }
 
+TEST(CheckGPUOptions, Nominal) {
+  EXPECT_TRUE(CheckGPUOptions(false, "", "feature extraction"));
+  EXPECT_TRUE(CheckGPUOptions(false, "invalid", "feature matching"));
+  EXPECT_FALSE(CheckGPUOptions(true, "", "feature extraction"));
+  EXPECT_FALSE(CheckGPUOptions(true, " ", "feature matching"));
+  EXPECT_FALSE(CheckGPUOptions(true, "invalid", "feature extraction"));
+#ifdef COLMAP_GPU_ENABLED
+  EXPECT_TRUE(CheckGPUOptions(true, "0", "feature extraction"));
+  EXPECT_TRUE(CheckGPUOptions(true, "0,1", "feature matching"));
+#else
+  EXPECT_FALSE(CheckGPUOptions(true, "0", "feature extraction"));
+#endif
+}
+
 }  // namespace
 }  // namespace colmap

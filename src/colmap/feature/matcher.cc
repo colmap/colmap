@@ -6,6 +6,7 @@
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
+#include "colmap/feature/utils.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -89,13 +90,8 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
 }
 
 bool FeatureMatchingOptions::Check() const {
-  if (use_gpu) {
-    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
-#ifndef COLMAP_GPU_ENABLED
-    LOG(ERROR) << "Cannot use GPU feature matching without CUDA or OpenGL "
-                  "support. Set use_gpu or use_gpu to false.";
+  if (!CheckGPUOptions(use_gpu, gpu_index, "feature matching")) {
     return false;
-#endif
   }
   CHECK_OPTION_GE(max_num_matches, 0);
   switch (type) {
