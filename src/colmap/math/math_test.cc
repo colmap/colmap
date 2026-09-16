@@ -15,16 +15,6 @@ TEST(SignOfNumber, Nominal) {
   EXPECT_EQ(SignOfNumber(-std::numeric_limits<float>::infinity()), -1);
 }
 
-TEST(Clamp, Nominal) {
-  EXPECT_EQ(Clamp(0, -1, 1), 0);
-  EXPECT_EQ(Clamp(0, 0, 1), 0);
-  EXPECT_EQ(Clamp(0, -1, 0), 0);
-  EXPECT_EQ(Clamp(0, -1, 1), 0);
-  EXPECT_EQ(Clamp(0, 1, 2), 1);
-  EXPECT_EQ(Clamp(0, -2, -1), -1);
-  EXPECT_EQ(Clamp(0, 0, 0), 0);
-}
-
 TEST(DegToRad, Nominal) {
   EXPECT_EQ(DegToRad(0.0f), 0.0f);
   EXPECT_EQ(DegToRad(0.0), 0.0);

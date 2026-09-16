@@ -155,7 +155,7 @@ CollapseCandidate ComputeEdgeCollapse(const std::vector<VertexData>& vertices,
       t = static_cast<float>(
           (candidate.optimal_position - vertices[v1].position).dot(edge_dir) /
           edge_len_sq);
-      t = Clamp(t, 0.0f, 1.0f);
+      t = std::clamp(t, 0.0f, 1.0f);
     }
     candidate.optimal_color =
         (1.0f - t) * vertices[v1].color + t * vertices[v2].color;

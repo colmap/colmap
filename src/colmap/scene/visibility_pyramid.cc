@@ -5,6 +5,8 @@
 #include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+
 namespace colmap {
 
 VisibilityPyramid::VisibilityPyramid() : VisibilityPyramid(0, 0, 0) {}
@@ -73,8 +75,8 @@ void VisibilityPyramid::CellForPoint(const double x,
   THROW_CHECK_GT(width_, 0);
   THROW_CHECK_GT(height_, 0);
   const int max_dim = 1 << pyramid_.size();
-  *cx = Clamp<size_t>(max_dim * x / width_, 0, max_dim - 1);
-  *cy = Clamp<size_t>(max_dim * y / height_, 0, max_dim - 1);
+  *cx = std::clamp<size_t>(max_dim * x / width_, 0, max_dim - 1);
+  *cy = std::clamp<size_t>(max_dim * y / height_, 0, max_dim - 1);
 }
 
 }  // namespace colmap

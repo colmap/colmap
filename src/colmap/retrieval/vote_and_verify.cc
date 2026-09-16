@@ -178,8 +178,8 @@ size_t ComputeEffectiveInlierCount(
   for (const auto& coord : inlier_coords) {
     const int c_x = (coord.first - min_x) * scale_x;
     const int c_y = (coord.second - min_y) * scale_y;
-    counter(std::max(0, std::min(num_bins - 1, c_x)),
-            std::max(0, std::min(num_bins - 1, c_y))) = 1;
+    counter(std::clamp(c_x, 0, num_bins - 1),
+            std::clamp(c_y, 0, num_bins - 1)) = 1;
   }
 
   return counter.sum();

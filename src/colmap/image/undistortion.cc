@@ -7,6 +7,8 @@
 #include "colmap/sensor/models.h"
 #include "colmap/util/hash_containers.h"
 
+#include <algorithm>
+
 namespace colmap {
 namespace {
 
@@ -207,8 +209,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
                             max_scale_y * (1.0 - options.blank_pixels));
 
     // Clip the scaling factors.
-    scale_x = Clamp(scale_x, options.min_scale, options.max_scale);
-    scale_y = Clamp(scale_y, options.min_scale, options.max_scale);
+    scale_x = std::clamp(scale_x, options.min_scale, options.max_scale);
+    scale_y = std::clamp(scale_y, options.min_scale, options.max_scale);
 
     // Scale undistorted camera dimensions.
     const size_t orig_undistorted_camera_width = undistorted_camera.width;
