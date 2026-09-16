@@ -393,8 +393,7 @@ void BaseOptionManager::Write(const std::filesystem::path& path) const {
 
   std::ofstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
-  // Ensure that we don't lose any precision by storing in text.
-  file.precision(17);
+  SetFullPrecTextStream(file);
   boost::property_tree::write_ini(file, pt);
   file.close();
 }

@@ -29,10 +29,16 @@
 
 #pragma once
 
+#include <iosfwd>
 #include <string>
 #include <vector>
 
 namespace colmap {
+
+// Configure a text stream for locale-independent IO at full double precision.
+// Sets the classic locale (i.e. '.' decimal separator regardless of the global
+// locale) and enough precision to round-trip doubles losslessly.
+void SetFullPrecTextStream(std::ios& stream);
 
 // Locale-independent string-to-double conversion.
 // Always uses '.' as decimal separator regardless of LC_NUMERIC.

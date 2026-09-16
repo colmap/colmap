@@ -42,7 +42,6 @@
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <locale>
 #include <sstream>
 
 namespace colmap {
@@ -490,7 +489,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
       std::string item;
       std::istringstream line_stream(line);
-      line_stream.imbue(std::locale::classic());
+      SetFullPrecTextStream(line_stream);
 
       // Loads the image name.
       std::string image_name;
