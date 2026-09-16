@@ -26,7 +26,6 @@
 
 #include <array>
 #include <fstream>
-#include <locale>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -1674,13 +1673,13 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
 
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
 
   std::string line;
 
   std::getline(file, line);
   std::istringstream header_line_stream(line);
-  header_line_stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(header_line_stream);
 
   point2D_t num_features;
   size_t dim;
@@ -1696,7 +1695,7 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
   for (size_t i = 0; i < num_features; ++i) {
     std::getline(file, line);
     std::istringstream feature_line_stream(line);
-    feature_line_stream.imbue(std::locale::classic());
+    SetFullPrecTextStream(feature_line_stream);
 
     float x, y, scale, orientation;
     THROW_CHECK(feature_line_stream >> x >> y >> scale >> orientation);

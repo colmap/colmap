@@ -6,7 +6,6 @@
 #include "colmap/util/string.h"
 
 #include <algorithm>
-#include <locale>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -82,7 +81,7 @@ std::string VectorToCSV(const std::vector<T>& values) {
   }
 
   std::ostringstream stream;
-  stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(stream);
   for (const T& value : values) {
     stream << value << ", ";
   }
