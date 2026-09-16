@@ -8,6 +8,7 @@
 #include "colmap/util/testing.h"
 
 #include <fstream>
+#include <locale>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -21,6 +22,13 @@ std::filesystem::path WriteTestConfig(const std::string& config) {
   file << config << '\n';
   return file_path;
 }
+
+// Custom numpunct facet that uses comma as decimal separator, for testing
+// locale independence without requiring a specific system locale.
+struct CommaDecimalFacet : std::numpunct<char> {
+ protected:
+  char do_decimal_point() const override { return ','; }
+};
 
 TEST(ReadRigConfig, Empty) {
   EXPECT_THAT(ReadRigConfig(WriteTestConfig("[]")), testing::IsEmpty());
@@ -140,6 +148,48 @@ TEST(ReadRigConfig, Nominal) {
   EXPECT_FALSE(configs[1].cameras[1].ref_sensor);
   ASSERT_FALSE(configs[1].cameras[1].cam_from_rig.has_value());
   ASSERT_FALSE(configs[1].cameras[1].camera.has_value());
+}
+
+TEST(ReadRigConfig, LocaleIndependence) {
+  // Install a global locale that uses comma as decimal separator.
+  const std::locale original_locale = std::locale::global(
+      std::locale(std::locale::classic(), new CommaDecimalFacet));
+
+  const std::vector<RigConfig> configs = ReadRigConfig(WriteTestConfig(R"(
+[
+  {
+    "cameras": [
+      {
+          "image_prefix": "rig1/camera1/",
+          "ref_sensor": true,
+          "camera_model_name": "OPENCV",
+          "camera_params": [640.5, 480.25, 320.125, 240.0625, 0.1, 0.2, 0.3, 0.4]
+      },
+      {
+          "image_prefix": "rig1/camera2/",
+          "cam_from_rig_rotation": [0.5, 0.5, 0.5, 0.5],
+          "cam_from_rig_translation": [1.5, 2.25, 3.125]
+      }
+    ]
+  }
+]
+)"));
+  ASSERT_EQ(configs.size(), 1);
+  ASSERT_EQ(configs[0].cameras.size(), 2);
+
+  ASSERT_TRUE(configs[0].cameras[0].camera.has_value());
+  EXPECT_THAT(configs[0].cameras[0].camera->params,
+              testing::ElementsAre(
+                  640.5, 480.25, 320.125, 240.0625, 0.1, 0.2, 0.3, 0.4));
+
+  ASSERT_TRUE(configs[0].cameras[1].cam_from_rig.has_value());
+  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->rotation().coeffs(),
+            Eigen::Vector4d(0.5, 0.5, 0.5, 0.5));
+  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->translation(),
+            Eigen::Vector3d(1.5, 2.25, 3.125));
+
+  // Restore original locale.
+  std::locale::global(original_locale);
 }
 
 void CreateTestData(int num_frames,

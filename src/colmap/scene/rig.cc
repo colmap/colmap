@@ -4,6 +4,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/string.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -258,7 +259,10 @@ std::vector<RigConfig> ReadRigConfig(
         int index = 0;
         Eigen::Vector4d cam_from_rig_wxyz;
         for (const auto& node : cam_from_rig_rotation_node.get()) {
-          cam_from_rig_wxyz[index++] = node.second.get_value<double>();
+          // Note: get_value<double>() is locale-dependent, so parse the raw
+          // token with the locale-independent StringToDouble instead.
+          cam_from_rig_wxyz[index++] =
+              StringToDouble(node.second.get_value<std::string>());
         }
         cam_from_rig.rotation() = Eigen::Quaterniond(cam_from_rig_wxyz(0),
                                                      cam_from_rig_wxyz(1),
@@ -268,7 +272,8 @@ std::vector<RigConfig> ReadRigConfig(
         THROW_CHECK(cam_from_rig_translation_node);
         index = 0;
         for (const auto& node : cam_from_rig_translation_node.get()) {
-          cam_from_rig.translation()(index++) = node.second.get_value<double>();
+          cam_from_rig.translation()(index++) =
+              StringToDouble(node.second.get_value<std::string>());
         }
         config_camera.cam_from_rig = cam_from_rig;
       }
@@ -295,7 +300,7 @@ std::vector<RigConfig> ReadRigConfig(
         config_camera.camera->has_prior_focal_length = true;
         for (const auto& node : camera_params_node.get()) {
           config_camera.camera->params.push_back(
-              node.second.get_value<double>());
+              StringToDouble(node.second.get_value<std::string>()));
         }
       }
     }

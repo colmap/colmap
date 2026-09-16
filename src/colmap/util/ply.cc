@@ -10,7 +10,6 @@
 
 #include <cstring>
 #include <fstream>
-#include <locale>
 #include <sstream>
 
 #include <Eigen/Core>
@@ -306,7 +305,7 @@ void WriteTextPlyPoints(const std::filesystem::path& path,
                         const bool write_rgb) {
   std::ofstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
 
   file << "ply\n";
   file << "format ascii 1.0\n";
@@ -354,6 +353,7 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
                           const bool write_rgb) {
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(text_file, path);
+  SetFullPrecTextStream(text_file);
 
   text_file << "ply\n";
   text_file << "format binary_little_endian 1.0\n";
@@ -710,7 +710,7 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       std::getline(file, line);
       StringTrim(&line);
       std::stringstream line_stream(line);
-      line_stream.imbue(std::locale::classic());
+      SetFullPrecTextStream(line_stream);
 
       int num_face_vertices;
       THROW_CHECK(line_stream >> num_face_vertices);
@@ -752,7 +752,7 @@ void WriteTextPlyMesh(const std::filesystem::path& path,
                       const PlyTexturedMesh& mesh) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
 
   const bool has_texcoords = !mesh.face_uvs.empty();
   if (has_texcoords) {
@@ -800,6 +800,7 @@ void WriteBinaryPlyMesh(const std::filesystem::path& path,
                         const PlyTexturedMesh& mesh) {
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(text_file, path);
+  SetFullPrecTextStream(text_file);
 
   const bool has_texcoords = !mesh.face_uvs.empty();
   if (has_texcoords) {
