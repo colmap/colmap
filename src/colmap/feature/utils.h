@@ -58,14 +58,14 @@ class ImageFeatureCache {
  public:
   template <typename Image, typename CreateFn>
   T& GetOrCreate(const Image& image, CreateFn&& create) {
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < kCapacity; ++i) {
       if (image.image_id != kInvalidImageId &&
           entries_[i].image_id == image.image_id) {
         most_recent_ = i;
         return entries_[i].value;
       }
     }
-    most_recent_ = 1 - most_recent_;
+    most_recent_ = kCapacity - 1 - most_recent_;
     Entry& entry = entries_[most_recent_];
     entry.value = create(image);
     entry.image_id = image.image_id;
@@ -73,11 +73,12 @@ class ImageFeatureCache {
   }
 
  private:
+  static constexpr int kCapacity = 2;
   struct Entry {
     image_t image_id = kInvalidImageId;
     T value;
   };
-  std::array<Entry, 2> entries_;
+  std::array<Entry, kCapacity> entries_;
   int most_recent_ = 0;
 };
 
