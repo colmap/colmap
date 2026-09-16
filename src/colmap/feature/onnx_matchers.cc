@@ -64,27 +64,11 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    // Cache features if image changed. Swap cached features when possible
-    // to avoid redundant copies (e.g., matching (A, B) then (B, C)).
-    if (prev_features1_.image_id == kInvalidImageId ||
-        prev_features1_.image_id != image1.image_id) {
-      if (image1.image_id != kInvalidImageId &&
-          prev_features2_.image_id == image1.image_id) {
-        std::swap(prev_features1_, prev_features2_);
-      } else {
-        prev_features1_ = FeaturesFromImage(image1);
-      }
-    }
-    if (prev_features2_.image_id == kInvalidImageId ||
-        prev_features2_.image_id != image2.image_id) {
-      if (image2.image_id != kInvalidImageId &&
-          prev_features1_.image_id == image2.image_id) {
-        // This shouldn't happen, as it means we are self-matching an image.
-        prev_features2_ = prev_features1_;
-      } else {
-        prev_features2_ = FeaturesFromImage(image2);
-      }
-    }
+    auto create = [this](const Image& image) {
+      return FeaturesFromImage(image);
+    };
+    Features& cached1 = cache_.GetOrCreate(image1, create);
+    Features& cached2 = cache_.GetOrCreate(image2, create);
 
     // Create tensors from cached data (tensors must be recreated each call
     // since they reference the underlying data and get consumed by Run()).
@@ -93,10 +77,10 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
     int64_t cross_check = brute_force_options_.cross_check ? 1 : 0;
 
     std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(CreateONNXTensor(
-        prev_features1_.descriptors_data, prev_features1_.descriptors_shape));
-    input_tensors.emplace_back(CreateONNXTensor(
-        prev_features2_.descriptors_data, prev_features2_.descriptors_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached1.descriptors_data, cached1.descriptors_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached2.descriptors_data, cached2.descriptors_shape));
     input_tensors.emplace_back(CreateONNXScalarTensor(min_cossim));
     input_tensors.emplace_back(CreateONNXScalarTensor(max_ratio));
     input_tensors.emplace_back(CreateONNXScalarTensor(cross_check));
@@ -145,7 +129,6 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
 
  private:
   struct Features {
-    image_t image_id = kInvalidImageId;
     std::vector<float> descriptors_data;
     std::vector<int64_t> descriptors_shape;
   };
@@ -168,7 +151,6 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_GT(descriptor_dim, 0);
 
     Features features;
-    features.image_id = image.image_id;
     features.descriptors_shape = {num_keypoints, descriptor_dim};
     features.descriptors_data.assign(
         descriptors.data.data(),
@@ -183,8 +165,7 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
   ONNXModel model_;
 
   // Cached features for avoiding redundant data copies.
-  Features prev_features1_;
-  Features prev_features2_;
+  ImageFeatureCache<Features> cache_;
 };
 
 class LightGlueONNXFeatureMatcher : public FeatureMatcher {
@@ -269,56 +250,40 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    // Cache features with swap optimization (identical to ALIKED pattern).
-    if (prev_features1_.image_id == kInvalidImageId ||
-        prev_features1_.image_id != image1.image_id) {
-      if (image1.image_id != kInvalidImageId &&
-          prev_features2_.image_id == image1.image_id) {
-        std::swap(prev_features1_, prev_features2_);
-      } else {
-        prev_features1_ = FeaturesFromImage(image1);
-      }
-    }
-    if (prev_features2_.image_id == kInvalidImageId ||
-        prev_features2_.image_id != image2.image_id) {
-      if (image2.image_id != kInvalidImageId &&
-          prev_features1_.image_id == image2.image_id) {
-        prev_features2_ = prev_features1_;
-      } else {
-        prev_features2_ = FeaturesFromImage(image2);
-      }
-    }
+    auto create = [this](const Image& image) {
+      return FeaturesFromImage(image);
+    };
+    CachedFeatures& cached1 = cache_.GetOrCreate(image1, create);
+    CachedFeatures& cached2 = cache_.GetOrCreate(image2, create);
 
     // Create input tensors.
     std::vector<Ort::Value> input_tensors;
     input_tensors.reserve(has_scale_ori_ ? 10 : 6);
 
-    input_tensors.emplace_back(CreateONNXTensor(
-        prev_features1_.keypoints_data, prev_features1_.keypoints_shape));
-    input_tensors.emplace_back(CreateONNXTensor(
-        prev_features2_.keypoints_data, prev_features2_.keypoints_shape));
-    input_tensors.emplace_back(CreateONNXTensor(
-        prev_features1_.descriptors_data, prev_features1_.descriptors_shape));
-    input_tensors.emplace_back(CreateONNXTensor(
-        prev_features2_.descriptors_data, prev_features2_.descriptors_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached1.keypoints_data, cached1.keypoints_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached2.keypoints_data, cached2.keypoints_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached1.descriptors_data, cached1.descriptors_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached2.descriptors_data, cached2.descriptors_shape));
 
     std::vector<int64_t> image_size_shape = {1, 2};
     input_tensors.emplace_back(
-        CreateONNXTensor(prev_features1_.image_size, 2, image_size_shape));
+        CreateONNXTensor(cached1.image_size, 2, image_size_shape));
     input_tensors.emplace_back(
-        CreateONNXTensor(prev_features2_.image_size, 2, image_size_shape));
+        CreateONNXTensor(cached2.image_size, 2, image_size_shape));
 
     if (has_scale_ori_) {
-      input_tensors.emplace_back(CreateONNXTensor(
-          prev_features1_.scales_data, prev_features1_.scales_shape));
-      input_tensors.emplace_back(CreateONNXTensor(
-          prev_features2_.scales_data, prev_features2_.scales_shape));
       input_tensors.emplace_back(
-          CreateONNXTensor(prev_features1_.orientations_data,
-                           prev_features1_.orientations_shape));
+          CreateONNXTensor(cached1.scales_data, cached1.scales_shape));
       input_tensors.emplace_back(
-          CreateONNXTensor(prev_features2_.orientations_data,
-                           prev_features2_.orientations_shape));
+          CreateONNXTensor(cached2.scales_data, cached2.scales_shape));
+      input_tensors.emplace_back(CreateONNXTensor(cached1.orientations_data,
+                                                  cached1.orientations_shape));
+      input_tensors.emplace_back(CreateONNXTensor(cached2.orientations_data,
+                                                  cached2.orientations_shape));
     }
 
     // Run model inference.
@@ -376,7 +341,6 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
 
  private:
   struct CachedFeatures {
-    image_t image_id = kInvalidImageId;
     std::vector<float> keypoints_data;
     std::vector<int64_t> keypoints_shape;
     std::vector<float> descriptors_data;
@@ -412,7 +376,6 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_EQ(static_cast<int>(image.keypoints->size()), num_keypoints);
 
     CachedFeatures features;
-    features.image_id = image.image_id;
 
     const int rot90 =
         (image.pose_prior != nullptr && image.pose_prior->HasGravity())
@@ -503,8 +466,7 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
   ONNXModel model_;
   bool has_scale_ori_ = false;
 
-  CachedFeatures prev_features1_;
-  CachedFeatures prev_features2_;
+  ImageFeatureCache<CachedFeatures> cache_;
 };
 
 #endif

@@ -128,5 +128,90 @@ TEST(BitmapToCHW, GreyThrows) {
   EXPECT_THROW(BitmapToCHW(bitmap), std::invalid_argument);
 }
 
+struct DummyCacheFeatures {
+  int value = 0;
+};
+
+struct DummyCacheImage {
+  image_t image_id = kInvalidImageId;
+};
+
+TEST(ImageFeatureCacheTest, CachingAndEviction) {
+  ImageFeatureCache<DummyCacheFeatures> cache;
+  int num_creates = 0;
+  auto create = [&](const DummyCacheImage& image) {
+    ++num_creates;
+    DummyCacheFeatures features;
+    features.value = static_cast<int>(image.image_id);
+    return features;
+  };
+
+  const DummyCacheImage imageA{1};
+  const DummyCacheImage imageB{2};
+  const DummyCacheImage imageC{3};
+
+  const DummyCacheFeatures& featuresA = cache.GetOrCreate(imageA, create);
+  const DummyCacheFeatures& featuresB = cache.GetOrCreate(imageB, create);
+  EXPECT_EQ(num_creates, 2);
+  EXPECT_EQ(featuresA.value, 1);
+  EXPECT_EQ(featuresB.value, 2);
+
+  // Same images hit the cache.
+  cache.GetOrCreate(imageA, create);
+  cache.GetOrCreate(imageB, create);
+  EXPECT_EQ(num_creates, 2);
+
+  // (B, C): B hits, C evicts A (least recently used).
+  cache.GetOrCreate(imageB, create);
+  const DummyCacheFeatures& featuresC = cache.GetOrCreate(imageC, create);
+  EXPECT_EQ(num_creates, 3);
+  EXPECT_EQ(featuresC.value, 3);
+
+  // B is retained while A was evicted.
+  cache.GetOrCreate(imageB, create);
+  EXPECT_EQ(num_creates, 3);
+  cache.GetOrCreate(imageA, create);
+  EXPECT_EQ(num_creates, 4);
+}
+
+TEST(ImageFeatureCacheTest, SameImageTwice) {
+  ImageFeatureCache<DummyCacheFeatures> cache;
+  int num_creates = 0;
+  auto create = [&](const DummyCacheImage& image) {
+    ++num_creates;
+    DummyCacheFeatures features;
+    features.value = static_cast<int>(image.image_id);
+    return features;
+  };
+
+  const DummyCacheImage imageA{1};
+  const DummyCacheFeatures& first = cache.GetOrCreate(imageA, create);
+  const DummyCacheFeatures& second = cache.GetOrCreate(imageA, create);
+  EXPECT_EQ(num_creates, 1);
+  EXPECT_EQ(&first, &second);
+  EXPECT_EQ(second.value, 1);
+}
+
+TEST(ImageFeatureCacheTest, InvalidIdAlwaysRecreates) {
+  ImageFeatureCache<DummyCacheFeatures> cache;
+  int num_creates = 0;
+  auto create = [&](const DummyCacheImage& image) {
+    ++num_creates;
+    DummyCacheFeatures features;
+    features.value = static_cast<int>(image.image_id);
+    return features;
+  };
+
+  const DummyCacheImage invalid;
+  const DummyCacheImage imageA{1};
+  cache.GetOrCreate(imageA, create);
+  cache.GetOrCreate(invalid, create);
+  // Invalid entries are never reused.
+  cache.GetOrCreate(imageA, create);
+  EXPECT_EQ(num_creates, 2);
+  cache.GetOrCreate(invalid, create);
+  EXPECT_EQ(num_creates, 3);
+}
+
 }  // namespace
 }  // namespace colmap
