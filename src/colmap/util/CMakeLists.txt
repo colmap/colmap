@@ -18,6 +18,7 @@ COLMAP_ADD_LIBRARY(
         glog_macros.h
         misc.h misc.cc
         oiio_utils.h oiio_utils.cc
+        onnx_utils.h onnx_utils.cc
         opengl_utils.h opengl_utils.cc
         ply.h ply.cc
         string.h string.cc
@@ -34,6 +35,9 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:-lstdc++fs>
 )
+if(ONNX_ENABLED)
+    target_link_libraries(colmap_util PUBLIC onnxruntime::onnxruntime)
+endif()
 if(DOWNLOAD_ENABLED)
     target_link_libraries(colmap_util PRIVATE CURL::libcurl)
     if(TARGET cryptopp::cryptopp)
@@ -183,6 +187,15 @@ COLMAP_ADD_TEST(
     SRCS misc_test.cc
     LINK_LIBS colmap_util
 )
+if(ONNX_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME onnx_utils_test
+        SRCS onnx_utils_test.cc
+        LINK_LIBS
+            colmap_util
+            onnxruntime::onnxruntime
+    )
+endif()
 COLMAP_ADD_TEST(
     NAME ply_test
     SRCS ply_test.cc
