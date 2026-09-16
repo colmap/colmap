@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/util/ply.h"
 
@@ -37,7 +10,6 @@
 
 #include <cstring>
 #include <fstream>
-#include <locale>
 #include <sstream>
 
 #include <Eigen/Core>
@@ -333,7 +305,7 @@ void WriteTextPlyPoints(const std::filesystem::path& path,
                         const bool write_rgb) {
   std::ofstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
 
   file << "ply\n";
   file << "format ascii 1.0\n";
@@ -381,6 +353,7 @@ void WriteBinaryPlyPoints(const std::filesystem::path& path,
                           const bool write_rgb) {
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(text_file, path);
+  SetFullPrecTextStream(text_file);
 
   text_file << "ply\n";
   text_file << "format binary_little_endian 1.0\n";
@@ -737,7 +710,7 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       std::getline(file, line);
       StringTrim(&line);
       std::stringstream line_stream(line);
-      line_stream.imbue(std::locale::classic());
+      SetFullPrecTextStream(line_stream);
 
       int num_face_vertices;
       THROW_CHECK(line_stream >> num_face_vertices);
@@ -779,7 +752,7 @@ void WriteTextPlyMesh(const std::filesystem::path& path,
                       const PlyTexturedMesh& mesh) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
 
   const bool has_texcoords = !mesh.face_uvs.empty();
   if (has_texcoords) {
@@ -827,6 +800,7 @@ void WriteBinaryPlyMesh(const std::filesystem::path& path,
                         const PlyTexturedMesh& mesh) {
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(text_file, path);
+  SetFullPrecTextStream(text_file);
 
   const bool has_texcoords = !mesh.face_uvs.empty();
   if (has_texcoords) {

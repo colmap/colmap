@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging.h"

@@ -1,35 +1,9 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/feature/utils.h"
 
 #include "colmap/math/math.h"
+#include "colmap/sensor/bitmap.h"
 
 namespace colmap {
 
@@ -103,6 +77,37 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
 
   *keypoints = std::move(top_scale_keypoints);
   *descriptors = std::move(top_scale_descriptors);
+}
+
+std::vector<float> HWCToCHW(const uint8_t* data,
+                            int width,
+                            int height,
+                            int pitch) {
+  THROW_CHECK_NOTNULL(data);
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  THROW_CHECK_GE(pitch, 3 * width);
+
+  const int num_pixels = width * height;
+  std::vector<float> chw(static_cast<size_t>(3) * num_pixels);
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      for (int c = 0; c < 3; ++c) {
+        constexpr float kImageNormalization = 1.0f / 255.0f;
+        chw[c * num_pixels + y * width + x] =
+            kImageNormalization * data[y * pitch + 3 * x + c];
+      }
+    }
+  }
+  return chw;
+}
+
+std::vector<float> BitmapToCHW(const Bitmap& bitmap) {
+  THROW_CHECK(bitmap.IsRGB());
+  return HWCToCHW(bitmap.RowMajorData().data(),
+                  bitmap.Width(),
+                  bitmap.Height(),
+                  bitmap.Pitch());
 }
 
 }  // namespace colmap

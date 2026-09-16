@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -95,6 +68,36 @@ T TangentSampsonError(const Eigen::Matrix<T, 3, 3>& E,
     return static_cast<T>(0);
   }
   return num / denom_norm;
+}
+
+// Ambient 7-vector of a relative pose in the Rigid3d parameter layout
+// [qx, qy, qz, qw, tx, ty, tz], with the translation on the unit sphere. This
+// is the ambient space of the 5-DoF relative pose manifold (rotation on SO(3),
+// translation on S^2) that the Sampson refinement drivers optimize over; the
+// translation scale is unobservable there.
+using RelPoseParams = Eigen::Matrix<double, 7, 1>;
+
+// Pack a relative pose into its ambient 7-vector, projecting onto the manifold:
+// the quaternion is normalized to a unit rotation and the translation is
+// normalized onto the unit sphere. The input translation scale is intentionally
+// discarded, since the essential matrix only constrains the baseline direction.
+inline RelPoseParams RelPoseParamsFromRigid3d(const Rigid3d& cam2_from_cam1) {
+  RelPoseParams params;
+  params.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
+  params.tail<3>() = cam2_from_cam1.translation().normalized();
+  return params;
+}
+
+// Unpack a relative pose from its ambient 7-vector, normalizing the quaternion
+// to a unit rotation. The translation is taken as-is and is expected to
+// already be unit length, as maintained by the manifold-constrained solvers
+// that produce these vectors.
+inline Rigid3d Rigid3dFromRelPoseParams(const double* params) {
+  const Eigen::Quaterniond rotation =
+      Eigen::Map<const Eigen::Quaterniond>(params).normalized();
+  const Eigen::Vector3d translation =
+      Eigen::Map<const Eigen::Vector3d>(params + 4);
+  return Rigid3d(rotation, translation);
 }
 
 // Refines a relative pose by the Sampson error of image-plane point

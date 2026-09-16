@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/exe/mvs.h"
 
 #include "colmap/mvs/fusion.h"

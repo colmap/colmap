@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 # COLMAP documentation build configuration file, created by
 # sphinx-quickstart on Wed Jan 28 09:31:25 2015.
 #

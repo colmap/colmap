@@ -1,38 +1,13 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/eigen_matchers.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -70,6 +45,46 @@ TEST(ReprojErrorCostFunctor, Nominal) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
+}
+
+TEST(AnalyticalReprojError, BehindCameraZeroesResidualsAndJacobians) {
+  using CameraModel = SimplePinholeCameraModel;
+  constexpr int kNumParams = CameraModel::num_params;
+  const Eigen::Vector2d kPoint2D = Eigen::Vector2d::Zero();
+
+  double cam_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};
+  double camera_params[kNumParams] = {1, 0, 0};
+  const double* parameters[3] = {point3D, cam_from_world, camera_params};
+
+  double residuals[2] = {1, 1};
+  double j_point[6], j_pose[14], j_params[2 * kNumParams];
+  for (double& v : j_point) v = 1;
+  for (double& v : j_pose) v = 1;
+  for (double& v : j_params) v = 1;
+  double* jacobians[3] = {j_point, j_pose, j_params};
+
+  AnalyticalReprojErrorCostFunction<CameraModel> cost_function(kPoint2D);
+  EXPECT_TRUE(cost_function.Evaluate(parameters, residuals, jacobians));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  for (double v : j_point) EXPECT_EQ(v, 0);
+  for (double v : j_pose) EXPECT_EQ(v, 0);
+  for (double v : j_params) EXPECT_EQ(v, 0);
+
+  for (double& v : residuals) v = 1;
+  for (double& v : j_point) v = 1;
+  for (double& v : j_params) v = 1;
+  const double* const_pose_parameters[2] = {point3D, camera_params};
+  double* const_pose_jacobians[2] = {j_point, j_params};
+  AnalyticalReprojErrorConstantPoseCostFunction<CameraModel>
+      const_pose_cost_function(kPoint2D, Rigid3d());
+  EXPECT_TRUE(const_pose_cost_function.Evaluate(
+      const_pose_parameters, residuals, const_pose_jacobians));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  for (double v : j_point) EXPECT_EQ(v, 0);
+  for (double v : j_params) EXPECT_EQ(v, 0);
 }
 
 // Helper that constructs a Ceres GradientChecker across Ceres versions.
@@ -425,6 +440,98 @@ TEST(CovarianceWeightedCostFunctor, ReprojErrorCostFunctor) {
   EXPECT_EQ(residuals[1], 1);
 }
 
+// The weighted dispatch must agree with whitening the dispatched cost function
+// by hand, for every camera model. This is what lets the inner cost function
+// keep its analytical jacobian.
+template <typename CameraModel>
+void TestWeightedCameraCostFunction() {
+  const Eigen::Vector2d point2D(0.7, -0.3);
+  const double stddev = 2.0;
+  const Eigen::Matrix2d covariance =
+      stddev * stddev * Eigen::Matrix2d::Identity();
+
+  double cam_from_world[7] = {0, 0, 0, 1, 0.1, 0.2, 3.0};
+  double point3D[3] = {0.3, -0.2, 5.0};
+  std::vector<double> camera_params(CameraModel::num_params, 0.0);
+  for (size_t i = 0; i < camera_params.size(); ++i) {
+    camera_params[i] = 0.1 * (i + 1);
+  }
+  camera_params[0] = 100.0;
+  const double* parameters[3] = {point3D, cam_from_world, camera_params.data()};
+
+  std::unique_ptr<ceres::CostFunction> unweighted(
+      CreateCameraCostFunction<ReprojErrorCostFunctor>(CameraModel::model_id,
+                                                       point2D));
+  std::unique_ptr<ceres::CostFunction> cov_weighted(
+      CreateCovarianceWeightedCameraCostFunction<ReprojErrorCostFunctor>(
+          CameraModel::model_id, covariance, point2D));
+  std::unique_ptr<ceres::CostFunction> scale_weighted(
+      CreateScaleWeightedCameraCostFunction<ReprojErrorCostFunctor>(
+          CameraModel::model_id, stddev, point2D));
+
+  const int num_params = CameraModel::num_params;
+  Eigen::Vector2d unweighted_residuals;
+  Eigen::Vector2d cov_residuals;
+  Eigen::Vector2d scale_residuals;
+  Eigen::Matrix<double, 2, 3, Eigen::RowMajor> unweighted_jacobian_point;
+  Eigen::Matrix<double, 2, 7, Eigen::RowMajor> unweighted_jacobian_pose;
+  Eigen::MatrixXd unweighted_jacobian_params(2, num_params);
+  Eigen::Matrix<double, 2, 3, Eigen::RowMajor> cov_jacobian_point;
+  Eigen::Matrix<double, 2, 7, Eigen::RowMajor> cov_jacobian_pose;
+  Eigen::MatrixXd cov_jacobian_params(2, num_params);
+  Eigen::Matrix<double, 2, 3, Eigen::RowMajor> scale_jacobian_point;
+  Eigen::Matrix<double, 2, 7, Eigen::RowMajor> scale_jacobian_pose;
+  Eigen::MatrixXd scale_jacobian_params(2, num_params);
+  double* unweighted_jacobians[3] = {unweighted_jacobian_point.data(),
+                                     unweighted_jacobian_pose.data(),
+                                     unweighted_jacobian_params.data()};
+  double* cov_jacobians[3] = {cov_jacobian_point.data(),
+                              cov_jacobian_pose.data(),
+                              cov_jacobian_params.data()};
+  double* scale_jacobians[3] = {scale_jacobian_point.data(),
+                                scale_jacobian_pose.data(),
+                                scale_jacobian_params.data()};
+
+  ASSERT_TRUE(unweighted->Evaluate(
+      parameters, unweighted_residuals.data(), unweighted_jacobians));
+  ASSERT_TRUE(
+      cov_weighted->Evaluate(parameters, cov_residuals.data(), cov_jacobians));
+  ASSERT_TRUE(scale_weighted->Evaluate(
+      parameters, scale_residuals.data(), scale_jacobians));
+
+  // Whitening by an isotropic covariance is a division by stddev.
+  EXPECT_THAT(
+      cov_residuals,
+      EigenMatrixNear(Eigen::Vector2d(unweighted_residuals / stddev), 1e-10));
+  EXPECT_THAT(cov_jacobian_point,
+              EigenMatrixNear(Eigen::Matrix<double, 2, 3, Eigen::RowMajor>(
+                                  unweighted_jacobian_point / stddev),
+                              1e-10));
+  EXPECT_THAT(cov_jacobian_pose,
+              EigenMatrixNear(Eigen::Matrix<double, 2, 7, Eigen::RowMajor>(
+                                  unweighted_jacobian_pose / stddev),
+                              1e-10));
+  EXPECT_THAT(cov_jacobian_params,
+              EigenMatrixNear(
+                  Eigen::MatrixXd(unweighted_jacobian_params / stddev), 1e-10));
+
+  // The scale form must match the equivalent isotropic covariance.
+  EXPECT_THAT(scale_residuals, EigenMatrixNear(cov_residuals, 1e-10));
+  EXPECT_THAT(scale_jacobian_point, EigenMatrixNear(cov_jacobian_point, 1e-10));
+  EXPECT_THAT(scale_jacobian_pose, EigenMatrixNear(cov_jacobian_pose, 1e-10));
+  EXPECT_THAT(scale_jacobian_params,
+              EigenMatrixNear(cov_jacobian_params, 1e-10));
+}
+
+TEST(WeightedCameraCostFunction, MatchesDispatchedCostFunction) {
+  TestWeightedCameraCostFunction<SimplePinholeCameraModel>();
+  TestWeightedCameraCostFunction<PinholeCameraModel>();
+  TestWeightedCameraCostFunction<SimpleRadialCameraModel>();
+  TestWeightedCameraCostFunction<RadialCameraModel>();
+  TestWeightedCameraCostFunction<OpenCVCameraModel>();
+  TestWeightedCameraCostFunction<FullOpenCVCameraModel>();
+}
+
 TEST(RigReprojErrorCostFunctor, Nominal) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
@@ -453,6 +560,70 @@ TEST(RigReprojErrorCostFunctor, Nominal) {
   point3D[0] = -1;
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -2);
+  EXPECT_EQ(residuals[1], 2);
+}
+
+TEST(ScaledRigReprojErrorCostFunctor, Nominal) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero()));
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, -1};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 1, 0};
+  double point3D[3] = {0, 0, 1};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[4] = {
+      point3D, cam_from_rig, rig_from_world, camera_params};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+
+  point3D[1] = 1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 1);
+
+  camera_params[0] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+
+  point3D[0] = -1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -2);
+  EXPECT_EQ(residuals[1], 2);
+
+  // Observations behind the camera contribute a zero residual.
+  point3D[2] = -3;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+}
+
+TEST(ScaledRigReprojErrorCostFunctor, Scale) {
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, 0};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 1, std::log(2.)};
+  double point3D[3] = {0, 1, 0};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[4] = {
+      point3D, cam_from_rig, rig_from_world, camera_params};
+
+  std::unique_ptr<ceres::CostFunction> log_scale_cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero(), /*use_log_scale=*/true));
+  EXPECT_TRUE(
+      log_scale_cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+
+  // The same scale, stored directly instead of in log-space.
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero(), /*use_log_scale=*/false));
+  rig_from_world[7] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 2);
 }
 
@@ -599,6 +770,20 @@ TEST(RigReprojErrorCostFunctor, EquirectangularSeamWrap) {
       [](const Eigen::Vector2d& point2D) {
         return RigReprojErrorCostFunctor<EquirectangularCameraModel>::Create(
             point2D);
+      },
+      {point3D, cam_from_rig, rig_from_world, camera_params});
+}
+
+TEST(ScaledRigReprojErrorCostFunctor, EquirectangularSeamWrap) {
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, 0};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};
+  double camera_params[2] = {kEquirectangularCameraWidth,
+                             kEquirectangularCameraHeight};
+  ExpectEquirectangularSeamWrap(
+      [](const Eigen::Vector2d& point2D) {
+        return ScaledRigReprojErrorCostFunctor<
+            EquirectangularCameraModel>::Create(point2D);
       },
       {point3D, cam_from_rig, rig_from_world, camera_params});
 }

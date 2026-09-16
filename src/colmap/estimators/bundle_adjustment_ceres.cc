@@ -1,35 +1,9 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/estimators/alignment.h"
+#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
@@ -39,6 +13,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <cmath>
 #include <iomanip>
 
 namespace colmap {
@@ -61,22 +36,6 @@ BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
   }
   LOG(FATAL_THROW) << "Unknown Ceres termination type: " << ceres_type;
   return BundleAdjustmentTerminationType::FAILURE;
-}
-
-std::unique_ptr<ceres::LossFunction> CreateLossFunction(
-    CeresBundleAdjustmentOptions::LossFunctionType loss_function_type,
-    double loss_function_scale) {
-  switch (loss_function_type) {
-    case CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL:
-      return std::make_unique<ceres::TrivialLoss>();
-    case CeresBundleAdjustmentOptions::LossFunctionType::SOFT_L1:
-      return std::make_unique<ceres::SoftLOneLoss>(loss_function_scale);
-    case CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY:
-      return std::make_unique<ceres::CauchyLoss>(loss_function_scale);
-    case CeresBundleAdjustmentOptions::LossFunctionType::HUBER:
-      return std::make_unique<ceres::HuberLoss>(loss_function_scale);
-  }
-  return nullptr;
 }
 
 }  // namespace
@@ -112,11 +71,6 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
 #if CERES_VERSION_MAJOR < 2
   solver_options.num_linear_solver_threads = -1;
 #endif  // CERES_VERSION_MAJOR
-}
-
-std::unique_ptr<ceres::LossFunction>
-CeresBundleAdjustmentOptions::CreateLossFunction() const {
-  return colmap::CreateLossFunction(loss_function_type, loss_function_scale);
 }
 
 ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
@@ -232,7 +186,8 @@ ceres::Solver::Options CeresBundleAdjustmentOptions::CreateSolverOptions(
 }
 
 bool CeresBundleAdjustmentOptions::Check() const {
-  CHECK_OPTION_GE(loss_function_scale, 0);
+  CHECK_OPTION(IsValidCeresLossFunction(
+      loss_function_type, loss_function_scale, loss_function_weight));
   CHECK_OPTION_LT(max_num_images_direct_dense_cpu_solver,
                   max_num_images_direct_sparse_cpu_solver);
   CHECK_OPTION_LT(max_num_images_direct_dense_gpu_solver,
@@ -630,7 +585,10 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
                         const BundleAdjustmentConfig& config,
                         Reconstruction& reconstruction)
       : CeresBundleAdjuster(options, config),
-        loss_function_(options_.ceres->CreateLossFunction()) {
+        loss_function_(
+            CreateCeresLossFunction(options_.ceres->loss_function_type,
+                                    options_.ceres->loss_function_scale,
+                                    options_.ceres->loss_function_weight)) {
     VLOG(2) << "Creating Ceres bundle adjuster";
 
     ceres::Problem::Options problem_options;
@@ -965,7 +923,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
         options_, config_, reconstruction);
 
     if (use_prior_position) {
-      prior_loss_function_ = CreateLossFunction(
+      prior_loss_function_ = CreateCeresLossFunction(
           prior_options_.ceres->prior_position_loss_function_type,
           prior_options_.ceres->prior_position_loss_scale);
 
@@ -1027,34 +985,18 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
     Rigid3d& rig_from_world = frame.RigFromWorld();
 
-    const Eigen::Vector3d normalized_position =
-        normalized_from_metric_ * pose_prior.position;
-    const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
-        normalized_from_metric_.scale() *
-        normalized_from_metric_.rotation().toRotationMatrix();
-    const Eigen::Matrix3d position_cov =
-        pose_prior.HasPositionCov()
-            ? pose_prior.position_covariance
-            : (prior_options_.prior_position_fallback_stddev *
-               prior_options_.prior_position_fallback_stddev *
-               Eigen::Matrix3d::Identity());
-    const Eigen::Matrix3d normalized_position_cov =
-        normalized_from_metric_scaled_rotation * position_cov *
-        normalized_from_metric_scaled_rotation.transpose();
-
     if (image.IsRefInFrame()) {
       problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
+          CreatePositionPriorCostFunction<AbsolutePosePositionPriorCostFunctor>(
+              pose_prior),
           prior_loss_function_.get(),
           rig_from_world.params.data());
     } else {
       Rigid3d& cam_from_rig =
           frame.RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
       problem.AddResidualBlock(
-          CovarianceWeightedCostFunctor<
-              AbsoluteRigPosePositionPriorCostFunctor>::
-              Create(normalized_position_cov, normalized_position),
+          CreatePositionPriorCostFunction<
+              AbsoluteRigPosePositionPriorCostFunctor>(pose_prior),
           prior_loss_function_.get(),
           cam_from_rig.params.data(),
           rig_from_world.params.data());
@@ -1067,6 +1009,30 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     if (constant_rig_from_world) {
       problem.SetParameterBlockConstant(rig_from_world.params.data());
     }
+  }
+
+  // Weights the prior by its covariance, or by the isotropic fallback stddev
+  // when it has none. An isotropic covariance stays isotropic under the
+  // similarity transform, so the fallback only needs a scale.
+  template <typename CostFunctor>
+  ceres::CostFunction* CreatePositionPriorCostFunction(
+      const PosePrior& pose_prior) const {
+    const Eigen::Vector3d normalized_position =
+        normalized_from_metric_ * pose_prior.position;
+    if (pose_prior.HasPositionCov()) {
+      const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
+          normalized_from_metric_.scale() *
+          normalized_from_metric_.rotation().toRotationMatrix();
+      return CovarianceWeightedCostFunctor<CostFunctor>::Create(
+          normalized_from_metric_scaled_rotation *
+              pose_prior.position_covariance *
+              normalized_from_metric_scaled_rotation.transpose(),
+          normalized_position);
+    }
+    return ScaleWeightedCostFunctor<CostFunctor>::Create(
+        normalized_from_metric_.scale() *
+            prior_options_.prior_position_fallback_stddev,
+        normalized_position);
   }
 
   bool AlignReconstruction() {

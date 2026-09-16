@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/geometry/pose_prior.h"
 
 #include "colmap/util/logging.h"
@@ -33,8 +35,6 @@ void BindPosePrior(py::module& m) {
       .def("has_position", &PosePrior::HasPosition)
       .def("has_position_cov", &PosePrior::HasPositionCov)
       .def("has_gravity", &PosePrior::HasGravity);
-  DefDeprecation(PyPosePrior, "is_valid", "has_position");
-  DefDeprecation(PyPosePrior, "is_covariance_valid", "has_position_cov");
   MakeDataclass(PyPosePrior);
 
   m.def("compute_rot90_from_gravity",

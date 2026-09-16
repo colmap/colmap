@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: BSD-3-Clause
 
 # This script runs the ruff Python formatter on the repository.
 # By default, on non-main branches it only formats files changed relative to

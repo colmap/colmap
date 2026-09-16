@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 import numpy as np
 
 from .depth_covisibility import compute_covisibility_counts

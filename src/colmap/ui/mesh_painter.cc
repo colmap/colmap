@@ -1,85 +1,33 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/ui/mesh_painter.h"
-
-#include "colmap/util/opengl_utils.h"
 
 #include <algorithm>
 
 namespace colmap {
 
-MeshPainter::MeshPainter() : num_vertices_(0) {}
-
 MeshPainter::~MeshPainter() {
-  vao_.destroy();
-  vbo_.destroy();
   if (texture_id_ != 0) {
-    QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
-    gl_funcs->glDeleteTextures(1, &texture_id_);
+    QOpenGLContext::currentContext()->functions()->glDeleteTextures(
+        1, &texture_id_);
   }
 }
 
 void MeshPainter::Setup() {
-  vao_.destroy();
-  vbo_.destroy();
   if (texture_id_ != 0) {
-    QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
-    gl_funcs->glDeleteTextures(1, &texture_id_);
+    QOpenGLContext::currentContext()->functions()->glDeleteTextures(
+        1, &texture_id_);
     texture_id_ = 0;
     has_texture_ = false;
   }
-  if (shader_program_.isLinked()) {
-    shader_program_.release();
-    shader_program_.removeAllShaders();
-  }
-
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Vertex,
-                                          ":/shaders/mesh.v.glsl");
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Geometry,
-                                          ":/shaders/mesh.g.glsl");
-  shader_program_.addShaderFromSourceFile(QOpenGLShader::Fragment,
-                                          ":/shaders/mesh.f.glsl");
-  shader_program_.link();
-  shader_program_.bind();
-
-  vao_.create();
-  vbo_.create();
-
-#if DEBUG
-  glDebugLog();
-#endif
+  SetupShaders({{QOpenGLShader::Vertex, ":/shaders/mesh.v.glsl"},
+                {QOpenGLShader::Geometry, ":/shaders/mesh.g.glsl"},
+                {QOpenGLShader::Fragment, ":/shaders/mesh.f.glsl"}});
 }
 
 void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
-  num_vertices_ = data.size();
-  if (num_vertices_ == 0) {
+  num_geoms_ = data.size();
+  if (num_geoms_ == 0) {
     return;
   }
 
@@ -124,9 +72,7 @@ void MeshPainter::Upload(const std::vector<MeshPainter::Data>& data) {
   vbo_.release();
   vao_.release();
 
-#if DEBUG
   glDebugLog();
-#endif
 }
 
 void MeshPainter::UploadTexture(std::vector<uint8_t> data,
@@ -187,12 +133,9 @@ void MeshPainter::Render(const QMatrix4x4& pmv_matrix,
                          const QMatrix4x4& model_view_matrix,
                          const bool wireframe,
                          const bool color) {
-  if (num_vertices_ == 0) {
+  if (!BeginRender()) {
     return;
   }
-
-  shader_program_.bind();
-  vao_.bind();
 
   shader_program_.setUniformValue("u_pmv_matrix", pmv_matrix);
   shader_program_.setUniformValue("u_model_view_matrix", model_view_matrix);
@@ -211,17 +154,13 @@ void MeshPainter::Render(const QMatrix4x4& pmv_matrix,
   }
 
   gl_funcs->glEnable(GL_DEPTH_TEST);
-  gl_funcs->glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(num_vertices_));
+  gl_funcs->glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(num_geoms_));
 
   if (has_texture_) {
     gl_funcs->glBindTexture(GL_TEXTURE_2D, 0);
   }
 
-  vao_.release();
-
-#if DEBUG
-  glDebugLog();
-#endif
+  EndRender();
 }
 
 }  // namespace colmap

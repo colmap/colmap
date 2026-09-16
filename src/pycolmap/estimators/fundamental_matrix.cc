@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/solvers/fundamental_matrix.h"
 
 #include "colmap/math/random.h"

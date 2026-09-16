@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Keep GKlib paired with the known-good METIS revision and make its compiler
 # flags portable in build-fixes.patch.
 if(VCPKG_TARGET_IS_WINDOWS)
