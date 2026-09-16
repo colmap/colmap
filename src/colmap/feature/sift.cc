@@ -1056,18 +1056,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     matches->clear();
 
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id1_ == kInvalidImageId ||
-         prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
-      prev_image_id1_ = image1.image_id;
-    }
-
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id2_ == kInvalidImageId ||
-         prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
-      prev_image_id2_ = image2.image_id;
+    std::shared_ptr<FeatureDescriptorIndex> index1;
+    std::shared_ptr<FeatureDescriptorIndex> index2;
+    if (!options_.sift->cpu_brute_force_matcher) {
+      auto get_index = [this](const Image& image) {
+        return options_.sift->cpu_descriptor_index_cache->Get(image.image_id);
+      };
+      index1 = index_cache_.GetOrCreate(image1, get_index);
+      index2 = index_cache_.GetOrCreate(image2, get_index);
     }
 
     if (image1.descriptors->data.rows() == 0 ||
@@ -1094,13 +1090,13 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     Eigen::RowMajorMatrixXi indices_2to1;
     Eigen::RowMajorMatrixXf l2_dists_2to1;
 
-    THROW_CHECK_NOTNULL(index2_)->Search(
+    THROW_CHECK_NOTNULL(index2)->Search(
         /*num_neighbors=*/2,
         image1.descriptors->ToFloat(),
         indices_1to2,
         l2_dists_1to2);
     if (options_.sift->cross_check) {
-      THROW_CHECK_NOTNULL(index1_)->Search(
+      THROW_CHECK_NOTNULL(index1)->Search(
           /*num_neighbors=*/2,
           image2.descriptors->ToFloat(),
           indices_2to1,
@@ -1125,20 +1121,6 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     ThrowCheckFeatureTypesMatch(image1, image2, /*check_keypoints=*/true);
 
     two_view_geometry->inlier_matches.clear();
-
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id1_ == kInvalidImageId ||
-         prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
-      prev_image_id1_ = image1.image_id;
-    }
-
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id2_ == kInvalidImageId ||
-         prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
-      prev_image_id2_ = image2.image_id;
-    }
 
     const bool use_essential_matrix =
         UseEssentialMatrixForGuidedMatching(*two_view_geometry);
@@ -1273,10 +1255,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
  private:
   const FeatureMatchingOptions options_;
-  image_t prev_image_id1_ = kInvalidImageId;
-  image_t prev_image_id2_ = kInvalidImageId;
-  std::shared_ptr<FeatureDescriptorIndex> index1_;
-  std::shared_ptr<FeatureDescriptorIndex> index2_;
+  // Cache descriptor indexes per image to avoid redundant index lookups.
+  ImageFeatureCache<std::shared_ptr<FeatureDescriptorIndex>> index_cache_;
 };
 
 #if defined(COLMAP_GPU_ENABLED)

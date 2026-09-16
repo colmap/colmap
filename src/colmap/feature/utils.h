@@ -4,6 +4,7 @@
 
 #include "colmap/feature/types.h"
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -45,5 +46,40 @@ std::vector<float> HWCToCHW(const uint8_t* data,
 
 // Convert an RGB bitmap to a row-major CHW float tensor, normalized to [0, 1].
 std::vector<float> BitmapToCHW(const Bitmap& bitmap);
+
+// Cache for per-image data (e.g. extracted features or descriptor indexes),
+// keyed by image id. Retains the two most recently used entries; inserting
+// a third image evicts the least recently used entry, so matching consecutive
+// image pairs (A, B) then (B, C) only creates features for C. Returned
+// references stay valid until the entry is evicted. Entries with invalid
+// image ids are never reused. Images must expose an image_id member.
+template <typename T>
+class ImageFeatureCache {
+ public:
+  template <typename Image, typename CreateFn>
+  T& GetOrCreate(const Image& image, CreateFn&& create) {
+    for (int i = 0; i < kCapacity; ++i) {
+      if (image.image_id != kInvalidImageId &&
+          entries_[i].image_id == image.image_id) {
+        most_recent_ = i;
+        return entries_[i].value;
+      }
+    }
+    most_recent_ = kCapacity - 1 - most_recent_;
+    Entry& entry = entries_[most_recent_];
+    entry.value = create(image);
+    entry.image_id = image.image_id;
+    return entry.value;
+  }
+
+ private:
+  static constexpr int kCapacity = 2;
+  struct Entry {
+    image_t image_id = kInvalidImageId;
+    T value;
+  };
+  std::array<Entry, kCapacity> entries_;
+  int most_recent_ = 0;
+};
 
 }  // namespace colmap
