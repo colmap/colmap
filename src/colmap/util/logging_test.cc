@@ -2,6 +2,7 @@
 
 #include "colmap/util/logging.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -58,6 +59,32 @@ TEST(CheckOptionIn, Nominal) {
   EXPECT_TRUE(CheckIn(1));
   EXPECT_FALSE(CheckIn(-0.1));
   EXPECT_FALSE(CheckIn(1.1));
+}
+
+TEST(ExceptionLogging, MessageContent) {
+  try {
+    THROW_CHECK(1 == 2);
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()),
+                testing::HasSubstr("Check failed: 1 == 2"));
+  }
+
+  try {
+    THROW_CHECK_EQ(1, 2) << "custom suffix";
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()),
+                testing::HasSubstr("Check failed: 1 == 2 (1 vs. 2)"));
+    EXPECT_THAT(std::string(e.what()), testing::HasSubstr("custom suffix"));
+  }
+
+  try {
+    LOG(FATAL_THROW) << "fatal message";
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()), testing::HasSubstr("fatal message"));
+  }
 }
 
 TEST(ExceptionLogging, Nested) {
