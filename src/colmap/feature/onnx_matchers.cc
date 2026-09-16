@@ -88,43 +88,18 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
 
     // Create tensors from cached data (tensors must be recreated each call
     // since they reference the underlying data and get consumed by Run()).
-    auto desc1_tensor = CreateDescriptorTensor(prev_features1_);
-    auto desc2_tensor = CreateDescriptorTensor(prev_features2_);
-
     float min_cossim = static_cast<float>(brute_force_options_.min_cossim);
-    const std::vector<int64_t> scalar_shape = {};
-    auto min_cossim_tensor = Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &min_cossim,
-        1,
-        scalar_shape.data(),
-        scalar_shape.size());
-
     float max_ratio = static_cast<float>(brute_force_options_.max_ratio);
-    auto max_ratio_tensor = Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &max_ratio,
-        1,
-        scalar_shape.data(),
-        scalar_shape.size());
-
     int64_t cross_check = brute_force_options_.cross_check ? 1 : 0;
-    auto cross_check_tensor = Ort::Value::CreateTensor<int64_t>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &cross_check,
-        1,
-        scalar_shape.data(),
-        scalar_shape.size());
 
     std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(std::move(desc1_tensor));
-    input_tensors.emplace_back(std::move(desc2_tensor));
-    input_tensors.emplace_back(std::move(min_cossim_tensor));
-    input_tensors.emplace_back(std::move(max_ratio_tensor));
-    input_tensors.emplace_back(std::move(cross_check_tensor));
+    input_tensors.emplace_back(CreateONNXTensor(
+        prev_features1_.descriptors_data, prev_features1_.descriptors_shape));
+    input_tensors.emplace_back(CreateONNXTensor(
+        prev_features2_.descriptors_data, prev_features2_.descriptors_shape));
+    input_tensors.emplace_back(CreateONNXScalarTensor(min_cossim));
+    input_tensors.emplace_back(CreateONNXScalarTensor(max_ratio));
+    input_tensors.emplace_back(CreateONNXScalarTensor(cross_check));
 
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
     THROW_CHECK_EQ(output_tensors.size(), 3);
@@ -200,16 +175,6 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
         descriptors.data.data() + descriptors.data.size());
 
     return features;
-  }
-
-  Ort::Value CreateDescriptorTensor(Features& features) {
-    return Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        features.descriptors_data.data(),
-        features.descriptors_data.size(),
-        features.descriptors_shape.data(),
-        features.descriptors_shape.size());
   }
 
   const BruteForceONNXMatchingOptions brute_force_options_;
@@ -328,87 +293,32 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     std::vector<Ort::Value> input_tensors;
     input_tensors.reserve(has_scale_ori_ ? 10 : 6);
 
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        prev_features1_.keypoints_data.data(),
-        prev_features1_.keypoints_data.size(),
-        prev_features1_.keypoints_shape.data(),
-        prev_features1_.keypoints_shape.size()));
-
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        prev_features2_.keypoints_data.data(),
-        prev_features2_.keypoints_data.size(),
-        prev_features2_.keypoints_shape.data(),
-        prev_features2_.keypoints_shape.size()));
-
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        prev_features1_.descriptors_data.data(),
-        prev_features1_.descriptors_data.size(),
-        prev_features1_.descriptors_shape.data(),
-        prev_features1_.descriptors_shape.size()));
-
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        prev_features2_.descriptors_data.data(),
-        prev_features2_.descriptors_data.size(),
-        prev_features2_.descriptors_shape.data(),
-        prev_features2_.descriptors_shape.size()));
+    input_tensors.emplace_back(CreateONNXTensor(
+        prev_features1_.keypoints_data, prev_features1_.keypoints_shape));
+    input_tensors.emplace_back(CreateONNXTensor(
+        prev_features2_.keypoints_data, prev_features2_.keypoints_shape));
+    input_tensors.emplace_back(CreateONNXTensor(
+        prev_features1_.descriptors_data, prev_features1_.descriptors_shape));
+    input_tensors.emplace_back(CreateONNXTensor(
+        prev_features2_.descriptors_data, prev_features2_.descriptors_shape));
 
     std::vector<int64_t> image_size_shape = {1, 2};
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        prev_features1_.image_size,
-        2,
-        image_size_shape.data(),
-        image_size_shape.size()));
-
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        prev_features2_.image_size,
-        2,
-        image_size_shape.data(),
-        image_size_shape.size()));
+    input_tensors.emplace_back(
+        CreateONNXTensor(prev_features1_.image_size, 2, image_size_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(prev_features2_.image_size, 2, image_size_shape));
 
     if (has_scale_ori_) {
-      input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-          Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                     OrtMemType::OrtMemTypeCPU),
-          prev_features1_.scales_data.data(),
-          prev_features1_.scales_data.size(),
-          prev_features1_.scales_shape.data(),
-          prev_features1_.scales_shape.size()));
-
-      input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-          Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                     OrtMemType::OrtMemTypeCPU),
-          prev_features2_.scales_data.data(),
-          prev_features2_.scales_data.size(),
-          prev_features2_.scales_shape.data(),
-          prev_features2_.scales_shape.size()));
-
-      input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-          Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                     OrtMemType::OrtMemTypeCPU),
-          prev_features1_.orientations_data.data(),
-          prev_features1_.orientations_data.size(),
-          prev_features1_.orientations_shape.data(),
-          prev_features1_.orientations_shape.size()));
-
-      input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-          Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                     OrtMemType::OrtMemTypeCPU),
-          prev_features2_.orientations_data.data(),
-          prev_features2_.orientations_data.size(),
-          prev_features2_.orientations_shape.data(),
-          prev_features2_.orientations_shape.size()));
+      input_tensors.emplace_back(CreateONNXTensor(
+          prev_features1_.scales_data, prev_features1_.scales_shape));
+      input_tensors.emplace_back(CreateONNXTensor(
+          prev_features2_.scales_data, prev_features2_.scales_shape));
+      input_tensors.emplace_back(
+          CreateONNXTensor(prev_features1_.orientations_data,
+                           prev_features1_.orientations_shape));
+      input_tensors.emplace_back(
+          CreateONNXTensor(prev_features2_.orientations_data,
+                           prev_features2_.orientations_shape));
     }
 
     // Run model inference.
