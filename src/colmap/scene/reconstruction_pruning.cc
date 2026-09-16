@@ -4,6 +4,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/hash_containers.h"
 
+#include <algorithm>
 #include <queue>
 #include <vector>
 
@@ -25,13 +26,13 @@ NodeHashMap<image_t, std::vector<int>> ComputeImageTileIdxs(
     for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
       const int tile_idx_x =
-          Clamp<int>(num_tiles_per_dim * point2D.xy(0) / camera.width,
-                     0,
-                     num_tiles_per_dim - 1);
+          std::clamp<int>(num_tiles_per_dim * point2D.xy(0) / camera.width,
+                          0,
+                          num_tiles_per_dim - 1);
       const int tile_idx_y =
-          Clamp<int>(num_tiles_per_dim * point2D.xy(1) / camera.height,
-                     0,
-                     num_tiles_per_dim - 1);
+          std::clamp<int>(num_tiles_per_dim * point2D.xy(1) / camera.height,
+                          0,
+                          num_tiles_per_dim - 1);
       tile_idxs[point2D_idx] = tile_idx_x * num_tiles_per_dim + tile_idx_y;
     }
     image_tile_idxs[image_id] = std::move(tile_idxs);

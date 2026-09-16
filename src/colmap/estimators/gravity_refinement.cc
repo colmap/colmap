@@ -165,8 +165,8 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
     // Check the error with respect to the neighbors
     int counter_outlier = 0;
     for (const Eigen::Vector3d& gravity : gravities) {
-      const double error = RadToDeg(
-          std::acos(std::max(std::min(gravity.dot(gravity), 1.), -1.)));
+      const double error =
+          RadToDeg(std::acos(std::clamp(gravity.dot(gravity), -1., 1.)));
       if (error > options_.max_gravity_error * 2) {
         counter_outlier++;
       }
