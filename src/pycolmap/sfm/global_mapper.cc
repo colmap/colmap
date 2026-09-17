@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/sfm/global_mapper.h"
 
 #include "colmap/controllers/global_pipeline.h"

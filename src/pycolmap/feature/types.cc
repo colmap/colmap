@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/feature/types.h"
 
 #include "pycolmap/feature/types.h"

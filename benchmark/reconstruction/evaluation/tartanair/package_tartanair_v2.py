@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Build deterministic COLMAP benchmark shards from TartanAir V2."""
 
 import argparse

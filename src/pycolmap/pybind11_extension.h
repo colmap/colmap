@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
 #include "colmap/util/hash_containers.h"
@@ -151,13 +153,10 @@ struct type_caster<std::vector<Eigen::Matrix<Scalar, Size, 1>>> {
 // pybind11's built-in STL casters only recognize std:: containers, so provide
 // casters for the colmap flat hash aliases used across the bindings (e.g.
 // ObservationManager::ImagePairs, IncrementalMapper::FilteredFrames,
-// BundleAdjustmentConfig::VariablePoints, the FilterPoints3D* parameters). Only
-// needed for the BOOST backend; for STD the aliases are std:: types pybind11
-// already handles. Flat containers are never PYBIND11_MAKE_OPAQUE, so these
-// generic casters cannot collide with opaque bound types. (The NodeHashMap
-// caster lives in pycolmap/scene/types.h next to the opaque element-store
-// maps.)
-#if defined(COLMAP_HASH_BOOST)
+// BundleAdjustmentConfig::VariablePoints, the FilterPoints3D* parameters). Flat
+// containers are never PYBIND11_MAKE_OPAQUE, so these generic casters cannot
+// collide with opaque bound types. (The NodeHashMap caster lives in
+// pycolmap/scene/types.h next to the opaque element-store maps.)
 template <typename Key, typename Value, typename Hash, typename Equal>
 struct type_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>>
     : map_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>, Key, Value> {};
@@ -165,7 +164,6 @@ struct type_caster<colmap::FlatHashMap<Key, Value, Hash, Equal>>
 template <typename Key, typename Hash, typename Equal>
 struct type_caster<colmap::FlatHashSet<Key, Hash, Equal>>
     : set_caster<colmap::FlatHashSet<Key, Hash, Equal>, Key> {};
-#endif
 
 }  // namespace detail
 
@@ -200,6 +198,60 @@ class classh_ext : public classh<type_, options...> {
   template <typename... Args>
   classh_ext& def_property(Args&&... args) {
     Parent::def_property(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_static(Args&&... args) {
+    Parent::def_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_property_readonly(Args&&... args) {
+    Parent::def_property_readonly(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_property_readonly_static(Args&&... args) {
+    Parent::def_property_readonly_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_property_static(Args&&... args) {
+    Parent::def_property_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_readonly(Args&&... args) {
+    Parent::def_readonly(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_readonly_static(Args&&... args) {
+    Parent::def_readonly_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_readwrite_static(Args&&... args) {
+    Parent::def_readwrite_static(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_buffer(Args&&... args) {
+    Parent::def_buffer(std::forward<Args>(args)...);
+    return *this;
+  }
+
+  template <typename... Args>
+  classh_ext& def_cast(Args&&... args) {
+    Parent::def_cast(std::forward<Args>(args)...);
     return *this;
   }
 };

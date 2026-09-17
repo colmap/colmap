@@ -1,41 +1,14 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/scene/reconstruction_io.h"
 
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/ply.h"
+#include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
 #include <fstream>
-#include <locale>
 
 namespace colmap {
 
@@ -45,9 +18,7 @@ bool ExportNVM(const Reconstruction& reconstruction,
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  // Ensure that we don't lose any precision by storing in text.
-  file.imbue(std::locale::classic());
-  file.precision(17);
+  SetFullPrecTextStream(file);
 
   // White space added for compatibility with Meshlab.
   file << "NVM_V3 \n" << " \n";
@@ -102,7 +73,7 @@ bool ExportNVM(const Reconstruction& reconstruction,
     file << static_cast<int>(point3D.second.color(2)) << " ";
 
     std::ostringstream line;
-    line.imbue(std::locale::classic());
+    SetFullPrecTextStream(line);
 
     FlatHashSet<image_t> image_ids;
     for (const auto& track_el : point3D.second.track.Elements()) {
@@ -144,9 +115,7 @@ bool ExportCam(const Reconstruction& reconstruction,
 
     THROW_CHECK_FILE_OPEN(file, name_path);
 
-    // Ensure that we don't lose any precision by storing in text.
-    file.imbue(std::locale::classic());
-    file.precision(17);
+    SetFullPrecTextStream(file);
 
     double k1, k2;
     if (skip_distortion ||
@@ -213,12 +182,12 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
   THROW_CHECK_FILE_OPEN(synth_file, synth_path);
   std::ofstream image_list_file(image_list_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(image_list_file, image_list_path);
+  SetFullPrecTextStream(image_list_file);
   std::ofstream image_map_file(image_map_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(image_map_file, image_map_path);
+  SetFullPrecTextStream(image_map_file);
 
-  // Ensure that we don't lose any precision by storing in text.
-  synth_file.imbue(std::locale::classic());
-  synth_file.precision(17);
+  SetFullPrecTextStream(synth_file);
 
   // Write header info
   synth_file << "colmap 1.0\n";
@@ -276,7 +245,7 @@ bool ExportRecon3D(const Reconstruction& reconstruction,
                << static_cast<int>(p.color(2)) << '\n';
 
     std::ostringstream line;
-    line.imbue(std::locale::classic());
+    SetFullPrecTextStream(line);
 
     FlatHashSet<image_t> image_ids;
     for (const auto& track_el : p.track.Elements()) {
@@ -321,9 +290,7 @@ bool ExportBundler(const Reconstruction& reconstruction,
   std::ofstream list_file(list_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(list_file, list_path);
 
-  // Ensure that we don't lose any precision by storing in text.
-  file.imbue(std::locale::classic());
-  file.precision(17);
+  SetFullPrecTextStream(file);
 
   file << "# Bundle file v0.3\n";
 
@@ -383,7 +350,7 @@ bool ExportBundler(const Reconstruction& reconstruction,
     file << static_cast<int>(point3D.second.color(2)) << '\n';
 
     std::ostringstream line;
-    line.imbue(std::locale::classic());
+    SetFullPrecTextStream(line);
 
     line << point3D.second.track.Length() << " ";
 
@@ -430,7 +397,7 @@ void ExportVRML(const Reconstruction& reconstruction,
                 const Eigen::Vector3d& image_rgb) {
   std::ofstream images_file(images_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(images_file, images_path);
-  images_file.imbue(std::locale::classic());
+  SetFullPrecTextStream(images_file);
 
   const double six = image_scale * 0.15;
   const double siy = image_scale * 0.1;
@@ -512,7 +479,7 @@ void ExportVRML(const Reconstruction& reconstruction,
 
   std::ofstream points3D_file(points3D_path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(points3D_file, points3D_path);
-  points3D_file.imbue(std::locale::classic());
+  SetFullPrecTextStream(points3D_file);
 
   points3D_file << "#VRML V2.0 utf8\n";
   points3D_file << "Background { skyColor [1.0 1.0 1.0] } \n";

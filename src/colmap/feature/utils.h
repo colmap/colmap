@@ -1,37 +1,16 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
 #include "colmap/feature/types.h"
 
+#include <array>
+#include <cstdint>
+#include <vector>
+
 namespace colmap {
+
+class Bitmap;
 
 // Convert feature keypoints to vector of points.
 std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
@@ -57,5 +36,50 @@ FeatureDescriptorsData FeatureDescriptorsToUnsignedByte(
 void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
                              FeatureDescriptors* descriptors,
                              size_t num_features);
+
+// Convert an HWC uint8 image buffer to a row-major CHW float tensor,
+// normalized to [0, 1]. The pitch is the scan-line size in bytes.
+std::vector<float> HWCToCHW(const uint8_t* data,
+                            int width,
+                            int height,
+                            int pitch);
+
+// Convert an RGB bitmap to a row-major CHW float tensor, normalized to [0, 1].
+std::vector<float> BitmapToCHW(const Bitmap& bitmap);
+
+// Cache for per-image data (e.g. extracted features or descriptor indexes),
+// keyed by image id. Retains the two most recently used entries; inserting
+// a third image evicts the least recently used entry, so matching consecutive
+// image pairs (A, B) then (B, C) only creates features for C. Returned
+// references stay valid until the entry is evicted. Entries with invalid
+// image ids are never reused. Images must expose an image_id member.
+template <typename T>
+class ImageFeatureCache {
+ public:
+  template <typename Image, typename CreateFn>
+  T& GetOrCreate(const Image& image, CreateFn&& create) {
+    for (int i = 0; i < kCapacity; ++i) {
+      if (image.image_id != kInvalidImageId &&
+          entries_[i].image_id == image.image_id) {
+        most_recent_ = i;
+        return entries_[i].value;
+      }
+    }
+    most_recent_ = kCapacity - 1 - most_recent_;
+    Entry& entry = entries_[most_recent_];
+    entry.value = create(image);
+    entry.image_id = image.image_id;
+    return entry.value;
+  }
+
+ private:
+  static constexpr int kCapacity = 2;
+  struct Entry {
+    image_t image_id = kInvalidImageId;
+    T value;
+  };
+  std::array<Entry, kCapacity> entries_;
+  int most_recent_ = 0;
+};
 
 }  // namespace colmap

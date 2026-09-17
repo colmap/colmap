@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
@@ -39,8 +41,7 @@ struct GlobalMapperOptions {
     options.min_track_length = 3;
     options.print_summary = false;
     if (options.ceres) {
-      options.ceres->loss_function_type =
-          CeresBundleAdjustmentOptions::LossFunctionType::HUBER;
+      options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
       options.ceres->use_gpu = true;
       // TODO: Investigate whether disabling auto solver selection and using
       // explicit SPARSE_SCHUR is necessary for global SfM, or if we can just

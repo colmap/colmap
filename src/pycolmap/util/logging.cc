@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/util/logging.h"
 
 #include "pycolmap/pybind11_extension.h"

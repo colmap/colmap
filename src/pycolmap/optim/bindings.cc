@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/optim/ransac.h"
 
 #include "pycolmap/helpers.h"

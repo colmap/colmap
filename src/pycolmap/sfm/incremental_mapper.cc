@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "colmap/controllers/incremental_pipeline.h"
