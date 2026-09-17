@@ -201,12 +201,11 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
     reconstruction_frame.AddDataId(reconstruction_image.DataId());
     if (reconstruction_image.HasPose()) {
       const bool is_ref = database_rig.IsRefSensor(database_sensor_id);
-      // Prefer reference-sensor poses, which do not depend on the averaged
-      // sensor_from_rig calibration. Only fall back to the first available
-      // non-reference pose when no reference pose exists. Never overwrite a
-      // reference-derived pose with a non-reference-derived one, as the input
-      // reconstruction may have inconsistent per-image poses (e.g. from the
-      // unconstrained first pass of the two-pass rig workflow).
+      // Images grouped into one rig frame may have independently estimated,
+      // slightly inconsistent poses. The reference sensor directly defines
+      // the shared rig pose, so prefer it over poses derived from other sensors
+      // using the averaged sensor_from_rig calibration. If the reference image
+      // has no pose, keep the first available non-reference pose as a fallback.
       if (is_ref || !reconstruction_frame.HasPose()) {
         if (is_ref) {
           reconstruction_frame.SetRigFromWorld(
