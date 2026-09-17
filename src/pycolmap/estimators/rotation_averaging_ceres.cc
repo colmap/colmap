@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/rotation_averaging_ceres.h"
 
 #include "colmap/scene/pose_graph.h"
@@ -24,11 +26,15 @@ void BindCeresRotationAverager(py::module& m) {
           .def_readwrite("solver_options",
                          &CeresRotationAveragerOptions::solver_options)
           .def_readwrite("skip_initialization",
-                         &CeresRotationAveragerOptions::skip_initialization);
+                         &CeresRotationAveragerOptions::skip_initialization)
+          .def_readwrite("refine_sensor_from_rig",
+                         &CeresRotationAveragerOptions::refine_sensor_from_rig);
   MakeDataclass(PyOptions);
 
   py::classh<CeresRotationAverager>(m, "CeresRotationAverager")
-      .def("solve", &CeresRotationAverager::Solve)
+      .def("solve",
+           &CeresRotationAverager::Solve,
+           py::call_guard<py::gil_scoped_release>())
       .def("add_relative_rotation_residual",
            &CeresRotationAverager::AddRelativeRotationResidual,
            "image_id1"_a,

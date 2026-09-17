@@ -482,8 +482,10 @@ bool RotationEstimator::SolveRotationAveraging(
   // intialization, the gravity-aligned rotation averaging is prone to random
   // flips by 180deg.
   if (!options_.skip_initialization) {
-    InitializeFromMaximumSpanningTree(
-        pose_graph, active_image_ids, reconstruction);
+    InitializeFromMaximumSpanningTree(pose_graph,
+                                      active_image_ids,
+                                      reconstruction,
+                                      options_.refine_sensor_from_rig);
   }
 
   // Build the optimization problem.
@@ -500,8 +502,11 @@ bool RotationEstimator::SolveRotationAveraging(
   return true;
 }
 
-NodeHashMap<image_t, Rigid3d> ComputeImageRotationsFromMaximumSpanningTree(
-    const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids) {
+void InitializeFromMaximumSpanningTree(
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& active_image_ids,
+    Reconstruction& reconstruction,
+    bool refine_sensor_from_rig) {
   // Compute maximum spanning tree over active images.
   NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
@@ -511,7 +516,8 @@ NodeHashMap<image_t, Rigid3d> ComputeImageRotationsFromMaximumSpanningTree(
   // Iterate through the tree to initialize the rotation.
   // Establish child info.
   NodeHashMap<image_t, std::vector<image_t>> children;
-  for (const image_t image_id : active_image_ids) {
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (!active_image_ids.count(image_id)) continue;
     children.emplace(image_id, std::vector<image_t>());
   }
   for (auto& [child, parent] : parents) {
@@ -523,7 +529,6 @@ NodeHashMap<image_t, Rigid3d> ComputeImageRotationsFromMaximumSpanningTree(
   indexes.push(root);
 
   NodeHashMap<image_t, Rigid3d> cams_from_world;
-  cams_from_world.emplace(root, Rigid3d());
   while (!indexes.empty()) {
     image_t curr = indexes.front();
     indexes.pop();
@@ -540,17 +545,8 @@ NodeHashMap<image_t, Rigid3d> ComputeImageRotationsFromMaximumSpanningTree(
         (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation();
   }
 
-  return cams_from_world;
-}
-
-void RotationEstimator::InitializeFromMaximumSpanningTree(
-    const PoseGraph& pose_graph,
-    const FlatHashSet<image_t>& active_image_ids,
-    Reconstruction& reconstruction) {
-  InitializeRigRotationsFromImages(ComputeImageRotationsFromMaximumSpanningTree(
-                                       pose_graph, active_image_ids),
-                                   reconstruction,
-                                   options_.refine_sensor_from_rig);
+  InitializeRigRotationsFromImages(
+      cams_from_world, reconstruction, refine_sensor_from_rig);
 }
 
 bool InitializeRigRotationsFromImages(
