@@ -200,13 +200,22 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
     reconstruction_frame.SetRigId(database_frame.RigId());
     reconstruction_frame.AddDataId(reconstruction_image.DataId());
     if (reconstruction_image.HasPose()) {
-      if (database_rig.IsRefSensor(database_sensor_id)) {
-        reconstruction_frame.SetRigFromWorld(
-            reconstruction_image.CamFromWorld());
-      } else {
-        reconstruction_frame.SetRigFromWorld(
-            Inverse(database_rig.SensorFromRig(database_sensor_id)) *
-            reconstruction_image.CamFromWorld());
+      const bool is_ref = database_rig.IsRefSensor(database_sensor_id);
+      // Prefer reference-sensor poses, which do not depend on the averaged
+      // sensor_from_rig calibration. Only fall back to the first available
+      // non-reference pose when no reference pose exists. Never overwrite a
+      // reference-derived pose with a non-reference-derived one, as the input
+      // reconstruction may have inconsistent per-image poses (e.g. from the
+      // unconstrained first pass of the two-pass rig workflow).
+      if (is_ref || !reconstruction_frame.HasPose()) {
+        if (is_ref) {
+          reconstruction_frame.SetRigFromWorld(
+              reconstruction_image.CamFromWorld());
+        } else {
+          reconstruction_frame.SetRigFromWorld(
+              Inverse(database_rig.SensorFromRig(database_sensor_id)) *
+              reconstruction_image.CamFromWorld());
+        }
       }
     }
   });
