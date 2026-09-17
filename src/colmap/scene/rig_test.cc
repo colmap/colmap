@@ -2,6 +2,7 @@
 
 #include "colmap/scene/rig.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
@@ -412,6 +413,50 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
     num_non_trivial_frames += rig.NumDataIds() > 1;
   }
   EXPECT_EQ(num_non_trivial_frames, 5);
+}
+
+TEST(ApplyRigConfig, PrefersRefSensorForFramePoses) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  // Record reference-sensor image poses before conversion. The two images
+  // grouped into each new frame have independent (inconsistent) poses, since
+  // they come from different trivial rigs.
+  NodeHashMap<std::string, Rigid3d> ref_name_to_cam_from_world;
+  for (const auto& [_, image] : reconstruction.Images()) {
+    if (image.CameraId() == 1) {
+      ref_name_to_cam_from_world.emplace(image.Name(), image.CamFromWorld());
+    }
+  }
+  EXPECT_EQ(ref_name_to_cam_from_world.size(), 5);
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+
+  ApplyRigConfig(configs, *database, &reconstruction);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 5);
+
+  // Converted frame poses must match the reference-sensor images, not an
+  // arbitrary (e.g. last-visited) image in the frame.
+  for (const auto& [_, image] : reconstruction.Images()) {
+    if (image.CameraId() != 1) {
+      continue;
+    }
+    const Rigid3d& expected = ref_name_to_cam_from_world.at(image.Name());
+    EXPECT_THAT(image.CamFromWorld(),
+                Rigid3dNear(expected, /*rtol=*/1e-6, /*ttol=*/1e-6));
+  }
 }
 
 }  // namespace
