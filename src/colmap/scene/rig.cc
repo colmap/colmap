@@ -200,21 +200,18 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
     reconstruction_frame.SetRigId(database_frame.RigId());
     reconstruction_frame.AddDataId(reconstruction_image.DataId());
     if (reconstruction_image.HasPose()) {
-      const bool is_ref = database_rig.IsRefSensor(database_sensor_id);
       // Images grouped into one rig frame may have independently estimated,
       // slightly inconsistent poses. The reference sensor directly defines
       // the shared rig pose, so prefer it over poses derived from other sensors
       // using the averaged sensor_from_rig calibration. If the reference image
       // has no pose, keep the first available non-reference pose as a fallback.
-      if (is_ref || !reconstruction_frame.HasPose()) {
-        if (is_ref) {
-          reconstruction_frame.SetRigFromWorld(
-              reconstruction_image.CamFromWorld());
-        } else {
-          reconstruction_frame.SetRigFromWorld(
-              Inverse(database_rig.SensorFromRig(database_sensor_id)) *
-              reconstruction_image.CamFromWorld());
-        }
+      if (database_rig.IsRefSensor(database_sensor_id)) {
+        reconstruction_frame.SetRigFromWorld(
+            reconstruction_image.CamFromWorld());
+      } else if (!reconstruction_frame.HasPose()) {
+        reconstruction_frame.SetRigFromWorld(
+            Inverse(database_rig.SensorFromRig(database_sensor_id)) *
+            reconstruction_image.CamFromWorld());
       }
     }
   });
