@@ -70,7 +70,7 @@ struct GlobalMapperOptions {
   int track_required_tracks_per_view = std::numeric_limits<int>::max();
   // Minimum number of views per track.
   int track_min_num_views_per_track = 3;
-  // Maximum number of observations per track. Longer tracks are discarded.
+  // Maximum number of views per track. Longer tracks are discarded.
   int track_max_num_views_per_track = 100;
   // Maximum total number of tracks to establish. Tracks are selected in order
   // of decreasing length, so the longest tracks are kept. Use this to bound

@@ -245,7 +245,7 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
     const size_t num_images = image_id_set.size();
     if (num_images <
             static_cast<size_t>(options.track_min_num_views_per_track) ||
-        point3D.track.Length() >
+        num_images >
             static_cast<size_t>(options.track_max_num_views_per_track)) {
       continue;
     }
