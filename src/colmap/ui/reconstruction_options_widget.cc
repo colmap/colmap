@@ -309,6 +309,8 @@ class GlobalMapperTrackOptionsWidget : public OptionsWidget {
         "required_tracks_per_view");
     AddOptionInt(&options->global_mapper->mapper.track_min_num_views_per_track,
                  "min_num_views_per_track");
+    AddOptionInt(&options->global_mapper->mapper.track_max_num_views_per_track,
+                 "max_num_views_per_track");
     AddOptionIntUnlimited(&options->global_mapper->mapper.keep_max_num_tracks,
                           "keep_max_num_tracks");
   }
