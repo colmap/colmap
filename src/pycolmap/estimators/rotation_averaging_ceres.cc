@@ -23,6 +23,8 @@ void BindCeresRotationAverager(py::module& m) {
                          &CeresRotationAveragerOptions::loss_function_type)
           .def_readwrite("loss_function_scale",
                          &CeresRotationAveragerOptions::loss_function_scale)
+          .def_readwrite("reweighting",
+                         &CeresRotationAveragerOptions::reweighting)
           .def_readwrite("solver_options",
                          &CeresRotationAveragerOptions::solver_options)
           .def_readwrite("skip_initialization",

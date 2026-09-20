@@ -136,6 +136,34 @@ TEST(CeresRotationAverager, RecoversNominalRotations) {
   ExpectRelativeRotations(reconstruction, pose_graph, 1e-10);
 }
 
+TEST(CeresRotationAverager, MatchCountReweighting) {
+  Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
+  CeresRotationAveragerOptions options;
+  options.skip_initialization = true;
+  options.loss_function_scale = 0.1;
+  for (const int num_matches : {10, 0}) {
+    PoseGraph graph;
+    graph.AddEdge(1, 2, Edge(ZRotation(0.2), num_matches));
+    graph.AddEdge(2, 3, Edge(ZRotation(0.2), num_matches / 2));
+    graph.AddEdge(1, 3, Edge(ZRotation(0.2), 0));
+    for (const auto reweighting :
+         {RotationAveragingReweighting::UNIFORM,
+          RotationAveragingReweighting::INLIER_MATCH_COUNT}) {
+      options.reweighting = reweighting;
+      auto averager =
+          CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+      double cost;
+      ASSERT_TRUE(averager->Problem().Evaluate(
+          ceres::Problem::EvaluateOptions(), &cost, nullptr, nullptr, nullptr));
+      // Each Huber cost is 0.015; weights are either (1, 1, 1) or (1, 0.5, 0).
+      const bool uniform =
+          reweighting == RotationAveragingReweighting::UNIFORM ||
+          num_matches == 0;
+      EXPECT_NEAR(cost, uniform ? 0.045 : 0.0225, 1e-12);
+    }
+  }
+}
+
 TEST(CeresRotationAverager, AddsIndividualRelativeRotationResidual) {
   Reconstruction reconstruction = MakeTrivialReconstruction({1, 2});
   PoseGraph pose_graph;

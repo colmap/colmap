@@ -3,6 +3,7 @@
 #pragma once
 
 #include "colmap/estimators/ceres_loss_function.h"
+#include "colmap/estimators/rotation_averaging.h"
 #include "colmap/math/math.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
@@ -19,6 +20,8 @@ class Reconstruction;
 struct CeresRotationAveragerOptions {
   CeresLossFunctionType loss_function_type = CeresLossFunctionType::HUBER;
   double loss_function_scale = DegToRad(5.0);
+  RotationAveragingReweighting reweighting =
+      RotationAveragingReweighting::UNIFORM;
 
   ceres::Solver::Options solver_options;
 

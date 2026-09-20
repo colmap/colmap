@@ -37,6 +37,10 @@ def _run_averager() -> None:
         ),
     )
     options = pycolmap.CeresRotationAveragerOptions()
+    assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+    options.reweighting = (
+        pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
+    )
     options.solver_options.num_threads = 2
     averager = pycolmap.create_default_ceres_rotation_averager(
         options, pose_graph, reconstruction

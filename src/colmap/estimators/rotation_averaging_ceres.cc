@@ -4,7 +4,6 @@
 
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
-#include "colmap/estimators/rotation_averaging.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
@@ -70,6 +69,7 @@ CeresRotationAverager::CeresRotationAverager(
   std::shared_ptr<ceres::LossFunction> loss(CreateCeresLossFunction(
       options.loss_function_type, options.loss_function_scale));
   FlatHashSet<image_t> image_ids;
+  int max_num_matches = 0;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
@@ -78,6 +78,7 @@ CeresRotationAverager::CeresRotationAverager(
     }
     image_ids.insert(image_id1);
     image_ids.insert(image_id2);
+    max_num_matches = std::max(max_num_matches, edge.num_matches);
   }
   if (image_ids.empty()) {
     throw std::invalid_argument("Ceres rotation averaging requires edges");
@@ -148,6 +149,15 @@ CeresRotationAverager::CeresRotationAverager(
       root_frame.RigFromWorld().rotation().coeffs().data());
 
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    if (options.reweighting ==
+            RotationAveragingReweighting::INLIER_MATCH_COUNT &&
+        max_num_matches > 0) {
+      if (edge.num_matches == 0) continue;
+      loss =
+          CreateCeresLossFunction(options.loss_function_type,
+                                  options.loss_function_scale,
+                                  double(edge.num_matches) / max_num_matches);
+    }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     AddRelativeRotationResidual(
         image_id1, image_id2, edge.cam2_from_cam1.rotation(), loss);

@@ -28,7 +28,6 @@ void BindEstimators(py::module& m) {
   BindAlignmentEstimator(m);
   BindBundleAdjuster(m);
   BindCostFunctions(m);
-  BindCeresRotationAverager(m);
   BindCovarianceEstimator(m);
   BindEssentialMatrixEstimator(m);
   BindFundamentalMatrixEstimator(m);
@@ -38,4 +37,5 @@ void BindEstimators(py::module& m) {
   BindTriangulationEstimator(m);
   BindTwoViewGeometryEstimator(m);
   BindMotionAveraging(m);
+  BindCeresRotationAverager(m);
 }
