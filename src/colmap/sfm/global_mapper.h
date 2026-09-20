@@ -48,6 +48,8 @@ struct GlobalMapperOptions {
       // rely on COLMAP's auto selection.
       options.ceres->auto_select_solver_type = false;
       options.ceres->solver_options.function_tolerance = 1e-5;
+      options.ceres->solver_options.gradient_tolerance = 1e-10;
+      options.ceres->solver_options.parameter_tolerance = 1e-8;
       options.ceres->solver_options.max_num_iterations = 200;
       options.ceres->solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
     }
@@ -68,6 +70,8 @@ struct GlobalMapperOptions {
   int track_required_tracks_per_view = std::numeric_limits<int>::max();
   // Minimum number of views per track.
   int track_min_num_views_per_track = 3;
+  // Maximum number of views per track. Longer tracks are discarded.
+  int track_max_num_views_per_track = 100;
   // Maximum total number of tracks to establish. Tracks are selected in order
   // of decreasing length, so the longest tracks are kept. Use this to bound
   // memory usage on large datasets. By default, there is no limit.
