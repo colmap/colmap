@@ -9,10 +9,6 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 
-#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
-#include "colmap/util/cuda_to_hip.h"
-#endif
-
 namespace colmap {
 
 FeatureMatcherWorker::FeatureMatcherWorker(

@@ -77,8 +77,8 @@ struct SiftExtractionOptions {
 // feature extractor instance can be used to extract features for multiple
 // images in the same thread. Note that, for GPU based extraction, a OpenGL
 // context must be made current in the thread of the caller. If the gpu_index is
-// not -1, the CUDA version of SiftGPU is used, which produces slightly
-// different results than the OpenGL implementation.
+// not -1, the compute (CUDA/HIP) version of SiftGPU is used, which produces
+// slightly different results than the OpenGL implementation.
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const FeatureExtractionOptions& options);
 

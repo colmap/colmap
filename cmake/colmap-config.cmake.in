@@ -47,7 +47,9 @@ set(HIP_ENABLED @HIP_ENABLED@)
 if(HIP_ENABLED)
     # Record the ROCm installation the library was built against, so that a
     # consumer recreates the same hip:: and roc:: targets even when ROCm is not
-    # installed in the default location. A user-provided ROCM_PATH still wins.
+    # installed in the default location. A cache-level -DROCM_PATH still wins;
+    # the ROCM_PATH environment variable is only consulted when no cached
+    # value exists.
     set(ROCM_PATH "@ROCM_PATH@" CACHE PATH "Path to ROCm installation")
 endif()
 

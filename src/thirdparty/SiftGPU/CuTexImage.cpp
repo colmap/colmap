@@ -116,11 +116,18 @@ CuTexImage::CuTexImage(int width, int height, int nchannel, GLuint pbo)
 		ProgramCU::CheckErrorCUDA("cudaGLMapBufferObject");
 		_fromPBO = pbo;
 	}else
-#endif
 	{
 		_cuData = NULL;
 		_fromPBO = 0;
 	}
+#else
+	// Like CopyFromPBO below, report the missing interop rather than
+	// silently leaving an empty image behind.
+	std::cerr << "Unable To Use PBO: this build has no pixel buffer "
+	             "object interop\n";
+	_cuData = NULL;
+	_fromPBO = 0;
+#endif
 	if(_cuData)
 	{
 		_numBytes = bsize;

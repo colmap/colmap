@@ -1290,7 +1290,7 @@ std::vector<float> PackCamRaysWithJac(const Camera& camera,
 }
 
 // Mutexes for OpenGL version to protect static variables in SiftGPU.
-// CUDA version doesn't need this as it has its own thread safety.
+// The compute backend doesn't need this as it has its own thread safety.
 static std::map<int, std::unique_ptr<std::mutex>> sift_opengl_mutexes_;
 
 enum class SiftBackend { COMPUTE, GLSL };
