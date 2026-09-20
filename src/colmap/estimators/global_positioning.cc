@@ -3,6 +3,7 @@
 #include "colmap/estimators/global_positioning.h"
 
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
@@ -11,6 +12,8 @@
 
 #include <algorithm>
 #include <utility>
+
+#include <Eigen/Cholesky>
 
 namespace colmap {
 namespace {
@@ -21,14 +24,29 @@ Eigen::Vector3d RandVector3d(double low, double high) {
                          RandomUniformReal(low, high));
 }
 
+template <typename CostFunctor, typename... Args>
+ceres::CostFunction* CreateBATACostFunction(const Eigen::Matrix3d* covariance,
+                                            Args&&... args) {
+  if (covariance == nullptr) {
+    return CostFunctor::Create(std::forward<Args>(args)...);
+  }
+  return CovarianceWeightedCostFunctor<CostFunctor>::Create(
+      *covariance, std::forward<Args>(args)...);
+}
+
 class DefaultGlobalPositioner final : public GlobalPositioner {
  public:
-  DefaultGlobalPositioner(const GlobalPositionerOptions& options,
-                          const PoseGraph& pose_graph,
-                          Reconstruction& reconstruction,
-                          std::shared_ptr<ceres::LossFunction> loss_function)
+  DefaultGlobalPositioner(
+      const GlobalPositionerOptions& options,
+      const PoseGraph& pose_graph,
+      Reconstruction& reconstruction,
+      const ObservationCovarianceMap& observation_covariances,
+      std::shared_ptr<ceres::LossFunction> loss_function)
       : GlobalPositioner(options) {
-    Prepare(pose_graph, reconstruction, std::move(loss_function));
+    Prepare(pose_graph,
+            reconstruction,
+            observation_covariances,
+            std::move(loss_function));
     options_.solver_options.num_threads =
         GetEffectiveNumThreads(options_.solver_options.num_threads);
     options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
@@ -66,6 +84,7 @@ bool GlobalPositioner::Finalize(const ceres::Solver::Summary& summary) {
 void GlobalPositioner::Prepare(
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction,
+    const ObservationCovarianceMap& observation_covariances,
     std::shared_ptr<ceres::LossFunction> loss_function) {
   reconstruction_ = &reconstruction;
 
@@ -79,7 +98,7 @@ void GlobalPositioner::Prepare(
   InitializeRandomPositions(pose_graph, reconstruction);
 
   // Add the point to camera constraints to the problem.
-  AddPointToCameraConstraints(reconstruction);
+  AddPointToCameraConstraints(reconstruction, observation_covariances);
 
   if (options_.use_parameter_block_ordering) {
     AddCamerasAndPointsToParameterGroups(reconstruction);
@@ -156,7 +175,8 @@ void GlobalPositioner::InitializeRandomPositions(
 }
 
 void GlobalPositioner::AddPointToCameraConstraints(
-    Reconstruction& reconstruction) {
+    Reconstruction& reconstruction,
+    const ObservationCovarianceMap& observation_covariances) {
   VLOG(2) << reconstruction.NumPoints3D()
           << " point to camera constraints were added to the position "
              "estimation problem.";
@@ -172,12 +192,14 @@ void GlobalPositioner::AddPointToCameraConstraints(
       continue;
     }
 
-    AddPoint3DToProblem(point3D_id, reconstruction);
+    AddPoint3DToProblem(point3D_id, reconstruction, observation_covariances);
   }
 }
 
-void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
-                                           Reconstruction& reconstruction) {
+void GlobalPositioner::AddPoint3DToProblem(
+    point3D_t point3D_id,
+    Reconstruction& reconstruction,
+    const ObservationCovarianceMap& observation_covariances) {
   const bool random_initialization =
       options_.optimize_points && options_.generate_random_points;
 
@@ -210,6 +232,19 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
         image.CamFromWorld().rotation().inverse() * (*cam_ray);
 
     double& scale = scales_.emplace_back(1);
+    const Eigen::Matrix3d* covariance =
+        observation_covariances.empty()
+            ? nullptr
+            : &observation_covariances.at(
+                  {observation.image_id, observation.point2D_idx});
+    if (covariance != nullptr &&
+        (!covariance->allFinite() ||
+         !covariance->isApprox(covariance->transpose()) ||
+         covariance->llt().info() != Eigen::Success)) {
+      throw std::invalid_argument(
+          "observation covariance must be finite, symmetric, and positive "
+          "definite");
+    }
 
     if (!options_.generate_scales && random_initialization) {
       const Eigen::Vector3d cam_from_point3D_translation =
@@ -231,8 +266,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     // If the image is not part of a camera rig, use the standard BATA error
     if (image.IsRefInFrame()) {
       ceres::CostFunction* cost_function =
-          BATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir);
-
+          CreateBATACostFunction<BATAPairwiseDirectionCostFunctor>(
+              covariance, cam_from_point3D_dir);
       problem_->AddResidualBlock(cost_function,
                                  loss_function,
                                  frame_centers_[image.FrameId()].data(),
@@ -250,9 +285,9 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
             image.CamFromWorld().rotation().inverse() *
             cam_from_rig.translation();
 
-        ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionConstantRigCostFunctor::Create(
-                cam_from_point3D_dir, cam_from_rig_dir);
+        ceres::CostFunction* cost_function = CreateBATACostFunction<
+            RigBATAPairwiseDirectionConstantRigCostFunctor>(
+            covariance, cam_from_point3D_dir, cam_from_rig_dir);
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
@@ -273,7 +308,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
         }
 
         ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionCostFunctor::Create(
+            CreateBATACostFunction<RigBATAPairwiseDirectionCostFunctor>(
+                covariance,
                 cam_from_point3D_dir,
                 image.FramePtr()->RigFromWorld().rotation());
 
@@ -532,9 +568,13 @@ std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
     const GlobalPositionerOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction,
-    std::shared_ptr<ceres::LossFunction> loss_function) {
-  return std::make_unique<DefaultGlobalPositioner>(
-      options, pose_graph, reconstruction, std::move(loss_function));
+    std::shared_ptr<ceres::LossFunction> loss_function,
+    const ObservationCovarianceMap& observation_covariances) {
+  return std::make_unique<DefaultGlobalPositioner>(options,
+                                                   pose_graph,
+                                                   reconstruction,
+                                                   observation_covariances,
+                                                   std::move(loss_function));
 }
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,

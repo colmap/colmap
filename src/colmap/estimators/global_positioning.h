@@ -4,6 +4,7 @@
 
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/scene/track.h"
 #include "colmap/util/hash_containers.h"
 
 #include <memory>
@@ -14,6 +15,11 @@
 #include <ceres/ceres.h>
 
 namespace colmap {
+
+// Per-observation covariance matrices in world coordinates for default BATA
+// residuals. Matrices must be positive definite.
+using ObservationCovarianceMap =
+    FlatHashMap<ObservationKey, Eigen::Matrix3d, PairHash>;
 
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
@@ -73,7 +79,8 @@ class GlobalPositioner {
       const GlobalPositionerOptions& options,
       const PoseGraph& pose_graph,
       Reconstruction& reconstruction,
-      std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
+      std::shared_ptr<ceres::LossFunction> loss_function = nullptr,
+      const ObservationCovarianceMap& observation_covariances = {});
 
   // Solve the prepared problem and publish its results.
   ceres::Solver::Summary Solve();
@@ -97,6 +104,7 @@ class GlobalPositioner {
   // Construct the problem without solving it.
   void Prepare(const PoseGraph& pose_graph,
                Reconstruction& reconstruction,
+               const ObservationCovarianceMap& observation_covariances,
                std::shared_ptr<ceres::LossFunction> loss_function);
 
   void SetupProblem(std::shared_ptr<ceres::LossFunction> loss_function);
@@ -105,12 +113,16 @@ class GlobalPositioner {
   void InitializeRandomPositions(const PoseGraph& pose_graph,
                                  Reconstruction& reconstruction);
 
-  // Add tracks to the problem
-  void AddPointToCameraConstraints(Reconstruction& reconstruction);
+  // Add regular constraints with optional keyed covariances.
+  void AddPointToCameraConstraints(
+      Reconstruction& reconstruction,
+      const ObservationCovarianceMap& observation_covariances);
 
-  // Add a single point3D to the problem
-  void AddPoint3DToProblem(point3D_t point3D_id,
-                           Reconstruction& reconstruction);
+  // Add a single point3D to the problem.
+  void AddPoint3DToProblem(
+      point3D_t point3D_id,
+      Reconstruction& reconstruction,
+      const ObservationCovarianceMap& observation_covariances);
 
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(Reconstruction& reconstruction);
