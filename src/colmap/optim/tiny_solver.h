@@ -29,7 +29,7 @@
 // Author: mierle@gmail.com (Keir Mierle)
 //
 // This is a customized copy of ceres::TinySolver (ceres/tiny_solver.h) adapted
-// for COLMAP. It differs from upstream in three ways:
+// for COLMAP. It differs from upstream in four ways:
 //
 //   1. Manifold support. The solver takes an optional compile-time Manifold
 //      policy that decouples the ambient parameter size from the tangent step
@@ -48,6 +48,11 @@
 //   3. It only supports statically sized parameter/tangent dimensions (the
 //      number of residuals may still be dynamic), which keeps it fixed-size and
 //      allocation-free.
+//
+//   4. The function-tolerance termination criterion is relative to the current
+//      cost, as documented, instead of upstream's absolute comparison, so it is
+//      meaningful across problem scales. This is consistent with Ceres'
+//      TrustRegionMinimizer/LineSearchMinimizer.
 //
 // Like upstream, this file has no dependencies beyond Eigen.
 //
@@ -172,7 +177,7 @@ class TinySolver {
     COST_TOO_SMALL,
     // num_iterations >= max_num_iterations
     HIT_MAX_ITERATIONS,
-    // (new_cost - old_cost) < function_tolerance * old_cost
+    // |new_cost - old_cost| <= function_tolerance * old_cost
     COST_CHANGE_TOO_SMALL,
     // The user cost function returned false (failed to evaluate) at the initial
     // point, so no meaningful step could be taken.
@@ -191,7 +196,7 @@ class TinySolver {
     //  ||dx|| <= parameter_tolerance * (||x|| + parameter_tolerance)
     Scalar parameter_tolerance = 1e-8;
 
-    // (new_cost - old_cost) < function_tolerance * old_cost
+    // |new_cost - old_cost| <= function_tolerance * old_cost
     Scalar function_tolerance = 1e-6;
 
     // cost_threshold > ||f(x)||^2 / 2
@@ -336,8 +341,13 @@ class TinySolver {
         // model fits well.
         x = x_new_;
 
-        if (std::abs(cost_change) < options.function_tolerance) {
-          cost_ = f_x_new_.squaredNorm() / 2;
+        // Terminate if the cost change is too small relative to the current
+        // cost, refreshing the cost from the already-evaluated trial
+        // residuals.
+        const Scalar trial_cost = f_x_new_.squaredNorm() / 2;
+        if (std::abs(trial_cost - cost_) <=
+            options.function_tolerance * cost_) {
+          cost_ = trial_cost;
           summary_.status = COST_CHANGE_TOO_SMALL;
           break;
         }
@@ -375,8 +385,11 @@ class TinySolver {
         // Reject the update because either the normal equations failed to solve
         // or the local linear model was not good (rho < 0).
 
-        // Additionally if the cost change is too small, then terminate.
-        if (std::abs(cost_change) < options.function_tolerance) {
+        // Additionally, if the cost change is too small relative to the
+        // current cost, then terminate.
+        const Scalar trial_cost = f_x_new_.squaredNorm() / 2;
+        if (std::abs(trial_cost - cost_) <=
+            options.function_tolerance * cost_) {
           // Terminate
           summary_.status = COST_CHANGE_TOO_SMALL;
           break;

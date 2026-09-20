@@ -282,6 +282,55 @@ TEST(TinySolver, ReportsCostChangeTooSmall) {
   EXPECT_LT(summary.final_cost, summary.initial_cost);
 }
 
+// Least squares with O(1e9) data and O(1e17) optimal cost, with analytic
+// Jacobian. An absolute function tolerance could never terminate here within
+// a few iterations, while a relative one does.
+struct ScaledLinearResidual {
+  using Scalar = double;
+  enum { NUM_RESIDUALS = 3, NUM_PARAMETERS = 2 };
+
+  bool operator()(const double* parameters,
+                  double* residuals,
+                  double* jacobian) const {
+    Eigen::Matrix<double, 3, 2> A;
+    A << 1, 0, 0, 1, 1, 1;
+    const Eigen::Vector3d b(1e9, 2e9, 4e9);
+    const Eigen::Map<const Eigen::Vector2d> p(parameters);
+    Eigen::Map<Eigen::Vector3d> res(residuals);
+    res = A * p - b;
+    if (jacobian != nullptr) {
+      // Column-major, NUM_RESIDUALS x NUM_PARAMETERS.
+      Eigen::Map<Eigen::Matrix<double, 3, 2>> jac(jacobian);
+      jac = A;
+    }
+    return true;
+  }
+};
+
+TEST(TinySolver, CostChangeToleranceIsRelativeToCost) {
+  Eigen::Matrix<double, 3, 2> A;
+  A << 1, 0, 0, 1, 1, 1;
+  const Eigen::Vector3d b(1e9, 2e9, 4e9);
+  const Eigen::Vector2d expected =
+      (A.transpose() * A).ldlt().solve(A.transpose() * b);
+
+  TinySolver<ScaledLinearResidual> solver;
+  TinySolver<ScaledLinearResidual>::Options options;
+  // Isolate the function-tolerance check: with the other criteria disabled,
+  // only a cost change relative to the O(1e17) cost can terminate before the
+  // iteration limit.
+  options.gradient_tolerance = 0;
+  options.parameter_tolerance = 0;
+  options.function_tolerance = 1e-6;
+  options.cost_threshold = 0;
+  options.max_num_iterations = 3;
+  Eigen::Vector2d x(0, 0);
+  const auto summary = solver.Solve(ScaledLinearResidual(), &x, options);
+  EXPECT_EQ(summary.status,
+            TinySolver<ScaledLinearResidual>::COST_CHANGE_TOO_SMALL);
+  EXPECT_LT((x - expected).norm() / expected.norm(), 1e-6);
+}
+
 // Succeeds only at the start point: every trial step fails to evaluate, so all
 // steps must be rejected and the input left unchanged.
 struct FailExceptAtStartResidual {
