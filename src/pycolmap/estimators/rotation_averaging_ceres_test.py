@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import gc
-import subprocess
-import sys
 
 import pytest
 
@@ -10,12 +8,7 @@ import pycolmap
 
 
 def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
-    pytest.importorskip("pyceres")
-    subprocess.run([sys.executable, __file__], check=True, timeout=30)
-
-
-def _run_averager() -> None:
-    import pyceres
+    pyceres = pytest.importorskip("pyceres")
 
     class PythonLoss(pyceres.LossFunction):
         def Evaluate(self, squared_norm, rho):
@@ -46,6 +39,7 @@ def _run_averager() -> None:
         options, pose_graph, reconstruction
     )
     averager.solver_options.num_threads = 2
+    assert averager.solver_options.num_threads == 2
     assert averager.problem.num_residual_blocks() == 1
     loss = PythonLoss()
     for _ in range(100):
@@ -59,7 +53,3 @@ def _run_averager() -> None:
     summary = averager.solve()
     assert summary.IsSolutionUsable()
     assert summary.num_threads_given == 2
-
-
-if __name__ == "__main__":
-    _run_averager()

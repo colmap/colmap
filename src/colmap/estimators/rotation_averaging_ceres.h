@@ -29,15 +29,17 @@ struct CeresRotationAveragerOptions {
   // Flag to skip maximum spanning tree initialization.
   bool skip_initialization = false;
 
-  // When false, treat each non-ref sensor's cam_from_rig rotation as a
-  // pre-calibrated constant
+  // Refine uncalibrated sensor rotations (missing pose or NaN translation).
+  // Fully calibrated sensor rotations stay constant unless the user flips
+  // them via Problem().
   bool refine_sensor_from_rig = true;
 
   CeresRotationAveragerOptions();
 };
 
-// Optimizes rotations directly in the reconstruction, which must outlive
-// this object.
+// Optimizes frame and sensor rotations in place. The reconstruction must
+// outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
+// gravity/pose priors, outlier filtering, or frame deregistration.
 class CeresRotationAverager {
  public:
   CeresRotationAverager(const CeresRotationAveragerOptions& options,
@@ -67,7 +69,8 @@ class CeresRotationAverager {
 };
 
 // Calibrated sensor rotations are fixed by default and can be made variable
-// through Problem().
+// through Problem(). MST initialization requires sensor rotations for all rigs
+// in the reconstruction when sensor refinement is disabled.
 std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
     const CeresRotationAveragerOptions& options,
     const PoseGraph& pose_graph,

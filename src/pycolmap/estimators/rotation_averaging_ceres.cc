@@ -33,15 +33,17 @@ void BindCeresRotationAverager(py::module& m) {
                          "constraints: UNIFORM or INLIER_MATCH_COUNT.")
           .def_readwrite("solver_options",
                          &CeresRotationAveragerOptions::solver_options,
-                         "Ceres solver options.")
+                         "Options for the Ceres solver. Using this member "
+                         "requires having PyCeres installed.")
           .def_readwrite("skip_initialization",
                          &CeresRotationAveragerOptions::skip_initialization,
                          "Skip maximum spanning tree initialization.")
           .def_readwrite(
               "refine_sensor_from_rig",
               &CeresRotationAveragerOptions::refine_sensor_from_rig,
-              "When False, treat each non-ref sensor's cam_from_rig rotation "
-              "as a pre-calibrated constant.");
+              "Refine uncalibrated sensor rotations (missing pose or NaN "
+              "translation). Fully calibrated sensor rotations stay constant "
+              "unless the user flips them via the problem.");
   MakeDataclass(PyOptions);
 
   py::classh<CeresRotationAverager>(m, "CeresRotationAverager")
