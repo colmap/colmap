@@ -60,9 +60,9 @@ class CeresRotationAverager {
  private:
   ceres::Solver::Options solver_options_;
   Reconstruction& reconstruction_;
+  // Keep losses alive until the problem is destroyed.
   FlatHashMap<ceres::LossFunction*, std::shared_ptr<ceres::LossFunction>>
       losses_;
-  // Keep losses alive until the problem is destroyed.
   std::unique_ptr<ceres::Problem> problem_;
 };
 
