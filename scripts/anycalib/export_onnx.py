@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Export the AnyCalib feed-forward network to ONNX.
 
 AnyCalib (https://github.com/javrtg/AnyCalib, Apache-2.0) calibrates a camera

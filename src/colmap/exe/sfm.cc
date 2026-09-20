@@ -789,16 +789,27 @@ int RunViewGraphCalibrator(int argc, char** argv) {
 }
 
 int RunCameraCalibrator(int argc, char** argv) {
+  std::filesystem::path image_list_path;
+
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
+  options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddCameraCalibrationOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
+  std::vector<std::string> image_names;
+  if (!image_list_path.empty()) {
+    image_names = ReadTextFileLines(image_list_path);
+  }
+
   auto calibrator = CreateCameraCalibrationController(
-      *options.database_path, *options.image_path, *options.camera_calibration);
+      *options.database_path,
+      *options.image_path,
+      *options.camera_calibration,
+      image_names);
   calibrator->Start();
   calibrator->Wait();
 

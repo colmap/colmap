@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/calibration/anycalib.h"
 
@@ -219,16 +192,36 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
   CameraCalibrationOptions options;
   options.use_gpu = false;
   auto calibrator = CameraCalibrator::Create(options);
+  // A valid model exercises inference end to end; the empty default target
+  // model preserves it.
   Camera camera;
+  camera.model_id = CameraModelId::kSimpleRadial;
+  camera.width = 64;
+  camera.height = 48;
+  camera.params = {50, 32, 24, 0};
   // Random noise is not expected to calibrate; the test only checks that
   // inference runs end to end without crashing.
   const bool success = calibrator->Calibrate(bitmap, &camera);
   if (success) {
+    EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
     EXPECT_TRUE(camera.VerifyParams());
     EXPECT_EQ(camera.width, 64);
     EXPECT_EQ(camera.height, 48);
     EXPECT_TRUE(camera.has_prior_focal_length);
   }
+}
+
+// A camera without a valid model fails gracefully instead of throwing inside
+// the camera-model switches. Reuses the cached model from the smoke test.
+TEST(AnyCalibCalibratorTest, InvalidCameraModelReturnsFalse) {
+  Bitmap bitmap;
+  CreateSolidRgbImage(64, 48, 255, &bitmap);
+  CameraCalibrationOptions options;
+  options.use_gpu = false;
+  auto calibrator = CameraCalibrator::Create(options);
+  Camera camera;
+  EXPECT_FALSE(calibrator->Calibrate(bitmap, &camera));
+  EXPECT_EQ(camera.model_id, CameraModelId::kInvalid);
 }
 
 }  // namespace

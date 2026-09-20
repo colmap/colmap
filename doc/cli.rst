@@ -514,7 +514,9 @@ available as ``colmap [command]``:
   learned model (AnyCalib), replacing e.g. EXIF-based initialization. Run
   after ``feature_extractor`` and before matching and mapping, or enable
   ``--camera_calibration`` in ``automatic_reconstructor``. Supports
-  ``--image_list_path`` to calibrate a subset of the database images.
+  ``--image_list_path`` to calibrate a subset of the database images. Each
+  camera keeps its existing model unless ``--CameraCalibration.camera_model``
+  explicitly converts all cameras to the given model.
 
 
 Visualization

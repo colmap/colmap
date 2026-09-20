@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/controllers/camera_calibration.h"
 
@@ -138,7 +111,11 @@ class FakeCalibrator : public CameraCalibrator {
     if (!config_.success) {
       return false;
     }
-    camera->model_id = model_id_;
+    // kInvalid preserves the input camera's model, mirroring the production
+    // backends with an empty target model.
+    if (model_id_ != CameraModelId::kInvalid) {
+      camera->model_id = model_id_;
+    }
     camera->width = bitmap.Width();
     camera->height = bitmap.Height();
     const size_t idx =
@@ -157,7 +134,10 @@ class FakeCalibrator : public CameraCalibrator {
 CameraCalibratorFactory FakeCalibratorFactory(FakeCalibrator::Config config) {
   return [config = std::move(config)](const CameraCalibrationOptions& options) {
     return std::make_unique<FakeCalibrator>(
-        config, CameraModelNameToId(options.camera_model));
+        config,
+        options.camera_model.empty()
+            ? CameraModelId::kInvalid
+            : CameraModelNameToId(options.camera_model));
   };
 }
 
@@ -167,15 +147,16 @@ struct FakeCalibrationScene {
   std::vector<double> initial_params;
 };
 
-// Two 64x48 images sharing one SIMPLE_RADIAL camera.
-FakeCalibrationScene CreateFakeCalibrationScene() {
+// Two 64x48 images sharing one camera of the given model.
+FakeCalibrationScene CreateFakeCalibrationSceneWithModel(
+    CameraModelId model_id, const std::vector<double>& initial_params) {
   FakeCalibrationScene scene;
   scene.test_dir = CreateTestDir();
   scene.database_path = scene.test_dir / "database.db";
-  scene.initial_params = {50, 32, 24, 0};
+  scene.initial_params = initial_params;
   auto database = Database::Open(scene.database_path);
   Camera camera;
-  camera.model_id = CameraModelId::kSimpleRadial;
+  camera.model_id = model_id;
   camera.width = 64;
   camera.height = 48;
   camera.params = scene.initial_params;
@@ -190,6 +171,12 @@ FakeCalibrationScene CreateFakeCalibrationScene() {
     database->WriteImage(image);
   }
   return scene;
+}
+
+// Two 64x48 images sharing one SIMPLE_RADIAL camera.
+FakeCalibrationScene CreateFakeCalibrationScene() {
+  return CreateFakeCalibrationSceneWithModel(CameraModelId::kSimpleRadial,
+                                             {50, 32, 24, 0});
 }
 
 Camera ReadSingleCamera(const std::filesystem::path& database_path) {
@@ -227,6 +214,54 @@ TEST(CameraCalibrationControllerTest, FakeCalibratorUpdatesDatabase) {
 
   // The per-image fits are aggregated by coefficient-wise median.
   const Camera camera = ReadSingleCamera(scene.database_path);
+  ExpectParamsNear(camera.params, {500, 32, 24, 0.10});
+  EXPECT_TRUE(camera.has_prior_focal_length);
+}
+
+TEST(CameraCalibrationControllerTest, EmptyTargetModelPreservesCameraModel) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationSceneWithModel(
+      CameraModelId::kOpenCV, {50, 50, 32, 24, 0, 0, 0, 0});
+  FakeCalibrator::Config config;
+  config.params_sequence = {{600, 600, 32, 24, 0, 0, 0, 0},
+                            {400, 400, 32, 24, 0, 0, 0, 0}};
+
+  CameraCalibrationOptions options;
+  ASSERT_TRUE(options.camera_model.empty());
+  auto controller =
+      CreateCameraCalibrationController(scene.database_path,
+                                        scene.test_dir,
+                                        options,
+                                        {},
+                                        FakeCalibratorFactory(config));
+  controller->Start();
+  controller->Wait();
+
+  // The parameters are updated, but the existing model is preserved.
+  const Camera camera = ReadSingleCamera(scene.database_path);
+  EXPECT_EQ(camera.model_id, CameraModelId::kOpenCV);
+  ExpectParamsNear(camera.params, {500, 500, 32, 24, 0, 0, 0, 0});
+  EXPECT_TRUE(camera.has_prior_focal_length);
+}
+
+TEST(CameraCalibrationControllerTest, ExplicitTargetModelConvertsCameraModel) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationSceneWithModel(
+      CameraModelId::kOpenCV, {50, 50, 32, 24, 0, 0, 0, 0});
+  FakeCalibrator::Config config;
+  config.params_sequence = {{600, 32, 24, 0.05}, {400, 32, 24, 0.15}};
+
+  CameraCalibrationOptions options;
+  options.camera_model = "SIMPLE_RADIAL";
+  auto controller =
+      CreateCameraCalibrationController(scene.database_path,
+                                        scene.test_dir,
+                                        options,
+                                        {},
+                                        FakeCalibratorFactory(config));
+  controller->Start();
+  controller->Wait();
+
+  const Camera camera = ReadSingleCamera(scene.database_path);
+  EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
   ExpectParamsNear(camera.params, {500, 32, 24, 0.10});
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
