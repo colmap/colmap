@@ -25,10 +25,19 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("generate_random_points",
                          &GlobalPositionerOptions::generate_random_points,
                          "Whether to initialize 3D point positions randomly.")
-          .def_readwrite("generate_scales",
-                         &GlobalPositionerOptions::generate_scales,
-                         "Whether to initialize scales to constant 1 or derive "
-                         "from positions.")
+          .def_readwrite(
+              "initialize_scales_from_geometry",
+              &GlobalPositionerOptions::initialize_scales_from_geometry,
+              "Derive scales from initialized camera and point positions; "
+              "otherwise use 1.")
+          .def_readwrite("fix_observation_scale_gauge",
+                         &GlobalPositionerOptions::fix_observation_scale_gauge,
+                         "Whether to fix the first active observation scale.")
+          .def_readwrite(
+              "uncalibrated_observation_weight",
+              &GlobalPositionerOptions::uncalibrated_observation_weight,
+              "Nonnegative loss multiplier for observations without "
+              "a focal-length prior.")
           .def_readwrite("optimize_positions",
                          &GlobalPositionerOptions::optimize_positions,
                          "Whether to optimize camera positions.")
