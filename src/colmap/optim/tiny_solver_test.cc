@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 
+#include <limits>
 #include <vector>
 
 #include <Eigen/Core>
@@ -354,6 +355,11 @@ TEST(TinySolver, PostAcceptUpdateFailureReportsCostFunctionFailed) {
             TinySolver<FailOnSecondJacobianEvalResidual>::COST_FUNCTION_FAILED);
   EXPECT_EQ(summary.iterations, 1);
   EXPECT_TRUE(x.allFinite());
+  // The reported cost is the cost of the accepted point, not the stale cost
+  // from before the step.
+  Eigen::Vector2d residuals;
+  ASSERT_TRUE(functor(x.data(), residuals.data(), nullptr));
+  EXPECT_DOUBLE_EQ(summary.final_cost, 0.5 * residuals.squaredNorm());
 }
 
 // Linear solver stub that always reports factorization failure, exercising the
@@ -390,6 +396,217 @@ TEST(TinySolver, InitialCostFunctionFailureLeavesInputUnchanged) {
   EXPECT_EQ(summary.status, TinySolver<FailingResidual>::COST_FUNCTION_FAILED);
   EXPECT_EQ(summary.iterations, 0);
   EXPECT_EQ(x, Eigen::Vector2d(1, 2));
+}
+
+// Returns success but writes NaN residuals, modeling a cost function that
+// misreports success with garbage output.
+struct NaNResidual {
+  using Scalar = double;
+  enum { NUM_RESIDUALS = 2, NUM_PARAMETERS = 2 };
+
+  bool operator()(const double* /*parameters*/,
+                  double* residuals,
+                  double* jacobian) const {
+    residuals[0] = std::numeric_limits<double>::quiet_NaN();
+    residuals[1] = std::numeric_limits<double>::quiet_NaN();
+    if (jacobian != nullptr) {
+      jacobian[0] = 1.0;
+      jacobian[1] = 0.0;
+      jacobian[2] = 0.0;
+      jacobian[3] = 1.0;
+    }
+    return true;
+  }
+};
+
+TEST(TinySolver, ReportsNumericalFailureOnNonFiniteInitialResiduals) {
+  TinySolver<NaNResidual> solver;
+  Eigen::Vector2d x(0, 0);
+  const auto summary = solver.Solve(NaNResidual(), &x);
+  EXPECT_EQ(summary.status, TinySolver<NaNResidual>::NUMERICAL_FAILURE);
+  EXPECT_EQ(summary.iterations, 0);
+  EXPECT_EQ(x, Eigen::Vector2d(0, 0));
+}
+
+// Returns success with finite residuals but one NaN Jacobian entry. A partial
+// NaN is important here because maxCoeff() does not guarantee NaN propagation.
+struct NaNJacobianResidual {
+  using Scalar = double;
+  enum { NUM_RESIDUALS = 2, NUM_PARAMETERS = 2 };
+
+  bool operator()(const double* /*parameters*/,
+                  double* residuals,
+                  double* jacobian) const {
+    residuals[0] = 1.0;
+    residuals[1] = 2.0;
+    if (jacobian != nullptr) {
+      jacobian[0] = 1.0;
+      jacobian[1] = 0.0;
+      jacobian[2] = std::numeric_limits<double>::quiet_NaN();
+      jacobian[3] = 1.0;
+    }
+    return true;
+  }
+};
+
+TEST(TinySolver, ReportsNumericalFailureOnNonFiniteInitialJacobian) {
+  TinySolver<NaNJacobianResidual> solver;
+  Eigen::Vector2d x(0, 0);
+  const auto summary = solver.Solve(NaNJacobianResidual(), &x);
+  EXPECT_EQ(summary.status, TinySolver<NaNJacobianResidual>::NUMERICAL_FAILURE);
+  EXPECT_EQ(summary.iterations, 0);
+  EXPECT_EQ(x, Eigen::Vector2d(0, 0));
+}
+
+TEST(TinySolver, ReportsNumericalFailureOnNonFiniteInitialParameters) {
+  TinySolver<LinearResidual> solver;
+  Eigen::Vector2d x(std::numeric_limits<double>::quiet_NaN(), 0);
+  const auto summary = solver.Solve(LinearResidual(), &x);
+  EXPECT_EQ(summary.status, TinySolver<LinearResidual>::NUMERICAL_FAILURE);
+  EXPECT_EQ(summary.iterations, 0);
+}
+
+// Returns a NaN Jacobian after the first accepted step (residuals stay
+// finite), modeling a derivative that blows up away from the start point.
+struct NaNOnSecondJacobianEvalResidual {
+  using Scalar = double;
+  enum { NUM_RESIDUALS = 2, NUM_PARAMETERS = 2 };
+
+  bool operator()(const double* parameters,
+                  double* residuals,
+                  double* jacobian) const {
+    residuals[0] = parameters[0] - 1.0;
+    residuals[1] = parameters[1] - 2.0;
+    if (jacobian != nullptr) {
+      if (num_jacobian_evals_++ > 0) {
+        jacobian[0] = 1.0;
+        jacobian[1] = 0.0;
+        jacobian[2] = std::numeric_limits<double>::quiet_NaN();
+        jacobian[3] = 1.0;
+      } else {
+        jacobian[0] = 1.0;
+        jacobian[1] = 0.0;
+        jacobian[2] = 0.0;
+        jacobian[3] = 1.0;
+      }
+    }
+    return true;
+  }
+
+  mutable int num_jacobian_evals_ = 0;
+};
+
+TEST(TinySolver, PostAcceptNonFiniteJacobianReportsNumericalFailure) {
+  TinySolver<NaNOnSecondJacobianEvalResidual> solver;
+  NaNOnSecondJacobianEvalResidual functor;
+  Eigen::Vector2d x(0, 0);
+  const auto summary = solver.Solve(functor, &x);
+  EXPECT_EQ(summary.status,
+            TinySolver<NaNOnSecondJacobianEvalResidual>::NUMERICAL_FAILURE);
+  EXPECT_EQ(summary.iterations, 1);
+  // The reported cost is the cost of the accepted point, not the stale cost
+  // from before the step.
+  Eigen::Vector2d residuals;
+  ASSERT_TRUE(functor(x.data(), residuals.data(), nullptr));
+  EXPECT_DOUBLE_EQ(summary.final_cost, 0.5 * residuals.squaredNorm());
+}
+
+// Linear solver stub that reports success but solves to NaN, modeling a silent
+// factorization failure.
+struct NaNSolvingLinearSolver {
+  void compute(const Eigen::Matrix2d&) {}
+  Eigen::Vector2d solve(const Eigen::Vector2d&) const {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    return Eigen::Vector2d(nan, nan);
+  }
+  Eigen::ComputationInfo info() const { return Eigen::Success; }
+};
+
+TEST(TinySolver, NonFiniteStepReportsNumericalFailure) {
+  using Solver =
+      TinySolver<LinearResidual, EuclideanManifold<2>, NaNSolvingLinearSolver>;
+  Solver solver;
+  Eigen::Vector2d x(0, 0);
+  const auto summary = solver.Solve(LinearResidual(), &x);
+  EXPECT_EQ(summary.status, Solver::NUMERICAL_FAILURE);
+  EXPECT_EQ(summary.iterations, 1);
+  EXPECT_EQ(x, Eigen::Vector2d(0, 0));
+}
+
+// Manifold stub whose retraction always leaves the ambient space, modeling a
+// retraction that breaks down (e.g. normalizing a zero vector).
+struct NaNPlusManifold {
+  static constexpr int kAmbientSize = 2;
+  static constexpr int kTangentSize = 2;
+  [[maybe_unused]] static constexpr bool kIsEuclidean = false;
+
+  void Plus(const double* /*x*/,
+            const double* /*delta*/,
+            double* x_plus_delta) const {
+    x_plus_delta[0] = x_plus_delta[1] =
+        std::numeric_limits<double>::quiet_NaN();
+  }
+
+  void PlusJacobian(const double* /*x*/, double* jacobian) const {
+    jacobian[0] = 1.0;
+    jacobian[1] = 0.0;
+    jacobian[2] = 0.0;
+    jacobian[3] = 1.0;
+  }
+};
+
+TEST(TinySolver, NonFiniteRetractionIsRejectedWithoutProgress) {
+  using Solver = TinySolver<LinearResidual, NaNPlusManifold>;
+  Solver solver;
+  Solver::Options options;
+  Eigen::Vector2d x(0, 0);
+  const auto summary = solver.Solve(LinearResidual(), &x, options);
+  // Every trial is rejected; the trust region shrinks until the step
+  // underflows the parameter tolerance.
+  EXPECT_EQ(summary.status, Solver::RELATIVE_STEP_SIZE_TOO_SMALL);
+  EXPECT_LT(summary.iterations, options.max_num_iterations);
+  EXPECT_EQ(x, Eigen::Vector2d(0, 0));
+}
+
+// Returns success everywhere but NaN residuals away from the start point: the
+// trials carry no information and must all be rejected.
+struct NaNExceptAtStartResidual {
+  using Scalar = double;
+  enum { NUM_RESIDUALS = 2, NUM_PARAMETERS = 2 };
+
+  bool operator()(const double* parameters,
+                  double* residuals,
+                  double* jacobian) const {
+    if (parameters[0] != 0.0 || parameters[1] != 0.0) {
+      const double nan = std::numeric_limits<double>::quiet_NaN();
+      residuals[0] = nan;
+      residuals[1] = nan;
+      if (jacobian != nullptr) {
+        jacobian[0] = jacobian[1] = jacobian[2] = jacobian[3] = nan;
+      }
+      return true;
+    }
+    residuals[0] = 1.0;
+    residuals[1] = 2.0;
+    if (jacobian != nullptr) {
+      jacobian[0] = 1.0;
+      jacobian[1] = 0.0;
+      jacobian[2] = 0.0;
+      jacobian[3] = 1.0;
+    }
+    return true;
+  }
+};
+
+TEST(TinySolver, TrialPointNonFiniteResidualsAreRejectedWithoutProgress) {
+  TinySolver<NaNExceptAtStartResidual> solver;
+  TinySolver<NaNExceptAtStartResidual>::Options options;
+  Eigen::Vector2d x(0, 0);
+  const auto summary = solver.Solve(NaNExceptAtStartResidual(), &x, options);
+  EXPECT_EQ(summary.status,
+            TinySolver<NaNExceptAtStartResidual>::RELATIVE_STEP_SIZE_TOO_SMALL);
+  EXPECT_LT(summary.iterations, options.max_num_iterations);
+  EXPECT_EQ(x, Eigen::Vector2d(0, 0));
 }
 
 }  // namespace
