@@ -90,15 +90,28 @@ CeresRotationAverager::CeresRotationAverager(
         "Ceres rotation averaging requires a connected pose graph");
   }
 
-  if (!options.refine_sensor_from_rig) {
-    for (const image_t image_id : image_ids) {
-      const auto& image = reconstruction.Image(image_id);
-      if (image.IsRefInFrame()) continue;
-      if (!image.FramePtr()->RigPtr()->HasSensorFromRig(
-              image.CameraPtr()->SensorId())) {
-        throw std::invalid_argument(
-            "rotation averaging requires sensor rotations");
-      }
+  // Validate fixed sensors before replacing invalid initial rotations.
+  for (const image_t image_id : image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    if (image.IsRefInFrame()) continue;
+    const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
+        image.CameraPtr()->SensorId());
+    const bool refine_sensor =
+        options.refine_sensor_from_rig &&
+        (!pose.has_value() || pose->translation().hasNaN());
+    if (!refine_sensor &&
+        (!pose.has_value() || !pose->rotation().coeffs().allFinite())) {
+      throw std::invalid_argument(
+          "rotation averaging requires finite sensor rotations");
+    }
+  }
+  for (const image_t image_id : image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    if (image.IsRefInFrame()) continue;
+    auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
+        image.CameraPtr()->SensorId());
+    if (pose.has_value() && !pose->rotation().coeffs().allFinite()) {
+      pose.reset();
     }
   }
   if (!options.skip_initialization) {
@@ -132,10 +145,6 @@ CeresRotationAverager::CeresRotationAverager(
         pose = Rigid3d(Eigen::Quaterniond::Identity(),
                        Eigen::Vector3d::Constant(
                            std::numeric_limits<double>::quiet_NaN()));
-      }
-      if (!pose->rotation().coeffs().allFinite()) {
-        throw std::invalid_argument(
-            "rotation averaging requires sensor rotations");
       }
       double* sensor = add_rotation(pose->rotation());
       if (!options.refine_sensor_from_rig || !pose->translation().hasNaN()) {

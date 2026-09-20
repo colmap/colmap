@@ -305,8 +305,9 @@ TEST(CeresRotationAverager, CalibratedRigWithDisconnectedImageGraph) {
 TEST(CeresRotationAverager, EstimatesUncalibratedRigs) {
   const Reconstruction truth = MakeRigReconstruction(2);
   const PoseGraph graph = MakePoseGraph(truth);
-  // Missing calibration, rotation-only calibration, and supplied warm start.
-  for (const int mode : {0, 1, 2}) {
+  // Missing calibration, rotation-only calibration, supplied warm start,
+  // NaN rotation, and NaN warm start.
+  for (const int mode : {0, 1, 2, 3, 4}) {
     Reconstruction reconstruction = truth;
     for (const auto& [id, rig] : truth.Rigs()) {
       for (const auto& [sensor, pose] : rig.NonRefSensors()) {
@@ -314,13 +315,18 @@ TEST(CeresRotationAverager, EstimatesUncalibratedRigs) {
           reconstruction.Rig(id).ResetSensorFromRig(sensor);
         } else {
           auto& initial = reconstruction.Rig(id).SensorFromRig(sensor);
-          initial.rotation() = ZRotation(0.15) * initial.rotation();
+          if (mode >= 3) {
+            initial.rotation().coeffs().setConstant(
+                std::numeric_limits<double>::quiet_NaN());
+          } else {
+            initial.rotation() = ZRotation(0.15) * initial.rotation();
+          }
           initial.translation()[0] = std::numeric_limits<double>::quiet_NaN();
         }
       }
     }
     CeresRotationAveragerOptions options;
-    options.skip_initialization = mode == 2;
+    options.skip_initialization = mode == 2 || mode == 4;
     options.solver_options.function_tolerance = 1e-12;
     options.solver_options.gradient_tolerance = 1e-12;
     options.solver_options.parameter_tolerance = 1e-12;
@@ -393,6 +399,19 @@ TEST(CeresRotationAverager, MissingSensorRotation) {
   EXPECT_EQ(reconstruction.Rigs(), before.Rigs());
   EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
 
+  rig.SetSensorFromRig(sensor_id,
+                       Rigid3d(Eigen::Quaterniond(Eigen::Vector4d::Constant(
+                                   std::numeric_limits<double>::quiet_NaN())),
+                               Eigen::Vector3d::Zero()));
+  for (const bool refine : {false, true}) {
+    options.refine_sensor_from_rig = refine;
+    EXPECT_THROW(
+        CreateDefaultCeresRotationAverager(options, graph, reconstruction),
+        std::invalid_argument);
+    EXPECT_EQ(reconstruction.Frames(), before.Frames());
+    EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
+  }
+  rig.ResetSensorFromRig(sensor_id);
   options.refine_sensor_from_rig = true;
   options.skip_initialization = false;
   auto averager =
@@ -401,6 +420,15 @@ TEST(CeresRotationAverager, MissingSensorRotation) {
   EXPECT_EQ(rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
   EXPECT_FALSE(
       averager->Problem().IsParameterBlockConstant(rotation.coeffs().data()));
+  ASSERT_TRUE(averager->Solve().IsSolutionUsable());
+  ExpectRelativeRotations(reconstruction, graph, 1e-7);
+
+  averager.reset();
+  rig.SensorFromRig(sensor_id).rotation().coeffs().setConstant(
+      std::numeric_limits<double>::quiet_NaN());
+  averager = CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+  EXPECT_EQ(rig.SensorFromRig(sensor_id).rotation().coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
   ASSERT_TRUE(averager->Solve().IsSolutionUsable());
   ExpectRelativeRotations(reconstruction, graph, 1e-7);
 }
