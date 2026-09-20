@@ -805,11 +805,11 @@ int RunCameraCalibrator(int argc, char** argv) {
     image_names = ReadTextFileLines(image_list_path);
   }
 
-  auto calibrator = CreateCameraCalibrationController(
-      *options.database_path,
-      *options.image_path,
-      *options.camera_calibration,
-      image_names);
+  auto calibrator =
+      CreateCameraCalibrationController(*options.database_path,
+                                        *options.image_path,
+                                        *options.camera_calibration,
+                                        image_names);
   calibrator->Start();
   calibrator->Wait();
 

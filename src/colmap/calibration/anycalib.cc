@@ -102,10 +102,10 @@ class AnyCalibCalibrator : public CameraCalibrator {
     // An empty target model preserves the camera's existing model. Fitting a
     // non-perspective model fails gracefully below (`FitCameraFromRays`
     // rejects it), leaving the camera unmodified.
-    const CameraModelId model_id = options_.camera_model.empty()
-                                       ? camera->model_id
-                                       : CameraModelNameToId(
-                                             options_.camera_model);
+    const CameraModelId model_id =
+        options_.camera_model.empty()
+            ? camera->model_id
+            : CameraModelNameToId(options_.camera_model);
     // The camera-model switches throw on invalid models instead of returning
     // false, so reject them explicitly before running inference.
     if (model_id == CameraModelId::kInvalid) {
