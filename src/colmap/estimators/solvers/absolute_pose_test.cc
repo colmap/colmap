@@ -3,6 +3,8 @@
 #include "colmap/estimators/solvers/absolute_pose.h"
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
@@ -62,8 +64,10 @@ TEST(AbsolutePose, P3P) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
-                1e-5);
+      EXPECT_THAT(report.model,
+                  Rigid3dNear(expected_cam_from_world,
+                              /*rtol=*/1e-6,
+                              /*ttol=*/1e-6));
 
       // Test residuals of exact points.
       std::vector<double> residuals;
@@ -127,10 +131,10 @@ TEST(AbsolutePose, P4PFSharedFocalLength) {
         EXPECT_EQ(report.model.focal_lengths.x(),
                   report.model.focal_lengths.y());
         EXPECT_NEAR(report.model.focal_lengths.x(), f, 1e-3);
-        EXPECT_LT(
-            (expected_cam_from_world.ToMatrix() - report.model.cam_from_world)
-                .norm(),
-            1e-3);
+        EXPECT_THAT(report.model.cam_from_world,
+                    Rigid3dNear(expected_cam_from_world,
+                                /*rtol=*/1e-6,
+                                /*ttol=*/1e-6));
 
         // Test residuals of exact points.
         std::vector<double> residuals;
@@ -195,10 +199,10 @@ TEST(AbsolutePose, P4PFSeparateFocalLengths) {
         EXPECT_TRUE(report.success);
         EXPECT_NEAR(report.model.focal_lengths.x(), focal_lengths.x(), 1e-3);
         EXPECT_NEAR(report.model.focal_lengths.y(), focal_lengths.y(), 1e-3);
-        EXPECT_LT(
-            (expected_cam_from_world.ToMatrix() - report.model.cam_from_world)
-                .norm(),
-            1e-3);
+        EXPECT_THAT(report.model.cam_from_world,
+                    Rigid3dNear(expected_cam_from_world,
+                                /*rtol=*/1e-6,
+                                /*ttol=*/1e-6));
 
         // Test residuals of exact points.
         std::vector<double> residuals;
@@ -218,7 +222,7 @@ TEST(AbsolutePose, P4PFSeparateFocalLengths) {
   }
 }
 
-TEST(AbsolutePose, EPNP) {
+TEST(AbsolutePose, P3PRefine) {
   const std::vector<Eigen::Vector3d> points3D = {
       Eigen::Vector3d(1, 1, 1),
       Eigen::Vector3d(0, 1, 1),
@@ -250,7 +254,7 @@ TEST(AbsolutePose, EPNP) {
           Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.
-      std::vector<EPNPEstimator::X_t> points2D;
+      std::vector<P3PEstimator::X_t> points2D;
       for (size_t i = 0; i < points3D.size(); ++i) {
         auto& point2D = points2D.emplace_back();
         point2D.camera_ray =
@@ -260,94 +264,69 @@ TEST(AbsolutePose, EPNP) {
 
       RANSACOptions options;
       options.max_error = 1e-5;
-      RANSAC<EPNPEstimator> ransac(options, EPNPEstimator(img_from_cam_func));
+      LORANSAC<P3PEstimator, P3PEstimator> ransac(
+          options,
+          P3PEstimator(img_from_cam_func),
+          P3PEstimator(img_from_cam_func));
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
-                1e-3);
+      EXPECT_THAT(report.model,
+                  Rigid3dNear(expected_cam_from_world,
+                              /*rtol=*/1e-6,
+                              /*ttol=*/1e-6));
 
       // Test residuals of exact points.
       std::vector<double> residuals;
-      ransac.estimator.Residuals(points2D, points3D, report.model, &residuals);
+      ransac.local_estimator.Residuals(
+          points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         EXPECT_LT(residuals[i], 1e-3);
       }
 
       // Test residuals of faulty points.
-      ransac.estimator.Residuals(
+      ransac.local_estimator.Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         EXPECT_GT(residuals[i], 0.1);
       }
     }
   }
-}
 
-TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
-  std::vector<Eigen::Vector2d> image_points;
-  image_points.emplace_back(-2.6783007931074532e-01, 5.3457197430746251e-01);
-  image_points.emplace_back(-4.2629907287470264e-01, 7.5623350319519789e-01);
-  image_points.emplace_back(-1.6767413005963930e-01, -1.3387172544910089e-01);
-  image_points.emplace_back(-5.6616329720373559e-02, 2.3621156497739373e-01);
-  image_points.emplace_back(-1.7721225948969935e-01, 2.3395366792735982e-02);
-  image_points.emplace_back(-5.1836259886632222e-02, -4.4380694271927049e-02);
-  image_points.emplace_back(-3.5897765845560037e-01, 1.6252721078589397e-01);
-  image_points.emplace_back(2.7057324473684058e-01, -1.4067450104631887e-01);
-  image_points.emplace_back(-2.5811166424334520e-01, 8.0167171300227366e-02);
-  image_points.emplace_back(2.0239567448222310e-02, -3.2845953375344145e-01);
-  image_points.emplace_back(4.2571014715170657e-01, -2.8321173570154773e-01);
-  image_points.emplace_back(-5.4597596412987237e-01, 9.1431935871671977e-02);
+  // Refine recovers the true pose from a perturbed initialization.
+  const Rigid3d refine_expected_cam_from_world(
+      Eigen::Quaterniond(1, 0.3, 0.1, 0.05).normalized(),
+      Eigen::Vector3d(0.5, -0.2, 0.1));
 
-  std::vector<EPNPEstimator::X_t> points2D;
-  for (size_t i = 0; i < image_points.size(); ++i) {
-    auto& point2D = points2D.emplace_back();
-    point2D.image_point = image_points[i];
-    point2D.camera_ray = point2D.image_point.homogeneous().normalized();
-  }
-
-  std::vector<Eigen::Vector3d> points3D;
-  points3D.emplace_back(
-      4.4276865308679305e+00, -1.3384364366019632e+00, -3.5997423085253892e+00);
-  points3D.emplace_back(
-      2.7278555252512309e+00, -3.8152996187231392e-01, -2.6558518399902824e+00);
-  points3D.emplace_back(
-      4.8548566083054894e+00, -1.4756197433631739e+00, -6.8274946022490501e-01);
-  points3D.emplace_back(
-      3.1523013527998449e+00, -1.3377020437938025e+00, -1.6443269301929087e+00);
-  points3D.emplace_back(
-      3.8551679771512073e+00, -1.0557700545885551e+00, -1.1695994508851486e+00);
-  points3D.emplace_back(
-      5.9571373150353812e+00, -2.6120646101684555e+00, -1.0841441206050342e+00);
-  points3D.emplace_back(
-      6.3287088499358894e+00, -1.1761274755817175e+00, -2.5951879774151583e+00);
-  points3D.emplace_back(
-      2.3005305990121250e+00, -1.4019796626800123e+00, -4.4485464455072321e-01);
-  points3D.emplace_back(
-      5.9816859934587354e+00, -1.4211814511691452e+00, -2.0285923889293449e+00);
-  points3D.emplace_back(
-      5.2543344690665457e+00, -2.3389255564264144e+00, 4.3708173185524052e-01);
-  points3D.emplace_back(
-      3.2181599245991688e+00, -2.8906671988445098e+00, 2.6825718150064348e-01);
-  points3D.emplace_back(
-      4.4592895306946758e+00, -9.1235241641579902e-03, -1.6555237117970871e+00);
-
-  std::vector<EPNPEstimator::M_t> models;
-  EPNPEstimator estimator([](const Eigen::Vector3d& point3D_in_cam) {
-    return point3D_in_cam.hnormalized();
-  });
-  estimator.Estimate(points2D, points3D, &models);
-
-  ASSERT_EQ(models.size(), 1);
-
-  double reproj = 0.0;
+  // Project points to camera coordinate system.
+  std::vector<P3PEstimator::X_t> refine_points2D;
   for (size_t i = 0; i < points3D.size(); ++i) {
-    reproj += ((models[0] * points3D[i].homogeneous()).hnormalized() -
-               points2D[i].image_point)
-                  .norm();
+    auto& point2D = refine_points2D.emplace_back();
+    point2D.camera_ray =
+        (refine_expected_cam_from_world * points3D[i]).normalized();
+    point2D.image_point = img_from_cam_func(point2D.camera_ray).value();
   }
 
-  EXPECT_TRUE(reproj < 0.2);
+  P3PEstimator estimator(img_from_cam_func);
+  Rigid3d model = refine_expected_cam_from_world;
+  model.rotation() =
+      Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitZ()) * model.rotation();
+  model.translation() += Eigen::Vector3d(0.1, -0.1, 0.2);
+  EXPECT_TRUE(estimator.Refine(refine_points2D, points3D, &model));
+  EXPECT_THAT(model,
+              Rigid3dNear(refine_expected_cam_from_world,
+                          /*rtol=*/1e-6,
+                          /*ttol=*/1e-6));
+
+  // Fewer than three correspondences cannot determine the pose; the model is
+  // left unchanged.
+  const std::vector<P3PEstimator::X_t> two_points2D(
+      refine_points2D.begin(), refine_points2D.begin() + 2);
+  const std::vector<Eigen::Vector3d> two_points3D(points3D.begin(),
+                                                  points3D.begin() + 2);
+  const Rigid3d model_before = model;
+  EXPECT_FALSE(estimator.Refine(two_points2D, two_points3D, &model));
+  EXPECT_THAT(model, Rigid3dEq(model_before));
 }
 
 TEST(ComputeSquaredReprojectionError, Nominal) {
