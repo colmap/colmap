@@ -41,10 +41,11 @@ def _run_averager() -> None:
     options.reweighting = (
         pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
     )
-    options.solver_options.num_threads = 2
+    options.solver_options.num_threads = 1
     averager = pycolmap.create_default_ceres_rotation_averager(
         options, pose_graph, reconstruction
     )
+    averager.solver_options.num_threads = 2
     assert averager.problem.num_residual_blocks() == 1
     loss = PythonLoss()
     for _ in range(100):
@@ -55,7 +56,9 @@ def _run_averager() -> None:
     del loss
     del reconstruction
     gc.collect()
-    assert averager.solve().IsSolutionUsable()
+    summary = averager.solve()
+    assert summary.IsSolutionUsable()
+    assert summary.num_threads_given == 2
 
 
 if __name__ == "__main__":
