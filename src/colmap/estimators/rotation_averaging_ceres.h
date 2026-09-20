@@ -19,6 +19,7 @@ class Reconstruction;
 
 struct CeresRotationAveragerOptions {
   CeresLossFunctionType loss_function_type = CeresLossFunctionType::HUBER;
+  // Loss function scale in radians.
   double loss_function_scale = DegToRad(5.0);
   RotationAveragingReweighting reweighting =
       RotationAveragingReweighting::UNIFORM;
