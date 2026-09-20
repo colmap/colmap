@@ -172,6 +172,7 @@ TEST(CeresRotationAverager, AddsIndividualRelativeRotationResidual) {
       CeresRotationAveragerOptions(), pose_graph, reconstruction);
 
   auto loss = std::make_shared<ceres::CauchyLoss>(0.05);
+  averager->AddRelativeRotationResidual(1, 1, ZRotation(0.2), loss);
   averager->AddRelativeRotationResidual(1, 2, ZRotation(0.2), loss);
   EXPECT_EQ(averager->Problem().NumResidualBlocks(), 2);
   std::weak_ptr<ceres::LossFunction> retained_loss = loss;

@@ -212,6 +212,11 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   THROW_CHECK(sensor1 == nullptr || problem_->HasParameterBlock(sensor1));
   THROW_CHECK(sensor2 == nullptr || problem_->HasParameterBlock(sensor2));
   const bool same_frame = image1.FrameId() == image2.FrameId();
+  if (same_frame && sensor1 == sensor2) {
+    LOG(WARNING) << "Skipping self-loop for image pair " << image_id1 << ", "
+                 << image_id2;
+    return;
+  }
   ceres::LossFunction* loss = loss_function.get();
   if (loss != nullptr) {
     losses_.try_emplace(loss, std::move(loss_function));
