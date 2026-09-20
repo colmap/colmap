@@ -94,9 +94,11 @@ CeresRotationAverager::CeresRotationAverager(
     for (const image_t image_id : image_ids) {
       const auto& image = reconstruction.Image(image_id);
       if (image.IsRefInFrame()) continue;
-      THROW_CHECK(image.FramePtr()->RigPtr()->HasSensorFromRig(
-          image.CameraPtr()->SensorId()))
-          << "rotation averaging requires sensor rotations";
+      if (!image.FramePtr()->RigPtr()->HasSensorFromRig(
+              image.CameraPtr()->SensorId())) {
+        throw std::invalid_argument(
+            "rotation averaging requires sensor rotations");
+      }
     }
   }
   if (!options.skip_initialization) {
