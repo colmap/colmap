@@ -90,6 +90,19 @@ if(NOT MVS_ENABLED)
     list(FILTER SOURCE_FILES EXCLUDE REGEX ".*/pipeline/mvs\\.cc$")
     list(FILTER SOURCE_FILES EXCLUDE REGEX ".*/pipeline/meshing\\.cc$")
 endif()
+
+# pybind11 enables LTO for the module unless CMAKE_INTERPROCEDURAL_OPTIMIZATION
+# is defined. If the installed COLMAP was built without IPO, its static
+# archives cannot be linked into an LTO module with GCC (undefined references
+# to inline virtuals, e.g. boost::bad_weak_ptr::what() from libboost_thread.a),
+# so match the installed build. An unknown status (a COLMAP predating this
+# export) conservatively disables IPO as well.
+if(NOT COLMAP_INTERPROCEDURAL_OPTIMIZATION
+   AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+    message(STATUS "Disabling interprocedural optimization")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+endif()
+
 pybind11_add_module(_core ${SOURCE_FILES})
 target_include_directories(_core PRIVATE ${PROJECT_SOURCE_DIR}/../src/)
 target_link_libraries(_core PRIVATE colmap::colmap glog::glog Ceres::ceres)

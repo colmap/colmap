@@ -195,9 +195,11 @@ endif()
 
 if(IPO_ENABLED AND NOT IS_DEBUG AND NOT IS_GNU)
     message(STATUS "Enabling interprocedural optimization")
+    set(COLMAP_INTERPROCEDURAL_OPTIMIZATION TRUE)
     set_property(DIRECTORY PROPERTY INTERPROCEDURAL_OPTIMIZATION 1)
 else()
     message(STATUS "Disabling interprocedural optimization")
+    set(COLMAP_INTERPROCEDURAL_OPTIMIZATION FALSE)
 endif()
 
 if(ASAN_ENABLED)
