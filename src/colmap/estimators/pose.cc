@@ -45,9 +45,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
         P4PFEstimator(/*share_focal_length=*/focal_length_idxs.size() == 1));
     auto report = ransac.Estimate(points2D_centered, points3D);
     if (report.success) {
-      *cam_from_world =
-          Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
-                  report.model.cam_from_world.col(3));
+      *cam_from_world = report.model.cam_from_world;
       for (size_t k = 0; k < focal_length_idxs.size(); ++k) {
         camera->params[focal_length_idxs[k]] = report.model.focal_lengths[k];
       }
@@ -67,14 +65,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
         [camera](const Eigen::Vector3d& cam_point) {
           return camera->ImgFromCam(cam_point);
         };
-    LORANSAC<P3PEstimator, EPNPEstimator> ransac(
+    LORANSAC<P3PEstimator, P3PEstimator> ransac(
         options.ransac_options,
         P3PEstimator(img_from_cam_func),
-        EPNPEstimator(img_from_cam_func));
+        P3PEstimator(img_from_cam_func));
     auto report = ransac.Estimate(points2D_with_rays, points3D);
     if (report.success) {
-      *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
-                                report.model.col(3));
+      *cam_from_world = report.model;
       *num_inliers = report.support.num_inliers;
       *inlier_mask = std::move(report.inlier_mask);
       return true;
