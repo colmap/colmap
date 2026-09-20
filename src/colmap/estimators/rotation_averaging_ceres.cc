@@ -89,6 +89,15 @@ CeresRotationAverager::CeresRotationAverager(
         "Ceres rotation averaging requires a connected pose graph");
   }
 
+  if (!options.refine_sensor_from_rig) {
+    for (const image_t image_id : image_ids) {
+      const auto& image = reconstruction.Image(image_id);
+      if (image.IsRefInFrame()) continue;
+      THROW_CHECK(image.FramePtr()->RigPtr()->HasSensorFromRig(
+          image.CameraPtr()->SensorId()))
+          << "rotation averaging requires sensor rotations";
+    }
+  }
   if (!options.skip_initialization) {
     InitializeFromMaximumSpanningTree(
         pose_graph, image_ids, reconstruction, options.refine_sensor_from_rig);
@@ -116,7 +125,12 @@ CeresRotationAverager::CeresRotationAverager(
     if (!image.IsRefInFrame()) {
       auto& pose =
           frame.RigPtr()->MaybeSensorFromRig(image.CameraPtr()->SensorId());
-      if (!pose.has_value() || !pose->rotation().coeffs().allFinite()) {
+      if (!pose.has_value()) {
+        pose = Rigid3d(Eigen::Quaterniond::Identity(),
+                       Eigen::Vector3d::Constant(
+                           std::numeric_limits<double>::quiet_NaN()));
+      }
+      if (!pose->rotation().coeffs().allFinite()) {
         throw std::invalid_argument(
             "rotation averaging requires sensor rotations");
       }

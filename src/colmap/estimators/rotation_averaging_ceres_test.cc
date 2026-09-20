@@ -339,22 +339,41 @@ TEST(CeresRotationAverager, RefinesCalibrationThroughPreparedProblem) {
       1e-8);
 }
 
-TEST(CeresRotationAverager, RejectsMissingSensorRotation) {
+TEST(CeresRotationAverager, MissingSensorRotation) {
   Reconstruction reconstruction = MakeRigReconstruction();
   const auto images = RigImages(reconstruction);
   PoseGraph graph;
-  for (size_t i = 1; i < images.size(); ++i) {
-    graph.AddEdge(
-        images[i - 1][1],
-        images[i][1],
-        Edge(RelativeRotation(reconstruction, images[i - 1][1], images[i][1])));
+  // The sensor has no reference image from the same frame in the graph.
+  for (const auto& [id1, id2] : {std::pair{images[0][0], images[1][0]},
+                                 std::pair{images[1][0], images[2][1]}}) {
+    graph.AddEdge(id1, id2, Edge(RelativeRotation(reconstruction, id1, id2)));
   }
   const Image& image = reconstruction.Image(images[0][1]);
-  reconstruction.Rig(image.FramePtr()->RigId())
-      .ResetSensorFromRig(image.CameraPtr()->SensorId());
-  EXPECT_THROW(CreateDefaultCeresRotationAverager(
-                   CeresRotationAveragerOptions(), graph, reconstruction),
-               std::invalid_argument);
+  Rig& rig = *image.FramePtr()->RigPtr();
+  const sensor_t sensor_id = image.CameraPtr()->SensorId();
+  rig.ResetSensorFromRig(sensor_id);
+  reconstruction.DeRegisterFrame(reconstruction.Image(images[2][1]).FrameId());
+  const Reconstruction before = reconstruction;
+  CeresRotationAveragerOptions options;
+  options.skip_initialization = true;
+  options.refine_sensor_from_rig = false;
+  EXPECT_THROW(
+      CreateDefaultCeresRotationAverager(options, graph, reconstruction),
+      std::invalid_argument);
+  EXPECT_EQ(reconstruction.Frames(), before.Frames());
+  EXPECT_EQ(reconstruction.Rigs(), before.Rigs());
+  EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
+
+  options.refine_sensor_from_rig = true;
+  options.skip_initialization = false;
+  auto averager =
+      CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+  const auto rotation = rig.SensorFromRig(sensor_id).rotation();
+  EXPECT_EQ(rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_FALSE(
+      averager->Problem().IsParameterBlockConstant(rotation.coeffs().data()));
+  ASSERT_TRUE(averager->Solve().IsSolutionUsable());
+  ExpectRelativeRotations(reconstruction, graph, 1e-7);
 }
 
 }  // namespace
