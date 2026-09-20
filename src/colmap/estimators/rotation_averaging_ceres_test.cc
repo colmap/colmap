@@ -11,6 +11,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -149,6 +150,28 @@ TEST(CeresRotationAverager, AddsIndividualRelativeRotationResidual) {
   loss.reset();
   EXPECT_FALSE(retained_loss.expired());
   EXPECT_TRUE(averager->Solve().IsSolutionUsable());
+}
+
+TEST(CeresRotationAverager, RejectsUnconfiguredRotationBlocks) {
+  Reconstruction reconstruction = MakeRigReconstruction();
+  const auto images = RigImages(reconstruction);
+  PoseGraph graph;
+  graph.AddEdge(images[0][0], images[1][0], Edge(ZRotation(0.2)));
+  CeresRotationAveragerOptions options;
+  options.skip_initialization = true;
+  auto averager =
+      CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+
+  for (const auto& [image1, image2] : {std::pair{images[2][0], images[0][0]},
+                                       std::pair{images[0][0], images[2][0]},
+                                       std::pair{images[0][1], images[1][0]},
+                                       std::pair{images[0][0], images[1][1]}}) {
+    EXPECT_THROW(averager->AddRelativeRotationResidual(
+                     image1, image2, ZRotation(0.2), nullptr),
+                 std::invalid_argument);
+    EXPECT_EQ(averager->Problem().NumParameterBlocks(), 2);
+    EXPECT_EQ(averager->Problem().NumResidualBlocks(), 1);
+  }
 }
 
 TEST(CeresRotationAverager, SelectsMstOrSuppliedInitialization) {

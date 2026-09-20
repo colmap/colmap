@@ -7,6 +7,7 @@
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/util/logging.h"
 
 #include <algorithm>
 #include <limits>
@@ -173,6 +174,8 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   Frame& frame2 = *image2.FramePtr();
   double* rotation1 = frame1.RigFromWorld().rotation().coeffs().data();
   double* rotation2 = frame2.RigFromWorld().rotation().coeffs().data();
+  THROW_CHECK(problem_->HasParameterBlock(rotation1));
+  THROW_CHECK(problem_->HasParameterBlock(rotation2));
   const auto sensor_block = [](const Image& image) -> double* {
     if (image.IsRefInFrame()) return nullptr;
     const sensor_t sensor_id = image.CameraPtr()->SensorId();
@@ -182,6 +185,8 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   };
   double* sensor1 = sensor_block(image1);
   double* sensor2 = sensor_block(image2);
+  THROW_CHECK(sensor1 == nullptr || problem_->HasParameterBlock(sensor1));
+  THROW_CHECK(sensor2 == nullptr || problem_->HasParameterBlock(sensor2));
   const bool same_frame = image1.FrameId() == image2.FrameId();
   ceres::LossFunction* loss = loss_function.get();
   if (loss != nullptr) {
