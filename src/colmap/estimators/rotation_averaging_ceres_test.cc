@@ -130,7 +130,7 @@ TEST(CeresRotationAverager, RecoversNominalRotations) {
       CreateDefaultCeresRotationAverager(options, pose_graph, reconstruction);
   EXPECT_EQ(averager->Problem().NumParameterBlocks(), 3);
   EXPECT_EQ(averager->Problem().NumResidualBlocks(), 2);
-  EXPECT_EQ(averager->SolverOptions().linear_solver_type,
+  EXPECT_EQ(averager->solver_options.linear_solver_type,
             ceres::SPARSE_NORMAL_CHOLESKY);
   ASSERT_TRUE(averager->Solve().IsSolutionUsable());
   ExpectRelativeRotations(reconstruction, pose_graph, 1e-10);

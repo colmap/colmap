@@ -63,9 +63,9 @@ void BindCeresRotationAverager(py::module& m) {
           py::overload_cast<>(&CeresRotationAverager::Problem),
           py::return_value_policy::reference_internal,
           "Ceres problem for inspecting and modifying the optimization.")
-      .def_property_readonly("solver_options",
-                             &CeresRotationAverager::SolverOptions,
-                             "Ceres solver options.");
+      .def_readwrite("solver_options",
+                     &CeresRotationAverager::solver_options,
+                     "Ceres solver options.");
 
   m.def("create_default_ceres_rotation_averager",
         &CreateDefaultCeresRotationAverager,

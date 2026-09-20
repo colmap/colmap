@@ -46,10 +46,11 @@ class CeresRotationAverager {
   CeresRotationAverager(const CeresRotationAverager&) = delete;
   CeresRotationAverager& operator=(const CeresRotationAverager&) = delete;
 
+  ceres::Solver::Options solver_options;
+
   ceres::Solver::Summary Solve();
   ceres::Problem& Problem();
   const ceres::Problem& Problem() const;
-  const ceres::Solver::Options& SolverOptions() const;
   // Frame and sensor rotations for both images must be configured in Problem().
   void AddRelativeRotationResidual(
       image_t image_id1,
@@ -58,7 +59,6 @@ class CeresRotationAverager {
       std::shared_ptr<ceres::LossFunction> loss_function);
 
  private:
-  ceres::Solver::Options solver_options_;
   Reconstruction& reconstruction_;
   // Keep losses alive until the problem is destroyed.
   FlatHashMap<ceres::LossFunction*, std::shared_ptr<ceres::LossFunction>>

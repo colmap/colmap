@@ -65,7 +65,7 @@ CeresRotationAverager::CeresRotationAverager(
     const CeresRotationAveragerOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction)
-    : solver_options_(options.solver_options), reconstruction_(reconstruction) {
+    : solver_options(options.solver_options), reconstruction_(reconstruction) {
   std::shared_ptr<ceres::LossFunction> loss(CreateCeresLossFunction(
       options.loss_function_type, options.loss_function_scale));
   FlatHashSet<image_t> image_ids;
@@ -168,7 +168,7 @@ CeresRotationAverager::CeresRotationAverager(
 
 ceres::Solver::Summary CeresRotationAverager::Solve() {
   ceres::Solver::Summary summary;
-  ceres::Solve(solver_options_, problem_.get(), &summary);
+  ceres::Solve(solver_options, problem_.get(), &summary);
   if (summary.IsSolutionUsable()) {
     for (const auto& [frame_id, frame] : reconstruction_.Frames()) {
       if (frame.HasPose() &&
@@ -184,9 +184,6 @@ ceres::Solver::Summary CeresRotationAverager::Solve() {
 ceres::Problem& CeresRotationAverager::Problem() { return *problem_; }
 const ceres::Problem& CeresRotationAverager::Problem() const {
   return *problem_;
-}
-const ceres::Solver::Options& CeresRotationAverager::SolverOptions() const {
-  return solver_options_;
 }
 
 void CeresRotationAverager::AddRelativeRotationResidual(
