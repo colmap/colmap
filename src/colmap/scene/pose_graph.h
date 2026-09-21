@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
@@ -5,6 +7,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
+
+#include <vector>
 
 namespace colmap {
 
@@ -69,22 +73,28 @@ class PoseGraph {
         edges_.end());
   }
 
-  // Compute the largest connected component of frames.
-  // If filter_unregistered is true, only considers frames with HasPose().
-  // Returns the set of frame_ids in the largest connected component.
-  FlatHashSet<frame_t> ComputeLargestConnectedFrameComponent(
+  // Returns connected components as sets of frame IDs, largest first. If
+  // filter_unregistered is true, only considers frames with HasPose().
+  std::vector<FlatHashSet<frame_t>> ConnectedFrameComponents(
+      const Reconstruction& reconstruction,
+      bool filter_unregistered = true) const;
+
+  // Returns image IDs for each connected frame component. The outer vector is
+  // sorted by the number of frames in each component, largest first. If
+  // filter_unregistered is true, only considers frames with HasPose().
+  std::vector<FlatHashSet<image_t>> ConnectedImageIdsForFrameComponents(
+      const Reconstruction& reconstruction,
+      bool filter_unregistered = true) const;
+
+  // Returns the frame IDs in the largest connected component. If
+  // filter_unregistered is true, only considers frames with HasPose().
+  FlatHashSet<frame_t> LargestConnectedFrameComponent(
       const Reconstruction& reconstruction,
       bool filter_unregistered = true) const;
 
   // Mark image pairs as invalid if either image is not in the active set.
   void InvalidatePairsOutsideActiveImageIds(
       const FlatHashSet<image_t>& active_image_ids);
-
-  // Mark connected clusters of images, where the cluster_id is sorted by the
-  // the number of images. Populates `cluster_ids` output parameter.
-  int MarkConnectedComponents(const Reconstruction& reconstruction,
-                              NodeHashMap<frame_t, int>& cluster_ids,
-                              int min_num_images = -1) const;
 
  private:
   // Map from pair ID to edge data. The pair ID is computed from the

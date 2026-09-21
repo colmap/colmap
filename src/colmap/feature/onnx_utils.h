@@ -1,35 +1,6 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
-
-#include "colmap/util/logging.h"
 
 #include <memory>
 #include <string>
@@ -41,6 +12,15 @@
 
 namespace colmap {
 
+enum class ONNXExecutionProvider {
+  CPU,
+  CUDA,
+  COREML,
+};
+
+// Resolve the execution provider requested by `use_gpu` for this build.
+ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu);
+
 // Format tensor shape as a string for logging/error messages.
 std::string FormatONNXTensorShape(const std::vector<int64_t>& shape);
 
@@ -51,14 +31,46 @@ void ThrowCheckONNXNode(std::string_view name,
                         const std::vector<int64_t>& shape,
                         const std::vector<int64_t>& expected_shape);
 
+// Create a CPU ONNX tensor that references the given data. The caller must
+// keep the data alive until the tensor is consumed by ONNXModel::Run().
+template <typename T>
+inline Ort::Value CreateONNXTensor(T* data,
+                                   size_t num_elements,
+                                   const std::vector<int64_t>& shape) {
+  return Ort::Value::CreateTensor<T>(
+      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                 OrtMemType::OrtMemTypeCPU),
+      data,
+      num_elements,
+      shape.data(),
+      shape.size());
+}
+
+template <typename T>
+inline Ort::Value CreateONNXTensor(std::vector<T>& data,
+                                   const std::vector<int64_t>& shape) {
+  return CreateONNXTensor(data.data(), data.size(), shape);
+}
+
+// Create a scalar (rank-0) CPU ONNX tensor.
+template <typename T>
+inline Ort::Value CreateONNXScalarTensor(T& value) {
+  static const std::vector<int64_t> kEmptyShape;
+  return CreateONNXTensor(&value, 1, kEmptyShape);
+}
+
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {
  public:
+  // A capability probe propagates initialization failures without logging an
+  // error. When a non-CPU provider is selected, it also requires that provider
+  // to support the complete graph instead of falling back to CPU.
   ONNXModel(std::string model_path,
             int num_threads,
             bool use_gpu,
-            const std::string& gpu_index);
+            const std::string& gpu_index,
+            bool is_capability_probe = false);
 
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
@@ -71,12 +83,16 @@ class ONNXModel {
     return output_shapes_;
   }
   const std::vector<char*>& output_names() const { return output_names_; }
+  ONNXExecutionProvider execution_provider() const {
+    return execution_provider_;
+  }
 
  private:
   void InitializeSession(const std::string& model_path,
                          int num_threads,
                          bool use_gpu,
-                         const std::string& gpu_index);
+                         const std::string& gpu_index,
+                         bool is_capability_probe);
 
   // Apply the common, provider-independent session options (threading,
   // execution mode, graph optimization). Resets any previously appended
@@ -88,6 +104,7 @@ class ONNXModel {
   Ort::AllocatorWithDefaultOptions allocator_;
   Ort::SessionOptions session_options_;
   std::unique_ptr<Ort::Session> session_;
+  ONNXExecutionProvider execution_provider_ = ONNXExecutionProvider::CPU;
   std::vector<std::vector<int64_t>> input_shapes_;
   std::vector<Ort::AllocatedStringPtr> input_name_strs_;
   std::vector<char*> input_names_;

@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/sensor/bitmap.h"
 
@@ -404,6 +377,9 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
   OIIO::ImageSpec config;
   config["oiio:reorient"] = 0;
+  // Preserve color values when reading formats with unassociated alpha. Alpha
+  // is discarded below, so automatic premultiplication would darken pixels.
+  config["oiio:UnassociatedAlpha"] = 1;
 
   const auto input = OIIO::ImageInput::open(PathToUtf8(path), &config);
   if (!input) {
@@ -525,7 +501,27 @@ void Bitmap::Rescale(const int new_width,
   OIIO::ImageBuf new_buf(
       OIIO::ImageSpec(new_width, new_height, channels_, OIIO::TypeDesc::UINT8),
       new_data.data());
-  THROW_CHECK(OIIO::ImageBufAlgo::resize(new_buf, buf));
+  switch (filter) {
+    case RescaleFilter::kBilinear:
+      // Unlike resample(), resize() applies antialiasing when downsampling.
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, {{"filtername", "triangle"}}));
+#else
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, /*filtername=*/"triangle", /*filterwidth=*/0.0f));
+#endif
+      break;
+    case RescaleFilter::kBox:
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(3, 0, 0)
+      THROW_CHECK(
+          OIIO::ImageBufAlgo::resize(new_buf, buf, {{"filtername", "box"}}));
+#else
+      THROW_CHECK(OIIO::ImageBufAlgo::resize(
+          new_buf, buf, /*filtername=*/"box", /*filterwidth=*/0.0f));
+#endif
+      break;
+  }
 
   width_ = new_width;
   height_ = new_height;
@@ -604,9 +600,12 @@ Bitmap Bitmap::CloneAsGrey() const {
     cloned.linear_colorspace_ = linear_colorspace_;
     cloned.data_.resize(width_ * height_);
     for (size_t i = 0; i < cloned.data_.size(); ++i) {
-      cloned.data_[i] =
-          std::round(.2126f * data_[3 * i + 0] + .7152f * data_[3 * i + 1] +
-                     .0722f * data_[3 * i + 2]);
+      // The weighted sum is non-negative, so adding 0.5 before truncating is
+      // equivalent to std::round and allows the loop to be vectorized.
+      // NOLINTNEXTLINE(bugprone-incorrect-roundings)
+      cloned.data_[i] = static_cast<uint8_t>(.2126f * data_[3 * i + 0] +
+                                             .7152f * data_[3 * i + 1] +
+                                             .0722f * data_[3 * i + 2] + .5f);
     }
     cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
     auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
@@ -705,6 +704,12 @@ float JetColormap::Red(const float gray) { return Base(gray - 0.25f); }
 float JetColormap::Green(const float gray) { return Base(gray); }
 
 float JetColormap::Blue(const float gray) { return Base(gray + 0.25f); }
+
+BitmapColor<uint8_t> JetColormap::ToBitmapColor(const float gray) {
+  return BitmapColor<float>(
+             255 * Red(gray), 255 * Green(gray), 255 * Blue(gray))
+      .Cast<uint8_t>();
+}
 
 float JetColormap::Base(const float val) {
   // NOLINTNEXTLINE(bugprone-branch-clone)

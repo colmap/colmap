@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/sfm/global_mapper.h"
 
 #include "colmap/controllers/global_pipeline.h"
@@ -45,6 +47,8 @@ void BindGlobalMapper(py::module& m) {
                        &Opts::track_required_tracks_per_view)
         .def_readwrite("track_min_num_views_per_track",
                        &Opts::track_min_num_views_per_track)
+        .def_readwrite("track_max_num_views_per_track",
+                       &Opts::track_max_num_views_per_track)
         .def_readwrite("keep_max_num_tracks", &Opts::keep_max_num_tracks)
         .def_readwrite("max_angular_reproj_error_deg",
                        &Opts::max_angular_reproj_error_deg)
@@ -96,6 +100,8 @@ void BindGlobalMapper(py::module& m) {
         .def_readwrite("random_seed", &Opts::random_seed)
         .def_readwrite("decompose_relative_pose",
                        &Opts::decompose_relative_pose)
+        .def_readwrite("multiple_models", &Opts::multiple_models)
+        .def_readwrite("min_model_size", &Opts::min_model_size)
         .def_readwrite("mapper", &Opts::mapper);
     MakeDataclass(PyOpts);
   }

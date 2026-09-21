@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 An example for running incremental SfM on images with the pycolmap interface.
 """

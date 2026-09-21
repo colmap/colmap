@@ -1,31 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#
-#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-#       its contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+# SPDX-License-Identifier: BSD-3-Clause
 
 import csv
 import tempfile
@@ -106,8 +79,10 @@ def _read_sparse_sfm_without_points3D(
 
 
 class _DatasetIMC(Dataset):
+    year: int
+
     @property
-    def position_accuracy_gt(self):
+    def position_accuracy_gt(self) -> float:
         return 0.02
 
     @property
@@ -136,7 +111,7 @@ class _DatasetIMC(Dataset):
             if p.is_file() and p.suffix.lower() in {".jpg", ".jpeg", ".png"}
         )
 
-    def list_scenes(self):
+    def list_scenes(self) -> list[SceneInfo]:
         folder_name = f"imc{self.year}"
 
         scene_infos = []
@@ -192,7 +167,7 @@ class _DatasetIMC(Dataset):
 
         return scene_infos
 
-    def prepare_scene(self, scene_info):
+    def prepare_scene(self, scene_info: SceneInfo) -> None:
         if scene_info.sparse_gt_path.exists():
             return
 
@@ -249,7 +224,7 @@ class DatasetIMC2023(_DatasetIMC):
         scenes: list[Path],
         run_path: Path,
         run_name: str,
-    ):
+    ) -> None:
         super().__init__(
             data_path=data_path,
             categories=categories,
@@ -268,7 +243,7 @@ class DatasetIMC2024(_DatasetIMC):
         scenes: list[Path],
         run_path: Path,
         run_name: str,
-    ):
+    ) -> None:
         super().__init__(
             data_path=data_path,
             categories=categories,
@@ -314,7 +289,7 @@ class DatasetIMC2025(_DatasetIMC):
         scenes: list[Path],
         run_path: Path,
         run_name: str,
-    ):
+    ) -> None:
         super().__init__(
             data_path=data_path,
             categories=categories,
@@ -496,7 +471,7 @@ class DatasetIMC2025(_DatasetIMC):
             )
         return num_images
 
-    def prepare_scene(self, scene_info):
+    def prepare_scene(self, scene_info: SceneInfo) -> None:
         gt_rows_by_scene, _ = self._read_imc2025_labels(self._labels_path())
         dataset = scene_info.scene
 

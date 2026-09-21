@@ -1,24 +1,26 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 import numpy as np
 
 import pycolmap
 
 
-def test_gps_transform_ellipsoid_enum():
+def test_gps_transform_ellipsoid_enum() -> None:
     assert pycolmap.GPSTransformEllipsoid.GRS80 is not None
     assert pycolmap.GPSTransformEllipsoid.WGS84 is not None
 
 
-def test_gps_transform_default_init():
+def test_gps_transform_default_init() -> None:
     transform = pycolmap.GPSTransform()
     assert transform is not None
 
 
-def test_gps_transform_init_with_wgs84():
+def test_gps_transform_init_with_wgs84() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     assert transform is not None
 
 
-def test_gps_transform_ellipsoid_to_ecef():
+def test_gps_transform_ellipsoid_to_ecef() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     lat_lon_alt = [np.array([47.0, 8.0, 500.0])]
     result = transform.ellipsoid_to_ecef(lat_lon_alt)
@@ -26,7 +28,7 @@ def test_gps_transform_ellipsoid_to_ecef():
     assert result[0].shape == (3,)
 
 
-def test_gps_transform_ecef_to_ellipsoid():
+def test_gps_transform_ecef_to_ellipsoid() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     lat_lon_alt = [np.array([47.0, 8.0, 500.0])]
     ecef = transform.ellipsoid_to_ecef(lat_lon_alt)
@@ -35,7 +37,7 @@ def test_gps_transform_ecef_to_ellipsoid():
     assert result[0].shape == (3,)
 
 
-def test_gps_transform_ellipsoid_ecef_roundtrip():
+def test_gps_transform_ellipsoid_ecef_roundtrip() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     lat_lon_alt = [np.array([47.0, 8.0, 500.0])]
     ecef = transform.ellipsoid_to_ecef(lat_lon_alt)
@@ -45,7 +47,7 @@ def test_gps_transform_ellipsoid_ecef_roundtrip():
     )
 
 
-def test_gps_transform_ellipsoid_to_enu():
+def test_gps_transform_ellipsoid_to_enu() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     lat_lon_alt = [np.array([47.0, 8.0, 500.0])]
     ref_lat = 47.0
@@ -56,7 +58,7 @@ def test_gps_transform_ellipsoid_to_enu():
     assert result[0].shape == (3,)
 
 
-def test_gps_transform_ecef_to_enu():
+def test_gps_transform_ecef_to_enu() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     lat_lon_alt = [np.array([47.0, 8.0, 500.0])]
     ecef = transform.ellipsoid_to_ecef(lat_lon_alt)
@@ -66,7 +68,7 @@ def test_gps_transform_ecef_to_enu():
     assert result[0].shape == (3,)
 
 
-def test_gps_transform_enu_to_ellipsoid():
+def test_gps_transform_enu_to_ellipsoid() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     ref_lat = 47.0
     ref_lon = 8.0
@@ -77,7 +79,7 @@ def test_gps_transform_enu_to_ellipsoid():
     assert result[0].shape == (3,)
 
 
-def test_gps_transform_enu_to_ecef():
+def test_gps_transform_enu_to_ecef() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     ref_lat = 47.0
     ref_lon = 8.0
@@ -88,7 +90,7 @@ def test_gps_transform_enu_to_ecef():
     assert result[0].shape == (3,)
 
 
-def test_gps_transform_ellipsoid_to_utm():
+def test_gps_transform_ellipsoid_to_utm() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     lat_lon_alt = [np.array([47.0, 8.0, 500.0])]
     utm_coords, zone = transform.ellipsoid_to_utm(lat_lon_alt)
@@ -97,7 +99,7 @@ def test_gps_transform_ellipsoid_to_utm():
     assert isinstance(zone, int)
 
 
-def test_gps_transform_utm_to_ellipsoid():
+def test_gps_transform_utm_to_ellipsoid() -> None:
     transform = pycolmap.GPSTransform(pycolmap.GPSTransformEllipsoid.WGS84)
     lat_lon_alt = [np.array([47.0, 8.0, 500.0])]
     utm_coords, zone = transform.ellipsoid_to_utm(lat_lon_alt)

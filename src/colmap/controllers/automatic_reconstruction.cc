@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
@@ -91,6 +64,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
         FeatureExtractorType::ALIKED_N16ROT;
     option_manager_.feature_matching->type =
         FeatureMatcherType::ALIKED_BRUTEFORCE;
+  } else if (options_.feature == Feature::LOMA) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B;
+    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B;
+  } else if (options_.feature == Feature::LOMA128) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
+    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B128;
   }
 
   // Apply quality preset (scales max_image_size relative to extractor default).
@@ -105,8 +84,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   }
 
   // Feature-specific overrides that must come after quality.
-  if (options_.feature == Feature::ALIKED) {
-    // Guided matching is not supported for ALIKED.
+  if (options_.feature == Feature::ALIKED ||
+      options_.feature == Feature::LOMA ||
+      options_.feature == Feature::LOMA128) {
+    // Guided matching is not supported for ALIKED/LoMa
     option_manager_.feature_matching->guided_matching = false;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;

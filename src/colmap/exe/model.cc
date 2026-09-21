@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/exe/model.h"
 
@@ -46,7 +19,6 @@
 #include "colmap/util/threading.h"
 
 #include <fstream>
-#include <locale>
 
 namespace colmap {
 namespace {
@@ -77,9 +49,7 @@ void WriteBoundingBox(const std::filesystem::path& reconstruction_path,
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
-    // Ensure that we don't lose any precision by storing in text.
-    file.imbue(std::locale::classic());
-    file.precision(17);
+    SetFullPrecTextStream(file);
     file << bbox.min().transpose() << '\n';
     file << bbox.max().transpose() << '\n';
   }
@@ -89,9 +59,7 @@ void WriteBoundingBox(const std::filesystem::path& reconstruction_path,
     std::ofstream file(path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, path);
 
-    // Ensure that we don't lose any precision by storing in text.
-    file.imbue(std::locale::classic());
-    file.precision(17);
+    SetFullPrecTextStream(file);
     const Eigen::Vector3d center = (bbox.min() + bbox.max()) * 0.5;
     file << center.transpose() << "\n\n";
     file << "1 0 0\n0 1 0\n0 0 1\n\n";
@@ -133,7 +101,7 @@ void ReadFileCameraLocations(const std::filesystem::path& ref_images_path,
                              std::vector<Eigen::Vector3d>* ref_locations) {
   for (const auto& line : ReadTextFileLines(ref_images_path)) {
     std::stringstream line_parser(line);
-    line_parser.imbue(std::locale::classic());
+    SetFullPrecTextStream(line_parser);
     std::string image_name;
     Eigen::Vector3d camera_position;
     THROW_CHECK(line_parser >> image_name >> camera_position[0] >>
@@ -181,8 +149,7 @@ void WriteComparisonErrorsCSV(const std::filesystem::path& path,
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  file.imbue(std::locale::classic());
-  file.precision(17);
+  SetFullPrecTextStream(file);
   file << "# Model comparison pose errors: one entry per common image\n";
   file << "# <rotation error (deg)>, <proj center error>\n";
   for (size_t i = 0; i < errors.size(); ++i) {
@@ -567,6 +534,7 @@ int RunModelComparer(int argc, char** argv) {
     const auto summary_path = output_path / "errors_summary.txt";
     std::ofstream file(summary_path, std::ios::trunc);
     THROW_CHECK_FILE_OPEN(file, summary_path);
+    SetFullPrecTextStream(file);
     PrintComparisonSummary(file, errors);
   }
   return EXIT_SUCCESS;
@@ -963,7 +931,7 @@ int RunModelSplitter(int argc, char** argv) {
   if (split_type == "tiles") {
     std::ifstream file(split_params);
     THROW_CHECK_FILE_OPEN(file, split_params);
-    file.imbue(std::locale::classic());
+    SetFullPrecTextStream(file);
 
     double x1, y1, z1, x2, y2, z2;
     std::string tile_key;

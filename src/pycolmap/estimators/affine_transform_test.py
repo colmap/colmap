@@ -1,9 +1,11 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 import numpy as np
 
 import pycolmap
 
 
-def test_estimate_affine2d_with_points():
+def test_estimate_affine2d_with_points() -> None:
     source = [
         np.array([0.0, 0.0]),
         np.array([1.0, 0.0]),
@@ -20,5 +22,5 @@ def test_estimate_affine2d_with_points():
     assert result_array.shape == (2, 3)
 
 
-def test_estimate_affine2d_robust_is_callable():
+def test_estimate_affine2d_robust_is_callable() -> None:
     assert callable(pycolmap.estimate_affine2d_robust)

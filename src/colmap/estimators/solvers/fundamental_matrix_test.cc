@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/solvers/fundamental_matrix.h"
 
@@ -33,6 +6,9 @@
 #include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 
+#include <numeric>
+
+#include <Eigen/SVD>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -316,6 +292,93 @@ TEST_P(FundamentalMatrixEightPointEstimatorTests, NoiseStability) {
 INSTANTIATE_TEST_SUITE_P(FundamentalMatrixEightPointEstimator,
                          FundamentalMatrixEightPointEstimatorTests,
                          ::testing::Values(8, 64, 1024));
+
+// Adds isotropic Gaussian pixel noise to both point sets.
+void AddNoise(double stddev,
+              std::vector<Eigen::Vector2d>& points1,
+              std::vector<Eigen::Vector2d>& points2) {
+  for (size_t i = 0; i < points1.size(); ++i) {
+    points1[i] += Eigen::Vector2d(RandomGaussian<double>(0, stddev),
+                                  RandomGaussian<double>(0, stddev));
+    points2[i] += Eigen::Vector2d(RandomGaussian<double>(0, stddev),
+                                  RandomGaussian<double>(0, stddev));
+  }
+}
+
+double MeanSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
+                               const std::vector<Eigen::Vector2d>& points2,
+                               const Eigen::Matrix3d& F) {
+  std::vector<double> residuals;
+  ComputeSquaredSampsonError(points1, points2, F, &residuals);
+  return std::accumulate(residuals.begin(), residuals.end(), 0.0) /
+         residuals.size();
+}
+
+// The exact model is a fixed point on noise-free correspondences: the Sampson
+// error is already zero there, so the refinement must not move away from it.
+TEST(RefineFundamentalMatrixSampson, IsFixedPointAtOptimum) {
+  constexpr size_t kNumPoints = 64;
+  for (size_t k = 0; k < 20; ++k) {
+    const Eigen::Matrix3d K = RandomCalibrationMatrix();
+    const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                                 RandomEigenVectord<3>());
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    RandomEpipolarCorrespondences(
+        cam2_from_cam1, K, kNumPoints, points1, points2);
+
+    Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
+        K, EssentialMatrixFromPose(cam2_from_cam1), K);
+    ASSERT_TRUE(RefineFundamentalMatrixSampson(points1, points2, &F));
+    EXPECT_LT(MeanSquaredSampsonError(points1, points2, F), 1e-15);
+  }
+}
+
+// The refined model stays rank 2 by construction, unlike an eight-point fit,
+// which has to truncate its smallest singular value.
+TEST(RefineFundamentalMatrixSampson, PreservesRankTwo) {
+  constexpr size_t kNumPoints = 100;
+  const Eigen::Matrix3d K = RandomCalibrationMatrix();
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  RandomEpipolarCorrespondences(
+      cam2_from_cam1, K, kNumPoints, points1, points2);
+  AddNoise(0.5, points1, points2);
+
+  Eigen::Matrix3d F = FundamentalFromEssentialMatrix(
+      K, EssentialMatrixFromPose(cam2_from_cam1), K);
+  ASSERT_TRUE(RefineFundamentalMatrixSampson(points1, points2, &F));
+
+  const Eigen::Vector3d singular_values =
+      Eigen::JacobiSVD<Eigen::Matrix3d>(F).singularValues();
+  EXPECT_LT(singular_values(2), 1e-12 * singular_values(0));
+}
+
+// Models that cannot be factorized leave the input untouched, so local
+// optimization falls back to the model RANSAC already had.
+TEST(RefineFundamentalMatrixSampson, RejectsDegenerateModels) {
+  constexpr size_t kNumPoints = 32;
+  const Eigen::Matrix3d K = RandomCalibrationMatrix();
+  const Rigid3d cam2_from_cam1(RandomEigenQuaterniond(),
+                               RandomEigenVectord<3>());
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  RandomEpipolarCorrespondences(
+      cam2_from_cam1, K, kNumPoints, points1, points2);
+
+  Eigen::Matrix3d zero_F = Eigen::Matrix3d::Zero();
+  EXPECT_FALSE(RefineFundamentalMatrixSampson(points1, points2, &zero_F));
+  EXPECT_EQ(zero_F, Eigen::Matrix3d::Zero());
+
+  // Rank 1: only one non-zero singular value, so the ratio is undefined.
+  Eigen::Matrix3d rank1_F =
+      Eigen::Vector3d(1, 2, 3) * Eigen::RowVector3d(4, 5, 6);
+  const Eigen::Matrix3d expected_rank1_F = rank1_F;
+  EXPECT_FALSE(RefineFundamentalMatrixSampson(points1, points2, &rank1_F));
+  EXPECT_EQ(rank1_F, expected_rank1_F);
+}
 
 }  // namespace
 }  // namespace colmap

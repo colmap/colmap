@@ -1,35 +1,9 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/misc.h"
 
@@ -46,33 +20,23 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
     : sift(std::make_shared<SiftExtractionOptions>()),
-      aliked(std::make_shared<AlikedExtractionOptions>()) {}
+      aliked(std::make_shared<AlikedExtractionOptions>()),
+      loma(std::make_shared<LomaExtractionOptions>()) {}
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
-    const FeatureExtractionTypeOptions& other) {
-  if (other.sift) {
-    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedExtractionOptions>(*other.aliked);
-  }
-}
+    const FeatureExtractionTypeOptions& other)
+    : sift(CloneSharedPtr(other.sift)),
+      aliked(CloneSharedPtr(other.aliked)),
+      loma(CloneSharedPtr(other.loma)) {}
 
 FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
     const FeatureExtractionTypeOptions& other) {
   if (this == &other) {
     return *this;
   }
-  if (other.sift) {
-    sift = std::make_shared<SiftExtractionOptions>(*other.sift);
-  } else {
-    sift.reset();
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedExtractionOptions>(*other.aliked);
-  } else {
-    aliked.reset();
-  }
+  sift = CloneSharedPtr(other.sift);
+  aliked = CloneSharedPtr(other.aliked);
+  loma = CloneSharedPtr(other.loma);
   return *this;
 }
 
@@ -85,6 +49,8 @@ bool FeatureExtractionOptions::RequiresRGB() const {
       return false;
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
+    case FeatureExtractorType::LOMA_B:
+    case FeatureExtractorType::LOMA_B128:
       return true;
     default:
       ThrowUnknownFeatureExtractorType(type);
@@ -108,6 +74,8 @@ bool FeatureExtractionOptions::RequiresOpenGL() const {
     }
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
+    case FeatureExtractorType::LOMA_B:
+    case FeatureExtractorType::LOMA_B128:
       return false;
     default:
       ThrowUnknownFeatureExtractorType(type);
@@ -124,6 +92,8 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
         return 3200;
       case FeatureExtractorType::ALIKED_N16ROT:
       case FeatureExtractorType::ALIKED_N32:
+      case FeatureExtractorType::LOMA_B:
+      case FeatureExtractorType::LOMA_B128:
         return 1600;
       default:
         ThrowUnknownFeatureExtractorType(type);
@@ -148,6 +118,9 @@ bool FeatureExtractionOptions::Check() const {
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return THROW_CHECK_NOTNULL(aliked)->Check();
+    case FeatureExtractorType::LOMA_B:
+    case FeatureExtractorType::LOMA_B128:
+      return THROW_CHECK_NOTNULL(loma)->Check();
     default:
       LOG(ERROR) << "Unknown feature extractor type: " << type;
       return false;
@@ -162,6 +135,9 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return CreateAlikedFeatureExtractor(options);
+    case FeatureExtractorType::LOMA_B:
+    case FeatureExtractorType::LOMA_B128:
+      return CreateLomaFeatureExtractor(options);
     default:
       ThrowUnknownFeatureExtractorType(options.type);
   }

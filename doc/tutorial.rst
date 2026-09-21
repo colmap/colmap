@@ -265,9 +265,10 @@ available) instead requires an attached display, so on such systems the CPU
 version is recommended for use on a server. In general, the GPU version is
 favorable, as it has a customized feature detection mode that often produces
 higher-quality features for high-contrast images.
-COLMAP also supports ALIKED feature extraction, a learned feature extractor
-using ONNX models, which can be selected via the ``--FeatureExtraction.type``
-option (see :ref:`Feature Extraction and Matching <features>` for details). If
+COLMAP also supports ALIKED and LoMa feature extraction, learned feature
+extractors using ONNX models, which can be selected via the
+``--FeatureExtraction.type`` option (see
+:ref:`Feature Extraction and Matching <features>` for details). If
 you import existing features, every image must have a text file next to it (e.g.,
 ``/path/to/image1.jpg`` and ``/path/to/image1.jpg.txt``) in the following format::
 
@@ -329,8 +330,12 @@ matching modes, which are intended for different input scenarios:
   other. This matching mode has built-in loop detection based on a vocabulary
   tree, where every N-th image (``--SequentialMatching.loop_detection_period``)
   is matched against its visually most similar images
-  (``--SequentialMatching.loop_detection_num_images``). Note that image
-  file names must be ordered sequentially (e.g., ``image0001.jpg``,
+  (``--SequentialMatching.loop_detection_num_images``). Retrieved images can
+  be restricted to those that are sufficiently far from the query in the
+  sequence (``--SequentialMatching.loop_detection_min_index_distance``), so
+  that nearby images do not consume the loop detection budget. A value of zero
+  disables this restriction. Note that image file names must be ordered
+  sequentially (e.g., ``image0001.jpg``,
   ``image0002.jpg``, etc.). The order in the database is not relevant, since the
   images are explicitly ordered according to their file names. Note that loop
   detection requires a pre-trained vocabulary tree. A default tree will be

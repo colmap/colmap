@@ -1,9 +1,12 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
+import numpy as np
 import pytest
 
 import pycolmap
 
 
-def test_rotation_weight_type_enum():
+def test_rotation_weight_type_enum() -> None:
     assert {
         k: int(v) for k, v in pycolmap.RotationWeightType.__members__.items()
     } == {
@@ -12,7 +15,7 @@ def test_rotation_weight_type_enum():
     }
 
 
-def test_rotation_averaging_reweighting_enum():
+def test_rotation_averaging_reweighting_enum() -> None:
     assert {
         k: int(v)
         for k, v in pycolmap.RotationAveragingReweighting.__members__.items()
@@ -22,13 +25,13 @@ def test_rotation_averaging_reweighting_enum():
     }
 
 
-def test_rotation_estimator_options_default_init():
+def test_rotation_estimator_options_default_init() -> None:
     options = pycolmap.RotationEstimatorOptions()
     assert options is not None
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
 
 
-def test_rotation_estimator_options_reweighting_readwrite():
+def test_rotation_estimator_options_reweighting_readwrite() -> None:
     options = pycolmap.RotationEstimatorOptions()
     options.reweighting = (
         pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
@@ -37,39 +40,97 @@ def test_rotation_estimator_options_reweighting_readwrite():
         options.reweighting
         == pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
     )
-    options.reweighting = "UNIFORM"
+    options.reweighting = "UNIFORM"  # type: ignore[assignment]
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
 
 
-def test_gravity_refiner_options_default_init():
+def test_gravity_refiner_options_default_init() -> None:
     options = pycolmap.GravityRefinerOptions()
     assert options is not None
 
 
-def test_gravity_refiner_options_max_outlier_ratio_readwrite():
+def test_gravity_refiner_options_max_outlier_ratio_readwrite() -> None:
     options = pycolmap.GravityRefinerOptions()
     assert isinstance(options.max_outlier_ratio, float)
     options.max_outlier_ratio = 0.5
     assert options.max_outlier_ratio == 0.5
 
 
-def test_gravity_refiner_options_max_gravity_error_readwrite():
+def test_gravity_refiner_options_max_gravity_error_readwrite() -> None:
     options = pycolmap.GravityRefinerOptions()
     assert isinstance(options.max_gravity_error, float)
     options.max_gravity_error = 10.0
     assert options.max_gravity_error == 10.0
 
 
-def test_gravity_refiner_options_min_num_neighbors_readwrite():
+def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
     options = pycolmap.GravityRefinerOptions()
     assert isinstance(options.min_num_neighbors, int)
     options.min_num_neighbors = 5
     assert options.min_num_neighbors == 5
 
 
-def test_global_positioner_options_default_init():
+def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
     assert options is not None
+
+
+def test_global_positioner_prepared_problem() -> None:
+    pyceres = pytest.importorskip("pyceres")
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    options.random_seed = 42
+    loss = pyceres.CauchyLoss(0.1)
+    owner = pycolmap.create_default_global_positioner(
+        options,
+        pycolmap.PoseGraph(),
+        reconstruction,
+        loss_function=loss,
+    )
+    del loss
+    point = next(iter(reconstruction.points3D.values())).xyz
+    owner.extend_parameter_block_ordering()
+    owner.extend_parameter_block_ordering([(point, 1)])
+    with pytest.raises(ValueError, match="group assignment"):
+        owner.extend_parameter_block_ordering([(point.copy(), 1)])
+    assert owner.problem.num_residual_blocks() > 0
+    assert owner.solve().IsSolutionUsable()
+
+
+def test_global_positioner_frame_center_parameter_block() -> None:
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    owner = pycolmap.create_default_global_positioner(
+        options, pycolmap.PoseGraph(), reconstruction
+    )
+    frame_id = next(iter(reconstruction.frames))
+    center = owner.frame_center_parameter_block(frame_id)
+    assert center.shape == (3,)
+    assert center.base is owner
+    center[:] = [1.0, 2.0, 3.0]
+    np.testing.assert_array_equal(
+        owner.frame_center_parameter_block(frame_id), center
+    )
+    assert (
+        owner.frame_center_parameter_block(max(reconstruction.frames) + 1)
+        is None
+    )
+    del owner
+    pytest.importorskip("pyceres")
+    assert center.base.problem.has_parameter_block(center)
 
 
 @pytest.mark.parametrize(
@@ -80,5 +141,5 @@ def test_global_positioner_options_default_init():
         "run_global_positioning",
     ],
 )
-def test_public_api_callable(name):
+def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))

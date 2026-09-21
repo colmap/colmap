@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Check if any argument is provided.
 if [ $# -eq 0 ]; then

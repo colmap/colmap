@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/controllers/pairing.h"
 
@@ -33,6 +6,7 @@
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
@@ -322,6 +296,54 @@ TEST(SequentialPairGenerator, Quadratic) {
   EXPECT_TRUE(generator.HasFinished());
 }
 
+TEST(SequentialPairGenerator, LoopDetectionMinIndexDistance) {
+  constexpr int kNumImages = 6;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  SequentialPairingOptions options;
+  options.overlap = 1;
+  options.quadratic_overlap = false;
+  options.expand_rig_images = false;
+  options.loop_detection = true;
+  options.loop_detection_period = 2;
+  options.loop_detection_num_images = 2;
+  options.loop_detection_min_index_distance = 2;
+  options.num_threads = 1;
+  options.vocab_tree_path = CreateTestDir() / "vocab_tree.txt";
+  CreateSyntheticVisualIndex()->Write(options.vocab_tree_path);
+
+  SequentialPairGenerator generator(options, database);
+  for (int i = 0; i < kNumImages; ++i) {
+    generator.Next();
+  }
+
+  FlatHashMap<image_t, size_t> image_id_to_idx;
+  for (size_t i = 0; i < images.size(); ++i) {
+    image_id_to_idx.emplace(images[i].ImageId(), i);
+  }
+
+  const int num_loop_detection_queries =
+      (kNumImages + options.loop_detection_period - 1) /
+      options.loop_detection_period;
+  for (int i = 0; i < num_loop_detection_queries; ++i) {
+    const auto pairs = generator.Next();
+    ASSERT_EQ(pairs.size(), options.loop_detection_num_images);
+    for (const auto& [image_id1, image_id2] : pairs) {
+      const size_t image_idx1 = image_id_to_idx.at(image_id1);
+      const size_t image_idx2 = image_id_to_idx.at(image_id2);
+      const size_t image_idx_distance = image_idx1 > image_idx2
+                                            ? image_idx1 - image_idx2
+                                            : image_idx2 - image_idx1;
+      EXPECT_GE(image_idx_distance, options.loop_detection_min_index_distance);
+    }
+  }
+  EXPECT_TRUE(generator.Next().empty());
+  EXPECT_TRUE(generator.HasFinished());
+}
+
 TEST(SpatialPairGenerator, Nominal) {
   constexpr int kNumImages = 3;
   auto database = Database::Open(kInMemorySqliteDatabasePath);
@@ -460,6 +482,57 @@ TEST(SpatialPairGenerator, LargeCoordinates) {
                   std::make_pair(images[2].ImageId(), images[1].ImageId())));
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.HasFinished());
+}
+
+TEST(SpatialPairGenerator, CentersLargeCoordinatesWithMissingPosePrior) {
+  // Verifies that images with missing pose priors do not bias the internal
+  // offset applied to position priors during spatial matching, i.e. by
+  // including rows of zeros in the average position calculation.
+
+  constexpr int kNumImages = 4;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  CreateSyntheticDatabase(kNumImages, *database);
+  const std::vector<Image> images = database->ReadAllImages();
+  CHECK_EQ(images.size(), kNumImages);
+
+  // Add pose priors for 3 of the 4 images, with large coordinate values.
+  database->ClearPosePriors();
+
+  const Eigen::Vector3d offset(1'600'000, 5'400'000, 100);
+
+  PosePrior pose_prior1;
+  pose_prior1.corr_data_id = images[0].DataId();
+  pose_prior1.position = offset + Eigen::Vector3d(-1, -2, -3);
+  pose_prior1.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  database->WritePosePrior(pose_prior1);
+
+  PosePrior pose_prior2;
+  pose_prior2.corr_data_id = images[1].DataId();
+  pose_prior2.position = offset + Eigen::Vector3d(0, 0, 0);
+  pose_prior2.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  database->WritePosePrior(pose_prior2);
+
+  PosePrior pose_prior4;
+  pose_prior4.corr_data_id = images[3].DataId();
+  pose_prior4.position = offset + Eigen::Vector3d(1, 2, 3);
+  pose_prior4.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  database->WritePosePrior(pose_prior4);
+
+  // Read the position prior data, with the expectation that positions will be
+  // centered automatically around a local origin.
+  SpatialPairingOptions options;
+  options.ignore_z = false;
+
+  auto cache = std::make_shared<FeatureMatcherCache>(
+      options.CacheSize(), THROW_CHECK_NOTNULL(database));
+  SpatialPairGenerator generator(options, cache);
+  const Eigen::RowMajorMatrixXf position_matrix =
+      generator.ReadPositionPriorData(*cache);
+
+  // Verify that the missing pose prior did not bias the calculated offset.
+  Eigen::RowMajorMatrixXf expected_position_matrix(3, 3);
+  expected_position_matrix << -1, -2, -3, 0, 0, 0, 1, 2, 3;
+  EXPECT_THAT(position_matrix, EigenMatrixNear(expected_position_matrix));
 }
 
 TEST(SpatialPairGenerator, MinNumNeighborsControlsMatchingDistance) {

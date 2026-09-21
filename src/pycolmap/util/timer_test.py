@@ -1,44 +1,46 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 import time
 
 import pycolmap
 
 
-def test_timer_init():
+def test_timer_init() -> None:
     timer = pycolmap.Timer()
     assert timer is not None
 
 
-def test_timer_start():
+def test_timer_start() -> None:
     timer = pycolmap.Timer()
     timer.start()
 
 
-def test_timer_restart():
+def test_timer_restart() -> None:
     timer = pycolmap.Timer()
     timer.start()
     timer.restart()
 
 
-def test_timer_pause():
+def test_timer_pause() -> None:
     timer = pycolmap.Timer()
     timer.start()
     timer.pause()
 
 
-def test_timer_resume():
+def test_timer_resume() -> None:
     timer = pycolmap.Timer()
     timer.start()
     timer.pause()
     timer.resume()
 
 
-def test_timer_reset():
+def test_timer_reset() -> None:
     timer = pycolmap.Timer()
     timer.start()
     timer.reset()
 
 
-def test_timer_elapsed_seconds():
+def test_timer_elapsed_seconds() -> None:
     timer = pycolmap.Timer()
     timer.start()
     time.sleep(0.001)
@@ -46,7 +48,7 @@ def test_timer_elapsed_seconds():
     assert elapsed > 0.0
 
 
-def test_timer_elapsed_micro_seconds():
+def test_timer_elapsed_micro_seconds() -> None:
     timer = pycolmap.Timer()
     timer.start()
     elapsed = timer.elapsed_micro_seconds()
@@ -54,7 +56,7 @@ def test_timer_elapsed_micro_seconds():
     assert elapsed >= 0.0
 
 
-def test_timer_elapsed_minutes():
+def test_timer_elapsed_minutes() -> None:
     timer = pycolmap.Timer()
     timer.start()
     elapsed = timer.elapsed_minutes()
@@ -62,7 +64,7 @@ def test_timer_elapsed_minutes():
     assert elapsed >= 0.0
 
 
-def test_timer_elapsed_hours():
+def test_timer_elapsed_hours() -> None:
     timer = pycolmap.Timer()
     timer.start()
     elapsed = timer.elapsed_hours()
@@ -70,19 +72,19 @@ def test_timer_elapsed_hours():
     assert elapsed >= 0.0
 
 
-def test_timer_print_seconds():
+def test_timer_print_seconds() -> None:
     timer = pycolmap.Timer()
     timer.start()
     timer.print_seconds()
 
 
-def test_timer_print_minutes():
+def test_timer_print_minutes() -> None:
     timer = pycolmap.Timer()
     timer.start()
     timer.print_minutes()
 
 
-def test_timer_print_hours():
+def test_timer_print_hours() -> None:
     timer = pycolmap.Timer()
     timer.start()
     timer.print_hours()

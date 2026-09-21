@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/exe/sfm.h"
 
@@ -41,6 +14,7 @@
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/cancellation.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
@@ -114,7 +88,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
-  options.AddDefaultOption("feature", &feature, "{sift, aliked}");
+  options.AddDefaultOption(
+      "feature", &feature, "{sift, aliked, loma, loma128}");
   options.AddDefaultOption(
       "mapper", &mapper, "{incremental, hierarchical, global}");
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
@@ -147,6 +122,12 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   reconstruction_options.mapper =
       AutomaticReconstructionController::MapperFromString(mapper);
 
+  std::unique_ptr<ScopedSignalHandler> signal_handler;
+  if (reconstruction_options.mapper ==
+      AutomaticReconstructionController::Mapper::INCREMENTAL) {
+    signal_handler = std::make_unique<ScopedSignalHandler>();
+  }
+
   StringToUpper(&mesher);
   reconstruction_options.mesher =
       AutomaticReconstructionController::MesherFromString(mesher);
@@ -169,6 +150,11 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     controller.Wait();
   }
 
+  if (signal_handler && signal_handler->ReceivedSignal() != 0) {
+    LOG(INFO) << "Graceful shutdown completed after receiving signal "
+              << signal_handler->ReceivedSignal();
+    return signal_handler->GetExitCode();
+  }
   return EXIT_SUCCESS;
 }
 
@@ -234,7 +220,8 @@ bool RunIncrementalMapperImpl(
     const std::shared_ptr<IncrementalPipelineOptions>& mapper_options,
     std::shared_ptr<ReconstructionManager>& reconstruction_manager,
     std::function<void()> initial_image_pair_callback,
-    std::function<void()> next_image_callback) {
+    std::function<void()> next_image_callback,
+    std::function<bool()> check_if_stopped) {
   // If fix_existing_frames is enabled, we store the initial positions of
   // existing images in order to transform them back to the original coordinate
   // frame, as the reconstruction is normalized multiple times for numerical
@@ -252,24 +239,25 @@ bool RunIncrementalMapperImpl(
   auto database = Database::Open(database_path);
 
   IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
+  mapper.SetCheckIfStoppedFunc(std::move(check_if_stopped));
 
   // In case a new reconstruction is started, write results of individual sub-
   // models to as their reconstruction finishes instead of writing all results
   // after all reconstructions finished.
   size_t prev_num_reconstructions = 0;
+  const auto write_new_reconstructions = [&]() {
+    while (prev_num_reconstructions < reconstruction_manager->Size()) {
+      const auto reconstruction_path =
+          output_path / std::to_string(prev_num_reconstructions);
+      CreateDirIfNotExists(reconstruction_path);
+      reconstruction_manager->Get(prev_num_reconstructions)
+          ->Write(reconstruction_path);
+      ++prev_num_reconstructions;
+    }
+  };
   if (!exists_input_reconstruction) {
-    mapper.AddCallback(IncrementalPipeline::LAST_IMAGE_REG_CALLBACK, [&]() {
-      // If the number of reconstructions has not changed, the last model
-      // was discarded for some reason.
-      if (reconstruction_manager->Size() > prev_num_reconstructions) {
-        const auto reconstruction_path =
-            output_path / std::to_string(prev_num_reconstructions);
-        CreateDirIfNotExists(reconstruction_path);
-        reconstruction_manager->Get(prev_num_reconstructions)
-            ->Write(reconstruction_path);
-        prev_num_reconstructions = reconstruction_manager->Size();
-      }
-    });
+    mapper.AddCallback(IncrementalPipeline::LAST_IMAGE_REG_CALLBACK,
+                       write_new_reconstructions);
   }
 
   if (initial_image_pair_callback) {
@@ -283,6 +271,13 @@ bool RunIncrementalMapperImpl(
   }
 
   mapper.Run();
+
+  if (!exists_input_reconstruction) {
+    // The final callback is intentionally not invoked for an interrupted
+    // sub-model, so flush any reconstruction retained by the interruption
+    // path before returning.
+    write_new_reconstructions();
+  }
 
   if (reconstruction_manager->Size() == 0) {
     LOG(ERROR) << "Failed to create any sparse model";
@@ -644,7 +639,8 @@ void RunPointTriangulatorImpl(
     const std::filesystem::path& output_path,
     const IncrementalPipelineOptions& options,
     const bool clear_points,
-    const bool refine_intrinsics) {
+    const bool refine_intrinsics,
+    std::function<bool()> check_if_stopped) {
   THROW_CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
   if (clear_points) {
@@ -665,8 +661,22 @@ void RunPointTriangulatorImpl(
   reconstruction_manager->Get(reconstruction_manager->Add()) = reconstruction;
   IncrementalPipeline mapper(
       custom_options, Database::Open(database_path), reconstruction_manager);
+  mapper.SetCheckIfStoppedFunc(std::move(check_if_stopped));
   mapper.TriangulateReconstruction(reconstruction);
-  reconstruction->Write(output_path);
+
+  std::filesystem::path write_path = output_path;
+  if (mapper.CheckIfStopped()) {
+    std::filesystem::path normalized_output_path =
+        output_path.lexically_normal();
+    if (normalized_output_path.filename().empty()) {
+      normalized_output_path = normalized_output_path.parent_path();
+    }
+    write_path = normalized_output_path.parent_path() /
+                 (normalized_output_path.filename().string() + ".partial");
+    CreateDirIfNotExists(write_path);
+    LOG(WARNING) << "Writing partial triangulation output to " << write_path;
+  }
+  reconstruction->Write(write_path);
 }
 
 int RunRotationAverager(int argc, char** argv) {

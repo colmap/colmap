@@ -1,17 +1,26 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
+#include "colmap/util/cancellation.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 #include "colmap/util/threading.h"
 
 #include "pycolmap/feature/opaque_types.h"
 
+#include <atomic>
+#include <chrono>
 #include <exception>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <type_traits>
+#include <utility>
 
 #include <Eigen/Core>
 #include <glog/logging.h>
@@ -46,7 +55,23 @@ void AddStringToEnumConstructor(py::enum_<T>& enm) {
             return PyStringToEnum(enm, py::str(value));  // str constructor
           }),
           py::arg("name"));
-  enm.attr("__repr__") = enm.attr("__str__");
+  // str() returns the plain member name and thus round-trips through the
+  // string constructor, while repr() keeps the qualified "Type.MEMBER"
+  // form. User-defined enum __str__ takes precedence over pybind11's
+  // generated default since pybind11 3.1. Note that __repr__ needs its own
+  // function object: pybind11 chains overloads by mutating the shared
+  // function record, so aliasing it to __str__ would pick up the custom
+  // __str__ as well.
+  enm.def("__str__", [](const py::object& self) -> std::string {
+    return self.attr("name").cast<std::string>();
+  });
+  enm.attr("__repr__") = py::cpp_function(
+      [](const py::object& self) -> std::string {
+        return py::type::of(self).attr("__name__").cast<std::string>() + "." +
+               self.attr("name").cast<std::string>();
+      },
+      py::name("__repr__"),
+      py::is_method(enm));
   py::implicitly_convertible<std::string, T>();
 }
 
@@ -202,7 +227,7 @@ std::string CreateSummary(const T& self, bool write_type) {
         ss << ": " << type_str;
         after_subsummary = true;
       }
-      std::string value = py::str(attribute);
+      std::string value = py::repr(attribute);
       if (value.length() > 80 && py::hasattr(attribute, "__len__")) {
         const int length = attribute.attr("__len__")().template cast<int>();
         value = colmap::StringPrintf(
@@ -239,11 +264,7 @@ std::string CreateRepresentationFromAttributes(const T& self) {
     }
     is_first = false;
     ss << name.template cast<std::string>() << "=";
-    if (py::isinstance<py::str>(attribute)) {
-      ss << "'" << py::str(attribute) << "'";
-    } else {
-      ss << py::str(attribute);
-    }
+    ss << py::repr(attribute);
   }
   ss << ")";
   return ss.str();
@@ -290,7 +311,7 @@ void AddDefaultsToDocstrings(py::classh<T, options...> cls) {
         colmap::StringPrintf("%s (%s, default: %s)",
                              py::str(prop.doc()).cast<std::string>().c_str(),
                              type_name.template cast<std::string>().c_str(),
-                             py::str(member).cast<std::string>().c_str());
+                             py::repr(member).cast<std::string>().c_str());
     prop.doc() = py::str(doc);
   }
 }
@@ -443,19 +464,84 @@ inline bool PyInterrupt::Raised() {
   return found;
 }
 
-// Instead of thread.Wait() call this to allow interrupts through python
-inline void PyWait(colmap::Thread* thread, double gap = 2.0) {
+[[noreturn]] inline void ThrowPythonError() {
+  py::gil_scoped_acquire acquire;
+  throw py::error_already_set();
+}
+
+[[noreturn]] inline void ThrowCancelled() {
+  py::gil_scoped_acquire acquire;
+  PyErr_SetString(PyExc_InterruptedError, "Operation cancelled");
+  throw py::error_already_set();
+}
+
+class PyInterruptChecker {
+ public:
+  explicit PyInterruptChecker(
+      std::shared_ptr<colmap::CancellationToken> cancellation_token = nullptr,
+      const double gap = 1.0)
+      : py_interrupt_(gap),
+        cancellation_token_(std::move(cancellation_token)),
+        calling_thread_id_(std::this_thread::get_id()) {}
+
+  // The callback may run on worker threads, but Python signals may only be
+  // checked from the thread that created this object. The returned callback
+  // borrows this object and must not outlive it.
+  std::function<bool()> Callback() {
+    return [this]() {
+      if (std::this_thread::get_id() == calling_thread_id_ &&
+          py_interrupt_.Raised()) {
+        python_interrupt_raised_.store(true, std::memory_order_relaxed);
+      }
+      return python_interrupt_raised_.load(std::memory_order_relaxed) ||
+             (cancellation_token_ && cancellation_token_->IsCancelled());
+    };
+  }
+
+  void CheckAndThrow() const {
+    if (python_interrupt_raised_.load(std::memory_order_relaxed)) {
+      ThrowPythonError();
+    }
+    if (cancellation_token_ && cancellation_token_->IsCancelled()) {
+      ThrowCancelled();
+    }
+  }
+
+ private:
+  PyInterrupt py_interrupt_;
+  std::shared_ptr<colmap::CancellationToken> cancellation_token_;
+  std::thread::id calling_thread_id_;
+  std::atomic<bool> python_interrupt_raised_{false};
+};
+
+// Instead of thread.Wait() call this to allow interrupts through Python.
+// `poll_interval` controls lightweight thread-state and cancellation checks,
+// while `gap` throttles Python signal checks that require acquiring the GIL.
+inline void PyWait(colmap::Thread* thread,
+                   const std::shared_ptr<colmap::CancellationToken>&
+                       cancellation_token = nullptr,
+                   double gap = 1.0,
+                   double poll_interval = 0.05) {
   PyInterrupt py_interrupt(gap);
   while (thread->IsRunning()) {
+    if (cancellation_token && cancellation_token->IsCancelled()) {
+      thread->Stop();
+      thread->Wait();
+      ThrowCancelled();
+    }
     if (py_interrupt.Raised()) {
       LOG(ERROR) << "Stopping thread...";
       thread->Stop();
       thread->Wait();
-      throw py::error_already_set();
+      ThrowPythonError();
     }
+    std::this_thread::sleep_for(PyInterrupt::sec(poll_interval));
   }
   // after finishing join the thread to avoid abort
   thread->Wait();
+  if (cancellation_token && cancellation_token->IsCancelled()) {
+    ThrowCancelled();
+  }
 }
 
 // Test if pyceres is available

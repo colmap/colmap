@@ -1,5 +1,7 @@
 # AGENTS.md — COLMAP Guide
 
+If an optional `AGENTS.override.md` exists alongside this file, read it and follow it; its instructions take precedence over this file.
+
 ## Project Overview
 
 COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo (MVS) pipeline that reconstructs 3D models from 2D image collections. Written in C++17 with optional CUDA support. Single binary (colmap) with many subcommands, a Qt GUI, and Python bindings (pycolmap).
@@ -176,6 +178,11 @@ Use the `colmap::{Flat,Node}Hash{Map,Set}` aliases, not `std::unordered_map/set`
 Custom keys reuse the `std::hash` specializations / `PairHash` in `util/types.h`.
 Keep `std::map`/`std::set` only when sorted iteration is required (deterministic
 output, Ceres block order, `lower_bound`).
+
+### License Headers
+
+Start every new source file with a one-line SPDX header, e.g.
+`// SPDX-License-Identifier: BSD-3-Clause`.
 
 ### Formatting
 

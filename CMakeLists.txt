@@ -1,32 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#
-#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-#       its contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
+# SPDX-License-Identifier: BSD-3-Clause
 
 cmake_minimum_required(VERSION 3.12)
 
@@ -70,20 +42,15 @@ option(BENCHMARK_ENABLED "Whether to enable runtime benchmarking support" OFF)
 option(FETCH_POSELIB "Whether to consume PoseLib using FetchContent or find_package" ON)
 option(FETCH_FAISS "Whether to consume faiss using FetchContent or find_package" ON)
 option(FETCH_ONNX "Whether to consume ONNX using FetchContent or find_package" ON)
+# Unlike the FETCH_* options above, this one is only a fallback: a system Boost
+# that is new enough is always preferred and nothing is downloaded then.
+option(FETCH_BOOST "Whether to fall back to building a pinned Boost using FetchContent if no system Boost of the required version is found" ON)
 option(BUILD_SHARED_LIBS "Whether to build shared libraries (faster linktime, slower runtime)" OFF)
 option(ALL_SOURCE_TARGET "Whether to create a target for all source files (for Visual Studio / XCode development)" OFF)
 
 # Experimental
 option(CASPAR_ENABLED "Whether to enable CASPAR-accelerated bundle adjustment" OFF)
 option(CASPAR_USE_DOUBLE "Use double precision in Caspar solver" OFF)
-
-# Hash map backend used by the performance-critical scene/SfM containers (see
-# src/colmap/util/hash_containers.h). One of: STD, BOOST, or empty for auto.
-# Auto selects BOOST (faster boost::unordered_flat/node maps) when the available
-# Boost is new enough (>= 1.84, for boost::unordered_node_map) and STD otherwise.
-set(COLMAP_HASH_MAP_BACKEND "" CACHE STRING
-    "Hash map backend for scene/SfM containers: STD, BOOST, or empty for auto")
-set_property(CACHE COLMAP_HASH_MAP_BACKEND PROPERTY STRINGS "" STD BOOST)
 
 if(CASPAR_ENABLED)
     add_compile_definitions(CASPAR_ENABLED)
@@ -118,7 +85,7 @@ endif()
 
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "4.2.0.dev0")
+set(COLMAP_VERSION "4.3.0.dev0")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -144,6 +111,18 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 # COLMAP's static libraries.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# The build type has to be settled before the dependencies are configured. The
+# ones built as subprojects install per-configuration export files, and a
+# subproject configured with an empty CMAKE_BUILD_TYPE installs none, leaving
+# its imported targets without an IMPORTED_LOCATION for consumers.
+if(CMAKE_BUILD_TYPE)
+    message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
+else()
+    message(STATUS "Build type not specified, using Release")
+    set(CMAKE_BUILD_TYPE Release)
+    set(IS_DEBUG OFF)
+endif()
+
 ################################################################################
 # Dependency configuration
 ################################################################################
@@ -154,14 +133,6 @@ include(cmake/FindDependencies.cmake)
 ################################################################################
 # Compiler specific configuration
 ################################################################################
-
-if(CMAKE_BUILD_TYPE)
-    message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
-else()
-    message(STATUS "Build type not specified, using Release")
-    set(CMAKE_BUILD_TYPE Release)
-    set(IS_DEBUG OFF)
-endif()
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_program(CLANG_TIDY_EXE NAMES clang-tidy)
@@ -224,9 +195,11 @@ endif()
 
 if(IPO_ENABLED AND NOT IS_DEBUG AND NOT IS_GNU)
     message(STATUS "Enabling interprocedural optimization")
+    set(COLMAP_INTERPROCEDURAL_OPTIMIZATION TRUE)
     set_property(DIRECTORY PROPERTY INTERPROCEDURAL_OPTIMIZATION 1)
 else()
     message(STATUS "Disabling interprocedural optimization")
+    set(COLMAP_INTERPROCEDURAL_OPTIMIZATION FALSE)
 endif()
 
 if(ASAN_ENABLED)
@@ -334,6 +307,7 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/scene SCENE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/sensor SENSOR_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/sensor/models SENSOR_MODELS_SRCS *.h)
 COLMAP_ADD_SOURCE_DIR(src/colmap/sfm SFM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
@@ -364,6 +338,7 @@ if(ALL_SOURCE_TARGET)
         ${RETRIEVAL_SRCS}
         ${SCENE_SRCS}
         ${SENSOR_SRCS}
+        ${SENSOR_MODELS_SRCS}
         ${SFM_SRCS}
         ${TOOLS_SRCS}
         ${UI_SRCS}

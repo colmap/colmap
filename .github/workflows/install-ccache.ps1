@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $true)]
