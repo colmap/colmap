@@ -123,7 +123,8 @@ TEST(AbsolutePose, P4PFSharedFocalLength) {
 
         RANSACOptions options;
         options.max_error = 1e-5;
-        RANSAC<P4PFEstimator> ransac(options);
+        LORANSAC<P4PFEstimator, P4PFEstimator> ransac(
+            options, P4PFEstimator(), P4PFEstimator());
         const auto report = ransac.Estimate(points2D, points3D);
 
         EXPECT_TRUE(report.success);
@@ -192,8 +193,10 @@ TEST(AbsolutePose, P4PFSeparateFocalLengths) {
 
         RANSACOptions options;
         options.max_error = 1e-5;
-        RANSAC<P4PFEstimator> ransac(
-            options, P4PFEstimator(/*share_focal_length=*/false));
+        LORANSAC<P4PFEstimator, P4PFEstimator> ransac(
+            options,
+            P4PFEstimator(/*share_focal_length=*/false),
+            P4PFEstimator(/*share_focal_length=*/false));
         const auto report = ransac.Estimate(points2D, points3D);
 
         EXPECT_TRUE(report.success);
@@ -220,6 +223,82 @@ TEST(AbsolutePose, P4PFSeparateFocalLengths) {
       }
     }
   }
+}
+
+TEST(AbsolutePose, P4PFRefine) {
+  const std::vector<Eigen::Vector3d> points3D = {
+      Eigen::Vector3d(1, 1, 1),
+      Eigen::Vector3d(0, 1, 1),
+      Eigen::Vector3d(3, 1.0, 4),
+      Eigen::Vector3d(3, 1.1, 4),
+      Eigen::Vector3d(3, 1.2, 4),
+      Eigen::Vector3d(3, 1.3, 4),
+      Eigen::Vector3d(3, 1.4, 4),
+      Eigen::Vector3d(2, 1, 7),
+  };
+
+  const Rigid3d expected_cam_from_world(
+      Eigen::Quaterniond(1, 0.3, 0.1, 0.05).normalized(),
+      Eigen::Vector3d(0.5, -0.2, 0.1));
+
+  for (const bool share_focal_length : {true, false}) {
+    const Eigen::Vector2d expected_focal_lengths =
+        share_focal_length ? Eigen::Vector2d(6, 6) : Eigen::Vector2d(6, 4);
+
+    // Project points to camera coordinate system, centered by the principal
+    // point.
+    std::vector<P4PFEstimator::X_t> points2D;
+    for (size_t i = 0; i < points3D.size(); ++i) {
+      points2D.push_back(expected_focal_lengths.cwiseProduct(
+          (expected_cam_from_world * points3D[i]).hnormalized()));
+    }
+
+    // Refine recovers the true pose and focal length(s) from a perturbed
+    // initialization.
+    P4PFEstimator estimator(share_focal_length);
+    P4PFEstimator::M_t model;
+    model.cam_from_world = expected_cam_from_world;
+    model.cam_from_world.rotation() =
+        Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitZ()) *
+        model.cam_from_world.rotation();
+    model.cam_from_world.translation() += Eigen::Vector3d(0.1, -0.1, 0.2);
+    model.focal_lengths = expected_focal_lengths.cwiseProduct(
+        share_focal_length ? Eigen::Vector2d(1.2, 1.2)
+                           : Eigen::Vector2d(1.2, 0.8));
+    EXPECT_TRUE(estimator.Refine(points2D, points3D, &model));
+    EXPECT_THAT(model.cam_from_world,
+                Rigid3dNear(expected_cam_from_world,
+                            /*rtol=*/1e-6,
+                            /*ttol=*/1e-6));
+    EXPECT_TRUE(model.focal_lengths.isApprox(expected_focal_lengths, 1e-6));
+  }
+
+  // Fewer than four correspondences cannot determine the model; it is left
+  // unchanged.
+  P4PFEstimator estimator(/*share_focal_length=*/true);
+  const std::vector<P4PFEstimator::X_t> points2D(4, Eigen::Vector2d(1, 1));
+  const std::vector<P4PFEstimator::X_t> three_points2D(points2D.begin(),
+                                                       points2D.begin() + 3);
+  const std::vector<Eigen::Vector3d> three_points3D(points3D.begin(),
+                                                    points3D.begin() + 3);
+  P4PFEstimator::M_t model;
+  model.cam_from_world = expected_cam_from_world;
+  model.focal_lengths = Eigen::Vector2d(4, 5);
+  const P4PFEstimator::M_t model_before = model;
+  EXPECT_FALSE(estimator.Refine(three_points2D, three_points3D, &model));
+  EXPECT_THAT(model.cam_from_world, Rigid3dEq(model_before.cam_from_world));
+  EXPECT_EQ(model.focal_lengths, model_before.focal_lengths);
+
+  // Non-positive focal lengths cannot be optimized in log-space; the model
+  // is left unchanged.
+  model.focal_lengths.x() = 0;
+  const P4PFEstimator::M_t model_before_focal = model;
+  const std::vector<Eigen::Vector3d> four_points3D(points3D.begin(),
+                                                   points3D.begin() + 4);
+  EXPECT_FALSE(estimator.Refine(points2D, four_points3D, &model));
+  EXPECT_THAT(model.cam_from_world,
+              Rigid3dEq(model_before_focal.cam_from_world));
+  EXPECT_EQ(model.focal_lengths, model_before_focal.focal_lengths);
 }
 
 TEST(AbsolutePose, P3PRefine) {

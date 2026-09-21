@@ -115,6 +115,25 @@ class P4PFEstimator {
                         const M_t& model,
                         std::vector<double>* residuals);
 
+  // Nonlinear local optimization of the pose and focal length(s) over the
+  // given 2D-3D correspondences, starting from *model. Minimizes pixel
+  // reprojection errors with Levenberg-Marquardt (colmap::TinySolver), with
+  // the rotation on the quaternion manifold, an autodiff Jacobian, and the
+  // focal length(s) in log-space so that they stay positive.
+  //
+  // Returns true and overwrites *model with the refined estimate on success.
+  // Returns false and leaves *model unchanged if fewer than kMinNumSamples
+  // observations are given, if the initial focal length(s) are not positive,
+  // or if the solve fails.
+  //
+  // @param points2D  2D image feature observations, normalized by the
+  //                  principal point.
+  // @param points3D  3D world points.
+  // @param model     Model to refine in place.
+  bool Refine(const std::vector<X_t>& points2D,
+              const std::vector<Y_t>& points3D,
+              M_t* model) const;
+
  private:
   const bool share_focal_length_;
 };
