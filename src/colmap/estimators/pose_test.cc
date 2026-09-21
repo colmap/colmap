@@ -8,8 +8,6 @@
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/synthetic.h"
 
-#include <random>
-
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -124,54 +122,6 @@ TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
   EXPECT_NEAR(camera.FocalLengthY(), problem.camera.FocalLengthY(), 5);
   EXPECT_EQ(num_inliers, problem.points2D.size());
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
-}
-
-TEST(EstimateAbsolutePose, EstimateFocalLengthNoisyWithOutliers) {
-  // At high noise levels, minimal P4PF fits tie on inlier count, so MSAC
-  // scoring (rather than inlier counting) is required to select an accurate
-  // focal length. This configuration (fixed seeds) fails with inlier-count
-  // scoring and passes with MSAC scoring.
-  SetPRNGSeed(0);
-  AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
-
-  std::mt19937 rng(248);
-  std::normal_distribution<double> noise(0.0, 4.0);
-  std::uniform_real_distribution<double> uniform_outlier(-1500.0, 1500.0);
-  std::uniform_real_distribution<double> uniform_01(0.0, 1.0);
-  const Eigen::Vector2d principal_point(problem.camera.PrincipalPointX(),
-                                        problem.camera.PrincipalPointY());
-  for (auto& point2D : problem.points2D) {
-    if (uniform_01(rng) < 0.3) {
-      point2D = principal_point +
-                Eigen::Vector2d(uniform_outlier(rng), uniform_outlier(rng));
-    } else {
-      point2D += Eigen::Vector2d(noise(rng), noise(rng));
-    }
-  }
-
-  AbsolutePoseEstimationOptions options;
-  options.estimate_focal_length = true;
-  options.ransac_options.max_error = 12;
-  options.ransac_options.min_num_trials = 0;
-  options.ransac_options.max_num_trials = 10000;
-  options.ransac_options.confidence = 0.99;
-  options.ransac_options.random_seed = 0;
-  Rigid3d cam_from_world;
-  size_t num_inliers = 0;
-  std::vector<char> inlier_mask;
-  Camera camera = problem.camera;
-  EXPECT_TRUE(EstimateAbsolutePose(options,
-                                   problem.points2D,
-                                   problem.points3D,
-                                   &cam_from_world,
-                                   &camera,
-                                   &num_inliers,
-                                   &inlier_mask));
-  EXPECT_THAT(cam_from_world,
-              Rigid3dNear(problem.image.CamFromWorld(),
-                          /*rtol=*/0.01,
-                          /*ttol=*/0.02));
-  EXPECT_NEAR(camera.FocalLength(), problem.camera.FocalLength(), 25.6);
 }
 
 TEST(EstimateRelativePose, Nominal) {

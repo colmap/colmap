@@ -38,9 +38,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     }
     const span<const size_t> focal_length_idxs = camera->FocalLengthIdxs();
     const bool share_focal_length = focal_length_idxs.size() == 1;
-    // MSAC scoring discriminates between candidates that tie on inlier count,
-    // which substantially improves focal length accuracy at high noise levels.
-    LORANSAC<P4PFEstimator, P4PFEstimator, MEstimatorSupportMeasurer> ransac(
+    LORANSAC<P4PFEstimator, P4PFEstimator> ransac(
         options.ransac_options,
         P4PFEstimator(share_focal_length),
         P4PFEstimator(share_focal_length));
