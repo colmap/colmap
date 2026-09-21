@@ -1,36 +1,10 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/solvers/essential_matrix.h"
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
+#include "colmap/estimators/solvers/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/polynomial.h"
@@ -190,58 +164,18 @@ void EssentialMatrixEightPointEstimator::Estimate(
         cam_rays2[i].z() * cam_rays1[i].transpose();
   }
 
-  // Solve for the nullspace of the constraint matrix.
-  Eigen::Matrix3d Q;
-  if (cam_rays1.size() == 8) {
-    Eigen::Matrix<double, 9, 9> QQ =
-        A.transpose().householderQr().householderQ();
-    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-        QQ.col(8).data());
-  } else {
-    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        A, Eigen::ComputeFullV);
-    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-        svd.matrixV().col(8).data());
-  }
-
-  // Enforcing the internal constraint that two singular values must be non-zero
-  // and one must be zero.
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      Q, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Vector3d singular_values = svd.singularValues();
-  singular_values(2) = 0.0;
-  const Eigen::Matrix3d E =
-      svd.matrixU() * singular_values.asDiagonal() * svd.matrixV().transpose();
-
   models->resize(1);
-  (*models)[0] = E;
+  (*models)[0] = SolveEpipolarConstraintMatrix(A);
 }
-
-namespace {
-
-// Extract the bearings into the contiguous array the five-point solver expects.
-// The Jacobians play no part in estimation. They only affect scoring.
-std::vector<Eigen::Vector3d> UnpackCamRaysWithJac(
-    const std::vector<CamRayWithJac>& cam_rays_with_jac) {
-  std::vector<Eigen::Vector3d> rays;
-  rays.reserve(cam_rays_with_jac.size());
-  for (const CamRayWithJac& cam_ray_with_jac : cam_rays_with_jac) {
-    rays.push_back(cam_ray_with_jac.ray);
-  }
-  return rays;
-}
-
-}  // namespace
 
 void EssentialMatrixTangentSampsonEstimator::Estimate(
     const std::vector<X_t>& cam_rays1_with_jac,
     const std::vector<Y_t>& cam_rays2_with_jac,
     std::vector<M_t>* models) {
-  const std::vector<Eigen::Vector3d> rays1 =
-      UnpackCamRaysWithJac(cam_rays1_with_jac);
-  const std::vector<Eigen::Vector3d> rays2 =
-      UnpackCamRaysWithJac(cam_rays2_with_jac);
-  EssentialMatrixFivePointEstimator::Estimate(rays1, rays2, models);
+  EssentialMatrixFivePointEstimator::Estimate(
+      RaysFromCamRaysWithJac(cam_rays1_with_jac),
+      RaysFromCamRaysWithJac(cam_rays2_with_jac),
+      models);
 }
 
 bool EssentialMatrixTangentSampsonEstimator::Refine(
@@ -254,13 +188,13 @@ bool EssentialMatrixTangentSampsonEstimator::Refine(
 
   // Decompose the initial E into a relative pose (resolving the four-fold
   // ambiguity via cheirality over the bearings).
-  const std::vector<Eigen::Vector3d> rays1 =
-      UnpackCamRaysWithJac(cam_rays1_with_jac);
-  const std::vector<Eigen::Vector3d> rays2 =
-      UnpackCamRaysWithJac(cam_rays2_with_jac);
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
-  PoseFromEssentialMatrix(*E, rays1, rays2, &cam2_from_cam1, &valid_indices);
+  PoseFromEssentialMatrix(*E,
+                          RaysFromCamRaysWithJac(cam_rays1_with_jac),
+                          RaysFromCamRaysWithJac(cam_rays2_with_jac),
+                          &cam2_from_cam1,
+                          &valid_indices);
   if (valid_indices.empty()) {
     return false;
   }
@@ -274,15 +208,12 @@ bool EssentialMatrixTangentSampsonEstimator::Refine(
   Solver::Options options;
   options.max_num_iterations = 25;
 
-  Eigen::Matrix<double, 7, 1> x;
-  x.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
-  x.tail<3>() = cam2_from_cam1.translation().normalized();
+  RelPoseParams x = RelPoseParamsFromRigid3d(cam2_from_cam1);
   solver.Solve(f, &x, options);
 
   // Keep the refined pose only if the solve stayed finite.
   if (x.allFinite()) {
-    cam2_from_cam1 =
-        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), x.tail<3>());
+    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
   }
   *E = EssentialMatrixFromPose(cam2_from_cam1);
   return true;

@@ -1,32 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#
-#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-#       its contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Find package config for COLMAP library.
 #
@@ -83,9 +55,29 @@ set(MVS_ENABLED @MVS_ENABLED@)
 
 set(LSD_ENABLED @LSD_ENABLED@)
 
+# Whether the installed COLMAP was built with interprocedural optimization.
+# Consumers linking COLMAP's static libraries (e.g. pycolmap) must match this:
+# linking non-IPO archives into an IPO binary fails with GCC.
+set(COLMAP_INTERPROCEDURAL_OPTIMIZATION @COLMAP_INTERPROCEDURAL_OPTIMIZATION@)
+
 set(FETCH_POSELIB @FETCH_POSELIB@)
 
 set(FETCH_FAISS @FETCH_FAISS@)
+
+set(FETCH_BOOST @FETCH_BOOST@)
+
+# Where the installed COLMAP got Boost from. Pre-setting this makes
+# FindDependencies.cmake below follow the installed binaries: if COLMAP built a
+# pinned Boost, that copy was installed alongside COLMAP and the consumer is
+# pointed at it; if COLMAP used the system Boost, the consumer's Boost has to be
+# new enough too, and gets a configure-time error rather than a silently
+# different container layout.
+set(COLMAP_BOOST_FROM_SYSTEM @COLMAP_BOOST_FROM_SYSTEM@)
+if(NOT COLMAP_BOOST_FROM_SYSTEM)
+    # The vendored Boost installed its own package config into COLMAP's prefix.
+    set(COLMAP_BOOST_VENDORED_CONFIG_DIR
+        "${PACKAGE_PREFIX_DIR}/@COLMAP_BOOST_INSTALL_CMAKEDIR@")
+endif()
 
 set(FETCH_ONNX FALSE)
 if(@FETCH_ONNX@)
@@ -96,8 +88,14 @@ if(@FETCH_ONNX@)
     set(onnxruntime_LIBRARY_DIR_HINTS ${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@ CACHE PATH "ONNX Runtime library directory hints")
 endif()
 
-include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
-include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
+# Dependencies first: a vendored Boost is exported from its own export set
+# rather than imported, so colmap-targets.cmake checks that those targets
+# already exist and fails the whole package if they do not. The dependency
+# configs run their own @PACKAGE_INIT@ and overwrite PACKAGE_PREFIX_DIR with
+# their prefix, so remember COLMAP's before including them.
+set(COLMAP_PACKAGE_PREFIX_DIR ${PACKAGE_PREFIX_DIR})
+include(${COLMAP_PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
+include(${COLMAP_PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
 check_required_components(colmap)
 
 # Reset to previous value

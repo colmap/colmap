@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/controllers/base_option_manager.h"
 
@@ -57,20 +30,27 @@ BaseOptionManager::BaseOptionManager(bool add_project_options) {
   AddLogOptions();
 }
 
+bool BaseOptionManager::RegisterOptionGroupOnce(
+    const std::string& option_group) {
+  return added_option_groups_.insert(option_group).second;
+}
+
+bool BaseOptionManager::HasOptionGroup(const std::string& option_group) const {
+  return added_option_groups_.count(option_group) > 0;
+}
+
 void BaseOptionManager::AddRandomOptions() {
-  if (added_random_options_) {
+  if (!RegisterOptionGroupOnce("random")) {
     return;
   }
-  added_random_options_ = true;
 
   AddDefaultOption("default_random_seed", &kDefaultPRNGSeed);
 }
 
 void BaseOptionManager::AddLogOptions() {
-  if (added_log_options_) {
+  if (!RegisterOptionGroupOnce("log")) {
     return;
   }
-  added_log_options_ = true;
 
   AddDefaultOption(
       "log_target", &log_target_, "{stderr, stdout, file, stderr_and_file}");
@@ -80,26 +60,24 @@ void BaseOptionManager::AddLogOptions() {
   AddDefaultOption("log_level", &FLAGS_v);
   AddDefaultOption("log_severity",
                    &FLAGS_minloglevel,
-                   "0:INFO, 1:WARNING, 2:ERROR, 3:FATAL");
+                   "{INFO = 0, WARNING = 1, ERROR = 2, FATAL = 3}");
 #if COLMAP_GLOG_HAS_COLOR_SUPPORT
   AddDefaultOption("log_color", &FLAGS_colorlogtostderr);
 #endif
 }
 
 void BaseOptionManager::AddDatabaseOptions() {
-  if (added_database_options_) {
+  if (!RegisterOptionGroupOnce("database")) {
     return;
   }
-  added_database_options_ = true;
 
   AddRequiredOption("database_path", database_path.get());
 }
 
 void BaseOptionManager::AddImageOptions() {
-  if (added_image_options_) {
+  if (!RegisterOptionGroupOnce("image")) {
     return;
   }
-  added_image_options_ = true;
 
   AddRequiredOption("image_path", image_path.get());
 }
@@ -146,10 +124,7 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
   options_string_.clear();
   options_path_.clear();
 
-  added_random_options_ = false;
-  added_log_options_ = false;
-  added_database_options_ = false;
-  added_image_options_ = false;
+  added_option_groups_.clear();
 }
 
 void BaseOptionManager::ResetOptionsImpl(const bool reset_paths) {
@@ -163,14 +138,14 @@ void BaseOptionManager::ResetOptionsImpl(const bool reset_paths) {
 bool BaseOptionManager::Check() {
   bool success = true;
 
-  if (added_database_options_) {
+  if (HasOptionGroup("database")) {
     const auto database_parent_path = GetParentDir(*database_path);
     success = success && CHECK_OPTION_IMPL(!ExistsDir(*database_path)) &&
               CHECK_OPTION_IMPL(database_parent_path.empty() ||
                                 ExistsDir(database_parent_path));
   }
 
-  if (added_image_options_) {
+  if (HasOptionGroup("image")) {
     success = success && CHECK_OPTION_IMPL(ExistsDir(*image_path));
   }
 
@@ -399,8 +374,7 @@ void BaseOptionManager::Write(const std::filesystem::path& path) const {
 
   std::ofstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
-  // Ensure that we don't lose any precision by storing in text.
-  file.precision(17);
+  SetFullPrecTextStream(file);
   boost::property_tree::write_ini(file, pt);
   file.close();
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/triangulation.h"
 
 #include "colmap/scene/camera.h"

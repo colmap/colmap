@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/solvers/essential_matrix.h"
 
 #include "colmap/geometry/essential_matrix.h"

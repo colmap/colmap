@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/controllers/pairing.h"
 
@@ -47,7 +20,9 @@
 #include <vector>
 
 #include <faiss/IndexFlat.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -209,8 +184,7 @@ bool SequentialPairingOptions::Check() const {
 bool SpatialPairingOptions::Check() const {
   CHECK_OPTION_GE(max_distance, 0.0);
   CHECK_OPTION_GT(max_num_neighbors, 0);
-  CHECK_OPTION_LE(min_num_neighbors, max_num_neighbors);
-  CHECK_OPTION_GE(min_num_neighbors, 0);
+  CHECK_OPTION_IN(min_num_neighbors, 0, max_num_neighbors);
   CHECK_OPTION(max_distance > 0.0 || min_num_neighbors > 0);
   return true;
 }
@@ -747,7 +721,9 @@ SpatialPairGenerator::SpatialPairGenerator(
   index_matrix_.resize(num_positions, knn_);
   distance_squared_matrix_.resize(num_positions, knn_);
 
+#ifdef _OPENMP
   omp_set_num_threads(GetEffectiveNumThreads(options_.num_threads));
+#endif
 
   search_index.search(position_matrix.rows(),
                       position_matrix.data(),

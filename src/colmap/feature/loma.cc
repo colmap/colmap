@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/feature/loma.h"
 
@@ -43,27 +16,6 @@ namespace colmap {
 namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
-
-std::vector<float> BitmapToInputTensor(const Bitmap& bitmap) {
-  THROW_CHECK(bitmap.IsRGB());
-  const int width = bitmap.Width();
-  const int height = bitmap.Height();
-  const int pitch = bitmap.Pitch();
-  const int num_pixels = width * height;
-
-  std::vector<float> input(static_cast<size_t>(3) * num_pixels);
-  const std::vector<uint8_t>& data = bitmap.RowMajorData();
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      for (int c = 0; c < 3; ++c) {
-        constexpr float kImageNormalization = 1.0f / 255.0f;
-        input[c * num_pixels + y * width + x] =
-            kImageNormalization * data[y * pitch + 3 * x + c];
-      }
-    }
-  }
-  return input;
-}
 
 // Fast bilinear resample instead of Bitmap::Rescale()'s filtered resize --
 // see LomaExtractionOptions::use_fast_resize for the speed/accuracy tradeoff.
@@ -84,20 +36,8 @@ std::vector<float> FastResizeToInputTensor(const Bitmap& bitmap,
   THROW_CHECK(
       OIIO::ImageBufAlgo::resample(dst_buf, src_buf, /*interpolate=*/true));
 
-  std::vector<float> input(static_cast<size_t>(3) * target_height *
-                           target_width);
-  const int num_pixels = target_width * target_height;
-  const int pitch = target_width * 3;
-  for (int y = 0; y < target_height; ++y) {
-    for (int x = 0; x < target_width; ++x) {
-      for (int c = 0; c < 3; ++c) {
-        constexpr float kImageNormalization = 1.0f / 255.0f;
-        input[c * num_pixels + y * target_width + x] =
-            kImageNormalization * resized_data[y * pitch + 3 * x + c];
-      }
-    }
-  }
-  return input;
+  return HWCToCHW(
+      resized_data.data(), target_width, target_height, target_width * 3);
 }
 
 // use_fast_resize=false fallback: Bitmap::Rescale()'s filtered resize.
@@ -106,22 +46,7 @@ std::vector<float> SlowResizeToInputTensor(const Bitmap& bitmap,
                                            int target_height) {
   Bitmap resized = bitmap.Clone();
   resized.Rescale(target_width, target_height);
-
-  std::vector<float> input(static_cast<size_t>(3) * target_height *
-                           target_width);
-  const int num_pixels = target_width * target_height;
-  const std::vector<uint8_t>& data = resized.RowMajorData();
-  const int pitch = resized.Pitch();
-  for (int y = 0; y < target_height; ++y) {
-    for (int x = 0; x < target_width; ++x) {
-      for (int c = 0; c < 3; ++c) {
-        constexpr float kImageNormalization = 1.0f / 255.0f;
-        input[c * num_pixels + y * target_width + x] =
-            kImageNormalization * data[y * pitch + 3 * x + c];
-      }
-    }
-  }
-  return input;
+  return BitmapToCHW(resized);
 }
 
 std::vector<float> ResizeToInputTensor(const Bitmap& bitmap,
@@ -132,28 +57,6 @@ std::vector<float> ResizeToInputTensor(const Bitmap& bitmap,
   return use_fast_resize
              ? FastResizeToInputTensor(bitmap, target_width, target_height)
              : SlowResizeToInputTensor(bitmap, target_width, target_height);
-}
-
-Ort::Value MakeTensor(std::vector<float>& data,
-                      const std::vector<int64_t>& shape) {
-  return Ort::Value::CreateTensor<float>(
-      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                 OrtMemType::OrtMemTypeCPU),
-      data.data(),
-      data.size(),
-      shape.data(),
-      shape.size());
-}
-
-Ort::Value MakeInt64Tensor(std::vector<int64_t>& data,
-                           const std::vector<int64_t>& shape) {
-  return Ort::Value::CreateTensor<int64_t>(
-      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                 OrtMemType::OrtMemTypeCPU),
-      data.data(),
-      data.size(),
-      shape.data(),
-      shape.size());
 }
 
 class LomaFeatureExtractor : public FeatureExtractor {
@@ -238,15 +141,15 @@ class LomaFeatureExtractor : public FeatureExtractor {
     const int height = bitmap.Height();
     const int64_t num_keypoints_requested = options_.loma->max_num_features;
 
-    std::vector<float> det_input = BitmapToInputTensor(bitmap);
+    std::vector<float> det_input = BitmapToCHW(bitmap);
     std::vector<int64_t> det_shape{1, 3, height, width};
     std::vector<int64_t> num_kpts_data{num_keypoints_requested};
     std::vector<int64_t> num_kpts_shape{1};
 
     std::vector<Ort::Value> det_inputs_unordered;
-    det_inputs_unordered.push_back(MakeTensor(det_input, det_shape));
+    det_inputs_unordered.push_back(CreateONNXTensor(det_input, det_shape));
     det_inputs_unordered.push_back(
-        MakeInt64Tensor(num_kpts_data, num_kpts_shape));
+        CreateONNXTensor(num_kpts_data, num_kpts_shape));
     std::vector<Ort::Value> det_inputs;
     for (const char* name : detector_.input_names()) {
       det_inputs.push_back(std::move(std::string(name) == "image"
@@ -275,8 +178,10 @@ class LomaFeatureExtractor : public FeatureExtractor {
     std::vector<int64_t> desc_kpt_shape{1, num_kpts, 2};
 
     std::vector<Ort::Value> desc_inputs_unordered;
-    desc_inputs_unordered.push_back(MakeTensor(desc_input, desc_img_shape));
-    desc_inputs_unordered.push_back(MakeTensor(kpts_norm_copy, desc_kpt_shape));
+    desc_inputs_unordered.push_back(
+        CreateONNXTensor(desc_input, desc_img_shape));
+    desc_inputs_unordered.push_back(
+        CreateONNXTensor(kpts_norm_copy, desc_kpt_shape));
     std::vector<Ort::Value> desc_inputs;
     for (const char* name : descriptor_.input_names()) {
       desc_inputs.push_back(std::move(std::string(name) == "image"
@@ -369,13 +274,13 @@ class LomaFeatureMatcher : public FeatureMatcher {
     for (const char* name_c : model_.input_names()) {
       const std::string name(name_c);
       if (name == "kpts0")
-        inputs.push_back(MakeTensor(f1.kpts, k0s));
+        inputs.push_back(CreateONNXTensor(f1.kpts, k0s));
       else if (name == "kpts1")
-        inputs.push_back(MakeTensor(f2.kpts, k1s));
+        inputs.push_back(CreateONNXTensor(f2.kpts, k1s));
       else if (name == "desc0")
-        inputs.push_back(MakeTensor(f1.desc, d0s));
+        inputs.push_back(CreateONNXTensor(f1.desc, d0s));
       else if (name == "desc1")
-        inputs.push_back(MakeTensor(f2.desc, d1s));
+        inputs.push_back(CreateONNXTensor(f2.desc, d1s));
       else
         LOG(FATAL_THROW) << "Unexpected LoMa matcher input: " << name;
     }
@@ -510,8 +415,7 @@ std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
 }
 
 bool LomaMatchingOptions::Check() const {
-  CHECK_OPTION_GE(min_score, 0);
-  CHECK_OPTION_LE(min_score, 1);
+  CHECK_OPTION_IN(min_score, 0, 1);
   return brute_force.Check();
 }
 

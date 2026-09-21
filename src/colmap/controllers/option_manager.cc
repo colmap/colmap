@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/controllers/option_manager.h"
 
@@ -34,6 +7,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/pairing.h"
+#include "colmap/sensor/models.h"
 #ifdef CASPAR_ENABLED
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #endif
@@ -56,11 +30,37 @@
 #include "colmap/scene/reconstruction_clustering.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/file.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/version.h"
 
 namespace config = boost::program_options;
 
 namespace colmap {
+namespace {
+
+// Formats values as a help text listing all valid values of an option,
+// e.g. "{C1, C2, C3}".
+template <typename T>
+std::string EnumHelpText(const std::vector<T>& values) {
+  return "{" + VectorToCSV(values) + "}";
+}
+
+// The user-facing camera model names (e.g. "SIMPLE_PINHOLE") differ from the
+// CameraModelId enumerator names (kSimplePinhole) for every model, so this
+// cannot use CameraModelIdStrings().
+std::string MakeCameraModelsHelpText() {
+  const std::vector<CameraModelId> model_ids =
+      CameraModelIdValues([](CameraModelId model_id) {
+        return model_id != CameraModelId::kInvalid;
+      });
+  std::vector<std::string> model_names;
+  model_names.reserve(model_ids.size());
+  for (const CameraModelId model_id : model_ids) {
+    model_names.push_back(CameraModelIdToName(model_id));
+  }
+  return EnumHelpText(model_names);
+}
+}  // namespace
 
 OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
@@ -224,13 +224,14 @@ void OptionManager::AddAllOptions() {
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
-  if (added_feature_extraction_options_) {
+  if (!RegisterOptionGroupOnce("feature_extraction")) {
     return;
   }
-  added_feature_extraction_options_ = true;
 
   AddDefaultOption("ImageReader.mask_path", &image_reader->mask_path);
-  AddDefaultOption("ImageReader.camera_model", &image_reader->camera_model);
+  AddDefaultOption("ImageReader.camera_model",
+                   &image_reader->camera_model,
+                   MakeCameraModelsHelpText());
   AddDefaultOption("ImageReader.single_camera", &image_reader->single_camera);
   AddDefaultOption("ImageReader.single_camera_per_folder",
                    &image_reader->single_camera_per_folder);
@@ -244,10 +245,14 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("ImageReader.camera_mask_path",
                    &image_reader->camera_mask_path);
 
-  AddDefaultEnumOption("FeatureExtraction.type",
-                       &feature_extraction->type,
-                       FeatureExtractorTypeToString,
-                       FeatureExtractorTypeFromString);
+  AddDefaultEnumOption(
+      "FeatureExtraction.type",
+      &feature_extraction->type,
+      FeatureExtractorTypeToString,
+      FeatureExtractorTypeFromString,
+      EnumHelpText(FeatureExtractorTypeStrings([](FeatureExtractorType type) {
+        return type != FeatureExtractorType::UNDEFINED;
+      })));
   AddDefaultOption("FeatureExtraction.num_threads",
                    &feature_extraction->num_threads);
   AddDefaultOption("FeatureExtraction.use_gpu", &feature_extraction->use_gpu);
@@ -311,15 +316,18 @@ void OptionManager::AddFeatureExtractionOptions() {
 }
 
 void OptionManager::AddFeatureMatchingOptions() {
-  if (added_feature_matching_options_) {
+  if (!RegisterOptionGroupOnce("feature_matching")) {
     return;
   }
-  added_feature_matching_options_ = true;
 
-  AddDefaultEnumOption("FeatureMatching.type",
-                       &feature_matching->type,
-                       FeatureMatcherTypeToString,
-                       FeatureMatcherTypeFromString);
+  AddDefaultEnumOption(
+      "FeatureMatching.type",
+      &feature_matching->type,
+      FeatureMatcherTypeToString,
+      FeatureMatcherTypeFromString,
+      EnumHelpText(FeatureMatcherTypeStrings([](FeatureMatcherType type) {
+        return type != FeatureMatcherType::UNDEFINED;
+      })));
   AddDefaultOption("FeatureMatching.num_threads",
                    &feature_matching->num_threads);
   AddDefaultOption("FeatureMatching.use_gpu", &feature_matching->use_gpu);
@@ -395,10 +403,9 @@ void OptionManager::AddFeatureMatchingOptions() {
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
-  if (added_two_view_geometry_options_) {
+  if (!RegisterOptionGroupOnce("two_view_geometry")) {
     return;
   }
-  added_two_view_geometry_options_ = true;
   AddDefaultOption("TwoViewGeometry.min_num_inliers",
                    &two_view_geometry->min_num_inliers);
   AddDefaultOption("TwoViewGeometry.multiple_models",
@@ -426,16 +433,15 @@ void OptionManager::AddTwoViewGeometryOptions() {
   AddDefaultOption("TwoViewGeometry.max_num_trials",
                    &two_view_geometry->ransac_options.max_num_trials);
   AddDefaultOption("TwoViewGeometry.min_inlier_ratio",
-                   &two_view_geometry->ransac_options.min_inlier_ratio);
+                   &two_view_geometry->min_inlier_ratio);
   AddDefaultOption("TwoViewGeometry.random_seed",
                    &two_view_geometry->ransac_options.random_seed);
 }
 
 void OptionManager::AddExhaustivePairingOptions() {
-  if (added_exhaustive_pairing_options_) {
+  if (!RegisterOptionGroupOnce("exhaustive_pairing")) {
     return;
   }
-  added_exhaustive_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -445,10 +451,9 @@ void OptionManager::AddExhaustivePairingOptions() {
 }
 
 void OptionManager::AddSequentialPairingOptions() {
-  if (added_sequential_pairing_options_) {
+  if (!RegisterOptionGroupOnce("sequential_pairing")) {
     return;
   }
-  added_sequential_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -465,7 +470,8 @@ void OptionManager::AddSequentialPairingOptions() {
   AddDefaultEnumOption("SequentialMatching.loop_detection_method",
                        &sequential_pairing->loop_detection_options.method,
                        RetrievalMethodToString,
-                       RetrievalMethodFromString);
+                       RetrievalMethodFromString,
+                       EnumHelpText(RetrievalMethodStrings()));
   AddDefaultOption("SequentialMatching.loop_detection_num_images",
                    &sequential_pairing->loop_detection_options.num_images);
   AddDefaultOption("SequentialMatching.loop_detection_min_index_distance",
@@ -501,10 +507,9 @@ void OptionManager::AddSequentialPairingOptions() {
 }
 
 void OptionManager::AddRetrievalPairingOptions() {
-  if (added_retrieval_pairing_options_) {
+  if (!RegisterOptionGroupOnce("retrieval_pairing")) {
     return;
   }
-  added_retrieval_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -512,7 +517,8 @@ void OptionManager::AddRetrievalPairingOptions() {
   AddDefaultEnumOption("RetrievalMatching.method",
                        &retrieval_pairing->method,
                        RetrievalMethodToString,
-                       RetrievalMethodFromString);
+                       RetrievalMethodFromString,
+                       EnumHelpText(RetrievalMethodStrings()));
   AddDefaultOption("RetrievalMatching.num_images",
                    &retrieval_pairing->num_images);
   AddDefaultOption("RetrievalMatching.num_threads",
@@ -543,10 +549,9 @@ void OptionManager::AddRetrievalPairingOptions() {
 }
 
 void OptionManager::AddSpatialPairingOptions() {
-  if (added_spatial_pairing_options_) {
+  if (!RegisterOptionGroupOnce("spatial_pairing")) {
     return;
   }
-  added_spatial_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -561,10 +566,9 @@ void OptionManager::AddSpatialPairingOptions() {
 }
 
 void OptionManager::AddTransitivePairingOptions() {
-  if (added_transitive_pairing_options_) {
+  if (!RegisterOptionGroupOnce("transitive_pairing")) {
     return;
   }
-  added_transitive_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -576,10 +580,9 @@ void OptionManager::AddTransitivePairingOptions() {
 }
 
 void OptionManager::AddImportedPairingOptions() {
-  if (added_image_pairs_pairing_options_) {
+  if (!RegisterOptionGroupOnce("imported_pairing")) {
     return;
   }
-  added_image_pairs_pairing_options_ = true;
 
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -589,10 +592,9 @@ void OptionManager::AddImportedPairingOptions() {
 }
 
 void OptionManager::AddBundleAdjustmentOptions() {
-  if (added_ba_options_) {
+  if (!RegisterOptionGroupOnce("bundle_adjustment")) {
     return;
   }
-  added_ba_options_ = true;
 
   // Solver-agnostic options
   AddDefaultOption("BundleAdjustment.refine_focal_length",
@@ -614,7 +616,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
   AddDefaultEnumOption("BundleAdjustment.backend",
                        &bundle_adjustment->backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
 
   // Ceres-specific options
   AddDefaultOption(
@@ -686,10 +689,9 @@ void OptionManager::AddBundleAdjustmentOptions() {
 }
 
 void OptionManager::AddMapperOptions() {
-  if (added_mapper_options_) {
+  if (!RegisterOptionGroupOnce("mapper")) {
     return;
   }
-  added_mapper_options_ = true;
 
   AddDefaultOption("Mapper.min_num_matches", &mapper->min_num_matches);
   AddDefaultOption("Mapper.ignore_watermarks", &mapper->ignore_watermarks);
@@ -749,11 +751,13 @@ void OptionManager::AddMapperOptions() {
   AddDefaultEnumOption("Mapper.ba_local_backend",
                        &mapper->ba_local_backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultEnumOption("Mapper.ba_global_backend",
                        &mapper->ba_global_backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultOption("Mapper.ba_min_num_residuals_for_cpu_multi_threading",
                    &mapper->ba_min_num_residuals_for_cpu_multi_threading);
   AddDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
@@ -824,10 +828,9 @@ void OptionManager::AddMapperOptions() {
 }
 
 void OptionManager::AddGlobalMapperOptions() {
-  if (added_global_mapper_options_) {
+  if (!RegisterOptionGroupOnce("global_mapper")) {
     return;
   }
-  added_global_mapper_options_ = true;
 
   // Global mapper options.
   AddDefaultOption("GlobalMapper.image_list_path",
@@ -865,6 +868,8 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.track_required_tracks_per_view);
   AddDefaultOption("GlobalMapper.track_min_num_views_per_track",
                    &global_mapper->mapper.track_min_num_views_per_track);
+  AddDefaultOption("GlobalMapper.track_max_num_views_per_track",
+                   &global_mapper->mapper.track_max_num_views_per_track);
   AddDefaultOption("GlobalMapper.keep_max_num_tracks",
                    &global_mapper->mapper.keep_max_num_tracks);
 
@@ -909,7 +914,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultEnumOption("GlobalMapper.ba_backend",
                        &global_mapper->mapper.bundle_adjustment.backend,
                        BundleAdjustmentBackendToString,
-                       BundleAdjustmentBackendFromString);
+                       BundleAdjustmentBackendFromString,
+                       EnumHelpText(BundleAdjustmentBackendStrings()));
   AddDefaultOption("GlobalMapper.ba_gpu_index",
                    &global_mapper->mapper.ba_gpu_index);
   // Bundle adjustment options (Ceres-specific).
@@ -947,7 +953,8 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultEnumOption("GlobalMapper.ra_reweighting",
                        &global_mapper->mapper.rotation_averaging.reweighting,
                        RotationAveragingReweightingToString,
-                       RotationAveragingReweightingFromString);
+                       RotationAveragingReweightingFromString,
+                       EnumHelpText(RotationAveragingReweightingStrings()));
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
@@ -959,10 +966,9 @@ void OptionManager::AddGlobalMapperOptions() {
 }
 
 void OptionManager::AddHierarchicalMapperOptions() {
-  if (added_hierarchical_mapper_options_) {
+  if (!RegisterOptionGroupOnce("hierarchical_mapper")) {
     return;
   }
-  added_hierarchical_mapper_options_ = true;
 
   // The per-cluster reconstruction is configured through the incremental mapper
   // options (Mapper.*), so only the hierarchical-specific options are added
@@ -987,10 +993,9 @@ void OptionManager::AddHierarchicalMapperOptions() {
 }
 
 void OptionManager::AddGravityRefinerOptions() {
-  if (added_gravity_refiner_options_) {
+  if (!RegisterOptionGroupOnce("gravity_refiner")) {
     return;
   }
-  added_gravity_refiner_options_ = true;
 
   AddDefaultOption("GravityRefiner.max_outlier_ratio",
                    &gravity_refiner->max_outlier_ratio);
@@ -1001,10 +1006,9 @@ void OptionManager::AddGravityRefinerOptions() {
 }
 
 void OptionManager::AddReconstructionClustererOptions() {
-  if (added_reconstruction_clusterer_options_) {
+  if (!RegisterOptionGroupOnce("reconstruction_clusterer")) {
     return;
   }
-  added_reconstruction_clusterer_options_ = true;
 
   AddDefaultOption("ReconstructionClusterer.min_covisibility_count",
                    &reconstruction_clusterer->min_covisibility_count);
@@ -1016,10 +1020,9 @@ void OptionManager::AddReconstructionClustererOptions() {
 
 #if defined(COLMAP_MVS_ENABLED)
 void OptionManager::AddPatchMatchStereoOptions() {
-  if (added_patch_match_stereo_options_) {
+  if (!RegisterOptionGroupOnce("patch_match_stereo")) {
     return;
   }
-  added_patch_match_stereo_options_ = true;
 
   AddDefaultOption("PatchMatchStereo.max_image_size",
                    &patch_match_stereo->max_image_size);
@@ -1073,10 +1076,9 @@ void OptionManager::AddPatchMatchStereoOptions() {
 }
 
 void OptionManager::AddStereoFusionOptions() {
-  if (added_stereo_fusion_options_) {
+  if (!RegisterOptionGroupOnce("stereo_fusion")) {
     return;
   }
-  added_stereo_fusion_options_ = true;
 
   AddDefaultOption("StereoFusion.mask_path", &stereo_fusion->mask_path);
   AddDefaultOption("StereoFusion.num_threads", &stereo_fusion->num_threads);
@@ -1101,10 +1103,9 @@ void OptionManager::AddStereoFusionOptions() {
 }
 
 void OptionManager::AddPoissonMeshingOptions() {
-  if (added_poisson_meshing_options_) {
+  if (!RegisterOptionGroupOnce("poisson_meshing")) {
     return;
   }
-  added_poisson_meshing_options_ = true;
 
   AddDefaultOption("PoissonMeshing.point_weight",
                    &poisson_meshing->point_weight);
@@ -1115,10 +1116,9 @@ void OptionManager::AddPoissonMeshingOptions() {
 }
 
 void OptionManager::AddDelaunayMeshingOptions() {
-  if (added_delaunay_meshing_options_) {
+  if (!RegisterOptionGroupOnce("delaunay_meshing")) {
     return;
   }
-  added_delaunay_meshing_options_ = true;
 
   AddDefaultOption("DelaunayMeshing.max_proj_dist",
                    &delaunay_meshing->max_proj_dist);
@@ -1139,10 +1139,9 @@ void OptionManager::AddDelaunayMeshingOptions() {
 }
 
 void OptionManager::AddAdvancingFrontMeshingOptions() {
-  if (added_advancing_front_meshing_options_) {
+  if (!RegisterOptionGroupOnce("advancing_front_meshing")) {
     return;
   }
-  added_advancing_front_meshing_options_ = true;
 
   AddDefaultOption("AdvancingFrontMeshing.max_edge_length",
                    &advancing_front_meshing->max_edge_length);
@@ -1164,10 +1163,9 @@ void OptionManager::AddAdvancingFrontMeshingOptions() {
 }
 
 void OptionManager::AddMeshTextureMappingOptions() {
-  if (added_mesh_texture_mapping_options_) {
+  if (!RegisterOptionGroupOnce("mesh_texture_mapping")) {
     return;
   }
-  added_mesh_texture_mapping_options_ = true;
 
   AddDefaultOption("MeshTextureMapping.min_cos_normal_angle",
                    &mesh_texture_mapping->min_cos_normal_angle);
@@ -1190,10 +1188,9 @@ void OptionManager::AddMeshTextureMappingOptions() {
 }
 
 void OptionManager::AddMeshSimplificationOptions() {
-  if (added_mesh_simplification_options_) {
+  if (!RegisterOptionGroupOnce("mesh_simplification")) {
     return;
   }
-  added_mesh_simplification_options_ = true;
 
   AddDefaultOption("MeshSimplification.target_face_ratio",
                    &mesh_simplification->target_face_ratio);
@@ -1209,10 +1206,9 @@ void OptionManager::AddMeshSimplificationOptions() {
 #endif  // COLMAP_MVS_ENABLED
 
 void OptionManager::AddRenderOptions() {
-  if (added_render_options_) {
+  if (!RegisterOptionGroupOnce("render")) {
     return;
   }
-  added_render_options_ = true;
 
   AddDefaultOption("Render.min_track_len", &render->min_track_len);
   AddDefaultOption("Render.max_error", &render->max_error);
@@ -1223,32 +1219,8 @@ void OptionManager::AddRenderOptions() {
 }
 
 void OptionManager::Reset(bool reset_logging) {
+  // BaseOptionManager::Reset() clears the shared set of added option groups.
   BaseOptionManager::Reset(reset_logging);
-
-  added_feature_extraction_options_ = false;
-  added_feature_matching_options_ = false;
-  added_two_view_geometry_options_ = false;
-  added_exhaustive_pairing_options_ = false;
-  added_sequential_pairing_options_ = false;
-  added_retrieval_pairing_options_ = false;
-  added_spatial_pairing_options_ = false;
-  added_transitive_pairing_options_ = false;
-  added_image_pairs_pairing_options_ = false;
-  added_ba_options_ = false;
-  added_mapper_options_ = false;
-  added_global_mapper_options_ = false;
-  added_gravity_refiner_options_ = false;
-  added_reconstruction_clusterer_options_ = false;
-#if defined(COLMAP_MVS_ENABLED)
-  added_patch_match_stereo_options_ = false;
-  added_stereo_fusion_options_ = false;
-  added_poisson_meshing_options_ = false;
-  added_delaunay_meshing_options_ = false;
-  added_advancing_front_meshing_options_ = false;
-  added_mesh_texture_mapping_options_ = false;
-  added_mesh_simplification_options_ = false;
-#endif
-  added_render_options_ = false;
 }
 
 void OptionManager::ResetOptions(const bool reset_paths) {

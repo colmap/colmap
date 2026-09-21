@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/feature/onnx_utils.h"
 
@@ -64,13 +37,7 @@ std::filesystem::path WriteIdentityModel() {
 
 template <typename T>
 Ort::Value MakeTensor(std::vector<T>* data, const std::vector<int64_t>& shape) {
-  return Ort::Value::CreateTensor<T>(
-      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                 OrtMemType::OrtMemTypeCPU),
-      data->data(),
-      data->size(),
-      shape.data(),
-      shape.size());
+  return CreateONNXTensor(*data, shape);
 }
 
 class ErrorLogSink : public google::LogSink {
@@ -166,6 +133,37 @@ TEST(ONNXModelTest, CapabilityProbeRethrowsWithoutErrorLog) {
                          /*is_capability_probe=*/true),
                Ort::Exception);
   EXPECT_EQ(log_sink.NumErrorLogs(), 0);
+}
+
+TEST(CreateONNXTensorTest, FloatVector) {
+  std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f};
+  const std::vector<int64_t> shape{2, 2};
+  Ort::Value tensor = CreateONNXTensor(data, shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  const float* tensor_data = tensor.GetTensorData<float>();
+  EXPECT_EQ(tensor_data, data.data());
+  EXPECT_FLOAT_EQ(tensor_data[0], 1.0f);
+  EXPECT_FLOAT_EQ(tensor_data[3], 4.0f);
+}
+
+TEST(CreateONNXTensorTest, Int64Pointer) {
+  std::vector<int64_t> data{5, 6};
+  const std::vector<int64_t> shape{1, 2};
+  Ort::Value tensor = CreateONNXTensor(data.data(), data.size(), shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  EXPECT_EQ(tensor.GetTensorData<int64_t>(), data.data());
+}
+
+TEST(CreateONNXScalarTensorTest, Nominal) {
+  float value = 0.25f;
+  Ort::Value tensor = CreateONNXScalarTensor(value);
+  EXPECT_TRUE(tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_FLOAT_EQ(*tensor.GetTensorData<float>(), 0.25f);
+
+  int64_t int_value = 7;
+  Ort::Value int_tensor = CreateONNXScalarTensor(int_value);
+  EXPECT_TRUE(int_tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_EQ(*int_tensor.GetTensorData<int64_t>(), 7);
 }
 
 }  // namespace

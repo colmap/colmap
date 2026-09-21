@@ -1,5 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 
 import dataclasses
 import json

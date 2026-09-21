@@ -1,37 +1,11 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/solvers/relpose_shared_focal.h"
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
 #include "colmap/estimators/solvers/poselib_utils.h"
+#include "colmap/estimators/solvers/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/tiny_solver.h"
@@ -112,19 +86,6 @@ double IsoscelesDeviation(const Rigid3d& cam2_from_cam1) {
     return 0.0;  // Both centers at the intersection point.
   }
   return std::abs(dist1 - dist2) / dist_sum;
-}
-
-// Focal-calibrated, normalized camera rays (x / f, y / f, 1) from centered
-// image points.
-std::vector<Eigen::Vector3d> CalibratedRays(
-    const std::vector<Eigen::Vector2d>& points, const double focal) {
-  const double inv_f = 1.0 / focal;
-  std::vector<Eigen::Vector3d> rays(points.size());
-  for (size_t i = 0; i < points.size(); ++i) {
-    rays[i] = Eigen::Vector3d(points[i].x() * inv_f, points[i].y() * inv_f, 1.0)
-                  .normalized();
-  }
-  return rays;
 }
 
 // Isotropic normalization scale: the mean magnitude of the centered image
@@ -230,8 +191,7 @@ bool RelativePoseSharedFocalEstimator::Refine(const std::vector<X_t>& points1,
   options.max_num_iterations = 25;
 
   Eigen::Matrix<double, 8, 1> x;
-  x.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
-  x.segment<3>(4) = cam2_from_cam1.translation().normalized();
+  x.head<7>() = RelPoseParamsFromRigid3d(cam2_from_cam1);
   x[7] = std::log(model->focal);
   solver.Solve(f, &x, options);
 
@@ -240,8 +200,7 @@ bool RelativePoseSharedFocalEstimator::Refine(const std::vector<X_t>& points1,
   // seed focal.
   const Eigen::Vector3d translation = x.segment<3>(4);
   if (x.allFinite() && translation.squaredNorm() > 0) {
-    cam2_from_cam1 =
-        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), translation);
+    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
     model->E = EssentialMatrixFromPose(cam2_from_cam1);
     model->focal = std::exp(x[7]);
   }

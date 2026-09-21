@@ -8,7 +8,8 @@ dependencies may affect the resulting COLMAP license.
 
 .. code-block:: text
 
-    Copyright (c), ETH Zurich and UNC Chapel Hill.
+    Copyright (c) 2016, ETH Zurich and UNC Chapel Hill.
+    Copyright (c) 2016-2026, The COLMAP Contributors.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without

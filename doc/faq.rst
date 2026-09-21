@@ -20,8 +20,7 @@ Extending COLMAP
 ----------------
 
 If you need to simply analyze the produced sparse or dense reconstructions from
-COLMAP, you can load the sparse models using pycolmap in Python or the
-scripts in ``scripts/matlab`` for Matlab.
+COLMAP, you can load the sparse models using pycolmap in Python.
 
 If you want to write a C/C++ executable that builds on top of COLMAP, there are
 two possible approaches. First, the COLMAP headers and library are installed

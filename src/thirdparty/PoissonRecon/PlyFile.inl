@@ -104,7 +104,17 @@ typedef union
 } endian_test_type;
 
 
+// Determine machine endianness at compile time so native_binary_type is
+// consistently initialized across all translation units including this header.
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
+static constexpr int native_binary_type =
+    (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) ? PLY_BINARY_LE
+                                                : PLY_BINARY_BE;
+#elif defined(_WIN32)
+static constexpr int native_binary_type = PLY_BINARY_LE;
+#else
 static int native_binary_type = -1;
+#endif
 static int types_checked = 0;
 
 static const int no_other_props = -1;
@@ -1270,6 +1280,7 @@ either PLY_BINARY_BE or PLY_BINARY_LE
 
 void get_native_binary_type( void )
 {
+#if !defined(__BYTE_ORDER__) && !defined(_WIN32)
 	endian_test_type test;
 
 	test.int_value = 0;
@@ -1277,6 +1288,7 @@ void get_native_binary_type( void )
 	if     ( test.byte_values[0]==1 ) native_binary_type = PLY_BINARY_LE;
 	else if( test.byte_values[sizeof(int)-1] == 1) native_binary_type = PLY_BINARY_BE;
 	else MK_THROW( "Couldn't determine machine endianness" );
+#endif
 }
 
 /******************************************************************************

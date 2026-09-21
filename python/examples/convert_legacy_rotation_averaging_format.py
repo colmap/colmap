@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Convert legacy rotation averaging file formats to a COLMAP database.
 
@@ -177,7 +179,7 @@ def create_database_from_relative_poses(
         camera_id = image_id
 
         # Create camera with trivial rig (rig_id = camera_id)
-        camera = pycolmap.Camera.create(
+        camera = pycolmap.Camera.create_from_model_id(
             camera_id=camera_id,
             model=pycolmap.CameraModelId.SIMPLE_PINHOLE,
             focal_length=1.0,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/sfm/global_mapper.h"
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
@@ -38,6 +40,23 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
   auto ba = CreateDefaultBundleAdjuster(options, ba_config, reconstruction);
 
   return ba->Solve()->IsSolutionUsable();
+}
+
+BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
+    const BundleAdjustmentOptions& ba_options) {
+  BundleAdjustmentOptions custom_ba_options = ba_options;
+  custom_ba_options.print_summary = false;
+  custom_ba_options.min_track_length = 0;
+  if (custom_ba_options.ceres) {
+    custom_ba_options.ceres->loss_function_type =
+        CeresLossFunctionType::TRIVIAL;
+    custom_ba_options.ceres->solver_options.function_tolerance = 0.0;
+    custom_ba_options.ceres->solver_options.gradient_tolerance = 1.0;
+    custom_ba_options.ceres->solver_options.parameter_tolerance = 0.0;
+    custom_ba_options.ceres->solver_options.max_num_iterations = 50;
+    custom_ba_options.ceres->solver_options.max_linear_solver_iterations = 100;
+  }
+  return custom_ba_options;
 }
 
 }  // namespace
@@ -224,8 +243,12 @@ void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
     if (!is_consistent) continue;
 
     const size_t num_images = image_id_set.size();
-    if (num_images < static_cast<size_t>(options.track_min_num_views_per_track))
+    if (num_images <
+            static_cast<size_t>(options.track_min_num_views_per_track) ||
+        num_images >
+            static_cast<size_t>(options.track_max_num_views_per_track)) {
       continue;
+    }
 
     const point3D_t point3D_id = next_point3D_id++;
     track_lengths.emplace_back(point3D.track.Length(), point3D_id);
@@ -451,30 +474,30 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
     mapper.TriangulateImage(options, image_id);
   }
 
-  // Set up bundle adjustment options for colmap's incremental mapper.
-  BundleAdjustmentOptions custom_ba_options = ba_options;
-  custom_ba_options.print_summary = false;
-  if (custom_ba_options.ceres && ba_options.ceres) {
-    custom_ba_options.ceres->solver_options.num_threads =
-        ba_options.ceres->solver_options.num_threads;
-    custom_ba_options.ceres->solver_options.max_num_iterations = 50;
-    custom_ba_options.ceres->solver_options.max_linear_solver_iterations = 100;
-  }
-
   // Iterative global refinement.
   IncrementalMapper::Options mapper_options;
   mapper_options.random_seed = options.random_seed;
-  mapper.IterativeGlobalRefinement(/*max_num_refinements=*/5,
-                                   /*max_refinement_change=*/0.0005,
-                                   mapper_options,
-                                   custom_ba_options,
-                                   options,
-                                   /*normalize_reconstruction=*/true);
+  mapper.IterativeGlobalRefinement(
+      /*max_num_refinements=*/5,
+      /*max_refinement_change=*/0.0005,
+      mapper_options,
+      RefinementBundleAdjustmentOptions(ba_options),
+      options,
+      /*normalize_reconstruction=*/true);
 
   mapper.EndReconstruction(/*discard=*/false);
 
   // Final filtering and bundle adjustment.
   ObservationManager obs_manager(*reconstruction_);
+  obs_manager.FilterPoints3DWithLargeReprojectionError(
+      max_normalized_reproj_error,
+      reconstruction_->Point3DIds(),
+      ReprojectionErrorType::NORMALIZED);
+
+  if (!RunBundleAdjustment(ba_options, *reconstruction_)) {
+    return false;
+  }
+
   obs_manager.FilterPoints3DWithLargeReprojectionError(
       max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
