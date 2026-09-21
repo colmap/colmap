@@ -124,6 +124,110 @@ TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
 }
 
+struct PinholeFocalProblem {
+  std::vector<Eigen::Vector2d> points2D;  // centered on principal point
+  std::vector<Eigen::Vector3d> points3D;
+  Rigid3d gt_cam_from_world;
+  double gt_focal;
+};
+
+// Synthetic pinhole scene with pixel noise and outliers. Deterministic for a
+// fixed seed.
+PinholeFocalProblem CreatePinholeFocalProblem(int seed,
+                                              double noise_px,
+                                              double outlier_ratio) {
+  PinholeFocalProblem problem;
+  problem.gt_focal = 1280.0;
+  std::mt19937 rng(seed);
+  std::uniform_real_distribution<double> uniform_px(-1200.0, 1200.0);
+  std::uniform_real_distribution<double> uniform_depth(4.0, 12.0);
+  std::uniform_real_distribution<double> uniform_trans(-6.0, 6.0);
+  std::uniform_real_distribution<double> uniform_angle(0.0, 2 * EIGEN_PI);
+  std::uniform_real_distribution<double> uniform_outlier(-1500.0, 1500.0);
+  std::uniform_real_distribution<double> uniform_01(0.0, 1.0);
+  std::normal_distribution<double> noise(0.0, noise_px);
+
+  Eigen::Vector3d translation;
+  do {
+    translation = Eigen::Vector3d(
+        uniform_trans(rng), uniform_trans(rng), uniform_trans(rng));
+  } while (translation.norm() < 1.0);
+  // Deterministic pseudo-random rotation (avoid Eigen::UnitRandom, which draws
+  // from global RNG state).
+  const Eigen::Quaterniond rotation =
+      Eigen::AngleAxisd(uniform_angle(rng), Eigen::Vector3d::UnitX()) *
+      Eigen::AngleAxisd(uniform_angle(rng), Eigen::Vector3d::UnitY()) *
+      Eigen::AngleAxisd(uniform_angle(rng), Eigen::Vector3d::UnitZ());
+  problem.gt_cam_from_world = Rigid3d(rotation, translation);
+
+  const Rigid3d world_from_cam = Inverse(problem.gt_cam_from_world);
+  for (int i = 0; i < 100; ++i) {
+    const double depth = uniform_depth(rng);
+    const Eigen::Vector2d projection(uniform_px(rng), uniform_px(rng));
+    problem.points3D.push_back(
+        world_from_cam *
+        Eigen::Vector3d(projection.x() / problem.gt_focal * depth,
+                        projection.y() / problem.gt_focal * depth,
+                        depth));
+    if (uniform_01(rng) < outlier_ratio) {
+      problem.points2D.push_back(
+          Eigen::Vector2d(uniform_outlier(rng), uniform_outlier(rng)));
+    } else {
+      problem.points2D.push_back(projection +
+                                 Eigen::Vector2d(noise(rng), noise(rng)));
+    }
+  }
+  return problem;
+}
+
+double RotationErrorDeg(const Rigid3d& a, const Rigid3d& b) {
+  const Eigen::Matrix3d R_err = a.rotation().toRotationMatrix().transpose() *
+                                b.rotation().toRotationMatrix();
+  return std::acos(std::clamp((R_err.trace() - 1.0) / 2.0, -1.0, 1.0)) * 180.0 /
+         EIGEN_PI;
+}
+
+TEST(EstimateAbsolutePose, EstimateFocalLengthShippedDefaults) {
+  // Locks in that the shipped default RANSAC options achieve accurate focal
+  // length estimation on noisy data with outliers. The multi-scene aggregate
+  // with wide margins is robust to platform numerics, unlike any single
+  // hand-picked seed. Passes with either trial floor value.
+  const Camera init_camera = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 1280, 1024, 768);
+  const Eigen::Vector2d principal_point(init_camera.PrincipalPointX(),
+                                        init_camera.PrincipalPointY());
+  int num_recalled = 0;
+  for (int s = 0; s < 20; ++s) {
+    const PinholeFocalProblem problem =
+        CreatePinholeFocalProblem(s, /*noise_px=*/4.0, /*outlier_ratio=*/0.3);
+    std::vector<Eigen::Vector2d> points2D = problem.points2D;
+    for (auto& point : points2D) point += principal_point;
+
+    AbsolutePoseEstimationOptions options;
+    options.estimate_focal_length = true;
+    options.ransac_options.random_seed = 1000 + s;
+    Rigid3d cam_from_world;
+    size_t num_inliers = 0;
+    std::vector<char> inlier_mask;
+    Camera camera = init_camera;
+    if (!EstimateAbsolutePose(options,
+                              points2D,
+                              problem.points3D,
+                              &cam_from_world,
+                              &camera,
+                              &num_inliers,
+                              &inlier_mask)) {
+      continue;
+    }
+    const double rot_err =
+        RotationErrorDeg(cam_from_world, problem.gt_cam_from_world);
+    const double focal_err =
+        std::abs(camera.FocalLength() - problem.gt_focal) / problem.gt_focal;
+    if (rot_err < 1.0 && focal_err < 0.02) ++num_recalled;
+  }
+  EXPECT_GE(num_recalled, 18);
+}
+
 TEST(EstimateRelativePose, Nominal) {
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 512.0, 1024, 1024);
