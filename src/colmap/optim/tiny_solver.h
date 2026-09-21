@@ -247,9 +247,8 @@ class TinySolver {
     Scalar u = 1.0 / options.initial_trust_region_radius;
     Scalar v = 2;
 
-    for (summary_.iterations = 1;
-         summary_.iterations < options.max_num_iterations;
-         summary_.iterations++) {
+    while (summary_.iterations < options.max_num_iterations) {
+      ++summary_.iterations;
       jtj_regularized_ = jtj_;
       const Scalar min_diagonal = 1e-6;
       const Scalar max_diagonal = 1e32;
