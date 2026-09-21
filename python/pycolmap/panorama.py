@@ -1,6 +1,7 @@
 """Structure-from-Motion pipelines for 360-degree panorama images."""
 
 import collections
+import copy
 import enum
 import os
 import sys
@@ -528,15 +529,14 @@ def run_matcher(
             database_path, matching_options=matching_options
         )
     elif options.matcher == Matcher.RETRIEVAL:
-        pairing_options = options.retrieval_options
-        if pairing_options is None:
-            pairing_options = pycolmap.RetrievalPairingOptions()
-        if (
-            pairing_options.method == pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
-            and str(pairing_options.image_path) in ("", ".")
-        ):
-            # Global descriptors are computed from the image pixels.
-            pairing_options.image_path = image_path
+        pairing_options = copy.copy(
+            options.retrieval_options or pycolmap.RetrievalPairingOptions()
+        )
+        # Global descriptors are computed from the rendered images.
+        pairing_options.image_path = image_path
+        pairing_options.use_gpu = options.use_gpu
+        pairing_options.gpu_index = options.gpu_index.split(",")[0] or "-1"
+        pairing_options.num_threads = options.num_threads
         pycolmap.match_retrieval(
             database_path,
             pairing_options=pairing_options,

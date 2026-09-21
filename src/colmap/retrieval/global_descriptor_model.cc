@@ -45,69 +45,37 @@ namespace {
 // Model definitions — add new models here.
 // ---------------------------------------------------------------------------
 
-#if defined(COLMAP_DOWNLOAD_ENABLED) && defined(COLMAP_ONNX_ENABLED)
-const std::vector<GlobalDescriptorModel> kModels = {
-    {
-        .name = "MixVPR",
-        .input_width = 320,
-        .input_height = 320,
-        .mean = {0.485f, 0.456f, 0.406f},
-        .std = {0.229f, 0.224f, 0.225f},
-        .input_name = "images",
-        .output_name = "descriptor",
-        .expected_input_shape = {-1, 3, 320, 320},
-        .expected_output_shape = {-1, 4096},
-        .descriptor_dim = 4096,
-        .supports_batching = true,
-        .variants =
-            {{.name = "fp16",
-              .uri =
-                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
-                  "resolve/main/mixvpr/onnx/mixvpr_fp16.onnx;"
-                  "mixvpr_fp16.onnx;"
-                  "fee89548fdc8066d2464f00d5672363868459c8d6346c33bf2d2aea3b7"
-                  "e13c86"},
-             {.name = "fp32",
-              .uri =
-                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
-                  "resolve/main/mixvpr/onnx/mixvpr_fp32.onnx;"
-                  "mixvpr_fp32.onnx;"
-                  "1ede695b528f99b4d4ad3da940c9fe8d62f07254cbb0871205d669816e"
-                  "e97f47"}},
-    },
-    {
-        .name = "MegaLoc",
-        .input_width = 518,   // DINOv2 ViT-B/14 training resolution
-        .input_height = 518,  // square — ONNX reshape assumes H == W
-        // DINOv2 uses [0,1] range without ImageNet normalization.
-        .mean = {0.0f, 0.0f, 0.0f},
-        .std = {1.0f, 1.0f, 1.0f},
-        .input_name = "images",
-        .output_name = "descriptor",
-        .expected_input_shape =
-            {-1, 3, -1, -1},  // dynamic/fixed H,W; our code resizes to 518
-        .expected_output_shape = {-1, 8448},
-        .descriptor_dim = 8448,
-        .supports_batching = true,
-        .variants =
-            {{.name = "fp16",
-              .uri =
-                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
-                  "resolve/main/megaloc/onnx/megaloc_fp16.onnx;"
-                  "megaloc_fp16.onnx;"
-                  "b1aa2436d07cf28c0873581ad9272978c44f427f0a46169e677cf156ff"
-                  "ac452f"},
-             {.name = "fp32",
-              .uri =
-                  "https://huggingface.co/Realcat/image_retrieval_checkpoints/"
-                  "resolve/main/megaloc/onnx/megaloc.onnx;"
-                  "megaloc.onnx;"
-                  "a3caae0481bc0a669503b70975c9863e82cc38b7be077d01428447f4f8"
-                  "8056e3",
-              // Older single-file export with a batch=1 reshape baked in.
-              .supports_batching = false}},
-    },
-};
+#ifdef COLMAP_ONNX_ENABLED
+const std::vector<GlobalDescriptorModel> kModels = [] {
+  // The default options correspond to MixVPR.
+  GlobalDescriptorModel mixvpr;
+  mixvpr.name = "MixVPR";
+  mixvpr.variants = {
+      {"fp16",
+       "https://huggingface.co/Realcat/image_retrieval_checkpoints/resolve/"
+       "main/mixvpr/onnx/mixvpr_fp16.onnx;mixvpr_fp16.onnx;"
+       "fee89548fdc8066d2464f00d5672363868459c8d6346c33bf2d2aea3b7e13c86"},
+      {"fp32",
+       "https://huggingface.co/Realcat/image_retrieval_checkpoints/resolve/"
+       "main/mixvpr/onnx/mixvpr_fp32.onnx;mixvpr_fp32.onnx;"
+       "1ede695b528f99b4d4ad3da940c9fe8d62f07254cbb0871205d669816ee97f47"}};
+
+  GlobalDescriptorModel megaloc;
+  megaloc.name = "MegaLoc";
+  megaloc.input_width = 322;
+  megaloc.input_height = 322;
+  megaloc.expected_input_shape = {-1, 3, 322, 322};
+  megaloc.expected_output_shape = {-1, 8448};
+  megaloc.descriptor_dim = 8448;
+  // Weights are stored in fp16, computation is in fp32.
+  megaloc.variants = {
+      {"fp16",
+       "https://huggingface.co/gberton/MegaLoc/resolve/main/megaloc.onnx;"
+       "megaloc.onnx;"
+       "9304d7d2473b006d2664736b5c56135c8404ff351d4592cfd9dcb4d7e8f12355"}};
+
+  return std::vector<GlobalDescriptorModel>{mixvpr, megaloc};
+}();
 #else
 const std::vector<GlobalDescriptorModel> kModels = {};
 #endif

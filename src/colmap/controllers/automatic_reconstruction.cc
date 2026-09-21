@@ -133,20 +133,29 @@ AutomaticReconstructionController::AutomaticReconstructionController(
       *option_manager_.retrieval_pairing;
   RetrievalPairingOptions& loop_detection_options =
       option_manager_.sequential_pairing->loop_detection_options;
-  if (!options_.global_descriptor_path.empty()) {
-    // Use global descriptor model (e.g. MixVPR) for image retrieval and
+  if (!options_.global_descriptor_model.empty()) {
+    // Use global descriptor model (e.g. MegaLoc) for image retrieval and
     // loop detection, replacing the vocabulary tree.
     LOG(INFO) << "Using global descriptor model: "
-              << options_.global_descriptor_path;
-    retrieval_options.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
-    retrieval_options.model_path = options_.global_descriptor_path;
-    retrieval_options.image_path = options_.image_path;
-    retrieval_options.database_path = *option_manager_.database_path;
-    loop_detection_options.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
-    loop_detection_options.model_path = options_.global_descriptor_path;
-    loop_detection_options.image_path = options_.image_path;
-    loop_detection_options.database_path = *option_manager_.database_path;
+              << options_.global_descriptor_model;
+    // Global descriptors are extracted on a single GPU.
+    const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+    const std::string gpu_index =
+        gpu_indices.empty() ? "-1" : std::to_string(gpu_indices.front());
+    for (RetrievalPairingOptions* pairing_options :
+         {&retrieval_options, &loop_detection_options}) {
+      pairing_options->method = RetrievalMethod::GLOBAL_DESCRIPTOR;
+      pairing_options->model_type = options_.global_descriptor_model;
+      pairing_options->model_path = options_.global_descriptor_path;
+      pairing_options->image_path = options_.image_path;
+      pairing_options->database_path = *option_manager_.database_path;
+      pairing_options->use_gpu = options_.use_gpu;
+      pairing_options->gpu_index = gpu_index;
+      THROW_CHECK(pairing_options->Check());
+    }
   } else {
+    THROW_CHECK(options_.global_descriptor_path.empty())
+        << "global_descriptor_path requires global_descriptor_model";
     // Use vocabulary tree for retrieval and loop detection (default).
     retrieval_options.vocab_tree_path =
         GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
@@ -238,7 +247,7 @@ void AutomaticReconstructionController::Setup() {
                                        *option_manager_.database_path);
 
     if (!options_.vocab_tree_path.empty() ||
-        !options_.global_descriptor_path.empty()) {
+        !options_.global_descriptor_model.empty()) {
       retrieval_matcher_ =
           CreateRetrievalFeatureMatcher(*option_manager_.retrieval_pairing,
                                         *option_manager_.feature_matching,
@@ -311,7 +320,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     auto database = Database::Open(*option_manager_.database_path);
     const size_t num_images = database->NumImages();
     if ((options_.vocab_tree_path.empty() &&
-         options_.global_descriptor_path.empty()) ||
+         options_.global_descriptor_model.empty()) ||
         num_images < 200) {
       matcher = exhaustive_matcher_.get();
     } else {

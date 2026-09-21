@@ -66,8 +66,13 @@ class AutomaticReconstructionController : public Thread {
     // The path to the vocabulary tree for feature matching.
     std::filesystem::path vocab_tree_path;
 
-    // Path to a global descriptor ONNX model (e.g. MixVPR) that replaces the
+    // Global descriptor model (e.g. MegaLoc, MixVPR) that replaces the
     // vocabulary tree for image retrieval / loop detection in feature matching.
+    // If empty, the vocabulary tree is used.
+    std::string global_descriptor_model;
+
+    // Optional path to the global descriptor ONNX model. If empty, the default
+    // model is downloaded.
     std::filesystem::path global_descriptor_path;
 
     // The type of input data used to choose optimal mapper settings.

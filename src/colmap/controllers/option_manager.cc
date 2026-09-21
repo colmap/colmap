@@ -490,6 +490,12 @@ void OptionManager::AddSequentialPairingOptions() {
                    &sequential_pairing->loop_detection_options.model_precision);
   AddDefaultOption("SequentialMatching.loop_detection_model_path",
                    &sequential_pairing->loop_detection_options.model_path);
+  AddDefaultOption("SequentialMatching.loop_detection_use_gpu",
+                   &sequential_pairing->loop_detection_options.use_gpu);
+  AddDefaultOption("SequentialMatching.loop_detection_gpu_index",
+                   &sequential_pairing->loop_detection_options.gpu_index);
+  AddDefaultOption("SequentialMatching.loop_detection_batch_size",
+                   &sequential_pairing->loop_detection_options.batch_size);
   AddDefaultOption("SequentialMatching.num_threads",
                    &sequential_pairing->loop_detection_options.num_threads);
 }

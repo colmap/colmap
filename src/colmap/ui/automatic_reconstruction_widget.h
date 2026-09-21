@@ -58,6 +58,7 @@ class AutomaticReconstructionWidget : public OptionsWidget {
 #ifdef CASPAR_ENABLED
   QComboBox* ba_backend_cb_;
 #endif
+  std::vector<std::string> global_descriptor_models_;
   QWidget* vocab_tree_row_ = nullptr;
   QWidget* global_descriptor_row_ = nullptr;
   QAction* render_result_;

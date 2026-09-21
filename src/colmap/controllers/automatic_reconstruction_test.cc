@@ -88,6 +88,22 @@ TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
                                  /*align=*/true));
 }
 
+TEST(AutomaticReconstruction, GlobalDescriptorPathRequiresModel) {
+  const auto test_dir = CreateTestDir();
+  AutomaticReconstructionController::Options options;
+  options.workspace_path = test_dir;
+  options.image_path = test_dir;
+  options.global_descriptor_path = "model.onnx";
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  EXPECT_ANY_THROW(
+      AutomaticReconstructionController(options, reconstruction_manager));
+#ifdef COLMAP_ONNX_ENABLED
+  options.global_descriptor_model = "MegaLoc";
+  EXPECT_NO_THROW(
+      AutomaticReconstructionController(options, reconstruction_manager));
+#endif
+}
+
 // TODO: Add GLOBAL mapper test. Currently excluded because the test produces
 // fewer observations than expected. The global pipeline is tested separately
 // in global_pipeline_test.cc.

@@ -43,6 +43,7 @@
 #endif
 
 #include <fstream>
+#include <functional>
 #include <vector>
 
 #include <faiss/IndexFlat.h>
@@ -1256,11 +1257,21 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
   // Resize the index if descriptor dim changed (e.g. model switch).
   global_descriptor_index_ = retrieval::GlobalDescriptorIndex(kDescriptorDim);
 
-  // Cache alongside the database, not in the image folder.
+  // Cache alongside the database, not in the image folder, keyed by the model
+  // and the images it was extracted from.
+  std::string cache_key = retrieval::GlobalDescriptorModel::DefaultModelUri(
+                              options_.model_type, options_.model_precision) +
+                          "\n" + options_.model_path.string() + "\n" +
+                          options_.image_path.string() + "\n";
+  for (const image_t image_id : all_image_ids) {
+    cache_key += std::to_string(image_id) + ":" +
+                 cache_->GetImage(image_id).Name() + "\n";
+  }
   const std::filesystem::path cache_path =
       options_.database_path.parent_path() /
-      ("global_descriptors_" + model_info->name + ".bin");
-  if (ExistsFile(cache_path)) {
+      ("global_descriptors_" + model_info->name + "_" +
+       std::to_string(std::hash<std::string>{}(cache_key)) + ".bin");
+  if (!options_.database_path.empty() && ExistsFile(cache_path)) {
     try {
       global_descriptor_index_.Read(cache_path);
       if (global_descriptor_index_.NumImages() == all_image_ids.size()) {
@@ -1355,11 +1366,8 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
 
     const std::filesystem::path full_path = options_.image_path / image.Name();
     Bitmap bitmap;
-    if (!bitmap.Read(full_path, /*as_rgb=*/true)) {
-      LOG(ERROR) << "Failed to read image: " << full_path << ", skipping image "
-                 << image_id;
-      continue;
-    }
+    THROW_CHECK(bitmap.Read(full_path, /*as_rgb=*/true))
+        << "Failed to read image: " << full_path;
 
     std::vector<float> tensor = PreprocessImage(bitmap, *model_info);
     batch_data.insert(batch_data.end(), tensor.begin(), tensor.end());
@@ -1397,18 +1405,17 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       const auto output_shape =
           output_tensors[0].GetTensorTypeAndShapeInfo().GetShape();
 
-      int output_batch = current_batch_size;
-      if (output_shape.size() >= 1 && output_shape[0] != -1) {
-        output_batch = static_cast<int>(output_shape[0]);
-      }
+      THROW_CHECK_EQ(output_shape.size(), 2);
+      THROW_CHECK_EQ(output_shape[0], current_batch_size);
+      THROW_CHECK_EQ(output_shape[1], kDescriptorDim);
 
-      for (int j = 0; j < output_batch; ++j) {
+      for (int j = 0; j < current_batch_size; ++j) {
         const float* desc = output_data + j * kDescriptorDim;
         std::vector<float> descriptor(desc, desc + kDescriptorDim);
         global_descriptor_index_.Add(batch_image_ids[j], descriptor);
       }
 
-      total_processed += output_batch;
+      total_processed += current_batch_size;
       LOG(INFO) << StringPrintf(
           "Extracted descriptors [%d/%d]", total_processed, total_images);
 
@@ -1417,7 +1424,8 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
     }
   }
 
-  if (global_descriptor_index_.NumImages() > 0) {
+  if (!options_.database_path.empty() &&
+      global_descriptor_index_.NumImages() > 0) {
     global_descriptor_index_.Write(cache_path);
     LOG(INFO) << "Cached " << model_info->name << " descriptors to "
               << cache_path;

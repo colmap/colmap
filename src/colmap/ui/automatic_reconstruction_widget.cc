@@ -30,6 +30,7 @@
 #include "colmap/ui/automatic_reconstruction_widget.h"
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/retrieval/global_descriptor_model.h"
 #include "colmap/ui/main_window.h"
 
 namespace colmap {
@@ -60,7 +61,12 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   retrieval_type_cb_->addItem("None (exhaustive matching)");
   retrieval_type_cb_->addItem("Vocabulary Tree");
 #ifdef COLMAP_ONNX_ENABLED
-  retrieval_type_cb_->addItem("MixVPR (global descriptor)");
+  for (const std::string_view name :
+       retrieval::GlobalDescriptorModel::ModelNames()) {
+    global_descriptor_models_.emplace_back(name);
+    retrieval_type_cb_->addItem(
+        QString::fromStdString(std::string(name) + " (global descriptor)"));
+  }
 #endif
   grid_layout_->addWidget(retrieval_type_cb_, grid_layout_->rowCount() - 1, 1);
 
@@ -83,14 +89,14 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
     edit->setObjectName("auto_vocab_tree_edit");
   }
 
-  // Global descriptor model row (visible when MixVPR selected).
+  // Global descriptor model row (visible when a global descriptor is selected).
 #ifdef COLMAP_ONNX_ENABLED
   {
     global_descriptor_row_ = new QWidget(this);
     QHBoxLayout* hbox = new QHBoxLayout(global_descriptor_row_);
     hbox->setContentsMargins(0, 0, 0, 0);
     QLabel* label =
-        new QLabel(tr("MixVPR model (ONNX)"), global_descriptor_row_);
+        new QLabel(tr("Model path (optional)"), global_descriptor_row_);
     QLineEdit* edit = new QLineEdit(global_descriptor_row_);
     edit->setText(
         QString::fromStdString(options_.global_descriptor_path.string()));
@@ -111,6 +117,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
           QOverload<int>::of(&QComboBox::currentIndexChanged),
           this,
           &AutomaticReconstructionWidget::UpdateRetrievalFields);
+  UpdateRetrievalFields();
 
   AddSpacer();
 
@@ -194,12 +201,12 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
 
 void AutomaticReconstructionWidget::UpdateRetrievalFields() {
   const int idx = retrieval_type_cb_->currentIndex();
-  // 0 = None, 1 = Vocabulary Tree, 2 = MixVPR
+  // 0 = None, 1 = Vocabulary Tree, >= 2 = global descriptor models.
   if (vocab_tree_row_) vocab_tree_row_->setVisible(idx == 1);
   if (global_descriptor_row_)
     global_descriptor_row_->setVisible(
 #ifdef COLMAP_ONNX_ENABLED
-        idx == 2
+        idx >= 2
 #else
         false
 #endif
@@ -211,6 +218,9 @@ void AutomaticReconstructionWidget::Run() {
 
   // Sync custom retrieval widgets (not managed by OptionsWidget::WriteOptions).
   const int retrieval_idx = retrieval_type_cb_->currentIndex();
+  options_.vocab_tree_path.clear();
+  options_.global_descriptor_model.clear();
+  options_.global_descriptor_path.clear();
   if (retrieval_idx == 1) {
     // Vocabulary Tree.
     QLineEdit* edit =
@@ -218,24 +228,19 @@ void AutomaticReconstructionWidget::Run() {
             ? vocab_tree_row_->findChild<QLineEdit*>("auto_vocab_tree_edit")
             : nullptr;
     if (edit) options_.vocab_tree_path = edit->text().toStdString();
-    options_.global_descriptor_path.clear();
   }
 #ifdef COLMAP_ONNX_ENABLED
-  else if (retrieval_idx == 2) {
-    // MixVPR global descriptor.
+  else if (retrieval_idx >= 2) {
+    // Global descriptor.
+    options_.global_descriptor_model =
+        global_descriptor_models_.at(retrieval_idx - 2);
     QLineEdit* edit = global_descriptor_row_
                           ? global_descriptor_row_->findChild<QLineEdit*>(
                                 "auto_global_descriptor_edit")
                           : nullptr;
     if (edit) options_.global_descriptor_path = edit->text().toStdString();
-    options_.vocab_tree_path.clear();
   }
 #endif
-  else {
-    // None: clear both.
-    options_.vocab_tree_path.clear();
-    options_.global_descriptor_path.clear();
-  }
 
   if (!ExistsDir(options_.workspace_path)) {
     QMessageBox::critical(this, "", tr("Invalid workspace folder"));
