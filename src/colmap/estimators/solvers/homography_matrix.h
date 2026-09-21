@@ -25,7 +25,9 @@ class HomographyMatrixEstimator {
 
   // Estimate the projective transformation (homography).
   //
-  // The number of corresponding points must be at least 4.
+  // The number of corresponding points must be at least 4. Minimal samples of
+  // exactly 4 points use a closed-form solver with a collinearity pre-check;
+  // larger sets use DLT.
   //
   // @param points1    First set of corresponding points.
   // @param points2    Second set of corresponding points.
@@ -52,6 +54,38 @@ class HomographyMatrixEstimator {
   // @param points2    Second set of corresponding points.
   // @param H          3x3 projective matrix.
   // @param residuals  Output vector of residuals.
+  static void Residuals(const std::vector<X_t>& points1,
+                        const std::vector<Y_t>& points2,
+                        const M_t& H,
+                        std::vector<double>* residuals);
+};
+
+// Same as HomographyMatrixEstimator, but minimal samples that fail the
+// cheirality (orientation-consistency) pre-check are rejected without solving.
+// Use as the RANSAC hypothesis estimator to skip the solve and the full-data
+// scoring on contaminated samples. The check assumes an orientation-preserving
+// homography (det(H) > 0 with no vanishing line through the sample): flipped
+// samples are overwhelmingly contaminated in practice, but orientation-
+// reversing ground truth is systematically rejected. The LO-RANSAC local
+// estimator should stay HomographyMatrixEstimator, as the gate only applies
+// to 4-point samples, never to inlier-set refits.
+class HomographyMatrixCheiralityEstimator {
+ public:
+  using X_t = Eigen::Vector2d;
+  using Y_t = Eigen::Vector2d;
+  using M_t = Eigen::Matrix3d;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 4;
+
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* models);
+
+  static bool Refine(const std::vector<X_t>& points1,
+                     const std::vector<Y_t>& points2,
+                     M_t* H);
+
   static void Residuals(const std::vector<X_t>& points1,
                         const std::vector<Y_t>& points2,
                         const M_t& H,

@@ -84,6 +84,97 @@ bool HasCollinearTriplet(const std::vector<Eigen::Vector2d>& points) {
          is_collinear(0, 2, 3) || is_collinear(1, 2, 3);
 }
 
+// Orientation pre-check for minimal samples, following PoseLib's
+// homography_4pt (BSD-3-Clause, copyright Viktor Larsson): rejects 4-samples
+// whose cyclic sidedness flips between views, which no orientation-preserving
+// homography can map. This discards contaminated RANSAC samples before the
+// solve and the full-data scoring. Only valid for det(H) > 0:
+// orientation-reversing homographies, which require the camera to cross the
+// observed plane, are systematically rejected.
+bool PassCheiralityCheck(const std::vector<Eigen::Vector2d>& points1,
+                         const std::vector<Eigen::Vector2d>& points2) {
+  const Eigen::Vector3d x1[4] = {points1[0].homogeneous(),
+                                 points1[1].homogeneous(),
+                                 points1[2].homogeneous(),
+                                 points1[3].homogeneous()};
+  const Eigen::Vector3d x2[4] = {points2[0].homogeneous(),
+                                 points2[1].homogeneous(),
+                                 points2[2].homogeneous(),
+                                 points2[3].homogeneous()};
+  Eigen::Vector3d p = x1[0].cross(x1[1]);
+  Eigen::Vector3d q = x2[0].cross(x2[1]);
+  if (p.dot(x1[2]) * q.dot(x2[2]) < 0) return false;
+  if (p.dot(x1[3]) * q.dot(x2[3]) < 0) return false;
+  p = x1[2].cross(x1[3]);
+  q = x2[2].cross(x2[3]);
+  if (p.dot(x1[0]) * q.dot(x2[0]) < 0) return false;
+  if (p.dot(x1[1]) * q.dot(x2[1]) < 0) return false;
+  return true;
+}
+
+// Closed-form homography from 4 points via the similarity-kernel-similarity
+// decomposition (Cai et al., "Fast and interpretable 2d homography
+// decomposition: Similarity-kernel-similarity and affine-core-affine
+// transformations", PAMI 2025), following PoseLib's homography_4pt
+// implementation (BSD-3-Clause, copyright Viktor Larsson). A direct formula
+// without any linear solves; agrees with DLT to machine precision. The output
+// scale is arbitrary. Callers must reject collinear triplets first: the
+// formula has no divisions, so degenerate inputs yield a zero matrix rather
+// than NaN.
+Eigen::Matrix3d SolveHomography4ptClosedForm(
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2) {
+  const Eigen::Vector3d xa[4] = {points1[0].homogeneous(),
+                                 points1[1].homogeneous(),
+                                 points1[2].homogeneous(),
+                                 points1[3].homogeneous()};
+  const Eigen::Vector3d xb[4] = {points2[0].homogeneous(),
+                                 points2[1].homogeneous(),
+                                 points2[2].homogeneous(),
+                                 points2[3].homogeneous()};
+  const double M1N1_x = xa[1].x() - xa[0].x();
+  const double M1P1_x = xa[2].x() - xa[0].x();
+  const double M1Q1_x = xa[3].x() - xa[0].x();
+  const double M1N1_y = xa[1].y() - xa[0].y();
+  const double M1P1_y = xa[2].y() - xa[0].y();
+  const double M1Q1_y = xa[3].y() - xa[0].y();
+  const double fA1 = M1N1_x * M1P1_y - M1N1_y * M1P1_x;
+  const double Q3_x = M1P1_y * M1Q1_x - M1P1_x * M1Q1_y;
+  const double Q3_y = M1N1_x * M1Q1_y - M1N1_y * M1Q1_x;
+  const double M2N2_x = xb[1].x() - xb[0].x();
+  const double M2P2_x = xb[2].x() - xb[0].x();
+  const double M2Q2_x = xb[3].x() - xb[0].x();
+  const double M2N2_y = xb[1].y() - xb[0].y();
+  const double M2P2_y = xb[2].y() - xb[0].y();
+  const double M2Q2_y = xb[3].y() - xb[0].y();
+  const double fA2 = M2N2_x * M2P2_y - M2N2_y * M2P2_x;
+  const double Q4_x = M2P2_y * M2Q2_x - M2P2_x * M2Q2_y;
+  const double Q4_y = M2N2_x * M2Q2_y - M2N2_y * M2Q2_x;
+  const double tt1 = fA1 - Q3_x - Q3_y;
+  const double C11 = Q3_y * Q4_x * tt1;
+  const double C22 = Q3_x * Q4_y * tt1;
+  const double C33 = Q3_x * Q3_y * (fA2 - Q4_x - Q4_y);
+  const double C31 = C11 - C33;
+  const double C32 = C22 - C33;
+  const double tt3 = xb[0].x() * C33;
+  const double tt4 = xb[0].y() * C33;
+  const double H1_11 = xb[1].x() * C11 - tt3;
+  const double H1_12 = xb[2].x() * C22 - tt3;
+  const double H1_21 = xb[1].y() * C11 - tt4;
+  const double H1_22 = xb[2].y() * C22 - tt4;
+  Eigen::Matrix<double, 9, 1> h;
+  h[0] = H1_11 * M1P1_y - H1_12 * M1N1_y;
+  h[1] = H1_12 * M1N1_x - H1_11 * M1P1_x;
+  h[3] = H1_21 * M1P1_y - H1_22 * M1N1_y;
+  h[4] = H1_22 * M1N1_x - H1_21 * M1P1_x;
+  h[6] = C31 * M1P1_y - C32 * M1N1_y;
+  h[7] = C32 * M1N1_x - C31 * M1P1_x;
+  h[2] = tt3 * fA1 - h[0] * xa[0].x() - h[1] * xa[0].y();
+  h[5] = tt4 * fA1 - h[3] * xa[0].x() - h[4] * xa[0].y();
+  h[8] = C33 * fA1 - h[6] * xa[0].x() - h[7] * xa[0].y();
+  return Eigen::Map<const Eigen::Matrix3d>(h.data()).transpose();
+}
+
 // Solve a 2Nx9 DLT system using LU for N == 4 and SVD otherwise.
 // Returns false for rank-deficient, non-finite, or near-singular solutions.
 bool SolveHomographyFromConstraintMatrix(
@@ -122,11 +213,22 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
   models->clear();
 
   const size_t num_points = points1.size();
-  // A minimal homography requires four points in general position (no three
-  // collinear) in both images. See Hartley and Zisserman, Multiple View
-  // Geometry in Computer Vision, 2nd ed., Sec. 4.1.3, pp. 91-92.
-  if (num_points == 4 &&
-      (HasCollinearTriplet(points1) || HasCollinearTriplet(points2))) {
+  if (num_points == 4) {
+    // Minimal samples take the closed-form path. A minimal homography
+    // requires four points in general position (no three collinear) in both
+    // images; see Hartley and Zisserman, Multiple View Geometry in Computer
+    // Vision, 2nd ed., Sec. 4.1.3, pp. 91-92. Degeneracy is decided by the
+    // scale-free collinearity test rather than a determinant threshold, which
+    // would be scale-dependent on the arbitrary output scale.
+    if (HasCollinearTriplet(points1) || HasCollinearTriplet(points2)) {
+      return;
+    }
+    const Eigen::Matrix3d H = SolveHomography4ptClosedForm(points1, points2);
+    if (!H.allFinite() || H.norm() == 0) {
+      return;
+    }
+    models->resize(1);
+    (*models)[0] = H.normalized();
     return;
   }
 
@@ -238,6 +340,35 @@ void HomographyMatrixEstimator::Residuals(const std::vector<X_t>& points1,
 
     (*residuals)[i] = dd_0 * dd_0 + dd_1 * dd_1;
   }
+}
+
+void HomographyMatrixCheiralityEstimator::Estimate(
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    std::vector<M_t>* models) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), kMinNumSamples);
+  THROW_CHECK(models != nullptr);
+
+  models->clear();
+  if (points1.size() == kMinNumSamples &&
+      !PassCheiralityCheck(points1, points2)) {
+    return;
+  }
+  HomographyMatrixEstimator::Estimate(points1, points2, models);
+}
+
+bool HomographyMatrixCheiralityEstimator::Refine(
+    const std::vector<X_t>& points1, const std::vector<Y_t>& points2, M_t* H) {
+  return HomographyMatrixEstimator::Refine(points1, points2, H);
+}
+
+void HomographyMatrixCheiralityEstimator::Residuals(
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    const M_t& H,
+    std::vector<double>* residuals) {
+  HomographyMatrixEstimator::Residuals(points1, points2, H, residuals);
 }
 
 void HomographyMatrixRayEstimator::Estimate(const std::vector<X_t>& cam_rays1,

@@ -35,6 +35,80 @@ TEST(HomographyMatrixEstimator, CollinearMinimalSampleTriplets) {
   }
 }
 
+TEST(HomographyMatrixCheiralityEstimator, RejectsOrientationFlippedSamples) {
+  // A global reflection flips sidedness everywhere without creating
+  // collinear triplets, so only the cheirality check can reject it. This is
+  // also why det(H) < 0 ground truth is unsupported by the gated estimator:
+  // it is indistinguishable from flipped samples.
+  Eigen::Matrix3d H_gt;
+  H_gt << 0.8, -0.3, 120.0, 0.25, 0.9, -60.0, 0.0002, -0.0001, 1.0;
+  const Eigen::Matrix3d mirror =
+      (Eigen::Matrix3d() << -1, 0, 1000, 0, 1, 0, 0, 0, 1).finished();
+  const std::vector<Eigen::Vector2d> src = {
+      {0, 0}, {400, 0}, {400, 300}, {0, 300}};
+  std::vector<Eigen::Vector2d> dst, dst_flipped;
+  for (const auto& p : src) {
+    const Eigen::Vector2d q = (H_gt * p.homogeneous()).hnormalized();
+    dst.push_back(q);
+    dst_flipped.push_back((mirror * q.homogeneous()).hnormalized());
+  }
+
+  std::vector<Eigen::Matrix3d> models;
+  HomographyMatrixCheiralityEstimator::Estimate(src, dst_flipped, &models);
+  EXPECT_TRUE(models.empty());
+
+  HomographyMatrixCheiralityEstimator::Estimate(src, dst, &models);
+  ASSERT_EQ(models.size(), 1);
+  std::vector<double> residuals;
+  HomographyMatrixCheiralityEstimator::Residuals(
+      src, dst, models[0], &residuals);
+  for (const double r : residuals) {
+    EXPECT_LT(r, 1e-6);
+  }
+
+  // The base estimator stays exact: flipped samples are valid input there.
+  HomographyMatrixEstimator::Estimate(src, dst_flipped, &models);
+  EXPECT_EQ(models.size(), 1);
+}
+
+TEST(HomographyMatrixMinimalSample, ClosedFormMatchesOverdeterminedDLT) {
+  // The closed-form 4-point solver must agree with overdetermined DLT (up to
+  // scale and sign) on exact data.
+  // Moderate translations: the overdetermined DLT determinant check operates
+  // on the unit-norm solution and rejects large-translation homographies.
+  std::vector<Eigen::Matrix3d> H_gts(3);
+  H_gts[0] << 0.8, -0.3, 120.0, 0.25, 0.9, -60.0, 0.0002, -0.0001, 1.0;
+  H_gts[1] << 1.1, 0.05, -150.0, -0.03, 1.05, 130.0, 0.0003, -0.0002, 1.0;
+  H_gts[2] << 0.9, -0.4, 140.0, 0.5, 0.85, -120.0, -0.0002, 0.0003, 1.0;
+  const std::vector<Eigen::Vector2d> src = {{0, 0},
+                                            {400, 0},
+                                            {400, 300},
+                                            {0, 300},
+                                            {200, 100},
+                                            {600, 200},
+                                            {100, 500},
+                                            {500, 450}};
+  HomographyMatrixEstimator estimator;
+  for (const auto& H_gt : H_gts) {
+    std::vector<Eigen::Vector2d> dst;
+    dst.reserve(src.size());
+    for (const auto& p : src) {
+      dst.push_back((H_gt * p.homogeneous()).hnormalized());
+    }
+    std::vector<Eigen::Matrix3d> minimal_models, overdetermined_models;
+    estimator.Estimate(
+        std::vector<Eigen::Vector2d>(src.begin(), src.begin() + 4),
+        std::vector<Eigen::Vector2d>(dst.begin(), dst.begin() + 4),
+        &minimal_models);
+    ASSERT_EQ(minimal_models.size(), 1);
+    estimator.Estimate(src, dst, &overdetermined_models);
+    ASSERT_EQ(overdetermined_models.size(), 1);
+    const Eigen::Matrix3d H_min = minimal_models[0].normalized();
+    const Eigen::Matrix3d H_dlt = overdetermined_models[0].normalized();
+    EXPECT_TRUE(H_min.isApprox(H_dlt, 1e-6) || H_min.isApprox(-H_dlt, 1e-6));
+  }
+}
+
 TEST_P(HomographyMatrixTests, Nominal) {
   const size_t kNumPoints = GetParam();
   for (int x = 0; x < 10; ++x) {
