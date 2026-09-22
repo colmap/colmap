@@ -91,8 +91,6 @@ class ModelViewerWidget : public QOpenGLWidget,
   void SetPointSize(float point_size);
   void SetImageSize(float image_size);
 
-  void TogglePointCov();
-
   void SetBackgroundColor(float r, float g, float b);
 
   // Copy of current scene data that is displayed

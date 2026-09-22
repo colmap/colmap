@@ -405,19 +405,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   size_t num_inliers;
   std::vector<char> inlier_mask;
   Rigid3d cam_from_world;
-  // if (!EstimateAbsolutePose(abs_pose_options,
-  //                           tri_points2D,
-  //                           tri_points3D,
-  //                           /*points3D_cov=*/{},
-  //                           &cam_from_world,
-  //                           &camera,
-  //                           &num_inliers,
-  //                           &inlier_mask)) {
-  //   return false;
-  // }
 
   const std::vector<Eigen::Matrix3d> tri_points3D_cov =
-      EstimateSchurPointCovariance(reconstruction_.get(), tri_point3D_ids);
+      options.abs_pose_use_point_covariance
+          ? EstimateSchurPointCovariance(reconstruction_.get(), tri_point3D_ids)
+          : std::vector<Eigen::Matrix3d>();
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
                             tri_points3D,
@@ -440,12 +432,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Pose refinement
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!RefineAbsolutePose(abs_pose_refinement_options,
-                          inlier_mask,
-                          tri_points2D,
-                          tri_points3D,
-                          &cam_from_world,
-                          &camera)) {
+  if (!RefineAbsolutePose(
+          abs_pose_refinement_options,
+          inlier_mask,
+          tri_points2D,
+          tri_points3D,
+          &cam_from_world,
+          &camera,
+          /*cam_from_world_cov=*/nullptr,
+          tri_points3D_cov.empty() ? nullptr : &tri_points3D_cov)) {
     VLOG(2) << "Absolute pose refinement failed";
     return false;
   }

@@ -536,6 +536,8 @@ void ModelViewerWidget::ReloadReconstruction() {
       points3D_cov[cov_idx] =
           std::make_pair(point3D_ids[cov_idx], covs[cov_idx].cast<float>());
     }
+  } else {
+    points3D_cov.clear();
   }
 
   statusbar_status_label->setText(
@@ -1221,35 +1223,40 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
 
   std::vector<LinePainter::Data> cov_data;
   if (options_->render->point_covariance) {
-    cov_data.reserve(points3D_cov.size());
+    cov_data.reserve(3 * points3D_cov.size());
 
     for (const auto& point3D_cov : points3D_cov) {
-      const auto& point3D = points3D[point3D_cov.first];
+      const auto& point3D = points3D.at(point3D_cov.first);
+      const Eigen::Vector3f xyz =
+          (model_scale_ * (point3D.xyz + model_origin_)).cast<float>();
       const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig_solver(
           point3D_cov.second);
-      const Eigen::Vector3f cov_major_axis =
-          3 * std::sqrt(eig_solver.eigenvalues()(2)) *
-          eig_solver.eigenvectors().col(2);
 
-      LinePainter::Data line;
-      line.point1 = PointPainter::Data(
-          static_cast<float>(point3D.xyz(0)) + cov_major_axis(0),
-          static_cast<float>(point3D.xyz(1)) + cov_major_axis(1),
-          static_cast<float>(point3D.xyz(2)) + cov_major_axis(2),
-          kPointCovColor(0),
-          kPointCovColor(1),
-          kPointCovColor(2),
-          kPointCovColor(3));
-      line.point2 = PointPainter::Data(
-          static_cast<float>(point3D.xyz(0)) - cov_major_axis(0),
-          static_cast<float>(point3D.xyz(1)) - cov_major_axis(1),
-          static_cast<float>(point3D.xyz(2)) - cov_major_axis(2),
-          kPointCovColor(0),
-          kPointCovColor(1),
-          kPointCovColor(2),
-          kPointCovColor(3));
+      // Draw the three principal axes of the 3-sigma uncertainty ellipsoid.
+      for (int axis_idx = 0; axis_idx < 3; ++axis_idx) {
+        const Eigen::Vector3f cov_axis =
+            3 * static_cast<float>(model_scale_) *
+            std::sqrt(std::max(eig_solver.eigenvalues()(axis_idx), 0.0f)) *
+            eig_solver.eigenvectors().col(axis_idx);
 
-      cov_data.push_back(line);
+        LinePainter::Data line;
+        line.point1 = PointPainter::Data(xyz(0) + cov_axis(0),
+                                         xyz(1) + cov_axis(1),
+                                         xyz(2) + cov_axis(2),
+                                         kPointCovColor(0),
+                                         kPointCovColor(1),
+                                         kPointCovColor(2),
+                                         kPointCovColor(3));
+        line.point2 = PointPainter::Data(xyz(0) - cov_axis(0),
+                                         xyz(1) - cov_axis(1),
+                                         xyz(2) - cov_axis(2),
+                                         kPointCovColor(0),
+                                         kPointCovColor(1),
+                                         kPointCovColor(2),
+                                         kPointCovColor(3));
+
+        cov_data.push_back(line);
+      }
     }
   }
   point_cov_painter_.Upload(cov_data);

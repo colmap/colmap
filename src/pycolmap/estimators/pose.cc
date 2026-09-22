@@ -100,7 +100,6 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
     return py::none();
   }
 
-  // TODO: Pass the points3D_cov to the refinement.
   Eigen::Matrix<double, 6, 6> covariance;
   if (!RefineAbsolutePose(refinement_options,
                           inlier_mask,
@@ -108,7 +107,8 @@ py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
                           points3D,
                           &cam_from_world,
                           &camera,
-                          return_covariance ? &covariance : nullptr)) {
+                          return_covariance ? &covariance : nullptr,
+                          &points3D_cov)) {
     py::gil_scoped_acquire acquire;
     return py::none();
   }

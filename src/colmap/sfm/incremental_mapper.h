@@ -70,6 +70,11 @@ class IncrementalMapper {
     // Whether to estimate the extra parameters in absolute pose estimation.
     bool abs_pose_refine_extra_params = true;
 
+    // Whether to use 3D point covariances in absolute pose estimation and
+    // refinement. Estimating covariances rebuilds a bundle adjustment
+    // problem per registration; disable to save computation.
+    bool abs_pose_use_point_covariance = true;
+
     // Number of images to optimize in local bundle adjustment.
     int ba_local_num_images = 6;
 

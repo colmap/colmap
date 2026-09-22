@@ -297,12 +297,19 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
 
   const std::vector<internal::PointParam> points =
       internal::GetPointParams(reconstruction, problem);
-  const std::vector<internal::PoseParam>& poses =
-      options.experimental_custom_poses.empty()
-          ? internal::GetPoseParams(reconstruction, problem)
-          : options.experimental_custom_poses;
+  // Poses and other parameters are only required downstream when estimating
+  // their covariances; skip collection otherwise (collecting poses requires
+  // all images to be registered, which need not hold for point-only queries).
+  const std::vector<internal::PoseParam> poses =
+      (estimate_pose_covs || estimate_other_covs)
+          ? (options.experimental_custom_poses.empty()
+                 ? internal::GetPoseParams(reconstruction, problem)
+                 : options.experimental_custom_poses)
+          : std::vector<internal::PoseParam>();
   const std::vector<const double*> others =
-      GetOtherParams(problem, poses, points);
+      (estimate_pose_covs || estimate_other_covs)
+          ? GetOtherParams(problem, poses, points)
+          : std::vector<const double*>();
 
   int point_num_params = 0;
   int pose_num_params = 0;
@@ -481,48 +488,40 @@ std::vector<Eigen::Matrix3d> EstimateSchurPointCovariance(
     Reconstruction* reconstruction,
     const std::vector<point3D_t>& point3D_ids,
     double damping) {
-  const size_t num_points3D = point3D_ids.size();
-
   BundleAdjustmentConfig ba_config;
-  ceres::Problem::EvaluateOptions eval_options;
-  eval_options.parameter_blocks.reserve(num_points3D);
   for (const point3D_t point3D_id : point3D_ids) {
     ba_config.AddVariablePoint(point3D_id);
-    const Point3D& point3D = reconstruction->Point3D(point3D_id);
-    eval_options.parameter_blocks.push_back(
-        const_cast<double*>(point3D.xyz.data()));
   }
 
   std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
       CreateDefaultCeresBundleAdjuster(
           BundleAdjustmentOptions(), ba_config, *reconstruction);
 
-  ceres::CRSMatrix J_crs;
-  if (!bundle_adjuster->Problem()->Evaluate(
-          eval_options, nullptr, nullptr, nullptr, &J_crs)) {
-    LOG(WARNING) << "Failed to evaluate Jacobian";
+  // With only points as variables, each residual touches a single point, so
+  // the point covariances are exact (no pose-point correlations to account
+  // for) and could equivalently be read off the block-diagonal of (J^T J)^-1.
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POINTS;
+  options.damping = damping;
+  const std::optional<BACovariance> ba_cov = EstimateBACovarianceFromProblem(
+      options, *reconstruction, *bundle_adjuster->Problem());
+  if (!ba_cov.has_value()) {
+    LOG(WARNING) << "Failed to estimate point covariance";
     return {};
   }
 
-  const Eigen::Map<const Eigen::SparseMatrix<double, Eigen::RowMajor>> J(
-      J_crs.num_rows,
-      J_crs.num_cols,
-      J_crs.values.size(),
-      J_crs.rows.data(),
-      J_crs.cols.data(),
-      J_crs.values.data());
-
-  const Eigen::SparseMatrix<double> H = J.transpose() * J;
-
   std::vector<Eigen::Matrix3d> covs;
-  covs.reserve(num_points3D);
-  for (size_t point3D_idx = 0; point3D_idx < num_points3D; ++point3D_idx) {
-    const Eigen::Matrix3d H_idx =
-        H.block(3 * point3D_idx, 3 * point3D_idx, 3, 3) +
-        damping * Eigen::Matrix3d::Identity();
-    covs.push_back(H_idx.inverse());
+  covs.reserve(point3D_ids.size());
+  for (const point3D_t point3D_id : point3D_ids) {
+    const std::optional<Eigen::MatrixXd> cov = ba_cov->GetPointCov(point3D_id);
+    if (!cov.has_value()) {
+      LOG(WARNING) << "Failed to estimate point covariance";
+      return {};
+    }
+    THROW_CHECK_EQ(cov->rows(), 3);
+    THROW_CHECK_EQ(cov->cols(), 3);
+    covs.push_back(Eigen::Matrix3d(*cov));
   }
-
   return covs;
 }
 

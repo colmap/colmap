@@ -450,5 +450,82 @@ TEST(ComputeSquaredReprojectionError, Nominal) {
                                    std::numeric_limits<double>::max()));
 }
 
+TEST(PropagatePointCovarianceToImage, MatchesNumericJacobian) {
+  const Rigid3d cam_from_world(
+      Eigen::Quaterniond(1, 0.2, -0.1, 0.05).normalized(),
+      Eigen::Vector3d(0.5, -0.3, 0.2));
+  const Eigen::Vector3d point3D(1.0, 2.0, 8.0);
+  const Eigen::Matrix3d point3D_cov =
+      (Eigen::Matrix3d() << 4, 1, 0.5, 1, 2, -0.3, 0.5, -0.3, 9).finished();
+
+  const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
+  ASSERT_GT(point3D_in_cam.z(), 0);
+
+  const Eigen::Matrix2d actual = PropagatePointCovarianceToImage(
+      cam_from_world.rotation().toRotationMatrix(),
+      point3D_in_cam,
+      point3D_cov);
+
+  // Numeric Jacobian of the normalized projection w.r.t. the world point.
+  // Note the explicit return type: hnormalized() on the temporary projected
+  // point must be evaluated inside the lambda.
+  const auto project =
+      [&cam_from_world](const Eigen::Vector3d& point) -> Eigen::Vector2d {
+    return (cam_from_world * point).hnormalized();
+  };
+  const double kEps = 1e-8;
+  Eigen::Matrix<double, 2, 3> J_numeric;
+  for (int c = 0; c < 3; ++c) {
+    Eigen::Vector3d delta = Eigen::Vector3d::Zero();
+    delta(c) = kEps;
+    J_numeric.col(c) =
+        (project(point3D + delta) - project(point3D - delta)) / (2 * kEps);
+  }
+  const Eigen::Matrix2d expected =
+      J_numeric * point3D_cov * J_numeric.transpose();
+
+  for (int r = 0; r < 2; ++r) {
+    for (int c = 0; c < 2; ++c) {
+      EXPECT_NEAR(actual(r, c), expected(r, c), 1e-6);
+    }
+  }
+}
+
+TEST(CovariantP3PEstimator, DegenerateCovariance) {
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d::Zero());
+
+  CovariantP3PEstimator::X_t point2D;
+  point2D.first.image_point = Eigen::Vector2d(0.5, -0.25);
+  point2D.first.camera_ray = Eigen::Vector3d(0.5, -0.25, 1).normalized();
+  CovariantP3PEstimator::Y_t point3D;
+  point3D.first = Eigen::Vector3d(1, -0.5, 2);
+
+  // Zero covariances lead to a singular joint covariance.
+  point2D.second = Eigen::Matrix2d::Zero();
+  point3D.second = Eigen::Matrix3d::Zero();
+  std::vector<double> residuals;
+  CovariantP3PEstimator::Residuals(
+      {point2D}, {point3D}, cam_from_world, &residuals);
+  ASSERT_EQ(residuals.size(), 1);
+  EXPECT_EQ(residuals[0], std::numeric_limits<double>::max());
+
+  // Non-finite covariances are rejected as well.
+  point2D.second = Eigen::Matrix2d::Identity();
+  point3D.second =
+      Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
+  CovariantP3PEstimator::Residuals(
+      {point2D}, {point3D}, cam_from_world, &residuals);
+  ASSERT_EQ(residuals.size(), 1);
+  EXPECT_EQ(residuals[0], std::numeric_limits<double>::max());
+
+  // Sanity check: exact correspondence with valid covariances.
+  point3D.second = Eigen::Matrix3d::Identity();
+  CovariantP3PEstimator::Residuals(
+      {point2D}, {point3D}, cam_from_world, &residuals);
+  ASSERT_EQ(residuals.size(), 1);
+  EXPECT_LT(residuals[0], 1e-12);
+}
+
 }  // namespace
 }  // namespace colmap

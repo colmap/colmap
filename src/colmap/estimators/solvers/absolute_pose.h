@@ -84,28 +84,66 @@ class P3PEstimator {
   const ImgFromCamFunc img_from_cam_func_;
 };
 
+// Propagate a 3D point covariance from the world frame to normalized image
+// coordinates using first-order covariance propagation:
+//
+//      S_x = J * S_X * J^T with J = J_Proj(Pose(X)) * R
+//
+//      with J_Proj = [1/C_z,     0, -C_x/C_z^2]
+//                    [    0, 1/C_z, -C_y/C_z^2]
+//
+// where R is the world-to-camera rotation and the point is given in the
+// camera frame. The point must be strictly in front of the camera.
+Eigen::Matrix2d PropagatePointCovarianceToImage(
+    const Eigen::Matrix3d& rotation,
+    const Eigen::Vector3d& point3D_in_cam,
+    const Eigen::Matrix3d& point3D_cov);
+
 // Variant of the P3P estimator that considers 2D-3D point covariance for
-// scaling the computed residuals.
+// scoring hypotheses: residuals are squared Mahalanobis distances of the
+// reprojection error under the joint 2D + projected 3D covariance. Intended
+// for use in (LO-)RANSAC, where Refine serves as the local estimator.
 class CovariantP3PEstimator {
  public:
-  // The observed 2D points and its covariance in the image plane.
-  typedef std::pair<Eigen::Vector2d, Eigen::Matrix2d> X_t;
-  // The observed 3D points and its covariance in the world frame.
-  typedef std::pair<Eigen::Vector3d, Eigen::Matrix3d> Y_t;
+  // The observed 2D points and their covariance in normalized image
+  // coordinates.
+  using X_t = std::pair<Point2DWithRay, Eigen::Matrix2d>;
+  // The observed 3D points and their covariance in the world frame.
+  using Y_t = std::pair<Eigen::Vector3d, Eigen::Matrix3d>;
   // The transformation from the world to the camera frame.
-  typedef Eigen::Matrix3x4d M_t;
+  using M_t = Rigid3d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
 
+  // Estimate P3P models from a minimal sample of three correspondences,
+  // ignoring covariances.
   static void Estimate(const std::vector<X_t>& points2D,
                        const std::vector<Y_t>& points3D,
                        std::vector<M_t>* models);
 
+  // Squared Mahalanobis distance of the reprojection error under the joint
+  // 2D + projected 3D covariance. Correspondences behind the camera or with
+  // non-positive-definite joint covariance receive maximum residual.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
+                        const M_t& cam_from_world,
                         std::vector<double>* residuals);
+
+  // Nonlinear local optimization of the pose over the given 2D-3D
+  // correspondences, starting from *cam_from_world. Minimizes
+  // covariance-whitened normalized-plane reprojection errors with
+  // Levenberg-Marquardt (colmap::TinySolver), with the rotation on the
+  // quaternion manifold and an autodiff Jacobian. Covariance weights are
+  // held fixed per solve and updated from the current model over a small
+  // number of reweighting rounds.
+  //
+  // Returns true and overwrites *cam_from_world with the refined transform on
+  // success. Returns false and leaves *cam_from_world unchanged if fewer than
+  // kMinNumSamples observations are given or the solve fails.
+  static bool Refine(const std::vector<X_t>& points2D,
+                     const std::vector<Y_t>& points3D,
+                     M_t* cam_from_world);
 };
 
 // Minimal solver for 6-DOF pose and focal length.
@@ -170,36 +208,5 @@ void ComputeSquaredReprojectionError(
     const Eigen::Matrix3x4d& cam_from_world,
     const ImgFromCamFunc& img_from_cam_func,
     std::vector<double>* residuals);
-
-// Variant of the EPNP estimator that considers 2D-3D point covariance for
-// scaling the computed residuals. Used as the local estimator in LO-RANSAC
-// together with CovariantP3PEstimator: Estimate fits a model to all given
-// correspondences (P3P initialization followed by nonlinear refinement) and
-// Refine nonlinearly refines a given model over all correspondences.
-class CovariantEPNPEstimator {
- public:
-  // The observed 2D points and its covariance in the image plane.
-  typedef std::pair<Eigen::Vector2d, Eigen::Matrix2d> X_t;
-  // The observed 3D points and its covariance in the world frame.
-  typedef std::pair<Eigen::Vector3d, Eigen::Matrix3d> Y_t;
-  // The transformation from the world to the camera frame.
-  typedef Eigen::Matrix3x4d M_t;
-
-  // The minimum number of samples needed to estimate a model.
-  static const int kMinNumSamples = 3;
-
-  static void Estimate(const std::vector<X_t>& points2D,
-                       const std::vector<Y_t>& points3D,
-                       std::vector<M_t>* models);
-
-  static void Residuals(const std::vector<X_t>& points2D,
-                        const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix,
-                        std::vector<double>* residuals);
-
-  static bool Refine(const std::vector<X_t>& points2D,
-                     const std::vector<Y_t>& points3D,
-                     M_t* model);
-};
 
 }  // namespace colmap

@@ -76,15 +76,16 @@ struct AbsolutePoseRefinementOptions {
 
 // Estimate absolute pose (optionally focal length) from 2D-3D correspondences.
 //
-// Focal length estimation is performed using discrete sampling around the
-// focal length of the given camera. The focal length that results in the
-// maximal number of inliers is assigned to the given camera.
+// Focal length estimation is performed jointly with the pose using the
+// P4PF minimal solver when enabled in the options, and the estimated
+// focal length is assigned to the given camera.
 //
 // @param options              Absolute pose estimation options.
 // @param points2D             Corresponding 2D points.
 // @param points3D             Corresponding 3D points.
 // @param points3D_cov         Corresponding 3D point covariances, used to
 //                             score hypotheses in RANSAC. Empty to disable.
+//                             Ignored when estimating the focal length.
 // @param cam_from_world       Estimated absolute camera pose.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
@@ -140,15 +141,19 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param cam_from_world_cov   Estimated 6x6 covariance matrix of
 //                             the rotation (as axis-angle, in tangent space)
 //                             and translation terms (optional).
+// @param points3D_cov         Corresponding 3D point covariances, used to
+//                             whiten residuals per observation (optional).
 //
 // @return                     Whether the solution is usable.
-bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
-                        const std::vector<char>& inlier_mask,
-                        const std::vector<Eigen::Vector2d>& points2D,
-                        const std::vector<Eigen::Vector3d>& points3D,
-                        Rigid3d* cam_from_world,
-                        Camera* camera,
-                        Eigen::Matrix6d* cam_from_world_cov = nullptr);
+bool RefineAbsolutePose(
+    const AbsolutePoseRefinementOptions& options,
+    const std::vector<char>& inlier_mask,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    Rigid3d* cam_from_world,
+    Camera* camera,
+    Eigen::Matrix6d* cam_from_world_cov = nullptr,
+    const std::vector<Eigen::Matrix3d>* points3D_cov = nullptr);
 
 // Refine relative pose of two cameras.
 //

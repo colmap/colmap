@@ -80,6 +80,60 @@ class TinyPnPCostFunctor {
   const std::vector<Eigen::Vector3d>& points3D_;
 };
 
+// Cost functor for colmap::TinySolver refinement of a cam_from_world transform
+// over uncertain 2D-3D correspondences, minimizing covariance-whitened
+// normalized-plane reprojection errors (two residuals per observation):
+//
+//      r_i = S_i^-1/2 * (x_i - Proj(R * X_i + t))
+//
+// The per-observation square-root information matrices S_i^-1/2 are held
+// fixed during a solve; callers update them from the current model between
+// reweighting rounds. Observations that project behind the camera contribute
+// a zero residual.
+class TinyCovariantPnPCostFunctor {
+ public:
+  using Scalar = double;
+  static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
+  static constexpr int NUM_PARAMETERS = 7;
+
+  // ceres::TinySolver-compatible autodiff wrapper for this functor.
+  using AutoDiffFunction =
+      ceres::TinySolverAutoDiffFunction<TinyCovariantPnPCostFunctor,
+                                        NUM_RESIDUALS,
+                                        NUM_PARAMETERS>;
+
+  TinyCovariantPnPCostFunctor(const std::vector<Eigen::Vector2d>& points2D,
+                              const std::vector<Eigen::Vector3d>& points3D,
+                              const std::vector<Eigen::Matrix2d>& sqrt_infos)
+      : points2D_(points2D), points3D_(points3D), sqrt_infos_(sqrt_infos) {}
+
+  int NumResiduals() const { return 2 * static_cast<int>(points2D_.size()); }
+
+  template <typename T>
+  bool operator()(const T* const params, T* residuals) const {
+    const Eigen::Map<const Eigen::Quaternion<T>> rotation(params);
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation(params + 4);
+    for (size_t i = 0; i < points2D_.size(); ++i) {
+      Eigen::Map<Eigen::Matrix<T, 2, 1>> residual_vec(residuals + 2 * i);
+      const Eigen::Matrix<T, 3, 1> point_in_cam =
+          rotation * points3D_[i].template cast<T>() + translation;
+      if (point_in_cam.z() <= T(0)) {
+        residual_vec.setZero();
+        continue;
+      }
+      residual_vec =
+          sqrt_infos_[i].template cast<T>() *
+          (points2D_[i].template cast<T>() - point_in_cam.hnormalized());
+    }
+    return true;
+  }
+
+ private:
+  const std::vector<Eigen::Vector2d>& points2D_;
+  const std::vector<Eigen::Vector3d>& points3D_;
+  const std::vector<Eigen::Matrix2d>& sqrt_infos_;
+};
+
 // The manifold of a P4PF model: rotation on SO(3), with the translation and
 // log focal length(s) as Euclidean parameters. The ambient parameter layout
 // matches TinyPnPFCostFunctor: [qx, qy, qz, qw, tx, ty, tz, logf] with an
@@ -215,6 +269,23 @@ void P3PEstimator::Residuals(const std::vector<X_t>& points2D,
                                   residuals);
 }
 
+Eigen::Matrix2d PropagatePointCovarianceToImage(
+    const Eigen::Matrix3d& rotation,
+    const Eigen::Vector3d& point3D_in_cam,
+    const Eigen::Matrix3d& point3D_cov) {
+  THROW_CHECK_GT(point3D_in_cam.z(), 0);
+  const double inv_z = 1 / point3D_in_cam.z();
+  const double inv_z_sqr = inv_z * inv_z;
+  Eigen::Matrix<double, 2, 3> J_proj;
+  J_proj.setZero();
+  J_proj(0, 0) = inv_z;
+  J_proj(1, 1) = inv_z;
+  J_proj(0, 2) = -point3D_in_cam.x() * inv_z_sqr;
+  J_proj(1, 2) = -point3D_in_cam.y() * inv_z_sqr;
+  const Eigen::Matrix<double, 2, 3> J = J_proj * rotation;
+  return J * point3D_cov * J.transpose();
+}
+
 void CovariantP3PEstimator::Estimate(const std::vector<X_t>& points2D,
                                      const std::vector<Y_t>& points3D,
                                      std::vector<M_t>* models) {
@@ -228,7 +299,7 @@ void CovariantP3PEstimator::Estimate(const std::vector<X_t>& points2D,
   std::vector<Eigen::Vector3d> rays(3);
   std::vector<Eigen::Vector3d> points3D_without_cov(3);
   for (int i = 0; i < 3; ++i) {
-    rays[i] = points2D[i].first.homogeneous().normalized();
+    rays[i] = points2D[i].first.camera_ray;
     points3D_without_cov[i] = points3D[i].first;
   }
 
@@ -237,50 +308,10 @@ void CovariantP3PEstimator::Estimate(const std::vector<X_t>& points2D,
 
   models->resize(num_poses);
   for (int i = 0; i < num_poses; ++i) {
-    (*models)[i] = ConvertPoseLibPoseToRigid3d(poses[i]).ToMatrix();
+    (*models)[i] = ConvertPoseLibPoseToRigid3d(poses[i]);
   }
 }
 
-// We would like to compute the maximum likelihood estimate of the absolute pose
-// P = [R, t] \in SE(3) given uncertain 2D-3D point correspondences. Let r_i \in
-// R^2 ~ N(0, S_r) with i = 1...N be the reprojection residual of a 3D point X_i
-// \in R^3 ~ N(0, S_X) observed in the 2D image at x_i \in R^2 ~ N(0, S_x).
-// Assuming all-inliers, we can compute the likelihood of a pose estimate as:
-//
-//      L = prod_i exp(-1/2 * r_i^T S_x_i^-1 * r_i)
-//                 / sqrt((2 * PI)^2 * |S_x_i|)
-//
-//      with r_i     = x_i - Proj(Pose(X)) = x_i - Proj(R * X_i + t)
-//           Proj(C) = [C_x/C_z; C_y/C_z]
-//
-// To find the maximum likelihood estimate, we minimize the negative log
-// likelihood:
-//
-//      NLL = sum_i 1/2 * (r_i^T S_x * r_i + log(|S_x_i|) + 2 * log(2 * PI)))
-//
-// We can drop the last term, which is a constant offset to the objective.
-//
-// Considering both 2D and 3D point uncertainties, we use the covariance:
-//
-//      S_x' = S_x + Proj(Pose(S_X))
-//
-// where the projection of the 3D point covariance to the projected 2D
-// covariance in the image plane can be computed using covariance propagation
-// using first order approximation:
-//
-//      Proj(Pose(S_X)) = J_P(X) * S_X * J_P(X)^T
-//
-// We can compute the Jacobian using the chain rule:
-//
-//      J_P(X) = J_Proj(Pose(X)) * J_Pose(X)
-//
-//      with J_Pose = R
-//      with J_Proj = [1/C_z,     0, -C_x/C_z^2]
-//                    [    0, 1/C_z, -C_y/C_z^2]
-//
-// Hence, we obtain:
-//
-//      Proj(Pose(S_X)) = J_Proj * J_Pose * S_X * (J_Proj * J_Pose)^T
 void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                                       const std::vector<Y_t>& points3D,
                                       const M_t& cam_from_world,
@@ -290,31 +321,107 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
   const size_t num_points2D = points2D.size();
   THROW_CHECK_EQ(num_points2D, points3D.size());
   residuals->resize(num_points2D);
+  const Eigen::Matrix3d rotation = cam_from_world.rotation().toRotationMatrix();
   for (size_t i = 0; i < num_points2D; ++i) {
-    const Eigen::Vector3d point3D_in_cam =
-        cam_from_world * points3D[i].first.homogeneous();
-    if (point3D_in_cam.z() <= std::numeric_limits<double>::epsilon()) {
+    const Eigen::Vector3d point3D_in_cam = cam_from_world * points3D[i].first;
+    // Note the inverted comparison: it also rejects NaN coordinates, which
+    // can arise from degenerate models or points during RANSAC.
+    if (!(point3D_in_cam.z() > std::numeric_limits<double>::epsilon())) {
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
-    const Eigen::Vector2d proj_point = point3D_in_cam.hnormalized();
-    Eigen::Matrix<double, 2, 3> J_proj;
-    J_proj << 1 / point3D_in_cam.z(), 0,
-        -point3D_in_cam.x() / (point3D_in_cam.z() * point3D_in_cam.z()), 0,
-        1 / point3D_in_cam.z(),
-        -point3D_in_cam.y() / (point3D_in_cam.z() * point3D_in_cam.z());
-    const Eigen::Matrix<double, 2, 3> J = J_proj * cam_from_world.leftCols<3>();
-    const Eigen::Matrix2d proj_cov = J * points3D[i].second * J.transpose();
-    const Eigen::Matrix2d joint_cov = points2D[i].second + proj_cov;
-    const Eigen::Vector2d proj_error = proj_point - points2D[i].first;
+    const Eigen::Matrix2d joint_cov =
+        points2D[i].second + PropagatePointCovarianceToImage(
+                                 rotation, point3D_in_cam, points3D[i].second);
+    if (!joint_cov.allFinite()) {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+      continue;
+    }
+    Eigen::LDLT<Eigen::Matrix2d> ldlt(joint_cov);
+    if (ldlt.info() != Eigen::Success || (ldlt.vectorD().array() <= 0).any()) {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+      continue;
+    }
+    const Eigen::Vector2d proj_error =
+        point3D_in_cam.hnormalized() -
+        points2D[i].first.camera_ray.hnormalized();
     const double mahalanobis_dist_sqr =
-        proj_error.transpose() * joint_cov.inverse() * proj_error;
-    if (mahalanobis_dist_sqr > kInlierSigmaFactorSqr) {
+        proj_error.transpose() * ldlt.solve(proj_error);
+    if (!std::isfinite(mahalanobis_dist_sqr) ||
+        mahalanobis_dist_sqr > kInlierSigmaFactorSqr) {
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
-    (*residuals)[i] = mahalanobis_dist_sqr + std::log(joint_cov.determinant());
+    (*residuals)[i] = mahalanobis_dist_sqr;
   }
+}
+
+bool CovariantP3PEstimator::Refine(const std::vector<X_t>& points2D,
+                                   const std::vector<Y_t>& points3D,
+                                   M_t* cam_from_world) {
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_NOTNULL(cam_from_world);
+  if (points2D.size() < kMinNumSamples) {
+    return false;
+  }
+
+  const size_t num_points = points2D.size();
+  std::vector<Eigen::Vector2d> points2D_without_cov(num_points);
+  std::vector<Eigen::Vector3d> points3D_without_cov(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    points2D_without_cov[i] = points2D[i].first.camera_ray.hnormalized();
+    points3D_without_cov[i] = points3D[i].first;
+  }
+
+  // Iteratively reweighted refinement: covariance weights are held fixed per
+  // solve and updated from the current model.
+  constexpr int kNumReweightingRounds = 2;
+  Rigid3d refined_cam_from_world = *cam_from_world;
+  std::vector<Eigen::Matrix2d> sqrt_infos(num_points);
+  for (int round = 0; round < kNumReweightingRounds; ++round) {
+    const Eigen::Matrix3d rotation =
+        refined_cam_from_world.rotation().toRotationMatrix();
+    for (size_t i = 0; i < num_points; ++i) {
+      const Eigen::Vector3d point3D_in_cam =
+          refined_cam_from_world * points3D_without_cov[i];
+      Eigen::Matrix2d joint_cov = points2D[i].second;
+      if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
+        joint_cov += PropagatePointCovarianceToImage(
+            rotation, point3D_in_cam, points3D[i].second);
+      }
+      Eigen::LLT<Eigen::Matrix2d> llt(joint_cov);
+      sqrt_infos[i] = llt.matrixL().solve(Eigen::Matrix2d::Identity());
+      if (llt.info() != Eigen::Success || !sqrt_infos[i].allFinite()) {
+        // Fall back to unweighted residuals for degenerate covariances.
+        sqrt_infos[i] = Eigen::Matrix2d::Identity();
+      }
+    }
+
+    TinyCovariantPnPCostFunctor functor(
+        points2D_without_cov, points3D_without_cov, sqrt_infos);
+    TinyCovariantPnPCostFunctor::AutoDiffFunction f(functor);
+    using Solver = TinySolver<decltype(f), Rigid3dManifold>;
+    Solver solver;
+    typename Solver::Options options;
+    options.max_num_iterations = 25;
+
+    Eigen::Matrix<double, 7, 1> x;
+    x.head<4>() = refined_cam_from_world.rotation().normalized().coeffs();
+    x.tail<3>() = refined_cam_from_world.translation();
+    if (solver.Solve(f, &x, options).status == Solver::NUMERICAL_FAILURE) {
+      return false;
+    }
+    refined_cam_from_world.rotation() =
+        Eigen::Quaterniond(x.data()).normalized();
+    refined_cam_from_world.translation() = x.tail<3>();
+    if (!refined_cam_from_world.rotation().coeffs().allFinite() ||
+        !refined_cam_from_world.translation().allFinite()) {
+      return false;
+    }
+  }
+
+  *cam_from_world = refined_cam_from_world;
+  return true;
 }
 
 bool P3PEstimator::Refine(const std::vector<X_t>& points2D,
@@ -447,77 +554,6 @@ void ComputeSquaredReprojectionError(
       (*residuals)[i] = std::numeric_limits<double>::max();
     }
   }
-}
-
-void CovariantEPNPEstimator::Estimate(const std::vector<X_t>& points2D,
-                                      const std::vector<Y_t>& points3D,
-                                      std::vector<M_t>* models) {
-  // TODO: The fitting could theoretically take advantage of the covariance.
-  THROW_CHECK_GE(points2D.size(), kMinNumSamples);
-  THROW_CHECK_EQ(points2D.size(), points3D.size());
-  THROW_CHECK_NOTNULL(models);
-  models->clear();
-
-  // Initialize from a minimal sample with P3P, then refine over all points.
-  const std::vector<X_t> points2D_sample(points2D.begin(),
-                                         points2D.begin() + 3);
-  const std::vector<Y_t> points3D_sample(points3D.begin(),
-                                         points3D.begin() + 3);
-  std::vector<M_t> sample_models;
-  CovariantP3PEstimator::Estimate(
-      points2D_sample, points3D_sample, &sample_models);
-  for (M_t& sample_model : sample_models) {
-    if (Refine(points2D, points3D, &sample_model)) {
-      models->push_back(sample_model);
-    }
-  }
-}
-
-void CovariantEPNPEstimator::Residuals(const std::vector<X_t>& points2D,
-                                       const std::vector<Y_t>& points3D,
-                                       const M_t& cam_from_world,
-                                       std::vector<double>* residuals) {
-  CovariantP3PEstimator::Residuals(
-      points2D, points3D, cam_from_world, residuals);
-}
-
-bool CovariantEPNPEstimator::Refine(const std::vector<X_t>& points2D,
-                                    const std::vector<Y_t>& points3D,
-                                    M_t* model) {
-  THROW_CHECK_EQ(points2D.size(), points3D.size());
-  THROW_CHECK_NOTNULL(model);
-  if (points2D.size() < kMinNumSamples) {
-    return false;
-  }
-
-  std::vector<Point2DWithRay> points2D_without_cov(points2D.size());
-  std::vector<Eigen::Vector3d> points3D_without_cov(points3D.size());
-  for (size_t i = 0; i < points2D.size(); ++i) {
-    points2D_without_cov[i].image_point = points2D[i].first;
-    points2D_without_cov[i].camera_ray =
-        points2D[i].first.homogeneous().normalized();
-    points3D_without_cov[i] = points3D[i].first;
-  }
-
-  Rigid3d cam_from_world(Eigen::Quaterniond(model->leftCols<3>()),
-                         model->col(3));
-  TinyPnPCostFunctor functor(points2D_without_cov, points3D_without_cov);
-  TinyPnPCostFunctor::AutoDiffFunction f(functor);
-  using Solver = TinySolver<decltype(f), Rigid3dManifold>;
-  Solver solver;
-  typename Solver::Options options;
-  options.max_num_iterations = 25;
-
-  Eigen::Matrix<double, 7, 1> x;
-  x.head<4>() = cam_from_world.rotation().normalized().coeffs();
-  x.tail<3>() = cam_from_world.translation();
-  if (solver.Solve(f, &x, options).status == Solver::NUMERICAL_FAILURE) {
-    return false;
-  }
-  cam_from_world.rotation() = Eigen::Quaterniond(x.data()).normalized();
-  cam_from_world.translation() = x.tail<3>();
-  *model = cam_from_world.ToMatrix();
-  return true;
 }
 
 }  // namespace colmap

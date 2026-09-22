@@ -75,8 +75,11 @@ TEST(EstimateAbsolutePose, Nominal) {
 TEST(EstimateAbsolutePose, WithPointCovariance) {
   const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
 
-  const std::vector<Eigen::Matrix3d> points3D_cov(
-      problem.points3D.size(), 1e-6 * Eigen::Matrix3d::Identity());
+  const Eigen::Matrix3d anisotropic_cov =
+      (Eigen::Matrix3d() << 1e-6, 1e-8, 0, 1e-8, 1e-4, 0, 0, 0, 1e-2)
+          .finished();
+  const std::vector<Eigen::Matrix3d> points3D_cov(problem.points3D.size(),
+                                                  anisotropic_cov);
 
   AbsolutePoseEstimationOptions options;
   Rigid3d cam_from_world;
@@ -280,6 +283,35 @@ TEST(RefineAbsolutePose, Nominal) {
   EXPECT_NEAR(cam_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_EQ(camera, problem.camera);
   EXPECT_NE(cam_from_world_cov, Eigen::Matrix6d::Zero());
+}
+
+TEST(RefineAbsolutePose, WithPointCovariance) {
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
+  std::vector<char> inlier_mask(problem.points2D.size(), true);
+
+  const std::vector<Eigen::Matrix3d> points3D_cov(
+      problem.points3D.size(), 1e-4 * Eigen::Matrix3d::Identity());
+
+  AbsolutePoseRefinementOptions options;
+  Rigid3d cam_from_world = problem.image.CamFromWorld();
+  cam_from_world =
+      cam_from_world * Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                   0.1, RandomEigenVectord<3>())),
+                               0.1 * RandomEigenVectord<3>());
+  Camera camera = problem.camera;
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 problem.points2D,
+                                 problem.points3D,
+                                 &cam_from_world,
+                                 &camera,
+                                 /*cam_from_world_cov=*/nullptr,
+                                 &points3D_cov));
+  EXPECT_THAT(
+      cam_from_world,
+      Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-6, /*ttol=*/1e-6));
+  EXPECT_NEAR(cam_from_world.rotation().norm(), 1.0, 1e-6);
+  EXPECT_EQ(camera, problem.camera);
 }
 
 TEST(RefineAbsolutePose, RefineFocalLength) {
