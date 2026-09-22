@@ -381,9 +381,25 @@ struct DelaunayTriangulationRayCaster {
     Delaunay::Cell_handle next_cell =
         triangulation_.locate(ray_segment.start());
 
+    // A straight segment enters each (convex) cell at most once, so a walk
+    // that takes more steps than there are cells is not making progress.
+    // This bounds degenerate cases, such as coordinates so far from the origin
+    // that the intersection tests can no longer resolve the segment, which
+    // would otherwise loop forever while growing the intersections without
+    // bound.
+    const size_t max_num_steps = triangulation_.number_of_cells();
+    size_t num_steps = 0;
+
     bool next_cell_found = true;
     while (next_cell_found) {
       next_cell_found = false;
+
+      if (num_steps >= max_num_steps) {
+        LOG(WARNING) << "Ray casting did not terminate after " << max_num_steps
+                     << " steps; stopping early.";
+        break;
+      }
+      ++num_steps;
 
       if (triangulation_.is_infinite(next_cell)) {
         // Linearly check all hull facets for intersection.
@@ -637,10 +653,20 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
           point.num_visible_images * point.num_visible_images);
 
       const K::Point_3 point_position = EigenToCGAL(point.position);
-      const K::Ray_3 viewing_ray = K::Ray_3(image_position, point_position);
       const K::Vector_3 viewing_direction = point_position - image_position;
+      const double viewing_direction_squared_length =
+          viewing_direction.squared_length();
+      // A point that coincides with the camera center has no viewing
+      // direction. Normalizing it would produce NaN coordinates, and the
+      // progress test in CastRaySegment never rejects a candidate whose
+      // distance is NaN, so the ray walk would not terminate. The negated
+      // comparison also rejects non-finite input.
+      if (!(viewing_direction_squared_length > 0)) {
+        continue;
+      }
+      const K::Ray_3 viewing_ray = K::Ray_3(image_position, point_position);
       const K::Vector_3 viewing_direction_normalized =
-          viewing_direction / std::sqrt(viewing_direction.squared_length());
+          viewing_direction / std::sqrt(viewing_direction_squared_length);
       const K::Vector_3 viewing_direction_epsilon =
           0.001 * edge_weight_computer.DistanceSigma() *
           viewing_direction_normalized;
