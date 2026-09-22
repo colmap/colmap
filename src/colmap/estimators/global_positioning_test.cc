@@ -220,7 +220,8 @@ TEST(GlobalPositioning, ObservationScaleGauge) {
         num_constant += problem.IsParameterBlockConstant(block);
       }
       ASSERT_GT(num_scales, 1);
-      EXPECT_EQ(num_constant, optimize ? int(fix_gauge) : num_scales);
+      EXPECT_EQ(num_constant,
+                optimize ? static_cast<int>(fix_gauge) : num_scales);
     }
   }
 }
