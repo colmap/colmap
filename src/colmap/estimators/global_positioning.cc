@@ -226,7 +226,6 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
 
     // For calibrated and uncalibrated cameras, use different loss
     // functions
-    // Down weight the uncalibrated cameras
     Camera& camera = reconstruction.Camera(image.CameraId());
     ceres::LossFunction* loss_function =
         (camera.has_prior_focal_length)
