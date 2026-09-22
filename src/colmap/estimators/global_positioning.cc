@@ -216,7 +216,7 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
 
     double& scale = scales_.emplace_back(1);
 
-    if (options_.initialize_scales_from_geometry && options_.optimize_points) {
+    if (options_.initialize_scales_from_geometry) {
       const Eigen::Vector3d cam_from_point3D_translation =
           point3D.xyz - frame_centers_[image.FrameId()];
       scale = std::max(1e-5,

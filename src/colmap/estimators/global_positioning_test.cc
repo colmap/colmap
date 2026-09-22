@@ -250,9 +250,7 @@ TEST(GlobalPositioning, ScaleInitialization) {
       const double distance = (Eigen::Map<Eigen::Vector3d>(blocks[1]) -
                                Eigen::Map<Eigen::Vector3d>(blocks[0]))
                                   .norm();
-      EXPECT_NEAR(*blocks[2],
-                  from_geometry && optimize_points ? 1.0 / distance : 1.0,
-                  1e-12);
+      EXPECT_NEAR(*blocks[2], from_geometry ? 1.0 / distance : 1.0, 1e-12);
     }
   }
 }
