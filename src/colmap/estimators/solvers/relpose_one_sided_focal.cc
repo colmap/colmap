@@ -102,7 +102,7 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   THROW_CHECK_GE(img_points1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(model);
 
-  if (!(model->focal > 0.0)) {
+  if (model->focal <= 0.0 || !std::isfinite(model->focal)) {
     return false;
   }
 
@@ -138,17 +138,13 @@ bool RelativePoseOneSidedFocalEstimator::Refine(
   Eigen::Matrix<double, 8, 1> x;
   x.head<7>() = RelPoseParamsFromRigid3d(cam2_from_cam1);
   x[7] = std::log(model->focal);
-  solver.Solve(f, &x, options);
-
-  // Keep the refined estimate only if the solve stayed finite and left a
-  // non-degenerate baseline; otherwise fall back to the decomposed pose and
-  // seed focal.
-  const Eigen::Vector3d translation = x.segment<3>(4);
-  if (x.allFinite() && translation.squaredNorm() > 0) {
-    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
-    model->E = EssentialMatrixFromPose(cam2_from_cam1);
-    model->focal = std::exp(x[7]);
+  if (solver.Solve(f, &x, options).status == Solver::NUMERICAL_FAILURE) {
+    return false;
   }
+
+  cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
+  model->E = EssentialMatrixFromPose(cam2_from_cam1);
+  model->focal = std::exp(x[7]);
   return true;
 }
 
