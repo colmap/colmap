@@ -35,6 +35,14 @@ class HomographyMatrixEstimator {
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* models);
 
+  // Refine H in place by nonlinearly minimizing the one-sided transfer error
+  // over the given correspondences, starting from *H. This is the local
+  // optimizer used by LO-RANSAC (see SupportsRefineWithInitialModel in
+  // loransac.h). Returns false and leaves *H unchanged if the solve fails.
+  static bool Refine(const std::vector<X_t>& points1,
+                     const std::vector<Y_t>& points2,
+                     M_t* H);
+
   // Calculate the transformation error for each corresponding point pair.
   //
   // Residuals are defined as the squared transformation error when
@@ -49,6 +57,37 @@ class HomographyMatrixEstimator {
                         const M_t& H,
                         std::vector<double>* residuals);
 };
+
+namespace internal {
+
+// Cost function for colmap::TinySolver refinement of a homography over all
+// given correspondences, minimizing the one-sided transfer error in the
+// second image (two residuals per observation) — the same error scored by
+// HomographyMatrixEstimator::Residuals. The homography is a unit-norm 9-vector
+// in row-major flattening order, optimized on the 8-sphere. The Jacobian is
+// analytic (see the .cc for the derivation), in column-major 2Nx9 layout.
+class HomographyTransferCostFunction {
+ public:
+  using Scalar = double;
+  static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
+  static constexpr int NUM_PARAMETERS = 9;
+
+  HomographyTransferCostFunction(const std::vector<Eigen::Vector2d>& points1,
+                                 const std::vector<Eigen::Vector2d>& points2);
+
+  int NumResiduals() const;
+
+  // `jacobian` is nullptr when only residuals are requested.
+  bool operator()(const double* parameters,
+                  double* residuals,
+                  double* jacobian) const;
+
+ private:
+  const std::vector<Eigen::Vector2d>& points1_;
+  const std::vector<Eigen::Vector2d>& points2_;
+};
+
+}  // namespace internal
 
 // A ray together with the image point it was unprojected from. The ray drives
 // the estimation, the image point is what the residual is measured against.

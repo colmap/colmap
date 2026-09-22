@@ -2,6 +2,9 @@
 
 #include "colmap/estimators/solvers/homography_matrix.h"
 
+#include "colmap/estimators/cost_functions/tiny_manifold.h"
+#include "colmap/geometry/normalization.h"
+#include "colmap/optim/tiny_solver.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
@@ -14,6 +17,55 @@
 #include <Eigen/SVD>
 
 namespace colmap {
+namespace internal {
+
+HomographyTransferCostFunction::HomographyTransferCostFunction(
+    const std::vector<Eigen::Vector2d>& points1,
+    const std::vector<Eigen::Vector2d>& points2)
+    : points1_(points1), points2_(points2) {}
+
+int HomographyTransferCostFunction::NumResiduals() const {
+  return 2 * static_cast<int>(points1_.size());
+}
+
+bool HomographyTransferCostFunction::operator()(const double* parameters,
+                                                double* residuals,
+                                                double* jacobian) const {
+  const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> H(
+      parameters);
+  for (size_t i = 0; i < points1_.size(); ++i) {
+    const Eigen::Vector3d transferred = H * points1_[i].homogeneous();
+    const double inv_z = 1.0 / transferred.z();
+    residuals[2 * i] = transferred.x() * inv_z - points2_[i].x();
+    residuals[2 * i + 1] = transferred.y() * inv_z - points2_[i].y();
+  }
+
+  if (jacobian != nullptr) {
+    // Analytic Jacobian, column-major 2Nx9. With q = points1[i].homogeneous(),
+    // t = H q, u = tx/tz, v = ty/tz, and H flattened row-major, dt/dh is
+    // block-diagonal in q', so du/dh = [inv_z q', 0, -u inv_z q'] and
+    // dv/dh = [0, inv_z q', -v inv_z q'].
+    Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 9>> J(
+        jacobian, 2 * points1_.size(), 9);
+    for (size_t i = 0; i < points1_.size(); ++i) {
+      const Eigen::RowVector3d q = points1_[i].homogeneous().transpose();
+      const Eigen::Vector3d transferred = H * q.transpose();
+      const double inv_z = 1.0 / transferred.z();
+      const double u = transferred.x() * inv_z;
+      const double v = transferred.y() * inv_z;
+      J.block<1, 3>(2 * i, 0) = inv_z * q;
+      J.block<1, 3>(2 * i, 3).setZero();
+      J.block<1, 3>(2 * i, 6) = -u * inv_z * q;
+      J.block<1, 3>(2 * i + 1, 0).setZero();
+      J.block<1, 3>(2 * i + 1, 3) = inv_z * q;
+      J.block<1, 3>(2 * i + 1, 6) = -v * inv_z * q;
+    }
+  }
+  return true;
+}
+
+}  // namespace internal
+
 namespace {
 
 bool HasCollinearTriplet(const std::vector<Eigen::Vector2d>& points) {
@@ -98,6 +150,55 @@ void HomographyMatrixEstimator::Estimate(const std::vector<X_t>& points1,
 
   models->resize(1);
   (*models)[0] = H;
+}
+
+bool HomographyMatrixEstimator::Refine(const std::vector<X_t>& points1,
+                                       const std::vector<Y_t>& points2,
+                                       M_t* H) {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_GE(points1.size(), kMinNumSamples);
+  THROW_CHECK_NOTNULL(H);
+
+  // Normalize the points for better numerical stability, as in the
+  // fundamental matrix refinement. Since both normalizations are similarities,
+  // every residual is scaled by the same view-2 factor, so the minimizer is
+  // unchanged while the normal equations are far better conditioned.
+  std::vector<Eigen::Vector2d> normed_points1;
+  std::vector<Eigen::Vector2d> normed_points2;
+  Eigen::Matrix3d normed_from_orig1;
+  Eigen::Matrix3d normed_from_orig2;
+  CenterAndNormalizeImagePoints(points1, &normed_points1, &normed_from_orig1);
+  CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
+
+  // Map the initial model into the normalized frame, flatten row-major to
+  // match the DLT storage order, and normalize to unit norm for the sphere
+  // manifold.
+  const Eigen::Matrix3d H_normed =
+      normed_from_orig2 * (*H) * normed_from_orig1.inverse();
+  Eigen::Matrix<double, 9, 1> h;
+  for (int r = 0; r < 3; ++r) {
+    h.segment<3>(3 * r) = H_normed.row(r).transpose();
+  }
+  h.normalize();
+
+  // Plain least squares: the points are assumed to be the inlier set, so
+  // robustness comes from the RANSAC inlier selection.
+  const internal::HomographyTransferCostFunction f(normed_points1,
+                                                   normed_points2);
+  using Solver = TinySolver<decltype(f), SphereManifold<9>>;
+  Solver solver;
+  Solver::Options options;
+  options.max_num_iterations = 25;
+  solver.Solve(f, &h, options);
+
+  if (!h.allFinite()) {
+    return false;
+  }
+
+  const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> H_ref(
+      h.data());
+  *H = normed_from_orig2.inverse() * H_ref * normed_from_orig1;
+  return true;
 }
 
 void HomographyMatrixEstimator::Residuals(const std::vector<X_t>& points1,
