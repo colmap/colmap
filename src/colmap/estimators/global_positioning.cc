@@ -41,7 +41,7 @@ class DefaultGlobalPositioner final : public GlobalPositioner {
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
   THROW_CHECK(std::isfinite(options_.uncalibrated_observation_weight));
-  THROW_CHECK_GE(options_.uncalibrated_observation_weight, 0.0);
+  THROW_CHECK_GT(options_.uncalibrated_observation_weight, 0.0);
   if (options_.random_seed >= 0) {
     SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
   }

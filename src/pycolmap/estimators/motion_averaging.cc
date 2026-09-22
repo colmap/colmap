@@ -36,7 +36,7 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite(
               "uncalibrated_observation_weight",
               &GlobalPositionerOptions::uncalibrated_observation_weight,
-              "Nonnegative loss multiplier for observations without "
+              "Positive loss multiplier for observations without "
               "a focal-length prior.")
           .def_readwrite("optimize_positions",
                          &GlobalPositionerOptions::optimize_positions,
