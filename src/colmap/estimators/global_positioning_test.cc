@@ -245,6 +245,7 @@ TEST(GlobalPositioning, ScaleInitialization) {
       std::vector<double*> blocks;
       positioner->Problem().GetParameterBlocksForResidualBlock(
           residuals.front(), &blocks);
+      ASSERT_EQ(blocks.size(), 3);
       // With noiseless observations, the geometric scale is inverse distance.
       const double distance = (Eigen::Map<Eigen::Vector3d>(blocks[1]) -
                                Eigen::Map<Eigen::Vector3d>(blocks[0]))
