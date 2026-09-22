@@ -8,6 +8,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
+
 #include <Eigen/Geometry>
 #include <PoseLib/solvers/p3p.h>
 #include <PoseLib/solvers/p4pf.h>
@@ -76,6 +78,102 @@ class TinyPnPCostFunctor {
   const std::vector<Point2DWithRay>& points2D_;
   const std::vector<Eigen::Vector3d>& points3D_;
 };
+
+// The manifold of a P4PF model: rotation on SO(3), with the translation and
+// log focal length(s) as Euclidean parameters. The ambient parameter layout
+// matches TinyPnPFCostFunctor: [qx, qy, qz, qw, tx, ty, tz, logf] with an
+// extra logf entry for separate focal lengths.
+template <bool kSharedFocal>
+using PnPFManifold =
+    ProductManifold<Rigid3dManifold, EuclideanManifold<kSharedFocal ? 1 : 2>>;
+
+// Cost functor for colmap::TinySolver refinement of a P4PF model (pose plus
+// shared or separate focal lengths, selected by kSharedFocal) over all given
+// 2D-3D correspondences, minimizing pixel reprojection errors (two residuals
+// per observation) — the same error scored by P4PFEstimator::Residuals. The
+// focal length(s) are optimized in log-space so that they stay positive.
+// Observations that project behind the camera contribute a zero residual.
+template <bool kSharedFocal>
+class TinyPnPFCostFunctor {
+ public:
+  using Scalar = double;
+  static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
+  static constexpr int NUM_PARAMETERS = kSharedFocal ? 8 : 9;
+
+  // ceres::TinySolver-compatible autodiff wrapper for this functor.
+  using AutoDiffFunction =
+      ceres::TinySolverAutoDiffFunction<TinyPnPFCostFunctor,
+                                        NUM_RESIDUALS,
+                                        NUM_PARAMETERS>;
+
+  TinyPnPFCostFunctor(const std::vector<Eigen::Vector2d>& points2D,
+                      const std::vector<Eigen::Vector3d>& points3D)
+      : points2D_(points2D), points3D_(points3D) {}
+
+  int NumResiduals() const { return 2 * static_cast<int>(points2D_.size()); }
+
+  template <typename T>
+  bool operator()(const T* const params, T* residuals) const {
+    const Eigen::Map<const Eigen::Quaternion<T>> rotation(params);
+    const Eigen::Map<const Eigen::Matrix<T, 3, 1>> translation(params + 4);
+    const T focal_x = ceres::exp(params[7]);
+    const T focal_y = kSharedFocal ? focal_x : ceres::exp(params[8]);
+    for (size_t i = 0; i < points2D_.size(); ++i) {
+      Eigen::Map<Eigen::Matrix<T, 2, 1>> residual_vec(residuals + 2 * i);
+      const Eigen::Matrix<T, 3, 1> point_in_cam =
+          rotation * points3D_[i].template cast<T>() + translation;
+      if (point_in_cam.z() <= T(0)) {
+        residual_vec.setZero();
+        continue;
+      }
+      residual_vec.x() =
+          focal_x * point_in_cam.x() / point_in_cam.z() - T(points2D_[i].x());
+      residual_vec.y() =
+          focal_y * point_in_cam.y() / point_in_cam.z() - T(points2D_[i].y());
+    }
+    return true;
+  }
+
+ private:
+  const std::vector<Eigen::Vector2d>& points2D_;
+  const std::vector<Eigen::Vector3d>& points3D_;
+};
+
+// Nonlinear refinement of a P4PF model (shared or separate focal lengths,
+// selected by kSharedFocal) with TinySolver. Returns false and leaves *model
+// unchanged if the solve produces a non-finite result.
+template <bool kSharedFocal>
+bool RefinePnPFPoseWithTinySolver(const std::vector<Eigen::Vector2d>& points2D,
+                                  const std::vector<Eigen::Vector3d>& points3D,
+                                  P4PFEstimator::M_t* model) {
+  TinyPnPFCostFunctor<kSharedFocal> functor(points2D, points3D);
+  typename TinyPnPFCostFunctor<kSharedFocal>::AutoDiffFunction f(functor);
+  using Solver = TinySolver<decltype(f), PnPFManifold<kSharedFocal>>;
+  Solver solver;
+  typename Solver::Options options;
+  options.max_num_iterations = 25;
+
+  constexpr int kNumParams = kSharedFocal ? 8 : 9;
+  Eigen::Matrix<double, kNumParams, 1> x;
+  x.template head<4>() = model->cam_from_world.rotation().normalized().coeffs();
+  x.template segment<3>(4) = model->cam_from_world.translation();
+  x[7] = std::log(model->focal_lengths.x());
+  if constexpr (!kSharedFocal) {
+    x[8] = std::log(model->focal_lengths.y());
+  }
+  if (solver.Solve(f, &x, options).status == Solver::NUMERICAL_FAILURE) {
+    return false;
+  }
+  model->cam_from_world.rotation() = Eigen::Quaterniond(x.data()).normalized();
+  model->cam_from_world.translation() = x.template segment<3>(4);
+  model->focal_lengths.x() = std::exp(x[7]);
+  if constexpr (kSharedFocal) {
+    model->focal_lengths.y() = std::exp(x[7]);
+  } else {
+    model->focal_lengths.y() = std::exp(x[8]);
+  }
+  return true;
+}
 
 }  // namespace
 
@@ -203,6 +301,25 @@ void P4PFEstimator::Residuals(const std::vector<X_t>& points2D,
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
     }
+  }
+}
+
+bool P4PFEstimator::Refine(const std::vector<X_t>& points2D,
+                           const std::vector<Y_t>& points3D,
+                           M_t* model) const {
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_NOTNULL(model);
+  if (points2D.size() < kMinNumSamples) {
+    return false;
+  }
+  if (model->focal_lengths.x() <= 0 ||
+      (!share_focal_length_ && model->focal_lengths.y() <= 0)) {
+    return false;
+  }
+  if (share_focal_length_) {
+    return RefinePnPFPoseWithTinySolver<true>(points2D, points3D, model);
+  } else {
+    return RefinePnPFPoseWithTinySolver<false>(points2D, points3D, model);
   }
 }
 
