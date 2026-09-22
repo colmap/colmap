@@ -658,5 +658,33 @@ TEST(TinySolver, TrialPointNonFiniteResidualsAreRejectedWithoutProgress) {
   EXPECT_EQ(x, Eigen::Vector2d(0, 0));
 }
 
+TEST(EuclideanManifold, PlusAddsDeltaAndJacobianIsIdentity) {
+  const EuclideanManifold<3> manifold;
+  const double x[3] = {1.0, -2.0, 0.5};
+  const double delta[3] = {0.1, 0.2, -0.3};
+  double x_plus[3];
+  manifold.Plus(x, delta, x_plus);
+  EXPECT_DOUBLE_EQ(x_plus[0], 1.1);
+  EXPECT_DOUBLE_EQ(x_plus[1], -1.8);
+  EXPECT_DOUBLE_EQ(x_plus[2], 0.2);
+  double jacobian[9];
+  manifold.PlusJacobian(x, jacobian);
+  const Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> J(
+      jacobian);
+  EXPECT_EQ(J, Eigen::Matrix3d::Identity());
+}
+
+TEST(EuclideanManifold, SingleDimensionPlusAndJacobian) {
+  const EuclideanManifold<1> manifold;
+  const double x[1] = {2.0};
+  const double delta[1] = {0.5};
+  double x_plus[1];
+  manifold.Plus(x, delta, x_plus);
+  EXPECT_DOUBLE_EQ(x_plus[0], 2.5);
+  double jacobian[1];
+  manifold.PlusJacobian(x, jacobian);
+  EXPECT_DOUBLE_EQ(jacobian[0], 1.0);
+}
+
 }  // namespace
 }  // namespace colmap

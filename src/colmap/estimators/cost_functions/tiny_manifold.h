@@ -145,13 +145,15 @@ struct ProductManifold<Head, Tail...> {
 
   void PlusJacobian(const double* x, double* jacobian) const {
     // Row-major (kAmbientSize x kTangentSize), block-diagonal: the head block
-    // sits in the top-left, the rest block in the bottom-right. A row-major
-    // Eigen matrix with a single column is ill-formed, so single-tangent blocks
-    // are stored column-major (identical layout for one column).
-    constexpr int kOrder =
-        kTangentSize == 1 ? Eigen::ColMajor : Eigen::RowMajor;
-    Eigen::Map<Eigen::Matrix<double, kAmbientSize, kTangentSize, kOrder>> J(
-        jacobian);
+    // sits in the top-left, the rest block in the bottom-right. The recursive
+    // case always combines at least two manifolds with at least one tangent
+    // dimension each, so there are always multiple columns. A row-major Eigen
+    // matrix with a single column is ill-formed, so single-tangent blocks
+    // below are stored column-major (identical layout for one column).
+    static_assert(kTangentSize > 1);
+    Eigen::Map<
+        Eigen::Matrix<double, kAmbientSize, kTangentSize, Eigen::RowMajor>>
+        J(jacobian);
     J.setZero();
 
     constexpr int kHeadOrder =

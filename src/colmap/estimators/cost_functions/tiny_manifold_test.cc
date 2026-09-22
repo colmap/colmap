@@ -2,8 +2,10 @@
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 
+#include "colmap/optim/tiny_solver.h"
 #include "colmap/util/eigen_matchers.h"
 
+#include <cmath>
 #include <vector>
 
 #include <Eigen/Core>
@@ -115,6 +117,17 @@ TEST(SphereManifold, PlusJacobianMatchesFiniteDiff) {
               EigenMatrixNear(NumericPlusJacobian(manifold, x.data()), 1e-6));
 }
 
+TEST(EigenQuaternionManifold, PlusStaysNormalized) {
+  const Eigen::Quaterniond q(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(1, 2, 3).normalized()));
+  const EigenQuaternionManifold manifold;
+  // A large step, unlike the small deltas of the rotation-composition test.
+  const Eigen::Vector3d delta(0.5, -1.2, 2.0);
+  double x_plus[4];
+  manifold.Plus(q.coeffs().data(), delta.data(), x_plus);
+  EXPECT_NEAR(Eigen::Map<const Eigen::Vector4d>(x_plus).norm(), 1.0, 1e-12);
+}
+
 TEST(ProductManifold, SizesAndBlockStructure) {
   using RelativePoseManifold =
       ProductManifold<EigenQuaternionManifold, SphereManifold<3>>;
@@ -196,6 +209,23 @@ TEST(ProductManifold, ThreeWaySizesAndBlockStructure) {
   J.block(4, 3, 3, 2).setZero();
   J.block(7, 5, 4, 3).setZero();
   EXPECT_LT(J.norm(), 1e-12);
+}
+
+TEST(ProductManifold, SingleTangentBlocks) {
+  using TwoSingleManifold =
+      ProductManifold<EuclideanManifold<1>, EuclideanManifold<1>>;
+  static_assert(TwoSingleManifold::kAmbientSize == 2);
+  static_assert(TwoSingleManifold::kTangentSize == 2);
+
+  const TwoSingleManifold manifold{};
+  const double x[2] = {1.0, -2.0};
+  const double delta[2] = {0.5, 0.25};
+  double x_plus[2];
+  manifold.Plus(x, delta, x_plus);
+  EXPECT_THAT(Eigen::Map<const Eigen::Vector2d>(x_plus),
+              EigenMatrixNear(Eigen::Vector2d(1.5, -1.75), 1e-12));
+  EXPECT_THAT(AnalyticPlusJacobian(manifold, x),
+              EigenMatrixNear(NumericPlusJacobian(manifold, x), 1e-6));
 }
 
 }  // namespace
