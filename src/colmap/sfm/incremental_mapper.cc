@@ -404,11 +404,12 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   size_t num_inliers;
   std::vector<char> inlier_mask;
+  Rigid3d cam_from_world;
   // if (!EstimateAbsolutePose(abs_pose_options,
   //                           tri_points2D,
   //                           tri_points3D,
   //                           /*points3D_cov=*/{},
-  //                           &image.CamFromWorld(),
+  //                           &cam_from_world,
   //                           &camera,
   //                           &num_inliers,
   //                           &inlier_mask)) {
@@ -421,10 +422,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                             tri_points2D,
                             tri_points3D,
                             tri_points3D_cov,
-                            &image.CamFromWorld(),
+                            &cam_from_world,
                             &camera,
                             &num_inliers,
                             &inlier_mask)) {
+    VLOG(2) << "Absolute pose estimation failed";
     return false;
   }
 

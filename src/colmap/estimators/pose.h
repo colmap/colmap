@@ -83,8 +83,8 @@ struct AbsolutePoseRefinementOptions {
 // @param options              Absolute pose estimation options.
 // @param points2D             Corresponding 2D points.
 // @param points3D             Corresponding 3D points.
-// @param points3D_cov         (Optional) Corresponding 3D point covariances.
-//                             Used to score hypotheses in RANSAC.
+// @param points3D_cov         Corresponding 3D point covariances, used to
+//                             score hypotheses in RANSAC. Empty to disable.
 // @param cam_from_world       Estimated absolute camera pose.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.

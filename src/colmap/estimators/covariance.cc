@@ -2,9 +2,12 @@
 
 #include "colmap/estimators/covariance.h"
 
-#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/util/hash_containers.h"
+
+#include <memory>
+#include <utility>
 
 #include <ceres/crs_matrix.h>
 
@@ -439,8 +442,9 @@ std::vector<Eigen::Matrix3d> EstimateCeresPointCovariance(
     ba_config.AddVariablePoint(point3D_id);
   }
 
-  BundleAdjuster bundle_adjuster(BundleAdjustmentOptions(), ba_config);
-  bundle_adjuster.SetUpProblem(reconstruction, /*loss_function=*/nullptr);
+  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(
+          BundleAdjustmentOptions(), ba_config, *reconstruction);
 
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
@@ -456,7 +460,7 @@ std::vector<Eigen::Matrix3d> EstimateCeresPointCovariance(
   }
 
   if (!covariance_computer.Compute(cov_param_pairs,
-                                   bundle_adjuster.Problem().get())) {
+                                   bundle_adjuster->Problem().get())) {
     LOG(ERROR)
         << "Failed to compute covariance, falling back to identity covariance";
     covs.resize(point3D_ids.size(), Eigen::Matrix3d::Identity());
@@ -489,11 +493,12 @@ std::vector<Eigen::Matrix3d> EstimateSchurPointCovariance(
         const_cast<double*>(point3D.xyz.data()));
   }
 
-  BundleAdjuster bundle_adjuster(BundleAdjustmentOptions(), ba_config);
-  bundle_adjuster.SetUpProblem(reconstruction, /*loss_function=*/nullptr);
+  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
+      CreateDefaultCeresBundleAdjuster(
+          BundleAdjustmentOptions(), ba_config, *reconstruction);
 
   ceres::CRSMatrix J_crs;
-  if (!bundle_adjuster.Problem()->Evaluate(
+  if (!bundle_adjuster->Problem()->Evaluate(
           eval_options, nullptr, nullptr, nullptr, &J_crs)) {
     LOG(WARNING) << "Failed to evaluate Jacobian";
     return {};

@@ -10,6 +10,7 @@
 
 #include <cmath>
 
+#include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <PoseLib/solvers/p3p.h>
 #include <PoseLib/solvers/p4pf.h>
@@ -219,15 +220,25 @@ void CovariantP3PEstimator::Estimate(const std::vector<X_t>& points2D,
                                      std::vector<M_t>* models) {
   THROW_CHECK_EQ(points2D.size(), 3);
   THROW_CHECK_EQ(points3D.size(), 3);
-  thread_local std::vector<Eigen::Vector2d> points2D_without_cov(3);
-  points2D_without_cov[0] = points2D[0].first;
-  points2D_without_cov[1] = points2D[1].first;
-  points2D_without_cov[2] = points2D[2].first;
-  thread_local std::vector<Eigen::Vector3d> points3D_without_cov(3);
-  points3D_without_cov[0] = points3D[0].first;
-  points3D_without_cov[1] = points3D[1].first;
-  points3D_without_cov[2] = points3D[2].first;
-  P3PEstimator::Estimate(points2D_without_cov, points3D_without_cov, models);
+  THROW_CHECK_NOTNULL(models);
+  models->clear();
+
+  // Covariances are only used for scoring hypotheses; strip them for the
+  // minimal solver.
+  std::vector<Eigen::Vector3d> rays(3);
+  std::vector<Eigen::Vector3d> points3D_without_cov(3);
+  for (int i = 0; i < 3; ++i) {
+    rays[i] = points2D[i].first.homogeneous().normalized();
+    points3D_without_cov[i] = points3D[i].first;
+  }
+
+  std::vector<poselib::CameraPose> poses;
+  const int num_poses = poselib::p3p(rays, points3D_without_cov, &poses);
+
+  models->resize(num_poses);
+  for (int i = 0; i < num_poses; ++i) {
+    (*models)[i] = ConvertPoseLibPoseToRigid3d(poses[i]).ToMatrix();
+  }
 }
 
 // We would like to compute the maximum likelihood estimate of the absolute pose
@@ -441,18 +452,24 @@ void ComputeSquaredReprojectionError(
 void CovariantEPNPEstimator::Estimate(const std::vector<X_t>& points2D,
                                       const std::vector<Y_t>& points3D,
                                       std::vector<M_t>* models) {
-  // TODO: EPNP could theoretically take advantage of the covariance.
-  THROW_CHECK_GE(points2D.size(), 4);
+  // TODO: The fitting could theoretically take advantage of the covariance.
+  THROW_CHECK_GE(points2D.size(), kMinNumSamples);
   THROW_CHECK_EQ(points2D.size(), points3D.size());
-  const size_t num_points = points2D.size();
-  thread_local std::vector<Eigen::Vector2d> points2D_without_cov;
-  thread_local std::vector<Eigen::Vector3d> points3D_without_cov;
-  points2D_without_cov.resize(num_points);
-  points3D_without_cov.resize(num_points);
-  for (size_t i = 0; i < num_points; ++i) {
-    points2D_without_cov[i] = points2D[i].first;
-    points3D_without_cov[i] = points3D[i].first;
-    EPNPEstimator::Estimate(points2D_without_cov, points3D_without_cov, models);
+  THROW_CHECK_NOTNULL(models);
+  models->clear();
+
+  // Initialize from a minimal sample with P3P, then refine over all points.
+  const std::vector<X_t> points2D_sample(points2D.begin(),
+                                         points2D.begin() + 3);
+  const std::vector<Y_t> points3D_sample(points3D.begin(),
+                                         points3D.begin() + 3);
+  std::vector<M_t> sample_models;
+  CovariantP3PEstimator::Estimate(
+      points2D_sample, points3D_sample, &sample_models);
+  for (M_t& sample_model : sample_models) {
+    if (Refine(points2D, points3D, &sample_model)) {
+      models->push_back(sample_model);
+    }
   }
 }
 
@@ -462,6 +479,45 @@ void CovariantEPNPEstimator::Residuals(const std::vector<X_t>& points2D,
                                        std::vector<double>* residuals) {
   CovariantP3PEstimator::Residuals(
       points2D, points3D, cam_from_world, residuals);
+}
+
+bool CovariantEPNPEstimator::Refine(const std::vector<X_t>& points2D,
+                                    const std::vector<Y_t>& points3D,
+                                    M_t* model) {
+  THROW_CHECK_EQ(points2D.size(), points3D.size());
+  THROW_CHECK_NOTNULL(model);
+  if (points2D.size() < kMinNumSamples) {
+    return false;
+  }
+
+  std::vector<Point2DWithRay> points2D_without_cov(points2D.size());
+  std::vector<Eigen::Vector3d> points3D_without_cov(points3D.size());
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    points2D_without_cov[i].image_point = points2D[i].first;
+    points2D_without_cov[i].camera_ray =
+        points2D[i].first.homogeneous().normalized();
+    points3D_without_cov[i] = points3D[i].first;
+  }
+
+  Rigid3d cam_from_world(Eigen::Quaterniond(model->leftCols<3>()),
+                         model->col(3));
+  TinyPnPCostFunctor functor(points2D_without_cov, points3D_without_cov);
+  TinyPnPCostFunctor::AutoDiffFunction f(functor);
+  using Solver = TinySolver<decltype(f), Rigid3dManifold>;
+  Solver solver;
+  typename Solver::Options options;
+  options.max_num_iterations = 25;
+
+  Eigen::Matrix<double, 7, 1> x;
+  x.head<4>() = cam_from_world.rotation().normalized().coeffs();
+  x.tail<3>() = cam_from_world.translation();
+  if (solver.Solve(f, &x, options).status == Solver::NUMERICAL_FAILURE) {
+    return false;
+  }
+  cam_from_world.rotation() = Eigen::Quaterniond(x.data()).normalized();
+  cam_from_world.translation() = x.tail<3>();
+  *model = cam_from_world.ToMatrix();
+  return true;
 }
 
 }  // namespace colmap

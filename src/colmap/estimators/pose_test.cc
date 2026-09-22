@@ -59,6 +59,7 @@ TEST(EstimateAbsolutePose, Nominal) {
   EXPECT_TRUE(EstimateAbsolutePose(options,
                                    problem.points2D,
                                    problem.points3D,
+                                   /*points3D_cov=*/{},
                                    &cam_from_world,
                                    &camera,
                                    &num_inliers,
@@ -66,6 +67,33 @@ TEST(EstimateAbsolutePose, Nominal) {
   EXPECT_THAT(
       cam_from_world,
       Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-6, /*ttol=*/1e-6));
+  EXPECT_EQ(camera, problem.camera);
+  EXPECT_EQ(num_inliers, problem.points2D.size());
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+}
+
+TEST(EstimateAbsolutePose, WithPointCovariance) {
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
+
+  const std::vector<Eigen::Matrix3d> points3D_cov(
+      problem.points3D.size(), 1e-6 * Eigen::Matrix3d::Identity());
+
+  AbsolutePoseEstimationOptions options;
+  Rigid3d cam_from_world;
+  size_t num_inliers = 0;
+  std::vector<char> inlier_mask;
+  Camera camera = problem.camera;
+  EXPECT_TRUE(EstimateAbsolutePose(options,
+                                   problem.points2D,
+                                   problem.points3D,
+                                   points3D_cov,
+                                   &cam_from_world,
+                                   &camera,
+                                   &num_inliers,
+                                   &inlier_mask));
+  EXPECT_THAT(
+      cam_from_world,
+      Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-3, /*ttol=*/1e-2));
   EXPECT_EQ(camera, problem.camera);
   EXPECT_EQ(num_inliers, problem.points2D.size());
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
@@ -83,6 +111,7 @@ TEST(EstimateAbsolutePose, EstimateFocalLength) {
   EXPECT_TRUE(EstimateAbsolutePose(options,
                                    problem.points2D,
                                    problem.points3D,
+                                   /*points3D_cov=*/{},
                                    &cam_from_world,
                                    &camera,
                                    &num_inliers,
@@ -111,6 +140,7 @@ TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
   EXPECT_TRUE(EstimateAbsolutePose(options,
                                    problem.points2D,
                                    problem.points3D,
+                                   /*points3D_cov=*/{},
                                    &cam_from_world,
                                    &camera,
                                    &num_inliers,

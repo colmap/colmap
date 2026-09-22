@@ -31,6 +31,7 @@ py::typing::Optional<py::dict> PyEstimateAbsolutePose(
   if (!EstimateAbsolutePose(estimation_options,
                             points2D,
                             points3D,
+                            /*points3D_cov=*/{},
                             &cam_from_world,
                             &camera,
                             &num_inliers,

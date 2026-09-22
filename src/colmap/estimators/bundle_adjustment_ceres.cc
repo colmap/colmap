@@ -38,9 +38,6 @@ BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
   return BundleAdjustmentTerminationType::FAILURE;
 }
 
-// Assuming 4px standard deviation for SIFT detections.
-const Eigen::Matrix2d kPoint2DCov = 16 * Eigen::Matrix2d::Identity();
-
 }  // namespace
 
 std::shared_ptr<CeresBundleAdjustmentSummary>
@@ -712,16 +709,15 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
 
       if (constant_cam_from_world) {
         problem_->AddResidualBlock(
-            CreateCovarianceWeightedCameraCostFunction<
-                ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, kPoint2DCov, point2D.xy, rig_from_world),
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, rig_from_world),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
-            CreateCovarianceWeightedCameraCostFunction<ReprojErrorCostFunctor>(
-                camera.model_id, kPoint2DCov, point2D.xy),
+            CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
+                                                             point2D.xy),
             loss_function_.get(),
             point3D.xyz.data(),
             rig_from_world.params.data(),
@@ -780,10 +776,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
       // rare enough that we do not have a specialized cost function for it.
       if (constant_sensor_from_rig && constant_rig_from_world) {
         problem_->AddResidualBlock(
-            CreateCovarianceWeightedCameraCostFunction<
-                ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, kPoint2DCov, point2D.xy,
-                cam_from_world.value()),
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_world.value()),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());
@@ -849,9 +843,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
         Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
 
         problem_->AddResidualBlock(
-            CreateCovarianceWeightedCameraCostFunction<
-                ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, kPoint2DCov, point2D.xy, cam_from_world),
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_world),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());
@@ -861,10 +854,8 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
         Rigid3d& rig_from_world = image.FramePtr()->RigFromWorld();
 
         problem_->AddResidualBlock(
-            CreateCovarianceWeightedCameraCostFunction<
-                ReprojErrorConstantPoseCostFunctor>(
-                camera.model_id, kPoint2DCov, point2D.xy,
-                cam_from_rig * rig_from_world),
+            CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
+                camera.model_id, point2D.xy, cam_from_rig * rig_from_world),
             loss_function_.get(),
             point3D.xyz.data(),
             camera.params.data());

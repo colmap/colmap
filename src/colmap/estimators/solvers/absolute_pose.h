@@ -172,7 +172,10 @@ void ComputeSquaredReprojectionError(
     std::vector<double>* residuals);
 
 // Variant of the EPNP estimator that considers 2D-3D point covariance for
-// scaling the computed residuals.
+// scaling the computed residuals. Used as the local estimator in LO-RANSAC
+// together with CovariantP3PEstimator: Estimate fits a model to all given
+// correspondences (P3P initialization followed by nonlinear refinement) and
+// Refine nonlinearly refines a given model over all correspondences.
 class CovariantEPNPEstimator {
  public:
   // The observed 2D points and its covariance in the image plane.
@@ -193,6 +196,10 @@ class CovariantEPNPEstimator {
                         const std::vector<Y_t>& points3D,
                         const M_t& proj_matrix,
                         std::vector<double>* residuals);
+
+  static bool Refine(const std::vector<X_t>& points2D,
+                     const std::vector<Y_t>& points3D,
+                     M_t* model);
 };
 
 }  // namespace colmap
