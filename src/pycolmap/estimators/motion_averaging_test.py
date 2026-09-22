@@ -72,15 +72,15 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
 
 def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
-    assert options.fix_observation_scale_gauge
+    assert options.fix_first_scale
     assert options.uncalibrated_observation_weight == 0.5
     assert not options.initialize_scales_from_geometry
     options = pycolmap.GlobalPositionerOptions(
-        fix_observation_scale_gauge=False,
+        fix_first_scale=False,
         uncalibrated_observation_weight=0.2,
         initialize_scales_from_geometry=True,
     )
-    assert not options.fix_observation_scale_gauge
+    assert not options.fix_first_scale
     assert options.uncalibrated_observation_weight == 0.2
     assert options.initialize_scales_from_geometry
 

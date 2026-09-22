@@ -206,7 +206,7 @@ TEST(GlobalPositioning, ObservationScaleGauge) {
       GlobalPositionerOptions options;
       options.use_gpu = false;
       options.optimize_scales = optimize;
-      options.fix_observation_scale_gauge = fix_gauge;
+      options.fix_first_scale = fix_gauge;
       auto positioner =
           GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
       auto& problem = positioner->Problem();

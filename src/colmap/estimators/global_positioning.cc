@@ -371,7 +371,7 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
         problem_->SetParameterBlockConstant(&scale);
       }
     }
-  } else if (options_.fix_observation_scale_gauge) {
+  } else if (options_.fix_first_scale) {
     // Set the first scale to be constant to remove the gauge ambiguity.
     for (double& scale : scales_) {
       if (problem_->HasParameterBlock(&scale)) {

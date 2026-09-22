@@ -27,7 +27,7 @@ struct GlobalPositionerOptions {
   bool optimize_points = true;
   bool optimize_scales = true;
   // Fix the first active observation scale when optimizing scales.
-  bool fix_observation_scale_gauge = true;
+  bool fix_first_scale = true;
   // Loss multiplier for observations without a focal-length prior.
   double uncalibrated_observation_weight = 0.5;
 

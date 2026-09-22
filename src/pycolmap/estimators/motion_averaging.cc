@@ -30,8 +30,8 @@ void BindGlobalPositioner(py::module& m) {
               &GlobalPositionerOptions::initialize_scales_from_geometry,
               "Derive scales from initialized camera and point positions; "
               "otherwise use 1.")
-          .def_readwrite("fix_observation_scale_gauge",
-                         &GlobalPositionerOptions::fix_observation_scale_gauge,
+          .def_readwrite("fix_first_scale",
+                         &GlobalPositionerOptions::fix_first_scale,
                          "Whether to fix the first active observation scale.")
           .def_readwrite(
               "uncalibrated_observation_weight",
