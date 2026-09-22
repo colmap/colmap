@@ -4,10 +4,10 @@
 
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/scene/track.h"
 #include "colmap/util/hash_containers.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,11 +15,6 @@
 #include <ceres/ceres.h>
 
 namespace colmap {
-
-// Per-observation covariance matrices in world coordinates for default BATA
-// residuals. Matrices must be positive definite.
-using ObservationCovarianceMap =
-    FlatHashMap<ObservationKey, Eigen::Matrix3d, PairHash>;
 
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
@@ -52,6 +47,10 @@ struct GlobalPositionerOptions {
   // Scaling factor for the loss function
   double loss_function_scale = 0.1;
 
+  // Isotropic observation uncertainty in pixels. Disabled when unset.
+  // When enabled, loss_function_scale applies to whitened residuals.
+  std::optional<double> experimental_observation_stddev;
+
   // Whether to use custom parameter block ordering for Schur-based solvers.
   // Disable for deterministic behavior when using a fixed random seed.
   bool use_parameter_block_ordering = true;
@@ -79,8 +78,7 @@ class GlobalPositioner {
       const GlobalPositionerOptions& options,
       const PoseGraph& pose_graph,
       Reconstruction& reconstruction,
-      std::shared_ptr<ceres::LossFunction> loss_function = nullptr,
-      const ObservationCovarianceMap& observation_covariances = {});
+      std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 
   // Solve the prepared problem and publish its results.
   ceres::Solver::Summary Solve();
@@ -104,7 +102,6 @@ class GlobalPositioner {
   // Construct the problem without solving it.
   void Prepare(const PoseGraph& pose_graph,
                Reconstruction& reconstruction,
-               const ObservationCovarianceMap& observation_covariances,
                std::shared_ptr<ceres::LossFunction> loss_function);
 
   void SetupProblem(std::shared_ptr<ceres::LossFunction> loss_function);
@@ -113,16 +110,12 @@ class GlobalPositioner {
   void InitializeRandomPositions(const PoseGraph& pose_graph,
                                  Reconstruction& reconstruction);
 
-  // Add regular constraints with optional keyed covariances.
-  void AddPointToCameraConstraints(
-      Reconstruction& reconstruction,
-      const ObservationCovarianceMap& observation_covariances);
+  // Add tracks to the problem
+  void AddPointToCameraConstraints(Reconstruction& reconstruction);
 
-  // Add a single point3D to the problem.
-  void AddPoint3DToProblem(
-      point3D_t point3D_id,
-      Reconstruction& reconstruction,
-      const ObservationCovarianceMap& observation_covariances);
+  // Add a single point3D to the problem
+  void AddPoint3DToProblem(point3D_t point3D_id,
+                           Reconstruction& reconstruction);
 
   // Set the parameter groups
   void AddCamerasAndPointsToParameterGroups(Reconstruction& reconstruction);

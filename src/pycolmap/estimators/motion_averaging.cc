@@ -5,7 +5,6 @@
 #include "colmap/estimators/rotation_averaging.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
@@ -63,6 +62,12 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("loss_function_scale",
                          &GlobalPositionerOptions::loss_function_scale,
                          "Scaling factor for the loss function.")
+          .def_readwrite(
+              "experimental_observation_stddev",
+              &GlobalPositionerOptions::experimental_observation_stddev,
+              "Isotropic observation uncertainty in pixels. None disables "
+              "weighting. When enabled, loss_function_scale applies to "
+              "whitened residuals.")
           .def_readwrite("use_parameter_block_ordering",
                          &GlobalPositionerOptions::use_parameter_block_ordering,
                          "Whether to use custom parameter block ordering.");
@@ -113,27 +118,21 @@ void BindGlobalPositioner(py::module& m) {
       [](const GlobalPositionerOptions& options,
          const PoseGraph& pose_graph,
          Reconstruction& reconstruction,
-         const py::object& loss_function,
-         const ObservationCovarianceMap& observation_covariances) {
+         const py::object& loss_function) {
         return GlobalPositioner::CreateDefault(
             options,
             pose_graph,
             reconstruction,
             loss_function.is_none()
                 ? nullptr
-                : loss_function.cast<std::shared_ptr<ceres::LossFunction>>(),
-            observation_covariances);
+                : loss_function.cast<std::shared_ptr<ceres::LossFunction>>());
       },
       "options"_a,
       "pose_graph"_a,
       "reconstruction"_a,
       "loss_function"_a = py::none(),
-      "observation_covariances"_a = ObservationCovarianceMap(),
       py::keep_alive<0, 3>(),
-      "Positive-definite 3x3 observation covariances in world coordinates, "
-      "keyed by "
-      "(image_id, point2D_idx). Leave empty to disable; otherwise "
-      "provide a covariance for every included observation.");
+      "Prepare global positioning without solving.");
 
   m.def(
       "run_global_positioning",

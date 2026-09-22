@@ -27,15 +27,8 @@ struct ScaleDifferenceCostFunctor {
   }
 };
 
-std::pair<ObservationCovarianceMap, double> ObservationCovariancesAndCost(
-    const GlobalPositionerOptions& options,
-    const Reconstruction& reconstruction) {
-  const Eigen::Vector3d standard_deviations(0.5, 1.0, 2.0);
-  const Eigen::Matrix3d camera_covariance =
-      standard_deviations.array().square().matrix().asDiagonal();
-  const Eigen::Matrix3d camera_whitening =
-      standard_deviations.cwiseInverse().asDiagonal();
-  ObservationCovarianceMap covariances;
+double ObservationWeightedCost(const GlobalPositionerOptions& options,
+                               const Reconstruction& reconstruction) {
   double expected_cost = 0.0;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() <
@@ -43,38 +36,46 @@ std::pair<ObservationCovarianceMap, double> ObservationCovariancesAndCost(
       continue;
     }
     for (const auto& observation : point3D.track.Elements()) {
-      if (!reconstruction.ExistsImage(observation.image_id)) continue;
       const Image& image = reconstruction.Image(observation.image_id);
-      const std::optional<Eigen::Vector3d> camera_ray =
-          image.CameraPtr()->CamRayFromImg(
-              image.Point2D(observation.point2D_idx).xy);
-      if (!image.HasPose() || !camera_ray.has_value()) {
-        continue;
+      const Camera& camera = *image.CameraPtr();
+      const Eigen::Vector2d pixel = image.Point2D(observation.point2D_idx).xy;
+      const Eigen::Vector3d bearing = *camera.CamRayFromImg(pixel);
+      // Independently differentiate unprojection, then whiten in a tangent
+      // basis.
+      Eigen::Matrix3x2d jacobian;
+      constexpr double step = 1e-3;
+      for (int axis = 0; axis < 2; ++axis) {
+        const Eigen::Vector2d delta = step * Eigen::Vector2d::Unit(axis);
+        jacobian.col(axis) = (*camera.CamRayFromImg(pixel + delta) -
+                              *camera.CamRayFromImg(pixel - delta)) /
+                             (2 * step);
       }
-      const Eigen::Matrix3d cam_from_world =
-          image.CamFromWorld().rotation().toRotationMatrix();
-      covariances.emplace(
-          ObservationKey{observation.image_id, observation.point2D_idx},
-          cam_from_world.transpose() * camera_covariance * cam_from_world);
-
+      Eigen::Matrix3x2d tangent;
+      tangent.col(0) = bearing.unitOrthogonal();
+      tangent.col(1) = bearing.cross(tangent.col(0));
+      const Eigen::Matrix2d J = tangent.transpose() * jacobian;
+      const double stddev = *options.experimental_observation_stddev;
+      const Eigen::Matrix2d precision =
+          (stddev * stddev * J * J.transpose()).inverse();
       const Eigen::Vector3d frame_center =
           image.FramePtr()->RigFromWorld().TgtOriginInSrc();
-      Eigen::Vector3d point_from_center = point3D.xyz - frame_center;
+      Eigen::Vector3d displacement = point3D.xyz - frame_center;
       if (!image.IsRefInFrame()) {
-        const Rig& rig = reconstruction.Rig(image.FramePtr()->RigId());
         const Rigid3d& cam_from_rig =
-            rig.SensorFromRig(image.CameraPtr()->SensorId());
-        point_from_center += image.CamFromWorld().rotation().inverse() *
-                             cam_from_rig.translation();
+            image.FramePtr()->RigPtr()->SensorFromRig(camera.SensorId());
+        displacement += image.CamFromWorld().rotation().inverse() *
+                        cam_from_rig.translation();
       }
       const Eigen::Vector3d residual =
-          image.CamFromWorld().rotation().inverse() * (*camera_ray) -
-          point_from_center;
+          bearing - image.CamFromWorld().rotation() * displacement;
+      const Eigen::Vector2d transverse = tangent.transpose() * residual;
+      const double longitudinal = bearing.dot(residual);
       expected_cost +=
-          0.5 * (camera_whitening * cam_from_world * residual).squaredNorm();
+          0.5 * (transverse.dot(precision * transverse) +
+                 0.5 * precision.trace() * longitudinal * longitudinal);
     }
   }
-  return {std::move(covariances), expected_cost};
+  return expected_cost;
 }
 
 Reconstruction CreateGlobalPositioningTestReconstruction() {
@@ -224,7 +225,7 @@ TEST(GlobalPositioning, ComposableProblem) {
   EXPECT_TRUE(unordered->Solve().IsSolutionUsable());
 }
 
-TEST(GlobalPositioning, KeyedObservationCovariances) {
+TEST(GlobalPositioning, ObservationUncertainty) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions dataset_options;
   dataset_options.num_rigs = 1;
@@ -232,61 +233,36 @@ TEST(GlobalPositioning, KeyedObservationCovariances) {
   dataset_options.num_frames_per_rig = 4;
   dataset_options.num_points3D = 30;
   SynthesizeDataset(dataset_options, &reconstruction);
-
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    reconstruction.Camera(camera_id).has_prior_focal_length = true;
+  }
   GlobalPositionerOptions options;
   options.use_gpu = false;
   options.generate_random_positions = false;
   options.generate_random_points = false;
-  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
-    reconstruction.Camera(camera_id).has_prior_focal_length = true;
+  for (const double stddev : {1.0, 8.0}) {
+    options.experimental_observation_stddev = stddev;
+    const double expected_cost =
+        ObservationWeightedCost(options, reconstruction);
+    auto positioner =
+        GlobalPositioner::CreateDefault(options,
+                                        PoseGraph(),
+                                        reconstruction,
+                                        std::make_shared<ceres::TrivialLoss>());
+    double cost = 0.0;
+    ASSERT_TRUE(positioner->Problem().Evaluate(
+        ceres::Problem::EvaluateOptions(), &cost, nullptr, nullptr, nullptr));
+    EXPECT_GT(expected_cost, 0.0);
+    EXPECT_NEAR(cost, expected_cost, 1e-7 * expected_cost);
   }
-  auto [covariances, expected_cost] =
-      ObservationCovariancesAndCost(options, reconstruction);
-  ASSERT_FALSE(covariances.empty());
-
-  Reconstruction weighted_reconstruction = reconstruction;
-  for (const auto& [id, point] : weighted_reconstruction.Points3D()) {
-    auto& elements = weighted_reconstruction.Point3D(id).track.Elements();
-    std::reverse(elements.begin(), elements.end());
+  for (const double stddev : {0.0,
+                              -1.0,
+                              std::numeric_limits<double>::infinity(),
+                              std::numeric_limits<double>::quiet_NaN()}) {
+    options.experimental_observation_stddev = stddev;
+    EXPECT_ANY_THROW(
+        GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction));
   }
-  auto weighted =
-      GlobalPositioner::CreateDefault(options,
-                                      PoseGraph(),
-                                      weighted_reconstruction,
-                                      std::make_shared<ceres::TrivialLoss>(),
-                                      covariances);
-  double weighted_cost = 0.0;
-  ASSERT_TRUE(weighted->Problem().Evaluate(ceres::Problem::EvaluateOptions(),
-                                           &weighted_cost,
-                                           nullptr,
-                                           nullptr,
-                                           nullptr));
-  EXPECT_NEAR(weighted_cost, expected_cost, 1e-10);
-
-  ObservationCovarianceMap missing = covariances;
-  missing.erase(missing.begin());
-  Reconstruction missing_reconstruction = reconstruction;
-  EXPECT_THROW(
-      GlobalPositioner::CreateDefault(
-          options, PoseGraph(), missing_reconstruction, nullptr, missing),
-      std::out_of_range);
-
-  for (const double value : {0.0,
-                             -1.0,
-                             std::numeric_limits<double>::infinity(),
-                             std::numeric_limits<double>::quiet_NaN()}) {
-    covariances.begin()->second = Eigen::Matrix3d::Identity();
-    covariances.begin()->second(0, 0) = value;
-    EXPECT_THROW(
-        GlobalPositioner::CreateDefault(
-            options, PoseGraph(), reconstruction, nullptr, covariances),
-        std::invalid_argument);
-  }
-  covariances.begin()->second = Eigen::Matrix3d::Identity();
-  covariances.begin()->second(0, 1) = 0.5;
-  EXPECT_THROW(GlobalPositioner::CreateDefault(
-                   options, PoseGraph(), reconstruction, nullptr, covariances),
-               std::invalid_argument);
 }
 
 TEST(GlobalPositioning, MultiCameraRig) {
@@ -321,6 +297,8 @@ TEST(GlobalPositioning, MultiCameraRig) {
   GlobalPositionerOptions options;
   options.use_gpu = false;
   options.random_seed = 42;
+  options.experimental_observation_stddev = 8.0;
+  options.loss_function_scale = 1.0;
   options.solver_options.minimizer_progress_to_stdout = false;
 
   const bool success =

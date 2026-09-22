@@ -92,7 +92,7 @@ def test_global_positioner_prepared_problem() -> None:
         options,
         pycolmap.PoseGraph(),
         reconstruction,
-        loss,
+        loss_function=loss,
     )
     del loss
     point = next(iter(reconstruction.points3D.values())).xyz
@@ -104,7 +104,7 @@ def test_global_positioner_prepared_problem() -> None:
     assert owner.solve().IsSolutionUsable()
 
 
-def test_global_positioner_observation_covariance_dict() -> None:
+def test_global_positioner_observation_stddev() -> None:
     pyceres = pytest.importorskip("pyceres")
     dataset_options = pycolmap.SyntheticDatasetOptions()
     dataset_options.num_rigs = 1
@@ -116,31 +116,21 @@ def test_global_positioner_observation_covariance_dict() -> None:
     options.use_gpu = False
     options.generate_random_positions = False
     options.generate_random_points = False
-    covariances = {
-        (observation.image_id, observation.point2D_idx): 4.0 * np.eye(3)
-        for point in reconstruction.points3D.values()
-        for observation in point.track.elements
-    }
-    plain = pycolmap.create_default_global_positioner(
-        options, pycolmap.PoseGraph(), reconstruction
-    )
-    weighted = pycolmap.create_default_global_positioner(
-        options,
-        pycolmap.PoseGraph(),
-        reconstruction,
-        observation_covariances=covariances,
-    )
+    assert options.experimental_observation_stddev is None
     evaluation = pyceres.EvaluateOptions()
     evaluation.apply_loss_function = False
-    residuals = np.asarray(plain.problem.evaluate_residuals(evaluation))
-    weighted_residuals = np.asarray(
-        weighted.problem.evaluate_residuals(evaluation)
-    )
-    assert residuals.size > 0
-    np.testing.assert_allclose(
-        np.dot(weighted_residuals, weighted_residuals),
-        0.25 * np.dot(residuals, residuals),
-    )
+    costs = []
+    for stddev in (1.0, 8.0):
+        options.experimental_observation_stddev = stddev
+        owner = pycolmap.create_default_global_positioner(
+            options, pycolmap.PoseGraph(), reconstruction
+        )
+        residuals = np.asarray(owner.problem.evaluate_residuals(evaluation))
+        assert residuals.size > 0
+        costs.append(residuals @ residuals)
+    np.testing.assert_allclose(costs[0], 64 * costs[1])
+    options.experimental_observation_stddev = None
+    assert options.experimental_observation_stddev is None
 
 
 def test_global_positioner_frame_center_parameter_block() -> None:

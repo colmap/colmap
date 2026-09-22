@@ -5,7 +5,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
-#include <utility>
 #include <vector>
 
 namespace colmap {
@@ -22,9 +21,6 @@ struct TrackElement {
   inline bool operator==(const TrackElement& other) const;
   inline bool operator!=(const TrackElement& other) const;
 };
-
-// Identifies an image measurement, independently of its track membership.
-using ObservationKey = std::pair<image_t, point2D_t>;
 
 class Track {
  public:
