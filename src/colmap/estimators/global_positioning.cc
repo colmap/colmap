@@ -29,8 +29,9 @@ Eigen::Matrix3d ComputeObservationCovariance(
     const Eigen::Quaterniond& cam_from_world,
     const double pixel_stddev) {
   const Eigen::Matrix2d gram = ray.jacobian.transpose() * ray.jacobian;
-  // The Gram matrix has the two tangent covariance eigenvalues. Match their
-  // mean precision along the bearing to retain BATA's scale constraint.
+  // The propagated covariance is rank deficient along the bearing, where
+  // BATA's free scale absorbs point distance. Match the radial precision
+  // to the mean tangent precision for numerical stability of the optimization.
   const double radial_variance = 2.0 / gram.inverse().trace();
   const Eigen::Matrix3d camera_covariance =
       pixel_stddev * pixel_stddev *
