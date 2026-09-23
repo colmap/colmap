@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/models.h"

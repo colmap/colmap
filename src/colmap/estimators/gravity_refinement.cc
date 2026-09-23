@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "gravity_refinement.h"
 
 #include "colmap/estimators/cost_functions/manifold.h"

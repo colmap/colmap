@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/cost_functions/alignment.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
@@ -226,6 +228,50 @@ void BindCostFunctions(py::module& m_parent) {
         "cam_from_rig"_a,
         "Reprojection error for camera rig with constant cam-from-rig pose and "
         "per-axis 2D detection noise.");
+
+  m.def("ScaledRigReprojErrorCost",
+        &CreateCameraCostFunction<ScaledRigReprojErrorCostFunctor,
+                                  const Eigen::Vector2d&,
+                                  bool>,
+        "camera_model_id"_a,
+        "point2D"_a,
+        "use_log_scale"_a = true,
+        "Reprojection error for camera rig with a scaled rig-from-world "
+        "transform.");
+  m.def("ScaledRigReprojErrorCost",
+        &CreateCovarianceWeightedCameraCostFunction<
+            ScaledRigReprojErrorCostFunctor,
+            Eigen::Matrix2d,
+            const Eigen::Vector2d&,
+            bool>,
+        "camera_model_id"_a,
+        "point2D_cov"_a,
+        "point2D"_a,
+        "use_log_scale"_a = true,
+        "Reprojection error for camera rig with a scaled rig-from-world "
+        "transform and 2D detection noise.");
+  m.def("ScaledRigReprojErrorCost",
+        &CreateScaleWeightedCameraCostFunction<ScaledRigReprojErrorCostFunctor,
+                                               double,
+                                               const Eigen::Vector2d&,
+                                               bool>,
+        "camera_model_id"_a,
+        "point2D_stddev"_a,
+        "point2D"_a,
+        "use_log_scale"_a = true,
+        "Reprojection error for camera rig with a scaled rig-from-world "
+        "transform and isotropic 2D detection noise.");
+  m.def("ScaledRigReprojErrorCost",
+        &CreateScaleWeightedCameraCostFunction<ScaledRigReprojErrorCostFunctor,
+                                               Eigen::Vector2d,
+                                               const Eigen::Vector2d&,
+                                               bool>,
+        "camera_model_id"_a,
+        "point2D_stddev"_a,
+        "point2D"_a,
+        "use_log_scale"_a = true,
+        "Reprojection error for camera rig with a scaled rig-from-world "
+        "transform and per-axis 2D detection noise.");
 
   m.def("SampsonErrorCost",
         &SampsonErrorCostFunctor::Create<const Eigen::Vector2d&,

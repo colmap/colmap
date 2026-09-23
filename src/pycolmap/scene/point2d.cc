@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/scene/point2d.h"
 
 #include "colmap/util/logging.h"

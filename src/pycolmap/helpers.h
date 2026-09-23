@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
 #include "colmap/util/cancellation.h"
@@ -53,7 +55,23 @@ void AddStringToEnumConstructor(py::enum_<T>& enm) {
             return PyStringToEnum(enm, py::str(value));  // str constructor
           }),
           py::arg("name"));
-  enm.attr("__repr__") = enm.attr("__str__");
+  // str() returns the plain member name and thus round-trips through the
+  // string constructor, while repr() keeps the qualified "Type.MEMBER"
+  // form. User-defined enum __str__ takes precedence over pybind11's
+  // generated default since pybind11 3.1. Note that __repr__ needs its own
+  // function object: pybind11 chains overloads by mutating the shared
+  // function record, so aliasing it to __str__ would pick up the custom
+  // __str__ as well.
+  enm.def("__str__", [](const py::object& self) -> std::string {
+    return self.attr("name").cast<std::string>();
+  });
+  enm.attr("__repr__") = py::cpp_function(
+      [](const py::object& self) -> std::string {
+        return py::type::of(self).attr("__name__").cast<std::string>() + "." +
+               self.attr("name").cast<std::string>();
+      },
+      py::name("__repr__"),
+      py::is_method(enm));
   py::implicitly_convertible<std::string, T>();
 }
 
@@ -209,7 +227,7 @@ std::string CreateSummary(const T& self, bool write_type) {
         ss << ": " << type_str;
         after_subsummary = true;
       }
-      std::string value = py::str(attribute);
+      std::string value = py::repr(attribute);
       if (value.length() > 80 && py::hasattr(attribute, "__len__")) {
         const int length = attribute.attr("__len__")().template cast<int>();
         value = colmap::StringPrintf(
@@ -246,11 +264,7 @@ std::string CreateRepresentationFromAttributes(const T& self) {
     }
     is_first = false;
     ss << name.template cast<std::string>() << "=";
-    if (py::isinstance<py::str>(attribute)) {
-      ss << "'" << py::str(attribute) << "'";
-    } else {
-      ss << py::str(attribute);
-    }
+    ss << py::repr(attribute);
   }
   ss << ")";
   return ss.str();
@@ -297,7 +311,7 @@ void AddDefaultsToDocstrings(py::classh<T, options...> cls) {
         colmap::StringPrintf("%s (%s, default: %s)",
                              py::str(prop.doc()).cast<std::string>().c_str(),
                              type_name.template cast<std::string>().c_str(),
-                             py::str(member).cast<std::string>().c_str());
+                             py::repr(member).cast<std::string>().c_str());
     prop.doc() = py::str(doc);
   }
 }

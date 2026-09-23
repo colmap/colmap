@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -160,32 +133,6 @@ class OptionManager : public BaseOptionManager {
   std::filesystem::path mapper_constant_rig_list_path_;
   std::filesystem::path mapper_constant_camera_list_path_;
   std::filesystem::path global_mapper_image_list_path_;
-
-  bool added_feature_extraction_options_ = false;
-  bool added_feature_matching_options_ = false;
-  bool added_two_view_geometry_options_ = false;
-  bool added_exhaustive_pairing_options_ = false;
-  bool added_sequential_pairing_options_ = false;
-  bool added_vocab_tree_pairing_options_ = false;
-  bool added_spatial_pairing_options_ = false;
-  bool added_transitive_pairing_options_ = false;
-  bool added_image_pairs_pairing_options_ = false;
-  bool added_ba_options_ = false;
-  bool added_mapper_options_ = false;
-  bool added_global_mapper_options_ = false;
-  bool added_hierarchical_mapper_options_ = false;
-  bool added_gravity_refiner_options_ = false;
-  bool added_reconstruction_clusterer_options_ = false;
-#if defined(COLMAP_MVS_ENABLED)
-  bool added_patch_match_stereo_options_ = false;
-  bool added_stereo_fusion_options_ = false;
-  bool added_poisson_meshing_options_ = false;
-  bool added_delaunay_meshing_options_ = false;
-  bool added_advancing_front_meshing_options_ = false;
-  bool added_mesh_texture_mapping_options_ = false;
-  bool added_mesh_simplification_options_ = false;
-#endif
-  bool added_render_options_ = false;
 };
 
 }  // namespace colmap

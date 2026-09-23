@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/scene/database_cache.h"
 
@@ -369,6 +342,119 @@ TEST(DatabaseCache, NonConstCorrespondenceGraph) {
   ASSERT_TRUE(updated.cam2_from_cam1.has_value());
   EXPECT_THAT(updated.cam2_from_cam1.value(),
               Rigid3dNear(new_pose, 1e-6, 1e-6));
+}
+
+TEST(DatabaseCache, SkipsUndefinedAndDegenerateGeometries) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  const camera_t camera_id = database->WriteCamera(camera);
+  Image image1;
+  image1.SetName("image1");
+  image1.SetCameraId(camera_id);
+  Image image2;
+  image2.SetName("image2");
+  image2.SetCameraId(camera_id);
+  Image image3;
+  image3.SetName("image3");
+  image3.SetCameraId(camera_id);
+  const image_t image_id1 = database->WriteImage(image1);
+  const image_t image_id2 = database->WriteImage(image2);
+  const image_t image_id3 = database->WriteImage(image3);
+  database->WriteKeypoints(image_id1, FeatureKeypoints(10));
+  database->WriteKeypoints(image_id2, FeatureKeypoints(10));
+  database->WriteKeypoints(image_id3, FeatureKeypoints(10));
+
+  // Same inlier matches under different configs: only the meaningfully
+  // labeled pair may enter the correspondence graph.
+  TwoViewGeometry good_geometry;
+  good_geometry.inlier_matches = {{0, 0}, {1, 1}};
+  good_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+  database->WriteTwoViewGeometry(image_id1, image_id2, good_geometry);
+
+  TwoViewGeometry degenerate_geometry = good_geometry;
+  degenerate_geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
+  database->WriteTwoViewGeometry(image_id2, image_id3, degenerate_geometry);
+
+  TwoViewGeometry undefined_geometry = good_geometry;
+  undefined_geometry.config = TwoViewGeometry::ConfigurationType::UNDEFINED;
+  database->WriteTwoViewGeometry(image_id1, image_id3, undefined_geometry);
+
+  const auto cache = DatabaseCache::Create(*database, {});
+  const auto correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id1, image_id2),
+            2);
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id2, image_id3),
+            0);
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id1, image_id3),
+            0);
+}
+
+TEST(DatabaseCache, CreateFromCacheSkipsUndefinedGeometries) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  const camera_t camera_id = database->WriteCamera(camera);
+  Image image1;
+  image1.SetName("image1");
+  image1.SetCameraId(camera_id);
+  Image image2;
+  image2.SetName("image2");
+  image2.SetCameraId(camera_id);
+  Image image3;
+  image3.SetName("image3");
+  image3.SetCameraId(camera_id);
+  Image image4;
+  image4.SetName("image4");
+  image4.SetCameraId(camera_id);
+  const image_t image_id1 = database->WriteImage(image1);
+  const image_t image_id2 = database->WriteImage(image2);
+  const image_t image_id3 = database->WriteImage(image3);
+  const image_t image_id4 = database->WriteImage(image4);
+  database->WriteKeypoints(image_id1, FeatureKeypoints(10));
+  database->WriteKeypoints(image_id2, FeatureKeypoints(10));
+  database->WriteKeypoints(image_id3, FeatureKeypoints(10));
+  database->WriteKeypoints(image_id4, FeatureKeypoints(10));
+
+  TwoViewGeometry good_geometry;
+  good_geometry.inlier_matches = {{0, 0}, {1, 1}};
+  good_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+  database->WriteTwoViewGeometry(image_id1, image_id2, good_geometry);
+  database->WriteTwoViewGeometry(image_id2, image_id3, good_geometry);
+  database->WriteTwoViewGeometry(image_id3, image_id4, good_geometry);
+
+  const auto source = DatabaseCache::Create(*database, {});
+
+  // Inject UNDEFINED pairs directly into the in-memory graph, as found in
+  // databases written before verification stopped storing them (they can no
+  // longer be written through the database API).
+  TwoViewGeometry undefined_geometry = good_geometry;
+  undefined_geometry.config = TwoViewGeometry::ConfigurationType::UNDEFINED;
+  // Pair (3, 4) is image4's only pair: image4 must be dropped.
+  source->CorrespondenceGraph()->UpdateTwoViewGeometry(
+      image_id3, image_id4, undefined_geometry);
+  // Pair (1, 3) connects two otherwise-connected images: the edge must be
+  // dropped while both images are kept.
+  source->CorrespondenceGraph()->AddTwoViewGeometry(
+      image_id1, image_id3, undefined_geometry);
+
+  const auto filtered = DatabaseCache::CreateFromCache(*source, {});
+  EXPECT_TRUE(filtered->ExistsImage(image_id1));
+  EXPECT_TRUE(filtered->ExistsImage(image_id2));
+  EXPECT_TRUE(filtered->ExistsImage(image_id3));
+  EXPECT_FALSE(filtered->ExistsImage(image_id4));
+
+  const auto correspondence_graph = filtered->CorrespondenceGraph();
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id1, image_id2),
+            2);
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id2, image_id3),
+            2);
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id1, image_id3),
+            0);
+  EXPECT_EQ(correspondence_graph->NumMatchesBetweenImages(image_id3, image_id4),
+            0);
 }
 
 }  // namespace

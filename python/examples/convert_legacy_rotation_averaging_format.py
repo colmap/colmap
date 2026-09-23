@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Convert legacy rotation averaging file formats to a COLMAP database.
 

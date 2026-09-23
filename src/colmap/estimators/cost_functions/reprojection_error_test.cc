@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 
@@ -550,6 +523,70 @@ TEST(RigReprojErrorCostFunctor, Nominal) {
   EXPECT_EQ(residuals[1], 2);
 }
 
+TEST(ScaledRigReprojErrorCostFunctor, Nominal) {
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero()));
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, -1};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 1, 0};
+  double point3D[3] = {0, 0, 1};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[4] = {
+      point3D, cam_from_rig, rig_from_world, camera_params};
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+
+  point3D[1] = 1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 1);
+
+  camera_params[0] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+
+  point3D[0] = -1;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -2);
+  EXPECT_EQ(residuals[1], 2);
+
+  // Observations behind the camera contribute a zero residual.
+  point3D[2] = -3;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+}
+
+TEST(ScaledRigReprojErrorCostFunctor, Scale) {
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, 0};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 1, std::log(2.)};
+  double point3D[3] = {0, 1, 0};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[4] = {
+      point3D, cam_from_rig, rig_from_world, camera_params};
+
+  std::unique_ptr<ceres::CostFunction> log_scale_cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero(), /*use_log_scale=*/true));
+  EXPECT_TRUE(
+      log_scale_cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+
+  // The same scale, stored directly instead of in log-space.
+  std::unique_ptr<ceres::CostFunction> cost_function(
+      ScaledRigReprojErrorCostFunctor<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero(), /*use_log_scale=*/false));
+  rig_from_world[7] = 2;
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
+}
+
 TEST(RigReprojErrorConstantRigCostFunctor, Nominal) {
   Rigid3d cam_from_rig;
   cam_from_rig.translation() << 0, 0, -1;
@@ -693,6 +730,20 @@ TEST(RigReprojErrorCostFunctor, EquirectangularSeamWrap) {
       [](const Eigen::Vector2d& point2D) {
         return RigReprojErrorCostFunctor<EquirectangularCameraModel>::Create(
             point2D);
+      },
+      {point3D, cam_from_rig, rig_from_world, camera_params});
+}
+
+TEST(ScaledRigReprojErrorCostFunctor, EquirectangularSeamWrap) {
+  double cam_from_rig[7] = {0, 0, 0, 1, 0, 0, 0};
+  double rig_from_world[8] = {0, 0, 0, 1, 0, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};
+  double camera_params[2] = {kEquirectangularCameraWidth,
+                             kEquirectangularCameraHeight};
+  ExpectEquirectangularSeamWrap(
+      [](const Eigen::Vector2d& point2D) {
+        return ScaledRigReprojErrorCostFunctor<
+            EquirectangularCameraModel>::Create(point2D);
       },
       {point3D, cam_from_rig, rig_from_world, camera_params});
 }
