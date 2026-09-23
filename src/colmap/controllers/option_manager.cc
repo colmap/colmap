@@ -849,9 +849,10 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.global_positioning.optimize_points);
   AddDefaultOption("GlobalMapper.gp_optimize_scales",
                    &global_mapper->mapper.global_positioning.optimize_scales);
-  AddDefaultOption(
-      "GlobalMapper.gp_loss_function_scale",
-      &global_mapper->mapper.global_positioning.loss_function_scale);
+  auto& gp_loss_scale =
+      global_mapper->mapper.global_positioning.loss_function_scale;
+  if (!gp_loss_scale) gp_loss_scale = 0.1;
+  AddDefaultOption("GlobalMapper.gp_loss_function_scale", &*gp_loss_scale);
   AddDefaultOption("GlobalMapper.gp_max_num_iterations",
                    &global_mapper->mapper.global_positioning.solver_options
                         .max_num_iterations);

@@ -72,7 +72,11 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
 
 def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
-    assert options is not None
+    assert options.loss_function_scale is None
+    options.loss_function_scale = 0.1
+    assert options.loss_function_scale == 0.1
+    options.loss_function_scale = None
+    assert options.loss_function_scale is None
 
 
 def test_global_positioner_prepared_problem() -> None:
@@ -102,6 +106,35 @@ def test_global_positioner_prepared_problem() -> None:
         owner.extend_parameter_block_ordering([(point.copy(), 1)])
     assert owner.problem.num_residual_blocks() > 0
     assert owner.solve().IsSolutionUsable()
+
+
+def test_global_positioner_observation_stddev() -> None:
+    pyceres = pytest.importorskip("pyceres")
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    options.generate_random_positions = False
+    options.generate_random_points = False
+    assert options.experimental_observation_stddev is None
+    evaluation = pyceres.EvaluateOptions()
+    evaluation.apply_loss_function = False
+    costs = []
+    for stddev in (1.0, 8.0):
+        options.experimental_observation_stddev = stddev
+        owner = pycolmap.create_default_global_positioner(
+            options, pycolmap.PoseGraph(), reconstruction
+        )
+        residuals = np.asarray(owner.problem.evaluate_residuals(evaluation))
+        assert residuals.size > 0
+        costs.append(residuals @ residuals)
+    np.testing.assert_allclose(costs[0], 64 * costs[1])
+    options.experimental_observation_stddev = None
+    assert options.experimental_observation_stddev is None
 
 
 def test_global_positioner_frame_center_parameter_block() -> None:

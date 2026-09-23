@@ -344,7 +344,10 @@ class GlobalMapperPositioningOptionsWidget : public OptionsWidget {
     AddOptionBool(&global_positioning.optimize_positions, "optimize_positions");
     AddOptionBool(&global_positioning.optimize_points, "optimize_points");
     AddOptionBool(&global_positioning.optimize_scales, "optimize_scales");
-    AddOptionDouble(&global_positioning.loss_function_scale,
+    if (!global_positioning.loss_function_scale) {
+      global_positioning.loss_function_scale = 0.1;
+    }
+    AddOptionDouble(&*global_positioning.loss_function_scale,
                     "loss_function_scale");
     AddOptionInt(&global_positioning.solver_options.max_num_iterations,
                  "max_num_iterations");
