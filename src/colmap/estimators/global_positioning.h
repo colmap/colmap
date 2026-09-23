@@ -45,7 +45,9 @@ struct GlobalPositionerOptions {
   int random_seed = -1;
 
   // Scaling factor for the loss function
-  double loss_function_scale = 0.1;
+  // If unset, use 1.0 when experimental_observation_stddev is set, otherwise
+  // 0.1. An explicit value overrides this default.
+  std::optional<double> loss_function_scale;
 
   // Isotropic observation uncertainty in pixels. Disabled when unset.
   // When enabled, loss_function_scale applies to whitened residuals.
@@ -65,7 +67,9 @@ struct GlobalPositionerOptions {
   }
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
-    return std::make_shared<ceres::HuberLoss>(loss_function_scale);
+    const double default_scale = experimental_observation_stddev ? 1.0 : 0.1;
+    return std::make_shared<ceres::HuberLoss>(
+        loss_function_scale.value_or(default_scale));
   }
 };
 

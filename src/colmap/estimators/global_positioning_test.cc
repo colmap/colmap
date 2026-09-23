@@ -298,7 +298,6 @@ TEST(GlobalPositioning, MultiCameraRig) {
   options.use_gpu = false;
   options.random_seed = 42;
   options.experimental_observation_stddev = 8.0;
-  options.loss_function_scale = 1.0;
   options.solver_options.minimizer_progress_to_stdout = false;
 
   const bool success =

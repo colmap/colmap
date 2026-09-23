@@ -61,7 +61,10 @@ void BindGlobalPositioner(py::module& m) {
                          "non-deterministic.")
           .def_readwrite("loss_function_scale",
                          &GlobalPositionerOptions::loss_function_scale,
-                         "Scaling factor for the loss function.")
+                         "Scaling factor for the loss function. "
+                         "None (default) uses 1.0 when "
+                         "experimental_observation_stddev is set, otherwise "
+                         "0.1. An explicit value overrides this default.")
           .def_readwrite(
               "experimental_observation_stddev",
               &GlobalPositionerOptions::experimental_observation_stddev,
