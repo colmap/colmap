@@ -263,6 +263,15 @@ TEST(GlobalPositioning, ObservationUncertainty) {
     EXPECT_ANY_THROW(
         GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction));
   }
+
+  // Force radial variance underflow after successful ray unprojection.
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    reconstruction.Camera(camera_id).SetFocalLength(1e100);
+  }
+  options.experimental_observation_stddev = 1.0;
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+  EXPECT_EQ(positioner->Problem().NumResidualBlocks(), 0);
 }
 
 TEST(GlobalPositioning, MultiCameraRig) {

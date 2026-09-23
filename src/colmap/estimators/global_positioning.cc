@@ -24,7 +24,7 @@ Eigen::Vector3d RandVector3d(double low, double high) {
                          RandomUniformReal(low, high));
 }
 
-Eigen::Matrix3d ComputeObservationCovariance(
+std::optional<Eigen::Matrix3d> ComputeObservationCovariance(
     const CamRayWithJac& ray,
     const Eigen::Quaterniond& cam_from_world,
     const double pixel_stddev) {
@@ -33,6 +33,9 @@ Eigen::Matrix3d ComputeObservationCovariance(
   // BATA's free scale absorbs point distance. Match the radial precision
   // to the mean tangent precision for numerical stability of the optimization.
   const double radial_variance = 2.0 / gram.inverse().trace();
+  if (!(radial_variance > 0.0) || !std::isfinite(radial_variance)) {
+    return std::nullopt;
+  }
   const Eigen::Matrix3d camera_covariance =
       pixel_stddev * pixel_stddev *
       (ray.jacobian * ray.jacobian.transpose() +
@@ -236,18 +239,20 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     if (options_.experimental_observation_stddev) {
       const auto ray = camera.CamRayFromImgWithJac(pixel);
       if (ray) {
-        cam_ray = ray->ray;
         covariance = ComputeObservationCovariance(
             *ray,
             image.CamFromWorld().rotation(),
             *options_.experimental_observation_stddev);
+        if (covariance) {
+          cam_ray = ray->ray;
+        }
       }
     } else {
       cam_ray = camera.CamRayFromImg(pixel);
     }
     if (!cam_ray.has_value()) {
       LOG(WARNING)
-          << "Ignoring feature because it failed to project: point3D_id="
+          << "Ignoring feature with invalid ray or covariance: point3D_id="
           << point3D_id << ", image_id=" << observation.image_id
           << ", feature_id=" << observation.point2D_idx;
       continue;
