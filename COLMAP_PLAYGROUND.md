@@ -627,6 +627,68 @@ colmap mesh_texturer \
 
 `--max_image_size 2000` 是速度和细节的折中。Poisson 表面更光滑，Delaunay 更贴观测、洞更少。贴图之前先简化，不然图集会非常大。
 
+### Gerrard Hall：稠密重建
+
+数据包在 `data/gerrard-hall/`，100 张 Canon EOS 5D Mark II，5616×3744。压缩包里已经有稀疏模型，100 张全部注册，这一次直接拿它做稠密，没有重跑提点和 `mapper`。
+
+内参是估出来的，但 100 张共用一个 `OPENCV` 相机。数据库里的初值来自 EXIF：`fx = fy = 3744`，主点在图像中心 `(2808, 1872)`，畸变全是 0，`prior_focal_length = 1`。稀疏结果 `sparse/cameras.txt` 里焦距和畸变已经变了，主点没动：
+
+```text
+1 OPENCV 5616 3744 3838.27 3837.22 2808 1872 -0.110339 0.079547 0.000116211 0.00029483
+```
+
+默认光束法平差会优化焦距和畸变（`ba_refine_focal_length`、`ba_refine_extra_params`）。主点默认固定（`ba_refine_principal_point` 为 false），所以还在图像中心。这组图是变焦的，共用一个焦距是整段变焦的折中。要每张图各自的内参，提点时加 `--ImageReader.single_camera_per_image 1`。
+
+去畸变把长边收到 2000，然后 CUDA PatchMatch（光度 + 几何一致）、融合、Poisson 网格：
+
+| 步骤 | 墙钟 | 结果 |
+|--|--:|--|
+| `image_undistorter` | 8.26 秒 | `dense/images`、`dense/sparse` |
+| `patch_match_stereo` | 3403 秒 | 100 张深度图和法向 |
+| `stereo_fusion` | 19.48 秒 | `dense/fused.ply`，3,572,972 点 |
+| `poisson_mesher` | 1612 秒 | `dense/meshed-poisson.ply`，8,601,459 顶点，17,133,369 面 |
+| `mesh_simplifier` | 197 秒 | `dense/meshed-poisson-simplified.ply`，181,832 顶点，342,666 面（`target_face_ratio 0.02`） |
+| `mesh_texturer` | 10.75 秒 | `dense/textured/mesh.ply` + `texture.png`，图集 16384×4283。`texture_scale_factor 1`，视角平滑 20 轮，`inpaint_radius 1`。选视角时用深度图去掉被网格挡住的面，并用多视图颜色一致性压低穿过树枝的照片 |
+
+`fused.ply` 带法向，约 93 MB。Poisson 网格约 418 MB，简化后约 6.4 MB，贴图网格加图集约 60 MB。查看器在 <http://127.0.0.1:8899/?scene=gerrard>。有网格时默认只显示贴图表面，点云可以再打开叠上去对比。贴图关掉时网格用光照显示形状。相机来自去畸变后的稀疏模型。
+
+```bash
+"$COLMAP" image_undistorter \
+  --image_path "$DATASET/images" \
+  --input_path "$DATASET/sparse" \
+  --output_path "$DATASET/dense" \
+  --output_type COLMAP \
+  --max_image_size 2000
+
+"$COLMAP" patch_match_stereo \
+  --workspace_path "$DATASET/dense" \
+  --workspace_format COLMAP \
+  --PatchMatchStereo.geom_consistency true
+
+"$COLMAP" stereo_fusion \
+  --workspace_path "$DATASET/dense" \
+  --workspace_format COLMAP \
+  --input_type geometric \
+  --output_path "$DATASET/dense/fused.ply"
+
+"$COLMAP" poisson_mesher \
+  --input_path "$DATASET/dense/fused.ply" \
+  --output_path "$DATASET/dense/meshed-poisson.ply"
+
+"$COLMAP" mesh_simplifier \
+  --input_path "$DATASET/dense/meshed-poisson.ply" \
+  --output_path "$DATASET/dense/meshed-poisson-simplified.ply" \
+  --MeshSimplification.target_face_ratio 0.02
+
+"$COLMAP" mesh_texturer \
+  --workspace_path "$DATASET/dense" \
+  --input_path "$DATASET/dense/meshed-poisson-simplified.ply" \
+  --output_path "$DATASET/dense/textured" \
+  --MeshTextureMapping.texture_scale_factor 1 \
+  --MeshTextureMapping.view_selection_smoothing_iterations 20 \
+  --MeshTextureMapping.inpaint_radius 1
+```
+
 立体校正（两台已经标定的相机，给传统视差算法用）：
 
 ```bash
