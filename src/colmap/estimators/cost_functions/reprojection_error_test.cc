@@ -47,6 +47,46 @@ TEST(ReprojErrorCostFunctor, Nominal) {
   EXPECT_EQ(residuals[1], 0);
 }
 
+TEST(AnalyticalReprojError, BehindCameraZeroesResidualsAndJacobians) {
+  using CameraModel = SimplePinholeCameraModel;
+  constexpr int kNumParams = CameraModel::num_params;
+  const Eigen::Vector2d kPoint2D = Eigen::Vector2d::Zero();
+
+  double cam_from_world[7] = {0, 0, 0, 1, 0, 0, 0};
+  double point3D[3] = {0, 0, -1};
+  double camera_params[kNumParams] = {1, 0, 0};
+  const double* parameters[3] = {point3D, cam_from_world, camera_params};
+
+  double residuals[2] = {1, 1};
+  double j_point[6], j_pose[14], j_params[2 * kNumParams];
+  for (double& v : j_point) v = 1;
+  for (double& v : j_pose) v = 1;
+  for (double& v : j_params) v = 1;
+  double* jacobians[3] = {j_point, j_pose, j_params};
+
+  AnalyticalReprojErrorCostFunction<CameraModel> cost_function(kPoint2D);
+  EXPECT_TRUE(cost_function.Evaluate(parameters, residuals, jacobians));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  for (double v : j_point) EXPECT_EQ(v, 0);
+  for (double v : j_pose) EXPECT_EQ(v, 0);
+  for (double v : j_params) EXPECT_EQ(v, 0);
+
+  for (double& v : residuals) v = 1;
+  for (double& v : j_point) v = 1;
+  for (double& v : j_params) v = 1;
+  const double* const_pose_parameters[2] = {point3D, camera_params};
+  double* const_pose_jacobians[2] = {j_point, j_params};
+  AnalyticalReprojErrorConstantPoseCostFunction<CameraModel>
+      const_pose_cost_function(kPoint2D, Rigid3d());
+  EXPECT_TRUE(const_pose_cost_function.Evaluate(
+      const_pose_parameters, residuals, const_pose_jacobians));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
+  for (double v : j_point) EXPECT_EQ(v, 0);
+  for (double v : j_params) EXPECT_EQ(v, 0);
+}
+
 // Helper that constructs a Ceres GradientChecker across Ceres versions.
 ceres::GradientChecker MakeGradientChecker(
     ceres::CostFunction* cost_function,

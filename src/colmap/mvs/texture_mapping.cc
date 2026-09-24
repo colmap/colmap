@@ -936,11 +936,11 @@ void ApplyGlobalColorCorrection(
           auto color =
               atlas->GetPixel(px, py).value_or(BitmapColor<uint8_t>(0));
           color.r = static_cast<uint8_t>(
-              std::max(0.0, std::min(255.0, color.r + offset_interp[0])));
+              std::clamp(color.r + offset_interp[0], 0.0, 255.0));
           color.g = static_cast<uint8_t>(
-              std::max(0.0, std::min(255.0, color.g + offset_interp[1])));
+              std::clamp(color.g + offset_interp[1], 0.0, 255.0));
           color.b = static_cast<uint8_t>(
-              std::max(0.0, std::min(255.0, color.b + offset_interp[2])));
+              std::clamp(color.b + offset_interp[2], 0.0, 255.0));
           atlas->SetPixel(px, py, color);
         }
       }
@@ -1013,8 +1013,7 @@ void InpaintAtlas(Bitmap* atlas,
 bool MeshTextureMappingOptions::Check() const {
   CHECK_OPTION_GT(min_cos_normal_angle, 0.0);
   CHECK_OPTION_LE(min_cos_normal_angle, 1.0);
-  CHECK_OPTION_GE(min_visible_vertices, 1);
-  CHECK_OPTION_LE(min_visible_vertices, 3);
+  CHECK_OPTION_IN(min_visible_vertices, 1, 3);
   CHECK_OPTION_GE(view_selection_smoothing_iterations, 0);
   CHECK_OPTION_GE(atlas_patch_padding, 0);
   CHECK_OPTION_GE(inpaint_radius, 0);

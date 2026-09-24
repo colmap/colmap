@@ -106,7 +106,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME utils_test
     SRCS utils_test.cc
-    LINK_LIBS colmap_feature
+    LINK_LIBS colmap_feature colmap_sensor
 )
 COLMAP_ADD_TEST(
     NAME sift_test

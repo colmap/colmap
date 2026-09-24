@@ -21,6 +21,7 @@
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #endif  // COLMAP_CGAL_ENABLED
 #include "colmap/util/ply.h"
+#include "colmap/util/string.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
@@ -68,14 +69,12 @@ namespace mvs {
 
 bool DelaunayMeshingOptions::Check() const {
   CHECK_OPTION_GE(max_proj_dist, 0);
-  CHECK_OPTION_GE(max_depth_dist, 0);
-  CHECK_OPTION_LE(max_depth_dist, 1);
+  CHECK_OPTION_IN(max_depth_dist, 0, 1);
   CHECK_OPTION_GT(visibility_sigma, 0);
   CHECK_OPTION_GT(distance_sigma_factor, 0);
   CHECK_OPTION_GE(quality_regularization, 0);
   CHECK_OPTION_GE(max_side_length_factor, 0);
-  CHECK_OPTION_GE(max_side_length_percentile, 0);
-  CHECK_OPTION_LE(max_side_length_percentile, 100);
+  CHECK_OPTION_IN(max_side_length_percentile, 0, 100);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_NE(num_threads, 0);
   return true;
@@ -519,6 +518,7 @@ void WriteDelaunayTriangulationPly(const std::filesystem::path& path,
                                    const Delaunay& triangulation) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
+  SetFullPrecTextStream(file);
 
   file << "ply\n";
   file << "format ascii 1.0\n";

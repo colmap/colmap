@@ -25,38 +25,19 @@ FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
       loma(std::make_shared<LomaMatchingOptions>()) {}
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
-    const FeatureMatchingTypeOptions& other) {
-  if (other.sift) {
-    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
-  }
-  if (other.loma) {
-    loma = std::make_shared<LomaMatchingOptions>(*other.loma);
-  }
-}
+    const FeatureMatchingTypeOptions& other)
+    : sift(CloneSharedPtr(other.sift)),
+      aliked(CloneSharedPtr(other.aliked)),
+      loma(CloneSharedPtr(other.loma)) {}
 
 FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
     const FeatureMatchingTypeOptions& other) {
   if (this == &other) {
     return *this;
   }
-  if (other.sift) {
-    sift = std::make_shared<SiftMatchingOptions>(*other.sift);
-  } else {
-    sift.reset();
-  }
-  if (other.aliked) {
-    aliked = std::make_shared<AlikedMatchingOptions>(*other.aliked);
-  } else {
-    aliked.reset();
-  }
-  if (other.loma) {
-    loma = std::make_shared<LomaMatchingOptions>(*other.loma);
-  } else {
-    loma.reset();
-  }
+  sift = CloneSharedPtr(other.sift);
+  aliked = CloneSharedPtr(other.aliked);
+  loma = CloneSharedPtr(other.loma);
   return *this;
 }
 

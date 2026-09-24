@@ -6,7 +6,7 @@
 #include "colmap/util/string.h"
 
 #include <algorithm>
-#include <locale>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -44,6 +44,10 @@ std::string VectorToCSV(const std::vector<T>& values);
 // Remove an argument from the list of command-line arguments.
 void RemoveCommandLineArgument(const std::string& arg, int* argc, char** argv);
 
+// Deep-copy a shared pointer, preserving null.
+template <typename T>
+std::shared_ptr<T> CloneSharedPtr(const std::shared_ptr<T>& ptr);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -63,13 +67,21 @@ bool VectorContainsDuplicateValues(const std::vector<T>& vector) {
 }
 
 template <typename T>
+std::shared_ptr<T> CloneSharedPtr(const std::shared_ptr<T>& ptr) {
+  if (ptr) {
+    return std::make_shared<T>(*ptr);
+  }
+  return nullptr;
+}
+
+template <typename T>
 std::string VectorToCSV(const std::vector<T>& values) {
   if (values.empty()) {
     return "";
   }
 
   std::ostringstream stream;
-  stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(stream);
   for (const T& value : values) {
     stream << value << ", ";
   }

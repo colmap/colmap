@@ -290,5 +290,30 @@ TEST(StringToDouble, LocaleIndependence) {
   std::locale::global(original_locale);
 }
 
+TEST(SetFullPrecTextStream, LocaleAndPrecision) {
+  // Install a global locale that uses comma as decimal separator.
+  const std::locale original_locale = std::locale::global(
+      std::locale(std::locale::classic(), new CommaDecimalFacet));
+
+  std::ostringstream oss;
+  oss.precision(6);
+  SetFullPrecTextStream(oss);
+  EXPECT_EQ(oss.precision(), 17);
+  EXPECT_EQ(oss.getloc(), std::locale::classic());
+
+  // Full precision round-trips doubles and always uses '.' separator.
+  const double value = 0.12345678901234568;
+  oss << value;
+  EXPECT_EQ(oss.str().find(','), std::string::npos);
+  std::istringstream iss(oss.str());
+  SetFullPrecTextStream(iss);
+  double parsed = 0;
+  ASSERT_TRUE(iss >> parsed);
+  EXPECT_DOUBLE_EQ(parsed, value);
+
+  // Restore original locale.
+  std::locale::global(original_locale);
+}
+
 }  // namespace
 }  // namespace colmap

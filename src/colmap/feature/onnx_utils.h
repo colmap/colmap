@@ -31,6 +31,34 @@ void ThrowCheckONNXNode(std::string_view name,
                         const std::vector<int64_t>& shape,
                         const std::vector<int64_t>& expected_shape);
 
+// Create a CPU ONNX tensor that references the given data. The caller must
+// keep the data alive until the tensor is consumed by ONNXModel::Run().
+template <typename T>
+inline Ort::Value CreateONNXTensor(T* data,
+                                   size_t num_elements,
+                                   const std::vector<int64_t>& shape) {
+  return Ort::Value::CreateTensor<T>(
+      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
+                                 OrtMemType::OrtMemTypeCPU),
+      data,
+      num_elements,
+      shape.data(),
+      shape.size());
+}
+
+template <typename T>
+inline Ort::Value CreateONNXTensor(std::vector<T>& data,
+                                   const std::vector<int64_t>& shape) {
+  return CreateONNXTensor(data.data(), data.size(), shape);
+}
+
+// Create a scalar (rank-0) CPU ONNX tensor.
+template <typename T>
+inline Ort::Value CreateONNXScalarTensor(T& value) {
+  static const std::vector<int64_t> kEmptyShape;
+  return CreateONNXTensor(&value, 1, kEmptyShape);
+}
+
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {

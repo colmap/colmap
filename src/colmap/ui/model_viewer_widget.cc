@@ -595,7 +595,7 @@ void ModelViewerWidget::ChangeNearPlane(const float delta) {
     return;
   }
   near_plane_ *= (1.0f + delta / 100.0f * kNearPlaneScaleSpeed);
-  near_plane_ = std::max(kMinNearPlane, std::min(kMaxNearPlane, near_plane_));
+  near_plane_ = std::clamp(near_plane_, kMinNearPlane, kMaxNearPlane);
   ComposeProjectionMatrix();
   UploadCoordinateGridData();
   update();
@@ -606,7 +606,7 @@ void ModelViewerWidget::ChangePointSize(const float delta) {
     return;
   }
   point_size_ *= (1.0f + delta / 100.0f * kPointScaleSpeed);
-  point_size_ = std::max(kMinPointSize, std::min(kMaxPointSize, point_size_));
+  point_size_ = std::clamp(point_size_, kMinPointSize, kMaxPointSize);
   update();
 }
 
@@ -679,7 +679,7 @@ void ModelViewerWidget::ChangeCameraSize(const float delta) {
     return;
   }
   image_size_ *= (1.0f + delta / 100.0f * kImageScaleSpeed);
-  image_size_ = std::max(kMinImageSize, std::min(kMaxImageSize, image_size_));
+  image_size_ = std::clamp(image_size_, kMinImageSize, kMaxImageSize);
   UploadImageData();
   UploadMovieGrabberData();
   update();

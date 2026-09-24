@@ -53,7 +53,7 @@ float PointColormapBase::AdjustScale(const float gray) {
   if (range == 0.0f) {
     return 0.0f;
   } else {
-    const float gray_clipped = std::min(std::max(gray, min), max);
+    const float gray_clipped = std::clamp(gray, min, max);
     const float gray_scaled = (gray_clipped - min) / range;
     return std::pow(gray_scaled, scale);
   }

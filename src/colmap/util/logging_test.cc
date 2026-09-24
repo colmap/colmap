@@ -2,6 +2,7 @@
 
 #include "colmap/util/logging.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -17,6 +18,11 @@ std::string PrintingFn(const std::string& message) {
 void ThrowCheck(const bool cond) { THROW_CHECK(cond) << "Error!"; }
 
 void ThrowCheckEqual(const int val) { THROW_CHECK_EQ(val, 1) << "Error!"; }
+
+bool CheckIn(const double val) {
+  CHECK_OPTION_IN(val, 0, 1);
+  return true;
+}
 
 TEST(ExceptionLogging, Nominal) {
   EXPECT_NO_THROW(ThrowCheck(true));
@@ -45,6 +51,40 @@ TEST(ExceptionLogging, NumConditionEvals) {
     LOG(INFO) << "Caught exception";
   }
   EXPECT_EQ(num_calls, 2);
+}
+
+TEST(CheckOptionIn, Nominal) {
+  EXPECT_TRUE(CheckIn(0));
+  EXPECT_TRUE(CheckIn(0.5));
+  EXPECT_TRUE(CheckIn(1));
+  EXPECT_FALSE(CheckIn(-0.1));
+  EXPECT_FALSE(CheckIn(1.1));
+}
+
+TEST(ExceptionLogging, MessageContent) {
+  try {
+    THROW_CHECK(1 == 2);
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()),
+                testing::HasSubstr("Check failed: 1 == 2"));
+  }
+
+  try {
+    THROW_CHECK_EQ(1, 2) << "custom suffix";
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()),
+                testing::HasSubstr("Check failed: 1 == 2 (1 vs. 2)"));
+    EXPECT_THAT(std::string(e.what()), testing::HasSubstr("custom suffix"));
+  }
+
+  try {
+    LOG(FATAL_THROW) << "fatal message";
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()), testing::HasSubstr("fatal message"));
+  }
 }
 
 TEST(ExceptionLogging, Nested) {

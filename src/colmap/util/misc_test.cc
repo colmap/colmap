@@ -164,6 +164,24 @@ TEST(VectorToCSV, Nominal) {
   EXPECT_EQ(VectorToCSV<int>({1, 2, 3}), "1, 2, 3");
 }
 
+TEST(CloneSharedPtr, Nominal) {
+  struct Dummy {
+    int value = 0;
+  };
+  const auto ptr = std::make_shared<Dummy>();
+  ptr->value = 5;
+  const auto clone = CloneSharedPtr(ptr);
+  EXPECT_NE(ptr.get(), clone.get());
+  EXPECT_EQ(clone->value, 5);
+  clone->value = 6;
+  EXPECT_EQ(ptr->value, 5);
+}
+
+TEST(CloneSharedPtr, Null) {
+  const std::shared_ptr<int> null;
+  EXPECT_EQ(CloneSharedPtr(null), nullptr);
+}
+
 TEST(RemoveCommandLineArgument, Nominal) {
   int argc = 3;
   std::unique_ptr<char[]> arg1(new char[4]);

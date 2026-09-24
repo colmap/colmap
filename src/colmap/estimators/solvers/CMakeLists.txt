@@ -20,6 +20,7 @@ COLMAP_ADD_LIBRARY(
         relpose_shared_focal.h relpose_shared_focal.cc
         similarity_transform.h similarity_transform.cc
         translation_transform.h
+        utils.h utils.cc
     PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
@@ -75,6 +76,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME translation_transform_test
     SRCS translation_transform_test.cc
+    LINK_LIBS colmap_estimators_solvers
+)
+COLMAP_ADD_TEST(
+    NAME utils_test
+    SRCS utils_test.cc
     LINK_LIBS colmap_estimators_solvers
 )
 COLMAP_ADD_TEST(

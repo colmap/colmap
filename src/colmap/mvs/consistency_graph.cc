@@ -5,6 +5,7 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 
 #include <fstream>
 
@@ -43,6 +44,7 @@ void ConsistencyGraph::GetImageIdxs(const int row,
 void ConsistencyGraph::Read(const std::filesystem::path& path) {
   std::fstream text_file(path, std::ios::in | std::ios::binary);
   THROW_CHECK_FILE_OPEN(text_file, path);
+  SetFullPrecTextStream(text_file);
 
   size_t width = 0;
   size_t height = 0;
@@ -76,6 +78,7 @@ void ConsistencyGraph::Read(const std::filesystem::path& path) {
 void ConsistencyGraph::Write(const std::filesystem::path& path) const {
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(text_file, path);
+  SetFullPrecTextStream(text_file);
   text_file << map_.cols() << "&" << map_.rows() << "&" << 1 << "&";
   text_file.close();
 

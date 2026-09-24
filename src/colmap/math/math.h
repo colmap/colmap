@@ -24,10 +24,6 @@ constexpr double kChiSquare95ThreeDof = 7.814727903251179;
 template <typename T>
 int SignOfNumber(T val);
 
-// Clamp the given value to a low and maximum value.
-template <typename T>
-inline T Clamp(const T& value, const T& low, const T& high);
-
 // Convert angle in degree to radians.
 inline float DegToRad(float deg);
 inline double DegToRad(double deg);
@@ -153,11 +149,6 @@ int SignOfNumber(const T val) {
   return val >= 0 ? 1 : -1;
 }
 
-template <typename T>
-T Clamp(const T& value, const T& low, const T& high) {
-  return std::max(low, std::min(value, high));
-}
-
 float DegToRad(const float deg) {
   return deg * 0.0174532925199432954743716805978692718781530857086181640625f;
 }
@@ -272,9 +263,10 @@ T ScaleSigmoid(T x, const T alpha, const T x0) {
 
 template <typename T1, typename T2>
 T2 TruncateCast(const T1 value) {
-  return static_cast<T2>(std::min(
-      static_cast<T1>(std::numeric_limits<T2>::max()),
-      std::max(static_cast<T1>(std::numeric_limits<T2>::min()), value)));
+  return static_cast<T2>(
+      std::clamp(value,
+                 static_cast<T1>(std::numeric_limits<T2>::min()),
+                 static_cast<T1>(std::numeric_limits<T2>::max())));
 }
 
 }  // namespace colmap

@@ -9,6 +9,10 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <algorithm>
+#include <cmath>
+#include <utility>
+
 namespace colmap {
 namespace {
 
@@ -18,30 +22,60 @@ Eigen::Vector3d RandVector3d(double low, double high) {
                          RandomUniformReal(low, high));
 }
 
+class DefaultGlobalPositioner final : public GlobalPositioner {
+ public:
+  DefaultGlobalPositioner(const GlobalPositionerOptions& options,
+                          const PoseGraph& pose_graph,
+                          Reconstruction& reconstruction,
+                          std::shared_ptr<ceres::LossFunction> loss_function)
+      : GlobalPositioner(options) {
+    Prepare(pose_graph, reconstruction, std::move(loss_function));
+    options_.solver_options.num_threads =
+        GetEffectiveNumThreads(options_.solver_options.num_threads);
+    options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
+  }
+};
+
 }  // namespace
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
+  THROW_CHECK(std::isfinite(options_.uncalibrated_observation_weight));
+  THROW_CHECK_GT(options_.uncalibrated_observation_weight, 0.0);
   if (options_.random_seed >= 0) {
     SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
   }
 }
 
-bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
-                             Reconstruction& reconstruction) {
-  if (reconstruction.NumImages() == 0) {
-    LOG(ERROR) << "Number of images = " << reconstruction.NumImages();
-    return false;
+ceres::Solver::Summary GlobalPositioner::Solve() {
+  LOG(INFO) << "Solving the global positioner problem";
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(options_.solver_options, problem_.get(), &summary);
+  Finalize(summary);
+  return summary;
+}
+
+bool GlobalPositioner::Finalize(const ceres::Solver::Summary& summary) {
+  if (VLOG_IS_ON(2)) {
+    LOG(INFO) << summary.FullReport();
+  } else {
+    LOG(INFO) << summary.BriefReport();
   }
-  if (reconstruction.NumPoints3D() == 0) {
-    LOG(ERROR) << "Number of tracks = " << reconstruction.NumPoints3D();
-    return false;
-  }
+  ConvertBackResults(*reconstruction_);
+  return summary.IsSolutionUsable();
+}
+
+void GlobalPositioner::Prepare(
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction,
+    std::shared_ptr<ceres::LossFunction> loss_function) {
+  reconstruction_ = &reconstruction;
 
   LOG(INFO) << "Setting up the global positioner problem";
 
   // Setup the problem.
-  SetupProblem(pose_graph, reconstruction);
+  SetupProblem(std::move(loss_function));
 
   // Initialize camera translations to be random.
   // Also, convert the camera pose translation to be the camera center.
@@ -57,31 +91,18 @@ bool GlobalPositioner::Solve(const PoseGraph& pose_graph,
   // Parameterize the variables, set image poses / tracks / scales to be
   // constant if desired
   ParameterizeVariables(reconstruction);
-
-  LOG(INFO) << "Solving the global positioner problem";
-
-  ceres::Solver::Summary summary;
-  options_.solver_options.num_threads =
-      GetEffectiveNumThreads(options_.solver_options.num_threads);
-  options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
-  ceres::Solve(options_.solver_options, problem_.get(), &summary);
-
-  if (VLOG_IS_ON(2)) {
-    LOG(INFO) << summary.FullReport();
-  } else {
-    LOG(INFO) << summary.BriefReport();
-  }
-
-  ConvertBackResults(reconstruction);
-  return summary.IsSolutionUsable();
 }
 
-void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
-                                    const Reconstruction& reconstruction) {
+void GlobalPositioner::SetupProblem(
+    std::shared_ptr<ceres::LossFunction> loss_function) {
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
-  loss_function_ = options_.CreateLossFunction();
+  if (loss_function != nullptr) {
+    loss_function_ = std::move(loss_function);
+  } else {
+    loss_function_ = options_.CreateLossFunction();
+  }
 
   // Clear temporary storage from previous runs.
   frame_centers_.clear();
@@ -92,7 +113,7 @@ void GlobalPositioner::SetupProblem(const PoseGraph& pose_graph,
   // smaller.
   scales_.clear();
   size_t total_observations = 0;
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
     total_observations += point3D.track.Length();
   }
   scales_.reserve(total_observations);
@@ -143,9 +164,11 @@ void GlobalPositioner::AddPointToCameraConstraints(
           << " point to camera constraints were added to the position "
              "estimation problem.";
 
-  // Down-weight uncalibrated cameras.
+  // Reweight uncalibrated cameras.
   loss_function_ptcam_uncalibrated_ = std::make_shared<ceres::ScaledLoss>(
-      loss_function_.get(), 0.5, ceres::DO_NOT_TAKE_OWNERSHIP);
+      loss_function_.get(),
+      options_.uncalibrated_observation_weight,
+      ceres::DO_NOT_TAKE_OWNERSHIP);
   loss_function_ptcam_calibrated_ = loss_function_;
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
@@ -191,11 +214,9 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     const Eigen::Vector3d cam_from_point3D_dir =
         image.CamFromWorld().rotation().inverse() * (*cam_ray);
 
-    CHECK_GE(scales_.capacity(), scales_.size())
-        << "Not enough capacity was reserved for the scales.";
     double& scale = scales_.emplace_back(1);
 
-    if (!options_.generate_scales && random_initialization) {
+    if (options_.initialize_scales_from_geometry) {
       const Eigen::Vector3d cam_from_point3D_translation =
           point3D.xyz - frame_centers_[image.FrameId()];
       scale = std::max(1e-5,
@@ -205,7 +226,6 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
 
     // For calibrated and uncalibrated cameras, use different loss
     // functions
-    // Down weight the uncalibrated cameras
     Camera& camera = reconstruction.Camera(image.CameraId());
     ceres::LossFunction* loss_function =
         (camera.has_prior_focal_length)
@@ -327,7 +347,7 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
 
   // If not optimizing positions, set frame centers to be constant.
   if (!options_.optimize_positions) {
-    for (auto& [frame_id, center] : frame_centers_) {
+    for (auto& [_, center] : frame_centers_) {
       if (problem_->HasParameterBlock(center.data())) {
         problem_->SetParameterBlockConstant(center.data());
       }
@@ -351,12 +371,13 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
         problem_->SetParameterBlockConstant(&scale);
       }
     }
-  }
-  // Set the first scale to be constant to remove the gauge ambiguity.
-  for (double& scale : scales_) {
-    if (problem_->HasParameterBlock(&scale)) {
-      problem_->SetParameterBlockConstant(&scale);
-      break;
+  } else if (options_.fix_first_scale) {
+    // Set the first scale to be constant to remove the gauge ambiguity.
+    for (double& scale : scales_) {
+      if (problem_->HasParameterBlock(&scale)) {
+        problem_->SetParameterBlockConstant(&scale);
+        break;
+      }
     }
   }
 
@@ -442,11 +463,97 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
   }
 }
 
+ceres::Problem& GlobalPositioner::Problem() { return *problem_; }
+
+const ceres::Solver::Options& GlobalPositioner::SolverOptions() const {
+  return options_.solver_options;
+}
+
+double* GlobalPositioner::FrameCenterParameterBlock(const frame_t frame_id) {
+  const auto center = frame_centers_.find(frame_id);
+  if (center == frame_centers_.end() ||
+      !problem_->HasParameterBlock(center->second.data())) {
+    return nullptr;
+  }
+  return center->second.data();
+}
+
+void GlobalPositioner::ExtendParameterBlockOrdering(
+    const std::vector<std::pair<double*, int>>& parameter_groups) {
+  const auto& ordering = options_.solver_options.linear_solver_ordering;
+  THROW_CHECK_NOTNULL(ordering.get());
+  for (const auto& [parameter, group] : parameter_groups) {
+    if (group < 0 || !problem_->HasParameterBlock(parameter)) {
+      throw std::invalid_argument("invalid parameter block group assignment");
+    }
+    ordering->AddElementToGroup(parameter, group);
+  }
+
+  struct ScalarUsage {
+    int num_residuals = 0;
+    ceres::ResidualBlockId residual = nullptr;
+  };
+  FlatHashMap<double*, ScalarUsage> scalar_usages;
+  std::vector<double*> parameter_blocks;
+  problem_->GetParameterBlocks(&parameter_blocks);
+  for (double* parameter_block : parameter_blocks) {
+    if (ordering->IsMember(parameter_block)) continue;
+    ordering->AddElementToGroup(parameter_block, 3);
+    if (problem_->ParameterBlockSize(parameter_block) == 1) {
+      scalar_usages.emplace(parameter_block, ScalarUsage{});
+    }
+  }
+  if (!scalar_usages.empty()) {
+    // Count scalar uses in one pass to avoid repeated full-problem scans.
+    std::vector<ceres::ResidualBlockId> residuals;
+    std::vector<double*> residual_parameters;
+    problem_->GetResidualBlocks(&residuals);
+    for (const ceres::ResidualBlockId residual : residuals) {
+      problem_->GetParameterBlocksForResidualBlock(residual,
+                                                   &residual_parameters);
+      for (double* parameter : residual_parameters) {
+        const auto it = scalar_usages.find(parameter);
+        if (it == scalar_usages.end()) continue;
+        ++it->second.num_residuals;
+        it->second.residual = residual;
+      }
+    }
+    for (double* parameter : parameter_blocks) {
+      const auto it = scalar_usages.find(parameter);
+      if (it == scalar_usages.end() || it->second.num_residuals != 1) continue;
+      problem_->GetParameterBlocksForResidualBlock(it->second.residual,
+                                                   &residual_parameters);
+      if (std::none_of(
+              residual_parameters.begin(),
+              residual_parameters.end(),
+              [&](double* other) { return ordering->GroupId(other) == 0; })) {
+        ordering->AddElementToGroup(parameter, 0);
+      }
+    }
+  }
+}
+
+std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
+    const GlobalPositionerOptions& options,
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction,
+    std::shared_ptr<ceres::LossFunction> loss_function) {
+  return std::make_unique<DefaultGlobalPositioner>(
+      options, pose_graph, reconstruction, std::move(loss_function));
+}
+
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
                           Reconstruction& reconstruction) {
-  GlobalPositioner positioner(options);
-  return positioner.Solve(pose_graph, reconstruction);
+  if (reconstruction.NumImages() == 0 || reconstruction.NumPoints3D() == 0) {
+    LOG(ERROR) << "Failed to run global positioning for empty incomplete "
+                  "reconstruction: "
+               << reconstruction;
+    return false;
+  }
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, pose_graph, reconstruction);
+  return positioner->Solve().IsSolutionUsable();
 }
 
 }  // namespace colmap

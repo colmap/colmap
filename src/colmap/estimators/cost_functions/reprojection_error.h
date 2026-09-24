@@ -29,6 +29,27 @@ inline void WrapEquirectangularHorizontalSeam(const T* camera_params,
   }
 }
 
+// Project a camera-frame point and compute its seam-aware image residual.
+// Projection failures produce a zero residual.
+template <typename CameraModel, typename T>
+inline void ComputeImgReprojError(const T* camera_params,
+                                  const Eigen::Matrix<T, 3, 1>& point3D_in_cam,
+                                  const Eigen::Vector2d& point2D,
+                                  T* residuals) {
+  Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
+  if (CameraModel::ImgFromCam(camera_params,
+                              point3D_in_cam[0],
+                              point3D_in_cam[1],
+                              point3D_in_cam[2],
+                              &residuals[0],
+                              &residuals[1])) {
+    residuals_vec -= point2D.cast<T>();
+    WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
+  } else {
+    residuals_vec.setZero();
+  }
+}
+
 // Full reprojection error cost function with analytical Jacobians.
 // Requires camera model to implement ImgFromCamWithJac().
 template <typename CameraModel>
@@ -206,18 +227,8 @@ class ReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_world) *
             EigenVector3Map<T>(point3D_in_world) +
         EigenVector3Map<T>(cam_from_world + 4);
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals_vec -= point2D_.cast<T>();
-      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
-    } else {
-      residuals_vec.setZero();
-    }
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
     return true;
   }
 
@@ -258,18 +269,8 @@ class ReprojErrorConstantPoseCostFunctor
         cam_from_world_rotation_.cast<T>() *
             EigenVector3Map<T>(point3D_in_world) +
         cam_from_world_translation_.cast<T>();
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals_vec -= point2D_.cast<T>();
-      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
-    } else {
-      residuals_vec.setZero();
-    }
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
     return true;
   }
 
@@ -337,18 +338,8 @@ class RigReprojErrorCostFunctor
                  EigenVector3Map<T>(point3D_in_world) +
              EigenVector3Map<T>(rig_from_world + 4)) +
         EigenVector3Map<T>(cam_from_rig + 4);
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals_vec -= point2D_.cast<T>();
-      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
-    } else {
-      residuals_vec.setZero();
-    }
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
     return true;
   }
 
@@ -421,18 +412,8 @@ class ScaledRigReprojErrorCostFunctor
     const Eigen::Matrix<T, 3, 1> point3D_in_cam =
         EigenQuaternionMap<T>(cam_from_rig) * point3D_in_rig +
         EigenVector3Map<T>(cam_from_rig + 4);
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals_vec -= point2D_.cast<T>();
-      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
-    } else {
-      residuals_vec.setZero();
-    }
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
     return true;
   }
 

@@ -37,13 +37,7 @@ std::filesystem::path WriteIdentityModel() {
 
 template <typename T>
 Ort::Value MakeTensor(std::vector<T>* data, const std::vector<int64_t>& shape) {
-  return Ort::Value::CreateTensor<T>(
-      Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                 OrtMemType::OrtMemTypeCPU),
-      data->data(),
-      data->size(),
-      shape.data(),
-      shape.size());
+  return CreateONNXTensor(*data, shape);
 }
 
 class ErrorLogSink : public google::LogSink {
@@ -139,6 +133,37 @@ TEST(ONNXModelTest, CapabilityProbeRethrowsWithoutErrorLog) {
                          /*is_capability_probe=*/true),
                Ort::Exception);
   EXPECT_EQ(log_sink.NumErrorLogs(), 0);
+}
+
+TEST(CreateONNXTensorTest, FloatVector) {
+  std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f};
+  const std::vector<int64_t> shape{2, 2};
+  Ort::Value tensor = CreateONNXTensor(data, shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  const float* tensor_data = tensor.GetTensorData<float>();
+  EXPECT_EQ(tensor_data, data.data());
+  EXPECT_FLOAT_EQ(tensor_data[0], 1.0f);
+  EXPECT_FLOAT_EQ(tensor_data[3], 4.0f);
+}
+
+TEST(CreateONNXTensorTest, Int64Pointer) {
+  std::vector<int64_t> data{5, 6};
+  const std::vector<int64_t> shape{1, 2};
+  Ort::Value tensor = CreateONNXTensor(data.data(), data.size(), shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  EXPECT_EQ(tensor.GetTensorData<int64_t>(), data.data());
+}
+
+TEST(CreateONNXScalarTensorTest, Nominal) {
+  float value = 0.25f;
+  Ort::Value tensor = CreateONNXScalarTensor(value);
+  EXPECT_TRUE(tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_FLOAT_EQ(*tensor.GetTensorData<float>(), 0.25f);
+
+  int64_t int_value = 7;
+  Ort::Value int_tensor = CreateONNXScalarTensor(int_value);
+  EXPECT_TRUE(int_tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_EQ(*int_tensor.GetTensorData<int64_t>(), 7);
 }
 
 }  // namespace

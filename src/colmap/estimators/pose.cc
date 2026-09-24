@@ -30,9 +30,6 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   inlier_mask->clear();
 
   if (options.estimate_focal_length) {
-    // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
-    // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
-    // after refining the estimates of this function using RefineAbsolutePose.
     const Eigen::Vector2d principal_point(camera->PrincipalPointX(),
                                           camera->PrincipalPointY());
     std::vector<Eigen::Vector2d> points2D_centered(points2D.size());
@@ -40,14 +37,14 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       points2D_centered[i] = points2D[i] - principal_point;
     }
     const span<const size_t> focal_length_idxs = camera->FocalLengthIdxs();
-    RANSAC<P4PFEstimator> ransac(
+    const bool share_focal_length = focal_length_idxs.size() == 1;
+    LORANSAC<P4PFEstimator, P4PFEstimator> ransac(
         options.ransac_options,
-        P4PFEstimator(/*share_focal_length=*/focal_length_idxs.size() == 1));
+        P4PFEstimator(share_focal_length),
+        P4PFEstimator(share_focal_length));
     auto report = ransac.Estimate(points2D_centered, points3D);
     if (report.success) {
-      *cam_from_world =
-          Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
-                  report.model.cam_from_world.col(3));
+      *cam_from_world = report.model.cam_from_world;
       for (size_t k = 0; k < focal_length_idxs.size(); ++k) {
         camera->params[focal_length_idxs[k]] = report.model.focal_lengths[k];
       }
@@ -67,14 +64,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
         [camera](const Eigen::Vector3d& cam_point) {
           return camera->ImgFromCam(cam_point);
         };
-    LORANSAC<P3PEstimator, EPNPEstimator> ransac(
+    LORANSAC<P3PEstimator, P3PEstimator> ransac(
         options.ransac_options,
         P3PEstimator(img_from_cam_func),
-        EPNPEstimator(img_from_cam_func));
+        P3PEstimator(img_from_cam_func));
     auto report = ransac.Estimate(points2D_with_rays, points3D);
     if (report.success) {
-      *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
-                                report.model.col(3));
+      *cam_from_world = report.model;
       *num_inliers = report.support.num_inliers;
       *inlier_mask = std::move(report.inlier_mask);
       return true;
