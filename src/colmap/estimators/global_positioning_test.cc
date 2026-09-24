@@ -173,6 +173,88 @@ TEST(GlobalPositioning, ComposableProblem) {
   EXPECT_TRUE(unordered->Solve().IsSolutionUsable());
 }
 
+TEST(GlobalPositioning, UncalibratedObservationWeight) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+  for (const bool calibrated : {false, true}) {
+    for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+      reconstruction.Camera(camera_id).has_prior_focal_length = calibrated;
+    }
+    GlobalPositionerOptions options;
+    options.use_gpu = false;
+    options.uncalibrated_observation_weight = 0.2;
+    auto positioner =
+        GlobalPositioner::CreateDefault(options,
+                                        PoseGraph(),
+                                        reconstruction,
+                                        std::make_shared<ceres::TrivialLoss>());
+    std::vector<ceres::ResidualBlockId> residuals;
+    positioner->Problem().GetResidualBlocks(&residuals);
+    ASSERT_FALSE(residuals.empty());
+    double rho[3];
+    positioner->Problem()
+        .GetLossFunctionForResidualBlock(residuals.front())
+        ->Evaluate(1.0, rho);
+    EXPECT_DOUBLE_EQ(rho[0], calibrated ? 1.0 : 0.2);
+  }
+}
+
+TEST(GlobalPositioning, ObservationScaleGauge) {
+  for (const bool optimize : {false, true}) {
+    for (const bool fix_gauge : {false, true}) {
+      Reconstruction reconstruction =
+          CreateGlobalPositioningTestReconstruction();
+      GlobalPositionerOptions options;
+      options.use_gpu = false;
+      options.optimize_scales = optimize;
+      options.fix_first_scale = fix_gauge;
+      auto positioner =
+          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      auto& problem = positioner->Problem();
+      std::vector<double*> blocks;
+      problem.GetParameterBlocks(&blocks);
+      int num_scales = 0;
+      int num_constant = 0;
+      for (double* block : blocks) {
+        if (problem.ParameterBlockSize(block) != 1) continue;
+        ++num_scales;
+        num_constant += problem.IsParameterBlockConstant(block);
+      }
+      ASSERT_GT(num_scales, 1);
+      EXPECT_EQ(num_constant,
+                optimize ? static_cast<int>(fix_gauge) : num_scales);
+    }
+  }
+}
+
+TEST(GlobalPositioning, ScaleInitialization) {
+  for (const bool from_geometry : {false, true}) {
+    for (const bool optimize_points : {false, true}) {
+      Reconstruction reconstruction =
+          CreateGlobalPositioningTestReconstruction();
+      GlobalPositionerOptions options;
+      options.use_gpu = false;
+      options.generate_random_positions = false;
+      options.generate_random_points = false;
+      options.optimize_points = optimize_points;
+      options.initialize_scales_from_geometry = from_geometry;
+      auto positioner =
+          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      std::vector<ceres::ResidualBlockId> residuals;
+      positioner->Problem().GetResidualBlocks(&residuals);
+      ASSERT_FALSE(residuals.empty());
+      std::vector<double*> blocks;
+      positioner->Problem().GetParameterBlocksForResidualBlock(
+          residuals.front(), &blocks);
+      ASSERT_EQ(blocks.size(), 3);
+      // With noiseless observations, the geometric scale is inverse distance.
+      const double distance = (Eigen::Map<Eigen::Vector3d>(blocks[1]) -
+                               Eigen::Map<Eigen::Vector3d>(blocks[0]))
+                                  .norm();
+      EXPECT_NEAR(*blocks[2], from_geometry ? 1.0 / distance : 1.0, 1e-12);
+    }
+  }
+}
+
 TEST(GlobalPositioning, MultiCameraRig) {
   const auto database_path = CreateTestDir() / "database.db";
 
