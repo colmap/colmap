@@ -371,32 +371,33 @@ struct DelaunayTriangulationRayCaster {
   };
 
   explicit DelaunayTriangulationRayCaster(const Delaunay& triangulation)
-      : triangulation_(triangulation),
-        max_num_steps_(triangulation.number_of_cells()) {
+      : triangulation_(triangulation) {
     FindHullFacets();
   }
 
-  void CastRaySegment(const K::Segment_3& ray_segment,
-                      std::vector<Intersection>* intersections) const {
+  bool CastRaySegment(const K::Segment_3& ray_segment,
+                      std::vector<Intersection>* intersections,
+                      FlatHashSet<Delaunay::Cell_handle>* visited_cells) const {
     intersections->clear();
+    visited_cells->clear();
 
     Delaunay::Cell_handle next_cell =
         triangulation_.locate(ray_segment.start());
-
-    size_t num_steps = 0;
 
     bool next_cell_found = true;
     while (next_cell_found) {
       next_cell_found = false;
 
-      if (num_steps >= max_num_steps_) {
+      // A straight segment enters each convex cell at most once. Revisiting a
+      // cell therefore means that numerical degeneracy has made the walk stop
+      // progressing. Detect the cycle immediately instead of allowing the
+      // intersections to grow up to the size of the entire triangulation.
+      if (!visited_cells->emplace(next_cell).second) {
         LOG_FIRST_N(WARNING, 1)
-            << "Ray casting did not terminate after " << max_num_steps_
-            << " steps; ignoring the observation.";
+            << "Ray casting revisited a cell; ignoring the observation.";
         intersections->clear();
-        break;
+        return false;
       }
-      ++num_steps;
 
       if (triangulation_.is_infinite(next_cell)) {
         // Linearly check all hull facets for intersection.
@@ -477,6 +478,8 @@ struct DelaunayTriangulationRayCaster {
         }
       }
     }
+
+    return true;
   }
 
  private:
@@ -497,13 +500,6 @@ struct DelaunayTriangulationRayCaster {
 
   const Delaunay& triangulation_;
   std::vector<Delaunay::Facet> hull_facets_;
-  // A straight segment enters each (convex) cell at most once, so a walk that
-  // takes more steps than there are cells (finite and infinite) is not making
-  // progress. This bounds degenerate cases, such as coordinates so far from
-  // the origin that the intersection tests can no longer resolve the segment,
-  // which would otherwise loop forever while growing the intersections
-  // without bound.
-  const size_t max_num_steps_;
 };
 
 // Implementation of geometry visualized in Figure 9 in P. Labatut, J‐P. Pons,
@@ -647,6 +643,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Intersections between viewing rays and Delaunay triangulation.
     std::vector<DelaunayTriangulationRayCaster::Intersection> intersections;
+    FlatHashSet<Delaunay::Cell_handle> visited_cells;
 
     // Iterate through all image observations and integrate them into the graph.
     for (const auto& point_idx : image.point_idxs) {
@@ -681,10 +678,13 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
           viewing_direction_epsilon_length * viewing_direction_normalized;
 
       // Find intersected facets between image and point.
-      ray_caster.CastRaySegment(
-          K::Segment_3(image_position,
-                       point_position - viewing_direction_epsilon),
-          &intersections);
+      if (!ray_caster.CastRaySegment(
+              K::Segment_3(image_position,
+                           point_position - viewing_direction_epsilon),
+              &intersections,
+              &visited_cells)) {
+        continue;
+      }
 
       // Accumulate source weights for cell containing image.
       if (!intersections.empty()) {
