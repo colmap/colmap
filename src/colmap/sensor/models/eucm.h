@@ -40,14 +40,13 @@ struct EUCMCameraModel
     return alpha < T(0) || alpha > T(1) || beta <= T(0);
   }
 
-  static inline void ParamsBounds(
-      const size_t width,
-      const size_t height,
-      const double min_focal_length_ratio,
-      const double max_focal_length_ratio,
-      const double max_extra_param,
-      std::vector<double>* lower_bounds,
-      std::vector<double>* upper_bounds) {
+  static inline void ParamsBounds(const size_t width,
+                                  const size_t height,
+                                  const double min_focal_length_ratio,
+                                  const double max_focal_length_ratio,
+                                  const double max_extra_param,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds) {
     BasePerspectiveCameraModel<EUCMCameraModel>::ParamsBounds(
         width,
         height,

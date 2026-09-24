@@ -304,14 +304,13 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
   // hold for every model, i.e. a non-bogus parameter vector may lie marginally
   // outside the bounds, because a closed interval cannot express a strict
   // inequality.
-  static inline void ParamsBounds(
-      const size_t width,
-      const size_t height,
-      const double min_focal_length_ratio,
-      const double max_focal_length_ratio,
-      const double max_extra_param,
-      std::vector<double>* lower_bounds,
-      std::vector<double>* upper_bounds) {
+  static inline void ParamsBounds(const size_t width,
+                                  const size_t height,
+                                  const double min_focal_length_ratio,
+                                  const double max_focal_length_ratio,
+                                  const double max_extra_param,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds) {
     lower_bounds->assign(CameraModel::num_params,
                          -std::numeric_limits<double>::infinity());
     upper_bounds->assign(CameraModel::num_params,
@@ -453,14 +452,13 @@ template <typename CameraModel>
 struct BaseSphericalCameraModel : public BaseCameraModel<CameraModel> {
   // Spherical models are fully specified by their metadata parameters, so no
   // parameter is constrained. See HasBogusParams, which always returns false.
-  static inline void ParamsBounds(
-      const size_t /*width*/,
-      const size_t /*height*/,
-      const double /*min_focal_length_ratio*/,
-      const double /*max_focal_length_ratio*/,
-      const double /*max_extra_param*/,
-      std::vector<double>* lower_bounds,
-      std::vector<double>* upper_bounds) {
+  static inline void ParamsBounds(const size_t /*width*/,
+                                  const size_t /*height*/,
+                                  const double /*min_focal_length_ratio*/,
+                                  const double /*max_focal_length_ratio*/,
+                                  const double /*max_extra_param*/,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds) {
     lower_bounds->assign(CameraModel::num_params,
                          -std::numeric_limits<double>::infinity());
     upper_bounds->assign(CameraModel::num_params,
