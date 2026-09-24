@@ -124,6 +124,7 @@
     const photoTitle = document.getElementById("photoTitle");
     let photoToken = 0;
     let currentPhoto = null;
+    let imageDir = "images";
 
     function fit(box) {
       const center = box.getCenter(new THREE.Vector3());
@@ -179,7 +180,9 @@
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
       geometry.setIndex(indices);
-      const material = new THREE.LineBasicMaterial({ color: 0x7eb6ff });
+      const material = new THREE.LineBasicMaterial({
+        color: image.color == null ? 0x7eb6ff : image.color,
+      });
       const lines = new THREE.LineSegments(geometry, material);
       lines.matrixAutoUpdate = false;
       lines.matrix.fromArray(image.matrix);
@@ -259,7 +262,7 @@
       let img = photoCache.get(name);
       if (!img) {
         img = new Image();
-        img.src = `images/${encodeURIComponent(name)}`;
+        img.src = `${imageDir}/${encodeURIComponent(name)}`;
         await img.decode();
         photoCache.set(name, img);
       }
@@ -280,11 +283,13 @@
       const sceneName = new URLSearchParams(location.search).get("scene");
       const links = document.getElementById("sceneLinks");
       links.innerHTML =
-        '<a href="./">SIFT GPU</a> · <a href="?scene=aliked_bf">ALIKED + 暴力匹配</a> · <a href="?scene=loma_bf">LoMa-B + 暴力匹配</a> · <a href="?scene=aliked">ALIKED + LightGlue</a>';
+        '<a href="./">SIFT GPU</a> · <a href="?scene=aliked_bf">ALIKED + 暴力匹配</a> · <a href="?scene=loma_bf">LoMa-B + 暴力匹配</a> · <a href="?scene=aliked">ALIKED + LightGlue</a>' +
+        '<br><a href="?scene=caliterra">Caliterra 两块</a> · <a href="?scene=caliterra0">Caliterra 块 0</a> · <a href="?scene=caliterra1">Caliterra 块 1</a>';
       const scenePrefix = sceneName ? `${sceneName}/` : "";
       const sceneRes = await fetch(`${scenePrefix}scene.json`);
       if (!sceneRes.ok) throw new Error("找不到 scene.json");
       const data = await sceneRes.json();
+      imageDir = data.image_dir || "images";
       document.getElementById("title").textContent = data.label;
       document.getElementById("nimg").textContent = data.num_images.toLocaleString();
       document.getElementById("npts").textContent = data.num_points.toLocaleString();

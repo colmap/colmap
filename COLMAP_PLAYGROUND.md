@@ -362,6 +362,53 @@ colmap pose_prior_mapper \
 
 `pose_prior_mapper` 就是带位置约束的增量重建。手机 GPS 垂直方向通常更差，可以把 `prior_position_std_z` 设大一点。
 
+### Caliterra：ALIKED + GPU 暴力匹配 + 位姿先验
+
+OpenDroneMap 的 [Caliterra](https://github.com/OpenDroneMap/odm_data_caliterra)：77 张 Canon PowerShot SX260 HS，4000×3000，EXIF 里有 GPS。数据在 `data/caliterra/`。提点用 `ALIKED_N16ROT`（GPU，最多 2048 点），穷举匹配用 `ALIKED_BRUTEFORCE`（GPU，`min_cossim` 0.85），建图用 `pose_prior_mapper`，水平标准差 2 米、高程 5 米，`ba_use_gpu 1`。
+
+| 步骤 | 墙钟 |
+|--|--:|
+| 提特征 | 4.99 秒 |
+| 穷举匹配 | 3.92 秒 |
+| `pose_prior_mapper` | 52.63 秒 |
+
+77 张里注册了 50 张，拆成两块，都在同一套东-北-天坐标里（大约东 −20 到 80 米）：
+
+| 模型 | 图像 | 三维点 | 重投影 |
+|--|--:|--:|--:|
+| `sparse_aliked_bf/0` | 17 | 4063 | 0.70 px |
+| `sparse_aliked_bf/1` | 33 | 9211 | 0.61 px |
+
+几何验证通过 253 对：块 0 内部 79 对，块 1 内部 135 对，两块之间 0 对。验证图的连通分量是 44、17、7、3、3，再加三张孤图。17 张那块就是单独的一个分量，33 张是 44 张那个分量里注册完成的部分。没有跨块内点，增量建图接不过去。`model_merger` 要靠共同图像估相似变换，这两块共同图像数是 0，合不上。GPS 已经把它们放进同一个米制坐标系，可视化是把两块画在一起，轨迹并没有连上。
+
+页面：<http://127.0.0.1:8899/?scene=caliterra>。蓝相机是块 0，橙相机是块 1。单独看用 `?scene=caliterra0` 和 `?scene=caliterra1`。服务器在 `demo/south_building_viewer/` 里开着。
+
+```bash
+"$COLMAP" feature_extractor \
+  --database_path "$DATASET/database_aliked_bf.db" \
+  --image_path "$DATASET/images" \
+  --ImageReader.single_camera 1 \
+  --ImageReader.camera_model SIMPLE_RADIAL \
+  --FeatureExtraction.type ALIKED_N16ROT \
+  --FeatureExtraction.use_gpu 1 \
+  --AlikedExtraction.max_num_features 2048
+
+"$COLMAP" exhaustive_matcher \
+  --database_path "$DATASET/database_aliked_bf.db" \
+  --FeatureMatching.type ALIKED_BRUTEFORCE \
+  --FeatureMatching.use_gpu 1
+
+"$COLMAP" pose_prior_mapper \
+  --database_path "$DATASET/database_aliked_bf.db" \
+  --image_path "$DATASET/images" \
+  --output_path "$DATASET/sparse_aliked_bf" \
+  --Mapper.ba_use_gpu 1 \
+  --overwrite_priors_covariance 1 \
+  --prior_position_std_x 2 \
+  --prior_position_std_y 2 \
+  --prior_position_std_z 5
+```
+
 已经有一个任意坐标系的稀疏模型、只想事后贴到地图上：至少 3 张图的相机中心。文本格式：
 
 ```text
