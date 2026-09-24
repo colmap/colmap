@@ -11,6 +11,7 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
 #include <fstream>
 #include <vector>
 
@@ -370,7 +371,8 @@ struct DelaunayTriangulationRayCaster {
   };
 
   explicit DelaunayTriangulationRayCaster(const Delaunay& triangulation)
-      : triangulation_(triangulation) {
+      : triangulation_(triangulation),
+        max_num_steps_(triangulation.number_of_cells()) {
     FindHullFacets();
   }
 
@@ -381,22 +383,17 @@ struct DelaunayTriangulationRayCaster {
     Delaunay::Cell_handle next_cell =
         triangulation_.locate(ray_segment.start());
 
-    // A straight segment enters each (convex) cell at most once, so a walk
-    // that takes more steps than there are cells is not making progress.
-    // This bounds degenerate cases, such as coordinates so far from the origin
-    // that the intersection tests can no longer resolve the segment, which
-    // would otherwise loop forever while growing the intersections without
-    // bound.
-    const size_t max_num_steps = triangulation_.number_of_cells();
     size_t num_steps = 0;
 
     bool next_cell_found = true;
     while (next_cell_found) {
       next_cell_found = false;
 
-      if (num_steps >= max_num_steps) {
-        LOG(WARNING) << "Ray casting did not terminate after " << max_num_steps
-                     << " steps; stopping early.";
+      if (num_steps >= max_num_steps_) {
+        LOG_FIRST_N(WARNING, 1)
+            << "Ray casting did not terminate after " << max_num_steps_
+            << " steps; ignoring the observation.";
+        intersections->clear();
         break;
       }
       ++num_steps;
@@ -500,6 +497,13 @@ struct DelaunayTriangulationRayCaster {
 
   const Delaunay& triangulation_;
   std::vector<Delaunay::Facet> hull_facets_;
+  // A straight segment enters each (convex) cell at most once, so a walk that
+  // takes more steps than there are cells (finite and infinite) is not making
+  // progress. This bounds degenerate cases, such as coordinates so far from
+  // the origin that the intersection tests can no longer resolve the segment,
+  // which would otherwise loop forever while growing the intersections
+  // without bound.
+  const size_t max_num_steps_;
 };
 
 // Implementation of geometry visualized in Figure 9 in P. Labatut, J‐P. Pons,
@@ -656,20 +660,25 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
       const K::Vector_3 viewing_direction = point_position - image_position;
       const double viewing_direction_squared_length =
           viewing_direction.squared_length();
-      // A point that coincides with the camera center has no viewing
-      // direction. Normalizing it would produce NaN coordinates, and the
-      // progress test in CastRaySegment never rejects a candidate whose
-      // distance is NaN, so the ray walk would not terminate. The negated
-      // comparison also rejects non-finite input.
-      if (!(viewing_direction_squared_length > 0)) {
+      // Skip observations without a usable viewing direction. A point at (or
+      // closer than epsilon to) the camera center has no viewing direction:
+      // normalizing it would produce NaN coordinates, and the progress test
+      // in CastRaySegment never rejects a candidate whose distance is NaN, so
+      // the ray walk would not terminate. Below the epsilon length, the ray
+      // segment would additionally point backwards, away from the point.
+      const double viewing_direction_epsilon_length =
+          0.001 * edge_weight_computer.DistanceSigma();
+      if (!std::isfinite(viewing_direction_squared_length) ||
+          viewing_direction_squared_length <=
+              viewing_direction_epsilon_length *
+                  viewing_direction_epsilon_length) {
         continue;
       }
       const K::Ray_3 viewing_ray = K::Ray_3(image_position, point_position);
       const K::Vector_3 viewing_direction_normalized =
           viewing_direction / std::sqrt(viewing_direction_squared_length);
       const K::Vector_3 viewing_direction_epsilon =
-          0.001 * edge_weight_computer.DistanceSigma() *
-          viewing_direction_normalized;
+          viewing_direction_epsilon_length * viewing_direction_normalized;
 
       // Find intersected facets between image and point.
       ray_caster.CastRaySegment(
