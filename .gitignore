@@ -20,8 +20,11 @@ data/
 demo/south_building_viewer/**/scene.json
 demo/south_building_viewer/**/keypoints.bin
 demo/south_building_viewer/**/points.ply
+demo/south_building_viewer/**/mesh.ply
+demo/south_building_viewer/**/texture.png
 demo/south_building_viewer/images
 demo/south_building_viewer/caliterra_images
+demo/south_building_viewer/gerrard_images
 benchmark/reconstruction/data/
 benchmark/reconstruction/runs/
 doc/_build
