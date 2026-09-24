@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <random>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -31,6 +32,82 @@ TEST(HomographyMatrixEstimator, CollinearMinimalSampleTriplets) {
     estimator.Estimate(src, dst, &models);
 
     EXPECT_TRUE(models.empty());
+  }
+}
+
+TEST(HomographyMatrixCheiralityEstimator, RejectsOrientationFlippedSamples) {
+  // A global reflection flips sidedness everywhere without creating
+  // collinear triplets, so only the cheirality check can reject it. This is
+  // also why det(H) < 0 ground truth is unsupported by the gated estimator:
+  // it is indistinguishable from flipped samples.
+  Eigen::Matrix3d H_gt;
+  H_gt << 0.8, -0.3, 120.0, 0.25, 0.9, -60.0, 0.0002, -0.0001, 1.0;
+  const Eigen::Matrix3d mirror =
+      (Eigen::Matrix3d() << -1, 0, 1000, 0, 1, 0, 0, 0, 1).finished();
+  const std::vector<Eigen::Vector2d> src = {
+      {0, 0}, {400, 0}, {400, 300}, {0, 300}};
+  std::vector<Eigen::Vector2d> dst, dst_flipped;
+  for (const auto& p : src) {
+    const Eigen::Vector2d q = (H_gt * p.homogeneous()).hnormalized();
+    dst.push_back(q);
+    dst_flipped.push_back((mirror * q.homogeneous()).hnormalized());
+  }
+
+  std::vector<Eigen::Matrix3d> models;
+  HomographyMatrixCheiralityEstimator::Estimate(src, dst_flipped, &models);
+  EXPECT_TRUE(models.empty());
+
+  HomographyMatrixCheiralityEstimator::Estimate(src, dst, &models);
+  ASSERT_EQ(models.size(), 1);
+  std::vector<double> residuals;
+  HomographyMatrixCheiralityEstimator::Residuals(
+      src, dst, models[0], &residuals);
+  for (const double r : residuals) {
+    EXPECT_LT(r, 1e-6);
+  }
+
+  // The base estimator stays exact: flipped samples are valid input there.
+  HomographyMatrixEstimator::Estimate(src, dst_flipped, &models);
+  EXPECT_EQ(models.size(), 1);
+}
+
+TEST(HomographyMatrixMinimalSample, ClosedFormMatchesOverdeterminedDLT) {
+  // The closed-form 4-point solver must agree with overdetermined DLT (up to
+  // scale and sign) on exact data, including large translations, which the
+  // scale-free singularity check must accept (an absolute determinant
+  // threshold on the unit-norm solution would reject them).
+  std::vector<Eigen::Matrix3d> H_gts(5);
+  H_gts[0] << 0.8, -0.3, 120.0, 0.25, 0.9, -60.0, 0.0002, -0.0001, 1.0;
+  H_gts[1] << 1.1, 0.05, -150.0, -0.03, 1.05, 130.0, 0.0003, -0.0002, 1.0;
+  H_gts[2] << 0.9, -0.4, 140.0, 0.5, 0.85, -120.0, -0.0002, 0.0003, 1.0;
+  H_gts[3] << 0.8, -0.3, 2000.0, 0.25, 0.9, -1500.0, 0.0002, -0.0001, 1.0;
+  H_gts[4] << 1.1, 0.05, -5000.0, -0.03, 1.05, 4200.0, 0.0001, 0.0002, 1.0;
+  const std::vector<Eigen::Vector2d> src = {{0, 0},
+                                            {400, 0},
+                                            {400, 300},
+                                            {0, 300},
+                                            {200, 100},
+                                            {600, 200},
+                                            {100, 500},
+                                            {500, 450}};
+  HomographyMatrixEstimator estimator;
+  for (const auto& H_gt : H_gts) {
+    std::vector<Eigen::Vector2d> dst;
+    dst.reserve(src.size());
+    for (const auto& p : src) {
+      dst.push_back((H_gt * p.homogeneous()).hnormalized());
+    }
+    std::vector<Eigen::Matrix3d> minimal_models, overdetermined_models;
+    estimator.Estimate(
+        std::vector<Eigen::Vector2d>(src.begin(), src.begin() + 4),
+        std::vector<Eigen::Vector2d>(dst.begin(), dst.begin() + 4),
+        &minimal_models);
+    ASSERT_EQ(minimal_models.size(), 1);
+    estimator.Estimate(src, dst, &overdetermined_models);
+    ASSERT_EQ(overdetermined_models.size(), 1);
+    const Eigen::Matrix3d H_min = minimal_models[0].normalized();
+    const Eigen::Matrix3d H_dlt = overdetermined_models[0].normalized();
+    EXPECT_TRUE(H_min.isApprox(H_dlt, 1e-6) || H_min.isApprox(-H_dlt, 1e-6));
   }
 }
 
@@ -157,6 +234,153 @@ TEST_P(HomographyMatrixTests, Degenerate) {
 INSTANTIATE_TEST_SUITE_P(HomographyMatrix,
                          HomographyMatrixTests,
                          ::testing::Values(4, 8, 64, 1024));
+
+double MeanTransferError(const std::vector<Eigen::Vector2d>& points1,
+                         const std::vector<Eigen::Vector2d>& points2,
+                         const Eigen::Matrix3d& H) {
+  std::vector<double> residuals;
+  HomographyMatrixEstimator::Residuals(points1, points2, H, &residuals);
+  double sum = 0;
+  for (const double r : residuals) sum += r;
+  return std::sqrt(sum / residuals.size());
+}
+
+TEST(HomographyMatrixRefine, ConvergesFromPerturbedInit) {
+  Eigen::Matrix3d H_gt;
+  H_gt << 0.8, -0.3, 120.0, 0.25, 0.9, -60.0, 0.0002, -0.0001, 1.0;
+
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  for (int u = 0; u < 8; ++u) {
+    for (int v = 0; v < 8; ++v) {
+      points1.emplace_back(100.0 * u, 100.0 * v);
+      points2.push_back((H_gt * points1.back().homogeneous()).hnormalized());
+    }
+  }
+
+  Eigen::Matrix3d H_init = H_gt;
+  H_init(0, 0) += 0.05;
+  H_init(1, 2) += 5.0;
+  H_init(2, 0) += 0.00005;
+  EXPECT_TRUE(HomographyMatrixEstimator::Refine(points1, points2, &H_init));
+  EXPECT_LT(MeanTransferError(points1, points2, H_init), 1e-5);
+}
+
+TEST(HomographyMatrixRefine, ImprovesNoisyDLTEstimate) {
+  Eigen::Matrix3d H_gt;
+  H_gt << 0.8, -0.3, 120.0, 0.25, 0.9, -60.0, 0.0002, -0.0001, 1.0;
+
+  std::mt19937 rng(0);
+  std::uniform_real_distribution<double> uniform(0.0, 1000.0);
+  std::normal_distribution<double> noise(0.0, 1.0);
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  for (int i = 0; i < 100; ++i) {
+    points1.emplace_back(uniform(rng), uniform(rng));
+    points2.push_back((H_gt * points1.back().homogeneous()).hnormalized() +
+                      Eigen::Vector2d(noise(rng), noise(rng)));
+  }
+
+  std::vector<Eigen::Matrix3d> models;
+  HomographyMatrixEstimator::Estimate(points1, points2, &models);
+  ASSERT_EQ(models.size(), 1);
+  const double init_error = MeanTransferError(points1, points2, models[0]);
+
+  Eigen::Matrix3d H_refined = models[0];
+  EXPECT_TRUE(HomographyMatrixEstimator::Refine(points1, points2, &H_refined));
+  const double refined_error = MeanTransferError(points1, points2, H_refined);
+  EXPECT_LE(refined_error, init_error);
+  // Near the noise floor: 1px noise over 100 points.
+  EXPECT_LT(refined_error, 1.5);
+}
+
+TEST(HomographyMatrixRefine, FailsWhenInitialModelMapsPointToInfinity) {
+  // A point sent to infinity makes the transfer error non-finite at the start
+  // point, so TinySolver reports NUMERICAL_FAILURE. Refine must propagate the
+  // failure and leave the model untouched instead of returning the unrefined
+  // model as if it had converged.
+  const std::vector<Eigen::Vector2d> points1 = {
+      {100, 200}, {300, 100}, {400, 400}, {150, 350}, {250, 250}, {350, 150}};
+  const std::vector<Eigen::Vector2d> points2 = {
+      {110, 210}, {310, 110}, {410, 410}, {160, 360}, {260, 260}, {360, 160}};
+  Eigen::Matrix3d H_init;
+  // Last row [1, 0, -100]: the depth vanishes exactly at points1[0].
+  H_init << 1, 0, 10, 0, 1, 10, 1, 0, -100;
+  const Eigen::Matrix3d H_before = H_init;
+  EXPECT_FALSE(HomographyMatrixEstimator::Refine(points1, points2, &H_init));
+  EXPECT_TRUE(H_init.isApprox(H_before));
+}
+
+TEST(HomographyTransferCostFunction, JacobianMatchesFiniteDifferences) {
+  // Realistic homography (rotation + translation + mild perspective) in
+  // row-major flattening order, normalized to unit norm for the sphere
+  // manifold. Fully random 9-vectors risk near-zero depths, which blow up
+  // both the Jacobian and the finite-difference error.
+  Eigen::Matrix3d H_base;
+  H_base << 0.8, -0.3, 0.5, 0.25, 0.9, -0.4, 0.02, -0.01, 1.0;
+  Eigen::Matrix<double, 9, 1> h_base;
+  for (int r = 0; r < 3; ++r) {
+    h_base.segment<3>(3 * r) = H_base.row(r).transpose();
+  }
+  h_base.normalize();
+
+  std::mt19937 rng(42);
+  std::uniform_real_distribution<double> uniform(-2.0, 2.0);
+  std::normal_distribution<double> perturbation(0.0, 0.01);
+
+  for (int trial = 0; trial < 5; ++trial) {
+    Eigen::Matrix<double, 9, 1> h = h_base;
+    for (int i = 0; i < 9; ++i) h[i] += perturbation(rng);
+    h.normalize();
+
+    std::vector<Eigen::Vector2d> points1;
+    std::vector<Eigen::Vector2d> points2;
+    for (int i = 0; i < 20; ++i) {
+      points1.emplace_back(uniform(rng), uniform(rng));
+      points2.emplace_back(uniform(rng), uniform(rng));
+    }
+
+    const internal::HomographyTransferCostFunction f(points1, points2);
+    EXPECT_EQ(f.NumResiduals(), 40);
+
+    Eigen::VectorXd residuals(40);
+    Eigen::Matrix<double, Eigen::Dynamic, 9> jacobian(40, 9);
+    EXPECT_TRUE(f(h.data(), residuals.data(), jacobian.data()));
+
+    // The residuals-only path must agree with the full evaluation.
+    Eigen::VectorXd residuals_only(40);
+    EXPECT_TRUE(f(h.data(), residuals_only.data(), nullptr));
+    EXPECT_TRUE(residuals.isApprox(residuals_only));
+
+    // Central differences.
+    constexpr double kEps = 1e-8;
+    Eigen::Matrix<double, Eigen::Dynamic, 9> numeric_jacobian(40, 9);
+    Eigen::VectorXd r_plus(40), r_minus(40);
+    for (int c = 0; c < 9; ++c) {
+      Eigen::Matrix<double, 9, 1> h_plus = h, h_minus = h;
+      h_plus[c] += kEps;
+      h_minus[c] -= kEps;
+      EXPECT_TRUE(f(h_plus.data(), r_plus.data(), nullptr));
+      EXPECT_TRUE(f(h_minus.data(), r_minus.data(), nullptr));
+      numeric_jacobian.col(c) = (r_plus - r_minus) / (2 * kEps);
+    }
+    EXPECT_LE((jacobian - numeric_jacobian).cwiseAbs().maxCoeff(), 1e-6);
+  }
+}
+
+TEST(HomographyTransferCostFunction, IdentityResiduals) {
+  const std::vector<Eigen::Vector2d> points1 = {{1, 2}, {-3, 0.5}};
+  const std::vector<Eigen::Vector2d> points2 = {{0.5, 1}, {2, -1}};
+  const internal::HomographyTransferCostFunction f(points1, points2);
+  Eigen::Matrix<double, 9, 1> h_identity;
+  h_identity << 1, 0, 0, 0, 1, 0, 0, 0, 1;
+  Eigen::Vector4d residuals;
+  EXPECT_TRUE(f(h_identity.data(), residuals.data(), nullptr));
+  EXPECT_DOUBLE_EQ(residuals[0], 0.5);
+  EXPECT_DOUBLE_EQ(residuals[1], 1.0);
+  EXPECT_DOUBLE_EQ(residuals[2], -5.0);
+  EXPECT_DOUBLE_EQ(residuals[3], 1.5);
+}
 
 class HomographyMatrixRayTests : public ::testing::TestWithParam<size_t> {};
 

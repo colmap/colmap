@@ -25,7 +25,9 @@ class HomographyMatrixEstimator {
 
   // Estimate the projective transformation (homography).
   //
-  // The number of corresponding points must be at least 4.
+  // The number of corresponding points must be at least 4. Minimal samples of
+  // exactly 4 points use a closed-form solver with a collinearity pre-check;
+  // larger sets use DLT.
   //
   // @param points1    First set of corresponding points.
   // @param points2    Second set of corresponding points.
@@ -34,6 +36,14 @@ class HomographyMatrixEstimator {
   static void Estimate(const std::vector<X_t>& points1,
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* models);
+
+  // Refine H in place by nonlinearly minimizing the one-sided transfer error
+  // over the given correspondences, starting from *H. This is the local
+  // optimizer used by LO-RANSAC (see SupportsRefineWithInitialModel in
+  // loransac.h). Returns false and leaves *H unchanged if the solve fails.
+  static bool Refine(const std::vector<X_t>& points1,
+                     const std::vector<Y_t>& points2,
+                     M_t* H);
 
   // Calculate the transformation error for each corresponding point pair.
   //
@@ -49,6 +59,69 @@ class HomographyMatrixEstimator {
                         const M_t& H,
                         std::vector<double>* residuals);
 };
+
+// Same as HomographyMatrixEstimator, but minimal samples that fail the
+// cheirality (orientation-consistency) pre-check are rejected without solving.
+// Use as the RANSAC hypothesis estimator to skip the solve and the full-data
+// scoring on contaminated samples. The check assumes an orientation-preserving
+// homography (det(H) > 0 with no vanishing line through the sample): flipped
+// samples are overwhelmingly contaminated in practice, but orientation-
+// reversing ground truth is systematically rejected. The LO-RANSAC local
+// estimator should stay HomographyMatrixEstimator, as the gate only applies
+// to 4-point samples, never to inlier-set refits.
+class HomographyMatrixCheiralityEstimator {
+ public:
+  using X_t = Eigen::Vector2d;
+  using Y_t = Eigen::Vector2d;
+  using M_t = Eigen::Matrix3d;
+
+  // The minimum number of samples needed to estimate a model.
+  static const int kMinNumSamples = 4;
+
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* models);
+
+  static bool Refine(const std::vector<X_t>& points1,
+                     const std::vector<Y_t>& points2,
+                     M_t* H);
+
+  static void Residuals(const std::vector<X_t>& points1,
+                        const std::vector<Y_t>& points2,
+                        const M_t& H,
+                        std::vector<double>* residuals);
+};
+
+namespace internal {
+
+// Cost function for colmap::TinySolver refinement of a homography over all
+// given correspondences, minimizing the one-sided transfer error in the
+// second image (two residuals per observation) — the same error scored by
+// HomographyMatrixEstimator::Residuals. The homography is a unit-norm 9-vector
+// in row-major flattening order, optimized on the 8-sphere. The Jacobian is
+// analytic (see the .cc for the derivation), in column-major 2Nx9 layout.
+class HomographyTransferCostFunction {
+ public:
+  using Scalar = double;
+  static constexpr int NUM_RESIDUALS = Eigen::Dynamic;
+  static constexpr int NUM_PARAMETERS = 9;
+
+  HomographyTransferCostFunction(const std::vector<Eigen::Vector2d>& points1,
+                                 const std::vector<Eigen::Vector2d>& points2);
+
+  int NumResiduals() const;
+
+  // `jacobian` is nullptr when only residuals are requested.
+  bool operator()(const double* parameters,
+                  double* residuals,
+                  double* jacobian) const;
+
+ private:
+  const std::vector<Eigen::Vector2d>& points1_;
+  const std::vector<Eigen::Vector2d>& points2_;
+};
+
+}  // namespace internal
 
 // A ray together with the image point it was unprojected from. The ray drives
 // the estimation, the image point is what the residual is measured against.
