@@ -53,10 +53,13 @@
       </header>
       <div class="stats">
         <div class="stat"><b id="nimg">–</b><span>已注册图像</span></div>
-        <div class="stat"><b id="npts">–</b><span>三维点</span></div>
+        <div class="stat"><b id="npts">–</b><span id="nptsLabel">三维点</span></div>
       </div>
       <div class="controls">
         <label>点大小 <input id="pointSize" type="range" min="1" max="12" value="3" /></label>
+        <label class="check" id="pointsToggle"><span>显示点云</span><input id="showPoints" type="checkbox" checked /></label>
+        <label class="check" id="meshToggle" hidden><span>显示网格</span><input id="showMesh" type="checkbox" checked /></label>
+        <label class="check" id="textureToggle" hidden><span>显示贴图</span><input id="showTexture" type="checkbox" checked /></label>
         <label class="check"><span>显示相机</span><input id="showCameras" type="checkbox" checked /></label>
         <button id="reset" type="button">重置视角</button>
         <div class="sub" id="sceneLinks"></div>
@@ -85,7 +88,7 @@
   </script>
   <script type="module">
     import * as THREE from "three";
-    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { TrackballControls } from "three/addons/controls/TrackballControls.js";
 
     const statusEl = document.getElementById("status");
     const errorEl = document.getElementById("error");
@@ -106,8 +109,12 @@
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(50, view.clientWidth / view.clientHeight, 0.01, 1000);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    const controls = new TrackballControls(camera, renderer.domElement);
+    controls.rotateSpeed = 2.4;
+    controls.zoomSpeed = 1.2;
+    controls.panSpeed = 0.8;
+    controls.staticMoving = false;
+    controls.dynamicDampingFactor = 0.15;
 
     const rig = new THREE.Group();
     scene.add(rig);
@@ -115,7 +122,10 @@
     rig.add(camerasGroup);
 
     let points = null;
-    let home = null;
+    let meshObject = null;
+    let meshTexture = null;
+    let shadedMaterial = null;
+    let texturedMaterial = null;
     const frustumByName = new Map();
     const keypointsByName = new Map();
     const photoCache = new Map();
@@ -133,35 +143,105 @@
       camera.near = radius / 1000;
       camera.far = radius * 100;
       camera.position.copy(center).add(new THREE.Vector3(radius, radius * 0.55, radius));
+      camera.up.set(0, 1, 0);
       camera.lookAt(center);
       controls.target.copy(center);
       controls.update();
-      home = {
-        position: camera.position.clone(),
-        target: controls.target.clone(),
-      };
+      controls._position0.copy(camera.position);
+      controls._target0.copy(controls.target);
+      controls._up0.copy(camera.up);
+      controls._zoom0 = camera.zoom;
     }
 
     function parsePly(buffer) {
-      const text = new TextDecoder().decode(buffer.slice(0, 512));
+      const text = new TextDecoder().decode(buffer.slice(0, 4096));
       const headerEnd = text.indexOf("end_header\n");
       if (headerEnd < 0) throw new Error("PLY 头不完整");
       const header = text.slice(0, headerEnd);
       const count = Number(header.match(/element vertex (\d+)/)[1]);
+      const typeSize = { float: 4, double: 8, uchar: 1, char: 1, ushort: 2, short: 2, uint: 4, int: 4 };
+      let stride = 0;
+      const fields = [];
+      for (const line of header.split("\n")) {
+        const match = line.match(/^property (\w+) (\w+)/);
+        if (!match) continue;
+        const size = typeSize[match[1]];
+        if (!size) throw new Error(`不认识的 PLY 属性 ${match[1]} ${match[2]}`);
+        fields.push({ name: match[2], type: match[1], offset: stride });
+        stride += size;
+      }
+      const field = (name) => {
+        const found = fields.find((item) => item.name === name);
+        if (!found) throw new Error(`PLY 缺少 ${name}`);
+        return found;
+      };
+      const x = field("x");
+      const y = field("y");
+      const z = field("z");
+      const red = field("red");
+      const green = field("green");
+      const blue = field("blue");
       const body = new DataView(buffer, headerEnd + "end_header\n".length);
       const positions = new Float32Array(count * 3);
       const colors = new Float32Array(count * 3);
-      const stride = 15;
+      const read = (offset, type) => type === "float"
+        ? body.getFloat32(offset, true)
+        : type === "double"
+          ? body.getFloat64(offset, true)
+          : body.getUint8(offset);
       for (let i = 0; i < count; i++) {
         const o = i * stride;
-        positions[i * 3] = body.getFloat32(o, true);
-        positions[i * 3 + 1] = body.getFloat32(o + 4, true);
-        positions[i * 3 + 2] = body.getFloat32(o + 8, true);
-        colors[i * 3] = body.getUint8(o + 12) / 255;
-        colors[i * 3 + 1] = body.getUint8(o + 13) / 255;
-        colors[i * 3 + 2] = body.getUint8(o + 14) / 255;
+        positions[i * 3] = read(o + x.offset, x.type);
+        positions[i * 3 + 1] = read(o + y.offset, y.type);
+        positions[i * 3 + 2] = read(o + z.offset, z.type);
+        colors[i * 3] = read(o + red.offset, red.type) / 255;
+        colors[i * 3 + 1] = read(o + green.offset, green.type) / 255;
+        colors[i * 3 + 2] = read(o + blue.offset, blue.type) / 255;
       }
       return { positions, colors, count };
+    }
+
+    function parseMeshPly(buffer) {
+      const text = new TextDecoder().decode(buffer.slice(0, 4096));
+      const headerEnd = text.indexOf("end_header\n");
+      if (headerEnd < 0) throw new Error("网格 PLY 头不完整");
+      const header = text.slice(0, headerEnd);
+      const vertexCount = Number(header.match(/element vertex (\d+)/)[1]);
+      const faceCount = Number(header.match(/element face (\d+)/)[1]);
+      const textureFile = (header.match(/comment TextureFile (\S+)/) || [])[1] || "";
+      const body = new DataView(buffer, headerEnd + "end_header\n".length);
+      const vertices = new Float32Array(vertexCount * 3);
+      let offset = 0;
+      for (let i = 0; i < vertices.length; i++) {
+        vertices[i] = body.getFloat32(offset, true);
+        offset += 4;
+      }
+      const positions = new Float32Array(faceCount * 9);
+      const uvs = new Float32Array(faceCount * 6);
+      for (let face = 0; face < faceCount; face++) {
+        const nvert = body.getUint8(offset);
+        offset += 1;
+        if (nvert !== 3) throw new Error("网格面不是三角形");
+        const ids = [
+          body.getInt32(offset, true),
+          body.getInt32(offset + 4, true),
+          body.getInt32(offset + 8, true),
+        ];
+        offset += 12;
+        for (let k = 0; k < 3; k++) {
+          positions[face * 9 + k * 3] = vertices[ids[k] * 3];
+          positions[face * 9 + k * 3 + 1] = vertices[ids[k] * 3 + 1];
+          positions[face * 9 + k * 3 + 2] = vertices[ids[k] * 3 + 2];
+        }
+        const nuv = body.getUint8(offset);
+        offset += 1;
+        if (nuv !== 6) throw new Error("网格缺少每面 6 个纹理坐标");
+        for (let k = 0; k < 6; k++) {
+          uvs[face * 6 + k] = body.getFloat32(offset, true);
+          offset += 4;
+        }
+      }
+      return { positions, uvs, faceCount, textureFile };
     }
 
     function addFrustum(image, scale) {
@@ -243,7 +323,7 @@
       currentPhoto = null;
       photoEl.classList.remove("show");
       for (const button of listEl.querySelectorAll("button")) button.classList.remove("active");
-      statusEl.textContent = "拖拽旋转，滚轮缩放。点击左侧图像查看提点";
+      statusEl.textContent = "拖拽可任意旋转，滚轮缩放，右键平移。点击左侧图像查看提点";
       if (location.hash) history.replaceState(null, "", location.pathname + location.search);
     }
 
@@ -284,7 +364,8 @@
       const links = document.getElementById("sceneLinks");
       links.innerHTML =
         '<a href="./">SIFT GPU</a> · <a href="?scene=aliked_bf">ALIKED + 暴力匹配</a> · <a href="?scene=loma_bf">LoMa-B + 暴力匹配</a> · <a href="?scene=aliked">ALIKED + LightGlue</a>' +
-        '<br><a href="?scene=caliterra">Caliterra 两块</a> · <a href="?scene=caliterra0">Caliterra 块 0</a> · <a href="?scene=caliterra1">Caliterra 块 1</a>';
+        '<br><a href="?scene=caliterra">Caliterra 两块</a> · <a href="?scene=caliterra0">Caliterra 块 0</a> · <a href="?scene=caliterra1">Caliterra 块 1</a>' +
+        '<br><a href="?scene=gerrard">Gerrard Hall 稠密</a>';
       const scenePrefix = sceneName ? `${sceneName}/` : "";
       const sceneRes = await fetch(`${scenePrefix}scene.json`);
       if (!sceneRes.ok) throw new Error("找不到 scene.json");
@@ -292,15 +373,10 @@
       imageDir = data.image_dir || "images";
       document.getElementById("title").textContent = data.label;
       document.getElementById("nimg").textContent = data.num_images.toLocaleString();
-      document.getElementById("npts").textContent = data.num_points.toLocaleString();
+      const hasMesh = Boolean(data.mesh);
+      document.getElementById("nptsLabel").textContent = hasMesh ? "网格面" : "三维点";
+      document.getElementById("npts").textContent = (hasMesh ? data.num_faces : data.num_points).toLocaleString();
 
-      const plyRes = await fetch(`${scenePrefix}${data.ply}`);
-      if (!plyRes.ok) throw new Error("找不到 points.ply");
-      const parsed = parsePly(await plyRes.arrayBuffer());
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute("position", new THREE.BufferAttribute(parsed.positions, 3));
-      geometry.setAttribute("color", new THREE.BufferAttribute(parsed.colors, 3));
-      geometry.computeBoundingBox();
       const fitBox = new THREE.Box3();
       for (const image of data.images) {
         fitBox.expandByPoint(new THREE.Vector3(...image.position));
@@ -308,30 +384,84 @@
       const cameraSpan = Math.max(fitBox.getSize(new THREE.Vector3()).length(), 1e-3);
       fitBox.expandByScalar(cameraSpan * 0.55);
       const diagonal = Math.max(fitBox.getSize(new THREE.Vector3()).length(), 1e-3);
-      const pointScale = diagonal / 140;
-      points = new THREE.Points(
-        geometry,
-        new THREE.PointsMaterial({
-          size: pointScale,
-          vertexColors: true,
-          sizeAttenuation: true,
-        })
-      );
-      rig.add(points);
+      const pointScale = diagonal / (hasMesh ? 420 : 140);
+
+      if (data.ply) {
+        const plyRes = await fetch(`${scenePrefix}${data.ply}`);
+        if (!plyRes.ok) throw new Error("找不到 points.ply");
+        const parsed = parsePly(await plyRes.arrayBuffer());
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(parsed.positions, 3));
+        geometry.setAttribute("color", new THREE.BufferAttribute(parsed.colors, 3));
+        points = new THREE.Points(
+          geometry,
+          new THREE.PointsMaterial({
+            size: pointScale,
+            vertexColors: true,
+            sizeAttenuation: true,
+          })
+        );
+        points.visible = !hasMesh;
+        rig.add(points);
+      }
+      document.getElementById("showPoints").checked = !hasMesh;
+      document.getElementById("meshToggle").hidden = !hasMesh;
+      document.getElementById("textureToggle").hidden = !hasMesh;
+
+      if (hasMesh) {
+        statusEl.textContent = "正在加载网格…";
+        const meshRes = await fetch(`${scenePrefix}${data.mesh}`);
+        if (!meshRes.ok) throw new Error("找不到网格");
+        const meshData = parseMeshPly(await meshRes.arrayBuffer());
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.BufferAttribute(meshData.positions, 3));
+        geometry.setAttribute("uv", new THREE.BufferAttribute(meshData.uvs, 2));
+        geometry.computeVertexNormals();
+        shadedMaterial = new THREE.MeshLambertMaterial({
+          color: 0xc8c2b4,
+          side: THREE.DoubleSide,
+        });
+        texturedMaterial = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          side: THREE.DoubleSide,
+        });
+        if (meshData.textureFile) {
+          meshTexture = await new THREE.TextureLoader().loadAsync(`${scenePrefix}${meshData.textureFile}`);
+          meshTexture.colorSpace = THREE.SRGBColorSpace;
+          meshTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          texturedMaterial.map = meshTexture;
+        }
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x3a3a3a, 1.15));
+        const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
+        keyLight.position.set(1, 2, 1.4);
+        scene.add(keyLight);
+        const useTexture = document.getElementById("showTexture").checked && meshTexture;
+        meshObject = new THREE.Mesh(geometry, useTexture ? texturedMaterial : shadedMaterial);
+        rig.add(meshObject);
+      }
       for (const image of data.images) addFrustum(image, diagonal * 0.008);
       resize();
       fit(fitBox);
 
       document.getElementById("pointSize").addEventListener("input", (event) => {
-        points.material.size = pointScale * (Number(event.target.value) / 3);
+        if (points) points.material.size = pointScale * (Number(event.target.value) / 3);
+      });
+      document.getElementById("showPoints").addEventListener("change", (event) => {
+        if (points) points.visible = event.target.checked;
+      });
+      document.getElementById("showMesh").addEventListener("change", (event) => {
+        if (meshObject) meshObject.visible = event.target.checked;
+      });
+      document.getElementById("showTexture").addEventListener("change", (event) => {
+        if (!meshObject) return;
+        const useTexture = event.target.checked && meshTexture;
+        meshObject.material = useTexture ? texturedMaterial : shadedMaterial;
       });
       document.getElementById("showCameras").addEventListener("change", (event) => {
         camerasGroup.visible = event.target.checked;
       });
       document.getElementById("reset").addEventListener("click", () => {
-        camera.position.copy(home.position);
-        controls.target.copy(home.target);
-        controls.update();
+        controls.reset();
         closePhoto();
       });
       document.getElementById("photoClose").addEventListener("click", closePhoto);
@@ -348,7 +478,7 @@
         button.addEventListener("click", () => selectImage(image.name));
         listEl.appendChild(button);
       }
-      statusEl.textContent = "拖拽旋转，滚轮缩放。点击左侧图像查看提点";
+      statusEl.textContent = "拖拽可任意旋转，滚轮缩放，右键平移。点击左侧图像查看提点";
       if (location.hash.length > 1) {
         selectImage(decodeURIComponent(location.hash.slice(1)));
       }
@@ -360,6 +490,7 @@
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
+      controls.handleResize();
       drawPhoto();
     }
     addEventListener("resize", resize);
