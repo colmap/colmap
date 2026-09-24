@@ -164,7 +164,9 @@ int RunMeshTexturer(int argc, char** argv) {
   }
 
   LOG(INFO) << "Reading input mesh from " << input_path << "...";
-  const PlyMesh mesh = ReadPlyMesh(input_path).mesh;
+  const PlyMesh mesh = mvs::FillSmallMeshHoles(ReadPlyMesh(input_path).mesh,
+                                               /*max_edges=*/32,
+                                               /*max_extent=*/0.25f);
   LOG(INFO) << "Mesh has " << mesh.vertices.size() << " vertices and "
             << mesh.faces.size() << " faces";
 

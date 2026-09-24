@@ -10,6 +10,8 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
+#include <numeric>
 #include <queue>
 #include <variant>
 
@@ -129,6 +131,82 @@ std::vector<Eigen::Vector3f> ComputeFaceNormals(const PlyMesh& mesh) {
   return normals;
 }
 
+PlyMesh FillSmallMeshHolesImpl(const PlyMesh& mesh,
+                               const int max_edges,
+                               const float max_extent) {
+  PlyMesh filled = mesh;
+  if (max_edges < 3 || mesh.faces.empty()) return filled;
+
+  NodeHashMap<uint64_t, int> edge_count;
+  edge_count.reserve(mesh.faces.size() * 3);
+  for (const PlyMeshFace& face : mesh.faces) {
+    const std::array<size_t, 3> idx = GetFaceIndices(face);
+    for (int e = 0; e < 3; ++e) {
+      ++edge_count[EdgeKey(idx[e], idx[(e + 1) % 3])];
+    }
+  }
+
+  NodeHashMap<size_t, size_t> next_vertex;
+  for (const PlyMeshFace& face : mesh.faces) {
+    const std::array<size_t, 3> idx = GetFaceIndices(face);
+    for (int e = 0; e < 3; ++e) {
+      const size_t a = idx[e];
+      const size_t b = idx[(e + 1) % 3];
+      if (edge_count[EdgeKey(a, b)] == 1) next_vertex[a] = b;
+    }
+  }
+
+  std::vector<bool> visited(mesh.vertices.size(), false);
+  int holes = 0;
+  int added = 0;
+  for (const auto& [start, _] : next_vertex) {
+    if (visited[start]) continue;
+    std::vector<size_t> loop;
+    size_t cursor = start;
+    bool closed = false;
+    while (loop.size() <= static_cast<size_t>(max_edges) + 1) {
+      if (visited[cursor] && cursor == start && !loop.empty()) {
+        closed = true;
+        break;
+      }
+      if (visited[cursor]) break;
+      visited[cursor] = true;
+      loop.push_back(cursor);
+      const auto it = next_vertex.find(cursor);
+      if (it == next_vertex.end()) break;
+      cursor = it->second;
+    }
+    if (!closed || loop.size() < 3 ||
+        loop.size() > static_cast<size_t>(max_edges)) {
+      continue;
+    }
+    Eigen::Vector3f lo = GetVertex(mesh, loop[0]);
+    Eigen::Vector3f hi = lo;
+    for (const size_t vi : loop) {
+      const Eigen::Vector3f p = GetVertex(mesh, vi);
+      lo = lo.cwiseMin(p);
+      hi = hi.cwiseMax(p);
+    }
+    if ((hi - lo).maxCoeff() > max_extent) continue;
+
+    Eigen::Vector3f centroid(0, 0, 0);
+    for (const size_t vi : loop) centroid += GetVertex(mesh, vi);
+    centroid /= static_cast<float>(loop.size());
+    const size_t centroid_idx = filled.vertices.size();
+    filled.vertices.emplace_back(centroid.x(), centroid.y(), centroid.z());
+    for (size_t i = 0; i < loop.size(); ++i) {
+      const size_t a = loop[i];
+      const size_t b = loop[(i + 1) % loop.size()];
+      filled.faces.emplace_back(b, a, centroid_idx);
+      ++added;
+    }
+    ++holes;
+  }
+
+  LOG(INFO) << "Filled " << holes << " holes with " << added << " triangles";
+  return filled;
+}
+
 FaceAdjacencyMap BuildFaceAdjacency(const PlyMesh& mesh) {
   const size_t num_faces = mesh.faces.size();
   NodeHashMap<uint64_t, std::vector<size_t>> edge_to_faces;
@@ -246,6 +324,97 @@ struct OcclusionTester {
 
 #endif  // COLMAP_CGAL_ENABLED
 
+Eigen::Vector3f Barycentric(const Eigen::Vector2f& P,
+                            const Eigen::Vector2f& A,
+                            const Eigen::Vector2f& B,
+                            const Eigen::Vector2f& C);
+
+// Per-view depth of the closest mesh surface, used when CGAL ray tests are
+// unavailable. A face is rejected for a view when something closer covers its
+// centroid, which keeps foreground foliage from being baked onto walls.
+struct FaceDepthMap {
+  int width = 0;
+  int height = 0;
+  float scale = 1.0f;
+  std::vector<float> depth;
+};
+
+FaceDepthMap BuildFaceDepthMap(const PlyMesh& mesh, const Image& image) {
+  constexpr int kMaxSide = 640;
+  const int full_width = static_cast<int>(image.GetWidth());
+  const int full_height = static_cast<int>(image.GetHeight());
+  const int long_side = std::max(full_width, full_height);
+  const float scale =
+      long_side > kMaxSide ? static_cast<float>(kMaxSide) / long_side : 1.0f;
+
+  FaceDepthMap map;
+  map.scale = scale;
+  map.width = std::max(1, static_cast<int>(std::lround(full_width * scale)));
+  map.height = std::max(1, static_cast<int>(std::lround(full_height * scale)));
+  map.depth.assign(static_cast<size_t>(map.width) * map.height,
+                   std::numeric_limits<float>::infinity());
+
+  const float* P = image.GetP();
+  for (const PlyMeshFace& face : mesh.faces) {
+    const std::array<size_t, 3> idx = GetFaceIndices(face);
+    std::array<Eigen::Vector2f, 3> pix;
+    std::array<float, 3> z;
+    bool in_front = true;
+    for (int vi = 0; vi < 3; ++vi) {
+      const Eigen::Vector3f vertex = GetVertex(mesh, idx[vi]);
+      z[vi] = ProjectPointDepth(P, vertex);
+      if (z[vi] <= 0.0f) {
+        in_front = false;
+        break;
+      }
+      pix[vi] = ProjectPoint(P, vertex) * scale;
+    }
+    if (!in_front) continue;
+
+    const int min_x = std::max(
+        0,
+        static_cast<int>(std::floor(
+            std::min({pix[0].x(), pix[1].x(), pix[2].x()}))));
+    const int min_y = std::max(
+        0,
+        static_cast<int>(std::floor(
+            std::min({pix[0].y(), pix[1].y(), pix[2].y()}))));
+    const int max_x = std::min(
+        map.width - 1,
+        static_cast<int>(std::ceil(
+            std::max({pix[0].x(), pix[1].x(), pix[2].x()}))));
+    const int max_y = std::min(
+        map.height - 1,
+        static_cast<int>(std::ceil(
+            std::max({pix[0].y(), pix[1].y(), pix[2].y()}))));
+
+    for (int y = min_y; y <= max_y; ++y) {
+      for (int x = min_x; x <= max_x; ++x) {
+        const Eigen::Vector3f bary = Barycentric(
+            Eigen::Vector2f(x + 0.5f, y + 0.5f), pix[0], pix[1], pix[2]);
+        if (bary.x() < 0.0f || bary.y() < 0.0f || bary.z() < 0.0f) continue;
+        const float depth = bary.x() * z[0] + bary.y() * z[1] + bary.z() * z[2];
+        float& slot = map.depth[static_cast<size_t>(y) * map.width + x];
+        if (depth < slot) slot = depth;
+      }
+    }
+  }
+  return map;
+}
+
+bool CentroidIsOccluded(const FaceDepthMap& map,
+                        const Eigen::Vector2f& centroid_px,
+                        const float centroid_depth) {
+  if (centroid_depth <= 0.0f) return false;
+  const int x = static_cast<int>(std::lround(centroid_px.x() * map.scale));
+  const int y = static_cast<int>(std::lround(centroid_px.y() * map.scale));
+  if (x < 0 || y < 0 || x >= map.width || y >= map.height) return false;
+  const float closest = map.depth[static_cast<size_t>(y) * map.width + x];
+  // The face writes its own depth. A closer surface has to win by a margin
+  // so quantization in the coarse depth map does not reject the face itself.
+  return closest < centroid_depth * 0.97f;
+}
+
 std::vector<int> SelectViews(const PlyMesh& mesh,
                              const std::vector<Eigen::Vector3f>& face_normals,
                              const std::vector<Image>& images,
@@ -271,6 +440,22 @@ std::vector<int> SelectViews(const PlyMesh& mesh,
       options.num_threads > 0
           ? options.num_threads
           : std::max(1, static_cast<int>(omp_get_max_threads()));
+#else
+  [[maybe_unused]] const int num_threads = 1;
+#endif
+
+#if !defined(COLMAP_CGAL_ENABLED)
+  LOG(INFO) << "Building depth maps for occlusion tests...";
+  std::vector<FaceDepthMap> depth_maps(num_images);
+#ifdef _OPENMP
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+#endif
+  for (int64_t ii = 0; ii < static_cast<int64_t>(num_images); ++ii) {
+    depth_maps[ii] = BuildFaceDepthMap(mesh, images[ii]);
+  }
+#endif
+
+#ifdef _OPENMP
 #pragma omp parallel for schedule(dynamic) num_threads(num_threads)
 #endif
   for (int64_t fi = 0; fi < static_cast<int64_t>(num_faces); ++fi) {
@@ -324,6 +509,12 @@ std::vector<int> SelectViews(const PlyMesh& mesh,
         }
       }
       if (occluded) continue;
+#else
+      const Eigen::Vector2f centroid_px = (proj[0] + proj[1] + proj[2]) / 3.0f;
+      const float centroid_depth = ProjectPointDepth(img.GetP(), centroid);
+      if (CentroidIsOccluded(depth_maps[ii], centroid_px, centroid_depth)) {
+        continue;
+      }
 #endif
 
       const Eigen::Vector2f e1 = proj[1] - proj[0];
@@ -332,6 +523,65 @@ std::vector<int> SelectViews(const PlyMesh& mesh,
           std::abs(static_cast<double>(e1.x()) * static_cast<double>(e2.y()) -
                    static_cast<double>(e1.y()) * static_cast<double>(e2.x()));
       scores[fi * num_images + ii] = area;
+    }
+  }
+
+  // A view that looks through foliage has a large projected area but a color
+  // that disagrees with the other views of the same face. Downweight it so
+  // the wall keeps the brick or stone color instead of the branch.
+  LOG(INFO) << "Reweighting views by photo consistency...";
+#ifdef _OPENMP
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+#endif
+  for (int64_t fi = 0; fi < static_cast<int64_t>(num_faces); ++fi) {
+    const std::array<size_t, 3> idx = GetFaceIndices(mesh.faces[fi]);
+      const std::array<Eigen::Vector3f, 3> corners = {GetVertex(mesh, idx[0]),
+                                                    GetVertex(mesh, idx[1]),
+                                                    GetVertex(mesh, idx[2])};
+      const Eigen::Vector3f centroid =
+          (corners[0] + corners[1] + corners[2]) / 3.0f;
+      const std::array<Eigen::Vector3f, 4> verts = {
+          corners[0], corners[1], corners[2], centroid};
+    struct Sample {
+      size_t image_idx;
+      Eigen::Vector3f color;
+    };
+    std::vector<Sample> samples;
+    samples.reserve(8);
+    for (size_t ii = 0; ii < num_images; ++ii) {
+      if (scores[fi * num_images + ii] <= 0.0) continue;
+      const Image& img = images[ii];
+      Eigen::Vector3f color(0, 0, 0);
+      int count = 0;
+      for (int vi = 0; vi < 4; ++vi) {
+        const Eigen::Vector2f pix = ProjectPoint(img.GetP(), verts[vi]);
+        const auto sample = img.GetBitmap().InterpolateBilinear(pix.x(), pix.y());
+        if (!sample) continue;
+        color += Eigen::Vector3f(sample->r, sample->g, sample->b);
+        ++count;
+      }
+      if (count == 0) {
+        scores[fi * num_images + ii] = -1.0;
+        continue;
+      }
+      samples.push_back({ii, color / static_cast<float>(count)});
+    }
+    if (samples.size() < 2) continue;
+
+    std::vector<float> channel(samples.size());
+    Eigen::Vector3f median;
+    for (int c = 0; c < 3; ++c) {
+      for (size_t s = 0; s < samples.size(); ++s) channel[s] = samples[s].color[c];
+      std::nth_element(channel.begin(),
+                       channel.begin() + channel.size() / 2,
+                       channel.end());
+      median[c] = channel[channel.size() / 2];
+    }
+    constexpr float kColorSigma = 25.0f;
+    for (const Sample& sample : samples) {
+      const float dist = (sample.color - median).norm();
+      scores[fi * num_images + sample.image_idx] *=
+          std::exp(-dist / kColorSigma);
     }
   }
 
@@ -372,6 +622,69 @@ std::vector<int> SelectViews(const PlyMesh& mesh,
       new_views[fi] = best_label;
     }
     view_per_face = new_views;
+  }
+
+  // Unlabeled faces stay black. Isolated faces keep a leafy view while every
+  // neighbor uses the wall. Both get the majority neighbor label when that
+  // photo can still see the face.
+  for (int iter = 0; iter < 8; ++iter) {
+    std::vector<int> filled = view_per_face;
+    for (size_t fi = 0; fi < num_faces; ++fi) {
+      NodeHashMap<int, int> label_counts;
+      for (const size_t ni : adjacency[fi]) {
+        if (view_per_face[ni] >= 0) ++label_counts[view_per_face[ni]];
+      }
+      if (label_counts.empty()) continue;
+
+      int majority = -1;
+      int majority_count = 0;
+      for (const auto& [label, count] : label_counts) {
+        if (count > majority_count) {
+          majority = label;
+          majority_count = count;
+        }
+      }
+      if (majority < 0) continue;
+
+      const int own = view_per_face[fi];
+      const int own_count = own >= 0 && label_counts.count(own) ? label_counts[own] : 0;
+      const bool score_ok = scores[fi * num_images + majority] > 0.0;
+      // Columns and glass often fail the occlusion test, so every score stays
+      // negative and the face is left black. Inherit the neighbor photo when
+      // that camera still sees the triangle.
+      bool projects = false;
+      if (own < 0 && !score_ok) {
+        const Image& img = images[majority];
+        const std::array<size_t, 3> idx = GetFaceIndices(mesh.faces[fi]);
+        Eigen::Vector3f centroid(0, 0, 0);
+        bool in_front = true;
+        for (int vi = 0; vi < 3; ++vi) {
+          const Eigen::Vector3f v = GetVertex(mesh, idx[vi]);
+          centroid += v;
+          if (ProjectPointDepth(img.GetP(), v) <= 0.0f) in_front = false;
+        }
+        centroid /= 3.0f;
+        if (in_front && ProjectPointDepth(img.GetP(), centroid) > 0.0f) {
+          const Eigen::Vector2f pix = ProjectPoint(img.GetP(), centroid);
+          const bool inside =
+              pix.x() >= 0 && pix.x() < static_cast<float>(img.GetWidth()) &&
+              pix.y() >= 0 && pix.y() < static_cast<float>(img.GetHeight());
+          const Eigen::Vector3f view_dir =
+              (ComputeCameraCenter(img.GetR(), img.GetT()) - centroid).normalized();
+          const bool facing =
+              face_normals[fi].dot(view_dir) >=
+              static_cast<float>(options.min_cos_normal_angle);
+          // A face that does not look at this photo stretches into a shard.
+          // Leave it unlabeled; a hole is better than that fill.
+          projects = inside && facing;
+        }
+      }
+      if ((own < 0 && (score_ok || projects)) ||
+          (score_ok && majority != own && majority_count >= 2 && own_count <= 1)) {
+        filled[fi] = majority;
+      }
+    }
+    view_per_face = std::move(filled);
   }
 
   return view_per_face;
@@ -689,6 +1002,30 @@ void BakeTexture(Bitmap* atlas,
       const float texture_inv_scale_factor =
           static_cast<float>(1.0 / options.texture_scale_factor);
 
+      const size_t face_id = region.face_ids[i];
+      const std::array<size_t, 3> face_idx = GetFaceIndices(mesh.faces[face_id]);
+      const Eigen::Vector3f p0 = GetVertex(mesh, face_idx[0]);
+      const Eigen::Vector3f p1 = GetVertex(mesh, face_idx[1]);
+      const Eigen::Vector3f p2 = GetVertex(mesh, face_idx[2]);
+      const float len01 = (p1 - p0).norm();
+      const float len12 = (p2 - p1).norm();
+      const float len20 = (p0 - p2).norm();
+      const float longest = std::max({len01, len12, len20});
+      const float area3d = 0.5f * (p1 - p0).cross(p2 - p0).norm();
+      const float altitude = longest > 1e-8f ? (2.0f * area3d / longest) : 0.0f;
+      const bool skinny = longest > 1e-8f && altitude < longest * 0.12f;
+      std::optional<BitmapColor<uint8_t>> flat_color;
+      if (skinny) {
+        const Eigen::Vector2f img_pos =
+            ((rp.face_projections[i][0] + rp.face_projections[i][1] +
+              rp.face_projections[i][2]) /
+             3.0f) *
+            texture_inv_scale_factor;
+        const auto sample = src_bmp.InterpolateBilinear(
+            static_cast<double>(img_pos.x()), static_cast<double>(img_pos.y()));
+        if (sample) flat_color = sample->Cast<uint8_t>();
+      }
+
       for (int py = min_py; py <= max_py; ++py) {
         for (int px = min_px; px <= max_px; ++px) {
           const Eigen::Vector2f pixel_center(px + 0.5f, py + 0.5f);
@@ -704,15 +1041,40 @@ void BakeTexture(Bitmap* atlas,
                bary.z() * rp.face_projections[i][2]) *
               texture_inv_scale_factor;
 
-          const auto color =
-              src_bmp.InterpolateBilinear(static_cast<double>(img_pos.x()),
-                                          static_cast<double>(img_pos.y()));
-          if (!color) {
-            continue;
+          BitmapColor<uint8_t> color;
+          if (flat_color) {
+            color = *flat_color;
+          } else {
+            const auto sample = src_bmp.InterpolateBilinear(
+                static_cast<double>(img_pos.x()),
+                static_cast<double>(img_pos.y()));
+            if (!sample) continue;
+            color = sample->Cast<uint8_t>();
           }
 
-          atlas->SetPixel(px, py, color->Cast<uint8_t>());
+          atlas->SetPixel(px, py, color);
           (*baked_mask)[static_cast<size_t>(py) * aw + px] = true;
+        }
+      }
+
+      // Sub-pixel triangles miss the raster loop and stay black. Stamp the
+      // centroid so the face still has a color.
+      const Eigen::Vector2f atlas_centroid =
+          (atlas_verts[0] + atlas_verts[1] + atlas_verts[2]) / 3.0f;
+      const int cx = std::clamp(static_cast<int>(std::lround(atlas_centroid.x())), 0, aw - 1);
+      const int cy = std::clamp(static_cast<int>(std::lround(atlas_centroid.y())), 0, ah - 1);
+      const size_t cidx = static_cast<size_t>(cy) * aw + cx;
+      if (!(*baked_mask)[cidx]) {
+        const Eigen::Vector2f img_pos =
+            ((rp.face_projections[i][0] + rp.face_projections[i][1] +
+              rp.face_projections[i][2]) /
+             3.0f) *
+            texture_inv_scale_factor;
+        const auto color = src_bmp.InterpolateBilinear(
+            static_cast<double>(img_pos.x()), static_cast<double>(img_pos.y()));
+        if (color) {
+          atlas->SetPixel(cx, cy, color->Cast<uint8_t>());
+          (*baked_mask)[cidx] = true;
         }
       }
     }
@@ -1008,6 +1370,216 @@ void InpaintAtlas(Bitmap* atlas,
 
 }  // namespace
 
+PlyMesh FillSmallMeshHoles(const PlyMesh& mesh,
+                           const int max_edges,
+                           const float max_extent) {
+  return FillSmallMeshHolesImpl(mesh, max_edges, max_extent);
+}
+
+PlyMesh RemoveThinSheets(const PlyMesh& mesh,
+                         const std::vector<PlyPoint>& points) {
+  if (mesh.faces.empty() || points.empty()) return mesh;
+
+  Eigen::Vector3f min_pt = GetVertex(mesh, 0);
+  Eigen::Vector3f max_pt = min_pt;
+  for (const PlyMeshVertex& vertex : mesh.vertices) {
+    min_pt = min_pt.cwiseMin(Eigen::Vector3f(vertex.x, vertex.y, vertex.z));
+    max_pt = max_pt.cwiseMax(Eigen::Vector3f(vertex.x, vertex.y, vertex.z));
+  }
+  const float diagonal = (max_pt - min_pt).norm();
+  const float cell = std::max(diagonal / 300.0f, 1e-4f);
+  const float inv_cell = 1.0f / cell;
+
+  struct Accum {
+    Eigen::Vector3f normal_sum = Eigen::Vector3f::Zero();
+    int count = 0;
+  };
+  NodeHashMap<uint64_t, Accum> grid;
+  grid.reserve(points.size() / 4);
+  const auto CellKey = [&](const Eigen::Vector3f& p) {
+    const Eigen::Vector3i c = ((p - min_pt) * inv_cell).array().floor().cast<int>();
+    const auto pack = [](const int v) {
+      return static_cast<uint64_t>(static_cast<int64_t>(v) + (1 << 20)) &
+             0x1fffffu;
+    };
+    return pack(c.x()) | (pack(c.y()) << 21) | (pack(c.z()) << 42);
+  };
+  for (const PlyPoint& point : points) {
+    const Eigen::Vector3f n(point.nx, point.ny, point.nz);
+    if (n.squaredNorm() < 1e-8f) continue;
+    Accum& cell_accum = grid[CellKey(Eigen::Vector3f(point.x, point.y, point.z))];
+    cell_accum.normal_sum += n.normalized();
+    ++cell_accum.count;
+  }
+
+  std::vector<PlyMeshFace> kept;
+  kept.reserve(mesh.faces.size());
+  int removed = 0;
+  for (const PlyMeshFace& face : mesh.faces) {
+    const Eigen::Vector3f v0 = GetVertex(mesh, face.vertex_idx1);
+    const Eigen::Vector3f v1 = GetVertex(mesh, face.vertex_idx2);
+    const Eigen::Vector3f v2 = GetVertex(mesh, face.vertex_idx3);
+    const Eigen::Vector3f normal = (v1 - v0).cross(v2 - v0);
+    if (normal.squaredNorm() < 1e-16f) {
+      ++removed;
+      continue;
+    }
+    const Eigen::Vector3f centroid = (v0 + v1 + v2) / 3.0f;
+    const Eigen::Vector3i base =
+        ((centroid - min_pt) * inv_cell).array().floor().cast<int>();
+    Eigen::Vector3f normal_sum = Eigen::Vector3f::Zero();
+    int count = 0;
+    for (int dz = -1; dz <= 1; ++dz) {
+      for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+          const Eigen::Vector3f sample =
+              min_pt + cell * Eigen::Vector3f(base.x() + dx + 0.5f,
+                                              base.y() + dy + 0.5f,
+                                              base.z() + dz + 0.5f);
+          const auto it = grid.find(CellKey(sample));
+          if (it == grid.end()) continue;
+          normal_sum += it->second.normal_sum;
+          count += it->second.count;
+        }
+      }
+    }
+    if (count == 0 ||
+        std::abs(normal.normalized().dot(normal_sum.normalized())) < 0.35f) {
+      ++removed;
+      continue;
+    }
+    kept.push_back(face);
+  }
+
+  // A railing bar is a thin tube: the back of the surface sits a few
+  // centimeters behind the front. Steps and walls have no opposite face
+  // that close, so their creases stay.
+  std::vector<Eigen::Vector3f> face_normals(kept.size());
+  std::vector<Eigen::Vector3f> face_centroids(kept.size());
+  for (size_t fi = 0; fi < kept.size(); ++fi) {
+    const Eigen::Vector3f v0 = GetVertex(mesh, kept[fi].vertex_idx1);
+    const Eigen::Vector3f v1 = GetVertex(mesh, kept[fi].vertex_idx2);
+    const Eigen::Vector3f v2 = GetVertex(mesh, kept[fi].vertex_idx3);
+    const Eigen::Vector3f raw = (v1 - v0).cross(v2 - v0);
+    face_normals[fi] =
+        raw.squaredNorm() > 1e-16f ? raw.normalized() : Eigen::Vector3f::Zero();
+    face_centroids[fi] = (v0 + v1 + v2) / 3.0f;
+  }
+  const float shell_cell = std::max(diagonal / 120.0f, 1e-3f);
+  NodeHashMap<uint64_t, std::vector<size_t>> face_bins;
+  const auto FaceKey = [&](const Eigen::Vector3f& p) {
+    const Eigen::Vector3i c =
+        ((p - min_pt) / shell_cell).array().floor().cast<int>();
+    const auto pack = [](const int v) {
+      return static_cast<uint64_t>(static_cast<int64_t>(v) + (1 << 20)) &
+             0x1fffffu;
+    };
+    return pack(c.x()) | (pack(c.y()) << 21) | (pack(c.z()) << 42);
+  };
+  for (size_t fi = 0; fi < kept.size(); ++fi) {
+    face_bins[FaceKey(face_centroids[fi])].push_back(fi);
+  }
+  std::vector<char> is_tube(kept.size(), 0);
+  for (size_t fi = 0; fi < kept.size(); ++fi) {
+    if (face_normals[fi].squaredNorm() < 0.5f) continue;
+    const Eigen::Vector3f back =
+        face_centroids[fi] - face_normals[fi] * (2.5f * shell_cell);
+    bool opposite = false;
+    for (int dz = -1; dz <= 1 && !opposite; ++dz) {
+      for (int dy = -1; dy <= 1 && !opposite; ++dy) {
+        for (int dx = -1; dx <= 1 && !opposite; ++dx) {
+          const Eigen::Vector3f sample =
+              back + shell_cell * Eigen::Vector3f(dx, dy, dz);
+          const auto it = face_bins.find(FaceKey(sample));
+          if (it == face_bins.end()) continue;
+          for (const size_t other : it->second) {
+            if (other == fi) continue;
+            if (face_normals[fi].dot(face_normals[other]) > -0.5f) continue;
+            const float dist =
+                face_normals[fi].dot(face_centroids[fi] - face_centroids[other]);
+            if (dist > 0.04f && dist < 0.18f) {
+              opposite = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+    if (opposite) is_tube[fi] = 1;
+  }
+  NodeHashMap<uint64_t, std::array<size_t, 2>> tube_edges;
+  for (size_t fi = 0; fi < kept.size(); ++fi) {
+    if (!is_tube[fi]) continue;
+    const std::array<size_t, 3> idx = GetFaceIndices(kept[fi]);
+    for (int e = 0; e < 3; ++e) {
+      const uint64_t key = EdgeKey(idx[e], idx[(e + 1) % 3]);
+      auto it = tube_edges.find(key);
+      if (it == tube_edges.end()) {
+        tube_edges.emplace(key, std::array<size_t, 2>{fi, std::numeric_limits<size_t>::max()});
+      } else if (it->second[1] == std::numeric_limits<size_t>::max()) {
+        it->second[1] = fi;
+      }
+    }
+  }
+  std::vector<std::vector<size_t>> tube_neighbors(kept.size());
+  for (const auto& [key, pair] : tube_edges) {
+    if (pair[1] == std::numeric_limits<size_t>::max()) continue;
+    tube_neighbors[pair[0]].push_back(pair[1]);
+    tube_neighbors[pair[1]].push_back(pair[0]);
+  }
+  std::vector<char> drop(kept.size(), 0);
+  std::vector<char> visited(kept.size(), 0);
+  int tubes = 0;
+  for (size_t seed = 0; seed < kept.size(); ++seed) {
+    if (!is_tube[seed] || visited[seed]) continue;
+    std::vector<size_t> component;
+    std::queue<size_t> queue;
+    queue.push(seed);
+    visited[seed] = 1;
+    Eigen::Vector3f cmin = face_centroids[seed];
+    Eigen::Vector3f cmax = face_centroids[seed];
+    while (!queue.empty()) {
+      const size_t fi = queue.front();
+      queue.pop();
+      component.push_back(fi);
+      cmin = cmin.cwiseMin(face_centroids[fi]);
+      cmax = cmax.cwiseMax(face_centroids[fi]);
+      for (const size_t ni : tube_neighbors[fi]) {
+        if (visited[ni]) continue;
+        visited[ni] = 1;
+        queue.push(ni);
+      }
+    }
+    std::array<float, 3> extent = {cmax.x() - cmin.x(),
+                                   cmax.y() - cmin.y(),
+                                   cmax.z() - cmin.z()};
+    std::sort(extent.begin(), extent.end());
+    const bool rod = component.size() >= 80 && component.size() <= 2500 &&
+                     extent[0] < 0.22f && extent[1] < 0.35f && extent[2] > 0.35f;
+    if (!rod) continue;
+    ++tubes;
+    for (const size_t fi : component) drop[fi] = 1;
+  }
+  std::vector<PlyMeshFace> without_bars;
+  without_bars.reserve(kept.size());
+  int bars = 0;
+  for (size_t fi = 0; fi < kept.size(); ++fi) {
+    if (drop[fi]) {
+      ++bars;
+      continue;
+    }
+    without_bars.push_back(kept[fi]);
+  }
+  LOG(INFO) << "Removed " << tubes << " railing tubes (" << bars << " faces)";
+  kept = std::move(without_bars);
+
+  LOG(INFO) << "Removed " << removed << " thin-sheet faces, " << kept.size()
+            << " faces remain";
+  PlyMesh filtered = mesh;
+  filtered.faces = std::move(kept);
+  return filtered;
+}
+
 #define PrintOption(option) LOG(INFO) << #option ": " << option
 
 bool MeshTextureMappingOptions::Check() const {
@@ -1044,9 +1616,7 @@ MeshTextureMappingResult MeshTextureMapping(
   THROW_CHECK(options.Check());
 
 #if !defined(COLMAP_CGAL_ENABLED)
-  LOG(WARNING) << "CGAL is disabled; occlusion testing will be skipped. "
-                  "Some faces may be textured from views where they are "
-                  "occluded by other geometry.";
+  LOG(INFO) << "CGAL is disabled; occlusion uses per-view depth maps.";
 #endif
 
   MeshTextureMappingResult result;
