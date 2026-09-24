@@ -58,7 +58,7 @@ void BindHomographyMatrixEstimator(py::module& m) {
         "points2D1"_a,
         "points2D2"_a,
         py::arg_v("estimation_options", est_options, "RANSACOptions()"),
-        "cheirality_check"_a = false,
+        "cheirality_check"_a = true,
         "Robustly estimate homography matrix using LO-RANSAC. If "
         "cheirality_check is true, minimal samples that flip orientation are "
         "rejected without solving, which assumes an orientation-preserving "

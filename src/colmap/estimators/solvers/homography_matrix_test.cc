@@ -73,13 +73,15 @@ TEST(HomographyMatrixCheiralityEstimator, RejectsOrientationFlippedSamples) {
 
 TEST(HomographyMatrixMinimalSample, ClosedFormMatchesOverdeterminedDLT) {
   // The closed-form 4-point solver must agree with overdetermined DLT (up to
-  // scale and sign) on exact data.
-  // Moderate translations: the overdetermined DLT determinant check operates
-  // on the unit-norm solution and rejects large-translation homographies.
-  std::vector<Eigen::Matrix3d> H_gts(3);
+  // scale and sign) on exact data, including large translations, which the
+  // scale-free singularity check must accept (an absolute determinant
+  // threshold on the unit-norm solution would reject them).
+  std::vector<Eigen::Matrix3d> H_gts(5);
   H_gts[0] << 0.8, -0.3, 120.0, 0.25, 0.9, -60.0, 0.0002, -0.0001, 1.0;
   H_gts[1] << 1.1, 0.05, -150.0, -0.03, 1.05, 130.0, 0.0003, -0.0002, 1.0;
   H_gts[2] << 0.9, -0.4, 140.0, 0.5, 0.85, -120.0, -0.0002, 0.0003, 1.0;
+  H_gts[3] << 0.8, -0.3, 2000.0, 0.25, 0.9, -1500.0, 0.0002, -0.0001, 1.0;
+  H_gts[4] << 1.1, 0.05, -5000.0, -0.03, 1.05, 4200.0, 0.0001, 0.0002, 1.0;
   const std::vector<Eigen::Vector2d> src = {{0, 0},
                                             {400, 0},
                                             {400, 300},
@@ -290,6 +292,23 @@ TEST(HomographyMatrixRefine, ImprovesNoisyDLTEstimate) {
   EXPECT_LE(refined_error, init_error);
   // Near the noise floor: 1px noise over 100 points.
   EXPECT_LT(refined_error, 1.5);
+}
+
+TEST(HomographyMatrixRefine, FailsWhenInitialModelMapsPointToInfinity) {
+  // A point sent to infinity makes the transfer error non-finite at the start
+  // point, so TinySolver reports NUMERICAL_FAILURE. Refine must propagate the
+  // failure and leave the model untouched instead of returning the unrefined
+  // model as if it had converged.
+  const std::vector<Eigen::Vector2d> points1 = {
+      {100, 200}, {300, 100}, {400, 400}, {150, 350}, {250, 250}, {350, 150}};
+  const std::vector<Eigen::Vector2d> points2 = {
+      {110, 210}, {310, 110}, {410, 410}, {160, 360}, {260, 260}, {360, 160}};
+  Eigen::Matrix3d H_init;
+  // Last row [1, 0, -100]: the depth vanishes exactly at points1[0].
+  H_init << 1, 0, 10, 0, 1, 10, 1, 0, -100;
+  const Eigen::Matrix3d H_before = H_init;
+  EXPECT_FALSE(HomographyMatrixEstimator::Refine(points1, points2, &H_init));
+  EXPECT_TRUE(H_init.isApprox(H_before));
 }
 
 TEST(HomographyTransferCostFunction, JacobianMatchesFiniteDifferences) {

@@ -1136,12 +1136,16 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
                                  MEstimatorSupportMeasurer>(H_ransac_options)
                             .Estimate(matched_img_points1, matched_img_points2);
     // Same layout as HomographyMatrixReport, modulo the hypothesis estimator
-    // tag; move field-wise to share the code below with the ray branch.
-    H_report.success = pixel_report.success;
-    H_report.num_trials = pixel_report.num_trials;
-    H_report.support = pixel_report.support;
-    H_report.inlier_mask = std::move(pixel_report.inlier_mask);
-    H_report.model = std::move(pixel_report.model);
+    // tag; move field-wise to share the code below with the ray branch. Only
+    // on success: a failed report carries partial state (a sub-minimal model
+    // without an inlier mask), which must not leak into H_report.
+    if (pixel_report.success) {
+      H_report.success = pixel_report.success;
+      H_report.num_trials = pixel_report.num_trials;
+      H_report.support = pixel_report.support;
+      H_report.inlier_mask = std::move(pixel_report.inlier_mask);
+      H_report.model = std::move(pixel_report.model);
+    }
   } else {
     H_report = EstimateHomographyMatrixFromRays(H_ransac_options,
                                                 camera1,

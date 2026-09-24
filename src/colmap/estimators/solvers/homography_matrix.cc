@@ -116,7 +116,10 @@ bool PassCheiralityCheck(const std::vector<Eigen::Vector2d>& points1,
 // decomposition (Cai et al., "Fast and interpretable 2d homography
 // decomposition: Similarity-kernel-similarity and affine-core-affine
 // transformations", PAMI 2025), following PoseLib's homography_4pt
-// implementation (BSD-3-Clause, copyright Viktor Larsson). A direct formula
+// implementation (BSD-3-Clause, copyright Viktor Larsson). This reimplements
+// rather than calls poselib::homography_4pt, whose bundled |det| < 1e-8 check
+// on the normalized solution assumes normalized coordinates and would reject
+// valid large-translation homographies in raw pixel space. A direct formula
 // without any linear solves; agrees with DLT to machine precision. The output
 // scale is arbitrary. Callers must reject collinear triplets first: the
 // formula has no divisions, so degenerate inputs yield a zero matrix rather
@@ -179,7 +182,6 @@ Eigen::Matrix3d SolveHomography4ptClosedForm(
 // Returns false for rank-deficient, non-finite, or near-singular solutions.
 bool SolveHomographyFromConstraintMatrix(
     const Eigen::Matrix<double, Eigen::Dynamic, 9>& A, Eigen::Matrix3d* H) {
-  constexpr double kMinDeterminant = 1e-8;
   if (A.rows() == 8) {
     const Eigen::Matrix<double, 9, 1> h = A.block<8, 8>(0, 0)
                                               .partialPivLu()
@@ -198,7 +200,16 @@ bool SolveHomographyFromConstraintMatrix(
     const Eigen::VectorXd nullspace = svd.matrixV().col(8);
     *H = Eigen::Map<const Eigen::Matrix3d>(nullspace.data()).transpose();
   }
-  return std::abs(H->determinant()) >= kMinDeterminant;
+  // Scale-free singularity check: H is defined up to scale, so an absolute
+  // determinant threshold conflates matrix scale with singularity. On the
+  // unit-norm SVD solution it rejects valid large-translation homographies
+  // (a translation by T has |det| ~ 1/T^3), while the singular-value ratio is
+  // scale-invariant.
+  const Eigen::JacobiSVD<Eigen::Matrix3d> svd_H(*H);
+  const Eigen::Vector3d& singular_values = svd_H.singularValues();
+  constexpr double kMinSingularValueRatio = 1e-12;
+  return singular_values(0) > 0 &&
+         singular_values(2) > kMinSingularValueRatio * singular_values(0);
 }
 
 }  // namespace
@@ -291,9 +302,7 @@ bool HomographyMatrixEstimator::Refine(const std::vector<X_t>& points1,
   Solver solver;
   Solver::Options options;
   options.max_num_iterations = 25;
-  solver.Solve(f, &h, options);
-
-  if (!h.allFinite()) {
+  if (solver.Solve(f, &h, options).status == Solver::NUMERICAL_FAILURE) {
     return false;
   }
 
