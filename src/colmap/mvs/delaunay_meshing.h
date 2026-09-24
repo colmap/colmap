@@ -32,8 +32,11 @@ struct DelaunayMeshingOptions {
   // Filtering thresholds for outlier surface mesh faces. If the longest side of
   // a mesh face (longest out of 3) exceeds the side lengths of all faces at a
   // certain percentile by the given factor, then it is considered an outlier
-  // mesh face and discarded.
-  double max_side_length_factor = 25.0;
+  // mesh face and discarded. The 95th percentile is a few centimeters on a
+  // dense cloud, so a large factor still keeps facets that span free space
+  // and show up as sheets in the sky. 5x drops those while leaving the
+  // building surface intact.
+  double max_side_length_factor = 5.0;
   double max_side_length_percentile = 95.0;
 
   // The number of threads to use for reconstruction. Default is all threads.
