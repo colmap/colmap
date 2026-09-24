@@ -2,7 +2,7 @@
 
 #include "colmap/ui/model_viewer_widget.h"
 
-#include "colmap/estimators/covariance.h"
+#include "colmap/estimators/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/hash_containers.h"
@@ -518,26 +518,49 @@ void ModelViewerWidget::ReloadReconstruction() {
     selected_image_id_ = kInvalidImageId;
   }
 
+  points3D_cov.clear();
   if (options_->render->point_covariance) {
+    // Estimate the covariances from the copied state rather than the live
+    // reconstruction, which may be concurrently modified by the mapper. The
+    // covariances are conditioned on exact poses and intrinsics.
     constexpr size_t kCovStepSize = 20;
-    std::vector<point3D_t> point3D_ids;
-    point3D_ids.reserve(points3D.size() / kCovStepSize);
+    points3D_cov.reserve(points3D.size() / kCovStepSize);
+    std::vector<CovariantTriangulationEstimator::PointData> point_data;
+    std::vector<CovariantTriangulationEstimator::PoseData> pose_data;
     size_t point3D_idx = 0;
-    for (const auto& point3D : points3D) {
-      if (point3D.second.track.Length() >= options_->render->min_track_len &&
-          point3D_idx++ % kCovStepSize == 0) {
-        point3D_ids.push_back(point3D.first);
+    for (const auto& [point3D_id, point3D] : points3D) {
+      if (point3D.track.Length() < options_->render->min_track_len ||
+          point3D_idx++ % kCovStepSize != 0) {
+        continue;
+      }
+      point_data.clear();
+      pose_data.clear();
+      for (const TrackElement& track_el : point3D.track.Elements()) {
+        const auto image_it = images.find(track_el.image_id);
+        if (image_it == images.end()) {
+          continue;
+        }
+        const Image& image = image_it->second;
+        const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+        CovariantTriangulationEstimator::PointData point_datum;
+        point_datum.img_point = point2D.xy;
+        point_datum.cam_ray = image.CameraPtr()
+                                  ->CamRayFromImg(point2D.xy)
+                                  .value_or(Eigen::Vector3d::UnitZ());
+        point_datum.img_cov = point2D.cov.cast<double>();
+        point_data.push_back(point_datum);
+        CovariantTriangulationEstimator::PoseData pose_datum;
+        pose_datum.cam_from_world = image.CamFromWorld().ToMatrix();
+        pose_datum.camera = image.CameraPtr();
+        pose_data.push_back(pose_datum);
+      }
+      const std::optional<Eigen::Matrix3d> cov =
+          CovariantTriangulationEstimator::PointCovariance(
+              point_data, pose_data, point3D.xyz);
+      if (cov.has_value()) {
+        points3D_cov.emplace_back(point3D_id, cov->cast<float>());
       }
     }
-    const std::vector<Eigen::Matrix3d> covs =
-        EstimateSchurPointCovariance(reconstruction.get(), point3D_ids);
-    points3D_cov.resize(covs.size());
-    for (size_t cov_idx = 0; cov_idx < covs.size(); ++cov_idx) {
-      points3D_cov[cov_idx] =
-          std::make_pair(point3D_ids[cov_idx], covs[cov_idx].cast<float>());
-    }
-  } else {
-    points3D_cov.clear();
   }
 
   statusbar_status_label->setText(

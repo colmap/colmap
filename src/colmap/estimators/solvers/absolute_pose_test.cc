@@ -491,6 +491,73 @@ TEST(PropagatePointCovarianceToImage, MatchesNumericJacobian) {
   }
 }
 
+TEST(PropagatePixelCovarianceToNormalized, MatchesNumericJacobian) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimpleRadial, 1280.0, 1024, 768);
+  const Eigen::Vector2d img_point(700, 300);
+  const Eigen::Matrix2d img_cov = (Eigen::Matrix2d() << 4, 1, 1, 2).finished();
+
+  const std::optional<Eigen::Matrix2d> actual =
+      PropagatePixelCovarianceToNormalized(camera, img_point, img_cov);
+  ASSERT_TRUE(actual.has_value());
+
+  // Numeric Jacobian of the composed unproject-then-normalize map.
+  // Note the explicit return type: hnormalized() on the temporary ray must
+  // be evaluated inside the lambda.
+  const auto normalize =
+      [&camera](const Eigen::Vector2d& pixel) -> Eigen::Vector2d {
+    const std::optional<Eigen::Vector3d> ray = camera.CamRayFromImg(pixel);
+    EXPECT_TRUE(ray.has_value());
+    return ray->hnormalized();
+  };
+  ASSERT_TRUE(camera.CamRayFromImg(img_point).has_value());
+  // Note the large epsilon: iterative undistortion stops at a step norm of
+  // 1e-5 in normalized coordinates, so smaller pixel steps drown in solver
+  // noise. The undistorted map is smooth, keeping truncation error small.
+  const double kEps = 1.0;
+  Eigen::Matrix2d J_numeric;
+  for (int c = 0; c < 2; ++c) {
+    Eigen::Vector2d delta = Eigen::Vector2d::Zero();
+    delta(c) = kEps;
+    J_numeric.col(c) =
+        (normalize(img_point + delta) - normalize(img_point - delta)) /
+        (2 * kEps);
+  }
+  const Eigen::Matrix2d expected = J_numeric * img_cov * J_numeric.transpose();
+
+  for (int r = 0; r < 2; ++r) {
+    for (int c = 0; c < 2; ++c) {
+      EXPECT_NEAR((*actual)(r, c), expected(r, c), 1e-6);
+    }
+  }
+}
+
+TEST(PropagatePixelCovarianceToNormalized, PinholeCenter) {
+  const double focal = 512.0;
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, focal, 1024, 1024);
+  const Eigen::Vector2d center(512, 512);
+  const std::optional<Eigen::Matrix2d> normalized =
+      PropagatePixelCovarianceToNormalized(
+          camera, center, Eigen::Matrix2d::Identity());
+  ASSERT_TRUE(normalized.has_value());
+  // At the principal point of a pinhole camera, J = (1/f) * I.
+  EXPECT_NEAR((*normalized)(0, 0), 1 / (focal * focal), 1e-12);
+  EXPECT_NEAR((*normalized)(1, 1), 1 / (focal * focal), 1e-12);
+  EXPECT_NEAR((*normalized)(0, 1), 0, 1e-12);
+  EXPECT_NEAR((*normalized)(1, 0), 0, 1e-12);
+}
+
+TEST(PropagatePixelCovarianceToNormalized, RejectsNonFinite) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 512.0, 1024, 1024);
+  Eigen::Matrix2d nan_cov = Eigen::Matrix2d::Identity();
+  nan_cov(0, 0) = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(PropagatePixelCovarianceToNormalized(
+                   camera, Eigen::Vector2d(512, 512), nan_cov)
+                   .has_value());
+}
+
 TEST(CovariantP3PEstimator, DegenerateCovariance) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
@@ -525,6 +592,59 @@ TEST(CovariantP3PEstimator, DegenerateCovariance) {
       {point2D}, {point3D}, cam_from_world, &residuals);
   ASSERT_EQ(residuals.size(), 1);
   EXPECT_LT(residuals[0], 1e-12);
+}
+
+TEST(CovariantP3PEstimator, BackwardRayRejected) {
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d::Zero());
+
+  // The backward ray (0.5, -0.25, -1) has the normalized coordinates
+  // (-0.5, 0.25) and would thus match the mirrored point in front of the
+  // camera, if not rejected.
+  CovariantP3PEstimator::X_t point2D;
+  point2D.first.image_point = Eigen::Vector2d(0.5, -0.25);
+  point2D.first.camera_ray = Eigen::Vector3d(0.5, -0.25, -1).normalized();
+  point2D.second = Eigen::Matrix2d::Identity();
+  CovariantP3PEstimator::Y_t point3D;
+  point3D.first = Eigen::Vector3d(-1, 0.5, 2);
+  point3D.second = Eigen::Matrix3d::Identity();
+
+  std::vector<double> residuals;
+  CovariantP3PEstimator::Residuals(
+      {point2D}, {point3D}, cam_from_world, &residuals);
+  ASSERT_EQ(residuals.size(), 1);
+  EXPECT_EQ(residuals[0], std::numeric_limits<double>::max());
+
+  // Sanity check: the forward ray is an exact correspondence.
+  point2D.first.camera_ray = Eigen::Vector3d(-0.5, 0.25, 1).normalized();
+  CovariantP3PEstimator::Residuals(
+      {point2D}, {point3D}, cam_from_world, &residuals);
+  ASSERT_EQ(residuals.size(), 1);
+  EXPECT_LT(residuals[0], 1e-12);
+}
+
+TEST(CovariantP3PEstimator, ResidualsAreUncappedMahalanobisDistances) {
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d::Zero());
+
+  // The point projects to (0.5, -0.25), i.e., the observation is off by 5
+  // standard deviations in x. Gating is left to RANSAC, so the residual is
+  // not capped at the RANSAC threshold.
+  constexpr double kSigma = 0.01;
+  CovariantP3PEstimator::X_t point2D;
+  point2D.first.image_point = Eigen::Vector2d(0.5 + 5 * kSigma, -0.25);
+  point2D.first.camera_ray =
+      point2D.first.image_point.homogeneous().normalized();
+  point2D.second = kSigma * kSigma * Eigen::Matrix2d::Identity();
+  CovariantP3PEstimator::Y_t point3D;
+  point3D.first = Eigen::Vector3d(1, -0.5, 2);
+  point3D.second = Eigen::Matrix3d::Zero();
+
+  std::vector<double> residuals;
+  CovariantP3PEstimator::Residuals(
+      {point2D}, {point3D}, cam_from_world, &residuals);
+  ASSERT_EQ(residuals.size(), 1);
+  EXPECT_NEAR(residuals[0], 25, 1e-6);
 }
 
 }  // namespace

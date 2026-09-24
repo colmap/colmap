@@ -106,6 +106,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME triangulation_test
+    SRCS triangulation_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME two_view_geometry_test
     SRCS two_view_geometry_test.cc
     LINK_LIBS colmap_estimators

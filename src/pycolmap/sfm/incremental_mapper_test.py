@@ -110,6 +110,22 @@ def test_incremental_pipeline_options_min_num_matches() -> None:
     assert options.min_num_matches == 20
 
 
+def test_incremental_pipeline_covariance_options_readwrite() -> None:
+    options = pycolmap.IncrementalPipelineOptions()
+    options.measurement_base_sigma_px = 1.5
+    options.measurement_scale_gamma = 0.25
+    options.mapper.abs_pose_use_point_covariance = False
+    options.mapper.ba_update_covariance = False
+    options.mapper.ba_update_covariance_minimum_norm_gauge = False
+    options.mapper.calibrate_measurement_noise = False
+    assert options.measurement_base_sigma_px == 1.5
+    assert options.measurement_scale_gamma == 0.25
+    assert not options.mapper.abs_pose_use_point_covariance
+    assert not options.mapper.ba_update_covariance
+    assert not options.mapper.ba_update_covariance_minimum_norm_gauge
+    assert not options.mapper.calibrate_measurement_noise
+
+
 def test_incremental_pipeline_options_check() -> None:
     options = pycolmap.IncrementalPipelineOptions()
     assert options.check()

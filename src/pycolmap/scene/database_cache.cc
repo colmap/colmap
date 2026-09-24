@@ -33,10 +33,18 @@ void BindDatabaseCache(py::module& m) {
           &Opts::load_all_images,
           "Whether to load all candidate images regardless of whether they "
           "have correspondences. Only useful for triangulation.")
+      .def_readwrite("convert_pose_priors_to_enu",
+                     &Opts::convert_pose_priors_to_enu,
+                     "Whether to convert pose priors to ENU coordinate system.")
       .def_readwrite(
-          "convert_pose_priors_to_enu",
-          &Opts::convert_pose_priors_to_enu,
-          "Whether to convert pose priors to ENU coordinate system.");
+          "measurement_base_sigma_px",
+          &Opts::measurement_base_sigma_px,
+          "Base 2D measurement standard deviation in pixels at unit keypoint "
+          "scale.")
+      .def_readwrite("measurement_scale_gamma",
+                     &Opts::measurement_scale_gamma,
+                     "Exponent of the keypoint scale in the measurement noise "
+                     "model.");
 
   MakeDataclass(PyOpts);
 

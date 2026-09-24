@@ -59,7 +59,6 @@ TEST(EstimateAbsolutePose, Nominal) {
   EXPECT_TRUE(EstimateAbsolutePose(options,
                                    problem.points2D,
                                    problem.points3D,
-                                   /*points3D_cov=*/{},
                                    &cam_from_world,
                                    &camera,
                                    &num_inliers,
@@ -80,6 +79,8 @@ TEST(EstimateAbsolutePose, WithPointCovariance) {
           .finished();
   const std::vector<Eigen::Matrix3d> points3D_cov(problem.points3D.size(),
                                                   anisotropic_cov);
+  const std::vector<Eigen::Matrix2d> points2D_cov(problem.points2D.size(),
+                                                  Eigen::Matrix2d::Identity());
 
   AbsolutePoseEstimationOptions options;
   Rigid3d cam_from_world;
@@ -88,6 +89,7 @@ TEST(EstimateAbsolutePose, WithPointCovariance) {
   Camera camera = problem.camera;
   EXPECT_TRUE(EstimateAbsolutePose(options,
                                    problem.points2D,
+                                   points2D_cov,
                                    problem.points3D,
                                    points3D_cov,
                                    &cam_from_world,
@@ -102,6 +104,47 @@ TEST(EstimateAbsolutePose, WithPointCovariance) {
   EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
 }
 
+TEST(EstimateAbsolutePose, EquirectangularBackHemisphereWithCovariance) {
+  Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, 0.0, 1024, 512);
+  const std::vector<Eigen::Vector3d> points3D = {
+      {-1.0, -0.5, -4.0},
+      {0.2, -0.7, -5.0},
+      {1.1, -0.3, -6.0},
+      {-0.8, 0.4, -5.5},
+      {0.4, 0.8, -4.5},
+      {1.3, 0.6, -6.5},
+      {-0.3, 1.1, -7.0},
+      {0.9, -1.0, -7.5},
+  };
+  std::vector<Eigen::Vector2d> points2D;
+  points2D.reserve(points3D.size());
+  for (const Eigen::Vector3d& point3D : points3D) {
+    points2D.push_back(camera.ImgFromCam(point3D).value());
+  }
+  const std::vector<Eigen::Matrix2d> points2D_cov(points2D.size(),
+                                                  Eigen::Matrix2d::Identity());
+
+  AbsolutePoseEstimationOptions options;
+  options.ransac_options.max_error = 1.0;
+  options.ransac_options.random_seed = 0;
+  Rigid3d cam_from_world;
+  size_t num_inliers = 0;
+  std::vector<char> inlier_mask;
+  EXPECT_TRUE(EstimateAbsolutePose(options,
+                                   points2D,
+                                   points2D_cov,
+                                   points3D,
+                                   /*points3D_cov=*/{},
+                                   &cam_from_world,
+                                   &camera,
+                                   &num_inliers,
+                                   &inlier_mask));
+  EXPECT_THAT(cam_from_world,
+              Rigid3dNear(Rigid3d(), /*rtol=*/1e-6, /*ttol=*/1e-6));
+  EXPECT_EQ(num_inliers, points3D.size());
+}
+
 TEST(EstimateAbsolutePose, EstimateFocalLength) {
   const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
 
@@ -113,6 +156,7 @@ TEST(EstimateAbsolutePose, EstimateFocalLength) {
   Camera camera = problem.camera;
   EXPECT_TRUE(EstimateAbsolutePose(options,
                                    problem.points2D,
+                                   /*points2D_cov=*/{},
                                    problem.points3D,
                                    /*points3D_cov=*/{},
                                    &cam_from_world,
@@ -142,6 +186,7 @@ TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
   Camera camera = problem.camera;
   EXPECT_TRUE(EstimateAbsolutePose(options,
                                    problem.points2D,
+                                   /*points2D_cov=*/{},
                                    problem.points3D,
                                    /*points3D_cov=*/{},
                                    &cam_from_world,
@@ -291,6 +336,8 @@ TEST(RefineAbsolutePose, WithPointCovariance) {
 
   const std::vector<Eigen::Matrix3d> points3D_cov(
       problem.points3D.size(), 1e-4 * Eigen::Matrix3d::Identity());
+  const std::vector<Eigen::Matrix2d> points2D_cov(problem.points2D.size(),
+                                                  Eigen::Matrix2d::Identity());
 
   AbsolutePoseRefinementOptions options;
   Rigid3d cam_from_world = problem.image.CamFromWorld();
@@ -306,12 +353,72 @@ TEST(RefineAbsolutePose, WithPointCovariance) {
                                  &cam_from_world,
                                  &camera,
                                  /*cam_from_world_cov=*/nullptr,
-                                 &points3D_cov));
+                                 &points3D_cov,
+                                 &points2D_cov));
   EXPECT_THAT(
       cam_from_world,
       Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-6, /*ttol=*/1e-6));
   EXPECT_NEAR(cam_from_world.rotation().norm(), 1.0, 1e-6);
   EXPECT_EQ(camera, problem.camera);
+}
+
+TEST(RefineAbsolutePose, InvalidPixelCovarianceUsesNoiseFloor) {
+  const AbsolutePoseProblem problem = CreateAbsolutePoseTestData();
+  std::vector<char> inlier_mask(problem.points2D.size(), true);
+
+  // Perturb the observations, so that the solution depends on the weights.
+  std::vector<Eigen::Vector2d> points2D = problem.points2D;
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    points2D[i] += Eigen::Vector2d(std::sin(i), std::cos(3 * i));
+  }
+
+  AbsolutePoseRefinementOptions options;
+  options.loss_function_scale = 2.0;
+
+  // Invalid (non-finite or non-positive-definite) measurement covariances
+  // must be replaced by the noise floor from the loss scale, so that all
+  // residuals remain whitened under the same robust loss.
+  std::vector<Eigen::Matrix2d> points2D_cov(problem.points2D.size(),
+                                            0.25 * Eigen::Matrix2d::Identity());
+  std::vector<Eigen::Matrix2d> expected_points2D_cov = points2D_cov;
+  for (size_t i = 0; i < points2D_cov.size(); i += 2) {
+    points2D_cov[i] =
+        i % 4 == 0
+            ? Eigen::Matrix2d::Constant(std::numeric_limits<double>::quiet_NaN())
+            : Eigen::Matrix2d(-Eigen::Matrix2d::Identity());
+    expected_points2D_cov[i] = 4.0 * Eigen::Matrix2d::Identity();
+  }
+
+  Rigid3d cam_from_world = problem.image.CamFromWorld();
+  Camera camera = problem.camera;
+  Eigen::Matrix6d cam_from_world_cov;
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 points2D,
+                                 problem.points3D,
+                                 &cam_from_world,
+                                 &camera,
+                                 &cam_from_world_cov,
+                                 /*points3D_cov=*/nullptr,
+                                 &points2D_cov));
+
+  Rigid3d expected_cam_from_world = problem.image.CamFromWorld();
+  Camera expected_camera = problem.camera;
+  Eigen::Matrix6d expected_cam_from_world_cov;
+  EXPECT_TRUE(RefineAbsolutePose(options,
+                                 inlier_mask,
+                                 points2D,
+                                 problem.points3D,
+                                 &expected_cam_from_world,
+                                 &expected_camera,
+                                 &expected_cam_from_world_cov,
+                                 /*points3D_cov=*/nullptr,
+                                 &expected_points2D_cov));
+
+  EXPECT_THAT(cam_from_world,
+              Rigid3dNear(expected_cam_from_world, /*rtol=*/1e-9,
+                          /*ttol=*/1e-9));
+  EXPECT_TRUE(cam_from_world_cov.isApprox(expected_cam_from_world_cov, 1e-6));
 }
 
 TEST(RefineAbsolutePose, RefineFocalLength) {

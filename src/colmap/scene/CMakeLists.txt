@@ -25,6 +25,7 @@ COLMAP_ADD_LIBRARY(
         database.h database.cc
         database_sqlite.h database_sqlite.cc
         database_cache.h database_cache.cc
+        measurement_noise.h measurement_noise.cc
         point3d.h point3d.cc
         pose_graph.h pose_graph.cc
         projection.h projection.cc
@@ -93,6 +94,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME image_test
     SRCS image_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME measurement_noise_test
+    SRCS measurement_noise_test.cc
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(

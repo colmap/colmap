@@ -5,6 +5,7 @@ set(FOLDER_NAME "sfm")
 COLMAP_ADD_LIBRARY(
     NAME colmap_sfm
     SRCS
+        covariance_cache.h covariance_cache.cc
         global_mapper.h global_mapper.cc
         incremental_mapper_impl.h incremental_mapper_impl.cc
         incremental_mapper.h incremental_mapper.cc
@@ -23,6 +24,11 @@ if(MSVC)
     target_compile_options(colmap_sfm PRIVATE /bigobj)
 endif()
 
+COLMAP_ADD_TEST(
+    NAME covariance_cache_test
+    SRCS covariance_cache_test.cc
+    LINK_LIBS colmap_sfm
+)
 COLMAP_ADD_TEST(
     NAME global_mapper_test
     SRCS global_mapper_test.cc

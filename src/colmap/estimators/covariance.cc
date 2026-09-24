@@ -181,6 +181,67 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
   return true;
 }
 
+// Returns the orthogonal projector P onto the complement of the similarity
+// gauge directions of the variable 6-DoF poses, such that P * S^-1 * P is the
+// minimum-norm covariance, where S is the reduced pose system. Free gauge
+// directions of S are regularized in place. Returns null if not applicable.
+std::optional<Eigen::MatrixXd> RegularizeGaugeFreedom(
+    const std::vector<internal::PoseParam>& poses,
+    Eigen::SparseMatrix<double>& S) {
+  constexpr int kNumGaugeParams = 7;
+  const int num_params = S.rows();
+  if (num_params != 6 * static_cast<int>(poses.size()) ||
+      num_params <= kNumGaugeParams) {
+    return std::nullopt;
+  }
+
+  // An infinitesimal similarity transform of the world, X' = (1 + s) *
+  // (I + [w]_x) * X + v, changes the poses by delta_rotation = -R * w and
+  // delta_translation = -R * v + s * t in the tangent space, where rotations
+  // are perturbed on the left as R' = exp(delta_rotation) * R.
+  Eigen::MatrixXd similarity_basis =
+      Eigen::MatrixXd::Zero(num_params, kNumGaugeParams);
+  for (size_t i = 0; i < poses.size(); ++i) {
+    const Eigen::Matrix3d rotation =
+        Eigen::Map<const Eigen::Quaterniond>(poses[i].cam_from_world)
+            .toRotationMatrix();
+    similarity_basis.block<3, 3>(6 * i, 0) = -rotation;
+    similarity_basis.block<3, 3>(6 * i + 3, 3) = -rotation;
+    similarity_basis.block<3, 1>(6 * i + 3, 6) =
+        Eigen::Map<const Eigen::Vector3d>(poses[i].cam_from_world + 4);
+  }
+  const Eigen::MatrixXd orthonormal_basis =
+      similarity_basis.householderQr().householderQ() *
+      Eigen::MatrixXd::Identity(num_params, kNumGaugeParams);
+  const Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigen_solver(
+      orthonormal_basis.transpose() * (S * orthonormal_basis));
+  if (eigen_solver.info() != Eigen::Success) {
+    return std::nullopt;
+  }
+
+  // Free gauge directions carry no information up to numerical precision (and
+  // the point damping), relative to the information of their parameters. Any
+  // positive regularization of them leaves the projected covariance unchanged,
+  // so choose it for good conditioning.
+  constexpr double kMaxRelativeInformation = 1e-8;
+  const Eigen::VectorXd S_diagonal = S.diagonal();
+  Eigen::MatrixXd regularization = Eigen::MatrixXd::Zero(num_params, num_params);
+  for (int i = 0; i < kNumGaugeParams; ++i) {
+    const Eigen::VectorXd direction =
+        orthonormal_basis * eigen_solver.eigenvectors().col(i);
+    if (eigen_solver.eigenvalues()(i) <
+        kMaxRelativeInformation * direction.cwiseAbs2().dot(S_diagonal)) {
+      regularization += direction * direction.transpose();
+    }
+  }
+  if (!regularization.isZero()) {
+    S = (Eigen::MatrixXd(S) + S_diagonal.mean() * regularization).sparseView();
+  }
+
+  return Eigen::MatrixXd::Identity(num_params, num_params) -
+         orthonormal_basis * orthonormal_basis.transpose();
+}
+
 Eigen::MatrixXd ExtractCovFromLInverse(const Eigen::MatrixXd& L_inv,
                                        int row_start,
                                        int col_start,
@@ -298,8 +359,7 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
   const std::vector<internal::PointParam> points =
       internal::GetPointParams(reconstruction, problem);
   // Poses and other parameters are only required downstream when estimating
-  // their covariances; skip collection otherwise (collecting poses requires
-  // all images to be registered, which need not hold for point-only queries).
+  // their covariances; skip collection otherwise.
   const std::vector<internal::PoseParam> poses =
       (estimate_pose_covs || estimate_other_covs)
           ? (options.experimental_custom_poses.empty()
@@ -362,10 +422,14 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
                         /*L_inv=*/Eigen::MatrixXd());
   }
 
+  std::optional<Eigen::MatrixXd> gauge_complement_projector;
   if (!estimate_other_covs) {
     if (!SchurEliminateOtherParams(
             options.damping, pose_num_params, other_num_params, S)) {
       return std::nullopt;
+    }
+    if (options.minimum_norm_gauge) {
+      gauge_complement_projector = RegularizeGaugeFreedom(poses, S);
     }
   }
 
@@ -374,6 +438,10 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
   Eigen::MatrixXd L_inv;
   if (!ComputeLInverse(S, L_inv)) {
     return std::nullopt;
+  }
+  if (gauge_complement_projector.has_value()) {
+    // The covariance L_inv^T * L_inv becomes P * S^-1 * P.
+    L_inv *= *gauge_complement_projector;
   }
 
   return BACovariance(std::move(point_covs),
@@ -389,6 +457,12 @@ std::vector<PoseParam> GetPoseParams(const Reconstruction& reconstruction,
   std::vector<PoseParam> params;
   params.reserve(reconstruction.NumImages());
   for (const auto& [image_id, image] : reconstruction.Images()) {
+    // Images without a pose are never variables in the problem; skip them
+    // (common during incremental mapping, where most images are not yet
+    // registered).
+    if (!image.HasPose()) {
+      continue;
+    }
     // TODO(jsch): Add support for non-trivial frames.
     THROW_CHECK(image.IsRefInFrame());
     const Rigid3d& cam_from_world = image.FramePtr()->RigFromWorld();
@@ -429,13 +503,33 @@ std::vector<const double*> GetOtherParams(
   }
 
   std::vector<const double*> params;
+  FlatHashSet<const double*> visited_params;
+  const auto maybe_add_param = [&](const double* param) {
+    if (pose_and_point_params.count(param) == 0 &&
+        visited_params.insert(param).second &&
+        !problem.IsParameterBlockConstant(const_cast<double*>(param))) {
+      params.push_back(param);
+    }
+  };
+
+  // Order by first occurrence in the residual blocks (in insertion order)
+  // rather than by memory address, so that the covariances are deterministic.
+  std::vector<ceres::ResidualBlockId> residual_block_ids;
+  problem.GetResidualBlocks(&residual_block_ids);
+  std::vector<double*> residual_params;
+  for (const ceres::ResidualBlockId residual_block_id : residual_block_ids) {
+    problem.GetParameterBlocksForResidualBlock(residual_block_id,
+                                               &residual_params);
+    for (const double* param : residual_params) {
+      maybe_add_param(param);
+    }
+  }
+
+  // Parameter blocks without residuals.
   std::vector<double*> all_params;
   problem.GetParameterBlocks(&all_params);
   for (const double* param : all_params) {
-    if (!problem.IsParameterBlockConstant(const_cast<double*>(param)) &&
-        pose_and_point_params.count(param) == 0) {
-      params.push_back(param);
-    }
+    maybe_add_param(param);
   }
   return params;
 }
@@ -456,29 +550,30 @@ std::vector<Eigen::Matrix3d> EstimateCeresPointCovariance(
   ceres::Covariance::Options options;
   ceres::Covariance covariance_computer(options);
 
-  std::vector<Eigen::Matrix3d> covs;
-  covs.reserve(point3D_ids.size());
-
+  // Ceres rejects duplicate covariance blocks, so request each point once.
   std::vector<std::pair<const double*, const double*>> cov_param_pairs;
-  cov_param_pairs.reserve(point3D_ids.size());
-  for (const point3D_t point3D_id : point3D_ids) {
+  cov_param_pairs.reserve(ba_config.NumVariablePoints());
+  for (const point3D_t point3D_id : ba_config.VariablePoints()) {
     const Point3D& point3D = reconstruction->Point3D(point3D_id);
     cov_param_pairs.emplace_back(point3D.xyz.data(), point3D.xyz.data());
   }
 
   if (!covariance_computer.Compute(cov_param_pairs,
                                    bundle_adjuster->Problem().get())) {
-    LOG(ERROR)
-        << "Failed to compute covariance, falling back to identity covariance";
-    covs.resize(point3D_ids.size(), Eigen::Matrix3d::Identity());
-    return covs;
+    LOG(WARNING) << "Failed to estimate point covariance";
+    return {};
   }
 
+  std::vector<Eigen::Matrix3d> covs;
+  covs.reserve(point3D_ids.size());
   for (const point3D_t point3D_id : point3D_ids) {
     const Point3D& point3D = reconstruction->Point3D(point3D_id);
     Eigen::Matrix<double, 3, 3, Eigen::RowMajor> cov;
-    covariance_computer.GetCovarianceMatrixInTangentSpace({point3D.xyz.data()},
-                                                          cov.data());
+    if (!covariance_computer.GetCovarianceMatrixInTangentSpace(
+            {point3D.xyz.data()}, cov.data())) {
+      LOG(WARNING) << "Failed to estimate point covariance";
+      return {};
+    }
     covs.push_back(cov);
   }
   return covs;

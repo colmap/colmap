@@ -3,6 +3,7 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
+#include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
@@ -99,6 +100,15 @@ Eigen::Matrix2d PropagatePointCovarianceToImage(
     const Eigen::Vector3d& point3D_in_cam,
     const Eigen::Matrix3d& point3D_cov);
 
+// Propagate a pixel-space 2D measurement covariance to normalized image
+// coordinates: S_n = J * S_x * J^T with J = d(hnormalized)/d(ray) *
+// d(ray)/d(pixel). Returns nullopt if unprojection (or its Jacobian) is
+// unavailable or the ray is perpendicular to the optical axis.
+std::optional<Eigen::Matrix2d> PropagatePixelCovarianceToNormalized(
+    const Camera& camera,
+    const Eigen::Vector2d& img_point,
+    const Eigen::Matrix2d& img_cov);
+
 // Variant of the P3P estimator that considers 2D-3D point covariance for
 // scoring hypotheses: residuals are squared Mahalanobis distances of the
 // reprojection error under the joint 2D + projected 3D covariance. Intended
@@ -124,7 +134,9 @@ class CovariantP3PEstimator {
 
   // Squared Mahalanobis distance of the reprojection error under the joint
   // 2D + projected 3D covariance. Correspondences behind the camera or with
-  // non-positive-definite joint covariance receive maximum residual.
+  // non-positive-definite joint covariance receive maximum residual. Inlier
+  // gating is left to the caller, e.g., RANSAC with max_error in units of
+  // standard deviations.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
                         const M_t& cam_from_world,

@@ -307,6 +307,98 @@ TEST_F(IncrementalMapperTest, FullPipeline) {
   EXPECT_GE(max_track_length, reconstruction_->NumRegImages());
 }
 
+TEST_F(IncrementalMapperTest, LocalBundleAdjustmentWithCovariance) {
+  options_.abs_pose_use_point_covariance = true;
+  options_.ba_update_covariance = true;
+  tri_options_.use_covariance = true;
+
+  FindAndRegisterInitialPair();
+  TriangulateInitialPair();
+
+  // Covariances are seeded by registration, updated by local bundle
+  // adjustment, and consumed by the subsequent registrations and
+  // triangulations.
+  BundleAdjustmentOptions ba_options;
+  while (true) {
+    bool any_image_registered = false;
+    for (const image_t image_id : mapper_->FindNextImages(options_)) {
+      if (!mapper_->RegisterNextImage(options_, image_id)) {
+        continue;
+      }
+      mapper_->TriangulateImage(tri_options_, image_id);
+      mapper_->AdjustLocalBundle(options_,
+                                 ba_options,
+                                 tri_options_,
+                                 image_id,
+                                 mapper_->GetModifiedPoints3D());
+      mapper_->ClearModifiedPoints3D();
+      any_image_registered = true;
+    }
+    if (!any_image_registered) {
+      break;
+    }
+  }
+  EXPECT_EQ(reconstruction_->NumRegFrames(), 10);
+
+  mapper_->TransformCovarianceCache(reconstruction_->Normalize());
+  mapper_->CompleteAndMergeTracks(tri_options_);
+
+  EXPECT_THAT(gt_reconstruction_,
+              ReconstructionNear(*reconstruction_,
+                                 /*max_rotation_error_deg=*/1e-1,
+                                 /*max_proj_center_error=*/1e-1));
+}
+
+TEST_F(IncrementalMapperTest, CalibratesMeasurementNoise) {
+  // Synthetic keypoints have unit scale, i.e., a modeled noise of 1 pixel.
+  constexpr double kPoint2DStddev = 0.2;
+  mapper_->EndReconstruction(/*discard=*/false);
+  SyntheticNoiseOptions noise_options;
+  noise_options.point2D_stddev = kPoint2DStddev;
+  SynthesizeNoise(noise_options, &gt_reconstruction_, database_.get());
+  cache_ = DatabaseCache::Create(*database_, DatabaseCache::Options());
+  mapper_ = std::make_unique<IncrementalMapper>(cache_);
+  reconstruction_ = std::make_shared<Reconstruction>();
+  mapper_->BeginReconstruction(reconstruction_);
+  EXPECT_EQ(mapper_->CovarianceCache().MeasurementVarianceScale(), 1);
+
+  options_.calibrate_measurement_noise = true;
+  FindAndRegisterInitialPair();
+  TriangulateInitialPair();
+  BundleAdjustmentOptions ba_options;
+  while (true) {
+    bool any_image_registered = false;
+    for (const image_t image_id : mapper_->FindNextImages(options_)) {
+      if (!mapper_->RegisterNextImage(options_, image_id)) {
+        continue;
+      }
+      mapper_->TriangulateImage(tri_options_, image_id);
+      mapper_->AdjustLocalBundle(options_,
+                                 ba_options,
+                                 tri_options_,
+                                 image_id,
+                                 mapper_->GetModifiedPoints3D());
+      mapper_->ClearModifiedPoints3D();
+      any_image_registered = true;
+    }
+    if (!any_image_registered) {
+      break;
+    }
+  }
+  EXPECT_EQ(reconstruction_->NumRegFrames(), 10);
+  EXPECT_NEAR(mapper_->CovarianceCache().MeasurementVarianceScale(),
+              kPoint2DStddev * kPoint2DStddev,
+              0.3 * kPoint2DStddev * kPoint2DStddev);
+  // The last local bundle adjustment updated the pose covariances of all its
+  // images in the minimum-norm gauge.
+  size_t num_pose_covs = 0;
+  for (const image_t image_id : reconstruction_->RegImageIds()) {
+    num_pose_covs +=
+        mapper_->CovarianceCache().PoseCov(image_id).has_value() ? 1 : 0;
+  }
+  EXPECT_GE(num_pose_covs, options_.ba_local_num_images);
+}
+
 TEST_F(IncrementalMapperTest, FindLocalBundle) {
   FindAndRegisterInitialPair();
   TriangulateInitialPair();

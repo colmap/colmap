@@ -108,6 +108,17 @@ TEST(OptionManager, WriteAndRead) {
   options_write.feature_extraction->max_image_size = 2048;
   options_write.feature_extraction->sift->max_num_features = 4096;
   options_write.mapper->min_num_matches = 20;
+  options_write.mapper->measurement_base_sigma_px = 1.5;
+  options_write.mapper->measurement_scale_gamma = 0.5;
+  options_write.mapper->mapper.abs_pose_use_point_covariance = false;
+  options_write.mapper->mapper.ba_update_covariance = false;
+  options_write.mapper->mapper.ba_update_covariance_minimum_norm_gauge = false;
+  options_write.mapper->mapper.calibrate_measurement_noise = false;
+  options_write.mapper->triangulation.use_covariance = false;
+  options_write.mapper->triangulation.inlier_chi2_threshold = 7.0;
+  options_write.mapper->triangulation.measurement_noise_dof = 5.0;
+  options_write.mapper->triangulation.covariance_legacy_gates = false;
+  options_write.mapper->triangulation.covariance_legacy_fallback = false;
 
   // Write to file
   options_write.Write(config_path);
@@ -132,6 +143,29 @@ TEST(OptionManager, WriteAndRead) {
             options_write.feature_extraction->sift->max_num_features);
   EXPECT_EQ(options_read.mapper->min_num_matches,
             options_write.mapper->min_num_matches);
+  EXPECT_EQ(options_read.mapper->measurement_base_sigma_px,
+            options_write.mapper->measurement_base_sigma_px);
+  EXPECT_EQ(options_read.mapper->measurement_scale_gamma,
+            options_write.mapper->measurement_scale_gamma);
+  EXPECT_EQ(options_read.mapper->mapper.abs_pose_use_point_covariance,
+            options_write.mapper->mapper.abs_pose_use_point_covariance);
+  EXPECT_EQ(options_read.mapper->mapper.ba_update_covariance,
+            options_write.mapper->mapper.ba_update_covariance);
+  EXPECT_EQ(
+      options_read.mapper->mapper.ba_update_covariance_minimum_norm_gauge,
+      options_write.mapper->mapper.ba_update_covariance_minimum_norm_gauge);
+  EXPECT_EQ(options_read.mapper->mapper.calibrate_measurement_noise,
+            options_write.mapper->mapper.calibrate_measurement_noise);
+  EXPECT_EQ(options_read.mapper->triangulation.use_covariance,
+            options_write.mapper->triangulation.use_covariance);
+  EXPECT_EQ(options_read.mapper->triangulation.inlier_chi2_threshold,
+            options_write.mapper->triangulation.inlier_chi2_threshold);
+  EXPECT_EQ(options_read.mapper->triangulation.measurement_noise_dof,
+            options_write.mapper->triangulation.measurement_noise_dof);
+  EXPECT_EQ(options_read.mapper->triangulation.covariance_legacy_gates,
+            options_write.mapper->triangulation.covariance_legacy_gates);
+  EXPECT_EQ(options_read.mapper->triangulation.covariance_legacy_fallback,
+            options_write.mapper->triangulation.covariance_legacy_fallback);
 }
 
 TEST(OptionManager, ReRead) {

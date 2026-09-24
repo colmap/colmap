@@ -40,6 +40,14 @@ class DatabaseCache {
 
     // Whether to convert pose priors to ENU coordinate system.
     bool convert_pose_priors_to_enu = false;
+
+    // Base 2D measurement standard deviation in pixels at unit keypoint
+    // scale; each point's covariance is derived from its keypoint scale.
+    double measurement_base_sigma_px = 1.0;
+
+    // Exponent of the keypoint scale in the measurement noise model
+    // (sigma = base_sigma_px * scale^gamma). Must be non-negative.
+    double measurement_scale_gamma = 0.5;
   };
 
   DatabaseCache();

@@ -7,6 +7,40 @@
 namespace colmap {
 namespace {
 
+TEST(ChiSquareTwoDof, Values) {
+  // Guards against transcription errors; standard 2-DoF quantiles.
+  EXPECT_NEAR(kChiSquare95TwoDof, 5.99146, 1e-4);
+  EXPECT_NEAR(kChiSquare99TwoDof, 9.21034, 1e-4);
+  EXPECT_NEAR(kChiSquare999TwoDof, 13.81551, 1e-4);
+  EXPECT_LT(kChiSquare95TwoDof, kChiSquare99TwoDof);
+  EXPECT_LT(kChiSquare99TwoDof, kChiSquare999TwoDof);
+}
+
+TEST(StudentTTwoDofThreshold, Nominal) {
+  const double kInf = std::numeric_limits<double>::infinity();
+  EXPECT_EQ(StudentTTwoDofThreshold(kChiSquare99TwoDof, kInf),
+            kChiSquare99TwoDof);
+  EXPECT_NEAR(StudentTTwoDofThreshold(kChiSquare99TwoDof, 1e7),
+              kChiSquare99TwoDof,
+              1e-4);
+  // 1% tail probability for 3 degrees of freedom.
+  EXPECT_NEAR(StudentTTwoDofThreshold(kChiSquare99TwoDof, 3),
+              3 * (std::pow(0.01, -2.0 / 3) - 1) * 2 * std::log(2.0) /
+                  (3 * (std::pow(0.5, -2.0 / 3) - 1)),
+              1e-9);
+  EXPECT_NEAR(StudentTTwoDofThreshold(kChiSquare99TwoDof, 3), 48.48, 1e-2);
+  EXPECT_GT(StudentTTwoDofThreshold(kChiSquare99TwoDof, 3),
+            StudentTTwoDofThreshold(kChiSquare99TwoDof, 5));
+  EXPECT_GT(StudentTTwoDofThreshold(kChiSquare99TwoDof, 5),
+            kChiSquare99TwoDof);
+  // The medians coincide.
+  for (const double dof : {1.0, 3.0, 10.0}) {
+    EXPECT_NEAR(StudentTTwoDofThreshold(2 * std::log(2.0), dof),
+                2 * std::log(2.0),
+                1e-9);
+  }
+}
+
 TEST(SignOfNumber, Nominal) {
   EXPECT_EQ(SignOfNumber(0), 1);
   EXPECT_EQ(SignOfNumber(-0.1), -1);

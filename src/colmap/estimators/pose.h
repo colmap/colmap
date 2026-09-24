@@ -44,6 +44,10 @@ struct AbsolutePoseRefinementOptions {
   int max_num_iterations = 100;
 
   // Scaling factor determines at which residual robustification takes place.
+  // In pixels for unweighted residuals. When covariances are passed to
+  // RefineAbsolutePose, all residuals are whitened and the scale is in
+  // standard deviations; its square then also serves as the pixel variance
+  // for observations without a valid measurement covariance.
   double loss_function_scale = 1.0;
 
   // Whether to refine the focal length parameter group.
@@ -81,11 +85,18 @@ struct AbsolutePoseRefinementOptions {
 // focal length is assigned to the given camera.
 //
 // @param options              Absolute pose estimation options.
-// @param points2D             Corresponding 2D points.
+// @param points2D             Corresponding 2D points in pixels.
+// @param points2D_cov         Corresponding 2D measurement covariances in
+//                             pixels, propagated to normalized coordinates for
+//                             scoring. Empty for the legacy RANSAC-threshold
+//                             derived placeholder covariances.
 // @param points3D             Corresponding 3D points.
 // @param points3D_cov         Corresponding 3D point covariances, used to
-//                             score hypotheses in RANSAC. Empty to disable.
-//                             Ignored when estimating the focal length.
+//                             score hypotheses in RANSAC. The covariant path
+//                             is taken for perspective cameras if either
+//                             covariance vector is non-empty. Ignored for
+//                             spherical cameras and when estimating the focal
+//                             length.
 // @param cam_from_world       Estimated absolute camera pose.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
@@ -95,12 +106,32 @@ struct AbsolutePoseRefinementOptions {
 // @return                     Whether pose is estimated successfully.
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
+                          const std::vector<Eigen::Matrix2d>& points2D_cov,
                           const std::vector<Eigen::Vector3d>& points3D,
                           const std::vector<Eigen::Matrix3d>& points3D_cov,
                           Rigid3d* cam_from_world,
                           Camera* camera,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask);
+
+// Backwards-compatible overload without covariance inputs.
+inline bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
+                                 const std::vector<Eigen::Vector2d>& points2D,
+                                 const std::vector<Eigen::Vector3d>& points3D,
+                                 Rigid3d* cam_from_world,
+                                 Camera* camera,
+                                 size_t* num_inliers,
+                                 std::vector<char>* inlier_mask) {
+  return EstimateAbsolutePose(options,
+                              points2D,
+                              /*points2D_cov=*/{},
+                              points3D,
+                              /*points3D_cov=*/{},
+                              cam_from_world,
+                              camera,
+                              num_inliers,
+                              inlier_mask);
+}
 
 // Estimate relative pose from 2D-2D correspondences.
 //
@@ -138,13 +169,22 @@ bool EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param cam_from_world       Refined absolute camera pose.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
-// @param cam_from_world_cov   Estimated 6x6 covariance matrix of
-//                             the rotation (as axis-angle, in tangent space)
-//                             and translation terms (optional).
+// @param cam_from_world_cov   Estimated 6x6 covariance matrix of the Ceres
+//                             quaternion-manifold tangent and translation
+//                             terms (optional).
 // @param points3D_cov         Corresponding 3D point covariances, used to
 //                             whiten residuals per observation (optional).
+// @param points2D_cov         Corresponding 2D measurement covariances in
+//                             pixels, used to whiten residuals per observation
+//                             (optional). Empty/nullptr or invalid entries
+//                             fall back to the robust loss scale as the pixel
+//                             noise floor.
 //
-// @return                     Whether the solution is usable.
+// @return                     Whether the solution is usable. If
+//                             cam_from_world_cov is given, also returns false
+//                             if the covariance cannot be computed (e.g.
+//                             rank-deficient problem), in which case the pose
+//                             and camera have still been refined in-place.
 bool RefineAbsolutePose(
     const AbsolutePoseRefinementOptions& options,
     const std::vector<char>& inlier_mask,
@@ -153,7 +193,8 @@ bool RefineAbsolutePose(
     Rigid3d* cam_from_world,
     Camera* camera,
     Eigen::Matrix6d* cam_from_world_cov = nullptr,
-    const std::vector<Eigen::Matrix3d>* points3D_cov = nullptr);
+    const std::vector<Eigen::Matrix3d>* points3D_cov = nullptr,
+    const std::vector<Eigen::Matrix2d>* points2D_cov = nullptr);
 
 // Refine relative pose of two cameras.
 //

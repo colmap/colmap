@@ -9,6 +9,7 @@
 #include "colmap/util/logging.h"
 
 #include <cmath>
+#include <limits>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -286,6 +287,35 @@ Eigen::Matrix2d PropagatePointCovarianceToImage(
   return J * point3D_cov * J.transpose();
 }
 
+std::optional<Eigen::Matrix2d> PropagatePixelCovarianceToNormalized(
+    const Camera& camera,
+    const Eigen::Vector2d& img_point,
+    const Eigen::Matrix2d& img_cov) {
+  if (!img_cov.allFinite()) {
+    return std::nullopt;
+  }
+  const std::optional<CamRayWithJac> ray_with_jac =
+      camera.CamRayFromImgWithJac(img_point);
+  if (!ray_with_jac.has_value() || !ray_with_jac->ray.allFinite() ||
+      !ray_with_jac->jacobian.allFinite()) {
+    return std::nullopt;
+  }
+  const double z = ray_with_jac->ray.z();
+  // hnormalized() is singular for rays perpendicular to the optical axis.
+  if (!(std::abs(z) > std::numeric_limits<double>::epsilon())) {
+    return std::nullopt;
+  }
+  Eigen::Matrix2x3d J_hnormalized;
+  J_hnormalized << 1 / z, 0, -ray_with_jac->ray.x() / (z * z), 0, 1 / z,
+      -ray_with_jac->ray.y() / (z * z);
+  const Eigen::Matrix2d J = J_hnormalized * ray_with_jac->jacobian;
+  const Eigen::Matrix2d normalized_cov = J * img_cov * J.transpose();
+  if (!normalized_cov.allFinite()) {
+    return std::nullopt;
+  }
+  return normalized_cov;
+}
+
 void CovariantP3PEstimator::Estimate(const std::vector<X_t>& points2D,
                                      const std::vector<Y_t>& points3D,
                                      std::vector<M_t>* models) {
@@ -316,17 +346,19 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                                       const std::vector<Y_t>& points3D,
                                       const M_t& cam_from_world,
                                       std::vector<double>* residuals) {
-  constexpr double kInlierSigmaFactorSqr = 3.0 * 3.0;
-
   const size_t num_points2D = points2D.size();
   THROW_CHECK_EQ(num_points2D, points3D.size());
   residuals->resize(num_points2D);
   const Eigen::Matrix3d rotation = cam_from_world.rotation().toRotationMatrix();
   for (size_t i = 0; i < num_points2D; ++i) {
     const Eigen::Vector3d point3D_in_cam = cam_from_world * points3D[i].first;
-    // Note the inverted comparison: it also rejects NaN coordinates, which
-    // can arise from degenerate models or points during RANSAC.
-    if (!(point3D_in_cam.z() > std::numeric_limits<double>::epsilon())) {
+    // Note the inverted comparisons: they also reject NaN coordinates, which
+    // can arise from degenerate models or points during RANSAC. Rays pointing
+    // away from the image plane would alias to the mirrored normalized
+    // coordinates and are thus rejected as well.
+    if (!(point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) ||
+        !(points2D[i].first.camera_ray.z() >
+          std::numeric_limits<double>::epsilon())) {
       (*residuals)[i] = std::numeric_limits<double>::max();
       continue;
     }
@@ -347,12 +379,9 @@ void CovariantP3PEstimator::Residuals(const std::vector<X_t>& points2D,
         points2D[i].first.camera_ray.hnormalized();
     const double mahalanobis_dist_sqr =
         proj_error.transpose() * ldlt.solve(proj_error);
-    if (!std::isfinite(mahalanobis_dist_sqr) ||
-        mahalanobis_dist_sqr > kInlierSigmaFactorSqr) {
-      (*residuals)[i] = std::numeric_limits<double>::max();
-      continue;
-    }
-    (*residuals)[i] = mahalanobis_dist_sqr;
+    (*residuals)[i] = std::isfinite(mahalanobis_dist_sqr)
+                          ? mahalanobis_dist_sqr
+                          : std::numeric_limits<double>::max();
   }
 }
 

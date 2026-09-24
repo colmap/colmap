@@ -2,12 +2,15 @@
 
 #pragma once
 
+#include "colmap/math/math.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/covariance_cache.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/hash_containers.h"
 
 #include <memory>
+#include <optional>
 
 namespace colmap {
 
@@ -48,6 +51,38 @@ class IncrementalTriangulator {
     // Minimum pairwise triangulation angle for a stable triangulation.
     double min_angle = 1.5;
 
+    // Whether to use covariance-weighted triangulation with whitened
+    // chi-squared gating. When false, the legacy pixel/angular thresholds
+    // above are used.
+    bool use_covariance = true;
+
+    // Chi-squared threshold (2 DoF) for inlier gating in the covariant path.
+    double inlier_chi2_threshold = kChiSquare99TwoDof;
+
+    // Chi-squared threshold for retriangulation in the covariant path.
+    // Looser than inlier_chi2_threshold to recover drifted observations.
+    double re_chi2_threshold = kChiSquare999TwoDof;
+
+    // Maximum relative depth uncertainty (ray-direction std over distance,
+    // worst inlier view) for accepting triangulations in the covariant path.
+    // Scale-free replacement for min_angle.
+    double max_relative_depth_uncertainty = 0.05;
+
+    // Degrees of freedom of the bivariate Student-t distribution that models
+    // heavy-tailed measurement noise in the covariant path. The chi-squared
+    // thresholds are mapped to the same tail probabilities under this
+    // distribution. Infinity corresponds to Gaussian noise.
+    double measurement_noise_dof = 3;
+
+    // Whether to additionally require the legacy pixel/angular thresholds
+    // when continuing, merging, and completing tracks in the covariant path.
+    bool covariance_legacy_gates = true;
+
+    // Whether to fall back to legacy triangulation of new tracks, if the
+    // covariant triangulation fails for reasons other than the relative depth
+    // uncertainty, e.g., too few observations within the chi-squared gate.
+    bool covariance_legacy_fallback = true;
+
     // Whether to ignore two-view tracks.
     bool ignore_two_view_tracks = true;
 
@@ -69,6 +104,13 @@ class IncrementalTriangulator {
       std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
       Reconstruction& reconstruction,
       std::shared_ptr<ObservationManager> obs_manager = nullptr);
+
+  // Set the covariance cache for derived pose and point covariances. The
+  // covariant path requires pose covariances for all involved images, so
+  // operations without a cache (null, the default) or with missing pose
+  // entries fall back to legacy gating. The cache must outlive the
+  // triangulator.
+  void SetCovarianceCache(MapperCovarianceCache* covariance_cache);
 
   // Triangulate observations of image.
   //
@@ -115,6 +157,18 @@ class IncrementalTriangulator {
 
   // Indicate that a 3D point has been modified.
   void AddModifiedPoint3D(point3D_t point3D_id);
+
+  // Point covariance for an existing 3D point: cache lookup, or computed on
+  // demand over the point's track and stored if missing. Requires pose
+  // covariances for all images in the track, unless `unknown_poses_as_exact`
+  // is set, in which case missing pose covariances are treated as exact (thus
+  // underestimating the uncertainty) and the result is not cached. Returns
+  // nullopt if the covariance cannot be computed (e.g. degenerate track).
+  // Note that the on-demand covariance covers the full track including any
+  // outlier observations (conservative for gating), unlike the inlier-only
+  // covariance stored at triangulation time.
+  std::optional<Eigen::Matrix3d> GetPointCov(
+      point3D_t point3D_id, bool unknown_poses_as_exact = false);
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
   const FlatHashSet<point3D_t>& GetModifiedPoints3D();
@@ -165,6 +219,33 @@ class IncrementalTriangulator {
   // Check if camera has bogus parameters and cache the result.
   bool HasCameraBogusParams(const Options& options, const Camera& camera);
 
+  // Covariant triangulation of a track.
+  enum class CovariantTriangulationStatus {
+    SUCCESS,
+    // Estimation failed, e.g., too few observations within the gate.
+    FAILURE,
+    // Estimation succeeded but the relative depth uncertainty is too large.
+    UNCERTAIN_DEPTH,
+  };
+  CovariantTriangulationStatus TriangulateTrackCovariant(
+      const Options& options,
+      const std::vector<CorrData>& corrs_data,
+      std::vector<char>& inlier_mask,
+      Eigen::Vector3d& xyz,
+      Eigen::Matrix3d& xyz_cov);
+
+  // Chi-squared threshold of the covariant path in units of the modeled
+  // measurement noise, i.e., adjusted for heavy tails and the calibrated
+  // measurement variance scale of the covariance cache.
+  double CovariantChiSquareThreshold(const Options& options,
+                                     double chi2_threshold) const;
+
+  // Pose covariance for an image. Returns nullopt if unknown, i.e. without an
+  // attached cache or a missing cache entry.
+  std::optional<Eigen::Matrix6d> GetPoseCov(image_t image_id) const;
+  bool HasPoseCovariances(const std::vector<CorrData>& corrs_data) const;
+  bool HasPoseCovariances(const Track& track) const;
+
   // Database cache for the reconstruction. Used to retrieve correspondence
   // information for triangulation.
   const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
@@ -174,6 +255,9 @@ class IncrementalTriangulator {
 
   // Class that is responsible for keeping track of 3D point statistics.
   std::shared_ptr<ObservationManager> obs_manager_;
+
+  // Cache for derived pose and point covariances. May be null.
+  MapperCovarianceCache* covariance_cache_ = nullptr;
 
   // Cache for cameras with bogus parameters.
   FlatHashMap<camera_t, bool> camera_has_bogus_params_;

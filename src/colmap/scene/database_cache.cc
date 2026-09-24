@@ -2,6 +2,7 @@
 
 #include "colmap/scene/database_cache.h"
 
+#include "colmap/scene/measurement_noise.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/string.h"
@@ -26,15 +27,6 @@ bool UseInlierMatchesCheck(const DatabaseCache::Options& options,
          (!options.ignore_watermarks ||
           two_view_geometry_config != TwoViewGeometry::WATERMARK);
 };
-
-std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
-    const FeatureKeypoints& keypoints) {
-  std::vector<Eigen::Vector2d> points(keypoints.size());
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);
-  }
-  return points;
-}
 
 }  // namespace
 
@@ -227,8 +219,11 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
       }
 
       const image_t image_id = image.ImageId();
+      MeasurementNoiseModel noise_model;
+      noise_model.base_sigma_px = options.measurement_base_sigma_px;
+      noise_model.scale_gamma = options.measurement_scale_gamma;
       image.SetPoints2D(
-          FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
+          KeypointsToPoint2Ds(database.ReadKeypoints(image_id), noise_model));
       images_.emplace(image_id, std::move(image));
     }
 

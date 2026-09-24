@@ -30,6 +30,7 @@ py::typing::Optional<py::dict> PyEstimateAbsolutePose(
   std::vector<char> inlier_mask;
   if (!EstimateAbsolutePose(estimation_options,
                             points2D,
+                            /*points2D_cov=*/{},
                             points3D,
                             /*points3D_cov=*/{},
                             &cam_from_world,
@@ -79,17 +80,18 @@ py::typing::Optional<py::dict> PyRefineAbsolutePose(
 py::typing::Optional<py::dict> PyEstimateAndRefineAbsolutePose(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
-    const std::vector<Eigen::Matrix3d>& points3D_cov,
     Camera& camera,
     const AbsolutePoseEstimationOptions& estimation_options,
     const AbsolutePoseRefinementOptions& refinement_options,
-    const bool return_covariance) {
+    const bool return_covariance,
+    const std::vector<Eigen::Matrix3d>& points3D_cov) {
   py::gil_scoped_release release;
   Rigid3d cam_from_world;
   size_t num_inliers;
   std::vector<char> inlier_mask;
   if (!EstimateAbsolutePose(estimation_options,
                             points2D,
+                            /*points2D_cov=*/{},
                             points3D,
                             points3D_cov,
                             &cam_from_world,
@@ -318,7 +320,6 @@ void BindAbsolutePoseEstimator(py::module& m) {
         &PyEstimateAndRefineAbsolutePose,
         "points2D"_a,
         "points3D"_a,
-        "points3D_cov"_a,
         "camera"_a,
         py::arg_v("estimation_options",
                   AbsolutePoseEstimationOptions(),
@@ -327,6 +328,7 @@ void BindAbsolutePoseEstimator(py::module& m) {
                   AbsolutePoseRefinementOptions(),
                   "AbsolutePoseRefinementOptions()"),
         "return_covariance"_a = false,
+        "points3D_cov"_a = std::vector<Eigen::Matrix3d>(),
         "Robust absolute pose estimation with LO-RANSAC "
         "followed by non-linear refinement.");
 

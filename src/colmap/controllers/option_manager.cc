@@ -659,6 +659,10 @@ void OptionManager::AddMapperOptions() {
 
   AddDefaultOption("Mapper.min_num_matches", &mapper->min_num_matches);
   AddDefaultOption("Mapper.ignore_watermarks", &mapper->ignore_watermarks);
+  AddDefaultOption("Mapper.measurement_base_sigma_px",
+                   &mapper->measurement_base_sigma_px);
+  AddDefaultOption("Mapper.measurement_scale_gamma",
+                   &mapper->measurement_scale_gamma);
   AddDefaultOption("Mapper.multiple_models", &mapper->multiple_models);
   AddDefaultOption("Mapper.max_num_models", &mapper->max_num_models);
   AddDefaultOption("Mapper.max_model_overlap", &mapper->max_model_overlap);
@@ -745,6 +749,14 @@ void OptionManager::AddMapperOptions() {
                    &mapper->mapper.abs_pose_min_num_inliers);
   AddDefaultOption("Mapper.abs_pose_min_inlier_ratio",
                    &mapper->mapper.abs_pose_min_inlier_ratio);
+  AddDefaultOption("Mapper.abs_pose_use_point_covariance",
+                   &mapper->mapper.abs_pose_use_point_covariance);
+  AddDefaultOption("Mapper.ba_update_covariance",
+                   &mapper->mapper.ba_update_covariance);
+  AddDefaultOption("Mapper.ba_update_covariance_minimum_norm_gauge",
+                   &mapper->mapper.ba_update_covariance_minimum_norm_gauge);
+  AddDefaultOption("Mapper.calibrate_measurement_noise",
+                   &mapper->mapper.calibrate_measurement_noise);
   AddDefaultOption("Mapper.filter_max_reproj_error",
                    &mapper->mapper.filter_max_reproj_error);
   AddDefaultOption("Mapper.filter_min_tri_angle",
@@ -787,6 +799,20 @@ void OptionManager::AddMapperOptions() {
   AddDefaultOption("Mapper.tri_re_max_trials",
                    &mapper->triangulation.re_max_trials);
   AddDefaultOption("Mapper.tri_min_angle", &mapper->triangulation.min_angle);
+  AddDefaultOption("Mapper.tri_use_covariance",
+                   &mapper->triangulation.use_covariance);
+  AddDefaultOption("Mapper.tri_inlier_chi2_threshold",
+                   &mapper->triangulation.inlier_chi2_threshold);
+  AddDefaultOption("Mapper.tri_re_chi2_threshold",
+                   &mapper->triangulation.re_chi2_threshold);
+  AddDefaultOption("Mapper.tri_max_relative_depth_uncertainty",
+                   &mapper->triangulation.max_relative_depth_uncertainty);
+  AddDefaultOption("Mapper.tri_measurement_noise_dof",
+                   &mapper->triangulation.measurement_noise_dof);
+  AddDefaultOption("Mapper.tri_covariance_legacy_gates",
+                   &mapper->triangulation.covariance_legacy_gates);
+  AddDefaultOption("Mapper.tri_covariance_legacy_fallback",
+                   &mapper->triangulation.covariance_legacy_fallback);
   AddDefaultOption("Mapper.tri_ignore_two_view_tracks",
                    &mapper->triangulation.ignore_two_view_tracks);
 }

@@ -31,18 +31,24 @@ typedef LORANSAC<CovariantP3PEstimator,
 void EstimateCovariantAbsolutePoseKernel(
     const Camera& camera,
     const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Matrix2d>& points2D_cov,
     const std::vector<Eigen::Vector3d>& points3D,
     const std::vector<Eigen::Matrix3d>& points3D_cov,
     const RANSACOptions& options,
     CovariantAbsolutePoseRANSAC::Report* report) {
   constexpr double kSigmaInlierFactor = 3.0;
 
+  // Legacy placeholder 2D covariances, derived from the RANSAC threshold.
   const double max_error_in_cam = camera.CamFromImgThreshold(options.max_error);
   const double var_in_cam = (max_error_in_cam / kSigmaInlierFactor) *
                             (max_error_in_cam / kSigmaInlierFactor);
-  const Eigen::Matrix2d point2D_cov = var_in_cam * Eigen::Matrix2d::Identity();
+  const Eigen::Matrix2d placeholder_point2D_cov =
+      var_in_cam * Eigen::Matrix2d::Identity();
+  const bool use_points2D_cov = !points2D_cov.empty();
 
-  // Unproject to rays, skipping observations that cannot be unprojected.
+  // Unproject to rays, skipping observations that cannot be unprojected or
+  // whose rays point away from the image plane (e.g. wide-angle fisheye
+  // beyond 90 degrees), which cannot be scored in normalized coordinates.
   std::vector<CovariantP3PEstimator::X_t> points2D_with_cov;
   std::vector<CovariantP3PEstimator::Y_t> points3D_with_cov;
   std::vector<size_t> valid_indices;
@@ -52,14 +58,27 @@ void EstimateCovariantAbsolutePoseKernel(
   for (size_t i = 0; i < points2D.size(); ++i) {
     const std::optional<Eigen::Vector3d> ray =
         camera.CamRayFromImg(points2D[i]);
-    if (!ray.has_value()) {
+    if (!ray.has_value() ||
+        !(ray->z() > std::numeric_limits<double>::epsilon())) {
       continue;
+    }
+    Eigen::Matrix2d point2D_cov_in_cam = placeholder_point2D_cov;
+    if (use_points2D_cov) {
+      const std::optional<Eigen::Matrix2d> propagated_cov =
+          PropagatePixelCovarianceToNormalized(
+              camera, points2D[i], points2D_cov[i]);
+      if (!propagated_cov.has_value()) {
+        continue;
+      }
+      point2D_cov_in_cam = *propagated_cov;
     }
     Point2DWithRay point2D_with_ray;
     point2D_with_ray.image_point = points2D[i];
     point2D_with_ray.camera_ray = *ray;
-    points2D_with_cov.emplace_back(point2D_with_ray, point2D_cov);
-    points3D_with_cov.emplace_back(points3D[i], points3D_cov[i]);
+    points2D_with_cov.emplace_back(point2D_with_ray, point2D_cov_in_cam);
+    points3D_with_cov.emplace_back(
+        points3D[i],
+        points3D_cov.empty() ? Eigen::Matrix3d::Zero() : points3D_cov[i]);
     valid_indices.push_back(i);
   }
 
@@ -84,6 +103,7 @@ void EstimateCovariantAbsolutePoseKernel(
 
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
+                          const std::vector<Eigen::Matrix2d>& points2D_cov,
                           const std::vector<Eigen::Vector3d>& points3D,
                           const std::vector<Eigen::Matrix3d>& points3D_cov,
                           Rigid3d* cam_from_world,
@@ -91,6 +111,9 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
   THROW_CHECK_EQ(points2D.size(), points3D.size());
+  if (!points2D_cov.empty()) {
+    THROW_CHECK_EQ(points2D.size(), points2D_cov.size());
+  }
   if (!points3D_cov.empty()) {
     THROW_CHECK_EQ(points2D.size(), points3D_cov.size());
   }
@@ -101,11 +124,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   inlier_mask->clear();
 
   // Note that focal length estimation is not supported in combination with
-  // point covariances; it takes precedence and the covariances are ignored.
-  if (!points3D_cov.empty() && !options.estimate_focal_length) {
+  // covariances; it takes precedence and the covariances are ignored.
+  if ((!points3D_cov.empty() || !points2D_cov.empty()) &&
+      !options.estimate_focal_length && camera->IsPerspective()) {
     CovariantAbsolutePoseRANSAC::Report report;
     EstimateCovariantAbsolutePoseKernel(*camera,
                                         points2D,
+                                        points2D_cov,
                                         points3D,
                                         points3D_cov,
                                         options.ransac_options,
@@ -232,12 +257,17 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         Rigid3d* cam_from_world,
                         Camera* camera,
                         Eigen::Matrix6d* cam_from_world_cov,
-                        const std::vector<Eigen::Matrix3d>* points3D_cov) {
+                        const std::vector<Eigen::Matrix3d>* points3D_cov,
+                        const std::vector<Eigen::Matrix2d>* points2D_cov) {
   THROW_CHECK_EQ(inlier_mask.size(), points2D.size());
   THROW_CHECK_EQ(points2D.size(), points3D.size());
   const bool use_point_cov = points3D_cov != nullptr && !points3D_cov->empty();
   if (use_point_cov) {
     THROW_CHECK_EQ(points3D_cov->size(), points3D.size());
+  }
+  const bool use_pixel_cov = points2D_cov != nullptr && !points2D_cov->empty();
+  if (use_pixel_cov) {
+    THROW_CHECK_EQ(points2D_cov->size(), points2D.size());
   }
   options.Check();
 
@@ -252,9 +282,12 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Problem problem(problem_options);
 
   // Whiten residuals by the joint 2D + projected 3D covariance, evaluated
-  // once at the initial pose. The 2D component uses the robust loss scale
-  // as the pixel noise floor; the 3D component is propagated to pixels with
-  // the projection Jacobian, which is available for any camera model.
+  // once at the initial pose. Without (valid) measurement covariances, the 2D
+  // component uses the robust loss scale as the pixel noise floor; the 3D
+  // component is propagated to pixels with the projection Jacobian, which is
+  // available for any camera model. If any covariance is given, all residuals
+  // are whitened, so the robust loss consistently operates on standard
+  // deviations.
   const Eigen::Matrix3d rotation =
       cam_from_world->rotation().toRotationMatrix();
   const double point2D_var =
@@ -266,27 +299,39 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
       continue;
     }
     ceres::CostFunction* cost_function = nullptr;
-    if (use_point_cov) {
-      const Eigen::Vector3d point3D_in_cam = *cam_from_world * points3D[i];
-      Eigen::Matrix2x3d J_img;
-      if (camera
-              ->ImgFromCamWithJac(point3D_in_cam,
-                                  &J_img,
-                                  /*check_cheirality=*/true)
-              .has_value()) {
-        const Eigen::Matrix2d joint_cov_px =
-            point2D_var * Eigen::Matrix2d::Identity() +
-            J_img * rotation * (*points3D_cov)[i] * rotation.transpose() *
-                J_img.transpose();
-        Eigen::LLT<Eigen::Matrix2d> llt(joint_cov_px);
-        if (joint_cov_px.allFinite() && llt.info() == Eigen::Success) {
-          cost_function = CreateCovarianceWeightedCameraCostFunction<
-              ReprojErrorConstantPoint3DCostFunctor>(
-              camera->model_id, joint_cov_px, points2D[i], points3D[i]);
+    if (use_point_cov || use_pixel_cov) {
+      Eigen::Matrix2d joint_cov_px = point2D_var * Eigen::Matrix2d::Identity();
+      if (use_pixel_cov && (*points2D_cov)[i].allFinite() &&
+          Eigen::LLT<Eigen::Matrix2d>((*points2D_cov)[i]).info() ==
+              Eigen::Success) {
+        joint_cov_px = (*points2D_cov)[i];
+      }
+      if (use_point_cov && (*points3D_cov)[i].allFinite()) {
+        const Eigen::Vector3d point3D_in_cam = *cam_from_world * points3D[i];
+        Eigen::Matrix2x3d J_img;
+        if (camera
+                ->ImgFromCamWithJac(point3D_in_cam,
+                                    &J_img,
+                                    /*check_cheirality=*/true)
+                .has_value()) {
+          // A failed propagation leaves the measurement-only covariance.
+          const Eigen::Matrix2d point_cov_px = J_img * rotation *
+                                               (*points3D_cov)[i] *
+                                               rotation.transpose() *
+                                               J_img.transpose();
+          const Eigen::Matrix2d candidate_joint_cov_px =
+              joint_cov_px + point_cov_px;
+          if (candidate_joint_cov_px.allFinite() &&
+              Eigen::LLT<Eigen::Matrix2d>(candidate_joint_cov_px).info() ==
+                  Eigen::Success) {
+            joint_cov_px = candidate_joint_cov_px;
+          }
         }
       }
-    }
-    if (cost_function == nullptr) {
+      cost_function = CreateCovarianceWeightedCameraCostFunction<
+          ReprojErrorConstantPoint3DCostFunctor>(
+          camera->model_id, joint_cov_px, points2D[i], points3D[i]);
+    } else {
       cost_function =
           CreateCameraCostFunction<ReprojErrorConstantPoint3DCostFunctor>(
               camera->model_id, points2D[i], points3D[i]);
@@ -384,9 +429,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }
-    // The rotation covariance is estimated in the tangent space of the
-    // quaternion, which corresponds to the 3-DoF axis-angle local
-    // parameterization.
+    // The rotation covariance is estimated in the 3-DoF tangent space of
+    // Ceres' EigenQuaternionManifold.
     covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
                                                  cam_from_world_cov->data());
   }

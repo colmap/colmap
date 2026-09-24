@@ -77,6 +77,17 @@ struct BACovarianceOptions {
   // Enables to robustly deal with poorly conditioned parameters.
   double damping = 1e-8;
 
+  // Whether to compute the pose covariances in the minimum-norm gauge of the
+  // variable poses by projecting out their joint similarity transformation.
+  // The covariances then only represent the uncertainty of the poses relative
+  // to each other and not relative to constant parameters, while covariances
+  // of similarity-invariant quantities, such as relative rotations, are
+  // unaffected. Free gauge directions, e.g., if no poses or points are
+  // constant, are handled instead of failing due to rank deficiency. Only
+  // supported for Params::POSES and POSES_AND_POINTS with 6-DoF pose
+  // parameters; otherwise, this option has no effect.
+  bool minimum_norm_gauge = false;
+
   // WARNING: This option will be removed in a future release, use at your own
   // risk. For custom bundle adjustment problems, this enables to specify a
   // custom set of pose parameter blocks to consider. Note that these pose
@@ -128,6 +139,12 @@ std::vector<const double*> GetOtherParams(
 
 }  // namespace internal
 
+// Estimate the 3x3 world-frame covariances of the given 3D points, conditioned
+// on the current (fixed) poses and camera parameters and assuming unit
+// isotropic pixel noise on all observations. The Ceres variant uses
+// ceres::Covariance, the Schur variant the (damped) Schur complement from
+// EstimateBACovarianceFromProblem. The output is in the order of the input
+// ids, which may contain duplicates. Returns an empty vector on failure.
 std::vector<Eigen::Matrix3d> EstimateCeresPointCovariance(
     Reconstruction* reconstruction, const std::vector<point3D_t>& point3D_ids);
 std::vector<Eigen::Matrix3d> EstimateSchurPointCovariance(

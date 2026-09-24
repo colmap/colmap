@@ -3,6 +3,14 @@
 import pycolmap
 
 
+def test_database_cache_measurement_noise_option() -> None:
+    options = pycolmap.DatabaseCacheOptions()
+    options.measurement_base_sigma_px = 1.5
+    assert options.measurement_base_sigma_px == 1.5
+    options.measurement_scale_gamma = 0.5
+    assert options.measurement_scale_gamma == 0.5
+
+
 def test_database_cache_options_default_init() -> None:
     options = pycolmap.DatabaseCacheOptions()
     assert options is not None

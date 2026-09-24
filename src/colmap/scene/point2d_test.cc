@@ -11,6 +11,7 @@ TEST(Point2D, Default) {
   Point2D point2D;
   EXPECT_EQ(point2D.xy, Eigen::Vector2d::Zero());
   EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
+  EXPECT_EQ(point2D.cov, Eigen::Matrix2f::Identity());
   EXPECT_FALSE(point2D.HasPoint3D());
 }
 
@@ -21,6 +22,10 @@ TEST(Point2D, Equals) {
   point2D.xy(0) += 1;
   EXPECT_NE(point2D, other);
   other.xy(0) += 1;
+  EXPECT_EQ(point2D, other);
+  point2D.cov(0, 0) += 1;
+  EXPECT_EQ(point2D, other);
+  other.cov(0, 0) += 2;
   EXPECT_EQ(point2D, other);
 }
 

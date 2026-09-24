@@ -5,6 +5,7 @@
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sfm/covariance_cache.h"
 #include "colmap/sfm/incremental_triangulator.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/hash_containers.h"
@@ -70,10 +71,28 @@ class IncrementalMapper {
     // Whether to estimate the extra parameters in absolute pose estimation.
     bool abs_pose_refine_extra_params = true;
 
-    // Whether to use 3D point covariances in absolute pose estimation and
-    // refinement. Estimating covariances rebuilds a bundle adjustment
-    // problem per registration; disable to save computation.
+    // Whether to use 2D measurement and 3D point covariances in absolute pose
+    // estimation and refinement, and to seed the pose covariance of newly
+    // registered images for covariant triangulation. Point covariances are
+    // propagated on demand from the cached pose covariances.
     bool abs_pose_use_point_covariance = true;
+
+    // Whether to update the pose covariances of the variable poses from the
+    // marginals of each local bundle adjustment, scaled by the images'
+    // measurement noise. Otherwise, the covariances of adjusted poses become
+    // unknown. Only supported for the Ceres backend without non-trivial rigs.
+    bool ba_update_covariance = true;
+
+    // Whether to compute the pose covariances from local bundle adjustment in
+    // the minimum-norm gauge of the variable poses. Otherwise, they are in the
+    // gauge of the arbitrary points that bundle adjustment fixes, which
+    // dominates the covariances when no other parameters are constant.
+    bool ba_update_covariance_minimum_norm_gauge = true;
+
+    // Whether to calibrate the scale of the modeled measurement noise from
+    // the residuals of local bundle adjustment. The scale adapts the gates of
+    // covariant triangulation to the actual noise level.
+    bool calibrate_measurement_noise = true;
 
     // Number of images to optimize in local bundle adjustment.
     int ba_local_num_images = 6;
@@ -273,6 +292,17 @@ class IncrementalMapper {
   const FlatHashMap<rig_t, size_t>& NumRegFramesPerRig() const;
   const FlatHashMap<camera_t, size_t>& NumRegImagesPerCamera() const;
 
+  // Propagate the derived covariances through a similarity transform that was
+  // applied to the reconstruction, e.g. by `Reconstruction::Normalize`.
+  void TransformCovarianceCache(const Sim3d& new_from_old_world);
+
+  // Invalidate all derived covariances, e.g. after an arbitrary external
+  // modification of the reconstruction.
+  void ClearCovarianceCache();
+
+  // Derived pose and point covariances and the calibrated measurement noise.
+  const MapperCovarianceCache& CovarianceCache() const;
+
   // Reset registration statistics for initialization. This can be used when
   // relaxing the initialization thresholds, such that previously tried pairs
   // will be tried again.
@@ -352,6 +382,20 @@ class IncrementalMapper {
 
   // Class that is responsible for incremental triangulation.
   std::shared_ptr<IncrementalTriangulator> triangulator_;
+
+  // Cache for derived pose and point covariances. Populated from pose
+  // refinement, local bundle adjustment marginals, and triangulation; consumed
+  // by registration and triangulation.
+  MapperCovarianceCache covariance_cache_;
+
+  // Update the pose covariances of the given images from the marginals of a
+  // just-solved local bundle adjustment problem. Skips silently for non-Ceres
+  // backends, non-trivial rigs, rank-deficient problems, and constant poses.
+  void UpdatePoseCovariancesFromLocalBA(
+      const Options& options,
+      const BundleAdjustmentOptions& ba_options,
+      BundleAdjuster* bundle_adjuster,
+      const FlatHashSet<image_t>& image_ids);
 
   // Statistics
   RegistrationStatistics reg_stats_;

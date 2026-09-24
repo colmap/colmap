@@ -141,11 +141,16 @@ void BindCovarianceEstimator(py::module& m) {
   m.def("estimate_ceres_point_covariance",
         &EstimateCeresPointCovariance,
         py::arg("reconstruction"),
-        py::arg("point3D_ids"));
+        py::arg("point3D_ids"),
+        "Estimates 3x3 point covariances conditioned on fixed poses and "
+        "intrinsics under unit pixel noise using ceres::Covariance. Returns "
+        "an empty list on failure.");
   m.def("estimate_schur_point_covariance",
         &EstimateSchurPointCovariance,
         py::arg("reconstruction"),
         py::arg("point3D_ids"),
-        py::arg("damping") = 1e-8);
-
+        py::arg("damping") = 1e-8,
+        "Estimates 3x3 point covariances conditioned on fixed poses and "
+        "intrinsics under unit pixel noise using the Schur complement. "
+        "Returns an empty list on failure.");
 }

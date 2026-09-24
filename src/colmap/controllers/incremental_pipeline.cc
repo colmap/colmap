@@ -51,6 +51,10 @@ DatabaseCache::Options CreateDatabaseCacheOptions(
   database_cache_options.load_all_images = options.load_all_images;
   database_cache_options.convert_pose_priors_to_enu =
       options.use_prior_position;
+  database_cache_options.measurement_base_sigma_px =
+      options.measurement_base_sigma_px;
+  database_cache_options.measurement_scale_gamma =
+      options.measurement_scale_gamma;
   return database_cache_options;
 }
 
@@ -301,6 +305,8 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GT(prior_position_loss_scale, 0.);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_GE(random_seed, -1);
+  CHECK_OPTION_GT(measurement_base_sigma_px, 0.0);
+  CHECK_OPTION_GE(measurement_scale_gamma, 0.0);
 #ifndef CASPAR_ENABLED
   CHECK_OPTION(ba_local_backend != BundleAdjustmentBackend::CASPAR);
   CHECK_OPTION(ba_global_backend != BundleAdjustmentBackend::CASPAR);
@@ -485,7 +491,7 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   if (CheckIfStopped() || CheckReachedMaxRuntime()) {
     return Status::INTERRUPTED;
   }
-  reconstruction.Normalize();
+  mapper.TransformCovarianceCache(reconstruction.Normalize());
   mapper.FilterPoints(mapper_options);
   mapper.FilterFrames(mapper_options);
 

@@ -207,6 +207,15 @@ void BindIncrementalPipeline(py::module& m) {
           &Opts::load_all_images,
           "Whether to load all images from the database, including those "
           "without correspondences. Only useful for triangulation.")
+      .def_readwrite(
+          "measurement_base_sigma_px",
+          &Opts::measurement_base_sigma_px,
+          "Base 2D measurement standard deviation in pixels at unit keypoint "
+          "scale.")
+      .def_readwrite("measurement_scale_gamma",
+                     &Opts::measurement_scale_gamma,
+                     "Exponent of the keypoint scale in the measurement noise "
+                     "model.")
       .def_readwrite("fix_existing_frames",
                      &Opts::fix_existing_frames,
                      "If reconstruction is provided as input, fix the existing "
@@ -385,6 +394,36 @@ void BindIncrementalMapperOptions(py::module& m) {
                      &Opts::abs_pose_refine_extra_params,
                      "Whether to estimate the extra parameters in absolute "
                      "pose estimation.")
+      .def_readwrite(
+          "abs_pose_use_point_covariance",
+          &Opts::abs_pose_use_point_covariance,
+          "Whether to use 2D measurement and 3D point covariances in absolute "
+          "pose estimation and refinement, and to seed the pose covariance of "
+          "newly registered images for covariant triangulation. Point "
+          "covariances are propagated on demand from the cached pose "
+          "covariances.")
+      .def_readwrite(
+          "ba_update_covariance",
+          &Opts::ba_update_covariance,
+          "Whether to update the pose covariances of the variable poses from "
+          "the marginals of each local bundle adjustment, scaled by the "
+          "images' measurement noise. Otherwise, the covariances of adjusted "
+          "poses become unknown. Only supported for the Ceres backend without "
+          "non-trivial rigs.")
+      .def_readwrite(
+          "ba_update_covariance_minimum_norm_gauge",
+          &Opts::ba_update_covariance_minimum_norm_gauge,
+          "Whether to compute the pose covariances from local bundle "
+          "adjustment in the minimum-norm gauge of the variable poses. "
+          "Otherwise, they are in the gauge of the arbitrary points that "
+          "bundle adjustment fixes, which dominates the covariances when no "
+          "other parameters are constant.")
+      .def_readwrite(
+          "calibrate_measurement_noise",
+          &Opts::calibrate_measurement_noise,
+          "Whether to calibrate the scale of the modeled measurement noise "
+          "from the residuals of local bundle adjustment. The scale adapts the "
+          "gates of covariant triangulation to the actual noise level.")
       .def_readwrite("ba_local_num_images",
                      &Opts::ba_local_num_images,
                      "Number of images to optimize in local bundle adjustment.")
@@ -498,6 +537,16 @@ void BindIncrementalMapperImpl(py::module& m) {
            "Cleanup the mapper after the current reconstruction is done. If "
            "the model is discarded, the number of total and shared registered "
            "images will be updated accordingly.")
+      .def("transform_covariance_cache",
+           &IncrementalMapper::TransformCovarianceCache,
+           "new_from_old_world"_a,
+           "Propagate the derived covariances through a similarity transform "
+           "that was applied to the reconstruction, e.g. by "
+           "Reconstruction.normalize.")
+      .def("clear_covariance_cache",
+           &IncrementalMapper::ClearCovarianceCache,
+           "Invalidate all derived covariances, e.g. after an arbitrary "
+           "external modification of the reconstruction.")
       .def(
           "find_initial_image_pair",
           [](IncrementalMapper& self,

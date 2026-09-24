@@ -151,6 +151,12 @@ struct IncrementalPipelineOptions {
   // enabled for incremental SfM.
   bool load_all_images = false;
 
+  // Base 2D measurement standard deviation in pixels at unit keypoint scale.
+  double measurement_base_sigma_px = 1.0;
+
+  // Exponent of the keypoint scale in the measurement noise model.
+  double measurement_scale_gamma = 0.5;
+
   // If reconstruction is provided as input, fix the existing frame poses.
   bool fix_existing_frames = false;
 

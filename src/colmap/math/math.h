@@ -19,6 +19,22 @@ namespace colmap {
 // 95% quantile of chi-square distribution with 3 degrees of freedom.
 constexpr double kChiSquare95ThreeDof = 7.814727903251179;
 
+// Quantiles of the chi-square distribution with 2 degrees of freedom, for
+// Mahalanobis gating of 2D residuals: a squared Mahalanobis distance below
+// the value is an inlier at the corresponding confidence. RANSAC compares
+// squared residuals against max_error^2, so pass the square root as max_error.
+constexpr double kChiSquare95TwoDof = 5.99146454710798;
+constexpr double kChiSquare99TwoDof = 9.21034037197618;
+constexpr double kChiSquare999TwoDof = 13.815510557964274;
+
+// Map a chi-square threshold (2 DoF) on the squared Mahalanobis distance of a
+// 2D residual under Gaussian noise to the threshold with the same tail
+// probability under bivariate Student-t noise with the given degrees of
+// freedom. The Student-t scale is chosen such that both distributions have the
+// same median squared Mahalanobis distance, e.g., when the noise scale is
+// calibrated from the median. Returns the input for infinite degrees of freedom.
+double StudentTTwoDofThreshold(double chi2_threshold, double dof);
+
 // Return 1 if number is positive (including 0), -1 if negative.
 // Undefined behavior if the value is NaN.
 template <typename T>

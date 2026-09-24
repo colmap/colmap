@@ -58,6 +58,36 @@ void BindIncrementalTriangulator(py::module& m) {
           "min_angle",
           &Opts::min_angle,
           "Minimum pairwise triangulation angle for a stable triangulation.")
+      .def_readwrite("use_covariance",
+                     &Opts::use_covariance,
+                     "Whether to use covariance-weighted triangulation.")
+      .def_readwrite("inlier_chi2_threshold",
+                     &Opts::inlier_chi2_threshold,
+                     "Chi-squared threshold for covariance-weighted inliers.")
+      .def_readwrite(
+          "re_chi2_threshold",
+          &Opts::re_chi2_threshold,
+          "Chi-squared threshold for covariance-weighted retriangulation.")
+      .def_readwrite("max_relative_depth_uncertainty",
+                     &Opts::max_relative_depth_uncertainty,
+                     "Maximum relative depth uncertainty for triangulation.")
+      .def_readwrite(
+          "measurement_noise_dof",
+          &Opts::measurement_noise_dof,
+          "Degrees of freedom of the Student-t distribution that models "
+          "heavy-tailed measurement noise in covariance-weighted "
+          "triangulation. Infinity corresponds to Gaussian noise.")
+      .def_readwrite("covariance_legacy_gates",
+                     &Opts::covariance_legacy_gates,
+                     "Whether to additionally require the legacy "
+                     "pixel/angular thresholds when continuing, merging, and "
+                     "completing tracks in covariance-weighted triangulation.")
+      .def_readwrite(
+          "covariance_legacy_fallback",
+          &Opts::covariance_legacy_fallback,
+          "Whether to fall back to legacy triangulation of new tracks, if the "
+          "covariance-weighted triangulation fails for reasons other than the "
+          "relative depth uncertainty.")
       .def_readwrite("ignore_two_view_tracks",
                      &Opts::ignore_two_view_tracks,
                      "Whether to ignore two-view tracks.")

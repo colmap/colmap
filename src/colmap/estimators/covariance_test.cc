@@ -297,6 +297,197 @@ INSTANTIATE_TEST_SUITE_P(
 
 }  // namespace
 
+TEST(EstimateBACovariance, UnregisteredImagesSkipped) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // De-register some frames, mimicking incremental mapping where most images
+  // have no pose yet. Pose covariance collection must skip them instead of
+  // throwing when accessing their (non-existent) pose.
+  const std::vector<frame_t> reg_frame_ids = reconstruction.RegFrameIds();
+  ASSERT_GE(reg_frame_ids.size(), 3);
+  std::vector<image_t> deregistered_image_ids;
+  for (size_t i = 0; i < 2; ++i) {
+    for (const data_t& data_id :
+         reconstruction.Frame(reg_frame_ids[i]).ImageIds()) {
+      deregistered_image_ids.push_back(data_id.id);
+    }
+    reconstruction.DeRegisterFrame(reg_frame_ids[i]);
+  }
+  ASSERT_EQ(deregistered_image_ids.size(), 2);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  // Fix the gauge by holding 3 points constant.
+  int num_constant_points = 0;
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    if (++num_constant_points <= 3) {
+      config.AddConstantPoint(point3D_id);
+    }
+  }
+
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  const auto summary = bundle_adjuster->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  auto* ceres_ba = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get());
+  ASSERT_NE(ceres_ba, nullptr);
+
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POSES_AND_POINTS;
+  const std::optional<BACovariance> ba_cov =
+      EstimateBACovariance(options, reconstruction, *ceres_ba);
+  ASSERT_TRUE(ba_cov.has_value());
+
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    const auto cov = ba_cov->GetCamCovFromWorld(image_id);
+    ASSERT_TRUE(cov.has_value());
+    EXPECT_EQ(cov->rows(), 6);
+    EXPECT_EQ(cov->cols(), 6);
+    EXPECT_TRUE(cov->allFinite());
+  }
+  for (const image_t image_id : deregistered_image_ids) {
+    EXPECT_FALSE(ba_cov->GetCamCovFromWorld(image_id).has_value());
+  }
+}
+
+TEST(EstimateBACovariance, MinimumNormGauge) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 200;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.01;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+    config.SetConstantCamIntrinsics(reconstruction.Image(image_id).CameraId());
+  }
+
+  // Reference covariances with a minimal gauge fixed by two poses.
+  BundleAdjustmentConfig fixed_gauge_config = config;
+  fixed_gauge_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  std::unique_ptr<BundleAdjuster> fixed_gauge_bundle_adjuster =
+      CreateDefaultBundleAdjuster(
+          BundleAdjustmentOptions(), fixed_gauge_config, reconstruction);
+  ASSERT_TRUE(fixed_gauge_bundle_adjuster->Solve()->IsSolutionUsable());
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POSES;
+  const std::optional<BACovariance> fixed_gauge_ba_cov = EstimateBACovariance(
+      options,
+      reconstruction,
+      *dynamic_cast<CeresBundleAdjuster*>(fixed_gauge_bundle_adjuster.get()));
+  ASSERT_TRUE(fixed_gauge_ba_cov.has_value());
+
+  // Without any gauge constraints, the covariances are rank deficient.
+  std::unique_ptr<BundleAdjuster> free_gauge_bundle_adjuster =
+      CreateDefaultBundleAdjuster(
+          BundleAdjustmentOptions(), config, reconstruction);
+  auto* free_gauge_ceres_bundle_adjuster =
+      dynamic_cast<CeresBundleAdjuster*>(free_gauge_bundle_adjuster.get());
+  EXPECT_FALSE(EstimateBACovariance(
+                   options, reconstruction, *free_gauge_ceres_bundle_adjuster)
+                   .has_value());
+  options.minimum_norm_gauge = true;
+  const std::optional<BACovariance> free_gauge_ba_cov = EstimateBACovariance(
+      options, reconstruction, *free_gauge_ceres_bundle_adjuster);
+  ASSERT_TRUE(free_gauge_ba_cov.has_value());
+
+  // Relative rotations are gauge-invariant, so their covariances must agree.
+  const std::vector<image_t>& image_ids = reconstruction.RegImageIds();
+  const image_t image_id1 = image_ids[image_ids.size() - 2];
+  const image_t image_id2 = image_ids[image_ids.size() - 1];
+  const Rigid3d& cam1_from_world =
+      reconstruction.Image(image_id1).CamFromWorld();
+  const Rigid3d& cam2_from_world =
+      reconstruction.Image(image_id2).CamFromWorld();
+  const std::optional<Eigen::MatrixXd> fixed_gauge_cov =
+      fixed_gauge_ba_cov->GetCam2CovFromCam1(
+          image_id1, cam1_from_world, image_id2, cam2_from_world);
+  const std::optional<Eigen::MatrixXd> free_gauge_cov =
+      free_gauge_ba_cov->GetCam2CovFromCam1(
+          image_id1, cam1_from_world, image_id2, cam2_from_world);
+  ASSERT_TRUE(fixed_gauge_cov.has_value());
+  ASSERT_TRUE(free_gauge_cov.has_value());
+  const Eigen::Matrix3d fixed_gauge_rotation_cov =
+      fixed_gauge_cov->topLeftCorner<3, 3>();
+  const Eigen::Matrix3d free_gauge_rotation_cov =
+      free_gauge_cov->topLeftCorner<3, 3>();
+  ExpectNearEigenMatrixXd(fixed_gauge_rotation_cov,
+                          free_gauge_rotation_cov,
+                          1e-6 * fixed_gauge_rotation_cov.norm());
+
+  // The minimum-norm covariances have the smallest total variance over all
+  // gauges. Constant poses and dimensions have zero variance.
+  double fixed_gauge_trace = 0;
+  double free_gauge_trace = 0;
+  for (const image_t image_id : image_ids) {
+    const std::optional<Eigen::MatrixXd> fixed_gauge_pose_cov =
+        fixed_gauge_ba_cov->GetCamCovFromWorld(image_id);
+    if (fixed_gauge_pose_cov.has_value()) {
+      fixed_gauge_trace += fixed_gauge_pose_cov->trace();
+    }
+    const std::optional<Eigen::MatrixXd> free_gauge_pose_cov =
+        free_gauge_ba_cov->GetCamCovFromWorld(image_id);
+    ASSERT_TRUE(free_gauge_pose_cov.has_value());
+    free_gauge_trace += free_gauge_pose_cov->trace();
+  }
+  EXPECT_GT(free_gauge_trace, 0);
+  EXPECT_LT(free_gauge_trace, fixed_gauge_trace);
+
+  // With the gauge anchored by constant points, the anchored directions are
+  // projected out as well, leaving the relative rotations unaffected.
+  BundleAdjustmentConfig anchored_config = config;
+  anchored_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
+  std::unique_ptr<BundleAdjuster> anchored_bundle_adjuster =
+      CreateDefaultBundleAdjuster(
+          BundleAdjustmentOptions(), anchored_config, reconstruction);
+  auto* anchored_ceres_bundle_adjuster =
+      dynamic_cast<CeresBundleAdjuster*>(anchored_bundle_adjuster.get());
+  options.minimum_norm_gauge = false;
+  const std::optional<BACovariance> anchored_ba_cov = EstimateBACovariance(
+      options, reconstruction, *anchored_ceres_bundle_adjuster);
+  options.minimum_norm_gauge = true;
+  const std::optional<BACovariance> projected_ba_cov = EstimateBACovariance(
+      options, reconstruction, *anchored_ceres_bundle_adjuster);
+  ASSERT_TRUE(anchored_ba_cov.has_value());
+  ASSERT_TRUE(projected_ba_cov.has_value());
+  const Eigen::Matrix3d anchored_rotation_cov =
+      anchored_ba_cov
+          ->GetCam2CovFromCam1(
+              image_id1, cam1_from_world, image_id2, cam2_from_world)
+          ->topLeftCorner<3, 3>();
+  const Eigen::Matrix3d projected_rotation_cov =
+      projected_ba_cov
+          ->GetCam2CovFromCam1(
+              image_id1, cam1_from_world, image_id2, cam2_from_world)
+          ->topLeftCorner<3, 3>();
+  ExpectNearEigenMatrixXd(anchored_rotation_cov,
+                          projected_rotation_cov,
+                          1e-6 * anchored_rotation_cov.norm());
+  double anchored_trace = 0;
+  double projected_trace = 0;
+  for (const image_t image_id : image_ids) {
+    anchored_trace += anchored_ba_cov->GetCamCovFromWorld(image_id)->trace();
+    projected_trace += projected_ba_cov->GetCamCovFromWorld(image_id)->trace();
+  }
+  EXPECT_LT(projected_trace, anchored_trace);
+}
+
 TEST(EstimatePointCovariance, Nominal) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
@@ -318,11 +509,40 @@ TEST(EstimatePointCovariance, Nominal) {
       EstimateCeresPointCovariance(&reconstruction, point3D_ids);
   const std::vector<Eigen::Matrix3d> covs_schur =
       EstimateSchurPointCovariance(&reconstruction, point3D_ids);
-  ASSERT_EQ(covs_ceres.size(), covs_schur.size());
+  ASSERT_EQ(covs_ceres.size(), point3D_ids.size());
+  ASSERT_EQ(covs_schur.size(), point3D_ids.size());
 
   for (size_t i = 0; i < covs_ceres.size(); ++i) {
     ExpectNearEigenMatrixXd(covs_ceres[i], covs_schur[i], 1e-6);
   }
+}
+
+TEST(EstimatePointCovariance, DuplicateIds) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 5;
+  synthetic_dataset_options.num_points3D = 20;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  auto point3D_it = reconstruction.Points3D().begin();
+  const point3D_t point3D_id1 = (point3D_it++)->first;
+  const point3D_t point3D_id2 = point3D_it->first;
+  const std::vector<point3D_t> point3D_ids = {
+      point3D_id1, point3D_id2, point3D_id1};
+
+  const std::vector<Eigen::Matrix3d> covs_ceres =
+      EstimateCeresPointCovariance(&reconstruction, point3D_ids);
+  const std::vector<Eigen::Matrix3d> covs_schur =
+      EstimateSchurPointCovariance(&reconstruction, point3D_ids);
+  ASSERT_EQ(covs_ceres.size(), point3D_ids.size());
+  ASSERT_EQ(covs_schur.size(), point3D_ids.size());
+  for (size_t i = 0; i < point3D_ids.size(); ++i) {
+    ExpectNearEigenMatrixXd(covs_ceres[i], covs_schur[i], 1e-6);
+  }
+  EXPECT_EQ(covs_ceres[0], covs_ceres[2]);
+  EXPECT_EQ(covs_schur[0], covs_schur[2]);
 }
 
 }  // namespace colmap

@@ -12,7 +12,9 @@
 #include "colmap/sfm/incremental_mapper_impl.h"
 #include "colmap/util/hash_containers.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 
 namespace colmap {
 namespace {
@@ -44,6 +46,80 @@ size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
     }
   }
   return num_registered_pose_priors;
+}
+
+// Harmonic mean of the isotropic measurement variances of the image's
+// observations of 3D points, or 1 if there are none.
+double HarmonicMeanMeasurementVariance(const Image& image) {
+  double sum_inv_variance = 0;
+  size_t num_variances = 0;
+  for (const Point2D& point2D : image.Points2D()) {
+    if (!point2D.HasPoint3D()) {
+      continue;
+    }
+    const double variance = 0.5 * point2D.cov.trace();
+    if (variance > 0 && std::isfinite(variance)) {
+      sum_inv_variance += 1 / variance;
+      ++num_variances;
+    }
+  }
+  if (num_variances == 0) {
+    return 1;
+  }
+  return num_variances / sum_inv_variance;
+}
+
+// Estimate the scale of the true over the modeled measurement variances from
+// the residuals of the given images' observations after bundle adjustment. The
+// median squared Mahalanobis distance is robust to outliers and heavy tails and
+// is matched to the median of the chi-squared distribution with 2 DoF. The
+// residuals of a point with track length L lose 3 of their 2L degrees of
+// freedom to the point, which the factor 2L / (2L - 3) corrects, while the
+// loss to the poses is negligible. Returns nullopt for too few residuals.
+std::optional<double> EstimateMeasurementVarianceScale(
+    const Reconstruction& reconstruction,
+    const FlatHashSet<image_t>& image_ids) {
+  // Shorter tracks have too few degrees of freedom for a stable correction.
+  constexpr size_t kMinTrackLength = 3;
+  constexpr size_t kMinNumResiduals = 100;
+  std::vector<double> mahalanobis_dists_sqr;
+  for (const image_t image_id : image_ids) {
+    const Image& image = reconstruction.Image(image_id);
+    const Rigid3d cam_from_world = image.CamFromWorld();
+    const Camera& camera = *image.CameraPtr();
+    for (const Point2D& point2D : image.Points2D()) {
+      if (!point2D.HasPoint3D()) {
+        continue;
+      }
+      const Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
+      const double track_length = point3D.track.Length();
+      if (track_length < kMinTrackLength) {
+        continue;
+      }
+      const std::optional<Eigen::Vector2d> proj_point2D =
+          camera.ImgFromCam(cam_from_world * point3D.xyz);
+      if (!proj_point2D.has_value()) {
+        continue;
+      }
+      const Eigen::LLT<Eigen::Matrix2d> llt(point2D.cov.cast<double>());
+      if (llt.info() != Eigen::Success) {
+        continue;
+      }
+      const double mahalanobis_dist_sqr =
+          llt.matrixL().solve(point2D.xy - *proj_point2D).squaredNorm();
+      if (std::isfinite(mahalanobis_dist_sqr)) {
+        mahalanobis_dists_sqr.push_back(mahalanobis_dist_sqr * 2 *
+                                        track_length / (2 * track_length - 3));
+      }
+    }
+  }
+  if (mahalanobis_dists_sqr.size() < kMinNumResiduals) {
+    return std::nullopt;
+  }
+  // Guard against degenerate, e.g., noise-free, measurements.
+  constexpr double kMinScale = 1e-4;
+  return std::max(kMinScale,
+                  Median(mahalanobis_dists_sqr) / (2 * std::log(2.0)));
 }
 
 }  // namespace
@@ -81,12 +157,15 @@ IncrementalMapper::IncrementalMapper(
 void IncrementalMapper::BeginReconstruction(
     const std::shared_ptr<class Reconstruction>& reconstruction) {
   THROW_CHECK(reconstruction_ == nullptr);
+  covariance_cache_.Clear();
+  covariance_cache_.SetMeasurementVarianceScale(1);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   obs_manager_ = std::make_shared<class ObservationManager>(
       *reconstruction_, database_cache_->CorrespondenceGraph());
   triangulator_ = std::make_shared<IncrementalTriangulator>(
       database_cache_->CorrespondenceGraph(), *reconstruction_, obs_manager_);
+  triangulator_->SetCovarianceCache(&covariance_cache_);
 
   reg_stats_.num_shared_reg_images = 0;
   reg_stats_.num_reg_frames_per_rig.clear();
@@ -121,6 +200,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
   obs_manager_.reset();
   reconstruction_->TearDown();
   reconstruction_ = nullptr;
+  covariance_cache_.Clear();
 }
 
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
@@ -259,6 +339,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   std::vector<std::pair<point2D_t, point3D_t>> tri_corrs;
   std::vector<Eigen::Vector2d> tri_points2D;
+  std::vector<Eigen::Matrix2d> tri_points2D_cov;
   std::vector<Eigen::Vector3d> tri_points3D;
   std::vector<point3D_t> tri_point3D_ids;
 
@@ -304,6 +385,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       tri_corrs.emplace_back(point2D_idx, corr_point2D.point3D_id);
       corr_point3D_ids.insert(corr_point2D.point3D_id);
       tri_points2D.push_back(point2D.xy);
+      if (options.abs_pose_use_point_covariance) {
+        tri_points2D_cov.push_back(point2D.cov.cast<double>());
+      }
       tri_points3D.push_back(point3D.xyz);
       tri_point3D_ids.push_back(corr_point2D.point3D_id);
     }
@@ -406,12 +490,22 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   std::vector<char> inlier_mask;
   Rigid3d cam_from_world;
 
-  const std::vector<Eigen::Matrix3d> tri_points3D_cov =
-      options.abs_pose_use_point_covariance
-          ? EstimateSchurPointCovariance(reconstruction_.get(), tri_point3D_ids)
-          : std::vector<Eigen::Matrix3d>();
+  // Point covariances are propagated from the cached pose covariances of the
+  // points' tracks. Poses with unknown covariance are treated as exact and
+  // degenerate points fall back to exact points, as in the non-covariant path.
+  std::vector<Eigen::Matrix3d> tri_points3D_cov;
+  if (options.abs_pose_use_point_covariance) {
+    tri_points3D_cov.reserve(tri_point3D_ids.size());
+    for (const point3D_t point3D_id : tri_point3D_ids) {
+      tri_points3D_cov.push_back(
+          triangulator_
+              ->GetPointCov(point3D_id, /*unknown_poses_as_exact=*/true)
+              .value_or(Eigen::Matrix3d::Zero()));
+    }
+  }
   if (!EstimateAbsolutePose(abs_pose_options,
                             tri_points2D,
+                            tri_points2D_cov,
                             tri_points3D,
                             tri_points3D_cov,
                             &cam_from_world,
@@ -432,17 +526,40 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Pose refinement
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!RefineAbsolutePose(
-          abs_pose_refinement_options,
-          inlier_mask,
-          tri_points2D,
-          tri_points3D,
-          &cam_from_world,
-          &camera,
-          /*cam_from_world_cov=*/nullptr,
-          tri_points3D_cov.empty() ? nullptr : &tri_points3D_cov)) {
+  const auto refine_absolute_pose = [&](Eigen::Matrix6d* cam_from_world_cov) {
+    return RefineAbsolutePose(
+        abs_pose_refinement_options,
+        inlier_mask,
+        tri_points2D,
+        tri_points3D,
+        &cam_from_world,
+        &camera,
+        cam_from_world_cov,
+        tri_points3D_cov.empty() ? nullptr : &tri_points3D_cov,
+        tri_points2D_cov.empty() ? nullptr : &tri_points2D_cov);
+  };
+
+  Eigen::Matrix6d cam_from_world_cov;
+  bool has_cam_from_world_cov = false;
+  if (options.abs_pose_use_point_covariance) {
+    const Rigid3d initial_cam_from_world = cam_from_world;
+    const std::vector<double> initial_camera_params = camera.params;
+    has_cam_from_world_cov = refine_absolute_pose(&cam_from_world_cov);
+    if (!has_cam_from_world_cov) {
+      // The pose covariance is optional for registration, so retry without it
+      // in case only its computation failed.
+      cam_from_world = initial_cam_from_world;
+      camera.params = initial_camera_params;
+    }
+  }
+  if (!has_cam_from_world_cov && !refine_absolute_pose(nullptr)) {
     VLOG(2) << "Absolute pose refinement failed";
     return false;
+  }
+  if (has_cam_from_world_cov) {
+    // Seed the pose covariance for the registered image until the next local
+    // bundle adjustment provides marginal covariances.
+    covariance_cache_.SetPoseCov(image_id, cam_from_world_cov);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -983,6 +1100,30 @@ IncrementalMapper::AdjustLocalBundle(
 
   LocalBundleAdjustmentReport report;
 
+  // Local bundle adjustment and filtering only change points observed by the
+  // local images or in the given set, so other cached point covariances stay
+  // valid. May contain duplicates.
+  const auto find_local_point3D_ids =
+      [this, &point3D_ids](const FlatHashSet<image_t>& image_ids) {
+        std::vector<point3D_t> local_point3D_ids(point3D_ids.begin(),
+                                                 point3D_ids.end());
+        for (const image_t image_id : image_ids) {
+          for (const Point2D& point2D :
+               reconstruction_->Image(image_id).Points2D()) {
+            if (point2D.HasPoint3D()) {
+              local_point3D_ids.push_back(point2D.point3D_id);
+            }
+          }
+        }
+        return local_point3D_ids;
+      };
+  const auto erase_point_covs =
+      [this](const std::vector<point3D_t>& point3D_ids) {
+        for (const point3D_t point3D_id : point3D_ids) {
+          covariance_cache_.ErasePointCov(point3D_id);
+        }
+      };
+
   // Find images that have most 3D points with given image in common.
   const std::vector<image_t> local_bundle = FindLocalBundle(options, image_id);
 
@@ -1069,10 +1210,36 @@ IncrementalMapper::AdjustLocalBundle(
         CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
     const auto summary = bundle_adjuster->Solve();
 
-    report.num_adjusted_observations = summary->num_residuals / 2;
-
+    // Bundle adjustment moved the local parameters, which invalidates their
+    // covariances. Only constant poses keep their covariances.
+    for (const image_t local_image_id : image_ids) {
+      if (!ba_config.HasConstantRigFromWorldPose(
+              reconstruction_->Image(local_image_id).FrameId())) {
+        covariance_cache_.ErasePoseCov(local_image_id);
+      }
+    }
+    erase_point_covs(find_local_point3D_ids(image_ids));
     const bool stopped =
         ba_options.check_if_stopped && ba_options.check_if_stopped();
+    if (!stopped && summary->IsSolutionUsable()) {
+      if (options.calibrate_measurement_noise) {
+        const std::optional<double> measurement_variance_scale =
+            EstimateMeasurementVarianceScale(*reconstruction_, image_ids);
+        if (measurement_variance_scale.has_value()) {
+          VLOG(2) << "Measurement variance scale: "
+                  << *measurement_variance_scale;
+          covariance_cache_.SetMeasurementVarianceScale(
+              *measurement_variance_scale);
+        }
+      }
+      if (options.ba_update_covariance) {
+        UpdatePoseCovariancesFromLocalBA(
+            options, ba_options, bundle_adjuster.get(), image_ids);
+      }
+    }
+
+    report.num_adjusted_observations = summary->num_residuals / 2;
+
     if (!stopped) {
       // Merge refined tracks with other existing points.
       report.num_merged_observations =
@@ -1088,6 +1255,11 @@ IncrementalMapper::AdjustLocalBundle(
     }
   }
 
+  // Collect before filtering, which may remove the observations through which
+  // the points are found.
+  const std::vector<point3D_t> filter_point3D_ids =
+      find_local_point3D_ids(image_ids);
+
   // Filter both the modified images and all changed 3D points to make sure
   // there are no outlier points in the model. This results in duplicate work as
   // many of the provided 3D points may also be contained in the adjusted
@@ -1098,6 +1270,9 @@ IncrementalMapper::AdjustLocalBundle(
       obs_manager_->FilterPoints3D(options.filter_max_reproj_error,
                                    options.filter_min_tri_angle,
                                    point3D_ids);
+  if (report.num_filtered_observations > 0) {
+    erase_point_covs(filter_point3D_ids);
+  }
 
   return report;
 }
@@ -1122,6 +1297,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Avoid degeneracies in bundle adjustment.
   obs_manager_->FilterObservationsWithNegativeDepth();
+
+  // Global bundle adjustment moves all poses and points, which invalidates the
+  // covariances from registration and local bundle adjustment. A full
+  // marginalization is too expensive for large reconstructions, so triangulation
+  // falls back to legacy gating until the poses are covered by subsequent
+  // registrations and local bundle adjustments.
+  covariance_cache_.Clear();
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
@@ -1235,6 +1417,99 @@ bool IncrementalMapper::AdjustGlobalBundle(
   return bundle_adjuster->Solve()->IsSolutionUsable();
 }
 
+void IncrementalMapper::UpdatePoseCovariancesFromLocalBA(
+    const Options& options,
+    const BundleAdjustmentOptions& ba_options,
+    BundleAdjuster* bundle_adjuster,
+    const FlatHashSet<image_t>& image_ids) {
+  auto* ceres_adjuster = dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster);
+  if (ceres_adjuster == nullptr) {
+    return;
+  }
+  // Pose collection requires trivial frames; skip for rig reconstructions.
+  for (const auto& [_, rig] : reconstruction_->Rigs()) {
+    if (rig.NumSensors() > 1) {
+      return;
+    }
+  }
+  const std::shared_ptr<ceres::Problem> problem = ceres_adjuster->Problem();
+  if (problem == nullptr) {
+    return;
+  }
+
+  if (options.ba_update_covariance_minimum_norm_gauge &&
+      ba_options.refine_points3D) {
+    // Free the points that bundle adjustment fixed to remove the gauge
+    // freedom, so that only genuinely constant parameters constrain the pose
+    // covariances. These are the constant points whose tracks are fully
+    // contained in the problem. The problem is not solved again.
+    const BundleAdjustmentConfig& ba_config = bundle_adjuster->Config();
+    const auto maybe_free_point = [&](const point3D_t point3D_id) {
+      Point3D& point3D = reconstruction_->Point3D(point3D_id);
+      if (!problem->HasParameterBlock(point3D.xyz.data()) ||
+          !problem->IsParameterBlockConstant(point3D.xyz.data()) ||
+          ba_config.HasConstantPoint(point3D_id)) {
+        return;
+      }
+      if (ba_config.HasVariablePoint(point3D_id) ||
+          std::all_of(point3D.track.Elements().begin(),
+                      point3D.track.Elements().end(),
+                      [&ba_config](const TrackElement& track_el) {
+                        return ba_config.HasImage(track_el.image_id);
+                      })) {
+        problem->SetParameterBlockVariable(point3D.xyz.data());
+      }
+    };
+    for (const image_t image_id : image_ids) {
+      for (const Point2D& point2D :
+           reconstruction_->Image(image_id).Points2D()) {
+        if (point2D.HasPoint3D()) {
+          maybe_free_point(point2D.point3D_id);
+        }
+      }
+    }
+    for (const point3D_t point3D_id : ba_config.VariablePoints()) {
+      maybe_free_point(point3D_id);
+    }
+  }
+
+  // Marginalize points and intrinsics. The local problem only has a few
+  // variable poses, so the dense inverse of the reduced system is cheap.
+  BACovarianceOptions ba_covariance_options;
+  ba_covariance_options.params = BACovarianceOptions::Params::POSES;
+  ba_covariance_options.minimum_norm_gauge =
+      options.ba_update_covariance_minimum_norm_gauge;
+  const std::optional<BACovariance> ba_covariance =
+      EstimateBACovarianceFromProblem(
+          ba_covariance_options, *reconstruction_, *problem);
+  if (!ba_covariance.has_value()) {
+    VLOG(2) << "Failed to estimate pose covariances from local bundle "
+               "adjustment";
+    return;
+  }
+
+  size_t num_pose_covs = 0;
+  for (const image_t image_id : image_ids) {
+    // Constant poses keep their previous covariances, while partially constant
+    // poses remain unknown.
+    const std::optional<Eigen::MatrixXd> cov =
+        ba_covariance->GetCamCovFromWorld(image_id);
+    if (!cov.has_value() || cov->rows() != 6 || !cov->allFinite()) {
+      continue;
+    }
+    // Bundle adjustment assumes unit pixel noise. Rescale by the harmonic mean
+    // of the image's measurement variances, which is exact for homogeneous
+    // measurement noise.
+    covariance_cache_.SetPoseCov(
+        image_id,
+        HarmonicMeanMeasurementVariance(reconstruction_->Image(image_id)) *
+            *cov);
+    ++num_pose_covs;
+  }
+  VLOG(2) << "Updated " << num_pose_covs
+          << " pose covariances from local bundle adjustment";
+}
+
 void IncrementalMapper::IterativeLocalRefinement(
     const int max_num_refinements,
     const double max_refinement_change,
@@ -1303,7 +1578,8 @@ void IncrementalMapper::IterativeGlobalRefinement(
     if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
-      reconstruction_->Normalize();
+      covariance_cache_.Transform(reconstruction_->Normalize(),
+                                  *reconstruction_);
     }
     size_t num_changed_observations = CompleteAndMergeTracks(tri_options);
     num_changed_observations += FilterPoints(options);
@@ -1343,6 +1619,17 @@ size_t IncrementalMapper::FilterFrames(const Options& options) {
   for (const frame_t frame_id : filter_frame_ids) {
     if (!options.fix_existing_frames ||
         existing_frame_ids_.count(frame_id) == 0) {
+      // De-registration removes the frame's poses and observations.
+      for (const data_t& data_id :
+           reconstruction_->Frame(frame_id).ImageIds()) {
+        covariance_cache_.ErasePoseCov(data_id.id);
+        for (const Point2D& point2D :
+             reconstruction_->Image(data_id.id).Points2D()) {
+          if (point2D.HasPoint3D()) {
+            covariance_cache_.ErasePointCov(point2D.point3D_id);
+          }
+        }
+      }
       obs_manager_->DeRegisterFrame(frame_id);
       DeRegisterFrameEvent(frame_id);
       filtered_frames_.insert(frame_id);
@@ -1359,8 +1646,23 @@ size_t IncrementalMapper::FilterPoints(const Options& options) {
   THROW_CHECK(options.Check());
   const size_t num_filtered_observations = obs_manager_->FilterAllPoints3D(
       options.filter_max_reproj_error, options.filter_min_tri_angle);
+  if (num_filtered_observations > 0) {
+    covariance_cache_.ClearPointCovariances();
+  }
   VLOG(1) << "=> Filtered observations: " << num_filtered_observations;
   return num_filtered_observations;
+}
+
+void IncrementalMapper::TransformCovarianceCache(
+    const Sim3d& new_from_old_world) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  covariance_cache_.Transform(new_from_old_world, *reconstruction_);
+}
+
+void IncrementalMapper::ClearCovarianceCache() { covariance_cache_.Clear(); }
+
+const MapperCovarianceCache& IncrementalMapper::CovarianceCache() const {
+  return covariance_cache_;
 }
 
 std::shared_ptr<class Reconstruction> IncrementalMapper::Reconstruction()
