@@ -8,7 +8,6 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -420,49 +419,6 @@ TEST(IncrementalPipeline, FixExistingFrames) {
                 ReconstructionNear(*reconstruction_manager->Get(0),
                                    /*max_rotation_error_deg=*/1e-2,
                                    /*max_proj_center_error=*/1e-4));
-  }
-}
-
-TEST(IncrementalPipeline, ExtractColorsWhenContinuingReconstruction) {
-  const auto test_dir = CreateTestDir();
-  const auto database_path = test_dir / "database.db";
-  const auto image_path = test_dir / "images";
-  CreateDirIfNotExists(image_path);
-
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 7;
-  synthetic_dataset_options.num_points3D = 50;
-  synthetic_dataset_options.camera_has_prior_focal_length = false;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-  SynthesizeImages(SyntheticImageOptions(), gt_reconstruction, image_path);
-
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  auto options = std::make_shared<IncrementalPipelineOptions>();
-  options->image_path = image_path;
-
-  // Reconstruct without colors, similar to an input reconstruction obtained
-  // from point triangulation without images.
-  options->extract_colors = false;
-  IncrementalPipeline(options, database, reconstruction_manager).Run();
-  ASSERT_EQ(reconstruction_manager->Size(), 1);
-  const Reconstruction& reconstruction = *reconstruction_manager->Get(0);
-  ASSERT_GT(reconstruction.NumPoints3D(), 0);
-  for (const auto& [_, point3D] : reconstruction.Points3D()) {
-    ASSERT_EQ(point3D.color, Eigen::Vector3ub::Zero());
-  }
-
-  // Continue the reconstruction, where all frames are already registered.
-  options->extract_colors = true;
-  IncrementalPipeline(options, database, reconstruction_manager).Run();
-  ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ASSERT_GT(reconstruction.NumPoints3D(), 0);
-  for (const auto& [_, point3D] : reconstruction.Points3D()) {
-    EXPECT_NE(point3D.color, Eigen::Vector3ub::Zero());
   }
 }
 

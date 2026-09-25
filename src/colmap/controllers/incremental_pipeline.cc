@@ -10,9 +10,6 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/timer.h"
 
-#include <algorithm>
-#include <set>
-
 namespace colmap {
 namespace {
 
@@ -81,39 +78,6 @@ void ExtractColors(const std::filesystem::path& image_path,
     LOG(WARNING) << "Could not read image "
                  << reconstruction.Image(image_id).Name() << " at path "
                  << image_path << ".";
-  }
-}
-
-// Points triangulated after all of their observing images were registered
-// (e.g., during retriangulation or when continuing from an existing
-// reconstruction) are missed by the per-image color extraction. Only reads
-// images that still observe uncolored points and never overwrites existing
-// colors, e.g., of input images located in a different image path.
-void ExtractMissingColors(const std::filesystem::path& image_path,
-                          Reconstruction& reconstruction) {
-  const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
-  std::set<image_t> image_ids;
-  for (const auto& [_, point3D] : reconstruction.Points3D()) {
-    if (point3D.color == kBlackColor) {
-      for (const TrackElement& track_el : point3D.track.Elements()) {
-        image_ids.insert(track_el.image_id);
-      }
-    }
-  }
-
-  for (const image_t image_id : image_ids) {
-    const Image& image = reconstruction.Image(image_id);
-    const bool has_missing_color =
-        std::any_of(image.Points2D().begin(),
-                    image.Points2D().end(),
-                    [&](const Point2D& point2D) {
-                      return point2D.HasPoint3D() &&
-                             reconstruction.Point3D(point2D.point3D_id).color ==
-                                 kBlackColor;
-                    });
-    if (has_missing_color) {
-      ExtractColors(image_path, image_id, reconstruction);
-    }
   }
 }
 
@@ -742,11 +706,6 @@ IncrementalPipeline::Status IncrementalPipeline::ReconstructSubModel(
       return CheckIfStopped();
     });
   }
-
-  if (options_->extract_colors) {
-    ExtractMissingColors(options_->image_path, *reconstruction);
-  }
-
   return Status::SUCCESS;
 }
 
