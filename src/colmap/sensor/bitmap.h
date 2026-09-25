@@ -131,6 +131,10 @@ class Bitmap {
   // Rotate image by k * 90 degrees counter-clockwise.
   void Rot90(int k);
 
+  // Crop image in place to the given rectangle, which must lie within the
+  // image bounds. Cropping to the full image is a no-op.
+  void Crop(int left, int top, int width, int height);
+
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
   Bitmap CloneAsGrey() const;
@@ -159,6 +163,10 @@ class Bitmap {
   };
 
  private:
+  // Replace the image dimensions and pixel data, updating the metadata
+  // accordingly. The channel count is preserved.
+  void SetImageData(int width, int height, std::vector<uint8_t>&& data);
+
   int width_;
   int height_;
   int channels_;

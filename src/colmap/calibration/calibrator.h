@@ -26,13 +26,20 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraCalibratorType, 0, ANYCALIB);
 bool IsValidCalibration(const Camera& camera);
 
 // Aggregate per-image fitted parameters for the given target model into a
-// single camera by taking the coefficient-wise median. Because the median of
-// individually valid calibrations is not itself guaranteed to be valid, the
-// aggregate is re-validated and, if it fails, replaced by the single-image
-// calibration closest to it. Sets the model, parameters, and
-// `has_prior_focal_length` on success. Returns false if `params_list` is empty
-// or no valid calibration is found, leaving `camera` unmodified. The
-// dimensions of `camera` must be those of the images it was calibrated from.
+// single camera by taking the coefficient-wise median. Fitting once to the
+// accumulated rays of all images would repeat the dense refinement over every
+// image's rays and let a single bad image corrupt the shared estimate, while
+// the median stays robust to individual failures. The refinement estimates no
+// covariances, so uncertainty weighting is not available either. Because the
+// median of individually valid calibrations is not itself guaranteed to be
+// valid, the aggregate is re-validated and, if it fails, replaced by the
+// single-image calibration closest to it. Joint fitting over the accumulated
+// rays was evaluated as an alternative: it matches the median only with a
+// tuned robust loss and fails on a single bad image without one. Sets the
+// model, parameters, and `has_prior_focal_length` on success. Returns false
+// if `params_list` is empty or no valid calibration is found, leaving
+// `camera` unmodified. The dimensions of `camera` must be those of the images
+// it was calibrated from.
 bool AggregateCameraCalibrations(
     CameraModelId model_id,
     const std::vector<std::vector<double>>& params_list,
@@ -83,10 +90,12 @@ struct CameraCalibrationOptions : public CameraCalibrationTypeOptions {
   // degrees.
   double min_focal_length_ratio = 0.1;
   double max_focal_length_ratio = 10.0;
-  // Maximum absolute value of any distortion parameter. NOTE: this is a single
-  // bound for all coefficients of the target model, so high-order models with
-  // legitimately large coefficients (e.g. the rational denominator terms k4,
-  // k5, k6 of FULL_OPENCV) may require a larger value.
+  // Maximum absolute value of any distortion parameter. Matches the
+  // incremental mapper default (`IncrementalMapper::Options::max_extra_param`),
+  // so accepted calibrations also pass downstream checks. NOTE: this is a
+  // single bound for all coefficients of the target model, so high-order
+  // models with legitimately large coefficients (e.g. the rational
+  // denominator terms k4, k5, k6 of FULL_OPENCV) may require a larger value.
   double max_extra_param = 1.0;
 
   bool Check() const;

@@ -99,7 +99,7 @@ TEST(PrepareAnyCalibInputTest, GravityRotationMapsBackToOriginal) {
     EXPECT_EQ(input.upright_height, swap_dims ? 640 : 480);
 
     // Forward map of the original point/ray to the upright image, inverse of
-    // `ImagePointToOriginal` / `CameraRayToOriginal` up to scale and shift.
+    // `ImgToOrig` / `CamToOrig` up to scale and shift.
     Eigen::Vector2d upright_point;
     Eigen::Vector3d upright_ray;
     switch (rot90) {
@@ -131,11 +131,9 @@ TEST(PrepareAnyCalibInputTest, GravityRotationMapsBackToOriginal) {
     }
     const Eigen::Vector2d network_point =
         upright_point.cwiseProduct(input.scale_xy) + input.shift_xy;
-    EXPECT_TRUE(input.ImagePointToOriginal(network_point)
-                    .isApprox(original_point, 1e-12))
+    EXPECT_TRUE(input.ImgToOrig(network_point).isApprox(original_point, 1e-12))
         << "rot90=" << rot90;
-    EXPECT_TRUE(
-        input.CameraRayToOriginal(upright_ray).isApprox(original_ray, 1e-12))
+    EXPECT_TRUE(input.CamToOrig(upright_ray).isApprox(original_ray, 1e-12))
         << "rot90=" << rot90;
   }
 }

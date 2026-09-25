@@ -22,7 +22,7 @@ using CameraCalibratorFactory = std::function<std::unique_ptr<CameraCalibrator>(
 // calibrator and update the database cameras, replacing e.g. EXIF-based
 // initialization. An empty `image_names` selects all database images. Images
 // are processed sequentially with a single shared calibrator instance, as
-// calibration models are large (cf. ALIKED/LoMa).
+// calibration models are large.
 //
 // The worker thread never throws: database inconsistencies and calibrator
 // failures are logged and either skip the affected image or fail the stage

@@ -8,7 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
+#include <optional>
 
 namespace colmap {
 namespace {
@@ -18,34 +18,72 @@ namespace {
 // why dynamic input sizes are not supported.
 constexpr int kAnyCalibInputSize = 322;
 
-// Separate fixed landscape and portrait exports preserve more image content,
-// but the landscape export consistently reduced reconstruction AUC relative
-// to this square model on ETH3D DSLR. That dataset did not exercise the
-// portrait export, so keep the empirically stronger single square model.
-Bitmap CenterCropToSquare(const Bitmap& bitmap) {
-  THROW_CHECK(bitmap.IsRGB());
-  const int width = bitmap.Width();
-  const int height = bitmap.Height();
+// Upsample small images in place, preserving the aspect ratio, and update
+// `scale_xy` with the applied per-axis rescaling.
+void UpsampleToMinSize(Bitmap& image, int min_size, Eigen::Vector2d& scale_xy) {
+  const int width = image.Width();
+  const int height = image.Height();
+  if (width >= min_size && height >= min_size) {
+    return;
+  }
+  const double s = std::max(static_cast<double>(min_size) / height,
+                            static_cast<double>(min_size) / width);
+  const int new_width = std::lround(width * s);
+  const int new_height = std::lround(height * s);
+  image.Rescale(new_width, new_height);
+  scale_xy.x() = static_cast<double>(image.Width()) / width;
+  scale_xy.y() = static_cast<double>(image.Height()) / height;
+}
+
+// Origin (left, top) of the centered square crop of a `width` x `height`
+// image. The integer divisions center the crop up to one pixel.
+Eigen::Vector2i CenterCropOrigin(int width, int height) {
   const int side = std::min(width, height);
-  if (width == height) {
-    return bitmap.Clone();
-  }
-  const int left = (width - side) / 2;
-  const int top = (height - side) / 2;
-  Bitmap cropped(side, side, /*as_rgb=*/true);
-  const std::vector<uint8_t>& src = bitmap.RowMajorData();
-  std::vector<uint8_t>& dst = cropped.RowMajorData();
-  const int src_pitch = bitmap.Pitch();
-  const int dst_pitch = cropped.Pitch();
-  for (int y = 0; y < side; ++y) {
-    std::memcpy(dst.data() + y * dst_pitch,
-                src.data() + (top + y) * src_pitch + left * 3,
-                dst_pitch);
-  }
-  return cropped;
+  return Eigen::Vector2i((width - side) / 2, (height - side) / 2);
 }
 
 #ifdef COLMAP_ONNX_ENABLED
+
+// Validate the AnyCalib input/output signature and return the index of the
+// `rays` output. Throws on a signature mismatch or if `rays` is missing.
+size_t CheckONNXSignatureAndGetRayIndex(const ONNXModel& model) {
+  THROW_CHECK_EQ(model.input_shapes().size(), 1);
+  THROW_CHECK_EQ(model.input_element_types().size(), 1);
+  ThrowCheckONNXNode(model.input_names()[0],
+                     "image",
+                     model.input_shapes()[0],
+                     {1, 3, kAnyCalibInputSize, kAnyCalibInputSize});
+  ThrowCheckONNXElementType(model.input_names()[0],
+                            model.input_element_types()[0],
+                            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
+  THROW_CHECK_EQ(model.output_shapes().size(), 2);
+  THROW_CHECK_EQ(model.output_element_types().size(), 2);
+  std::optional<size_t> rays_idx;
+  for (size_t i = 0; i < model.output_names().size(); ++i) {
+    const std::string_view name = model.output_names()[i];
+    const auto& shape = model.output_shapes()[i];
+    // The outputs are read as float below; validate the element type with
+    // the same rigor as the shapes rather than relying on the ORT version's
+    // `GetTensorData` checking.
+    ThrowCheckONNXElementType(name,
+                              model.output_element_types()[i],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
+    if (name == "rays") {
+      ThrowCheckONNXNode(
+          name, "rays", shape, {1, kAnyCalibInputSize * kAnyCalibInputSize, 3});
+      rays_idx = i;
+    } else if (name == "tangent_coords") {
+      ThrowCheckONNXNode(name,
+                         "tangent_coords",
+                         shape,
+                         {1, kAnyCalibInputSize * kAnyCalibInputSize, 2});
+    } else {
+      LOG(FATAL_THROW) << "Unexpected AnyCalib output: " << name;
+    }
+  }
+  THROW_CHECK(rays_idx.has_value()) << "AnyCalib outputs must contain \"rays\"";
+  return *rays_idx;
+}
 
 class AnyCalibCalibrator : public CameraCalibrator {
  public:
@@ -56,41 +94,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
                options.use_gpu,
                options.gpu_index) {
     THROW_CHECK(options_.Check());
-    THROW_CHECK_EQ(model_.input_shapes().size(), 1);
-    THROW_CHECK_EQ(model_.input_element_types().size(), 1);
-    ThrowCheckONNXNode(model_.input_names()[0],
-                       "image",
-                       model_.input_shapes()[0],
-                       {1, 3, kAnyCalibInputSize, kAnyCalibInputSize});
-    ThrowCheckONNXElementType(model_.input_names()[0],
-                              model_.input_element_types()[0],
-                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
-    THROW_CHECK_EQ(model_.output_shapes().size(), 2);
-    THROW_CHECK_EQ(model_.output_element_types().size(), 2);
-    for (size_t i = 0; i < model_.output_names().size(); ++i) {
-      const std::string_view name = model_.output_names()[i];
-      const auto& shape = model_.output_shapes()[i];
-      // The outputs are read as float below; validate the element type with
-      // the same rigor as the shapes rather than relying on the ORT version's
-      // `GetTensorData` checking.
-      ThrowCheckONNXElementType(name,
-                                model_.output_element_types()[i],
-                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
-      if (name == "rays") {
-        ThrowCheckONNXNode(name,
-                           "rays",
-                           shape,
-                           {1, kAnyCalibInputSize * kAnyCalibInputSize, 3});
-        rays_idx_ = i;
-      } else if (name == "tangent_coords") {
-        ThrowCheckONNXNode(name,
-                           "tangent_coords",
-                           shape,
-                           {1, kAnyCalibInputSize * kAnyCalibInputSize, 2});
-      } else {
-        LOG(FATAL_THROW) << "Unexpected AnyCalib output: " << name;
-      }
-    }
+    rays_idx_ = CheckONNXSignatureAndGetRayIndex(model_);
   }
 
   bool Calibrate(const Bitmap& bitmap,
@@ -136,9 +140,10 @@ class AnyCalibCalibrator : public CameraCalibrator {
     for (int y = 0; y < size; ++y) {
       for (int x = 0; x < size; ++x) {
         const size_t i = static_cast<size_t>(y) * size + x;
+        // The network predicts one ray per pixel; reference pixel centers.
         img_points.push_back(
-            input.ImagePointToOriginal(Eigen::Vector2d(x + 0.5, y + 0.5)));
-        cam_rays.push_back(input.CameraRayToOriginal(Eigen::Vector3d(
+            input.ImgToOrig(Eigen::Vector2d(x + 0.5, y + 0.5)));
+        cam_rays.push_back(input.CamToOrig(Eigen::Vector3d(
             rays_data[3 * i], rays_data[3 * i + 1], rays_data[3 * i + 2])));
       }
     }
@@ -168,14 +173,22 @@ class AnyCalibCalibrator : public CameraCalibrator {
     calibrated.height = bitmap.Height();
     calibrated.params = fitted.params;
     calibrated.has_prior_focal_length = true;
+    if (!IsValidCalibration(calibrated)) {
+      return false;
+    }
     // Reject implausible predictions, which are numerically well behaved but
     // far from the true intrinsics. NOTE: this is only checked per image,
     // because the coefficient-wise median of calibrations that all satisfy
     // these per-coefficient bounds satisfies them as well.
-    if (!IsValidCalibration(calibrated) ||
-        calibrated.HasBogusParams(options_.min_focal_length_ratio,
+    if (calibrated.HasBogusParams(options_.min_focal_length_ratio,
                                   options_.max_focal_length_ratio,
                                   options_.max_extra_param)) {
+      // Log the rejected parameters: a systematic rejection here (e.g. by
+      // `max_extra_param` for high-order models) would otherwise silently fall
+      // back to the existing intrinsics for every image.
+      LOG(WARNING) << "Rejecting implausible learned calibration for "
+                   << calibrated.ModelName()
+                   << " camera: " << calibrated.ParamsToString();
       return false;
     }
     *camera = calibrated;
@@ -200,8 +213,7 @@ bool AnyCalibCalibrationOptions::Check() const {
   return true;
 }
 
-Eigen::Vector2d AnyCalibInput::ImagePointToOriginal(
-    const Eigen::Vector2d& point) const {
+Eigen::Vector2d AnyCalibInput::ImgToOrig(const Eigen::Vector2d& point) const {
   Eigen::Vector2d upright = (point - shift_xy).cwiseQuotient(scale_xy);
   switch (image_rot90) {
     case 0:
@@ -220,8 +232,7 @@ Eigen::Vector2d AnyCalibInput::ImagePointToOriginal(
   return Eigen::Vector2d::Zero();
 }
 
-Eigen::Vector3d AnyCalibInput::CameraRayToOriginal(
-    const Eigen::Vector3d& ray) const {
+Eigen::Vector3d AnyCalibInput::CamToOrig(const Eigen::Vector3d& ray) const {
   switch (image_rot90) {
     case 0:
       return ray;
@@ -258,35 +269,22 @@ AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
   input.upright_height = image.Height();
 
   // Upsample small images, preserving the aspect ratio (set_im_size step 1).
-  const int width = image.Width();
-  const int height = image.Height();
-  if (height < kSize || width < kSize) {
-    const double s = std::max(static_cast<double>(kSize) / height,
-                              static_cast<double>(kSize) / width);
-    const int new_width = std::lround(width * s);
-    const int new_height = std::lround(height * s);
-    image.Rescale(new_width, new_height);
-    scale_xy.x() = static_cast<double>(image.Width()) / width;
-    scale_xy.y() = static_cast<double>(image.Height()) / height;
-  }
+  UpsampleToMinSize(image, kSize, scale_xy);
 
   // Center-crop to square (set_im_size step 2 with target aspect ratio 1).
+  // Separate fixed landscape and portrait exports preserve more image
+  // content, but the landscape export consistently reduced reconstruction AUC
+  // relative to this square model on ETH3D DSLR. That dataset did not
+  // exercise the portrait export, so keep the empirically stronger single
+  // square model.
   // NOTE: upstream bicubic resampling is replaced with COLMAP's bilinear
   // `Bitmap::Rescale`; the network is robust to the resampling kernel.
-  const int w = image.Width();
-  const int h = image.Height();
-  // NOTE: the integer divisions below are intentional: they reproduce the
-  // integer crop offsets computed in `CenterCropToSquare`.
-  if (w > h) {
-    const int crop_w = w - h;
-    const int shift_x = -(crop_w / 2);
-    shift_xy.x() = shift_x;
-  } else {
-    const int crop_h = h - w;
-    const int shift_y = -(crop_h / 2);
-    shift_xy.y() = shift_y;
-  }
-  image = CenterCropToSquare(image);
+  const Eigen::Vector2i crop_origin =
+      CenterCropOrigin(image.Width(), image.Height());
+  const int side = std::min(image.Width(), image.Height());
+  // Cropping translates image coordinates by the negative crop origin.
+  shift_xy = Eigen::Vector2d(-crop_origin.x(), -crop_origin.y());
+  image.Crop(crop_origin.x(), crop_origin.y(), side, side);
 
   // Downsample to the network resolution (set_im_size step 3).
   const Eigen::Vector2d scale_2(static_cast<double>(kSize) / image.Width(),

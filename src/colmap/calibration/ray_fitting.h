@@ -18,7 +18,10 @@ struct RayFittingOptions {
   int max_num_iterations = 50;
 
   // Maximum number of 2D-3D correspondences used for fitting. Dense fields
-  // are stride-subsampled to this size.
+  // (AnyCalib predicts 322x322 rays) are stride-subsampled to this size: the
+  // dense refinement cost scales with the number of residuals while dense
+  // fields are smooth enough that uniform stride coverage suffices. Raise it
+  // for sparse or noisy correspondences.
   int max_num_points = 16384;
 
   // Relative weight of the mean squared focal-length prior error compared to
@@ -57,7 +60,10 @@ struct FittedCamera {
 // tests over strong distortion (incl. near-pole division), noise, sparsity,
 // partial coverage, and outliers showed the refinement reaches the same
 // optimum from the naive start every time, so the linear init only saved
-// Ceres iterations at the cost of ~270 lines of solver machinery.
+// Ceres iterations at the cost of ~270 lines of solver machinery. A robust
+// (Cauchy) loss was likewise evaluated and rejected: it only helps against
+// sparse ray outliers, which learned predictions do not exhibit in practice,
+// so plain least squares matches it on real data.
 //
 // Only perspective models are supported; spherical/panoramic models (e.g.
 // EQUIRECTANGULAR) return `success == false`.

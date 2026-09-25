@@ -127,6 +127,10 @@ bool InitializeCameraParams(CameraModelId model_id,
 // parameters, or the initialization if refinement failed). Only points
 // projectable at the initialization become residual blocks; the set stays
 // fixed during optimization, as Ceres requires a static problem structure.
+// Re-solving to admit more points is unnecessary: at the (near-)pinhole
+// initialization every forward ray projects for all supported models, so the
+// excluded set holds only behind-camera rays that fail the cheirality check
+// under any parameters.
 // Returns true unless refinement failed or made the cost worse.
 template <typename CameraModel>
 bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
@@ -230,29 +234,29 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
   // Keep the refinement unless it made the cost worse. Ceres only accepts
   // non-increasing steps, so equality means the initialization was already
   // optimal (or refinement was disabled with zero iterations).
-  if (summary.IsSolutionUsable() && std::isfinite(*final_cost) &&
-      *final_cost <= *initial_cost &&
-      std::all_of(params->begin(), params->end(), [](const double param) {
+  if (!summary.IsSolutionUsable() || !std::isfinite(*final_cost) ||
+      *final_cost > *initial_cost ||
+      !std::all_of(params->begin(), params->end(), [](const double param) {
         return std::isfinite(param);
       })) {
-    for (const size_t i : residual_indices) {
-      Eigen::Vector2d projection;
-      if (!CameraModel::ImgFromCam(params->data(),
-                                   cam_rays[i].x(),
-                                   cam_rays[i].y(),
-                                   cam_rays[i].z(),
-                                   &projection.x(),
-                                   &projection.y(),
-                                   /*check_cheirality=*/true) ||
-          !projection.allFinite()) {
-        *params = init_params;
-        return false;
-      }
-    }
-    return true;
+    *params = init_params;
+    return false;
   }
-  *params = init_params;
-  return false;
+  for (const size_t i : residual_indices) {
+    Eigen::Vector2d projection;
+    if (!CameraModel::ImgFromCam(params->data(),
+                                 cam_rays[i].x(),
+                                 cam_rays[i].y(),
+                                 cam_rays[i].z(),
+                                 &projection.x(),
+                                 &projection.y(),
+                                 /*check_cheirality=*/true) ||
+        !projection.allFinite()) {
+      *params = init_params;
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace

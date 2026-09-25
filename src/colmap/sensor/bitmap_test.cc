@@ -509,6 +509,63 @@ TEST(Bitmap, Rot90NoOp) {
   EXPECT_EQ(rotated4.RowMajorData(), original_data);
 }
 
+TEST(Bitmap, Crop) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(9, 0, BitmapColor<uint8_t>(40, 50, 60));
+  bitmap.SetPixel(0, 5, BitmapColor<uint8_t>(70, 80, 90));
+  bitmap.SetPixel(9, 5, BitmapColor<uint8_t>(100, 110, 120));
+  bitmap.SetPixel(4, 3, BitmapColor<uint8_t>(130, 140, 150));
+
+  bitmap.Crop(2, 1, 5, 4);
+  EXPECT_EQ(bitmap.Width(), 5);
+  EXPECT_EQ(bitmap.Height(), 4);
+  EXPECT_EQ(bitmap.Channels(), 3);
+  // Top-left (2,1) -> (0,0), (4,3) -> (2,2).
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value(), BitmapColor<uint8_t>(0, 0, 0));
+  EXPECT_EQ(bitmap.GetPixel(2, 2).value(), BitmapColor<uint8_t>(130, 140, 150));
+  EXPECT_EQ(bitmap.RowMajorData().size(), 5 * 4 * 3);
+}
+
+TEST(Bitmap, CropGrey) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(9, 5, BitmapColor<uint8_t>(255));
+
+  bitmap.Crop(5, 2, 5, 4);
+  EXPECT_EQ(bitmap.Width(), 5);
+  EXPECT_EQ(bitmap.Height(), 4);
+  EXPECT_EQ(bitmap.Channels(), 1);
+  // Bottom-right (9,5) -> (4,3).
+  EXPECT_EQ(bitmap.GetPixel(4, 3).value().r, 255);
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value().r, 0);
+}
+
+TEST(Bitmap, CropFullImageNoOp) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
+  const auto original_data = bitmap.RowMajorData();
+
+  bitmap.Crop(0, 0, 10, 6);
+  EXPECT_EQ(bitmap.Width(), 10);
+  EXPECT_EQ(bitmap.Height(), 6);
+  EXPECT_EQ(bitmap.RowMajorData(), original_data);
+}
+
+TEST(Bitmap, CropOutOfBounds) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  EXPECT_THROW(bitmap.Crop(-1, 0, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, -1, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 0, 0, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 0, 5, 0), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(6, 0, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 2, 5, 5), std::invalid_argument);
+  // Failed crops leave the bitmap unmodified.
+  EXPECT_EQ(bitmap.Width(), 10);
+  EXPECT_EQ(bitmap.Height(), 6);
+}
+
 TEST(Bitmap, Clone) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
