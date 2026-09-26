@@ -47,7 +47,7 @@ FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE: {
-#ifdef COLMAP_CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
       return false;
 #else
       return use_gpu;
@@ -73,8 +73,8 @@ bool FeatureMatchingOptions::Check() const {
   if (use_gpu) {
     CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
 #ifndef COLMAP_GPU_ENABLED
-    LOG(ERROR) << "Cannot use GPU feature matching without CUDA or OpenGL "
-                  "support. Set use_gpu or use_gpu to false.";
+    LOG(ERROR) << "Cannot use GPU feature matching without CUDA, HIP, or "
+                  "OpenGL support. Consider setting use_gpu to false.";
     return false;
 #endif
   }

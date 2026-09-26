@@ -4,15 +4,20 @@
 
 #include "colmap/util/cancellation.h"
 
-#include <QApplication>
 #include <atomic>
 #include <csignal>
 #include <thread>
 
 #include <gtest/gtest.h>
 
+#if defined(COLMAP_GUI_ENABLED)
+#include <QApplication>
+#endif
+
 namespace colmap {
 namespace {
+
+#if defined(COLMAP_GUI_ENABLED)
 
 TEST(OpenGLContextManager, Nominal) {
   char app_name[] = "Test";
@@ -76,6 +81,32 @@ TEST(RunThreadWithOpenGLContext, PreservesSignalHandler) {
 
   EXPECT_TRUE(thread.ObservedStop());
   EXPECT_EQ(signal_handler.ReceivedSignal(), SIGINT);
+}
+
+#endif  // COLMAP_GUI_ENABLED
+
+// The thread must run whether or not an OpenGL context can be provided.
+// Callers pass work that only needs a context for the OpenGL backend, so a
+// build without one must still execute the body rather than skip it.
+TEST(RunThreadWithOpenGLContext, RunsThreadBody) {
+#if defined(COLMAP_GUI_ENABLED)
+  char app_name[] = "Test";
+  int argc = 1;
+  char* argv[] = {app_name};
+  QApplication app(argc, argv);
+#endif
+
+  class TestThread : public Thread {
+   public:
+    bool ran = false;
+
+   private:
+    void Run() { ran = true; }
+  };
+
+  TestThread thread;
+  RunThreadWithOpenGLContext(&thread);
+  EXPECT_TRUE(thread.ran);
 }
 
 }  // namespace

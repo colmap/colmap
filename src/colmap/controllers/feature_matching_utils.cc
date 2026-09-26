@@ -9,10 +9,6 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
 
-#if defined(COLMAP_CUDA_ENABLED)
-#include <cuda_runtime.h>
-#endif
-
 namespace colmap {
 
 FeatureMatcherWorker::FeatureMatcherWorker(
@@ -38,9 +34,9 @@ void FeatureMatcherWorker::Run() {
     THROW_CHECK(opengl_context_->MakeCurrent());
   }
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
   if (matching_options_.use_gpu) {
-    // Initialize CUDA device for this worker thread
+    // Initialize the GPU device for this worker thread
     const std::vector<int> gpu_indices =
         CSVToVector<int>(matching_options_.gpu_index);
     THROW_CHECK_EQ(gpu_indices.size(), 1)
@@ -271,7 +267,7 @@ FeatureMatcherController::FeatureMatcherController(
   std::vector<int> gpu_indices = CSVToVector<int>(matching_options_.gpu_index);
   THROW_CHECK_GT(gpu_indices.size(), 0);
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
   if (matching_options_.use_gpu && gpu_indices.size() == 1 &&
       gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
@@ -279,7 +275,7 @@ FeatureMatcherController::FeatureMatcherController(
     gpu_indices.resize(num_cuda_devices);
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 
   JobQueue<FeatureMatcherData>* matcher_output_queue =
       skip_geometric_verification_ ? &output_queue_ : &verifier_queue_;

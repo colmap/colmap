@@ -138,8 +138,9 @@ semicolon-separated list). ``CUDA_ENABLED`` and ``HIP_ENABLED`` are mutually
 exclusive. CMake 3.21 or newer is required for the HIP backend. On RDNA3
 consumer parts where ROCm only officially supports a subset of architectures,
 you may also need ``HSA_OVERRIDE_GFX_VERSION=11.0.0`` in the runtime
-environment. The HIP backend currently accelerates dense reconstruction
-(``patch_match_stereo``); see the changelog for ongoing coverage.
+environment. The HIP backend accelerates dense reconstruction
+(``patch_match_stereo``) and GPU SIFT feature extraction and matching; see the
+changelog for ongoing coverage.
 
 If ROCm is installed through a Python wheel / virtualenv (for example AMD's
 TheRock packaging, which puts a ``rocm-sdk`` command on the ``PATH``), the
