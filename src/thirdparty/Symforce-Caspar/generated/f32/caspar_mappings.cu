@@ -1,9 +1,8 @@
-#include "caspar_mappings.h"
-#include <cooperative_groups.h>
-#include <cooperative_groups/memcpy_async.h>
 #include <stdio.h>
 
-namespace cg = cooperative_groups;
+#include "cuda_to_hip.h"
+
+#include "caspar_mappings.h"
 
 // We use shared memory to improve the memory access.
 // A smaller block size of 32 allows for larger nodetypes.

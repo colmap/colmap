@@ -1,39 +1,23 @@
+#include "cuda_to_hip.h"
+
 #include "kernel_pinhole_split_fixed_pose_fixed_focal_fixed_principal_point_res_jac.h"
 #include "memops.cuh"
-#include <cooperative_groups.h>
-#include <cooperative_groups/details/partitioning.h>
-#include <cooperative_groups/memcpy_async.h>
-#include <cooperative_groups/reduce.h>
-#include <cuda_runtime.h>
-
-namespace cg = cooperative_groups;
 
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     PinholeSplitFixedPoseFixedFocalFixedPrincipalPointResJacKernel(
-        float* sensor_from_rig,
-        unsigned int sensor_from_rig_num_alloc,
-        float* point,
-        unsigned int point_num_alloc,
-        SharedIndex* point_indices,
-        float* pixel,
-        unsigned int pixel_num_alloc,
-        float* pose,
-        unsigned int pose_num_alloc,
-        float* focal,
-        unsigned int focal_num_alloc,
-        float* principal_point,
-        unsigned int principal_point_num_alloc,
-        float* out_res,
-        unsigned int out_res_num_alloc,
-        float* const out_point_njtr,
-        unsigned int out_point_njtr_num_alloc,
-        float* const out_point_precond_diag,
+        float *sensor_from_rig, unsigned int sensor_from_rig_num_alloc,
+        float *point, unsigned int point_num_alloc, SharedIndex *point_indices,
+        float *pixel, unsigned int pixel_num_alloc, float *pose,
+        unsigned int pose_num_alloc, float *focal, unsigned int focal_num_alloc,
+        float *principal_point, unsigned int principal_point_num_alloc,
+        float *out_res, unsigned int out_res_num_alloc,
+        float *const out_point_njtr, unsigned int out_point_njtr_num_alloc,
+        float *const out_point_precond_diag,
         unsigned int out_point_precond_diag_num_alloc,
-        float* const out_point_precond_tril,
-        unsigned int out_point_precond_tril_num_alloc,
-        size_t problem_size) {
+        float *const out_point_precond_tril,
+        unsigned int out_point_precond_tril_num_alloc, size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
 
@@ -51,41 +35,29 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, float, float, float2>(principal_point,
                                          0 * principal_point_num_alloc,
-                                         global_thread_idx,
-                                         r0,
-                                         r1);
-    ReadIdx2<1024, float, float, float2>(
-        pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
+                                         global_thread_idx, r0, r1);
+    ReadIdx2<1024, float, float, float2>(pixel, 0 * pixel_num_alloc,
+                                         global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r2 = fmaf(r2, r4, r0);
     r0 = 9.99999999999999955e-07;
     ReadIdx3<1024, float, float, float4>(sensor_from_rig,
                                          4 * sensor_from_rig_num_alloc,
-                                         global_thread_idx,
-                                         r5,
-                                         r6,
-                                         r7);
+                                         global_thread_idx, r5, r6, r7);
   };
-  LoadShared<3, float, float>(
-      point, 0 * point_num_alloc, point_indices_loc, (float*)inout_shared);
+  LoadShared<3, float, float>(point, 0 * point_num_alloc, point_indices_loc,
+                              (float *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared3<float>((float*)inout_shared,
-                       point_indices_loc[threadIdx.x].target,
-                       r8,
-                       r9,
-                       r10);
+    ReadShared3<float>((float *)inout_shared,
+                       point_indices_loc[threadIdx.x].target, r8, r9, r10);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     ReadIdx4<1024, float, float, float4>(sensor_from_rig,
                                          0 * sensor_from_rig_num_alloc,
-                                         global_thread_idx,
-                                         r11,
-                                         r12,
-                                         r13,
-                                         r14);
-    ReadIdx4<1024, float, float, float4>(
-        pose, 0 * pose_num_alloc, global_thread_idx, r15, r16, r17, r18);
+                                         global_thread_idx, r11, r12, r13, r14);
+    ReadIdx4<1024, float, float, float4>(pose, 0 * pose_num_alloc,
+                                         global_thread_idx, r15, r16, r17, r18);
     r19 = fmaf(r11, r16, r14 * r17);
     r20 = r12 * r15;
     r19 = fmaf(r4, r20, r19);
@@ -108,8 +80,8 @@ __global__ void __launch_bounds__(1024, 1)
     r18 = r25 * r26;
     r27 = fmaf(r24, r18, r23);
     r7 = fmaf(r8, r27, r7);
-    ReadIdx3<1024, float, float, float4>(
-        pose, 4 * pose_num_alloc, global_thread_idx, r28, r29, r30);
+    ReadIdx3<1024, float, float, float4>(pose, 4 * pose_num_alloc,
+                                         global_thread_idx, r28, r29, r30);
     r31 = r11 * r13;
     r31 = r31 * r20;
     r32 = r12 * r14;
@@ -141,8 +113,8 @@ __global__ void __launch_bounds__(1024, 1)
     r39 = copysign(1.0, r7);
     r39 = fmaf(r0, r39, r7);
     r0 = 1.0 / r39;
-    ReadIdx2<1024, float, float, float2>(
-        focal, 0 * focal_num_alloc, global_thread_idx, r7, r37);
+    ReadIdx2<1024, float, float, float2>(focal, 0 * focal_num_alloc,
+                                         global_thread_idx, r7, r37);
     r42 = r35 + r42;
     r33 = r19 * r19;
     r33 = r25 * r33;
@@ -187,28 +159,28 @@ __global__ void __launch_bounds__(1024, 1)
     r8 = fmaf(r9, r33, r8);
     r8 = r37 * r8;
     r3 = fmaf(r0, r8, r3);
-    WriteIdx2<1024, float, float, float2>(
-        out_res, 0 * out_res_num_alloc, global_thread_idx, r2, r3);
-    r9 = r4 * r3;
-    r10 = r37 * r1;
+    WriteIdx2<1024, float, float, float2>(out_res, 0 * out_res_num_alloc,
+                                          global_thread_idx, r2, r3);
+    r9 = r4 * r2;
     r39 = r39 * r39;
     r39 = 1.0 / r39;
     r39 = r4 * r39;
-    r34 = r27 * r39;
-    r34 = fmaf(r8, r34, r0 * r10);
-    r10 = r4 * r2;
     r5 = r39 * r5;
-    r30 = r7 * r42;
-    r30 = fmaf(r0, r30, r27 * r5);
-    r10 = fmaf(r30, r10, r34 * r9);
+    r10 = r7 * r42;
+    r10 = fmaf(r0, r10, r27 * r5);
+    r34 = r4 * r3;
+    r30 = r37 * r1;
+    r47 = r27 * r39;
+    r47 = fmaf(r8, r47, r0 * r30);
+    r34 = fmaf(r47, r34, r10 * r9);
     r9 = r4 * r3;
-    r47 = r41 * r39;
-    r29 = r37 * r33;
-    r29 = fmaf(r0, r29, r8 * r47);
-    r47 = r4 * r2;
+    r30 = r37 * r33;
+    r29 = r41 * r39;
+    r29 = fmaf(r8, r29, r0 * r30);
+    r30 = r4 * r2;
     r6 = r7 * r45;
     r6 = fmaf(r0, r6, r41 * r5);
-    r47 = fmaf(r6, r47, r29 * r9);
+    r30 = fmaf(r6, r30, r29 * r9);
     r9 = r4 * r3;
     r28 = r37 * r18;
     r44 = r43 * r39;
@@ -217,57 +189,42 @@ __global__ void __launch_bounds__(1024, 1)
     r8 = r7 * r46;
     r5 = fmaf(r43, r5, r0 * r8);
     r28 = fmaf(r5, r28, r44 * r9);
-    WriteSum3<float, float>((float*)inout_shared, r10, r47, r28);
+    WriteSum3<float, float>((float *)inout_shared, r34, r30, r28);
   };
-  FlushSumShared<3, float>(out_point_njtr,
-                           0 * out_point_njtr_num_alloc,
-                           point_indices_loc,
-                           (float*)inout_shared);
+  FlushSumShared<3, float>(out_point_njtr, 0 * out_point_njtr_num_alloc,
+                           point_indices_loc, (float *)inout_shared);
   if (global_thread_idx < problem_size) {
-    r28 = fmaf(r30, r30, r34 * r34);
-    r47 = fmaf(r29, r29, r6 * r6);
-    r10 = fmaf(r44, r44, r5 * r5);
-    WriteSum3<float, float>((float*)inout_shared, r28, r47, r10);
+    r28 = fmaf(r47, r47, r10 * r10);
+    r30 = fmaf(r29, r29, r6 * r6);
+    r34 = fmaf(r44, r44, r5 * r5);
+    WriteSum3<float, float>((float *)inout_shared, r28, r30, r34);
   };
   FlushSumShared<3, float>(out_point_precond_diag,
                            0 * out_point_precond_diag_num_alloc,
-                           point_indices_loc,
-                           (float*)inout_shared);
+                           point_indices_loc, (float *)inout_shared);
   if (global_thread_idx < problem_size) {
-    r10 = fmaf(r30, r6, r34 * r29);
-    r30 = fmaf(r30, r5, r34 * r44);
+    r34 = fmaf(r10, r6, r47 * r29);
+    r47 = fmaf(r47, r44, r10 * r5);
     r5 = fmaf(r6, r5, r29 * r44);
-    WriteSum3<float, float>((float*)inout_shared, r10, r30, r5);
+    WriteSum3<float, float>((float *)inout_shared, r34, r47, r5);
   };
   FlushSumShared<3, float>(out_point_precond_tril,
                            0 * out_point_precond_tril_num_alloc,
-                           point_indices_loc,
-                           (float*)inout_shared);
+                           point_indices_loc, (float *)inout_shared);
 }
 
 void PinholeSplitFixedPoseFixedFocalFixedPrincipalPointResJac(
-    float* sensor_from_rig,
-    unsigned int sensor_from_rig_num_alloc,
-    float* point,
-    unsigned int point_num_alloc,
-    SharedIndex* point_indices,
-    float* pixel,
-    unsigned int pixel_num_alloc,
-    float* pose,
-    unsigned int pose_num_alloc,
-    float* focal,
-    unsigned int focal_num_alloc,
-    float* principal_point,
-    unsigned int principal_point_num_alloc,
-    float* out_res,
-    unsigned int out_res_num_alloc,
-    float* const out_point_njtr,
-    unsigned int out_point_njtr_num_alloc,
-    float* const out_point_precond_diag,
+    float *sensor_from_rig, unsigned int sensor_from_rig_num_alloc,
+    float *point, unsigned int point_num_alloc, SharedIndex *point_indices,
+    float *pixel, unsigned int pixel_num_alloc, float *pose,
+    unsigned int pose_num_alloc, float *focal, unsigned int focal_num_alloc,
+    float *principal_point, unsigned int principal_point_num_alloc,
+    float *out_res, unsigned int out_res_num_alloc, float *const out_point_njtr,
+    unsigned int out_point_njtr_num_alloc, float *const out_point_precond_diag,
     unsigned int out_point_precond_diag_num_alloc,
-    float* const out_point_precond_tril,
-    unsigned int out_point_precond_tril_num_alloc,
-    size_t problem_size) {
+    float *const out_point_precond_tril,
+    unsigned int out_point_precond_tril_num_alloc, size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
@@ -275,28 +232,12 @@ void PinholeSplitFixedPoseFixedFocalFixedPrincipalPointResJac(
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   PinholeSplitFixedPoseFixedFocalFixedPrincipalPointResJacKernel<<<n_blocks,
                                                                    1024>>>(
-      sensor_from_rig,
-      sensor_from_rig_num_alloc,
-      point,
-      point_num_alloc,
-      point_indices,
-      pixel,
-      pixel_num_alloc,
-      pose,
-      pose_num_alloc,
-      focal,
-      focal_num_alloc,
-      principal_point,
-      principal_point_num_alloc,
-      out_res,
-      out_res_num_alloc,
-      out_point_njtr,
-      out_point_njtr_num_alloc,
-      out_point_precond_diag,
-      out_point_precond_diag_num_alloc,
-      out_point_precond_tril,
-      out_point_precond_tril_num_alloc,
-      problem_size);
+      sensor_from_rig, sensor_from_rig_num_alloc, point, point_num_alloc,
+      point_indices, pixel, pixel_num_alloc, pose, pose_num_alloc, focal,
+      focal_num_alloc, principal_point, principal_point_num_alloc, out_res,
+      out_res_num_alloc, out_point_njtr, out_point_njtr_num_alloc,
+      out_point_precond_diag, out_point_precond_diag_num_alloc,
+      out_point_precond_tril, out_point_precond_tril_num_alloc, problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar
