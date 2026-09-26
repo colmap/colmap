@@ -472,6 +472,32 @@ be ``mask_path/abc/012.jpg.png``.
 In both cases no features will be extracted in regions,
 where the mask image is black (pixel intensity value 0 in grayscale).
 
+For 360-degree panoramas, ``python/examples/panorama_sfm.py`` accepts masks in
+the original equirectangular image coordinates::
+
+    python python/examples/panorama_sfm.py \
+        --input_image_path panoramas --output_path reconstruction \
+        --input_mask_path panorama_masks \
+        --input_camera_mask_path camera_mask.png
+
+Both mask options are optional. Per-panorama masks follow the naming convention
+above (replacing the image extension with ``.png`` is also supported). Each mask
+must have the same dimensions as the original panorama. Use a camera mask to
+exclude a static region such as the tripod, per-image masks for moving subjects,
+or both to exclude their combined regions.
+
+Perspective modes project the masks into each virtual camera using
+nearest-neighbor sampling and intersect them with the masks that prevent
+duplicate feature extraction across overlapping views. The resulting masks are
+written to ``reconstruction/masks`` and used for feature extraction. Spherical
+mode applies the original masks directly. In Python, these options are available
+as ``PanoramaReconstructionOptions.input_mask_path`` and
+``PanoramaReconstructionOptions.input_camera_mask_path``.
+
+The RGB images are unchanged. These masks exclude keypoints from COLMAP's
+reconstruction; downstream Gaussian splatting or other training tools must also
+be configured to consume masks to ignore those pixels in their training losses.
+
 
 Image orientation and EXIF
 --------------------------
