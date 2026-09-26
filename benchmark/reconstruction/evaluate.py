@@ -43,6 +43,7 @@ from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
 from evaluation.tartanair import (
     DatasetTartanAirPerspective,
     DatasetTartanAirSpherical,
+    DatasetTartanAirSphericalReprojected,
 )
 from evaluation.tartanair.tartanair_v2 import load_manifest
 from evaluation.utils import (
@@ -67,6 +68,7 @@ def _dataset_classes() -> dict[str, type[Dataset]]:
         "imc2025": DatasetIMC2025,
         "tartanair-v2-perspective": DatasetTartanAirPerspective,
         "tartanair-v2-spherical": DatasetTartanAirSpherical,
+        "tartanair-v2-spherical-reprojected": DatasetTartanAirSphericalReprojected,
     }
 
 
@@ -169,6 +171,9 @@ def run_seeds(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    import multiprocessing
+
+    multiprocessing.set_start_method("spawn", force=True)
     args = parse_args(__doc__)
     unknown = [name for name in args.datasets if name not in _dataset_classes()]
     if unknown:

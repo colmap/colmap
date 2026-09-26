@@ -30,12 +30,13 @@ this subset:
 The exact source revision, trajectories, frames, and packaging checksums are
 recorded in `tartanair_v2_manifest.json`.
 
-From the COLMAP checkout, download and evaluate both pipeline variants with:
+From the COLMAP checkout, download and evaluate the pipeline variants with:
 
 ```bash
 python benchmark/reconstruction/download.py --datasets tartanair-v2
 python benchmark/reconstruction/evaluate.py \
   --datasets tartanair-v2-perspective tartanair-v2-spherical \
+    tartanair-v2-spherical-reprojected \
   --colmap_path /path/to/colmap
 ```
 
