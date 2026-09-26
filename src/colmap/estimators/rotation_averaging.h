@@ -130,14 +130,15 @@ class RotationEstimator {
                               const FlatHashSet<image_t>& active_image_ids,
                               Reconstruction& reconstruction);
 
-  // Initializes rotations from maximum spanning tree.
-  void InitializeFromMaximumSpanningTree(
-      const PoseGraph& pose_graph,
-      const FlatHashSet<image_t>& active_image_ids,
-      Reconstruction& reconstruction);
-
   const RotationEstimatorOptions options_;
 };
+
+// Initializes rotations from maximum spanning tree.
+void InitializeFromMaximumSpanningTree(
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& active_image_ids,
+    Reconstruction& reconstruction,
+    bool refine_sensor_from_rig);
 
 // Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
