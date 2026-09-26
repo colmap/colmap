@@ -298,6 +298,41 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     return false;
   }
 
+  // Lower and upper bounds for the parameters, consistent with HasBogusParams:
+  // a parameter vector inside these bounds is never bogus. Unconstrained
+  // parameters are bounded by +/- infinity. Note that the converse does not
+  // hold for every model, i.e. a non-bogus parameter vector may lie marginally
+  // outside the bounds, because a closed interval cannot express a strict
+  // inequality.
+  static inline void ParamsBounds(const size_t width,
+                                  const size_t height,
+                                  const double min_focal_length_ratio,
+                                  const double max_focal_length_ratio,
+                                  const double max_extra_param,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds) {
+    lower_bounds->assign(CameraModel::num_params,
+                         -std::numeric_limits<double>::infinity());
+    upper_bounds->assign(CameraModel::num_params,
+                         std::numeric_limits<double>::infinity());
+
+    const double max_size = std::max(width, height);
+    for (const size_t idx : CameraModel::focal_length_idxs) {
+      (*lower_bounds)[idx] = min_focal_length_ratio * max_size;
+      (*upper_bounds)[idx] = max_focal_length_ratio * max_size;
+    }
+
+    (*lower_bounds)[CameraModel::principal_point_idxs[0]] = 0;
+    (*upper_bounds)[CameraModel::principal_point_idxs[0]] = width;
+    (*lower_bounds)[CameraModel::principal_point_idxs[1]] = 0;
+    (*upper_bounds)[CameraModel::principal_point_idxs[1]] = height;
+
+    for (const size_t idx : CameraModel::extra_params_idxs) {
+      (*lower_bounds)[idx] = -max_extra_param;
+      (*upper_bounds)[idx] = max_extra_param;
+    }
+  }
+
   template <typename T>
   static inline T CamFromImgThreshold(const T* params, const T threshold) {
     T mean_focal_length = 0;
@@ -415,6 +450,21 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
 
 template <typename CameraModel>
 struct BaseSphericalCameraModel : public BaseCameraModel<CameraModel> {
+  // Spherical models are fully specified by their metadata parameters, so no
+  // parameter is constrained. See HasBogusParams, which always returns false.
+  static inline void ParamsBounds(const size_t /*width*/,
+                                  const size_t /*height*/,
+                                  const double /*min_focal_length_ratio*/,
+                                  const double /*max_focal_length_ratio*/,
+                                  const double /*max_extra_param*/,
+                                  std::vector<double>* lower_bounds,
+                                  std::vector<double>* upper_bounds) {
+    lower_bounds->assign(CameraModel::num_params,
+                         -std::numeric_limits<double>::infinity());
+    upper_bounds->assign(CameraModel::num_params,
+                         std::numeric_limits<double>::infinity());
+  }
+
   // Rescale the parameters in-place for a new image resolution. Only the image
   // dimensions (w, h), carried by the metadata group, track the rescaled image;
   // any extra parameters are resolution independent and left untouched.

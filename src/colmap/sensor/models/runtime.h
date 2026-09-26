@@ -110,6 +110,32 @@ bool CameraModelHasBogusParams(CameraModelId model_id,
                                double max_focal_length_ratio,
                                double max_extra_param);
 
+// Get lower and upper bounds for the camera parameters that are consistent with
+// CameraModelHasBogusParams: a parameter vector inside these bounds is never
+// bogus. Unconstrained parameters are bounded by +/- infinity. Note that the
+// converse does not hold for every model, i.e. a non-bogus parameter vector may
+// lie marginally outside the bounds, because a closed interval cannot express a
+// strict inequality.
+//
+// @param model_id                Unique identifier of camera model.
+// @param width                   Sensor width of the camera.
+// @param height                  Sensor height of the camera.
+// @param min_focal_length_ratio  Minimum ratio of focal length over
+//                                maximum sensor dimension.
+// @param max_focal_length_ratio  Maximum ratio of focal length over
+//                                maximum sensor dimension.
+// @param max_extra_param         Maximum magnitude of each extra parameter.
+// @param lower_bounds            Output lower bound per parameter.
+// @param upper_bounds            Output upper bound per parameter.
+void CameraModelParamsBounds(CameraModelId model_id,
+                             size_t width,
+                             size_t height,
+                             double min_focal_length_ratio,
+                             double max_focal_length_ratio,
+                             double max_extra_param,
+                             std::vector<double>* lower_bounds,
+                             std::vector<double>* upper_bounds);
+
 // Transform camera to image coordinates.
 //
 // This is the inverse of `CameraModelCamFromImg`.
