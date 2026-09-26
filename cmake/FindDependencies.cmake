@@ -574,6 +574,12 @@ if(TARGET onnxruntime::onnxruntime)
         list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_COREML_ENABLED)
         message(STATUS "Enabling ONNX CoreML execution provider")
     endif()
+    # Enable the DirectML execution provider for ONNX inference on Windows
+    # AMD/Intel GPUs (requires a DirectML-capable onnxruntime, no CUDA).
+    if(DML_ENABLED)
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_DML_ENABLED)
+        message(STATUS "Enabling ONNX DirectML execution provider")
+    endif()
 endif()
 
 if(GUI_ENABLED)

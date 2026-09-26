@@ -43,6 +43,9 @@
 #ifdef COLMAP_COREML_ENABLED
 #include <coreml_provider_factory.h>
 #endif
+#ifdef COLMAP_DML_ENABLED
+#include <dml_provider_factory.h>
+#endif
 
 namespace colmap {
 
@@ -78,6 +81,8 @@ ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu) {
   return ONNXExecutionProvider::CUDA;
 #elif defined(COLMAP_COREML_ENABLED)
   return ONNXExecutionProvider::COREML;
+#elif defined(COLMAP_DML_ENABLED)
+  return ONNXExecutionProvider::DML;
 #else
   return ONNXExecutionProvider::CPU;
 #endif
@@ -198,6 +203,25 @@ void ONNXModel::InitializeSession(const std::string& model_path,
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(
         static_cast<OrtSessionOptions*>(session_options_),
         COREML_FLAG_CREATE_MLPROGRAM));
+  }
+#endif
+
+  // On Windows AMD/Intel GPUs, map use_gpu onto DirectML, which accelerates
+  // ONNX inference via DX12 (no CUDA required). device_id 0 selects the
+  // default adapter (usually the primary display GPU). We use the OrtDmlApi
+  // obtained via GetExecutionProviderApi: the legacy global
+  // OrtSessionOptionsAppendExecutionProvider_DML export is deprecated in
+  // modern ONNX Runtime and can crash.
+  const bool use_dml = execution_provider_ == ONNXExecutionProvider::DML;
+#ifdef COLMAP_DML_ENABLED
+  if (use_dml) {
+    VLOG(2) << "Enabling DirectML execution provider";
+    const OrtApi* ort_api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
+    const OrtDmlApi* dml_api = nullptr;
+    Ort::ThrowOnError(ort_api->GetExecutionProviderApi(
+        "DML", ORT_API_VERSION, reinterpret_cast<const void**>(&dml_api)));
+    Ort::ThrowOnError(dml_api->SessionOptionsAppendExecutionProvider_DML(
+        static_cast<OrtSessionOptions*>(session_options_), /*device_id=*/0));
   }
 #endif
 

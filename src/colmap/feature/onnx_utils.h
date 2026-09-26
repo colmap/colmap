@@ -43,6 +43,7 @@ enum class ONNXExecutionProvider {
   CPU,
   CUDA,
   COREML,
+  DML,
 };
 
 // Resolve the execution provider requested by `use_gpu` for this build.

@@ -150,7 +150,11 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        model_.output_shapes()[1],
                        {-1, -1, -1});
     descriptor_dim_ = static_cast<int>(model_.output_shapes()[1][2]);
-    THROW_CHECK_GT(descriptor_dim_, 0);
+    // ALIKED descriptors are 128-dimensional, but some execution providers
+    // (e.g. DirectML) report the static descriptor dimension as dynamic (-1).
+    // Accept a dynamic dimension here and resolve the actual value from the
+    // output tensor at extraction time.
+    THROW_CHECK(descriptor_dim_ == -1 || descriptor_dim_ > 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
     ThrowCheckONNXNode(model_.output_names()[2],
                        "scores",
@@ -228,7 +232,11 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     THROW_CHECK_EQ(descriptors_shape.size(), 3);
     THROW_CHECK_EQ(descriptors_shape[0], 1);
     THROW_CHECK_EQ(descriptors_shape[1], num_keypoints);
-    THROW_CHECK_EQ(descriptors_shape[2], descriptor_dim_);
+    const int descriptor_dim = static_cast<int>(descriptors_shape[2]);
+    THROW_CHECK_GT(descriptor_dim, 0);
+    if (descriptor_dim_ > 0) {
+      THROW_CHECK_EQ(descriptor_dim, descriptor_dim_);
+    }
 
     // Parse scores shape: [1, K].
     const std::vector<int64_t> scores_shape =
@@ -273,15 +281,15 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     const int num_valid = static_cast<int>(valid_keypoints.size());
     keypoints->resize(num_valid);
     descriptors->type = options_.type;
-    descriptors->data.resize(num_valid, descriptor_dim_ * sizeof(float));
+    descriptors->data.resize(num_valid, descriptor_dim * sizeof(float));
     for (int j = 0; j < num_valid; ++j) {
       const auto& kp = valid_keypoints[j];
       (*keypoints)[j].x = kp.x;
       (*keypoints)[j].y = kp.y;
       std::memcpy(
-          descriptors->data.data() + j * descriptor_dim_ * sizeof(float),
-          descriptors_data + kp.index * descriptor_dim_,
-          descriptor_dim_ * sizeof(float));
+          descriptors->data.data() + j * descriptor_dim * sizeof(float),
+          descriptors_data + kp.index * descriptor_dim,
+          descriptor_dim * sizeof(float));
     }
 
     return true;

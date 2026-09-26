@@ -223,7 +223,11 @@ class LomaFeatureExtractor : public FeatureExtractor {
     const auto& desc_out_shape = descriptor_.output_shapes()[0];
     THROW_CHECK_EQ(desc_out_shape.size(), 3);
     descriptor_dim_ = static_cast<int>(desc_out_shape[2]);
-    THROW_CHECK_GT(descriptor_dim_, 0);
+    // LoMa descriptors have a fixed dimension, but some execution providers
+    // (e.g. DirectML) report the static descriptor dimension as dynamic (-1).
+    // Accept a dynamic dimension here and resolve the actual value from the
+    // output tensor at extraction time.
+    THROW_CHECK(descriptor_dim_ == -1 || descriptor_dim_ > 0);
     VLOG(2) << "LoMa descriptor dimension: " << descriptor_dim_;
   }
 
@@ -286,6 +290,12 @@ class LomaFeatureExtractor : public FeatureExtractor {
     const std::vector<Ort::Value> desc_outputs = descriptor_.Run(desc_inputs);
     THROW_CHECK_EQ(desc_outputs.size(), 1);
     const float* desc_data = desc_outputs[0].GetTensorData<float>();
+    const int descriptor_dim =
+        descriptor_dim_ > 0
+            ? descriptor_dim_
+            : static_cast<int>(
+                  desc_outputs[0].GetTensorTypeAndShapeInfo().GetShape()[2]);
+    THROW_CHECK_GT(descriptor_dim, 0);
 
     // Convert normalized [-1, 1] keypoints to pixel coordinates in the
     // original image, and filter by min_score, same convention as
@@ -309,14 +319,14 @@ class LomaFeatureExtractor : public FeatureExtractor {
     const int num_valid = static_cast<int>(valid.size());
     keypoints->resize(num_valid);
     descriptors->type = options_.type;
-    descriptors->data.resize(num_valid, descriptor_dim_ * sizeof(float));
+    descriptors->data.resize(num_valid, descriptor_dim * sizeof(float));
     for (int j = 0; j < num_valid; ++j) {
       (*keypoints)[j].x = valid[j].x;
       (*keypoints)[j].y = valid[j].y;
       std::memcpy(
-          descriptors->data.data() + j * descriptor_dim_ * sizeof(float),
-          desc_data + valid[j].index * descriptor_dim_,
-          descriptor_dim_ * sizeof(float));
+          descriptors->data.data() + j * descriptor_dim * sizeof(float),
+          desc_data + valid[j].index * descriptor_dim,
+          descriptor_dim * sizeof(float));
     }
     return true;
   }
