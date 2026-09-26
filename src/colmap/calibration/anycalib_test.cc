@@ -156,20 +156,20 @@ TEST(PrepareAnyCalibInputTest, DegenerateGravityDoesNotCrash) {
 }
 
 TEST(CreateAnyCalibCalibratorTest, EmptyModelPathThrows) {
-  CameraCalibrationOptions options;
+  MonocularCalibrationOptions options(MonocularCalibratorType::ANYCALIB);
   options.anycalib->model_path = "";
   // Route through the public factory, like production callers.
-  EXPECT_THROW(CameraCalibrator::Create(options), std::exception);
+  EXPECT_THROW(MonocularCalibrator::Create(options), std::exception);
 }
 
 TEST(CreateAnyCalibCalibratorTest, NullAnyCalibOptionsThrows) {
-  CameraCalibrationOptions options;
+  MonocularCalibrationOptions options;
   options.anycalib = nullptr;
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
 TEST(CreateAnyCalibCalibratorTest, MissingModelFileThrows) {
-  CameraCalibrationOptions options;
+  MonocularCalibrationOptions options;
   options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
@@ -187,9 +187,9 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
                                            RandomUniformInteger(0, 255)));
     }
   }
-  CameraCalibrationOptions options;
+  MonocularCalibrationOptions options(MonocularCalibratorType::ANYCALIB);
   options.use_gpu = false;
-  auto calibrator = CameraCalibrator::Create(options);
+  auto calibrator = MonocularCalibrator::Create(options);
   // A valid model exercises inference end to end; the empty default target
   // model preserves it.
   Camera camera;
@@ -199,7 +199,8 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
   camera.params = {50, 32, 24, 0};
   // Random noise is not expected to calibrate; the test only checks that
   // inference runs end to end without crashing.
-  const bool success = calibrator->Calibrate(bitmap, &camera);
+  PosePrior pose_prior;
+  const bool success = calibrator->Calibrate(bitmap, &camera, &pose_prior);
   if (success) {
     EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
     EXPECT_TRUE(camera.VerifyParams());
@@ -207,6 +208,48 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
     EXPECT_EQ(camera.height, 48);
     EXPECT_TRUE(camera.has_prior_focal_length);
   }
+  EXPECT_FALSE(pose_prior.HasPosition());
+  EXPECT_FALSE(pose_prior.HasGravity());
+}
+
+// Grayscale input is converted for inference, and the pose prior is populated
+// from EXIF independently of the intrinsics fit. Reuses the cached model from
+// the smoke test.
+TEST(AnyCalibCalibratorTest, GreyInputAndPosePrior) {
+  Bitmap bitmap(64, 48, /*as_rgb=*/false);
+  for (int r = 0; r < 48; ++r) {
+    for (int c = 0; c < 64; ++c) {
+      bitmap.SetPixel(c, r, BitmapColor<uint8_t>(RandomUniformInteger(0, 255)));
+    }
+  }
+  float latitude[3] = {47.3769f, 0, 0};
+  bitmap.SetMetaData("GPS:Latitude", "point", latitude);
+  bitmap.SetMetaData("GPS:LatitudeRef", "N");
+  float longitude[3] = {8.5417f, 0, 0};
+  bitmap.SetMetaData("GPS:Longitude", "point", longitude);
+  bitmap.SetMetaData("GPS:LongitudeRef", "E");
+  float altitude = 400.0f;
+  bitmap.SetMetaData("GPS:Altitude", "float", &altitude);
+  bitmap.SetMetaData("GPS:AltitudeRef", "0");
+  int orientation = 1;
+  bitmap.SetMetaData("Orientation", "int", &orientation);
+  MonocularCalibrationOptions options(MonocularCalibratorType::ANYCALIB);
+  options.use_gpu = false;
+  auto calibrator = MonocularCalibrator::Create(options);
+  Camera camera;
+  camera.model_id = CameraModelId::kSimpleRadial;
+  camera.width = 64;
+  camera.height = 48;
+  camera.params = {50, 32, 24, 0};
+  PosePrior pose_prior;
+  calibrator->Calibrate(bitmap, &camera, &pose_prior);
+  ASSERT_TRUE(pose_prior.HasPosition());
+  EXPECT_DOUBLE_EQ(pose_prior.position.x(), 47.3769f);
+  EXPECT_DOUBLE_EQ(pose_prior.position.y(), 8.5417f);
+  EXPECT_DOUBLE_EQ(pose_prior.position.z(), 400.0f);
+  EXPECT_EQ(pose_prior.coordinate_system, PosePrior::CoordinateSystem::WGS84);
+  ASSERT_TRUE(pose_prior.HasGravity());
+  EXPECT_EQ(pose_prior.gravity, Eigen::Vector3d(0, 1, 0));
 }
 
 // A camera without a valid model fails gracefully instead of throwing inside
@@ -214,11 +257,12 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
 TEST(AnyCalibCalibratorTest, InvalidCameraModelReturnsFalse) {
   Bitmap bitmap;
   CreateSolidRgbImage(64, 48, 255, &bitmap);
-  CameraCalibrationOptions options;
+  MonocularCalibrationOptions options(MonocularCalibratorType::ANYCALIB);
   options.use_gpu = false;
-  auto calibrator = CameraCalibrator::Create(options);
+  auto calibrator = MonocularCalibrator::Create(options);
   Camera camera;
-  EXPECT_FALSE(calibrator->Calibrate(bitmap, &camera));
+  PosePrior pose_prior;
+  EXPECT_FALSE(calibrator->Calibrate(bitmap, &camera, &pose_prior));
   EXPECT_EQ(camera.model_id, CameraModelId::kInvalid);
 }
 

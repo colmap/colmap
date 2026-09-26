@@ -78,6 +78,7 @@ int RunFeatureExtractor(int argc, char** argv) {
       &descriptor_normalization,
       "{" + VectorToCSV(SiftExtractionOptions::NormalizationStrings()) + "}");
   options.AddFeatureExtractionOptions();
+  options.AddMonocularCalibrationOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -118,8 +119,11 @@ int RunFeatureExtractor(int argc, char** argv) {
     app = std::make_unique<QApplication>(argc, argv);
   }
 
-  auto feature_extractor = CreateFeatureExtractorController(
-      *options.database_path, reader_options, *options.feature_extraction);
+  auto feature_extractor =
+      CreateFeatureExtractorController(*options.database_path,
+                                       reader_options,
+                                       *options.feature_extraction,
+                                       *options.monocular_calibration);
 
   if (app != nullptr) {
     RunThreadWithOpenGLContext(feature_extractor.get());
@@ -143,6 +147,7 @@ int RunFeatureImporter(int argc, char** argv) {
   options.AddRequiredOption("import_path", &import_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddFeatureExtractionOptions();
+  options.AddMonocularCalibrationOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -167,8 +172,11 @@ int RunFeatureImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  auto feature_importer = CreateFeatureImporterController(
-      *options.database_path, reader_options, import_path);
+  auto feature_importer =
+      CreateFeatureImporterController(*options.database_path,
+                                      reader_options,
+                                      import_path,
+                                      *options.monocular_calibration);
   feature_importer->Start();
   feature_importer->Wait();
 

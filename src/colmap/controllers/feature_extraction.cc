@@ -66,9 +66,159 @@ struct ImageData {
   std::unique_ptr<Bitmap> bitmap;
   std::unique_ptr<Bitmap> mask;
 
+  // Whether to fit intrinsics for this image. Only images whose camera was
+  // created in this run contribute fits; reused cameras keep their intrinsics.
+  // The pose prior is populated from EXIF independently of this flag.
+  bool calibrate_camera = false;
+
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
 };
+
+// Per-image monocular calibration fits collected during the run, aggregated
+// per camera by `FinalizeMonocularCalibration` once the pipeline drains.
+struct MonocularCalibrationFits {
+  FlatHashMap<camera_t, std::vector<std::vector<double>>> params_per_camera;
+  size_t num_processed = 0;
+  size_t num_succeeded = 0;
+  size_t num_failed = 0;
+};
+
+// Create the calibrator backend, logging and returning nullptr if the backend
+// cannot be created (e.g. the network model cannot be loaded), in which case
+// the caller falls back to EXIF pose priors without intrinsics fits.
+std::unique_ptr<MonocularCalibrator> MaybeCreateMonocularCalibrator(
+    const MonocularCalibrationOptions& calibration_options,
+    const MonocularCalibratorFactory& calibrator_factory) {
+  try {
+    if (calibrator_factory) {
+      return calibrator_factory(calibration_options);
+    } else {
+      return MonocularCalibrator::Create(calibration_options);
+    }
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Failed to create camera calibrator: " << e.what()
+               << ", cameras unchanged";
+    return nullptr;
+  }
+}
+
+// Calibrate one image: populate the pose prior and, unless `calibrator` is
+// null, fit intrinsics into a copy of `camera` and collect the fit. A null
+// calibrator (intrinsics calibration disabled or backend creation failed)
+// populates the pose prior from EXIF only. Calibration failures never fail
+// extraction: the affected image keeps its existing intrinsics.
+void ProcessMonocularImage(MonocularCalibrator* calibrator,
+                           const Bitmap& bitmap,
+                           const Image& image,
+                           const Camera& camera,
+                           PosePrior* pose_prior,
+                           bool is_exif_backend,
+                           MonocularCalibrationFits* fits) {
+  THROW_CHECK_NOTNULL(pose_prior);
+  THROW_CHECK_NOTNULL(fits);
+  if (calibrator == nullptr) {
+    SetPosePriorFromExif(bitmap, pose_prior);
+    return;
+  }
+  ++fits->num_processed;
+  if (is_exif_backend) {
+    VLOG(1) << "Calibrating image: " << image.Name();
+  } else {
+    LOG(INFO) << "Calibrating image: " << image.Name();
+  }
+  Camera calibrated = camera;
+  bool success = false;
+  std::string failure_message;
+  try {
+    success = calibrator->Calibrate(bitmap, &calibrated, pose_prior);
+  } catch (const std::exception& e) {
+    failure_message = e.what();
+  }
+  if (success) {
+    fits->params_per_camera[image.CameraId()].push_back(calibrated.params);
+    ++fits->num_succeeded;
+    if (is_exif_backend) {
+      VLOG(1) << "  Camera:          #" << calibrated.camera_id << " - "
+              << calibrated.ModelName();
+      VLOG(1) << "  Parameters:      " << calibrated.ParamsToString();
+    } else {
+      LOG(INFO) << "  Camera:          #" << calibrated.camera_id << " - "
+                << calibrated.ModelName();
+      LOG(INFO) << "  Parameters:      " << calibrated.ParamsToString();
+    }
+  } else {
+    ++fits->num_failed;
+    // With the EXIF backend a missing focal length tag is the expected
+    // outcome for uncalibrated images rather than a failure worth warning
+    // about.
+    if (is_exif_backend) {
+      VLOG(1) << "  Calibration failed" << (failure_message.empty() ? "" : ": ")
+              << failure_message << ", keeping existing intrinsics";
+    } else {
+      LOG(WARNING) << "  Calibration failed for " << image.Name()
+                   << (failure_message.empty() ? "" : ": ") << failure_message
+                   << ", keeping existing intrinsics";
+    }
+  }
+}
+
+// Aggregate the collected per-image fits per camera and update the database.
+void FinalizeMonocularCalibration(
+    Database* database,
+    const MonocularCalibrationFits& fits,
+    const MonocularCalibrationOptions& calibration_options) {
+  LOG_HEADING1("Monocular calibration");
+
+  const bool is_exif_backend =
+      calibration_options.type == MonocularCalibratorType::EXIF;
+
+  // Aggregate per-camera parameters and update the database.
+  const CameraModelId configured_model_id =
+      calibration_options.camera_model.empty()
+          ? CameraModelId::kInvalid
+          : CameraModelNameToId(calibration_options.camera_model);
+  FlatHashMap<camera_t, Camera> cameras;
+  for (const Camera& camera : database->ReadAllCameras()) {
+    cameras[camera.camera_id] = camera;
+  }
+  DatabaseTransaction database_transaction(database);
+  size_t num_cameras_updated = 0;
+  for (const auto& [camera_id, params_list] : fits.params_per_camera) {
+    auto it = cameras.find(camera_id);
+    THROW_CHECK(it != cameras.end())
+        << "Image references missing camera " << camera_id;
+    Camera camera = it->second;
+    // An empty target model preserves each camera's existing model, matching
+    // the per-image fits above.
+    const CameraModelId model_id =
+        configured_model_id == CameraModelId::kInvalid ? camera.model_id
+                                                       : configured_model_id;
+    if (AggregateMonocularCalibrations(model_id, params_list, &camera)) {
+      database->UpdateCamera(camera);
+      ++num_cameras_updated;
+      LOG(INFO) << "Updated camera #" << camera_id << ": "
+                << camera.ParamsToString();
+    }
+  }
+
+  LOG(INFO) << StringPrintf("Calibrated %d/%d images, updated %d/%d cameras",
+                            fits.num_succeeded,
+                            fits.num_processed,
+                            num_cameras_updated,
+                            cameras.size());
+  if (fits.num_succeeded == 0) {
+    if (is_exif_backend) {
+      LOG(INFO) << "No EXIF focal lengths found, keeping default intrinsics";
+    } else {
+      LOG(ERROR) << "All image calibrations failed, cameras unchanged";
+    }
+  } else if (fits.num_failed > 0 && !is_exif_backend) {
+    LOG(WARNING) << fits.num_failed
+                 << " image calibrations failed, keeping existing "
+                    "intrinsics for those";
+  }
+}
 
 class ImageResizerThread : public Thread {
  public:
@@ -323,18 +473,101 @@ class FeatureWriterThread : public Thread {
   JobQueue<ImageData>* input_queue_;
 };
 
+// Populate pose priors from EXIF and fit monocular intrinsics per image. Runs
+// as a single-threaded pipeline stage on the full-resolution bitmaps before
+// the resizer, sharing one calibrator instance, as calibration models are
+// large. Fitted parameters are collected per camera and aggregated by the
+// controller after the pipeline drains.
+class MonocularCalibratorThread : public Thread {
+ public:
+  MonocularCalibratorThread(
+      const MonocularCalibrationOptions& calibration_options,
+      MonocularCalibratorFactory calibrator_factory,
+      JobQueue<ImageData>* input_queue,
+      JobQueue<ImageData>* output_queue)
+      : calibration_options_(calibration_options),
+        calibrator_factory_(std::move(calibrator_factory)),
+        is_exif_backend_(calibration_options.type ==
+                         MonocularCalibratorType::EXIF),
+        input_queue_(input_queue),
+        output_queue_(output_queue) {
+    THROW_CHECK(calibration_options_.Check());
+  }
+
+  const MonocularCalibrationFits& Fits() const { return fits_; }
+
+ private:
+  void Run() override {
+    // NOTE: The calibrator is created lazily on the first image that needs
+    // intrinsics fits, because it loads a large network onto the device.
+    // Images that only need pose priors never pay for it.
+    std::unique_ptr<MonocularCalibrator> calibrator;
+    bool creation_failed = false;
+
+    while (true) {
+      if (IsStopped()) {
+        break;
+      }
+
+      auto input_job = input_queue_->Pop();
+      if (!input_job.IsValid()) {
+        break;
+      }
+
+      auto& image_data = input_job.Data();
+      if (image_data.status == ImageReader::Status::SUCCESS) {
+        MonocularCalibrator* backend = nullptr;
+        if (image_data.calibrate_camera) {
+          if (calibrator == nullptr && !creation_failed) {
+            calibrator = MaybeCreateMonocularCalibrator(calibration_options_,
+                                                        calibrator_factory_);
+            creation_failed = (calibrator == nullptr);
+          }
+          backend = calibrator.get();
+        }
+        ProcessMonocularImage(backend,
+                              *image_data.bitmap,
+                              image_data.image,
+                              image_data.camera,
+                              &image_data.pose_prior,
+                              is_exif_backend_,
+                              &fits_);
+      }
+      output_queue_->Push(std::move(image_data));
+    }
+  }
+
+  const MonocularCalibrationOptions calibration_options_;
+  const MonocularCalibratorFactory calibrator_factory_;
+  const bool is_exif_backend_;
+
+  JobQueue<ImageData>* input_queue_;
+  JobQueue<ImageData>* output_queue_;
+
+  MonocularCalibrationFits fits_;
+};
+
 // Feature extraction class to extract features for all images in a directory.
 class FeatureExtractorController : public Thread {
  public:
-  FeatureExtractorController(const std::filesystem::path& database_path,
-                             const ImageReaderOptions& reader_options,
-                             const FeatureExtractionOptions& extraction_options)
+  FeatureExtractorController(
+      const std::filesystem::path& database_path,
+      const ImageReaderOptions& reader_options,
+      const FeatureExtractionOptions& extraction_options,
+      const MonocularCalibrationOptions& calibration_options,
+      MonocularCalibratorFactory calibrator_factory)
       : reader_options_(reader_options),
         extraction_options_(extraction_options),
+        calibration_options_(calibration_options),
+        calibrator_factory_(std::move(calibrator_factory)),
+        // Explicitly provided camera parameters always take precedence over
+        // fitted intrinsics; pose priors are still populated from EXIF.
+        calibrate_intrinsics_(reader_options_.camera_params.empty()),
         database_(Database::Open(database_path)),
         image_reader_(reader_options_, database_.get()) {
     THROW_CHECK(reader_options_.Check());
     THROW_CHECK(extraction_options_.Check());
+    THROW_CHECK(calibration_options_.Check());
 
     std::shared_ptr<Bitmap> camera_mask;
     if (!reader_options_.camera_mask_path.empty()) {
@@ -361,9 +594,16 @@ class FeatureExtractorController : public Thread {
     // avoid excess in memory usage since images and features take lots of
     // memory.
     constexpr int kQueueSize = 1;
+    calibrator_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
+
+    calibrator_ =
+        std::make_unique<MonocularCalibratorThread>(calibration_options_,
+                                                    calibrator_factory_,
+                                                    calibrator_queue_.get(),
+                                                    resizer_queue_.get());
 
     const int max_image_size = extraction_options_.EffMaxImageSize();
     for (int i = 0; i < num_threads; ++i) {
@@ -472,6 +712,13 @@ class FeatureExtractorController : public Thread {
     Timer run_timer;
     run_timer.Start();
 
+    if (!calibrate_intrinsics_) {
+      LOG(INFO) << "Skipping monocular intrinsics calibration, explicit "
+                   "camera parameters were provided";
+    }
+
+    calibrator_->Start();
+
     for (auto& resizer : resizers_) {
       resizer->Start();
     }
@@ -490,8 +737,10 @@ class FeatureExtractorController : public Thread {
 
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {
+        calibrator_queue_->Stop();
         resizer_queue_->Stop();
         extractor_queue_->Stop();
+        calibrator_queue_->Clear();
         resizer_queue_->Clear();
         extractor_queue_->Clear();
         break;
@@ -503,7 +752,6 @@ class FeatureExtractorController : public Thread {
       image_data.status = image_reader_.Next(&image_data.rig,
                                              &image_data.camera,
                                              &image_data.image,
-                                             &image_data.pose_prior,
                                              image_data.bitmap.get(),
                                              &mask);
       if (!mask.IsEmpty()) {
@@ -516,10 +764,20 @@ class FeatureExtractorController : public Thread {
         if (image_data.mask) {
           *image_data.mask = Bitmap();
         }
+      } else {
+        // Only images whose camera was created in this run contribute
+        // intrinsics fits; reused cameras keep their intrinsics.
+        image_data.calibrate_camera =
+            calibrate_intrinsics_ && image_reader_.CreatedCameraIds().contains(
+                                         image_data.image.CameraId());
       }
 
-      THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
+      THROW_CHECK(calibrator_queue_->Push(std::move(image_data)));
     }
+
+    calibrator_queue_->Wait();
+    calibrator_queue_->Stop();
+    calibrator_->Wait();
 
     resizer_queue_->Wait();
     resizer_queue_->Stop();
@@ -537,19 +795,33 @@ class FeatureExtractorController : public Thread {
     writer_queue_->Stop();
     writer_->Wait();
 
+    // Cameras and features are committed incrementally above. Persist the fits
+    // collected for that committed prefix even after a graceful stop, because
+    // those cameras are considered reused and will not be calibrated when the
+    // extraction is resumed.
+    if (calibrate_intrinsics_ && !image_reader_.CreatedCameraIds().empty()) {
+      FinalizeMonocularCalibration(
+          database_.get(), calibrator_->Fits(), calibration_options_);
+    }
+
     run_timer.PrintMinutes();
   }
 
   const ImageReaderOptions reader_options_;
   const FeatureExtractionOptions extraction_options_;
+  const MonocularCalibrationOptions calibration_options_;
+  const MonocularCalibratorFactory calibrator_factory_;
+  const bool calibrate_intrinsics_;
 
   std::shared_ptr<Database> database_;
   ImageReader image_reader_;
 
+  std::unique_ptr<MonocularCalibratorThread> calibrator_;
   std::vector<std::unique_ptr<Thread>> resizers_;
   std::vector<std::unique_ptr<Thread>> extractors_;
   std::unique_ptr<Thread> writer_;
 
+  std::unique_ptr<JobQueue<ImageData>> calibrator_queue_;
   std::unique_ptr<JobQueue<ImageData>> resizer_queue_;
   std::unique_ptr<JobQueue<ImageData>> extractor_queue_;
   std::unique_ptr<JobQueue<ImageData>> writer_queue_;
@@ -560,12 +832,22 @@ class FeatureExtractorController : public Thread {
 // Currently hard-coded to support SIFT features.
 class FeatureImporterController : public Thread {
  public:
-  FeatureImporterController(const std::filesystem::path& database_path,
-                            const ImageReaderOptions& reader_options,
-                            const std::filesystem::path& import_path)
+  FeatureImporterController(
+      const std::filesystem::path& database_path,
+      const ImageReaderOptions& reader_options,
+      const std::filesystem::path& import_path,
+      const MonocularCalibrationOptions& calibration_options,
+      MonocularCalibratorFactory calibrator_factory)
       : database_path_(database_path),
         reader_options_(reader_options),
-        import_path_(import_path) {}
+        import_path_(import_path),
+        calibration_options_(calibration_options),
+        calibrator_factory_(std::move(calibrator_factory)),
+        // Explicitly provided camera parameters always take precedence over
+        // fitted intrinsics; pose priors are still populated from EXIF.
+        calibrate_intrinsics_(reader_options_.camera_params.empty()) {
+    THROW_CHECK(calibration_options_.Check());
+  }
 
  private:
   void Run() override {
@@ -578,8 +860,22 @@ class FeatureImporterController : public Thread {
       return;
     }
 
+    if (!calibrate_intrinsics_) {
+      LOG(INFO) << "Skipping monocular intrinsics calibration, explicit "
+                   "camera parameters were provided";
+    }
+
     auto database = Database::Open(database_path_);
     ImageReader image_reader(reader_options_, database.get());
+
+    const bool is_exif_backend =
+        calibration_options_.type == MonocularCalibratorType::EXIF;
+    // NOTE: The calibrator is created lazily on the first image that needs
+    // intrinsics fits, because it loads a large network onto the device.
+    // Images that only need pose priors never pay for it.
+    std::unique_ptr<MonocularCalibrator> calibrator;
+    bool creation_failed = false;
+    MonocularCalibrationFits fits;
 
     while (image_reader.NextIndex() < image_reader.NumImages()) {
       if (IsStopped()) {
@@ -596,11 +892,26 @@ class FeatureImporterController : public Thread {
       Image image;
       PosePrior pose_prior;
       Bitmap bitmap;
-      if (image_reader.Next(
-              &rig, &camera, &image, &pose_prior, &bitmap, nullptr) !=
+      if (image_reader.Next(&rig, &camera, &image, &bitmap, nullptr) !=
           ImageReader::Status::SUCCESS) {
         continue;
       }
+
+      // Only images whose camera was created in this run contribute
+      // intrinsics fits; reused cameras keep their intrinsics. The pose
+      // prior is populated from EXIF either way.
+      MonocularCalibrator* backend = nullptr;
+      if (calibrate_intrinsics_ &&
+          image_reader.CreatedCameraIds().contains(image.CameraId())) {
+        if (calibrator == nullptr && !creation_failed) {
+          calibrator = MaybeCreateMonocularCalibrator(calibration_options_,
+                                                      calibrator_factory_);
+          creation_failed = (calibrator == nullptr);
+        }
+        backend = calibrator.get();
+      }
+      ProcessMonocularImage(
+          backend, bitmap, image, camera, &pose_prior, is_exif_backend, &fits);
 
       const auto path = import_path_ / (image.Name() + ".txt");
 
@@ -640,12 +951,21 @@ class FeatureImporterController : public Thread {
       }
     }
 
+    // As above, persist fits for the imported prefix on graceful shutdown so
+    // that resuming does not strand newly created cameras with defaults.
+    if (calibrate_intrinsics_ && !image_reader.CreatedCameraIds().empty()) {
+      FinalizeMonocularCalibration(database.get(), fits, calibration_options_);
+    }
+
     run_timer.PrintMinutes();
   }
 
   const std::filesystem::path database_path_;
   const ImageReaderOptions reader_options_;
   const std::filesystem::path import_path_;
+  const MonocularCalibrationOptions calibration_options_;
+  const MonocularCalibratorFactory calibrator_factory_;
+  const bool calibrate_intrinsics_;
 };
 
 }  // namespace
@@ -653,17 +973,29 @@ class FeatureImporterController : public Thread {
 std::unique_ptr<Thread> CreateFeatureExtractorController(
     const std::filesystem::path& database_path,
     const ImageReaderOptions& reader_options,
-    const FeatureExtractionOptions& extraction_options) {
+    const FeatureExtractionOptions& extraction_options,
+    const MonocularCalibrationOptions& calibration_options,
+    MonocularCalibratorFactory calibrator_factory) {
   return std::make_unique<FeatureExtractorController>(
-      database_path, reader_options, extraction_options);
+      database_path,
+      reader_options,
+      extraction_options,
+      calibration_options,
+      std::move(calibrator_factory));
 }
 
 std::unique_ptr<Thread> CreateFeatureImporterController(
     const std::filesystem::path& database_path,
     const ImageReaderOptions& reader_options,
-    const std::filesystem::path& import_path) {
+    const std::filesystem::path& import_path,
+    const MonocularCalibrationOptions& calibration_options,
+    MonocularCalibratorFactory calibrator_factory) {
   return std::make_unique<FeatureImporterController>(
-      database_path, reader_options, import_path);
+      database_path,
+      reader_options,
+      import_path,
+      calibration_options,
+      std::move(calibrator_factory));
 }
 
 }  // namespace colmap

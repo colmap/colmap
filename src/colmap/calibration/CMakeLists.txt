@@ -7,9 +7,11 @@ COLMAP_ADD_LIBRARY(
     SRCS
         anycalib.h anycalib.cc
         calibrator.h calibrator.cc
+        exif.h exif.cc
         ray_fitting.h ray_fitting.cc
         resources.h
     PUBLIC_LINK_LIBS
+        colmap_geometry
         colmap_scene_types
         colmap_sensor
         colmap_util
@@ -25,6 +27,12 @@ endif()
 COLMAP_ADD_TEST(
     NAME calibrator_test
     SRCS calibrator_test.cc
+    LINK_LIBS colmap_calibration
+)
+
+COLMAP_ADD_TEST(
+    NAME exif_test
+    SRCS exif_test.cc
     LINK_LIBS colmap_calibration
 )
 

@@ -2,11 +2,15 @@
 
 #include "colmap/controllers/feature_extraction.h"
 
+#include "colmap/calibration/anycalib.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
+#include <atomic>
 #include <fstream>
+#include <functional>
 
 #include <gtest/gtest.h>
 
@@ -22,6 +26,71 @@ Bitmap CreateTestBitmap() {
     }
   }
   return bitmap;
+}
+
+class FakeCalibrator : public MonocularCalibrator {
+ public:
+  struct Config {
+    // Per-call parameters; the last entry repeats once exhausted.
+    std::vector<std::vector<double>> params_sequence;
+    bool success = true;
+    bool throw_error = false;
+    std::function<void()> on_calibrate;
+  };
+
+  FakeCalibrator(Config config, CameraModelId model_id)
+      : config_(std::move(config)), model_id_(model_id) {}
+
+  bool Calibrate(const Bitmap& bitmap,
+                 Camera* camera,
+                 PosePrior* /*pose_prior*/) const override {
+    if (config_.throw_error) {
+      throw std::runtime_error("fake calibration failure");
+    }
+    if (!config_.success) {
+      return false;
+    }
+    // kInvalid preserves the input camera's model, mirroring the production
+    // backends with an empty target model.
+    if (model_id_ != CameraModelId::kInvalid) {
+      camera->model_id = model_id_;
+    }
+    camera->width = bitmap.Width();
+    camera->height = bitmap.Height();
+    const size_t idx =
+        std::min(num_calls_++, config_.params_sequence.size() - 1);
+    camera->params = config_.params_sequence[idx];
+    camera->has_prior_focal_length = true;
+    if (config_.on_calibrate) {
+      config_.on_calibrate();
+    }
+    return true;
+  }
+
+ private:
+  Config config_;
+  CameraModelId model_id_;
+  mutable std::atomic<size_t> num_calls_ = 0;
+};
+
+MonocularCalibratorFactory FakeCalibratorFactory(
+    FakeCalibrator::Config config) {
+  return
+      [config = std::move(config)](const MonocularCalibrationOptions& options) {
+        return std::make_unique<FakeCalibrator>(
+            config,
+            options.camera_model.empty()
+                ? CameraModelId::kInvalid
+                : CameraModelNameToId(options.camera_model));
+      };
+}
+
+void ExpectParamsNear(const std::vector<double>& actual,
+                      const std::vector<double>& expected) {
+  ASSERT_EQ(actual.size(), expected.size());
+  for (size_t i = 0; i < actual.size(); ++i) {
+    EXPECT_DOUBLE_EQ(actual[i], expected[i]) << "param " << i;
+  }
 }
 
 TEST(CreateFeatureExtractorController, Nominal) {
@@ -46,8 +115,11 @@ TEST(CreateFeatureExtractorController, Nominal) {
   extraction_options.num_threads = kNumImages;
 
   // Create and run the controller
-  auto controller = CreateFeatureExtractorController(
-      database_path, reader_options, extraction_options);
+  auto controller =
+      CreateFeatureExtractorController(database_path,
+                                       reader_options,
+                                       extraction_options,
+                                       MonocularCalibrationOptions());
   ASSERT_NE(controller, nullptr);
   controller->Start();
   controller->Wait();
@@ -56,6 +128,13 @@ TEST(CreateFeatureExtractorController, Nominal) {
   auto database = Database::Open(database_path);
   const std::vector<Image> images = database->ReadAllImages();
   EXPECT_EQ(images.size(), kNumImages);
+
+  // The trailing EXIF calibration keeps the default intrinsics for the
+  // EXIF-less test images.
+  for (const Camera& camera : database->ReadAllCameras()) {
+    EXPECT_DOUBLE_EQ(camera.FocalLength(), 1.2 * 100);
+    EXPECT_FALSE(camera.has_prior_focal_length);
+  }
 
   for (const auto& image : images) {
     EXPECT_TRUE(database->ExistsKeypoints(image.ImageId()));
@@ -106,8 +185,11 @@ TEST(CreateFeatureExtractorController, WithCameraMask) {
   extraction_options.use_gpu = false;
   extraction_options.num_threads = 1;
 
-  auto controller = CreateFeatureExtractorController(
-      database_path, reader_options_no_mask, extraction_options);
+  auto controller =
+      CreateFeatureExtractorController(database_path,
+                                       reader_options_no_mask,
+                                       extraction_options,
+                                       MonocularCalibrationOptions());
   ASSERT_NE(controller, nullptr);
   controller->Start();
   controller->Wait();
@@ -126,8 +208,10 @@ TEST(CreateFeatureExtractorController, WithCameraMask) {
   reader_options_masked.image_path = image_path;
   reader_options_masked.camera_mask_path = mask_path;
 
-  controller = CreateFeatureExtractorController(
-      database_path_masked, reader_options_masked, extraction_options);
+  controller = CreateFeatureExtractorController(database_path_masked,
+                                                reader_options_masked,
+                                                extraction_options,
+                                                MonocularCalibrationOptions());
   ASSERT_NE(controller, nullptr);
   controller->Start();
   controller->Wait();
@@ -208,8 +292,11 @@ TEST(CreateFeatureImporterController, Nominal) {
   reader_options.image_path = image_path;
 
   // Create and run the controller
-  auto controller = CreateFeatureImporterController(
-      database_path, reader_options, import_path);
+  auto controller =
+      CreateFeatureImporterController(database_path,
+                                      reader_options,
+                                      import_path,
+                                      MonocularCalibrationOptions());
   ASSERT_NE(controller, nullptr);
   controller->Start();
   controller->Wait();
@@ -218,6 +305,12 @@ TEST(CreateFeatureImporterController, Nominal) {
   auto database = Database::Open(database_path);
   const std::vector<Image> images = database->ReadAllImages();
   EXPECT_EQ(images.size(), kNumImages);
+
+  // The EXIF-less test images keep the default intrinsics.
+  for (const Camera& camera : database->ReadAllCameras()) {
+    EXPECT_DOUBLE_EQ(camera.FocalLength(), 1.2 * 100);
+    EXPECT_FALSE(camera.has_prior_focal_length);
+  }
 
   for (const auto& image : images) {
     EXPECT_TRUE(database->ExistsKeypoints(image.ImageId()));
@@ -237,6 +330,263 @@ TEST(CreateFeatureImporterController, Nominal) {
     EXPECT_FLOAT_EQ(keypoints[0].x, 10.0f);
     EXPECT_FLOAT_EQ(keypoints[0].y, 20.0f);
   }
+}
+
+struct FakeCalibrationScene {
+  std::filesystem::path test_dir;
+  std::filesystem::path database_path;
+  std::filesystem::path image_path;
+};
+
+// Two 100x100 images sharing one camera (single_camera=true).
+FakeCalibrationScene CreateFakeCalibrationScene() {
+  FakeCalibrationScene scene;
+  scene.test_dir = CreateTestDir();
+  scene.database_path = scene.test_dir / "database.db";
+  scene.image_path = scene.test_dir / "images";
+  CreateDirIfNotExists(scene.image_path);
+  const Bitmap test_bitmap = CreateTestBitmap();
+  test_bitmap.Write(scene.image_path / "0.png");
+  test_bitmap.Write(scene.image_path / "1.png");
+  return scene;
+}
+
+TEST(CreateFeatureImporterController, StopPersistsCalibration) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+  const auto import_path = scene.test_dir / "features";
+  CreateDirIfNotExists(import_path);
+
+  ImageReaderOptions reader_options;
+  reader_options.image_path = scene.image_path;
+  reader_options.single_camera = true;
+
+  FakeCalibrator::Config config;
+  config.params_sequence = {{500, 50, 50, 0.1}};
+  Thread* controller_ptr = nullptr;
+  config.on_calibrate = [&controller_ptr]() { controller_ptr->Stop(); };
+  MonocularCalibrationOptions calibration_options(
+      MonocularCalibratorType::ANYCALIB);
+
+  auto controller =
+      CreateFeatureImporterController(scene.database_path,
+                                      reader_options,
+                                      import_path,
+                                      calibration_options,
+                                      FakeCalibratorFactory(std::move(config)));
+  controller_ptr = controller.get();
+  controller->Start();
+  controller->Wait();
+
+  auto database = Database::Open(scene.database_path);
+  const std::vector<Camera> cameras = database->ReadAllCameras();
+  ASSERT_EQ(cameras.size(), 1);
+  ExpectParamsNear(cameras[0].params, {500, 50, 50, 0.1});
+  EXPECT_TRUE(cameras[0].has_prior_focal_length);
+}
+
+TEST(CreateFeatureExtractorController, StopPersistsCalibration) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+
+  ImageReaderOptions reader_options;
+  reader_options.image_path = scene.image_path;
+  reader_options.single_camera = true;
+
+  FeatureExtractionOptions extraction_options;
+  extraction_options.use_gpu = false;
+  extraction_options.num_threads = 1;
+
+  FakeCalibrator::Config config;
+  config.params_sequence = {{500, 50, 50, 0.1}};
+  Thread* controller_ptr = nullptr;
+  config.on_calibrate = [&controller_ptr]() { controller_ptr->Stop(); };
+  MonocularCalibrationOptions calibration_options(
+      MonocularCalibratorType::ANYCALIB);
+
+  auto controller = CreateFeatureExtractorController(
+      scene.database_path,
+      reader_options,
+      extraction_options,
+      calibration_options,
+      FakeCalibratorFactory(std::move(config)));
+  controller_ptr = controller.get();
+  controller->Start();
+  controller->Wait();
+
+  auto database = Database::Open(scene.database_path);
+  const std::vector<Camera> cameras = database->ReadAllCameras();
+  ASSERT_EQ(cameras.size(), 1);
+  ExpectParamsNear(cameras[0].params, {500, 50, 50, 0.1});
+  EXPECT_TRUE(cameras[0].has_prior_focal_length);
+}
+
+TEST(CreateFeatureExtractorController, FakeBackendAggregatesMedian) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+
+  ImageReaderOptions reader_options;
+  reader_options.image_path = scene.image_path;
+  reader_options.single_camera = true;
+
+  FeatureExtractionOptions extraction_options;
+  extraction_options.use_gpu = false;
+  extraction_options.num_threads = 1;
+
+  FakeCalibrator::Config config;
+  config.params_sequence = {{600, 50, 50, 0.05}, {400, 50, 50, 0.15}};
+  MonocularCalibrationOptions calibration_options(
+      MonocularCalibratorType::ANYCALIB);
+
+  auto controller =
+      CreateFeatureExtractorController(scene.database_path,
+                                       reader_options,
+                                       extraction_options,
+                                       calibration_options,
+                                       FakeCalibratorFactory(config));
+  controller->Start();
+  controller->Wait();
+
+  // The per-image fits are aggregated by coefficient-wise median.
+  auto database = Database::Open(scene.database_path);
+  const std::vector<Camera> cameras = database->ReadAllCameras();
+  ASSERT_EQ(cameras.size(), 1);
+  ExpectParamsNear(cameras[0].params, {500, 50, 50, 0.10});
+  EXPECT_TRUE(cameras[0].has_prior_focal_length);
+}
+
+TEST(CreateFeatureExtractorController, FakeBackendConvertsModel) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+
+  ImageReaderOptions reader_options;
+  reader_options.image_path = scene.image_path;
+  reader_options.single_camera = true;
+  reader_options.camera_model = "OPENCV";
+
+  FeatureExtractionOptions extraction_options;
+  extraction_options.use_gpu = false;
+  extraction_options.num_threads = 1;
+
+  FakeCalibrator::Config config;
+  config.params_sequence = {{600, 50, 50, 0.05}, {400, 50, 50, 0.15}};
+  MonocularCalibrationOptions calibration_options(
+      MonocularCalibratorType::ANYCALIB);
+  calibration_options.camera_model = "SIMPLE_RADIAL";
+
+  auto controller =
+      CreateFeatureExtractorController(scene.database_path,
+                                       reader_options,
+                                       extraction_options,
+                                       calibration_options,
+                                       FakeCalibratorFactory(config));
+  controller->Start();
+  controller->Wait();
+
+  auto database = Database::Open(scene.database_path);
+  const std::vector<Camera> cameras = database->ReadAllCameras();
+  ASSERT_EQ(cameras.size(), 1);
+  EXPECT_EQ(cameras[0].model_id, CameraModelId::kSimpleRadial);
+  ExpectParamsNear(cameras[0].params, {500, 50, 50, 0.10});
+}
+
+TEST(CreateFeatureExtractorController, FailingBackendKeepsDefaults) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+
+  ImageReaderOptions reader_options;
+  reader_options.image_path = scene.image_path;
+  reader_options.single_camera = true;
+
+  FeatureExtractionOptions extraction_options;
+  extraction_options.use_gpu = false;
+  extraction_options.num_threads = 1;
+
+  FakeCalibrator::Config config;
+  config.params_sequence = {{600, 50, 50, 0.05}};
+  config.success = false;
+  MonocularCalibrationOptions calibration_options(
+      MonocularCalibratorType::ANYCALIB);
+
+  auto controller =
+      CreateFeatureExtractorController(scene.database_path,
+                                       reader_options,
+                                       extraction_options,
+                                       calibration_options,
+                                       FakeCalibratorFactory(config));
+  controller->Start();
+  controller->Wait();
+
+  auto database = Database::Open(scene.database_path);
+  const std::vector<Camera> cameras = database->ReadAllCameras();
+  ASSERT_EQ(cameras.size(), 1);
+  EXPECT_DOUBLE_EQ(cameras[0].FocalLength(), 1.2 * 100);
+  EXPECT_FALSE(cameras[0].has_prior_focal_length);
+}
+
+TEST(CreateFeatureExtractorController, MissingModelKeepsDefaults) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+
+  ImageReaderOptions reader_options;
+  reader_options.image_path = scene.image_path;
+  reader_options.single_camera = true;
+
+  FeatureExtractionOptions extraction_options;
+  extraction_options.use_gpu = false;
+  extraction_options.num_threads = 1;
+
+  MonocularCalibrationOptions calibration_options(
+      MonocularCalibratorType::ANYCALIB);
+  calibration_options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
+
+  auto controller = CreateFeatureExtractorController(scene.database_path,
+                                                     reader_options,
+                                                     extraction_options,
+                                                     calibration_options);
+  EXPECT_NO_THROW({
+    controller->Start();
+    controller->Wait();
+  });
+
+  // Extraction completes and the cameras keep their default intrinsics.
+  auto database = Database::Open(scene.database_path);
+  EXPECT_EQ(database->ReadAllImages().size(), 2);
+  const std::vector<Camera> cameras = database->ReadAllCameras();
+  ASSERT_EQ(cameras.size(), 1);
+  EXPECT_DOUBLE_EQ(cameras[0].FocalLength(), 1.2 * 100);
+  EXPECT_FALSE(cameras[0].has_prior_focal_length);
+}
+
+TEST(CreateFeatureExtractorController, ExplicitParamsSkipBackend) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+
+  ImageReaderOptions reader_options;
+  reader_options.image_path = scene.image_path;
+  reader_options.single_camera = true;
+  reader_options.camera_model = "PINHOLE";
+  reader_options.camera_params = "500.0, 500.0, 50.0, 50.0";
+
+  FeatureExtractionOptions extraction_options;
+  extraction_options.use_gpu = false;
+  extraction_options.num_threads = 1;
+
+  // The backend must never be created when explicit parameters are provided.
+  bool factory_called = false;
+  MonocularCalibratorFactory factory =
+      [&factory_called](const MonocularCalibrationOptions& options) {
+        factory_called = true;
+        return MonocularCalibrator::Create(options);
+      };
+
+  auto controller =
+      CreateFeatureExtractorController(scene.database_path,
+                                       reader_options,
+                                       extraction_options,
+                                       MonocularCalibrationOptions(),
+                                       std::move(factory));
+  controller->Start();
+  controller->Wait();
+
+  EXPECT_FALSE(factory_called);
+  auto database = Database::Open(scene.database_path);
+  const std::vector<Camera> cameras = database->ReadAllCameras();
+  ASSERT_EQ(cameras.size(), 1);
+  EXPECT_EQ(cameras[0].params, std::vector<double>({500.0, 500.0, 50.0, 50.0}));
 }
 
 }  // namespace

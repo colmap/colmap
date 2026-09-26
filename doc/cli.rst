@@ -43,11 +43,9 @@ of commands as an alternative to the automatic reconstruction command::
        --database_path $DATASET_PATH/database.db \
        --image_path $DATASET_PATH/images
 
-    # Optionally replace intrinsics with learned single-image
-    # calibration (AnyCalib) before matching and geometric verification.
-    $ colmap camera_calibrator \
-       --database_path $DATASET_PATH/database.db \
-       --image_path $DATASET_PATH/images
+    # Feature extraction initializes intrinsics from EXIF tags (or a default
+    # focal length). To instead fit learned single-image intrinsics during
+    # extraction, pass --MonocularCalibration.type ANYCALIB above.
 
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db
@@ -108,7 +106,7 @@ Graceful shutdown and resuming
 
 The feature extraction and matching commands, ``mapper``,
 ``pose_prior_mapper``, ``bundle_adjuster``, ``point_triangulator``,
-``image_registrator``, ``camera_calibrator``, the image undistortion commands,
+``image_registrator``, the image undistortion commands,
 ``patch_match_stereo``, and ``stereo_fusion`` handle ``SIGINT`` and ``SIGTERM``
 cooperatively. ``automatic_reconstructor`` supports graceful shutdown when
 using the incremental mapper. The first signal stops work at a safe point and
@@ -164,8 +162,9 @@ length priors, so if reliable intrinsics are not available (e.g., from EXIF or
 lab calibration), you should run ``view_graph_calibrator`` first. This step is
 optional but recommended to improve the quality of global SfM, as was always
 the default in `GLOMAP <https://github.com/colmap/glomap>`_. Alternatively,
-``camera_calibrator`` can provide learned intrinsics from the images alone
-before matching. Note that ``view_graph_calibrator`` modifies camera
+``feature_extractor`` with ``--MonocularCalibration.type ANYCALIB`` can provide
+learned intrinsics from the images alone during extraction. Note that
+``view_graph_calibrator`` modifies camera
 intrinsics and two-view geometries in the database in-place, so it is
 recommended to work on a copy of the database::
 
@@ -224,7 +223,6 @@ The available commands can be listed using the command::
           gui
           automatic_reconstructor
           bundle_adjuster
-          camera_calibrator
           color_extractor
           database_cleaner
           database_creator
@@ -349,14 +347,13 @@ available as ``colmap [command]``:
   to select the feature extraction algorithm, ``--mapper`` (INCREMENTAL,
   HIERARCHICAL, GLOBAL) to choose the SfM pipeline, and ``--mesher`` (POISSON,
   DELAUNAY, ADVANCING_FRONT) to select the surface reconstruction method.
-  ``--camera_calibration`` enables learned single-image camera calibration
-  after feature extraction (ignored if explicit ``--camera_params`` are given);
-  ``--CameraCalibration.*`` tunes the calibration backend.
 
 - ``project_generator``: Generate project files at different quality settings.
 
 - ``feature_extractor``, ``feature_importer``: Perform feature extraction or
-  import features for a set of images.
+  import features for a set of images. Intrinsics are initialized from EXIF
+  tags (or a default focal length); ``--MonocularCalibration.type ANYCALIB``
+  fits learned single-image intrinsics instead.
 
 - ``exhaustive_matcher``, ``vocab_tree_matcher``, ``sequential_matcher``,
   ``spatial_matcher``, ``transitive_matcher``, ``matches_importer``:
@@ -509,15 +506,6 @@ available as ``colmap [command]``:
   geometric relations. Should be run before ``global_mapper``, if no good
   prior camera intrinsics are known, since the global mapper
   depends on reasonably good focal length priors to perform well.
-
-- ``camera_calibrator``: Calibrate camera intrinsics from single images with a
-  learned model (AnyCalib), replacing e.g. EXIF-based initialization. Run
-  after ``feature_extractor`` and before matching and mapping, or enable
-  ``--camera_calibration`` in ``automatic_reconstructor``. Supports
-  ``--image_list_path`` to calibrate a subset of the database images. Each
-  camera keeps its existing model unless ``--CameraCalibration.camera_model``
-  explicitly converts all cameras to the given model.
-
 
 Visualization
 -------------

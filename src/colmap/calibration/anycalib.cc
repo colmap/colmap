@@ -85,9 +85,9 @@ size_t CheckONNXSignatureAndGetRayIndex(const ONNXModel& model) {
   return *rays_idx;
 }
 
-class AnyCalibCalibrator : public CameraCalibrator {
+class AnyCalibCalibrator : public MonocularCalibrator {
  public:
-  explicit AnyCalibCalibrator(const CameraCalibrationOptions& options)
+  explicit AnyCalibCalibrator(const MonocularCalibrationOptions& options)
       : options_(options),
         model_(options.anycalib->model_path,
                options.num_threads,
@@ -99,9 +99,20 @@ class AnyCalibCalibrator : public CameraCalibrator {
 
   bool Calibrate(const Bitmap& bitmap,
                  Camera* camera,
-                 const PosePrior& pose_prior) const override {
+                 PosePrior* pose_prior) const override {
     THROW_CHECK_NOTNULL(camera);
-    THROW_CHECK(bitmap.IsRGB());
+    THROW_CHECK_NOTNULL(pose_prior);
+    // The pose prior is populated independently of whether intrinsics
+    // calibration succeeds below. EXIF gravity filled here also drives the
+    // upright rotation of the network input.
+    SetPosePriorFromExif(bitmap, pose_prior);
+    // Feature extraction may read grayscale images; the network needs RGB.
+    Bitmap rgb_bitmap;
+    const Bitmap* input_bitmap = &bitmap;
+    if (!bitmap.IsRGB()) {
+      rgb_bitmap = bitmap.CloneAsRGB();
+      input_bitmap = &rgb_bitmap;
+    }
 
     // An empty target model preserves the camera's existing model. Fitting a
     // non-perspective model fails gracefully below (`FitCameraFromRays`
@@ -117,7 +128,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
       return false;
     }
 
-    AnyCalibInput input = PrepareAnyCalibInput(bitmap, pose_prior);
+    AnyCalibInput input = PrepareAnyCalibInput(*input_bitmap, *pose_prior);
     const std::vector<int64_t> input_shape(
         {1, 3, kAnyCalibInputSize, kAnyCalibInputSize});
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
@@ -150,11 +161,25 @@ class AnyCalibCalibrator : public CameraCalibrator {
 
     std::vector<double> prior_focal_lengths;
     if (options_.anycalib->fitting.prior_focal_length_weight > 0.0 &&
-        camera->has_prior_focal_length && camera->IsPerspective()) {
-      if (CameraModelFocalLengthIdxs(model_id).size() == 1) {
-        prior_focal_lengths.push_back(camera->MeanFocalLength());
+        camera->IsPerspective()) {
+      if (camera->has_prior_focal_length) {
+        if (CameraModelFocalLengthIdxs(model_id).size() == 1) {
+          prior_focal_lengths.push_back(camera->MeanFocalLength());
+        } else {
+          prior_focal_lengths = {camera->FocalLengthX(),
+                                 camera->FocalLengthY()};
+        }
       } else {
-        prior_focal_lengths = {camera->FocalLengthX(), camera->FocalLengthY()};
+        // Newly created feature-extraction cameras intentionally contain the
+        // default focal length until this calibration stage. Recover the EXIF
+        // prior directly from the bitmap so that prior_focal_length_weight is
+        // effective for the integrated AnyCalib path too.
+        if (const std::optional<double> focal_length = bitmap.ExifFocalLength();
+            focal_length.has_value()) {
+          prior_focal_lengths.assign(
+              CameraModelFocalLengthIdxs(model_id).size(),
+              focal_length.value());
+        }
       }
     }
 
@@ -196,7 +221,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
   }
 
  private:
-  CameraCalibrationOptions options_;
+  MonocularCalibrationOptions options_;
   ONNXModel model_;
   size_t rays_idx_ = 0;
 };
@@ -205,7 +230,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
 
 }  // namespace
 
-bool AnyCalibCalibrationOptions::Check() const {
+bool AnyCalibOptions::Check() const {
   // NOTE: `model_path` is intentionally not validated here: like the
   // feature extractor model paths, it may be empty until set, and a missing
   // file surfaces as an exception when the calibrator is created.
@@ -310,13 +335,17 @@ AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
   return input;
 }
 
-std::unique_ptr<CameraCalibrator> CreateAnyCalibCalibrator(
-    const CameraCalibrationOptions& options) {
+std::unique_ptr<MonocularCalibrator> CreateAnyCalibCalibrator(
+    const MonocularCalibrationOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
   // Validate before constructing: the constructor dereferences
   // `options.anycalib` in its initializer list and loads the network model, so
-  // invalid options must be rejected before any of that happens.
+  // invalid options must be rejected before any of that happens. The
+  // backend-specific settings are validated explicitly, as `Check()` only
+  // validates them when this backend is the selected `type`.
   THROW_CHECK(options.Check());
+  THROW_CHECK(options.anycalib != nullptr);
+  THROW_CHECK(options.anycalib->Check());
   return std::make_unique<AnyCalibCalibrator>(options);
 #else
   throw std::runtime_error("AnyCalib calibration requires ONNX support.");

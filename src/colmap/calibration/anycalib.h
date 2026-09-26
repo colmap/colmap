@@ -15,10 +15,10 @@
 
 namespace colmap {
 
-class CameraCalibrator;
-struct CameraCalibrationOptions;
+class MonocularCalibrator;
+struct MonocularCalibrationOptions;
 
-struct AnyCalibCalibrationOptions {
+struct AnyCalibOptions {
   // Path or download URI of the exported AnyCalib ONNX model.
   std::string model_path = kDefaultAnyCalibGenUri;
 
@@ -54,7 +54,7 @@ struct AnyCalibInput {
 AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
                                    const PosePrior& pose_prior = PosePrior());
 
-std::unique_ptr<CameraCalibrator> CreateAnyCalibCalibrator(
-    const CameraCalibrationOptions& options);
+std::unique_ptr<MonocularCalibrator> CreateAnyCalibCalibrator(
+    const MonocularCalibrationOptions& options);
 
 }  // namespace colmap
