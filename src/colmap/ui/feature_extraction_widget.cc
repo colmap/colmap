@@ -107,8 +107,11 @@ void ExtractionWidget::RunExtraction() {
   reader_options.image_path = *options_->image_path;
   reader_options.as_rgb = options_->feature_extraction->RequiresRGB();
 
-  auto extractor = CreateFeatureExtractorController(
-      *options_->database_path, reader_options, *options_->feature_extraction);
+  auto extractor =
+      CreateFeatureExtractorController(*options_->database_path,
+                                       reader_options,
+                                       *options_->feature_extraction,
+                                       *options_->monocular_calibration);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
@@ -164,8 +167,11 @@ void ImportFeaturesWidget::Run() {
   ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.image_path = *options_->image_path;
 
-  auto importer = CreateFeatureImporterController(
-      *options_->database_path, reader_options, import_path_);
+  auto importer =
+      CreateFeatureImporterController(*options_->database_path,
+                                      reader_options,
+                                      import_path_,
+                                      *options_->monocular_calibration);
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }

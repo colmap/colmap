@@ -4,7 +4,6 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
-#include "colmap/controllers/camera_calibration.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
@@ -86,8 +85,6 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
   options.AddDefaultOption("extraction", &reconstruction_options.extraction);
-  options.AddDefaultOption("camera_calibration",
-                           &reconstruction_options.camera_calibration);
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
@@ -785,34 +782,6 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   }
 
   LOG(INFO) << "View graph calibration completed successfully";
-  return EXIT_SUCCESS;
-}
-
-int RunCameraCalibrator(int argc, char** argv) {
-  std::filesystem::path image_list_path;
-
-  OptionManager options;
-  options.AddDatabaseOptions();
-  options.AddImageOptions();
-  options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddCameraCalibrationOptions();
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  std::vector<std::string> image_names;
-  if (!image_list_path.empty()) {
-    image_names = ReadTextFileLines(image_list_path);
-  }
-
-  auto calibrator =
-      CreateCameraCalibrationController(*options.database_path,
-                                        *options.image_path,
-                                        *options.camera_calibration,
-                                        image_names);
-  calibrator->Start();
-  calibrator->Wait();
-
   return EXIT_SUCCESS;
 }
 

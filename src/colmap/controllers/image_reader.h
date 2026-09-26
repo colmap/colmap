@@ -35,8 +35,9 @@ struct ImageReaderOptions {
   // Name of the camera model.
   std::string camera_model = "SIMPLE_RADIAL";
 
-  // Manual specification of camera parameters. If empty, camera parameters
-  // will be extracted from EXIF, i.e. principal point and focal length.
+  // Manual specification of camera parameters. If empty, cameras are created
+  // with default parameters and EXIF focal lengths are read by the trailing
+  // monocular calibration step of feature extraction/import.
   std::string camera_params;
 
   // Whether to use the same camera for all images.
@@ -62,8 +63,10 @@ struct ImageReaderOptions {
 };
 
 // Recursively iterate over the images in a directory. Skips an image if it
-// already exists in the database. Extracts the camera intrinsics from EXIF and
-// writes the camera information to the database.
+// already exists in the database. Creates cameras with default intrinsics
+// (unless manually specified) and writes the camera information to the
+// database; EXIF focal lengths are read by the trailing monocular calibration
+// step of feature extraction/import.
 class ImageReader {
  public:
   enum class Status {
@@ -79,14 +82,15 @@ class ImageReader {
 
   ImageReader(const ImageReaderOptions& options, Database* database);
 
-  Status Next(Rig* rig,
-              Camera* camera,
-              Image* image,
-              PosePrior* pose_prior,
-              Bitmap* bitmap,
-              Bitmap* mask);
+  Status Next(
+      Rig* rig, Camera* camera, Image* image, Bitmap* bitmap, Bitmap* mask);
   size_t NextIndex() const;
   size_t NumImages() const;
+
+  // Ids of the cameras created by this reader, for the trailing monocular
+  // calibration step to select which cameras to calibrate. Reused cameras
+  // (e.g. via `existing_camera_id` or already processed images) are excluded.
+  const FlatHashSet<camera_t>& CreatedCameraIds() const;
 
   static std::string StatusToString(Status status);
 
@@ -103,6 +107,8 @@ class ImageReader {
   // Names of image sub-folders.
   std::string prev_image_folder_;
   FlatHashSet<std::string> image_folders_;
+  // Ids of cameras created by this reader.
+  FlatHashSet<camera_t> created_camera_ids_;
 };
 
 }  // namespace colmap

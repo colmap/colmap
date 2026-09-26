@@ -84,13 +84,12 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
   for (int i = 0; i < kNumImages; ++i) {
     EXPECT_EQ(image_reader.NextIndex(), i);
     const auto status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+        image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
     if (kWithExistingImages) {
       EXPECT_EQ(status, ImageReader::Status::IMAGE_EXISTS);
       continue;
@@ -113,9 +112,8 @@ TEST_P(ParameterizedImageReaderTests, Nominal) {
     }
   }
 
-  EXPECT_THROW(
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask),
-      std::invalid_argument);
+  EXPECT_THROW(image_reader.Next(&rig, &camera, &image, &bitmap, &mask),
+               std::invalid_argument);
   EXPECT_EQ(database->NumRigs(), kNumImages);
   EXPECT_EQ(database->NumCameras(), kNumImages);
 }
@@ -175,13 +173,12 @@ TEST(ImageReaderTest, SingleCamera) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
   for (int i = 0; i < 3; ++i) {
     const auto status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+        image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
     ASSERT_EQ(status, ImageReader::Status::SUCCESS);
   }
 
@@ -209,18 +206,15 @@ TEST(ImageReaderTest, SingleCameraDimensionError) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
   // First image succeeds
-  auto status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   ASSERT_EQ(status, ImageReader::Status::SUCCESS);
 
   // Second image fails due to dimension mismatch
-  status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   EXPECT_EQ(status, ImageReader::Status::CAMERA_SINGLE_DIM_ERROR);
 }
 
@@ -248,14 +242,13 @@ TEST(ImageReaderTest, SingleCameraPerFolder) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
   NodeHashMap<std::string, camera_t> folder_cameras;
   for (int i = 0; i < 4; ++i) {
     const auto status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+        image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
     ASSERT_EQ(status, ImageReader::Status::SUCCESS);
     const std::string folder = GetParentDir(image.Name()).string();
     if (folder_cameras.count(folder) == 0) {
@@ -289,13 +282,12 @@ TEST(ImageReaderTest, SingleCameraPerImage) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
   for (int i = 0; i < 3; ++i) {
     const auto status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+        image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
     ASSERT_EQ(status, ImageReader::Status::SUCCESS);
     EXPECT_EQ(camera.camera_id, i + 1);  // Each image gets its own camera
   }
@@ -333,13 +325,12 @@ TEST(ImageReaderTest, ExistingCameraId) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
   for (int i = 0; i < 2; ++i) {
     const auto status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+        image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
     ASSERT_EQ(status, ImageReader::Status::SUCCESS);
     EXPECT_EQ(camera.camera_id, existing_camera.camera_id);
     EXPECT_EQ(camera.params, existing_camera.params);
@@ -367,12 +358,10 @@ TEST(ImageReaderTest, ManualCameraParams) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
-  const auto status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  const auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   ASSERT_EQ(status, ImageReader::Status::SUCCESS);
   EXPECT_EQ(camera.model_id, PinholeCameraModel::model_id);
   EXPECT_EQ(camera.params[0], 500.0);
@@ -405,17 +394,14 @@ TEST(ImageReaderTest, ExplicitImageNames) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
-  auto status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   ASSERT_EQ(status, ImageReader::Status::SUCCESS);
   EXPECT_EQ(image.Name(), "1.png");
 
-  status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   ASSERT_EQ(status, ImageReader::Status::SUCCESS);
   EXPECT_EQ(image.Name(), "3.png");
 }
@@ -438,12 +424,10 @@ TEST(ImageReaderTest, BitmapError) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
-  const auto status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  const auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   EXPECT_EQ(status, ImageReader::Status::BITMAP_ERROR);
 }
 
@@ -466,12 +450,10 @@ TEST(ImageReaderTest, MaskErrorMissing) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
-  const auto status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  const auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   EXPECT_EQ(status, ImageReader::Status::MASK_ERROR);
 }
 
@@ -498,13 +480,103 @@ TEST(ImageReaderTest, MaskErrorInvalid) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
-  const auto status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  const auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   EXPECT_EQ(status, ImageReader::Status::MASK_ERROR);
+}
+
+TEST(ImageReaderTest, BareCameraDefaults) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  CreateDirIfNotExists(options.image_path);
+
+  // EXIF-less image: bare camera with default focal length and no prior.
+  // EXIF focal lengths are read by the trailing monocular calibration step.
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "test.png");
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  const auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
+  ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+  EXPECT_DOUBLE_EQ(camera.FocalLength(),
+                   options.default_focal_length_factor * 20);
+  EXPECT_FALSE(camera.has_prior_focal_length);
+}
+
+TEST(ImageReaderTest, CreatedCameraIds) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.single_camera_per_image = true;
+  CreateDirIfNotExists(options.image_path);
+
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "0.png");
+  test_bitmap.Write(options.image_path / "1.png");
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  for (int i = 0; i < 2; ++i) {
+    const auto status =
+        image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
+    ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+  }
+  EXPECT_EQ(image_reader.CreatedCameraIds(), FlatHashSet<camera_t>({1, 2}));
+}
+
+TEST(ImageReaderTest, CreatedCameraIdsEmptyForReusedCamera) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const auto test_dir = CreateTestDir();
+
+  Camera existing_camera;
+  existing_camera.model_id = CameraModelNameToId("SIMPLE_RADIAL");
+  existing_camera.width = 10;
+  existing_camera.height = 20;
+  existing_camera.params = {1.0, 5.0, 10.0, 0.0};
+  existing_camera.camera_id = database->WriteCamera(existing_camera);
+  Rig existing_rig;
+  existing_rig.AddRefSensor(existing_camera.SensorId());
+  database->WriteRig(existing_rig);
+
+  ImageReaderOptions options;
+  options.image_path = test_dir / "images";
+  options.existing_camera_id = existing_camera.camera_id;
+  CreateDirIfNotExists(options.image_path);
+
+  Bitmap test_bitmap(10, 20, true);
+  test_bitmap.Write(options.image_path / "0.png");
+
+  ImageReader image_reader(options, database.get());
+
+  Rig rig;
+  Camera camera;
+  Image image;
+  Bitmap bitmap;
+  Bitmap mask;
+
+  const auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
+  ASSERT_EQ(status, ImageReader::Status::SUCCESS);
+  EXPECT_TRUE(image_reader.CreatedCameraIds().empty());
 }
 
 TEST(ImageReaderTest, ImageExistsWithKeypoints) {
@@ -541,12 +613,10 @@ TEST(ImageReaderTest, ImageExistsWithKeypoints) {
   Rig rig;
   Camera camera;
   Image image;
-  PosePrior pose_prior;
   Bitmap bitmap;
   Bitmap mask;
 
-  const auto status =
-      image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, &mask);
+  const auto status = image_reader.Next(&rig, &camera, &image, &bitmap, &mask);
   EXPECT_EQ(status, ImageReader::Status::IMAGE_EXISTS);
 }
 

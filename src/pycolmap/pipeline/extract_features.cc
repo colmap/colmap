@@ -51,7 +51,12 @@ void ExtractFeatures(
 
   py::gil_scoped_release release;
   std::unique_ptr<Thread> extractor = CreateFeatureExtractorController(
-      database_path, reader_options, extraction_options);
+      database_path,
+      reader_options,
+      extraction_options,
+      // The trailing monocular calibration step always runs with the default
+      // (EXIF) backend.
+      MonocularCalibrationOptions());
   extractor->Start();
   PyWait(extractor.get(), cancellation_token);
 }

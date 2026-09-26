@@ -11,82 +11,93 @@
 namespace colmap {
 namespace {
 
-TEST(CameraCalibratorTypeTest, StringRoundTrip) {
-  EXPECT_EQ(CameraCalibratorTypeToString(CameraCalibratorType::ANYCALIB),
+TEST(MonocularCalibratorTypeTest, StringRoundTrip) {
+  EXPECT_EQ(MonocularCalibratorTypeToString(MonocularCalibratorType::ANYCALIB),
             "ANYCALIB");
-  EXPECT_EQ(CameraCalibratorTypeFromString("ANYCALIB"),
-            CameraCalibratorType::ANYCALIB);
+  EXPECT_EQ(MonocularCalibratorTypeFromString("ANYCALIB"),
+            MonocularCalibratorType::ANYCALIB);
+  EXPECT_EQ(MonocularCalibratorTypeToString(MonocularCalibratorType::EXIF),
+            "EXIF");
+  EXPECT_EQ(MonocularCalibratorTypeFromString("EXIF"),
+            MonocularCalibratorType::EXIF);
 }
 
-TEST(CameraCalibrationOptionsTest, CopyDeepCopiesTypeOptions) {
-  CameraCalibrationOptions options;
+TEST(MonocularCalibrationOptionsTest, CopyDeepCopiesTypeOptions) {
+  MonocularCalibrationOptions options;
   ASSERT_NE(options.anycalib, nullptr);
   options.anycalib->model_path = "original";
 
-  CameraCalibrationOptions copy = options;
+  MonocularCalibrationOptions copy = options;
   ASSERT_NE(copy.anycalib, nullptr);
   EXPECT_NE(copy.anycalib, options.anycalib);
   EXPECT_EQ(copy.anycalib->model_path, "original");
   copy.anycalib->model_path = "modified";
   EXPECT_EQ(options.anycalib->model_path, "original");
 
-  CameraCalibrationOptions assigned;
+  MonocularCalibrationOptions assigned;
   assigned = options;
   EXPECT_NE(assigned.anycalib, options.anycalib);
   EXPECT_EQ(assigned.anycalib->model_path, "original");
 }
 
-TEST(CameraCalibrationOptionsTest, CheckValidatesAllFields) {
-  CameraCalibrationOptions options;
+TEST(MonocularCalibrationOptionsTest, CheckValidatesAllFields) {
+  MonocularCalibrationOptions options;
   EXPECT_TRUE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
   options.camera_model = "DOES_NOT_EXIST";
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
   options.camera_model = "EQUIRECTANGULAR";
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
   options.num_threads = -2;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
   options.min_focal_length_ratio = 0;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
   options.max_focal_length_ratio = options.min_focal_length_ratio;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
   options.max_extra_param = 0;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  // Backend-specific settings are only validated for the selected backend.
+  options = MonocularCalibrationOptions();
+  options.anycalib = nullptr;
+  EXPECT_TRUE(options.Check());
+
+  options = MonocularCalibrationOptions();
+  options.type = MonocularCalibratorType::ANYCALIB;
   options.anycalib = nullptr;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
+  options.type = MonocularCalibratorType::ANYCALIB;
   options.anycalib->fitting.max_num_points = 0;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = MonocularCalibrationOptions();
   // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
-  options.type = static_cast<CameraCalibratorType>(-1);
+  options.type = static_cast<MonocularCalibratorType>(-1);
   EXPECT_FALSE(options.Check());
 }
 
-TEST(CameraCalibrationOptionsTest, MovePreservesTypeOptions) {
-  CameraCalibrationOptions options;
+TEST(MonocularCalibrationOptionsTest, MovePreservesTypeOptions) {
+  MonocularCalibrationOptions options;
   options.anycalib->model_path = "original";
 
-  CameraCalibrationOptions moved = std::move(options);
+  MonocularCalibrationOptions moved = std::move(options);
   ASSERT_NE(moved.anycalib, nullptr);
   EXPECT_EQ(moved.anycalib->model_path, "original");
 
-  CameraCalibrationOptions assigned;
+  MonocularCalibrationOptions assigned;
   assigned = std::move(moved);
   ASSERT_NE(assigned.anycalib, nullptr);
   EXPECT_EQ(assigned.anycalib->model_path, "original");
@@ -94,8 +105,8 @@ TEST(CameraCalibrationOptionsTest, MovePreservesTypeOptions) {
 
 // The plausibility bounds match the defaults of the incremental mapper, so
 // that intrinsics accepted here are not rejected during mapping.
-TEST(CameraCalibrationOptionsTest, DefaultsRejectImplausibleIntrinsics) {
-  const CameraCalibrationOptions options;
+TEST(MonocularCalibrationOptionsTest, DefaultsRejectImplausibleIntrinsics) {
+  const MonocularCalibrationOptions options;
   Camera camera = Camera::CreateFromModelId(
       /*camera_id=*/1, CameraModelId::kSimpleRadial, 500, 640, 480);
 
@@ -150,17 +161,17 @@ Camera CreateSimpleRadialCamera() {
       /*camera_id=*/1, CameraModelId::kSimpleRadial, 500, 640, 480);
 }
 
-TEST(AggregateCameraCalibrationsTest, EmptyList) {
+TEST(AggregateMonocularCalibrationsTest, EmptyList) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_FALSE(
-      AggregateCameraCalibrations(CameraModelId::kSimpleRadial, {}, &camera));
+  EXPECT_FALSE(AggregateMonocularCalibrations(
+      CameraModelId::kSimpleRadial, {}, &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0}));
   EXPECT_FALSE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, OddMedian) {
+TEST(AggregateMonocularCalibrationsTest, OddMedian) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations(
+  EXPECT_TRUE(AggregateMonocularCalibrations(
       CameraModelId::kSimpleRadial,
       {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}, {500, 320, 240, 0.10}},
       &camera));
@@ -168,9 +179,9 @@ TEST(AggregateCameraCalibrationsTest, OddMedian) {
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, EvenMedian) {
+TEST(AggregateMonocularCalibrationsTest, EvenMedian) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations(
+  EXPECT_TRUE(AggregateMonocularCalibrations(
       CameraModelId::kSimpleRadial,
       {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}},
       &camera));
@@ -182,15 +193,15 @@ TEST(AggregateCameraCalibrationsTest, EvenMedian) {
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, SetsTargetCameraModel) {
+TEST(AggregateMonocularCalibrationsTest, SetsTargetCameraModel) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations(
+  EXPECT_TRUE(AggregateMonocularCalibrations(
       CameraModelId::kPinhole, {{500, 500, 320, 240}}, &camera));
   EXPECT_EQ(camera.model_id, CameraModelId::kPinhole);
   EXPECT_EQ(camera.params, std::vector<double>({500, 500, 320, 240}));
 }
 
-TEST(AggregateCameraCalibrationsTest, InvalidMedianFallsBackToClosest) {
+TEST(AggregateMonocularCalibrationsTest, InvalidMedianFallsBackToClosest) {
   // Two individually well-behaved OPENCV calibrations whose coefficient-wise
   // median is not projection-stable, because the median breaks the correlation
   // between focal length and the radial coefficients.
@@ -203,39 +214,110 @@ TEST(AggregateCameraCalibrationsTest, InvalidMedianFallsBackToClosest) {
       /*camera_id=*/1, model_id, 500, 640, 480);
   for (const std::vector<double>& params : {params1, params2, median}) {
     Camera single = camera;
-    EXPECT_EQ(AggregateCameraCalibrations(model_id, {params}, &single),
+    EXPECT_EQ(AggregateMonocularCalibrations(model_id, {params}, &single),
               params != median);
   }
 
   ASSERT_TRUE(
-      AggregateCameraCalibrations(model_id, {params1, params2}, &camera));
+      AggregateMonocularCalibrations(model_id, {params1, params2}, &camera));
   // The two candidates are symmetric around the median, so their distances
   // tie exactly and `min_element` deterministically picks the first.
   EXPECT_EQ(camera.params, params1);
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, RejectsRaggedParams) {
+TEST(AggregateMonocularCalibrationsTest, RejectsRaggedParams) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_THROW(AggregateCameraCalibrations(CameraModelId::kSimpleRadial,
-                                           {{500, 320, 240, 0}, {500, 320}},
-                                           &camera),
+  EXPECT_THROW(AggregateMonocularCalibrations(CameraModelId::kSimpleRadial,
+                                              {{500, 320, 240, 0}, {500, 320}},
+                                              &camera),
                std::exception);
 }
 
-TEST(AggregateCameraCalibrationsTest, RejectsInvalidParams) {
+TEST(AggregateMonocularCalibrationsTest, RejectsInvalidParams) {
   const std::vector<double> original_params = {500, 320, 240, 0};
   const double nan = std::numeric_limits<double>::quiet_NaN();
   for (const std::vector<double>& params :
        {std::vector<double>{nan, 320, 240, 0},
         std::vector<double>{-500, 320, 240, 0}}) {
     Camera camera = CreateSimpleRadialCamera();
-    EXPECT_FALSE(AggregateCameraCalibrations(
+    EXPECT_FALSE(AggregateMonocularCalibrations(
         CameraModelId::kSimpleRadial, {params}, &camera));
     EXPECT_EQ(camera.params, original_params);
     EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
     EXPECT_FALSE(camera.has_prior_focal_length);
   }
+}
+
+TEST(MonocularCalibratorTest, MissingModelThrows) {
+  MonocularCalibrationOptions options(MonocularCalibratorType::ANYCALIB);
+  options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
+  EXPECT_THROW(MonocularCalibrator::Create(options), std::exception);
+}
+
+void SetGpsExifTags(Bitmap& bitmap,
+                    float latitude_deg,
+                    float longitude_deg,
+                    float altitude) {
+  float latitude[3] = {latitude_deg, 0, 0};
+  bitmap.SetMetaData("GPS:Latitude", "point", latitude);
+  bitmap.SetMetaData("GPS:LatitudeRef", "N");
+  float longitude[3] = {longitude_deg, 0, 0};
+  bitmap.SetMetaData("GPS:Longitude", "point", longitude);
+  bitmap.SetMetaData("GPS:LongitudeRef", "E");
+  bitmap.SetMetaData("GPS:Altitude", "float", &altitude);
+  bitmap.SetMetaData("GPS:AltitudeRef", "0");
+}
+
+TEST(SetPosePriorFromExifTest, SetsPositionAndGravity) {
+  Bitmap bitmap(64, 48, /*as_rgb=*/true);
+  SetGpsExifTags(bitmap, 47.3769f, 8.5417f, 400.0f);
+  int orientation = 1;
+  bitmap.SetMetaData("Orientation", "int", &orientation);
+  PosePrior pose_prior;
+  SetPosePriorFromExif(bitmap, &pose_prior);
+  ASSERT_TRUE(pose_prior.HasPosition());
+  EXPECT_DOUBLE_EQ(pose_prior.position.x(), 47.3769f);
+  EXPECT_DOUBLE_EQ(pose_prior.position.y(), 8.5417f);
+  EXPECT_DOUBLE_EQ(pose_prior.position.z(), 400.0f);
+  EXPECT_EQ(pose_prior.coordinate_system, PosePrior::CoordinateSystem::WGS84);
+  ASSERT_TRUE(pose_prior.HasGravity());
+  EXPECT_EQ(pose_prior.gravity, Eigen::Vector3d(0, 1, 0));
+}
+
+TEST(SetPosePriorFromExifTest, MissingTagsLeavePriorUntouched) {
+  const Bitmap bitmap(64, 48, /*as_rgb=*/true);
+  PosePrior pose_prior;
+  SetPosePriorFromExif(bitmap, &pose_prior);
+  EXPECT_FALSE(pose_prior.HasPosition());
+  EXPECT_FALSE(pose_prior.HasGravity());
+}
+
+TEST(SetPosePriorFromExifTest, PartialGpsLeavesPositionUntouched) {
+  Bitmap bitmap(64, 48, /*as_rgb=*/true);
+  float latitude[3] = {47.3769f, 0, 0};
+  bitmap.SetMetaData("GPS:Latitude", "point", latitude);
+  bitmap.SetMetaData("GPS:LatitudeRef", "N");
+  PosePrior pose_prior;
+  SetPosePriorFromExif(bitmap, &pose_prior);
+  EXPECT_FALSE(pose_prior.HasPosition());
+  EXPECT_FALSE(pose_prior.HasGravity());
+}
+
+TEST(SetPosePriorFromExifTest, PresentValuesAreNeverOverwritten) {
+  Bitmap bitmap(64, 48, /*as_rgb=*/true);
+  SetGpsExifTags(bitmap, 47.3769f, 8.5417f, 400.0f);
+  int orientation = 1;
+  bitmap.SetMetaData("Orientation", "int", &orientation);
+  PosePrior pose_prior;
+  pose_prior.position = Eigen::Vector3d(1, 2, 3);
+  pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+  pose_prior.gravity = Eigen::Vector3d(0, 0, 1);
+  SetPosePriorFromExif(bitmap, &pose_prior);
+  EXPECT_EQ(pose_prior.position, Eigen::Vector3d(1, 2, 3));
+  EXPECT_EQ(pose_prior.coordinate_system,
+            PosePrior::CoordinateSystem::CARTESIAN);
+  EXPECT_EQ(pose_prior.gravity, Eigen::Vector3d(0, 0, 1));
 }
 
 }  // namespace

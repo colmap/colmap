@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
+#include "colmap/calibration/calibrator.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/undistorters.h"
 #include "colmap/exe/feature.h"
@@ -8,6 +9,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/file.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include "pycolmap/helpers.h"
@@ -39,6 +41,9 @@ void ImportImages(const std::filesystem::path& database_path,
 
   auto database = Database::Open(database_path);
   ImageReader image_reader(options, database.get());
+  const auto exif_calibrator =
+      MonocularCalibrator::Create(MonocularCalibrationOptions());
+  FlatHashSet<camera_t> initialized_camera_ids;
 
   PyInterrupt py_interrupt(2.0);
 
@@ -52,12 +57,25 @@ void ImportImages(const std::filesystem::path& database_path,
     PosePrior pose_prior;
     Bitmap bitmap;
     const ImageReader::Status status =
-        image_reader.Next(&rig, &camera, &image, &pose_prior, &bitmap, nullptr);
+        image_reader.Next(&rig, &camera, &image, &bitmap, nullptr);
     if (status != ImageReader::Status::SUCCESS) {
       LOG(ERROR) << image.Name() << " " << ImageReader::StatusToString(status);
       continue;
     }
+    SetPosePriorFromExif(bitmap, &pose_prior);
+    bool update_camera = false;
+    if (options.camera_params.empty() &&
+        image_reader.CreatedCameraIds().contains(camera.camera_id) &&
+        initialized_camera_ids.insert(camera.camera_id).second) {
+      // ImageReader now creates bare cameras. Preserve import_images' historic
+      // behavior by initializing each newly created camera from the first
+      // associated image's EXIF focal length.
+      update_camera = exif_calibrator->Calibrate(bitmap, &camera, &pose_prior);
+    }
     DatabaseTransaction database_transaction(database.get());
+    if (update_camera) {
+      database->UpdateCamera(camera);
+    }
     if (image.ImageId() == kInvalidImageId) {
       image.SetImageId(database->WriteImage(image));
 

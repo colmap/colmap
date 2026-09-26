@@ -67,7 +67,7 @@ std::string MakeCameraModelsHelpText() {
 OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
-  camera_calibration = std::make_shared<CameraCalibrationOptions>();
+  monocular_calibration = std::make_shared<MonocularCalibrationOptions>();
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
@@ -203,7 +203,6 @@ void OptionManager::ModifyForExtremeQuality() {
 
 void OptionManager::AddAllOptions() {
   BaseOptionManager::AddAllOptions();
-  AddCameraCalibrationOptions();
   AddFeatureExtractionOptions();
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -227,37 +226,39 @@ void OptionManager::AddAllOptions() {
   AddRenderOptions();
 }
 
-void OptionManager::AddCameraCalibrationOptions() {
-  if (!RegisterOptionGroupOnce("camera_calibration")) {
+void OptionManager::AddMonocularCalibrationOptions() {
+  if (!RegisterOptionGroupOnce("monocular_calibration")) {
     return;
   }
 
-  AddDefaultEnumOption("CameraCalibration.type",
-                       &camera_calibration->type,
-                       CameraCalibratorTypeToString,
-                       CameraCalibratorTypeFromString);
-  AddDefaultOption("CameraCalibration.camera_model",
-                   &camera_calibration->camera_model);
-  AddDefaultOption("CameraCalibration.num_threads",
-                   &camera_calibration->num_threads);
-  AddDefaultOption("CameraCalibration.use_gpu", &camera_calibration->use_gpu);
-  AddDefaultOption("CameraCalibration.gpu_index",
-                   &camera_calibration->gpu_index);
-  AddDefaultOption("CameraCalibration.min_focal_length_ratio",
-                   &camera_calibration->min_focal_length_ratio);
-  AddDefaultOption("CameraCalibration.max_focal_length_ratio",
-                   &camera_calibration->max_focal_length_ratio);
-  AddDefaultOption("CameraCalibration.max_extra_param",
-                   &camera_calibration->max_extra_param);
-  AddDefaultOption("CameraCalibration.anycalib_model_path",
-                   &camera_calibration->anycalib->model_path);
-  AddDefaultOption("CameraCalibration.max_num_iterations",
-                   &camera_calibration->anycalib->fitting.max_num_iterations);
-  AddDefaultOption("CameraCalibration.max_num_points",
-                   &camera_calibration->anycalib->fitting.max_num_points);
+  AddDefaultEnumOption("MonocularCalibration.type",
+                       &monocular_calibration->type,
+                       MonocularCalibratorTypeToString,
+                       MonocularCalibratorTypeFromString);
+  AddDefaultOption("MonocularCalibration.camera_model",
+                   &monocular_calibration->camera_model);
+  AddDefaultOption("MonocularCalibration.num_threads",
+                   &monocular_calibration->num_threads);
+  AddDefaultOption("MonocularCalibration.use_gpu",
+                   &monocular_calibration->use_gpu);
+  AddDefaultOption("MonocularCalibration.gpu_index",
+                   &monocular_calibration->gpu_index);
+  AddDefaultOption("MonocularCalibration.min_focal_length_ratio",
+                   &monocular_calibration->min_focal_length_ratio);
+  AddDefaultOption("MonocularCalibration.max_focal_length_ratio",
+                   &monocular_calibration->max_focal_length_ratio);
+  AddDefaultOption("MonocularCalibration.max_extra_param",
+                   &monocular_calibration->max_extra_param);
+  AddDefaultOption("MonocularCalibration.anycalib_model_path",
+                   &monocular_calibration->anycalib->model_path);
   AddDefaultOption(
-      "CameraCalibration.prior_focal_length_weight",
-      &camera_calibration->anycalib->fitting.prior_focal_length_weight);
+      "MonocularCalibration.max_num_iterations",
+      &monocular_calibration->anycalib->fitting.max_num_iterations);
+  AddDefaultOption("MonocularCalibration.max_num_points",
+                   &monocular_calibration->anycalib->fitting.max_num_points);
+  AddDefaultOption(
+      "MonocularCalibration.prior_focal_length_weight",
+      &monocular_calibration->anycalib->fitting.prior_focal_length_weight);
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
@@ -1226,7 +1227,7 @@ void OptionManager::Reset(bool reset_logging) {
 
 void OptionManager::ResetOptions(const bool reset_paths) {
   *image_reader = ImageReaderOptions();
-  *camera_calibration = CameraCalibrationOptions();
+  *monocular_calibration = MonocularCalibrationOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
   *exhaustive_pairing = ExhaustivePairingOptions();
@@ -1262,7 +1263,8 @@ bool OptionManager::Check() {
   bool success = true;
 
   if (image_reader) success = success && image_reader->Check();
-  if (camera_calibration) success = success && camera_calibration->Check();
+  if (monocular_calibration)
+    success = success && monocular_calibration->Check();
   if (feature_extraction) success = success && feature_extraction->Check();
 
   if (feature_matching) success = success && feature_matching->Check();

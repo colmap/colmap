@@ -64,12 +64,8 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   }
 }
 
-ImageReader::Status ImageReader::Next(Rig* rig,
-                                      Camera* camera,
-                                      Image* image,
-                                      PosePrior* pose_prior,
-                                      Bitmap* bitmap,
-                                      Bitmap* mask) {
+ImageReader::Status ImageReader::Next(
+    Rig* rig, Camera* camera, Image* image, Bitmap* bitmap, Bitmap* mask) {
   THROW_CHECK_NOTNULL(camera);
   THROW_CHECK_NOTNULL(image);
   THROW_CHECK_NOTNULL(bitmap);
@@ -215,7 +211,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
     }
 
     //////////////////////////////////////////////////////////////////////////////
-    // Extract camera model and focal length
+    // Create camera with default parameters
     //////////////////////////////////////////////////////////////////////////////
 
     if (prev_camera_.camera_id == kInvalidCameraId ||
@@ -228,19 +224,17 @@ ImageReader::Status ImageReader::Next(Rig* rig,
         (options_.single_camera_per_folder &&
          image_folders_.count(image_folder) == 0)) {
       if (options_.camera_params.empty()) {
-        // Extract focal length.
-        const std::optional<double> maybe_focal_length =
-            bitmap->ExifFocalLength();
-        const double focal_length = maybe_focal_length.value_or(
+        // Bare camera with the default focal length. The trailing monocular
+        // calibration step of feature extraction/import reads EXIF focal
+        // lengths (see ExifCalibrator) or fits a learned model.
+        prev_camera_ = Camera::CreateFromModelId(
+            prev_camera_.camera_id,
+            prev_camera_.model_id,
             options_.default_focal_length_factor *
-            std::max(bitmap->Width(), bitmap->Height()));
-
-        prev_camera_ = Camera::CreateFromModelId(prev_camera_.camera_id,
-                                                 prev_camera_.model_id,
-                                                 focal_length,
-                                                 bitmap->Width(),
-                                                 bitmap->Height());
-        prev_camera_.has_prior_focal_length = maybe_focal_length.has_value();
+                std::max(bitmap->Width(), bitmap->Height()),
+            bitmap->Width(),
+            bitmap->Height());
+        prev_camera_.has_prior_focal_length = false;
       }
 
       prev_camera_.width = static_cast<size_t>(bitmap->Width());
@@ -251,6 +245,7 @@ ImageReader::Status ImageReader::Next(Rig* rig,
       }
 
       prev_camera_.camera_id = database_->WriteCamera(prev_camera_);
+      created_camera_ids_.insert(prev_camera_.camera_id);
 
       // By default we create a separate rig per camera. Grouping of different
       // cameras into the same rig is expected to be done with the
@@ -268,29 +263,8 @@ ImageReader::Status ImageReader::Next(Rig* rig,
 
     image->SetCameraId(prev_camera_.camera_id);
 
-    //////////////////////////////////////////////////////////////////////////////
-    // Extract GPS data.
-    //////////////////////////////////////////////////////////////////////////////
-
-    const std::optional<double> latitude = bitmap->ExifLatitude();
-    const std::optional<double> longitude = bitmap->ExifLongitude();
-    const std::optional<double> altitude = bitmap->ExifAltitude();
-    if (latitude.has_value() && longitude.has_value() && altitude.has_value()) {
-      pose_prior->position = Eigen::Vector3d(*latitude, *longitude, *altitude);
-      pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
-    }
-
-    //////////////////////////////////////////////////////////////////////////////
-    // Extract Gravity from Orientation.
-    //////////////////////////////////////////////////////////////////////////////
-
-    const std::optional<int> orientation = bitmap->ExifOrientation();
-    if (orientation.has_value()) {
-      const auto gravity = GravityFromExifOrientation(orientation.value());
-      if (gravity.has_value()) {
-        pose_prior->gravity = gravity.value();
-      }
-    }
+    // NOTE: The pose prior is left empty here; the monocular calibration
+    // stage of feature extraction/import populates it from EXIF.
   }
 
   *camera = prev_camera_;
@@ -305,6 +279,10 @@ ImageReader::Status ImageReader::Next(Rig* rig,
 size_t ImageReader::NextIndex() const { return image_index_; }
 
 size_t ImageReader::NumImages() const { return options_.image_names.size(); }
+
+const FlatHashSet<camera_t>& ImageReader::CreatedCameraIds() const {
+  return created_camera_ids_;
+}
 
 std::string ImageReader::StatusToString(const ImageReader::Status status) {
   switch (status) {

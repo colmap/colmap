@@ -3,6 +3,7 @@
 #include "colmap/calibration/calibrator.h"
 
 #include "colmap/calibration/anycalib.h"
+#include "colmap/calibration/exif.h"
 #include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
@@ -87,7 +88,7 @@ bool IsValidCalibration(const Camera& camera) {
   return true;
 }
 
-bool AggregateCameraCalibrations(
+bool AggregateMonocularCalibrations(
     const CameraModelId model_id,
     const std::vector<std::vector<double>>& params_list,
     Camera* camera) {
@@ -135,33 +136,34 @@ bool AggregateCameraCalibrations(
   return true;
 }
 
-CameraCalibrationTypeOptions::CameraCalibrationTypeOptions()
-    : anycalib(std::make_shared<AnyCalibCalibrationOptions>()) {}
+MonocularCalibrationTypeOptions::MonocularCalibrationTypeOptions()
+    : anycalib(std::make_shared<AnyCalibOptions>()) {}
 
-CameraCalibrationTypeOptions::CameraCalibrationTypeOptions(
-    const CameraCalibrationTypeOptions& other) {
+MonocularCalibrationTypeOptions::MonocularCalibrationTypeOptions(
+    const MonocularCalibrationTypeOptions& other) {
   if (other.anycalib) {
-    anycalib = std::make_shared<AnyCalibCalibrationOptions>(*other.anycalib);
+    anycalib = std::make_shared<AnyCalibOptions>(*other.anycalib);
   }
 }
 
-CameraCalibrationTypeOptions& CameraCalibrationTypeOptions::operator=(
-    const CameraCalibrationTypeOptions& other) {
+MonocularCalibrationTypeOptions& MonocularCalibrationTypeOptions::operator=(
+    const MonocularCalibrationTypeOptions& other) {
   if (this == &other) {
     return *this;
   }
   if (other.anycalib) {
-    anycalib = std::make_shared<AnyCalibCalibrationOptions>(*other.anycalib);
+    anycalib = std::make_shared<AnyCalibOptions>(*other.anycalib);
   } else {
     anycalib.reset();
   }
   return *this;
 }
 
-CameraCalibrationOptions::CameraCalibrationOptions(CameraCalibratorType type)
-    : CameraCalibrationTypeOptions(), type(type) {}
+MonocularCalibrationOptions::MonocularCalibrationOptions(
+    MonocularCalibratorType type)
+    : MonocularCalibrationTypeOptions(), type(type) {}
 
-bool CameraCalibrationOptions::Check() const {
+bool MonocularCalibrationOptions::Check() const {
   if (!camera_model.empty()) {
     CHECK_OPTION(ExistsCameraModelWithName(camera_model));
     const CameraModelId model_id = CameraModelNameToId(camera_model);
@@ -172,27 +174,54 @@ bool CameraCalibrationOptions::Check() const {
   CHECK_OPTION_GT(max_focal_length_ratio, min_focal_length_ratio);
   CHECK_OPTION_GT(max_extra_param, 0.0);
   switch (type) {
-    case CameraCalibratorType::ANYCALIB:
+    case MonocularCalibratorType::ANYCALIB:
       CHECK_OPTION(anycalib != nullptr);
       CHECK_OPTION(anycalib->Check());
       break;
+    case MonocularCalibratorType::EXIF:
+      // No backend-specific settings to validate.
+      break;
     default:
-      LOG(ERROR) << "Unknown camera calibrator type";
+      LOG(ERROR) << "Unknown monocular calibrator type";
       return false;
   }
   return true;
 }
 
-std::unique_ptr<CameraCalibrator> CameraCalibrator::Create(
-    const CameraCalibrationOptions& options) {
+std::unique_ptr<MonocularCalibrator> MonocularCalibrator::Create(
+    const MonocularCalibrationOptions& options) {
   THROW_CHECK(options.Check());
   switch (options.type) {
-    case CameraCalibratorType::ANYCALIB:
+    case MonocularCalibratorType::ANYCALIB:
       return CreateAnyCalibCalibrator(options);
+    case MonocularCalibratorType::EXIF:
+      return CreateExifCalibrator(options);
     default:
-      LOG(FATAL_THROW) << "Unknown camera calibrator type";
+      LOG(FATAL_THROW) << "Unknown monocular calibrator type";
   }
   return nullptr;
+}
+
+void SetPosePriorFromExif(const Bitmap& bitmap, PosePrior* pose_prior) {
+  THROW_CHECK_NOTNULL(pose_prior);
+  if (!pose_prior->HasPosition()) {
+    const std::optional<double> latitude = bitmap.ExifLatitude();
+    const std::optional<double> longitude = bitmap.ExifLongitude();
+    const std::optional<double> altitude = bitmap.ExifAltitude();
+    if (latitude.has_value() && longitude.has_value() && altitude.has_value()) {
+      pose_prior->position = Eigen::Vector3d(*latitude, *longitude, *altitude);
+      pose_prior->coordinate_system = PosePrior::CoordinateSystem::WGS84;
+    }
+  }
+  if (!pose_prior->HasGravity()) {
+    const std::optional<int> orientation = bitmap.ExifOrientation();
+    if (orientation.has_value()) {
+      if (const auto gravity = GravityFromExifOrientation(orientation.value());
+          gravity.has_value()) {
+        pose_prior->gravity = gravity.value();
+      }
+    }
+  }
 }
 
 }  // namespace colmap

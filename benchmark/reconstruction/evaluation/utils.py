@@ -464,14 +464,7 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "even if normal setting for the dataset contains calibrated inputs. "
         "This is useful for evaluating the performance of self-calibration.",
     )
-    parser.add_argument(
-        "--camera_calibration",
-        default=False,
-        action="store_true",
-        help="Whether to run learned single-image camera calibration after "
-        "feature extraction, replacing EXIF-based intrinsics before matching "
-        "and mapping.",
-    )
+
     parser.add_argument(
         "--filter_covisibility",
         default=True,
@@ -700,9 +693,6 @@ def colmap_reconstruction(
         "--dense",
         "0",
     ]
-    if args.camera_calibration:
-        extraction_args += ["--camera_calibration", "1"]
-
     phase_tracker.set("extraction")
     _run_with_log(
         colmap_args + (colmap_extra_args or []) + extraction_args,
@@ -790,10 +780,6 @@ def panorama_reconstruction(
     if args.uncalibrated:
         raise ValueError(
             "Equirectangular panorama reconstruction has fixed calibration"
-        )
-    if args.camera_calibration:
-        raise ValueError(
-            "Panorama reconstruction does not support learned calibration"
         )
 
     render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
@@ -930,9 +916,7 @@ def process_scene(
             image_path=scene_info.image_path,
             camera_priors_sparse_gt=(
                 sparse_gt
-                if not args.uncalibrated
-                and not args.camera_calibration
-                and scene_info.has_camera_priors
+                if not args.uncalibrated and scene_info.has_camera_priors
                 else None
             ),
             covisibility_sparse_gt=(
