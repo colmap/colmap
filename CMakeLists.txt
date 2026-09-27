@@ -51,7 +51,7 @@ if(HIP_ENABLED)
     cmake_minimum_required(VERSION 3.21)
 endif()
 option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
-option(DML_ENABLED "Whether to enable the ONNX DirectML execution provider (Windows AMD/Intel GPUs)" OFF)
+option(DML_ENABLED "Use a self-provided DirectML-capable onnxruntime instead of vcpkg's (Windows AMD/Intel GPUs)" OFF)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(MVS_ENABLED "Whether to enable the Multi-View Stereo module" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
@@ -103,6 +103,9 @@ endif()
 if(CUDA_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "cuda")
 endif()
+# vcpkg's onnxruntime is CPU/CUDA-only (no DirectML). When DML is requested,
+# skip the vcpkg onnx feature so a self-provided DirectML onnxruntime can be
+# linked via find_package instead.
 if(ONNX_ENABLED AND NOT FETCH_ONNX AND NOT DML_ENABLED)
     list(APPEND VCPKG_MANIFEST_FEATURES "onnx")
 endif()

@@ -223,10 +223,14 @@ class LomaFeatureExtractor : public FeatureExtractor {
     const auto& desc_out_shape = descriptor_.output_shapes()[0];
     THROW_CHECK_EQ(desc_out_shape.size(), 3);
     descriptor_dim_ = static_cast<int>(desc_out_shape[2]);
-    // LoMa descriptors have a fixed dimension, but some execution providers
-    // (e.g. DirectML) report the static descriptor dimension as dynamic (-1).
-    // Accept a dynamic dimension here and resolve the actual value from the
-    // output tensor at extraction time.
+    // LoMa descriptors have a fixed dimension. The DirectML execution provider
+    // has weaker static shape inference than CPU/CUDA: it cannot statically
+    // resolve the descriptor network's output shape, so ONNX Runtime reports
+    // the descriptor dimension as dynamic (-1) in the output metadata even
+    // though the model is static. Rather than hardcoding it or trusting the
+    // metadata, we accept a dynamic dimension here and resolve the actual value
+    // from the output tensor at extraction time, which is robust across
+    // providers.
     THROW_CHECK(descriptor_dim_ == -1 || descriptor_dim_ > 0);
     VLOG(2) << "LoMa descriptor dimension: " << descriptor_dim_;
   }

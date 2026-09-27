@@ -207,21 +207,26 @@ void ONNXModel::InitializeSession(const std::string& model_path,
 #endif
 
   // On Windows AMD/Intel GPUs, map use_gpu onto DirectML, which accelerates
-  // ONNX inference via DX12 (no CUDA required). device_id 0 selects the
-  // default adapter (usually the primary display GPU). We use the OrtDmlApi
-  // obtained via GetExecutionProviderApi: the legacy global
+  // ONNX inference via DX12 (no CUDA required). DirectML's device_id selects
+  // the DXGI adapter (adapter index, not the CUDA device id); a negative
+  // gpu_index keeps the default adapter (usually the primary display GPU). We
+  // use the OrtDmlApi obtained via GetExecutionProviderApi: the legacy global
   // OrtSessionOptionsAppendExecutionProvider_DML export is deprecated in
   // modern ONNX Runtime and can crash.
   const bool use_dml = execution_provider_ == ONNXExecutionProvider::DML;
 #ifdef COLMAP_DML_ENABLED
   if (use_dml) {
     VLOG(2) << "Enabling DirectML execution provider";
+    const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
+    THROW_CHECK_EQ(gpu_indices.size(), 1)
+        << "ONNX model can only run on one GPU";
+    const int device_id = gpu_indices[0] >= 0 ? gpu_indices[0] : 0;
     const OrtApi* ort_api = OrtGetApiBase()->GetApi(ORT_API_VERSION);
     const OrtDmlApi* dml_api = nullptr;
     Ort::ThrowOnError(ort_api->GetExecutionProviderApi(
         "DML", ORT_API_VERSION, reinterpret_cast<const void**>(&dml_api)));
     Ort::ThrowOnError(dml_api->SessionOptionsAppendExecutionProvider_DML(
-        static_cast<OrtSessionOptions*>(session_options_), /*device_id=*/0));
+        static_cast<OrtSessionOptions*>(session_options_), device_id));
   }
 #endif
 

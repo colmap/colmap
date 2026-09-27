@@ -150,10 +150,13 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        model_.output_shapes()[1],
                        {-1, -1, -1});
     descriptor_dim_ = static_cast<int>(model_.output_shapes()[1][2]);
-    // ALIKED descriptors are 128-dimensional, but some execution providers
-    // (e.g. DirectML) report the static descriptor dimension as dynamic (-1).
-    // Accept a dynamic dimension here and resolve the actual value from the
-    // output tensor at extraction time.
+    // ALIKED descriptors are 128-dimensional. The DirectML execution provider
+    // has weaker static shape inference than CPU/CUDA: it cannot statically
+    // resolve the descriptor head's output shape, so ONNX Runtime reports the
+    // descriptor dimension as dynamic (-1) in the output metadata even though
+    // the model is static. Rather than hardcoding 128 or trusting the metadata,
+    // we accept a dynamic dimension here and resolve the actual value from the
+    // output tensor at extraction time, which is robust across providers.
     THROW_CHECK(descriptor_dim_ == -1 || descriptor_dim_ > 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
     ThrowCheckONNXNode(model_.output_names()[2],

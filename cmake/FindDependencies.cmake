@@ -574,11 +574,23 @@ if(TARGET onnxruntime::onnxruntime)
         list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_COREML_ENABLED)
         message(STATUS "Enabling ONNX CoreML execution provider")
     endif()
-    # Enable the DirectML execution provider for ONNX inference on Windows
-    # AMD/Intel GPUs (requires a DirectML-capable onnxruntime, no CUDA).
-    if(DML_ENABLED)
-        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_DML_ENABLED)
-        message(STATUS "Enabling ONNX DirectML execution provider")
+    # Auto-enable the DirectML execution provider when the onnxruntime being
+    # linked ships with DirectML support. DirectML accelerates ONNX inference
+    # on Windows AMD/Intel GPUs via DX12 (no CUDA). DirectML-capable builds
+    # provide dml_provider_factory.h, which is absent from the plain CPU/CUDA
+    # onnxruntime packages (vcpkg's onnxruntime has no DirectML, so a DirectML
+    # build must be provided separately via find_package, see DML_ENABLED).
+    if(WIN32)
+        get_target_property(_onnxruntime_include_dirs
+            onnxruntime::onnxruntime INTERFACE_INCLUDE_DIRECTORIES)
+        find_path(COLMAP_DML_PROVIDER_HEADER_DIR
+            NAMES dml_provider_factory.h
+            HINTS ${_onnxruntime_include_dirs}
+            NO_DEFAULT_PATH)
+        if(COLMAP_DML_PROVIDER_HEADER_DIR)
+            list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_DML_ENABLED)
+            message(STATUS "Enabling ONNX DirectML execution provider")
+        endif()
     endif()
 endif()
 
