@@ -1,0 +1,13 @@
+torch>=1.1
+torchvision>=0.3
+numpy
+opencv-python
+tqdm>=4.36.0
+matplotlib
+plotly
+scipy
+h5py
+pycolmap>=3.13.0
+kornia>=0.6.11
+gdown
+lightglue @ git+https://github.com/cvg/LightGlue

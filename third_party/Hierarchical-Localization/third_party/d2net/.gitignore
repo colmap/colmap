@@ -1,0 +1,14 @@
+__pycache__
+.vscode
+checkpoints*
+train_vis
+models
+log.txt
+hpatches_sequences/hseq.pdf
+hpatches_sequences/hseq-top.pdf
+hpatches_sequences/hpatches-sequences-release*
+hpatches_sequences/cache
+hpatches_sequences/cache-top
+.ipynb_checkpoints
+vlfeat
+*.d2-net

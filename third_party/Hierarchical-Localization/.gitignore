@@ -1,0 +1,10 @@
+build
+.venv
+__pycache__
+*.pyc
+*.egg-info
+.ipynb_checkpoints
+outputs/
+datasets/*
+!datasets/sacre_coeur/
+datasets/sacre_coeur/query

@@ -1,0 +1,12 @@
+[submodule "third_party/d2net"]
+	path = third_party/d2net
+	url = https://github.com/mihaidusmanu/d2-net.git
+[submodule "third_party/SuperGluePretrainedNetwork"]
+	path = third_party/SuperGluePretrainedNetwork
+	url = https://github.com/magicleap/SuperGluePretrainedNetwork.git
+[submodule "third_party/deep-image-retrieval"]
+	path = third_party/deep-image-retrieval
+	url = https://github.com/naver/deep-image-retrieval.git
+[submodule "third_party/r2d2"]
+	path = third_party/r2d2
+	url = https://github.com/naver/r2d2.git
