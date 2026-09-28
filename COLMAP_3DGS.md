@@ -137,3 +137,23 @@ PY
 - 整张发灰、窗户对不上，是相机或去畸变目录指错了。Gerrard 必须用 `dense/images` 配 `dense/sparse`，不能拿原始的 5616×3744 照片去配去畸变后的内参。
 - 只有树和天空脏、墙是对的，是高斯太少或停得太早。初始点就是这 357 万融合点之前的稀疏点；要让起步更密，把 `dense/fused.ply` 拷成 `sparse/0/points3D.ply` 再训练。这个文件必须在第一次 `train.py` 之前放好。
 - 墙面颜色随照片变亮变暗，是拍摄时曝光没锁。训练加上 `--exposure_lr_init 0.001 --exposure_lr_final 0.0001 --exposure_lr_delay_steps 5000 --exposure_lr_delay_mult 0.001 --train_test_exp`，每张图学一个颜色变换。Gerrard 是同一套相机、曝光比较稳，可以先不加。
+
+## 应用 4 — 给一张没参与训练的图，求出 6DoF 位姿
+
+重建和定位分开。100 张按文件名排序，下标能被 8 整除的 13 张留作查询，其余 87 张才进 3DGS。训练加 `--eval`，模型写到 `output_eval`，不覆盖前面那份全量模型。查集上的 PSNR 是 19.8，训练集是 23.8。
+
+定位按现在常用的两段来，不把描述子蒸进高斯里：
+
+1. 用缩略图在 87 张重建照片里找最像的一张，把它的位姿当初值。
+2. 在这个初值上渲颜色和逆深度。查询图和渲染图做 SIFT 匹配，用逆深度把渲染图上的点抬回世界坐标，再 PnP。这一步对应 GSFeatLoc：只渲一次，靠对应点而不是反复比较像素。
+3. 以 PnP 的结果为起点，再做几十步光度收紧（L1 加 SSIM）。光栅器不把梯度传回 view matrix，所以刚体增量加在高斯上。这一步是 iComMa 里的 comparing，用来把已经靠近的位姿再拧紧。
+
+输出仍是 `R_cw` 和 `t_cw`。页面上能看到匹配线和损失曲线：<http://127.0.0.1:8899/gerrard_loc/>。
+
+以 `IMG_2371.JPG` 为例。检索到 `IMG_2370.JPG`，初值差 5.2°、0.18 米。PnP 内点 722 对，收到 1.34°、7.3 厘米。光度损失从 0.203 降到 0.096，位姿收到 0.15°、5 毫米。13 张里有一张（`IMG_2403.JPG`）匹配点不够，PnP 没做，只靠光度从检索位姿收到 2.95°、10 厘米。
+
+```bash
+cd "$GS_ROOT"
+python train.py -s "$GS_DATA" -m "$GS_DATA/output_eval" --eval
+python "$GS_DATA/localize_demo.py" -m "$GS_DATA/output_eval" -s "$GS_DATA" --eval
+```

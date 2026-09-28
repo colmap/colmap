@@ -26,6 +26,7 @@ demo/south_building_viewer/images
 demo/south_building_viewer/caliterra_images
 demo/south_building_viewer/gerrard_images
 demo/south_building_viewer/gerrard_gs/
+demo/south_building_viewer/gerrard_loc
 benchmark/reconstruction/data/
 benchmark/reconstruction/runs/
 doc/_build
