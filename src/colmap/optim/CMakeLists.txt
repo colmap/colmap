@@ -7,13 +7,13 @@ COLMAP_ADD_LIBRARY(
     SRCS
         combination_sampler.h combination_sampler.cc
         least_absolute_deviations.h least_absolute_deviations.cc
-        majority_group_sampler.h majority_group_sampler.cc
         progressive_sampler.h progressive_sampler.cc
         random_sampler.h random_sampler.cc
         sparse_cholesky.h sparse_cholesky.cc
         sprt.h sprt.cc
         support_measurement.h support_measurement.cc
         tiny_solver.h
+        two_group_sampler.h two_group_sampler.cc
     PUBLIC_LINK_LIBS
         colmap_math
         colmap_util
@@ -27,11 +27,6 @@ endif()
 COLMAP_ADD_TEST(
     NAME combination_sampler_test
     SRCS combination_sampler_test.cc
-    LINK_LIBS colmap_optim
-)
-COLMAP_ADD_TEST(
-    NAME majority_group_sampler_test
-    SRCS majority_group_sampler_test.cc
     LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
@@ -82,4 +77,9 @@ COLMAP_ADD_TEST(
         colmap_estimators_cost_functions
         Ceres::ceres
         Eigen3::Eigen
+)
+COLMAP_ADD_TEST(
+    NAME two_group_sampler_test
+    SRCS two_group_sampler_test.cc
+    LINK_LIBS colmap_optim
 )

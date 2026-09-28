@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/optim/majority_group_sampler.h"
+#include "colmap/optim/two_group_sampler.h"
 
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
@@ -17,13 +17,14 @@ namespace {
 
 bool IsStructuredSample(const std::vector<size_t>& samples,
                         const std::vector<int>& group_ids,
-                        size_t majority_size) {
+                        size_t num_first_group_samples) {
   if (samples.size() < 2) return false;
   FlatHashMap<int, size_t> counts;
   for (size_t idx : samples) counts[group_ids[idx]]++;
   if (counts.size() != 2) return false;
   for (const auto& [group, count] : counts) {
-    if (count != majority_size && count != samples.size() - majority_size) {
+    if (count != num_first_group_samples &&
+        count != samples.size() - num_first_group_samples) {
       return false;
     }
   }
@@ -53,7 +54,8 @@ class SampleStructureCounter {
     std::vector<size_t> sample_idxs(group_ids.size());
     std::iota(sample_idxs.begin(), sample_idxs.end(), 0);
     ++*num_samples_;
-    if (IsStructuredSample(sample_idxs, group_ids, /*majority_size=*/5)) {
+    if (IsStructuredSample(
+            sample_idxs, group_ids, /*num_first_group_samples=*/5)) {
       ++*num_structured_samples_;
     }
   }
@@ -79,13 +81,13 @@ RANSACOptions CreateSampleStructureRANSACOptions(int num_threads) {
   return options;
 }
 
-TEST(MajorityGroupSampler, StructuredSampling) {
+TEST(TwoGroupSampler, StructuredSampling) {
   SetPRNGSeed(0);
   // Two groups of 10; every draw must be 5+1 structured.
   std::vector<int> group_ids(20, 0);
   for (size_t i = 10; i < 20; ++i) group_ids[i] = 1;
-  MajorityGroupSampler sampler(
-      6, group_ids, /*structured_prob=*/1.0, /*majority_size=*/5);
+  TwoGroupSampler sampler(
+      6, group_ids, /*structured_prob=*/1.0, /*num_first_group_samples=*/5);
   sampler.Initialize(20);
   for (int i = 0; i < 200; ++i) {
     std::vector<size_t> samples;
@@ -93,39 +95,41 @@ TEST(MajorityGroupSampler, StructuredSampling) {
     EXPECT_EQ(samples.size(), 6);
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 6);
     for (size_t idx : samples) EXPECT_LT(idx, 20);
-    EXPECT_TRUE(IsStructuredSample(samples, group_ids, /*majority_size=*/5));
+    EXPECT_TRUE(
+        IsStructuredSample(samples, group_ids, /*num_first_group_samples=*/5));
   }
 }
 
-TEST(MajorityGroupSampler, CustomMajoritySize) {
+TEST(TwoGroupSampler, CustomGroupSplit) {
   SetPRNGSeed(0);
   // Two groups of 10; every draw must be 4+2 structured.
   std::vector<int> group_ids(20, 0);
   for (size_t i = 10; i < 20; ++i) group_ids[i] = 1;
-  MajorityGroupSampler sampler(
-      6, group_ids, /*structured_prob=*/1.0, /*majority_size=*/4);
+  TwoGroupSampler sampler(
+      6, group_ids, /*structured_prob=*/1.0, /*num_first_group_samples=*/4);
   sampler.Initialize(20);
   for (int i = 0; i < 200; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 6);
-    EXPECT_TRUE(IsStructuredSample(samples, group_ids, /*majority_size=*/4));
+    EXPECT_TRUE(
+        IsStructuredSample(samples, group_ids, /*num_first_group_samples=*/4));
   }
 }
 
-TEST(MajorityGroupSampler, MixedSampling) {
+TEST(TwoGroupSampler, MixedSampling) {
   SetPRNGSeed(0);
   std::vector<int> group_ids(20, 0);
   for (size_t i = 10; i < 20; ++i) group_ids[i] = 1;
-  MajorityGroupSampler sampler(
-      6, group_ids, /*structured_prob=*/0.5, /*majority_size=*/5);
+  TwoGroupSampler sampler(
+      6, group_ids, /*structured_prob=*/0.5, /*num_first_group_samples=*/5);
   sampler.Initialize(20);
   int num_structured = 0;
   for (int i = 0; i < 500; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 6);
-    if (IsStructuredSample(samples, group_ids, /*majority_size=*/5)) {
+    if (IsStructuredSample(samples, group_ids, /*num_first_group_samples=*/5)) {
       ++num_structured;
     }
   }
@@ -133,11 +137,38 @@ TEST(MajorityGroupSampler, MixedSampling) {
   EXPECT_LT(num_structured, 500);
 }
 
-TEST(MajorityGroupSampler, UniformFallback) {
+TEST(TwoGroupSampler, UniformSecondGroup) {
+  SetPRNGSeed(0);
+  // Only group 0 can supply the 5 first-group samples. The second group is
+  // chosen uniformly regardless of size: group 2 (1 member) vs. group 1 (4
+  // members), i.e., group 2 in ~50% of the draws (size-weighted: ~20%).
+  std::vector<int> group_ids(20, 0);
+  for (size_t i = 15; i < 19; ++i) group_ids[i] = 1;
+  group_ids[19] = 2;
+  TwoGroupSampler sampler(
+      6, group_ids, /*structured_prob=*/1.0, /*num_first_group_samples=*/5);
+  sampler.Initialize(20);
+  constexpr int kNumDraws = 1000;
+  int num_group2_draws = 0;
+  for (int i = 0; i < kNumDraws; ++i) {
+    std::vector<size_t> samples;
+    sampler.Sample(&samples);
+    EXPECT_TRUE(
+        IsStructuredSample(samples, group_ids, /*num_first_group_samples=*/5));
+    for (size_t idx : samples) {
+      if (group_ids[idx] == 2) ++num_group2_draws;
+    }
+  }
+  EXPECT_NEAR(static_cast<double>(num_group2_draws) / kNumDraws, 0.5, 0.05);
+}
+
+TEST(TwoGroupSampler, UniformFallback) {
   SetPRNGSeed(0);
   // No groups: uniform sampling.
-  MajorityGroupSampler sampler(
-      6, /*group_ids=*/{}, /*structured_prob=*/0.5, /*majority_size=*/5);
+  TwoGroupSampler sampler(6,
+                          /*group_ids=*/{},
+                          /*structured_prob=*/0.5,
+                          /*num_first_group_samples=*/5);
   sampler.Initialize(20);
   for (int i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
@@ -146,10 +177,10 @@ TEST(MajorityGroupSampler, UniformFallback) {
   }
 
   // Single group: structured sampling infeasible, uniform fallback.
-  MajorityGroupSampler single_group_sampler(6,
-                                            std::vector<int>(20, 0),
-                                            /*structured_prob=*/1.0,
-                                            /*majority_size=*/5);
+  TwoGroupSampler single_group_sampler(6,
+                                       std::vector<int>(20, 0),
+                                       /*structured_prob=*/1.0,
+                                       /*num_first_group_samples=*/5);
   single_group_sampler.Initialize(20);
   for (int i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
@@ -160,8 +191,8 @@ TEST(MajorityGroupSampler, UniformFallback) {
   // Groups too small for a 5+1 sample: uniform fallback.
   std::vector<int> small_groups(20);
   for (size_t i = 0; i < 20; ++i) small_groups[i] = i / 2;
-  MajorityGroupSampler small_group_sampler(
-      6, small_groups, /*structured_prob=*/1.0, /*majority_size=*/5);
+  TwoGroupSampler small_group_sampler(
+      6, small_groups, /*structured_prob=*/1.0, /*num_first_group_samples=*/5);
   small_group_sampler.Initialize(20);
   for (int i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
@@ -169,21 +200,23 @@ TEST(MajorityGroupSampler, UniformFallback) {
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 6);
   }
 
-  // Majority group exists but no group can supply 2 minority samples
-  // for a 4+2 split: uniform fallback.
-  std::vector<int> no_minority_groups(20, 0);
-  for (size_t i = 10; i < 20; ++i) no_minority_groups[i] = i;
-  MajorityGroupSampler no_minority_sampler(
-      6, no_minority_groups, /*structured_prob=*/1.0, /*majority_size=*/4);
-  no_minority_sampler.Initialize(20);
+  // A group can supply the 4 first-group samples of a 4+2 split, but no other
+  // group can supply the 2 second-group samples: uniform fallback.
+  std::vector<int> no_second_groups(20, 0);
+  for (size_t i = 10; i < 20; ++i) no_second_groups[i] = i;
+  TwoGroupSampler no_second_group_sampler(6,
+                                          no_second_groups,
+                                          /*structured_prob=*/1.0,
+                                          /*num_first_group_samples=*/4);
+  no_second_group_sampler.Initialize(20);
   for (int i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
-    no_minority_sampler.Sample(&samples);
+    no_second_group_sampler.Sample(&samples);
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 6);
   }
 }
 
-TEST(MajorityGroupSampler, RANSACPropagatesGroupsToThreads) {
+TEST(TwoGroupSampler, RANSACPropagatesGroupsToThreads) {
   // RANSAC copies the sampler per thread; every copy must keep the group labels
   // and draw only 5+1 structured samples.
   std::vector<int> group_ids(20, 0);
@@ -193,21 +226,21 @@ TEST(MajorityGroupSampler, RANSACPropagatesGroupsToThreads) {
         CreateSampleStructureRANSACOptions(num_threads);
     std::atomic<int> num_samples(0);
     std::atomic<int> num_structured_samples(0);
-    RANSAC<SampleStructureCounter, InlierSupportMeasurer, MajorityGroupSampler>
+    RANSAC<SampleStructureCounter, InlierSupportMeasurer, TwoGroupSampler>
         ransac(options,
                SampleStructureCounter(&num_samples, &num_structured_samples),
                InlierSupportMeasurer(),
-               MajorityGroupSampler(SampleStructureCounter::kMinNumSamples,
-                                    group_ids,
-                                    /*structured_prob=*/1.0,
-                                    /*majority_size=*/5));
+               TwoGroupSampler(SampleStructureCounter::kMinNumSamples,
+                               group_ids,
+                               /*structured_prob=*/1.0,
+                               /*num_first_group_samples=*/5));
     EXPECT_FALSE(ransac.Estimate(group_ids, group_ids).success);
     EXPECT_EQ(num_samples, options.max_num_trials);
     EXPECT_EQ(num_structured_samples, options.max_num_trials);
   }
 }
 
-TEST(MajorityGroupSampler, LORANSACPropagatesGroupsToThreads) {
+TEST(TwoGroupSampler, LORANSACPropagatesGroupsToThreads) {
   std::vector<int> group_ids(20, 0);
   for (size_t i = 10; i < 20; ++i) group_ids[i] = 1;
   for (const int num_threads : {1, 4}) {
@@ -219,15 +252,15 @@ TEST(MajorityGroupSampler, LORANSACPropagatesGroupsToThreads) {
     LORANSAC<SampleStructureCounter,
              SampleStructureCounter,
              InlierSupportMeasurer,
-             MajorityGroupSampler>
+             TwoGroupSampler>
         loransac(options,
                  counter,
                  counter,
                  InlierSupportMeasurer(),
-                 MajorityGroupSampler(SampleStructureCounter::kMinNumSamples,
-                                      group_ids,
-                                      /*structured_prob=*/1.0,
-                                      /*majority_size=*/5));
+                 TwoGroupSampler(SampleStructureCounter::kMinNumSamples,
+                                 group_ids,
+                                 /*structured_prob=*/1.0,
+                                 /*num_first_group_samples=*/5));
     EXPECT_FALSE(loransac.Estimate(group_ids, group_ids).success);
     EXPECT_EQ(num_samples, options.max_num_trials);
     EXPECT_EQ(num_structured_samples, options.max_num_trials);

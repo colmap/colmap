@@ -12,8 +12,8 @@
 #include "colmap/estimators/solvers/generalized_relative_pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
-#include "colmap/optim/majority_group_sampler.h"
 #include "colmap/optim/support_measurement.h"
+#include "colmap/optim/two_group_sampler.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -344,19 +344,17 @@ bool EstimateGeneralizedRelativePose(
 
   // The grouped sampler biases minimal samples toward 5+1 camera-pair
   // configurations for the gen_relpose_5p1pt fast path.
-  LORANSAC<GR6PEstimator,
-           GR8PEstimator,
-           InlierSupportMeasurer,
-           MajorityGroupSampler>
-      ransac(ransac_options,
-             GR6PEstimator(),
-             GR8PEstimator(),
-             InlierSupportMeasurer(),
-             MajorityGroupSampler(
-                 GR6PEstimator::kMinNumSamples,
-                 ComputePairIds(camera_idxs1, camera_idxs2, cameras.size()),
-                 /*structured_prob=*/0.5,
-                 /*majority_size=*/GR6PEstimator::kMinNumSamples - 1));
+  LORANSAC<GR6PEstimator, GR8PEstimator, InlierSupportMeasurer, TwoGroupSampler>
+      ransac(
+          ransac_options,
+          GR6PEstimator(),
+          GR8PEstimator(),
+          InlierSupportMeasurer(),
+          TwoGroupSampler(
+              GR6PEstimator::kMinNumSamples,
+              ComputePairIds(camera_idxs1, camera_idxs2, cameras.size()),
+              /*structured_prob=*/0.5,
+              /*num_first_group_samples=*/GR6PEstimator::kMinNumSamples - 1));
   auto report = ransac.Estimate(points1, points2);
   if (!report.success) {
     return false;
@@ -732,20 +730,18 @@ bool EstimateStructureLessAbsolutePose(
   // correspondences share one camera pair, falling back to gen_relpose_6pt.
   // The grouped sampler biases minimal samples toward 5+1 configurations;
   // groups are the world cameras (the query side is a single camera).
-  LORANSAC<GR6PEstimator,
-           GR8PEstimator,
-           InlierSupportMeasurer,
-           MajorityGroupSampler>
-      ransac(options.ransac_options,
-             GR6PEstimator(),
-             GR8PEstimator(),
-             InlierSupportMeasurer(),
-             MajorityGroupSampler(
-                 GR6PEstimator::kMinNumSamples,
-                 std::vector<int>(world_camera_idxs.begin(),
-                                  world_camera_idxs.end()),
-                 /*structured_prob=*/0.5,
-                 /*majority_size=*/GR6PEstimator::kMinNumSamples - 1));
+  LORANSAC<GR6PEstimator, GR8PEstimator, InlierSupportMeasurer, TwoGroupSampler>
+      ransac(
+          options.ransac_options,
+          GR6PEstimator(),
+          GR8PEstimator(),
+          InlierSupportMeasurer(),
+          TwoGroupSampler(
+              GR6PEstimator::kMinNumSamples,
+              std::vector<int>(world_camera_idxs.begin(),
+                               world_camera_idxs.end()),
+              /*structured_prob=*/0.5,
+              /*num_first_group_samples=*/GR6PEstimator::kMinNumSamples - 1));
   auto report = ransac.Estimate(world_obs, query_obs);
   if (!report.success) {
     return false;

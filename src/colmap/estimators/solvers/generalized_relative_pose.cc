@@ -20,8 +20,10 @@ namespace {
 bool OriginsDiffer(const Rigid3d& cam_from_rig1, const Rigid3d& cam_from_rig2) {
   const Eigen::Vector3d origin1 = cam_from_rig1.TgtOriginInSrc();
   const Eigen::Vector3d origin2 = cam_from_rig2.TgtOriginInSrc();
-  const double scale = std::max(1.0, std::max(origin1.norm(), origin2.norm()));
-  return (origin1 - origin2).norm() > 1e-12 * scale;
+  constexpr double kEps = 1e-12;
+  const double squared_scale =
+      std::max(1.0, std::max(origin1.squaredNorm(), origin2.squaredNorm()));
+  return (origin1 - origin2).squaredNorm() > kEps * kEps * squared_scale;
 }
 
 // Index of the 6th correspondence if five of the six share one camera pair
