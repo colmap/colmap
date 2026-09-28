@@ -11,8 +11,8 @@
 #include "colmap/estimators/solvers/generalized_absolute_pose.h"
 #include "colmap/estimators/solvers/generalized_relative_pose.h"
 #include "colmap/geometry/rigid3.h"
-#include "colmap/optim/majority_group_sampler.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/optim/majority_group_sampler.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
@@ -346,11 +346,11 @@ bool EstimateGeneralizedRelativePose(
   // configurations for the gen_relpose_5p1pt fast path.
   std::vector<int> pair_ids =
       ComputePairIds(camera_idxs1, camera_idxs2, cameras.size());
-  MajorityGroupSampler sampler(GR6PEstimator::kMinNumSamples,
-                               std::move(pair_ids),
-                               /*structured_prob=*/0.5,
-                               /*majority_size=*/GR6PEstimator::kMinNumSamples -
-                                   1);
+  MajorityGroupSampler sampler(
+      GR6PEstimator::kMinNumSamples,
+      std::move(pair_ids),
+      /*structured_prob=*/0.5,
+      /*majority_size=*/GR6PEstimator::kMinNumSamples - 1);
   LORANSAC<GR6PEstimator,
            GR8PEstimator,
            InlierSupportMeasurer,
@@ -739,11 +739,11 @@ bool EstimateStructureLessAbsolutePose(
   for (size_t i = 0; i < num_points; ++i) {
     group_ids[i] = static_cast<int>(world_camera_idxs[i]);
   }
-  MajorityGroupSampler sampler(GR6PEstimator::kMinNumSamples,
-                               std::move(group_ids),
-                               /*structured_prob=*/0.5,
-                               /*majority_size=*/GR6PEstimator::kMinNumSamples -
-                                   1);
+  MajorityGroupSampler sampler(
+      GR6PEstimator::kMinNumSamples,
+      std::move(group_ids),
+      /*structured_prob=*/0.5,
+      /*majority_size=*/GR6PEstimator::kMinNumSamples - 1);
   LORANSAC<GR6PEstimator,
            GR8PEstimator,
            InlierSupportMeasurer,

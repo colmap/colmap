@@ -304,6 +304,21 @@ TEST(GR5P1PEstimator, RejectsNon5P1PSamples) {
   GR5P1PEstimator::Estimate(points1, points2, &models);
   EXPECT_TRUE(models.empty());
 
+  // Different camera rotations at the same optical centers still provide no
+  // baseline, so scale remains unobservable.
+  const Eigen::Vector3d origin1 = points1.back().cam_from_rig.TgtOriginInSrc();
+  const Eigen::Vector3d origin2 = points2.back().cam_from_rig.TgtOriginInSrc();
+  const Eigen::Quaterniond rotation1 =
+      Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX()) *
+      points1.back().cam_from_rig.rotation();
+  const Eigen::Quaterniond rotation2 =
+      Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitY()) *
+      points2.back().cam_from_rig.rotation();
+  points1.back().cam_from_rig = Rigid3d(rotation1, rotation1 * -origin1);
+  points2.back().cam_from_rig = Rigid3d(rotation2, rotation2 * -origin2);
+  GR5P1PEstimator::Estimate(points1, points2, &models);
+  EXPECT_TRUE(models.empty());
+
   // The GR6P fallback still solves the well-posed mixed sample.
   points1.clear();
   points2.clear();

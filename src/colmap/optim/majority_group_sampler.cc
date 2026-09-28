@@ -95,8 +95,7 @@ void MajorityGroupSampler::Sample(std::vector<size_t>* sampled_idxs) {
       num_minor_choices -= 1;
     }
     if (num_minor_choices > 0) {
-      size_t pick =
-          RandomUniformInteger<size_t>(0, num_minor_choices - 1);
+      size_t pick = RandomUniformInteger<size_t>(0, num_minor_choices - 1);
       if (major_minor_pos != kInvalidMinorPos && pick >= major_minor_pos) {
         ++pick;
       }

@@ -8,6 +8,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+
 #include <Eigen/Dense>
 #include <PoseLib/solvers/gen_relpose_5p1pt.h>
 #include <PoseLib/solvers/gen_relpose_6pt.h>
@@ -15,11 +17,19 @@
 namespace colmap {
 namespace {
 
+bool OriginsDiffer(const Rigid3d& cam_from_rig1, const Rigid3d& cam_from_rig2) {
+  const Eigen::Vector3d origin1 = cam_from_rig1.TgtOriginInSrc();
+  const Eigen::Vector3d origin2 = cam_from_rig2.TgtOriginInSrc();
+  const double scale = std::max(1.0, std::max(origin1.norm(), origin2.norm()));
+  return (origin1 - origin2).norm() > 1e-12 * scale;
+}
+
 // Index of the 6th correspondence if five of the six share one camera pair
 // (same cam_from_rig on both sides) and the 6th comes from a different pair,
-// else -1. The 6th must differ on at least one side: with all six from one
-// pair the rig translation scale is unobservable and the 5p1pt scale solve
-// degenerates (gamma = 0).
+// else -1. The 6th camera origin must differ on at least one side: a different
+// camera orientation at the same origin provides no baseline, so the rig
+// translation scale remains unobservable and the 5p1pt scale solve degenerates
+// (gamma = 0).
 int Find5P1POutlierIndex(const std::vector<GRNPObservation>& points1,
                          const std::vector<GRNPObservation>& points2) {
   for (int outlier = 0; outlier < 6; ++outlier) {
@@ -36,8 +46,8 @@ int Find5P1POutlierIndex(const std::vector<GRNPObservation>& points1,
       }
     }
     if (!all_share) continue;
-    if (points1[outlier].cam_from_rig == majority1 &&
-        points2[outlier].cam_from_rig == majority2) {
+    if (!OriginsDiffer(points1[outlier].cam_from_rig, majority1) &&
+        !OriginsDiffer(points2[outlier].cam_from_rig, majority2)) {
       continue;
     }
     return outlier;

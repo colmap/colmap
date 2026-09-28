@@ -44,8 +44,7 @@ class MajorityGroupSampler : public Sampler {
   void Sample(std::vector<size_t>* sampled_idxs) override;
 
  private:
-  static constexpr size_t kInvalidMinorPos =
-      std::numeric_limits<size_t>::max();
+  static constexpr size_t kInvalidMinorPos = std::numeric_limits<size_t>::max();
   const size_t num_samples_;
   const std::vector<int> group_ids_;
   const double structured_prob_;
