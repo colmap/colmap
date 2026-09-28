@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gerrard Hall · 稠密网格 vs 3DGS</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c0f14;
+      --panel: #161b22;
+      --line: #2a3340;
+      --text: #e7edf5;
+      --muted: #8b98a8;
+      --accent: #7eb6ff;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 "Segoe UI", "PingFang SC", sans-serif; }
+    header, main { max-width: 1280px; margin: 0 auto; padding: 20px 20px 8px; }
+    h1 { margin: 0 0 6px; font-size: 20px; font-weight: 650; }
+    a { color: var(--accent); }
+    .sub { color: var(--muted); }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+    select, button, input[type="range"] { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+    button { cursor: pointer; }
+    button:hover, select:hover { border-color: var(--accent); }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    figcaption { padding: 8px 12px; color: var(--muted); font-size: 12px; }
+    img { display: block; width: 100%; height: auto; background: #000; }
+    .wipe { position: relative; }
+    .wipe img { width: 100%; }
+    .wipe .top { position: absolute; inset: 0 auto 0 0; width: 50%; overflow: hidden; border-right: 2px solid var(--accent); }
+    .wipe .top img { width: 100vw; max-width: none; height: 100%; object-fit: cover; }
+    .fly { margin-top: 8px; }
+    #flyImg { width: 100%; background: #000; }
+    @media (max-width: 800px) { .pair { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Gerrard Hall：原照片、3DGS、稠密网格</h1>
+    <div class="sub">
+      同一批去畸变照片。左边是相机拍到的，右边是高斯在这个相机下重渲的。
+      网格在 <a href="./?scene=gerrard">Gerrard Hall 稠密</a> 里转。
+      <a href="./">返回查看器</a>
+    </div>
+    <div class="row">
+      <label>训练相机 <select id="cam"></select></label>
+      <label>原图 / 高斯 <input id="wipe" type="range" min="0" max="100" value="50" /></label>
+      <span class="sub" id="wipeLabel">各一半</span>
+    </div>
+  </header>
+  <main>
+    <div class="pair">
+      <figure>
+        <img id="photo" alt="原照片" />
+        <figcaption id="photoCap">原照片</figcaption>
+      </figure>
+      <figure>
+        <img id="render" alt="3DGS 渲染" />
+        <figcaption id="renderCap">3DGS，同一相机</figcaption>
+      </figure>
+    </div>
+    <div class="row" style="margin-top:18px">
+      <h2 style="margin:0;font-size:16px">自由视角</h2>
+      <button id="play" type="button">播放</button>
+      <span class="sub" id="flyCap">沿拍摄顺序在相邻相机之间插值，中间帧没有对应的原照片。</span>
+    </div>
+    <figure class="fly">
+      <img id="flyImg" alt="自由视角" />
+      <figcaption id="flyLabel"></figcaption>
+    </figure>
+  </main>
+  <script>
+    const camSel = document.getElementById("cam");
+    const photo = document.getElementById("photo");
+    const render = document.getElementById("render");
+    const photoCap = document.getElementById("photoCap");
+    const renderCap = document.getElementById("renderCap");
+    const wipe = document.getElementById("wipe");
+    const wipeLabel = document.getElementById("wipeLabel");
+    const flyImg = document.getElementById("flyImg");
+    const flyLabel = document.getElementById("flyLabel");
+    const playBtn = document.getElementById("play");
+
+    function showCam(item) {
+      photo.src = `gerrard_gs/gt/${item.file}`;
+      render.src = `gerrard_gs/renders/${item.file}`;
+      photoCap.textContent = "原照片 · " + item.label;
+      renderCap.textContent = "3DGS 重渲 · " + item.label;
+    }
+
+    wipe.addEventListener("input", () => {
+      const v = Number(wipe.value);
+      photo.style.opacity = String(v / 100);
+      render.style.opacity = String(1 - v / 100);
+      wipeLabel.textContent = v <= 2 ? "原图淡出" : v >= 98 ? "高斯淡出" : `原图 ${v}% · 高斯 ${100 - v}%`;
+    });
+
+    let frames = [];
+    let timer = null;
+    let frame = 0;
+    function showFly(i) {
+      frame = (i + frames.length) % frames.length;
+      const f = frames[frame];
+      flyImg.src = `gerrard_gs/flythrough/${f.file}`;
+      flyLabel.textContent = f.label;
+    }
+    playBtn.addEventListener("click", () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+        playBtn.textContent = "播放";
+        return;
+      }
+      playBtn.textContent = "暂停";
+      timer = setInterval(() => showFly(frame + 1), 120);
+    });
+
+    fetch("gerrard_gs/manifest.json")
+      .then((r) => r.json())
+      .then((m) => {
+        m.cameras.forEach((item, i) => {
+          const o = document.createElement("option");
+          o.value = String(i);
+          o.textContent = item.label;
+          camSel.appendChild(o);
+        });
+        camSel.addEventListener("change", () => showCam(m.cameras[Number(camSel.value)]));
+        showCam(m.cameras[0]);
+        wipe.dispatchEvent(new Event("input"));
+        frames = m.flythrough;
+        showFly(0);
+      })
+      .catch((err) => {
+        photoCap.textContent = "还没有对照图：" + err;
+      });
+  </script>
+</body>
+</html>
