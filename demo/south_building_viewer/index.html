@@ -367,7 +367,8 @@
         '<br><a href="?scene=caliterra">Caliterra 两块</a> · <a href="?scene=caliterra0">Caliterra 块 0</a> · <a href="?scene=caliterra1">Caliterra 块 1</a>' +
         '<br><a href="?scene=gerrard">Gerrard Hall 稠密</a>' +
         '<br><a href="?scene=global">South Building 全局</a> · <a href="?scene=global_cmp">全局对齐到增量</a>' +
-        '<br><a href="?scene=graham">Graham Hall 层次</a>';
+        '<br><a href="?scene=graham">Graham Hall 层次</a>' +
+        '<br><a href="?scene=tumvi">TUM-VI 双目 rig</a>';
       const scenePrefix = sceneName ? `${sceneName}/` : "";
       const sceneRes = await fetch(`${scenePrefix}scene.json`);
       if (!sceneRes.ok) throw new Error("找不到 scene.json");

@@ -60,6 +60,10 @@ def parse_cameras(path):
             fx, fy, cx, cy = params
             focal = (fx + fy) / 2
             k1 = 0.0
+        elif model in ("OPENCV", "FULL_OPENCV", "OPENCV_FISHEYE"):
+            fx, fy, cx, cy = params[:4]
+            focal = (fx + fy) / 2
+            k1 = params[4] if len(params) > 4 else 0.0
         else:
             focal = params[0]
             cx = params[1] if len(params) > 1 else width / 2
