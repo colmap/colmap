@@ -344,13 +344,6 @@ bool EstimateGeneralizedRelativePose(
 
   // The grouped sampler biases minimal samples toward 5+1 camera-pair
   // configurations for the gen_relpose_5p1pt fast path.
-  std::vector<int> pair_ids =
-      ComputePairIds(camera_idxs1, camera_idxs2, cameras.size());
-  MajorityGroupSampler sampler(
-      GR6PEstimator::kMinNumSamples,
-      std::move(pair_ids),
-      /*structured_prob=*/0.5,
-      /*majority_size=*/GR6PEstimator::kMinNumSamples - 1);
   LORANSAC<GR6PEstimator,
            GR8PEstimator,
            InlierSupportMeasurer,
@@ -359,7 +352,11 @@ bool EstimateGeneralizedRelativePose(
              GR6PEstimator(),
              GR8PEstimator(),
              InlierSupportMeasurer(),
-             std::move(sampler));
+             MajorityGroupSampler(
+                 GR6PEstimator::kMinNumSamples,
+                 ComputePairIds(camera_idxs1, camera_idxs2, cameras.size()),
+                 /*structured_prob=*/0.5,
+                 /*majority_size=*/GR6PEstimator::kMinNumSamples - 1));
   auto report = ransac.Estimate(points1, points2);
   if (!report.success) {
     return false;
@@ -735,15 +732,6 @@ bool EstimateStructureLessAbsolutePose(
   // correspondences share one camera pair, falling back to gen_relpose_6pt.
   // The grouped sampler biases minimal samples toward 5+1 configurations;
   // groups are the world cameras (the query side is a single camera).
-  std::vector<int> group_ids(num_points);
-  for (size_t i = 0; i < num_points; ++i) {
-    group_ids[i] = static_cast<int>(world_camera_idxs[i]);
-  }
-  MajorityGroupSampler sampler(
-      GR6PEstimator::kMinNumSamples,
-      std::move(group_ids),
-      /*structured_prob=*/0.5,
-      /*majority_size=*/GR6PEstimator::kMinNumSamples - 1);
   LORANSAC<GR6PEstimator,
            GR8PEstimator,
            InlierSupportMeasurer,
@@ -752,7 +740,12 @@ bool EstimateStructureLessAbsolutePose(
              GR6PEstimator(),
              GR8PEstimator(),
              InlierSupportMeasurer(),
-             std::move(sampler));
+             MajorityGroupSampler(
+                 GR6PEstimator::kMinNumSamples,
+                 std::vector<int>(world_camera_idxs.begin(),
+                                  world_camera_idxs.end()),
+                 /*structured_prob=*/0.5,
+                 /*majority_size=*/GR6PEstimator::kMinNumSamples - 1));
   auto report = ransac.Estimate(world_obs, query_obs);
   if (!report.success) {
     return false;

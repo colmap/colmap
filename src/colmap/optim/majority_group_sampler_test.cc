@@ -3,7 +3,12 @@
 #include "colmap/optim/majority_group_sampler.h"
 
 #include "colmap/math/random.h"
+#include "colmap/optim/loransac.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/util/hash_containers.h"
+
+#include <atomic>
+#include <numeric>
 
 #include <gtest/gtest.h>
 
@@ -23,6 +28,55 @@ bool IsStructuredSample(const std::vector<size_t>& samples,
     }
   }
   return true;
+}
+
+// Counts the minimal samples drawn by (LO-)RANSAC and how many of them are 5+1
+// structured. The data points are their own group labels, so the structure can
+// be checked directly on the sampled points. Returns no models, so RANSAC runs
+// exactly max_num_trials trials.
+class SampleStructureCounter {
+ public:
+  using X_t = int;
+  using Y_t = int;
+  using M_t = int;
+
+  static const int kMinNumSamples = 6;
+
+  SampleStructureCounter(std::atomic<int>* num_samples,
+                         std::atomic<int>* num_structured_samples)
+      : num_samples_(num_samples),
+        num_structured_samples_(num_structured_samples) {}
+
+  void Estimate(const std::vector<X_t>& group_ids,
+                const std::vector<Y_t>& /*group_ids*/,
+                std::vector<M_t>* /*models*/) const {
+    std::vector<size_t> sample_idxs(group_ids.size());
+    std::iota(sample_idxs.begin(), sample_idxs.end(), 0);
+    ++*num_samples_;
+    if (IsStructuredSample(sample_idxs, group_ids, /*majority_size=*/5)) {
+      ++*num_structured_samples_;
+    }
+  }
+
+  void Residuals(const std::vector<X_t>& group_ids,
+                 const std::vector<Y_t>& /*group_ids*/,
+                 const M_t& /*model*/,
+                 std::vector<double>* residuals) const {
+    residuals->assign(group_ids.size(), 0.0);
+  }
+
+ private:
+  std::atomic<int>* num_samples_;
+  std::atomic<int>* num_structured_samples_;
+};
+
+RANSACOptions CreateSampleStructureRANSACOptions(int num_threads) {
+  RANSACOptions options;
+  options.max_error = 1;
+  options.max_num_trials = 200;
+  options.random_seed = 0;
+  options.num_threads = num_threads;
+  return options;
 }
 
 TEST(MajorityGroupSampler, StructuredSampling) {
@@ -126,6 +180,57 @@ TEST(MajorityGroupSampler, UniformFallback) {
     std::vector<size_t> samples;
     no_minority_sampler.Sample(&samples);
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 6);
+  }
+}
+
+TEST(MajorityGroupSampler, RANSACPropagatesGroupsToThreads) {
+  // RANSAC copies the sampler per thread; every copy must keep the group labels
+  // and draw only 5+1 structured samples.
+  std::vector<int> group_ids(20, 0);
+  for (size_t i = 10; i < 20; ++i) group_ids[i] = 1;
+  for (const int num_threads : {1, 4}) {
+    const RANSACOptions options =
+        CreateSampleStructureRANSACOptions(num_threads);
+    std::atomic<int> num_samples(0);
+    std::atomic<int> num_structured_samples(0);
+    RANSAC<SampleStructureCounter, InlierSupportMeasurer, MajorityGroupSampler>
+        ransac(options,
+               SampleStructureCounter(&num_samples, &num_structured_samples),
+               InlierSupportMeasurer(),
+               MajorityGroupSampler(SampleStructureCounter::kMinNumSamples,
+                                    group_ids,
+                                    /*structured_prob=*/1.0,
+                                    /*majority_size=*/5));
+    EXPECT_FALSE(ransac.Estimate(group_ids, group_ids).success);
+    EXPECT_EQ(num_samples, options.max_num_trials);
+    EXPECT_EQ(num_structured_samples, options.max_num_trials);
+  }
+}
+
+TEST(MajorityGroupSampler, LORANSACPropagatesGroupsToThreads) {
+  std::vector<int> group_ids(20, 0);
+  for (size_t i = 10; i < 20; ++i) group_ids[i] = 1;
+  for (const int num_threads : {1, 4}) {
+    const RANSACOptions options =
+        CreateSampleStructureRANSACOptions(num_threads);
+    std::atomic<int> num_samples(0);
+    std::atomic<int> num_structured_samples(0);
+    const SampleStructureCounter counter(&num_samples, &num_structured_samples);
+    LORANSAC<SampleStructureCounter,
+             SampleStructureCounter,
+             InlierSupportMeasurer,
+             MajorityGroupSampler>
+        loransac(options,
+                 counter,
+                 counter,
+                 InlierSupportMeasurer(),
+                 MajorityGroupSampler(SampleStructureCounter::kMinNumSamples,
+                                      group_ids,
+                                      /*structured_prob=*/1.0,
+                                      /*majority_size=*/5));
+    EXPECT_FALSE(loransac.Estimate(group_ids, group_ids).success);
+    EXPECT_EQ(num_samples, options.max_num_trials);
+    EXPECT_EQ(num_structured_samples, options.max_num_trials);
   }
 }
 

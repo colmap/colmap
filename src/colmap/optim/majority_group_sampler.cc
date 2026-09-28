@@ -3,10 +3,10 @@
 #include "colmap/optim/majority_group_sampler.h"
 
 #include "colmap/math/random.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
 #include <numeric>
-#include <unordered_map>
 
 namespace colmap {
 
@@ -37,7 +37,7 @@ void MajorityGroupSampler::Initialize(const size_t total_num_samples) {
   minor_pos_.clear();
   if (!group_ids_.empty()) {
     THROW_CHECK_EQ(group_ids_.size(), total_num_samples);
-    std::unordered_map<int, size_t> group_index;
+    FlatHashMap<int, size_t> group_index;
     for (size_t i = 0; i < group_ids_.size(); ++i) {
       const auto [it, inserted] =
           group_index.try_emplace(group_ids_[i], group_members_.size());
@@ -101,15 +101,18 @@ void MajorityGroupSampler::Sample(std::vector<size_t>* sampled_idxs) {
       }
       const size_t minor_group = eligible_minor_groups_[pick];
 
-      draw_buffer_ = group_members_[major_group];
-      Shuffle(static_cast<uint32_t>(majority_size_), &draw_buffer_);
+      // Partially shuffle the persistent member lists in place, as for
+      // sample_idxs_ below: the leading elements are a uniform random subset
+      // regardless of the order left behind by previous draws.
+      std::vector<size_t>& major_members = group_members_[major_group];
+      Shuffle(static_cast<uint32_t>(majority_size_), &major_members);
       for (size_t i = 0; i < majority_size_; ++i) {
-        (*sampled_idxs)[i] = draw_buffer_[i];
+        (*sampled_idxs)[i] = major_members[i];
       }
-      draw_buffer_ = group_members_[minor_group];
-      Shuffle(static_cast<uint32_t>(minority_size_), &draw_buffer_);
+      std::vector<size_t>& minor_members = group_members_[minor_group];
+      Shuffle(static_cast<uint32_t>(minority_size_), &minor_members);
       for (size_t i = 0; i < minority_size_; ++i) {
-        (*sampled_idxs)[majority_size_ + i] = draw_buffer_[i];
+        (*sampled_idxs)[majority_size_ + i] = minor_members[i];
       }
       return;
     }

@@ -26,6 +26,12 @@ namespace colmap {
 // non-empty groups or no group with enough members), the sampler degrades
 // to uniform random sampling.
 //
+// Note that structured sampling voids the uniformity assumption of the
+// standard RANSAC stopping criterion: required trial counts are computed
+// as if sampling were uniform, so the confidence guarantee is only
+// approximate. Keep `structured_prob` well below 1 to retain a
+// substantial fraction of uniform draws.
+//
 // Note that a separate sampler should be instantiated per thread.
 // RANSAC-based methods copy the provided sampler instance per thread, so
 // the group labels must be set before estimation.
@@ -59,7 +65,6 @@ class MajorityGroupSampler : public Sampler {
   // position in that list (kInvalidMinorPos if ineligible).
   std::vector<size_t> eligible_minor_groups_;
   std::vector<size_t> minor_pos_;
-  std::vector<size_t> draw_buffer_;
 };
 
 template <>
