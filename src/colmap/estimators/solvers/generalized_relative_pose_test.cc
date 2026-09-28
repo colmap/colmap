@@ -228,20 +228,16 @@ bool AnyModelNear(const std::vector<Rigid3d>& models, const Rigid3d& expected) {
 }
 
 TEST(GR5P1PEstimator, Nominal) {
-  // 2x2 cameras alternate between pairs (0,0) and (1,1). The 5p1pt solver
-  // enforces cheirality from the rig origin, which individual random
-  // samples may violate, so try several samples and require one success.
-  bool success = false;
-  for (int seed = 1; seed <= 5 && !success; ++seed) {
+  // 2x2 cameras alternate between pairs (0,0) and (1,1).
+  for (int seed = 1; seed <= 5; ++seed) {
     SetPRNGSeed(seed);
     const auto problem =
         CreateGeneralizedRelativePoseProblem(20, 2, 2, false, false);
     const auto [ref_pair_idxs, other_pair_idxs] =
         PartitionByCameraPair(problem);
-    if (ref_pair_idxs.size() < 7 || other_pair_idxs.size() < 1) {
-      continue;
-    }
-    for (int offset = 0; offset < 3 && !success; ++offset) {
+    ASSERT_GE(ref_pair_idxs.size(), 7);
+    ASSERT_GE(other_pair_idxs.size(), 1);
+    for (int offset = 0; offset < 3; ++offset) {
       // Outlier first exercises the internal reorder to 5+1 order.
       std::vector<GRNPObservation> points1, points2;
       for (const size_t i : {other_pair_idxs[0],
@@ -256,19 +252,58 @@ TEST(GR5P1PEstimator, Nominal) {
 
       std::vector<Rigid3d> models;
       GR5P1PEstimator::Estimate(points1, points2, &models);
-      if (models.empty() || !AnyModelNear(models, problem.rig2_from_rig1)) {
-        continue;
-      }
+      EXPECT_TRUE(AnyModelNear(models, problem.rig2_from_rig1));
 
       // The GR6P fast path must agree on 5+1-structured samples.
       models.clear();
       GR6PEstimator::Estimate(points1, points2, &models);
-      if (!models.empty() && AnyModelNear(models, problem.rig2_from_rig1)) {
-        success = true;
-      }
+      EXPECT_TRUE(AnyModelNear(models, problem.rig2_from_rig1));
     }
   }
-  EXPECT_TRUE(success);
+}
+
+TEST(GR5P1PEstimator, DistantSixthCamera) {
+  // Five correspondences from camera 0 of rig 1 plus a sixth from camera 1,
+  // mounted far to the side, all matched to the single camera of rig 2.
+  // Viewed from the majority camera pair, the rays of the sixth
+  // correspondence diverge, so a cheirality check treating it as a
+  // majority-pair correspondence would reject the true pose (see
+  // PoseLib/PoseLib#214).
+  const Rigid3d rig2_from_rig1(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitY())),
+      Eigen::Vector3d(0.1, 0, -1));
+  const std::array<Rigid3d, 2> cams_from_rig1 = {
+      Rigid3d(),
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-10, -2, 0))};
+  const Rigid3d cam_from_rig2;
+  const std::array<Eigen::Vector3d, 6> points3D_in_rig1 = {
+      Eigen::Vector3d(-1, 0.5, 5),
+      Eigen::Vector3d(1, -0.5, 6),
+      Eigen::Vector3d(0.5, 1, 7),
+      Eigen::Vector3d(-0.5, -1, 4),
+      Eigen::Vector3d(1.5, 0.3, 8),
+      Eigen::Vector3d(6, -1, 3)};
+
+  std::vector<GRNPObservation> points1, points2;
+  for (int i = 0; i < 6; ++i) {
+    const Rigid3d& cam_from_rig1 = cams_from_rig1[i < 5 ? 0 : 1];
+    const Eigen::Vector3d point3D_in_rig2 =
+        rig2_from_rig1 * points3D_in_rig1[i];
+    points1.push_back({cam_from_rig1,
+                       {(cam_from_rig1 * points3D_in_rig1[i]).normalized(),
+                        Eigen::Matrix3x2d::Zero()}});
+    points2.push_back({cam_from_rig2,
+                       {(cam_from_rig2 * point3D_in_rig2).normalized(),
+                        Eigen::Matrix3x2d::Zero()}});
+  }
+
+  std::vector<Rigid3d> models;
+  GR5P1PEstimator::Estimate(points1, points2, &models);
+  EXPECT_TRUE(AnyModelNear(models, rig2_from_rig1));
+
+  models.clear();
+  GR6PEstimator::Estimate(points1, points2, &models);
+  EXPECT_TRUE(AnyModelNear(models, rig2_from_rig1));
 }
 
 TEST(GR5P1PEstimator, RejectsNon5P1PSamples) {
@@ -301,6 +336,21 @@ TEST(GR5P1PEstimator, RejectsNon5P1PSamples) {
     points1.push_back(problem.points1[ref_pair_idxs[k]]);
     points2.push_back(problem.points2[ref_pair_idxs[k]]);
   }
+  GR5P1PEstimator::Estimate(points1, points2, &models);
+  EXPECT_TRUE(models.empty());
+
+  // Different camera rotations at the same optical centers still provide no
+  // baseline, so scale remains unobservable.
+  const Eigen::Vector3d origin1 = points1.back().cam_from_rig.TgtOriginInSrc();
+  const Eigen::Vector3d origin2 = points2.back().cam_from_rig.TgtOriginInSrc();
+  const Eigen::Quaterniond rotation1 =
+      Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitX()) *
+      points1.back().cam_from_rig.rotation();
+  const Eigen::Quaterniond rotation2 =
+      Eigen::AngleAxisd(0.1, Eigen::Vector3d::UnitY()) *
+      points2.back().cam_from_rig.rotation();
+  points1.back().cam_from_rig = Rigid3d(rotation1, rotation1 * -origin1);
+  points2.back().cam_from_rig = Rigid3d(rotation2, rotation2 * -origin2);
   GR5P1PEstimator::Estimate(points1, points2, &models);
   EXPECT_TRUE(models.empty());
 
