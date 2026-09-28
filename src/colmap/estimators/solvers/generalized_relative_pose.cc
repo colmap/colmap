@@ -9,9 +9,111 @@
 #include "colmap/util/logging.h"
 
 #include <Eigen/Dense>
+#include <PoseLib/solvers/gen_relpose_5p1pt.h>
 #include <PoseLib/solvers/gen_relpose_6pt.h>
 
 namespace colmap {
+namespace {
+
+// Index of the 6th correspondence if five of the six share one camera pair
+// (same cam_from_rig on both sides) and the 6th comes from a different pair,
+// else -1. The 6th must differ on at least one side: with all six from one
+// pair the rig translation scale is unobservable and the 5p1pt scale solve
+// degenerates (gamma = 0).
+int Find5P1POutlierIndex(const std::vector<GRNPObservation>& points1,
+                         const std::vector<GRNPObservation>& points2) {
+  for (int outlier = 0; outlier < 6; ++outlier) {
+    const int first = (outlier == 0) ? 1 : 0;
+    const Rigid3d& majority1 = points1[first].cam_from_rig;
+    const Rigid3d& majority2 = points2[first].cam_from_rig;
+    bool all_share = true;
+    for (int i = 0; i < 6; ++i) {
+      if (i == outlier) continue;
+      if (points1[i].cam_from_rig != majority1 ||
+          points2[i].cam_from_rig != majority2) {
+        all_share = false;
+        break;
+      }
+    }
+    if (!all_share) continue;
+    if (points1[outlier].cam_from_rig == majority1 &&
+        points2[outlier].cam_from_rig == majority2) {
+      continue;
+    }
+    return outlier;
+  }
+  return -1;
+}
+
+bool EstimateWith5P1PT(const std::vector<GRNPObservation>& points1,
+                       const std::vector<GRNPObservation>& points2,
+                       std::vector<Rigid3d>* rigs2_from_rigs1) {
+  rigs2_from_rigs1->clear();
+  const int outlier = Find5P1POutlierIndex(points1, points2);
+  if (outlier < 0) {
+    return false;
+  }
+
+  // Reorder with the 6th correspondence last, as gen_relpose_5p1pt requires.
+  std::vector<Eigen::Vector3d> origins_in_rig1(6);
+  std::vector<Eigen::Vector3d> origins_in_rig2(6);
+  std::vector<Eigen::Vector3d> rays_in_rig1(6);
+  std::vector<Eigen::Vector3d> rays_in_rig2(6);
+  int j = 0;
+  for (int i = 0; i < 6; ++i) {
+    if (i == outlier) continue;
+    origins_in_rig1[j] = points1[i].cam_from_rig.TgtOriginInSrc();
+    origins_in_rig2[j] = points2[i].cam_from_rig.TgtOriginInSrc();
+    rays_in_rig1[j] = points1[i].cam_from_rig.rotation().inverse() *
+                      points1[i].ray_with_jac_in_cam.ray;
+    rays_in_rig2[j] = points2[i].cam_from_rig.rotation().inverse() *
+                      points2[i].ray_with_jac_in_cam.ray;
+    ++j;
+  }
+  origins_in_rig1[5] = points1[outlier].cam_from_rig.TgtOriginInSrc();
+  origins_in_rig2[5] = points2[outlier].cam_from_rig.TgtOriginInSrc();
+  rays_in_rig1[5] = points1[outlier].cam_from_rig.rotation().inverse() *
+                    points1[outlier].ray_with_jac_in_cam.ray;
+  rays_in_rig2[5] = points2[outlier].cam_from_rig.rotation().inverse() *
+                    points2[outlier].ray_with_jac_in_cam.ray;
+
+  std::vector<poselib::CameraPose> poses;
+  poselib::gen_relpose_5p1pt(
+      origins_in_rig1, rays_in_rig1, origins_in_rig2, rays_in_rig2, &poses);
+
+  rigs2_from_rigs1->reserve(poses.size());
+  for (const poselib::CameraPose& pose : poses) {
+    // The 5p1pt scale solve divides by an unconstrained scalar; drop
+    // degenerate (non-finite) solutions so the caller can fall back.
+    if (!pose.q.allFinite() || !pose.t.allFinite()) {
+      continue;
+    }
+    rigs2_from_rigs1->emplace_back(ConvertPoseLibPoseToRigid3d(pose));
+  }
+  if (rigs2_from_rigs1->empty()) {
+    return false;
+  }
+  return true;
+}
+
+}  // namespace
+
+void GR5P1PEstimator::Estimate(const std::vector<X_t>& points1,
+                               const std::vector<Y_t>& points2,
+                               std::vector<M_t>* rigs2_from_rigs1) {
+  THROW_CHECK_EQ(points1.size(), 6);
+  THROW_CHECK_EQ(points2.size(), 6);
+  THROW_CHECK_NOTNULL(rigs2_from_rigs1);
+
+  EstimateWith5P1PT(points1, points2, rigs2_from_rigs1);
+}
+
+void GR5P1PEstimator::Residuals(const std::vector<X_t>& points1,
+                                const std::vector<Y_t>& points2,
+                                const M_t& rig2_from_rig1,
+                                std::vector<double>* residuals) {
+  GR6PEstimator::Residuals(points1, points2, rig2_from_rig1, residuals);
+}
 
 void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
                              const std::vector<Y_t>& points2,
@@ -19,6 +121,11 @@ void GR6PEstimator::Estimate(const std::vector<X_t>& points1,
   THROW_CHECK_EQ(points1.size(), 6);
   THROW_CHECK_EQ(points2.size(), 6);
   THROW_CHECK_NOTNULL(rigs2_from_rigs1);
+
+  // Fast path for the common rig case: 5 matches from one camera pair.
+  if (EstimateWith5P1PT(points1, points2, rigs2_from_rigs1)) {
+    return;
+  }
 
   rigs2_from_rigs1->clear();
 
