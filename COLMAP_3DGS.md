@@ -155,5 +155,5 @@ PY
 ```bash
 cd "$GS_ROOT"
 python train.py -s "$GS_DATA" -m "$GS_DATA/output_eval" --eval
-python "$GS_DATA/localize_demo.py" -m "$GS_DATA/output_eval" -s "$GS_DATA" --eval
+python localize.py -m "$GS_DATA/output_eval" -s "$GS_DATA" --eval
 ```
