@@ -699,6 +699,8 @@ bool EstimateStructureLessAbsolutePose(
 
   // GR6P/GR8P score with the pixel-unit tangent Sampson error, so the RANSAC
   // threshold is the plain pixel max_error. No per-camera conversion needed.
+  // GR6PEstimator tries the faster gen_relpose_5p1pt solver first whenever five
+  // correspondences share one camera pair, falling back to gen_relpose_6pt.
   LORANSAC<GR6PEstimator, GR8PEstimator> ransac(options.ransac_options);
   auto report = ransac.Estimate(world_obs, query_obs);
   if (!report.success) {

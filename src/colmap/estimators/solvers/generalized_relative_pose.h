@@ -20,6 +20,35 @@ struct GRNPObservation {
   CamRayWithJac ray_with_jac_in_cam;
 };
 
+// Minimal generalized relative pose estimator for the 5+1-point case, based on
+// poselib's gen_relpose_5p1pt: five correspondences from one camera pair plus
+// one from a different pair. Faster and better conditioned than the general
+// 6pt solver; requires the 6th correspondence to come from a different camera
+// pair so that the rig translation scale is observable.
+class GR5P1PEstimator {
+ public:
+  using X_t = GRNPObservation;
+  using Y_t = GRNPObservation;
+  // The estimated rig2_from_rig1 relative pose between the generalized cameras.
+  using M_t = Rigid3d;
+
+  static const int kMinNumSamples = 6;
+
+  // Estimate rig2_from_rig1 from six 2D-2D correspondences. Returns no models
+  // if the sample does not contain five correspondences sharing one camera
+  // pair plus a sixth from a different pair, or if the solver fails.
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* rigs2_from_rigs1);
+
+  // Calculate the squared tangent Sampson error (in pixels) between
+  // corresponding points.
+  static void Residuals(const std::vector<X_t>& points1,
+                        const std::vector<Y_t>& points2,
+                        const M_t& rig2_from_rig1,
+                        std::vector<double>* residuals);
+};
+
 // Minimal generalized relative pose estimator based on poselib.
 class GR6PEstimator {
  public:
@@ -34,7 +63,10 @@ class GR6PEstimator {
   static const int kMinNumSamples = 6;
 
   // Estimate the most probable solution of the GR6P problem from a set of
-  // six 2D-2D point correspondences.
+  // six 2D-2D point correspondences. Uses the faster gen_relpose_5p1pt solver
+  // as a fast path whenever five correspondences share one camera pair (the
+  // common rig case) and falls back to the general gen_relpose_6pt solver
+  // otherwise.
   static void Estimate(const std::vector<X_t>& points1,
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* rigs2_from_rigs1);
