@@ -11,6 +11,7 @@
 #include "colmap/estimators/solvers/generalized_absolute_pose.h"
 #include "colmap/estimators/solvers/generalized_relative_pose.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/optim/majority_group_sampler.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
@@ -109,6 +110,20 @@ std::vector<size_t> ComputeUniquePointIds(
     current_it++;
   }
   return unique_point3D_ids;
+}
+
+// Camera-pair label per correspondence, used to group samples for the
+// gen_relpose_5p1pt fast path.
+std::vector<int> ComputePairIds(const std::vector<size_t>& camera_idxs1,
+                                const std::vector<size_t>& camera_idxs2,
+                                size_t num_cameras) {
+  THROW_CHECK_EQ(camera_idxs1.size(), camera_idxs2.size());
+  std::vector<int> pair_ids(camera_idxs1.size());
+  for (size_t i = 0; i < pair_ids.size(); ++i) {
+    pair_ids[i] =
+        static_cast<int>(camera_idxs1[i] * num_cameras + camera_idxs2[i]);
+  }
+  return pair_ids;
 }
 
 }  // namespace
@@ -327,7 +342,24 @@ bool EstimateGeneralizedRelativePose(
                       .value_or(CamRayWithJac::Zero())};
   }
 
-  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(ransac_options);
+  // The grouped sampler biases minimal samples toward 5+1 camera-pair
+  // configurations for the gen_relpose_5p1pt fast path.
+  std::vector<int> pair_ids =
+      ComputePairIds(camera_idxs1, camera_idxs2, cameras.size());
+  MajorityGroupSampler sampler(GR6PEstimator::kMinNumSamples,
+                               std::move(pair_ids),
+                               /*structured_prob=*/0.5,
+                               /*majority_size=*/GR6PEstimator::kMinNumSamples -
+                                   1);
+  LORANSAC<GR6PEstimator,
+           GR8PEstimator,
+           InlierSupportMeasurer,
+           MajorityGroupSampler>
+      ransac(ransac_options,
+             GR6PEstimator(),
+             GR8PEstimator(),
+             InlierSupportMeasurer(),
+             std::move(sampler));
   auto report = ransac.Estimate(points1, points2);
   if (!report.success) {
     return false;
@@ -701,7 +733,26 @@ bool EstimateStructureLessAbsolutePose(
   // threshold is the plain pixel max_error. No per-camera conversion needed.
   // GR6PEstimator tries the faster gen_relpose_5p1pt solver first whenever five
   // correspondences share one camera pair, falling back to gen_relpose_6pt.
-  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(options.ransac_options);
+  // The grouped sampler biases minimal samples toward 5+1 configurations;
+  // groups are the world cameras (the query side is a single camera).
+  std::vector<int> group_ids(num_points);
+  for (size_t i = 0; i < num_points; ++i) {
+    group_ids[i] = static_cast<int>(world_camera_idxs[i]);
+  }
+  MajorityGroupSampler sampler(GR6PEstimator::kMinNumSamples,
+                               std::move(group_ids),
+                               /*structured_prob=*/0.5,
+                               /*majority_size=*/GR6PEstimator::kMinNumSamples -
+                                   1);
+  LORANSAC<GR6PEstimator,
+           GR8PEstimator,
+           InlierSupportMeasurer,
+           MajorityGroupSampler>
+      ransac(options.ransac_options,
+             GR6PEstimator(),
+             GR8PEstimator(),
+             InlierSupportMeasurer(),
+             std::move(sampler));
   auto report = ransac.Estimate(world_obs, query_obs);
   if (!report.success) {
     return false;

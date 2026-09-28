@@ -7,6 +7,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         combination_sampler.h combination_sampler.cc
         least_absolute_deviations.h least_absolute_deviations.cc
+        majority_group_sampler.h majority_group_sampler.cc
         progressive_sampler.h progressive_sampler.cc
         random_sampler.h random_sampler.cc
         sparse_cholesky.h sparse_cholesky.cc
@@ -26,6 +27,11 @@ endif()
 COLMAP_ADD_TEST(
     NAME combination_sampler_test
     SRCS combination_sampler_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME majority_group_sampler_test
+    SRCS majority_group_sampler_test.cc
     LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
