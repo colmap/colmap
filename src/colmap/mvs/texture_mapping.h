@@ -74,6 +74,16 @@ struct MeshTextureMappingResult {
 // Based on: Waechter, M., Moehrle, N., and Goesele, M.,
 // "Let there be color! Large-scale texturing of 3D reconstructions,"
 // European Conference on Computer Vision (ECCV), 2014.
+// Close boundary loops of at most max_edges whose longest bounding-box side is
+// at most max_extent. Larger openings are left alone so the fill cannot become
+// a fan across a doorway or between columns.
+PlyMesh FillSmallMeshHoles(const PlyMesh& mesh, int max_edges, float max_extent);
+
+// Drop faces that stick out as a sheet: nothing in the fused cloud supports
+// them, or their normal is perpendicular to the nearby point normals.
+PlyMesh RemoveThinSheets(const PlyMesh& mesh,
+                         const std::vector<PlyPoint>& points);
+
 MeshTextureMappingResult MeshTextureMapping(
     const PlyMesh& mesh,
     const std::vector<Image>& images,

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>有限内存下的大规模 BA</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c0f14;
+      --panel: #141a22;
+      --line: #2a3340;
+      --text: #e7edf5;
+      --muted: #8b98a8;
+      --cam: #7eb6ff;
+      --pt: #3dd68c;
+      --hot: #ffb020;
+      --bad: #ff6b6b;
+      --ghost: #8b98a8;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", "PingFang SC", sans-serif; }
+    body { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; }
+    h1 { font-size: 28px; line-height: 1.25; margin: 0 0 8px; font-weight: 650; }
+    h2 { font-size: 18px; margin: 0 0 8px; }
+    p { margin: 0 0 12px; }
+    .lead { color: var(--muted); max-width: 78ch; }
+    a { color: var(--cam); }
+    section { margin-top: 28px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    button, .seg button {
+      background: #0c0f14; color: var(--text); border: 1px solid var(--line);
+      border-radius: 8px; padding: 6px 12px; cursor: pointer; font: inherit;
+    }
+    button:hover, .seg button:hover { border-color: var(--cam); }
+    button[aria-pressed="true"], .seg button[aria-pressed="true"] { border-color: var(--cam); color: var(--cam); }
+    button:disabled { opacity: 0.4; cursor: default; }
+    .step-title { font-size: 16px; margin: 12px 0 4px; }
+    .eq { font-family: ui-monospace, "Cascadia Code", monospace; font-size: 13px; color: #d5deea; background: #0c0f14; border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; margin-top: 14px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+    svg.scene { width: 100%; height: auto; background: #0c0f14; border-radius: 10px; border: 1px solid var(--line); }
+    .mats { display: flex; flex-direction: column; gap: 12px; }
+    .block-label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    table.m { border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 12px; }
+    table.m td, table.m th { border: 1px solid #243041; min-width: 52px; height: 28px; text-align: center; padding: 0 4px; }
+    table.m th { color: var(--muted); font-weight: 500; background: transparent; }
+    td.on { background: rgba(255, 176, 32, 0.28); box-shadow: inset 0 0 0 1px var(--hot); }
+    td.cam { background: rgba(126, 182, 255, 0.12); }
+    td.pt { background: rgba(61, 214, 140, 0.12); }
+    td.zero { color: #3d4a5c; }
+    td.ghost { border-style: dashed; color: transparent; background: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(139,152,168,0.08) 4px, rgba(139,152,168,0.08) 8px); }
+    .vec { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-family: ui-monospace, monospace; font-size: 12px; background: #0c0f14; }
+    .chip.on { border-color: var(--hot); color: var(--hot); }
+    .split { display: grid; grid-template-columns: 1fr 220px; gap: 12px; }
+    @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+    .zoom { background: #0c0f14; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+    .zoom h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+    .zoom p { color: var(--muted); font-size: 12px; }
+    table.tiny td { min-width: 18px; height: 18px; font-size: 9px; border-color: #243041; }
+    .rail { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+    .rail i { width: 28px; height: 6px; border-radius: 99px; background: #243041; display: block; }
+    .rail i.done { background: var(--cam); }
+    .rail i.now { background: var(--hot); }
+    label.slider { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    input[type="range"] { flex: 1; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    @media (max-width: 720px) { .cards { grid-template-columns: 1fr; } }
+    .card { background: #0c0f14; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+    .card b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+    .card span { color: var(--muted); font-size: 12px; }
+    .card.active { border-color: var(--hot); }
+    canvas#chart { width: 100%; height: 320px; background: #0c0f14; border-radius: 10px; border: 1px solid var(--line); display: block; }
+    .note { color: var(--muted); font-size: 13px; }
+    .tag { display: inline-block; border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>有限内存下的大规模光束法平差</h1>
+  <p class="lead">一次求解的内存由当前这块问题决定，总图像数可以继续加，多出来的是时间和遍数。Graham Hall 那次全局 BA 是 1253 张图、约 10017 个相机未知数：三维点先被消掉，超过 1000 张后不再组装相机矩阵 S，共轭梯度只用雅可比做乘法。</p>
+
+  <section>
+    <h2>小例子：4 张相机，6 个点</h2>
+    <p class="note">每个相机格代表真实 BA 里的 8×8（6 个位姿 + 焦距 + k1），每个点格代表 3×3。页面把每一块收成一个数，乘法与 <span class="eq" style="display:inline;padding:2px 6px">S = B − E C⁻¹ Eᵀ</span> 一致，四张相机的运算可以看完。</p>
+    <div class="row">
+      <div class="seg" role="group" aria-label="求解方式">
+        <button type="button" id="modeIter" aria-pressed="true">迭代法</button>
+        <button type="button" id="modeDirect" aria-pressed="false">直接法</button>
+      </div>
+      <button type="button" id="prev">上一步</button>
+      <button type="button" id="next">下一步</button>
+      <button type="button" id="play">播放</button>
+      <button type="button" id="reset">重置</button>
+      <span class="tag" id="stepCount"></span>
+    </div>
+    <div class="rail" id="rail"></div>
+    <div class="step-title" id="stepTitle"></div>
+    <p id="stepText"></p>
+    <div class="eq" id="eq"></div>
+    <div class="layout">
+      <div>
+        <div class="block-label">共视</div>
+        <svg class="scene" id="scene" viewBox="0 0 280 220"></svg>
+      </div>
+      <div class="split">
+        <div class="mats" id="mats"></div>
+        <div class="zoom">
+          <h3 id="zoomTitle">真实块的形状</h3>
+          <p id="zoomText">点一个相机或一个点，看 8×8 或 3×3 长什么样。这些格子不参与左侧的数，只说明每一格在真实问题里有多大。</p>
+          <div id="zoomGrid"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>规模：内存随图像数怎么涨</h2>
+    <p class="note">观测按 Graham Hall 的密度估算，每张图约 2000 个观测，每相机 8 个自由参数。机器内存按 123 GB 画一条横线。COLMAP 在 CPU 上按图像数切换线性求解器：50 张及以下稠密舒尔补，51 到 1000 张稀疏直接分解，超过 1000 张迭代舒尔补。</p>
+    <label class="slider">图像数 <b id="nLabel">1253</b>
+      <input id="nSlider" type="range" min="0" max="1000" value="656" />
+    </label>
+    <div class="row" style="margin-top:8px">
+      <button type="button" data-n="50">50</button>
+      <button type="button" data-n="500">500 一块</button>
+      <button type="button" data-n="1000">1000</button>
+      <button type="button" data-n="1253">1253 Graham Hall</button>
+      <button type="button" data-n="16060">稠密到 123 GB</button>
+    </div>
+    <canvas id="chart" width="1100" height="640"></canvas>
+    <div class="cards" id="cards"></div>
+    <p class="note" id="scaleNote"></p>
+  </section>
+
+  <script>
+    const CAMS = ["C0", "C1", "C2", "C3"];
+    const PTS = ["P0", "P1", "P2", "P3", "P4", "P5"];
+    const B = [4, 3.5, 5, 4.2];
+    const C = [2, 1.5, 2.5, 1.8, 2.2, 1.6];
+    const E = [
+      [0.8, 0.6, 0.4, 0, 0, 0],
+      [0, 0.7, 0.5, 0.6, 0, 0],
+      [0, 0, 0.9, 0.4, 0.7, 0],
+      [0, 0, 0, 0.5, 0.8, 0.6],
+    ];
+    const xVec = [0.6, -0.4, 0.3, 0.2];
+
+    function fmt(v) {
+      if (typeof v !== "number" || Number.isNaN(v)) return "";
+      if (Math.abs(v) < 5e-4) return "0";
+      return v.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+    }
+
+    function schur() {
+      const S = CAMS.map(() => CAMS.map(() => 0));
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          let acc = i === j ? B[i] : 0;
+          for (let p = 0; p < 6; p++) acc -= E[i][p] * E[j][p] / C[p];
+          S[i][j] = acc;
+        }
+      }
+      return S;
+    }
+
+    function multiply(x) {
+      const Bx = B.map((b, i) => b * x[i]);
+      const Et = PTS.map((_, p) => CAMS.reduce((s, _, i) => s + E[i][p] * x[i], 0));
+      const Cinv = Et.map((v, p) => v / C[p]);
+      const back = CAMS.map((_, i) => PTS.reduce((s, _, p) => s + E[i][p] * Cinv[p], 0));
+      const y = Bx.map((v, i) => v - back[i]);
+      return { Bx, Et, Cinv, back, y };
+    }
+
+    function cholesky(S) {
+      const n = S.length;
+      const L = S.map(() => S.map(() => 0));
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j <= i; j++) {
+          let sum = S[i][j];
+          for (let k = 0; k < j; k++) sum -= L[i][k] * L[j][k];
+          L[i][j] = i === j ? Math.sqrt(Math.max(sum, 0)) : sum / L[j][j];
+        }
+      }
+      return L;
+    }
+
+    const S = schur();
+    const prod = multiply(xVec);
+    const L = cholesky(S);
+
+    const steps = {
+      iter: [
+        { title: "观测", text: "每条共视是一次观测，对应两个残差 (x, y)。图里的线就是非零的 E。", eq: "残差 r ，维数 = 2 × 观测数" },
+        { title: "雅可比，只在有观测的地方非零", text: "相机参数和三维点参数通过共视连在一起。没有这条观测，对应的雅可比块就是空的，不会占内存。", eq: "J 的非零块：每条观测一块 2×8（相机）和一块 2×3（点）" },
+        { title: "法方程的三块：B、C、E", text: "B 是每张相机自己的 8×8，C 是每个点自己的 3×3，彼此不耦合。E 只在共视处有一块。这一步还没有相机之间的 S。", eq: "B Δc + E Δp = v ，  Eᵀ Δc + C Δp = w" },
+        { title: "迭代第一步：Bx", text: "给一个相机方向 x。B 是对角块，Bx 就是每张相机用自己的块乘自己的分量，相机之间互不相干。", eq: "(Bx)_i = B_i x_i" },
+        { title: "把 x 撒到点上：Eᵀx", text: "每个点把看见它的相机分量按 E 加起来。P2 被 C0、C1、C2 看见，所以它收到三项。", eq: "(Eᵀx)_p = Σ_i E_ip x_i" },
+        { title: "点上的 3×3 很便宜：C⁻¹", text: "C 是块对角，每个点独立求逆。真实问题里是 3×3，这里是一个除法。", eq: "z_p = (Eᵀx)_p / C_p" },
+        { title: "收回相机：E z", text: "每个相机把自己看见的点的 z 加回来。这一步和上一步合在一起就是 E C⁻¹ Eᵀ x。", eq: "(Ez)_i = Σ_p E_ip z_p" },
+        { title: "相减，得到 Sx，S 没有被存下来", text: "y = Bx − Ez 就是 Sx。虚线格子是如果把 S 组装出来会占据的位置，里面是空的。共轭梯度反复做这种乘法来逼近 Δc。", eq: "y = Bx − E C⁻¹ Eᵀ x = Sx" },
+      ],
+      direct: [
+        { title: "观测", text: "和迭代法同一张共视图。直接法从这里开始也一样。", eq: "残差 r ，维数 = 2 × 观测数" },
+        { title: "雅可比，只在有观测的地方非零", text: "非零图案由共视决定。", eq: "J 的非零块：每条观测一块 2×8 和一块 2×3" },
+        { title: "法方程的三块：B、C、E", text: "B、C、E 先按块放着。直接法的下一步才会把点消掉，填出相机之间的 S。", eq: "B Δc + E Δp = v ，  Eᵀ Δc + C Δp = w" },
+        { title: "消掉三维点，组装 S", text: "两张相机只要共同看见一个点，S 里就多一块。C0 和 C2 都看见 P2，所以 S₀₂ 不为零。4×4 的数是每个 8×8 块收成的一个数，真实 S 是 32×32。", eq: "S = B − E C⁻¹ Eᵀ" },
+        { title: "对 S 做 Cholesky", text: "S = LLᵀ。因子 L 要把填充也存下来。相机一多、共视一密，L 就接近一整块稠密下三角。这里的 4×4 还能看完；1253 张相机时这一块大约是 10017 阶。", eq: "S = LLᵀ ，再回代求 Δc" },
+      ],
+    };
+
+    const state = { mode: "iter", step: 0, zoom: { kind: "cam", index: 0 }, playing: false };
+    let timer = 0;
+
+    function list() { return steps[state.mode]; }
+
+    function sees(i, p) { return E[i][p] !== 0; }
+
+    function drawScene() {
+      const svg = document.getElementById("scene");
+      const step = state.step;
+      const mode = state.mode;
+      const hotCam = new Set();
+      const hotPt = new Set();
+      if (mode === "iter" && step === 3) hotCam.add(0);
+      if (mode === "iter" && step === 4) hotPt.add(2);
+      if (mode === "iter" && step === 5) PTS.forEach((_, p) => hotPt.add(p));
+      if (mode === "iter" && step === 6) hotCam.add(0);
+      const cams = CAMS.map((_, i) => [40 + i * 64, 36]);
+      const pts = PTS.map((_, p) => [28 + p * 42, 168]);
+      let html = "";
+      for (let i = 0; i < 4; i++) {
+        for (let p = 0; p < 6; p++) {
+          if (!sees(i, p)) continue;
+          const hot = (hotCam.has(i) || hotPt.has(p)) && step >= 3;
+          html += `<line x1="${cams[i][0]}" y1="${cams[i][1]}" x2="${pts[p][0]}" y2="${pts[p][1]}" stroke="${hot ? "#ffb020" : "#314052"}" stroke-width="${hot ? 2.4 : 1.2}"/>`;
+        }
+      }
+      cams.forEach(([x, y], i) => {
+        html += `<circle cx="${x}" cy="${y}" r="14" fill="${hotCam.has(i) ? "#ffb020" : "#1d4e89"}" stroke="#7eb6ff"/>`;
+        html += `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="#e7edf5" font-size="11">${CAMS[i]}</text>`;
+      });
+      pts.forEach(([x, y], p) => {
+        html += `<rect x="${x - 14}" y="${y - 12}" width="28" height="22" rx="4" fill="${hotPt.has(p) ? "#ffb020" : "#145c38"}" stroke="#3dd68c"/>`;
+        html += `<text x="${x}" y="${y + 4}" text-anchor="middle" fill="#e7edf5" font-size="11">${PTS[p]}</text>`;
+      });
+      svg.innerHTML = html;
+    }
+
+    function td(val, cls) {
+      const text = val === "" ? "" : fmt(val);
+      return `<td class="${cls || ""}">${text}</td>`;
+    }
+
+    function table(title, colLabels, rowLabels, rows, hot) {
+      const head = `<tr><th></th>${colLabels.map((h) => `<th>${h}</th>`).join("")}</tr>`;
+      const body = rows.map((row, r) => {
+        const cells = row.map((cell, c) => {
+          const on = hot && hot(r, c);
+          const zero = cell === 0;
+          return td(cell, `${on ? "on" : ""} ${zero ? "zero" : ""}`);
+        }).join("");
+        return `<tr><th>${rowLabels[r]}</th>${cells}</tr>`;
+      }).join("");
+      return `<div><div class="block-label">${title}</div><table class="m">${head}${body}</table></div>`;
+    }
+
+    function vecChips(title, labels, values, hotIndex) {
+      const chips = labels.map((lb, i) => `<span class="chip ${i === hotIndex ? "on" : ""}">${lb} ${fmt(values[i])}</span>`).join("");
+      return `<div><div class="block-label">${title}</div><div class="vec">${chips}</div></div>`;
+    }
+
+    function ghostTable() {
+      const headers = CAMS;
+      const rows = CAMS.map(() => CAMS.map(() => ""));
+      const head = `<tr><th></th>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
+      const body = rows.map((_, r) => `<tr><th>${headers[r]}</th>${rows[r].map(() => `<td class="ghost"></td>`).join("")}</tr>`).join("");
+      return `<div><div class="block-label">S 的位置（不组装，格子是空的）</div><table class="m">${head}${body}</table></div>`;
+    }
+
+    function renderMats() {
+      const step = state.step;
+      const mode = state.mode;
+      const parts = [];
+      const showBCE = step >= 2;
+      const showX = mode === "iter" && step >= 3;
+      const eHot = (r, c) => {
+        if (step <= 1 && E[r][c] !== 0) return step === 1;
+        if (mode === "iter" && step === 4 && c === 2 && E[r][2] !== 0) return true;
+        if (mode === "iter" && step === 6 && r === 0 && E[0][c] !== 0) return true;
+        if (mode === "direct" && step === 3 && (r === 0 || r === 2) && c === 2 && E[r][c] !== 0) return true;
+        return false;
+      };
+      parts.push(table("E 相机 × 点", PTS, CAMS, E, eHot));
+      if (showBCE) {
+        parts.push(table("B 对角（每格代表 8×8）", CAMS, CAMS, B.map((b, i) => CAMS.map((_, j) => (i === j ? b : 0))), (r, c) => mode === "iter" && step === 3 && r === c && r === 0));
+        parts.push(table("C 对角（每格代表 3×3）", PTS, PTS, C.map((c, i) => PTS.map((_, j) => (i === j ? c : 0))), (r, c) => mode === "iter" && (step === 4 || step === 5) && r === c && (step === 5 || r === 2)));
+      }
+      if (showX) {
+        parts.push(vecChips("方向 x", CAMS, xVec, step === 3 ? 0 : -1));
+        if (step >= 3) parts.push(vecChips("Bx", CAMS, prod.Bx, step === 3 ? 0 : -1));
+        if (step >= 4) parts.push(vecChips("Eᵀx", PTS, prod.Et, step === 4 ? 2 : -1));
+        if (step >= 5) parts.push(vecChips("z = C⁻¹ Eᵀx", PTS, prod.Cinv, step === 5 ? 2 : -1));
+        if (step >= 6) parts.push(vecChips("Ez", CAMS, prod.back, step === 6 ? 0 : -1));
+        if (step >= 7) {
+          parts.push(vecChips("y = Sx", CAMS, prod.y, -1));
+          parts.push(ghostTable());
+        }
+      }
+      if (mode === "direct" && step >= 3) {
+        parts.push(table("S = B − E C⁻¹ Eᵀ", CAMS, CAMS, S, (r, c) => step === 3 && ((r === 0 && c === 2) || (r === 2 && c === 0))));
+      }
+      if (mode === "direct" && step >= 4) {
+        parts.push(table("L（S = LLᵀ 的下三角）", CAMS, CAMS, L, () => false));
+      }
+      if (!parts.length) {
+        parts.push(`<p class="note">共视 ${E.flat().filter((v) => v !== 0).length} 条。点右侧的相机或点可以看块的形状。</p>`);
+      }
+      document.getElementById("mats").innerHTML = parts.join("");
+      document.getElementById("mats").querySelectorAll("th").forEach((th) => {
+        th.style.cursor = "pointer";
+        th.addEventListener("click", () => {
+          const name = th.textContent;
+          if (CAMS.includes(name)) state.zoom = { kind: "cam", index: CAMS.indexOf(name) };
+          if (PTS.includes(name)) state.zoom = { kind: "pt", index: PTS.indexOf(name) };
+          renderZoom();
+        });
+      });
+    }
+
+    function block8() {
+      const labels = ["tx", "ty", "tz", "qx", "qy", "qz", "f", "k1"];
+      const rows = labels.map((_, i) => labels.map((_, j) => (i === j ? 1.4 : i < 6 && j < 6 ? 0.08 : 0.02)));
+      return { labels, rows, title: `${CAMS[state.zoom.index]} 的 8×8`, text: "对角前 6 个是位姿，后两个是焦距和 k1。主点不在这块里面。左侧乘法把整块收成一个数。" };
+    }
+
+    function block3() {
+      const labels = ["X", "Y", "Z"];
+      const rows = labels.map((_, i) => labels.map((_, j) => (i === j ? C[state.zoom.index] : 0.15)));
+      return { labels, rows, title: `${PTS[state.zoom.index]} 的 3×3`, text: "三维点只有三个坐标，消元时每块独立求逆，所以这一步很便宜。" };
+    }
+
+    function renderZoom() {
+      const spec = state.zoom.kind === "cam" ? block8() : block3();
+      document.getElementById("zoomTitle").textContent = spec.title;
+      document.getElementById("zoomText").textContent = spec.text;
+      const head = `<tr><th></th>${spec.labels.map((h) => `<th>${h}</th>`).join("")}</tr>`;
+      const body = spec.rows.map((row, r) => `<tr><th>${spec.labels[r]}</th>${row.map((v, c) => td(v, r === c ? "on" : "")).join("")}</tr>`).join("");
+      document.getElementById("zoomGrid").innerHTML = `<table class="m tiny">${head}${body}</table>`;
+    }
+
+    function renderStep() {
+      const arr = list();
+      const item = arr[state.step];
+      document.getElementById("stepTitle").textContent = item.title;
+      document.getElementById("stepText").textContent = item.text;
+      let eq = item.eq;
+      if (state.mode === "iter" && state.step === 4) {
+        const p = 2;
+        const terms = CAMS.map((name, i) => sees(i, p) ? `${fmt(E[i][p])}×${fmt(xVec[i])}` : null).filter(Boolean);
+        eq = `(Eᵀx)_P2 = ${terms.join(" + ")} = ${fmt(prod.Et[p])}`;
+      }
+      if (state.mode === "iter" && state.step === 5) {
+        eq = `z_P2 = ${fmt(prod.Et[2])} / ${fmt(C[2])} = ${fmt(prod.Cinv[2])}`;
+      }
+      if (state.mode === "iter" && state.step === 7) {
+        eq = `y = [${prod.y.map(fmt).join(", ")}] ，与直接法的 Sx 相同，但 S 没有被写出来`;
+      }
+      if (state.mode === "direct" && state.step === 3) {
+        const s02 = S[0][2];
+        eq = `S₀₂ = 0 − E₀₂ E₂₂ / C₂ = −${fmt(E[0][2])}×${fmt(E[2][2])}/${fmt(C[2])} = ${fmt(s02)}`;
+      }
+      document.getElementById("eq").textContent = eq;
+      document.getElementById("stepCount").textContent = `${state.step + 1} / ${arr.length}`;
+      document.getElementById("prev").disabled = state.step === 0;
+      document.getElementById("next").disabled = state.step === arr.length - 1;
+      document.getElementById("rail").innerHTML = arr.map((_, i) => `<i class="${i < state.step ? "done" : ""} ${i === state.step ? "now" : ""}"></i>`).join("");
+      document.getElementById("modeIter").setAttribute("aria-pressed", String(state.mode === "iter"));
+      document.getElementById("modeDirect").setAttribute("aria-pressed", String(state.mode === "direct"));
+      drawScene();
+      renderMats();
+      renderZoom();
+    }
+
+    function setMode(mode) {
+      state.mode = mode;
+      state.step = 0;
+      stopPlay();
+      renderStep();
+    }
+
+    function stopPlay() {
+      state.playing = false;
+      document.getElementById("play").textContent = "播放";
+      if (timer) clearInterval(timer);
+      timer = 0;
+    }
+
+    document.getElementById("modeIter").onclick = () => setMode("iter");
+    document.getElementById("modeDirect").onclick = () => setMode("direct");
+    document.getElementById("prev").onclick = () => { stopPlay(); state.step = Math.max(0, state.step - 1); renderStep(); };
+    document.getElementById("next").onclick = () => { stopPlay(); state.step = Math.min(list().length - 1, state.step + 1); renderStep(); };
+    document.getElementById("reset").onclick = () => { state.step = 0; stopPlay(); renderStep(); };
+    document.getElementById("play").onclick = () => {
+      if (state.playing) { stopPlay(); return; }
+      state.playing = true;
+      document.getElementById("play").textContent = "暂停";
+      timer = setInterval(() => {
+        if (state.step >= list().length - 1) { stopPlay(); return; }
+        state.step += 1;
+        renderStep();
+      }, 1400);
+    };
+
+    const RAM = 123 * 1024 ** 3;
+    const OBS_PER_IMAGE = 2000;
+    const BYTES_PER_OBS = 200;
+    const MODEL_OVERHEAD = 2.5e9;
+
+    function nFromSlider(t) {
+      const lo = Math.log(20);
+      const hi = Math.log(80000);
+      return Math.round(Math.exp(lo + (hi - lo) * (t / 1000)));
+    }
+    function sliderFromN(n) {
+      const lo = Math.log(20);
+      const hi = Math.log(80000);
+      return Math.round((Math.log(Math.min(80000, Math.max(20, n))) - lo) / (hi - lo) * 1000);
+    }
+    function denseBytes(n) { return 512 * n * n; }
+    function iterativeBytes(n) { return n * OBS_PER_IMAGE * BYTES_PER_OBS + MODEL_OVERHEAD; }
+    function sparseBytes(n) {
+      const k = Math.min(40, Math.max(1, n - 1));
+      return n * k * 512 * 8;
+    }
+    function solverName(n) {
+      if (n <= 50) return "DENSE_SCHUR";
+      if (n <= 1000) return "SPARSE_SCHUR";
+      return "ITERATIVE_SCHUR";
+    }
+    function fmtBytes(b) {
+      const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+      let v = b;
+      let u = 0;
+      while (v >= 1024 && u < units.length - 1) { v /= 1024; u += 1; }
+      return `${v >= 100 ? v.toFixed(0) : v.toFixed(v >= 10 ? 1 : 2)} ${units[u]}`;
+    }
+
+    let exactN = 1253;
+
+    function renderScale() {
+      const n = exactN;
+      document.getElementById("nLabel").textContent = n.toLocaleString("zh-CN");
+      const dense = denseBytes(n);
+      const sparse = sparseBytes(n);
+      const iter = iterativeBytes(n);
+      const cluster = iterativeBytes(500);
+      const which = solverName(n);
+      const cards = [
+        ["稠密舒尔补", dense, which === "DENSE_SCHUR"],
+        ["稀疏直接分解", sparse, which === "SPARSE_SCHUR"],
+        ["迭代舒尔补", iter, which === "ITERATIVE_SCHUR"],
+      ];
+      document.getElementById("cards").innerHTML = cards.map(([name, bytes, on]) =>
+        `<div class="card ${on ? "active" : ""}"><span>${name}${on ? " · 当前选择" : ""}</span><b>${fmtBytes(bytes)}</b></div>`
+      ).join("");
+      const cross = Math.round(Math.sqrt(RAM / 512));
+      document.getElementById("scaleNote").textContent =
+        `当前求解器 ${which}。稠密相机块 (8×${n.toLocaleString("zh-CN")})²×8 字节 = ${fmtBytes(dense)}。` +
+        `123 GB 大约在 ${cross.toLocaleString("zh-CN")} 张图被这块稠密阵占满。` +
+        `迭代法这里大约 ${fmtBytes(iter)}，其中包含约 2.5 GB 的模型和求解工作区。` +
+        `层次重建若每块 500 张，峰值停在 ${fmtBytes(cluster)}，总图数再增加只增加块数和时间。`;
+      drawChart(n);
+    }
+
+    function drawChart(nMark) {
+      const canvas = document.getElementById("chart");
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      const cssW = canvas.clientWidth || 1100;
+      const cssH = 320;
+      canvas.width = Math.floor(cssW * dpr);
+      canvas.height = Math.floor(cssH * dpr);
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const w = cssW;
+      const h = cssH;
+      ctx.clearRect(0, 0, w, h);
+      const pad = { l: 64, r: 16, t: 16, b: 36 };
+      const x0 = Math.log10(20);
+      const x1 = Math.log10(80000);
+      const y0 = Math.log10(1e7);
+      const y1 = Math.log10(1e15);
+      const X = (n) => pad.l + (Math.log10(n) - x0) / (x1 - x0) * (w - pad.l - pad.r);
+      const Y = (b) => pad.t + (1 - (Math.log10(Math.max(b, 1)) - y0) / (y1 - y0)) * (h - pad.t - pad.b);
+      ctx.strokeStyle = "#2a3340";
+      ctx.fillStyle = "#8b98a8";
+      ctx.font = "11px sans-serif";
+      ctx.lineWidth = 1;
+      for (const n of [20, 100, 1000, 10000]) {
+        ctx.beginPath();
+        ctx.moveTo(X(n), pad.t);
+        ctx.lineTo(X(n), h - pad.b);
+        ctx.stroke();
+        ctx.fillText(n >= 1000 ? `${n / 1000}k` : String(n), X(n) - 8, h - pad.b + 16);
+      }
+      for (const b of [1e7, 1e9, 1e12, 1e15]) {
+        ctx.beginPath();
+        ctx.moveTo(pad.l, Y(b));
+        ctx.lineTo(w - pad.r, Y(b));
+        ctx.stroke();
+        ctx.fillText(fmtBytes(b), 4, Y(b) + 4);
+      }
+      ctx.strokeStyle = "#ff6b6b";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(pad.l, Y(RAM));
+      ctx.lineTo(w - pad.r, Y(RAM));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ff6b6b";
+      ctx.fillText("123 GB", w - pad.r - 52, Y(RAM) - 6);
+
+      function stroke(fn, color) {
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= 200; i++) {
+          const n = Math.exp(Math.log(20) + (Math.log(80000) - Math.log(20)) * (i / 200));
+          const x = X(n);
+          const y = Y(fn(n));
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      stroke(denseBytes, "#ff6b6b");
+      stroke(sparseBytes, "#7eb6ff");
+      stroke(iterativeBytes, "#3dd68c");
+      ctx.fillStyle = "#ff6b6b";
+      ctx.fillText("稠密", X(20000), Y(denseBytes(20000)) - 8);
+      ctx.fillStyle = "#7eb6ff";
+      ctx.fillText("稀疏直接", X(4000), Y(sparseBytes(4000)) - 8);
+      ctx.fillStyle = "#3dd68c";
+      ctx.fillText("迭代", X(8000), Y(iterativeBytes(8000)) + 14);
+
+      for (const mark of [50, 1000]) {
+        ctx.strokeStyle = "#ffb020";
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(X(mark), pad.t);
+        ctx.lineTo(X(mark), h - pad.b);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = "#ffb020";
+      ctx.beginPath();
+      ctx.arc(X(nMark), Y(iterativeBytes(nMark)), 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    document.getElementById("nSlider").addEventListener("input", () => {
+      exactN = nFromSlider(Number(document.getElementById("nSlider").value));
+      renderScale();
+    });
+    document.querySelectorAll("[data-n]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        exactN = Number(btn.dataset.n);
+        document.getElementById("nSlider").value = String(sliderFromN(exactN));
+        renderScale();
+      });
+    });
+
+    window.__ba = { S, prod, L, denseBytes, iterativeBytes, sparseBytes, solverName, nFromSlider, RAM };
+
+    renderStep();
+    document.getElementById("nSlider").value = String(sliderFromN(exactN));
+    renderScale();
+    window.addEventListener("resize", renderScale);
+  </script>
+</body>
+</html>
