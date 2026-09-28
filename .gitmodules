@@ -1,3 +1,6 @@
 [submodule "third_party/gaussian-splatting"]
 	path = third_party/gaussian-splatting
 	url = https://github.com/liujiacheng1009/gaussian-splatting
+[submodule "third_party/Hierarchical-Localization"]
+	path = third_party/Hierarchical-Localization
+	url = https://github.com/liujiacheng1009/Hierarchical-Localization
