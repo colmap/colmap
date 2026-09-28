@@ -30,7 +30,7 @@ cd Hierarchical-Localization/
 python -m pip install -e .
 ```
 
-All dependencies are listed in `requirements.txt`. **Starting with `hloc-v1.3`, installing COLMAP is not required anymore.** This repository includes external local features as git submodules – don't forget to pull submodules with `git submodule update --init --recursive`.
+All dependencies are listed in `requirements.txt`. **Starting with `hloc-v1.3`, installing COLMAP is not required anymore.** The external local-feature checkouts under `third_party/` are already part of this tree.
 
 We also provide a Docker image:
 ```bash
