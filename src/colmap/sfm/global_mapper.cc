@@ -47,7 +47,7 @@ BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
   custom_ba_options.min_track_length = 0;
   if (custom_ba_options.ceres) {
     custom_ba_options.ceres->loss_function_type =
-        CeresLossFunctionType::TRIVIAL;
+        CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
     custom_ba_options.ceres->solver_options.function_tolerance = 0.0;
     custom_ba_options.ceres->solver_options.gradient_tolerance = 1.0;
     custom_ba_options.ceres->solver_options.parameter_tolerance = 0.0;
