@@ -322,10 +322,8 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     ransac_options.min_inlier_ratio = options.min_inlier_ratio;
   }
 
-  const auto F_report = EstimateFundamentalMatrix(options,
-                                                  ransac_options,
-                                                  matched_img_points1,
-                                                  matched_img_points2);
+  const auto F_report = EstimateFundamentalMatrix(
+      options, ransac_options, matched_img_points1, matched_img_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model. Estimated on image points rather than
