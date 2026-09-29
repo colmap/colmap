@@ -18,7 +18,9 @@ Bug Fixes
   memory. The backend now defaults to ``STD`` and mismatches are reported
   at configure time.
 * Restore legacy bundle-adjustment behavior in the global mapper, fixing a
-  regression introduced in 4.2.0.
+  regression introduced in 4.2.0. The inner L2 retriangulation refinement
+  additionally keeps camera poses and intrinsics fixed, optimizing only 3D
+  points, so triangulation outliers can no longer corrupt the cameras.
 * Fix LO-RANSAC local optimization running below the estimator sample
   minimum.
 * Fix CUDA illegal memory access in image rotate/transpose/flip kernels for
