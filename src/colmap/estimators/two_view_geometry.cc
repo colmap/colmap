@@ -266,9 +266,8 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   // Check inlier ratio threshold.
   if (options.min_inlier_ratio > 0) {
-    const double inlier_ratio = static_cast<double>(
-                                    H_report.support.num_inliers) /
-                                matches.size();
+    const double inlier_ratio =
+        static_cast<double>(H_report.support.num_inliers) / matches.size();
     if (inlier_ratio < options.min_inlier_ratio) {
       geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
       return geometry;
