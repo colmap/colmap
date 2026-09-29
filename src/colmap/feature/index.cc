@@ -36,7 +36,9 @@
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexPQ.h>
 #include <faiss/IndexScalarQuantizer.h>
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -55,11 +57,13 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
 
 #pragma omp parallel num_threads(1)
     {
+#ifdef _OPENMP
       omp_set_num_threads(num_threads_);
 #ifdef _MSC_VER
       omp_set_nested(1);
 #else
       omp_set_max_active_levels(1);
+#endif
 #endif
 
       if (index_descriptors.data.rows() >= 512) {
@@ -128,11 +132,13 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
 
 #pragma omp parallel num_threads(1)
     {
+#ifdef _OPENMP
       omp_set_num_threads(num_threads_);
 #ifdef _MSC_VER
       omp_set_nested(1);
 #else
       omp_set_max_active_levels(1);
+#endif
 #endif
 
       faiss::SearchParametersIVF search_params;

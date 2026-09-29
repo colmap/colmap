@@ -33,6 +33,7 @@
 #include "colmap/util/string.h"
 
 #include <exception>
+#include <sstream>
 
 #include <glog/logging.h>
 
@@ -163,11 +164,19 @@ template <typename T>
 class LogMessageFatalThrow : public google::LogMessage {
  public:
   LogMessageFatalThrow(const char* file, int line)
-      : google::LogMessage(file, line, google::GLOG_ERROR, &message_),
+      : google::LogMessage(file,
+                           line,
+                           google::GLOG_ERROR,
+                           static_cast<google::LogSink*>(nullptr),
+                           /*also_send_to_log=*/false),
         prefix_(__MakeExceptionPrefix(file, line)) {}
   LogMessageFatalThrow(const char* file, int line, std::string* message)
-      : google::LogMessage(file, line, google::GLOG_ERROR, message),
-        message_(*message),
+      : google::LogMessage(file,
+                           line,
+                           google::GLOG_ERROR,
+                           static_cast<google::LogSink*>(nullptr),
+                           /*also_send_to_log=*/false),
+        external_message_(message),
         prefix_(__MakeExceptionPrefix(file, line)) {}
   LogMessageFatalThrow(const char* file,
                        int line,
@@ -177,7 +186,11 @@ class LogMessageFatalThrow : public google::LogMessage {
 #else
                        const google::CheckOpString& result)
 #endif
-      : google::LogMessage(file, line, google::GLOG_ERROR, &message_),
+      : google::LogMessage(file,
+                           line,
+                           google::GLOG_ERROR,
+                           static_cast<google::LogSink*>(nullptr),
+                           /*also_send_to_log=*/false),
         prefix_(__MakeExceptionPrefix(file, line)) {
     stream() << "Check failed: " << (*result.str_) << " ";
     // On LOG(FATAL) glog<0.7.0 does not bother cleaning up CheckOpString
@@ -188,7 +201,10 @@ class LogMessageFatalThrow : public google::LogMessage {
 #endif
   }
   ~LogMessageFatalThrow() noexcept(false) {
-    Flush();
+    const std::string message = message_stream_.str();
+    if (external_message_ != nullptr) {
+      *external_message_ += message;
+    }
 #if defined(__cpp_lib_uncaught_exceptions) && \
     (__cpp_lib_uncaught_exceptions >= 201411L)
     if (std::uncaught_exceptions() == 0)
@@ -196,12 +212,17 @@ class LogMessageFatalThrow : public google::LogMessage {
     if (!std::uncaught_exception())
 #endif
     {
-      throw T(prefix_ + message_);
+      throw T(prefix_ + message);
     }
   }
+  // Hide google::LogMessage::stream() to capture the message in our own
+  // stream: glog's std::string* message capture no longer works in recent
+  // glog versions, silently dropping all THROW_CHECK messages.
+  std::ostringstream& stream() { return message_stream_; }
 
  private:
-  std::string message_;
+  std::ostringstream message_stream_;
+  std::string* external_message_ = nullptr;
   std::string prefix_;
 };
 

@@ -426,7 +426,7 @@ void OptionManager::AddTwoViewGeometryOptions() {
   AddDefaultOption("TwoViewGeometry.max_num_trials",
                    &two_view_geometry->ransac_options.max_num_trials);
   AddDefaultOption("TwoViewGeometry.min_inlier_ratio",
-                   &two_view_geometry->ransac_options.min_inlier_ratio);
+                   &two_view_geometry->min_inlier_ratio);
   AddDefaultOption("TwoViewGeometry.random_seed",
                    &two_view_geometry->ransac_options.random_seed);
 }
@@ -831,6 +831,8 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.track_required_tracks_per_view);
   AddDefaultOption("GlobalMapper.track_min_num_views_per_track",
                    &global_mapper->mapper.track_min_num_views_per_track);
+  AddDefaultOption("GlobalMapper.track_max_num_views_per_track",
+                   &global_mapper->mapper.track_max_num_views_per_track);
   AddDefaultOption("GlobalMapper.keep_max_num_tracks",
                    &global_mapper->mapper.keep_max_num_tracks);
 

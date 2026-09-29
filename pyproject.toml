@@ -14,7 +14,7 @@ name = "pycolmap"
 # WARNING: This version must follow the MAJOR.MINOR.PATCH format. If only
 # MAJOR.MINOR is used, cibuildwheel will add a .dev0 patch version, which
 # results in releasing a pre-release version on PyPI.
-version = "4.2.0"
+version = "4.2.1"
 description = "COLMAP bindings"
 readme = "python/README.md"
 authors = [
@@ -104,3 +104,25 @@ norecursedirs = [
 implicit_optional = true
 ignore_missing_imports = true
 explicit_package_bases = true
+
+# PyCOLMAP's public API is populated dynamically from the compiled extension,
+# so source-only checks cannot resolve its exported names.
+[[tool.mypy.overrides]]
+module = [
+  "benchmark.*",
+  "doc.tests.*",
+  "pycolmap",
+  "pycolmap.*",
+  "src.pycolmap.*",
+]
+disable_error_code = ["attr-defined", "name-defined"]
+
+# Stubs generated from pybind11 signatures still contain untyped overloads.
+# Some overloads differ only by NumPy shape metadata, which mypy intentionally
+# ignores when determining whether overloads overlap.
+[[tool.mypy.overrides]]
+module = ["pycolmap._core", "pycolmap._core.*"]
+check_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+disable_error_code = ["overload-cannot-match"]

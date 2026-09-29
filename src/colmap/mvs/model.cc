@@ -35,9 +35,9 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/string.h"
 
 #include <fstream>
-#include <locale>
 
 namespace colmap {
 namespace mvs {
@@ -285,7 +285,7 @@ bool Model::ReadFromBundlerPMVS(const std::filesystem::path& path) {
 
   std::ifstream file(bundle_file_path);
   THROW_CHECK_FILE_OPEN(file, bundle_file_path);
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
 
   // Header line.
   std::string header;
@@ -378,7 +378,7 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
 
     std::ifstream proj_matrix_file(proj_matrix_path);
     THROW_CHECK_FILE_OPEN(proj_matrix_file, proj_matrix_path);
-    proj_matrix_file.imbue(std::locale::classic());
+    SetFullPrecTextStream(proj_matrix_file);
 
     std::string contour;
     THROW_CHECK(proj_matrix_file >> contour);
@@ -417,6 +417,7 @@ bool Model::ReadFromRawPMVS(const std::filesystem::path& path) {
 
   std::ifstream vis_dat_file(vis_dat_path);
   THROW_CHECK_FILE_OPEN(vis_dat_file, vis_dat_path);
+  SetFullPrecTextStream(vis_dat_file);
 
   std::string visdata;
   vis_dat_file >> visdata;

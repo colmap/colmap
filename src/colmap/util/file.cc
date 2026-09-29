@@ -490,7 +490,8 @@ std::string DownloadAndCacheFile(const std::string& uri) {
 
   if (!std::filesystem::exists(download_cache_dir)) {
     VLOG(2) << "Creating download cache directory: " << download_cache_dir;
-    THROW_CHECK(std::filesystem::create_directories(download_cache_dir));
+    THROW_CHECK(std::filesystem::create_directories(download_cache_dir) ||
+                std::filesystem::is_directory(download_cache_dir));
   }
 
   const auto path = download_cache_dir / (sha256 + "-" + name);

@@ -77,11 +77,14 @@ jobs:
           cmake --version
           mkdir -p build
           cd build
+          # The app bundle ships no headers or libraries, so nothing links
+          # against it and it can use the faster non-default hash map backend.
           cmake .. \
             -GNinja \
             -DCMAKE_BUILD_TYPE=${{ matrix.config.cmakeBuildType }} \
             -DTESTS_ENABLED=ON \
             -DWERROR_ENABLED=ON \
+            -DCOLMAP_HASH_MAP_BACKEND=BOOST \
             -DQt6_DIR="$(brew --prefix qt)/lib/cmake/Qt6"
           ninja
 

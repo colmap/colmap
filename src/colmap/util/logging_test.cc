@@ -29,6 +29,7 @@
 
 #include "colmap/util/logging.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -72,6 +73,32 @@ TEST(ExceptionLogging, NumConditionEvals) {
     LOG(INFO) << "Caught exception";
   }
   EXPECT_EQ(num_calls, 2);
+}
+
+TEST(ExceptionLogging, MessageContent) {
+  try {
+    THROW_CHECK(1 == 2);
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()),
+                testing::HasSubstr("Check failed: 1 == 2"));
+  }
+
+  try {
+    THROW_CHECK_EQ(1, 2) << "custom suffix";
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()),
+                testing::HasSubstr("Check failed: 1 == 2 (1 vs. 2)"));
+    EXPECT_THAT(std::string(e.what()), testing::HasSubstr("custom suffix"));
+  }
+
+  try {
+    LOG(FATAL_THROW) << "fatal message";
+    FAIL() << "Expected std::invalid_argument";
+  } catch (const std::invalid_argument& e) {
+    EXPECT_THAT(std::string(e.what()), testing::HasSubstr("fatal message"));
+  }
 }
 
 TEST(ExceptionLogging, Nested) {

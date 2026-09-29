@@ -415,6 +415,7 @@ class FeaturePairsFeatureMatcher : public Thread {
 
     std::ifstream file(options_.match_list_path);
     THROW_CHECK_FILE_OPEN(file, options_.match_list_path);
+    SetFullPrecTextStream(file);
 
     std::string line;
     while (std::getline(file, line)) {
@@ -429,6 +430,7 @@ class FeaturePairsFeatureMatcher : public Thread {
       }
 
       std::istringstream line_stream(line);
+      SetFullPrecTextStream(line_stream);
 
       std::string image_name1, image_name2;
       try {
@@ -471,6 +473,7 @@ class FeaturePairsFeatureMatcher : public Thread {
         }
 
         std::istringstream line_stream(line);
+        SetFullPrecTextStream(line_stream);
 
         FeatureMatch match;
         try {

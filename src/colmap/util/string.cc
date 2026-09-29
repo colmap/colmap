@@ -196,9 +196,15 @@ std::string UTF8ToCodePageWin(const std::string& str, unsigned int code_page) {
 
 }  // namespace internal
 
+void SetFullPrecTextStream(std::ios& stream) {
+  stream.imbue(std::locale::classic());
+  // Ensure that we don't lose any precision by storing in text.
+  stream.precision(17);
+}
+
 double StringToDouble(const std::string& str) {
   std::istringstream iss(str);
-  iss.imbue(std::locale::classic());
+  SetFullPrecTextStream(iss);
   double value;
   iss >> value;
   THROW_CHECK(!iss.fail()) << "Failed to parse floating-point value: " << str;

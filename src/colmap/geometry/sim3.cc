@@ -30,18 +30,16 @@
 #include "colmap/geometry/sim3.h"
 
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 
 #include <fstream>
-#include <locale>
 
 namespace colmap {
 
 void Sim3d::ToFile(const std::filesystem::path& path) const {
   std::ofstream file(path, std::ios::trunc);
   THROW_CHECK(file.good()) << path;
-  file.imbue(std::locale::classic());
-  // Ensure that we don't loose any precision by storing in text.
-  file.precision(17);
+  SetFullPrecTextStream(file);
   file << scale() << " " << rotation().w() << " " << rotation().x() << " "
        << rotation().y() << " " << rotation().z() << " " << translation().x()
        << " " << translation().y() << " " << translation().z() << '\n';
@@ -50,7 +48,7 @@ void Sim3d::ToFile(const std::filesystem::path& path) const {
 Sim3d Sim3d::FromFile(const std::filesystem::path& path) {
   std::ifstream file(path);
   THROW_CHECK(file.good()) << path;
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
   Sim3d t;
   THROW_CHECK(file >> t.scale() >> t.rotation().w() >> t.rotation().x() >>
               t.rotation().y() >> t.rotation().z() >> t.translation().x() >>
