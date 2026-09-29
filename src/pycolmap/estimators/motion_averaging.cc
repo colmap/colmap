@@ -62,9 +62,9 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("loss_function_scale",
                          &GlobalPositionerOptions::loss_function_scale,
                          "Scaling factor for the loss function. "
-                         "None (default) uses 1.0 when "
-                         "experimental_observation_stddev is set, otherwise "
-                         "0.1. An explicit value overrides this default.")
+                         "Negative values (default -1) use 1.0 (stddev units) "
+                         "when experimental_observation_stddev is set, "
+                         "otherwise 0.1 (radians).")
           .def_readwrite(
               "experimental_observation_stddev",
               &GlobalPositionerOptions::experimental_observation_stddev,

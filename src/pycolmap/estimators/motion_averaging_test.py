@@ -72,11 +72,11 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
 
 def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
-    assert options.loss_function_scale is None
+    assert options.loss_function_scale == -1.0
     options.loss_function_scale = 0.1
     assert options.loss_function_scale == 0.1
-    options.loss_function_scale = None
-    assert options.loss_function_scale is None
+    options.loss_function_scale = -1.0
+    assert options.loss_function_scale == -1.0
 
 
 def test_global_positioner_prepared_problem() -> None:
