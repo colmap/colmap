@@ -68,6 +68,31 @@ TEST(SparseDelaunayMeshing, NonSubsampled) {
   EXPECT_GE(mesh_vertices.size(), 3);
 }
 
+TEST(SparseDelaunayMeshing, PointAtCameraCenter) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  Reconstruction reconstruction =
+      CreateAndWriteSyntheticReconstruction(sparse_path);
+
+  // Move one point onto the projection center of an image that observes it.
+  // Its viewing ray from that image then has zero length, which used to make
+  // the ray caster walk the triangulation forever.
+  const point3D_t point3D_id = *reconstruction.Point3DIds().begin();
+  Point3D& point3D = reconstruction.Point3D(point3D_id);
+  const image_t image_id = point3D.track.Element(0).image_id;
+  point3D.xyz = reconstruction.Image(image_id).ProjectionCenter();
+  reconstruction.Write(sparse_path);
+
+  DelaunayMeshingOptions options;
+  options.num_threads = 1;
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  EXPECT_TRUE(ExistsFile(output_path));
+  const std::vector<PlyPoint> mesh_vertices = ReadPly(output_path);
+  EXPECT_GE(mesh_vertices.size(), 3);
+}
+
 TEST(DenseDelaunayMeshing, Integration) {
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
