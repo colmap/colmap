@@ -123,6 +123,39 @@ bool InitializeCameraParams(CameraModelId model_id,
   return true;
 }
 
+// Set the Ceres parameter bounds required for numerically valid optimization:
+// positive focal lengths, EUCM alpha in [0, 1] with positive beta, and FOV
+// omega in (0, pi), outside of which the `tan(omega / 2)` distortion term is
+// singular or meaningless. Plausibility (focal length ratios, principal
+// point, distortion magnitude) is intentionally not constrained here; it is
+// checked after refinement via `HasBogusParams`.
+// NOTE: these model-specific bounds overlap with the bundle adjustment
+// parameter bounds; unify them in a shared helper once available there
+// (see PR #4683).
+template <typename CameraModel>
+void SetRefinementParameterBounds(ceres::Problem* problem, double* params) {
+  THROW_CHECK_NOTNULL(problem);
+  THROW_CHECK_NOTNULL(params);
+  for (const size_t idx : CameraModel::focal_length_idxs) {
+    problem->SetParameterLowerBound(
+        params, idx, std::numeric_limits<double>::epsilon());
+  }
+  if constexpr (CameraModel::model_id == CameraModelId::kEUCM) {
+    const size_t alpha_idx = CameraModel::extra_params_idxs[0];
+    const size_t beta_idx = CameraModel::extra_params_idxs[1];
+    problem->SetParameterLowerBound(params, alpha_idx, 0.0);
+    problem->SetParameterUpperBound(params, alpha_idx, 1.0);
+    problem->SetParameterLowerBound(
+        params, beta_idx, std::numeric_limits<double>::epsilon());
+  }
+  if constexpr (CameraModel::model_id == CameraModelId::kFOV) {
+    const size_t omega_idx = CameraModel::extra_params_idxs[0];
+    problem->SetParameterLowerBound(
+        params, omega_idx, std::numeric_limits<double>::epsilon());
+    problem->SetParameterUpperBound(params, omega_idx, EIGEN_PI);
+  }
+}
+
 // Nonlinear refinement of `params` (in: initialization, out: refined
 // parameters, or the initialization if refinement failed). Only points
 // projectable at the initialization become residual blocks; the set stays
@@ -196,26 +229,7 @@ bool RefineCameraParams(const std::vector<Eigen::Vector2d>& img_points,
         params->data());
   }
 
-  for (const size_t idx : CameraModel::focal_length_idxs) {
-    problem.SetParameterLowerBound(
-        params->data(), idx, std::numeric_limits<double>::epsilon());
-  }
-  if constexpr (CameraModel::model_id == CameraModelId::kEUCM) {
-    const size_t alpha_idx = CameraModel::extra_params_idxs[0];
-    const size_t beta_idx = CameraModel::extra_params_idxs[1];
-    problem.SetParameterLowerBound(params->data(), alpha_idx, 0.0);
-    problem.SetParameterUpperBound(params->data(), alpha_idx, 1.0);
-    problem.SetParameterLowerBound(
-        params->data(), beta_idx, std::numeric_limits<double>::epsilon());
-  }
-  if constexpr (CameraModel::model_id == CameraModelId::kFOV) {
-    // Omega is the field-of-view angle in radians; outside (0, pi) the
-    // `tan(omega / 2)` distortion term is singular or meaningless.
-    const size_t omega_idx = CameraModel::extra_params_idxs[0];
-    problem.SetParameterLowerBound(
-        params->data(), omega_idx, std::numeric_limits<double>::epsilon());
-    problem.SetParameterUpperBound(params->data(), omega_idx, EIGEN_PI);
-  }
+  SetRefinementParameterBounds<CameraModel>(&problem, params->data());
 
   ceres::Solver::Options solver_options;
   solver_options.linear_solver_type = ceres::DENSE_QR;

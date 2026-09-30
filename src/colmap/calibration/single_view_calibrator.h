@@ -84,21 +84,19 @@ struct SingleViewCalibrationOptions : public SingleViewCalibrationTypeOptions {
   // Index of the GPU used for inference. Only a single GPU is supported.
   std::string gpu_index = "-1";
 
-  // Plausibility bounds on the calibrated intrinsics, matching the defaults of
-  // the incremental mapper. A learned prediction can be perfectly
+  // Plausibility bounds on the calibrated intrinsics, shared with the
+  // incremental mapper defaults. A learned prediction can be perfectly
   // self-consistent and still be far off, in which case the existing (e.g.
-  // EXIF) intrinsics are kept instead. Focal length ratios are relative to the
-  // maximum image dimension and correspond to opening angles of ~130 and ~5
-  // degrees.
-  double min_focal_length_ratio = 0.1;
-  double max_focal_length_ratio = 10.0;
-  // Maximum absolute value of any distortion parameter. Matches the
-  // incremental mapper default (`IncrementalMapper::Options::max_extra_param`),
-  // so accepted calibrations also pass downstream checks. NOTE: this is a
-  // single bound for all coefficients of the target model, so high-order
-  // models with legitimately large coefficients (e.g. the rational
-  // denominator terms k4, k5, k6 of FULL_OPENCV) may require a larger value.
-  double max_extra_param = 1.0;
+  // EXIF) intrinsics are kept instead.
+  double min_focal_length_ratio = kDefaultMinFocalLengthRatio;
+  double max_focal_length_ratio = kDefaultMaxFocalLengthRatio;
+  // Maximum absolute value of any distortion parameter, shared with the
+  // incremental mapper default, so accepted calibrations also pass downstream
+  // checks. NOTE: this is a single bound for all coefficients of the target
+  // model, so high-order models with legitimately large coefficients (e.g. the
+  // rational denominator terms k4, k5, k6 of FULL_OPENCV) may require a larger
+  // value.
+  double max_extra_param = kDefaultMaxExtraParam;
 
   bool Check() const;
 };
