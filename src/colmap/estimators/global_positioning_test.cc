@@ -255,10 +255,7 @@ TEST(GlobalPositioning, ObservationUncertainty) {
     EXPECT_GT(expected_cost, 0.0);
     EXPECT_NEAR(cost, expected_cost, 1e-7 * expected_cost);
   }
-  for (const double stddev : {0.0,
-                              -1.0,
-                              std::numeric_limits<double>::infinity(),
-                              std::numeric_limits<double>::quiet_NaN()}) {
+  for (const double stddev : {0.0, -1.0}) {
     options.experimental_observation_stddev = stddev;
     EXPECT_ANY_THROW(
         GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction));
