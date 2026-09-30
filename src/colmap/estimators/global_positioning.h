@@ -20,14 +20,15 @@ struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
   bool generate_random_points = true;
-  // Whether to initialize the camera scales to a constant 1 or derive them from
-  // the initialized camera and point positions.
-  bool generate_scales = true;
+  // Derive scales from camera and 3D-point positions; otherwise use 1.
+  bool initialize_scales_from_geometry = false;
 
   // Flags for which parameters to optimize
   bool optimize_positions = true;
   bool optimize_points = true;
   bool optimize_scales = true;
+  // Fix the first active observation scale when optimizing scales.
+  bool fix_first_scale = true;
 
   // When false, treat sensor_from_rig as a fixed (pre-calibrated) parameter.
   bool refine_sensor_from_rig = true;
@@ -52,6 +53,9 @@ struct GlobalPositionerOptions {
   // Isotropic observation uncertainty in pixels. Disabled when unset.
   // When enabled, loss_function_scale applies to whitened residuals.
   std::optional<double> experimental_observation_stddev;
+
+  // Loss multiplier for observations without a focal-length prior.
+  double uncalibrated_observation_weight = 0.5;
 
   // Whether to use custom parameter block ordering for Schur-based solvers.
   // Disable for deterministic behavior when using a fixed random seed.

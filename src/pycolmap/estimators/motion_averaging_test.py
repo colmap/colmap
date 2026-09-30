@@ -77,6 +77,17 @@ def test_global_positioner_options_default_init() -> None:
     assert options.loss_function_scale == 0.1
     options.loss_function_scale = -1.0
     assert options.loss_function_scale == -1.0
+    assert options.fix_first_scale
+    assert options.uncalibrated_observation_weight == 0.5
+    assert not options.initialize_scales_from_geometry
+    options = pycolmap.GlobalPositionerOptions(
+        fix_first_scale=False,
+        uncalibrated_observation_weight=0.2,
+        initialize_scales_from_geometry=True,
+    )
+    assert not options.fix_first_scale
+    assert options.uncalibrated_observation_weight == 0.2
+    assert options.initialize_scales_from_geometry
 
 
 def test_global_positioner_prepared_problem() -> None:

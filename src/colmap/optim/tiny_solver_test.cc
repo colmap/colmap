@@ -100,6 +100,40 @@ TEST(TinySolver, ManifoldConvergesAndStaysOnManifold) {
   EXPECT_LT((x - functor.target.normalized()).norm(), 1e-6);
 }
 
+// 2D version of SphereFitResidual; on the unit circle the optimum is
+// target.normalized(). Exercises the tangent-space-1 path (e.g. for minimal
+// Plucker line parametrizations), where the Plus Jacobian is single-column.
+struct CircleFitResidual {
+  Eigen::Vector2d target;
+  template <typename T>
+  bool operator()(const T* const x, T* residuals) const {
+    residuals[0] = x[0] - T(target(0));
+    residuals[1] = x[1] - T(target(1));
+    return true;
+  }
+};
+
+TEST(TinySolver, CircleManifoldConvergesAndStaysOnManifold) {
+  CircleFitResidual functor;
+  functor.target = Eigen::Vector2d(0.3, -0.7);
+
+  using AutoDiff = ceres::TinySolverAutoDiffFunction<CircleFitResidual, 2, 2>;
+  AutoDiff f(functor);
+
+  using Solver = TinySolver<AutoDiff, SphereManifold<2>>;
+  Solver solver;
+  Solver::Options options;
+  options.gradient_tolerance = 0;
+  options.parameter_tolerance = 0;
+  options.function_tolerance = 0;
+  options.max_num_iterations = 100;
+  Eigen::Vector2d x = Eigen::Vector2d(1, 0);  // Unit seed.
+  solver.Solve(f, &x, options);
+
+  EXPECT_NEAR(x.norm(), 1.0, 1e-9);
+  EXPECT_LT((x - functor.target.normalized()).norm(), 1e-6);
+}
+
 // A functor that always fails to evaluate.
 struct FailingResidual {
   using Scalar = double;

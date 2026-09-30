@@ -27,4 +27,7 @@ class RandomSampler : public Sampler {
 template <>
 struct is_randomized_sampler<RandomSampler> : std::true_type {};
 
+template <>
+struct is_parallel_safe_sampler<RandomSampler> : std::true_type {};
+
 }  // namespace colmap

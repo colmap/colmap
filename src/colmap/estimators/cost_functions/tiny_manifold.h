@@ -56,23 +56,18 @@ struct EigenQuaternionManifold {
 
 // Unit-sphere manifold in R^N. Retraction:
 // x_plus = normalize(x + B * delta), where B is an orthonormal basis of the
-// tangent plane at x / ||x||. Only the 2-sphere (N = 3) is implemented, which
-// is all that is currently needed; the closed-form basis keeps the solver
-// allocation-free.
+// tangent plane at x / ||x||. N = 3 uses a closed-form basis; general N uses a
+// Householder reflection. Both keep the solver allocation-free.
 template <int N>
 struct SphereManifold {
-  // TODO: To generalize to N > 3, replace TangentBasis()'s R^3-specific closed
-  // form (unitOrthogonal + cross) with a (less efficient) QR/Householder
-  // orthonormalization of the tangent space.
-  static_assert(N == 3, "SphereManifold is only implemented for the 2-sphere.");
   static constexpr int kAmbientSize = N;
   static constexpr int kTangentSize = N - 1;
   [[maybe_unused]] static constexpr bool kIsEuclidean = false;
 
   void Plus(const double* x, const double* delta, double* x_plus) const {
-    const Eigen::Map<const Eigen::Vector3d> xv(x);
-    const Eigen::Map<const Eigen::Vector2d> d(delta);
-    Eigen::Map<Eigen::Vector3d> out(x_plus);
+    const Eigen::Map<const Eigen::Matrix<double, N, 1>> xv(x);
+    const Eigen::Map<const Eigen::Matrix<double, N - 1, 1>> d(delta);
+    Eigen::Map<Eigen::Matrix<double, N, 1>> out(x_plus);
     out = (xv + TangentBasis(xv) * d).normalized();
   }
 
@@ -80,20 +75,36 @@ struct SphereManifold {
   // sphere retraction; the tangent basis equals the Plus Jacobian only at unit
   // x.
   void PlusJacobian(const double* x, double* jacobian) const {
-    const Eigen::Map<const Eigen::Vector3d> xv(x);
-    Eigen::Map<Eigen::Matrix<double, 3, 2, Eigen::RowMajor>> out(jacobian);
+    const Eigen::Map<const Eigen::Matrix<double, N, 1>> xv(x);
+    // A single-column Jacobian (N == 2) cannot be spelled RowMajor in Eigen,
+    // where storage order is immaterial for it anyway.
+    constexpr int kOrder = (N - 1 == 1) ? Eigen::ColMajor : Eigen::RowMajor;
+    Eigen::Map<Eigen::Matrix<double, N, N - 1, kOrder>> out(jacobian);
     out = TangentBasis(xv);
   }
 
  private:
-  // Orthonormal basis (3 x 2) of the tangent plane at x / ||x||.
-  static Eigen::Matrix<double, 3, 2> TangentBasis(const Eigen::Vector3d& x) {
-    const Eigen::Vector3d x_hat = x.normalized();
-    const Eigen::Vector3d b1 = x_hat.unitOrthogonal();
-    Eigen::Matrix<double, 3, 2> B;
-    B.col(0) = b1;
-    B.col(1) = x_hat.cross(b1);
-    return B;
+  // Orthonormal basis (N x (N-1)) of the tangent plane at x / ||x||.
+  static Eigen::Matrix<double, N, N - 1> TangentBasis(
+      const Eigen::Matrix<double, N, 1>& x) {
+    const Eigen::Matrix<double, N, 1> x_hat = x.normalized();
+    if constexpr (N == 3) {
+      const Eigen::Vector3d b1 = x_hat.unitOrthogonal();
+      Eigen::Matrix<double, 3, 2> B;
+      B.col(0) = b1;
+      B.col(1) = x_hat.cross(b1);
+      return B;
+    } else {
+      // Householder reflection mapping e1 to a vector parallel to x_hat; its
+      // last N-1 columns span the tangent plane at x_hat. The sign choice
+      // keeps ||v||^2 >= 2, so this is well-defined for all unit x_hat.
+      Eigen::Matrix<double, N, 1> v = x_hat;
+      v(0) += (x_hat(0) >= 0 ? 1.0 : -1.0);
+      const Eigen::Matrix<double, N, N> H =
+          Eigen::Matrix<double, N, N>::Identity() -
+          (2.0 / v.squaredNorm()) * (v * v.transpose());
+      return H.rightCols(N - 1);
+    }
   }
 };
 

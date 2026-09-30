@@ -11,6 +11,7 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
 #include <fstream>
 #include <vector>
 
@@ -374,9 +375,11 @@ struct DelaunayTriangulationRayCaster {
     FindHullFacets();
   }
 
-  void CastRaySegment(const K::Segment_3& ray_segment,
-                      std::vector<Intersection>* intersections) const {
+  bool CastRaySegment(const K::Segment_3& ray_segment,
+                      std::vector<Intersection>* intersections,
+                      FlatHashSet<Delaunay::Cell_handle>* visited_cells) const {
     intersections->clear();
+    visited_cells->clear();
 
     Delaunay::Cell_handle next_cell =
         triangulation_.locate(ray_segment.start());
@@ -384,6 +387,17 @@ struct DelaunayTriangulationRayCaster {
     bool next_cell_found = true;
     while (next_cell_found) {
       next_cell_found = false;
+
+      // A straight segment enters each convex cell at most once. Revisiting a
+      // cell therefore means that numerical degeneracy has made the walk stop
+      // progressing. Detect the cycle immediately instead of allowing the
+      // intersections to grow up to the size of the entire triangulation.
+      if (!visited_cells->emplace(next_cell).second) {
+        LOG_FIRST_N(WARNING, 1)
+            << "Ray casting revisited a cell; ignoring the observation.";
+        intersections->clear();
+        return false;
+      }
 
       if (triangulation_.is_infinite(next_cell)) {
         // Linearly check all hull facets for intersection.
@@ -464,6 +478,8 @@ struct DelaunayTriangulationRayCaster {
         }
       }
     }
+
+    return true;
   }
 
  private:
@@ -627,6 +643,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Intersections between viewing rays and Delaunay triangulation.
     std::vector<DelaunayTriangulationRayCaster::Intersection> intersections;
+    FlatHashSet<Delaunay::Cell_handle> visited_cells;
 
     // Iterate through all image observations and integrate them into the graph.
     for (const auto& point_idx : image.point_idxs) {
@@ -637,19 +654,37 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
           point.num_visible_images * point.num_visible_images);
 
       const K::Point_3 point_position = EigenToCGAL(point.position);
-      const K::Ray_3 viewing_ray = K::Ray_3(image_position, point_position);
       const K::Vector_3 viewing_direction = point_position - image_position;
+      const double viewing_direction_squared_length =
+          viewing_direction.squared_length();
+      // Skip observations without a usable viewing direction. A point at (or
+      // closer than epsilon to) the camera center has no viewing direction:
+      // normalizing it would produce NaN coordinates, and the progress test
+      // in CastRaySegment never rejects a candidate whose distance is NaN, so
+      // the ray walk would not terminate. Below the epsilon length, the ray
+      // segment would additionally point backwards, away from the point.
+      const double viewing_direction_epsilon_length =
+          0.001 * edge_weight_computer.DistanceSigma();
+      if (!std::isfinite(viewing_direction_squared_length) ||
+          viewing_direction_squared_length <=
+              viewing_direction_epsilon_length *
+                  viewing_direction_epsilon_length) {
+        continue;
+      }
+      const K::Ray_3 viewing_ray = K::Ray_3(image_position, point_position);
       const K::Vector_3 viewing_direction_normalized =
-          viewing_direction / std::sqrt(viewing_direction.squared_length());
+          viewing_direction / std::sqrt(viewing_direction_squared_length);
       const K::Vector_3 viewing_direction_epsilon =
-          0.001 * edge_weight_computer.DistanceSigma() *
-          viewing_direction_normalized;
+          viewing_direction_epsilon_length * viewing_direction_normalized;
 
       // Find intersected facets between image and point.
-      ray_caster.CastRaySegment(
-          K::Segment_3(image_position,
-                       point_position - viewing_direction_epsilon),
-          &intersections);
+      if (!ray_caster.CastRaySegment(
+              K::Segment_3(image_position,
+                           point_position - viewing_direction_epsilon),
+              &intersections,
+              &visited_cells)) {
+        continue;
+      }
 
       // Accumulate source weights for cell containing image.
       if (!intersections.empty()) {

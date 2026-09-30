@@ -589,8 +589,43 @@ TEST(Reconstruction, MergePoints3D) {
   EXPECT_EQ(reconstruction.Image(2).Point2D(1).point3D_id, merged_point3D_id);
   EXPECT_TRUE(reconstruction.Point3D(merged_point3D_id)
                   .xyz.isApprox(Eigen::Vector3d(0.5, 0.5, 0.5)));
+  // Black colors are treated as missing and ignored in the merged color.
   EXPECT_EQ(reconstruction.Point3D(merged_point3D_id).color,
-            Eigen::Vector3ub(10, 10, 10));
+            Eigen::Vector3ub(20, 20, 20));
+}
+
+TEST(Reconstruction, MergePoints3DColors) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(3, &reconstruction);
+  const auto merged_color = [&reconstruction](const Eigen::Vector3ub& color1,
+                                              const Eigen::Vector3ub& color2) {
+    const point3D_t point3D_id1 =
+        reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 0), Track());
+    reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
+    reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
+    reconstruction.Point3D(point3D_id1).color = color1;
+    const point3D_t point3D_id2 =
+        reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
+    reconstruction.AddObservation(point3D_id2, TrackElement(3, 0));
+    reconstruction.Point3D(point3D_id2).color = color2;
+    const point3D_t merged_point3D_id =
+        reconstruction.MergePoints3D(point3D_id1, point3D_id2);
+    const Eigen::Vector3ub color =
+        reconstruction.Point3D(merged_point3D_id).color;
+    reconstruction.DeletePoint3D(merged_point3D_id);
+    return color;
+  };
+
+  const Eigen::Vector3ub kBlack(0, 0, 0);
+  // Weighted by track length.
+  EXPECT_EQ(
+      merged_color(Eigen::Vector3ub(30, 60, 90), Eigen::Vector3ub(90, 60, 30)),
+      Eigen::Vector3ub(50, 60, 70));
+  EXPECT_EQ(merged_color(Eigen::Vector3ub(30, 60, 90), kBlack),
+            Eigen::Vector3ub(30, 60, 90));
+  EXPECT_EQ(merged_color(kBlack, Eigen::Vector3ub(90, 60, 30)),
+            Eigen::Vector3ub(90, 60, 30));
+  EXPECT_EQ(merged_color(kBlack, kBlack), kBlack);
 }
 
 TEST(Reconstruction, DeletePoint3D) {

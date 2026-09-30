@@ -11,6 +11,7 @@
 #include "colmap/util/threading.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 #include <Eigen/Cholesky>
@@ -72,6 +73,8 @@ class DefaultGlobalPositioner final : public GlobalPositioner {
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
+  THROW_CHECK(std::isfinite(options_.uncalibrated_observation_weight));
+  THROW_CHECK_GT(options_.uncalibrated_observation_weight, 0.0);
   if (options_.experimental_observation_stddev) {
     THROW_CHECK_GT(*options_.experimental_observation_stddev, 0.0);
     THROW_CHECK(std::isfinite(*options_.experimental_observation_stddev));
@@ -198,9 +201,11 @@ void GlobalPositioner::AddPointToCameraConstraints(
           << " point to camera constraints were added to the position "
              "estimation problem.";
 
-  // Down-weight uncalibrated cameras.
+  // Reweight uncalibrated cameras.
   loss_function_ptcam_uncalibrated_ = std::make_shared<ceres::ScaledLoss>(
-      loss_function_.get(), 0.5, ceres::DO_NOT_TAKE_OWNERSHIP);
+      loss_function_.get(),
+      options_.uncalibrated_observation_weight,
+      ceres::DO_NOT_TAKE_OWNERSHIP);
   loss_function_ptcam_calibrated_ = loss_function_;
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
@@ -263,7 +268,7 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
 
     double& scale = scales_.emplace_back(1);
 
-    if (!options_.generate_scales && random_initialization) {
+    if (options_.initialize_scales_from_geometry) {
       const Eigen::Vector3d cam_from_point3D_translation =
           point3D.xyz - frame_centers_[image.FrameId()];
       scale = std::max(1e-5,
@@ -273,7 +278,6 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
 
     // For calibrated and uncalibrated cameras, use different loss
     // functions
-    // Down weight the uncalibrated cameras
     ceres::LossFunction* loss_function =
         (camera.has_prior_focal_length)
             ? loss_function_ptcam_calibrated_.get()
@@ -420,12 +424,13 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
         problem_->SetParameterBlockConstant(&scale);
       }
     }
-  }
-  // Set the first scale to be constant to remove the gauge ambiguity.
-  for (double& scale : scales_) {
-    if (problem_->HasParameterBlock(&scale)) {
-      problem_->SetParameterBlockConstant(&scale);
-      break;
+  } else if (options_.fix_first_scale) {
+    // Set the first scale to be constant to remove the gauge ambiguity.
+    for (double& scale : scales_) {
+      if (problem_->HasParameterBlock(&scale)) {
+        problem_->SetParameterBlockConstant(&scale);
+        break;
+      }
     }
   }
 
