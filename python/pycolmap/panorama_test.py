@@ -3,12 +3,15 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import pycolmap
 
 from .panorama import (
+    PanoramaReconstructionOptions,
     filter_database_by_covisibility,
     get_virtual_rotations,
+    run_perspective,
 )
 
 
@@ -69,3 +72,18 @@ def test_filter_database_by_covisibility(tmp_path: Path) -> None:
     with pycolmap.Database.open(database_path) as database:
         assert database.exists_two_view_geometry(1, 2)
         assert not database.exists_two_view_geometry(1, 3)
+
+
+def test_run_perspective_raises_for_empty_input_dir(tmp_path: Path) -> None:
+    input_dir = tmp_path / "panoramas"
+    input_dir.mkdir()
+    output_dir = tmp_path / "output"
+
+    with pytest.raises(ValueError, match="No panorama could be rendered"):
+        run_perspective(
+            input_dir,
+            output_dir,
+            PanoramaReconstructionOptions(show_progress=False),
+            output_dir / "database.db",
+            output_dir / "sparse",
+        )
