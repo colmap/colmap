@@ -2,6 +2,50 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.2.1 (09/29/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Fix non-terminating Delaunay meshing (and unbounded memory growth) when a
+  3D point coincides with a camera center. Observations without a viewing
+  direction are skipped and the ray walk is bounded.
+* Fix GPU memory leak in LoMa matching by upgrading ONNX Runtime to 1.30.0.
+* Fix darkened 3D point colors after track merging by treating black as
+  "not yet colored" in ``Reconstruction::MergePoints3D``.
+* Fix the hash-map backend being derived from the build machine's Boost
+  version, which made same-source builds ABI-incompatible and could corrupt
+  memory. The backend now defaults to ``STD`` and mismatches are reported
+  at configure time.
+* Restore legacy bundle-adjustment behavior in the global mapper, fixing a
+  regression introduced in 4.2.0. The inner L2 retriangulation refinement
+  additionally keeps camera poses and intrinsics fixed, optimizing only 3D
+  points, so triangulation outliers can no longer corrupt the cameras.
+* Fix LO-RANSAC local optimization running below the estimator sample
+  minimum.
+* Fix CUDA illegal memory access in image rotate/transpose/flip kernels for
+  large images by computing pitched row offsets in ``size_t``.
+* Fix PoissonRecon binary PLY corruption and crashes caused by inconsistent
+  endianness initialization across translation units.
+* Honor ``TwoViewGeometry.min_inlier_ratio`` consistently in the
+  uncalibrated, forced-homography, and rig estimation paths.
+* Clear payloads of ``DEGENERATE`` two-view geometries during verification
+  and skip ``UNDEFINED``/``DEGENERATE`` pairs when loading the database
+  cache, so rejected pairs no longer flow into the mappers.
+* Prefer reference sensor poses when converting database images to rig
+  frames, avoiding inconsistent shared rig poses.
+* Fix dropped ``THROW_CHECK`` messages with recent glog versions and unify
+  full-precision text stream configuration.
+* Fix a race condition in download-cache directory creation during parallel
+  downloads.
+* Fix the image triangulator progress counter.
+* Fix missing pycolmap method-chaining overrides and NumPy stub annotations.
+* Keep at least one panorama rendering worker.
+* Fix builds without OpenMP, add missing header includes, fix a member
+  initialization order warning, and discard unused future return values in
+  the image undistorters.
+
+-------------------------
 COLMAP 4.2.0 (08/31/2026)
 -------------------------
 

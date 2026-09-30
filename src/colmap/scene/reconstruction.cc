@@ -550,10 +550,19 @@ point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
       (point3D1.track.Length() * point3D1.xyz +
        point3D2.track.Length() * point3D2.xyz) /
       (point3D1.track.Length() + point3D2.track.Length());
-  const Eigen::Vector3d merged_rgb =
-      (point3D1.track.Length() * point3D1.color.cast<double>() +
-       point3D2.track.Length() * point3D2.color.cast<double>()) /
-      (point3D1.track.Length() + point3D2.track.Length());
+  // Black denotes a not yet extracted color, so it is excluded from averaging.
+  const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
+  Eigen::Vector3ub merged_color;
+  if (point3D1.color == kBlackColor) {
+    merged_color = point3D2.color;
+  } else if (point3D2.color == kBlackColor) {
+    merged_color = point3D1.color;
+  } else {
+    merged_color = ((point3D1.track.Length() * point3D1.color.cast<double>() +
+                     point3D2.track.Length() * point3D2.color.cast<double>()) /
+                    (point3D1.track.Length() + point3D2.track.Length()))
+                       .cast<uint8_t>();
+  }
 
   Track merged_track;
   merged_track.Reserve(point3D1.track.Length() + point3D2.track.Length());
@@ -563,8 +572,8 @@ point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
   DeletePoint3D(point3D_id1);
   DeletePoint3D(point3D_id2);
 
-  const point3D_t merged_point3D_id = AddPoint3D(
-      merged_xyz, std::move(merged_track), merged_rgb.cast<uint8_t>());
+  const point3D_t merged_point3D_id =
+      AddPoint3D(merged_xyz, std::move(merged_track), merged_color);
 
   return merged_point3D_id;
 }
