@@ -209,6 +209,36 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
   }
 }
 
+// Grayscale input is converted for inference. Reuses the cached model from
+// the smoke test.
+TEST(AnyCalibCalibratorTest, GreyInput) {
+  Bitmap bitmap(64, 48, /*as_rgb=*/false);
+  for (int r = 0; r < 48; ++r) {
+    for (int c = 0; c < 64; ++c) {
+      bitmap.SetPixel(c, r, BitmapColor<uint8_t>(RandomUniformInteger(0, 255)));
+    }
+  }
+  SingleViewCalibrationOptions options;
+  options.use_gpu = false;
+  auto calibrator = SingleViewCalibrator::Create(options);
+  Camera camera;
+  camera.model_id = CameraModelId::kSimpleRadial;
+  camera.width = 64;
+  camera.height = 48;
+  camera.params = {50, 32, 24, 0};
+  // Random noise is not expected to calibrate; the test only checks that
+  // grayscale input is accepted and inference runs end to end without
+  // crashing (grayscale previously threw).
+  const bool success = calibrator->Calibrate(bitmap, &camera);
+  if (success) {
+    EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
+    EXPECT_TRUE(camera.VerifyParams());
+    EXPECT_EQ(camera.width, 64);
+    EXPECT_EQ(camera.height, 48);
+    EXPECT_TRUE(camera.has_prior_focal_length);
+  }
+}
+
 // A camera without a valid model fails gracefully instead of throwing inside
 // the camera-model switches. Reuses the cached model from the smoke test.
 TEST(AnyCalibCalibratorTest, InvalidCameraModelReturnsFalse) {

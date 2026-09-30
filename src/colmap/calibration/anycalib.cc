@@ -101,7 +101,13 @@ class AnyCalibCalibrator : public SingleViewCalibrator {
                  Camera* camera,
                  const PosePrior& pose_prior) const override {
     THROW_CHECK_NOTNULL(camera);
-    THROW_CHECK(bitmap.IsRGB());
+    // The network needs RGB input; convert grayscale images.
+    Bitmap rgb_bitmap;
+    const Bitmap* input_bitmap = &bitmap;
+    if (!bitmap.IsRGB()) {
+      rgb_bitmap = bitmap.CloneAsRGB();
+      input_bitmap = &rgb_bitmap;
+    }
 
     // An empty target model preserves the camera's existing model. Fitting a
     // non-perspective model fails gracefully below (`FitCameraFromRays`
@@ -117,7 +123,7 @@ class AnyCalibCalibrator : public SingleViewCalibrator {
       return false;
     }
 
-    AnyCalibInput input = PrepareAnyCalibInput(bitmap, pose_prior);
+    AnyCalibInput input = PrepareAnyCalibInput(*input_bitmap, pose_prior);
     const std::vector<int64_t> input_shape(
         {1, 3, kAnyCalibInputSize, kAnyCalibInputSize});
     Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
