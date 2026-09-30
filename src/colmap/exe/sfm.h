@@ -57,6 +57,6 @@ int RunPointFiltering(int argc, char** argv);
 int RunPointTriangulator(int argc, char** argv);
 int RunRotationAverager(int argc, char** argv);
 int RunViewGraphCalibrator(int argc, char** argv);
-int RunCameraCalibrator(int argc, char** argv);
+int RunSingleViewCalibrator(int argc, char** argv);
 
 }  // namespace colmap

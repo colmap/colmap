@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/calibration/calibrator.h"
+#include "colmap/calibration/single_view_calibrator.h"
 
 #include "colmap/calibration/anycalib.h"
 #include "colmap/math/math.h"
@@ -87,7 +87,7 @@ bool IsValidCalibration(const Camera& camera) {
   return true;
 }
 
-bool AggregateCameraCalibrations(
+bool AggregateSingleViewCalibrations(
     const CameraModelId model_id,
     const std::vector<std::vector<double>>& params_list,
     Camera* camera) {
@@ -135,33 +135,34 @@ bool AggregateCameraCalibrations(
   return true;
 }
 
-CameraCalibrationTypeOptions::CameraCalibrationTypeOptions()
-    : anycalib(std::make_shared<AnyCalibCalibrationOptions>()) {}
+SingleViewCalibrationTypeOptions::SingleViewCalibrationTypeOptions()
+    : anycalib(std::make_shared<AnyCalibOptions>()) {}
 
-CameraCalibrationTypeOptions::CameraCalibrationTypeOptions(
-    const CameraCalibrationTypeOptions& other) {
+SingleViewCalibrationTypeOptions::SingleViewCalibrationTypeOptions(
+    const SingleViewCalibrationTypeOptions& other) {
   if (other.anycalib) {
-    anycalib = std::make_shared<AnyCalibCalibrationOptions>(*other.anycalib);
+    anycalib = std::make_shared<AnyCalibOptions>(*other.anycalib);
   }
 }
 
-CameraCalibrationTypeOptions& CameraCalibrationTypeOptions::operator=(
-    const CameraCalibrationTypeOptions& other) {
+SingleViewCalibrationTypeOptions& SingleViewCalibrationTypeOptions::operator=(
+    const SingleViewCalibrationTypeOptions& other) {
   if (this == &other) {
     return *this;
   }
   if (other.anycalib) {
-    anycalib = std::make_shared<AnyCalibCalibrationOptions>(*other.anycalib);
+    anycalib = std::make_shared<AnyCalibOptions>(*other.anycalib);
   } else {
     anycalib.reset();
   }
   return *this;
 }
 
-CameraCalibrationOptions::CameraCalibrationOptions(CameraCalibratorType type)
-    : CameraCalibrationTypeOptions(), type(type) {}
+SingleViewCalibrationOptions::SingleViewCalibrationOptions(
+    SingleViewCalibratorType type)
+    : SingleViewCalibrationTypeOptions(), type(type) {}
 
-bool CameraCalibrationOptions::Check() const {
+bool SingleViewCalibrationOptions::Check() const {
   if (!camera_model.empty()) {
     CHECK_OPTION(ExistsCameraModelWithName(camera_model));
     const CameraModelId model_id = CameraModelNameToId(camera_model);
@@ -172,25 +173,25 @@ bool CameraCalibrationOptions::Check() const {
   CHECK_OPTION_GT(max_focal_length_ratio, min_focal_length_ratio);
   CHECK_OPTION_GT(max_extra_param, 0.0);
   switch (type) {
-    case CameraCalibratorType::ANYCALIB:
+    case SingleViewCalibratorType::ANYCALIB:
       CHECK_OPTION(anycalib != nullptr);
       CHECK_OPTION(anycalib->Check());
       break;
     default:
-      LOG(ERROR) << "Unknown camera calibrator type";
+      LOG(ERROR) << "Unknown single-view calibrator type";
       return false;
   }
   return true;
 }
 
-std::unique_ptr<CameraCalibrator> CameraCalibrator::Create(
-    const CameraCalibrationOptions& options) {
+std::unique_ptr<SingleViewCalibrator> SingleViewCalibrator::Create(
+    const SingleViewCalibrationOptions& options) {
   THROW_CHECK(options.Check());
   switch (options.type) {
-    case CameraCalibratorType::ANYCALIB:
+    case SingleViewCalibratorType::ANYCALIB:
       return CreateAnyCalibCalibrator(options);
     default:
-      LOG(FATAL_THROW) << "Unknown camera calibrator type";
+      LOG(FATAL_THROW) << "Unknown single-view calibrator type";
   }
   return nullptr;
 }

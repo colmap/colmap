@@ -4,11 +4,11 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
-#include "colmap/controllers/camera_calibration.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/rotation_averaging.h"
+#include "colmap/controllers/single_view_calibration.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
@@ -86,8 +86,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
   options.AddDefaultOption("extraction", &reconstruction_options.extraction);
-  options.AddDefaultOption("camera_calibration",
-                           &reconstruction_options.camera_calibration);
+  options.AddDefaultOption("single_view_calibration",
+                           &reconstruction_options.single_view_calibration);
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
@@ -788,14 +788,14 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunCameraCalibrator(int argc, char** argv) {
+int RunSingleViewCalibrator(int argc, char** argv) {
   std::filesystem::path image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddCameraCalibrationOptions();
+  options.AddSingleViewCalibrationOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -806,10 +806,10 @@ int RunCameraCalibrator(int argc, char** argv) {
   }
 
   auto calibrator =
-      CreateCameraCalibrationController(*options.database_path,
-                                        *options.image_path,
-                                        *options.camera_calibration,
-                                        image_names);
+      CreateSingleViewCalibrationController(*options.database_path,
+                                            *options.image_path,
+                                            *options.single_view_calibration,
+                                            image_names);
   calibrator->Start();
   calibrator->Wait();
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/controllers/camera_calibration.h"
+#include "colmap/controllers/single_view_calibration.h"
 
 #include "colmap/calibration/anycalib.h"
 #include "colmap/math/random.h"
@@ -25,13 +25,13 @@ namespace {
 // the feature extraction and matching controllers, so that the network is not
 // held in device memory during preceding pipeline stages. A missing model
 // therefore surfaces when creating the calibrator, not the controller.
-TEST(CameraCalibratorTest, MissingModelThrows) {
-  CameraCalibrationOptions options;
+TEST(SingleViewCalibratorTest, MissingModelThrows) {
+  SingleViewCalibrationOptions options;
   options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
-  EXPECT_THROW(CameraCalibrator::Create(options), std::exception);
+  EXPECT_THROW(SingleViewCalibrator::Create(options), std::exception);
 }
 
-TEST(CreateCameraCalibrationControllerTest, MissingModelDoesNotThrow) {
+TEST(CreateSingleViewCalibrationControllerTest, MissingModelDoesNotThrow) {
   const auto test_dir = CreateTestDir();
   const auto database_path = test_dir / "database.db";
   const std::vector<double> initial_params = {50, 32, 24, 0};
@@ -48,10 +48,10 @@ TEST(CreateCameraCalibrationControllerTest, MissingModelDoesNotThrow) {
     image.SetCameraId(camera_id);
     database->WriteImage(image);
   }
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
   std::unique_ptr<Thread> controller;
-  EXPECT_NO_THROW(controller = CreateCameraCalibrationController(
+  EXPECT_NO_THROW(controller = CreateSingleViewCalibrationController(
                       database_path, test_dir, options));
   // The calibrator is created in the worker thread, where an escaping
   // exception would terminate the process instead of failing the stage.
@@ -85,7 +85,7 @@ struct BlockingState {
   std::atomic<bool> entered_once = false;
 };
 
-class FakeCalibrator : public CameraCalibrator {
+class FakeCalibrator : public SingleViewCalibrator {
  public:
   struct Config {
     // Per-call parameters; the last entry repeats once exhausted.
@@ -131,8 +131,10 @@ class FakeCalibrator : public CameraCalibrator {
   mutable std::atomic<size_t> num_calls_ = 0;
 };
 
-CameraCalibratorFactory FakeCalibratorFactory(FakeCalibrator::Config config) {
-  return [config = std::move(config)](const CameraCalibrationOptions& options) {
+SingleViewCalibratorFactory FakeCalibratorFactory(
+    FakeCalibrator::Config config) {
+  return [config =
+              std::move(config)](const SingleViewCalibrationOptions& options) {
     return std::make_unique<FakeCalibrator>(
         config,
         options.camera_model.empty()
@@ -197,18 +199,18 @@ void ExpectParamsNear(const std::vector<double>& actual,
   }
 }
 
-TEST(CameraCalibrationControllerTest, FakeCalibratorUpdatesDatabase) {
+TEST(SingleViewCalibrationControllerTest, FakeCalibratorUpdatesDatabase) {
   const FakeCalibrationScene scene = CreateFakeCalibrationScene();
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 32, 24, 0.05}, {400, 32, 24, 0.15}};
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   auto controller =
-      CreateCameraCalibrationController(scene.database_path,
-                                        scene.test_dir,
-                                        options,
-                                        {},
-                                        FakeCalibratorFactory(config));
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {},
+                                            FakeCalibratorFactory(config));
   controller->Start();
   controller->Wait();
 
@@ -218,21 +220,22 @@ TEST(CameraCalibrationControllerTest, FakeCalibratorUpdatesDatabase) {
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(CameraCalibrationControllerTest, EmptyTargetModelPreservesCameraModel) {
+TEST(SingleViewCalibrationControllerTest,
+     EmptyTargetModelPreservesCameraModel) {
   const FakeCalibrationScene scene = CreateFakeCalibrationSceneWithModel(
       CameraModelId::kOpenCV, {50, 50, 32, 24, 0, 0, 0, 0});
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 600, 32, 24, 0, 0, 0, 0},
                             {400, 400, 32, 24, 0, 0, 0, 0}};
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   ASSERT_TRUE(options.camera_model.empty());
   auto controller =
-      CreateCameraCalibrationController(scene.database_path,
-                                        scene.test_dir,
-                                        options,
-                                        {},
-                                        FakeCalibratorFactory(config));
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {},
+                                            FakeCalibratorFactory(config));
   controller->Start();
   controller->Wait();
 
@@ -243,20 +246,21 @@ TEST(CameraCalibrationControllerTest, EmptyTargetModelPreservesCameraModel) {
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(CameraCalibrationControllerTest, ExplicitTargetModelConvertsCameraModel) {
+TEST(SingleViewCalibrationControllerTest,
+     ExplicitTargetModelConvertsCameraModel) {
   const FakeCalibrationScene scene = CreateFakeCalibrationSceneWithModel(
       CameraModelId::kOpenCV, {50, 50, 32, 24, 0, 0, 0, 0});
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 32, 24, 0.05}, {400, 32, 24, 0.15}};
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.camera_model = "SIMPLE_RADIAL";
   auto controller =
-      CreateCameraCalibrationController(scene.database_path,
-                                        scene.test_dir,
-                                        options,
-                                        {},
-                                        FakeCalibratorFactory(config));
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {},
+                                            FakeCalibratorFactory(config));
   controller->Start();
   controller->Wait();
 
@@ -266,19 +270,19 @@ TEST(CameraCalibrationControllerTest, ExplicitTargetModelConvertsCameraModel) {
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(CameraCalibrationControllerTest, FailingCalibratorKeepsDatabase) {
+TEST(SingleViewCalibrationControllerTest, FailingCalibratorKeepsDatabase) {
   const FakeCalibrationScene scene = CreateFakeCalibrationScene();
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 32, 24, 0.05}};
   config.success = false;
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   auto controller =
-      CreateCameraCalibrationController(scene.database_path,
-                                        scene.test_dir,
-                                        options,
-                                        {},
-                                        FakeCalibratorFactory(config));
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {},
+                                            FakeCalibratorFactory(config));
   controller->Start();
   controller->Wait();
 
@@ -286,19 +290,19 @@ TEST(CameraCalibrationControllerTest, FailingCalibratorKeepsDatabase) {
   EXPECT_EQ(camera.params, scene.initial_params);
 }
 
-TEST(CameraCalibrationControllerTest, ThrowingCalibratorIsTolerated) {
+TEST(SingleViewCalibrationControllerTest, ThrowingCalibratorIsTolerated) {
   const FakeCalibrationScene scene = CreateFakeCalibrationScene();
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 32, 24, 0.05}};
   config.throw_error = true;
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   auto controller =
-      CreateCameraCalibrationController(scene.database_path,
-                                        scene.test_dir,
-                                        options,
-                                        {},
-                                        FakeCalibratorFactory(config));
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {},
+                                            FakeCalibratorFactory(config));
   controller->Start();
   EXPECT_NO_THROW(controller->Wait());
 
@@ -306,7 +310,7 @@ TEST(CameraCalibrationControllerTest, ThrowingCalibratorIsTolerated) {
   EXPECT_EQ(camera.params, scene.initial_params);
 }
 
-TEST(CameraCalibrationControllerTest, DimensionMismatchSkipsImage) {
+TEST(SingleViewCalibrationControllerTest, DimensionMismatchSkipsImage) {
   const auto test_dir = CreateTestDir();
   const auto database_path = test_dir / "database.db";
   const std::vector<double> initial_params = {50, 32, 24, 0};
@@ -329,8 +333,8 @@ TEST(CameraCalibrationControllerTest, DimensionMismatchSkipsImage) {
 
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 32, 24, 0.05}};
-  CameraCalibrationOptions options;
-  auto controller = CreateCameraCalibrationController(
+  SingleViewCalibrationOptions options;
+  auto controller = CreateSingleViewCalibrationController(
       database_path, test_dir, options, {}, FakeCalibratorFactory(config));
   controller->Start();
   controller->Wait();
@@ -339,18 +343,18 @@ TEST(CameraCalibrationControllerTest, DimensionMismatchSkipsImage) {
   EXPECT_EQ(camera.params, initial_params);
 }
 
-TEST(CameraCalibrationControllerTest, UnknownImageNamesAreIgnored) {
+TEST(SingleViewCalibrationControllerTest, UnknownImageNamesAreIgnored) {
   const FakeCalibrationScene scene = CreateFakeCalibrationScene();
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 32, 24, 0.05}};
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   auto controller =
-      CreateCameraCalibrationController(scene.database_path,
-                                        scene.test_dir,
-                                        options,
-                                        {"image0.png", "missing.png"},
-                                        FakeCalibratorFactory(config));
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {"image0.png", "missing.png"},
+                                            FakeCalibratorFactory(config));
   controller->Start();
   controller->Wait();
 
@@ -358,20 +362,20 @@ TEST(CameraCalibrationControllerTest, UnknownImageNamesAreIgnored) {
   ExpectParamsNear(camera.params, {600, 32, 24, 0.05});
 }
 
-TEST(CameraCalibrationControllerTest, StopWhileCalibrating) {
+TEST(SingleViewCalibrationControllerTest, StopWhileCalibrating) {
   const FakeCalibrationScene scene = CreateFakeCalibrationScene();
   auto block = std::make_shared<BlockingState>();
   FakeCalibrator::Config config;
   config.params_sequence = {{600, 32, 24, 0.05}};
   config.block = block;
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   auto controller =
-      CreateCameraCalibrationController(scene.database_path,
-                                        scene.test_dir,
-                                        options,
-                                        {},
-                                        FakeCalibratorFactory(config));
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {},
+                                            FakeCalibratorFactory(config));
   controller->Start();
   // Wait until the worker is blocked inside `Calibrate`, stop it, then release
   // the worker so the run terminates deterministically.
@@ -387,9 +391,9 @@ TEST(CameraCalibrationControllerTest, StopWhileCalibrating) {
 
 // Full-controller integration test, run only when the exported model is
 // available: COLMAP_ANYCALIB_MODEL_PATH=/path/to/anycalib_gen.onnx ctest -R
-// camera_calibration_test. Uses random-noise images, which are not expected
-// to calibrate; the test checks graceful handling end to end.
-TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
+// single_view_calibration_test. Uses random-noise images, which are not
+// expected to calibrate; the test checks graceful handling end to end.
+TEST(SingleViewCalibrationControllerTest, IntegrationTestWithModel) {
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   const char* model_path = std::getenv("COLMAP_ANYCALIB_MODEL_PATH");
   if (model_path == nullptr) {
@@ -428,7 +432,7 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
     }
   }
 
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.num_threads = 1;
   options.use_gpu = false;
   options.anycalib->model_path = model_path;
@@ -440,10 +444,11 @@ TEST(CameraCalibrationControllerTest, IntegrationTestWithModel) {
   expected_camera.height = 48;
   expected_camera.params = initial_params;
   expected_camera.has_prior_focal_length = true;
-  const bool expected_success = CameraCalibrator::Create(options)->Calibrate(
-      selected_bitmap, &expected_camera);
+  const bool expected_success =
+      SingleViewCalibrator::Create(options)->Calibrate(selected_bitmap,
+                                                       &expected_camera);
 
-  auto controller = CreateCameraCalibrationController(
+  auto controller = CreateSingleViewCalibrationController(
       database_path, test_dir, options, {"image0.png"});
   controller->Start();
   controller->Wait();

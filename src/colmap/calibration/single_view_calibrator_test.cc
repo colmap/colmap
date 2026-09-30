@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/calibration/calibrator.h"
+#include "colmap/calibration/single_view_calibrator.h"
 
 #include "colmap/calibration/anycalib.h"
 
@@ -11,82 +11,83 @@
 namespace colmap {
 namespace {
 
-TEST(CameraCalibratorTypeTest, StringRoundTrip) {
-  EXPECT_EQ(CameraCalibratorTypeToString(CameraCalibratorType::ANYCALIB),
-            "ANYCALIB");
-  EXPECT_EQ(CameraCalibratorTypeFromString("ANYCALIB"),
-            CameraCalibratorType::ANYCALIB);
+TEST(SingleViewCalibratorTypeTest, StringRoundTrip) {
+  EXPECT_EQ(
+      SingleViewCalibratorTypeToString(SingleViewCalibratorType::ANYCALIB),
+      "ANYCALIB");
+  EXPECT_EQ(SingleViewCalibratorTypeFromString("ANYCALIB"),
+            SingleViewCalibratorType::ANYCALIB);
 }
 
-TEST(CameraCalibrationOptionsTest, CopyDeepCopiesTypeOptions) {
-  CameraCalibrationOptions options;
+TEST(SingleViewCalibrationOptionsTest, CopyDeepCopiesTypeOptions) {
+  SingleViewCalibrationOptions options;
   ASSERT_NE(options.anycalib, nullptr);
   options.anycalib->model_path = "original";
 
-  CameraCalibrationOptions copy = options;
+  SingleViewCalibrationOptions copy = options;
   ASSERT_NE(copy.anycalib, nullptr);
   EXPECT_NE(copy.anycalib, options.anycalib);
   EXPECT_EQ(copy.anycalib->model_path, "original");
   copy.anycalib->model_path = "modified";
   EXPECT_EQ(options.anycalib->model_path, "original");
 
-  CameraCalibrationOptions assigned;
+  SingleViewCalibrationOptions assigned;
   assigned = options;
   EXPECT_NE(assigned.anycalib, options.anycalib);
   EXPECT_EQ(assigned.anycalib->model_path, "original");
 }
 
-TEST(CameraCalibrationOptionsTest, CheckValidatesAllFields) {
-  CameraCalibrationOptions options;
+TEST(SingleViewCalibrationOptionsTest, CheckValidatesAllFields) {
+  SingleViewCalibrationOptions options;
   EXPECT_TRUE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.camera_model = "DOES_NOT_EXIST";
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.camera_model = "EQUIRECTANGULAR";
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.num_threads = -2;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.min_focal_length_ratio = 0;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.max_focal_length_ratio = options.min_focal_length_ratio;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.max_extra_param = 0;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.anycalib = nullptr;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   options.anycalib->fitting.max_num_points = 0;
   EXPECT_FALSE(options.Check());
 
-  options = CameraCalibrationOptions();
+  options = SingleViewCalibrationOptions();
   // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
-  options.type = static_cast<CameraCalibratorType>(-1);
+  options.type = static_cast<SingleViewCalibratorType>(-1);
   EXPECT_FALSE(options.Check());
 }
 
-TEST(CameraCalibrationOptionsTest, MovePreservesTypeOptions) {
-  CameraCalibrationOptions options;
+TEST(SingleViewCalibrationOptionsTest, MovePreservesTypeOptions) {
+  SingleViewCalibrationOptions options;
   options.anycalib->model_path = "original";
 
-  CameraCalibrationOptions moved = std::move(options);
+  SingleViewCalibrationOptions moved = std::move(options);
   ASSERT_NE(moved.anycalib, nullptr);
   EXPECT_EQ(moved.anycalib->model_path, "original");
 
-  CameraCalibrationOptions assigned;
+  SingleViewCalibrationOptions assigned;
   assigned = std::move(moved);
   ASSERT_NE(assigned.anycalib, nullptr);
   EXPECT_EQ(assigned.anycalib->model_path, "original");
@@ -94,8 +95,8 @@ TEST(CameraCalibrationOptionsTest, MovePreservesTypeOptions) {
 
 // The plausibility bounds match the defaults of the incremental mapper, so
 // that intrinsics accepted here are not rejected during mapping.
-TEST(CameraCalibrationOptionsTest, DefaultsRejectImplausibleIntrinsics) {
-  const CameraCalibrationOptions options;
+TEST(SingleViewCalibrationOptionsTest, DefaultsRejectImplausibleIntrinsics) {
+  const SingleViewCalibrationOptions options;
   Camera camera = Camera::CreateFromModelId(
       /*camera_id=*/1, CameraModelId::kSimpleRadial, 500, 640, 480);
 
@@ -150,17 +151,17 @@ Camera CreateSimpleRadialCamera() {
       /*camera_id=*/1, CameraModelId::kSimpleRadial, 500, 640, 480);
 }
 
-TEST(AggregateCameraCalibrationsTest, EmptyList) {
+TEST(AggregateSingleViewCalibrationsTest, EmptyList) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_FALSE(
-      AggregateCameraCalibrations(CameraModelId::kSimpleRadial, {}, &camera));
+  EXPECT_FALSE(AggregateSingleViewCalibrations(
+      CameraModelId::kSimpleRadial, {}, &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0}));
   EXPECT_FALSE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, OddMedian) {
+TEST(AggregateSingleViewCalibrationsTest, OddMedian) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations(
+  EXPECT_TRUE(AggregateSingleViewCalibrations(
       CameraModelId::kSimpleRadial,
       {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}, {500, 320, 240, 0.10}},
       &camera));
@@ -168,9 +169,9 @@ TEST(AggregateCameraCalibrationsTest, OddMedian) {
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, EvenMedian) {
+TEST(AggregateSingleViewCalibrationsTest, EvenMedian) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations(
+  EXPECT_TRUE(AggregateSingleViewCalibrations(
       CameraModelId::kSimpleRadial,
       {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}},
       &camera));
@@ -182,15 +183,15 @@ TEST(AggregateCameraCalibrationsTest, EvenMedian) {
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, SetsTargetCameraModel) {
+TEST(AggregateSingleViewCalibrationsTest, SetsTargetCameraModel) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_TRUE(AggregateCameraCalibrations(
+  EXPECT_TRUE(AggregateSingleViewCalibrations(
       CameraModelId::kPinhole, {{500, 500, 320, 240}}, &camera));
   EXPECT_EQ(camera.model_id, CameraModelId::kPinhole);
   EXPECT_EQ(camera.params, std::vector<double>({500, 500, 320, 240}));
 }
 
-TEST(AggregateCameraCalibrationsTest, InvalidMedianFallsBackToClosest) {
+TEST(AggregateSingleViewCalibrationsTest, InvalidMedianFallsBackToClosest) {
   // Two individually well-behaved OPENCV calibrations whose coefficient-wise
   // median is not projection-stable, because the median breaks the correlation
   // between focal length and the radial coefficients.
@@ -203,34 +204,34 @@ TEST(AggregateCameraCalibrationsTest, InvalidMedianFallsBackToClosest) {
       /*camera_id=*/1, model_id, 500, 640, 480);
   for (const std::vector<double>& params : {params1, params2, median}) {
     Camera single = camera;
-    EXPECT_EQ(AggregateCameraCalibrations(model_id, {params}, &single),
+    EXPECT_EQ(AggregateSingleViewCalibrations(model_id, {params}, &single),
               params != median);
   }
 
   ASSERT_TRUE(
-      AggregateCameraCalibrations(model_id, {params1, params2}, &camera));
+      AggregateSingleViewCalibrations(model_id, {params1, params2}, &camera));
   // The two candidates are symmetric around the median, so their distances
   // tie exactly and `min_element` deterministically picks the first.
   EXPECT_EQ(camera.params, params1);
   EXPECT_TRUE(camera.has_prior_focal_length);
 }
 
-TEST(AggregateCameraCalibrationsTest, RejectsRaggedParams) {
+TEST(AggregateSingleViewCalibrationsTest, RejectsRaggedParams) {
   Camera camera = CreateSimpleRadialCamera();
-  EXPECT_THROW(AggregateCameraCalibrations(CameraModelId::kSimpleRadial,
-                                           {{500, 320, 240, 0}, {500, 320}},
-                                           &camera),
+  EXPECT_THROW(AggregateSingleViewCalibrations(CameraModelId::kSimpleRadial,
+                                               {{500, 320, 240, 0}, {500, 320}},
+                                               &camera),
                std::exception);
 }
 
-TEST(AggregateCameraCalibrationsTest, RejectsInvalidParams) {
+TEST(AggregateSingleViewCalibrationsTest, RejectsInvalidParams) {
   const std::vector<double> original_params = {500, 320, 240, 0};
   const double nan = std::numeric_limits<double>::quiet_NaN();
   for (const std::vector<double>& params :
        {std::vector<double>{nan, 320, 240, 0},
         std::vector<double>{-500, 320, 240, 0}}) {
     Camera camera = CreateSimpleRadialCamera();
-    EXPECT_FALSE(AggregateCameraCalibrations(
+    EXPECT_FALSE(AggregateSingleViewCalibrations(
         CameraModelId::kSimpleRadial, {params}, &camera));
     EXPECT_EQ(camera.params, original_params);
     EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);

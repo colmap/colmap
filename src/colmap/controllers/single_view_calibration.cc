@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/controllers/camera_calibration.h"
+#include "colmap/controllers/single_view_calibration.h"
 
 #include "colmap/scene/database.h"
 #include "colmap/util/file.h"
@@ -13,14 +13,14 @@
 namespace colmap {
 namespace {
 
-class CameraCalibrationController : public Thread {
+class SingleViewCalibrationController : public Thread {
  public:
-  CameraCalibrationController(
+  SingleViewCalibrationController(
       const std::filesystem::path& database_path,
       const std::filesystem::path& image_path,
-      const CameraCalibrationOptions& calibration_options,
+      const SingleViewCalibrationOptions& calibration_options,
       const std::vector<std::string>& image_names,
-      CameraCalibratorFactory calibrator_factory)
+      SingleViewCalibratorFactory calibrator_factory)
       : image_path_(image_path),
         calibration_options_(calibration_options),
         image_names_(image_names.begin(), image_names.end()),
@@ -32,7 +32,7 @@ class CameraCalibrationController : public Thread {
 
  private:
   void Run() override {
-    LOG_HEADING1("Camera calibration");
+    LOG_HEADING1("Single-view calibration");
     Timer run_timer;
     run_timer.Start();
 
@@ -56,13 +56,13 @@ class CameraCalibrationController : public Thread {
     // onto the device. Creating it in the constructor would hold that memory
     // for the entire duration of any preceding pipeline stage (e.g. feature
     // extraction in the automatic reconstruction pipeline).
-    std::unique_ptr<CameraCalibrator> calibrator;
+    std::unique_ptr<SingleViewCalibrator> calibrator;
     try {
       calibrator = calibrator_factory_
                        ? calibrator_factory_(calibration_options_)
-                       : CameraCalibrator::Create(calibration_options_);
+                       : SingleViewCalibrator::Create(calibration_options_);
     } catch (const std::exception& e) {
-      LOG(ERROR) << "Failed to create camera calibrator: " << e.what()
+      LOG(ERROR) << "Failed to create single-view calibrator: " << e.what()
                  << ", cameras unchanged";
       return;
     }
@@ -171,7 +171,7 @@ class CameraCalibrationController : public Thread {
       const CameraModelId model_id =
           configured_model_id == CameraModelId::kInvalid ? camera.model_id
                                                          : configured_model_id;
-      if (AggregateCameraCalibrations(model_id, params_list, &camera)) {
+      if (AggregateSingleViewCalibrations(model_id, params_list, &camera)) {
         database_->UpdateCamera(camera);
         ++num_cameras_updated;
         VLOG(1) << "Updated camera " << camera_id << ": "
@@ -195,21 +195,21 @@ class CameraCalibrationController : public Thread {
   }
 
   const std::filesystem::path image_path_;
-  const CameraCalibrationOptions calibration_options_;
+  const SingleViewCalibrationOptions calibration_options_;
   const FlatHashSet<std::string> image_names_;
-  const CameraCalibratorFactory calibrator_factory_;
+  const SingleViewCalibratorFactory calibrator_factory_;
   const std::shared_ptr<Database> database_;
 };
 
 }  // namespace
 
-std::unique_ptr<Thread> CreateCameraCalibrationController(
+std::unique_ptr<Thread> CreateSingleViewCalibrationController(
     const std::filesystem::path& database_path,
     const std::filesystem::path& image_path,
-    const CameraCalibrationOptions& calibration_options,
+    const SingleViewCalibrationOptions& calibration_options,
     const std::vector<std::string>& image_names,
-    CameraCalibratorFactory calibrator_factory) {
-  return std::make_unique<CameraCalibrationController>(
+    SingleViewCalibratorFactory calibrator_factory) {
+  return std::make_unique<SingleViewCalibrationController>(
       database_path,
       image_path,
       calibration_options,

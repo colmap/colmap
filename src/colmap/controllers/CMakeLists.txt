@@ -8,7 +8,7 @@ COLMAP_ADD_LIBRARY(
         automatic_reconstruction.h automatic_reconstruction.cc
         base_option_manager.h base_option_manager.cc
         bundle_adjustment.h bundle_adjustment.cc
-        camera_calibration.h camera_calibration.cc
+        single_view_calibration.h single_view_calibration.cc
         hierarchical_pipeline.h hierarchical_pipeline.cc
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
@@ -61,8 +61,8 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
-    NAME camera_calibration_test
-    SRCS camera_calibration_test.cc
+    NAME single_view_calibration_test
+    SRCS single_view_calibration_test.cc
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(

@@ -6,7 +6,7 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_calibration
     SRCS
         anycalib.h anycalib.cc
-        calibrator.h calibrator.cc
+        single_view_calibrator.h single_view_calibrator.cc
         ray_fitting.h ray_fitting.cc
         resources.h
     PUBLIC_LINK_LIBS
@@ -23,8 +23,8 @@ if(ONNX_ENABLED)
 endif()
 
 COLMAP_ADD_TEST(
-    NAME calibrator_test
-    SRCS calibrator_test.cc
+    NAME single_view_calibrator_test
+    SRCS single_view_calibrator_test.cc
     LINK_LIBS colmap_calibration
 )
 

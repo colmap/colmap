@@ -13,11 +13,11 @@
 
 namespace colmap {
 
-struct AnyCalibCalibrationOptions;
+struct AnyCalibOptions;
 
-// Backend for learned single-image camera calibration. Additional backends
+// Backend for learned single-view calibration. Additional backends
 // (e.g. GeoCalib) plug in here without changing the pipeline or CLI.
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraCalibratorType, 0, ANYCALIB);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(SingleViewCalibratorType, 0, ANYCALIB);
 
 // Whether the intrinsics are numerically well behaved: finite parameters,
 // positive focal lengths, and a projection that round-trips over the image.
@@ -40,29 +40,31 @@ bool IsValidCalibration(const Camera& camera);
 // if `params_list` is empty or no valid calibration is found, leaving
 // `camera` unmodified. The dimensions of `camera` must be those of the images
 // it was calibrated from.
-bool AggregateCameraCalibrations(
+bool AggregateSingleViewCalibrations(
     CameraModelId model_id,
     const std::vector<std::vector<double>>& params_list,
     Camera* camera);
 
-struct CameraCalibrationTypeOptions {
-  CameraCalibrationTypeOptions();
+struct SingleViewCalibrationTypeOptions {
+  SingleViewCalibrationTypeOptions();
 
-  std::shared_ptr<AnyCalibCalibrationOptions> anycalib;
+  std::shared_ptr<AnyCalibOptions> anycalib;
 
-  CameraCalibrationTypeOptions(const CameraCalibrationTypeOptions& other);
-  CameraCalibrationTypeOptions& operator=(
-      const CameraCalibrationTypeOptions& other);
-  CameraCalibrationTypeOptions(CameraCalibrationTypeOptions&& other) = default;
-  CameraCalibrationTypeOptions& operator=(
-      CameraCalibrationTypeOptions&& other) = default;
+  SingleViewCalibrationTypeOptions(
+      const SingleViewCalibrationTypeOptions& other);
+  SingleViewCalibrationTypeOptions& operator=(
+      const SingleViewCalibrationTypeOptions& other);
+  SingleViewCalibrationTypeOptions(SingleViewCalibrationTypeOptions&& other) =
+      default;
+  SingleViewCalibrationTypeOptions& operator=(
+      SingleViewCalibrationTypeOptions&& other) = default;
 };
 
-struct CameraCalibrationOptions : public CameraCalibrationTypeOptions {
-  explicit CameraCalibrationOptions(
-      CameraCalibratorType type = CameraCalibratorType::ANYCALIB);
+struct SingleViewCalibrationOptions : public SingleViewCalibrationTypeOptions {
+  explicit SingleViewCalibrationOptions(
+      SingleViewCalibratorType type = SingleViewCalibratorType::ANYCALIB);
 
-  CameraCalibratorType type = CameraCalibratorType::ANYCALIB;
+  SingleViewCalibratorType type = SingleViewCalibratorType::ANYCALIB;
 
   // Target COLMAP camera model for the fitted intrinsics. Any perspective
   // model is supported; the fitting refines that model's parameters directly.
@@ -101,17 +103,17 @@ struct CameraCalibrationOptions : public CameraCalibrationTypeOptions {
   bool Check() const;
 };
 
-// Abstract single-image camera calibrator: estimates intrinsics for one image,
+// Abstract single-view calibrator: estimates intrinsics for one image,
 // replacing e.g. EXIF-based initialization with a learned prediction.
-class CameraCalibrator {
+class SingleViewCalibrator {
  public:
-  virtual ~CameraCalibrator() = default;
+  virtual ~SingleViewCalibrator() = default;
 
   // Create the calibrator backend selected by `options.type`. Throws if the
   // options are invalid, the type is unknown, or the backend cannot be created
   // (e.g. the network model cannot be loaded); never returns nullptr.
-  static std::unique_ptr<CameraCalibrator> Create(
-      const CameraCalibrationOptions& options);
+  static std::unique_ptr<SingleViewCalibrator> Create(
+      const SingleViewCalibrationOptions& options);
 
   // Calibrate the camera for `bitmap`, optionally using an existing focal
   // length prior in `camera` and gravity in `pose_prior`, and write the

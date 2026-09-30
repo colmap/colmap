@@ -179,8 +179,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("transitive_matcher",
                         &colmap::RunTransitiveMatcher,
                         kSupportsGracefulShutdown);
-  commands.emplace_back("camera_calibrator",
-                        &colmap::RunCameraCalibrator,
+  commands.emplace_back("single_view_calibrator",
+                        &colmap::RunSingleViewCalibrator,
                         kSupportsGracefulShutdown);
   commands.emplace_back("view_graph_calibrator",
                         &colmap::RunViewGraphCalibrator);

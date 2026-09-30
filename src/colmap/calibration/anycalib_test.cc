@@ -2,7 +2,7 @@
 
 #include "colmap/calibration/anycalib.h"
 
-#include "colmap/calibration/calibrator.h"
+#include "colmap/calibration/single_view_calibrator.h"
 #include "colmap/math/random.h"
 
 #include <algorithm>
@@ -156,20 +156,20 @@ TEST(PrepareAnyCalibInputTest, DegenerateGravityDoesNotCrash) {
 }
 
 TEST(CreateAnyCalibCalibratorTest, EmptyModelPathThrows) {
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.anycalib->model_path = "";
   // Route through the public factory, like production callers.
-  EXPECT_THROW(CameraCalibrator::Create(options), std::exception);
+  EXPECT_THROW(SingleViewCalibrator::Create(options), std::exception);
 }
 
 TEST(CreateAnyCalibCalibratorTest, NullAnyCalibOptionsThrows) {
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.anycalib = nullptr;
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
 
 TEST(CreateAnyCalibCalibratorTest, MissingModelFileThrows) {
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.anycalib->model_path = "/nonexistent/anycalib_gen.onnx";
   EXPECT_THROW(CreateAnyCalibCalibrator(options), std::exception);
 }
@@ -187,9 +187,9 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
                                            RandomUniformInteger(0, 255)));
     }
   }
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.use_gpu = false;
-  auto calibrator = CameraCalibrator::Create(options);
+  auto calibrator = SingleViewCalibrator::Create(options);
   // A valid model exercises inference end to end; the empty default target
   // model preserves it.
   Camera camera;
@@ -214,9 +214,9 @@ TEST(AnyCalibCalibratorTest, SmokeTestWithModel) {
 TEST(AnyCalibCalibratorTest, InvalidCameraModelReturnsFalse) {
   Bitmap bitmap;
   CreateSolidRgbImage(64, 48, 255, &bitmap);
-  CameraCalibrationOptions options;
+  SingleViewCalibrationOptions options;
   options.use_gpu = false;
-  auto calibrator = CameraCalibrator::Create(options);
+  auto calibrator = SingleViewCalibrator::Create(options);
   Camera camera;
   EXPECT_FALSE(calibrator->Calibrate(bitmap, &camera));
   EXPECT_EQ(camera.model_id, CameraModelId::kInvalid);

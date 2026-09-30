@@ -2,7 +2,7 @@
 
 #include "colmap/calibration/anycalib.h"
 
-#include "colmap/calibration/calibrator.h"
+#include "colmap/calibration/single_view_calibrator.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/onnx.h"
 
@@ -85,9 +85,9 @@ size_t CheckONNXSignatureAndGetRayIndex(const ONNXModel& model) {
   return *rays_idx;
 }
 
-class AnyCalibCalibrator : public CameraCalibrator {
+class AnyCalibCalibrator : public SingleViewCalibrator {
  public:
-  explicit AnyCalibCalibrator(const CameraCalibrationOptions& options)
+  explicit AnyCalibCalibrator(const SingleViewCalibrationOptions& options)
       : options_(options),
         model_(options.anycalib->model_path,
                options.num_threads,
@@ -196,7 +196,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
   }
 
  private:
-  CameraCalibrationOptions options_;
+  SingleViewCalibrationOptions options_;
   ONNXModel model_;
   size_t rays_idx_ = 0;
 };
@@ -205,7 +205,7 @@ class AnyCalibCalibrator : public CameraCalibrator {
 
 }  // namespace
 
-bool AnyCalibCalibrationOptions::Check() const {
+bool AnyCalibOptions::Check() const {
   // NOTE: `model_path` is intentionally not validated here: like the
   // feature extractor model paths, it may be empty until set, and a missing
   // file surfaces as an exception when the calibrator is created.
@@ -310,8 +310,8 @@ AnyCalibInput PrepareAnyCalibInput(const Bitmap& bitmap,
   return input;
 }
 
-std::unique_ptr<CameraCalibrator> CreateAnyCalibCalibrator(
-    const CameraCalibrationOptions& options) {
+std::unique_ptr<SingleViewCalibrator> CreateAnyCalibCalibrator(
+    const SingleViewCalibrationOptions& options) {
 #ifdef COLMAP_ONNX_ENABLED
   // Validate before constructing: the constructor dereferences
   // `options.anycalib` in its initializer list and loads the network model, so
