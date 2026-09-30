@@ -6,11 +6,11 @@
 #include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -63,68 +63,53 @@ void ExpectEqualGravity(const Eigen::Vector3d& gravity_in_world,
   }
 }
 
-TEST(GravityRefinement, RefineGravity) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
+struct GravityRefinementTestData {
+  SyntheticDatasetOptions synthetic_options;
   Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 25;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-
   Reconstruction reconstruction;
   PoseGraph pose_graph;
-  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
+  std::vector<PosePrior> pose_priors;
+};
 
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
+GravityRefinementTestData SynthesizeGravityRefinementTestData(
+    int num_cameras_per_rig) {
+  GravityRefinementTestData data;
+  data.synthetic_options.num_rigs = 2;
+  data.synthetic_options.num_cameras_per_rig = num_cameras_per_rig;
+  data.synthetic_options.num_frames_per_rig = 25;
+  data.synthetic_options.num_points3D = 100;
+  data.synthetic_options.prior_gravity = true;
+  data.synthetic_options.two_view_geometry_has_relative_pose = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(
+      data.synthetic_options, &data.gt_reconstruction, database.get());
+  LoadReconstructionAndPoseGraph(
+      *database, &data.reconstruction, &data.pose_graph);
+  data.pose_priors = database->ReadAllPosePriors();
+  return data;
+}
 
-  GravityRefinerOptions opt_grav_refine;
+void RunRefineGravityTest(int num_cameras_per_rig) {
+  GravityRefinementTestData data =
+      SynthesizeGravityRefinementTestData(num_cameras_per_rig);
+  SynthesizeGravityOutliers(data.pose_priors, /*outlier_ratio=*/0.3);
+
+  GravityRefinerOptions options;
   RunGravityRefinement(
-      opt_grav_refine, pose_graph, reconstruction, pose_priors);
+      options, data.pose_graph, data.reconstruction, data.pose_priors);
 
-  ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
-                     gt_reconstruction,
-                     pose_priors,
+  ExpectEqualGravity(data.synthetic_options.prior_gravity_in_world,
+                     data.gt_reconstruction,
+                     data.pose_priors,
                      /*max_gravity_error_deg=*/1e-2);
 }
 
+TEST(GravityRefinement, RefineGravity) {
+  RunRefineGravityTest(/*num_cameras_per_rig=*/1);
+}
+
 TEST(GravityRefinement, RefineGravityWithNonTrivialRigs) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 2;
-  synthetic_dataset_options.num_frames_per_rig = 25;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-
-  Reconstruction reconstruction;
-  PoseGraph pose_graph;
-  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
-
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  SynthesizeGravityOutliers(pose_priors, /*outlier_ratio=*/0.3);
-
-  GravityRefinerOptions opt_grav_refine;
-  RunGravityRefinement(
-      opt_grav_refine, pose_graph, reconstruction, pose_priors);
-
-  ExpectEqualGravity(synthetic_dataset_options.prior_gravity_in_world,
-                     gt_reconstruction,
-                     pose_priors,
-                     /*max_gravity_error_deg=*/1e-2);
+  RunRefineGravityTest(/*num_cameras_per_rig=*/2);
 }
 
 // Rotates every neighbor vote for the gravity of `image_id` by `angle_deg`
@@ -144,9 +129,9 @@ std::pair<Eigen::Vector3d, int> CorruptNeighborVotes(
   const Eigen::Vector3d axis = gravity_true.unitOrthogonal();
 
   std::vector<image_pair_t> pair_ids;
-  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (edge.valid && (image_id1 == image_id || image_id2 == image_id)) {
+    if (image_id1 == image_id || image_id2 == image_id) {
       pair_ids.push_back(pair_id);
     }
   }
@@ -181,6 +166,7 @@ PosePrior& FindImagePosePrior(std::vector<PosePrior>& pose_priors,
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
         pose_prior.corr_data_id.id == image_id) {
       found = &pose_prior;
+      break;
     }
   }
   return *THROW_CHECK_NOTNULL(found);
@@ -195,49 +181,33 @@ class GravityRefinementAcceptanceTest : public ::testing::TestWithParam<bool> {
 // vote must be rejected and leave the prior as it was.
 TEST_P(GravityRefinementAcceptanceTest, AcceptsOnlyConsistentVotes) {
   const bool split = GetParam();
-  const auto database_path = CreateTestDir() / "database.db";
+  GravityRefinementTestData data =
+      SynthesizeGravityRefinementTestData(/*num_cameras_per_rig=*/1);
 
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 2;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 25;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.prior_gravity = true;
-  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-
-  Reconstruction reconstruction;
-  PoseGraph pose_graph;
-  LoadReconstructionAndPoseGraph(*database, &reconstruction, &pose_graph);
-
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-
-  const image_t image_id = gt_reconstruction.RegImageIds().front();
+  const image_t image_id = data.gt_reconstruction.RegImageIds().front();
   GravityRefinerOptions options;
   const double vote_angle_deg = 40.;
   const auto [gravity_true, num_votes] =
-      CorruptNeighborVotes(synthetic_dataset_options.prior_gravity_in_world,
-                           gt_reconstruction,
+      CorruptNeighborVotes(data.synthetic_options.prior_gravity_in_world,
+                           data.gt_reconstruction,
                            image_id,
                            vote_angle_deg,
                            split,
-                           pose_graph);
+                           data.pose_graph);
   ASSERT_GE(num_votes, options.min_num_neighbors);
 
   // Move the prior so that every edge flags the image as error prone.
-  PosePrior& pose_prior = FindImagePosePrior(pose_priors, image_id);
+  PosePrior& pose_prior = FindImagePosePrior(data.pose_priors, image_id);
   const Eigen::Vector3d gravity_before =
       Eigen::AngleAxisd(DegToRad(10.), gravity_true.unitOrthogonal()) *
       gravity_true;
   pose_prior.gravity = gravity_before;
 
-  RunGravityRefinement(options, pose_graph, reconstruction, pose_priors);
+  RunGravityRefinement(
+      options, data.pose_graph, data.reconstruction, data.pose_priors);
 
   const Eigen::Vector3d& gravity_after =
-      FindImagePosePrior(pose_priors, image_id).gravity;
+      FindImagePosePrior(data.pose_priors, image_id).gravity;
   if (split) {
     // The votes disagree with any refined gravity, so the prior stays.
     EXPECT_LT(CalculateAngleBetweenVectors(gravity_after, gravity_before),
