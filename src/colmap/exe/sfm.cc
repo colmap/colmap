@@ -8,6 +8,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/rotation_averaging.h"
+#include "colmap/controllers/single_view_calibration.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
@@ -85,6 +86,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
   options.AddDefaultOption("extraction", &reconstruction_options.extraction);
+  options.AddDefaultOption("single_view_calibration",
+                           &reconstruction_options.single_view_calibration);
   options.AddDefaultOption("matching", &reconstruction_options.matching);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
@@ -782,6 +785,34 @@ int RunViewGraphCalibrator(int argc, char** argv) {
   }
 
   LOG(INFO) << "View graph calibration completed successfully";
+  return EXIT_SUCCESS;
+}
+
+int RunSingleViewCalibrator(int argc, char** argv) {
+  std::filesystem::path image_list_path;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddSingleViewCalibrationOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  std::vector<std::string> image_names;
+  if (!image_list_path.empty()) {
+    image_names = ReadTextFileLines(image_list_path);
+  }
+
+  auto calibrator =
+      CreateSingleViewCalibrationController(*options.database_path,
+                                            *options.image_path,
+                                            *options.single_view_calibration,
+                                            image_names);
+  calibrator->Start();
+  calibrator->Wait();
+
   return EXIT_SUCCESS;
 }
 
