@@ -150,6 +150,11 @@ install root and target architectures are detected automatically from
 ``-DROCM_PATH`` or a ``ROCM_PATH`` environment variable still takes
 precedence, and CMake's own architecture autodetection sets
 ``CMAKE_HIP_ARCHITECTURES`` when a target GPU is visible at configure time.
+Note that the installed ``colmap-config.cmake`` records the ``ROCM_PATH``
+used at build time, so downstream ``find_package(colmap)`` consumers with
+ROCm installed in a different location must pass ``-DROCM_PATH=...``
+explicitly; the ``ROCM_PATH`` environment variable is not consulted once
+that cache entry exists.
 
 Configure and compile COLMAP::
 

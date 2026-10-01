@@ -13,6 +13,9 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/random.h"
 #include "colmap/util/opengl_utils.h"
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+#include "colmap/util/cuda.h"
+#endif
 
 #include <functional>
 #include <set>
@@ -86,10 +89,17 @@ TwoViewGeometry CreatePlanarTwoViewGeometry() {
   return tvg;
 }
 
-void RunGpuTest(std::function<void()> test_body) {
+void RunGpuTest(const std::function<void()>& test_body) {
 #if !defined(COLMAP_GPU_ENABLED)
   GTEST_SKIP() << "Requires OpenGL, CUDA or HIP support";
 #else
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+  // The compute backend unconditionally requires a device when compiled in,
+  // so skip rather than fail on hardware-less machines.
+  if (GetNumCudaDevices() == 0) {
+    GTEST_SKIP() << "No CUDA or HIP devices available";
+  }
+#endif
   char app_name[] = "Test";
   int argc = 1;
   char* argv[] = {app_name};
@@ -108,7 +118,7 @@ void RunGpuTest(std::function<void()> test_body) {
   };
 
   TestThread thread;
-  thread.body = std::move(test_body);
+  thread.body = test_body;
   RunThreadWithOpenGLContext(&thread);
 #endif
 }

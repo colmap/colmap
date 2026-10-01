@@ -27,6 +27,8 @@
 using cudaError_t = hipError_t;
 using cudaStream_t = hipStream_t;
 #define cudaSuccess hipSuccess
+#define cudaErrorNoDevice hipErrorNoDevice
+#define cudaErrorInsufficientDriver hipErrorInsufficientDriver
 #define cudaGetErrorString hipGetErrorString
 #define cudaGetLastError hipGetLastError
 #define cudaPeekAtLastError hipPeekAtLastError

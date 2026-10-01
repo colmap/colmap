@@ -270,9 +270,9 @@ FeatureMatcherController::FeatureMatcherController(
 #if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
   if (matching_options_.use_gpu && gpu_indices.size() == 1 &&
       gpu_indices[0] == -1) {
-    const int num_cuda_devices = GetNumCudaDevices();
-    THROW_CHECK_GT(num_cuda_devices, 0);
-    gpu_indices.resize(num_cuda_devices);
+    const int num_gpu_devices = GetNumCudaDevices();
+    THROW_CHECK_GT(num_gpu_devices, 0);
+    gpu_indices.resize(num_gpu_devices);
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
 #endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED

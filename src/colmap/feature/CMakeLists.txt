@@ -110,3 +110,6 @@ COLMAP_ADD_TEST(
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt${QT_VERSION_MAJOR}::Widgets)
 endif()
+if(TESTS_ENABLED AND (CUDA_ENABLED OR HIP_ENABLED))
+    target_link_libraries(colmap_feature_sift_test PRIVATE colmap_util_cuda)
+endif()
