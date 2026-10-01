@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
@@ -68,9 +69,9 @@ struct IncrementalPipelineOptions {
   int random_seed = -1;
 
   // Thresholds for filtering images with degenerate intrinsics.
-  double min_focal_length_ratio = 0.1;
-  double max_focal_length_ratio = 10.0;
-  double max_extra_param = 1.0;
+  double min_focal_length_ratio = kDefaultMinFocalLengthRatio;
+  double max_focal_length_ratio = kDefaultMaxFocalLengthRatio;
+  double max_extra_param = kDefaultMaxExtraParam;
 
   // Which camera parameters to optimize during the reconstruction.
   bool ba_refine_focal_length = true;

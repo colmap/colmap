@@ -59,6 +59,11 @@ inline Ort::Value CreateONNXScalarTensor(T& value) {
   return CreateONNXTensor(&value, 1, kEmptyShape);
 }
 
+// Check that a model node has the expected element type.
+void ThrowCheckONNXElementType(std::string_view name,
+                               ONNXTensorElementDataType type,
+                               ONNXTensorElementDataType expected_type);
+
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {
@@ -79,10 +84,16 @@ class ONNXModel {
     return input_shapes_;
   }
   const std::vector<char*>& input_names() const { return input_names_; }
+  const std::vector<ONNXTensorElementDataType>& input_element_types() const {
+    return input_element_types_;
+  }
   const std::vector<std::vector<int64_t>>& output_shapes() const {
     return output_shapes_;
   }
   const std::vector<char*>& output_names() const { return output_names_; }
+  const std::vector<ONNXTensorElementDataType>& output_element_types() const {
+    return output_element_types_;
+  }
   ONNXExecutionProvider execution_provider() const {
     return execution_provider_;
   }
@@ -108,9 +119,11 @@ class ONNXModel {
   std::vector<std::vector<int64_t>> input_shapes_;
   std::vector<Ort::AllocatedStringPtr> input_name_strs_;
   std::vector<char*> input_names_;
+  std::vector<ONNXTensorElementDataType> input_element_types_;
   std::vector<std::vector<int64_t>> output_shapes_;
   std::vector<Ort::AllocatedStringPtr> output_name_strs_;
   std::vector<char*> output_names_;
+  std::vector<ONNXTensorElementDataType> output_element_types_;
 };
 
 }  // namespace colmap

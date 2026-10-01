@@ -7,6 +7,7 @@
 #include "colmap/util/hash_containers.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -45,7 +46,13 @@ struct GlobalPositionerOptions {
   int random_seed = -1;
 
   // Scaling factor for the loss function
-  double loss_function_scale = 0.1;
+  // If negative, use 1.0 (stddev units) when experimental_observation_stddev
+  // is set, otherwise 0.1 (radians).
+  double loss_function_scale = -1.0;
+
+  // Isotropic observation uncertainty in pixels. Disabled when unset.
+  // When enabled, loss_function_scale applies to whitened residuals.
+  std::optional<double> experimental_observation_stddev;
 
   // Loss multiplier for observations without a focal-length prior.
   double uncalibrated_observation_weight = 0.5;
@@ -64,7 +71,9 @@ struct GlobalPositionerOptions {
   }
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
-    return std::make_shared<ceres::HuberLoss>(loss_function_scale);
+    const double default_scale = experimental_observation_stddev ? 1.0 : 0.1;
+    return std::make_shared<ceres::HuberLoss>(
+        loss_function_scale < 0 ? default_scale : loss_function_scale);
   }
 };
 

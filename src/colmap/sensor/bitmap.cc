@@ -7,6 +7,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/oiio_utils.h"
 
+#include <cstring>
+
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imageio.h>
@@ -491,6 +493,15 @@ bool Bitmap::Write(const std::filesystem::path& path,
   return true;
 }
 
+void Bitmap::SetImageData(int width, int height, std::vector<uint8_t>&& data) {
+  width_ = width;
+  height_ = height;
+  data_ = std::move(data);
+  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
+  meta_data->image_spec.width = width;
+  meta_data->image_spec.height = height;
+}
+
 void Bitmap::Rescale(const int new_width,
                      const int new_height,
                      RescaleFilter filter) {
@@ -523,12 +534,7 @@ void Bitmap::Rescale(const int new_width,
       break;
   }
 
-  width_ = new_width;
-  height_ = new_height;
-  data_ = std::move(new_data);
-  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
-  meta_data->image_spec.width = new_width;
-  meta_data->image_spec.height = new_height;
+  SetImageData(new_width, new_height, std::move(new_data));
 }
 
 double Bitmap::Thumbnail(const int max_image_size, RescaleFilter filter) {
@@ -579,12 +585,33 @@ void Bitmap::Rot90(int k) {
     THROW_CHECK(OIIO::ImageBufAlgo::rotate90(new_buf, buf));
   }
 
-  width_ = new_width;
-  height_ = new_height;
-  data_ = std::move(new_data);
-  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
-  meta_data->image_spec.width = new_width;
-  meta_data->image_spec.height = new_height;
+  SetImageData(new_width, new_height, std::move(new_data));
+}
+
+void Bitmap::Crop(const int left,
+                  const int top,
+                  const int width,
+                  const int height) {
+  THROW_CHECK_GE(left, 0);
+  THROW_CHECK_GE(top, 0);
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  THROW_CHECK_LE(left + width, width_);
+  THROW_CHECK_LE(top + height, height_);
+  if (left == 0 && top == 0 && width == width_ && height == height_) {
+    return;
+  }
+
+  std::vector<uint8_t> cropped(width * height * channels_);
+  const int src_pitch = Pitch();
+  const int dst_pitch = width * channels_;
+  for (int y = 0; y < height; ++y) {
+    std::memcpy(cropped.data() + y * dst_pitch,
+                data_.data() + (top + y) * src_pitch + left * channels_,
+                dst_pitch);
+  }
+
+  SetImageData(width, height, std::move(cropped));
 }
 
 Bitmap Bitmap::Clone() const { return *this; }

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/scene/camera.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
@@ -91,9 +92,9 @@ class IncrementalMapper {
 
     // Thresholds for bogus camera parameters. Images with bogus camera
     // parameters are filtered and ignored in triangulation.
-    double min_focal_length_ratio = 0.1;  // Opening angle of ~130deg
-    double max_focal_length_ratio = 10;   // Opening angle of ~5deg
-    double max_extra_param = 1;
+    double min_focal_length_ratio = kDefaultMinFocalLengthRatio;
+    double max_focal_length_ratio = kDefaultMaxFocalLengthRatio;
+    double max_extra_param = kDefaultMaxExtraParam;
 
     // Maximum reprojection error in pixels for observations.
     double filter_max_reproj_error = 4.0;

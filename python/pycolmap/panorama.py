@@ -676,7 +676,12 @@ def run_perspective(
     rig_config = processor.rig_config
 
     rendered_camera = rig_config.cameras[0].camera
-    assert rendered_camera is not None  # Make mypy happy.
+    if rendered_camera is None:
+        raise ValueError(
+            f"No panorama could be rendered from {pano_image_dir} "
+            f"({len(pano_image_names)} file(s) found). Check that the "
+            "directory contains readable panorama images."
+        )
     extraction_options = pycolmap.FeatureExtractionOptions(
         use_gpu=options.use_gpu,
         gpu_index=options.gpu_index,
