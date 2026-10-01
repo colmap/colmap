@@ -23,6 +23,7 @@ COLMAP_ADD_LIBRARY(
         aliked.h aliked.cc
         extractor.h extractor.cc
         index.h index.cc
+        lightglue.h lightglue.cc
         loma.h loma.cc
         matcher.h matcher.cc
         onnx_matchers.h onnx_matchers.cc
@@ -68,6 +69,13 @@ if(ONNX_ENABLED)
     COLMAP_ADD_TEST(
         NAME onnx_matchers_test
         SRCS onnx_matchers_test.cc
+        LINK_LIBS
+            colmap_feature
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
+        NAME lightglue_test
+        SRCS lightglue_test.cc
         LINK_LIBS
             colmap_feature
             onnxruntime::onnxruntime
