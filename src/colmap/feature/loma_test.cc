@@ -131,6 +131,7 @@ TEST_F(LomaTest, Nominal) {
 }
 
 TEST_F(LomaTest, HeavyNominalLomaB) {
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
   if (std::getenv("COLMAP_TEST_HEAVY") == nullptr) {
     GTEST_SKIP() << "Set COLMAP_TEST_HEAVY=1 to run the LOMA_B smoke test.";
   }
