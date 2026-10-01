@@ -5,6 +5,7 @@
 #include "colmap/feature/utils.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/lightglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #endif

@@ -2,6 +2,7 @@
 
 #include "colmap/feature/aliked.h"
 
+#include "colmap/feature/lightglue.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/onnx.h"
