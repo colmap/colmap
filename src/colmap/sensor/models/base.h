@@ -331,21 +331,18 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
   // Default implementation: delegates to CameraModel::CamFromImg and
   // normalizes the resulting homogeneous coordinate. Correct for perspective
   // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
-  static inline bool CamRayFromImg(const double* params,
-                                   double x,
-                                   double y,
-                                   double* rx,
-                                   double* ry,
-                                   double* rz) {
-    double u = 0;
-    double v = 0;
+  template <typename T>
+  static inline bool CamRayFromImg(
+      const T* params, const T& x, const T& y, T* rx, T* ry, T* rz) {
+    T u(0);
+    T v(0);
     if (!CameraModel::CamFromImg(params, x, y, &u, &v)) {
       return false;
     }
-    const double norm = std::sqrt(u * u + v * v + 1.0);
+    const T norm = ceres::sqrt(u * u + v * v + T(1.0));
     *rx = u / norm;
     *ry = v / norm;
-    *rz = 1.0 / norm;
+    *rz = T(1.0) / norm;
     return true;
   }
 
