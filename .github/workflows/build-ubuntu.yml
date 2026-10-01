@@ -269,6 +269,8 @@ jobs:
 
       - name: Run tests
         if: ${{ matrix.config.cmakeBuildType != 'ClangTidy' }}
+        env:
+          COLMAP_TEST_HEAVY: "1"
         run: |
           if [ "${{ matrix.config.cudaEnabled }}" == "true" ]; then
             ctestExclusions="(feature/sift_test)|(mvs/gpu_mat_test)"

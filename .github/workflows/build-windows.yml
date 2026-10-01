@@ -169,6 +169,8 @@ jobs:
 
       - name: Run tests
         shell: pwsh
+        env:
+          COLMAP_TEST_HEAVY: "1"
         run: |
           ./vcpkg/vcpkg.exe integrate install
           cd build
