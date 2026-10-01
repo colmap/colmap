@@ -181,7 +181,7 @@ void BindMVS(py::module& m) {
         py::arg_v("options", mvs::PatchMatchOptions(), "PatchMatchOptions()"),
         "config_path"_a = "",
         "cancellation_token"_a = py::none(),
-        "Runs Patch-Match-Stereo (requires CUDA)",
+        "Runs Patch-Match-Stereo (requires CUDA or HIP)",
         py::call_guard<py::gil_scoped_release>());
 
   using SFOpts = mvs::StereoFusionOptions;

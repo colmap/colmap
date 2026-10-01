@@ -363,8 +363,8 @@ void DenseReconstructionWidget::Stereo() {
 #else
   QMessageBox::critical(this,
                         "",
-                        tr("Dense stereo reconstruction requires CUDA, which "
-                           "is not available on your system."));
+                        tr("Dense stereo reconstruction requires CUDA or HIP, "
+                           "neither of which is available on your system."));
 #endif
 }
 
