@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/exe/image.h"
 
@@ -36,12 +9,12 @@
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/base_controller.h"
+#include "colmap/util/cancellation.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
 #include <fstream>
-#include <locale>
 #include <sstream>
 
 namespace colmap {
@@ -273,6 +246,9 @@ int RunImageRegistrator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
   LOG_HEADING1("Loading database");
 
   std::shared_ptr<DatabaseCache> database_cache;
@@ -287,34 +263,39 @@ int RunImageRegistrator(int argc, char** argv) {
         options.mapper->ignore_watermarks;
     database_cache_options.image_names = {options.mapper->image_names.begin(),
                                           options.mapper->image_names.end()};
+    if (!database_cache_options.image_names.empty()) {
+      for (const image_t image_id : reconstruction->RegImageIds()) {
+        database_cache_options.image_names.insert(
+            reconstruction->Image(image_id).Name());
+      }
+    }
+    database_cache_options.load_all_images = true;
     database_cache = DatabaseCache::Create(
         *Database::Open(*options.database_path), database_cache_options);
     timer.PrintMinutes();
   }
 
-  auto reconstruction = std::make_shared<Reconstruction>();
-  reconstruction->Read(input_path);
-
   IncrementalMapper mapper(database_cache);
   mapper.BeginReconstruction(reconstruction);
 
   const auto mapper_options = options.mapper->Mapper();
+  const auto& obs_manager = mapper.ObservationManager();
 
-  for (const auto& image : reconstruction->Images()) {
-    if (image.second.HasPose()) {
+  for (const auto& [image_id, image] : reconstruction->Images()) {
+    if (ScopedSignalHandler::IsInterruptRequested()) {
+      break;
+    }
+    if (image.HasPose()) {
       continue;
     }
 
-    LOG_HEADING1("Registering image #" + std::to_string(image.first) + " (" +
+    LOG_HEADING1("Registering image #" + std::to_string(image_id) + " (" +
                  std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
-    LOG(INFO) << "\n=> Image sees "
-              << mapper.ObservationManager().NumVisiblePoints3D(image.first)
-              << " / "
-              << mapper.ObservationManager().NumObservations(image.first)
-              << " points";
+    LOG(INFO) << "\n=> Image sees " << obs_manager.NumVisiblePoints3D(image_id)
+              << " / " << obs_manager.NumObservations(image_id) << " points";
 
-    mapper.RegisterNextImage(mapper_options, image.first);
+    mapper.RegisterNextImage(mapper_options, image_id);
   }
 
   mapper.EndReconstruction(/*discard=*/false);
@@ -481,7 +462,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
       std::string item;
       std::istringstream line_stream(line);
-      line_stream.imbue(std::locale::classic());
+      SetFullPrecTextStream(line_stream);
 
       // Loads the image name.
       std::string image_name;

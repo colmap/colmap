@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -35,12 +8,20 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
-#include <utility>
 #include <vector>
 
 #include <Eigen/Geometry>
 
 namespace colmap {
+
+// Default plausibility bounds for camera intrinsics, shared by the
+// incremental mapper, bundle adjustment, and single-view calibration options
+// as `HasBogusParams` thresholds. Focal length ratios are relative to the
+// maximum image dimension and correspond to opening angles of ~130 and ~5
+// degrees; distortion parameters are bounded in absolute value.
+constexpr double kDefaultMinFocalLengthRatio = 0.1;
+constexpr double kDefaultMaxFocalLengthRatio = 10.0;
+constexpr double kDefaultMaxExtraParam = 1.0;
 
 // Camera class that holds the intrinsic parameters. Cameras may be shared
 // between multiple images, e.g., if the same "physical" camera took multiple
@@ -364,7 +345,7 @@ std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
     return std::nullopt;
   }
   const std::optional<Eigen::Matrix3x2d> J_ray =
-      CamRayFromImgJacobian(*cam_ray, J_uvw);
+      CamRayFromImgJac(*cam_ray, J_uvw);
   if (!J_ray.has_value()) {
     return std::nullopt;
   }

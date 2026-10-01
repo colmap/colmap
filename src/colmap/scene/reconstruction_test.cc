@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/scene/reconstruction.h"
 
@@ -616,8 +589,43 @@ TEST(Reconstruction, MergePoints3D) {
   EXPECT_EQ(reconstruction.Image(2).Point2D(1).point3D_id, merged_point3D_id);
   EXPECT_TRUE(reconstruction.Point3D(merged_point3D_id)
                   .xyz.isApprox(Eigen::Vector3d(0.5, 0.5, 0.5)));
+  // Black colors are treated as missing and ignored in the merged color.
   EXPECT_EQ(reconstruction.Point3D(merged_point3D_id).color,
-            Eigen::Vector3ub(10, 10, 10));
+            Eigen::Vector3ub(20, 20, 20));
+}
+
+TEST(Reconstruction, MergePoints3DColors) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(3, &reconstruction);
+  const auto merged_color = [&reconstruction](const Eigen::Vector3ub& color1,
+                                              const Eigen::Vector3ub& color2) {
+    const point3D_t point3D_id1 =
+        reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 0), Track());
+    reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
+    reconstruction.AddObservation(point3D_id1, TrackElement(2, 0));
+    reconstruction.Point3D(point3D_id1).color = color1;
+    const point3D_t point3D_id2 =
+        reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
+    reconstruction.AddObservation(point3D_id2, TrackElement(3, 0));
+    reconstruction.Point3D(point3D_id2).color = color2;
+    const point3D_t merged_point3D_id =
+        reconstruction.MergePoints3D(point3D_id1, point3D_id2);
+    const Eigen::Vector3ub color =
+        reconstruction.Point3D(merged_point3D_id).color;
+    reconstruction.DeletePoint3D(merged_point3D_id);
+    return color;
+  };
+
+  const Eigen::Vector3ub kBlack(0, 0, 0);
+  // Weighted by track length.
+  EXPECT_EQ(
+      merged_color(Eigen::Vector3ub(30, 60, 90), Eigen::Vector3ub(90, 60, 30)),
+      Eigen::Vector3ub(50, 60, 70));
+  EXPECT_EQ(merged_color(Eigen::Vector3ub(30, 60, 90), kBlack),
+            Eigen::Vector3ub(30, 60, 90));
+  EXPECT_EQ(merged_color(kBlack, Eigen::Vector3ub(90, 60, 30)),
+            Eigen::Vector3ub(90, 60, 30));
+  EXPECT_EQ(merged_color(kBlack, kBlack), kBlack);
 }
 
 TEST(Reconstruction, DeletePoint3D) {

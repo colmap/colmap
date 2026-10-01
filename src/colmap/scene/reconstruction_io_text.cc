@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/geometry/rigid3.h"
 #include "colmap/scene/camera.h"
@@ -37,16 +10,16 @@
 #include "colmap/scene/track.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/string.h"
 #include "colmap/util/types.h"
 
 #include <fstream>
-#include <locale>
 
 namespace colmap {
 
 void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
-  stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(stream);
 
   std::string line;
   std::string item;
@@ -59,7 +32,7 @@ void ReadRigsText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
-    line_stream.imbue(std::locale::classic());
+    SetFullPrecTextStream(line_stream);
 
     Rig rig;
 
@@ -116,7 +89,7 @@ void ReadRigsText(Reconstruction& reconstruction,
 
 void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
-  stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(stream);
 
   std::string line;
   std::string item;
@@ -129,7 +102,7 @@ void ReadCamerasText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
-    line_stream.imbue(std::locale::classic());
+    SetFullPrecTextStream(line_stream);
 
     struct Camera camera;
 
@@ -159,7 +132,7 @@ void ReadCamerasText(Reconstruction& reconstruction,
 
 void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
-  stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(stream);
 
   std::string line;
   std::string item;
@@ -172,7 +145,7 @@ void ReadFramesText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
-    line_stream.imbue(std::locale::classic());
+    SetFullPrecTextStream(line_stream);
 
     Frame frame;
 
@@ -213,7 +186,7 @@ void ReadFramesText(Reconstruction& reconstruction,
 
 void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
-  stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(stream);
 
   // Handle backwards-compatibility for when we didn't have rigs and frames.
   const bool is_legacy_reconstruction =
@@ -237,7 +210,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream1(line);
-    line_stream1.imbue(std::locale::classic());
+    SetFullPrecTextStream(line_stream1);
 
     // ID, CAM_FROM_WORLD, CAMERA_ID
     image_t image_id;
@@ -274,7 +247,7 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
 
     StringTrim(&line);
     std::stringstream line_stream2(line);
-    line_stream2.imbue(std::locale::classic());
+    SetFullPrecTextStream(line_stream2);
 
     points2D.clear();
     point3D_ids.clear();
@@ -316,7 +289,7 @@ void ReadImagesText(Reconstruction& reconstruction,
 
 void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream) {
   THROW_CHECK(stream.good());
-  stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(stream);
 
   std::string line;
 
@@ -328,7 +301,7 @@ void ReadPoints3DText(Reconstruction& reconstruction, std::istream& stream) {
     }
 
     std::stringstream line_stream(line);
-    line_stream.imbue(std::locale::classic());
+    SetFullPrecTextStream(line_stream);
 
     // ID
     point3D_t point3D_id;
@@ -370,9 +343,7 @@ void ReadPoints3DText(Reconstruction& reconstruction,
 void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
   THROW_CHECK(stream.good());
 
-  // Ensure that we don't loose any precision by storing in text.
-  stream.imbue(std::locale::classic());
-  stream.precision(17);
+  SetFullPrecTextStream(stream);
 
   stream << "# Rig calib list with one line of data per calib:\n";
   stream << "#   RIG_ID, NUM_SENSORS, REF_SENSOR_TYPE, REF_SENSOR_ID, "
@@ -384,8 +355,7 @@ void WriteRigsText(const Reconstruction& reconstruction, std::ostream& stream) {
     const Rig& rig = reconstruction.Rig(rig_id);
 
     std::ostringstream line;
-    line.imbue(std::locale::classic());
-    line.precision(17);
+    SetFullPrecTextStream(line);
 
     line << rig_id << " ";
 
@@ -432,9 +402,7 @@ void WriteCamerasText(const Reconstruction& reconstruction,
                       std::ostream& stream) {
   THROW_CHECK(stream.good());
 
-  // Ensure that we don't loose any precision by storing in text.
-  stream.imbue(std::locale::classic());
-  stream.precision(17);
+  SetFullPrecTextStream(stream);
 
   stream << "# Camera list with one line of data per camera:\n";
   stream << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
@@ -444,8 +412,7 @@ void WriteCamerasText(const Reconstruction& reconstruction,
     const Camera& camera = reconstruction.Camera(camera_id);
 
     std::ostringstream line;
-    line.imbue(std::locale::classic());
-    line.precision(17);
+    SetFullPrecTextStream(line);
 
     line << camera_id << " ";
     line << camera.ModelName() << " ";
@@ -478,17 +445,13 @@ void WriteFramesText(const Reconstruction& reconstruction,
       reconstruction.Frames(),
       [](const Frame& frame) { return frame.HasPose(); });
 
-  // Ensure that we don't loose any precision by storing in text.
-  stream.imbue(std::locale::classic());
-  stream.precision(17);
+  SetFullPrecTextStream(stream);
 
   stream << "# Frame list with one line of data per frame:\n";
   stream << "#   FRAME_ID, RIG_ID, "
             "RIG_FROM_WORLD[QW, QX, QY, QZ, TX, TY, TZ], NUM_DATA_IDS, "
             "DATA_IDS[] as (SENSOR_TYPE, SENSOR_ID, DATA_ID)\n";
   stream << "# Number of frames: " << frame_ids.size() << '\n';
-
-  stream.precision(17);
 
   for (const frame_t frame_id : frame_ids) {
     const Frame& frame = reconstruction.Frame(frame_id);
@@ -527,9 +490,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
                      std::ostream& stream) {
   THROW_CHECK(stream.good());
 
-  // Ensure that we don't loose any precision by storing in text.
-  stream.imbue(std::locale::classic());
-  stream.precision(17);
+  SetFullPrecTextStream(stream);
 
   stream << "# Image list with two lines of data per image:\n";
   stream << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
@@ -540,8 +501,7 @@ void WriteImagesText(const Reconstruction& reconstruction,
          << reconstruction.ComputeMeanObservationsPerRegImage() << '\n';
 
   std::ostringstream line;
-  line.imbue(std::locale::classic());
-  line.precision(17);
+  SetFullPrecTextStream(line);
 
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const Image& image = reconstruction.Image(image_id);
@@ -596,9 +556,7 @@ void WritePoints3DText(const Reconstruction& reconstruction,
                        std::ostream& stream) {
   THROW_CHECK(stream.good());
 
-  // Ensure that we don't loose any precision by storing in text.
-  stream.imbue(std::locale::classic());
-  stream.precision(17);
+  SetFullPrecTextStream(stream);
 
   stream << "# 3D point list with one line of data per point:\n";
   stream << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, "
@@ -621,8 +579,7 @@ void WritePoints3DText(const Reconstruction& reconstruction,
     stream << point3D.error << " ";
 
     std::ostringstream line;
-    line.imbue(std::locale::classic());
-    line.precision(17);
+    SetFullPrecTextStream(line);
 
     for (const auto& track_el : point3D.track.Elements()) {
       line << track_el.image_id << " ";

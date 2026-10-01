@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 if (!$env:VisualStudioDevShell) {
     $vswhere = "${Env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
     if (!(Test-Path $vswhere)) {

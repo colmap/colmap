@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Depth-based covisibility for TartanAir equirectangular images."""
 
 from pathlib import Path

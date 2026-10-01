@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/util/logging.h"

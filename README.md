@@ -127,7 +127,8 @@ refers only to the license for COLMAP itself, independent of its thirdparty
 dependencies, which are separately licensed. Building COLMAP with these
 dependencies may affect the resulting COLMAP license.
 
-    Copyright (c), ETH Zurich and UNC Chapel Hill.
+    Copyright (c) 2016, ETH Zurich and UNC Chapel Hill.
+    Copyright (c) 2016-2026, The COLMAP Contributors.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without

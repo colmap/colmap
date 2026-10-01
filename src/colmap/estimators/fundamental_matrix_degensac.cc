@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/fundamental_matrix_degensac.h"
 
@@ -36,6 +9,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/util/logging.h"
 
 #include <array>
@@ -316,13 +290,13 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
       off_plane_idxs.push_back(i);
     }
   }
-  if (off_plane_idxs.size() < 2) {
+  const size_t num_off_plane = off_plane_idxs.size();
+  if (num_off_plane < 2) {
     return std::nullopt;
   }
 
   // Precompute the transferred plane points H * x1 and the off-plane points, so
   // the epipole search below scores over only the off-plane subset.
-  const size_t num_off_plane = off_plane_idxs.size();
   std::vector<Eigen::Vector3d> lines(num_off_plane);
   std::vector<Eigen::Vector2d> off_points1(num_off_plane);
   std::vector<Eigen::Vector2d> off_points2(num_off_plane);
@@ -350,7 +324,7 @@ std::optional<Eigen::Matrix3d> FundamentalFromPlaneAndParallax(
     size_t a = RandomUniformInteger<size_t>(0, num_off_plane - 1);
     size_t b = RandomUniformInteger<size_t>(0, num_off_plane - 1);
     if (a == b) {
-      b = (b + 1) % num_off_plane;
+      b = (b + 1 == num_off_plane) ? 0 : b + 1;
     }
 
     // The epipole is the intersection of the two parallax lines.
@@ -449,14 +423,16 @@ FundamentalMatrixDegensacEstimator::FundamentalMatrixDegensacEstimator(
     const double plane_max_residual,
     const double off_plane_min_residual,
     const double min_sample_h_inlier_ratio,
-    const int max_plane_parallax_trials)
+    const int max_plane_parallax_trials,
+    const bool use_sampson_refinement)
     : points1_(THROW_CHECK_NOTNULL(points1)),
       points2_(THROW_CHECK_NOTNULL(points2)),
       sampson_max_residual_(sampson_max_residual),
       plane_max_residual_(plane_max_residual),
       off_plane_min_residual_(off_plane_min_residual),
       min_sample_h_inlier_ratio_(min_sample_h_inlier_ratio),
-      max_plane_parallax_trials_(max_plane_parallax_trials) {}
+      max_plane_parallax_trials_(max_plane_parallax_trials),
+      use_sampson_refinement_(use_sampson_refinement) {}
 
 void FundamentalMatrixDegensacEstimator::Estimate(
     const std::vector<X_t>& sample_points1,
@@ -507,6 +483,33 @@ void FundamentalMatrixDegensacEstimator::Estimate(
   }
 }
 
+bool FundamentalMatrixDegensacEstimator::Refine(const std::vector<X_t>& points1,
+                                                const std::vector<Y_t>& points2,
+                                                M_t* F) const {
+  THROW_CHECK_EQ(points1.size(), points2.size());
+  THROW_CHECK_NOTNULL(F);
+
+  // Refit the inlier set with the full degeneracy handling.
+  std::vector<M_t> models;
+  Estimate(points1, points2, &models);
+  if (models.empty()) {
+    return false;
+  }
+  *F = models[0];
+
+  // Test the refit rather than the incoming model, so the gate applies to the
+  // model actually being polished.
+  if (use_sampson_refinement_ &&
+      !IsSampleHDegenerate(*F,
+                           points1,
+                           points2,
+                           plane_max_residual_,
+                           min_sample_h_inlier_ratio_)) {
+    RefineFundamentalMatrixSampson(points1, points2, F);
+  }
+  return true;
+}
+
 void FundamentalMatrixDegensacEstimator::Residuals(
     const std::vector<X_t>& points1,
     const std::vector<Y_t>& points2,
@@ -515,7 +518,7 @@ void FundamentalMatrixDegensacEstimator::Residuals(
   ComputeSquaredSampsonError(points1, points2, F, residuals);
 }
 
-RANSAC<FundamentalMatrixDegensacEstimator>::Report
+RANSAC<FundamentalMatrixDegensacEstimator, MEstimatorSupportMeasurer>::Report
 EstimateFundamentalMatrixDegensac(
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2,
@@ -545,9 +548,11 @@ EstimateFundamentalMatrixDegensac(
       plane_max_residual,
       off_plane_min_residual,
       options.min_sample_h_inlier_ratio,
-      options.max_plane_parallax_trials);
+      options.max_plane_parallax_trials,
+      options.use_sampson_refinement);
   LORANSAC<FundamentalMatrixDegensacEstimator,
-           FundamentalMatrixDegensacEstimator>
+           FundamentalMatrixDegensacEstimator,
+           MEstimatorSupportMeasurer>
       ransac(options.ransac, estimator, estimator);
   return ransac.Estimate(points1, points2);
 }

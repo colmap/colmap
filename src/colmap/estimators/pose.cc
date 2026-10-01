@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/pose.h"
 
@@ -57,9 +30,6 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   inlier_mask->clear();
 
   if (options.estimate_focal_length) {
-    // TODO(jsch): Implement non-minimal solver for LORANSAC refinement.
-    // Experiments showed marginal difference between RANSAC/LORANSAC for PNPF
-    // after refining the estimates of this function using RefineAbsolutePose.
     const Eigen::Vector2d principal_point(camera->PrincipalPointX(),
                                           camera->PrincipalPointY());
     std::vector<Eigen::Vector2d> points2D_centered(points2D.size());
@@ -67,14 +37,14 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       points2D_centered[i] = points2D[i] - principal_point;
     }
     const span<const size_t> focal_length_idxs = camera->FocalLengthIdxs();
-    RANSAC<P4PFEstimator> ransac(
+    const bool share_focal_length = focal_length_idxs.size() == 1;
+    LORANSAC<P4PFEstimator, P4PFEstimator> ransac(
         options.ransac_options,
-        P4PFEstimator(/*share_focal_length=*/focal_length_idxs.size() == 1));
+        P4PFEstimator(share_focal_length),
+        P4PFEstimator(share_focal_length));
     auto report = ransac.Estimate(points2D_centered, points3D);
     if (report.success) {
-      *cam_from_world =
-          Rigid3d(Eigen::Quaterniond(report.model.cam_from_world.leftCols<3>()),
-                  report.model.cam_from_world.col(3));
+      *cam_from_world = report.model.cam_from_world;
       for (size_t k = 0; k < focal_length_idxs.size(); ++k) {
         camera->params[focal_length_idxs[k]] = report.model.focal_lengths[k];
       }
@@ -94,14 +64,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
         [camera](const Eigen::Vector3d& cam_point) {
           return camera->ImgFromCam(cam_point);
         };
-    LORANSAC<P3PEstimator, EPNPEstimator> ransac(
+    LORANSAC<P3PEstimator, P3PEstimator> ransac(
         options.ransac_options,
         P3PEstimator(img_from_cam_func),
-        EPNPEstimator(img_from_cam_func));
+        P3PEstimator(img_from_cam_func));
     auto report = ransac.Estimate(points2D_with_rays, points3D);
     if (report.success) {
-      *cam_from_world = Rigid3d(Eigen::Quaterniond(report.model.leftCols<3>()),
-                                report.model.col(3));
+      *cam_from_world = report.model;
       *num_inliers = report.support.num_inliers;
       *inlier_mask = std::move(report.inlier_mask);
       return true;

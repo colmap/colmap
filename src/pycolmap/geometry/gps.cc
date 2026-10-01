@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/geometry/gps.h"
 
 #include "colmap/util/logging.h"

@@ -6,6 +6,7 @@ CMakeUserPresets.json
 .clangd
 compile_commands.json
 .claude/settings.local.json
+AGENTS.override.md
 
 # Custom directories
 .idea/

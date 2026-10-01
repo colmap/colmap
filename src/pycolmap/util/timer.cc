@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/util/timer.h"
 
 #include <pybind11/pybind11.h>

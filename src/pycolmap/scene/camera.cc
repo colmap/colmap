@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/scene/camera.h"
 
 #include "colmap/scene/point2d.h"
@@ -272,7 +274,6 @@ void BindCamera(py::module& m) {
            "scale"_a,
            "Rescale the camera dimensions and accordingly the "
            "focal length and the principal point.");
-  DefDeprecation(PyCamera, "create", "create_from_model_id");
   MakeDataclass(PyCamera,
                 {"camera_id",
                  "model",

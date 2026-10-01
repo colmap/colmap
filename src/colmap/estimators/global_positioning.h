@@ -1,10 +1,16 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #pragma once
 
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/hash_containers.h"
 
+#include <memory>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <ceres/ceres.h>
 
@@ -14,14 +20,15 @@ struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
   bool generate_random_points = true;
-  // Whether to initialize the camera scales to a constant 1 or derive them from
-  // the initialized camera and point positions.
-  bool generate_scales = true;
+  // Derive scales from camera and 3D-point positions; otherwise use 1.
+  bool initialize_scales_from_geometry = false;
 
   // Flags for which parameters to optimize
   bool optimize_positions = true;
   bool optimize_points = true;
   bool optimize_scales = true;
+  // Fix the first active observation scale when optimizing scales.
+  bool fix_first_scale = true;
 
   // When false, treat sensor_from_rig as a fixed (pre-calibrated) parameter.
   bool refine_sensor_from_rig = true;
@@ -39,7 +46,16 @@ struct GlobalPositionerOptions {
   int random_seed = -1;
 
   // Scaling factor for the loss function
-  double loss_function_scale = 0.1;
+  // If negative, use 1.0 (stddev units) when experimental_observation_stddev
+  // is set, otherwise 0.1 (radians).
+  double loss_function_scale = -1.0;
+
+  // Isotropic observation uncertainty in pixels. Disabled when unset.
+  // When enabled, loss_function_scale applies to whitened residuals.
+  std::optional<double> experimental_observation_stddev;
+
+  // Loss multiplier for observations without a focal-length prior.
+  double uncalibrated_observation_weight = 0.5;
 
   // Whether to use custom parameter block ordering for Schur-based solvers.
   // Disable for deterministic behavior when using a fixed random seed.
@@ -55,24 +71,48 @@ struct GlobalPositionerOptions {
   }
 
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
-    return std::make_shared<ceres::HuberLoss>(loss_function_scale);
+    const double default_scale = experimental_observation_stddev ? 1.0 : 0.1;
+    return std::make_shared<ceres::HuberLoss>(
+        loss_function_scale < 0 ? default_scale : loss_function_scale);
   }
 };
 
 class GlobalPositioner {
  public:
-  explicit GlobalPositioner(const GlobalPositionerOptions& options);
+  virtual ~GlobalPositioner() = default;
 
-  // Returns true if the optimization was a success, false if there was a
-  // failure.
-  // Assume tracks here are already filtered
-  bool Solve(const PoseGraph& pose_graph, Reconstruction& reconstruction);
+  // The reconstruction must outlive the returned positioner.
+  static std::unique_ptr<GlobalPositioner> CreateDefault(
+      const GlobalPositionerOptions& options,
+      const PoseGraph& pose_graph,
+      Reconstruction& reconstruction,
+      std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 
-  GlobalPositionerOptions& GetOptions() { return options_; }
+  // Solve the prepared problem and publish its results.
+  ceres::Solver::Summary Solve();
+
+  ceres::Problem& Problem();
+  const ceres::Solver::Options& SolverOptions() const;
+  // Returns the temporary frame-center block used by the prepared problem,
+  // allowing additional residuals to constrain the same variable. Returns
+  // nullptr if the frame is not active.
+  double* FrameCenterParameterBlock(frame_t frame_id);
+  bool Finalize(const ceres::Solver::Summary& summary);
+  // Extends an existing ordering after adding parameter blocks.
+  // Independent single-residual scalars use group 0; other new blocks use
+  // group 3. Optional parameter_groups override existing assignments.
+  void ExtendParameterBlockOrdering(
+      const std::vector<std::pair<double*, int>>& parameter_groups = {});
 
  protected:
-  void SetupProblem(const PoseGraph& pose_graph,
-                    const Reconstruction& reconstruction);
+  explicit GlobalPositioner(const GlobalPositionerOptions& options);
+
+  // Construct the problem without solving it.
+  void Prepare(const PoseGraph& pose_graph,
+               Reconstruction& reconstruction,
+               std::shared_ptr<ceres::LossFunction> loss_function);
+
+  void SetupProblem(std::shared_ptr<ceres::LossFunction> loss_function);
 
   // Initialize all cameras to be random.
   void InitializeRandomPositions(const PoseGraph& pose_graph,
@@ -97,15 +137,14 @@ class GlobalPositioner {
 
   GlobalPositionerOptions options_;
 
-  std::unique_ptr<ceres::Problem> problem_;
+ private:
+  std::vector<double> scales_;
 
+ protected:
   // Loss functions for reweighted terms.
   std::shared_ptr<ceres::LossFunction> loss_function_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_uncalibrated_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_calibrated_;
-
-  // Auxiliary scale variables.
-  std::vector<double> scales_;
 
   // Temporary storage for frame centers (world coordinates) during
   // optimization. This allows keeping RigFromWorld().translation() in
@@ -115,6 +154,10 @@ class GlobalPositioner {
   // Temporary storage for camera-in-rig positions when cam_from_rig is unknown
   // and needs to be estimated.
   NodeHashMap<sensor_t, Eigen::Vector3d> cams_in_rig_;
+
+  // Retained for Finalize().
+  Reconstruction* reconstruction_ = nullptr;
+  std::unique_ptr<ceres::Problem> problem_;
 };
 
 // Solve global positioning using point-to-camera constraints.

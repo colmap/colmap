@@ -66,8 +66,7 @@ VisualSfM's NVM, Bundler files, PLY, VRML, etc., using ``File > Export as...``.
 To convert between various formats from the CLI, use the ``model_converter``
 executable.
 
-There are two source files to conveniently read the sparse reconstructions using
-Python (pycolmap) and Matlab (``scripts/matlab/read_model.m`` supporting text).
+The sparse reconstructions can be conveniently read using pycolmap in Python.
 
 
 -----------
@@ -244,9 +243,7 @@ The depth maps are stored as mixed text and binary files. The text header
 defines the dimensions of the image in the format ``width&height&channels&``
 followed by row-major ``float32`` binary data. For depth maps ``channels=1`` and
 for normal maps ``channels=3``. The depth and normal maps can be conveniently
-read with Python using pycolmap and
-with Matlab using the functions in ``scripts/matlab/read_depth_map.m`` and
-``scripts/matlab/read_normal_map.m``.
+read with Python using pycolmap.
 
 
 ------------------

@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/sfm/incremental_mapper.h"
 
@@ -77,14 +50,12 @@ size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
 bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GT(init_min_num_inliers, 0);
   CHECK_OPTION_GT(init_max_error, 0.0);
-  CHECK_OPTION_GE(init_max_forward_motion, 0.0);
-  CHECK_OPTION_LE(init_max_forward_motion, 1.0);
+  CHECK_OPTION_IN(init_max_forward_motion, 0.0, 1.0);
   CHECK_OPTION_GE(init_min_tri_angle, 0.0);
   CHECK_OPTION_GE(init_max_reg_trials, 1);
   CHECK_OPTION_GT(abs_pose_max_error, 0.0);
   CHECK_OPTION_GT(abs_pose_min_num_inliers, 0);
-  CHECK_OPTION_GE(abs_pose_min_inlier_ratio, 0.0);
-  CHECK_OPTION_LE(abs_pose_min_inlier_ratio, 1.0);
+  CHECK_OPTION_IN(abs_pose_min_inlier_ratio, 0.0, 1.0);
   CHECK_OPTION_GE(ba_local_num_images, 2);
   CHECK_OPTION_GE(ba_local_min_tri_angle, 0.0);
   CHECK_OPTION_GE(ba_global_ignore_redundant_points3D_min_coverage_gain, 0.0);
@@ -774,7 +745,7 @@ bool IncrementalMapper::RegisterNextStructureLessImage(const Options& options,
   BundleAdjustmentOptions abs_pose_refinement_options;
   if (abs_pose_refinement_options.ceres) {
     abs_pose_refinement_options.ceres->loss_function_type =
-        CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+        CeresLossFunctionType::CAUCHY;
     abs_pose_refinement_options.ceres->solver_options.logging_type =
         ceres::LoggingType::SILENT;
   }
@@ -1088,17 +1059,21 @@ IncrementalMapper::AdjustLocalBundle(
 
     report.num_adjusted_observations = summary->num_residuals / 2;
 
-    // Merge refined tracks with other existing points.
-    report.num_merged_observations =
-        triangulator_->MergeTracks(tri_options, variable_point3D_ids);
-    // Complete tracks that may have failed to triangulate before refinement
-    // of camera pose and calibration in bundle-adjustment. This may avoid
-    // that some points are filtered and it helps for subsequent image
-    // registrations.
-    report.num_completed_observations =
-        triangulator_->CompleteTracks(tri_options, variable_point3D_ids);
-    report.num_completed_observations +=
-        triangulator_->CompleteImage(tri_options, image_id);
+    const bool stopped =
+        ba_options.check_if_stopped && ba_options.check_if_stopped();
+    if (!stopped) {
+      // Merge refined tracks with other existing points.
+      report.num_merged_observations =
+          triangulator_->MergeTracks(tri_options, variable_point3D_ids);
+      // Complete tracks that may have failed to triangulate before refinement
+      // of camera pose and calibration in bundle-adjustment. This may avoid
+      // that some points are filtered and it helps for subsequent image
+      // registrations.
+      report.num_completed_observations =
+          triangulator_->CompleteTracks(tri_options, variable_point3D_ids);
+      report.num_completed_observations +=
+          triangulator_->CompleteImage(tri_options, image_id);
+    }
   }
 
   // Filter both the modified images and all changed 3D points to make sure
@@ -1203,7 +1178,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
       prior_options.ceres->prior_position_loss_function_type =
-          CeresBundleAdjustmentOptions::LossFunctionType::CAUCHY;
+          CeresLossFunctionType::CAUCHY;
     }
     prior_options.ceres->prior_position_loss_scale =
         options.prior_position_loss_scale;
@@ -1220,6 +1195,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
   if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
     if (!bundle_adjuster->Solve()->IsSolutionUsable()) {
       return false;
+    }
+    if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+      return true;
     }
 
     ba_config = BundleAdjustmentConfig();
@@ -1254,6 +1232,10 @@ void IncrementalMapper::IterativeLocalRefinement(
     const image_t image_id) {
   BundleAdjustmentOptions custom_ba_options = ba_options;
   for (int i = 0; i < max_num_refinements; ++i) {
+    if (custom_ba_options.check_if_stopped &&
+        custom_ba_options.check_if_stopped()) {
+      break;
+    }
     const auto report = AdjustLocalBundle(options,
                                           custom_ba_options,
                                           tri_options,
@@ -1277,7 +1259,7 @@ void IncrementalMapper::IterativeLocalRefinement(
     // Only use robust cost function for first iteration.
     if (custom_ba_options.ceres) {
       custom_ba_options.ceres->loss_function_type =
-          CeresBundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+          CeresLossFunctionType::TRIVIAL;
     }
   }
   ClearModifiedPoints3D();
@@ -1290,13 +1272,22 @@ void IncrementalMapper::IterativeGlobalRefinement(
     const BundleAdjustmentOptions& ba_options,
     const IncrementalTriangulator::Options& tri_options,
     const bool normalize_reconstruction) {
+  if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+    return;
+  }
   CompleteAndMergeTracks(tri_options);
   const size_t num_retriangulated_observations = Retriangulate(tri_options);
   VLOG(1) << "=> Retriangulated observations: "
           << num_retriangulated_observations;
   for (int i = 0; i < max_num_refinements; ++i) {
+    if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+      break;
+    }
     const size_t num_observations = reconstruction_->ComputeNumObservations();
     AdjustGlobalBundle(options, ba_options);
+    if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
+      break;
+    }
     if (normalize_reconstruction && !options.use_prior_position) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.

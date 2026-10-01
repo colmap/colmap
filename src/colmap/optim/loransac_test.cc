@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/optim/loransac.h"
 
@@ -34,6 +7,8 @@
 #include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/util/eigen_alignment.h"
+
+#include <algorithm>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -72,6 +47,44 @@ SimilarityTransformTestData GenerateTestData(const size_t num_samples = 1000,
 
   return data;
 }
+
+class ShrinkingInlierEstimator {
+ public:
+  using X_t = double;
+  using Y_t = double;
+  using M_t = int;
+
+  static const int kMinNumSamples = 5;
+
+  static void Estimate(const std::vector<X_t>& X,
+                       const std::vector<Y_t>& Y,
+                       std::vector<M_t>* models) {
+    THROW_CHECK_EQ(X.size(), Y.size());
+    THROW_CHECK_GE(X.size(), kMinNumSamples);
+    models->assign(1, 0);
+  }
+
+  static bool Refine(const std::vector<X_t>& X,
+                     const std::vector<Y_t>& Y,
+                     M_t* model) {
+    THROW_CHECK_EQ(X.size(), Y.size());
+    THROW_CHECK_GE(X.size(), kMinNumSamples);
+    *model = 1;
+    return true;
+  }
+
+  static void Residuals(const std::vector<X_t>& X,
+                        const std::vector<Y_t>& Y,
+                        const M_t model,
+                        std::vector<double>* residuals) {
+    THROW_CHECK_EQ(X.size(), Y.size());
+    residuals->assign(X.size(), 0.9);
+    if (model == 1) {
+      residuals->assign(X.size(), 2.0);
+      std::fill_n(residuals->begin(), 4, 0.0);
+    }
+  }
+};
 
 template <typename Report>
 void ValidateReport(const Report& report,
@@ -128,6 +141,27 @@ TEST(LORANSAC, ParallelSimilarityTransform) {
   const auto report = loransac.Estimate(data.src, data.tgt);
 
   ValidateReport(report, data);
+}
+
+TEST(LORANSAC, RecursiveRefinementStopsBelowMinimumSampleCount) {
+  RANSACOptions options;
+  options.max_error = 1.0;
+  options.min_num_trials = 1;
+  options.max_num_trials = 1;
+  options.random_seed = kDefaultPRNGSeed;
+
+  LORANSAC<ShrinkingInlierEstimator,
+           ShrinkingInlierEstimator,
+           MEstimatorSupportMeasurer>
+      loransac(options);
+  const std::vector<double> samples(6, 0.0);
+
+  LORANSAC<ShrinkingInlierEstimator,
+           ShrinkingInlierEstimator,
+           MEstimatorSupportMeasurer>::Report report;
+  EXPECT_NO_THROW(report = loransac.Estimate(samples, samples));
+  EXPECT_FALSE(report.success);
+  EXPECT_EQ(report.support.num_inliers, 4);
 }
 
 }  // namespace

@@ -1,31 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#
-#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-#       its contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+# SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
 import collections
@@ -46,6 +19,7 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -82,7 +56,7 @@ def _init_pool_worker() -> None:
 
 
 def _run_with_log(
-    cmd: list, log_path: Path, check: bool = True, **kwargs
+    cmd: list, log_path: Path, check: bool = True, **kwargs: Any
 ) -> int:
     """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
 
@@ -118,7 +92,7 @@ class SceneInfo:
     # Whether the dataset has camera priors.
     has_camera_priors: bool
     # Additional arguments for the COLMAP reconstruction command.
-    colmap_extra_args: list[str]
+    colmap_extra_args: list[str | Path] | None
     # Reconstruction backend. The default uses automatic_reconstructor.
     reconstruction_backend: str = "automatic"
     # Subdirectory below workspace_path containing models to evaluate.
@@ -195,7 +169,7 @@ class Dataset(ABC):
         scenes: list[Path],
         run_path: Path,
         run_name: str,
-    ):
+    ) -> None:
         self.data_path = data_path
         self.categories = categories
         self.scenes = scenes
@@ -235,7 +209,7 @@ class _PhaseTracker:
     """Worker-side helper that publishes the current phase for a scene to a
     shared dict. No-op when status_dict is None."""
 
-    def __init__(self, status_dict=None, scene_key: str = "") -> None:
+    def __init__(self, status_dict: Any = None, scene_key: str = "") -> None:
         self._dict = status_dict
         self._key = scene_key
 
@@ -249,7 +223,7 @@ def _scene_key(scene_info: SceneInfo) -> str:
 
 
 def _run_progress_monitor(
-    status_dict, total: int, stop_event: threading.Event
+    status_dict: Any, total: int, stop_event: threading.Event
 ) -> None:
     """Render a live progress display of in-flight scenes until stop_event is
     set. Counts entries marked "done" toward overall completion; everything
@@ -334,6 +308,8 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "--datasets",
         nargs="+",
         default=["eth3d", "blended-mvs", "imc2023", "imc2024"],
+        help="Datasets to evaluate by name. Use eth3d-distorted for the "
+        "distorted DSLR JPEGs.",
     )
     parser.add_argument(
         "--categories",
@@ -470,7 +446,7 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--feature",
         default="sift",
-        choices=["sift", "aliked"],
+        choices=["sift", "aliked", "loma", "loma128"],
     )
     parser.add_argument(
         "--mapper",
@@ -487,6 +463,14 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         help="Whether to evaluate the setting of uncalibrated input cameras, "
         "even if normal setting for the dataset contains calibrated inputs. "
         "This is useful for evaluating the performance of self-calibration.",
+    )
+    parser.add_argument(
+        "--single_view_calibration",
+        default=False,
+        action="store_true",
+        help="Whether to run learned single-view calibration after "
+        "feature extraction, replacing EXIF-based intrinsics before matching "
+        "and mapping.",
     )
     parser.add_argument(
         "--filter_covisibility",
@@ -631,7 +615,7 @@ def colmap_reconstruction(
     image_path: Path,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
-    colmap_extra_args: list | None = None,
+    colmap_extra_args: list[str | Path] | None = None,
     num_threads: int = 1,
     gpu_index: str = "-1",
     phase_tracker: _PhaseTracker | None = None,
@@ -701,20 +685,27 @@ def colmap_reconstruction(
         args.quality,
     ]
 
+    # Learned calibration runs in the extraction step: the automatic
+    # reconstructor runs extraction and calibration sequentially in one
+    # process, so intrinsics are replaced before matching and mapping. It is
+    # intentionally not passed to the matching/sparse steps below, which would
+    # otherwise recalibrate every time they run.
+    extraction_args = [
+        "--extraction",
+        "1",
+        "--matching",
+        "0",
+        "--sparse",
+        "0",
+        "--dense",
+        "0",
+    ]
+    if args.single_view_calibration:
+        extraction_args += ["--single_view_calibration", "1"]
+
     phase_tracker.set("extraction")
     _run_with_log(
-        colmap_args
-        + (colmap_extra_args or [])
-        + [
-            "--extraction",
-            "1",
-            "--matching",
-            "0",
-            "--sparse",
-            "0",
-            "--dense",
-            "0",
-        ],
+        colmap_args + (colmap_extra_args or []) + extraction_args,
         workspace_path / "extraction.log",
         cwd=workspace_path,
     )
@@ -799,6 +790,10 @@ def panorama_reconstruction(
     if args.uncalibrated:
         raise ValueError(
             "Equirectangular panorama reconstruction has fixed calibration"
+        )
+    if args.single_view_calibration:
+        raise ValueError(
+            "Panorama reconstruction does not support learned calibration"
         )
 
     render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
@@ -911,7 +906,7 @@ def process_scene(
     dataset: Dataset,
     num_threads: int,
     gpu_index: str = "-1",
-    progress_status=None,
+    progress_status: Any = None,
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -935,7 +930,9 @@ def process_scene(
             image_path=scene_info.image_path,
             camera_priors_sparse_gt=(
                 sparse_gt
-                if not args.uncalibrated and scene_info.has_camera_priors
+                if not args.uncalibrated
+                and not args.single_view_calibration
+                and scene_info.has_camera_priors
                 else None
             ),
             covisibility_sparse_gt=(
@@ -1053,7 +1050,7 @@ def _process_scene_with_gpu(
     args: argparse.Namespace,
     dataset: Dataset,
     num_threads: int,
-    progress_status=None,
+    progress_status: Any = None,
 ) -> SceneResult:
     scene_info, gpu_index = scene_info_and_gpu
     return process_scene(
@@ -1380,7 +1377,10 @@ def compute_grouped_rel_errors(
         gt_edges.update(itertools.permutations(group_names, 2))
 
     errors: list[float] = []
-    for edge in set(tgt_from_src_est_edges) | gt_edges:
+    # Score edges in sorted order: set iteration order depends on the
+    # per-process hash seed, so an unsorted union would permute the error
+    # array from run to run.
+    for edge in sorted(set(tgt_from_src_est_edges) | gt_edges):
         src_name, tgt_name = edge
         tgt_from_src_ests = tgt_from_src_est_edges.get(edge, [])
         if edge in gt_edges:
@@ -1579,7 +1579,7 @@ def compute_auc(
         recalls = np.r_[0, recalls]
         errors = np.r_[0, errors]
 
-    aucs = np.zeros(len(thresholds), dtype=np.float64)
+    aucs: npt.NDArray[np.float64] = np.zeros(len(thresholds), dtype=np.float64)
     for i, t in enumerate(thresholds):
         last_index = np.searchsorted(errors, t, side="right")
         r = np.r_[recalls[:last_index], recalls[last_index - 1]]
@@ -1599,7 +1599,9 @@ def compute_recall(
     if num_elems == 0:
         raise ValueError("No errors to evaluate")
 
-    recalls = np.zeros(len(thresholds), dtype=np.float64)
+    recalls: npt.NDArray[np.float64] = np.zeros(
+        len(thresholds), dtype=np.float64
+    )
     for i, t in enumerate(thresholds):
         recalls[i] = 100 * np.sum(errors <= t) / num_elems
 
@@ -1631,7 +1633,7 @@ def compute_avg_metrics(
 def diff_metrics(
     metrics_a: MetricsByDatasetByCatByScene,
     metrics_b: MetricsByDatasetByCatByScene,
-):
+) -> MetricsByDatasetByCatByScene:
     """Computes difference between two sets of metrics.
 
     Raises exception if the metrics are inconsistent.

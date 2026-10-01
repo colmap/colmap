@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Runs the COLMAP automatic reconstruction pipeline on the ETH3D dataset
 and asserts that the reconstructed model is close to the ground truth.

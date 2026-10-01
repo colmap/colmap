@@ -1,31 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#
-#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-#       its contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+# SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
 import hashlib
@@ -59,13 +32,22 @@ def download_file(url: str, target_folder: Path) -> str:
     return filename
 
 
-def download_eth3d(data_path: Path) -> None:
-    for filename, category in [
-        ("multi_view_training_dslr_undistorted.7z", "dslr"),
-        ("multi_view_test_dslr_undistorted.7z", "dslr"),
-        ("multi_view_training_rig_undistorted.7z", "rig"),
-        ("multi_view_test_rig_undistorted.7z", "rig"),
-    ]:
+ETH3D_UNDISTORTED_ARCHIVES = [
+    ("multi_view_training_dslr_undistorted.7z", "dslr"),
+    ("multi_view_test_dslr_undistorted.7z", "dslr"),
+    ("multi_view_training_rig_undistorted.7z", "rig"),
+    ("multi_view_test_rig_undistorted.7z", "rig"),
+]
+ETH3D_DISTORTED_ARCHIVES = [
+    ("multi_view_training_dslr_jpg.7z", "dslr"),
+    ("multi_view_test_dslr_jpg.7z", "dslr"),
+]
+
+
+def _download_eth3d_archives(
+    data_path: Path, archives: list[tuple[str, str]]
+) -> None:
+    for filename, category in archives:
         target_folder = data_path / category
         target_folder.mkdir(parents=True, exist_ok=True)
 
@@ -79,6 +61,14 @@ def download_eth3d(data_path: Path) -> None:
         )
         with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
             archive.extractall(path=target_folder)
+
+
+def download_eth3d(data_path: Path) -> None:
+    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_ARCHIVES)
+
+
+def download_eth3d_distorted(data_path: Path) -> None:
+    _download_eth3d_archives(data_path, ETH3D_DISTORTED_ARCHIVES)
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -288,12 +278,14 @@ def download_tartanair_v2(
 
 DOWNLOADERS = {
     "eth3d": download_eth3d,
+    "eth3d-distorted": download_eth3d_distorted,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
     "imc2025": download_imc2025,
     "blended-mvs": download_blended_mvs,
     "tartanair-v2": download_tartanair_v2,
 }
+DEFAULT_DATASETS = [name for name in DOWNLOADERS if name != "eth3d-distorted"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -304,8 +296,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--datasets",
         nargs="+",
-        default=DOWNLOADERS.keys(),
+        default=DEFAULT_DATASETS,
         choices=DOWNLOADERS.keys(),
+        help="Datasets to download by name. eth3d-distorted downloads the "
+        "large DSLR-only _jpg.7z archives into data/eth3d-distorted.",
     )
     parser.add_argument(
         "--categories",

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/two_view_geometry.h"
 
 #include "colmap/feature/types.h"
@@ -48,6 +50,8 @@ void BindTwoViewGeometryEstimator(py::module& m) {
                      &TwoViewGeometryOptions::stationary_matches_max_error)
       .def_readwrite("force_H_use", &TwoViewGeometryOptions::force_H_use)
       .def_readwrite("use_degensac", &TwoViewGeometryOptions::use_degensac)
+      .def_readwrite("use_sampson_refinement",
+                     &TwoViewGeometryOptions::use_sampson_refinement)
       .def_readwrite("compute_relative_pose",
                      &TwoViewGeometryOptions::compute_relative_pose)
       .def_readwrite("multiple_models",

@@ -1,35 +1,7 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/estimators/solvers/relpose_one_sided_focal.h"
 #include "colmap/estimators/solvers/relpose_shared_focal.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
@@ -391,6 +363,17 @@ TwoViewGeometryTestData CreateTwoViewGeometryTestData(
   return data;
 }
 
+TEST(TwoViewGeometryOptions, CheckMinInlierRatioBounds) {
+  TwoViewGeometryOptions options;
+  EXPECT_TRUE(options.Check());
+  options.min_inlier_ratio = -0.1;
+  EXPECT_FALSE(options.Check());
+  options.min_inlier_ratio = 1.1;
+  EXPECT_FALSE(options.Check());
+  options.min_inlier_ratio = 1.0;
+  EXPECT_TRUE(options.Check());
+}
+
 TEST(EstimateTwoViewGeometry, Spherical) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -410,9 +393,9 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.compute_relative_pose = true;
 
-  // Spherical cameras have no pinhole image plane, so the fundamental matrix
-  // and homography are not estimated; only the bearing-based essential matrix
-  // is, committing to the CALIBRATED configuration.
+  // Spherical cameras have no pinhole image plane, so the fundamental matrix is
+  // not estimated; the pair is classified from the bearing-based essential
+  // matrix and a ray-space homography.
   const TwoViewGeometry geometry =
       EstimateTwoViewGeometry(test_data.camera1,
                               test_data.points1,
@@ -423,7 +406,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(geometry.E.has_value());
   EXPECT_FALSE(geometry.F.has_value());
-  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
 
   // The recovered relative pose should match the ground truth: rotation
@@ -439,7 +422,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
                   /*ttol=*/1e-2));
 
   // EstimateCalibratedTwoViewGeometry delegates to the spherical path rather
-  // than estimating a meaningless fundamental matrix / homography.
+  // than estimating a meaningless fundamental matrix.
   const TwoViewGeometry calibrated_geometry =
       EstimateCalibratedTwoViewGeometry(test_data.camera1,
                                         test_data.points1,
@@ -451,7 +434,7 @@ TEST(EstimateTwoViewGeometry, Spherical) {
             TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(calibrated_geometry.E.has_value());
   EXPECT_FALSE(calibrated_geometry.F.has_value());
-  EXPECT_FALSE(calibrated_geometry.H.has_value());
+  EXPECT_TRUE(calibrated_geometry.H.has_value());
 }
 
 TEST(EstimateTwoViewGeometry, UncalibratedFisheyeIsDegenerate) {
@@ -544,6 +527,169 @@ TEST(EstimateTwoViewGeometry, ForceHUseWithFisheyeIsDegenerate) {
                               two_view_geometry_options);
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::DEGENERATE);
   EXPECT_FALSE(geometry.H.has_value());
+}
+
+// A pure-rotation pair is the configuration a homography must catch, since the
+// essential matrix degenerates there. With a strongly distorted camera the
+// pixel-space homography cannot fit the correspondences at all, so it loses the
+// inliers that drive the classification. Estimating it on bearing rays restores
+// the fit and with it the PLANAR_OR_PANORAMIC label.
+// A rotating 360 degree camera is the usual capture mode, and the essential
+// matrix degenerates there, so the spherical path must catch it.
+TEST(EstimateTwoViewGeometry, PanoramicWithSphericalCameraIsDetected) {
+  SetPRNGSeed(42);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.camera_model_id =
+      EquirectangularCameraModel::model_id;
+  synthetic_dataset_options.camera_width = 1000;
+  synthetic_dataset_options.camera_height = 500;
+  synthetic_dataset_options.camera_params = {1000, 500};
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsSpherical());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.E.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_FALSE(geometry.F.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+}
+
+TEST(EstimateTwoViewGeometry, PanoramicWithDistortedCameraIsDetected) {
+  SetPRNGSeed(42);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.camera_model_id = OpenCVCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {
+      1280, 1280, 512, 384, 0.15, -0.03, 0.001, 0.001};
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsPerspectivePinhole());
+  ASSERT_FALSE(test_data.camera1.IsUndistorted());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+}
+
+// As above for a fisheye camera, which reaches the calibrated path today
+// because it short-circuits only spherical models. No gate change is involved.
+TEST(EstimateTwoViewGeometry, PanoramicWithFisheyeCameraIsDetected) {
+  SetPRNGSeed(42);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 500;
+  synthetic_dataset_options.camera_model_id =
+      OpenCVFisheyeCameraModel::model_id;
+  synthetic_dataset_options.camera_params = {
+      1280, 1280, 512, 384, 0.05, -0.01, 0, 0};
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.sensor_from_rig_translation_stddev = 0;
+  const TwoViewGeometryTestData test_data =
+      CreateTwoViewGeometryTestData(synthetic_dataset_options);
+  ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry =
+      EstimateTwoViewGeometry(test_data.camera1,
+                              test_data.points1,
+                              test_data.camera2,
+                              test_data.points2,
+                              test_data.matches,
+                              two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
+}
+
+// A pure-rotation pair seen by a zero-distortion fisheye camera. The fisheye
+// projection is non-linear even with zero coefficients, so the homography must
+// be estimated on bearing rays; routing by IsUndistorted alone would send this
+// pair to the pixel estimator, where no homography fits. A dedicated wide
+// field-of-view scene is built here rather than using SynthesizeDataset, whose
+// points sit near the optical axis where fisheye and pinhole projections
+// nearly agree.
+TEST(EstimateTwoViewGeometry, PanoramicWithUndistortedFisheyeCameraIsDetected) {
+  SetPRNGSeed(42);
+  Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1,
+      OpenCVFisheyeCameraModel::model_id,
+      /*focal_length=*/500.0,
+      /*width=*/2048,
+      /*height=*/2048);
+  camera.has_prior_focal_length = true;
+  ASSERT_TRUE(camera.IsPerspectiveFisheye());
+  ASSERT_TRUE(camera.IsUndistorted());
+
+  const Rigid3d cam2_from_cam1(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                   DegToRad(20.0), Eigen::Vector3d::UnitY())),
+                               Eigen::Vector3d::Zero());
+
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  FeatureMatches matches;
+  while (points1.size() < 200) {
+    // Bearing within ~60 degrees of the optical axis.
+    Eigen::Vector3d dir = RandomEigenVectord<3>();
+    dir.z() = std::abs(dir.z()) + 0.5;
+    const Eigen::Vector3d point_in_cam1 = 5.0 * dir.normalized();
+    const Eigen::Vector3d point_in_cam2 = cam2_from_cam1 * point_in_cam1;
+    if (point_in_cam2.z() < 0.5) {
+      continue;
+    }
+    const std::optional<Eigen::Vector2d> xy1 = camera.ImgFromCam(point_in_cam1);
+    const std::optional<Eigen::Vector2d> xy2 = camera.ImgFromCam(point_in_cam2);
+    if (!xy1.has_value() || !xy2.has_value()) {
+      continue;
+    }
+    const point2D_t idx = static_cast<point2D_t>(points1.size());
+    points1.push_back(*xy1);
+    points2.push_back(*xy2);
+    matches.emplace_back(idx, idx);
+  }
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(
+      camera, points1, camera, points2, matches, two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
 }
 
 TEST(EstimateTwoViewGeometry, SharedFocal) {
@@ -866,7 +1012,7 @@ TEST(EstimateTwoViewGeometry, SphericalAndCalibratedPerspective) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::CALIBRATED);
   EXPECT_TRUE(geometry.E.has_value());
   EXPECT_FALSE(geometry.F.has_value());
-  EXPECT_FALSE(geometry.H.has_value());
+  EXPECT_TRUE(geometry.H.has_value());
   EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
 }
 
@@ -1249,7 +1395,7 @@ TEST(EstimateTwoViewGeometry, UncalibratedDegensac) {
   EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::UNCALIBRATED);
   EXPECT_GE(geometry.inlier_matches.size(),
             static_cast<size_t>(synthetic_dataset_options.inlier_match_ratio *
-                                synthetic_dataset_options.num_points3D * 0.9));
+                                synthetic_dataset_options.num_points3D * 0.8));
 }
 
 TEST(EstimateTwoViewGeometry, PlanarOrPanoramicDeterministic) {

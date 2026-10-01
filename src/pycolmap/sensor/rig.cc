@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/sensor/rig.h"
 
 #include "pycolmap/helpers.h"

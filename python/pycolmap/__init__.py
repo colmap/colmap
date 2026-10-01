@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 import contextlib
 import ctypes
 import importlib
@@ -9,7 +11,7 @@ from typing import TYPE_CHECKING
 from .utils import import_module_symbols
 
 
-def _preload_cuda_lib(module_name: str, lib_name: str):
+def _preload_cuda_lib(module_name: str, lib_name: str) -> None:
     """Preload a single library."""
     try:
         module = importlib.import_module(module_name)
@@ -33,7 +35,7 @@ def _preload_cuda_lib(module_name: str, lib_name: str):
                 ctypes.CDLL(str(lib_path))
 
 
-def _preload_cuda_deps():
+def _preload_cuda_deps() -> None:
     """Preloads CUDA dependencies from pip packages on Linux."""
     if platform.system() != "Linux":
         return

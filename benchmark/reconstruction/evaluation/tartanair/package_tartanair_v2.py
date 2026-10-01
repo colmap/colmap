@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Build deterministic COLMAP benchmark shards from TartanAir V2."""
 
 import argparse
@@ -61,7 +63,7 @@ class ZipMember:
 class RemoteZip:
     """Read selected members of a remote ZIP using HTTP range requests."""
 
-    def __init__(self, url: str):
+    def __init__(self, url: str) -> None:
         self.url = url
         self.session = requests.Session()
         self.members = self._read_central_directory()
