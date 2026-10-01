@@ -422,26 +422,35 @@ class AlikedLightGlueONNXMatcherTest : public testing::Test {
   }
 };
 
-TEST_F(AlikedLightGlueONNXMatcherTest, SelfMatching) {
+TEST_F(AlikedLightGlueONNXMatcherTest, Nominal) {
   constexpr int kNumKeypoints = 10;
-
-  const auto keypoints = CreateRandomKeypoints(kNumKeypoints);
-  const auto descriptors = CreateRandomDescriptors(kNumKeypoints);
 
   const Camera camera = CreateCamera();
 
-  auto matcher = CreateLightGlueONNXFeatureMatcher(
+  // One matcher per score threshold, shared across the checks below to avoid
+  // reloading the ~46MB model per check. Each image pair uses distinct image
+  // ids, since the matcher's feature cache keys by image id.
+  auto matcher_low = CreateLightGlueONNXFeatureMatcher(
       CreateFeatureMatcherOptions(), CreateLightGlueONNXMatchingOptions());
 
-  const FeatureMatcher::Image image1{1, &camera, keypoints, descriptors};
-  const FeatureMatcher::Image image2{2, &camera, keypoints, descriptors};
-
-  FeatureMatches matches;
-  matcher->Match(image1, image2, &matches);
+  LightGlueONNXMatchingOptions options_high =
+      CreateLightGlueONNXMatchingOptions();
+  options_high.min_score = 0.9;
+  auto matcher_high = CreateLightGlueONNXFeatureMatcher(
+      CreateFeatureMatcherOptions(), options_high);
 
   // Self-matching should produce a high number of correct matches.
   // LightGlue is attention-based and may not match every keypoint,
   // but correct matches should map keypoints to themselves.
+  const auto keypoints_self = CreateRandomKeypoints(kNumKeypoints);
+  const auto descriptors_self = CreateRandomDescriptors(kNumKeypoints);
+  const FeatureMatcher::Image image_self1{
+      1, &camera, keypoints_self, descriptors_self};
+  const FeatureMatcher::Image image_self2{
+      2, &camera, keypoints_self, descriptors_self};
+
+  FeatureMatches matches;
+  matcher_low->Match(image_self1, image_self2, &matches);
   EXPECT_GT(matches.size(), kNumKeypoints / 2);
   for (const auto& match : matches) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
@@ -451,69 +460,45 @@ TEST_F(AlikedLightGlueONNXMatcherTest, SelfMatching) {
   // Orientation 6: Rotate 90 CW. Gravity points to +X.
   pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
 
-  const FeatureMatcher::Image image1_rotated{
-      1, &camera, keypoints, descriptors, &pose_prior};
-  const FeatureMatcher::Image image2_rotated{
-      2, &camera, keypoints, descriptors, &pose_prior};
+  const FeatureMatcher::Image image_self1_rotated{
+      1, &camera, keypoints_self, descriptors_self, &pose_prior};
+  const FeatureMatcher::Image image_self2_rotated{
+      2, &camera, keypoints_self, descriptors_self, &pose_prior};
 
-  matcher->Match(image1_rotated, image2_rotated, &matches);
+  matcher_low->Match(image_self1_rotated, image_self2_rotated, &matches);
 
   // Self-matching with the same pose prior should still produce matches.
   EXPECT_GT(matches.size(), kNumKeypoints / 2);
   for (const auto& match : matches) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
   }
-}
 
-TEST_F(AlikedLightGlueONNXMatcherTest, MinScoreFiltering) {
-  constexpr int kNumKeypoints = 10;
-
+  // A higher score threshold should produce fewer matches.
   const auto keypoints1 = CreateRandomKeypoints(kNumKeypoints);
   const auto descriptors1 = CreateRandomDescriptors(kNumKeypoints);
   const auto keypoints2 = CreateRandomKeypoints(kNumKeypoints);
   const auto descriptors2 = CreateRandomDescriptors(kNumKeypoints);
-
-  const Camera camera = CreateCamera();
-
-  LightGlueONNXMatchingOptions options_low =
-      CreateLightGlueONNXMatchingOptions();
-  options_low.min_score = 0.1;
-  auto matcher_low = CreateLightGlueONNXFeatureMatcher(
-      CreateFeatureMatcherOptions(), options_low);
-
-  LightGlueONNXMatchingOptions options_high =
-      CreateLightGlueONNXMatchingOptions();
-  options_high.min_score = 0.9;
-  auto matcher_high = CreateLightGlueONNXFeatureMatcher(
-      CreateFeatureMatcherOptions(), options_high);
-
-  const FeatureMatcher::Image image1{1, &camera, keypoints1, descriptors1};
-  const FeatureMatcher::Image image2{2, &camera, keypoints2, descriptors2};
+  const FeatureMatcher::Image image1{3, &camera, keypoints1, descriptors1};
+  const FeatureMatcher::Image image2{4, &camera, keypoints2, descriptors2};
 
   FeatureMatches matches_low, matches_high;
   matcher_low->Match(image1, image2, &matches_low);
   matcher_high->Match(image1, image2, &matches_high);
-
   EXPECT_GT(matches_low.size(), matches_high.size());
-}
 
-TEST_F(AlikedLightGlueONNXMatcherTest, EmptyKeypoints) {
-  const auto keypoints1 = std::make_shared<FeatureKeypoints>();
-  const auto descriptors1 = CreateRandomDescriptors(0);
-  const auto keypoints2 = CreateRandomKeypoints(10);
-  const auto descriptors2 = CreateRandomDescriptors(10);
-  const auto camera = CreateCamera();
+  // Empty keypoints should produce no matches.
+  const auto keypoints_empty = std::make_shared<FeatureKeypoints>();
+  const auto descriptors_empty = CreateRandomDescriptors(0);
+  const auto keypoints_full = CreateRandomKeypoints(kNumKeypoints);
+  const auto descriptors_full = CreateRandomDescriptors(kNumKeypoints);
+  const FeatureMatcher::Image image_empty{
+      5, &camera, keypoints_empty, descriptors_empty};
+  const FeatureMatcher::Image image_full{
+      6, &camera, keypoints_full, descriptors_full};
 
-  auto matcher = CreateLightGlueONNXFeatureMatcher(
-      CreateFeatureMatcherOptions(), CreateLightGlueONNXMatchingOptions());
-
-  const FeatureMatcher::Image image1{1, &camera, keypoints1, descriptors1};
-  const FeatureMatcher::Image image2{2, &camera, keypoints2, descriptors2};
-
-  FeatureMatches matches;
-  matcher->Match(image1, image2, &matches);
-
-  EXPECT_EQ(matches.size(), 0);
+  FeatureMatches matches_empty;
+  matcher_low->Match(image_empty, image_full, &matches_empty);
+  EXPECT_EQ(matches_empty.size(), 0);
 }
 
 TEST_F(AlikedLightGlueONNXMatcherTest, Caching) {
@@ -619,24 +604,33 @@ class SiftLightGlueONNXMatcherTest : public testing::Test {
   }
 };
 
-TEST_F(SiftLightGlueONNXMatcherTest, SelfMatching) {
+TEST_F(SiftLightGlueONNXMatcherTest, Nominal) {
   constexpr int kNumKeypoints = 10;
-
-  const auto keypoints = CreateRandomKeypoints(kNumKeypoints);
-  const auto descriptors = CreateRandomDescriptors(kNumKeypoints);
 
   const Camera camera = CreateCamera();
 
-  auto matcher = CreateLightGlueONNXFeatureMatcher(
+  // One matcher per score threshold, shared across the checks below to avoid
+  // reloading the ~46MB model per check. Each image pair uses distinct image
+  // ids, since the matcher's feature cache keys by image id.
+  auto matcher_low = CreateLightGlueONNXFeatureMatcher(
       CreateFeatureMatcherOptions(), CreateLightGlueONNXMatchingOptions());
 
-  const FeatureMatcher::Image image1{1, &camera, keypoints, descriptors};
-  const FeatureMatcher::Image image2{2, &camera, keypoints, descriptors};
-
-  FeatureMatches matches;
-  matcher->Match(image1, image2, &matches);
+  LightGlueONNXMatchingOptions options_high =
+      CreateLightGlueONNXMatchingOptions();
+  options_high.min_score = 0.9;
+  auto matcher_high = CreateLightGlueONNXFeatureMatcher(
+      CreateFeatureMatcherOptions(), options_high);
 
   // Self-matching should produce a high number of correct matches.
+  const auto keypoints_self = CreateRandomKeypoints(kNumKeypoints);
+  const auto descriptors_self = CreateRandomDescriptors(kNumKeypoints);
+  const FeatureMatcher::Image image_self1{
+      1, &camera, keypoints_self, descriptors_self};
+  const FeatureMatcher::Image image_self2{
+      2, &camera, keypoints_self, descriptors_self};
+
+  FeatureMatches matches;
+  matcher_low->Match(image_self1, image_self2, &matches);
   EXPECT_GT(matches.size(), kNumKeypoints / 2);
   for (const auto& match : matches) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
@@ -646,69 +640,45 @@ TEST_F(SiftLightGlueONNXMatcherTest, SelfMatching) {
   // Orientation 6: Rotate 90 CW. Gravity points to +X.
   pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
 
-  const FeatureMatcher::Image image1_rotated{
-      1, &camera, keypoints, descriptors, &pose_prior};
-  const FeatureMatcher::Image image2_rotated{
-      2, &camera, keypoints, descriptors, &pose_prior};
+  const FeatureMatcher::Image image_self1_rotated{
+      1, &camera, keypoints_self, descriptors_self, &pose_prior};
+  const FeatureMatcher::Image image_self2_rotated{
+      2, &camera, keypoints_self, descriptors_self, &pose_prior};
 
-  matcher->Match(image1_rotated, image2_rotated, &matches);
+  matcher_low->Match(image_self1_rotated, image_self2_rotated, &matches);
 
   // Self-matching with the same pose prior should still produce matches.
   EXPECT_GT(matches.size(), kNumKeypoints / 2);
   for (const auto& match : matches) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
   }
-}
 
-TEST_F(SiftLightGlueONNXMatcherTest, MinScoreFiltering) {
-  constexpr int kNumKeypoints = 10;
-
+  // A higher score threshold should produce fewer matches.
   const auto keypoints1 = CreateRandomKeypoints(kNumKeypoints);
   const auto descriptors1 = CreateRandomDescriptors(kNumKeypoints);
   const auto keypoints2 = CreateRandomKeypoints(kNumKeypoints);
   const auto descriptors2 = CreateRandomDescriptors(kNumKeypoints);
-
-  const Camera camera = CreateCamera();
-
-  LightGlueONNXMatchingOptions options_low =
-      CreateLightGlueONNXMatchingOptions();
-  options_low.min_score = 0.1;
-  auto matcher_low = CreateLightGlueONNXFeatureMatcher(
-      CreateFeatureMatcherOptions(), options_low);
-
-  LightGlueONNXMatchingOptions options_high =
-      CreateLightGlueONNXMatchingOptions();
-  options_high.min_score = 0.9;
-  auto matcher_high = CreateLightGlueONNXFeatureMatcher(
-      CreateFeatureMatcherOptions(), options_high);
-
-  const FeatureMatcher::Image image1{1, &camera, keypoints1, descriptors1};
-  const FeatureMatcher::Image image2{2, &camera, keypoints2, descriptors2};
+  const FeatureMatcher::Image image1{3, &camera, keypoints1, descriptors1};
+  const FeatureMatcher::Image image2{4, &camera, keypoints2, descriptors2};
 
   FeatureMatches matches_low, matches_high;
   matcher_low->Match(image1, image2, &matches_low);
   matcher_high->Match(image1, image2, &matches_high);
-
   EXPECT_GT(matches_low.size(), matches_high.size());
-}
 
-TEST_F(SiftLightGlueONNXMatcherTest, EmptyKeypoints) {
-  const auto keypoints1 = std::make_shared<FeatureKeypoints>();
-  const auto descriptors1 = CreateRandomDescriptors(0);
-  const auto keypoints2 = CreateRandomKeypoints(10);
-  const auto descriptors2 = CreateRandomDescriptors(10);
-  const auto camera = CreateCamera();
+  // Empty keypoints should produce no matches.
+  const auto keypoints_empty = std::make_shared<FeatureKeypoints>();
+  const auto descriptors_empty = CreateRandomDescriptors(0);
+  const auto keypoints_full = CreateRandomKeypoints(kNumKeypoints);
+  const auto descriptors_full = CreateRandomDescriptors(kNumKeypoints);
+  const FeatureMatcher::Image image_empty{
+      5, &camera, keypoints_empty, descriptors_empty};
+  const FeatureMatcher::Image image_full{
+      6, &camera, keypoints_full, descriptors_full};
 
-  auto matcher = CreateLightGlueONNXFeatureMatcher(
-      CreateFeatureMatcherOptions(), CreateLightGlueONNXMatchingOptions());
-
-  const FeatureMatcher::Image image1{1, &camera, keypoints1, descriptors1};
-  const FeatureMatcher::Image image2{2, &camera, keypoints2, descriptors2};
-
-  FeatureMatches matches;
-  matcher->Match(image1, image2, &matches);
-
-  EXPECT_EQ(matches.size(), 0);
+  FeatureMatches matches_empty;
+  matcher_low->Match(image_empty, image_full, &matches_empty);
+  EXPECT_EQ(matches_empty.size(), 0);
 }
 
 TEST_F(SiftLightGlueONNXMatcherTest, Caching) {
