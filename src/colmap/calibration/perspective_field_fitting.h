@@ -108,7 +108,7 @@ FittedPerspectiveFields FitPerspectiveField(
     const PerspectiveFieldFittingOptions& options,
     const PerspectiveField& field,
     Camera* camera,
-    bool refine_camera = false);
+    bool refine_camera);
 
 // Synthesize a noiseless perspective field on a pixel grid for a given camera
 // and sensor-frame gravity vector (down direction, COLMAP convention). Useful
