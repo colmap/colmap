@@ -326,45 +326,6 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     return threshold / mean_focal_length;
   }
 
-  // Unproject a pixel to a unit bearing vector in the camera frame.
-  //
-  // Default implementation: delegates to CameraModel::CamFromImg and
-  // normalizes the resulting homogeneous coordinate. Correct for perspective
-  // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
-  template <typename T>
-  static inline bool CamRayFromImg(
-      const T* params, const T& x, const T& y, T* rx, T* ry, T* rz) {
-    T u(0);
-    T v(0);
-    if (!CameraModel::CamFromImg(params, x, y, &u, &v)) {
-      return false;
-    }
-    const T norm = ceres::sqrt(u * u + v * v + T(1.0));
-    *rx = u / norm;
-    *ry = v / norm;
-    *rz = T(1.0) / norm;
-    return true;
-  }
-
-  // Rescale the parameters in-place for a new image resolution, given the
-  // per-axis scale factors. A single shared focal length scales by the mean
-  // factor; separate fx/fy scale independently. The principal point follows
-  // the image dimensions. Extra (distortion) parameters are resolution
-  // independent and left untouched.
-  static inline void Rescale(double scale_x,
-                             double scale_y,
-                             std::vector<double>* params) {
-    if constexpr (CameraModel::num_focal_params == 1) {
-      (*params)[CameraModel::focal_length_idxs[0]] *= 0.5 * (scale_x + scale_y);
-    } else {
-      (*params)[CameraModel::focal_length_idxs[0]] *= scale_x;
-      (*params)[CameraModel::focal_length_idxs[1]] *= scale_y;
-    }
-    (*params)[CameraModel::principal_point_idxs[0]] *= scale_x;
-    (*params)[CameraModel::principal_point_idxs[1]] *= scale_y;
-  }
-
- protected:
   // Undistorts coordinates with proper Jacobian propagation for auto-diff.
   // This is the key function that enables CamFromImg to work with Ceres Jets.
   //
@@ -438,7 +399,6 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     return true;
   }
 
- private:
   static inline bool IterativeUndistortionScalar(
       const double* extra_params,
       double* u,
@@ -502,6 +462,45 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     return false;
   }
 
+  // Unproject a pixel to a unit bearing vector in the camera frame.
+  //
+  // Default implementation: delegates to CameraModel::CamFromImg and
+  // normalizes the resulting homogeneous coordinate. Correct for perspective
+  // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
+  template <typename T>
+  static inline bool CamRayFromImg(
+      const T* params, const T& x, const T& y, T* rx, T* ry, T* rz) {
+    T u(0);
+    T v(0);
+    if (!CameraModel::CamFromImg(params, x, y, &u, &v)) {
+      return false;
+    }
+    const T norm = ceres::sqrt(u * u + v * v + T(1.0));
+    *rx = u / norm;
+    *ry = v / norm;
+    *rz = T(1.0) / norm;
+    return true;
+  }
+
+  // Rescale the parameters in-place for a new image resolution, given the
+  // per-axis scale factors. A single shared focal length scales by the mean
+  // factor; separate fx/fy scale independently. The principal point follows
+  // the image dimensions. Extra (distortion) parameters are resolution
+  // independent and left untouched.
+  static inline void Rescale(double scale_x,
+                             double scale_y,
+                             std::vector<double>* params) {
+    if constexpr (CameraModel::num_focal_params == 1) {
+      (*params)[CameraModel::focal_length_idxs[0]] *= 0.5 * (scale_x + scale_y);
+    } else {
+      (*params)[CameraModel::focal_length_idxs[0]] *= scale_x;
+      (*params)[CameraModel::focal_length_idxs[1]] *= scale_y;
+    }
+    (*params)[CameraModel::principal_point_idxs[0]] *= scale_x;
+    (*params)[CameraModel::principal_point_idxs[1]] *= scale_y;
+  }
+
+ private:
   BasePerspectiveCameraModel() = default;
   friend CameraModel;
 };
