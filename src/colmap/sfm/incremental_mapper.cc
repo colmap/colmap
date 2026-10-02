@@ -225,7 +225,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     bool all_cameras_have_good_focal_length = true;
     for (const data_t& data_id : image.FramePtr()->ImageIds()) {
       const Image& frame_image = reconstruction_->Image(data_id.id);
-      if ((!frame_image.CameraPtr()->has_prior_focal_length &&
+      if ((!frame_image.CameraPtr()->HasPriorFocalLength() &&
            reg_stats_.num_reg_images_per_camera[frame_image.CameraId()] == 0) ||
           frame_image.CameraPtr()->HasBogusParams(
               options.min_focal_length_ratio,
@@ -345,7 +345,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       if (camera.HasBogusParams(options.min_focal_length_ratio,
                                 options.max_focal_length_ratio,
                                 options.max_extra_param)) {
-        abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
+        abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
         abs_pose_refinement_options.refine_focal_length = true;
         abs_pose_refinement_options.refine_extra_params = true;
       } else {
@@ -358,7 +358,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       // been changed before but the image was filtered, so we explicitly reset
       // the camera parameters and try to re-estimate them.
       camera.params = database_cache_->Camera(image.CameraId()).params;
-      abs_pose_options.estimate_focal_length = !camera.has_prior_focal_length;
+      abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
       abs_pose_refinement_options.refine_focal_length = true;
       abs_pose_refinement_options.refine_extra_params = true;
     }

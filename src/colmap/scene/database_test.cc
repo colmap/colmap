@@ -1303,12 +1303,12 @@ TEST(DatabaseMigrationTest, LegacyCameraTableMigration) {
 
   const Camera cam1_migrated = database->ReadCamera(1);
   EXPECT_EQ(cam1_migrated.source, CameraSource::EXIF);
-  EXPECT_TRUE(cam1_migrated.has_prior_focal_length);
+  EXPECT_TRUE(cam1_migrated.HasPriorFocalLength());
   EXPECT_EQ(cam1_migrated.params, cam1.params);
 
   const Camera cam2_migrated = database->ReadCamera(2);
   EXPECT_EQ(cam2_migrated.source, CameraSource::GUESS);
-  EXPECT_FALSE(cam2_migrated.has_prior_focal_length);
+  EXPECT_FALSE(cam2_migrated.HasPriorFocalLength());
   EXPECT_EQ(cam2_migrated.params, cam2.params);
 
   // 2. Verify images and keypoints migrated intact.
@@ -1521,6 +1521,20 @@ TEST(DatabaseMigrationTest, IntermediateCameraCalibrationsTableMigration) {
   EXPECT_EQ(sqlite3_step(check_stmt), SQLITE_DONE);
   sqlite3_finalize(check_stmt);
   sqlite3_close(db);
+}
+
+TEST(Database, CameraSourceBestRejected) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  camera.source = CameraSource::BEST;
+  EXPECT_THROW(database->WriteCamera(camera), std::invalid_argument);
+
+  camera.source = CameraSource::USER;
+  database->WriteCamera(camera);
+
+  camera.source = CameraSource::BEST;
+  EXPECT_THROW(database->UpdateCamera(camera), std::invalid_argument);
 }
 
 }  // namespace

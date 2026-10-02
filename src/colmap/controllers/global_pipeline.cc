@@ -26,7 +26,7 @@ bool HasInsufficientPriorFocalLengths(const DatabaseCache& database_cache) {
   }
   const size_t num_with_prior =
       std::count_if(cameras.begin(), cameras.end(), [](const auto& camera) {
-        return camera.second.has_prior_focal_length;
+        return camera.second.HasPriorFocalLength();
       });
   return num_with_prior < kMinPriorFocalLengthRatio * cameras.size();
 }

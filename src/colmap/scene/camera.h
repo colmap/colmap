@@ -72,13 +72,8 @@ struct Camera {
 
   // Whether there is a good prior for the focal length, e.g. manually provided,
   // extracted from EXIF, or from view graph calibration.
-  bool has_prior_focal_length = false;
-
   inline bool HasPriorFocalLength() const {
-    if (source != CameraSource::UNKNOWN) {
-      return source > CameraSource::GUESS;
-    }
-    return has_prior_focal_length;
+    return source > CameraSource::GUESS;
   }
 
   // Initialize parameters for given camera model and focal length, and set
@@ -390,9 +385,7 @@ std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
 bool Camera::operator==(const Camera& other) const {
   return camera_id == other.camera_id && model_id == other.model_id &&
          width == other.width && height == other.height &&
-         params == other.params &&
-         HasPriorFocalLength() == other.HasPriorFocalLength() &&
-         source == other.source;
+         params == other.params && source == other.source;
 }
 
 bool Camera::operator!=(const Camera& other) const { return !(*this == other); }

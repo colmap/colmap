@@ -50,7 +50,7 @@ void CrossValidatePriorFocalLengths(
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const Camera& camera1 = *image_id_to_camera.at(image_id1);
     const Camera& camera2 = *image_id_to_camera.at(image_id2);
-    if (!camera1.has_prior_focal_length || !camera2.has_prior_focal_length) {
+    if (!camera1.HasPriorFocalLength() || !camera2.HasPriorFocalLength()) {
       continue;
     }
 
@@ -246,7 +246,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
     if (!problem.HasParameterBlock(focal_ptr)) continue;
 
     problem.SetParameterLowerBound(focal_ptr, 0, kFocalLengthLowerBound);
-    if (camera.has_prior_focal_length) {
+    if (camera.HasPriorFocalLength()) {
       problem.SetParameterBlockConstant(focal_ptr);
     } else {
       num_cameras++;
@@ -421,7 +421,6 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   for (const auto& [camera_id, focal_length] : calib_result.focal_lengths) {
     Camera& camera = cameras.at(camera_id);
     camera.SetFocalLength(focal_length);
-    camera.has_prior_focal_length = true;
     camera.source = CameraSource::VIEW_GRAPH;
     database->UpdateCamera(camera);
   }

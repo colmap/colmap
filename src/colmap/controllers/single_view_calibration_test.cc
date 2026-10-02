@@ -121,7 +121,7 @@ class FakeCalibrator : public SingleViewCalibrator {
     const size_t idx =
         std::min(num_calls_++, config_.params_sequence.size() - 1);
     camera->params = config_.params_sequence[idx];
-    camera->has_prior_focal_length = true;
+    camera->source = CameraSource::SINGLE_VIEW;
     return true;
   }
 
@@ -162,7 +162,7 @@ FakeCalibrationScene CreateFakeCalibrationSceneWithModel(
   camera.width = 64;
   camera.height = 48;
   camera.params = scene.initial_params;
-  camera.has_prior_focal_length = true;
+  camera.source = CameraSource::USER;
   const camera_t camera_id = database->WriteCamera(camera);
   for (int i = 0; i < 2; ++i) {
     const std::string name = "image" + std::to_string(i) + ".png";
@@ -217,7 +217,7 @@ TEST(SingleViewCalibrationControllerTest, FakeCalibratorUpdatesDatabase) {
   // The per-image fits are aggregated by coefficient-wise median.
   const Camera camera = ReadSingleCamera(scene.database_path);
   ExpectParamsNear(camera.params, {500, 32, 24, 0.10});
-  EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
   EXPECT_EQ(camera.source, CameraSource::SINGLE_VIEW);
 
   auto database = Database::Open(scene.database_path);
@@ -287,7 +287,7 @@ TEST(SingleViewCalibrationControllerTest,
   const Camera camera = ReadSingleCamera(scene.database_path);
   EXPECT_EQ(camera.model_id, CameraModelId::kOpenCV);
   ExpectParamsNear(camera.params, {500, 500, 32, 24, 0, 0, 0, 0});
-  EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
 }
 
 TEST(SingleViewCalibrationControllerTest,
@@ -311,7 +311,7 @@ TEST(SingleViewCalibrationControllerTest,
   const Camera camera = ReadSingleCamera(scene.database_path);
   EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
   ExpectParamsNear(camera.params, {500, 32, 24, 0.10});
-  EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
 }
 
 TEST(SingleViewCalibrationControllerTest, FailingCalibratorKeepsDatabase) {
@@ -454,7 +454,7 @@ TEST(SingleViewCalibrationControllerTest, IntegrationTestWithModel) {
     camera.width = 64;
     camera.height = 48;
     camera.params = initial_params;
-    camera.has_prior_focal_length = true;
+    camera.source = CameraSource::USER;
     const camera_t camera_id = database->WriteCamera(camera);
     for (int i = 0; i < 2; ++i) {
       Bitmap bitmap(64, 48, /*as_rgb=*/true);
@@ -487,7 +487,7 @@ TEST(SingleViewCalibrationControllerTest, IntegrationTestWithModel) {
   expected_camera.width = 64;
   expected_camera.height = 48;
   expected_camera.params = initial_params;
-  expected_camera.has_prior_focal_length = true;
+  expected_camera.source = CameraSource::USER;
   const bool expected_success =
       SingleViewCalibrator::Create(options)->Calibrate(selected_bitmap,
                                                        &expected_camera);

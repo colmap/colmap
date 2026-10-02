@@ -84,15 +84,26 @@ void BindCamera(py::module& m) {
           "has_prior_focal_length",
           &Camera::HasPriorFocalLength,
           [](Camera& camera, bool has_prior) {
-            camera.has_prior_focal_length = has_prior;
-            if (has_prior && camera.source <= CameraSource::GUESS) {
-              camera.source = CameraSource::EXIF;
-            } else if (!has_prior && camera.source > CameraSource::GUESS) {
-              camera.source = CameraSource::GUESS;
-            }
+            PyErr_WarnEx(
+                PyExc_DeprecationWarning,
+                "Camera.has_prior_focal_length setter is deprecated, set "
+                "Camera.source directly instead.",
+                1);
+            camera.source =
+                has_prior ? CameraSource::USER : CameraSource::GUESS;
           })
-      .def_readwrite(
-          "source", &Camera::source, "Origin/source of the camera calibration.")
+      .def_property(
+          "source",
+          [](const Camera& camera) { return camera.source; },
+          [](Camera& camera, CameraSource source) {
+            if (source == CameraSource::BEST) {
+              throw py::value_error(
+                  "Camera.source cannot be BEST. BEST is a database query "
+                  "selector, not a valid camera source.");
+            }
+            camera.source = source;
+          },
+          "Origin/source of the camera calibration.")
       .def_property("principal_point_x",
                     &Camera::PrincipalPointX,
                     &Camera::SetPrincipalPointX)
@@ -298,13 +309,7 @@ void BindCamera(py::module& m) {
            "Rescale the camera dimensions and accordingly the "
            "focal length and the principal point.");
   MakeDataclass(PyCamera,
-                {"camera_id",
-                 "model",
-                 "width",
-                 "height",
-                 "params",
-                 "has_prior_focal_length",
-                 "source"});
+                {"camera_id", "model", "width", "height", "params", "source"});
 
   py::bind_map<CameraMap>(m, "CameraMap");
 }

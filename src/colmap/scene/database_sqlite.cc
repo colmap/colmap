@@ -212,7 +212,7 @@ std::string CameraToBlob(const Camera& camera) {
   WriteBinaryLittleEndian<uint64_t>(&stream, camera.width);
   WriteBinaryLittleEndian<uint64_t>(&stream, camera.height);
   WriteBinaryLittleEndian<uint8_t>(&stream,
-                                   camera.has_prior_focal_length ? 1 : 0);
+                                   camera.HasPriorFocalLength() ? 1 : 0);
   WriteBinaryLittleEndian<uint64_t>(&stream, camera.params.size());
   for (const double param : camera.params) {
     WriteBinaryLittleEndian<double>(&stream, param);
@@ -230,7 +230,7 @@ Camera CameraFromBlob(const void* data, const size_t num_bytes) {
       static_cast<CameraModelId>(ReadBinaryLittleEndian<int>(&stream));
   camera.width = ReadBinaryLittleEndian<uint64_t>(&stream);
   camera.height = ReadBinaryLittleEndian<uint64_t>(&stream);
-  camera.has_prior_focal_length = ReadBinaryLittleEndian<uint8_t>(&stream) != 0;
+  const bool has_prior = ReadBinaryLittleEndian<uint8_t>(&stream) != 0;
   const uint64_t num_params = ReadBinaryLittleEndian<uint64_t>(&stream);
   camera.params.resize(num_params);
   ReadBinaryLittleEndian<double>(&stream, &camera.params);
@@ -238,8 +238,7 @@ Camera CameraFromBlob(const void* data, const size_t num_bytes) {
     camera.source =
         static_cast<CameraSource>(ReadBinaryLittleEndian<int8_t>(&stream));
   } else {
-    camera.source = camera.has_prior_focal_length ? CameraSource::EXIF
-                                                  : CameraSource::GUESS;
+    camera.source = has_prior ? CameraSource::EXIF : CameraSource::GUESS;
   }
   return camera;
 }
@@ -397,7 +396,6 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   } else {
     camera.source = CameraSource::UNKNOWN;
   }
-  camera.has_prior_focal_length = camera.HasPriorFocalLength();
 
   return camera;
 }
@@ -1266,11 +1264,8 @@ class SqliteDatabase : public Database {
   camera_t WriteCamera(const Camera& camera,
                        const bool use_camera_id) override {
     Camera camera_to_write = camera;
-    if (camera_to_write.source == CameraSource::BEST) {
-      camera_to_write.source = camera_to_write.has_prior_focal_length
-                                   ? CameraSource::USER
-                                   : CameraSource::GUESS;
-    }
+    THROW_CHECK_NE(camera_to_write.source, CameraSource::BEST)
+        << "Camera source cannot be BEST when writing to database.";
 
     camera_t camera_id = camera_to_write.camera_id;
     if (use_camera_id) {
@@ -1582,7 +1577,9 @@ class SqliteDatabase : public Database {
         << "Camera does not exist";
 
     Camera camera_to_update = camera;
-    if (camera_to_update.source == CameraSource::BEST) {
+    THROW_CHECK_NE(camera_to_update.source, CameraSource::BEST)
+        << "Camera source cannot be BEST when updating database.";
+    if (camera_to_update.source == CameraSource::UNKNOWN) {
       const Camera active_camera =
           ReadCamera(camera_to_update.camera_id, CameraSource::BEST);
       camera_to_update.source = active_camera.source;
@@ -2520,7 +2517,7 @@ class SqliteDatabase : public Database {
                                         nullptr));
         int pk_count = 0;
         bool has_source = false;
-        bool has_prior_focal_length = false;
+        bool has_prior_focal_length_col = false;
         while (SQLITE3_CALL(sqlite3_step(table_info_stmt)) == SQLITE_ROW) {
           const std::string col_name = reinterpret_cast<const char*>(
               sqlite3_column_text(table_info_stmt, 1));
@@ -2532,11 +2529,11 @@ class SqliteDatabase : public Database {
             has_source = true;
           }
           if (col_name == "prior_focal_length") {
-            has_prior_focal_length = true;
+            has_prior_focal_length_col = true;
           }
         }
         SQLITE3_CALL(sqlite3_finalize(table_info_stmt));
-        if (pk_count <= 1 || !has_source || has_prior_focal_length) {
+        if (pk_count <= 1 || !has_source || has_prior_focal_length_col) {
           needs_cameras_migration = true;
         }
       }
