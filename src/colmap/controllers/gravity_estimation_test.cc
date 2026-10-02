@@ -32,16 +32,19 @@ class FakeGeoCalib : public GeoCalib {
       : gt_camera_(gt_camera), gt_gravities_(gt_gravities) {}
 
   PerspectiveField PredictPerspectiveField(
-      const Bitmap& /*bitmap*/) const override {
+      const Bitmap& /*bitmap*/,
+      const PosePrior& /*pose_prior*/) const override {
     const Eigen::Vector3d g =
         gt_gravities_[std::min(call_idx_++, gt_gravities_.size() - 1)];
     return ComputePerspectiveFieldFromCameraAndGravity(gt_camera_, g, 32, 24);
   }
 
-  FittedPerspectiveFields Calibrate(const Bitmap& bitmap,
-                                    Camera* camera,
-                                    const bool refine_camera) const override {
-    const PerspectiveField field = PredictPerspectiveField(bitmap);
+  FittedPerspectiveFields Calibrate(
+      const Bitmap& bitmap,
+      Camera* camera,
+      const bool refine_camera,
+      const PosePrior& pose_prior) const override {
+    const PerspectiveField field = PredictPerspectiveField(bitmap, pose_prior);
     return FitPerspectiveField(
         PerspectiveFieldFittingOptions(), field, camera, refine_camera);
   }

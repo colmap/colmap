@@ -4,6 +4,7 @@
 
 #include "colmap/calibration/perspective_field_fitting.h"
 #include "colmap/calibration/resources.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/sensor/bitmap.h"
 
 #include <memory>
@@ -44,10 +45,16 @@ struct GeoCalibInput {
   std::vector<float> data;
   int width = 0;
   int height = 0;
-  // Per-axis scale and shift mapping original image coordinates to network
-  // coordinates: p_net = p_orig.cwiseProduct(scale_xy) + shift_xy.
+  // Per-axis scale and shift mapping upright image coordinates to network
+  // coordinates: p_net = p_upright.cwiseProduct(scale_xy) + shift_xy.
   Eigen::Vector2d scale_xy = Eigen::Vector2d::Ones();
   Eigen::Vector2d shift_xy = Eigen::Vector2d::Zero();
+  // Dimensions of the upright (rotation-corrected) image, for mapping network
+  // coordinates back through the gravity rotation to the original image.
+  int upright_width = 0;
+  int upright_height = 0;
+  // Counter-clockwise quarter turns applied to upright the image (0-3).
+  int image_rot90 = 0;
 
   Eigen::Vector2d ImgToOrig(const Eigen::Vector2d& point) const;
   Eigen::Vector2d UpToOrig(const Eigen::Vector2d& up) const;
@@ -55,7 +62,8 @@ struct GeoCalibInput {
 
 GeoCalibInput PrepareGeoCalibInput(const Bitmap& bitmap,
                                    int image_size,
-                                   bool force_square);
+                                   bool force_square,
+                                   const PosePrior& pose_prior);
 
 class GeoCalib {
  public:
@@ -66,13 +74,15 @@ class GeoCalib {
   // Predict the dense perspective field (mapped back to the original image's
   // pixel coordinate system) from a single image.
   virtual PerspectiveField PredictPerspectiveField(
-      const Bitmap& bitmap) const = 0;
+      const Bitmap& bitmap, const PosePrior& pose_prior) const = 0;
 
   // Convenience method to predict the perspective field for a single image and
   // fit sensor-frame gravity (and optionally camera intrinsics).
-  virtual FittedPerspectiveFields Calibrate(const Bitmap& bitmap,
-                                            Camera* camera,
-                                            bool refine_camera) const = 0;
+  virtual FittedPerspectiveFields Calibrate(
+      const Bitmap& bitmap,
+      Camera* camera,
+      bool refine_camera,
+      const PosePrior& pose_prior) const = 0;
 };
 
 }  // namespace colmap

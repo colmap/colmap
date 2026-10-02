@@ -88,7 +88,7 @@ class GeoCalibImpl : public GeoCalib {
   }
 
   PerspectiveField PredictPerspectiveField(
-      const Bitmap& bitmap) const override {
+      const Bitmap& bitmap, const PosePrior& pose_prior) const override {
     Bitmap rgb_bitmap;
     const Bitmap* input_bitmap = &bitmap;
     if (!bitmap.IsRGB()) {
@@ -97,7 +97,7 @@ class GeoCalibImpl : public GeoCalib {
     }
 
     GeoCalibInput input = PrepareGeoCalibInput(
-        *input_bitmap, options_.image_size, options_.force_square);
+        *input_bitmap, options_.image_size, options_.force_square, pose_prior);
 
     const std::vector<int64_t> input_shape = {1, 3, input.height, input.width};
     std::vector<Ort::Value> input_tensors;
@@ -144,11 +144,13 @@ class GeoCalibImpl : public GeoCalib {
     return field;
   }
 
-  FittedPerspectiveFields Calibrate(const Bitmap& bitmap,
-                                    Camera* camera,
-                                    const bool refine_camera) const override {
+  FittedPerspectiveFields Calibrate(
+      const Bitmap& bitmap,
+      Camera* camera,
+      const bool refine_camera,
+      const PosePrior& pose_prior) const override {
     THROW_CHECK_NOTNULL(camera);
-    const PerspectiveField field = PredictPerspectiveField(bitmap);
+    const PerspectiveField field = PredictPerspectiveField(bitmap, pose_prior);
     return FitPerspectiveField(options_.fitting, field, camera, refine_camera);
   }
 
@@ -169,44 +171,82 @@ bool GeoCalibOptions::Check() const {
 }
 
 Eigen::Vector2d GeoCalibInput::ImgToOrig(const Eigen::Vector2d& point) const {
-  return (point - shift_xy).cwiseQuotient(scale_xy);
+  const Eigen::Vector2d upright = (point - shift_xy).cwiseQuotient(scale_xy);
+  switch (image_rot90) {
+    case 0:
+      return upright;
+    case 1:
+      return Eigen::Vector2d(upright_height - upright.y(), upright.x());
+    case 2:
+      return Eigen::Vector2d(upright_width - upright.x(),
+                             upright_height - upright.y());
+    case 3:
+      return Eigen::Vector2d(upright.y(), upright_width - upright.x());
+    default:
+      break;
+  }
+  LOG(FATAL_THROW) << "Invalid image rotation: " << image_rot90;
+  return Eigen::Vector2d::Zero();
 }
 
 Eigen::Vector2d GeoCalibInput::UpToOrig(const Eigen::Vector2d& up) const {
-  const Eigen::Vector2d scaled = up.cwiseQuotient(scale_xy);
-  const double norm = scaled.norm();
-  if (norm < 1e-12) {
-    return up;
+  Eigen::Vector2d upright = up.cwiseQuotient(scale_xy);
+  const double norm = upright.norm();
+  if (norm >= 1e-12) {
+    upright /= norm;
+  } else {
+    upright = up;
   }
-  return scaled / norm;
+  switch (image_rot90) {
+    case 0:
+      return upright;
+    case 1:
+      return Eigen::Vector2d(-upright.y(), upright.x());
+    case 2:
+      return Eigen::Vector2d(-upright.x(), -upright.y());
+    case 3:
+      return Eigen::Vector2d(upright.y(), -upright.x());
+    default:
+      break;
+  }
+  LOG(FATAL_THROW) << "Invalid image rotation: " << image_rot90;
+  return Eigen::Vector2d::Zero();
 }
 
 GeoCalibInput PrepareGeoCalibInput(const Bitmap& bitmap,
                                    const int image_size,
-                                   const bool force_square) {
+                                   const bool force_square,
+                                   const PosePrior& pose_prior) {
   THROW_CHECK(bitmap.IsRGB());
   THROW_CHECK_GT(bitmap.Width(), 0);
   THROW_CHECK_GT(bitmap.Height(), 0);
   THROW_CHECK_GE(image_size, kEdgeDivisibleBy);
 
-  const int orig_width = bitmap.Width();
-  const int orig_height = bitmap.Height();
+  GeoCalibInput input;
+  Bitmap image = bitmap.Clone();
+  input.image_rot90 =
+      pose_prior.HasGravity() ? ComputeRot90FromGravity(pose_prior.gravity) : 0;
+  if (input.image_rot90 != 0) {
+    image.Rot90(input.image_rot90);
+  }
+  input.upright_width = image.Width();
+  input.upright_height = image.Height();
 
   // 1. Resize the shorter edge to `image_size`, preserving aspect ratio.
-  const double scale =
-      static_cast<double>(image_size) / std::min(orig_width, orig_height);
-  const int resized_width = std::max(
-      kEdgeDivisibleBy, static_cast<int>(std::lround(orig_width * scale)));
-  const int resized_height = std::max(
-      kEdgeDivisibleBy, static_cast<int>(std::lround(orig_height * scale)));
+  const double scale = static_cast<double>(image_size) /
+                       std::min(input.upright_width, input.upright_height);
+  const int resized_width =
+      std::max(kEdgeDivisibleBy,
+               static_cast<int>(std::lround(input.upright_width * scale)));
+  const int resized_height =
+      std::max(kEdgeDivisibleBy,
+               static_cast<int>(std::lround(input.upright_height * scale)));
 
-  Bitmap image = bitmap.Clone();
   image.Rescale(resized_width, resized_height);
 
-  GeoCalibInput input;
-  input.scale_xy =
-      Eigen::Vector2d(static_cast<double>(resized_width) / orig_width,
-                      static_cast<double>(resized_height) / orig_height);
+  input.scale_xy = Eigen::Vector2d(
+      static_cast<double>(resized_width) / input.upright_width,
+      static_cast<double>(resized_height) / input.upright_height);
 
   // 2. Center-crop to dimensions divisible by 32 (or square if force_square).
   int crop_width = (resized_width / kEdgeDivisibleBy) * kEdgeDivisibleBy;
