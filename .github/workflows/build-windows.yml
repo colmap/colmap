@@ -120,8 +120,11 @@ jobs:
         run: |
           ./scripts/shell/enter_vs_dev_shell.ps1
           cd ${{ github.workspace }}
+          $vcpkgCommit = (Get-Content -Raw vcpkg-configuration.json | ConvertFrom-Json).'default-registry'.baseline
+          Write-Host "Checking out vcpkg baseline commit: $vcpkgCommit"
           git clone https://github.com/microsoft/vcpkg
           cd vcpkg
+          git checkout $vcpkgCommit
           ./bootstrap-vcpkg.bat
 
       - name: Install CMake and Ninja
