@@ -67,6 +67,7 @@ class GeoCalibPerspectiveWrapper(nn.Module):
                 module._build_bases = _deterministic_build_bases
                 logging.info(f"Registered deterministic NMF2D bases for {name}")
             elif module.__class__.__name__ == "LightHamHead":
+
                 def _dynamic_light_ham_forward(features, _mod=module):
                     inputs = [features["hl"][i] for i in _mod.in_index]
                     inputs = [
@@ -127,7 +128,12 @@ def load_geocalib_model(
 
     if weights_path is None:
         default_cache = (
-            Path.home() / ".cache" / "torch" / "hub" / "geocalib" / f"{weights}.tar"
+            Path.home()
+            / ".cache"
+            / "torch"
+            / "hub"
+            / "geocalib"
+            / f"{weights}.tar"
         )
         if default_cache.exists():
             weights_path = default_cache
@@ -187,7 +193,7 @@ def export(
             "latitude_confidence": {2: "height", 3: "width"},
         },
         opset_version=opset_version,
-         dynamo=False,
+        dynamo=False,
     )
 
     # Internalize any external data into a single self-contained ONNX file.
@@ -211,7 +217,9 @@ def export(
             pt_outs = wrapper(test_img)
         ort_outs = sess.run(None, {"image": test_img.numpy()})
 
-        for name, pt_out, ort_out in zip(output_names, pt_outs, ort_outs):
+        for name, pt_out, ort_out in zip(
+            output_names, pt_outs, ort_outs, strict=True
+        ):
             max_diff = float(np.max(np.abs(pt_out.numpy() - ort_out)))
             mean_diff = float(np.mean(np.abs(pt_out.numpy() - ort_out)))
             logging.info(
