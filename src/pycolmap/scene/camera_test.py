@@ -288,3 +288,21 @@ def test_camera_map_insert_and_access(simple_camera: pycolmap.Camera) -> None:
     camera_map[1] = simple_camera
     assert len(camera_map) == 1
     assert camera_map[1].camera_id == 1
+
+
+def test_camera_source_enum() -> None:
+    assert pycolmap.CameraSource.BEST is not None
+    assert pycolmap.CameraSource.UNKNOWN is not None
+    assert pycolmap.CameraSource.GUESS is not None
+    assert pycolmap.CameraSource.EXIF is not None
+    assert pycolmap.CameraSource.SINGLE_VIEW is not None
+    assert pycolmap.CameraSource.USER is not None
+    assert pycolmap.CameraSource.VIEW_GRAPH is not None
+
+
+def test_camera_source_readwrite(simple_camera: pycolmap.Camera) -> None:
+    assert simple_camera.source == pycolmap.CameraSource.UNKNOWN
+    simple_camera.source = pycolmap.CameraSource.EXIF
+    assert simple_camera.source == pycolmap.CameraSource.EXIF
+    simple_camera.source = pycolmap.CameraSource.VIEW_GRAPH
+    assert simple_camera.source == pycolmap.CameraSource.VIEW_GRAPH

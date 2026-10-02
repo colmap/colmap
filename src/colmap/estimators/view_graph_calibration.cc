@@ -339,11 +339,11 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                         Database* database) {
   THROW_CHECK_NOTNULL(database);
 
-  // Read cameras and build image_id -> camera mapping.
-  NodeHashMap<camera_t, Camera> cameras;
-  for (Camera& camera : database->ReadAllCameras()) {
-    cameras[camera.camera_id] = std::move(camera);
-  }
+  // Read cameras, preferring the best calibration that is NOT VIEW_GRAPH,
+  // so that re-running view graph calibration does not rely on its own previous
+  // output.
+  NodeHashMap<camera_t, Camera> cameras =
+      database->ReadAllCamerasExcludingSources({CameraSource::VIEW_GRAPH});
   NodeHashMap<image_t, const Camera*> image_id_to_camera;
   for (const Image& image : database->ReadAllImages()) {
     image_id_to_camera[image.ImageId()] = &cameras.at(image.CameraId());
@@ -422,6 +422,7 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
     Camera& camera = cameras.at(camera_id);
     camera.SetFocalLength(focal_length);
     camera.has_prior_focal_length = true;
+    camera.source = CameraSource::VIEW_GRAPH;
     database->UpdateCamera(camera);
   }
 

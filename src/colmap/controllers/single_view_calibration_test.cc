@@ -218,6 +218,50 @@ TEST(SingleViewCalibrationControllerTest, FakeCalibratorUpdatesDatabase) {
   const Camera camera = ReadSingleCamera(scene.database_path);
   ExpectParamsNear(camera.params, {500, 32, 24, 0.10});
   EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_EQ(camera.source, CameraSource::SINGLE_VIEW);
+
+  auto database = Database::Open(scene.database_path);
+  const auto calibrations =
+      database->ReadAllCameraCalibrations(camera.camera_id);
+  EXPECT_EQ(calibrations.size(), 2);
+  EXPECT_EQ(calibrations.at(CameraSource::SINGLE_VIEW).params, camera.params);
+}
+
+TEST(SingleViewCalibrationControllerTest, CalibrationsWithViewGraph) {
+  const FakeCalibrationScene scene = CreateFakeCalibrationScene();
+  // Simulate previous VIEW_GRAPH calibration on camera.
+  auto database = Database::Open(scene.database_path);
+  Camera vg_camera = database->ReadCamera(1);
+  vg_camera.source = CameraSource::VIEW_GRAPH;
+  vg_camera.params = {700, 32, 24, 0.20};
+  database->UpdateCamera(vg_camera);
+  EXPECT_EQ(database->ReadCamera(1).source, CameraSource::VIEW_GRAPH);
+
+  FakeCalibrator::Config config;
+  config.params_sequence = {{600, 32, 24, 0.05}, {400, 32, 24, 0.15}};
+
+  SingleViewCalibrationOptions options;
+  auto controller =
+      CreateSingleViewCalibrationController(scene.database_path,
+                                            scene.test_dir,
+                                            options,
+                                            {},
+                                            FakeCalibratorFactory(config));
+  controller->Start();
+  controller->Wait();
+
+  // Active camera remains VIEW_GRAPH because VIEW_GRAPH > SINGLE_VIEW.
+  const Camera active_camera = ReadSingleCamera(scene.database_path);
+  EXPECT_EQ(active_camera.source, CameraSource::VIEW_GRAPH);
+  ExpectParamsNear(active_camera.params, {700, 32, 24, 0.20});
+
+  // SINGLE_VIEW calibration was stored in camera_calibrations table.
+  const auto calibrations = database->ReadAllCameraCalibrations(1);
+  EXPECT_EQ(calibrations.size(), 3);
+  EXPECT_TRUE(calibrations.find(CameraSource::SINGLE_VIEW) !=
+              calibrations.end());
+  ExpectParamsNear(calibrations.at(CameraSource::SINGLE_VIEW).params,
+                   {500, 32, 24, 0.10});
 }
 
 TEST(SingleViewCalibrationControllerTest,

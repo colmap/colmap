@@ -5,6 +5,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -22,6 +23,30 @@ namespace colmap {
 constexpr double kDefaultMinFocalLengthRatio = 0.1;
 constexpr double kDefaultMaxFocalLengthRatio = 10.0;
 constexpr double kDefaultMaxExtraParam = 1.0;
+
+// Camera calibration source indicating origin of intrinsics.
+// Priority: GUESS < EXIF < SINGLE_VIEW < USER < VIEW_GRAPH.
+#ifdef __CUDACC__
+enum class CameraSource {
+  BEST = -1,
+  UNKNOWN = 0,
+  GUESS = 1,
+  EXIF = 2,
+  SINGLE_VIEW = 3,
+  USER = 4,
+  VIEW_GRAPH = 5,
+};
+#else
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraSource,
+                                -1,
+                                BEST,
+                                UNKNOWN,
+                                GUESS,
+                                EXIF,
+                                SINGLE_VIEW,
+                                USER,
+                                VIEW_GRAPH);
+#endif
 
 // Camera class that holds the intrinsic parameters. Cameras may be shared
 // between multiple images, e.g., if the same "physical" camera took multiple
@@ -42,9 +67,19 @@ struct Camera {
   // model is not specified, this vector is empty.
   std::vector<double> params;
 
+  // The origin / source of the camera calibration parameters.
+  CameraSource source = CameraSource::UNKNOWN;
+
   // Whether there is a good prior for the focal length, e.g. manually provided,
   // extracted from EXIF, or from view graph calibration.
   bool has_prior_focal_length = false;
+
+  inline bool HasPriorFocalLength() const {
+    if (source != CameraSource::UNKNOWN) {
+      return source > CameraSource::GUESS;
+    }
+    return has_prior_focal_length;
+  }
 
   // Initialize parameters for given camera model and focal length, and set
   // the principal point to be the image center.
@@ -356,7 +391,8 @@ bool Camera::operator==(const Camera& other) const {
   return camera_id == other.camera_id && model_id == other.model_id &&
          width == other.width && height == other.height &&
          params == other.params &&
-         has_prior_focal_length == other.has_prior_focal_length;
+         HasPriorFocalLength() == other.HasPriorFocalLength() &&
+         source == other.source;
 }
 
 bool Camera::operator!=(const Camera& other) const { return !(*this == other); }

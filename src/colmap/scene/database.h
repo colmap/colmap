@@ -9,9 +9,11 @@
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/sensor/rig.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <vector>
 
@@ -60,7 +62,8 @@ class Database {
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
   virtual bool ExistsRig(rig_t rig_id) const = 0;
-  virtual bool ExistsCamera(camera_t camera_id) const = 0;
+  virtual bool ExistsCamera(camera_t camera_id,
+                            CameraSource source = CameraSource::BEST) const = 0;
   virtual bool ExistsFrame(frame_t frame_id) const = 0;
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;
@@ -127,8 +130,19 @@ class Database {
   virtual std::optional<Rig> ReadRigWithSensor(sensor_t sensor_id) const = 0;
   virtual std::vector<Rig> ReadAllRigs() const = 0;
 
-  virtual Camera ReadCamera(camera_t camera_id) const = 0;
-  virtual std::vector<Camera> ReadAllCameras() const = 0;
+  virtual Camera ReadCamera(camera_t camera_id,
+                            CameraSource source = CameraSource::BEST) const = 0;
+  virtual Camera ReadCameraExcludingSources(
+      camera_t camera_id,
+      const FlatHashSet<CameraSource>& excluded_sources) const;
+  virtual std::vector<Camera> ReadAllCameras(
+      CameraSource source = CameraSource::BEST) const = 0;
+  virtual NodeHashMap<camera_t, Camera> ReadAllCamerasExcludingSources(
+      const FlatHashSet<CameraSource>& excluded_sources) const;
+  virtual std::map<CameraSource, Camera> ReadAllCameraCalibrations(
+      camera_t camera_id) const = 0;
+  virtual NodeHashMap<camera_t, std::map<CameraSource, Camera>>
+  ReadAllCameraCalibrations() const = 0;
 
   virtual Frame ReadFrame(frame_t frame_id) const = 0;
   virtual std::vector<Frame> ReadAllFrames() const = 0;
@@ -250,6 +264,11 @@ class Database {
 
   // Delete inlier matches of an image pair.
   virtual void DeleteInlierMatches(image_t image_id1, image_t image_id2) = 0;
+
+  // Delete camera calibration for a specific source (or all calibrations if
+  // BEST).
+  virtual void DeleteCameraCalibration(camera_t camera_id,
+                                       CameraSource source) = 0;
 
   // Clear all database tables
   virtual void ClearAllTables() = 0;
