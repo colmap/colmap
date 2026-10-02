@@ -276,8 +276,6 @@ void OptionManager::AddGravityEstimationOptions() {
                    &gravity_estimation->refine_intrinsics);
   AddDefaultOption("GravityEstimation.force_refine_intrinsics",
                    &gravity_estimation->force_refine_intrinsics);
-  AddDefaultOption("GravityEstimation.overwrite_gravity",
-                   &gravity_estimation->overwrite_gravity);
   AddDefaultOption("GravityEstimation.min_focal_length_ratio",
                    &gravity_estimation->min_focal_length_ratio);
   AddDefaultOption("GravityEstimation.max_focal_length_ratio",
