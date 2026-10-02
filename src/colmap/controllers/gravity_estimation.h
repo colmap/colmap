@@ -14,9 +14,10 @@
 namespace colmap {
 
 struct GravityEstimationOptions {
-  // Optional target camera model name when refining intrinsics. An empty string
-  // preserves each camera's existing model.
-  std::string camera_model = "";
+  // Target COLMAP camera model for the fitted intrinsics. Any perspective
+  // model is supported; the fitting refines that model's parameters directly.
+  // Empty preserves each camera's existing model instead of converting it.
+  std::string camera_model;
 
   // Whether to refine camera intrinsics when !camera.has_prior_focal_length.
   bool refine_intrinsics = true;
@@ -25,12 +26,13 @@ struct GravityEstimationOptions {
   bool force_refine_intrinsics = false;
 
   // If true, overwrite existing valid gravity priors in the database.
-  bool overwrite_gravity = false;
+  bool overwrite_gravity = true;
 
-  // Bounds for rejecting implausible calibrated camera parameters.
-  double min_focal_length_ratio = 0.1;
-  double max_focal_length_ratio = 10.0;
-  double max_extra_param = 1.0;
+  // Plausibility bounds on the calibrated intrinsics, shared with the
+  // incremental mapper and single-view calibration defaults.
+  double min_focal_length_ratio = kDefaultMinFocalLengthRatio;
+  double max_focal_length_ratio = kDefaultMaxFocalLengthRatio;
+  double max_extra_param = kDefaultMaxExtraParam;
 
   // GeoCalib inference and Ceres perspective field fitting options.
   GeoCalibOptions geocalib;
