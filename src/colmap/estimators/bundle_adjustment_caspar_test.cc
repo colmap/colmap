@@ -427,8 +427,10 @@ TEST(DefaultBundleAdjuster, MergedCalibMatchesCeres) {
   ASSERT_NE(caspar_adjuster->Solve()->termination_type,
             BundleAdjustmentTerminationType::FAILURE);
 
-  // Layout bugs in the merged Calib kernel cause 100+ unit errors; float32 vs
-  // double accumulation should be well under these thresholds.
+  // Ceres uses exact dense Schur elimination with 7-DOF gauge fixing (scale
+  // pinned), whereas Caspar uses iterative PCG with 6-DOF gauge fixing (scale
+  // unpinned). Tolerances accommodate this gauge and solver difference while
+  // ensuring convergence to the same calibration solution.
 #ifdef CASPAR_USE_DOUBLE
   constexpr double kFocalTol = 1.0;
   constexpr double kPPTol = 2.0;
