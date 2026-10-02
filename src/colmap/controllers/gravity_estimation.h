@@ -25,9 +25,6 @@ struct GravityEstimationOptions {
   // If true, refine intrinsics even for cameras with has_prior_focal_length.
   bool force_refine_intrinsics = false;
 
-  // If true, overwrite existing valid gravity priors in the database.
-  bool overwrite_gravity = true;
-
   // Plausibility bounds on the calibrated intrinsics, shared with the
   // incremental mapper and single-view calibration defaults.
   double min_focal_length_ratio = kDefaultMinFocalLengthRatio;
