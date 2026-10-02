@@ -391,19 +391,14 @@ class GravityEstimationController : public Thread {
 }  // namespace
 
 bool GravityEstimationOptions::Check() const {
-  CHECK_OPTION_GT(min_focal_length_ratio, 0.0);
-  CHECK_OPTION_GT(max_focal_length_ratio, 0.0);
-  CHECK_OPTION_LT(min_focal_length_ratio, max_focal_length_ratio);
-  CHECK_OPTION_GT(max_extra_param, 0.0);
   if (!camera_model.empty()) {
+    CHECK_OPTION(ExistsCameraModelWithName(camera_model));
     const CameraModelId model_id = CameraModelNameToId(camera_model);
-    if (model_id == CameraModelId::kInvalid ||
-        !CameraModelIsPerspective(model_id)) {
-      LOG(ERROR) << "Unsupported or non-perspective camera model: "
-                 << camera_model;
-      return false;
-    }
+    CHECK_OPTION(CameraModelIsPerspective(model_id));
   }
+  CHECK_OPTION_GT(min_focal_length_ratio, 0.0);
+  CHECK_OPTION_GT(max_focal_length_ratio, min_focal_length_ratio);
+  CHECK_OPTION_GT(max_extra_param, 0.0);
   CHECK_OPTION(geocalib.Check());
   return true;
 }
