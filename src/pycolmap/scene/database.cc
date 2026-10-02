@@ -51,9 +51,14 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(bool, Database, ExistsRig, rig_id);
   }
 
-  bool ExistsCamera(camera_t camera_id,
-                    CameraSource source = CameraSource::BEST) const override {
-    PYBIND11_OVERRIDE_PURE(bool, Database, ExistsCamera, camera_id, source);
+  bool ExistsCamera(camera_t camera_id) const override {
+    PYBIND11_OVERRIDE_PURE(bool, Database, ExistsCamera, camera_id);
+  }
+
+  bool ExistsCameraCalibration(camera_t camera_id,
+                               CameraSource source) const override {
+    PYBIND11_OVERRIDE_PURE(
+        bool, Database, ExistsCameraCalibration, camera_id, source);
   }
 
   bool ExistsFrame(frame_t frame_id) const override {
@@ -500,7 +505,12 @@ void BindDatabase(py::module& m) {
       .def("exists_camera",
            &Database::ExistsCamera,
            "camera_id"_a,
-           "source"_a = CameraSource::BEST)
+           "Check if camera exists in database.")
+      .def("exists_camera_calibration",
+           &Database::ExistsCameraCalibration,
+           "camera_id"_a,
+           "source"_a,
+           "Check if a specific camera calibration source exists in database.")
       .def("exists_frame", &Database::ExistsFrame, "frame_id"_a)
       .def("exists_image", &Database::ExistsImage, "image_id"_a)
       .def("exists_image", &Database::ExistsImageWithName, "name"_a)

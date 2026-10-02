@@ -180,12 +180,18 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
 
   EXPECT_EQ(database->NumCameras(), 1);
   EXPECT_TRUE(database->ExistsCamera(camera_id));
-  EXPECT_TRUE(database->ExistsCamera(camera_id, CameraSource::BEST));
-  EXPECT_TRUE(database->ExistsCamera(camera_id, CameraSource::GUESS));
-  EXPECT_FALSE(database->ExistsCamera(camera_id, CameraSource::EXIF));
-  EXPECT_FALSE(database->ExistsCamera(camera_id, CameraSource::SINGLE_VIEW));
-  EXPECT_FALSE(database->ExistsCamera(camera_id, CameraSource::USER));
-  EXPECT_FALSE(database->ExistsCamera(camera_id, CameraSource::VIEW_GRAPH));
+  EXPECT_TRUE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::GUESS));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::EXIF));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::SINGLE_VIEW));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::USER));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::VIEW_GRAPH));
+  EXPECT_THROW(database->ExistsCameraCalibration(camera_id, CameraSource::BEST),
+               std::invalid_argument);
 
   EXPECT_EQ(database->ReadCamera(camera_id), camera_guess);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_guess);
@@ -197,9 +203,10 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   camera_exif.SetFocalLength(120.0);
   database->UpdateCamera(camera_exif);
 
-  EXPECT_EQ(database->NumCameras(), 1);
-  EXPECT_TRUE(database->ExistsCamera(camera_id, CameraSource::EXIF));
-  EXPECT_TRUE(database->ExistsCamera(camera_id, CameraSource::GUESS));
+  EXPECT_TRUE(database->ExistsCamera(camera_id));
+  EXPECT_TRUE(database->ExistsCameraCalibration(camera_id, CameraSource::EXIF));
+  EXPECT_TRUE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::GUESS));
   EXPECT_EQ(database->ReadCamera(camera_id), camera_exif);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_exif);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::EXIF), camera_exif);
@@ -307,7 +314,8 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   // 10. Test DeleteCameraCalibration for a specific source (VIEW_GRAPH).
   // Deleting VIEW_GRAPH should fallback to USER as BEST.
   database->DeleteCameraCalibration(camera_id, CameraSource::VIEW_GRAPH);
-  EXPECT_FALSE(database->ExistsCamera(camera_id, CameraSource::VIEW_GRAPH));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::VIEW_GRAPH));
   EXPECT_EQ(database->NumCameras(), 1);
   EXPECT_EQ(database->ReadCamera(camera_id), camera_user);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_user);
@@ -315,7 +323,8 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
 
   // 10. Delete another source (USER). Fallback to SINGLE_VIEW.
   database->DeleteCameraCalibration(camera_id, CameraSource::USER);
-  EXPECT_FALSE(database->ExistsCamera(camera_id, CameraSource::USER));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::USER));
   EXPECT_EQ(database->ReadCamera(camera_id), camera_sv);
 
   // 11. Delete with BEST deletes the entire camera and all remaining

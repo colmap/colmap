@@ -62,8 +62,9 @@ class Database {
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
   virtual bool ExistsRig(rig_t rig_id) const = 0;
-  virtual bool ExistsCamera(camera_t camera_id,
-                            CameraSource source = CameraSource::BEST) const = 0;
+  virtual bool ExistsCamera(camera_t camera_id) const = 0;
+  virtual bool ExistsCameraCalibration(camera_t camera_id,
+                                       CameraSource source) const = 0;
   virtual bool ExistsFrame(frame_t frame_id) const = 0;
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;

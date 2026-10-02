@@ -602,12 +602,14 @@ class SqliteDatabase : public Database {
     return ExistsRowId(sql_stmt_exists_rig_, rig_id);
   }
 
-  bool ExistsCamera(
-      const camera_t camera_id,
-      const CameraSource source = CameraSource::BEST) const override {
-    if (source == CameraSource::BEST) {
-      return ExistsRowId(sql_stmt_exists_camera_, camera_id);
-    }
+  bool ExistsCamera(const camera_t camera_id) const override {
+    return ExistsRowId(sql_stmt_exists_camera_, camera_id);
+  }
+
+  bool ExistsCameraCalibration(const camera_t camera_id,
+                               const CameraSource source) const override {
+    THROW_CHECK_NE(source, CameraSource::BEST)
+        << "Camera source cannot be BEST when checking calibration existence.";
     Sqlite3StmtContext context(sql_stmt_exists_camera_calibration_);
     SQLITE3_CALL(
         sqlite3_bind_int64(sql_stmt_exists_camera_calibration_, 1, camera_id));
@@ -1269,8 +1271,7 @@ class SqliteDatabase : public Database {
 
     camera_t camera_id = camera_to_write.camera_id;
     if (use_camera_id) {
-      THROW_CHECK(!ExistsCamera(camera_id, CameraSource::BEST))
-          << "camera_id must be unique";
+      THROW_CHECK(!ExistsCamera(camera_id)) << "camera_id must be unique";
     } else {
       Sqlite3StmtContext id_context(sql_stmt_next_camera_id_);
       SQLITE3_CALL(sqlite3_step(sql_stmt_next_camera_id_));
@@ -1573,8 +1574,7 @@ class SqliteDatabase : public Database {
   }
 
   void UpdateCamera(const Camera& camera) override {
-    THROW_CHECK(ExistsCamera(camera.camera_id, CameraSource::BEST))
-        << "Camera does not exist";
+    THROW_CHECK(ExistsCamera(camera.camera_id)) << "Camera does not exist";
 
     Camera camera_to_update = camera;
     THROW_CHECK_NE(camera_to_update.source, CameraSource::BEST)
