@@ -260,38 +260,21 @@ __forceinline__ __device__ void FlushSumShared(StorageT* const output, const uin
   if (idx.argsort != 0xffff) {  // 0xffff indicates the thread is not used.
     unique = indices[indices[idx.argsort].target].unique;
   }
-  const unsigned int lane_id = threadIdx.x & 31;
+  const cg::coalesced_group group = cg::labeled_partition(cg::coalesced_threads(), unique);
 
 #pragma unroll
   for (int i = 0; i < dim_target; i++) {
     const SharedIndex idx = indices[threadIdx.x];
-    StorageT tot = 0;
-    int group_leader = -1;
+    StorageT tot;
     if (idx.argsort != 0xffff) {  // 0xffff indicates the thread is not used.
-      const StorageT my_val = inout_shared[idx.argsort * dim_target + i];
-      const unsigned int active_mask = __activemask();
-      for (int lane = 0; lane < 32; ++lane) {
-        if ((active_mask & (1u << lane)) == 0) {
-          continue;
-        }
-        const uint other_unique = __shfl_sync(active_mask, unique, lane);
-        const StorageT other_tot = __shfl_sync(active_mask, my_val, lane);
-        if (other_unique == unique) {
-          if (group_leader == -1) {
-            group_leader = lane;
-          }
-          if (lane_id == static_cast<unsigned int>(group_leader)) {
-            tot += other_tot;
-          }
-        }
-      }
+      tot = cg::reduce(group, inout_shared[idx.argsort * dim_target + i], cg::plus<StorageT>());
     }
     __syncthreads();
     inout_shared[threadIdx.x * dim_target + i] = 0.0f;
     __syncthreads();
 
     // 0xffff indicates the thread is not used.
-    if (idx.argsort != 0xffff && lane_id == static_cast<unsigned int>(group_leader)) {
+    if (idx.argsort != 0xffff && group.thread_rank() == 0) {
       atomicAdd_block(&inout_shared[indices[idx.argsort].target * dim_target + i], tot);
     }
     __syncthreads();
@@ -325,7 +308,7 @@ __forceinline__ __device__ void FlushSumBlock(StorageT* const output, StorageT* 
 
 #pragma unroll
   for (int i = 0; i < dim_target; i++) {
-    StorageT tot = 0;
+    StorageT tot;
 
     if (valid) {
       tot = cg::reduce(group, inout_shared[threadIdx.x * dim_target + i], cg::plus<StorageT>());
@@ -386,7 +369,7 @@ __forceinline__ __device__ void FlushSumBlockAdd(StorageT* const output,
 
 #pragma unroll
   for (int i = 0; i < dim_target; i++) {
-    StorageT tot = 0;
+    StorageT tot;
 
     if (valid) {
       tot = cg::reduce(group, inout_shared[threadIdx.x * dim_target + i], cg::plus<StorageT>());

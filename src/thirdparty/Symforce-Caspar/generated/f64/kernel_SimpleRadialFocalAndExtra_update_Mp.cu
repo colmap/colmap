@@ -1,10 +1,11 @@
-#include "kernel_SimpleRadialFocalAndExtra_update_Mp.h"
-#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
+
+#include "kernel_SimpleRadialFocalAndExtra_update_Mp.h"
+#include "memops.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -12,14 +13,13 @@ namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     SimpleRadialFocalAndExtraUpdateMpKernel(
-        double* SimpleRadialFocalAndExtra_r_k,
+        double *SimpleRadialFocalAndExtra_r_k,
         unsigned int SimpleRadialFocalAndExtra_r_k_num_alloc,
-        double* SimpleRadialFocalAndExtra_Mp,
+        double *SimpleRadialFocalAndExtra_Mp,
         unsigned int SimpleRadialFocalAndExtra_Mp_num_alloc,
-        const double* const beta,
-        double* out_SimpleRadialFocalAndExtra_Mp_kp1,
+        const double *const beta, double *out_SimpleRadialFocalAndExtra_Mp_kp1,
         unsigned int out_SimpleRadialFocalAndExtra_Mp_kp1_num_alloc,
-        double* out_SimpleRadialFocalAndExtra_w,
+        double *out_SimpleRadialFocalAndExtra_w,
         unsigned int out_SimpleRadialFocalAndExtra_w_num_alloc,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -30,20 +30,14 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(
         SimpleRadialFocalAndExtra_Mp,
-        0 * SimpleRadialFocalAndExtra_Mp_num_alloc,
-        global_thread_idx,
-        r0,
-        r1);
+        0 * SimpleRadialFocalAndExtra_Mp_num_alloc, global_thread_idx, r0, r1);
     ReadIdx2<1024, double, double, double2>(
         SimpleRadialFocalAndExtra_r_k,
-        0 * SimpleRadialFocalAndExtra_r_k_num_alloc,
-        global_thread_idx,
-        r2,
-        r3);
+        0 * SimpleRadialFocalAndExtra_r_k_num_alloc, global_thread_idx, r2, r3);
   };
-  LoadUnique<1, double, double>(beta, 0, (double*)inout_shared);
+  LoadUnique<1, double, double>(beta, 0, (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<double>((double*)inout_shared, 0, r4);
+    ReadShared1<double>((double *)inout_shared, 0, r4);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -51,46 +45,38 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = fma(r1, r4, r3);
     WriteIdx2<1024, double, double, double2>(
         out_SimpleRadialFocalAndExtra_Mp_kp1,
-        0 * out_SimpleRadialFocalAndExtra_Mp_kp1_num_alloc,
-        global_thread_idx,
-        r0,
-        r4);
+        0 * out_SimpleRadialFocalAndExtra_Mp_kp1_num_alloc, global_thread_idx,
+        r0, r4);
     WriteIdx2<1024, double, double, double2>(
         out_SimpleRadialFocalAndExtra_w,
-        0 * out_SimpleRadialFocalAndExtra_w_num_alloc,
-        global_thread_idx,
-        r0,
+        0 * out_SimpleRadialFocalAndExtra_w_num_alloc, global_thread_idx, r0,
         r4);
   };
 }
 
 void SimpleRadialFocalAndExtraUpdateMp(
-    double* SimpleRadialFocalAndExtra_r_k,
+    double *SimpleRadialFocalAndExtra_r_k,
     unsigned int SimpleRadialFocalAndExtra_r_k_num_alloc,
-    double* SimpleRadialFocalAndExtra_Mp,
+    double *SimpleRadialFocalAndExtra_Mp,
     unsigned int SimpleRadialFocalAndExtra_Mp_num_alloc,
-    const double* const beta,
-    double* out_SimpleRadialFocalAndExtra_Mp_kp1,
+    const double *const beta, double *out_SimpleRadialFocalAndExtra_Mp_kp1,
     unsigned int out_SimpleRadialFocalAndExtra_Mp_kp1_num_alloc,
-    double* out_SimpleRadialFocalAndExtra_w,
+    double *out_SimpleRadialFocalAndExtra_w,
     unsigned int out_SimpleRadialFocalAndExtra_w_num_alloc,
     size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialFocalAndExtraUpdateMpKernel<<<n_blocks, 1024>>>(
-      SimpleRadialFocalAndExtra_r_k,
-      SimpleRadialFocalAndExtra_r_k_num_alloc,
-      SimpleRadialFocalAndExtra_Mp,
-      SimpleRadialFocalAndExtra_Mp_num_alloc,
-      beta,
-      out_SimpleRadialFocalAndExtra_Mp_kp1,
+      SimpleRadialFocalAndExtra_r_k, SimpleRadialFocalAndExtra_r_k_num_alloc,
+      SimpleRadialFocalAndExtra_Mp, SimpleRadialFocalAndExtra_Mp_num_alloc,
+      beta, out_SimpleRadialFocalAndExtra_Mp_kp1,
       out_SimpleRadialFocalAndExtra_Mp_kp1_num_alloc,
       out_SimpleRadialFocalAndExtra_w,
-      out_SimpleRadialFocalAndExtra_w_num_alloc,
-      problem_size);
+      out_SimpleRadialFocalAndExtra_w_num_alloc, problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar

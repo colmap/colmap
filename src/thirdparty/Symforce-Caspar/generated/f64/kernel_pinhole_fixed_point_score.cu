@@ -1,30 +1,22 @@
-#include "kernel_pinhole_fixed_point_score.h"
-#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
 
+#include "kernel_pinhole_fixed_point_score.h"
+#include "memops.cuh"
+
 namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1)
-    PinholeFixedPointScoreKernel(double* pose,
-                                 unsigned int pose_num_alloc,
-                                 SharedIndex* pose_indices,
-                                 double* sensor_from_rig,
-                                 unsigned int sensor_from_rig_num_alloc,
-                                 double* calib,
-                                 unsigned int calib_num_alloc,
-                                 SharedIndex* calib_indices,
-                                 double* pixel,
-                                 unsigned int pixel_num_alloc,
-                                 double* point,
-                                 unsigned int point_num_alloc,
-                                 double* const out_rTr,
-                                 size_t problem_size) {
+__global__ void __launch_bounds__(1024, 1) PinholeFixedPointScoreKernel(
+    double *pose, unsigned int pose_num_alloc, SharedIndex *pose_indices,
+    double *sensor_from_rig, unsigned int sensor_from_rig_num_alloc,
+    double *calib, unsigned int calib_num_alloc, SharedIndex *calib_indices,
+    double *pixel, unsigned int pixel_num_alloc, double *point,
+    unsigned int point_num_alloc, double *const out_rTr, size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[16384];
 
@@ -48,62 +40,56 @@ __global__ void __launch_bounds__(1024, 1)
          r25 = 0, r26 = 0, r27 = 0, r28 = 0, r29 = 0, r30 = 0, r31 = 0, r32 = 0,
          r33 = 0, r34 = 0, r35 = 0, r36 = 0, r37 = 0, r38 = 0, r39 = 0, r40 = 0,
          r41 = 0, r42 = 0, r43 = 0, r44 = 0, r45 = 0;
-  LoadShared<2, double, double>(
-      calib, 2 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
+  LoadShared<2, double, double>(calib, 2 * calib_num_alloc, calib_indices_loc,
+                                (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>(
-        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r0, r1);
+    ReadShared2<double>((double *)inout_shared,
+                        calib_indices_loc[threadIdx.x].target, r0, r1);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
-    ReadIdx2<1024, double, double, double2>(
-        pixel, 0 * pixel_num_alloc, global_thread_idx, r2, r3);
+    ReadIdx2<1024, double, double, double2>(pixel, 0 * pixel_num_alloc,
+                                            global_thread_idx, r2, r3);
     r4 = -1.00000000000000000e+00;
     r3 = fma(r3, r4, r1);
   };
-  LoadShared<2, double, double>(
-      calib, 0 * calib_num_alloc, calib_indices_loc, (double*)inout_shared);
+  LoadShared<2, double, double>(calib, 0 * calib_num_alloc, calib_indices_loc,
+                                (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>(
-        (double*)inout_shared, calib_indices_loc[threadIdx.x].target, r1, r5);
+    ReadShared2<double>((double *)inout_shared,
+                        calib_indices_loc[threadIdx.x].target, r1, r5);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             4 * sensor_from_rig_num_alloc,
-                                            global_thread_idx,
-                                            r6,
-                                            r7);
-    ReadIdx2<1024, double, double, double2>(
-        point, 0 * point_num_alloc, global_thread_idx, r8, r9);
+                                            global_thread_idx, r6, r7);
+    ReadIdx2<1024, double, double, double2>(point, 0 * point_num_alloc,
+                                            global_thread_idx, r8, r9);
   };
-  LoadShared<2, double, double>(
-      pose, 0 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+  LoadShared<2, double, double>(pose, 0 * pose_num_alloc, pose_indices_loc,
+                                (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r10, r11);
+    ReadShared2<double>((double *)inout_shared,
+                        pose_indices_loc[threadIdx.x].target, r10, r11);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             2 * sensor_from_rig_num_alloc,
-                                            global_thread_idx,
-                                            r12,
-                                            r13);
+                                            global_thread_idx, r12, r13);
   };
-  LoadShared<2, double, double>(
-      pose, 2 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+  LoadShared<2, double, double>(pose, 2 * pose_num_alloc, pose_indices_loc,
+                                (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r14, r15);
+    ReadShared2<double>((double *)inout_shared,
+                        pose_indices_loc[threadIdx.x].target, r14, r15);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(sensor_from_rig,
                                             0 * sensor_from_rig_num_alloc,
-                                            global_thread_idx,
-                                            r16,
-                                            r17);
+                                            global_thread_idx, r16, r17);
     r18 = r14 * r16;
     r18 = fma(r4, r18, r11 * r13);
     r18 = fma(r15, r17, r18);
@@ -126,11 +112,11 @@ __global__ void __launch_bounds__(1024, 1)
     r25 = fma(r19, r15, r22);
     r25 = fma(r8, r25, r7);
   };
-  LoadShared<2, double, double>(
-      pose, 4 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+  LoadShared<2, double, double>(pose, 4 * pose_num_alloc, pose_indices_loc,
+                                (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared2<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r7, r26);
+    ReadShared2<double>((double *)inout_shared,
+                        pose_indices_loc[threadIdx.x].target, r7, r26);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -146,11 +132,11 @@ __global__ void __launch_bounds__(1024, 1)
     r32 = fma(r29, r32, r31);
     r33 = r30 + r32;
   };
-  LoadShared<1, double, double>(
-      pose, 6 * pose_num_alloc, pose_indices_loc, (double*)inout_shared);
+  LoadShared<1, double, double>(pose, 6 * pose_num_alloc, pose_indices_loc,
+                                (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<double>(
-        (double*)inout_shared, pose_indices_loc[threadIdx.x].target, r34);
+    ReadShared1<double>((double *)inout_shared,
+                        pose_indices_loc[threadIdx.x].target, r34);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -158,8 +144,8 @@ __global__ void __launch_bounds__(1024, 1)
     r35 = r35 * r19;
     r36 = r13 * r29;
     r37 = fma(r16, r36, r35);
-    ReadIdx1<1024, double, double, double>(
-        point, 2 * point_num_alloc, global_thread_idx, r38);
+    ReadIdx1<1024, double, double, double>(point, 2 * point_num_alloc,
+                                           global_thread_idx, r38);
     r39 = r19 * r23;
     r39 = r39 * r18;
     r40 = r20 * r29;
@@ -226,47 +212,29 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = fma(r41, r30, r4);
     r4 = fma(r4, r4, r3 * r3);
   };
-  SumStore<double>(out_rTr_local,
-                   (double*)inout_shared,
-                   0,
-                   global_thread_idx < problem_size,
-                   r4);
+  SumStore<double>(out_rTr_local, (double *)inout_shared, 0,
+                   global_thread_idx < problem_size, r4);
   SumFlushFinal<double>(out_rTr_local, out_rTr, 1);
 }
 
-void PinholeFixedPointScore(double* pose,
-                            unsigned int pose_num_alloc,
-                            SharedIndex* pose_indices,
-                            double* sensor_from_rig,
+void PinholeFixedPointScore(double *pose, unsigned int pose_num_alloc,
+                            SharedIndex *pose_indices, double *sensor_from_rig,
                             unsigned int sensor_from_rig_num_alloc,
-                            double* calib,
-                            unsigned int calib_num_alloc,
-                            SharedIndex* calib_indices,
-                            double* pixel,
-                            unsigned int pixel_num_alloc,
-                            double* point,
-                            unsigned int point_num_alloc,
-                            double* const out_rTr,
+                            double *calib, unsigned int calib_num_alloc,
+                            SharedIndex *calib_indices, double *pixel,
+                            unsigned int pixel_num_alloc, double *point,
+                            unsigned int point_num_alloc, double *const out_rTr,
                             size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  PinholeFixedPointScoreKernel<<<n_blocks, 1024>>>(pose,
-                                                   pose_num_alloc,
-                                                   pose_indices,
-                                                   sensor_from_rig,
-                                                   sensor_from_rig_num_alloc,
-                                                   calib,
-                                                   calib_num_alloc,
-                                                   calib_indices,
-                                                   pixel,
-                                                   pixel_num_alloc,
-                                                   point,
-                                                   point_num_alloc,
-                                                   out_rTr,
-                                                   problem_size);
+  PinholeFixedPointScoreKernel<<<n_blocks, 1024>>>(
+      pose, pose_num_alloc, pose_indices, sensor_from_rig,
+      sensor_from_rig_num_alloc, calib, calib_num_alloc, calib_indices, pixel,
+      pixel_num_alloc, point, point_num_alloc, out_rTr, problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar
