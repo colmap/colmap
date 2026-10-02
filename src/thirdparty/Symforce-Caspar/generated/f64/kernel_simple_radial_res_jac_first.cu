@@ -740,7 +740,8 @@ __global__ void __launch_bounds__(1024, 1)
     r77 = r77 * r51;
     r7 = r0 * r2;
     r7 = r7 * r51;
-    r7 = fma(r54, r7, r54 * r77);
+    const double calib_factor = r4 * r38;
+    r7 = fma(calib_factor, r7, calib_factor * r77);
     r77 = r4 * r0;
     r77 = r77 * r39;
     r77 = r77 * r2;

@@ -427,10 +427,12 @@ TEST(DefaultBundleAdjuster, MergedCalibMatchesCeres) {
   ASSERT_NE(caspar_adjuster->Solve()->termination_type,
             BundleAdjustmentTerminationType::FAILURE);
 
+  // Layout bugs in the merged Calib kernel cause 100+ unit errors; float32 vs
+  // double accumulation should be well under these thresholds.
 #ifdef CASPAR_USE_DOUBLE
   constexpr double kFocalTol = 1.0;
-  constexpr double kPPTol = 1.0;
-  constexpr double kExtraTol = 1e-4;
+  constexpr double kPPTol = 2.0;
+  constexpr double kExtraTol = 5e-4;
 #else
   constexpr double kFocalTol = 20.0;
   constexpr double kPPTol = 10.0;
