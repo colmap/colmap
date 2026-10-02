@@ -42,73 +42,85 @@ bool PerspectiveFieldFittingOptions::Check() const {
   return true;
 }
 
-PerspectiveField SubsamplePerspectiveField(const PerspectiveField& field,
-                                           const int stride,
-                                           const bool max_pool_confidence,
-                                           const double min_confidence) {
-  THROW_CHECK(field.Check());
-  THROW_CHECK_GT(stride, 0);
+namespace {
 
+double CombinedConfidence(const PerspectiveField& field,
+                          const bool has_up_conf,
+                          const bool has_lat_conf,
+                          const Eigen::Index idx) {
+  const double c_up = has_up_conf ? field.up_confidence(idx) : 1.0;
+  const double c_lat = has_lat_conf ? field.latitude_confidence(idx) : 1.0;
+  return std::sqrt(std::max(0.0, c_up) * std::max(0.0, c_lat));
+}
+
+std::vector<Eigen::Index> SelectSubsampledIndices(
+    const PerspectiveField& field,
+    const int stride,
+    const bool max_pool_confidence,
+    const double min_confidence) {
   const Eigen::Index num_points = field.NumPoints();
   const bool has_up_conf = field.up_confidence.size() == num_points;
   const bool has_lat_conf = field.latitude_confidence.size() == num_points;
 
-  auto combined_conf = [&](Eigen::Index idx) -> double {
-    const double c_up = has_up_conf ? field.up_confidence(idx) : 1.0;
-    const double c_lat = has_lat_conf ? field.latitude_confidence(idx) : 1.0;
-    return std::sqrt(std::max(0.0, c_up) * std::max(0.0, c_lat));
-  };
-
-  if (stride == 1 && min_confidence <= 0.0) {
-    return field;
-  }
-
   std::vector<Eigen::Index> selected_indices;
-  if (field.width > 0 && field.height > 0) {
-    const int H = field.height;
-    const int W = field.width;
-    selected_indices.reserve(((H + stride - 1) / stride) *
-                             ((W + stride - 1) / stride));
-    for (int r0 = 0; r0 < H; r0 += stride) {
-      const int r1 = std::min(r0 + stride, H);
-      for (int c0 = 0; c0 < W; c0 += stride) {
-        const int c1 = std::min(c0 + stride, W);
-        if (!max_pool_confidence) {
-          const int r = r0 + (r1 - r0) / 2;
-          const int c = c0 + (c1 - c0) / 2;
-          const Eigen::Index idx = static_cast<Eigen::Index>(r) * W + c;
-          if (combined_conf(idx) >= min_confidence) {
-            selected_indices.push_back(idx);
-          }
-          continue;
-        }
-        Eigen::Index best_idx = -1;
-        double best_score = -1.0;
-        for (int r = r0; r < r1; ++r) {
-          for (int c = c0; c < c1; ++c) {
-            const Eigen::Index idx = static_cast<Eigen::Index>(r) * W + c;
-            const double score = combined_conf(idx);
-            if (score >= min_confidence && score > best_score) {
-              best_score = score;
-              best_idx = idx;
-            }
-          }
-        }
-        if (best_idx >= 0) {
-          selected_indices.push_back(best_idx);
-        }
-      }
-    }
-  } else {
+  if (field.width <= 0 || field.height <= 0) {
     selected_indices.reserve((num_points + stride - 1) / stride);
     for (Eigen::Index idx = 0; idx < num_points; idx += stride) {
-      if (combined_conf(idx) >= min_confidence) {
+      if (CombinedConfidence(field, has_up_conf, has_lat_conf, idx) >=
+          min_confidence) {
         selected_indices.push_back(idx);
       }
     }
+    return selected_indices;
   }
 
+  const int H = field.height;
+  const int W = field.width;
+  selected_indices.reserve(((H + stride - 1) / stride) *
+                           ((W + stride - 1) / stride));
+  for (int r0 = 0; r0 < H; r0 += stride) {
+    const int r1 = std::min(r0 + stride, H);
+    for (int c0 = 0; c0 < W; c0 += stride) {
+      const int c1 = std::min(c0 + stride, W);
+      if (!max_pool_confidence) {
+        const int r = r0 + (r1 - r0) / 2;
+        const int c = c0 + (c1 - c0) / 2;
+        const Eigen::Index idx = static_cast<Eigen::Index>(r) * W + c;
+        if (CombinedConfidence(field, has_up_conf, has_lat_conf, idx) >=
+            min_confidence) {
+          selected_indices.push_back(idx);
+        }
+        continue;
+      }
+      Eigen::Index best_idx = -1;
+      double best_score = -1.0;
+      for (int r = r0; r < r1; ++r) {
+        for (int c = c0; c < c1; ++c) {
+          const Eigen::Index idx = static_cast<Eigen::Index>(r) * W + c;
+          const double score =
+              CombinedConfidence(field, has_up_conf, has_lat_conf, idx);
+          if (score >= min_confidence && score > best_score) {
+            best_score = score;
+            best_idx = idx;
+          }
+        }
+      }
+      if (best_idx >= 0) {
+        selected_indices.push_back(best_idx);
+      }
+    }
+  }
+  return selected_indices;
+}
+
+PerspectiveField GatherPerspectiveField(
+    const PerspectiveField& field,
+    const std::vector<Eigen::Index>& selected_indices) {
+  const Eigen::Index num_points = field.NumPoints();
+  const bool has_up_conf = field.up_confidence.size() == num_points;
+  const bool has_lat_conf = field.latitude_confidence.size() == num_points;
   const Eigen::Index out_n = static_cast<Eigen::Index>(selected_indices.size());
+
   PerspectiveField out;
   out.width = 0;
   out.height = 0;
@@ -137,8 +149,6 @@ PerspectiveField SubsamplePerspectiveField(const PerspectiveField& field,
   return out;
 }
 
-namespace {
-
 // Initialize uncalibrated focal length to 0.7 * max(width, height) and zero
 // distortion, mirroring GeoCalib's get_trivial_estimation in lm_optimizer.py.
 void InitializeFocalLengthFromPerspectiveField(Camera* camera) {
@@ -157,89 +167,69 @@ void InitializeFocalLengthFromPerspectiveField(Camera* camera) {
   }
 }
 
-// Closed-form linear least-squares initialization of gravity_in_rig on S^2
-// from all subsampled perspective fields across the frame.
-Eigen::Vector3d EstimateInitialGravityInRig(
-    const std::vector<PerspectiveFieldCameraInput>& inputs,
-    const std::vector<PerspectiveField>& subsampled_fields,
-    const bool use_confidence) {
-  Eigen::Matrix3d AtA = Eigen::Matrix3d::Zero();
-  Eigen::Vector3d Atb = Eigen::Vector3d::Zero();
+void AccumulateLinearGravityConstraints(const Camera& camera,
+                                        const PerspectiveField& field,
+                                        const Eigen::Matrix3d& R_cam_from_rig,
+                                        const bool use_confidence,
+                                        Eigen::Matrix3d* AtA,
+                                        Eigen::Vector3d* Atb) {
+  const Eigen::Index num_points = field.NumPoints();
+  const bool has_up_conf =
+      use_confidence && field.up_confidence.size() == num_points;
+  const bool has_lat_conf =
+      use_confidence && field.latitude_confidence.size() == num_points;
 
-  for (size_t k = 0; k < inputs.size(); ++k) {
-    const Camera& camera = *inputs[k].camera;
-    const PerspectiveField& field = subsampled_fields[k];
-    const Eigen::Matrix3d R_cam_from_rig =
-        inputs[k].cam_from_rig.toRotationMatrix();
-    const Eigen::Index num_points = field.NumPoints();
-    const bool has_up_conf =
-        use_confidence && field.up_confidence.size() == num_points;
-    const bool has_lat_conf =
-        use_confidence && field.latitude_confidence.size() == num_points;
+  for (Eigen::Index i = 0; i < num_points; ++i) {
+    const Eigen::Vector2d xy = field.points2D_in_img.row(i).transpose();
+    const std::optional<Eigen::Vector3d> r_cam =
+        CameraModelCamRayFromImg(camera.model_id, camera.params, xy);
+    if (!r_cam.has_value()) {
+      continue;
+    }
 
-    for (Eigen::Index i = 0; i < num_points; ++i) {
-      const Eigen::Vector2d xy = field.points2D_in_img.row(i).transpose();
-      const std::optional<Eigen::Vector3d> r_cam =
-          CameraModelCamRayFromImg(camera.model_id, camera.params, xy);
-      if (!r_cam.has_value()) {
-        continue;
-      }
+    // 1. Latitude linear constraint:
+    //   (R_cam_from_rig^T * r_cam)^T * g_rig = -sin(lat_obs)
+    const double w_lat =
+        has_lat_conf ? std::max(0.0, field.latitude_confidence(i)) : 1.0;
+    if (w_lat > 0.0) {
+      const Eigen::Vector3d a_lat = R_cam_from_rig.transpose() * (*r_cam);
+      const double b_lat = -std::sin(field.latitude(i));
+      *AtA += w_lat * (a_lat * a_lat.transpose());
+      *Atb += w_lat * b_lat * a_lat;
+    }
 
-      // 1. Latitude linear constraint:
-      //   (R_cam_from_rig^T * r_cam)^T * g_rig = -sin(lat_obs)
-      const double w_lat =
-          has_lat_conf ? std::max(0.0, field.latitude_confidence(i)) : 1.0;
-      if (w_lat > 0.0) {
-        const Eigen::Vector3d a_lat = R_cam_from_rig.transpose() * (*r_cam);
-        const double b_lat = -std::sin(field.latitude(i));
-        AtA += w_lat * (a_lat * a_lat.transpose());
-        Atb += w_lat * b_lat * a_lat;
-      }
-
-      // 2. Up-vector orthogonal constraint:
-      //   u_tilde = -J_uvw * g_cam is parallel to up_obs, so
-      //   [-up_obs.y, up_obs.x] * J_uvw * R_cam_from_rig * g_rig = 0.
-      const double w_up =
-          has_up_conf ? std::max(0.0, field.up_confidence(i)) : 1.0;
-      if (w_up > 0.0) {
-        Eigen::Matrix2x3d J_uvw;
-        if (CameraModelImgFromCamWithJac(camera.model_id,
-                                         camera.params,
-                                         *r_cam,
-                                         &J_uvw,
-                                         /*check_cheirality=*/false)
-                .has_value()) {
-          const Eigen::Vector2d up = field.up_in_img.row(i).transpose();
-          const Eigen::Vector2d up_perp(-up.y(), up.x());
-          Eigen::Vector3d a_up =
-              (up_perp.transpose() * J_uvw * R_cam_from_rig).transpose();
-          const double a_up_norm = a_up.norm();
-          if (a_up_norm > 1e-12) {
-            a_up /= a_up_norm;
-            AtA += w_up * (a_up * a_up.transpose());
-          }
+    // 2. Up-vector orthogonal constraint:
+    //   u_tilde = -J_uvw * g_cam is parallel to up_obs, so
+    //   [-up_obs.y, up_obs.x] * J_uvw * R_cam_from_rig * g_rig = 0.
+    const double w_up =
+        has_up_conf ? std::max(0.0, field.up_confidence(i)) : 1.0;
+    if (w_up > 0.0) {
+      Eigen::Matrix2x3d J_uvw;
+      if (CameraModelImgFromCamWithJac(camera.model_id,
+                                       camera.params,
+                                       *r_cam,
+                                       &J_uvw,
+                                       /*check_cheirality=*/false)
+              .has_value()) {
+        const Eigen::Vector2d up = field.up_in_img.row(i).transpose();
+        const Eigen::Vector2d up_perp(-up.y(), up.x());
+        Eigen::Vector3d a_up =
+            (up_perp.transpose() * J_uvw * R_cam_from_rig).transpose();
+        const double a_up_norm = a_up.norm();
+        if (a_up_norm > 1e-12) {
+          a_up /= a_up_norm;
+          *AtA += w_up * (a_up * a_up.transpose());
         }
       }
     }
   }
+}
 
-  Eigen::Vector3d g_rig(0.0, 1.0, 0.0);
-  if (Atb.squaredNorm() > 1e-12) {
-    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(AtA);
-    if (eig.info() == Eigen::Success && eig.eigenvalues()(0) > 1e-8) {
-      const Eigen::Vector3d g_sol = AtA.ldlt().solve(Atb);
-      if (g_sol.norm() > 1e-6 && g_sol.allFinite()) {
-        g_rig = g_sol.normalized();
-      }
-    }
-  } else if (AtA.norm() > 1e-12) {
-    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(AtA);
-    if (eig.info() == Eigen::Success) {
-      g_rig = eig.eigenvectors().col(0);
-    }
-  }
-
-  // Ensure sign consistency with observed 2D up-vectors.
+bool ShouldFlipGravitySign(
+    const std::vector<PerspectiveFieldCameraInput>& inputs,
+    const std::vector<PerspectiveField>& subsampled_fields,
+    const bool use_confidence,
+    const Eigen::Vector3d& g_rig) {
   double up_dot_sum = 0.0;
   for (size_t k = 0; k < inputs.size(); ++k) {
     const Camera& camera = *inputs[k].camera;
@@ -277,10 +267,46 @@ Eigen::Vector3d EstimateInitialGravityInRig(
       }
     }
   }
-  if (up_dot_sum < 0.0) {
-    g_rig = -g_rig;
+  return up_dot_sum < 0.0;
+}
+
+// Closed-form linear least-squares initialization of gravity_in_rig on S^2
+// from all subsampled perspective fields across the frame.
+Eigen::Vector3d EstimateInitialGravityInRig(
+    const std::vector<PerspectiveFieldCameraInput>& inputs,
+    const std::vector<PerspectiveField>& subsampled_fields,
+    const bool use_confidence) {
+  Eigen::Matrix3d AtA = Eigen::Matrix3d::Zero();
+  Eigen::Vector3d Atb = Eigen::Vector3d::Zero();
+  for (size_t k = 0; k < inputs.size(); ++k) {
+    AccumulateLinearGravityConstraints(
+        *inputs[k].camera,
+        subsampled_fields[k],
+        inputs[k].cam_from_rig.toRotationMatrix(),
+        use_confidence,
+        &AtA,
+        &Atb);
   }
 
+  Eigen::Vector3d g_rig(0.0, 1.0, 0.0);
+  if (Atb.squaredNorm() > 1e-12) {
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(AtA);
+    if (eig.info() == Eigen::Success && eig.eigenvalues()(0) > 1e-8) {
+      const Eigen::Vector3d g_sol = AtA.ldlt().solve(Atb);
+      if (g_sol.norm() > 1e-6 && g_sol.allFinite()) {
+        g_rig = g_sol.normalized();
+      }
+    }
+  } else if (AtA.norm() > 1e-12) {
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(AtA);
+    if (eig.info() == Eigen::Success) {
+      g_rig = eig.eigenvectors().col(0);
+    }
+  }
+
+  if (ShouldFlipGravitySign(inputs, subsampled_fields, use_confidence, g_rig)) {
+    g_rig = -g_rig;
+  }
   return g_rig;
 }
 
@@ -654,6 +680,20 @@ void AddRefinedCameraResiduals(const PerspectiveField& field,
 }
 
 }  // namespace
+
+PerspectiveField SubsamplePerspectiveField(const PerspectiveField& field,
+                                           const int stride,
+                                           const bool max_pool_confidence,
+                                           const double min_confidence) {
+  THROW_CHECK(field.Check());
+  THROW_CHECK_GT(stride, 0);
+  if (stride == 1 && min_confidence <= 0.0) {
+    return field;
+  }
+  const std::vector<Eigen::Index> selected_indices = SelectSubsampledIndices(
+      field, stride, max_pool_confidence, min_confidence);
+  return GatherPerspectiveField(field, selected_indices);
+}
 
 FittedPerspectiveFields FitPerspectiveFields(
     const PerspectiveFieldFittingOptions& options,
