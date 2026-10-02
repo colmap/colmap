@@ -19,16 +19,7 @@ __global__ void __launch_bounds__(1024, 1)
         unsigned int focal_jac_num_alloc,
         double* const out_focal_njtr,
         unsigned int out_focal_njtr_num_alloc,
-        size_t problem_size) {
-  const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  __shared__ uint8_t inout_shared[16384];
-
-  __shared__ SharedIndex focal_njtr_indices_loc[1024];
-  focal_njtr_indices_loc[threadIdx.x] =
-      (global_thread_idx < problem_size
-           ? focal_njtr_indices[global_thread_idx]
-           : SharedIndex{0xffffffff, 0xffff, 0xffff});
-}
+        size_t problem_size) {}
 
 void PinholeSplitFixedPoseFixedPrincipalPointFixedPointJtjnjtrDirect(
     double* focal_njtr,

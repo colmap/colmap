@@ -20,7 +20,7 @@ __global__ void __launch_bounds__(1024, 1)
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[4096];
 
-  float r0, r1, r2, r3;
+  float r0 = 0, r1 = 0, r2 = 0, r3 = 0;
 
   if (global_thread_idx < problem_size) {
     ReadIdx3<1024, float, float, float4>(

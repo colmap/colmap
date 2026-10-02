@@ -25,7 +25,7 @@ __global__ void __launch_bounds__(1024, 1)
 
   __shared__ float out_PinholeCalib_r_kp1_norm2_tot_local[1];
 
-  float r0, r1, r2, r3, r4, r5, r6, r7, r8;
+  float r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0;
 
   if (global_thread_idx < problem_size) {
     ReadIdx4<1024, float, float, float4>(PinholeCalib_r_k,

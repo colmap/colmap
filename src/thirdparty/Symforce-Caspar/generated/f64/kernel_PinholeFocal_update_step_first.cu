@@ -20,7 +20,7 @@ __global__ void __launch_bounds__(1024, 1) PinholeFocalUpdateStepFirstKernel(
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[8192];
 
-  double r0, r1, r2;
+  double r0 = 0, r1 = 0, r2 = 0;
 
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(PinholeFocal_p_kp1,

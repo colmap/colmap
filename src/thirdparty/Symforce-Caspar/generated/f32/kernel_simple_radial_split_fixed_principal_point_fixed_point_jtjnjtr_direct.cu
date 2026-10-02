@@ -42,8 +42,9 @@ __global__ void __launch_bounds__(1024, 1)
            ? focal_and_extra_njtr_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
-  float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
-      r16, r17, r18, r19, r20;
+  float r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0,
+        r9 = 0, r10 = 0, r11 = 0, r12 = 0, r13 = 0, r14 = 0, r15 = 0, r16 = 0,
+        r17 = 0, r18 = 0, r19 = 0, r20 = 0;
 
   if (global_thread_idx < problem_size) {
     ReadIdx4<1024, float, float, float4>(

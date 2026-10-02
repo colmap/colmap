@@ -59,10 +59,12 @@ __global__ void __launch_bounds__(1024, 1)
            ? point_indices[global_thread_idx]
            : SharedIndex{0xffffffff, 0xffff, 0xffff});
 
-  float r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
-      r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
-      r31, r32, r33, r34, r35, r36, r37, r38, r39, r40, r41, r42, r43, r44, r45,
-      r46, r47;
+  float r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0,
+        r9 = 0, r10 = 0, r11 = 0, r12 = 0, r13 = 0, r14 = 0, r15 = 0, r16 = 0,
+        r17 = 0, r18 = 0, r19 = 0, r20 = 0, r21 = 0, r22 = 0, r23 = 0, r24 = 0,
+        r25 = 0, r26 = 0, r27 = 0, r28 = 0, r29 = 0, r30 = 0, r31 = 0, r32 = 0,
+        r33 = 0, r34 = 0, r35 = 0, r36 = 0, r37 = 0, r38 = 0, r39 = 0, r40 = 0,
+        r41 = 0, r42 = 0, r43 = 0, r44 = 0, r45 = 0, r46 = 0, r47 = 0;
   LoadShared<2, float, float>(principal_point,
                               0 * principal_point_num_alloc,
                               principal_point_indices_loc,
@@ -237,9 +239,9 @@ __global__ void __launch_bounds__(1024, 1)
     r9 = fmaf(r8, r9, r0 * r10);
     r10 = r7 * r45;
     r10 = fmaf(r0, r10, r41 * r5);
-    r34 = r41 * r39;
-    r30 = r37 * r33;
-    r30 = fmaf(r0, r30, r8 * r34);
+    r34 = r37 * r33;
+    r30 = r41 * r39;
+    r30 = fmaf(r8, r30, r0 * r34);
     WriteIdx4<1024, float, float, float4>(out_point_jac,
                                           0 * out_point_jac_num_alloc,
                                           global_thread_idx,
@@ -254,9 +256,9 @@ __global__ void __launch_bounds__(1024, 1)
     r47 = fmaf(r8, r47, r0 * r34);
     WriteIdx2<1024, float, float, float2>(
         out_point_jac, 4 * out_point_jac_num_alloc, global_thread_idx, r5, r47);
-    r34 = r4 * r3;
-    r8 = r4 * r2;
-    r8 = fmaf(r35, r8, r9 * r34);
+    r34 = r4 * r2;
+    r8 = r4 * r3;
+    r8 = fmaf(r9, r8, r35 * r34);
     r34 = r4 * r3;
     r0 = r4 * r2;
     r0 = fmaf(r10, r0, r30 * r34);
@@ -270,7 +272,7 @@ __global__ void __launch_bounds__(1024, 1)
                            point_indices_loc,
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
-    r29 = fmaf(r35, r35, r9 * r9);
+    r29 = fmaf(r9, r9, r35 * r35);
     r0 = fmaf(r30, r30, r10 * r10);
     r8 = fmaf(r47, r47, r5 * r5);
     WriteSum3<float, float>((float*)inout_shared, r29, r0, r8);
@@ -281,9 +283,9 @@ __global__ void __launch_bounds__(1024, 1)
                            (float*)inout_shared);
   if (global_thread_idx < problem_size) {
     r8 = fmaf(r35, r10, r9 * r30);
-    r35 = fmaf(r35, r5, r9 * r47);
+    r9 = fmaf(r9, r47, r35 * r5);
     r5 = fmaf(r10, r5, r30 * r47);
-    WriteSum3<float, float>((float*)inout_shared, r8, r35, r5);
+    WriteSum3<float, float>((float*)inout_shared, r8, r9, r5);
   };
   FlushSumShared<3, float>(out_point_precond_tril,
                            0 * out_point_precond_tril_num_alloc,

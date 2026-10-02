@@ -27,7 +27,7 @@ __global__ void __launch_bounds__(1024, 1)
 
   __shared__ float Point_total_ac_local[1];
 
-  float r0, r1, r2, r3, r4, r5;
+  float r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0;
 
   if (global_thread_idx < problem_size) {
     ReadIdx3<1024, float, float, float4>(

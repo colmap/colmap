@@ -28,7 +28,7 @@ __global__ void __launch_bounds__(1024, 1)
 
   __shared__ double PinholeFocal_total_ac_local[1];
 
-  double r0, r1, r2, r3;
+  double r0 = 0, r1 = 0, r2 = 0, r3 = 0;
 
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, double, double, double2>(PinholeFocal_p_kp1,
