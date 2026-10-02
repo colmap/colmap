@@ -23,7 +23,8 @@ void CreateSolidRgbImage(int width, int height, uint8_t value, Bitmap* bitmap) {
 TEST(PrepareGeoCalibInputTest, LandscapeImagePreservesAspectRatio) {
   Bitmap bitmap;
   CreateSolidRgbImage(640, 480, 255, &bitmap);
-  const GeoCalibInput input = PrepareGeoCalibInput(bitmap, /*image_size=*/320);
+  const GeoCalibInput input =
+      PrepareGeoCalibInput(bitmap, /*image_size=*/320, /*force_square=*/false);
   // Short side 480 -> 320, long side 640 -> round(640 * 320 / 480) = 427,
   // cropped to multiple of 32: 416 x 320.
   EXPECT_EQ(input.width, 416);

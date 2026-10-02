@@ -54,8 +54,8 @@ struct GeoCalibInput {
 };
 
 GeoCalibInput PrepareGeoCalibInput(const Bitmap& bitmap,
-                                   int image_size = 320,
-                                   bool force_square = false);
+                                   int image_size,
+                                   bool force_square);
 
 class GeoCalib {
  public:
@@ -70,10 +70,9 @@ class GeoCalib {
 
   // Convenience method to predict the perspective field for a single image and
   // fit sensor-frame gravity (and optionally camera intrinsics).
-  virtual FittedPerspectiveFields Calibrate(
-      const Bitmap& bitmap,
-      Camera* camera,
-      bool refine_camera = false) const = 0;
+  virtual FittedPerspectiveFields Calibrate(const Bitmap& bitmap,
+                                            Camera* camera,
+                                            bool refine_camera) const = 0;
 };
 
 }  // namespace colmap
