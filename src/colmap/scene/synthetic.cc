@@ -382,7 +382,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       THROW_CHECK(camera.VerifyParams());
       camera.source = options.camera_has_prior_focal_length
                           ? CameraSource::USER
-                          : CameraSource::GUESS;
+                          : CameraSource::UNKNOWN;
       camera.camera_id =
           (database == nullptr)
               ? (rig_idx * options.num_cameras_per_rig + camera_idx + 1)

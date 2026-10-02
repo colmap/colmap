@@ -162,7 +162,7 @@ FakeCalibrationScene CreateFakeCalibrationSceneWithModel(
   camera.width = 64;
   camera.height = 48;
   camera.params = scene.initial_params;
-  camera.source = CameraSource::USER;
+  camera.source = CameraSource::EXIF;
   const camera_t camera_id = database->WriteCamera(camera);
   for (int i = 0; i < 2; ++i) {
     const std::string name = "image" + std::to_string(i) + ".png";
@@ -454,7 +454,7 @@ TEST(SingleViewCalibrationControllerTest, IntegrationTestWithModel) {
     camera.width = 64;
     camera.height = 48;
     camera.params = initial_params;
-    camera.source = CameraSource::USER;
+    camera.source = CameraSource::EXIF;
     const camera_t camera_id = database->WriteCamera(camera);
     for (int i = 0; i < 2; ++i) {
       Bitmap bitmap(64, 48, /*as_rgb=*/true);
@@ -487,7 +487,7 @@ TEST(SingleViewCalibrationControllerTest, IntegrationTestWithModel) {
   expected_camera.width = 64;
   expected_camera.height = 48;
   expected_camera.params = initial_params;
-  expected_camera.source = CameraSource::USER;
+  expected_camera.source = CameraSource::EXIF;
   const bool expected_success =
       SingleViewCalibrator::Create(options)->Calibrate(selected_bitmap,
                                                        &expected_camera);
