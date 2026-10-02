@@ -129,22 +129,6 @@ bool ShouldRefineCamera(const Camera& camera,
          (options.force_refine_intrinsics || !camera.has_prior_focal_length);
 }
 
-bool GroupNeedsEstimation(const FrameImageGroup& group,
-                          const DatabaseScene& scene,
-                          const GravityEstimationOptions& options) {
-  for (const Image& image : group.images) {
-    const auto prior_it = scene.pose_priors.find(image.ImageId());
-    if (options.overwrite_gravity || prior_it == scene.pose_priors.end() ||
-        !prior_it->second.HasGravity()) {
-      return true;
-    }
-    if (ShouldRefineCamera(scene.cameras.at(image.CameraId()), options)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 void PredictGroupPerspectiveFields(const FrameImageGroup& group,
                                    const std::filesystem::path& image_path,
                                    const DatabaseScene& scene,
@@ -306,7 +290,6 @@ bool EstimateFrameGroup(
 size_t WriteEstimatedGravityPriors(
     const std::vector<Image>& images,
     const FlatHashMap<image_t, Eigen::Vector3d>& estimated_gravities,
-    const bool overwrite_gravity,
     FlatHashMap<image_t, PosePrior>* pose_priors,
     Database* database) {
   size_t num_priors_written = 0;
@@ -321,12 +304,11 @@ size_t WriteEstimatedGravityPriors(
       prior.corr_data_id = image.DataId();
       prior.gravity = grav_it->second;
       database->WritePosePrior(prior);
-      ++num_priors_written;
-    } else if (overwrite_gravity || !prior_it->second.HasGravity()) {
+    } else {
       prior_it->second.gravity = grav_it->second;
       database->UpdatePosePrior(prior_it->second);
-      ++num_priors_written;
     }
+    ++num_priors_written;
   }
   return num_priors_written;
 }
@@ -416,9 +398,6 @@ class GravityEstimationController : public Thread {
         return;
       }
       const FrameImageGroup& group = groups[g_idx];
-      if (!GroupNeedsEstimation(group, scene, options_)) {
-        continue;
-      }
 
       LOG(INFO) << StringPrintf(
           "Estimating gravity for frame group [%d/%d] "
@@ -446,12 +425,8 @@ class GravityEstimationController : public Thread {
     }
 
     DatabaseTransaction database_transaction(database_.get());
-    const size_t num_priors_written =
-        WriteEstimatedGravityPriors(all_images,
-                                    estimated_gravities,
-                                    options_.overwrite_gravity,
-                                    &scene.pose_priors,
-                                    database_.get());
+    const size_t num_priors_written = WriteEstimatedGravityPriors(
+        all_images, estimated_gravities, &scene.pose_priors, database_.get());
     const size_t num_cameras_updated = AggregateAndUpdateCameras(
         scene.cameras, configured_model_id, params_per_camera, database_.get());
 
