@@ -222,8 +222,13 @@ class GravityEstimationController : public Thread {
           continue;
         }
 
+        const auto pose_prior_it = pose_priors.find(image.ImageId());
+        const PosePrior pose_prior = pose_prior_it == pose_priors.end()
+                                         ? PosePrior()
+                                         : pose_prior_it->second;
         try {
-          fields.push_back(geocalib->PredictPerspectiveField(bitmap));
+          fields.push_back(
+              geocalib->PredictPerspectiveField(bitmap, pose_prior));
           valid_img_indices.push_back(k);
         } catch (const std::exception& e) {
           LOG(WARNING) << "  Perspective field prediction failed for "
