@@ -166,6 +166,7 @@ class GeoCalibImpl : public GeoCalib {
 
 bool GeoCalibOptions::Check() const {
   CHECK_OPTION_GE(image_size, kEdgeDivisibleBy);
+  CHECK_OPTION_GT(num_threads, -2);
   CHECK_OPTION(fitting.Check());
   return true;
 }

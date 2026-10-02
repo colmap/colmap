@@ -30,8 +30,12 @@ struct GeoCalibOptions {
   // Number of CPU threads for ONNX inference (-1 uses all available cores).
   int num_threads = -1;
 
-  // Whether to use GPU for ONNX inference.
+  // Whether to use the GPU for neural-network inference.
+#if defined(COLMAP_GPU_ENABLED) || defined(COLMAP_COREML_ENABLED)
   bool use_gpu = true;
+#else
+  bool use_gpu = false;
+#endif
   std::string gpu_index = "-1";
 
   // Options for Ceres perspective field fitting.
