@@ -292,14 +292,7 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     case BundleAdjustmentBackend::CERES:
       return CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
     case BundleAdjustmentBackend::CASPAR:
-#ifdef CASPAR_ENABLED
       return CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
-#else
-      LOG(FATAL_THROW)
-          << "Caspar BA backend selected but COLMAP was built without "
-             "CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON to use it";
-      return nullptr;
-#endif
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
                    << static_cast<int>(options.backend);
