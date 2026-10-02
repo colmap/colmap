@@ -381,6 +381,8 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
   template <typename T>
   static inline bool IterativeUndistortion(const T* extra_params, T* u, T* v) {
     constexpr size_t N = CameraModel::num_extra_params;
+    static_assert(
+        N > 0, "IterativeUndistortion requires extra distortion parameters.");
     double extra_params_scalar[N];
     for (size_t i = 0; i < N; ++i) {
       extra_params_scalar[i] = GetScalarValue(extra_params[i]);
@@ -423,18 +425,13 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
       u->a = u_scalar;
       v->a = v_scalar;
 
-      constexpr int NumDerivs = std::decay_t<decltype(u->v)>::SizeAtCompileTime;
-      for (int j = 0; j < NumDerivs; ++j) {
-        const double du_in = u->v[j];
-        const double dv_in = v->v[j];
-
-        u->v[j] = J_inv(0, 0) * du_in + J_inv(0, 1) * dv_in;
-        v->v[j] = J_inv(1, 0) * du_in + J_inv(1, 1) * dv_in;
-
-        for (size_t i = 0; i < N; ++i) {
-          u->v[j] += dUV_dparams(0, i) * extra_params[i].v[j];
-          v->v[j] += dUV_dparams(1, i) * extra_params[i].v[j];
-        }
+      const auto du_in = u->v.eval();
+      const auto dv_in = v->v.eval();
+      u->v = J_inv(0, 0) * du_in + J_inv(0, 1) * dv_in;
+      v->v = J_inv(1, 0) * du_in + J_inv(1, 1) * dv_in;
+      for (size_t i = 0; i < N; ++i) {
+        u->v += dUV_dparams(0, i) * extra_params[i].v;
+        v->v += dUV_dparams(1, i) * extra_params[i].v;
       }
     }
 
