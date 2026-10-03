@@ -25,7 +25,7 @@ bool CompareCudaDevice(const cudaDeviceProp& d1, const cudaDeviceProp& d2) {
 int GetNumCudaDevices() {
   int num_cuda_devices = 0;
   const cudaError_t error = cudaGetDeviceCount(&num_cuda_devices);
-#ifdef COLMAP_CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
   if (error == cudaErrorNoDevice || error == cudaErrorInsufficientDriver) {
     return 0;
   }

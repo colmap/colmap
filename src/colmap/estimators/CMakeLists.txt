@@ -8,6 +8,7 @@ add_subdirectory(solvers)
 set(ESTIMATORS_SRCS
     alignment.h alignment.cc
     bundle_adjustment.h bundle_adjustment.cc
+    bundle_adjustment_caspar.h bundle_adjustment_caspar.cc
     bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
     ceres_loss_function.h ceres_loss_function.cc
     coordinate_frame.h coordinate_frame.cc
@@ -25,13 +26,6 @@ set(ESTIMATORS_SRCS
     two_view_geometry.h two_view_geometry.cc
     view_graph_calibration.h view_graph_calibration.cc
 )
-
-if(CASPAR_ENABLED)
-    list(APPEND ESTIMATORS_SRCS
-        bundle_adjustment_caspar.h
-        bundle_adjustment_caspar.cc
-    )
-endif()
 
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators

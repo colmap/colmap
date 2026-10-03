@@ -15,6 +15,7 @@
 #endif
 
 namespace colmap {
+#ifdef CASPAR_ENABLED
 namespace {
 
 class CasparBundleAdjuster : public BundleAdjuster {
@@ -1035,12 +1036,21 @@ CasparBundleAdjustmentSummary::Create(
   return summary;
 }
 
+#endif  // CASPAR_ENABLED
+
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction) {
+#ifdef CASPAR_ENABLED
   return std::make_unique<CasparBundleAdjuster>(
       options, config, reconstruction);
+#else
+  LOG(FATAL_THROW)
+      << "Caspar BA backend selected but COLMAP was built without "
+         "CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON to use it";
+  return nullptr;
+#endif
 }
 
 }  // namespace colmap

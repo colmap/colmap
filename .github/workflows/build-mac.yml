@@ -89,6 +89,8 @@ jobs:
           ninja
 
       - name: Run tests
+        env:
+          COLMAP_TEST_HEAVY: "1"
         run: |
           cd build
           set +e

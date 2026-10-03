@@ -15,6 +15,8 @@
 #endif
 #endif
 
+namespace colmap {
+
 #ifdef CASPAR_USE_DOUBLE
 typedef double StorageType;
 #else
@@ -71,8 +73,6 @@ struct ModelData {
   std::array<VariantData, CASPAR_NUM_VARIANTS>
       variants{};  // Indexed by FactorVariant
 };
-
-namespace colmap {
 
 // Solver parameters mirroring caspar::SolverParams, stored as double to
 // round-trip through OptionManager regardless of the float/double build.
