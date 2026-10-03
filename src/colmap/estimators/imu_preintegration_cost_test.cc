@@ -507,5 +507,243 @@ INSTANTIATE_TEST_SUITE_P(ImuPreintegrationCostFunctor,
                          ::testing::Values(ImuIntegrationMethod::MIDPOINT,
                                            ImuIntegrationMethod::RK4));
 
+TEST(InertialRotationCostFunctor, FiniteDifferenceJacobianCheck) {
+  const int N = 10;
+  const double dt = 0.01;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(0.5, -0.3, 9.81),
+                       Eigen::Vector3d(0.1, -0.05, 0.02),
+                       N,
+                       dt,
+                       &gt);
+
+  const Rigid3d imu_from_cam(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d(1, 0, 0))),
+      Eigen::Vector3d(0.01, 0.02, -0.01));
+
+  std::unique_ptr<ceres::CostFunction> cost(
+      InertialRotationCostFunctor::Create(&data, imu_from_cam));
+
+  Eigen::Vector3d aa_i(0.2, -0.1, 0.3);
+  Eigen::Vector3d aa_j(-0.1, 0.3, -0.2);
+  double state_i[9] = {1.0, 0.5, -0.2, 0.02, -0.01, 0.03, 0.1, -0.2, 0.3};
+  double state_j[9] = {1.2, 0.4, -0.1, 0.025, -0.008, 0.031, 0.11, -0.19, 0.32};
+
+  std::vector<double*> params = {aa_i.data(), state_i, aa_j.data(), state_j};
+  const int block_sizes[4] = {3, 9, 3, 9};
+
+  std::vector<std::vector<double>> ad_jacs(4);
+  std::vector<double*> ad_ptrs(4);
+  for (int b = 0; b < 4; ++b) {
+    ad_jacs[b].resize(6 * block_sizes[b]);
+    ad_ptrs[b] = ad_jacs[b].data();
+  }
+
+  double r0[6];
+  EXPECT_TRUE(cost->Evaluate(params.data(), r0, ad_ptrs.data()));
+
+  // Finite-difference verification
+  const double eps = 1e-7;
+  for (int b = 0; b < 4; ++b) {
+    for (int col = 0; col < block_sizes[b]; ++col) {
+      params[b][col] += eps;
+      double r_plus[6];
+      EXPECT_TRUE(cost->Evaluate(params.data(), r_plus, nullptr));
+
+      params[b][col] -= 2.0 * eps;
+      double r_minus[6];
+      EXPECT_TRUE(cost->Evaluate(params.data(), r_minus, nullptr));
+
+      params[b][col] += eps;  // Restore
+
+      for (int row = 0; row < 6; ++row) {
+        const double num_diff = (r_plus[row] - r_minus[row]) / (2.0 * eps);
+        const double ad_val = ad_jacs[b][row * block_sizes[b] + col];
+        EXPECT_NEAR(ad_val, num_diff, 1e-5)
+            << "block=" << b << " row=" << row << " col=" << col;
+      }
+    }
+  }
+}
+
+TEST(InertialRotationCostFunctor, ZeroResidualOnGroundTruth) {
+  const int N = 10;
+  const double dt = 0.01;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(0.5, -0.3, 9.81),
+                       Eigen::Vector3d(0.1, -0.05, 0.02),
+                       N,
+                       dt,
+                       &gt);
+  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+
+  const Rigid3d imu_from_cam(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d(1, 0, 0))),
+      Eigen::Vector3d(0.01, 0.02, -0.01));
+
+  const Eigen::Quaterniond q_CI = imu_from_cam.rotation().conjugate();
+  const Eigen::Quaterniond q_CW_i = q_CI * gt.body_from_world_i.rotation();
+  const Eigen::Quaterniond q_CW_j = q_CI * gt.body_from_world_j.rotation();
+
+  Eigen::Vector3d aa_i, aa_j;
+  AngleAxisFromEigenQuaternion(q_CW_i.coeffs().data(), aa_i.data());
+  AngleAxisFromEigenQuaternion(q_CW_j.coeffs().data(), aa_j.data());
+
+  double state_i[9], state_j[9];
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
+
+  std::unique_ptr<ceres::CostFunction> cost(
+      InertialRotationCostFunctor::Create(&data, imu_from_cam));
+
+  std::vector<double*> params = {aa_i.data(), state_i, aa_j.data(), state_j};
+  double residuals[6];
+  EXPECT_TRUE(cost->Evaluate(params.data(), residuals, nullptr));
+
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_NEAR(residuals[i], 0.0, 1e-7) << "residual[" << i << "]";
+  }
+}
+
+TEST(InertialGlobalPositioningCostFunctor, FiniteDifferenceJacobianCheck) {
+  const int N = 10;
+  const double dt = 0.01;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(0.5, -0.3, 9.81),
+                       Eigen::Vector3d(0.1, -0.05, 0.02),
+                       N,
+                       dt,
+                       &gt);
+
+  const Rigid3d imu_from_cam(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d(1, 0, 0))),
+      Eigen::Vector3d(0.01, 0.02, -0.01));
+  const Eigen::Quaterniond q_CW_i(
+      Eigen::AngleAxisd(0.3, Eigen::Vector3d(0, 1, 0)));
+  const Eigen::Quaterniond q_CW_j(
+      Eigen::AngleAxisd(-0.2, Eigen::Vector3d(0, 0, 1)));
+
+  std::unique_ptr<ceres::CostFunction> cost(
+      InertialGlobalPositioningCostFunctor::Create(
+          &data, imu_from_cam, q_CW_i, q_CW_j));
+
+  double log_scale[1] = {0.05};
+  double gravity_direction[3] = {0.05, -0.1, -0.99};
+  Eigen::Map<Eigen::Vector3d>(gravity_direction).normalize();
+  double c_i[3] = {0.5, -0.2, 1.0};
+  double c_j[3] = {0.8, -0.1, 1.2};
+  double state_i[9] = {1.0, 0.5, -0.2, 0.0, 0.0, 0.0, 0.05, -0.03, 0.02};
+  double state_j[9] = {1.2, 0.4, -0.1, 0.0, 0.0, 0.0, 0.052, -0.028, 0.021};
+
+  std::vector<double*> params = {
+      log_scale, gravity_direction, c_i, state_i, c_j, state_j};
+  const int block_sizes[6] = {1, 3, 3, 9, 3, 9};
+
+  std::vector<std::vector<double>> ad_jacs(6);
+  std::vector<double*> ad_ptrs(6);
+  for (int b = 0; b < 6; ++b) {
+    ad_jacs[b].resize(9 * block_sizes[b]);
+    ad_ptrs[b] = ad_jacs[b].data();
+  }
+
+  double r0[9];
+  EXPECT_TRUE(cost->Evaluate(params.data(), r0, ad_ptrs.data()));
+
+  // Finite-difference verification
+  const double eps = 1e-7;
+  for (int b = 0; b < 6; ++b) {
+    for (int col = 0; col < block_sizes[b]; ++col) {
+      params[b][col] += eps;
+      double r_plus[9];
+      EXPECT_TRUE(cost->Evaluate(params.data(), r_plus, nullptr));
+
+      params[b][col] -= 2.0 * eps;
+      double r_minus[9];
+      EXPECT_TRUE(cost->Evaluate(params.data(), r_minus, nullptr));
+
+      params[b][col] += eps;  // Restore
+
+      for (int row = 0; row < 9; ++row) {
+        const double num_diff = (r_plus[row] - r_minus[row]) / (2.0 * eps);
+        const double ad_val = ad_jacs[b][row * block_sizes[b] + col];
+        EXPECT_NEAR(ad_val, num_diff, 1e-5)
+            << "block=" << b << " row=" << row << " col=" << col;
+      }
+    }
+  }
+}
+
+TEST(InertialGlobalPositioningCostFunctor, ZeroResidualOnGroundTruth) {
+  const int N = 10;
+  const double dt = 0.01;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(0.5, -0.3, 9.81),
+                       Eigen::Vector3d(0.1, -0.05, 0.02),
+                       N,
+                       dt,
+                       &gt);
+  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+
+  const Rigid3d imu_from_cam(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d(1, 0, 0))),
+      Eigen::Vector3d(0.01, 0.02, -0.01));
+
+  const Eigen::Quaterniond q_CI = imu_from_cam.rotation().conjugate();
+  const Eigen::Quaterniond q_CW_i = q_CI * gt.body_from_world_i.rotation();
+  const Eigen::Quaterniond q_CW_j = q_CI * gt.body_from_world_j.rotation();
+
+  const Eigen::Vector3d p_W_i = -(gt.body_from_world_i.rotation().conjugate() *
+                                  gt.body_from_world_i.translation());
+  const Eigen::Vector3d p_W_j = -(gt.body_from_world_j.rotation().conjugate() *
+                                  gt.body_from_world_j.translation());
+
+  const Eigen::Vector3d cam_from_imu_t = -(q_CI * imu_from_cam.translation());
+  const Eigen::Vector3d c_W_i = p_W_i - q_CW_i.conjugate() * cam_from_imu_t;
+  const Eigen::Vector3d c_W_j = p_W_j - q_CW_j.conjugate() * cam_from_imu_t;
+
+  double log_scale[1] = {0.0};
+  double gravity_direction[3] = {0, 0, -1};
+  double c_i[3] = {c_W_i.x(), c_W_i.y(), c_W_i.z()};
+  double c_j[3] = {c_W_j.x(), c_W_j.y(), c_W_j.z()};
+  double state_i[9], state_j[9];
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
+
+  std::unique_ptr<ceres::CostFunction> cost(
+      InertialGlobalPositioningCostFunctor::Create(
+          &data, imu_from_cam, q_CW_i, q_CW_j));
+
+  std::vector<double*> params = {
+      log_scale, gravity_direction, c_i, state_i, c_j, state_j};
+  double residuals[9];
+  EXPECT_TRUE(cost->Evaluate(params.data(), residuals, nullptr));
+
+  for (int i = 0; i < 9; ++i) {
+    EXPECT_NEAR(residuals[i], 0.0, 1e-7) << "residual[" << i << "]";
+  }
+}
+
+TEST(ImuPreintegrationCost, ImuStateSubsetManifolds) {
+  ceres::Problem problem;
+  double imu_state_1[9] = {0};
+  double imu_state_2[9] = {0};
+  problem.AddParameterBlock(imu_state_1, 9);
+  problem.AddParameterBlock(imu_state_2, 9);
+
+  SetManifold(&problem, imu_state_1, CreateImuStateGyroOnlyManifold());
+  SetManifold(&problem, imu_state_2, CreateImuStateVelAccelBiasManifold());
+
+  EXPECT_EQ(ParameterBlockTangentSize(problem, imu_state_1), 3);
+  EXPECT_EQ(ParameterBlockTangentSize(problem, imu_state_2), 6);
+}
+
 }  // namespace
 }  // namespace colmap
