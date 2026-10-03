@@ -745,5 +745,61 @@ TEST(ImuPreintegrationCost, ImuStateSubsetManifolds) {
   EXPECT_EQ(ParameterBlockTangentSize(problem, imu_state_2), 6);
 }
 
+TEST(BiasPriorCostFunctor, ResidualAndJacobians) {
+  const Eigen::Vector3d prior_bias(0.05, -0.03, 0.02);
+  const double stddev = 0.01;
+  const double inv_sigma = 1.0 / stddev;
+
+  // Test Gyro bias prior (slice [3:6] of 9D state).
+  std::unique_ptr<ceres::CostFunction> gyro_prior(
+      BiasPriorCostFunctor<9>::CreateGyro(prior_bias, stddev));
+  EXPECT_EQ(gyro_prior->num_residuals(), 3);
+  ASSERT_EQ(gyro_prior->parameter_block_sizes().size(), 1);
+  EXPECT_EQ(gyro_prior->parameter_block_sizes()[0], 9);
+
+  double state_at_prior[9] = {1.0, 2.0, 3.0, 0.05, -0.03, 0.02, 0.1, 0.2, 0.3};
+  double residuals[3];
+  double jacobian[27];
+  double* jacs[1] = {jacobian};
+  const double* param_ptrs[1] = {state_at_prior};
+  EXPECT_TRUE(gyro_prior->Evaluate(param_ptrs, residuals, jacs));
+  EXPECT_NEAR(residuals[0], 0.0, 1e-12);
+  EXPECT_NEAR(residuals[1], 0.0, 1e-12);
+  EXPECT_NEAR(residuals[2], 0.0, 1e-12);
+
+  for (int r = 0; r < 3; ++r) {
+    for (int c = 0; c < 9; ++c) {
+      const double expected = (c == 3 + r) ? inv_sigma : 0.0;
+      EXPECT_NEAR(jacobian[r * 9 + c], expected, 1e-12);
+    }
+  }
+
+  // Test Accel bias prior (slice [6:9] of 9D state).
+  std::unique_ptr<ceres::CostFunction> accel_prior(
+      BiasPriorCostFunctor<9>::CreateAccel(prior_bias, stddev));
+  double state_perturbed[9] = {1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.06, -0.02, 0.04};
+  const double* param_perturbed_ptrs[1] = {state_perturbed};
+  EXPECT_TRUE(accel_prior->Evaluate(param_perturbed_ptrs, residuals, jacs));
+  EXPECT_NEAR(residuals[0], (0.06 - 0.05) * inv_sigma, 1e-12);
+  EXPECT_NEAR(residuals[1], (-0.02 - (-0.03)) * inv_sigma, 1e-12);
+  EXPECT_NEAR(residuals[2], (0.04 - 0.02) * inv_sigma, 1e-12);
+  for (int r = 0; r < 3; ++r) {
+    for (int c = 0; c < 9; ++c) {
+      const double expected = (c == 6 + r) ? inv_sigma : 0.0;
+      EXPECT_NEAR(jacobian[r * 9 + c], expected, 1e-12);
+    }
+  }
+
+  // Test Covariance weighting.
+  Eigen::Matrix3d cov;
+  cov << 0.04, 0.01, 0.0, 0.01, 0.09, 0.02, 0.0, 0.02, 0.16;
+  std::unique_ptr<ceres::CostFunction> cov_prior(
+      BiasPriorCostFunctor<9>::CreateGyro(prior_bias, cov));
+  EXPECT_TRUE(cov_prior->Evaluate(param_ptrs, residuals, nullptr));
+  EXPECT_NEAR(residuals[0], 0.0, 1e-12);
+  EXPECT_NEAR(residuals[1], 0.0, 1e-12);
+  EXPECT_NEAR(residuals[2], 0.0, 1e-12);
+}
+
 }  // namespace
 }  // namespace colmap

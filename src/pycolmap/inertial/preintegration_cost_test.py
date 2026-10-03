@@ -63,3 +63,84 @@ def test_inertial_global_positioning_cost_constructs() -> None:
 
     c = pycolmap.inertial.InertialGlobalPositioningCost(data, rig, q_cw, q_cw)
     assert c is not None
+
+
+def test_bias_prior_cost_constructs() -> None:
+    cf = pycolmap.inertial
+    assert hasattr(cf, "BiasPriorCost")
+    pytest.importorskip("pyceres")
+    prior = np.array([0.01, -0.02, 0.03])
+    cov = np.eye(3) * 0.001
+    stddev_vec = np.array([0.05, 0.05, 0.05])
+
+    c_raw = cf.BiasPriorCost(prior, 3)
+    assert c_raw is not None
+
+    c_stddev = cf.BiasPriorCost(0.05, prior, 3)
+    assert c_stddev is not None
+
+    c_stddev2 = cf.BiasPriorCost(prior, 0.05, 3)
+    assert c_stddev2 is not None
+
+    c_cov = cf.BiasPriorCost(cov, prior, 3)
+    assert c_cov is not None
+
+    c_cov2 = cf.BiasPriorCost(prior, cov, 3)
+    assert c_cov2 is not None
+
+    c_stddev_vec = cf.BiasPriorCost(stddev_vec, prior, 3)
+    assert c_stddev_vec is not None
+
+
+def test_gyro_bias_prior_cost_constructs() -> None:
+    cf = pycolmap.inertial
+    assert hasattr(cf, "GyroBiasPriorCost")
+    pytest.importorskip("pyceres")
+    prior = np.array([0.01, -0.02, 0.03])
+    cov = np.eye(3) * 0.001
+    stddev_vec = np.array([0.05, 0.05, 0.05])
+
+    c_raw = cf.GyroBiasPriorCost(prior)
+    assert c_raw is not None
+
+    c_stddev = cf.GyroBiasPriorCost(0.05, prior)
+    assert c_stddev is not None
+
+    c_stddev2 = cf.GyroBiasPriorCost(prior, 0.05)
+    assert c_stddev2 is not None
+
+    c_cov = cf.GyroBiasPriorCost(cov, prior)
+    assert c_cov is not None
+
+    c_cov2 = cf.GyroBiasPriorCost(prior, cov)
+    assert c_cov2 is not None
+
+    c_stddev_vec = cf.GyroBiasPriorCost(stddev_vec, prior)
+    assert c_stddev_vec is not None
+
+
+def test_accel_bias_prior_cost_constructs() -> None:
+    cf = pycolmap.inertial
+    assert hasattr(cf, "AccelBiasPriorCost")
+    pytest.importorskip("pyceres")
+    prior = np.array([0.01, -0.02, 0.03])
+    cov = np.eye(3) * 0.001
+    stddev_vec = np.array([0.1, 0.1, 0.1])
+
+    c_raw = cf.AccelBiasPriorCost(prior)
+    assert c_raw is not None
+
+    c_stddev = cf.AccelBiasPriorCost(0.1, prior)
+    assert c_stddev is not None
+
+    c_stddev2 = cf.AccelBiasPriorCost(prior, 0.1)
+    assert c_stddev2 is not None
+
+    c_cov = cf.AccelBiasPriorCost(cov, prior)
+    assert c_cov is not None
+
+    c_cov2 = cf.AccelBiasPriorCost(prior, cov)
+    assert c_cov2 is not None
+
+    c_stddev_vec = cf.AccelBiasPriorCost(stddev_vec, prior)
+    assert c_stddev_vec is not None
