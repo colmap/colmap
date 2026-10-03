@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 An example for iterative VI optimization with IMU preintegration factors.
 Data was initialized and rectified with the online MPS service from

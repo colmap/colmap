@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/scene/imu.h"
 
 #include "colmap/sensor/imu.h"

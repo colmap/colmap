@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 // Micro-benchmarks for the IMU preintegration cost functions: AutoDiff vs.
 // analytical-Jacobian Evaluate() for the two cost function families
 // (body-centric, visual-centric).
