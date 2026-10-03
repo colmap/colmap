@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/mvs/advancing_front_meshing.h"
 #include "colmap/mvs/delaunay_meshing.h"
 #include "colmap/mvs/mesh_simplification.h"

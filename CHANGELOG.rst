@@ -2,6 +2,175 @@ Changelog
 =========
 
 -------------------------
+COLMAP 4.2.1 (09/29/2026)
+-------------------------
+
+Bug Fixes
+---------
+* Fix non-terminating Delaunay meshing (and unbounded memory growth) when a
+  3D point coincides with a camera center. Observations without a viewing
+  direction are skipped and the ray walk is bounded.
+* Fix GPU memory leak in LoMa matching by upgrading ONNX Runtime to 1.30.0.
+* Fix darkened 3D point colors after track merging by treating black as
+  "not yet colored" in ``Reconstruction::MergePoints3D``.
+* Fix the hash-map backend being derived from the build machine's Boost
+  version, which made same-source builds ABI-incompatible and could corrupt
+  memory. The backend now defaults to ``STD`` and mismatches are reported
+  at configure time.
+* Restore legacy bundle-adjustment behavior in the global mapper, fixing a
+  regression introduced in 4.2.0. The inner L2 retriangulation refinement
+  additionally keeps camera poses and intrinsics fixed, optimizing only 3D
+  points, so triangulation outliers can no longer corrupt the cameras.
+* Fix LO-RANSAC local optimization running below the estimator sample
+  minimum.
+* Fix CUDA illegal memory access in image rotate/transpose/flip kernels for
+  large images by computing pitched row offsets in ``size_t``.
+* Fix PoissonRecon binary PLY corruption and crashes caused by inconsistent
+  endianness initialization across translation units.
+* Honor ``TwoViewGeometry.min_inlier_ratio`` consistently in the
+  uncalibrated, forced-homography, and rig estimation paths.
+* Clear payloads of ``DEGENERATE`` two-view geometries during verification
+  and skip ``UNDEFINED``/``DEGENERATE`` pairs when loading the database
+  cache, so rejected pairs no longer flow into the mappers.
+* Prefer reference sensor poses when converting database images to rig
+  frames, avoiding inconsistent shared rig poses.
+* Fix dropped ``THROW_CHECK`` messages with recent glog versions and unify
+  full-precision text stream configuration.
+* Fix a race condition in download-cache directory creation during parallel
+  downloads.
+* Fix the image triangulator progress counter.
+* Fix missing pycolmap method-chaining overrides and NumPy stub annotations.
+* Keep at least one panorama rendering worker.
+* Fix builds without OpenMP, add missing header includes, fix a member
+  initialization order warning, and discard unused future return values in
+  the image undistorters.
+
+-------------------------
+COLMAP 4.2.0 (08/31/2026)
+-------------------------
+
+New Features
+------------
+* Added multi-component support to the global mapper. Disconnected view-graph
+  components are reconstructed independently and returned as separate models,
+  including components revealed after filtering outlier relative rotations.
+  The behavior is controlled by ``GlobalMapper.multiple_models`` and
+  ``GlobalMapper.min_model_size`` and is also available through pycolmap.
+* Added LoMa learned feature extraction and matching through ONNX, including
+  ``LOMA_B`` and ``LOMA_B128`` descriptors, brute-force matching, and multiple
+  dedicated matcher variants. LoMa is available through the CLI, GUI, and
+  pycolmap, with optional BF16 inference.
+* Added ROCm/HIP acceleration for ``patch_match_stereo``, enabling dense
+  reconstruction on supported AMD GPUs through the ``HIP_ENABLED`` build
+  option. CUDA and HIP builds are mutually exclusive.
+* Added a browser-based, local-only 3D viewer for sparse binary
+  reconstructions, including camera and point inspection, source images, and
+  reprojections.
+* Added incremental, global, and hierarchical mapper selection to the GUI,
+  with mapper-specific configuration and progress rendering.
+* Added complete pycolmap bindings for hierarchical mapping, including
+  ``hierarchical_mapping``, ``HierarchicalPipeline``, and scene-clustering
+  options. Expanded the global pipeline bindings and callbacks.
+* Added 6-point shared-focal and one-sided-focal relative-pose solvers,
+  improving reconstruction when camera intrinsics are unknown or only
+  partially known.
+* Added optional DEGENSAC fundamental-matrix estimation for scenes dominated
+  by a plane. It is disabled by default and available through
+  ``TwoViewGeometry.use_degensac``.
+* Added nanosecond-resolution timestamps and conversion utilities in C++ and
+  pycolmap.
+* Added graceful shutdown for long-running CLI processing pipelines. A first
+  ``SIGINT`` or ``SIGTERM`` preserves usable intermediate results, while a
+  second signal terminates immediately. PyCOLMAP exposes the same cooperative
+  cancellation through ``CancellationToken``.
+
+Improvements
+------------
+* Replaced Sampson error on camera bearings with pixel-consistent tangent
+  Sampson error for calibrated two-view geometry, relative-pose refinement,
+  guided matching, and generalized pose estimation. This particularly
+  improves wide-field-of-view and spherical cameras.
+* Added camera and image-space point overloads for
+  ``pycolmap.estimate_relative_pose`` and ``refine_relative_pose`` while
+  retaining the camera-ray overloads for backwards compatibility.
+* Estimate homographies on camera rays for distorted and spherical cameras,
+  enabling geometrically correct planar and panoramic detection.
+* Refine fundamental matrices with Sampson error by default and use MSAC for
+  robust two-view geometry estimation. Significantly improved accuracy
+  for recovered two-view geometries with small improvements on e2e metrics.
+* Added analytical reprojection Jacobians for every camera model and fixed-pose
+  bundle adjustment. Benchmarks show approximately 1.2--1.55x faster
+  incremental mapping for common pinhole and OpenCV camera configurations.
+* Added selectable standard or Boost hash-map backends. Recent Boost versions
+  can improve incremental-mapping performance, especially for large scenes.
+* Optimized image warping for modest downscales, with reported 4--7x
+  improvements in common undistortion cases. Added configurable nearest-neighbor
+  or bilinear interpolation in C++ and pycolmap.
+* Accelerated image preprocessing by using antialiased triangle filtering for
+  bilinear bitmap downscaling and vectorizing RGB-to-grayscale conversion.
+  Bitmap rescaling now also honors the requested bilinear or box filter.
+* Added CoreML as an ONNX execution provider on macOS, with automatic CPU
+  fallback for unsupported models.
+* Added optional match-count weighting for global rotation averaging.
+* Improved sequential pairing for camera rigs by avoiding unrelated
+  cross-sensor temporal pairs.
+* Added ``SequentialMatching.loop_detection_min_index_distance`` to exclude
+  nearby frames from sequential loop detection without consuming the
+  retrieval budget.
+* Added configurable loading of all images during image registration.
+* Expanded reconstruction benchmarks with TartanAir panoramas, IMC2025
+  datasets, multi-seed comparisons, and end-to-end incremental-mapping
+  benchmarks.
+* Modernized the documentation site, deployment, landing page, mobile
+  installation selector, and camera-model documentation.
+
+Bug Fixes
+---------
+* Fix pose-prior alignment and scale preservation for multi-camera rigs.
+* Fix spatial matching with missing pose priors and large projected
+  coordinates.
+* Fix hierarchical clustering overlap propagation and leaf-size enforcement.
+* Fix corrupted PatchMatch source textures when input images have different
+  widths.
+* Fix guided matching for spherical cameras.
+* Fix Caspar option handling and the fixed-rotation stage of global bundle
+  adjustment.
+* Fall back to CPU Ceres bundle adjustment when CUDA support is compiled in but
+  no compatible GPU is available.
+* Fix reconstruction merges with inconsistent image ID/name mappings.
+* Fix point-triangulator image-list handling.
+* Restore the ``gflags::gflags`` target for downstream CMake consumers.
+* Fix stale reconstruction statistics and elapsed time in the viewer after
+  clearing a reconstruction.
+* Fix dense reconstruction from the GUI in HIP-only builds.
+* Fix pose-prior bundle adjustment changing rig poses configured as constant.
+
+Breaking Changes
+----------------
+* The global mapper now reconstructs every connected component by default and
+  may therefore return multiple models for disconnected datasets. Set
+  ``GlobalMapper.multiple_models`` to false to retain the previous
+  largest-component-only behavior. Models with fewer than
+  ``GlobalMapper.min_model_size`` registered frames are discarded.
+* The ``hierarchical_mapper`` options ``num_threads``, ``num_workers``,
+  ``image_overlap``, and ``leaf_max_num_images`` are now prefixed with
+  ``HierarchicalMapper.``.
+* ``pycolmap.estimate_essential_matrix`` no longer returns
+  ``inlier_points3D``.
+* ``pycolmap.cost_functions.SampsonErrorCost`` now accepts image-plane points
+  instead of camera rays.
+* The C++ ``HierarchicalPipeline::Options`` type was renamed to
+  ``HierarchicalPipelineOptions``.
+* Several C++ relative-pose APIs now use ``CamRayWithJac``.
+* ``PoseFromEssentialMatrix`` now returns valid correspondence indices instead
+  of triangulated points.
+* The C++ ``CameraModelIsFisheye`` function was renamed to
+  ``CameraModelIsPerspectiveFisheye``.
+* The global ``std::hash<std::pair<...>>`` specializations were removed.
+  Downstream unordered containers using pair keys should explicitly use
+  ``colmap::PairHash``.
+
+-------------------------
 COLMAP 4.1.1 (07/17/2026)
 -------------------------
 

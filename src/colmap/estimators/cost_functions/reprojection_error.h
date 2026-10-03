@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -53,6 +26,27 @@ inline void WrapEquirectangularHorizontalSeam(const T* camera_params,
   if constexpr (CameraModel::model_id == CameraModelId::kEquirectangular) {
     const T width = camera_params[0];
     residuals[0] -= width * ceres::floor(residuals[0] / width + T(0.5));
+  }
+}
+
+// Project a camera-frame point and compute its seam-aware image residual.
+// Projection failures produce a zero residual.
+template <typename CameraModel, typename T>
+inline void ComputeImgReprojError(const T* camera_params,
+                                  const Eigen::Matrix<T, 3, 1>& point3D_in_cam,
+                                  const Eigen::Vector2d& point2D,
+                                  T* residuals) {
+  Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
+  if (CameraModel::ImgFromCam(camera_params,
+                              point3D_in_cam[0],
+                              point3D_in_cam[1],
+                              point3D_in_cam[2],
+                              &residuals[0],
+                              &residuals[1])) {
+    residuals_vec -= point2D.cast<T>();
+    WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
+  } else {
+    residuals_vec.setZero();
   }
 }
 
@@ -233,18 +227,8 @@ class ReprojErrorCostFunctor
         EigenQuaternionMap<T>(cam_from_world) *
             EigenVector3Map<T>(point3D_in_world) +
         EigenVector3Map<T>(cam_from_world + 4);
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals_vec -= point2D_.cast<T>();
-      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
-    } else {
-      residuals_vec.setZero();
-    }
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
     return true;
   }
 
@@ -285,18 +269,8 @@ class ReprojErrorConstantPoseCostFunctor
         cam_from_world_rotation_.cast<T>() *
             EigenVector3Map<T>(point3D_in_world) +
         cam_from_world_translation_.cast<T>();
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals_vec -= point2D_.cast<T>();
-      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
-    } else {
-      residuals_vec.setZero();
-    }
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
     return true;
   }
 
@@ -364,18 +338,8 @@ class RigReprojErrorCostFunctor
                  EigenVector3Map<T>(point3D_in_world) +
              EigenVector3Map<T>(rig_from_world + 4)) +
         EigenVector3Map<T>(cam_from_rig + 4);
-    Eigen::Map<Eigen::Matrix<T, 2, 1>> residuals_vec(residuals);
-    if (CameraModel::ImgFromCam(camera_params,
-                                point3D_in_cam[0],
-                                point3D_in_cam[1],
-                                point3D_in_cam[2],
-                                &residuals[0],
-                                &residuals[1])) {
-      residuals_vec -= point2D_.cast<T>();
-      WrapEquirectangularHorizontalSeam<CameraModel>(camera_params, residuals);
-    } else {
-      residuals_vec.setZero();
-    }
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
     return true;
   }
 
@@ -414,6 +378,48 @@ class RigReprojErrorConstantRigCostFunctor
  private:
   const Rigid3d cam_from_rig_;
   const RigReprojErrorCostFunctor<CameraModel> reproj_cost_;
+};
+
+// Rig bundle adjustment cost function with a similarity rig_from_world
+// transform, parameterized as [qx, qy, qz, qw, tx, ty, tz, s] like Sim3d,
+// except that the scale s is by default stored as log(s), so that an
+// unconstrained optimization keeps it positive.
+template <typename CameraModel>
+class ScaledRigReprojErrorCostFunctor
+    : public AutoDiffCostFunctor<ScaledRigReprojErrorCostFunctor<CameraModel>,
+                                 2,
+                                 3,
+                                 7,
+                                 8,
+                                 CameraModel::num_params> {
+ public:
+  explicit ScaledRigReprojErrorCostFunctor(const Eigen::Vector2d& point2D,
+                                           bool use_log_scale = true)
+      : point2D_(point2D), use_log_scale_(use_log_scale) {}
+
+  template <typename T>
+  bool operator()(const T* const point3D_in_world,
+                  const T* const cam_from_rig,
+                  const T* const rig_from_world,
+                  const T* const camera_params,
+                  T* residuals) const {
+    const T rig_from_world_scale =
+        use_log_scale_ ? ceres::exp(rig_from_world[7]) : rig_from_world[7];
+    const Eigen::Matrix<T, 3, 1> point3D_in_rig =
+        rig_from_world_scale * (EigenQuaternionMap<T>(rig_from_world) *
+                                EigenVector3Map<T>(point3D_in_world)) +
+        EigenVector3Map<T>(rig_from_world + 4);
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_rig) * point3D_in_rig +
+        EigenVector3Map<T>(cam_from_rig + 4);
+    ComputeImgReprojError<CameraModel>(
+        camera_params, point3D_in_cam, point2D_, residuals);
+    return true;
+  }
+
+ private:
+  const Eigen::Vector2d point2D_;
+  const bool use_log_scale_;
 };
 
 // Creates the analytical reprojection error cost function for camera models
@@ -473,6 +479,56 @@ ceres::CostFunction* CreateCameraCostFunction(
     } else {                                                                   \
       return CostFunctor<CameraModel>::Create(std::forward<Args>(args)...);    \
     }                                                                          \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+  // NOLINTEND(bugprone-macro-parentheses)
+}
+
+// Same as CreateCameraCostFunction, but whitens the result. The weight is a
+// separate parameter so that the inner cost function is still built from the
+// unwrapped functor, which keeps the analytical jacobian for camera models
+// that provide one.
+template <template <typename> class CostFunctor,
+          typename Covariance,
+          typename... Args>
+ceres::CostFunction* CreateCovarianceWeightedCameraCostFunction(
+    const CameraModelId camera_model_id,
+    const Covariance& covariance,
+    Args&&... args) {
+  // NOLINTBEGIN(bugprone-macro-parentheses)
+  switch (camera_model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                       \
+  case CameraModel::model_id:                                                \
+    return CreateCovarianceWeightedCostFunction<CostFunctor<CameraModel>>(   \
+        covariance,                                                          \
+        CreateCameraCostFunction<CostFunctor>(camera_model_id,               \
+                                              std::forward<Args>(args)...)); \
+    break;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+  // NOLINTEND(bugprone-macro-parentheses)
+}
+
+template <template <typename> class CostFunctor,
+          typename Stddev,
+          typename... Args>
+ceres::CostFunction* CreateScaleWeightedCameraCostFunction(
+    const CameraModelId camera_model_id, const Stddev& stddev, Args&&... args) {
+  // NOLINTBEGIN(bugprone-macro-parentheses)
+  switch (camera_model_id) {
+#define CAMERA_MODEL_CASE(CameraModel)                                       \
+  case CameraModel::model_id:                                                \
+    return CreateScaleWeightedCostFunction<CostFunctor<CameraModel>>(        \
+        stddev,                                                              \
+        CreateCameraCostFunction<CostFunctor>(camera_model_id,               \
+                                              std::forward<Args>(args)...)); \
     break;
 
     CAMERA_MODEL_SWITCH_CASES

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 import copy
 import pickle
 
@@ -6,28 +8,28 @@ import pycolmap
 # --- Tests on RANSACOptions (flat dataclass) ---
 
 
-def test_ransac_options_summary():
+def test_ransac_options_summary() -> None:
     options = pycolmap.RANSACOptions()
     summary = options.summary()
     assert isinstance(summary, str)
     assert "RANSACOptions" in summary
 
 
-def test_ransac_options_summary_write_type():
+def test_ransac_options_summary_write_type() -> None:
     options = pycolmap.RANSACOptions()
     summary = options.summary(write_type=True)
     assert isinstance(summary, str)
     assert "RANSACOptions" in summary
 
 
-def test_ransac_options_repr():
+def test_ransac_options_repr() -> None:
     options = pycolmap.RANSACOptions()
     representation = repr(options)
     assert isinstance(representation, str)
     assert len(representation) > 0
 
 
-def test_ransac_options_todict():
+def test_ransac_options_todict() -> None:
     options = pycolmap.RANSACOptions()
     dictionary = options.todict()
     assert isinstance(dictionary, dict)
@@ -35,21 +37,21 @@ def test_ransac_options_todict():
     assert "confidence" in dictionary
 
 
-def test_ransac_options_todict_recursive():
+def test_ransac_options_todict_recursive() -> None:
     options = pycolmap.RANSACOptions()
     dictionary = options.todict(recursive=True)
     assert isinstance(dictionary, dict)
     assert "max_error" in dictionary
 
 
-def test_ransac_options_mergedict():
+def test_ransac_options_mergedict() -> None:
     options = pycolmap.RANSACOptions()
     options.mergedict({"max_error": 12.0, "confidence": 0.99})
     assert options.max_error == 12.0
     assert options.confidence == 0.99
 
 
-def test_ransac_options_copy():
+def test_ransac_options_copy() -> None:
     options = pycolmap.RANSACOptions()
     options.max_error = 7.5
     copied = copy.copy(options)
@@ -57,7 +59,7 @@ def test_ransac_options_copy():
     assert copied is not options
 
 
-def test_ransac_options_deepcopy():
+def test_ransac_options_deepcopy() -> None:
     options = pycolmap.RANSACOptions()
     options.max_error = 3.3
     deep = copy.deepcopy(options)
@@ -65,7 +67,7 @@ def test_ransac_options_deepcopy():
     assert deep is not options
 
 
-def test_ransac_options_eq():
+def test_ransac_options_eq() -> None:
     options_a = pycolmap.RANSACOptions()
     options_b = pycolmap.RANSACOptions()
     assert options_a == options_b
@@ -73,7 +75,7 @@ def test_ransac_options_eq():
     assert options_a != options_b
 
 
-def test_ransac_options_pickle_roundtrip():
+def test_ransac_options_pickle_roundtrip() -> None:
     options = pycolmap.RANSACOptions()
     options.max_error = 5.5
     options.confidence = 0.95
@@ -83,13 +85,13 @@ def test_ransac_options_pickle_roundtrip():
     assert restored.confidence == 0.95
 
 
-def test_ransac_options_dict_constructor():
+def test_ransac_options_dict_constructor() -> None:
     options = pycolmap.RANSACOptions({"max_error": 11.0, "confidence": 0.98})
     assert options.max_error == 11.0
     assert options.confidence == 0.98
 
 
-def test_ransac_options_kwargs_constructor():
+def test_ransac_options_kwargs_constructor() -> None:
     options = pycolmap.RANSACOptions(max_error=22.0, min_num_trials=200)
     assert options.max_error == 22.0
     assert options.min_num_trials == 200
@@ -98,27 +100,27 @@ def test_ransac_options_kwargs_constructor():
 # --- Tests on IncrementalPipelineOptions (nested dataclass) ---
 
 
-def test_incremental_pipeline_options_todict_recursive():
+def test_incremental_pipeline_options_todict_recursive() -> None:
     options = pycolmap.IncrementalPipelineOptions()
     dictionary = options.todict(recursive=True)
     assert isinstance(dictionary, dict)
     assert "min_num_matches" in dictionary
 
 
-def test_incremental_pipeline_options_mergedict():
+def test_incremental_pipeline_options_mergedict() -> None:
     options = pycolmap.IncrementalPipelineOptions()
     options.mergedict({"min_num_matches": 30})
     assert options.min_num_matches == 30
 
 
-def test_incremental_pipeline_options_summary():
+def test_incremental_pipeline_options_summary() -> None:
     options = pycolmap.IncrementalPipelineOptions()
     summary = options.summary()
     assert isinstance(summary, str)
     assert "IncrementalPipelineOptions" in summary
 
 
-def test_incremental_pipeline_options_pickle():
+def test_incremental_pipeline_options_pickle() -> None:
     options = pycolmap.IncrementalPipelineOptions()
     options.min_num_matches = 42
     data = pickle.dumps(options)
@@ -129,22 +131,58 @@ def test_incremental_pipeline_options_pickle():
 # --- Tests on Rigid3d ---
 
 
-def test_rigid3d_summary():
+def test_rigid3d_summary() -> None:
     rigid = pycolmap.Rigid3d()
     summary = rigid.summary()
     assert isinstance(summary, str)
     assert "Rigid3d" in summary
 
 
-def test_rigid3d_todict():
+def test_rigid3d_todict() -> None:
     rigid = pycolmap.Rigid3d()
     dictionary = rigid.todict()
     assert isinstance(dictionary, dict)
 
 
-def test_rigid3d_pickle_roundtrip():
+def test_rigid3d_pickle_roundtrip() -> None:
     rigid = pycolmap.Rigid3d()
     data = pickle.dumps(rigid)
     restored = pickle.loads(data)
     assert isinstance(restored, pycolmap.Rigid3d)
     assert restored == rigid
+
+
+# --- Tests on dataclasses with enum and string attributes ---
+
+
+def test_incremental_mapper_options_repr_uses_qualified_enums() -> None:
+    options = pycolmap.IncrementalMapperOptions()
+    representation = repr(options)
+    assert (
+        "image_selection_method=ImageSelectionMethod.MIN_UNCERTAINTY"
+        in representation
+    )
+
+
+def test_incremental_mapper_options_summary_uses_qualified_enums() -> None:
+    options = pycolmap.IncrementalMapperOptions()
+    summary = options.summary()
+    assert "ImageSelectionMethod.MIN_UNCERTAINTY" in summary
+
+
+def test_ceres_ba_options_repr_quotes_strings() -> None:
+    options = pycolmap.CeresBundleAdjustmentOptions()
+    assert "gpu_index='-1'" in repr(options)
+    # repr() escapes strings that manual single-quote wrapping would corrupt.
+    options.gpu_index = "a'b"
+    assert 'gpu_index="a\'b"' in repr(options)
+
+
+def test_dataclass_docstrings_show_qualified_enum_defaults() -> None:
+    doc = pycolmap.IncrementalMapperOptions.image_selection_method.__doc__
+    assert doc is not None and "ImageSelectionMethod.MIN_UNCERTAINTY" in doc
+
+
+def test_dataclass_docstrings_quote_string_defaults() -> None:
+    doc = pycolmap.CeresBundleAdjustmentOptions.gpu_index.__doc__
+    assert doc is not None and "default: '-1'" in doc

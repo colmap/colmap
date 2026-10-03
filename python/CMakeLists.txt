@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 cmake_minimum_required(VERSION 3.10)
 project(${SKBUILD_PROJECT_NAME} VERSION ${SKBUILD_PROJECT_VERSION})
 option(GENERATE_STUBS "Whether to generate stubs" ON)
@@ -80,7 +82,7 @@ else()
 endif()
 find_package(Python REQUIRED COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
 
-find_package(pybind11 3.0.2 REQUIRED)
+find_package(pybind11 3.1.0 REQUIRED)
 
 file(GLOB_RECURSE SOURCE_FILES "${PROJECT_SOURCE_DIR}/../src/pycolmap/*.cc")
 if(NOT MVS_ENABLED)
@@ -88,6 +90,19 @@ if(NOT MVS_ENABLED)
     list(FILTER SOURCE_FILES EXCLUDE REGEX ".*/pipeline/mvs\\.cc$")
     list(FILTER SOURCE_FILES EXCLUDE REGEX ".*/pipeline/meshing\\.cc$")
 endif()
+
+# pybind11 enables LTO for the module unless CMAKE_INTERPROCEDURAL_OPTIMIZATION
+# is defined. If the installed COLMAP was built without IPO, its static
+# archives cannot be linked into an LTO module with GCC (undefined references
+# to inline virtuals, e.g. boost::bad_weak_ptr::what() from libboost_thread.a),
+# so match the installed build. An unknown status (a COLMAP predating this
+# export) conservatively disables IPO as well.
+if(NOT COLMAP_INTERPROCEDURAL_OPTIMIZATION
+   AND NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+    message(STATUS "Disabling interprocedural optimization")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+endif()
+
 pybind11_add_module(_core ${SOURCE_FILES})
 target_include_directories(_core PRIVATE ${PROJECT_SOURCE_DIR}/../src/)
 target_link_libraries(_core PRIVATE colmap::colmap glog::glog Ceres::ceres)

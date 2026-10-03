@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/mvs/delaunay_meshing.h"
 
@@ -34,11 +7,11 @@
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/util/endian.h"
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
 #include <fstream>
 #include <vector>
 
@@ -49,6 +22,7 @@
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #endif  // COLMAP_CGAL_ENABLED
 #include "colmap/util/ply.h"
+#include "colmap/util/string.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
@@ -96,14 +70,12 @@ namespace mvs {
 
 bool DelaunayMeshingOptions::Check() const {
   CHECK_OPTION_GE(max_proj_dist, 0);
-  CHECK_OPTION_GE(max_depth_dist, 0);
-  CHECK_OPTION_LE(max_depth_dist, 1);
+  CHECK_OPTION_IN(max_depth_dist, 0, 1);
   CHECK_OPTION_GT(visibility_sigma, 0);
   CHECK_OPTION_GT(distance_sigma_factor, 0);
   CHECK_OPTION_GE(quality_regularization, 0);
   CHECK_OPTION_GE(max_side_length_factor, 0);
-  CHECK_OPTION_GE(max_side_length_percentile, 0);
-  CHECK_OPTION_LE(max_side_length_percentile, 100);
+  CHECK_OPTION_IN(max_side_length_percentile, 0, 100);
   CHECK_OPTION_GE(num_threads, -1);
   CHECK_OPTION_NE(num_threads, 0);
   return true;
@@ -403,9 +375,11 @@ struct DelaunayTriangulationRayCaster {
     FindHullFacets();
   }
 
-  void CastRaySegment(const K::Segment_3& ray_segment,
-                      std::vector<Intersection>* intersections) const {
+  bool CastRaySegment(const K::Segment_3& ray_segment,
+                      std::vector<Intersection>* intersections,
+                      FlatHashSet<Delaunay::Cell_handle>* visited_cells) const {
     intersections->clear();
+    visited_cells->clear();
 
     Delaunay::Cell_handle next_cell =
         triangulation_.locate(ray_segment.start());
@@ -413,6 +387,17 @@ struct DelaunayTriangulationRayCaster {
     bool next_cell_found = true;
     while (next_cell_found) {
       next_cell_found = false;
+
+      // A straight segment enters each convex cell at most once. Revisiting a
+      // cell therefore means that numerical degeneracy has made the walk stop
+      // progressing. Detect the cycle immediately instead of allowing the
+      // intersections to grow up to the size of the entire triangulation.
+      if (!visited_cells->emplace(next_cell).second) {
+        LOG_FIRST_N(WARNING, 1)
+            << "Ray casting revisited a cell; ignoring the observation.";
+        intersections->clear();
+        return false;
+      }
 
       if (triangulation_.is_infinite(next_cell)) {
         // Linearly check all hull facets for intersection.
@@ -493,6 +478,8 @@ struct DelaunayTriangulationRayCaster {
         }
       }
     }
+
+    return true;
   }
 
  private:
@@ -547,6 +534,7 @@ void WriteDelaunayTriangulationPly(const std::filesystem::path& path,
                                    const Delaunay& triangulation) {
   std::fstream file(path, std::ios::out);
   THROW_CHECK_FILE_OPEN(file, path);
+  SetFullPrecTextStream(file);
 
   file << "ply\n";
   file << "format ascii 1.0\n";
@@ -655,6 +643,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
     // Intersections between viewing rays and Delaunay triangulation.
     std::vector<DelaunayTriangulationRayCaster::Intersection> intersections;
+    FlatHashSet<Delaunay::Cell_handle> visited_cells;
 
     // Iterate through all image observations and integrate them into the graph.
     for (const auto& point_idx : image.point_idxs) {
@@ -665,19 +654,37 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
           point.num_visible_images * point.num_visible_images);
 
       const K::Point_3 point_position = EigenToCGAL(point.position);
-      const K::Ray_3 viewing_ray = K::Ray_3(image_position, point_position);
       const K::Vector_3 viewing_direction = point_position - image_position;
+      const double viewing_direction_squared_length =
+          viewing_direction.squared_length();
+      // Skip observations without a usable viewing direction. A point at (or
+      // closer than epsilon to) the camera center has no viewing direction:
+      // normalizing it would produce NaN coordinates, and the progress test
+      // in CastRaySegment never rejects a candidate whose distance is NaN, so
+      // the ray walk would not terminate. Below the epsilon length, the ray
+      // segment would additionally point backwards, away from the point.
+      const double viewing_direction_epsilon_length =
+          0.001 * edge_weight_computer.DistanceSigma();
+      if (!std::isfinite(viewing_direction_squared_length) ||
+          viewing_direction_squared_length <=
+              viewing_direction_epsilon_length *
+                  viewing_direction_epsilon_length) {
+        continue;
+      }
+      const K::Ray_3 viewing_ray = K::Ray_3(image_position, point_position);
       const K::Vector_3 viewing_direction_normalized =
-          viewing_direction / std::sqrt(viewing_direction.squared_length());
+          viewing_direction / std::sqrt(viewing_direction_squared_length);
       const K::Vector_3 viewing_direction_epsilon =
-          0.001 * edge_weight_computer.DistanceSigma() *
-          viewing_direction_normalized;
+          viewing_direction_epsilon_length * viewing_direction_normalized;
 
       // Find intersected facets between image and point.
-      ray_caster.CastRaySegment(
-          K::Segment_3(image_position,
-                       point_position - viewing_direction_epsilon),
-          &intersections);
+      if (!ray_caster.CastRaySegment(
+              K::Segment_3(image_position,
+                           point_position - viewing_direction_epsilon),
+              &intersections,
+              &visited_cells)) {
+        continue;
+      }
 
       // Accumulate source weights for cell containing image.
       if (!intersections.empty()) {

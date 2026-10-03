@@ -1,34 +1,8 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
@@ -130,17 +104,23 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 // of second camera is given as world-to-image transformation,
 // i.e. `x2 = [R | t] * X2`.
 //
-// @param ransac_options       RANSAC options.
-// @param cam_rays1            Corresponding 3D rays in first camera frame.
-// @param cam_rays2            Corresponding 3D rays in second camera frame.
+// Inliers are scored with the pixel-unit tangent Sampson error, so callers
+// supply each ray together with its unprojection Jacobian d(ray)/d(pixel) as a
+// CamRayWithJac (see Camera::CamRayFromImgWithJac). Every in-tree caller has a
+// camera model, so this is always available. The former bearing-only path
+// (Sampson error on unit bearings) has been retired.
+//
+// @param ransac_options       RANSAC options (max_error in pixels).
+// @param cam_rays1_with_jac   Corresponding rays + Jacobians, first camera.
+// @param cam_rays2_with_jac   Corresponding rays + Jacobians, second camera.
 // @param cam2_from_cam1       Estimated pose between cameras.
 // @param num_inliers          Number of inliers in RANSAC.
 // @param inlier_mask          Inlier mask for 2D-2D correspondences.
 //
 // @return                     Whether pose is estimated successfully.
 bool EstimateRelativePose(const RANSACOptions& ransac_options,
-                          const std::vector<Eigen::Vector3d>& cam_rays1,
-                          const std::vector<Eigen::Vector3d>& cam_rays2,
+                          const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+                          const std::vector<CamRayWithJac>& cam_rays2_with_jac,
                           Rigid3d* cam2_from_cam1,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask);
@@ -169,9 +149,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
 // Refine relative pose of two cameras.
 //
-// Minimizes the Sampson error between corresponding normalized points using
-// a robust cost function, i.e. the corresponding points need not necessarily
-// be inliers given a sufficient initial guess for the relative pose.
+// Minimizes the pixel-unit tangent Sampson error over the masked-in
+// correspondences as plain least squares (no robust loss): the inlier_mask must
+// already exclude outliers.
 //
 // Assumes that first camera pose has projection matrix P = [I | 0], and
 // pose of second camera is given as transformation from world to camera system.
@@ -180,17 +160,17 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 // the translation up to an unknown scale (i.e. refined translation vector
 // is a unit vector again).
 //
-// @param options          Solver options.
-// @param inlier_mask      Inlier mask for 2D-2D correspondences.
-// @param cam_rays1        First set of corresponding rays.
-// @param cam_rays2        Second set of corresponding rays.
-// @param cam2_from_cam1   Refined relative pose between cameras.
+// @param options              Solver options.
+// @param inlier_mask          Inlier mask for 2D-2D correspondences.
+// @param cam_rays1_with_jac   First rays with their unprojection Jacobians.
+// @param cam_rays2_with_jac   Second rays with their unprojection Jacobians.
+// @param cam2_from_cam1       Refined relative pose between cameras.
 //
-// @return                 Flag indicating if solution is usable.
+// @return                     Flag indicating if solution is usable.
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<char>& inlier_mask,
-                        const std::vector<Eigen::Vector3d>& cam_rays1,
-                        const std::vector<Eigen::Vector3d>& cam_rays2,
+                        const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+                        const std::vector<CamRayWithJac>& cam_rays2_with_jac,
                         Rigid3d* cam2_from_cam1);
 
 // Refine essential matrix.
@@ -198,16 +178,16 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 // Decomposes the essential matrix into rotation and translation components
 // and refines the relative pose using the function `RefineRelativePose`.
 //
-// @param options          Solver options.
-// @param cam_rays1        First set of corresponding normalized rays.
-// @param cam_rays2        Second set of corresponding normalized rays.
-// @param inlier_mask      Inlier mask for corresponding rays.
-// @param E                3x3 essential matrix (refined in-place).
+// @param options              Solver options.
+// @param cam_rays1_with_jac   First rays with their unprojection Jacobians.
+// @param cam_rays2_with_jac   Second rays with their unprojection Jacobians.
+// @param inlier_mask          Inlier mask for corresponding rays.
+// @param E                    3x3 essential matrix (refined in-place).
 //
-// @return                 Flag indicating if solution is usable.
+// @return                     Flag indicating if solution is usable.
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector3d>& cam_rays1,
-                           const std::vector<Eigen::Vector3d>& cam_rays2,
+                           const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+                           const std::vector<CamRayWithJac>& cam_rays2_with_jac,
                            const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E);
 

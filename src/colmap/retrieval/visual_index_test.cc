@@ -1,36 +1,8 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/retrieval/visual_index.h"
 
 #include "colmap/feature/types.h"
-#include "colmap/math/random.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
@@ -57,8 +29,6 @@ class ParameterizedVisualIndexTests
 
 TEST_P(ParameterizedVisualIndexTests, Nominal) {
   const auto [desc_dim, embedding_dim] = GetParam();
-
-  SetPRNGSeed(1);
 
   {
     auto visual_index = VisualIndex::Create(desc_dim, embedding_dim);
@@ -137,6 +107,14 @@ TEST_P(ParameterizedVisualIndexTests, Nominal) {
     EXPECT_EQ(image_scores[0].image_id, 1);
     EXPECT_EQ(image_scores[1].image_id, 2);
     EXPECT_GT(image_scores[0].score, image_scores[1].score);
+
+    query_options.max_num_images = 1;
+    query_options.image_id_filter = [](const int image_id) {
+      return image_id != 1;
+    };
+    visual_index->Query(query_options, descriptors1, &image_scores);
+    ASSERT_EQ(image_scores.size(), 1);
+    EXPECT_EQ(image_scores[0].image_id, 2);
   }
 }
 
@@ -188,8 +166,6 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
 
 TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   const auto [desc_dim, embedding_dim] = GetParam();
-
-  SetPRNGSeed(1);
 
   VisualIndex::BuildOptions build_options;
   // Keep test runtimes low.
@@ -288,8 +264,6 @@ TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
 TEST_P(ParameterizedVisualIndexTests, TypeMismatch) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;
@@ -331,8 +305,6 @@ TEST_P(ParameterizedVisualIndexTests, TypeMismatch) {
 }
 
 TEST(VisualIndex, Print) {
-  SetPRNGSeed(1);
-
   VisualIndex::BuildOptions build_options;
   build_options.num_iterations = 10;
   build_options.num_rounds = 1;

@@ -1,36 +1,10 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/solvers/essential_matrix.h"
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
+#include "colmap/estimators/solvers/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/polynomial.h"
@@ -62,7 +36,7 @@ void EssentialMatrixFivePointEstimator::Estimate(
   THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(models)->clear();
 
-  // PoseLib's 5-point solver only supports the minimal case; the non-minimal
+  // PoseLib's 5-point solver only supports the minimal case. The non-minimal
   // case falls through to the SVD-based solver below.
   if (cam_rays1.size() == kMinNumSamples) {
     std::vector<M_t> candidate_models;
@@ -174,14 +148,6 @@ void EssentialMatrixFivePointEstimator::Estimate(
   }
 }
 
-void EssentialMatrixFivePointEstimator::Residuals(
-    const std::vector<X_t>& cam_rays1,
-    const std::vector<Y_t>& cam_rays2,
-    const M_t& E,
-    std::vector<double>* residuals) {
-  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
-}
-
 void EssentialMatrixEightPointEstimator::Estimate(
     const std::vector<X_t>& cam_rays1,
     const std::vector<Y_t>& cam_rays2,
@@ -198,114 +164,67 @@ void EssentialMatrixEightPointEstimator::Estimate(
         cam_rays2[i].z() * cam_rays1[i].transpose();
   }
 
-  // Solve for the nullspace of the constraint matrix.
-  Eigen::Matrix3d Q;
-  if (cam_rays1.size() == 8) {
-    Eigen::Matrix<double, 9, 9> QQ =
-        A.transpose().householderQr().householderQ();
-    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-        QQ.col(8).data());
-  } else {
-    Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
-        A, Eigen::ComputeFullV);
-    Q = Eigen::Map<const Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
-        svd.matrixV().col(8).data());
-  }
-
-  // Enforcing the internal constraint that two singular values must be non-zero
-  // and one must be zero.
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      Q, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Vector3d singular_values = svd.singularValues();
-  singular_values(2) = 0.0;
-  const Eigen::Matrix3d E =
-      svd.matrixU() * singular_values.asDiagonal() * svd.matrixV().transpose();
-
   models->resize(1);
-  (*models)[0] = E;
+  (*models)[0] = SolveEpipolarConstraintMatrix(A);
 }
 
-void EssentialMatrixEightPointEstimator::Residuals(
-    const std::vector<X_t>& cam_rays1,
-    const std::vector<Y_t>& cam_rays2,
-    const M_t& E,
-    std::vector<double>* residuals) {
-  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
+void EssentialMatrixTangentSampsonEstimator::Estimate(
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
+    std::vector<M_t>* models) {
+  EssentialMatrixFivePointEstimator::Estimate(
+      RaysFromCamRaysWithJac(cam_rays1_with_jac),
+      RaysFromCamRaysWithJac(cam_rays2_with_jac),
+      models);
 }
 
-void EssentialMatrixLMEstimator::Estimate(const std::vector<X_t>& cam_rays1,
-                                          const std::vector<Y_t>& cam_rays2,
-                                          std::vector<M_t>* models) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_GE(cam_rays1.size(),
-                 EssentialMatrixEightPointEstimator::kMinNumSamples);
-  THROW_CHECK_NOTNULL(models)->clear();
-
-  // Self-seed with the eight-point solver.
-  std::vector<M_t> init_models;
-  EssentialMatrixEightPointEstimator::Estimate(
-      cam_rays1, cam_rays2, &init_models);
-  if (init_models.empty()) {
-    return;
-  }
-
-  // Refine the seed in place. On a degenerate decomposition Refine leaves the
-  // model unchanged, so the eight-point seed is returned either way.
-  M_t E = init_models[0];
-  Refine(cam_rays1, cam_rays2, &E);
-  models->push_back(E);
-}
-
-bool EssentialMatrixLMEstimator::Refine(const std::vector<X_t>& cam_rays1,
-                                        const std::vector<Y_t>& cam_rays2,
-                                        M_t* E) {
-  THROW_CHECK_EQ(cam_rays1.size(), cam_rays2.size());
-  THROW_CHECK_GE(cam_rays1.size(), kMinNumSamples);
+bool EssentialMatrixTangentSampsonEstimator::Refine(
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
+    M_t* E) {
+  THROW_CHECK_EQ(cam_rays1_with_jac.size(), cam_rays2_with_jac.size());
+  THROW_CHECK_GE(cam_rays1_with_jac.size(), kMinNumSamples);
   THROW_CHECK_NOTNULL(E);
 
-  // Decompose the initial essential matrix into a relative pose (resolving the
-  // four-fold ambiguity via cheirality over the given rays).
+  // Decompose the initial E into a relative pose (resolving the four-fold
+  // ambiguity via cheirality over the bearings).
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
-  PoseFromEssentialMatrix(
-      *E, cam_rays1, cam_rays2, &cam2_from_cam1, &valid_indices);
+  PoseFromEssentialMatrix(*E,
+                          RaysFromCamRaysWithJac(cam_rays1_with_jac),
+                          RaysFromCamRaysWithJac(cam_rays2_with_jac),
+                          &cam2_from_cam1,
+                          &valid_indices);
   if (valid_indices.empty()) {
-    // Degenerate configuration: leave the initial model unchanged.
     return false;
   }
 
-  // Nonlinear Sampson refinement of the full 7-parameter pose via
-  // ceres::TinySolver (fixed-size, allocation-free, autodiff), applying the
-  // relative pose manifold (rotation on SO(3), translation on the unit sphere).
-  // Plain least squares: the rays are assumed to be the inlier set, so
-  // robustness comes from the RANSAC inlier selection.
-  TinySampsonErrorCostFunctor functor(cam_rays1, cam_rays2);
-  TinySampsonErrorCostFunctor::AutoDiffFunction f(functor);
+  // Nonlinear pixel-space tangent Sampson refinement of the full 7-parameter
+  // pose via colmap::TinySolver, applying the relative pose manifold. Plain
+  // least squares: robustness comes from the RANSAC inlier selection.
+  TinyTangentSampsonErrorCostFunctor f(cam_rays1_with_jac, cam_rays2_with_jac);
   using Solver = TinySolver<decltype(f), RelativePoseManifold>;
   Solver solver;
   Solver::Options options;
   options.max_num_iterations = 25;
 
-  Eigen::Matrix<double, 7, 1> x;
-  x.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
-  x.tail<3>() = cam2_from_cam1.translation().normalized();
-  solver.Solve(f, &x, options);
-
-  // Keep the refined pose only if the solve stayed finite; otherwise fall back
-  // to the decomposed pose.
-  if (x.allFinite()) {
-    cam2_from_cam1 =
-        Rigid3d(Eigen::Quaterniond(x.data()).normalized(), x.tail<3>());
+  RelPoseParams x = RelPoseParamsFromRigid3d(cam2_from_cam1);
+  if (solver.Solve(f, &x, options).status == Solver::NUMERICAL_FAILURE) {
+    return false;
   }
+
+  cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
   *E = EssentialMatrixFromPose(cam2_from_cam1);
   return true;
 }
 
-void EssentialMatrixLMEstimator::Residuals(const std::vector<X_t>& cam_rays1,
-                                           const std::vector<Y_t>& cam_rays2,
-                                           const M_t& E,
-                                           std::vector<double>* residuals) {
-  ComputeSquaredSampsonErrorWithCheirality(cam_rays1, cam_rays2, E, residuals);
+void EssentialMatrixTangentSampsonEstimator::Residuals(
+    const std::vector<X_t>& cam_rays1_with_jac,
+    const std::vector<Y_t>& cam_rays2_with_jac,
+    const M_t& E,
+    std::vector<double>* residuals) {
+  ComputeSquaredTangentSampsonErrorWithCheirality(
+      cam_rays1_with_jac, cam_rays2_with_jac, E, residuals);
 }
 
 }  // namespace colmap

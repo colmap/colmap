@@ -1,35 +1,7 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/scene/reconstruction_pruning.h"
 
-#include "colmap/math/random.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -47,25 +19,35 @@ TEST(FindRedundantPoints3D, Empty) {
 }
 
 TEST(FindRedundantPoints3D, VaryingCoverageGain) {
-  SetPRNGSeed(1);
-
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 5;
   synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.track_length = 5;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  // Give every point the same coverage so the number selected at each
+  // threshold is independent of random image-tile occupancy.
+  for (const auto& [image_id, _] : reconstruction.Images()) {
+    Image& image = reconstruction.Image(image_id);
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      image.Point2D(point2D_idx).xy = Eigen::Vector2d(
+          image.CameraPtr()->width / 2., image.CameraPtr()->height / 2.);
+    }
+  }
+
   EXPECT_THAT(FindRedundantPoints3D(/*min_coverage_gain=*/0, reconstruction),
               testing::IsEmpty());
-  size_t prev_num_redundant_points3D = 0;
-  for (const double min_coverage_gain : {0.1, 0.4, 0.7, 10.0}) {
+  for (const auto& [min_coverage_gain, expected_num_redundant_points3D] :
+       std::vector<std::pair<double, size_t>>{
+           {0.1, 92}, {0.4, 98}, {0.7, 99}, {10.0, 100}}) {
     const std::vector<point3D_t> redundant_point3D_ids =
         FindRedundantPoints3D(min_coverage_gain, reconstruction);
-    EXPECT_GT(redundant_point3D_ids.size(), prev_num_redundant_points3D);
-    prev_num_redundant_points3D = redundant_point3D_ids.size();
+    EXPECT_EQ(redundant_point3D_ids.size(), expected_num_redundant_points3D);
   }
-  EXPECT_EQ(prev_num_redundant_points3D, reconstruction.NumPoints3D());
 }
 
 TEST(FindRedundantPoints3D, VaryingTrackLength) {

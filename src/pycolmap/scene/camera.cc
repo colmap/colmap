@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/scene/camera.h"
 
 #include "colmap/scene/point2d.h"
@@ -235,16 +237,19 @@ void BindCamera(py::module& m) {
       .def("img_from_cam",
            &Camera::ImgFromCam,
            "cam_point"_a,
-           "Project point from camera frame to image plane.")
+           "check_cheirality"_a = true,
+           "Project point from camera frame to image plane. Without cheirality "
+           "check, points behind the camera are projected as well.")
       .def(
           "img_from_cam",
           [](const Camera& self,
-             const py::EigenDRef<const Eigen::MatrixX3d>& cam_points) {
+             const py::EigenDRef<const Eigen::MatrixX3d>& cam_points,
+             const bool check_cheirality) {
             const size_t num_points = cam_points.rows();
             std::vector<Eigen::Vector2d> image_points(num_points);
             for (size_t i = 0; i < num_points; ++i) {
               const std::optional<Eigen::Vector2d> image_point =
-                  self.ImgFromCam(cam_points.row(i));
+                  self.ImgFromCam(cam_points.row(i), check_cheirality);
               if (image_point) {
                 image_points[i] = *image_point;
               } else {
@@ -255,7 +260,9 @@ void BindCamera(py::module& m) {
             return image_points;
           },
           "cam_points"_a,
-          "Project list of points from camera frame to image plane.")
+          "check_cheirality"_a = true,
+          "Project list of points from camera frame to image plane. Without "
+          "cheirality check, points behind the camera are projected as well.")
       .def("rescale",
            py::overload_cast<size_t, size_t>(&Camera::Rescale),
            "new_width"_a,
@@ -267,7 +274,6 @@ void BindCamera(py::module& m) {
            "scale"_a,
            "Rescale the camera dimensions and accordingly the "
            "focal length and the principal point.");
-  DefDeprecation(PyCamera, "create", "create_from_model_id");
   MakeDataclass(PyCamera,
                 {"camera_id",
                  "model",

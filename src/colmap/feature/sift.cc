@@ -1,35 +1,9 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/feature/sift.h"
 
 #include "colmap/feature/utils.h"
+#include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/file.h"
@@ -52,7 +26,6 @@
 
 #include <array>
 #include <fstream>
-#include <locale>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -957,9 +930,12 @@ enum class DistanceType {
   DOT_PRODUCT,
 };
 
-// The guided filter is indexed by descriptor row, so that the caller decides
-// what geometric representation to associate with each feature. Returns true
-// if the pair of features is rejected by the geometric constraint.
+// Computes the pairwise descriptor distance matrix. When `guided_filter` is
+// given, it is called with the pair of descriptor indices and returns whether
+// the pair should be rejected on geometric grounds; rejected pairs get the
+// worst possible distance. Passing indices rather than keypoint coordinates
+// lets the caller filter on whatever geometry it needs - pixels, bearings, or
+// bearings plus their Jacobians - without this function knowing any of it.
 Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
     const DistanceType distance_type,
     const FeatureDescriptorsData& descriptors1,
@@ -999,68 +975,43 @@ Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
   return distances;
 }
 
-// Feature location for guided matching, as (x, y, z, w). The first three
-// elements are a homogeneous direction in the space the guiding model lives in
-// and w is a validity flag: 1 for a usable location, 0 for a keypoint the
-// camera cannot unproject.
+// Unit bearing vectors and their pixel Jacobians for a set of keypoints,
+// together with a validity mask.
 //
-// The layout is shared verbatim with the GPU matchers, which upload it as one
-// float4 texel per feature, so it must stay tightly packed.
-using FeatureLocations = std::vector<Eigen::Vector4f>;
-static_assert(sizeof(Eigen::Vector4f) == 4 * sizeof(float),
-              "FeatureLocations must be tightly packed for GPU upload");
+// Keypoints that cannot be unprojected - back-hemisphere pixels of an
+// omnidirectional camera have no normalized image plane representation, and
+// iterative undistortion can fail - are marked invalid and must be excluded
+// from matching by the caller. Note that encoding invalidity as an extreme
+// coordinate does *not* work: the Sampson error is a ratio whose numerator and
+// denominator scale together, so a point pushed to infinity along a direction d
+// converges to the finite distance between its partner and the epipolar line of
+// d, which admits rather than rejects partners lying near that one line.
+struct CamRaysWithJac {
+  std::vector<Eigen::Vector3d> rays;
+  std::vector<Eigen::Matrix3x2d> jacobians;
+  std::vector<bool> valid;
+};
 
-// Feature locations in the camera frame, for guided matching with the
-// essential matrix.
-//
-// Perspective cameras use the unnormalized (u, v, 1), which is the
-// representation the Sampson error is derived for and which CamFromImgThreshold
-// assumes. Do not normalize it: the residual is not scale invariant and would
-// shift by sec^2(theta) against the threshold. Spherical cameras have no such
-// representation, since CamFromImg fails for their back hemisphere, so they use
-// the unit bearing as an approximation.
-//
-// TODO: Use the tangent Sampson error instead, which chains the projection
-// Jacobian to give a pixel residual for every model, removing both this split
-// and the CamFromImgThreshold conversion. Terekhov and Larsson, ICCV 2023.
-FeatureLocations ComputeCamFeatureLocations(const Camera& camera,
-                                            const FeatureKeypoints& keypoints) {
-  // Rejected by the validity flag; z = 1 keeps the residual arithmetic finite.
-  const Eigen::Vector4f kInvalidLocation(0.0f, 0.0f, 1.0f, 0.0f);
-  const bool is_spherical = camera.IsSpherical();
-  FeatureLocations locations(keypoints.size(), kInvalidLocation);
+CamRaysWithJac ComputeCamRaysWithJac(const Camera& camera,
+                                     const FeatureKeypoints& keypoints) {
+  CamRaysWithJac cam_rays;
+  cam_rays.rays.resize(keypoints.size());
+  cam_rays.jacobians.resize(keypoints.size());
+  cam_rays.valid.resize(keypoints.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
-    const Eigen::Vector2d image_point(keypoints[i].x, keypoints[i].y);
-    if (is_spherical) {
-      if (const auto cam_ray = camera.CamRayFromImg(image_point)) {
-        locations[i] =
-            Eigen::Vector4f(cam_ray->x(), cam_ray->y(), cam_ray->z(), 1.0f);
-      }
-    } else if (const auto cam_point = camera.CamFromImg(image_point)) {
-      locations[i] =
-          Eigen::Vector4f(cam_point->x(), cam_point->y(), 1.0f, 1.0f);
+    const FeatureKeypoint& keypoint = keypoints[i];
+    if (const auto ray_and_jac = camera.CamRayFromImgWithJac(
+            Eigen::Vector2d(keypoint.x, keypoint.y))) {
+      cam_rays.rays[i] = ray_and_jac->ray;
+      cam_rays.jacobians[i] = ray_and_jac->jacobian;
+      cam_rays.valid[i] = true;
+    } else {
+      cam_rays.rays[i].setZero();
+      cam_rays.jacobians[i].setZero();
+      cam_rays.valid[i] = false;
     }
   }
-  return locations;
-}
-
-// Feature locations in pixels, for guided matching with the fundamental matrix
-// or a homography. Always valid, since no unprojection is involved.
-FeatureLocations ComputeImgFeatureLocations(const FeatureKeypoints& keypoints) {
-  FeatureLocations locations(keypoints.size());
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    locations[i] = Eigen::Vector4f(keypoints[i].x, keypoints[i].y, 1.0f, 1.0f);
-  }
-  return locations;
-}
-
-double ComputeNormalizedGuidedMatchingMaxResidual(const Camera& camera1,
-                                                  const Camera& camera2,
-                                                  const double max_error) {
-  const double normalized_max_error1 = camera1.CamFromImgThreshold(max_error);
-  const double normalized_max_error2 = camera2.CamFromImgThreshold(max_error);
-  return 0.5 * (normalized_max_error1 * normalized_max_error1 +
-                normalized_max_error2 * normalized_max_error2);
+  return cam_rays;
 }
 
 // Selects the epipolar model used to guide matching. The essential matrix is
@@ -1105,18 +1056,14 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
     matches->clear();
 
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id1_ == kInvalidImageId ||
-         prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
-      prev_image_id1_ = image1.image_id;
-    }
-
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id2_ == kInvalidImageId ||
-         prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
-      prev_image_id2_ = image2.image_id;
+    std::shared_ptr<FeatureDescriptorIndex> index1;
+    std::shared_ptr<FeatureDescriptorIndex> index2;
+    if (!options_.sift->cpu_brute_force_matcher) {
+      auto get_index = [this](const Image& image) {
+        return options_.sift->cpu_descriptor_index_cache->Get(image.image_id);
+      };
+      index1 = index_cache_.GetOrCreate(image1, get_index);
+      index2 = index_cache_.GetOrCreate(image2, get_index);
     }
 
     if (image1.descriptors->data.rows() == 0 ||
@@ -1143,13 +1090,13 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     Eigen::RowMajorMatrixXi indices_2to1;
     Eigen::RowMajorMatrixXf l2_dists_2to1;
 
-    THROW_CHECK_NOTNULL(index2_)->Search(
+    THROW_CHECK_NOTNULL(index2)->Search(
         /*num_neighbors=*/2,
         image1.descriptors->ToFloat(),
         indices_1to2,
         l2_dists_1to2);
     if (options_.sift->cross_check) {
-      THROW_CHECK_NOTNULL(index1_)->Search(
+      THROW_CHECK_NOTNULL(index1)->Search(
           /*num_neighbors=*/2,
           image2.descriptors->ToFloat(),
           indices_2to1,
@@ -1174,20 +1121,6 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     ThrowCheckFeatureTypesMatch(image1, image2, /*check_keypoints=*/true);
 
     two_view_geometry->inlier_matches.clear();
-
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id1_ == kInvalidImageId ||
-         prev_image_id1_ != image1.image_id)) {
-      index1_ = options_.sift->cpu_descriptor_index_cache->Get(image1.image_id);
-      prev_image_id1_ = image1.image_id;
-    }
-
-    if (!options_.sift->cpu_brute_force_matcher &&
-        (prev_image_id2_ == kInvalidImageId ||
-         prev_image_id2_ != image2.image_id)) {
-      index2_ = options_.sift->cpu_descriptor_index_cache->Get(image2.image_id);
-      prev_image_id2_ = image2.image_id;
-    }
 
     const bool use_essential_matrix =
         UseEssentialMatrixForGuidedMatching(*two_view_geometry);
@@ -1216,44 +1149,56 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       THROW_CHECK(!effective_camera2.IsSpherical());
     }
 
-    const FeatureLocations locations1 =
+    // The essential matrix path scores in pixels with the tangent Sampson
+    // error, matching the two-view verification that produced E. Bearings are
+    // used rather than normalized image plane coordinates so that the filter is
+    // defined for every central camera model, including omnidirectional ones
+    // whose back hemisphere has no image plane representation at all.
+    const CamRaysWithJac cam_rays1 =
         use_essential_matrix
-            ? ComputeCamFeatureLocations(effective_camera1, *image1.keypoints)
-            : ComputeImgFeatureLocations(*image1.keypoints);
-    const FeatureLocations locations2 =
+            ? ComputeCamRaysWithJac(effective_camera1, *image1.keypoints)
+            : CamRaysWithJac();
+    const CamRaysWithJac cam_rays2 =
         use_essential_matrix
-            ? ComputeCamFeatureLocations(effective_camera2, *image2.keypoints)
-            : ComputeImgFeatureLocations(*image2.keypoints);
+            ? ComputeCamRaysWithJac(effective_camera2, *image2.keypoints)
+            : CamRaysWithJac();
 
-    const Eigen::Matrix3f E_or_F =
-        use_essential_matrix
-            ? Eigen::Matrix3f(two_view_geometry->E->cast<float>())
-        : use_fundamental_matrix
+    const Eigen::Matrix3d E =
+        use_essential_matrix ? *two_view_geometry->E : Eigen::Matrix3d::Zero();
+    const Eigen::Matrix3f F =
+        use_fundamental_matrix
             ? Eigen::Matrix3f(two_view_geometry->F->cast<float>())
             : Eigen::Matrix3f::Zero();
     const Eigen::Matrix3f H =
         use_homography ? Eigen::Matrix3f(two_view_geometry->H->cast<float>())
                        : Eigen::Matrix3f::Zero();
 
-    const float max_residual =
-        use_essential_matrix
-            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
-                  effective_camera1, effective_camera2, max_error))
-            : static_cast<float>(max_error * max_error);
+    // Both thresholds must outlive the lambdas below, which capture by
+    // reference and are invoked after this scope's inner blocks have exited.
+    const double max_residual_double = max_error * max_error;
+    const float max_residual = static_cast<float>(max_residual_double);
 
     std::function<bool(Eigen::Index, Eigen::Index)> guided_filter;
-    if (use_essential_matrix || use_fundamental_matrix) {
+    if (use_essential_matrix) {
       guided_filter = [&](const Eigen::Index i1, const Eigen::Index i2) {
-        const Eigen::Vector4f& location1 = locations1[i1];
-        const Eigen::Vector4f& location2 = locations2[i2];
-        if (location1.w() == 0.0f || location2.w() == 0.0f) {
+        if (!cam_rays1.valid[i1] || !cam_rays2.valid[i2]) {
           return true;
         }
-        const auto& p1 = location1.head<3>();
-        const auto& p2 = location2.head<3>();
-        const Eigen::Vector3f epipolar_line1 = E_or_F * p1;
-        const Eigen::Vector3f epipolar_line2 = E_or_F.transpose() * p2;
-        const float nom = p2.dot(epipolar_line1);
+        return ComputeSquaredTangentSampsonError(cam_rays1.rays[i1],
+                                                 cam_rays1.jacobians[i1],
+                                                 cam_rays2.rays[i2],
+                                                 cam_rays2.jacobians[i2],
+                                                 E) > max_residual_double;
+      };
+    } else if (use_fundamental_matrix) {
+      guided_filter = [&](const Eigen::Index i1, const Eigen::Index i2) {
+        const auto& keypoint1 = (*image1.keypoints)[i1];
+        const auto& keypoint2 = (*image2.keypoints)[i2];
+        const Eigen::Vector3f p1(keypoint1.x, keypoint1.y, 1.0f);
+        const Eigen::Vector3f p2(keypoint2.x, keypoint2.y, 1.0f);
+        const Eigen::Vector3f epipolar_line1 = F * p1;
+        const Eigen::Vector3f epipolar_line2 = F.transpose() * p2;
+        const float nom = p2.transpose() * epipolar_line1;
         const float denom_sq = epipolar_line1(0) * epipolar_line1(0) +
                                epipolar_line1(1) * epipolar_line1(1) +
                                epipolar_line2(0) * epipolar_line2(0) +
@@ -1262,8 +1207,10 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       };
     } else if (use_homography) {
       guided_filter = [&](const Eigen::Index i1, const Eigen::Index i2) {
-        const auto& p1 = locations1[i1].head<3>();
-        const auto& p2 = locations2[i2].head<2>();
+        const auto& keypoint1 = (*image1.keypoints)[i1];
+        const auto& keypoint2 = (*image2.keypoints)[i2];
+        const Eigen::Vector3f p1(keypoint1.x, keypoint1.y, 1.0f);
+        const Eigen::Vector2f p2(keypoint2.x, keypoint2.y);
         return ((H * p1).hnormalized() - p2).squaredNorm() > max_residual;
       };
     } else {
@@ -1271,8 +1218,10 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
     }
 
     THROW_CHECK(guided_filter);
-    THROW_CHECK_EQ(locations1.size(), image1.descriptors->data.rows());
-    THROW_CHECK_EQ(locations2.size(), image2.descriptors->data.rows());
+    // The guided filter indexes per-feature geometry (bearings with Jacobians,
+    // or the keypoints themselves) by descriptor row, so the two must align.
+    THROW_CHECK_EQ(image1.keypoints->size(), image1.descriptors->data.rows());
+    THROW_CHECK_EQ(image2.keypoints->size(), image2.descriptors->data.rows());
 
     const Eigen::RowMajorMatrixXf l2_dists_1to2 =
         ComputeSiftDistanceMatrix(DistanceType::L2,
@@ -1306,13 +1255,40 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
 
  private:
   const FeatureMatchingOptions options_;
-  image_t prev_image_id1_ = kInvalidImageId;
-  image_t prev_image_id2_ = kInvalidImageId;
-  std::shared_ptr<FeatureDescriptorIndex> index1_;
-  std::shared_ptr<FeatureDescriptorIndex> index2_;
+  // Cache descriptor indexes per image to avoid redundant index lookups.
+  ImageFeatureCache<std::shared_ptr<FeatureDescriptorIndex>> index_cache_;
 };
 
 #if defined(COLMAP_GPU_ENABLED)
+
+// Number of floats per feature in the SiftGPU bearing-plus-Jacobian layout:
+// the unit bearing followed by the two columns of d(bearing) / d(pixel).
+constexpr int kNumCamRayWithJacElems = 9;
+
+// Pack bearings and unprojection Jacobians for the SiftGPU tangent Sampson
+// kernel. Keypoints that cannot be unprojected are zeroed, which makes both the
+// numerator and the denominator of the residual vanish; the kernel treats a
+// zero denominator as "no geometric information" and rejects the pair.
+std::vector<float> PackCamRaysWithJac(const Camera& camera,
+                                      const FeatureKeypoints& keypoints) {
+  std::vector<float> packed(keypoints.size() * kNumCamRayWithJacElems, 0.0f);
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    const FeatureKeypoint& keypoint = keypoints[i];
+    const auto ray_and_jac =
+        camera.CamRayFromImgWithJac(Eigen::Vector2d(keypoint.x, keypoint.y));
+    if (!ray_and_jac) {
+      continue;
+    }
+    float* out = packed.data() + i * kNumCamRayWithJacElems;
+    for (int k = 0; k < 3; ++k) {
+      out[k] = static_cast<float>(ray_and_jac->ray(k));
+      out[3 + k] = static_cast<float>(ray_and_jac->jacobian(k, 0));
+      out[6 + k] = static_cast<float>(ray_and_jac->jacobian(k, 1));
+    }
+  }
+  return packed;
+}
+
 // Mutexes for OpenGL version to protect static variables in SiftGPU.
 // CUDA version doesn't need this as it has its own thread safety.
 static std::map<int, std::unique_ptr<std::mutex>> sift_opengl_mutexes_;
@@ -1464,12 +1440,24 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
           *sift_opengl_mutexes_.at(sift_match_gpu_.gpu_index));
     }
 
+    constexpr size_t kFeatureShapeNumElems = 4;
+
+    // For calibrated cases, use the essential matrix with normalized
+    // coordinates. This properly handles non-pinhole camera models (with
+    // distortion) where the fundamental matrix relationship doesn't hold. The
+    // essential matrix is also used for UNCALIBRATED pairs that carry
+    // solver-estimated intrinsics (see UseEssentialMatrixForGuidedMatching).
     const bool use_essential_matrix =
         UseEssentialMatrixForGuidedMatching(*two_view_geometry);
     const bool use_fundamental_matrix =
         !use_essential_matrix &&
         two_view_geometry->config == TwoViewGeometry::UNCALIBRATED &&
         two_view_geometry->F.has_value();
+    const bool use_homography =
+        (two_view_geometry->config == TwoViewGeometry::PLANAR ||
+         two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
+         two_view_geometry->config == TwoViewGeometry::PLANAR_OR_PANORAMIC) &&
+        two_view_geometry->H.has_value();
     // Normalize with the intrinsics the solver estimated where available (its
     // focal, not the camera's stale default), else the given cameras.
     const Camera& effective_camera1 = two_view_geometry->camera1.has_value()
@@ -1494,15 +1482,19 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
       sift_match_gpu_.SetDescriptors(kIndex,
                                      image1.descriptors->data.rows(),
                                      image1.descriptors->data.data());
-      const FeatureLocations locations1 =
-          use_essential_matrix
-              ? ComputeCamFeatureLocations(effective_camera1, *image1.keypoints)
-              : ComputeImgFeatureLocations(*image1.keypoints);
-      sift_match_gpu_.SetFeatureLocation(
-          kIndex, reinterpret_cast<const float*>(locations1.data()));
       if (use_essential_matrix) {
+        const std::vector<float> cam_rays1 =
+            PackCamRaysWithJac(effective_camera1, *image1.keypoints);
+        sift_match_gpu_.SetFeatureLocation(kIndex,
+                                           cam_rays1.data(),
+                                           /*gap=*/0,
+                                           kNumCamRayWithJacElems);
         prev_norm_camera1_ = effective_camera1;
       } else {
+        sift_match_gpu_.SetFeatureLocation(
+            kIndex,
+            reinterpret_cast<const float*>(image1.keypoints->data()),
+            kFeatureShapeNumElems);
         prev_norm_camera1_.reset();
       }
       prev_image_id1_ = image1.image_id;
@@ -1518,15 +1510,19 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
       sift_match_gpu_.SetDescriptors(kIndex,
                                      image2.descriptors->data.rows(),
                                      image2.descriptors->data.data());
-      const FeatureLocations locations2 =
-          use_essential_matrix
-              ? ComputeCamFeatureLocations(effective_camera2, *image2.keypoints)
-              : ComputeImgFeatureLocations(*image2.keypoints);
-      sift_match_gpu_.SetFeatureLocation(
-          kIndex, reinterpret_cast<const float*>(locations2.data()));
       if (use_essential_matrix) {
+        const std::vector<float> cam_rays2 =
+            PackCamRaysWithJac(effective_camera2, *image2.keypoints);
+        sift_match_gpu_.SetFeatureLocation(kIndex,
+                                           cam_rays2.data(),
+                                           /*gap=*/0,
+                                           kNumCamRayWithJacElems);
         prev_norm_camera2_ = effective_camera2;
       } else {
+        sift_match_gpu_.SetFeatureLocation(
+            kIndex,
+            reinterpret_cast<const float*>(image2.keypoints->data()),
+            kFeatureShapeNumElems);
         prev_norm_camera2_.reset();
       }
       prev_image_id2_ = image2.image_id;
@@ -1547,13 +1543,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
       // Use fundamental matrix with pixel coordinates.
       E_or_F = two_view_geometry->F->cast<float>();
       E_or_F_ptr = E_or_F.data();
-    } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||
-               two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
-               two_view_geometry->config ==
-                   TwoViewGeometry::PLANAR_OR_PANORAMIC) {
-      if (!two_view_geometry->H.has_value()) {
-        return;
-      }
+    } else if (use_homography) {
       // See the equivalent check in the CPU matcher.
       THROW_CHECK(!effective_camera1.IsSpherical());
       THROW_CHECK(!effective_camera2.IsSpherical());
@@ -1568,11 +1558,9 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     two_view_geometry->inlier_matches.resize(
         static_cast<size_t>(options_.max_num_matches));
 
-    const float max_residual =
-        use_essential_matrix
-            ? static_cast<float>(ComputeNormalizedGuidedMatchingMaxResidual(
-                  effective_camera1, effective_camera2, max_error))
-            : static_cast<float>(max_error * max_error);
+    // Every config scores in pixels: the tangent Sampson error for E, the
+    // pixel Sampson error for F, and the pixel transfer error for H.
+    const float max_residual = static_cast<float>(max_error * max_error);
 
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
@@ -1665,13 +1653,13 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
 
   std::ifstream file(path);
   THROW_CHECK_FILE_OPEN(file, path);
-  file.imbue(std::locale::classic());
+  SetFullPrecTextStream(file);
 
   std::string line;
 
   std::getline(file, line);
   std::istringstream header_line_stream(line);
-  header_line_stream.imbue(std::locale::classic());
+  SetFullPrecTextStream(header_line_stream);
 
   point2D_t num_features;
   size_t dim;
@@ -1687,7 +1675,7 @@ void LoadSiftFeaturesFromTextFile(const std::filesystem::path& path,
   for (size_t i = 0; i < num_features; ++i) {
     std::getline(file, line);
     std::istringstream feature_line_stream(line);
-    feature_line_stream.imbue(std::locale::classic());
+    SetFullPrecTextStream(feature_line_stream);
 
     float x, y, scale, orientation;
     THROW_CHECK(feature_line_stream >> x >> y >> scale >> orientation);

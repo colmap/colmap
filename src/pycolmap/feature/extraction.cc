@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/sift.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
 #endif
 
 #include "pycolmap/helpers.h"
@@ -19,16 +22,6 @@
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
-
-template <typename dtype>
-using pyimage_t =
-    Eigen::Matrix<dtype, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    descriptors_t;
-typedef std::tuple<FeatureKeypointsMatrix, descriptors_t> sift_output_t;
-
-static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes;
 
 namespace {
 
@@ -58,58 +51,6 @@ class PyFeatureExtractor : public FeatureExtractor,
 };
 
 }  // namespace
-
-class Sift {
- public:
-  Sift(std::optional<FeatureExtractionOptions> options, Device device)
-      : use_gpu_(IsGPU(device)) {
-    PyErr_WarnEx(PyExc_DeprecationWarning,
-                 "pycolmap.Sift is deprecated, use "
-                 "pycolmap.FeatureExtractor.create() instead.",
-                 1);
-    if (options) {
-      options_ = std::move(*options);
-    }
-    options_.use_gpu = use_gpu_;
-    extractor_ = THROW_CHECK_NOTNULL(CreateSiftFeatureExtractor(options_));
-  }
-
-  sift_output_t Extract(const Eigen::Ref<const pyimage_t<uint8_t>>& image) {
-    Bitmap bitmap(image.cols(), image.rows(), /*as_rgb=*/false);
-    std::memcpy(bitmap.RowMajorData().data(), image.data(), bitmap.NumBytes());
-
-    const double scale = bitmap.Thumbnail(options_.EffMaxImageSize());
-
-    FeatureKeypoints feature_keypoints;
-    FeatureDescriptors feature_descriptors;
-    THROW_CHECK(
-        extractor_->Extract(bitmap, &feature_keypoints, &feature_descriptors));
-
-    FeatureKeypointsMatrix keypoints = KeypointsToMatrix(feature_keypoints);
-    const double inv_scale = 1.0 / scale;
-    keypoints.col(0) *= inv_scale;
-    keypoints.col(1) *= inv_scale;
-    keypoints.col(2) *= inv_scale;
-    descriptors_t descriptors = feature_descriptors.ToFloat().data;
-    descriptors /= 512.0f;
-
-    return std::make_tuple(std::move(keypoints), std::move(descriptors));
-  }
-
-  sift_output_t Extract(const Eigen::Ref<const pyimage_t<float>>& image) {
-    const pyimage_t<uint8_t> image_f = (image * 255.0f).cast<uint8_t>();
-    return Extract(image_f);
-  }
-
-  const FeatureExtractionOptions& Options() const { return options_; };
-
-  Device GetDevice() const { return (use_gpu_) ? Device::CUDA : Device::CPU; };
-
- private:
-  std::unique_ptr<FeatureExtractor> extractor_;
-  FeatureExtractionOptions options_;
-  bool use_gpu_ = false;
-};
 
 void BindFeatureExtraction(py::module& m) {
   auto PyNormalization =
@@ -200,6 +141,48 @@ void BindFeatureExtraction(py::module& m) {
                          "extractor.")
           .def("check", &AlikedExtractionOptions::Check);
   MakeDataclass(PyAlikedExtractionOptions);
+
+  auto PyLomaExtractionOptions =
+      py::classh<LomaExtractionOptions>(m, "LomaExtractionOptions")
+          .def(py::init<>())
+          .def_readwrite("max_num_features",
+                         &LomaExtractionOptions::max_num_features,
+                         "Number of keypoints to detect. Recommended is to "
+                         "use either 2048 or 4096.")
+          .def_readwrite("min_score",
+                         &LomaExtractionOptions::min_score,
+                         "Minimum score threshold for keypoint detection.")
+          .def_readwrite("use_bf16",
+                         &LomaExtractionOptions::use_bf16,
+                         "Whether to use the bf16 descriptor variant when "
+                         "supported by the selected ONNX execution provider "
+                         "(only affects LOMA_B; falls back to fp32 otherwise).")
+          .def_readwrite("use_fast_resize",
+                         &LomaExtractionOptions::use_fast_resize,
+                         "Whether to downsize each image to the "
+                         "descriptor's fixed input resolution with a fast "
+                         "bilinear resample instead of a higher-quality "
+                         "filtered resize. ~2-3x faster on high-resolution "
+                         "images, at a small AUC cost visible only at the "
+                         "tightest rotation-error thresholds.")
+          .def_readwrite("detector_model_path",
+                         &LomaExtractionOptions::detector_model_path,
+                         "Path to the ONNX model file for the LoMa detector "
+                         "(shared across all variants).")
+          .def_readwrite(
+              "descriptor_model_path",
+              &LomaExtractionOptions::descriptor_model_path,
+              "Path to the fp32 ONNX model file for the LOMA_B descriptor.")
+          .def_readwrite(
+              "descriptor_model_path_bf16",
+              &LomaExtractionOptions::descriptor_model_path_bf16,
+              "Path to the bf16 ONNX model file for the LOMA_B descriptor.")
+          .def_readwrite(
+              "descriptor_b128_model_path",
+              &LomaExtractionOptions::descriptor_b128_model_path,
+              "Path to the ONNX model file for the LOMA_B128 descriptor.")
+          .def("check", &LomaExtractionOptions::Check);
+  MakeDataclass(PyLomaExtractionOptions);
 #endif
 
   auto PyFeatureExtractionOptions =
@@ -232,6 +215,8 @@ void BindFeatureExtraction(py::module& m) {
 #ifdef COLMAP_ONNX_ENABLED
   PyFeatureExtractionOptions.def_readwrite("aliked",
                                            &FeatureExtractionOptions::aliked);
+  PyFeatureExtractionOptions.def_readwrite("loma",
+                                           &FeatureExtractionOptions::loma);
 #endif
   MakeDataclass(PyFeatureExtractionOptions);
 
@@ -288,19 +273,4 @@ void BindFeatureExtraction(py::module& m) {
           "Extract features from a float32 numpy array with values in "
           "[0, 1] and shape (H, W) or (H, W, 3). Returns "
           "(FeatureKeypoints, FeatureDescriptors).");
-
-  py::classh<Sift>(m, "Sift")
-      .def(py::init<std::optional<FeatureExtractionOptions>, Device>(),
-           "options"_a = std::nullopt,
-           "device"_a = Device::AUTO)
-      .def("extract",
-           py::overload_cast<const Eigen::Ref<const pyimage_t<uint8_t>>&>(
-               &Sift::Extract),
-           "image"_a.noconvert())
-      .def("extract",
-           py::overload_cast<const Eigen::Ref<const pyimage_t<float>>&>(
-               &Sift::Extract),
-           "image"_a.noconvert())
-      .def_property_readonly("options", &Sift::Options)
-      .def_property_readonly("device", &Sift::GetDevice);
 }

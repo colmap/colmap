@@ -1,6 +1,9 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/exe/sfm.h"
 
 #include "colmap/controllers/bundle_adjustment.h"
+#include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/scene/database.h"
@@ -43,19 +46,23 @@ std::shared_ptr<Reconstruction> TriangulatePoints(
     const std::filesystem::path& output_path,
     const bool clear_points,
     const IncrementalPipelineOptions& options,
-    const bool refine_intrinsics) {
+    const bool refine_intrinsics,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
   py::gil_scoped_release release;
+  PyInterruptChecker interrupt_checker(cancellation_token);
   RunPointTriangulatorImpl(reconstruction,
                            database_path,
                            image_path,
                            output_path,
                            options,
                            clear_points,
-                           refine_intrinsics);
+                           refine_intrinsics,
+                           interrupt_checker.Callback());
+  interrupt_checker.CheckAndThrow();
   return reconstruction;
 }
 
@@ -66,7 +73,8 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     const IncrementalPipelineOptions& options,
     const std::filesystem::path& input_path,
     std::function<void()> initial_image_pair_callback,
-    std::function<void()> next_image_callback) {
+    std::function<void()> next_image_callback,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   THROW_CHECK_FILE_EXISTS(database_path);
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
@@ -78,24 +86,26 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
   }
   auto options_ = std::make_shared<IncrementalPipelineOptions>(options);
 
-  PyInterrupt py_interrupt(1.0);  // Check for interrupts every second
+  PyInterruptChecker interrupt_checker(cancellation_token);
   auto next_image_callback_py_interruptible =
-      [&py_interrupt, next_image_callback = std::move(next_image_callback)]() {
-        if (py_interrupt.Raised()) {
-          throw py::error_already_set();
-        }
+      [next_image_callback = std::move(next_image_callback)]() {
         if (next_image_callback) {
           next_image_callback();
         }
       };
 
-  if (!RunIncrementalMapperImpl(database_path,
-                                image_path,
-                                output_path,
-                                options_,
-                                reconstruction_manager,
-                                initial_image_pair_callback,
-                                next_image_callback_py_interruptible)) {
+  const bool success =
+      RunIncrementalMapperImpl(database_path,
+                               image_path,
+                               output_path,
+                               options_,
+                               reconstruction_manager,
+                               initial_image_pair_callback,
+                               next_image_callback_py_interruptible,
+                               interrupt_checker.Callback());
+
+  interrupt_checker.CheckAndThrow();
+  if (!success) {
     return {};
   }
 
@@ -125,14 +135,43 @@ std::map<size_t, std::shared_ptr<Reconstruction>> GlobalMapping(
   return ReconstructionManagerToMap(reconstruction_manager);
 }
 
-void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
-                      const BundleAdjustmentOptions& options) {
+std::map<size_t, std::shared_ptr<Reconstruction>> HierarchicalMapping(
+    const std::filesystem::path& database_path,
+    const std::filesystem::path& image_path,
+    const std::filesystem::path& output_path,
+    HierarchicalPipelineOptions options) {
+  THROW_CHECK_FILE_EXISTS(database_path);
+  THROW_CHECK_DIR_EXISTS(image_path);
+  CreateDirIfNotExists(output_path);
+
+  py::gil_scoped_release release;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto options_ =
+      std::make_shared<HierarchicalPipelineOptions>(std::move(options));
+  if (!RunHierarchicalMapperImpl(database_path,
+                                 image_path,
+                                 output_path,
+                                 options_,
+                                 reconstruction_manager)) {
+    return {};
+  }
+
+  return ReconstructionManagerToMap(reconstruction_manager);
+}
+
+void BundleAdjustment(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const BundleAdjustmentOptions& options,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
   py::gil_scoped_release release;
   OptionManager option_manager;
   option_manager.bundle_adjustment =
       std::make_shared<BundleAdjustmentOptions>(options);
+  PyInterruptChecker interrupt_checker(cancellation_token);
   BundleAdjustmentController controller(option_manager, reconstruction);
+  controller.SetCheckIfStoppedFunc(interrupt_checker.Callback());
   controller.Run();
+  interrupt_checker.CheckAndThrow();
 }
 
 bool ViewGraphCalibration(const std::filesystem::path& database_path,
@@ -172,70 +211,6 @@ void BindSfM(py::module& m) {
     MakeDataclass(PyOpts);
   }
 
-  // GlobalMapperOptions
-  {
-    using Opts = GlobalMapperOptions;
-    auto PyOpts =
-        py::classh<Opts>(m, "GlobalMapperOptions")
-            .def(py::init<>())
-            .def_readwrite("num_threads", &Opts::num_threads)
-            .def_readwrite("random_seed", &Opts::random_seed)
-            .def_readwrite("refine_sensor_from_rig",
-                           &Opts::refine_sensor_from_rig,
-                           "When False, treat each non-ref sensor's "
-                           "cam_from_rig as a pre-calibrated constant across "
-                           "rotation averaging, global positioning and "
-                           "bundle adjustment.")
-            .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
-            .def_readwrite("global_positioning", &Opts::global_positioning)
-            .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)
-            .def_readwrite("retriangulation", &Opts::retriangulation)
-            .def_readwrite("track_intra_image_consistency_threshold",
-                           &Opts::track_intra_image_consistency_threshold)
-            .def_readwrite("track_required_tracks_per_view",
-                           &Opts::track_required_tracks_per_view)
-            .def_readwrite("track_min_num_views_per_track",
-                           &Opts::track_min_num_views_per_track)
-            .def_readwrite("keep_max_num_tracks", &Opts::keep_max_num_tracks)
-            .def_readwrite("max_angular_reproj_error_deg",
-                           &Opts::max_angular_reproj_error_deg)
-            .def_readwrite("max_normalized_reproj_error",
-                           &Opts::max_normalized_reproj_error)
-            .def_readwrite("min_tri_angle_deg", &Opts::min_tri_angle_deg)
-            .def_readwrite("ba_num_iterations", &Opts::ba_num_iterations)
-            .def_readwrite("ba_skip_fixed_rotation_stage",
-                           &Opts::ba_skip_fixed_rotation_stage)
-            .def_readwrite("ba_skip_joint_optimization_stage",
-                           &Opts::ba_skip_joint_optimization_stage)
-            .def_readwrite("skip_rotation_averaging",
-                           &Opts::skip_rotation_averaging)
-            .def_readwrite("skip_track_establishment",
-                           &Opts::skip_track_establishment)
-            .def_readwrite("skip_global_positioning",
-                           &Opts::skip_global_positioning)
-            .def_readwrite("skip_bundle_adjustment",
-                           &Opts::skip_bundle_adjustment)
-            .def_readwrite("skip_retriangulation", &Opts::skip_retriangulation);
-    MakeDataclass(PyOpts);
-  }
-
-  // GlobalPipelineOptions
-  {
-    using Opts = GlobalPipelineOptions;
-    auto PyOpts =
-        py::classh<Opts>(m, "GlobalPipelineOptions")
-            .def(py::init<>())
-            .def_readwrite("min_num_matches", &Opts::min_num_matches)
-            .def_readwrite("ignore_watermarks", &Opts::ignore_watermarks)
-            .def_readwrite("image_names", &Opts::image_names)
-            .def_readwrite("num_threads", &Opts::num_threads)
-            .def_readwrite("random_seed", &Opts::random_seed)
-            .def_readwrite("decompose_relative_pose",
-                           &Opts::decompose_relative_pose)
-            .def_readwrite("mapper", &Opts::mapper);
-    MakeDataclass(PyOpts);
-  }
-
   m.def("triangulate_points",
         &TriangulatePoints,
         "reconstruction"_a,
@@ -247,6 +222,7 @@ void BindSfM(py::module& m) {
                   IncrementalPipelineOptions(),
                   "IncrementalPipelineOptions()"),
         "refine_intrinsics"_a = false,
+        "cancellation_token"_a = py::none(),
         "Triangulate 3D points from known camera poses");
 
   m.def("incremental_mapping",
@@ -260,6 +236,7 @@ void BindSfM(py::module& m) {
         "input_path"_a = py::str(""),
         "initial_image_pair_callback"_a = py::none(),
         "next_image_callback"_a = py::none(),
+        "cancellation_token"_a = py::none(),
         "Recover 3D points and unknown camera poses");
 
   m.def(
@@ -270,6 +247,19 @@ void BindSfM(py::module& m) {
       "output_path"_a,
       py::arg_v("options", GlobalPipelineOptions(), "GlobalPipelineOptions()"),
       "Recover 3D points and camera poses using global SfM (GLOMAP)");
+
+  m.def("hierarchical_mapping",
+        &HierarchicalMapping,
+        "database_path"_a,
+        "image_path"_a,
+        "output_path"_a,
+        py::arg_v("options",
+                  HierarchicalPipelineOptions(),
+                  "HierarchicalPipelineOptions()"),
+        "Recover 3D points and unknown camera poses by partitioning the scene "
+        "into overlapping clusters, reconstructing them separately using "
+        "incremental mapping, and merging them into a globally consistent "
+        "reconstruction");
 
   m.def("calibrate_view_graph",
         &ViewGraphCalibration,
@@ -286,5 +276,6 @@ void BindSfM(py::module& m) {
         "reconstruction"_a,
         py::arg_v(
             "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
+        "cancellation_token"_a = py::none(),
         "Jointly refine 3D points and camera poses");
 }

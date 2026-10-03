@@ -1,36 +1,10 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/geometry/pose.h"
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -52,17 +26,20 @@ Eigen::Matrix<T, 3, 3> EssentialMatrixFromPoseParams(
   return t_x * R;
 }
 
-// Signed Sampson error of a single correspondence (cam_ray1, cam_ray2) under
-// the essential matrix E. Returns 0 when the normalization denominator
-// vanishes. Evaluated on unit bearings; see ComputeSquaredSampsonError.
+// Signed Sampson error under an essential/fundamental matrix. point1/point2 are
+// points on the image plane, taken as 2D because the error is not invariant to
+// the scale of the homogeneous representative, so only (x, y, 1) is correct
+// here. For rays use TangentSampsonError. Returns 0 when the denominator
+// vanishes.
 template <typename T>
 T SampsonError(const Eigen::Matrix<T, 3, 3>& E,
-               const Eigen::Matrix<T, 3, 1>& cam_ray1,
-               const Eigen::Matrix<T, 3, 1>& cam_ray2) {
-  const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * cam_ray1;
-  const T num = cam_ray2.dot(epipolar_line1);
-  const Eigen::Matrix<T, 4, 1> denom(cam_ray2.dot(E.col(0)),
-                                     cam_ray2.dot(E.col(1)),
+               const Eigen::Matrix<T, 2, 1>& point1,
+               const Eigen::Matrix<T, 2, 1>& point2) {
+  const Eigen::Matrix<T, 3, 1> point2_homogeneous = point2.homogeneous();
+  const Eigen::Matrix<T, 3, 1> epipolar_line1 = E * point1.homogeneous();
+  const T num = point2_homogeneous.dot(epipolar_line1);
+  const Eigen::Matrix<T, 4, 1> denom(point2_homogeneous.dot(E.col(0)),
+                                     point2_homogeneous.dot(E.col(1)),
                                      epipolar_line1.x(),
                                      epipolar_line1.y());
   const T denom_norm = denom.norm();
@@ -72,31 +49,111 @@ T SampsonError(const Eigen::Matrix<T, 3, 3>& E,
   return num / denom_norm;
 }
 
-// Cost function for refining two-view geometry based on the Sampson-Error.
-//
-// First pose is assumed to be located at the origin with 0 rotation. Second
-// pose is assumed to be on the unit sphere around the first pose, i.e. the
-// pose of the second camera is parameterized by a 3D rotation and a
-// 3D translation with unit norm. `tvec` is therefore over-parameterized as is
-// and should be down-projected using `SphereManifold`.
+// Signed tangent Sampson error of one correspondence under E, in pixels, using
+// the unprojection Jacobians J_ray1 = d(ray1)/d(pixel1) and J_ray2. Returns 0
+// when the denominator vanishes. See ComputeSquaredTangentSampsonError.
+template <typename T>
+T TangentSampsonError(const Eigen::Matrix<T, 3, 3>& E,
+                      const Eigen::Matrix<T, 3, 1>& cam_ray1,
+                      const Eigen::Matrix<T, 3, 2>& J_ray1,
+                      const Eigen::Matrix<T, 3, 1>& cam_ray2,
+                      const Eigen::Matrix<T, 3, 2>& J_ray2) {
+  const Eigen::Matrix<T, 3, 1> Eray1 = E * cam_ray1;
+  const Eigen::Matrix<T, 3, 1> Etray2 = E.transpose() * cam_ray2;
+  const T num = cam_ray2.dot(Eray1);
+  Eigen::Matrix<T, 4, 1> denom;
+  denom << J_ray1.transpose() * Etray2, J_ray2.transpose() * Eray1;
+  const T denom_norm = denom.norm();
+  if (denom_norm == static_cast<T>(0)) {
+    return static_cast<T>(0);
+  }
+  return num / denom_norm;
+}
+
+// Ambient 7-vector of a relative pose in the Rigid3d parameter layout
+// [qx, qy, qz, qw, tx, ty, tz], with the translation on the unit sphere. This
+// is the ambient space of the 5-DoF relative pose manifold (rotation on SO(3),
+// translation on S^2) that the Sampson refinement drivers optimize over; the
+// translation scale is unobservable there.
+using RelPoseParams = Eigen::Matrix<double, 7, 1>;
+
+// Pack a relative pose into its ambient 7-vector, projecting onto the manifold:
+// the quaternion is normalized to a unit rotation and the translation is
+// normalized onto the unit sphere. The input translation scale is intentionally
+// discarded, since the essential matrix only constrains the baseline direction.
+inline RelPoseParams RelPoseParamsFromRigid3d(const Rigid3d& cam2_from_cam1) {
+  RelPoseParams params;
+  params.head<4>() = cam2_from_cam1.rotation().normalized().coeffs();
+  params.tail<3>() = cam2_from_cam1.translation().normalized();
+  return params;
+}
+
+// Unpack a relative pose from its ambient 7-vector, normalizing the quaternion
+// to a unit rotation. The translation is taken as-is and is expected to
+// already be unit length, as maintained by the manifold-constrained solvers
+// that produce these vectors.
+inline Rigid3d Rigid3dFromRelPoseParams(const double* params) {
+  const Eigen::Quaterniond rotation =
+      Eigen::Map<const Eigen::Quaterniond>(params).normalized();
+  const Eigen::Vector3d translation =
+      Eigen::Map<const Eigen::Vector3d>(params + 4);
+  return Rigid3d(rotation, translation);
+}
+
+// Refines a relative pose by the Sampson error of image-plane point
+// correspondences. See SampsonError. The pose is [qx, qy, qz, qw, tx, ty, tz]
+// with the translation on the unit sphere, so it needs a SphereManifold on
+// tvec. For calibrated rays with unprojection Jacobians use the
+// TangentSampsonErrorCostFunctor, which is pixel-accurate for any central
+// model.
 class SampsonErrorCostFunctor
     : public AutoDiffCostFunctor<SampsonErrorCostFunctor, 1, 7> {
  public:
-  SampsonErrorCostFunctor(const Eigen::Vector3d& cam_ray1,
-                          const Eigen::Vector3d& cam_ray2)
-      : cam_ray1_(cam_ray1), cam_ray2_(cam_ray2) {}
+  SampsonErrorCostFunctor(const Eigen::Vector2d& point1,
+                          const Eigen::Vector2d& point2)
+      : point1_(point1), point2_(point2) {}
 
   template <typename T>
   bool operator()(const T* const cam2_from_cam1, T* residuals) const {
     const Eigen::Matrix<T, 3, 3> E =
         EssentialMatrixFromPoseParams(cam2_from_cam1);
-    residuals[0] = SampsonError<T>(E, cam_ray1_.cast<T>(), cam_ray2_.cast<T>());
+    residuals[0] = SampsonError<T>(E, point1_.cast<T>(), point2_.cast<T>());
     return true;
   }
 
  private:
-  const Eigen::Vector3d cam_ray1_;
-  const Eigen::Vector3d cam_ray2_;
+  const Eigen::Vector2d point1_;
+  const Eigen::Vector2d point2_;
+};
+
+// Refines a relative pose by the pixel-unit tangent Sampson error of calibrated
+// ray correspondences with unprojection Jacobians. See TangentSampsonError.
+// Pose layout matches SampsonErrorCostFunctor. Pixel-accurate for any central
+// model.
+class TangentSampsonErrorCostFunctor
+    : public AutoDiffCostFunctor<TangentSampsonErrorCostFunctor, 1, 7> {
+ public:
+  TangentSampsonErrorCostFunctor(const CamRayWithJac& cam_ray1_with_jac,
+                                 const CamRayWithJac& cam_ray2_with_jac)
+      : cam_ray1_with_jac_(cam_ray1_with_jac),
+        cam_ray2_with_jac_(cam_ray2_with_jac) {}
+
+  template <typename T>
+  bool operator()(const T* const cam2_from_cam1, T* residuals) const {
+    const Eigen::Matrix<T, 3, 3> E =
+        EssentialMatrixFromPoseParams(cam2_from_cam1);
+    residuals[0] =
+        TangentSampsonError<T>(E,
+                               cam_ray1_with_jac_.ray.cast<T>(),
+                               cam_ray1_with_jac_.jacobian.cast<T>(),
+                               cam_ray2_with_jac_.ray.cast<T>(),
+                               cam_ray2_with_jac_.jacobian.cast<T>());
+    return true;
+  }
+
+ private:
+  const CamRayWithJac cam_ray1_with_jac_;
+  const CamRayWithJac cam_ray2_with_jac_;
 };
 
 }  // namespace colmap

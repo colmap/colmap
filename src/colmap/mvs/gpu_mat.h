@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -33,25 +6,23 @@
 #include "colmap/util/cudacc.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 
 #include <fstream>
 
-#include <cuda_runtime.h>
-#include <curand_kernel.h>
-
-#ifdef __CUDACC__
+#if defined(__CUDACC__) || defined(__HIPCC__)
 #include "colmap/mvs/cuda_flip.h"
 #include "colmap/mvs/cuda_rotate.h"
 #include "colmap/mvs/cuda_transpose.h"
-#endif  // __CUDACC__
+#endif
 
 namespace colmap {
 namespace mvs {
 
 // Lightweight, trivially-copyable view of GPU device memory suitable for
-// passing to CUDA kernels. GpuMat<T> is non-trivially copyable; passing it by
-// value to kernels is undefined behavior per CUDA spec. Use GpuMat::View() to
-// obtain a GpuMatView for kernel args.
+// passing to CUDA/HIP kernels. GpuMat<T> is non-trivially copyable; passing it
+// by value to kernels is undefined behavior per CUDA spec. Use GpuMat::View()
+// to obtain a GpuMatView for kernel args.
 template <typename T>
 struct GpuMatView {
   T* const ptr;
@@ -130,7 +101,7 @@ class GpuMat {
   size_t GetDepth() const;
 
   // Returns a lightweight, trivially-copyable view suitable for passing
-  // to CUDA kernels.
+  // to CUDA/HIP kernels.
   GpuMatView<T> View() const;
 
   void FillWithScalar(const T value);
@@ -193,7 +164,9 @@ GpuMat<T>::GpuMat(const size_t width, const size_t height, const size_t depth)
 
 template <typename T>
 GpuMat<T>::~GpuMat() {
-  cudaFree(array_ptr_);
+  // Errors during destruction would be invisible to callers anyway; explicitly
+  // discard the return value so HIP's [[nodiscard]] cudaFree does not warn.
+  (void)cudaFree(array_ptr_);
 }
 
 template <typename T>
@@ -264,6 +237,7 @@ template <typename T>
 void GpuMat<T>::Read(const std::filesystem::path& path) {
   std::fstream text_file(path, std::ios::in | std::ios::binary);
   THROW_CHECK(text_file.is_open()) << "Could not open " << path;
+  SetFullPrecTextStream(text_file);
 
   size_t width;
   size_t height;
@@ -295,6 +269,7 @@ void GpuMat<T>::Write(const std::filesystem::path& path) {
 
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK(text_file.is_open()) << "Could not open " << path;
+  SetFullPrecTextStream(text_file);
   text_file << width_ << "&" << height_ << "&" << depth_ << "&";
   text_file.close();
 
@@ -319,6 +294,7 @@ void GpuMat<T>::Write(const std::filesystem::path& path, const size_t slice) {
 
   std::fstream text_file(path, std::ios::out);
   THROW_CHECK(text_file.is_open()) << "Could not open " << path;
+  SetFullPrecTextStream(text_file);
   text_file << width_ << "&" << height_ << "&" << 1 << "&";
   text_file.close();
 
@@ -340,9 +316,9 @@ void GpuMat<T>::ComputeCudaConfig() {
   gridSize_.z = 1;
 }
 
-// Methods that use CUDA kernel launch syntax (<<<>>>) or call functions
-// defined only inside __CUDACC__ blocks must remain guarded.
-#ifdef __CUDACC__
+// Methods that use CUDA/HIP kernel launch syntax (<<<>>>) or call functions
+// defined only inside __CUDACC__/__HIPCC__ blocks must remain guarded.
+#if defined(__CUDACC__) || defined(__HIPCC__)
 
 namespace internal {
 
@@ -456,13 +432,9 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
                output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();
-  // This is equivalent to the following code:
-  //   GpuMat<T> flipped_array(width_, height_, GetDepth());
-  //   FlipHorizontal(&flipped_array);
-  //   flipped_array.Transpose(output);
 }
 
-#endif  // __CUDACC__
+#endif  // __CUDACC__ || __HIPCC__
 
 }  // namespace mvs
 }  // namespace colmap

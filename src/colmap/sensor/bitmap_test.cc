@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/sensor/bitmap.h"
 
@@ -47,7 +20,10 @@ void WriteImageOIIO(const int width,
                     const int channels,
                     const std::filesystem::path& path,
                     const uint8_t* data) {
-  const OIIO::ImageSpec spec(width, height, channels, OIIO::TypeDesc::UINT8);
+  OIIO::ImageSpec spec(width, height, channels, OIIO::TypeDesc::UINT8);
+  if (channels == 2 || channels == 4) {
+    spec["oiio:UnassociatedAlpha"] = 1;
+  }
   auto output = OIIO::ImageOutput::create(path.string());
   ASSERT_NE(output, nullptr);
   ASSERT_TRUE(output->open(path.string(), spec));
@@ -401,6 +377,19 @@ TEST(Bitmap, RescaleGrey) {
   EXPECT_EQ(bitmap2.Channels(), 1);
 }
 
+TEST(Bitmap, RescaleFilters) {
+  Bitmap bitmap(4, 4, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
+
+  Bitmap bilinear = bitmap.Clone();
+  bilinear.Rescale(1, 1, Bitmap::RescaleFilter::kBilinear);
+  Bitmap box = bitmap.Clone();
+  box.Rescale(1, 1, Bitmap::RescaleFilter::kBox);
+
+  EXPECT_NE(bilinear.GetPixel(0, 0)->r, box.GetPixel(0, 0)->r);
+}
+
 TEST(Bitmap, Thumbnail) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
 
@@ -520,6 +509,63 @@ TEST(Bitmap, Rot90NoOp) {
   EXPECT_EQ(rotated4.RowMajorData(), original_data);
 }
 
+TEST(Bitmap, Crop) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(9, 0, BitmapColor<uint8_t>(40, 50, 60));
+  bitmap.SetPixel(0, 5, BitmapColor<uint8_t>(70, 80, 90));
+  bitmap.SetPixel(9, 5, BitmapColor<uint8_t>(100, 110, 120));
+  bitmap.SetPixel(4, 3, BitmapColor<uint8_t>(130, 140, 150));
+
+  bitmap.Crop(2, 1, 5, 4);
+  EXPECT_EQ(bitmap.Width(), 5);
+  EXPECT_EQ(bitmap.Height(), 4);
+  EXPECT_EQ(bitmap.Channels(), 3);
+  // Top-left (2,1) -> (0,0), (4,3) -> (2,2).
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value(), BitmapColor<uint8_t>(0, 0, 0));
+  EXPECT_EQ(bitmap.GetPixel(2, 2).value(), BitmapColor<uint8_t>(130, 140, 150));
+  EXPECT_EQ(bitmap.RowMajorData().size(), 5 * 4 * 3);
+}
+
+TEST(Bitmap, CropGrey) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(9, 5, BitmapColor<uint8_t>(255));
+
+  bitmap.Crop(5, 2, 5, 4);
+  EXPECT_EQ(bitmap.Width(), 5);
+  EXPECT_EQ(bitmap.Height(), 4);
+  EXPECT_EQ(bitmap.Channels(), 1);
+  // Bottom-right (9,5) -> (4,3).
+  EXPECT_EQ(bitmap.GetPixel(4, 3).value().r, 255);
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value().r, 0);
+}
+
+TEST(Bitmap, CropFullImageNoOp) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
+  const auto original_data = bitmap.RowMajorData();
+
+  bitmap.Crop(0, 0, 10, 6);
+  EXPECT_EQ(bitmap.Width(), 10);
+  EXPECT_EQ(bitmap.Height(), 6);
+  EXPECT_EQ(bitmap.RowMajorData(), original_data);
+}
+
+TEST(Bitmap, CropOutOfBounds) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  EXPECT_THROW(bitmap.Crop(-1, 0, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, -1, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 0, 0, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 0, 5, 0), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(6, 0, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 2, 5, 5), std::invalid_argument);
+  // Failed crops leave the bitmap unmodified.
+  EXPECT_EQ(bitmap.Width(), 10);
+  EXPECT_EQ(bitmap.Height(), 6);
+}
+
 TEST(Bitmap, Clone) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
@@ -567,12 +613,21 @@ TEST(Bitmap, CloneAsGrey) {
   Bitmap bitmap(100, 80, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(1, 0, 4));
+  bitmap.SetPixel(2, 0, BitmapColor<uint8_t>(0, 0, 6));
+  bitmap.SetPixel(3, 0, BitmapColor<uint8_t>(255, 255, 255));
   const Bitmap cloned_bitmap = bitmap.CloneAsGrey();
   EXPECT_EQ(cloned_bitmap.Width(), 100);
   EXPECT_EQ(cloned_bitmap.Height(), 80);
   EXPECT_EQ(cloned_bitmap.Channels(), 1);
   EXPECT_EQ(cloned_bitmap.GetPixel(0, 0).value(),
             BitmapColor<uint8_t>(19, 19, 19));
+  EXPECT_EQ(cloned_bitmap.GetPixel(1, 0).value(),
+            BitmapColor<uint8_t>(1, 1, 1));
+  EXPECT_EQ(cloned_bitmap.GetPixel(2, 0).value(),
+            BitmapColor<uint8_t>(0, 0, 0));
+  EXPECT_EQ(cloned_bitmap.GetPixel(3, 0).value(),
+            BitmapColor<uint8_t>(255, 255, 255));
   const auto filename = CreateTestDir() / "bitmap.png";
   EXPECT_TRUE(cloned_bitmap.Write(filename));
   Bitmap read_bitmap;

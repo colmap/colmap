@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
 from typing import TYPE_CHECKING
 
 from .. import _core

@@ -1,36 +1,10 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/feature/aliked.h"
 
 #include "colmap/feature/onnx_matchers.h"
-#include "colmap/feature/onnx_utils.h"
+#include "colmap/feature/utils.h"
+#include "colmap/util/onnx.h"
 
 #include <algorithm>
 #include <memory>
@@ -50,30 +24,6 @@ const std::string& GetExtractorModelPath(
     default:
       throw std::runtime_error("Unknown ALIKED feature extractor type.");
   }
-}
-
-// Convert bitmap to row-major [C, H, W] float tensor, normalized to [0, 1].
-std::vector<float> BitmapToInputTensor(const Bitmap& bitmap) {
-  THROW_CHECK(bitmap.IsRGB());
-
-  const int width = bitmap.Width();
-  const int height = bitmap.Height();
-  const int pitch = bitmap.Pitch();
-  const int num_pixels = width * height;
-
-  std::vector<float> input(num_pixels * 3);
-  const std::vector<uint8_t>& data = bitmap.RowMajorData();
-  for (int y = 0; y < height; ++y) {
-    for (int x = 0; x < width; ++x) {
-      for (int c = 0; c < 3; ++c) {
-        constexpr float kImageNormalization = 1.0f / 255.0f;
-        input[c * num_pixels + y * width + x] =
-            kImageNormalization * data[y * pitch + 3 * x + c];
-      }
-    }
-  }
-
-  return input;
 }
 
 // Pads image dimensions to be divisible by a given factor.
@@ -133,10 +83,19 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        "image",
                        model_.input_shapes()[0],
                        {-1, 3, -1, -1});
+    ThrowCheckONNXElementType(model_.input_names()[0],
+                              model_.input_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(
         model_.input_names()[1], "max_keypoints", model_.input_shapes()[1], {});
+    ThrowCheckONNXElementType(model_.input_names()[1],
+                              model_.input_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64);
     ThrowCheckONNXNode(
         model_.input_names()[2], "min_score", model_.input_shapes()[2], {});
+    ThrowCheckONNXElementType(model_.input_names()[2],
+                              model_.input_element_types()[2],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
     // Validate sparse model outputs: keypoints [1, K, 2], descriptors [1, K,
     // D], scores [1, K]. Note: Some dimensions may be dynamic (-1) in ONNX.
@@ -145,10 +104,16 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        "keypoints",
                        model_.output_shapes()[0],
                        {-1, -1, -1});
+    ThrowCheckONNXElementType(model_.output_names()[0],
+                              model_.output_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(model_.output_names()[1],
                        "descriptors",
                        model_.output_shapes()[1],
                        {-1, -1, -1});
+    ThrowCheckONNXElementType(model_.output_names()[1],
+                              model_.output_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     descriptor_dim_ = static_cast<int>(model_.output_shapes()[1][2]);
     THROW_CHECK_GT(descriptor_dim_, 0);
     VLOG(2) << "ALIKED descriptor dimension: " << descriptor_dim_;
@@ -156,6 +121,9 @@ class AlikedFeatureExtractor : public FeatureExtractor {
                        "scores",
                        model_.output_shapes()[2],
                        {-1, -1});
+    ThrowCheckONNXElementType(model_.output_names()[2],
+                              model_.output_element_types()[2],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
   }
 
   bool Extract(const Bitmap& bitmap,
@@ -168,7 +136,7 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     const int width = bitmap.Width();
     const int height = bitmap.Height();
 
-    std::vector<float> input = BitmapToInputTensor(bitmap);
+    std::vector<float> input = BitmapToCHW(bitmap);
 
     // Pad image to dimensions divisible by 32.
     InputPadder padder(height, width, /*divisor=*/32);
@@ -182,33 +150,15 @@ class AlikedFeatureExtractor : public FeatureExtractor {
     image_shape[3] = padder.padded_width;
 
     std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        padded_input->data(),
-        padded_input->size(),
-        image_shape.data(),
-        image_shape.size()));
+    input_tensors.emplace_back(CreateONNXTensor(*padded_input, image_shape));
 
     // Prepare max_keypoints input tensor (scalar).
     int64_t max_keypoints = options_.aliked->max_num_features;
-    input_tensors.emplace_back(Ort::Value::CreateTensor<int64_t>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &max_keypoints,
-        1,
-        model_.input_shapes()[1].data(),
-        model_.input_shapes()[1].size()));
+    input_tensors.emplace_back(CreateONNXScalarTensor(max_keypoints));
 
     // Prepare min_score input tensor (scalar).
     float min_score = static_cast<float>(options_.aliked->min_score);
-    input_tensors.emplace_back(Ort::Value::CreateTensor<float>(
-        Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
-                                   OrtMemType::OrtMemTypeCPU),
-        &min_score,
-        1,
-        model_.input_shapes()[2].data(),
-        model_.input_shapes()[2].size()));
+    input_tensors.emplace_back(CreateONNXScalarTensor(min_score));
 
     // Run model inference.
     const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
@@ -325,8 +275,12 @@ std::unique_ptr<FeatureMatcher> CreateAlikedFeatureMatcher(
 #ifdef COLMAP_ONNX_ENABLED
   switch (options.type) {
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
-      return CreateBruteForceONNXFeatureMatcher(options,
-                                                options.aliked->brute_force);
+      return CreateBruteForceONNXFeatureMatcher(
+          options,
+          options.aliked->brute_force,
+          {FeatureExtractorType::ALIKED_N16ROT,
+           FeatureExtractorType::ALIKED_N32},
+          /*normalize_descriptors=*/false);
     case FeatureMatcherType::ALIKED_LIGHTGLUE:
       return CreateLightGlueONNXFeatureMatcher(options,
                                                options.aliked->lightglue);

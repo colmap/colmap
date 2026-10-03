@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/scene/reconstruction.h"
 
@@ -418,6 +391,9 @@ void Reconstruction::AddRig(class Rig rig) {
   THROW_CHECK(rigs_.emplace(rig_id, std::move(rig)).second);
 }
 
+// Taken by value and moved into cameras_; clang-tidy does not recognize the
+// move through the variadic emplace of boost::unordered.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void Reconstruction::AddCamera(struct Camera camera) {
   const camera_t camera_id = camera.camera_id;
   THROW_CHECK(camera.VerifyParams());
@@ -574,10 +550,19 @@ point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
       (point3D1.track.Length() * point3D1.xyz +
        point3D2.track.Length() * point3D2.xyz) /
       (point3D1.track.Length() + point3D2.track.Length());
-  const Eigen::Vector3d merged_rgb =
-      (point3D1.track.Length() * point3D1.color.cast<double>() +
-       point3D2.track.Length() * point3D2.color.cast<double>()) /
-      (point3D1.track.Length() + point3D2.track.Length());
+  // Black denotes a not yet extracted color, so it is excluded from averaging.
+  const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
+  Eigen::Vector3ub merged_color;
+  if (point3D1.color == kBlackColor) {
+    merged_color = point3D2.color;
+  } else if (point3D2.color == kBlackColor) {
+    merged_color = point3D1.color;
+  } else {
+    merged_color = ((point3D1.track.Length() * point3D1.color.cast<double>() +
+                     point3D2.track.Length() * point3D2.color.cast<double>()) /
+                    (point3D1.track.Length() + point3D2.track.Length()))
+                       .cast<uint8_t>();
+  }
 
   Track merged_track;
   merged_track.Reserve(point3D1.track.Length() + point3D2.track.Length());
@@ -587,8 +572,8 @@ point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
   DeletePoint3D(point3D_id1);
   DeletePoint3D(point3D_id2);
 
-  const point3D_t merged_point3D_id = AddPoint3D(
-      merged_xyz, std::move(merged_track), merged_rgb.cast<uint8_t>());
+  const point3D_t merged_point3D_id =
+      AddPoint3D(merged_xyz, std::move(merged_track), merged_color);
 
   return merged_point3D_id;
 }

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging.h"
@@ -5,6 +7,7 @@
 #include "pycolmap/helpers.h"
 
 #include <pybind11/eigen.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -22,10 +25,19 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("generate_random_points",
                          &GlobalPositionerOptions::generate_random_points,
                          "Whether to initialize 3D point positions randomly.")
-          .def_readwrite("generate_scales",
-                         &GlobalPositionerOptions::generate_scales,
-                         "Whether to initialize scales to constant 1 or derive "
-                         "from positions.")
+          .def_readwrite(
+              "initialize_scales_from_geometry",
+              &GlobalPositionerOptions::initialize_scales_from_geometry,
+              "Derive scales from initialized camera and point positions; "
+              "otherwise use 1.")
+          .def_readwrite("fix_first_scale",
+                         &GlobalPositionerOptions::fix_first_scale,
+                         "Whether to fix the first active observation scale.")
+          .def_readwrite(
+              "uncalibrated_observation_weight",
+              &GlobalPositionerOptions::uncalibrated_observation_weight,
+              "Positive loss multiplier for observations without "
+              "a focal-length prior.")
           .def_readwrite("optimize_positions",
                          &GlobalPositionerOptions::optimize_positions,
                          "Whether to optimize camera positions.")
@@ -58,11 +70,81 @@ void BindGlobalPositioner(py::module& m) {
                          "non-deterministic.")
           .def_readwrite("loss_function_scale",
                          &GlobalPositionerOptions::loss_function_scale,
-                         "Scaling factor for the loss function.")
+                         "Scaling factor for the loss function. "
+                         "Negative values (default -1) use 1.0 (stddev units) "
+                         "when experimental_observation_stddev is set, "
+                         "otherwise 0.1 (radians).")
+          .def_readwrite(
+              "experimental_observation_stddev",
+              &GlobalPositionerOptions::experimental_observation_stddev,
+              "Isotropic observation uncertainty in pixels. None disables "
+              "weighting. When enabled, loss_function_scale applies to "
+              "whitened residuals.")
           .def_readwrite("use_parameter_block_ordering",
                          &GlobalPositionerOptions::use_parameter_block_ordering,
                          "Whether to use custom parameter block ordering.");
   MakeDataclass(PyGlobalPositionerOptions);
+
+  py::classh<GlobalPositioner>(m, "GlobalPositioner")
+      .def("solve", &GlobalPositioner::Solve)
+      .def_property_readonly("problem",
+                             &GlobalPositioner::Problem,
+                             py::return_value_policy::reference_internal)
+      .def_property_readonly("solver_options",
+                             &GlobalPositioner::SolverOptions,
+                             py::return_value_policy::copy)
+      .def(
+          "extend_parameter_block_ordering",
+          [](GlobalPositioner& self,
+             std::vector<std::pair<py::array_t<double, py::array::c_style>,
+                                   int>> parameter_groups) {
+            std::vector<std::pair<double*, int>> groups;
+            groups.reserve(parameter_groups.size());
+            for (auto& [parameter, group] : parameter_groups) {
+              groups.emplace_back(parameter.mutable_data(), group);
+            }
+            self.ExtendParameterBlockOrdering(groups);
+          },
+          "parameter_groups"_a = py::list(),
+          "Extend an existing ordering after adding parameter blocks. "
+          "Optional (registered parameter array, group) pairs override groups.")
+      .def(
+          "frame_center_parameter_block",
+          [](py::object self, frame_t frame_id) -> py::object {
+            double* center =
+                self.cast<GlobalPositioner&>().FrameCenterParameterBlock(
+                    frame_id);
+            if (center == nullptr) {
+              return py::none();
+            }
+            return py::array_t<double>({3}, {sizeof(double)}, center, self);
+          },
+          "frame_id"_a,
+          "Return a writable NumPy array sharing the frame-center parameter "
+          "block in world coordinates, or None if inactive. The array keeps "
+          "the positioner alive.")
+      .def("finalize", &GlobalPositioner::Finalize, "summary"_a);
+
+  m.def(
+      "create_default_global_positioner",
+      [](const GlobalPositionerOptions& options,
+         const PoseGraph& pose_graph,
+         Reconstruction& reconstruction,
+         const py::object& loss_function) {
+        return GlobalPositioner::CreateDefault(
+            options,
+            pose_graph,
+            reconstruction,
+            loss_function.is_none()
+                ? nullptr
+                : loss_function.cast<std::shared_ptr<ceres::LossFunction>>());
+      },
+      "options"_a,
+      "pose_graph"_a,
+      "reconstruction"_a,
+      "loss_function"_a = py::none(),
+      py::keep_alive<0, 3>(),
+      "Prepare global positioning without solving.");
 
   m.def(
       "run_global_positioning",

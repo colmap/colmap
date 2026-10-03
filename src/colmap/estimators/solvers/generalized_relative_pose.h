@@ -1,34 +1,8 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
 
@@ -40,7 +14,39 @@ namespace colmap {
 
 struct GRNPObservation {
   Rigid3d cam_from_rig;
-  Eigen::Vector3d ray_in_cam;
+  // Bearing in the camera frame, bundled with its Jacobian d(ray) / d(pixel) so
+  // Residuals can score in pixel units with the tangent Sampson error. Only the
+  // residual uses the Jacobian; the solvers read the ray alone.
+  CamRayWithJac ray_with_jac_in_cam;
+};
+
+// Minimal generalized relative pose estimator for the 5+1-point case, based on
+// poselib's gen_relpose_5p1pt: five correspondences from one camera pair plus
+// one from a different pair. Faster and better conditioned than the general
+// 6pt solver; requires the 6th correspondence to come from a different camera
+// pair so that the rig translation scale is observable.
+class GR5P1PEstimator {
+ public:
+  using X_t = GRNPObservation;
+  using Y_t = GRNPObservation;
+  // The estimated rig2_from_rig1 relative pose between the generalized cameras.
+  using M_t = Rigid3d;
+
+  static const int kMinNumSamples = 6;
+
+  // Estimate rig2_from_rig1 from six 2D-2D correspondences. Returns no models
+  // if the sample does not contain five correspondences sharing one camera
+  // pair plus a sixth from a different pair, or if the solver fails.
+  static void Estimate(const std::vector<X_t>& points1,
+                       const std::vector<Y_t>& points2,
+                       std::vector<M_t>* rigs2_from_rigs1);
+
+  // Calculate the squared tangent Sampson error (in pixels) between
+  // corresponding points.
+  static void Residuals(const std::vector<X_t>& points1,
+                        const std::vector<Y_t>& points2,
+                        const M_t& rig2_from_rig1,
+                        std::vector<double>* residuals);
 };
 
 // Minimal generalized relative pose estimator based on poselib.
@@ -57,12 +63,16 @@ class GR6PEstimator {
   static const int kMinNumSamples = 6;
 
   // Estimate the most probable solution of the GR6P problem from a set of
-  // six 2D-2D point correspondences.
+  // six 2D-2D point correspondences. Uses the faster gen_relpose_5p1pt solver
+  // as a fast path whenever five correspondences share one camera pair (the
+  // common rig case) and falls back to the general gen_relpose_6pt solver
+  // otherwise.
   static void Estimate(const std::vector<X_t>& points1,
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* rigs2_from_rigs1);
 
-  // Calculate the squared Sampson error between corresponding points.
+  // Calculate the squared tangent Sampson error (in pixels) between
+  // corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
                         const std::vector<Y_t>& points2,
                         const M_t& rig2_from_rig1,
@@ -98,7 +108,8 @@ class GR8PEstimator {
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* rigs2_from_rigs1);
 
-  // Calculate the squared Sampson error between corresponding points.
+  // Calculate the squared tangent Sampson error (in pixels) between
+  // corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
                         const std::vector<Y_t>& points2,
                         const M_t& rig2_from_rig1,

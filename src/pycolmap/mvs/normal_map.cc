@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "colmap/mvs/normal_map.h"
 
 #include "pycolmap/helpers.h"

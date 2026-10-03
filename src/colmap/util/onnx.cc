@@ -1,0 +1,286 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+#include "colmap/util/onnx.h"
+
+#include "colmap/util/file.h"
+#include "colmap/util/misc.h"
+#include "colmap/util/threading.h"
+
+#include <iostream>
+#include <iterator>
+#include <mutex>
+#include <sstream>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+#ifdef COLMAP_COREML_ENABLED
+#include <coreml_provider_factory.h>
+#endif
+
+namespace colmap {
+
+#ifdef COLMAP_ONNX_ENABLED
+
+namespace {
+constexpr char kDisableCpuEpFallback[] = "session.disable_cpu_ep_fallback";
+
+[[noreturn]] void RethrowONNXException() {
+  try {
+    std::rethrow_exception(std::current_exception());
+  } catch (const Ort::Exception& e) {
+    // ONNX Runtime may write to stderr without a trailing newline.
+    // Insert a newline here to avoid mixing with COLMAP log output.
+    std::cerr << '\n';
+    LOG(ERROR) << "ONNX Runtime error: " << e.what();
+    throw;
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Unexpected exception during ONNX execution: " << e.what();
+    throw;
+  } catch (...) {
+    LOG(ERROR) << "Unknown exception during ONNX execution";
+    throw;
+  }
+}
+
+const char* FormatONNXElementType(ONNXTensorElementDataType type) {
+  // Names in `TensorProto::DataType` order. The enum is auto-numbered from
+  // zero and only ever extended by appending, so indexing is stable across
+  // runtime versions; entries past an older runtime's maximum are simply
+  // unreachable there.
+  static constexpr const char* kNames[] = {
+      "undefined",      "float",        "uint8",          "int8",
+      "uint16",         "int16",        "int32",          "int64",
+      "string",         "bool",         "float16",        "double",
+      "uint32",         "uint64",       "complex64",      "complex128",
+      "bfloat16",       "float8e4m3fn", "float8e4m3fnuz", "float8e5m2",
+      "float8e5m2fnuz", "uint4",        "int4",           "float4e2m1",
+      "uint2",          "int2",         "float8e8m0"};
+  if (type < 0 || static_cast<size_t>(type) >= std::size(kNames)) {
+    return "unknown";
+  }
+  return kNames[type];
+}
+}  // namespace
+
+ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu) {
+  if (!use_gpu) {
+    return ONNXExecutionProvider::CPU;
+  }
+#ifdef COLMAP_CUDA_ENABLED
+  return ONNXExecutionProvider::CUDA;
+#elif defined(COLMAP_COREML_ENABLED)
+  return ONNXExecutionProvider::COREML;
+#else
+  return ONNXExecutionProvider::CPU;
+#endif
+}
+
+std::string FormatONNXTensorShape(const std::vector<int64_t>& shape) {
+  std::ostringstream oss;
+  oss << "[";
+  for (size_t i = 0; i < shape.size(); ++i) {
+    oss << shape[i];
+    if (i < shape.size() - 1) {
+      oss << ", ";
+    }
+  }
+  oss << "]";
+  return oss.str();
+}
+
+void ThrowCheckONNXNode(const std::string_view name,
+                        const std::string_view expected_name,
+                        const std::vector<int64_t>& shape,
+                        const std::vector<int64_t>& expected_shape) {
+  THROW_CHECK_EQ(name, expected_name);
+  THROW_CHECK_EQ(shape.size(), expected_shape.size())
+      << "Invalid shape for " << name << ": " << FormatONNXTensorShape(shape)
+      << " != " << FormatONNXTensorShape(expected_shape);
+  for (size_t i = 0; i < shape.size(); ++i) {
+    // -1 is treated as a wildcard for dynamic dimensions.
+    if (expected_shape[i] != -1) {
+      THROW_CHECK_EQ(shape[i], expected_shape[i])
+          << "Invalid shape for " << name << ": "
+          << FormatONNXTensorShape(shape)
+          << " != " << FormatONNXTensorShape(expected_shape);
+    }
+  }
+}
+
+void ThrowCheckONNXElementType(const std::string_view name,
+                               const ONNXTensorElementDataType type,
+                               const ONNXTensorElementDataType expected_type) {
+  THROW_CHECK_EQ(type, expected_type)
+      << "Invalid element type for " << name << ": "
+      << FormatONNXElementType(type)
+      << " != " << FormatONNXElementType(expected_type);
+}
+
+ONNXModel::ONNXModel(std::string model_path,
+                     int num_threads,
+                     bool use_gpu,
+                     const std::string& gpu_index,
+                     bool is_capability_probe) {
+  {
+    static std::mutex download_mutex;
+    const std::lock_guard<std::mutex> lock(download_mutex);
+    model_path = MaybeDownloadAndCacheFile(model_path).string();
+  }
+
+  const int num_eff_threads = GetEffectiveNumThreads(num_threads);
+
+  try {
+    InitializeSession(
+        model_path, num_eff_threads, use_gpu, gpu_index, is_capability_probe);
+  } catch (...) {
+    if (is_capability_probe) {
+      throw;
+    }
+    RethrowONNXException();
+  }
+}
+
+void ONNXModel::ConfigureSessionOptions(int num_threads) {
+  // Reset any previously appended execution providers (e.g. when rebuilding for
+  // a CPU-only fallback after an accelerator fails to initialize).
+  session_options_ = Ort::SessionOptions();
+
+  // Use sequential execution mode with a single inter-op thread, since our
+  // models (ALIKED, LightGlue) are sequential CNNs/Transformers without
+  // independent graph branches. Inter-op parallelism would only cause thread
+  // contention. Intra-op threads parallelize within individual operators
+  // (convolutions, matrix multiplications) and are managed at the caller level.
+  session_options_.SetInterOpNumThreads(1);
+  session_options_.SetIntraOpNumThreads(num_threads);
+  session_options_.SetExecutionMode(ORT_SEQUENTIAL);
+  session_options_.SetGraphOptimizationLevel(
+      GraphOptimizationLevel::ORT_ENABLE_ALL);
+  session_options_.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);
+}
+
+void ONNXModel::InitializeSession(const std::string& model_path,
+                                  int num_threads,
+                                  bool use_gpu,
+                                  const std::string& gpu_index,
+                                  bool is_capability_probe) {
+  ConfigureSessionOptions(num_threads);
+  execution_provider_ = SelectONNXExecutionProvider(use_gpu);
+
+  if (is_capability_probe &&
+      execution_provider_ != ONNXExecutionProvider::CPU) {
+    // Fail if any node would fall back to CPU.
+    session_options_.AddConfigEntry(kDisableCpuEpFallback, "1");
+  }
+
+#ifdef COLMAP_CUDA_ENABLED
+  if (execution_provider_ == ONNXExecutionProvider::CUDA) {
+    const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
+    THROW_CHECK_EQ(gpu_indices.size(), 1)
+        << "ONNX model can only run on one GPU";
+    OrtCUDAProviderOptions cuda_options{};
+    if (gpu_indices[0] >= 0) {
+      cuda_options.device_id = gpu_indices[0];
+    }
+    session_options_.AppendExecutionProvider_CUDA(cuda_options);
+  }
+#endif
+
+  // On Apple platforms there is no CUDA, so map use_gpu onto CoreML, which
+  // offloads supported subgraphs to the GPU/Apple Neural Engine (unsupported
+  // nodes automatically fall back to the CPU). Selected automatically whenever
+  // GPU use is requested; set use_gpu=false to force pure CPU execution.
+  const bool use_coreml = execution_provider_ == ONNXExecutionProvider::COREML;
+#ifdef COLMAP_COREML_ENABLED
+  if (use_coreml) {
+    VLOG(2) << "Enabling CoreML execution provider";
+    // COREML_FLAG_CREATE_MLPROGRAM selects the newer ML Program model format,
+    // which supports a wider set of operators and float inputs than the legacy
+    // NeuralNetwork format.
+    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CoreML(
+        static_cast<OrtSessionOptions*>(session_options_),
+        COREML_FLAG_CREATE_MLPROGRAM));
+  }
+#endif
+
+  VLOG(2) << "Loading ONNX model from " << model_path;
+#ifdef _WIN32
+  const unsigned int code_page = GetACP();
+  const int wide_len =
+      MultiByteToWideChar(code_page, 0, model_path.c_str(), -1, nullptr, 0);
+  std::wstring model_path_wide(wide_len, L'\0');
+  MultiByteToWideChar(
+      code_page, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
+  const wchar_t* model_path_cstr = model_path_wide.c_str();
+#else
+  const char* model_path_cstr = model_path.c_str();
+#endif
+  try {
+    session_ =
+        std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
+  } catch (const Ort::Exception& e) {
+    if (!use_coreml || is_capability_probe) {
+      throw;
+    }
+    // Some models cannot be compiled by CoreML (e.g. unsupported dynamic
+    // shapes). Rather than failing, fall back to pure CPU execution.
+    LOG(WARNING) << "Failed to initialize ONNX session with CoreML ("
+                 << e.what() << "); falling back to CPU execution provider";
+    ConfigureSessionOptions(num_threads);
+    execution_provider_ = ONNXExecutionProvider::CPU;
+    session_ =
+        std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
+  }
+
+  VLOG(2) << "Parsing the inputs";
+  const int num_inputs = session_->GetInputCount();
+  input_name_strs_.reserve(num_inputs);
+  input_names_.reserve(num_inputs);
+  input_shapes_.reserve(num_inputs);
+  input_element_types_.reserve(num_inputs);
+  for (int i = 0; i < num_inputs; ++i) {
+    input_name_strs_.emplace_back(
+        session_->GetInputNameAllocated(i, allocator_));
+    input_names_.emplace_back(input_name_strs_[i].get());
+    input_shapes_.emplace_back(
+        session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    input_element_types_.emplace_back(session_->GetInputTypeInfo(i)
+                                          .GetTensorTypeAndShapeInfo()
+                                          .GetElementType());
+  }
+
+  VLOG(2) << "Parsing the outputs";
+  const int num_outputs = session_->GetOutputCount();
+  output_name_strs_.reserve(num_outputs);
+  output_names_.reserve(num_outputs);
+  output_shapes_.reserve(num_outputs);
+  output_element_types_.reserve(num_outputs);
+  for (int i = 0; i < num_outputs; ++i) {
+    output_name_strs_.emplace_back(
+        session_->GetOutputNameAllocated(i, allocator_));
+    output_names_.emplace_back(output_name_strs_[i].get());
+    output_shapes_.emplace_back(
+        session_->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    output_element_types_.emplace_back(session_->GetOutputTypeInfo(i)
+                                           .GetTensorTypeAndShapeInfo()
+                                           .GetElementType());
+  }
+}
+
+std::vector<Ort::Value> ONNXModel::Run(
+    const std::vector<Ort::Value>& input_tensors) const {
+  try {
+    return session_->Run(Ort::RunOptions(),
+                         input_names_.data(),
+                         input_tensors.data(),
+                         input_tensors.size(),
+                         output_names_.data(),
+                         output_names_.size());
+  } catch (...) {
+    RethrowONNXException();
+  }
+}
+
+#endif  // COLMAP_ONNX_ENABLED
+
+}  // namespace colmap

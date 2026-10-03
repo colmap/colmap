@@ -28,12 +28,14 @@
 #include <algorithm>
 using namespace std;
 #include <string.h>
+#include <cfloat>
 #include "GlobalUtil.h"
 
 #include "ProgramGLSL.h"
 #include "GLTexImage.h"
 #include "SiftGPU.h"
 #include "SiftMatch.h"
+
 #include "FrameBufferObject.h"
 
 #if defined(SIFTGPU_CUDA_ENABLED)
@@ -45,9 +47,11 @@ using namespace std;
 SiftMatchGL::SiftMatchGL(int max_sift, int use_glsl): SiftMatchGPU()
 {
 	s_multiply = s_col_max = s_row_max = s_guided_mult = NULL;
+	s_guided_mult_ray = NULL;
 	_num_sift[0] = _num_sift[1] = 0;
 	_id_sift[0] = _id_sift[1] = 0;
 	_have_loc[0] = _have_loc[1] = 0;
+	_loc_ncomp[0] = _loc_ncomp[1] = 2;
 	__max_sift = max_sift <=0 ? 4096 : ((max_sift + 31)/ 32 * 32) ;
 	_pixel_per_sift = 32; //must be 32
 	_sift_num_stripe = 1;
@@ -60,6 +64,7 @@ SiftMatchGL::~SiftMatchGL()
 {
 	if(s_multiply) delete s_multiply;
 	if(s_guided_mult) delete s_guided_mult;
+	if(s_guided_mult_ray) delete s_guided_mult_ray;
 	if(s_col_max) delete s_col_max;
 	if(s_row_max) delete s_row_max;
 }
@@ -79,6 +84,7 @@ void SiftMatchGL::SetMaxSift(int max_sift)
 		__max_sift = max_sift;
 		AllocateSiftMatch();
 		_have_loc[0] = _have_loc[1] = 0;
+	_loc_ncomp[0] = _loc_ncomp[1] = 2;
 		_id_sift[0] = _id_sift[1] = -1;
 		_num_sift[0] = _num_sift[1] = 1;
 	}else
@@ -100,8 +106,11 @@ void SiftMatchGL::AllocateSiftMatch()
 
 	_texDes[0].InitTexture(_sift_per_row * _pixel_per_sift, __max_sift / _sift_per_row, 0,GL_RGBA8);
 	_texDes[1].InitTexture(_sift_per_row * _pixel_per_sift, __max_sift / _sift_per_row, 0, GL_RGBA8);
-	_texLoc[0].InitTexture(_sift_per_row , __max_sift / _sift_per_row, 0);
-	_texLoc[1].InitTexture(_sift_per_row , __max_sift / _sift_per_row, 0);
+	// Three texels per feature so that the tangent Sampson shader can store a
+	// bearing vector plus its unprojection Jacobian. The two-component mode
+	// uses only the first texel of each triple.
+	_texLoc[0].InitTexture(_sift_per_row * 3 , __max_sift / _sift_per_row, 0);
+	_texLoc[1].InitTexture(_sift_per_row * 3 , __max_sift / _sift_per_row, 0);
 
 	if(GlobalUtil::_SupportNVFloat || GlobalUtil::_SupportTextureRG)
 	{
@@ -170,29 +179,39 @@ void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descri
 
 }
 
-void SiftMatchGL::SetFeatureLocation(int index, const float* locations)
+void SiftMatchGL::SetFeatureLocation(int index, const float* locations, int gap, int ncomp)
 {
 	if(_num_sift[index] <=0) return;
+	if(ncomp != 2 && ncomp != 3 && ncomp != 9) ncomp = 2;
+	_loc_ncomp[index] = ncomp;
 	int w = _sift_per_row ;
 	int h = (_num_sift[index] + _sift_per_row  - 1)/ _sift_per_row;
-	//the location texture is already RGBA float, so all four components fit in
-	//the single texel per feature that the addressing below assumes
-	sift_buffer.resize(_num_sift[index] * 4);
-	memcpy(&sift_buffer[0], locations, _num_sift[index] * 4 * sizeof(float));
-	sift_buffer.resize(w * h * 4, 0);
-	_texLoc[index].SetImageSize(w , h);
+	// Every feature occupies three RGBA texels. Mode 2 writes (x, y, 0, 0) into
+	// the first and leaves the rest zero; mode 9 fills all nine components with
+	// the bearing vector followed by the two Jacobian columns.
+	const int w3 = w * 3;
+	sift_buffer.resize(_num_sift[index] * 12, 0.0f);
+	std::fill(sift_buffer.begin(), sift_buffer.begin() + _num_sift[index] * 12, 0.0f);
+	for(int i = 0; i < _num_sift[index]; ++i)
+	{
+		float* out_ptr = &sift_buffer[i * 12];
+		for(int k = 0; k < ncomp; ++k) out_ptr[k] = *locations++;
+		locations += gap;
+	}
+	sift_buffer.resize(w3 * h * 4, 0);
+	_texLoc[index].SetImageSize(w3 , h);
 	_texLoc[index].BindTex();
 	if(_sift_num_stripe == 1)
 	{
-		glTexSubImage2D(GlobalUtil::_texTarget, 0, 0, 0, w, h, GL_RGBA , GL_FLOAT , &sift_buffer[0]);
+		glTexSubImage2D(GlobalUtil::_texTarget, 0, 0, 0, w3, h, GL_RGBA, GL_FLOAT, &sift_buffer[0]);
 	}else
 	{
 		for(int i = 0; i < _sift_num_stripe; ++i)
 		{
-			int ws = _sift_per_stripe;
+			int ws = _sift_per_stripe * 3;
 			int x = i * ws;
 			int pos = i * ws * h * 4;
-			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_RGBA , GL_FLOAT, &sift_buffer[pos]);
+			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_RGBA, GL_FLOAT, &sift_buffer[pos]);
 		}
 	}
 	_texLoc[index].UnbindTex();
@@ -298,8 +317,6 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"uniform mat3 H; \n"
 			"uniform mat3 F; \n"
 			"uniform vec4	size; \n"
-			//x/y select whether the homography / fundamental constraint is used
-			"uniform vec2	hf_enable; \n"
 			"void main()		\n"
 		    "{\n"
 		<<	"   vec4 val = vec4(0.0, 0.0, 0.0, 0.0), data1, buf;\n"
@@ -313,31 +330,24 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"   vec2 index_v = temp_floor2 + vec2(0.5);\n "
 			"   vec2 index_h = vec2(SIFT_PER_STRIPE)* (temp_div2 - temp_floor2);\n"
 
-			//read feature location data
-			"   vec4 tlpos = vec4((index_h + stripe_index * vec2(SIFT_PER_STRIPE)) + 0.5, index_v);\n"
-			"   vec4 loc1_4 = texture2DRect(texL1, tlpos.xz);\n"
-			"   vec4 loc2_4 = texture2DRect(texL2, tlpos.yw);\n"
-			//a zero validity flag on either side rejects the pair outright
-			"   if(loc1_4.w * loc2_4.w < 0.5) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
-			"   vec3 loc1 = loc1_4.xyz;\n"
-			"   vec3 loc2 = loc2_4.xyz;\n"
+			//read feature location data; three texels per feature, the image
+			//plane point lives in .xy of the first one
+			"   vec4 tlpos = vec4((index_h + stripe_index * vec2(SIFT_PER_STRIPE)) * 3.0 + 0.5, index_v);\n"
+			"   vec3 loc1 = vec3(texture2DRect(texL1, tlpos.xz).xy, 1.0);\n"
+			"   vec3 loc2 = vec3(texture2DRect(texL2, tlpos.yw).xy, 1.0);\n"
 
 			//check the guiding homography
-			"   if(hf_enable.x > 0.5) {\n"
-			"     vec3 hxloc1 = H* loc1;\n"
-			"     vec2 diff = loc2.xy- (hxloc1.xy/hxloc1.z);\n"
-			"     float disth = diff.x * diff.x + diff.y * diff.y;\n"
-			"     if(disth > size.z ) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
-			"   }\n"
+			"   vec3 hxloc1 = H* loc1;\n"
+			"   vec2 diff = loc2.xy- (hxloc1.xy/hxloc1.z);\n"
+			"   float disth = diff.x * diff.x + diff.y * diff.y;\n"
+			"   if(size.z >= 0.0 && disth > size.z) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
 
 			//check the guiding fundamental
-			"   if(hf_enable.y > 0.5) {\n"
-			"     vec3 fx1 = (F * loc1), ftx2 = (loc2 * F);\n"
-			"     float x2tfx1 = dot(loc2, fx1);\n"
-			"     vec4 temp = vec4(fx1.xy, ftx2.xy); \n"
-			"     float sampson_error = (x2tfx1 * x2tfx1) / dot(temp, temp);\n"
-			"     if(sampson_error > size.w) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
-			"   }\n"
+			"   vec3 fx1 = (F * loc1), ftx2 = (loc2 * F);\n"
+			"   float x2tfx1 = dot(loc2, fx1);\n"
+			"   vec4 temp = vec4(fx1.xy, ftx2.xy); \n"
+			"   float sampson_error = (x2tfx1 * x2tfx1) / dot(temp, temp);\n"
+			"   if(size.w >= 0.0 && sampson_error > size.w) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
 
 			//compare feature descriptor
 			"   vec2 tx = (index_h + stripe_index * SIFT_PER_STRIPE)* vec2(PIXEL_PER_SIFT) + 0.5;\n"
@@ -363,7 +373,77 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 	_param_guided_mult_h = glGetUniformLocation(*program, "H");
 	_param_guided_mult_f = glGetUniformLocation(*program, "F");
 	_param_guided_mult_param = glGetUniformLocation(*program, "size");
-	_param_guided_mult_hf_enable = glGetUniformLocation(*program, "hf_enable");
+
+	out.seekp(ios::beg);
+	if(GlobalUtil::_IsNvidia)
+	out <<  "#pragma optionNV(ifcvt none)\n"
+			"#pragma optionNV(unroll all)\n";
+
+	out <<  "#define SIFT_PER_STRIPE " << _sift_per_stripe << ".0\n"
+			"#define PIXEL_PER_SIFT " << _pixel_per_sift << "\n"
+			"uniform sampler2DRect tex1, tex2;\n"
+			"uniform sampler2DRect texL1;\n"
+			"uniform sampler2DRect texL2; \n"
+			"uniform mat3 E; \n"
+			"uniform vec4	size; \n"
+			"void main()		\n"
+			"{\n"
+		<<	"   vec4 val = vec4(0.0, 0.0, 0.0, 0.0), data1, buf;\n"
+			"   vec2 index = gl_FragCoord.yx; \n"
+			"   vec2 stripe_size = size.xy * SIFT_PER_STRIPE;\n"
+			"	vec2 temp_div1 = index / stripe_size;\n"
+			"   vec2 stripe_index = floor(temp_div1);\n"
+			"   index = floor(stripe_size * (temp_div1 - stripe_index));\n"
+			"	vec2 temp_div2 = index  * vec2(1.0/ float(SIFT_PER_STRIPE));\n"
+			"	vec2 temp_floor2 = floor(temp_div2);\n"
+			"   vec2 index_v = temp_floor2 + vec2(0.5);\n "
+			"   vec2 index_h = vec2(SIFT_PER_STRIPE)* (temp_div2 - temp_floor2);\n"
+
+			//three texels per feature: bearing, then the two Jacobian columns
+			"   vec4 tlpos = vec4((index_h + stripe_index * vec2(SIFT_PER_STRIPE)) * 3.0 + 0.5, index_v);\n"
+			"   vec4 a1 = texture2DRect(texL1, tlpos.xz);\n"
+			"   vec4 b1 = texture2DRect(texL1, vec2(tlpos.x + 1.0, tlpos.z));\n"
+			"   vec4 c1 = texture2DRect(texL1, vec2(tlpos.x + 2.0, tlpos.z));\n"
+			"   vec4 a2 = texture2DRect(texL2, tlpos.yw);\n"
+			"   vec4 b2 = texture2DRect(texL2, vec2(tlpos.y + 1.0, tlpos.w));\n"
+			"   vec4 c2 = texture2DRect(texL2, vec2(tlpos.y + 2.0, tlpos.w));\n"
+			"   vec3 r1 = a1.xyz, r2 = a2.xyz;\n"
+			"   vec3 J1c0 = vec3(a1.w, b1.xy), J1c1 = vec3(b1.zw, c1.x);\n"
+			"   vec3 J2c0 = vec3(a2.w, b2.xy), J2c1 = vec3(b2.zw, c2.x);\n"
+
+			//tangent Sampson error, in pixels
+			"   vec3 er1 = E * r1;\n"
+			"   vec3 etr2 = r2 * E;\n"
+			"   float num = dot(r2, er1);\n"
+			"   vec4 grad = vec4(dot(J1c0, etr2), dot(J1c1, etr2),\n"
+			"                    dot(J2c0, er1), dot(J2c1, er1));\n"
+			"   float denom = dot(grad, grad);\n"
+			"   if(denom <= 0.0 || num * num > size.w * denom)\n"
+			"       {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
+
+			//compare feature descriptor
+			"   vec2 tx = (index_h + stripe_index * SIFT_PER_STRIPE)* vec2(PIXEL_PER_SIFT) + 0.5;\n"
+			"   vec2 tpos1, tpos2; \n"
+			"	vec4 tpos = vec4(tx, index_v);\n"
+			"   for(int i = 0; i < PIXEL_PER_SIFT; ++i){\n"
+			"		buf = texture2DRect(tex2, tpos.yw);\n"
+			"		data1 = texture2DRect(tex1, tpos.xz);\n"
+			"		val += data1 * buf;\n"
+			"		tpos.xy = tpos.xy + vec2(1.0, 1.0);\n"
+			"	}\n"
+			"	const float factor = 0.248050689697265625; \n"
+			"	gl_FragColor =vec4(dot(val, vec4(factor)), index,  0.0);\n"
+			"}"
+		<<	'\0';
+
+	s_guided_mult_ray = program= new ProgramGLSL(out.str().c_str());
+
+	_param_guided_mult_ray_tex1 = glGetUniformLocation(*program, "tex1");
+	_param_guided_mult_ray_tex2= glGetUniformLocation(*program, "tex2");
+	_param_guided_mult_ray_texl1 = glGetUniformLocation(*program, "texL1");
+	_param_guided_mult_ray_texl2 = glGetUniformLocation(*program, "texL2");
+	_param_guided_mult_ray_e = glGetUniformLocation(*program, "E");
+	_param_guided_mult_ray_param = glGetUniformLocation(*program, "size");
 
 	//row max
 	out.seekp(ios::beg);
@@ -410,7 +490,8 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 }
 
 int  SiftMatchGL::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
-									 float distmax, float ratiomax, float hdistmax, float fdistmax, int mbm)
+									 float distmax, float ratiomax, float hdistmax, float fdistmax, int mbm,
+									 int use_h, int use_f)
 {
 
 	int dw = _num_sift[1];
@@ -437,23 +518,40 @@ int  SiftMatchGL::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], 
 	_texLoc[1].BindTex();
 
 	//multiply the descriptor matrices
+	if(_loc_ncomp[0] == 9 && _loc_ncomp[1] == 9)
+	{
+		// Bearing vectors with Jacobians: score the essential matrix in pixels.
+		// This layout carries no image plane points, so there is no homography
+		// branch and F is interpreted as E.
+		s_guided_mult_ray->UseProgram();
+		float dot_param[4] = {(float)_texDes[0].GetDrawHeight(), (float) _texDes[1].GetDrawHeight(), 0.0f, fdistmax};
+		glUniform1i(_param_guided_mult_ray_tex1, 0);
+		glUniform1i(_param_guided_mult_ray_tex2, 1);
+		glUniform1i(_param_guided_mult_ray_texl1, 2);
+		glUniform1i(_param_guided_mult_ray_texl2, 3);
+		glUniformMatrix3fv(_param_guided_mult_ray_e, 1, GL_TRUE, F);
+		glUniform4fv(_param_guided_mult_ray_param, 1, dot_param);
+	}
+	else
+	{
 	s_guided_mult->UseProgram();
 
 
 	//set parameters glsl
+	// A negative threshold disables the model (the shader guards with size >= 0),
+	// matching the CUDA use_h/use_f short-circuit instead of an inf sentinel that
+	// would spuriously reject on an inf/NaN residual.
+	if(!use_h) hdistmax = -1.0f;
+	if(!use_f) fdistmax = -1.0f;
 	float dot_param[4] = {(float)_texDes[0].GetDrawHeight(), (float) _texDes[1].GetDrawHeight(), hdistmax, fdistmax};
-	//a NULL matrix disables the corresponding constraint; the unused uniform is
-	//still filled, but the shader never reads it
-	float identity[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
-	float hf_enable[2] = {H ? 1.0f : 0.0f, F ? 1.0f : 0.0f};
 	glUniform1i(_param_guided_mult_tex1, 0);
 	glUniform1i(_param_guided_mult_tex2, 1);
 	glUniform1i(_param_guided_mult_texl1, 2);
 	glUniform1i(_param_guided_mult_texl2, 3);
-	glUniformMatrix3fv(_param_guided_mult_h, 1, GL_TRUE, H ? H : identity);
-	glUniformMatrix3fv(_param_guided_mult_f, 1, GL_TRUE, F ? F : identity);
+	glUniformMatrix3fv(_param_guided_mult_h, 1, GL_TRUE, H);
+	glUniformMatrix3fv(_param_guided_mult_f, 1, GL_TRUE, F);
 	glUniform4fv(_param_guided_mult_param, 1, dot_param);
-	glUniform2fv(_param_guided_mult_hf_enable, 1, hf_enable);
+	}
 
 	_texDot.DrawQuad();
 
@@ -675,25 +773,28 @@ void SiftMatchGPU::SetDescriptors(int index, int num, const float* descriptors, 
 	__matcher->SetDescriptors(index, num, descriptors, id);
 }
 
-void SiftMatchGPU::SetFeatureLocation(int index, const float* locations)
+void SiftMatchGPU::SetFeatureLocation(int index, const float* locations, int gap, int ncomp)
 {
-	__matcher->SetFeatureLocation(index, locations);
+	__matcher->SetFeatureLocation(index, locations, gap, ncomp);
 
 }
 int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
-				float distmax, float ratiomax, float hdistmax, float fdistmax, int mutual_best_match)
+				float distmax, float ratiomax, float hdistmax, float fdistmax, int mutual_best_match,
+				int use_h, int use_f)
 {
 	if(H == NULL && F == NULL)
 	{
 		return __matcher->GetSiftMatch(max_match, match_buffer, distmax, ratiomax, mutual_best_match);
 	}else
 	{
-		//a NULL matrix disables the corresponding constraint in the matcher. This
-		//used to be signalled by substituting the identity with a 1e20 threshold,
-		//relying on the disabled residual always landing below it - which does not
-		//hold once feature locations carry a real, possibly zero, third component.
-		return __matcher->GetGuidedSiftMatch(max_match, match_buffer, H, F,
-			distmax, ratiomax, hdistmax, fdistmax, mutual_best_match);
+		float Z[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1}, ti = (1.0e+20F);
+
+		// The unused model is still handed an identity matrix so the kernel has
+		// well-defined inputs, but it is disabled through an explicit flag
+		// rather than through a threshold large enough to swallow it.
+		return __matcher->GetGuidedSiftMatch(max_match, match_buffer, H? H : Z, F? F : Z,
+			distmax, ratiomax, H? hdistmax: ti,  F? fdistmax: ti, mutual_best_match,
+			H != NULL, F != NULL);
 	}
 }
 

@@ -1,34 +1,8 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -39,6 +13,15 @@
 #include <Eigen/Geometry>
 
 namespace colmap {
+
+// Default plausibility bounds for camera intrinsics, shared by the
+// incremental mapper, bundle adjustment, and single-view calibration options
+// as `HasBogusParams` thresholds. Focal length ratios are relative to the
+// maximum image dimension and correspond to opening angles of ~130 and ~5
+// degrees; distortion parameters are bounded in absolute value.
+constexpr double kDefaultMinFocalLengthRatio = 0.1;
+constexpr double kDefaultMaxFocalLengthRatio = 10.0;
+constexpr double kDefaultMaxExtraParam = 1.0;
 
 // Camera class that holds the intrinsic parameters. Cameras may be shared
 // between multiple images, e.g., if the same "physical" camera took multiple
@@ -164,9 +147,29 @@ struct Camera {
   // Convert pixel threshold in image plane to camera frame.
   inline double CamFromImgThreshold(double threshold) const;
 
-  // Project point from camera frame to image plane.
+  // Project point from camera frame to image plane. Without cheirality check,
+  // points behind the camera are projected as well and only points on the
+  // camera plane fail.
   inline std::optional<Eigen::Vector2d> ImgFromCam(
-      const Eigen::Vector3d& cam_point) const;
+      const Eigen::Vector3d& cam_point, bool check_cheirality = true) const;
+
+  // Project point from camera frame to image plane, additionally computing the
+  // Jacobian d(x, y) / d(u, v, w). Pass nullptr to skip the Jacobian.
+  inline std::optional<Eigen::Vector2d> ImgFromCamWithJac(
+      const Eigen::Vector3d& cam_point,
+      Eigen::Matrix2x3d* J_uvw,
+      bool check_cheirality = true) const;
+
+  // Unproject a pixel to a unit bearing vector together with the Jacobian
+  // d(u, v, w) / d(x, y) of that bearing with respect to the pixel.
+  //
+  // The Jacobian maps image-space perturbations into the tangent plane of the
+  // unit sphere at the bearing, which is what allows an epipolar residual to be
+  // evaluated in pixel units for any central camera model. Returns std::nullopt
+  // if the pixel cannot be unprojected or the projection is rank deficient
+  // there.
+  inline std::optional<CamRayWithJac> CamRayFromImgWithJac(
+      const Eigen::Vector2d& image_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.
@@ -319,8 +322,34 @@ double Camera::CamFromImgThreshold(const double threshold) const {
 }
 
 std::optional<Eigen::Vector2d> Camera::ImgFromCam(
-    const Eigen::Vector3d& cam_point) const {
-  return CameraModelImgFromCam(model_id, params, cam_point);
+    const Eigen::Vector3d& cam_point, const bool check_cheirality) const {
+  return CameraModelImgFromCam(model_id, params, cam_point, check_cheirality);
+}
+
+std::optional<Eigen::Vector2d> Camera::ImgFromCamWithJac(
+    const Eigen::Vector3d& cam_point,
+    Eigen::Matrix2x3d* J_uvw,
+    const bool check_cheirality) const {
+  return CameraModelImgFromCamWithJac(
+      model_id, params, cam_point, J_uvw, check_cheirality);
+}
+
+std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
+    const Eigen::Vector2d& image_point) const {
+  const std::optional<Eigen::Vector3d> cam_ray = CamRayFromImg(image_point);
+  if (!cam_ray.has_value()) {
+    return std::nullopt;
+  }
+  Eigen::Matrix2x3d J_uvw;
+  if (!ImgFromCamWithJac(*cam_ray, &J_uvw).has_value()) {
+    return std::nullopt;
+  }
+  const std::optional<Eigen::Matrix3x2d> J_ray =
+      CamRayFromImgJac(*cam_ray, J_uvw);
+  if (!J_ray.has_value()) {
+    return std::nullopt;
+  }
+  return CamRayWithJac{*cam_ray, *J_ray};
 }
 
 bool Camera::operator==(const Camera& other) const {

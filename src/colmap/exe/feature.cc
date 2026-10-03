@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/exe/feature.h"
 
@@ -36,10 +9,13 @@
 #include "colmap/exe/gui.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cancellation.h"
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
+
+#include <chrono>
 
 namespace colmap {
 
@@ -90,16 +66,17 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
 int RunFeatureExtractor(int argc, char** argv) {
   std::filesystem::path image_list_path;
   int camera_mode = -1;
-  std::string descriptor_normalization = "l1_root";
+  std::string descriptor_normalization = "L1_ROOT";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddDefaultOption("descriptor_normalization",
-                           &descriptor_normalization,
-                           "{'l1_root', 'l2'}");
+  options.AddDefaultOption(
+      "descriptor_normalization",
+      &descriptor_normalization,
+      "{" + VectorToCSV(SiftExtractionOptions::NormalizationStrings()) + "}");
   options.AddFeatureExtractionOptions();
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -114,6 +91,8 @@ int RunFeatureExtractor(int argc, char** argv) {
                                            (CameraMode)camera_mode);
   }
 
+  // Accept lowercase values (e.g. from existing config files), as
+  // NormalizationFromString is case-sensitive.
   StringToUpper(&descriptor_normalization);
   options.feature_extraction->sift->normalization =
       SiftExtractionOptions::NormalizationFromString(descriptor_normalization);
@@ -417,35 +396,64 @@ void RunGuidedGeometricVerifierImpl(
     const std::filesystem::path& database_path,
     const ExistingMatchedPairingOptions& pairing_options,
     const TwoViewGeometryOptions& geometry_options,
-    int num_threads) {
+    int num_threads,
+    std::function<bool()> check_if_stopped) {
+  const auto should_stop = [&]() {
+    return ScopedSignalHandler::IsInterruptRequested() ||
+           (check_if_stopped && check_if_stopped());
+  };
+
   // Set all relative poses from a given reconstruction.
   auto database = Database::Open(database_path);
-  std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
-      database->ReadAllMatches();
-  database->ClearTwoViewGeometries();
-  for (const auto& [pair_id, matches] : all_matches) {
-    if (matches.size() <
-        static_cast<size_t>(geometry_options.min_num_inliers)) {
-      continue;
+  std::vector<std::pair<image_t, image_t>> verified_image_pairs;
+  {
+    const std::vector<std::pair<image_pair_t, int>> all_matches =
+        database->ReadNumMatches();
+    if (should_stop()) {
+      return;
     }
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (!reconstruction.ExistsImage(image_id1) ||
-        !reconstruction.ExistsImage(image_id2)) {
-      continue;
-    }
-    const Image& image1 = reconstruction.Image(image_id1);
-    const Image& image2 = reconstruction.Image(image_id2);
-    if (!image1.HasPose() || !image2.HasPose()) {
-      continue;
-    }
-    const Rigid3d cam1_from_world = image1.CamFromWorld();
-    const Rigid3d cam2_from_world = image2.CamFromWorld();
 
-    TwoViewGeometry two_view_geometry;
-    two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
-    two_view_geometry.cam2_from_cam1 =
-        cam2_from_world * Inverse(cam1_from_world);
-    database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    verified_image_pairs.reserve(all_matches.size());
+    for (const auto& [pair_id, num_matches] : all_matches) {
+      if (should_stop()) {
+        return;
+      }
+      if (num_matches < geometry_options.min_num_inliers) {
+        continue;
+      }
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (!reconstruction.ExistsImage(image_id1) ||
+          !reconstruction.ExistsImage(image_id2)) {
+        continue;
+      }
+      const Image& image1 = reconstruction.Image(image_id1);
+      const Image& image2 = reconstruction.Image(image_id2);
+      if (!image1.HasPose() || !image2.HasPose()) {
+        continue;
+      }
+      verified_image_pairs.emplace_back(image_id1, image_id2);
+    }
+  }
+
+  if (should_stop()) {
+    return;
+  }
+
+  {
+    DatabaseTransaction database_transaction(database.get());
+    database->ClearTwoViewGeometries();
+    for (const auto& [image_id1, image_id2] : verified_image_pairs) {
+      const Rigid3d cam1_from_world =
+          reconstruction.Image(image_id1).CamFromWorld();
+      const Rigid3d cam2_from_world =
+          reconstruction.Image(image_id2).CamFromWorld();
+
+      TwoViewGeometry two_view_geometry;
+      two_view_geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
+      two_view_geometry.cam2_from_cam1 =
+          cam2_from_world * Inverse(cam1_from_world);
+      database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+    }
   }
 
   GeometricVerifierOptions verifier_options;
@@ -457,6 +465,13 @@ void RunGuidedGeometricVerifierImpl(
   auto verifier = CreateGeometricVerifier(
       verifier_options, pairing_options, geometry_options, database_path);
   verifier->Start();
+  while (verifier->IsRunning()) {
+    if (should_stop()) {
+      verifier->Stop();
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
   verifier->Wait();
 }
 

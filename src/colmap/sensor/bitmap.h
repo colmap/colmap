@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -113,10 +86,10 @@ class Bitmap {
   void Fill(const BitmapColor<uint8_t>& color);
 
   // Interpolate color at given floating point position.
-  std::optional<BitmapColor<uint8_t>> InterpolateNearestNeighbor(
+  inline std::optional<BitmapColor<uint8_t>> InterpolateNearestNeighbor(
       double x, double y) const;
-  std::optional<BitmapColor<float>> InterpolateBilinear(double x,
-                                                        double y) const;
+  inline std::optional<BitmapColor<float>> InterpolateBilinear(double x,
+                                                               double y) const;
 
   // Extract EXIF information from bitmap. Returns std::nullopt if no EXIF
   // information is embedded in the bitmap.
@@ -158,6 +131,10 @@ class Bitmap {
   // Rotate image by k * 90 degrees counter-clockwise.
   void Rot90(int k);
 
+  // Crop image in place to the given rectangle, which must lie within the
+  // image bounds. Cropping to the full image is a no-op.
+  void Crop(int left, int top, int width, int height);
+
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
   Bitmap CloneAsGrey() const;
@@ -186,6 +163,10 @@ class Bitmap {
   };
 
  private:
+  // Replace the image dimensions and pixel data, updating the metadata
+  // accordingly. The channel count is preserved.
+  void SetImageData(int width, int height, std::vector<uint8_t>&& data);
+
   int width_;
   int height_;
   int channels_;
@@ -203,6 +184,7 @@ class JetColormap {
   static float Red(float gray);
   static float Green(float gray);
   static float Blue(float gray);
+  static BitmapColor<uint8_t> ToBitmapColor(float gray);
 
  private:
   static float Interpolate(float val, float y0, float x0, float y1, float x1);
@@ -324,6 +306,68 @@ bool Bitmap::SetPixel(const int x,
   }
 
   return false;
+}
+
+std::optional<BitmapColor<uint8_t>> Bitmap::InterpolateNearestNeighbor(
+    const double x, const double y) const {
+  const int xx = static_cast<int>(std::round(x));
+  const int yy = static_cast<int>(std::round(y));
+  return GetPixel(xx, yy);
+}
+
+std::optional<BitmapColor<float>> Bitmap::InterpolateBilinear(
+    const double x, const double y) const {
+  const int x0 = static_cast<int>(std::floor(x));
+  const int x1 = x0 + 1;
+  const int y0 = static_cast<int>(std::floor(y));
+  const int y1 = y0 + 1;
+
+  if (x0 < 0 || x1 >= width_ || y0 < 0 || y1 >= height_) {
+    return std::nullopt;
+  }
+
+  const double dx = x - x0;
+  const double dy = y - y0;
+  const double dx_1 = 1 - dx;
+  const double dy_1 = 1 - dy;
+
+  const int pitch = width_ * channels_;
+  const uint8_t* line0 = &data_[y0 * pitch];
+  const uint8_t* line1 = &data_[y1 * pitch];
+
+  if (IsGrey()) {
+    // Top row, column-wise linear interpolation.
+    const double v0 = dx_1 * line0[x0] + dx * line0[x1];
+
+    // Bottom row, column-wise linear interpolation.
+    const double v1 = dx_1 * line1[x0] + dx * line1[x1];
+
+    // Row-wise linear interpolation.
+    const float r = dy_1 * v0 + dy * v1;
+    return BitmapColor<float>(r, r, r);
+  } else if (IsRGB()) {
+    const uint8_t* p00 = &line0[3 * x0];
+    const uint8_t* p01 = &line0[3 * x1];
+    const uint8_t* p10 = &line1[3 * x0];
+    const uint8_t* p11 = &line1[3 * x1];
+
+    // Top row, column-wise linear interpolation.
+    const double v0_r = dx_1 * p00[0] + dx * p01[0];
+    const double v0_g = dx_1 * p00[1] + dx * p01[1];
+    const double v0_b = dx_1 * p00[2] + dx * p01[2];
+
+    // Bottom row, column-wise linear interpolation.
+    const double v1_r = dx_1 * p10[0] + dx * p11[0];
+    const double v1_g = dx_1 * p10[1] + dx * p11[1];
+    const double v1_b = dx_1 * p10[2] + dx * p11[2];
+
+    // Row-wise linear interpolation.
+    return BitmapColor<float>(dy_1 * v0_r + dy * v1_r,
+                              dy_1 * v0_g + dy * v1_g,
+                              dy_1 * v0_b + dy * v1_b);
+  }
+
+  return std::nullopt;
 }
 
 }  // namespace colmap

@@ -1,32 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#
-#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-#       its contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
+# SPDX-License-Identifier: BSD-3-Clause
 
 set(FOLDER_NAME "mvs")
 
@@ -250,7 +222,7 @@ if(CUDA_ENABLED)
                     foreach(_cap IN LISTS _GPU_COMPUTE_CAPS)
                         string(STRIP "${_cap}" _cap)
                         string(REGEX MATCH
-                               "^([0-9]+)\\.([0-9]+)" _match "${_cap}")
+                               "^([0-9]+)\.([0-9]+)" _match "${_cap}")
                         if(_match)
                             math(EXPR _sm
                                  "${CMAKE_MATCH_1} * 10 + ${CMAKE_MATCH_2}")
@@ -280,4 +252,41 @@ if(CUDA_ENABLED)
         SRCS gpu_mat_test.cu
         LINK_LIBS colmap_mvs_cuda
     )
+endif()
+
+# ROCm HIP support for MVS (patch_match_stereo on AMD GPUs).
+#
+# enable_language(HIP) and find_package(hip/hiprand/rocrand) are handled
+# centrally in cmake/FindDependencies.cmake. Here we just mark the three
+# .cu translation units as LANGUAGE HIP so CMake hands them to the HIP
+# toolchain (clang++ -x hip) instead of the CUDA one. The source itself
+# is unmodified; symbol remapping happens in src/colmap/util/cuda_to_hip.h.
+if(HIP_ENABLED)
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_mvs_cuda
+        SRCS
+            gpu_mat_prng.h gpu_mat_prng.cu
+            gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            patch_match.h patch_match.cc
+            patch_match_cuda.h patch_match_cuda.cu
+        PUBLIC_LINK_LIBS
+            colmap_mvs
+            colmap_util_cuda
+            hip::host
+            hip::hiprand
+            roc::rocrand
+    )
+    set_source_files_properties(
+        gpu_mat_prng.cu
+        gpu_mat_ref_image.cu
+        patch_match_cuda.cu
+        PROPERTIES LANGUAGE HIP
+    )
+
+    COLMAP_ADD_TEST(
+        NAME gpu_mat_test
+        SRCS gpu_mat_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
+    set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
 endif()

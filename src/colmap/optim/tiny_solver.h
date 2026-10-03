@@ -29,7 +29,7 @@
 // Author: mierle@gmail.com (Keir Mierle)
 //
 // This is a customized copy of ceres::TinySolver (ceres/tiny_solver.h) adapted
-// for COLMAP. It differs from upstream in three ways:
+// for COLMAP. It differs from upstream in four ways:
 //
 //   1. Manifold support. The solver takes an optional compile-time Manifold
 //      policy that decouples the ambient parameter size from the tangent step
@@ -39,13 +39,20 @@
 //      The default manifold is the identity (EuclideanManifold), which
 //      reproduces the original plain Levenberg-Marquardt behavior.
 //
-//   2. A few of the upstream robustness TODOs are addressed: cost-function
-//      evaluation failures and linear-solver failures are handled instead of
-//      ignored, and a COST_FUNCTION_FAILED status is reported.
+//   2. The upstream robustness TODOs are addressed: cost-function evaluation
+//      failures, linear-solver failures, and non-finite costs, gradients, and
+//      steps are handled instead of ignored (COST_FUNCTION_FAILED and
+//      NUMERICAL_FAILURE statuses), and the final cost is refreshed at the
+//      accepted point even when its re-evaluation fails.
 //
 //   3. It only supports statically sized parameter/tangent dimensions (the
 //      number of residuals may still be dynamic), which keeps it fixed-size and
 //      allocation-free.
+//
+//   4. The function-tolerance termination criterion is relative to the current
+//      cost, as documented, instead of upstream's absolute comparison, so it is
+//      meaningful across problem scales. This is consistent with Ceres'
+//      TrustRegionMinimizer/LineSearchMinimizer.
 //
 // Like upstream, this file has no dependencies beyond Eigen.
 //
@@ -170,11 +177,14 @@ class TinySolver {
     COST_TOO_SMALL,
     // num_iterations >= max_num_iterations
     HIT_MAX_ITERATIONS,
-    // (new_cost - old_cost) < function_tolerance * old_cost
+    // |new_cost - old_cost| <= function_tolerance * old_cost
     COST_CHANGE_TOO_SMALL,
     // The user cost function returned false (failed to evaluate) at the initial
     // point, so no meaningful step could be taken.
     COST_FUNCTION_FAILED,
+    // A non-finite cost, gradient, or step was encountered (including a
+    // non-finite initial point), so no meaningful progress can be made.
+    NUMERICAL_FAILURE,
   };
 
   struct Options {
@@ -186,7 +196,7 @@ class TinySolver {
     //  ||dx|| <= parameter_tolerance * (||x|| + parameter_tolerance)
     Scalar parameter_tolerance = 1e-8;
 
-    // (new_cost - old_cost) < function_tolerance * old_cost
+    // |new_cost - old_cost| <= function_tolerance * old_cost
     Scalar function_tolerance = 1e-6;
 
     // cost_threshold > ||f(x)||^2 / 2
@@ -225,10 +235,23 @@ class TinySolver {
     summary_ = Summary();
     summary_.iterations = 0;
 
+    // The solver maintains finite parameters, costs, and gradients as an
+    // invariant; bail out if the initial point already violates it.
+    if (!x.allFinite()) {
+      summary_.status = NUMERICAL_FAILURE;
+      return summary_;
+    }
+
     // Bail out cleanly if the cost function cannot be evaluated at the initial
     // point; there is nothing meaningful the solver can do in that case.
     if (!Update(function, x)) {
       summary_.status = COST_FUNCTION_FAILED;
+      return summary_;
+    }
+    // A cost function that reports success but returns non-finite values
+    // leaves nothing meaningful to step from.
+    if (!std::isfinite(cost_) || !g_.allFinite()) {
+      summary_.status = NUMERICAL_FAILURE;
       return summary_;
     }
     summary_.initial_cost = cost_;
@@ -247,9 +270,8 @@ class TinySolver {
     Scalar u = 1.0 / options.initial_trust_region_radius;
     Scalar v = 2;
 
-    for (summary_.iterations = 1;
-         summary_.iterations < options.max_num_iterations;
-         summary_.iterations++) {
+    while (summary_.iterations < options.max_num_iterations) {
+      ++summary_.iterations;
       jtj_regularized_ = jtj_;
       const Scalar min_diagonal = 1e-6;
       const Scalar max_diagonal = 1e32;
@@ -270,6 +292,13 @@ class TinySolver {
       lm_step_ = linear_solver_.solve(g_);
       dx_ = jacobi_scaling_.asDiagonal() * lm_step_;
 
+      // The linear solver reported success but produced garbage (e.g. a silent
+      // NaN from the factorization); no meaningful step can be taken.
+      if (!dx_.allFinite()) {
+        summary_.status = NUMERICAL_FAILURE;
+        break;
+      }
+
       // Adding parameter_tolerance to x.norm() ensures that this
       // works if x is near zero.
       const Scalar parameter_tolerance =
@@ -280,6 +309,15 @@ class TinySolver {
         break;
       }
       manifold_.Plus(x.data(), dx_.data(), x_new_.data());
+
+      // If the retraction itself produced a non-finite trial point, reject the
+      // step and shrink the trust region, as with a failed evaluation below. x
+      // stays finite, so a smaller step retries from a valid point.
+      if (!x_new_.allFinite()) {
+        u *= v;
+        v *= 2;
+        continue;
+      }
 
       // If the cost function fails to evaluate at the trial point, reject the
       // step and shrink the trust region rather than acting on garbage.
@@ -302,19 +340,32 @@ class TinySolver {
         // model fits well.
         x = x_new_;
 
-        if (std::abs(cost_change) < options.function_tolerance) {
-          cost_ = f_x_new_.squaredNorm() / 2;
+        // Terminate if the cost change is too small relative to the current
+        // cost, refreshing the cost from the already-evaluated trial
+        // residuals.
+        const Scalar trial_cost = f_x_new_.squaredNorm() / 2;
+        if (std::abs(trial_cost - cost_) <=
+            options.function_tolerance * cost_) {
+          cost_ = trial_cost;
           summary_.status = COST_CHANGE_TOO_SMALL;
           break;
         }
 
         // The cost function already evaluated successfully at x_new_ == x
         // above, so re-evaluating (now also for the Jacobian) is not expected
-        // to fail; guard against it regardless.
+        // to fail; guard against it regardless, reporting the cost of the
+        // accepted point, whose residuals are known and finite.
         if (!Update(function, x)) {
+          cost_ = f_x_new_.squaredNorm() / 2;
           summary_.status = COST_FUNCTION_FAILED;
           break;
         }
+        if (!std::isfinite(cost_) || !g_.allFinite()) {
+          cost_ = f_x_new_.squaredNorm() / 2;
+          summary_.status = NUMERICAL_FAILURE;
+          break;
+        }
+
         if (summary_.gradient_max_norm < options.gradient_tolerance) {
           summary_.status = GRADIENT_TOO_SMALL;
           break;
@@ -333,8 +384,11 @@ class TinySolver {
         // Reject the update because either the normal equations failed to solve
         // or the local linear model was not good (rho < 0).
 
-        // Additionally if the cost change is too small, then terminate.
-        if (std::abs(cost_change) < options.function_tolerance) {
+        // Additionally, if the cost change is too small relative to the
+        // current cost, then terminate.
+        const Scalar trial_cost = f_x_new_.squaredNorm() / 2;
+        if (std::abs(trial_cost - cost_) <=
+            options.function_tolerance * cost_) {
           // Terminate
           summary_.status = COST_CHANGE_TOO_SMALL;
           break;

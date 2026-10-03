@@ -1,31 +1,4 @@
-# Copyright (c), ETH Zurich and UNC Chapel Hill.
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-#     * Redistributions of source code must retain the above copyright
-#       notice, this list of conditions and the following disclaimer.
-#
-#     * Redistributions in binary form must reproduce the above copyright
-#       notice, this list of conditions and the following disclaimer in the
-#       documentation and/or other materials provided with the distribution.
-#
-#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-#       its contributors may be used to endorse or promote products derived
-#       from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
+# SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
 import collections
@@ -46,11 +19,13 @@ import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 
 import pycolmap
+from pycolmap import panorama
 
 from .covisibility import filter_covisibility  # noqa: F401
 from .geometry import normalize_vec, vec_angular_dist_deg  # noqa: F401
@@ -81,23 +56,21 @@ def _init_pool_worker() -> None:
 
 
 def _run_with_log(
-    cmd: list, log_path: Path, check: bool = True, **kwargs
+    cmd: list, log_path: Path, check: bool = True, **kwargs: Any
 ) -> int:
     """Run a subprocess, redirecting stdout+stderr to log_path (overwrite).
 
-    Always uses preexec_fn=_set_pdeathsig so children die with their parent.
-    Raises CalledProcessError on non-zero exit when check=True.
+    Uses preexec_fn=_set_pdeathsig on Linux so children die with their parent.
+    preexec_fn is unavailable on Windows, and PR_SET_PDEATHSIG is
+    Linux-specific. Raises CalledProcessError on non-zero exit when check=True.
     """
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "wb") as fh:
         runner = subprocess.check_call if check else subprocess.call
-        return runner(
-            cmd,
-            stdout=fh,
-            stderr=subprocess.STDOUT,
-            preexec_fn=_set_pdeathsig,
-            **kwargs,
-        )
+        popen_kwargs = dict(stdout=fh, stderr=subprocess.STDOUT, **kwargs)
+        if platform.system() != "Windows":
+            popen_kwargs["preexec_fn"] = _set_pdeathsig
+        return runner(cmd, **popen_kwargs)
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -119,7 +92,13 @@ class SceneInfo:
     # Whether the dataset has camera priors.
     has_camera_priors: bool
     # Additional arguments for the COLMAP reconstruction command.
-    colmap_extra_args: list[str]
+    colmap_extra_args: list[str | Path] | None
+    # Reconstruction backend. The default uses automatic_reconstructor.
+    reconstruction_backend: str = "automatic"
+    # Subdirectory below workspace_path containing models to evaluate.
+    reconstruction_subdir: str = "sparse"
+    covisibility_path: Path | None = None
+    covisibility_min_shared_points: int | None = None
     # Maps image name -> ground-truth component id. Images sharing an id
     # belong to the same GT reconstruction (this defines the GT edge set for
     # the relative metric and the component for the absolute metric). Empty
@@ -190,7 +169,7 @@ class Dataset(ABC):
         scenes: list[Path],
         run_path: Path,
         run_name: str,
-    ):
+    ) -> None:
         self.data_path = data_path
         self.categories = categories
         self.scenes = scenes
@@ -230,7 +209,7 @@ class _PhaseTracker:
     """Worker-side helper that publishes the current phase for a scene to a
     shared dict. No-op when status_dict is None."""
 
-    def __init__(self, status_dict=None, scene_key: str = "") -> None:
+    def __init__(self, status_dict: Any = None, scene_key: str = "") -> None:
         self._dict = status_dict
         self._key = scene_key
 
@@ -244,7 +223,7 @@ def _scene_key(scene_info: SceneInfo) -> str:
 
 
 def _run_progress_monitor(
-    status_dict, total: int, stop_event: threading.Event
+    status_dict: Any, total: int, stop_event: threading.Event
 ) -> None:
     """Render a live progress display of in-flight scenes until stop_event is
     set. Counts entries marked "done" toward overall completion; everything
@@ -329,6 +308,8 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "--datasets",
         nargs="+",
         default=["eth3d", "blended-mvs", "imc2023", "imc2024"],
+        help="Datasets to evaluate by name. Use eth3d-distorted for the "
+        "distorted DSLR JPEGs.",
     )
     parser.add_argument(
         "--categories",
@@ -465,7 +446,7 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--feature",
         default="sift",
-        choices=["sift", "aliked"],
+        choices=["sift", "aliked", "loma", "loma128"],
     )
     parser.add_argument(
         "--mapper",
@@ -482,6 +463,14 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         help="Whether to evaluate the setting of uncalibrated input cameras, "
         "even if normal setting for the dataset contains calibrated inputs. "
         "This is useful for evaluating the performance of self-calibration.",
+    )
+    parser.add_argument(
+        "--single_view_calibration",
+        default=False,
+        action="store_true",
+        help="Whether to run learned single-view calibration after "
+        "feature extraction, replacing EXIF-based intrinsics before matching "
+        "and mapping.",
     )
     parser.add_argument(
         "--filter_covisibility",
@@ -626,7 +615,7 @@ def colmap_reconstruction(
     image_path: Path,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
-    colmap_extra_args: list | None = None,
+    colmap_extra_args: list[str | Path] | None = None,
     num_threads: int = 1,
     gpu_index: str = "-1",
     phase_tracker: _PhaseTracker | None = None,
@@ -665,7 +654,9 @@ def colmap_reconstruction(
                 cleaner_type,
             ],
             cwd=workspace_path,
-            preexec_fn=_set_pdeathsig,
+            preexec_fn=(
+                _set_pdeathsig if platform.system() != "Windows" else None
+            ),
         )
 
     # TODO: Expose automatic reconstruction through pycolmap bindings instead
@@ -694,20 +685,27 @@ def colmap_reconstruction(
         args.quality,
     ]
 
+    # Learned calibration runs in the extraction step: the automatic
+    # reconstructor runs extraction and calibration sequentially in one
+    # process, so intrinsics are replaced before matching and mapping. It is
+    # intentionally not passed to the matching/sparse steps below, which would
+    # otherwise recalibrate every time they run.
+    extraction_args = [
+        "--extraction",
+        "1",
+        "--matching",
+        "0",
+        "--sparse",
+        "0",
+        "--dense",
+        "0",
+    ]
+    if args.single_view_calibration:
+        extraction_args += ["--single_view_calibration", "1"]
+
     phase_tracker.set("extraction")
     _run_with_log(
-        colmap_args
-        + (colmap_extra_args or [])
-        + [
-            "--extraction",
-            "1",
-            "--matching",
-            "0",
-            "--sparse",
-            "0",
-            "--dense",
-            "0",
-        ],
+        colmap_args + (colmap_extra_args or []) + extraction_args,
         workspace_path / "extraction.log",
         cwd=workspace_path,
     )
@@ -764,6 +762,80 @@ def colmap_reconstruction(
         workspace_path / "reconstruction.log",
         cwd=workspace_path,
     )
+
+
+def panorama_reconstruction(
+    args: argparse.Namespace,
+    scene_info: SceneInfo,
+    num_threads: int,
+    gpu_index: str,
+    phase_tracker: _PhaseTracker | None = None,
+) -> None:
+    """Run the reusable pycolmap panorama pipeline for a benchmark scene."""
+    phase_tracker = phase_tracker or _PhaseTracker()
+    workspace_path = scene_info.workspace_path
+    sparse_path = workspace_path / scene_info.reconstruction_subdir
+
+    if args.overwrite_reconstruction and workspace_path.exists():
+        shutil.rmtree(workspace_path)
+    if sparse_path.exists():
+        pycolmap.logging.info("Skipping reconstruction, as it already exists")
+        return
+    if args.feature != "sift":
+        raise ValueError("Panorama reconstruction currently supports SIFT only")
+    if args.mapper == "hierarchical":
+        raise ValueError(
+            "Panorama reconstruction does not support hierarchical mapping"
+        )
+    if args.uncalibrated:
+        raise ValueError(
+            "Equirectangular panorama reconstruction has fixed calibration"
+        )
+    if args.single_view_calibration:
+        raise ValueError(
+            "Panorama reconstruction does not support learned calibration"
+        )
+
+    render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
+    if render_type not in {"perspective_overlapping", "spherical"}:
+        raise ValueError(
+            f"Unknown panorama reconstruction backend: "
+            f"{scene_info.reconstruction_backend}"
+        )
+
+    covisibility_path = None
+    min_shared_points = args.covisibility_min_shared_points
+    if (
+        args.filter_covisibility
+        and scene_info.covisibility_path is not None
+        and scene_info.covisibility_path.exists()
+    ):
+        covisibility_path = scene_info.covisibility_path
+        min_shared_points = (
+            scene_info.covisibility_min_shared_points
+            if scene_info.covisibility_min_shared_points is not None
+            else args.covisibility_min_shared_points
+        )
+
+    workspace_path.mkdir(parents=True, exist_ok=True)
+    phase_tracker.set("reconstruction")
+    panorama.reconstruct(
+        scene_info.image_path,
+        workspace_path,
+        panorama.PanoramaReconstructionOptions(
+            matcher=panorama.Matcher.SEQUENTIAL,
+            mapper=panorama.Mapper(args.mapper),
+            render_type=panorama.PanoRenderType(render_type),
+            random_seed=args.random_seed,
+            num_threads=num_threads,
+            gpu_index=gpu_index,
+            use_gpu=args.use_gpu,
+            covisibility_path=covisibility_path,
+            covisibility_min_shared_points=min_shared_points,
+            show_progress=False,
+        ),
+    )
+    sparse_path.mkdir(parents=True, exist_ok=True)
 
 
 def colmap_alignment(
@@ -834,7 +906,7 @@ def process_scene(
     dataset: Dataset,
     num_threads: int,
     gpu_index: str = "-1",
-    progress_status=None,
+    progress_status: Any = None,
 ) -> SceneResult:
     pycolmap.logging.info(
         f"Processing dataset={scene_info.dataset}, "
@@ -851,26 +923,37 @@ def process_scene(
 
     sparse_gt = pycolmap.Reconstruction(str(scene_info.sparse_gt_path))
 
-    colmap_reconstruction(
-        args=args,
-        workspace_path=scene_info.workspace_path,
-        image_path=scene_info.image_path,
-        camera_priors_sparse_gt=(
-            sparse_gt
-            if not args.uncalibrated and scene_info.has_camera_priors
-            else None
-        ),
-        covisibility_sparse_gt=(
-            sparse_gt
-            if args.filter_covisibility
-            and dataset.supports_covisibility_filtering
-            else None
-        ),
-        num_threads=num_threads,
-        colmap_extra_args=scene_info.colmap_extra_args,
-        gpu_index=gpu_index,
-        phase_tracker=tracker,
-    )
+    if scene_info.reconstruction_backend == "automatic":
+        colmap_reconstruction(
+            args=args,
+            workspace_path=scene_info.workspace_path,
+            image_path=scene_info.image_path,
+            camera_priors_sparse_gt=(
+                sparse_gt
+                if not args.uncalibrated
+                and not args.single_view_calibration
+                and scene_info.has_camera_priors
+                else None
+            ),
+            covisibility_sparse_gt=(
+                sparse_gt
+                if args.filter_covisibility
+                and dataset.supports_covisibility_filtering
+                else None
+            ),
+            num_threads=num_threads,
+            colmap_extra_args=scene_info.colmap_extra_args,
+            gpu_index=gpu_index,
+            phase_tracker=tracker,
+        )
+    else:
+        panorama_reconstruction(
+            args=args,
+            scene_info=scene_info,
+            num_threads=num_threads,
+            gpu_index=gpu_index,
+            phase_tracker=tracker,
+        )
 
     tracker.set("evaluation")
 
@@ -883,7 +966,10 @@ def process_scene(
     sub_models: list[pycolmap.Reconstruction] = []
     num_components = 0
     largest_component = 0
-    for sparse_path in (scene_info.workspace_path / "sparse").iterdir():
+    reconstruction_path = (
+        scene_info.workspace_path / scene_info.reconstruction_subdir
+    )
+    for sparse_path in reconstruction_path.iterdir():
         if not sparse_path.is_dir():
             continue
         num_components += 1
@@ -964,7 +1050,7 @@ def _process_scene_with_gpu(
     args: argparse.Namespace,
     dataset: Dataset,
     num_threads: int,
-    progress_status=None,
+    progress_status: Any = None,
 ) -> SceneResult:
     scene_info, gpu_index = scene_info_and_gpu
     return process_scene(
@@ -1291,7 +1377,10 @@ def compute_grouped_rel_errors(
         gt_edges.update(itertools.permutations(group_names, 2))
 
     errors: list[float] = []
-    for edge in set(tgt_from_src_est_edges) | gt_edges:
+    # Score edges in sorted order: set iteration order depends on the
+    # per-process hash seed, so an unsorted union would permute the error
+    # array from run to run.
+    for edge in sorted(set(tgt_from_src_est_edges) | gt_edges):
         src_name, tgt_name = edge
         tgt_from_src_ests = tgt_from_src_est_edges.get(edge, [])
         if edge in gt_edges:
@@ -1490,7 +1579,7 @@ def compute_auc(
         recalls = np.r_[0, recalls]
         errors = np.r_[0, errors]
 
-    aucs = np.zeros(len(thresholds), dtype=np.float64)
+    aucs: npt.NDArray[np.float64] = np.zeros(len(thresholds), dtype=np.float64)
     for i, t in enumerate(thresholds):
         last_index = np.searchsorted(errors, t, side="right")
         r = np.r_[recalls[:last_index], recalls[last_index - 1]]
@@ -1510,7 +1599,9 @@ def compute_recall(
     if num_elems == 0:
         raise ValueError("No errors to evaluate")
 
-    recalls = np.zeros(len(thresholds), dtype=np.float64)
+    recalls: npt.NDArray[np.float64] = np.zeros(
+        len(thresholds), dtype=np.float64
+    )
     for i, t in enumerate(thresholds):
         recalls[i] = 100 * np.sum(errors <= t) / num_elems
 
@@ -1542,7 +1633,7 @@ def compute_avg_metrics(
 def diff_metrics(
     metrics_a: MetricsByDatasetByCatByScene,
     metrics_b: MetricsByDatasetByCatByScene,
-):
+) -> MetricsByDatasetByCatByScene:
     """Computes difference between two sets of metrics.
 
     Raises exception if the metrics are inconsistent.

@@ -1,35 +1,12 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/logging.h"
+
+#include <memory>
+#include <vector>
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -113,9 +90,77 @@ auto LastValueParameterPack(Args&&... args) {
   return std::get<sizeof...(Args) - 1>(std::forward_as_tuple(args...));
 }
 
-// A cost function wrapper that whitens residuals with a given covariance.
-// For example, to weight the reprojection error with an image measurement
-// covariance, one can wrap it as:
+// Whitens the residuals and jacobians of an inner cost function with a given
+// covariance. Whitening is linear, so applying it to the evaluated jacobians
+// is equivalent to, and cheaper than, propagating it through autodiff.
+template <class CostFunctor,
+          class ParameterDims = typename CostFunctor::kParameterDims>
+class CovarianceWeightedCostFunction;
+
+template <class CostFunctor, int... ParameterDims>
+class CovarianceWeightedCostFunction<
+    CostFunctor,
+    std::integer_sequence<int, ParameterDims...>>
+    : public ceres::SizedCostFunction<CostFunctor::kNumResiduals,
+                                      ParameterDims...> {
+ public:
+  static constexpr int kNumResiduals = CostFunctor::kNumResiduals;
+  using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
+
+  CovarianceWeightedCostFunction(const CovMat& cov, ceres::CostFunction* cost)
+      : left_sqrt_info_(cov.inverse().llt().matrixL().transpose()),
+        cost_(cost) {
+    // The wrapped cost function need not come from CostFunctor, so a shape
+    // mismatch would run the jacobian maps past the buffers Ceres allocates.
+    THROW_CHECK_EQ(cost_->num_residuals(), kNumResiduals);
+    const std::vector<int32_t> expected_parameter_block_sizes = {
+        ParameterDims...};
+    THROW_CHECK(cost_->parameter_block_sizes() ==
+                expected_parameter_block_sizes);
+  }
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    if (!cost_->Evaluate(parameters, residuals, jacobians)) {
+      return false;
+    }
+    Eigen::Map<Eigen::Matrix<double, kNumResiduals, 1>>(residuals)
+        .applyOnTheLeft(left_sqrt_info_);
+    if (jacobians != nullptr) {
+      WhitenJacobians(jacobians,
+                      std::make_index_sequence<sizeof...(ParameterDims)>{});
+    }
+    return true;
+  }
+
+ private:
+  template <size_t kIndex, int kDim>
+  void WhitenJacobian(double** jacobians) const {
+    if (jacobians[kIndex] == nullptr) {
+      return;
+    }
+    // Eigen requires single-column matrices to be column major.
+    constexpr int kOptions = kDim == 1 ? Eigen::ColMajor : Eigen::RowMajor;
+    Eigen::Map<Eigen::Matrix<double, kNumResiduals, kDim, kOptions>>(
+        jacobians[kIndex])
+        .applyOnTheLeft(left_sqrt_info_);
+  }
+
+  // Expands the index and dimension packs in parallel. Indexing a static
+  // constexpr array here instead is rejected by clang.
+  template <size_t... kIndices>
+  void WhitenJacobians(double** jacobians,
+                       std::index_sequence<kIndices...>) const {
+    (WhitenJacobian<kIndices, ParameterDims>(jacobians), ...);
+  }
+
+  const CovMat left_sqrt_info_;
+  const std::unique_ptr<ceres::CostFunction> cost_;
+};
+
+// Whitens the given cost functor with a covariance. For example, to weight
+// the reprojection error with an image measurement covariance:
 //
 //    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
 //    ceres::CostFunction* cost_function =
@@ -131,15 +176,120 @@ class CovarianceWeightedCostFunctor {
   using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
 
   template <typename... Args>
-  explicit CovarianceWeightedCostFunctor(const CovMat& cov, Args&&... args)
-      : left_sqrt_info_(LeftSqrtInformation(cov)),
+  static ceres::CostFunction* Create(const CovMat& cov, Args&&... args) {
+    return new CovarianceWeightedCostFunction<CostFunctor>(
+        cov,
+        CreateAutoDiffCostFunction(
+            new CostFunctor(std::forward<Args>(args)...)));
+  }
+};
+
+// Whitens the residuals and jacobians of an inner cost function with
+// per-residual standard deviations. The diagonal counterpart of
+// CovarianceWeightedCostFunction.
+template <class CostFunctor,
+          class ParameterDims = typename CostFunctor::kParameterDims>
+class ScaleWeightedCostFunction;
+
+template <class CostFunctor, int... ParameterDims>
+class ScaleWeightedCostFunction<CostFunctor,
+                                std::integer_sequence<int, ParameterDims...>>
+    : public ceres::SizedCostFunction<CostFunctor::kNumResiduals,
+                                      ParameterDims...> {
+ public:
+  static constexpr int kNumResiduals = CostFunctor::kNumResiduals;
+  using StddevVec = Eigen::Matrix<double, kNumResiduals, 1>;
+
+  ScaleWeightedCostFunction(const StddevVec& stddevs, ceres::CostFunction* cost)
+      : sqrt_info_(stddevs.cwiseInverse()), cost_(cost) {
+    // The wrapped cost function need not come from CostFunctor, so a shape
+    // mismatch would run the jacobian maps past the buffers Ceres allocates.
+    THROW_CHECK_EQ(cost_->num_residuals(), kNumResiduals);
+    const std::vector<int32_t> expected_parameter_block_sizes = {
+        ParameterDims...};
+    THROW_CHECK(cost_->parameter_block_sizes() ==
+                expected_parameter_block_sizes);
+  }
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    if (!cost_->Evaluate(parameters, residuals, jacobians)) {
+      return false;
+    }
+    Eigen::Map<Eigen::Matrix<double, kNumResiduals, 1>> residuals_vec(
+        residuals);
+    residuals_vec.array() *= sqrt_info_.array();
+    if (jacobians != nullptr) {
+      WhitenJacobians(jacobians,
+                      std::make_index_sequence<sizeof...(ParameterDims)>{});
+    }
+    return true;
+  }
+
+ private:
+  template <size_t kIndex, int kDim>
+  void WhitenJacobian(double** jacobians) const {
+    if (jacobians[kIndex] == nullptr) {
+      return;
+    }
+    // Eigen requires single-column matrices to be column major.
+    constexpr int kOptions = kDim == 1 ? Eigen::ColMajor : Eigen::RowMajor;
+    Eigen::Map<Eigen::Matrix<double, kNumResiduals, kDim, kOptions>> jacobian(
+        jacobians[kIndex]);
+    jacobian.array().colwise() *= sqrt_info_.array();
+  }
+
+  // Expands the index and dimension packs in parallel. Indexing a static
+  // constexpr array here instead is rejected by clang.
+  template <size_t... kIndices>
+  void WhitenJacobians(double** jacobians,
+                       std::index_sequence<kIndices...>) const {
+    (WhitenJacobian<kIndices, ParameterDims>(jacobians), ...);
+  }
+
+  // Inverse stddevs, so that evaluation multiplies rather than divides.
+  const StddevVec sqrt_info_;
+  const std::unique_ptr<ceres::CostFunction> cost_;
+};
+
+// Whitens the given cost functor with per-residual standard deviations,
+// broadcasting a single one over all residuals. Whitening a diagonal through
+// autodiff is as cheap as applying it to the evaluated jacobians, so this
+// wraps the functor rather than the cost function. For example, to weight the
+// reprojection error with isotropic image measurement noise:
+//
+//    using ReprojCostFunctor = ReprojErrorCostFunctor<PinholeCameraModel>;
+//    ceres::CostFunction* cost_function =
+//        ScaleWeightedCostFunctor<ReprojCostFunctor>::Create(stddev, point2D);
+template <class CostFunctor>
+class ScaleWeightedCostFunctor {
+ public:
+  static constexpr int kNumResiduals = CostFunctor::kNumResiduals;
+  using kParameterDims = typename CostFunctor::kParameterDims;
+
+  using StddevVec = Eigen::Matrix<double, kNumResiduals, 1>;
+
+  template <typename... Args>
+  explicit ScaleWeightedCostFunctor(const StddevVec& stddevs, Args&&... args)
+      : sqrt_info_(stddevs.cwiseInverse()),
         cost_(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  static ceres::CostFunction* Create(const CovMat& cov, Args&&... args) {
-    return CreateAutoDiffCostFunction(
-        new CovarianceWeightedCostFunctor<CostFunctor>(
-            cov, std::forward<Args>(args)...));
+  explicit ScaleWeightedCostFunctor(double stddev, Args&&... args)
+      : sqrt_info_(StddevVec::Constant(1.0 / stddev)),
+        cost_(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  static ceres::CostFunction* Create(const StddevVec& stddevs, Args&&... args) {
+    return CreateAutoDiffCostFunction(new ScaleWeightedCostFunctor<CostFunctor>(
+        stddevs, std::forward<Args>(args)...));
+  }
+
+  template <typename... Args>
+  static ceres::CostFunction* Create(double stddev, Args&&... args) {
+    return CreateAutoDiffCostFunction(new ScaleWeightedCostFunctor<CostFunctor>(
+        stddev, std::forward<Args>(args)...));
   }
 
   template <typename... Args>
@@ -151,17 +301,41 @@ class CovarianceWeightedCostFunctor {
     auto residuals_ptr = LastValueParameterPack(args...);
     using T = typename std::remove_reference<decltype(*residuals_ptr)>::type;
     Eigen::Map<Eigen::Matrix<T, kNumResiduals, 1>> residuals(residuals_ptr);
-    residuals.applyOnTheLeft(left_sqrt_info_.template cast<T>());
+    residuals.array() *= sqrt_info_.array();
     return true;
   }
 
  private:
-  CovMat LeftSqrtInformation(const CovMat& cov) {
-    return cov.inverse().llt().matrixL().transpose();
-  }
-
-  const CovMat left_sqrt_info_;
+  // Inverse stddevs, so that evaluation multiplies rather than divides.
+  const StddevVec sqrt_info_;
   const CostFunctor cost_;
 };
+
+// Wrap an already built cost function, taking ownership of it. Named rather
+// than overloaded on the weight, because for a single residual a 1x1 weight
+// would be ambiguous between a variance and a standard deviation.
+template <class CostFunctor>
+ceres::CostFunction* CreateCovarianceWeightedCostFunction(
+    const Eigen::Matrix<double,
+                        CostFunctor::kNumResiduals,
+                        CostFunctor::kNumResiduals>& covariance,
+    ceres::CostFunction* cost) {
+  return new CovarianceWeightedCostFunction<CostFunctor>(covariance, cost);
+}
+
+template <class CostFunctor>
+ceres::CostFunction* CreateScaleWeightedCostFunction(
+    const Eigen::Matrix<double, CostFunctor::kNumResiduals, 1>& stddevs,
+    ceres::CostFunction* cost) {
+  return new ScaleWeightedCostFunction<CostFunctor>(stddevs, cost);
+}
+
+template <class CostFunctor>
+ceres::CostFunction* CreateScaleWeightedCostFunction(
+    double stddev, ceres::CostFunction* cost) {
+  return CreateScaleWeightedCostFunction<CostFunctor>(
+      Eigen::Matrix<double, CostFunctor::kNumResiduals, 1>::Constant(stddev),
+      cost);
+}
 
 }  // namespace colmap

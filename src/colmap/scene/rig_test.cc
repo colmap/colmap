@@ -1,40 +1,15 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/scene/rig.h"
 
+#include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>
+#include <locale>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -48,6 +23,13 @@ std::filesystem::path WriteTestConfig(const std::string& config) {
   file << config << '\n';
   return file_path;
 }
+
+// Custom numpunct facet that uses comma as decimal separator, for testing
+// locale independence without requiring a specific system locale.
+struct CommaDecimalFacet : std::numpunct<char> {
+ protected:
+  char do_decimal_point() const override { return ','; }
+};
 
 TEST(ReadRigConfig, Empty) {
   EXPECT_THAT(ReadRigConfig(WriteTestConfig("[]")), testing::IsEmpty());
@@ -167,6 +149,48 @@ TEST(ReadRigConfig, Nominal) {
   EXPECT_FALSE(configs[1].cameras[1].ref_sensor);
   ASSERT_FALSE(configs[1].cameras[1].cam_from_rig.has_value());
   ASSERT_FALSE(configs[1].cameras[1].camera.has_value());
+}
+
+TEST(ReadRigConfig, LocaleIndependence) {
+  // Install a global locale that uses comma as decimal separator.
+  const std::locale original_locale = std::locale::global(
+      std::locale(std::locale::classic(), new CommaDecimalFacet));
+
+  const std::vector<RigConfig> configs = ReadRigConfig(WriteTestConfig(R"(
+[
+  {
+    "cameras": [
+      {
+          "image_prefix": "rig1/camera1/",
+          "ref_sensor": true,
+          "camera_model_name": "OPENCV",
+          "camera_params": [640.5, 480.25, 320.125, 240.0625, 0.1, 0.2, 0.3, 0.4]
+      },
+      {
+          "image_prefix": "rig1/camera2/",
+          "cam_from_rig_rotation": [0.5, 0.5, 0.5, 0.5],
+          "cam_from_rig_translation": [1.5, 2.25, 3.125]
+      }
+    ]
+  }
+]
+)"));
+  ASSERT_EQ(configs.size(), 1);
+  ASSERT_EQ(configs[0].cameras.size(), 2);
+
+  ASSERT_TRUE(configs[0].cameras[0].camera.has_value());
+  EXPECT_THAT(configs[0].cameras[0].camera->params,
+              testing::ElementsAre(
+                  640.5, 480.25, 320.125, 240.0625, 0.1, 0.2, 0.3, 0.4));
+
+  ASSERT_TRUE(configs[0].cameras[1].cam_from_rig.has_value());
+  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->rotation().coeffs(),
+            Eigen::Vector4d(0.5, 0.5, 0.5, 0.5));
+  EXPECT_EQ(configs[0].cameras[1].cam_from_rig->translation(),
+            Eigen::Vector3d(1.5, 2.25, 3.125));
+
+  // Restore original locale.
+  std::locale::global(original_locale);
 }
 
 void CreateTestData(int num_frames,
@@ -389,6 +413,50 @@ TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
     num_non_trivial_frames += rig.NumDataIds() > 1;
   }
   EXPECT_EQ(num_non_trivial_frames, 5);
+}
+
+TEST(ApplyRigConfig, PrefersRefSensorForFramePoses) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 2;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 5;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  // Record reference-sensor image poses before conversion. The two images
+  // grouped into each new frame have independent (inconsistent) poses, since
+  // they come from different trivial rigs.
+  NodeHashMap<std::string, Rigid3d> ref_name_to_cam_from_world;
+  for (const auto& [_, image] : reconstruction.Images()) {
+    if (image.CameraId() == 1) {
+      ref_name_to_cam_from_world.emplace(image.Name(), image.CamFromWorld());
+    }
+  }
+  EXPECT_EQ(ref_name_to_cam_from_world.size(), 5);
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera000001_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera000002_";
+
+  ApplyRigConfig(configs, *database, &reconstruction);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 5);
+
+  // Converted frame poses must match the reference-sensor images, not an
+  // arbitrary (e.g. last-visited) image in the frame.
+  for (const auto& [_, image] : reconstruction.Images()) {
+    if (image.CameraId() != 1) {
+      continue;
+    }
+    const Rigid3d& expected = ref_name_to_cam_from_world.at(image.Name());
+    EXPECT_THAT(image.CamFromWorld(),
+                Rigid3dNear(expected, /*rtol=*/1e-6, /*ttol=*/1e-6));
+  }
 }
 
 }  // namespace

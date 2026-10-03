@@ -9,8 +9,8 @@ https://demuc.de/colmap/.
 
 An overview of system packages for Linux/Unix/BSD distributions are available at
 https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
-in the default repositories for Linux/Unix/BSD do not come with CUDA support,
-which requires a manual build from source, as explained further below.
+in the default repositories for Linux/Unix/BSD do not come with CUDA or HIP/ROCm
+support, which requires a manual build from source, as explained further below.
 
 For Mac users, `Homebrew <https://brew.sh>`__ provides a formula for COLMAP with
 pre-compiled binaries or the option to build from source. After installing
@@ -119,6 +119,37 @@ configuration, specify ``-DCMAKE_CUDA_ARCHITECTURES=native``, if you want to run
 COLMAP only on your current machine (default), "all"/"all-major" to be able to
 distribute to other machines, or a specific CUDA architecture like "75", etc.
 
+To compile with **HIP / ROCm support** instead of CUDA (for AMD GPUs), install
+ROCm following the `AMD ROCm installation guide
+<https://rocm.docs.amd.com/projects/install-on-linux/en/latest/>`__ and ensure
+the ``hip``, ``hiprand``, and ``rocrand`` packages are present (default
+location ``/opt/rocm``). Then pass the following flags at configure time::
+
+    cmake .. -GNinja \
+        -DCUDA_ENABLED=OFF \
+        -DHIP_ENABLED=ON \
+        -DCMAKE_HIP_ARCHITECTURES=gfx90a \
+        -DCMAKE_HIP_COMPILER=/opt/rocm/llvm/bin/clang++
+
+Set ``CMAKE_HIP_ARCHITECTURES`` to match the target AMD GPU
+(``gfx90a`` for MI200/MI250, ``gfx942`` for MI300, ``gfx1030`` for RDNA2,
+``gfx1100`` for RDNA3, etc.; multiple values can be passed as a
+semicolon-separated list). ``CUDA_ENABLED`` and ``HIP_ENABLED`` are mutually
+exclusive. CMake 3.21 or newer is required for the HIP backend. On RDNA3
+consumer parts where ROCm only officially supports a subset of architectures,
+you may also need ``HSA_OVERRIDE_GFX_VERSION=11.0.0`` in the runtime
+environment. The HIP backend currently accelerates dense reconstruction
+(``patch_match_stereo``); see the changelog for ongoing coverage.
+
+If ROCm is installed through a Python wheel / virtualenv (for example AMD's
+TheRock packaging, which puts a ``rocm-sdk`` command on the ``PATH``), the
+install root and target architectures are detected automatically from
+``rocm-sdk path --root`` and ``rocm-sdk targets``, so ``ROCM_PATH`` and
+``CMAKE_HIP_ARCHITECTURES`` need not be set by hand. An explicit
+``-DROCM_PATH`` or a ``ROCM_PATH`` environment variable still takes
+precedence, and CMake's own architecture autodetection sets
+``CMAKE_HIP_ARCHITECTURES`` when a target GPU is visible at configure time.
+
 Configure and compile COLMAP::
 
     git clone https://github.com/colmap/colmap.git
@@ -131,16 +162,21 @@ Configure and compile COLMAP::
 
 .. note::
 
-    COLMAP can use ``boost::unordered`` flat/node hash maps for the
-    performance-critical scene and SfM containers, selected via
-    ``-DCOLMAP_HASH_MAP_BACKEND=BOOST|STD`` (default: auto). Auto selects
-    ``BOOST`` when Boost is recent enough (``boost::unordered_node_map`` requires
-    **Boost >= 1.84**) and falls back to ``STD`` (``std::unordered_map``)
-    otherwise. Ubuntu's default Boost is older than 1.84, so apt-based builds use
-    ``STD``; to use the faster ``BOOST`` backend, build against a newer Boost
-    (e.g. via vcpkg, which installs ``boost-unordered`` automatically) or install
-    Boost >= 1.84 manually. Explicitly requesting ``-DCOLMAP_HASH_MAP_BACKEND=BOOST``
-    with an older Boost is a configuration error.
+    COLMAP uses ``boost::unordered`` flat/node hash maps for the
+    performance-critical scene and SfM containers. These are data members of
+    classes in public headers, so their layout is part of COLMAP's ABI, and a
+    mismatch between two COLMAP builds loaded into one process produces no link
+    error, only memory corruption. There is therefore no build option to swap
+    them for ``std::unordered_*``.
+
+    ``boost::unordered_node_map`` requires **Boost >= 1.84**, which is newer than
+    the apt Boost on Ubuntu 24.04 (1.83) and earlier. Where the available Boost
+    is new enough it is used as it is and nothing is downloaded. Only where it
+    is too old does the build download a pinned Boost release (about 100 MB) and
+    build the libraries COLMAP uses from source, installing them alongside
+    COLMAP. Only Boost is taken from that copy, so its headers and compiled
+    libraries always match. Pass ``-DFETCH_BOOST=OFF`` to require a new enough
+    system Boost instead and fail at configure time if there is none.
 
 Run COLMAP::
 

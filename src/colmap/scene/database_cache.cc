@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/scene/database_cache.h"
 
@@ -34,12 +7,21 @@
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
 
+#include <algorithm>
+
 namespace colmap {
 namespace {
 
 bool UseInlierMatchesCheck(const DatabaseCache::Options& options,
                            int two_view_geometry_config,
                            size_t num_matches) {
+  // Missing or rejected geometries never contribute, regardless of any
+  // stored inlier matches. Verification clears such pairs, and this also
+  // repairs databases written before that clearing existed.
+  if (two_view_geometry_config == TwoViewGeometry::UNDEFINED ||
+      two_view_geometry_config == TwoViewGeometry::DEGENERATE) {
+    return false;
+  }
   return num_matches >= options.min_num_matches &&
          (!options.ignore_watermarks ||
           two_view_geometry_config != TwoViewGeometry::WATERMARK);
@@ -136,6 +118,20 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
 
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> two_view_geometries =
       database.ReadTwoViewGeometries();
+
+  // Undefined rows are only written by outdated producers; current
+  // verification never stores them. They are skipped below, warn loudly.
+  const size_t num_undefined_two_view_geometries = std::count_if(
+      two_view_geometries.begin(),
+      two_view_geometries.end(),
+      [](const auto& pair_id_and_geometry) {
+        return pair_id_and_geometry.second.config == TwoViewGeometry::UNDEFINED;
+      });
+  LOG_IF(WARNING, num_undefined_two_view_geometries > 0)
+      << num_undefined_two_view_geometries
+      << " two-view geometries with UNDEFINED configuration (written by an "
+         "outdated producer); they are skipped, clear and re-run "
+         "verification to remove them.";
 
   LOG(INFO) << StringPrintf(
       " %d in %.3fs", two_view_geometries.size(), timer.ElapsedSeconds());
@@ -412,11 +408,15 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (cache->images_.count(image_id1) > 0 &&
         cache->images_.count(image_id2) > 0) {
+      TwoViewGeometry two_view_geometry = source_graph->ExtractTwoViewGeometry(
+          image_id1, image_id2, /*extract_inlier_matches=*/true);
+      if (!UseInlierMatchesCheck(options,
+                                 two_view_geometry.config,
+                                 two_view_geometry.inlier_matches.size())) {
+        continue;
+      }
       cache->correspondence_graph_->AddTwoViewGeometry(
-          image_id1,
-          image_id2,
-          source_graph->ExtractTwoViewGeometry(
-              image_id1, image_id2, /*extract_inlier_matches=*/true));
+          image_id1, image_id2, std::move(two_view_geometry));
     }
   }
 
@@ -425,24 +425,33 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   return cache;
 }
 
+// The Add* members below take their argument by value and move it into the
+// container. clang-tidy does not recognize the move through the variadic
+// emplace of boost::unordered and reports the parameter as an unnecessary
+// copy, so performance-unnecessary-value-param is suppressed for each of them.
+
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddRig(class Rig rig) {
   const rig_t rig_id = rig.RigId();
   THROW_CHECK(!ExistsRig(rig_id));
   rigs_.emplace(rig_id, std::move(rig));
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddCamera(struct Camera camera) {
   const camera_t camera_id = camera.camera_id;
   THROW_CHECK(!ExistsCamera(camera_id));
   cameras_.emplace(camera_id, std::move(camera));
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddFrame(class Frame frame) {
   const rig_t frame_id = frame.FrameId();
   THROW_CHECK(!ExistsFrame(frame_id));
   frames_.emplace(frame_id, std::move(frame));
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 void DatabaseCache::AddImage(class Image image) {
   const image_t image_id = image.ImageId();
   THROW_CHECK(!ExistsImage(image_id));

@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
@@ -35,6 +8,7 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/single_view_calibration.h"
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #if defined(COLMAP_MVS_ENABLED)
@@ -91,6 +65,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
         FeatureExtractorType::ALIKED_N16ROT;
     option_manager_.feature_matching->type =
         FeatureMatcherType::ALIKED_BRUTEFORCE;
+  } else if (options_.feature == Feature::LOMA) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B;
+    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B;
+  } else if (options_.feature == Feature::LOMA128) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
+    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B128;
   }
 
   // Apply quality preset (scales max_image_size relative to extractor default).
@@ -105,8 +85,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   }
 
   // Feature-specific overrides that must come after quality.
-  if (options_.feature == Feature::ALIKED) {
-    // Guided matching is not supported for ALIKED.
+  if (options_.feature == Feature::ALIKED ||
+      options_.feature == Feature::LOMA ||
+      options_.feature == Feature::LOMA128) {
+    // Guided matching is not supported for ALIKED/LoMa
     option_manager_.feature_matching->guided_matching = false;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
@@ -195,6 +177,29 @@ void AutomaticReconstructionController::Setup() {
                                          *option_manager_.feature_extraction);
   }
 
+  if (options_.single_view_calibration) {
+    if (!options_.camera_params.empty()) {
+      // Explicit intrinsics are written to the database by the image reader
+      // and must not be overwritten by the calibration.
+      LOG(WARNING) << "Skipping single-view calibration, because explicit "
+                      "camera parameters were provided";
+    } else {
+      SingleViewCalibrationOptions& calibration_options =
+          *option_manager_.single_view_calibration;
+      calibration_options.camera_model = options_.camera_model;
+      calibration_options.num_threads = options_.num_threads;
+      calibration_options.use_gpu = options_.use_gpu;
+      const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+      THROW_CHECK(!gpu_indices.empty());
+      calibration_options.gpu_index = std::to_string(gpu_indices.front());
+      single_view_calibrator_ =
+          CreateSingleViewCalibrationController(*option_manager_.database_path,
+                                                *option_manager_.image_path,
+                                                calibration_options,
+                                                options_.image_names);
+    }
+  }
+
   if (options_.matching) {
     exhaustive_matcher_ =
         CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_pairing,
@@ -238,6 +243,14 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
+  if (single_view_calibrator_ != nullptr) {
+    RunSingleViewCalibration();
+  }
+
+  if (IsStopped()) {
+    return;
+  }
+
   if (options_.matching) {
     RunFeatureMatching();
   }
@@ -267,6 +280,17 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
   feature_extractor_->Start();
   feature_extractor_->Wait();
   feature_extractor_.reset();
+  active_thread_ = nullptr;
+}
+
+void AutomaticReconstructionController::RunSingleViewCalibration() {
+  LOG_HEADING1("Single-view calibration");
+
+  THROW_CHECK_NOTNULL(single_view_calibrator_);
+  active_thread_ = single_view_calibrator_.get();
+  single_view_calibrator_->Start();
+  single_view_calibrator_->Wait();
+  single_view_calibrator_.reset();
   active_thread_ = nullptr;
 }
 

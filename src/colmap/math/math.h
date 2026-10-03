@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #pragma once
 
@@ -50,10 +23,6 @@ constexpr double kChiSquare95ThreeDof = 7.814727903251179;
 // Undefined behavior if the value is NaN.
 template <typename T>
 int SignOfNumber(T val);
-
-// Clamp the given value to a low and maximum value.
-template <typename T>
-inline T Clamp(const T& value, const T& low, const T& high);
 
 // Convert angle in degree to radians.
 inline float DegToRad(float deg);
@@ -180,11 +149,6 @@ int SignOfNumber(const T val) {
   return val >= 0 ? 1 : -1;
 }
 
-template <typename T>
-T Clamp(const T& value, const T& low, const T& high) {
-  return std::max(low, std::min(value, high));
-}
-
 float DegToRad(const float deg) {
   return deg * 0.0174532925199432954743716805978692718781530857086181640625f;
 }
@@ -299,9 +263,10 @@ T ScaleSigmoid(T x, const T alpha, const T x0) {
 
 template <typename T1, typename T2>
 T2 TruncateCast(const T1 value) {
-  return static_cast<T2>(std::min(
-      static_cast<T1>(std::numeric_limits<T2>::max()),
-      std::max(static_cast<T1>(std::numeric_limits<T2>::min()), value)));
+  return static_cast<T2>(
+      std::clamp(value,
+                 static_cast<T1>(std::numeric_limits<T2>::min()),
+                 static_cast<T1>(std::numeric_limits<T2>::max())));
 }
 
 }  // namespace colmap

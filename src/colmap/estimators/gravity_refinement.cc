@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "gravity_refinement.h"
 
 #include "colmap/estimators/cost_functions/manifold.h"
@@ -160,11 +162,11 @@ void GravityRefiner::RefineGravity(const PoseGraph& pose_graph,
     ceres::Solver::Summary summary_solver;
     ceres::Solve(solver_options, &problem, &summary_solver);
 
-    // Check the error with respect to the neighbors
+    // Check the error of the refined gravity with respect to the neighbors
     int counter_outlier = 0;
-    for (const Eigen::Vector3d& gravity : gravities) {
+    for (const Eigen::Vector3d& neighbor_gravity : gravities) {
       const double error = RadToDeg(
-          std::acos(std::max(std::min(gravity.dot(gravity), 1.), -1.)));
+          std::acos(std::clamp(neighbor_gravity.dot(gravity), -1., 1.)));
       if (error > options_.max_gravity_error * 2) {
         counter_outlier++;
       }

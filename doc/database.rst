@@ -78,6 +78,10 @@ table. The data type and dimensionality depend on the feature extractor:
 
 - **SIFT**: ``uint8`` descriptors with 128 dimensions (128 bytes per feature).
 - **ALIKED**: ``float32`` descriptors with 128 dimensions (512 bytes per feature).
+- **LOMA_B**: ``float32`` descriptors with 256 dimensions (1024 bytes per
+  feature).
+- **LOMA_B128**: ``float32`` descriptors with 128 dimensions (512 bytes per
+  feature).
 
 The ``cols`` column in the descriptors table specifies the number of bytes per
 descriptor row. For ``uint8`` descriptors, this equals the descriptor dimension.

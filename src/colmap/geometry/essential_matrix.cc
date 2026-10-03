@@ -1,31 +1,4 @@
-// Copyright (c), ETH Zurich and UNC Chapel Hill.
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-//     * Redistributions of source code must retain the above copyright
-//       notice, this list of conditions and the following disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above copyright
-//       notice, this list of conditions and the following disclaimer in the
-//       documentation and/or other materials provided with the distribution.
-//
-//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
-//       its contributors may be used to endorse or promote products derived
-//       from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/geometry/essential_matrix.h"
 
@@ -206,31 +179,82 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
   }
 }
 
-void ComputeSquaredSampsonErrorWithCheirality(
-    const std::vector<Eigen::Vector3d>& rays1,
-    const std::vector<Eigen::Vector3d>& rays2,
+double ComputeSquaredTangentSampsonError(const Eigen::Vector3d& cam_ray1,
+                                         const Eigen::Matrix3x2d& J1,
+                                         const Eigen::Vector3d& cam_ray2,
+                                         const Eigen::Matrix3x2d& J2,
+                                         const Eigen::Matrix3d& E) {
+  const Eigen::Vector3d Eray1 = E * cam_ray1;
+  const Eigen::Vector3d Etray2 = E.transpose() * cam_ray2;
+  const double num = cam_ray2.dot(Eray1);
+  // Chain the constraint gradients from ray space into pixel space. The
+  // gradient w.r.t. ray1 is E^T ray2 and w.r.t. ray2 is E ray1.
+  const double denom_sq_norm = SquaredPixelGradientNorm(J1, Etray2) +
+                               SquaredPixelGradientNorm(J2, Eray1);
+  if (denom_sq_norm == 0) {
+    return std::numeric_limits<double>::max();
+  }
+  return num * num / denom_sq_norm;
+}
+
+double ComputeSquaredTangentSampsonError(const CamRayWithJac& cam_ray1_with_jac,
+                                         const CamRayWithJac& cam_ray2_with_jac,
+                                         const Eigen::Matrix3d& E) {
+  return ComputeSquaredTangentSampsonError(cam_ray1_with_jac.ray,
+                                           cam_ray1_with_jac.jacobian,
+                                           cam_ray2_with_jac.ray,
+                                           cam_ray2_with_jac.jacobian,
+                                           E);
+}
+
+void ComputeSquaredTangentSampsonError(
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
     const Eigen::Matrix3d& E,
     std::vector<double>* residuals) {
-  const size_t num_rays1 = rays1.size();
-  THROW_CHECK_EQ(num_rays1, rays2.size());
-  residuals->resize(num_rays1);
+  const size_t num_rays = cam_rays1_with_jac.size();
+  THROW_CHECK_EQ(num_rays, cam_rays2_with_jac.size());
+  residuals->resize(num_rays);
+  for (size_t i = 0; i < num_rays; ++i) {
+    (*residuals)[i] = ComputeSquaredTangentSampsonError(
+        cam_rays1_with_jac[i], cam_rays2_with_jac[i], E);
+  }
+}
+
+void ComputeSquaredTangentSampsonErrorWithCheirality(
+    const std::vector<CamRayWithJac>& cam_rays1_with_jac,
+    const std::vector<CamRayWithJac>& cam_rays2_with_jac,
+    const Eigen::Matrix3d& E,
+    std::vector<double>* residuals) {
+  const size_t num_rays = cam_rays1_with_jac.size();
+  THROW_CHECK_EQ(num_rays, cam_rays2_with_jac.size());
+  residuals->resize(num_rays);
 
   // Recover the relative pose from E (resolving the four-fold decomposition
   // ambiguity by cheirality voting) and flag which correspondences triangulate
-  // in front of both cameras.
+  // in front of both cameras. Only the bearings are materialized, since that is
+  // all PoseFromEssentialMatrix needs; the Jacobians are read in place below.
+  std::vector<Eigen::Vector3d> rays1(num_rays);
+  std::vector<Eigen::Vector3d> rays2(num_rays);
+  for (size_t i = 0; i < num_rays; ++i) {
+    rays1[i] = cam_rays1_with_jac[i].ray;
+    rays2[i] = cam_rays2_with_jac[i].ray;
+  }
+
   Rigid3d cam2_from_cam1;
   std::vector<int> valid_indices;
   PoseFromEssentialMatrix(E, rays1, rays2, &cam2_from_cam1, &valid_indices);
-  std::vector<bool> is_cheiral(num_rays1, false);
+  std::vector<bool> is_cheiral(num_rays, false);
   for (const int idx : valid_indices) {
     is_cheiral[idx] = true;
   }
 
   // Correspondences behind either camera are not valid inliers for the relative
-  // pose regardless of their Sampson error, so they get an infinite residual.
-  for (size_t i = 0; i < num_rays1; ++i) {
+  // pose regardless of their residual, so they get an infinite residual.
+  for (size_t i = 0; i < num_rays; ++i) {
     (*residuals)[i] = is_cheiral[i]
-                          ? ComputeSquaredSampsonError(rays1[i], rays2[i], E)
+                          ? ComputeSquaredTangentSampsonError(
+                                cam_rays1_with_jac[i], cam_rays2_with_jac[i], E)
                           : std::numeric_limits<double>::max();
   }
 }

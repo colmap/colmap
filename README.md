@@ -28,6 +28,8 @@ Download
   can be installed with `conda install colmap`
 * **Python bindings** are available at https://pypi.org/project/pycolmap.
   CUDA-enabled wheels are available at https://pypi.org/project/pycolmap-cuda12.
+  AMD GPUs are supported via HIP/ROCm when building from source (see
+  install docs).
 * To **build from source**, please see https://colmap.github.io/install.html.
 
 Getting Started
@@ -125,7 +127,8 @@ refers only to the license for COLMAP itself, independent of its thirdparty
 dependencies, which are separately licensed. Building COLMAP with these
 dependencies may affect the resulting COLMAP license.
 
-    Copyright (c), ETH Zurich and UNC Chapel Hill.
+    Copyright (c) 2016, ETH Zurich and UNC Chapel Hill.
+    Copyright (c) 2016-2026, The COLMAP Contributors.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without

@@ -1,6 +1,9 @@
 pillow
 numpy
+opencv-python-headless
 requests
 pycolmap
 py7zr
 rich
+scipy
+tqdm
