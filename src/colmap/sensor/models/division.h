@@ -67,20 +67,21 @@ struct SimpleDivisionCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    const double f = params[0];
-    const double c1 = params[1];
-    const double c2 = params[2];
-    const double k = params[3];
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T f = params[0];
+    const T c1 = params[1];
+    const T c2 = params[2];
+    const T k = params[3];
 
     // Lift to normalized coordinates
-    const double x0 = (x - c1) / f;
-    const double y0 = (y - c2) / f;
-    const double r2 = x0 * x0 + y0 * y0;
+    const T x0 = (x - c1) / f;
+    const T y0 = (y - c2) / f;
+    const T r2 = x0 * x0 + y0 * y0;
 
     // Closed-form unprojection for division model
-    const double denom = 1.0 + k * r2;
+    const T denom = T(1) + k * r2;
     *u = x0 / denom;
     *v = y0 / denom;
 
@@ -157,21 +158,22 @@ struct DivisionCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    const double f1 = params[0];
-    const double f2 = params[1];
-    const double c1 = params[2];
-    const double c2 = params[3];
-    const double k = params[4];
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T f1 = params[0];
+    const T f2 = params[1];
+    const T c1 = params[2];
+    const T c2 = params[3];
+    const T k = params[4];
 
     // Lift to normalized coordinates
-    const double x0 = (x - c1) / f1;
-    const double y0 = (y - c2) / f2;
-    const double r2 = x0 * x0 + y0 * y0;
+    const T x0 = (x - c1) / f1;
+    const T y0 = (y - c2) / f2;
+    const T r2 = x0 * x0 + y0 * y0;
 
     // Closed-form unprojection for division model
-    const double denom = 1.0 + k * r2;
+    const T denom = T(1) + k * r2;
     *u = x0 / denom;
     *v = y0 / denom;
 
