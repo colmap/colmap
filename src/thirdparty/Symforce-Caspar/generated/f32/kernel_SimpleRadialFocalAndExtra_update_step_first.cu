@@ -1,21 +1,15 @@
+#include "cuda_to_hip.h"
+
 #include "kernel_SimpleRadialFocalAndExtra_update_step_first.h"
 #include "memops.cuh"
-#include <cooperative_groups.h>
-#include <cooperative_groups/details/partitioning.h>
-#include <cooperative_groups/memcpy_async.h>
-#include <cooperative_groups/reduce.h>
-#include <cuda_runtime.h>
-
-namespace cg = cooperative_groups;
 
 namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     SimpleRadialFocalAndExtraUpdateStepFirstKernel(
-        float* SimpleRadialFocalAndExtra_p_kp1,
+        float *SimpleRadialFocalAndExtra_p_kp1,
         unsigned int SimpleRadialFocalAndExtra_p_kp1_num_alloc,
-        const float* const alpha,
-        float* out_SimpleRadialFocalAndExtra_step_kp1,
+        const float *const alpha, float *out_SimpleRadialFocalAndExtra_step_kp1,
         unsigned int out_SimpleRadialFocalAndExtra_step_kp1_num_alloc,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -26,14 +20,12 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadIdx2<1024, float, float, float2>(
         SimpleRadialFocalAndExtra_p_kp1,
-        0 * SimpleRadialFocalAndExtra_p_kp1_num_alloc,
-        global_thread_idx,
-        r0,
+        0 * SimpleRadialFocalAndExtra_p_kp1_num_alloc, global_thread_idx, r0,
         r1);
   };
-  LoadUnique<1, float, float>(alpha, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(alpha, 0, (float *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<float>((float*)inout_shared, 0, r2);
+    ReadShared1<float>((float *)inout_shared, 0, r2);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -41,20 +33,18 @@ __global__ void __launch_bounds__(1024, 1)
     r2 = r1 * r2;
     WriteIdx2<1024, float, float, float2>(
         out_SimpleRadialFocalAndExtra_step_kp1,
-        0 * out_SimpleRadialFocalAndExtra_step_kp1_num_alloc,
-        global_thread_idx,
-        r0,
-        r2);
+        0 * out_SimpleRadialFocalAndExtra_step_kp1_num_alloc, global_thread_idx,
+        r0, r2);
   };
 }
 
 void SimpleRadialFocalAndExtraUpdateStepFirst(
-    float* SimpleRadialFocalAndExtra_p_kp1,
+    float *SimpleRadialFocalAndExtra_p_kp1,
     unsigned int SimpleRadialFocalAndExtra_p_kp1_num_alloc,
-    const float* const alpha,
-    float* out_SimpleRadialFocalAndExtra_step_kp1,
+    const float *const alpha, float *out_SimpleRadialFocalAndExtra_step_kp1,
     unsigned int out_SimpleRadialFocalAndExtra_step_kp1_num_alloc,
     size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
@@ -62,11 +52,9 @@ void SimpleRadialFocalAndExtraUpdateStepFirst(
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialFocalAndExtraUpdateStepFirstKernel<<<n_blocks, 1024>>>(
       SimpleRadialFocalAndExtra_p_kp1,
-      SimpleRadialFocalAndExtra_p_kp1_num_alloc,
-      alpha,
+      SimpleRadialFocalAndExtra_p_kp1_num_alloc, alpha,
       out_SimpleRadialFocalAndExtra_step_kp1,
-      out_SimpleRadialFocalAndExtra_step_kp1_num_alloc,
-      problem_size);
+      out_SimpleRadialFocalAndExtra_step_kp1_num_alloc, problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar

@@ -80,8 +80,8 @@ if(FETCH_FAISS)
     message(STATUS "Configuring faiss... done")
 endif()
 
-if(CASPAR_ENABLED AND NOT CUDA_ENABLED)
-    message(FATAL_ERROR "Caspar requires CUDA")
+if(CASPAR_ENABLED AND NOT CUDA_ENABLED AND NOT HIP_ENABLED)
+    message(FATAL_ERROR "Caspar requires CUDA or HIP")
 endif()
 
 if(CASPAR_ENABLED AND CUDA_ENABLED)
@@ -144,6 +144,103 @@ if(CASPAR_ENABLED AND CUDA_ENABLED)
         )
     endif()
     message(STATUS "Configuring Caspar... done")
+
+    message(STATUS "Caspar precision:  ${_caspar_precision}")
+    message(STATUS "Caspar source dir: ${CASPAR_GEN_DIR}")
+elseif(CASPAR_ENABLED AND HIP_ENABLED)
+    # HIP path. Arch validation (gfx1151-tested warning) already happened in
+    # FindDependencies.cmake. Caspar's generated CMakeLists.txt (regenerated
+    # via symforce-rocm's hip-integration templates, see
+    # docs/rocm-integration.md) has its own USE_HIP option that switches it
+    # to `project(... LANGUAGES CXX HIP)`, LANGUAGE-HIP source properties,
+    # and linking hip::host/hip::hipcub -- mirror the same
+    # find_package(hip)-then-FetchContent mechanism PR #4420 already uses
+    # for patch_match_cuda.cu, just applied to Caspar's own generated
+    # subproject instead of colmap's own sources.
+    set(USE_HIP ON)
+
+    if(CASPAR_USE_DOUBLE)
+        set(_caspar_precision "f64")
+    else()
+        set(_caspar_precision "f32")
+    endif()
+
+    set(CASPAR_GEN_DIR
+        "${CMAKE_SOURCE_DIR}/src/thirdparty/Symforce-Caspar/generated/${_caspar_precision}")
+
+    if(NOT EXISTS "${CASPAR_GEN_DIR}/CMakeLists.txt")
+        message(FATAL_ERROR
+            "Caspar: pre-generated code not found for precision '${_caspar_precision}'.\n"
+            "Expected: ${CASPAR_GEN_DIR}/CMakeLists.txt\n"
+            "Re-run generate_caspar.py to regenerate.")
+    endif()
+
+    message(STATUS "Enabling Caspar-HIP support")
+
+    include(FetchContent)
+    FetchContent_Declare(caspar
+        SOURCE_DIR ${CASPAR_GEN_DIR}
+        ${_fetch_content_declare_args}
+    )
+    message(STATUS "Configuring Caspar (HIP)...")
+    FetchContent_MakeAvailable(caspar)
+    # Wrap the source-tree include path in BUILD_INTERFACE so caspar_lib_core
+    # can be part of install(EXPORT); this is also where the generated
+    # tree's own cuda_to_hip.h (Caspar-specific cooperative_groups/CUB HIP
+    # compat header, shipped by symforce-rocm's codegen templates as of this
+    # branch's regeneration -- see the Track B Task 2 commit) is found via
+    # the generated kernels' `#include "cuda_to_hip.h"`.
+    #
+    # Use target_include_directories() (appends to
+    # INTERFACE_INCLUDE_DIRECTORIES), NOT set_target_properties() (which
+    # would overwrite it wholesale). The generated CMakeLists.txt at
+    # ${CASPAR_GEN_DIR}/CMakeLists.txt already populated this property with
+    # the ROCm include directory (looked up from hip::host's own
+    # INTERFACE_INCLUDE_DIRECTORIES, falling back to ROCM_PATH) so that
+    # pure-C++ consumers of caspar_lib_core (e.g. colmap's
+    # bundle_adjustment.cc, via solver.h -> cuda_to_hip.h, which has no
+    # implicit HIP-compiler sysroot knowledge) can find <hip/hip_runtime.h>.
+    # An overwrite here would silently wipe that out and, on ROCm installs
+    # where headers aren't at the literal ${ROCM_PATH}/include/hip path
+    # (e.g. a pip/TheRock ROCm found via `rocm-sdk path --root`), degrade to
+    # a hard compile failure instead of using the more robust
+    # hip::host-target-property lookup.
+    #
+    # The generated CMakeLists.txt's own add_library() call also added
+    # ${CMAKE_CURRENT_SOURCE_DIR} (== CASPAR_GEN_DIR) to
+    # INTERFACE_INCLUDE_DIRECTORIES unwrapped (not inside a BUILD_INTERFACE
+    # generator expression). CMake's install(EXPORT) validation rejects any
+    # raw absolute path there that's inside the source tree ("... which is
+    # prefixed in the source directory"), so strip that raw entry and
+    # replace it with the BUILD_INTERFACE-wrapped form -- this preserves
+    # every other entry already on the property (in particular the ROCm
+    # include directory the generated CMakeLists.txt added for hip_runtime.h)
+    # instead of overwriting the whole list.
+    get_target_property(_caspar_ifaces caspar_lib_core INTERFACE_INCLUDE_DIRECTORIES)
+    if(_caspar_ifaces)
+        list(REMOVE_ITEM _caspar_ifaces "${CASPAR_GEN_DIR}")
+    else()
+        set(_caspar_ifaces "")
+    endif()
+    list(APPEND _caspar_ifaces "$<BUILD_INTERFACE:${CASPAR_GEN_DIR}>")
+    set_target_properties(caspar_lib_core PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${_caspar_ifaces}")
+    unset(_caspar_ifaces)
+    # HIP-language translation units get __HIP_PLATFORM_AMD__ defined
+    # implicitly by the HIP compiler wrapper; plain CXX translation units
+    # (e.g. colmap's bundle_adjustment.cc, via solver.h -> cuda_to_hip.h,
+    # which only needs hip_runtime.h's type declarations, not any actual
+    # device code) compiled with the host C++ compiler do not get this
+    # implicitly, and hip_runtime.h #errors out without exactly one of
+    # __HIP_PLATFORM_AMD__/__HIP_PLATFORM_NVIDIA__ defined.
+    target_compile_definitions(caspar_lib_core PUBLIC __HIP_PLATFORM_AMD__)
+    # Silence warnings from auto-generated Caspar sources, matching the
+    # blanket `-w` policy applied to other thirdparty C++ code above and to
+    # the CUDA Caspar path below.
+    target_compile_options(caspar_lib_core PRIVATE
+        $<$<COMPILE_LANGUAGE:HIP>:-w>
+        $<$<COMPILE_LANGUAGE:CXX>:-w>
+    )
 
     message(STATUS "Caspar precision:  ${_caspar_precision}")
     message(STATUS "Caspar source dir: ${CASPAR_GEN_DIR}")
