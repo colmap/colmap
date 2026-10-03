@@ -67,6 +67,17 @@ class Frame {
   inline bool HasPose() const;
   inline void ResetPose();
 
+  // Access the velocity in world coordinates.
+  inline const Eigen::Vector3d& VelocityInWorld() const;
+  inline Eigen::Vector3d& VelocityInWorld();
+  inline const std::optional<Eigen::Vector3d>& MaybeVelocityInWorld() const;
+  inline std::optional<Eigen::Vector3d>& MaybeVelocityInWorld();
+  inline void SetVelocityInWorld(const Eigen::Vector3d& velocity_in_world);
+  inline void SetVelocityInWorld(
+      const std::optional<Eigen::Vector3d>& velocity_in_world);
+  inline bool HasVelocity() const;
+  inline void ResetVelocity();
+
   // Get the sensor from world transformation.
   inline Rigid3d SensorFromWorld(sensor_t sensor_id) const;
 
@@ -100,6 +111,8 @@ class Frame {
   // If the rig calibration is a nullptr, the frame becomes a single sensor
   // case, where rig modeling is no longer needed.
   std::optional<Rigid3d> rig_from_world_;
+
+  std::optional<Eigen::Vector3d> velocity_in_world_;
 
   class Rig* rig_ptr_ = nullptr;
 };
@@ -180,6 +193,37 @@ bool Frame::HasPose() const { return rig_from_world_.has_value(); }
 
 void Frame::ResetPose() { rig_from_world_.reset(); }
 
+const Eigen::Vector3d& Frame::VelocityInWorld() const {
+  THROW_CHECK(velocity_in_world_) << "Frame does not have a valid velocity.";
+  return *velocity_in_world_;
+}
+
+Eigen::Vector3d& Frame::VelocityInWorld() {
+  THROW_CHECK(velocity_in_world_) << "Frame does not have a valid velocity.";
+  return *velocity_in_world_;
+}
+
+const std::optional<Eigen::Vector3d>& Frame::MaybeVelocityInWorld() const {
+  return velocity_in_world_;
+}
+
+std::optional<Eigen::Vector3d>& Frame::MaybeVelocityInWorld() {
+  return velocity_in_world_;
+}
+
+void Frame::SetVelocityInWorld(const Eigen::Vector3d& velocity_in_world) {
+  velocity_in_world_ = velocity_in_world;
+}
+
+void Frame::SetVelocityInWorld(
+    const std::optional<Eigen::Vector3d>& velocity_in_world) {
+  velocity_in_world_ = velocity_in_world;
+}
+
+bool Frame::HasVelocity() const { return velocity_in_world_.has_value(); }
+
+void Frame::ResetVelocity() { velocity_in_world_.reset(); }
+
 Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
   THROW_CHECK_NOTNULL(rig_ptr_);
   if (rig_ptr_->IsRefSensor(sensor_id)) {
@@ -192,7 +236,8 @@ Rigid3d Frame::SensorFromWorld(sensor_t sensor_id) const {
 bool Frame::operator==(const Frame& other) const {
   return frame_id_ == other.frame_id_ && rig_id_ == other.rig_id_ &&
          data_ids_ == other.data_ids_ &&
-         rig_from_world_ == other.rig_from_world_;
+         rig_from_world_ == other.rig_from_world_ &&
+         velocity_in_world_ == other.velocity_in_world_;
 }
 
 bool Frame::operator!=(const Frame& other) const { return !(*this == other); }

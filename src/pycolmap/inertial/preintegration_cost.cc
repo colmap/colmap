@@ -20,7 +20,7 @@ void BindImuPreintegrationCosts(py::module& m) {
       "preintegrated_imu_data"_a,
       "gravity"_a,
       py::keep_alive<0, 1>(),
-      "IMU preintegration cost function (body-centric, 4 parameter blocks). "
+      "IMU preintegration cost function (body-centric, 6 parameter blocks). "
       "The data object must outlive the cost function.");
 
   m.def(
@@ -33,7 +33,7 @@ void BindImuPreintegrationCosts(py::module& m) {
       "gravity"_a,
       py::keep_alive<0, 1>(),
       "IMU preintegration cost function with analytical Jacobians "
-      "(body-centric, 4 parameter blocks). "
+      "(body-centric, 6 parameter blocks). "
       "The data object must outlive the cost function.");
 
   m.def(
@@ -44,7 +44,8 @@ void BindImuPreintegrationCosts(py::module& m) {
       "preintegrated_imu_data"_a,
       py::keep_alive<0, 1>(),
       "IMU preintegration cost function for post-hoc SfM refinement "
-      "(7 parameter blocks: scale, gravity, extrinsics, poses, states). "
+      "(8 parameter blocks: scale, gravity, pose i, vel i, state i, pose j, "
+      "vel j, state j). "
       "The data object must outlive the cost function.");
 
   m.def(
@@ -56,6 +57,7 @@ void BindImuPreintegrationCosts(py::module& m) {
       "preintegrated_imu_data"_a,
       py::keep_alive<0, 1>(),
       "IMU preintegration cost function with analytical Jacobians for "
-      "post-hoc SfM refinement (7 parameter blocks). "
+      "post-hoc SfM refinement (8 parameter blocks: scale, gravity, pose i, "
+      "vel i, state i, pose j, vel j, state j). "
       "The data object must outlive the cost function.");
 }

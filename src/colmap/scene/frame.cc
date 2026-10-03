@@ -10,6 +10,7 @@ Frame::Frame(const Frame& other)
       data_ids_(other.data_ids_),
       has_final_data_ids_(false),
       rig_from_world_(other.rig_from_world_),
+      velocity_in_world_(other.velocity_in_world_),
       rig_ptr_(other.rig_ptr_) {}
 
 Frame& Frame::operator=(const Frame& other) {
@@ -19,6 +20,7 @@ Frame& Frame::operator=(const Frame& other) {
     data_ids_ = other.data_ids_;
     has_final_data_ids_ = false;
     rig_from_world_ = other.rig_from_world_;
+    velocity_in_world_ = other.velocity_in_world_;
     rig_ptr_ = other.rig_ptr_;
   }
   return *this;
@@ -77,7 +79,8 @@ std::ostream& operator<<(std::ostream& stream, const Frame& frame) {
   } else {
     stream << "Unknown";
   }
-  stream << ", has_pose=" << frame.HasPose() << ", data_ids=[";
+  stream << ", has_pose=" << frame.HasPose()
+         << ", has_velocity=" << frame.HasVelocity() << ", data_ids=[";
   for (auto it = frame.DataIds().begin(); it != frame.DataIds().end();) {
     stream << "(" << it->sensor_id.type << ", " << it->sensor_id.id << ", "
            << it->id << ")";

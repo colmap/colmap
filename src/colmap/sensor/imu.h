@@ -44,6 +44,20 @@ struct ImuCalibration {
 
   /// Expected IMU rate. [1/s]
   double imu_rate = 20.0;
+
+  bool operator==(const ImuCalibration& other) const {
+    return gyro_noise_density == other.gyro_noise_density &&
+           accel_noise_density == other.accel_noise_density &&
+           bias_gyro_random_walk_sigma == other.bias_gyro_random_walk_sigma &&
+           bias_accel_random_walk_sigma == other.bias_accel_random_walk_sigma &&
+           gyro_saturation_max == other.gyro_saturation_max &&
+           accel_saturation_max == other.accel_saturation_max &&
+           gravity_magnitude == other.gravity_magnitude &&
+           imu_rate == other.imu_rate;
+  }
+  bool operator!=(const ImuCalibration& other) const {
+    return !(*this == other);
+  }
 };
 
 struct ImuMeasurement {
