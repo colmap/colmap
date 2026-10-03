@@ -6,7 +6,7 @@ import pytest
 import pycolmap
 
 
-def test_imu_calibration_defaults():
+def test_imu_calibration_defaults() -> None:
     calib = pycolmap.ImuCalibration()
     np.testing.assert_array_equal(calib.gyro_rectification, np.eye(3))
     np.testing.assert_array_equal(calib.accel_rectification, np.eye(3))
@@ -14,7 +14,7 @@ def test_imu_calibration_defaults():
     assert calib.gravity_magnitude > 0.0
 
 
-def test_imu_measurement():
+def test_imu_measurement() -> None:
     measurement = pycolmap.ImuMeasurement(
         100, np.array([1.0, 2.0, 3.0]), np.array([4.0, 5.0, 6.0])
     )
@@ -23,7 +23,7 @@ def test_imu_measurement():
     np.testing.assert_array_equal(measurement.accel, [4.0, 5.0, 6.0])
 
 
-def test_imu_measurements_sorted_insert():
+def test_imu_measurements_sorted_insert() -> None:
     ms = pycolmap.ImuMeasurements()
     assert ms.empty()
     zero = np.zeros(3)
@@ -41,7 +41,7 @@ def test_imu_measurements_sorted_insert():
     ]
 
 
-def test_imu_measurements_extract_in_range():
+def test_imu_measurements_extract_in_range() -> None:
     ms = pycolmap.ImuMeasurements()
     zero = np.zeros(3)
     for t in [100, 200, 300, 400, 500]:
@@ -59,7 +59,7 @@ def test_imu_measurements_extract_in_range():
     assert len(ms.extract_measurements_in_range(50, 300)) == 0
 
 
-def test_imu_measurements_duplicate_raises():
+def test_imu_measurements_duplicate_raises() -> None:
     ms = pycolmap.ImuMeasurements()
     zero = np.zeros(3)
     ms.insert(pycolmap.ImuMeasurement(100, zero, zero))
@@ -67,7 +67,7 @@ def test_imu_measurements_duplicate_raises():
         ms.insert(pycolmap.ImuMeasurement(100, zero, zero))
 
 
-def test_imu():
+def test_imu() -> None:
     imu = pycolmap.Imu()
     imu.imu_id = 1
     imu.camera_id = 2
@@ -75,7 +75,7 @@ def test_imu():
     assert imu.camera_id == 2
 
 
-def test_imu_state_accessors():
+def test_imu_state_accessors() -> None:
     state = pycolmap.ImuState(
         np.array([1.0, 2.0, 3.0]),
         np.array([4.0, 5.0, 6.0]),
