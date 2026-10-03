@@ -59,7 +59,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     prev_camera_.params.resize(CameraModelNumParams(prev_camera_.model_id), 0.);
     if (!options_.camera_params.empty()) {
       THROW_CHECK(prev_camera_.SetParamsFromString(options_.camera_params));
-      prev_camera_.has_prior_focal_length = true;
+      prev_camera_.source = CameraSource::USER;
     }
   }
 }
@@ -240,7 +240,9 @@ ImageReader::Status ImageReader::Next(Rig* rig,
                                                  focal_length,
                                                  bitmap->Width(),
                                                  bitmap->Height());
-        prev_camera_.has_prior_focal_length = maybe_focal_length.has_value();
+        prev_camera_.source = maybe_focal_length.has_value()
+                                  ? CameraSource::EXIF
+                                  : CameraSource::GUESS;
       }
 
       prev_camera_.width = static_cast<size_t>(bitmap->Width());

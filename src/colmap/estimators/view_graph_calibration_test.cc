@@ -45,7 +45,7 @@ TEST(CalibrateViewGraph, Nominal) {
     for (const size_t idx : camera.FocalLengthIdxs()) {
       camera.params[idx] += noise;
     }
-    camera.has_prior_focal_length = false;
+    camera.source = CameraSource::GUESS;
     database->UpdateCamera(camera);
   }
 
@@ -53,10 +53,12 @@ TEST(CalibrateViewGraph, Nominal) {
   calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // Verify focal lengths are calibrated close to ground truth.
+  // Verify focal lengths are calibrated close to ground truth and source is
+  // VIEW_GRAPH.
   for (const auto& [camera_id, gt_focal] : gt_focals) {
     const Camera camera = database->ReadCamera(camera_id);
-    EXPECT_TRUE(camera.has_prior_focal_length);
+    EXPECT_TRUE(camera.HasPriorFocalLength());
+    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
     EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 
@@ -64,6 +66,17 @@ TEST(CalibrateViewGraph, Nominal) {
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     EXPECT_TRUE(tvg.E.has_value());
+  }
+
+  // Re-running view graph calibration should succeed and use the original
+  // non-VIEW_GRAPH calibrations as input rather than compounding on previous
+  // output.
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+  for (const auto& [camera_id, gt_focal] : gt_focals) {
+    const Camera camera = database->ReadCamera(camera_id);
+    EXPECT_TRUE(camera.HasPriorFocalLength());
+    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
+    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 }
 
@@ -285,7 +298,7 @@ TEST(CalibrateViewGraph, FisheyeCamerasAreIgnored) {
     EXPECT_EQ(camera.params, params);
     // Never calibrated, so it must not be marked as having a prior focal
     // length, which would make downstream stages trust an unestimated value.
-    EXPECT_FALSE(camera.has_prior_focal_length);
+    EXPECT_FALSE(camera.HasPriorFocalLength());
   }
 }
 

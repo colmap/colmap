@@ -14,6 +14,7 @@
 #include <Eigen/Geometry>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <sqlite3.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -164,6 +165,287 @@ TEST_P(ParameterizedDatabaseTests, Camera) {
               testing::ElementsAre(camera, camera2));
   database->ClearCameras();
   EXPECT_EQ(database->NumCameras(), 0);
+}
+
+TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
+  std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
+  EXPECT_EQ(database->NumCameras(), 0);
+
+  // 1. Initial write with GUESS.
+  Camera camera_guess = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 100.0, 1000, 1000);
+  camera_guess.source = CameraSource::GUESS;
+  const camera_t camera_id = database->WriteCamera(camera_guess);
+  camera_guess.camera_id = camera_id;
+
+  EXPECT_EQ(database->NumCameras(), 1);
+  EXPECT_TRUE(database->ExistsCamera(camera_id));
+  EXPECT_TRUE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::GUESS));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::EXIF));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::SINGLE_VIEW));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::USER));
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::VIEW_GRAPH));
+  EXPECT_THROW(database->ExistsCameraCalibration(camera_id, CameraSource::BEST),
+               std::invalid_argument);
+
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_guess);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_guess);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::GUESS), camera_guess);
+
+  // 2. Add EXIF calibration (higher priority: EXIF > GUESS).
+  Camera camera_exif = camera_guess;
+  camera_exif.source = CameraSource::EXIF;
+  camera_exif.SetFocalLength(120.0);
+  database->UpdateCamera(camera_exif);
+
+  EXPECT_TRUE(database->ExistsCamera(camera_id));
+  EXPECT_TRUE(database->ExistsCameraCalibration(camera_id, CameraSource::EXIF));
+  EXPECT_TRUE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::GUESS));
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_exif);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_exif);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::EXIF), camera_exif);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::GUESS), camera_guess);
+
+  // 3. Add SINGLE_VIEW calibration (SINGLE_VIEW > EXIF).
+  Camera camera_sv = camera_guess;
+  camera_sv.source = CameraSource::SINGLE_VIEW;
+  camera_sv.SetFocalLength(130.0);
+  database->UpdateCamera(camera_sv);
+
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_sv);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_sv);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::SINGLE_VIEW),
+            camera_sv);
+
+  // 4. Add VIEW_GRAPH calibration (VIEW_GRAPH > USER > SINGLE_VIEW).
+  Camera camera_vg = camera_guess;
+  camera_vg.source = CameraSource::VIEW_GRAPH;
+  camera_vg.SetFocalLength(140.0);
+  database->UpdateCamera(camera_vg);
+
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_vg);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_vg);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::VIEW_GRAPH),
+            camera_vg);
+
+  // 5. Add USER calibration (USER < VIEW_GRAPH).
+  // Writing USER should store the calibration, but BEST remains VIEW_GRAPH.
+  Camera camera_user = camera_guess;
+  camera_user.source = CameraSource::USER;
+  camera_user.SetFocalLength(135.0);
+  database->UpdateCamera(camera_user);
+
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_vg);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_vg);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::USER), camera_user);
+
+  // 6. Test ReadAllCameraCalibrations(camera_id).
+  const auto calibrations = database->ReadAllCameraCalibrations(camera_id);
+  EXPECT_EQ(calibrations.size(), 5);
+  EXPECT_EQ(calibrations.at(CameraSource::GUESS), camera_guess);
+  EXPECT_EQ(calibrations.at(CameraSource::EXIF), camera_exif);
+  EXPECT_EQ(calibrations.at(CameraSource::SINGLE_VIEW), camera_sv);
+  EXPECT_EQ(calibrations.at(CameraSource::USER), camera_user);
+  EXPECT_EQ(calibrations.at(CameraSource::VIEW_GRAPH), camera_vg);
+
+  // 7. Test ReadAllCameraCalibrations() (all cameras).
+  const auto all_calibrations = database->ReadAllCameraCalibrations();
+  EXPECT_EQ(all_calibrations.size(), 1);
+  EXPECT_EQ(all_calibrations.at(camera_id).size(), 5);
+
+  // 8. Test ReadAllCameras(source).
+  EXPECT_THAT(database->ReadAllCameras(CameraSource::BEST),
+              testing::ElementsAre(camera_vg));
+  EXPECT_THAT(database->ReadAllCameras(CameraSource::VIEW_GRAPH),
+              testing::ElementsAre(camera_vg));
+  EXPECT_THAT(database->ReadAllCameras(CameraSource::USER),
+              testing::ElementsAre(camera_user));
+  EXPECT_THAT(database->ReadAllCameras(CameraSource::SINGLE_VIEW),
+              testing::ElementsAre(camera_sv));
+  EXPECT_THAT(database->ReadAllCameras(CameraSource::EXIF),
+              testing::ElementsAre(camera_exif));
+  EXPECT_THAT(database->ReadAllCameras(CameraSource::GUESS),
+              testing::ElementsAre(camera_guess));
+  EXPECT_TRUE(database->ReadAllCameras(CameraSource::UNKNOWN).empty());
+
+  // 9. Test ReadCameraExcludingSources and ReadAllCamerasExcludingSources.
+  EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
+                                                 {CameraSource::VIEW_GRAPH}),
+            camera_user);
+  EXPECT_EQ(database->ReadCameraExcludingSources(
+                camera_id, {CameraSource::VIEW_GRAPH, CameraSource::USER}),
+            camera_sv);
+  EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
+                                                 {CameraSource::VIEW_GRAPH,
+                                                  CameraSource::USER,
+                                                  CameraSource::SINGLE_VIEW}),
+            camera_exif);
+  EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
+                                                 {CameraSource::VIEW_GRAPH,
+                                                  CameraSource::USER,
+                                                  CameraSource::SINGLE_VIEW,
+                                                  CameraSource::EXIF}),
+            camera_guess);
+  // Fallback to highest available when all are excluded.
+  EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
+                                                 {CameraSource::VIEW_GRAPH,
+                                                  CameraSource::USER,
+                                                  CameraSource::SINGLE_VIEW,
+                                                  CameraSource::EXIF,
+                                                  CameraSource::GUESS}),
+            camera_vg);
+
+  const auto cams_ex_vg =
+      database->ReadAllCamerasExcludingSources({CameraSource::VIEW_GRAPH});
+  EXPECT_EQ(cams_ex_vg.size(), 1);
+  EXPECT_EQ(cams_ex_vg.at(camera_id), camera_user);
+
+  const auto cams_ex_sv_vg = database->ReadAllCamerasExcludingSources(
+      {CameraSource::SINGLE_VIEW, CameraSource::VIEW_GRAPH});
+  EXPECT_EQ(cams_ex_sv_vg.size(), 1);
+  EXPECT_EQ(cams_ex_sv_vg.at(camera_id), camera_user);
+
+  // 10. Test DeleteCameraCalibration for a specific source (VIEW_GRAPH).
+  // Deleting VIEW_GRAPH should fallback to USER as BEST.
+  database->DeleteCameraCalibration(camera_id, CameraSource::VIEW_GRAPH);
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::VIEW_GRAPH));
+  EXPECT_EQ(database->NumCameras(), 1);
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_user);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_user);
+  EXPECT_EQ(database->ReadAllCameraCalibrations(camera_id).size(), 4);
+
+  // 10. Delete another source (USER). Fallback to SINGLE_VIEW.
+  database->DeleteCameraCalibration(camera_id, CameraSource::USER);
+  EXPECT_FALSE(
+      database->ExistsCameraCalibration(camera_id, CameraSource::USER));
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_sv);
+
+  // 11. Delete with BEST deletes the entire camera and all remaining
+  // calibrations.
+  database->DeleteCameraCalibration(camera_id, CameraSource::BEST);
+  EXPECT_EQ(database->NumCameras(), 0);
+  EXPECT_FALSE(database->ExistsCamera(camera_id));
+  EXPECT_TRUE(database->ReadAllCameraCalibrations(camera_id).empty());
+}
+
+TEST_P(ParameterizedDatabaseTests, CameraMergeCalibrations) {
+  std::shared_ptr<Database> database1 = GetParam()(kInMemorySqliteDatabasePath);
+  std::shared_ptr<Database> database2 = GetParam()(kInMemorySqliteDatabasePath);
+
+  Camera cam1_guess = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 100.0, 1000, 1000);
+  cam1_guess.source = CameraSource::GUESS;
+  const camera_t cam1_id = database1->WriteCamera(cam1_guess);
+  cam1_guess.camera_id = cam1_id;
+
+  Camera cam1_exif = cam1_guess;
+  cam1_exif.source = CameraSource::EXIF;
+  cam1_exif.SetFocalLength(120.0);
+  database1->UpdateCamera(cam1_exif);
+
+  Camera cam2_guess = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 200.0, 800, 800);
+  cam2_guess.source = CameraSource::GUESS;
+  const camera_t cam2_id = database2->WriteCamera(cam2_guess);
+  cam2_guess.camera_id = cam2_id;
+
+  Camera cam2_user = cam2_guess;
+  cam2_user.source = CameraSource::USER;
+  cam2_user.SetFocalLength(250.0);
+  database2->UpdateCamera(cam2_user);
+
+  std::shared_ptr<Database> merged_database =
+      GetParam()(kInMemorySqliteDatabasePath);
+  Database::Merge(*database1, *database2, merged_database.get());
+
+  EXPECT_EQ(merged_database->NumCameras(), 2);
+
+  // Check camera 1 in merged db.
+  EXPECT_EQ(merged_database->ReadCamera(1), cam1_exif);
+  EXPECT_EQ(merged_database->ReadCamera(1, CameraSource::GUESS).FocalLength(),
+            100.0);
+  EXPECT_EQ(merged_database->ReadCamera(1, CameraSource::EXIF).FocalLength(),
+            120.0);
+  const auto calibs1 = merged_database->ReadAllCameraCalibrations(1);
+  EXPECT_EQ(calibs1.size(), 2);
+
+  // Check camera 2 in merged db.
+  cam2_user.camera_id = 2;
+  EXPECT_EQ(merged_database->ReadCamera(2), cam2_user);
+  EXPECT_EQ(merged_database->ReadCamera(2, CameraSource::GUESS).FocalLength(),
+            200.0);
+  EXPECT_EQ(merged_database->ReadCamera(2, CameraSource::USER).FocalLength(),
+            250.0);
+  const auto calibs2 = merged_database->ReadAllCameraCalibrations(2);
+  EXPECT_EQ(calibs2.size(), 2);
+}
+
+TEST_P(ParameterizedDatabaseTests, CameraAutoIncrement) {
+  std::shared_ptr<Database> database = GetParam()(kInMemorySqliteDatabasePath);
+  EXPECT_EQ(database->NumCameras(), 0);
+
+  // 1. Write camera with use_camera_id=false. ID should be 1.
+  Camera camera1 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 100.0, 1000, 1000);
+  camera1.source = CameraSource::GUESS;
+  const camera_t id1 = database->WriteCamera(camera1, /*use_camera_id=*/false);
+  EXPECT_EQ(id1, 1);
+  EXPECT_EQ(database->NumCameras(), 1);
+
+  // 2. Add multiple calibrations for camera 1.
+  Camera camera1_exif = camera1;
+  camera1_exif.camera_id = id1;
+  camera1_exif.source = CameraSource::EXIF;
+  camera1_exif.SetFocalLength(120.0);
+  database->UpdateCamera(camera1_exif);
+
+  Camera camera1_user = camera1;
+  camera1_user.camera_id = id1;
+  camera1_user.source = CameraSource::USER;
+  camera1_user.SetFocalLength(130.0);
+  database->UpdateCamera(camera1_user);
+
+  EXPECT_EQ(database->NumCameras(), 1);
+  EXPECT_EQ(database->ReadAllCameraCalibrations(id1).size(), 3);
+
+  // 3. Write second camera with use_camera_id=false. ID should be 2.
+  Camera camera2 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 200.0, 800, 800);
+  const camera_t id2 = database->WriteCamera(camera2, /*use_camera_id=*/false);
+  EXPECT_EQ(id2, 2);
+  EXPECT_EQ(database->NumCameras(), 2);
+
+  // 4. Write third camera with use_camera_id=false. ID should be 3.
+  Camera camera3 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 300.0, 600, 600);
+  const camera_t id3 = database->WriteCamera(camera3, /*use_camera_id=*/false);
+  EXPECT_EQ(id3, 3);
+  EXPECT_EQ(database->NumCameras(), 3);
+
+  // 5. Delete camera 2 completely.
+  database->DeleteCameraCalibration(id2, CameraSource::BEST);
+  EXPECT_EQ(database->NumCameras(), 2);
+  EXPECT_FALSE(database->ExistsCamera(id2));
+
+  // 6. Write fourth camera with use_camera_id=false.
+  // MAX(camera_id) is 3, so next ID must be 4.
+  Camera camera4 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 400.0, 400, 400);
+  const camera_t id4 = database->WriteCamera(camera4, /*use_camera_id=*/false);
+  EXPECT_EQ(id4, 4);
+  EXPECT_EQ(database->NumCameras(), 3);
+
+  EXPECT_TRUE(database->ExistsCamera(1));
+  EXPECT_FALSE(database->ExistsCamera(2));
+  EXPECT_TRUE(database->ExistsCamera(3));
+  EXPECT_TRUE(database->ExistsCamera(4));
 }
 
 TEST_P(ParameterizedDatabaseTests, Frame) {
@@ -896,6 +1178,372 @@ TEST(LoadRandomDatabaseDescriptorsTest, LoadExactTotal) {
   const auto result = LoadRandomDatabaseDescriptors(*database, 20);
   EXPECT_EQ(result.data.rows(), 20);
   EXPECT_EQ(result.data.cols(), 128);
+}
+
+TEST(DatabaseMigrationTest, LegacyCameraTableMigration) {
+  const auto database_path = CreateTestDir() / "legacy_cameras.db";
+  sqlite3* db = nullptr;
+  ASSERT_EQ(sqlite3_open_v2(database_path.string().c_str(),
+                            &db,
+                            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+                            nullptr),
+            SQLITE_OK);
+
+  // Set user_version to 4.2.0 (before 4.3.0 camera migration).
+  ASSERT_EQ(
+      sqlite3_exec(
+          db, "PRAGMA user_version = 4020000;", nullptr, nullptr, nullptr),
+      SQLITE_OK);
+
+  // Create legacy schema with single-column PRIMARY KEY cameras and images with
+  // FK to cameras.
+  const char* kLegacySchema =
+      "CREATE TABLE cameras ("
+      "  camera_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+      "  model INTEGER NOT NULL,"
+      "  width INTEGER NOT NULL,"
+      "  height INTEGER NOT NULL,"
+      "  params BLOB,"
+      "  prior_focal_length INTEGER NOT NULL);"
+      "CREATE TABLE images ("
+      "  image_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+      "  name TEXT NOT NULL UNIQUE,"
+      "  camera_id INTEGER NOT NULL,"
+      "  CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < "
+      "2147483647),"
+      "  FOREIGN KEY(camera_id) REFERENCES cameras(camera_id));"
+      "CREATE TABLE keypoints ("
+      "  image_id INTEGER PRIMARY KEY NOT NULL,"
+      "  rows INTEGER NOT NULL,"
+      "  cols INTEGER NOT NULL,"
+      "  data BLOB,"
+      "  FOREIGN KEY(image_id) REFERENCES images(image_id) ON DELETE CASCADE);";
+  ASSERT_EQ(sqlite3_exec(db, kLegacySchema, nullptr, nullptr, nullptr),
+            SQLITE_OK);
+
+  // Insert legacy camera 1 with prior_focal_length = 1.
+  Camera cam1 = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 1000, 1000);
+  sqlite3_stmt* stmt;
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db,
+                "INSERT INTO cameras (camera_id, model, width, height, params, "
+                "prior_focal_length) VALUES (?, ?, ?, ?, ?, ?);",
+                -1,
+                &stmt,
+                nullptr),
+            SQLITE_OK);
+  sqlite3_bind_int64(stmt, 1, 1);
+  sqlite3_bind_int64(stmt, 2, static_cast<int>(cam1.model_id));
+  sqlite3_bind_int64(stmt, 3, cam1.width);
+  sqlite3_bind_int64(stmt, 4, cam1.height);
+  sqlite3_bind_blob(stmt,
+                    5,
+                    cam1.params.data(),
+                    cam1.params.size() * sizeof(double),
+                    SQLITE_STATIC);
+  sqlite3_bind_int64(stmt, 6, 1);
+  ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+  sqlite3_finalize(stmt);
+
+  // Insert legacy camera 2 with prior_focal_length = 0.
+  Camera cam2 = Camera::CreateFromModelId(
+      2, CameraModelId::kSimplePinhole, 200.0, 800, 800);
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db,
+                "INSERT INTO cameras (camera_id, model, width, height, params, "
+                "prior_focal_length) VALUES (?, ?, ?, ?, ?, ?);",
+                -1,
+                &stmt,
+                nullptr),
+            SQLITE_OK);
+  sqlite3_bind_int64(stmt, 1, 2);
+  sqlite3_bind_int64(stmt, 2, static_cast<int>(cam2.model_id));
+  sqlite3_bind_int64(stmt, 3, cam2.width);
+  sqlite3_bind_int64(stmt, 4, cam2.height);
+  sqlite3_bind_blob(stmt,
+                    5,
+                    cam2.params.data(),
+                    cam2.params.size() * sizeof(double),
+                    SQLITE_STATIC);
+  sqlite3_bind_int64(stmt, 6, 0);
+  ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+  sqlite3_finalize(stmt);
+
+  // Insert legacy image 1.
+  ASSERT_EQ(sqlite3_exec(db,
+                         "INSERT INTO images (image_id, name, camera_id) "
+                         "VALUES (1, 'image1.jpg', 1);",
+                         nullptr,
+                         nullptr,
+                         nullptr),
+            SQLITE_OK);
+
+  // Insert keypoints for image 1.
+  const FeatureKeypoints keypoints(5);
+  ASSERT_EQ(sqlite3_prepare_v2(db,
+                               "INSERT INTO keypoints (image_id, rows, cols, "
+                               "data) VALUES (1, ?, ?, ?);",
+                               -1,
+                               &stmt,
+                               nullptr),
+            SQLITE_OK);
+  sqlite3_bind_int64(stmt, 1, keypoints.size());
+  sqlite3_bind_int64(stmt, 2, sizeof(FeatureKeypoint) / sizeof(float));
+  sqlite3_bind_blob(stmt,
+                    3,
+                    keypoints.data(),
+                    keypoints.size() * sizeof(FeatureKeypoint),
+                    SQLITE_STATIC);
+  ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+  sqlite3_finalize(stmt);
+
+  ASSERT_EQ(sqlite3_close(db), SQLITE_OK);
+
+  // Open with Database::Open, triggering migration.
+  auto database = Database::Open(database_path);
+
+  // 1. Verify cameras were migrated with correct sources:
+  // cam1 had prior_focal_length=1 -> EXIF
+  // cam2 had prior_focal_length=0 -> GUESS
+  EXPECT_EQ(database->NumCameras(), 2);
+  EXPECT_TRUE(database->ExistsCamera(1));
+  EXPECT_TRUE(database->ExistsCamera(2));
+
+  const Camera cam1_migrated = database->ReadCamera(1);
+  EXPECT_EQ(cam1_migrated.source, CameraSource::EXIF);
+  EXPECT_TRUE(cam1_migrated.HasPriorFocalLength());
+  EXPECT_EQ(cam1_migrated.params, cam1.params);
+
+  const Camera cam2_migrated = database->ReadCamera(2);
+  EXPECT_EQ(cam2_migrated.source, CameraSource::GUESS);
+  EXPECT_FALSE(cam2_migrated.HasPriorFocalLength());
+  EXPECT_EQ(cam2_migrated.params, cam2.params);
+
+  // 2. Verify images and keypoints migrated intact.
+  EXPECT_EQ(database->NumImages(), 1);
+  EXPECT_TRUE(database->ExistsImage(1));
+  EXPECT_EQ(database->ReadImage(1).Name(), "image1.jpg");
+  EXPECT_EQ(database->NumKeypoints(), 5);
+  EXPECT_EQ(database->ReadKeypoints(1).size(), 5);
+
+  // 3. Verify writing additional calibrations to migrated camera works.
+  Camera cam1_vgc = cam1_migrated;
+  cam1_vgc.source = CameraSource::VIEW_GRAPH;
+  cam1_vgc.SetFocalLength(150.0);
+  database->UpdateCamera(cam1_vgc);
+  EXPECT_EQ(database->ReadCamera(1).source, CameraSource::VIEW_GRAPH);
+  EXPECT_EQ(database->ReadCamera(1, CameraSource::EXIF).source,
+            CameraSource::EXIF);
+  EXPECT_EQ(database->ReadAllCameraCalibrations(1).size(), 2);
+
+  // 4. Verify auto-increment for new camera works (next ID is 3).
+  Camera cam3 = Camera::CreateFromModelId(
+      kInvalidCameraId, CameraModelId::kSimplePinhole, 300.0, 500, 500);
+  const camera_t cam3_id = database->WriteCamera(cam3, /*use_camera_id=*/false);
+  EXPECT_EQ(cam3_id, 3);
+  EXPECT_EQ(database->NumCameras(), 3);
+
+  // 5. Verify foreign key cascade still works for images -> keypoints.
+  database->ClearImages();
+  EXPECT_EQ(database->NumImages(), 0);
+  EXPECT_EQ(database->NumKeypoints(), 0);
+
+  // 6. Verify PRAGMA foreign_key_check returns 0 violations.
+  database->Close();
+  ASSERT_EQ(
+      sqlite3_open_v2(
+          database_path.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr),
+      SQLITE_OK);
+  sqlite3_stmt* fk_stmt;
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db, "PRAGMA foreign_key_check;", -1, &fk_stmt, nullptr),
+            SQLITE_OK);
+  EXPECT_EQ(sqlite3_step(fk_stmt), SQLITE_DONE);
+  sqlite3_finalize(fk_stmt);
+
+  // 7. Verify prior_focal_length column was removed from cameras table.
+  sqlite3_stmt* info_stmt;
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db, "PRAGMA table_info(cameras);", -1, &info_stmt, nullptr),
+            SQLITE_OK);
+  bool has_prior_col = false;
+  while (sqlite3_step(info_stmt) == SQLITE_ROW) {
+    const std::string col =
+        reinterpret_cast<const char*>(sqlite3_column_text(info_stmt, 1));
+    if (col == "prior_focal_length") {
+      has_prior_col = true;
+    }
+  }
+  sqlite3_finalize(info_stmt);
+  EXPECT_FALSE(has_prior_col);
+
+  sqlite3_close(db);
+}
+
+TEST(DatabaseMigrationTest, IntermediateCameraCalibrationsTableMigration) {
+  const auto database_path = CreateTestDir() / "intermediate_calibs.db";
+  sqlite3* db = nullptr;
+  ASSERT_EQ(sqlite3_open_v2(database_path.string().c_str(),
+                            &db,
+                            SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,
+                            nullptr),
+            SQLITE_OK);
+
+  // Set user_version to 4.2.0.
+  ASSERT_EQ(
+      sqlite3_exec(
+          db, "PRAGMA user_version = 4020000;", nullptr, nullptr, nullptr),
+      SQLITE_OK);
+
+  const char* kSchema =
+      "CREATE TABLE cameras ("
+      "  camera_id INTEGER NOT NULL,"
+      "  model INTEGER NOT NULL,"
+      "  width INTEGER NOT NULL,"
+      "  height INTEGER NOT NULL,"
+      "  params BLOB,"
+      "  prior_focal_length INTEGER NOT NULL,"
+      "  source INTEGER NOT NULL,"
+      "  PRIMARY KEY(camera_id, source));"
+      "CREATE TABLE camera_calibrations ("
+      "  camera_id INTEGER NOT NULL,"
+      "  model INTEGER NOT NULL,"
+      "  width INTEGER NOT NULL,"
+      "  height INTEGER NOT NULL,"
+      "  params BLOB,"
+      "  prior_focal_length INTEGER NOT NULL,"
+      "  source INTEGER NOT NULL,"
+      "  PRIMARY KEY(camera_id, source));"
+      "CREATE TABLE images ("
+      "  image_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,"
+      "  name TEXT NOT NULL UNIQUE,"
+      "  camera_id INTEGER NOT NULL,"
+      "  CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < "
+      "2147483647));";
+  ASSERT_EQ(sqlite3_exec(db, kSchema, nullptr, nullptr, nullptr), SQLITE_OK);
+
+  Camera cam1_guess = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 1000, 1000);
+  sqlite3_stmt* stmt;
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db,
+                "INSERT INTO cameras (camera_id, model, width, height, params, "
+                "prior_focal_length, source) VALUES (?, ?, ?, ?, ?, ?, ?);",
+                -1,
+                &stmt,
+                nullptr),
+            SQLITE_OK);
+  sqlite3_bind_int64(stmt, 1, 1);
+  sqlite3_bind_int64(stmt, 2, static_cast<int>(cam1_guess.model_id));
+  sqlite3_bind_int64(stmt, 3, cam1_guess.width);
+  sqlite3_bind_int64(stmt, 4, cam1_guess.height);
+  sqlite3_bind_blob(stmt,
+                    5,
+                    cam1_guess.params.data(),
+                    cam1_guess.params.size() * sizeof(double),
+                    SQLITE_STATIC);
+  sqlite3_bind_int64(stmt, 6, 0);
+  sqlite3_bind_int64(stmt, 7, static_cast<int64_t>(CameraSource::GUESS));
+  ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+  sqlite3_finalize(stmt);
+
+  // Insert USER calibration into camera_calibrations table.
+  Camera cam1_user = cam1_guess;
+  cam1_user.SetFocalLength(120.0);
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db,
+                "INSERT INTO camera_calibrations (camera_id, model, width, "
+                "height, params, prior_focal_length, source) VALUES (?, ?, ?, "
+                "?, ?, ?, ?);",
+                -1,
+                &stmt,
+                nullptr),
+            SQLITE_OK);
+  sqlite3_bind_int64(stmt, 1, 1);
+  sqlite3_bind_int64(stmt, 2, static_cast<int>(cam1_user.model_id));
+  sqlite3_bind_int64(stmt, 3, cam1_user.width);
+  sqlite3_bind_int64(stmt, 4, cam1_user.height);
+  sqlite3_bind_blob(stmt,
+                    5,
+                    cam1_user.params.data(),
+                    cam1_user.params.size() * sizeof(double),
+                    SQLITE_STATIC);
+  sqlite3_bind_int64(stmt, 6, 1);
+  sqlite3_bind_int64(stmt, 7, static_cast<int64_t>(CameraSource::USER));
+  ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+  sqlite3_finalize(stmt);
+
+  // Insert VIEW_GRAPH calibration into camera_calibrations table.
+  Camera cam1_vg = cam1_guess;
+  cam1_vg.SetFocalLength(130.0);
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db,
+                "INSERT INTO camera_calibrations (camera_id, model, width, "
+                "height, params, prior_focal_length, source) VALUES (?, ?, ?, "
+                "?, ?, ?, ?);",
+                -1,
+                &stmt,
+                nullptr),
+            SQLITE_OK);
+  sqlite3_bind_int64(stmt, 1, 1);
+  sqlite3_bind_int64(stmt, 2, static_cast<int>(cam1_vg.model_id));
+  sqlite3_bind_int64(stmt, 3, cam1_vg.width);
+  sqlite3_bind_int64(stmt, 4, cam1_vg.height);
+  sqlite3_bind_blob(stmt,
+                    5,
+                    cam1_vg.params.data(),
+                    cam1_vg.params.size() * sizeof(double),
+                    SQLITE_STATIC);
+  sqlite3_bind_int64(stmt, 6, 1);
+  sqlite3_bind_int64(stmt, 7, static_cast<int64_t>(CameraSource::VIEW_GRAPH));
+  ASSERT_EQ(sqlite3_step(stmt), SQLITE_DONE);
+  sqlite3_finalize(stmt);
+
+  ASSERT_EQ(sqlite3_close(db), SQLITE_OK);
+
+  // Open with Database::Open, triggering migration.
+  auto database = Database::Open(database_path);
+
+  EXPECT_EQ(database->NumCameras(), 1);
+  EXPECT_EQ(database->ReadAllCameraCalibrations(1).size(), 3);
+  EXPECT_EQ(database->ReadCamera(1).source, CameraSource::VIEW_GRAPH);
+  EXPECT_EQ(database->ReadCamera(1, CameraSource::USER).source,
+            CameraSource::USER);
+  EXPECT_EQ(database->ReadCamera(1, CameraSource::GUESS).source,
+            CameraSource::GUESS);
+
+  // Verify camera_calibrations table was dropped.
+  database->Close();
+  ASSERT_EQ(
+      sqlite3_open_v2(
+          database_path.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr),
+      SQLITE_OK);
+  sqlite3_stmt* check_stmt;
+  ASSERT_EQ(sqlite3_prepare_v2(db,
+                               "SELECT name FROM sqlite_master WHERE "
+                               "type='table' AND name='camera_calibrations';",
+                               -1,
+                               &check_stmt,
+                               nullptr),
+            SQLITE_OK);
+  EXPECT_EQ(sqlite3_step(check_stmt), SQLITE_DONE);
+  sqlite3_finalize(check_stmt);
+  sqlite3_close(db);
+}
+
+TEST(Database, CameraSourceBestRejected) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Camera camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  camera.source = CameraSource::BEST;
+  EXPECT_THROW(database->WriteCamera(camera), std::invalid_argument);
+
+  camera.source = CameraSource::USER;
+  database->WriteCamera(camera);
+
+  camera.source = CameraSource::BEST;
+  EXPECT_THROW(database->UpdateCamera(camera), std::invalid_argument);
 }
 
 }  // namespace

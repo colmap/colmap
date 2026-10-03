@@ -31,22 +31,81 @@ std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
   throw std::runtime_error("No registered database factory succeeded.");
 }
 
+Camera Database::ReadCameraExcludingSources(
+    const camera_t camera_id,
+    const FlatHashSet<CameraSource>& excluded_sources) const {
+  const auto calibrations = ReadAllCameraCalibrations(camera_id);
+  if (calibrations.empty()) {
+    return Camera();
+  }
+  auto it = calibrations.rbegin();
+  while (it != calibrations.rend() && excluded_sources.contains(it->first)) {
+    ++it;
+  }
+  if (it != calibrations.rend()) {
+    return it->second;
+  }
+  return calibrations.rbegin()->second;
+}
+
+NodeHashMap<camera_t, Camera> Database::ReadAllCamerasExcludingSources(
+    const FlatHashSet<CameraSource>& excluded_sources) const {
+  NodeHashMap<camera_t, Camera> cameras;
+  const auto all_calibrations = ReadAllCameraCalibrations();
+  cameras.reserve(all_calibrations.size());
+  for (const auto& [camera_id, calibrations] : all_calibrations) {
+    if (calibrations.empty()) {
+      continue;
+    }
+    auto it = calibrations.rbegin();
+    while (it != calibrations.rend() && excluded_sources.contains(it->first)) {
+      ++it;
+    }
+    if (it != calibrations.rend()) {
+      cameras.emplace(camera_id, it->second);
+    } else {
+      cameras.emplace(camera_id, calibrations.rbegin()->second);
+    }
+  }
+  return cameras;
+}
+
 void Database::Merge(const Database& database1,
                      const Database& database2,
                      Database* merged_database) {
   // Merge the cameras.
 
+  auto merge_cameras = [](const Database& src_database,
+                          Database* dst_database,
+                          NodeHashMap<camera_t, camera_t>* new_camera_ids) {
+    for (const auto& best_camera : src_database.ReadAllCameras()) {
+      const auto calibrations =
+          src_database.ReadAllCameraCalibrations(best_camera.camera_id);
+      camera_t new_camera_id = kInvalidCameraId;
+      if (calibrations.empty()) {
+        new_camera_id = dst_database->WriteCamera(best_camera);
+      } else {
+        bool first = true;
+        for (const auto& [source, camera] : calibrations) {
+          Camera camera_copy = camera;
+          if (first) {
+            new_camera_id = dst_database->WriteCamera(camera_copy);
+            first = false;
+          } else {
+            camera_copy.camera_id = new_camera_id;
+            dst_database->UpdateCamera(camera_copy);
+          }
+        }
+      }
+      new_camera_ids->emplace(best_camera.camera_id, new_camera_id);
+    }
+  };
+
   NodeHashMap<camera_t, camera_t> new_camera_ids1;
-  for (const auto& camera : database1.ReadAllCameras()) {
-    const camera_t new_camera_id = merged_database->WriteCamera(camera);
-    new_camera_ids1.emplace(camera.camera_id, new_camera_id);
-  }
+  merge_cameras(database1, merged_database, &new_camera_ids1);
 
   NodeHashMap<camera_t, camera_t> new_camera_ids2;
-  for (const auto& camera : database2.ReadAllCameras()) {
-    const camera_t new_camera_id = merged_database->WriteCamera(camera);
-    new_camera_ids2.emplace(camera.camera_id, new_camera_id);
-  }
+  merge_cameras(database2, merged_database, &new_camera_ids2);
 
   // Merge the rigs.
 

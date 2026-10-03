@@ -36,8 +36,8 @@ bool IsValidCalibration(const Camera& camera);
 // single-image calibration closest to it. Joint fitting over the accumulated
 // rays was evaluated as an alternative: it matches the median only with a
 // tuned robust loss and fails on a single bad image without one. Sets the
-// model, parameters, and `has_prior_focal_length` on success. Returns false
-// if `params_list` is empty or no valid calibration is found, leaving
+// model, parameters, and calibration source (SINGLE_VIEW) on success. Returns
+// false if `params_list` is empty or no valid calibration is found, leaving
 // `camera` unmodified. The dimensions of `camera` must be those of the images
 // it was calibrated from.
 bool AggregateSingleViewCalibrations(

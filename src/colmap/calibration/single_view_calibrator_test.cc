@@ -156,7 +156,7 @@ TEST(AggregateSingleViewCalibrationsTest, EmptyList) {
   EXPECT_FALSE(AggregateSingleViewCalibrations(
       CameraModelId::kSimpleRadial, {}, &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0}));
-  EXPECT_FALSE(camera.has_prior_focal_length);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
 }
 
 TEST(AggregateSingleViewCalibrationsTest, OddMedian) {
@@ -166,7 +166,8 @@ TEST(AggregateSingleViewCalibrationsTest, OddMedian) {
       {{600, 315, 235, 0.05}, {400, 325, 245, 0.15}, {500, 320, 240, 0.10}},
       &camera));
   EXPECT_EQ(camera.params, std::vector<double>({500, 320, 240, 0.10}));
-  EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+  EXPECT_EQ(camera.source, CameraSource::SINGLE_VIEW);
 }
 
 TEST(AggregateSingleViewCalibrationsTest, EvenMedian) {
@@ -180,7 +181,8 @@ TEST(AggregateSingleViewCalibrationsTest, EvenMedian) {
   EXPECT_DOUBLE_EQ(camera.params[1], 320);
   EXPECT_DOUBLE_EQ(camera.params[2], 240);
   EXPECT_DOUBLE_EQ(camera.params[3], 0.10);
-  EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+  EXPECT_EQ(camera.source, CameraSource::SINGLE_VIEW);
 }
 
 TEST(AggregateSingleViewCalibrationsTest, SetsTargetCameraModel) {
@@ -213,7 +215,8 @@ TEST(AggregateSingleViewCalibrationsTest, InvalidMedianFallsBackToClosest) {
   // The two candidates are symmetric around the median, so their distances
   // tie exactly and `min_element` deterministically picks the first.
   EXPECT_EQ(camera.params, params1);
-  EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+  EXPECT_EQ(camera.source, CameraSource::SINGLE_VIEW);
 }
 
 TEST(AggregateSingleViewCalibrationsTest, RejectsRaggedParams) {
@@ -235,7 +238,7 @@ TEST(AggregateSingleViewCalibrationsTest, RejectsInvalidParams) {
         CameraModelId::kSimpleRadial, {params}, &camera));
     EXPECT_EQ(camera.params, original_params);
     EXPECT_EQ(camera.model_id, CameraModelId::kSimpleRadial);
-    EXPECT_FALSE(camera.has_prior_focal_length);
+    EXPECT_FALSE(camera.HasPriorFocalLength());
   }
 }
 

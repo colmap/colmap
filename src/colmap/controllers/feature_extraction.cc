@@ -262,7 +262,7 @@ class FeatureWriterThread : public Thread {
           LOG(INFO) << StringPrintf(
               "  Focal Length:    %.2fpx%s",
               image_data.camera.MeanFocalLength(),
-              image_data.camera.has_prior_focal_length ? " (Prior)" : "");
+              image_data.camera.HasPriorFocalLength() ? " (Prior)" : "");
         }
         LOG(INFO) << "  Features:        " << image_data.keypoints.size()
                   << " (" << extractor_type_str_ << ")";
