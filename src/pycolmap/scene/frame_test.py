@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+
 import pycolmap
 
 
@@ -115,3 +117,22 @@ def test_frame_map_insert_and_access() -> None:
     frame_map[1] = frame
     assert len(frame_map) == 1
     assert frame_map[1].frame_id == 1
+
+
+def test_frame_velocity() -> None:
+    frame = pycolmap.Frame()
+    assert not frame.has_velocity()
+    assert frame.velocity_in_world is None
+
+    vel = np.array([1.0, 2.0, 3.0])
+    frame.velocity_in_world = vel
+    assert frame.has_velocity()
+    assert np.allclose(frame.velocity_in_world, vel)
+
+    # In-place modification should mutate the frame's velocity
+    frame.velocity_in_world[0] = 5.0
+    assert np.allclose(frame.velocity_in_world, [5.0, 2.0, 3.0])
+
+    frame.reset_velocity()
+    assert not frame.has_velocity()
+    assert frame.velocity_in_world is None
