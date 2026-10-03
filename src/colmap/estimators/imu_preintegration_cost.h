@@ -97,8 +97,12 @@ class ImuPreintegrationCostFunctor {
         data_->delta_R.cast<T>() * Dq_bias;
     // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
     // VINS-Mono, ORB-SLAM3). Equivalent to angle-axis for small errors.
+    // Omit .normalized() because all input quaternions are already unit-norm,
+    // and normalizing a ceres::Jet quaternion introduces a radial projection
+    // derivative that causes a discrepancy with analytical Jacobians when the
+    // rotation residual is non-zero.
     const Eigen::Quaternion<T> rotation_error =
-        (delta_R_corrected.conjugate() * delta_R_measured).normalized();
+        delta_R_corrected.conjugate() * delta_R_measured;
     residuals[0] = T(2.0) * rotation_error.x();
     residuals[1] = T(2.0) * rotation_error.y();
     residuals[2] = T(2.0) * rotation_error.z();
@@ -485,8 +489,12 @@ class VisualCentricImuPreintegrationCostFunctor {
         data_->delta_R.cast<T>() * Dq_bias;
     // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
     // VINS-Mono, ORB-SLAM3). Equivalent to angle-axis for small errors.
+    // Omit .normalized() because all input quaternions are already unit-norm,
+    // and normalizing a ceres::Jet quaternion introduces a radial projection
+    // derivative that causes a discrepancy with analytical Jacobians when the
+    // rotation residual is non-zero.
     const Eigen::Quaternion<T> rotation_error =
-        (delta_R_corrected.conjugate() * delta_R_measured).normalized();
+        delta_R_corrected.conjugate() * delta_R_measured;
     residuals[0] = T(2.0) * rotation_error.x();
     residuals[1] = T(2.0) * rotation_error.y();
     residuals[2] = T(2.0) * rotation_error.z();
