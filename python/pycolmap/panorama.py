@@ -92,6 +92,17 @@ PANO_RENDER_OPTIONS: dict[PanoRenderType, PanoRenderOptions] = {
 
 @dataclass(kw_only=True)
 class PanoramaReconstructionOptions:
+    """Options for panorama SfM.
+
+    Input masks use the original panorama dimensions and zero/nonzero grayscale
+    convention. Per-image masks mirror the image subpaths with an appended
+    ``.png`` extension (replacing the original extension is also supported).
+    The camera mask applies to every panorama; when both are given, their valid
+    regions are intersected. Perspective rendering combines the projected
+    masks with the virtual-camera ownership masks in ``output_path/masks``.
+    Masks filter feature extraction, not the RGB images or downstream rendering.
+    """
+
     matcher: Matcher = Matcher.SEQUENTIAL
     mapper: Mapper = Mapper.INCREMENTAL
     render_type: PanoRenderType = PanoRenderType.PERSPECTIVE_OVERLAPPING
@@ -99,6 +110,8 @@ class PanoramaReconstructionOptions:
     num_threads: int = -1
     gpu_index: str = "-1"
     use_gpu: bool = True
+    input_mask_path: Path | None = None
+    input_camera_mask_path: Path | None = None
     covisibility_path: Path | None = None
     covisibility_min_shared_points: int = 1
     show_progress: bool = True
@@ -224,11 +237,17 @@ class PanoProcessor:
         output_image_dir: Path,
         mask_dir: Path,
         render_options: PanoRenderOptions,
+        *,
+        input_mask_path: Path | None = None,
+        input_camera_mask_path: Path | None = None,
     ) -> None:
         self.render_options = render_options
         self.pano_image_dir = pano_image_dir
         self.output_image_dir = output_image_dir
         self.mask_dir = mask_dir
+        self.input_mask_path = input_mask_path
+        self.input_camera_mask_path = input_camera_mask_path
+        self._camera_mask: npt.NDArray[np.uint8] | None = None
 
         self.cams_from_pano_rotation = get_virtual_rotations(
             num_steps_yaw=render_options.num_steps_yaw,
@@ -249,6 +268,22 @@ class PanoProcessor:
         self._camera: pycolmap.Camera | None = None
         self._pano_size: tuple[int, int] | None = None
         self._rays_in_cam: npt.NDArray[np.floating] | None = None
+
+    @staticmethod
+    def _read_mask(
+        mask_path: Path, image_size: tuple[int, int]
+    ) -> npt.NDArray[np.uint8]:
+        """Read a mask using COLMAP's zero/nonzero grayscale convention."""
+        bitmap = pycolmap.Bitmap.read(mask_path, as_rgb=False)
+        if bitmap is None:
+            raise OSError(f"Cannot read input mask {mask_path}")
+        mask = bitmap.to_array()
+        if mask.shape != image_size[::-1]:
+            raise ValueError(
+                f"Input mask {mask_path} has size {mask.shape[::-1]}, "
+                f"expected panorama size {image_size}."
+            )
+        return (mask != 0).astype(np.uint8) * 255
 
     def process(self, pano_name: str) -> None:
         import cv2
@@ -273,7 +308,28 @@ class PanoProcessor:
         if pano_width != pano_height * 2:
             raise ValueError("Only 360° panoramas are supported.")
 
+        pano_size = (pano_width, pano_height)
+        pano_mask = None
+        if self.input_mask_path is not None:
+            mask_path = self.input_mask_path / f"{pano_name}.png"
+            if not mask_path.is_file():
+                # Match ImageReader's fallback for masks that replace the
+                # image extension instead of appending .png.
+                alt_path = (self.input_mask_path / pano_name).with_suffix(
+                    ".png"
+                )
+                if alt_path.is_file():
+                    mask_path = alt_path
+            pano_mask = self._read_mask(mask_path, pano_size)
+
         with self._lock:
+            if (
+                self.input_camera_mask_path is not None
+                and self._camera_mask is None
+            ):
+                self._camera_mask = self._read_mask(
+                    self.input_camera_mask_path, pano_size
+                )
             if self._camera is None:  # First image, precompute rays once.
                 self._camera = create_virtual_camera(
                     pano_width=pano_width,
@@ -290,6 +346,13 @@ class PanoProcessor:
                     raise ValueError(
                         "Panoramas of different sizes are not supported."
                     )
+
+        if self._camera_mask is not None:
+            pano_mask = (
+                self._camera_mask
+                if pano_mask is None
+                else np.bitwise_and(pano_mask, self._camera_mask)
+            )
 
         for cam_idx, cam_from_pano_r in enumerate(self.cams_from_pano_rotation):
             assert self._rays_in_cam is not None
@@ -318,6 +381,18 @@ class PanoProcessor:
                 .reshape(self._camera.width, self._camera.height)
                 .transpose()
             )
+            if pano_mask is not None:
+                # A mask is categorical: linear interpolation would make
+                # excluded boundary pixels nonzero. Wrap longitude at the
+                # panorama seam, but never wrap latitude across the poles.
+                projected_mask = cv2.remap(
+                    pano_mask,
+                    x_coords,
+                    np.clip(y_coords, 0, pano_height - 1),
+                    cv2.INTER_NEAREST,
+                    borderMode=cv2.BORDER_WRAP,
+                )
+                mask = np.bitwise_and(mask, projected_mask)
 
             image_name = (
                 self.rig_config.cameras[cam_idx].image_prefix + pano_name
@@ -478,9 +553,17 @@ def render_perspective_images(
     mask_dir: Path,
     render_options: PanoRenderOptions,
     show_progress: bool,
+    *,
+    input_mask_path: Path | None = None,
+    input_camera_mask_path: Path | None = None,
 ) -> PanoProcessor:
     processor = PanoProcessor(
-        pano_image_dir, output_image_dir, mask_dir, render_options
+        pano_image_dir,
+        output_image_dir,
+        mask_dir,
+        render_options,
+        input_mask_path=input_mask_path,
+        input_camera_mask_path=input_camera_mask_path,
     )
 
     num_panos = len(pano_image_names)
@@ -589,6 +672,10 @@ def run_spherical(
     logging.info("Reconstructing with spherical camera")
 
     reader_options = pycolmap.ImageReaderOptions(camera_model="EQUIRECTANGULAR")
+    if options.input_mask_path is not None:
+        reader_options.mask_path = options.input_mask_path
+    if options.input_camera_mask_path is not None:
+        reader_options.camera_mask_path = options.input_camera_mask_path
     extraction_options = pycolmap.FeatureExtractionOptions(
         use_gpu=options.use_gpu,
         gpu_index=options.gpu_index,
@@ -672,6 +759,8 @@ def run_perspective(
         mask_dir,
         PANO_RENDER_OPTIONS[options.render_type],
         options.show_progress,
+        input_mask_path=options.input_mask_path,
+        input_camera_mask_path=options.input_camera_mask_path,
     )
     rig_config = processor.rig_config
 
