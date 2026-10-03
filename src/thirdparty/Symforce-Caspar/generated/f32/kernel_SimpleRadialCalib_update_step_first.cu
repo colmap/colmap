@@ -1,10 +1,11 @@
-#include "kernel_SimpleRadialCalib_update_step_first.h"
-#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
+
+#include "kernel_SimpleRadialCalib_update_step_first.h"
+#include "memops.cuh"
 
 namespace cg = cooperative_groups;
 
@@ -12,10 +13,9 @@ namespace caspar {
 
 __global__ void __launch_bounds__(1024, 1)
     SimpleRadialCalibUpdateStepFirstKernel(
-        float* SimpleRadialCalib_p_kp1,
+        float *SimpleRadialCalib_p_kp1,
         unsigned int SimpleRadialCalib_p_kp1_num_alloc,
-        const float* const alpha,
-        float* out_SimpleRadialCalib_step_kp1,
+        const float *const alpha, float *out_SimpleRadialCalib_step_kp1,
         unsigned int out_SimpleRadialCalib_step_kp1_num_alloc,
         size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -26,15 +26,11 @@ __global__ void __launch_bounds__(1024, 1)
   if (global_thread_idx < problem_size) {
     ReadIdx4<1024, float, float, float4>(SimpleRadialCalib_p_kp1,
                                          0 * SimpleRadialCalib_p_kp1_num_alloc,
-                                         global_thread_idx,
-                                         r0,
-                                         r1,
-                                         r2,
-                                         r3);
+                                         global_thread_idx, r0, r1, r2, r3);
   };
-  LoadUnique<1, float, float>(alpha, 0, (float*)inout_shared);
+  LoadUnique<1, float, float>(alpha, 0, (float *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<float>((float*)inout_shared, 0, r4);
+    ReadShared1<float>((float *)inout_shared, 0, r4);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -44,34 +40,27 @@ __global__ void __launch_bounds__(1024, 1)
     r4 = r3 * r4;
     WriteIdx4<1024, float, float, float4>(
         out_SimpleRadialCalib_step_kp1,
-        0 * out_SimpleRadialCalib_step_kp1_num_alloc,
-        global_thread_idx,
-        r0,
-        r1,
-        r2,
-        r4);
+        0 * out_SimpleRadialCalib_step_kp1_num_alloc, global_thread_idx, r0, r1,
+        r2, r4);
   };
 }
 
 void SimpleRadialCalibUpdateStepFirst(
-    float* SimpleRadialCalib_p_kp1,
-    unsigned int SimpleRadialCalib_p_kp1_num_alloc,
-    const float* const alpha,
-    float* out_SimpleRadialCalib_step_kp1,
+    float *SimpleRadialCalib_p_kp1,
+    unsigned int SimpleRadialCalib_p_kp1_num_alloc, const float *const alpha,
+    float *out_SimpleRadialCalib_step_kp1,
     unsigned int out_SimpleRadialCalib_step_kp1_num_alloc,
     size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
   SimpleRadialCalibUpdateStepFirstKernel<<<n_blocks, 1024>>>(
-      SimpleRadialCalib_p_kp1,
-      SimpleRadialCalib_p_kp1_num_alloc,
-      alpha,
-      out_SimpleRadialCalib_step_kp1,
-      out_SimpleRadialCalib_step_kp1_num_alloc,
+      SimpleRadialCalib_p_kp1, SimpleRadialCalib_p_kp1_num_alloc, alpha,
+      out_SimpleRadialCalib_step_kp1, out_SimpleRadialCalib_step_kp1_num_alloc,
       problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar
