@@ -2,17 +2,186 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/estimators/imu_preintegration.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/logging.h"
+
+#include <array>
+#include <memory>
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 
 namespace colmap {
+
+// Robust computation of square-root information matrix for a principal
+// sub-block of the preintegration covariance via self-adjoint
+// eigendecomposition.
+template <int N>
+inline Eigen::Matrix<double, N, N> ComputeSubBlockSqrtInformation(
+    const Eigen::Matrix<double, N, N>& cov_sub,
+    double max_condition_number = 1e12) {
+  THROW_CHECK(max_condition_number > 0.0 || max_condition_number == -1.0)
+      << "max_condition_number must be positive or -1 (disabled)";
+
+  // Enforce symmetry.
+  const Eigen::Matrix<double, N, N> sym_cov =
+      (cov_sub + cov_sub.transpose()) / 2.0;
+
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, N, N>> saes(
+      sym_cov);
+
+  const double max_eval = saes.eigenvalues().maxCoeff();
+  const double tol = (max_condition_number > 0.0 && max_eval > 0.0)
+                         ? max_eval / max_condition_number
+                         : 0.0;
+  Eigen::Matrix<double, N, 1> d_inv_sqrt;
+  for (int i = 0; i < N; ++i) {
+    const double eval = std::max(saes.eigenvalues()(i), tol);
+    d_inv_sqrt(i) = (eval > 0.0) ? 1.0 / std::sqrt(eval) : 0.0;
+  }
+  return d_inv_sqrt.asDiagonal() * saes.eigenvectors().transpose();
+}
+
+inline Eigen::Matrix<double, 6, 6> ExtractRotationGyroBiasCovariance(
+    const Eigen::Matrix<double, 15, 15>& cov) {
+  // Indices: {0, 1, 2, 9, 10, 11}
+  Eigen::Matrix<double, 6, 6> sub;
+  const std::array<int, 6> idx = {0, 1, 2, 9, 10, 11};
+  for (int r = 0; r < 6; ++r) {
+    for (int c = 0; c < 6; ++c) {
+      sub(r, c) = cov(idx[r], idx[c]);
+    }
+  }
+  return sub;
+}
+
+inline Eigen::Matrix<double, 9, 9> ExtractPositionVelocityAccelBiasCovariance(
+    const Eigen::Matrix<double, 15, 15>& cov) {
+  // Indices: {3, 4, 5, 6, 7, 8, 12, 13, 14}
+  Eigen::Matrix<double, 9, 9> sub;
+  const std::array<int, 9> idx = {3, 4, 5, 6, 7, 8, 12, 13, 14};
+  for (int r = 0; r < 9; ++r) {
+    for (int c = 0; c < 9; ++c) {
+      sub(r, c) = cov(idx[r], idx[c]);
+    }
+  }
+  return sub;
+}
+
+inline Eigen::Matrix<double, 6, 6> ExtractRotationGyroBiasSqrtInformation(
+    const PreintegratedImuData& data, double max_condition_number = 1e12) {
+  return ComputeSubBlockSqrtInformation<6>(
+      ExtractRotationGyroBiasCovariance(data.covariance), max_condition_number);
+}
+
+inline Eigen::Matrix<double, 9, 9>
+ExtractPositionVelocityAccelBiasSqrtInformation(
+    const PreintegratedImuData& data, double max_condition_number = 1e12) {
+  return ComputeSubBlockSqrtInformation<9>(
+      ExtractPositionVelocityAccelBiasCovariance(data.covariance),
+      max_condition_number);
+}
+
+// Computes inertial rotation residual (3D) and gyro bias random walk residual
+// (3D). Residual:
+//   rotation_residuals [0:3]: 2 * vec(delta_R_corrected^{-1} *
+//   delta_R_measured) gyro_bias_residuals [0:3]: j_imu_state[3:6] -
+//   i_imu_state[3:6]
+template <typename T>
+inline void ComputeInertialRotationResiduals(
+    const PreintegratedImuData& data,
+    const Eigen::Quaternion<T>& world_from_i_imu_q,
+    const Eigen::Quaternion<T>& world_from_j_imu_q,
+    const T* const i_imu_state,
+    const T* const j_imu_state,
+    T* rotation_residuals,
+    T* gyro_bias_residuals = nullptr) {
+  // delta_R_measured = world_from_j_imu^{-1} * world_from_i_imu
+  const Eigen::Quaternion<T> delta_R_measured =
+      world_from_j_imu_q.conjugate() * world_from_i_imu_q;
+
+  // First-order bias correction on preintegrated rotation:
+  const Eigen::Matrix<T, 3, 1> delta_b_g =
+      Eigen::Map<const Eigen::Matrix<T, 3, 1>>(i_imu_state + 3) -
+      data.biases.head<3>().cast<T>();
+  const Eigen::Matrix<T, 3, 1> omega_bias = data.dR_dbg.cast<T>() * delta_b_g;
+  Eigen::Quaternion<T> Dq_bias;
+  EigenQuaternionFromAngleAxis(omega_bias.data(), Dq_bias.coeffs().data());
+  const Eigen::Quaternion<T> delta_R_corrected =
+      data.delta_R.cast<T>() * Dq_bias;
+
+  const Eigen::Quaternion<T> rotation_error =
+      delta_R_corrected.conjugate() * delta_R_measured;
+  rotation_residuals[0] = T(2.0) * rotation_error.x();
+  rotation_residuals[1] = T(2.0) * rotation_error.y();
+  rotation_residuals[2] = T(2.0) * rotation_error.z();
+
+  if (gyro_bias_residuals != nullptr) {
+    gyro_bias_residuals[0] = j_imu_state[3] - i_imu_state[3];
+    gyro_bias_residuals[1] = j_imu_state[4] - i_imu_state[4];
+    gyro_bias_residuals[2] = j_imu_state[5] - i_imu_state[5];
+  }
+}
+
+// Computes inertial position residual (3D), velocity residual (3D),
+// and accel bias random walk residual (3D).
+// Residual:
+//   position_residuals [0:3]: R_IW_i * (p_j - p_i - v_i * dt - 0.5 * g * dt^2)
+//   - delta_p_corr velocity_residuals [0:3]: R_IW_i * (v_j - v_i - g * dt) -
+//   delta_v_corr accel_bias_residuals [0:3]: j_imu_state[6:9] -
+//   i_imu_state[6:9]
+template <typename T>
+inline void ComputeInertialPositionVelocityResiduals(
+    const PreintegratedImuData& data,
+    const Eigen::Quaternion<T>& world_from_i_imu_q,
+    const Eigen::Matrix<T, 3, 1>& p_i,
+    const Eigen::Matrix<T, 3, 1>& p_j,
+    const Eigen::Matrix<T, 3, 1>& v_i,
+    const Eigen::Matrix<T, 3, 1>& v_j,
+    const Eigen::Matrix<T, 3, 1>& gravity,
+    const T* const i_imu_state,
+    const T* const j_imu_state,
+    T* position_residuals,
+    T* velocity_residuals,
+    T* accel_bias_residuals = nullptr) {
+  const T dt = T(data.delta_t);
+  const Eigen::Matrix<T, 6, 1> delta_b =
+      Eigen::Map<const Eigen::Matrix<T, 6, 1>>(i_imu_state + 3) -
+      data.biases.cast<T>();
+  EigenVector3Map<T> delta_b_g(delta_b.data());
+  EigenVector3Map<T> delta_b_a(delta_b.data() + 3);
+
+  // Position residual.
+  const Eigen::Matrix<T, 3, 1> dp_W =
+      p_j - p_i - v_i * dt - T(0.5) * gravity * dt * dt;
+  const Eigen::Matrix<T, 3, 1> est_dp = world_from_i_imu_q.conjugate() * dp_W;
+  const Eigen::Matrix<T, 3, 1> Dp = data.delta_p.cast<T>() +
+                                    data.dp_dba.cast<T>() * delta_b_a +
+                                    data.dp_dbg.cast<T>() * delta_b_g;
+  Eigen::Map<Eigen::Matrix<T, 3, 1>> r_p(position_residuals);
+  r_p = est_dp - Dp;
+
+  // Velocity residual.
+  const Eigen::Matrix<T, 3, 1> dv_W = v_j - v_i - gravity * dt;
+  const Eigen::Matrix<T, 3, 1> est_dv = world_from_i_imu_q.conjugate() * dv_W;
+  const Eigen::Matrix<T, 3, 1> Dv = data.delta_v.cast<T>() +
+                                    data.dv_dba.cast<T>() * delta_b_a +
+                                    data.dv_dbg.cast<T>() * delta_b_g;
+  Eigen::Map<Eigen::Matrix<T, 3, 1>> r_v(velocity_residuals);
+  r_v = est_dv - Dv;
+
+  if (accel_bias_residuals != nullptr) {
+    accel_bias_residuals[0] = j_imu_state[6] - i_imu_state[6];
+    accel_bias_residuals[1] = j_imu_state[7] - i_imu_state[7];
+    accel_bias_residuals[2] = j_imu_state[8] - i_imu_state[8];
+  }
+}
 
 // IMU preintegration cost function operating on body-frame poses in a
 // gravity-aligned, metric world frame. This is the standard formulation
@@ -435,12 +604,6 @@ class VisualCentricImuPreintegrationCostFunctor {
     // IMU state: [velocity(3), bias_gyro(3), bias_accel(3)].
     EigenVector3Map<T> v_i_data(i_imu_state);
     EigenVector3Map<T> v_j_data(j_imu_state);
-    Eigen::Matrix<T, 6, 1> delta_b =
-        Eigen::Map<const Eigen::Matrix<T, 6, 1>>(i_imu_state + 3) -
-        data_->biases.cast<T>();
-    EigenVector3Map<T> delta_b_g(delta_b.data());
-    EigenVector3Map<T> delta_b_a(delta_b.data() + 3);
-    const T dt = T(data_->delta_t);
 
     // Gravity in the visual (SfM) world frame.
     Eigen::Matrix<T, 3, 1> gravity =
@@ -476,55 +639,26 @@ class VisualCentricImuPreintegrationCostFunctor {
     Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
     Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
 
-    // Rotation residual.
-    // Left convention: delta_R = body_from_world_j * world_from_body_i.
-    // In world_from_imu quaternions: world_from_j^{-1} * world_from_i.
-    const Eigen::Quaternion<T> delta_R_measured =
-        world_from_j_imu_q.conjugate() * world_from_i_imu_q;
-    // First-order bias correction.
-    Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
-    Eigen::Quaternion<T> Dq_bias;
-    EigenQuaternionFromAngleAxis(omega_bias.data(), Dq_bias.coeffs().data());
-    const Eigen::Quaternion<T> delta_R_corrected =
-        data_->delta_R.cast<T>() * Dq_bias;
-    // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
-    // VINS-Mono, ORB-SLAM3). Equivalent to angle-axis for small errors.
-    // Omit .normalized() because all input quaternions are already unit-norm,
-    // and normalizing a ceres::Jet quaternion introduces a radial projection
-    // derivative that causes a discrepancy with analytical Jacobians when the
-    // rotation residual is non-zero.
-    const Eigen::Quaternion<T> rotation_error =
-        delta_R_corrected.conjugate() * delta_R_measured;
-    residuals[0] = T(2.0) * rotation_error.x();
-    residuals[1] = T(2.0) * rotation_error.y();
-    residuals[2] = T(2.0) * rotation_error.z();
+    ComputeInertialRotationResiduals(*data_,
+                                     world_from_i_imu_q,
+                                     world_from_j_imu_q,
+                                     i_imu_state,
+                                     j_imu_state,
+                                     residuals,
+                                     residuals + 9);
 
-    // Position residual.
-    const Eigen::Matrix<T, 3, 1> j_from_i_p =
-        world_from_j_imu_t - world_from_i_imu_t;
-    Eigen::Matrix<T, 3, 1> est_dp =
-        world_from_i_imu_q.conjugate() *
-        (j_from_i_p - v_i * dt - 0.5 * gravity * dt * dt);
-    Eigen::Matrix<T, 3, 1> Dp = data_->delta_p.cast<T>() +
-                                data_->dp_dba.cast<T>() * delta_b_a +
-                                data_->dp_dbg.cast<T>() * delta_b_g;
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_p(residuals + 3);
-    param_from_measured_p = est_dp - Dp;
-
-    // Velocity residual.
-    const Eigen::Matrix<T, 3, 1> j_from_i_v = v_j - v_i;
-    Eigen::Matrix<T, 3, 1> est_dv =
-        world_from_i_imu_q.conjugate() * (j_from_i_v - gravity * dt);
-    Eigen::Matrix<T, 3, 1> Dv = data_->delta_v.cast<T>() +
-                                data_->dv_dba.cast<T>() * delta_b_a +
-                                data_->dv_dbg.cast<T>() * delta_b_g;
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_v(residuals + 6);
-    param_from_measured_v = est_dv - Dv;
-
-    // Bias random walk residual.
-    for (size_t i = 0; i < 6; ++i) {
-      residuals[i + 9] = j_imu_state[i + 3] - i_imu_state[i + 3];
-    }
+    ComputeInertialPositionVelocityResiduals(*data_,
+                                             world_from_i_imu_q,
+                                             world_from_i_imu_t,
+                                             world_from_j_imu_t,
+                                             v_i,
+                                             v_j,
+                                             gravity,
+                                             i_imu_state,
+                                             j_imu_state,
+                                             residuals + 3,
+                                             residuals + 6,
+                                             residuals + 12);
 
     // Weight by sqrt information.
     Eigen::Map<Eigen::Matrix<T, 15, 1>> residuals_data(residuals);
@@ -833,5 +967,242 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
  private:
   const PreintegratedImuData* data_;
 };
+
+// Inertial rotation cost functor for rotation averaging.
+// Evaluates a 6-dimensional residual over 3D Angle-Axis camera rotations
+// and 9D per-frame IMU states:
+//   [0:3] 2 * vec(rotation_error)
+//   [3:6] bias_gyro_j - bias_gyro_i
+//
+// Parameter blocks:
+//   [0] i_from_world:  3 (Angle-Axis rotation R_CW,i in visual frame)
+//   [1] i_imu_state:   9 (velocity(3), bg(3), ba(3))
+//   [2] j_from_world:  3 (Angle-Axis rotation R_CW,j in visual frame)
+//   [3] j_imu_state:   9 (velocity(3), bg(3), ba(3))
+class InertialRotationCostFunctor {
+ public:
+  InertialRotationCostFunctor(
+      const PreintegratedImuData* data,
+      const Eigen::Quaterniond& imu_from_cam_q,
+      const Eigen::Matrix<double, 6, 6>& sqrt_information =
+          Eigen::Matrix<double, 6, 6>::Zero())
+      : data_(data),
+        imu_from_cam_q_(imu_from_cam_q.normalized()),
+        sqrt_information_6x6_(
+            sqrt_information.isZero()
+                ? ExtractRotationGyroBiasSqrtInformation(*data)
+                : sqrt_information) {
+    THROW_CHECK(!data_->sqrt_information.isZero())
+        << "PreintegratedImuData must be finalized before use in cost "
+           "function.";
+  }
+
+  InertialRotationCostFunctor(
+      const PreintegratedImuData* data,
+      const Rigid3d& imu_from_cam,
+      const Eigen::Matrix<double, 6, 6>& sqrt_information =
+          Eigen::Matrix<double, 6, 6>::Zero())
+      : InertialRotationCostFunctor(
+            data, imu_from_cam.rotation(), sqrt_information) {}
+
+  static ceres::CostFunction* Create(
+      const PreintegratedImuData* data,
+      const Eigen::Quaterniond& imu_from_cam_q,
+      const Eigen::Matrix<double, 6, 6>& sqrt_information =
+          Eigen::Matrix<double, 6, 6>::Zero()) {
+    return new ceres::
+        AutoDiffCostFunction<InertialRotationCostFunctor, 6, 3, 9, 3, 9>(
+            new InertialRotationCostFunctor(
+                data, imu_from_cam_q, sqrt_information));
+  }
+
+  static ceres::CostFunction* Create(
+      const PreintegratedImuData* data,
+      const Rigid3d& imu_from_cam,
+      const Eigen::Matrix<double, 6, 6>& sqrt_information =
+          Eigen::Matrix<double, 6, 6>::Zero()) {
+    return Create(data, imu_from_cam.rotation(), sqrt_information);
+  }
+
+  template <typename T>
+  bool operator()(const T* const i_from_world_aa,
+                  const T* const i_imu_state,
+                  const T* const j_from_world_aa,
+                  const T* const j_imu_state,
+                  T* residuals) const {
+    Eigen::Quaternion<T> i_from_world_q;
+    EigenQuaternionFromAngleAxis(i_from_world_aa,
+                                 i_from_world_q.coeffs().data());
+    Eigen::Quaternion<T> j_from_world_q;
+    EigenQuaternionFromAngleAxis(j_from_world_aa,
+                                 j_from_world_q.coeffs().data());
+
+    const Eigen::Quaternion<T> world_from_i_q = i_from_world_q.conjugate();
+    const Eigen::Quaternion<T> world_from_j_q = j_from_world_q.conjugate();
+
+    const Eigen::Quaternion<T> cam_from_imu_q =
+        imu_from_cam_q_.cast<T>().conjugate();
+
+    const Eigen::Quaternion<T> world_from_i_imu_q =
+        world_from_i_q * cam_from_imu_q;
+    const Eigen::Quaternion<T> world_from_j_imu_q =
+        world_from_j_q * cam_from_imu_q;
+
+    ComputeInertialRotationResiduals(*data_,
+                                     world_from_i_imu_q,
+                                     world_from_j_imu_q,
+                                     i_imu_state,
+                                     j_imu_state,
+                                     residuals,
+                                     residuals + 3);
+
+    Eigen::Map<Eigen::Matrix<T, 6, 1>> r_map(residuals);
+    r_map.applyOnTheLeft(sqrt_information_6x6_.cast<T>());
+    return true;
+  }
+
+ private:
+  const PreintegratedImuData* data_;
+  Eigen::Quaterniond imu_from_cam_q_;
+  Eigen::Matrix<double, 6, 6> sqrt_information_6x6_;
+};
+
+// Inertial position and velocity cost functor for global positioning.
+// Evaluates a 9-dimensional residual over 3D camera optical centers in world,
+// 9D per-frame IMU states, gravity direction, and metric log_scale:
+//   [0:3] position error in body frame i
+//   [3:6] velocity error in body frame i
+//   [6:9] bias_accel_j - bias_accel_i
+//
+// Parameter blocks:
+//   [0] log_scale:          1 (log-scale factor)
+//   [1] gravity_direction:  3 (unit vector in unscaled SfM world)
+//   [2] i_center_in_world:  3 (camera center c_{W,i} in unscaled SfM world)
+//   [3] i_imu_state:        9 (velocity(3) in unscaled SfM world, bg(3), ba(3))
+//   [4] j_center_in_world:  3 (camera center c_{W,j} in unscaled SfM world)
+//   [5] j_imu_state:        9 (velocity(3) in unscaled SfM world, bg(3), ba(3))
+//
+// Note: If electronic stabilization (q_iori = cam_from_unrot_cam) is present,
+// the unstabilized (physical) camera orientations
+// (q_iori_i.conjugate() * cam_from_world_i, etc.) should be passed as
+// i_from_world_q and j_from_world_q.
+class InertialGlobalPositioningCostFunctor {
+ public:
+  InertialGlobalPositioningCostFunctor(
+      const PreintegratedImuData* data,
+      const Rigid3d& imu_from_cam,
+      const Eigen::Quaterniond& i_from_world_q,
+      const Eigen::Quaterniond& j_from_world_q,
+      const Eigen::Matrix<double, 9, 9>& sqrt_information =
+          Eigen::Matrix<double, 9, 9>::Zero())
+      : data_(data),
+        sqrt_information_9x9_(
+            sqrt_information.isZero()
+                ? ExtractPositionVelocityAccelBiasSqrtInformation(*data)
+                : sqrt_information) {
+    THROW_CHECK(!data_->sqrt_information.isZero())
+        << "PreintegratedImuData must be finalized before use in cost "
+           "function.";
+
+    const Eigen::Quaterniond cam_from_imu_q =
+        imu_from_cam.rotation().conjugate();
+    const Eigen::Vector3d cam_from_imu_t =
+        -(cam_from_imu_q * imu_from_cam.translation());
+
+    const Eigen::Quaterniond world_from_i_q = i_from_world_q.conjugate();
+    const Eigen::Quaterniond world_from_j_q = j_from_world_q.conjugate();
+
+    world_from_i_imu_q_ = world_from_i_q * cam_from_imu_q;
+    d_W_i_ = world_from_i_q * cam_from_imu_t;
+    d_W_j_ = world_from_j_q * cam_from_imu_t;
+  }
+
+  static ceres::CostFunction* Create(
+      const PreintegratedImuData* data,
+      const Rigid3d& imu_from_cam,
+      const Eigen::Quaterniond& i_from_world_q,
+      const Eigen::Quaterniond& j_from_world_q,
+      const Eigen::Matrix<double, 9, 9>& sqrt_information =
+          Eigen::Matrix<double, 9, 9>::Zero()) {
+    return new ceres::AutoDiffCostFunction<InertialGlobalPositioningCostFunctor,
+                                           9,
+                                           1,
+                                           3,
+                                           3,
+                                           9,
+                                           3,
+                                           9>(
+        new InertialGlobalPositioningCostFunctor(data,
+                                                 imu_from_cam,
+                                                 i_from_world_q,
+                                                 j_from_world_q,
+                                                 sqrt_information));
+  }
+
+  template <typename T>
+  bool operator()(const T* const log_scale,
+                  const T* const gravity_direction,
+                  const T* const i_center_in_world,
+                  const T* const i_imu_state,
+                  const T* const j_center_in_world,
+                  const T* const j_imu_state,
+                  T* residuals) const {
+    const T scale = ceres::exp(log_scale[0]);
+    const Eigen::Matrix<T, 3, 1> p_i =
+        (EigenVector3Map<T>(i_center_in_world) + d_W_i_.cast<T>()) * scale;
+    const Eigen::Matrix<T, 3, 1> p_j =
+        (EigenVector3Map<T>(j_center_in_world) + d_W_j_.cast<T>()) * scale;
+    const Eigen::Matrix<T, 3, 1> v_i = EigenVector3Map<T>(i_imu_state) * scale;
+    const Eigen::Matrix<T, 3, 1> v_j = EigenVector3Map<T>(j_imu_state) * scale;
+
+    const Eigen::Matrix<T, 3, 1> gravity =
+        EigenVector3Map<T>(gravity_direction) * T(data_->gravity_magnitude);
+
+    ComputeInertialPositionVelocityResiduals(*data_,
+                                             world_from_i_imu_q_.cast<T>(),
+                                             p_i,
+                                             p_j,
+                                             v_i,
+                                             v_j,
+                                             gravity,
+                                             i_imu_state,
+                                             j_imu_state,
+                                             residuals,
+                                             residuals + 3,
+                                             residuals + 6);
+
+    Eigen::Map<Eigen::Matrix<T, 9, 1>> r_map(residuals);
+    r_map.applyOnTheLeft(sqrt_information_9x9_.cast<T>());
+    return true;
+  }
+
+ private:
+  const PreintegratedImuData* data_;
+  Eigen::Quaterniond world_from_i_imu_q_;
+  Eigen::Vector3d d_W_i_;
+  Eigen::Vector3d d_W_j_;
+  Eigen::Matrix<double, 9, 9> sqrt_information_9x9_;
+};
+
+#if CERES_VERSION_MAJOR >= 3 || \
+    (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
+inline std::unique_ptr<ceres::Manifold> CreateImuStateGyroOnlyManifold() {
+  return CreateSubsetManifold(9, {0, 1, 2, 6, 7, 8});
+}
+
+inline std::unique_ptr<ceres::Manifold> CreateImuStateVelAccelBiasManifold() {
+  return CreateSubsetManifold(9, {3, 4, 5});
+}
+#else
+inline std::unique_ptr<ceres::LocalParameterization>
+CreateImuStateGyroOnlyManifold() {
+  return CreateSubsetManifold(9, {0, 1, 2, 6, 7, 8});
+}
+
+inline std::unique_ptr<ceres::LocalParameterization>
+CreateImuStateVelAccelBiasManifold() {
+  return CreateSubsetManifold(9, {3, 4, 5});
+}
+#endif
 
 }  // namespace colmap
