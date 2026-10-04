@@ -14,385 +14,9 @@
 
 namespace colmap {
 
-// IMU preintegration cost function operating on body-frame poses in a
-// gravity-aligned, metric world frame. This is the standard formulation
-// for VIO bundle adjustment (Forster et al. TRO 16).
-//
-// Gravity is a fixed constructor argument (not optimized), typically
-// [0, 0, -9.81] for a gravity-aligned world frame.
-//
-// Takes a pointer to externally-owned PreintegratedImuData so that a
-// ReintegrationCallback can update the data between Ceres iterations
-// without rebuilding cost functions.
-//
-// Residual: 15-dimensional
-//   [0:3]   rotation error (angle-axis)
-//   [3:6]   position error (body frame i)
-//   [6:9]   velocity error (body frame i)
-//   [9:15]  bias random walk (gyro then accel)
-//
-// Parameter blocks:
-//   [0] body_from_world_i:  7  (qx,qy,qz,qw, tx,ty,tz)
-//       Body (IMU) pose at frame i in gravity-aligned metric world.
-//   [1] v_i:                3  (vx,vy,vz)
-//       Velocity at frame i, in the world frame.
-//   [2] imu_state_i:        6  (bgx,bgy,bgz, bax,bay,baz)
-//       Biases at frame i.
-//   [3] body_from_world_j:  7
-//       Body (IMU) pose at frame j.
-//   [4] v_j:                3
-//       Velocity at frame j, in the world frame.
-//   [5] imu_state_j:        6
-//       Biases at frame j.
-class ImuPreintegrationCostFunctor {
- public:
-  ImuPreintegrationCostFunctor(const PreintegratedImuData* data,
-                               const Eigen::Vector3d& gravity)
-      : data_(data), gravity_(gravity) {
-    THROW_CHECK(!data_->sqrt_information.isZero())
-        << "PreintegratedImuData must be finalized before use in cost "
-           "function. Call Extract() or Update() on the integrator, or "
-           "Finalize() on the data directly.";
-  }
-
-  static ceres::CostFunction* Create(const PreintegratedImuData* data,
-                                     const Eigen::Vector3d& gravity) {
-    return (new ceres::AutoDiffCostFunction<ImuPreintegrationCostFunctor,
-                                            15,
-                                            7,
-                                            3,
-                                            6,
-                                            7,
-                                            3,
-                                            6>(
-        new ImuPreintegrationCostFunctor(data, gravity)));
-  }
-
-  template <typename T>
-  bool operator()(const T* const body_from_world_i,
-                  const T* const v_i_ptr,
-                  const T* const imu_state_i,
-                  const T* const body_from_world_j,
-                  const T* const v_j_ptr,
-                  const T* const imu_state_j,
-                  T* residuals) const {
-    // IMU state: [bias_gyro(3), bias_accel(3)].
-    EigenVector3Map<T> v_i(v_i_ptr);
-    EigenVector3Map<T> v_j(v_j_ptr);
-    Eigen::Matrix<T, 6, 1> delta_b =
-        Eigen::Map<const Eigen::Matrix<T, 6, 1>>(imu_state_i) -
-        data_->biases.cast<T>();
-    EigenVector3Map<T> delta_b_g(delta_b.data());
-    EigenVector3Map<T> delta_b_a(delta_b.data() + 3);
-    const T dt = T(data_->delta_t);
-    const Eigen::Matrix<T, 3, 1> gravity = gravity_.cast<T>();
-
-    // World-frame positions: p_W = -R_WB * t_BW.
-    Eigen::Quaternion<T> q_BW_i = EigenQuaternionMap<T>(body_from_world_i);
-    Eigen::Quaternion<T> q_WB_i = q_BW_i.conjugate();
-    Eigen::Matrix<T, 3, 1> p_W_i =
-        q_WB_i * EigenVector3Map<T>(body_from_world_i + 4) * T(-1.);
-    Eigen::Quaternion<T> q_BW_j = EigenQuaternionMap<T>(body_from_world_j);
-    Eigen::Quaternion<T> q_WB_j = q_BW_j.conjugate();
-    Eigen::Matrix<T, 3, 1> p_W_j =
-        q_WB_j * EigenVector3Map<T>(body_from_world_j + 4) * T(-1.);
-
-    // Rotation residual.
-    // Left convention: delta_R = body_from_world_j * world_from_body_i.
-    const Eigen::Quaternion<T> delta_R_measured = q_BW_j * q_WB_i;
-    // First-order bias correction.
-    Eigen::Matrix<T, 3, 1> omega_bias = data_->dR_dbg.cast<T>() * delta_b_g;
-    Eigen::Quaternion<T> Dq_bias;
-    EigenQuaternionFromAngleAxis(omega_bias.data(), Dq_bias.coeffs().data());
-    const Eigen::Quaternion<T> delta_R_corrected =
-        data_->delta_R.cast<T>() * Dq_bias;
-    // 2 * vec(q) rotation error: standard VIO parameterization (Forster et al.,
-    // VINS-Mono, ORB-SLAM3). Equivalent to angle-axis for small errors.
-    // Omit .normalized() because all input quaternions are already unit-norm,
-    // and normalizing a ceres::Jet quaternion introduces a radial projection
-    // derivative that causes a discrepancy with analytical Jacobians when the
-    // rotation residual is non-zero.
-    const Eigen::Quaternion<T> rotation_error =
-        delta_R_corrected.conjugate() * delta_R_measured;
-    residuals[0] = T(2.0) * rotation_error.x();
-    residuals[1] = T(2.0) * rotation_error.y();
-    residuals[2] = T(2.0) * rotation_error.z();
-
-    // Position residual.
-    const Eigen::Matrix<T, 3, 1> dp_W =
-        p_W_j - p_W_i - v_i * dt - 0.5 * gravity * dt * dt;
-    Eigen::Matrix<T, 3, 1> est_dp = q_BW_i * dp_W;
-    Eigen::Matrix<T, 3, 1> Dp = data_->delta_p.cast<T>() +
-                                data_->dp_dba.cast<T>() * delta_b_a +
-                                data_->dp_dbg.cast<T>() * delta_b_g;
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_p(residuals + 3);
-    param_from_measured_p = est_dp - Dp;
-
-    // Velocity residual.
-    const Eigen::Matrix<T, 3, 1> dv_W = v_j - v_i - gravity * dt;
-    Eigen::Matrix<T, 3, 1> est_dv = q_BW_i * dv_W;
-    Eigen::Matrix<T, 3, 1> Dv = data_->delta_v.cast<T>() +
-                                data_->dv_dba.cast<T>() * delta_b_a +
-                                data_->dv_dbg.cast<T>() * delta_b_g;
-    Eigen::Map<Eigen::Matrix<T, 3, 1>> param_from_measured_v(residuals + 6);
-    param_from_measured_v = est_dv - Dv;
-
-    // Bias random walk residual.
-    for (size_t i = 0; i < 6; ++i) {
-      residuals[i + 9] = imu_state_j[i] - imu_state_i[i];
-    }
-
-    // Weight by sqrt information.
-    Eigen::Map<Eigen::Matrix<T, 15, 1>> residuals_data(residuals);
-    residuals_data.applyOnTheLeft(data_->sqrt_information.cast<T>());
-    return true;
-  }
-
- private:
-  const PreintegratedImuData* data_;
-  Eigen::Vector3d gravity_;
-};
-
-// Analytical-Jacobian version of ImuPreintegrationCostFunctor.
-// Same residual and parameter layout, but implements Evaluate() with
-// hand-derived Jacobians instead of Ceres AutoDiff.
-//
-// Approximation: the rotation Jacobian w.r.t. gyro bias uses a first-order
-// linearization that drops the Exp(dR_dbg * dbg) nonlinearity (Forster et al.
-// TRO 2016, Eq. 53). This is standard in VIO systems (VINS-Mono, ORB-SLAM3)
-// and degrades only with large bias corrections.
-//
-// Quaternion convention: Jacobians are derived for unit quaternions. Use with
-// EigenQuaternionManifold (or ProductManifold with EuclideanManifold<3> for
-// the translation) to ensure the unit-norm constraint is maintained.
-//
-// Residual: 15-dimensional (same ordering as ImuPreintegrationCostFunctor)
-//   [0:3]   rotation error (2 * vec(q_error), small-angle approx)
-//   [3:6]   position error (body frame i)
-//   [6:9]   velocity error (body frame i)
-//   [9:15]  bias random walk (gyro then accel)
-//
-// Parameter blocks:
-//   [0] body_from_world_i:  7  (qx,qy,qz,qw, tx,ty,tz)
-//   [1] v_i:                3  (vx,vy,vz)
-//   [2] imu_state_i:        6  (bgx,bgy,bgz, bax,bay,baz)
-//   [3] body_from_world_j:  7
-//   [4] v_j:                3
-//   [5] imu_state_j:        6
-class AnalyticalImuPreintegrationCostFunction
-    : public ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6> {
- public:
-  AnalyticalImuPreintegrationCostFunction(const PreintegratedImuData* data,
-                                          const Eigen::Vector3d& gravity)
-      : data_(data), gravity_(gravity) {
-    THROW_CHECK(!data_->sqrt_information.isZero())
-        << "PreintegratedImuData must be finalized before use in cost "
-           "function.";
-  }
-
-  bool Evaluate(double const* const* parameters,
-                double* residuals,
-                double** jacobians) const override {
-    // Extract parameters.
-    Eigen::Map<const Eigen::Quaterniond> q_BW_i(parameters[0]);
-    Eigen::Map<const Eigen::Vector3d> t_BW_i(parameters[0] + 4);
-
-    Eigen::Map<const Eigen::Vector3d> v_i(parameters[1]);
-    Eigen::Map<const Eigen::Vector3d> bg_i(parameters[2]);
-    Eigen::Map<const Eigen::Vector3d> ba_i(parameters[2] + 3);
-
-    Eigen::Map<const Eigen::Quaterniond> q_BW_j(parameters[3]);
-    Eigen::Map<const Eigen::Vector3d> t_BW_j(parameters[3] + 4);
-
-    Eigen::Map<const Eigen::Vector3d> v_j(parameters[4]);
-    Eigen::Map<const Eigen::Vector3d> bg_j(parameters[5]);
-    Eigen::Map<const Eigen::Vector3d> ba_j(parameters[5] + 3);
-
-    // Rotation matrices.
-    const Eigen::Matrix3d R_BW_i = q_BW_i.normalized().toRotationMatrix();
-    const Eigen::Matrix3d R_WB_i = R_BW_i.transpose();
-    const Eigen::Matrix3d R_WB_j =
-        q_BW_j.normalized().toRotationMatrix().transpose();
-
-    // World-frame positions: p_W = -R_WB * t_BW.
-    const Eigen::Vector3d p_W_i = -R_WB_i * t_BW_i;
-    const Eigen::Vector3d p_W_j = -R_WB_j * t_BW_j;
-
-    const double dt = data_->delta_t;
-
-    // First-order bias correction.
-    const Eigen::Vector3d dbg = bg_i - data_->biases.head<3>();
-    const Eigen::Vector3d dba = ba_i - data_->biases.tail<3>();
-
-    const Eigen::Vector3d delta_p =
-        data_->delta_p + data_->dp_dbg * dbg + data_->dp_dba * dba;
-    const Eigen::Vector3d delta_v =
-        data_->delta_v + data_->dv_dbg * dbg + data_->dv_dba * dba;
-
-    const Eigen::Quaterniond dq_correction =
-        QuaternionFromAngleAxis(data_->dR_dbg * dbg);
-    const Eigen::Quaterniond delta_q =
-        (data_->delta_R * dq_correction).normalized();
-
-    // World-frame prediction errors.
-    const Eigen::Vector3d dp_W =
-        p_W_j - p_W_i - v_i * dt - 0.5 * gravity_ * dt * dt;
-    const Eigen::Vector3d dv_W = v_j - v_i - gravity_ * dt;
-
-    // Residuals.
-    Eigen::Map<Eigen::Matrix<double, 15, 1>> r(residuals);
-    // Rotation: 2 * vec(delta_q^{-1} * q_BW_j * q_BW_i^{-1}).
-    const Eigen::Quaterniond q_error =
-        delta_q.conjugate() * q_BW_j * q_BW_i.conjugate();
-    r.segment<3>(0) = 2.0 * q_error.vec();
-    // Position.
-    r.segment<3>(3) = R_BW_i * dp_W - delta_p;
-    // Velocity.
-    r.segment<3>(6) = R_BW_i * dv_W - delta_v;
-    // Bias random walk.
-    r.segment<3>(9) = bg_j - bg_i;
-    r.segment<3>(12) = ba_j - ba_i;
-
-    // Weight by sqrt information.
-    r = data_->sqrt_information * r;
-
-    if (jacobians == nullptr) return true;
-
-    // dvec: extracts xyz from xyzw quaternion (3x4 matrix).
-    Eigen::Matrix<double, 3, 4> dvec = Eigen::Matrix<double, 3, 4>::Zero();
-    dvec(0, 0) = 1.0;
-    dvec(1, 1) = 1.0;
-    dvec(2, 2) = 1.0;
-
-    // dconj: d(q^{-1})/d(q) for unit quaternion (negate xyz, keep w).
-    Eigen::Matrix4d dconj = Eigen::Vector4d(-1, -1, -1, 1).asDiagonal();
-
-    // Jacobian w.r.t. body_from_world_i [7].
-    if (jacobians[0] != nullptr) {
-      Eigen::Map<Eigen::Matrix<double, 15, 7, Eigen::RowMajor>> J(jacobians[0]);
-      J.setZero();
-
-      // r_rot = 2*vec(delta_q^{-1} * q_j * q_i^{-1})
-      // dr_rot/dq_i = 2 * dvec * L(delta_q^{-1} * q_j) * dconj
-      Eigen::Quaterniond q_left_i = delta_q.conjugate() * q_BW_j;
-      J.block<3, 4>(0, 0) =
-          2.0 * dvec * QuaternionLeftMultMatrix(q_left_i) * dconj;
-
-      // r_pos = R(q_i) * dp_W - delta_p where dp_W depends on q_i through
-      // p_W_i = -R(conj(q_i)) * t_i. Full derivative:
-      //   d(R(q_i)*dp_W)/dq_i = d(R(q_i)*v)/dq_i|_{v=dp_W}
-      //                       + R(q_i) * d(dp_W)/dq_i
-      // where d(dp_W)/dq_i = d(R(conj(q_i))*t_i)/dq_i (cross term from p_W_i).
-      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_Rq_dpW;
-      QuaternionRotatePointWithJac(parameters[0], dp_W.data(), J_Rq_dpW.data());
-      // Cross term: d(R(conj(q_i))*t_i)/dq_i = dRt_dqconj * dconj
-      Eigen::Quaterniond q_BW_i_conj = q_BW_i.conjugate();
-      double q_conj_i[4] = {
-          q_BW_i_conj.x(), q_BW_i_conj.y(), q_BW_i_conj.z(), q_BW_i_conj.w()};
-      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRt_dqconj;
-      QuaternionRotatePointWithJac(q_conj_i, t_BW_i.data(), dRt_dqconj.data());
-      J.block<3, 4>(3, 0) = J_Rq_dpW + R_BW_i * dRt_dqconj * dconj;
-      // dr_pos/dt_i: dp_W has -p_W_i, d(-p_W_i)/dt_i = R(conj(q_i)),
-      // so d(R(q_i)*dp_W)/dt_i = R(q_i)*R(conj(q_i)) = I for unit q.
-      J.block<3, 3>(3, 4) = Eigen::Matrix3d::Identity();
-
-      // r_vel = R(q_i) * dv_W - delta_v
-      // dr_vel/dq_i = d(R(q_i)*dv_W)/dq_i
-      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> J_vel_qi;
-      QuaternionRotatePointWithJac(parameters[0], dv_W.data(), J_vel_qi.data());
-      J.block<3, 4>(6, 0) = J_vel_qi;
-
-      J = data_->sqrt_information * J;
-    }
-
-    // Jacobian w.r.t. v_i [3].
-    if (jacobians[1] != nullptr) {
-      Eigen::Map<Eigen::Matrix<double, 15, 3, Eigen::RowMajor>> J(jacobians[1]);
-      J.setZero();
-      J.block<3, 3>(3, 0) = -dt * R_BW_i;
-      J.block<3, 3>(6, 0) = -R_BW_i;
-      J = data_->sqrt_information * J;
-    }
-
-    // Jacobian w.r.t. imu_state_i [6].
-    if (jacobians[2] != nullptr) {
-      Eigen::Map<Eigen::Matrix<double, 15, 6, Eigen::RowMajor>> J(jacobians[2]);
-      J.setZero();
-
-      // r_rot w.r.t. bg: first-order approximation (drops Exp nonlinearity).
-      J.block<3, 3>(0, 0) = -data_->dR_dbg;
-      // r_pos w.r.t. bg, ba: -dp_dbg, -dp_dba
-      J.block<3, 3>(3, 0) = -data_->dp_dbg;
-      J.block<3, 3>(3, 3) = -data_->dp_dba;
-      // r_vel w.r.t. bg, ba: -dv_dbg, -dv_dba
-      J.block<3, 3>(6, 0) = -data_->dv_dbg;
-      J.block<3, 3>(6, 3) = -data_->dv_dba;
-      // r_bias w.r.t. bg_i, ba_i: -I
-      J.block<3, 3>(9, 0) = -Eigen::Matrix3d::Identity();
-      J.block<3, 3>(12, 3) = -Eigen::Matrix3d::Identity();
-
-      J = data_->sqrt_information * J;
-    }
-
-    // Jacobian w.r.t. body_from_world_j [7].
-    if (jacobians[3] != nullptr) {
-      Eigen::Map<Eigen::Matrix<double, 15, 7, Eigen::RowMajor>> J(jacobians[3]);
-      J.setZero();
-
-      // r_rot = 2*vec(delta_q^{-1} * q_j * q_i^{-1})
-      // dr_rot/dq_j = 2 * dvec * L(delta_q^{-1}) * R(q_i^{-1})
-      J.block<3, 4>(0, 0) = 2.0 * dvec *
-                            QuaternionLeftMultMatrix(delta_q.conjugate()) *
-                            QuaternionRightMultMatrix(q_BW_i.conjugate());
-
-      // r_pos = R_BW_i * (p_W_j - ...) - delta_p
-      // p_W_j = -R_WB_j * t_BW_j, so dp_W_j/dt_j = -R_WB_j
-      // dr_pos/dt_j = R_BW_i * (-R_WB_j) = -R_BW_i * R_WB_j
-      J.block<3, 3>(3, 4) = -R_BW_i * R_WB_j;
-
-      // dr_pos/dq_j via p_W_j = -R(q_j^{-1}) * t_j
-      // = R_BW_i * d(-R(q_j^{-1}) * t_j)/dq_j
-      Eigen::Quaterniond q_BW_j_conj = q_BW_j.conjugate();
-      double q_conj_arr[4] = {
-          q_BW_j_conj.x(), q_BW_j_conj.y(), q_BW_j_conj.z(), q_BW_j_conj.w()};
-      Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRtv_dq;
-      QuaternionRotatePointWithJac(q_conj_arr, t_BW_j.data(), dRtv_dq.data());
-      J.block<3, 4>(3, 0) = -R_BW_i * dRtv_dq * dconj;
-
-      J = data_->sqrt_information * J;
-    }
-
-    // Jacobian w.r.t. v_j [3].
-    if (jacobians[4] != nullptr) {
-      Eigen::Map<Eigen::Matrix<double, 15, 3, Eigen::RowMajor>> J(jacobians[4]);
-      J.setZero();
-      J.block<3, 3>(6, 0) = R_BW_i;
-      J = data_->sqrt_information * J;
-    }
-
-    // Jacobian w.r.t. imu_state_j [6].
-    if (jacobians[5] != nullptr) {
-      Eigen::Map<Eigen::Matrix<double, 15, 6, Eigen::RowMajor>> J(jacobians[5]);
-      J.setZero();
-
-      // r_bias w.r.t. bg_j, ba_j: +I
-      J.block<3, 3>(9, 0) = Eigen::Matrix3d::Identity();
-      J.block<3, 3>(12, 3) = Eigen::Matrix3d::Identity();
-
-      J = data_->sqrt_information * J;
-    }
-
-    return true;
-  }
-
- private:
-  const PreintegratedImuData* data_;
-  Eigen::Vector3d gravity_;
-};
-
-// // IMU preintegration cost function for COLMAP's post-hoc visual-inertial
-// refinement. Extends ImuPreintegrationCostFunctor with additional parameter
-// blocks for metric scale and gravity direction (in the arbitrary SfM frame).
+// IMU preintegration cost function for COLMAP's post-hoc visual-inertial
+// refinement. Includes additional parameter blocks for metric scale and
+// gravity direction (in the arbitrary SfM frame).
 //
 // The gravity direction is optimized as a unit vector in the SfM world frame,
 // constrained with SphereManifold(3). This implicitly captures the rotation
@@ -407,7 +31,7 @@ class AnalyticalImuPreintegrationCostFunction
 // ReintegrationCallback can update the data between Ceres iterations
 // without rebuilding cost functions.
 //
-// Residual: 15-dimensional (same as ImuPreintegrationCostFunctor)
+// Residual: 15-dimensional
 //
 // Parameter blocks:
 //   [0] log_scale:          1
@@ -550,7 +174,7 @@ class VisualCentricImuPreintegrationCostFunctor {
 // Same residual and parameter layout, but implements Evaluate() with
 // hand-derived Jacobians instead of Ceres AutoDiff.
 //
-// Approximations (same as AnalyticalImuPreintegrationCostFunction):
+// Approximations:
 //   1. Rotation Jacobian w.r.t. gyro bias uses first-order linearization
 //      (Forster et al. TRO 2016, Eq. 53).
 //   2. Quaternion Jacobians assume unit-norm quaternions.
@@ -774,6 +398,143 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
  private:
   const PreintegratedImuData* data_;
+};
+
+// IMU preintegration cost function operating on body-frame poses in a
+// gravity-aligned, metric world frame. This is the standard formulation
+// for VIO bundle adjustment (Forster et al. TRO 16).
+//
+// Gravity is a fixed constructor argument (not optimized), typically
+// [0, 0, -9.81] for a gravity-aligned world frame.
+//
+// Thin wrapper around VisualCentricImuPreintegrationCostFunctor with
+// log_scale fixed to 0 and gravity_direction fixed to gravity /
+// data->gravity_magnitude.
+//
+// Residual: 15-dimensional
+//   [0:3]   rotation error (angle-axis)
+//   [3:6]   position error (body frame i)
+//   [6:9]   velocity error (body frame i)
+//   [9:15]  bias random walk (gyro then accel)
+//
+// Parameter blocks:
+//   [0] body_from_world_i:  7  (qx,qy,qz,qw, tx,ty,tz)
+//       Body (IMU) pose at frame i in gravity-aligned metric world.
+//   [1] v_i:                3  (vx,vy,vz)
+//       Velocity at frame i, in the world frame.
+//   [2] imu_state_i:        6  (bgx,bgy,bgz, bax,bay,baz)
+//       Biases at frame i.
+//   [3] body_from_world_j:  7
+//       Body (IMU) pose at frame j.
+//   [4] v_j:                3
+//       Velocity at frame j, in the world frame.
+//   [5] imu_state_j:        6
+//       Biases at frame j.
+class ImuPreintegrationCostFunctor {
+ public:
+  ImuPreintegrationCostFunctor(const PreintegratedImuData* data,
+                               const Eigen::Vector3d& gravity)
+      : cost_(THROW_CHECK_NOTNULL(data)), gravity_direction_([&]() {
+          THROW_CHECK_GT(data->gravity_magnitude, 0.0);
+          return gravity / data->gravity_magnitude;
+        }()) {}
+
+  static ceres::CostFunction* Create(const PreintegratedImuData* data,
+                                     const Eigen::Vector3d& gravity) {
+    return (new ceres::AutoDiffCostFunction<ImuPreintegrationCostFunctor,
+                                            15,
+                                            7,
+                                            3,
+                                            6,
+                                            7,
+                                            3,
+                                            6>(
+        new ImuPreintegrationCostFunctor(data, gravity)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const body_from_world_i,
+                  const T* const v_i,
+                  const T* const imu_state_i,
+                  const T* const body_from_world_j,
+                  const T* const v_j,
+                  const T* const imu_state_j,
+                  T* residuals) const {
+    const T log_scale(0.0);
+    const Eigen::Matrix<T, 3, 1> gravity_direction =
+        gravity_direction_.cast<T>();
+    return cost_(&log_scale,
+                 gravity_direction.data(),
+                 body_from_world_i,
+                 v_i,
+                 imu_state_i,
+                 body_from_world_j,
+                 v_j,
+                 imu_state_j,
+                 residuals);
+  }
+
+ private:
+  const VisualCentricImuPreintegrationCostFunctor cost_;
+  const Eigen::Vector3d gravity_direction_;
+};
+
+// Analytical-Jacobian version of ImuPreintegrationCostFunctor.
+// Thin wrapper around AnalyticalVisualCentricImuPreintegrationCostFunction
+// with log_scale and gravity_direction fixed.
+//
+// Residual: 15-dimensional (same ordering as ImuPreintegrationCostFunctor)
+//   [0:3]   rotation error (2 * vec(q_error), small-angle approx)
+//   [3:6]   position error (body frame i)
+//   [6:9]   velocity error (body frame i)
+//   [9:15]  bias random walk (gyro then accel)
+//
+// Parameter blocks:
+//   [0] body_from_world_i:  7  (qx,qy,qz,qw, tx,ty,tz)
+//   [1] v_i:                3  (vx,vy,vz)
+//   [2] imu_state_i:        6  (bgx,bgy,bgz, bax,bay,baz)
+//   [3] body_from_world_j:  7
+//   [4] v_j:                3
+//   [5] imu_state_j:        6
+class AnalyticalImuPreintegrationCostFunction
+    : public ceres::SizedCostFunction<15, 7, 3, 6, 7, 3, 6> {
+ public:
+  AnalyticalImuPreintegrationCostFunction(const PreintegratedImuData* data,
+                                          const Eigen::Vector3d& gravity)
+      : cost_(THROW_CHECK_NOTNULL(data)), gravity_direction_([&]() {
+          THROW_CHECK_GT(data->gravity_magnitude, 0.0);
+          return gravity / data->gravity_magnitude;
+        }()) {}
+
+  bool Evaluate(double const* const* parameters,
+                double* residuals,
+                double** jacobians) const override {
+    const double log_scale = 0.0;
+    const double* full_parameters[8] = {&log_scale,
+                                        gravity_direction_.data(),
+                                        parameters[0],
+                                        parameters[1],
+                                        parameters[2],
+                                        parameters[3],
+                                        parameters[4],
+                                        parameters[5]};
+    if (jacobians == nullptr) {
+      return cost_.Evaluate(full_parameters, residuals, nullptr);
+    }
+    double* full_jacobians[8] = {nullptr,
+                                 nullptr,
+                                 jacobians[0],
+                                 jacobians[1],
+                                 jacobians[2],
+                                 jacobians[3],
+                                 jacobians[4],
+                                 jacobians[5]};
+    return cost_.Evaluate(full_parameters, residuals, full_jacobians);
+  }
+
+ private:
+  const AnalyticalVisualCentricImuPreintegrationCostFunction cost_;
+  const Eigen::Vector3d gravity_direction_;
 };
 
 }  // namespace colmap
