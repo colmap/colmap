@@ -68,22 +68,29 @@ struct PoseState {
   Rigid3d pose_j = Rigid3d(
       Eigen::Quaterniond(Eigen::AngleAxisd(0.35, Eigen::Vector3d::UnitY())),
       Eigen::Vector3d(0.6, -0.15, 1.1));
-  // [velocity(3), bias_gyro(3), bias_accel(3)]
-  double state_i[9] = {1.0, 0.5, -0.2, 0, 0, 0, 0, 0, 0};
-  double state_j[9] = {1.05, 0.45, -0.25, 0, 0, 0, 0, 0, 0};
+  double velocity_i[3] = {1.0, 0.5, -0.2};
+  double velocity_j[3] = {1.05, 0.45, -0.25};
+  // [bias_gyro(3), bias_accel(3)]
+  double state_i[6] = {0, 0, 0, 0, 0, 0};
+  double state_j[6] = {0, 0, 0, 0, 0, 0};
 };
 
-// Body-centric (4 parameter blocks: pose_i[7], state_i[9], pose_j[7],
-// state_j[9]).
+// Body-centric (6 parameter blocks: pose_i[7], velocity_i[3], state_i[6],
+// pose_j[7], velocity_j[3], state_j[6]).
 void BM_ImuBodyCentric(benchmark::State& state, Impl impl) {
   PreintegratedImuData data = MakeImuData();
   PoseState ps;
-  const double* parameters[4] = {
-      ps.pose_i.params.data(), ps.state_i, ps.pose_j.params.data(), ps.state_j};
+  const double* parameters[6] = {ps.pose_i.params.data(),
+                                 ps.velocity_i,
+                                 ps.state_i,
+                                 ps.pose_j.params.data(),
+                                 ps.velocity_j,
+                                 ps.state_j};
   double residuals[15];
-  double jac_pose_i[15 * 7], jac_state_i[15 * 9];
-  double jac_pose_j[15 * 7], jac_state_j[15 * 9];
-  double* jacobians[4] = {jac_pose_i, jac_state_i, jac_pose_j, jac_state_j};
+  double jac_pose_i[15 * 7], jac_vel_i[15 * 3], jac_state_i[15 * 6];
+  double jac_pose_j[15 * 7], jac_vel_j[15 * 3], jac_state_j[15 * 6];
+  double* jacobians[6] = {
+      jac_pose_i, jac_vel_i, jac_state_i, jac_pose_j, jac_vel_j, jac_state_j};
 
   std::unique_ptr<ceres::CostFunction> cost_function =
       impl == Impl::kAutoDiff
@@ -99,31 +106,33 @@ void BM_ImuBodyCentric(benchmark::State& state, Impl impl) {
 BENCHMARK_CAPTURE(BM_ImuBodyCentric, AutoDiff, Impl::kAutoDiff);
 BENCHMARK_CAPTURE(BM_ImuBodyCentric, Analytical, Impl::kAnalytical);
 
-// Visual-centric (7 parameter blocks: log_scale[1], gravity_dir[3],
-// imu_from_cam[7], pose_i[7], state_i[9], pose_j[7], state_j[9]).
+// Visual-centric (8 parameter blocks: log_scale[1], gravity_dir[3],
+// pose_i[7], velocity_i[3], state_i[6], pose_j[7], velocity_j[3],
+// state_j[6]).
 void BM_ImuVisualCentric(benchmark::State& state, Impl impl) {
   PreintegratedImuData data = MakeImuData();
   PoseState ps;
   double log_scale[1] = {0.0};
   double gravity_dir[3] = {0, 0, -1};
-  double imu_from_cam[7] = {0, 0, 0, 1, 0, 0, 0};
-  const double* parameters[7] = {log_scale,
+  const double* parameters[8] = {log_scale,
                                  gravity_dir,
-                                 imu_from_cam,
                                  ps.pose_i.params.data(),
+                                 ps.velocity_i,
                                  ps.state_i,
                                  ps.pose_j.params.data(),
+                                 ps.velocity_j,
                                  ps.state_j};
   double residuals[15];
-  double jac_scale[15 * 1], jac_grav[15 * 3], jac_ic[15 * 7];
-  double jac_pose_i[15 * 7], jac_state_i[15 * 9];
-  double jac_pose_j[15 * 7], jac_state_j[15 * 9];
-  double* jacobians[7] = {jac_scale,
+  double jac_scale[15 * 1], jac_grav[15 * 3];
+  double jac_pose_i[15 * 7], jac_vel_i[15 * 3], jac_state_i[15 * 6];
+  double jac_pose_j[15 * 7], jac_vel_j[15 * 3], jac_state_j[15 * 6];
+  double* jacobians[8] = {jac_scale,
                           jac_grav,
-                          jac_ic,
                           jac_pose_i,
+                          jac_vel_i,
                           jac_state_i,
                           jac_pose_j,
+                          jac_vel_j,
                           jac_state_j};
 
   std::unique_ptr<ceres::CostFunction> cost_function =
