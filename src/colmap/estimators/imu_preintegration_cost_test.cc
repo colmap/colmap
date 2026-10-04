@@ -402,6 +402,113 @@ TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
   }
 }
 
+TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
+     AnalyticalVersusAutoDiffWithStabilization) {
+  const int N = 15;
+  const double dt = 0.005;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(1.0, -0.5, 9.81),
+                       Eigen::Vector3d(0.05, 0.1, -0.03),
+                       N,
+                       dt,
+                       &gt);
+
+  const Rigid3d imu_from_cam(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                 0.1, Eigen::Vector3d(1, 0, 0).normalized())),
+                             Eigen::Vector3d(0.02, -0.01, 0.03));
+  const Eigen::Quaterniond q_CI = imu_from_cam.rotation().conjugate();
+  const Eigen::Vector3d t_CI = -(q_CI * imu_from_cam.translation());
+
+  const Eigen::Quaterniond q_iori_i(
+      Eigen::AngleAxisd(0.1, Eigen::Vector3d(0.5, 0.5, 0.7).normalized()));
+  const Eigen::Quaterniond q_iori_j(
+      Eigen::AngleAxisd(-0.15, Eigen::Vector3d(-0.3, 0.8, 0.2).normalized()));
+
+  auto analytical_cost =
+      std::make_unique<AnalyticalVisualCentricImuPreintegrationCostFunction>(
+          &data, q_iori_i, q_iori_j);
+  std::unique_ptr<ceres::CostFunction> autodiff_cost(
+      VisualCentricImuPreintegrationCostFunctor::Create(
+          &data, q_iori_i, q_iori_j));
+
+  const double scale = 1.5;
+  double log_scale[1] = {std::log(scale)};
+  double gravity_direction[3] = {0, 0, -1};
+  double imu_from_cam_arr[7];
+  PackRigid3d(imu_from_cam, imu_from_cam_arr);
+
+  // Compute camera poses consistent with ground-truth IMU trajectory:
+  // q_CW = q_iori * q_CI * q_IW
+  // t_CW = q_iori * t_CI - (1 / scale) * (q_CW * p_W)
+  const Eigen::Quaterniond q_IW_i = gt.body_from_world_i.rotation();
+  const Eigen::Quaterniond q_CW_i = q_iori_i * q_CI * q_IW_i;
+  const Eigen::Vector3d p_W_i =
+      -(q_IW_i.conjugate() * gt.body_from_world_i.translation());
+  const Eigen::Vector3d t_CW_i =
+      q_iori_i * t_CI - (1.0 / scale) * (q_CW_i * p_W_i);
+
+  const Eigen::Quaterniond q_IW_j = gt.body_from_world_j.rotation();
+  const Eigen::Quaterniond q_CW_j = q_iori_j * q_CI * q_IW_j;
+  const Eigen::Vector3d p_W_j =
+      -(q_IW_j.conjugate() * gt.body_from_world_j.translation());
+  const Eigen::Vector3d t_CW_j =
+      q_iori_j * t_CI - (1.0 / scale) * (q_CW_j * p_W_j);
+
+  double i_from_world[7], j_from_world[7];
+  PackRigid3d(Rigid3d(q_CW_i, t_CW_i), i_from_world);
+  PackRigid3d(Rigid3d(q_CW_j, t_CW_j), j_from_world);
+
+  Eigen::Vector3d v_state_i = gt.v_i / scale;
+  Eigen::Vector3d v_state_j = gt.v_j / scale;
+  // Perturb v_i slightly so position/velocity residuals are nonzero.
+  v_state_i += Eigen::Vector3d(0.01, -0.02, 0.005);
+
+  double imu_state_i[9], imu_state_j[9];
+  PackImuState(
+      v_state_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(
+      v_state_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+
+  std::vector<double*> params = {log_scale,
+                                 gravity_direction,
+                                 imu_from_cam_arr,
+                                 i_from_world,
+                                 imu_state_i,
+                                 j_from_world,
+                                 imu_state_j};
+
+  // Residuals should match.
+  double r1[15], r2[15];
+  EXPECT_TRUE(analytical_cost->Evaluate(params.data(), r1, nullptr));
+  EXPECT_TRUE(autodiff_cost->Evaluate(params.data(), r2, nullptr));
+  for (int i = 0; i < 15; ++i) {
+    EXPECT_NEAR(r1[i], r2[i], 1e-10) << "residual[" << i << "]";
+  }
+
+  // Compare Jacobians: analytical vs AutoDiff.
+  const int block_sizes[7] = {1, 3, 7, 7, 9, 7, 9};
+  std::vector<std::vector<double>> aj(7), adj(7);
+  std::vector<double*> aj_ptrs(7), adj_ptrs(7);
+  for (int b = 0; b < 7; ++b) {
+    aj[b].resize(15 * block_sizes[b], 0.0);
+    adj[b].resize(15 * block_sizes[b], 0.0);
+    aj_ptrs[b] = aj[b].data();
+    adj_ptrs[b] = adj[b].data();
+  }
+
+  EXPECT_TRUE(analytical_cost->Evaluate(params.data(), r1, aj_ptrs.data()));
+  EXPECT_TRUE(autodiff_cost->Evaluate(params.data(), r2, adj_ptrs.data()));
+
+  constexpr double kJacTol = 1e-8;
+  for (int b = 0; b < 7; ++b) {
+    for (int i = 0; i < 15 * block_sizes[b]; ++i) {
+      EXPECT_NEAR(aj[b][i], adj[b][i], kJacTol)
+          << "block=" << b << " element=" << i;
+    }
+  }
+}
+
 class PhysicsConsistencyTest
     : public ::testing::TestWithParam<ImuIntegrationMethod> {};
 
@@ -599,6 +706,57 @@ TEST(InertialRotationCostFunctor, ZeroResidualOnGroundTruth) {
 
   std::unique_ptr<ceres::CostFunction> cost(
       InertialRotationCostFunctor::Create(&data, imu_from_cam));
+
+  std::vector<double*> params = {aa_i.data(), state_i, aa_j.data(), state_j};
+  double residuals[6];
+  EXPECT_TRUE(cost->Evaluate(params.data(), residuals, nullptr));
+
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_NEAR(residuals[i], 0.0, 1e-7) << "residual[" << i << "]";
+  }
+}
+
+TEST(InertialRotationCostFunctor, StabilizationSupport) {
+  const int N = 10;
+  const double dt = 0.01;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(0.5, -0.3, 9.81),
+                       Eigen::Vector3d(0.1, -0.05, 0.02),
+                       N,
+                       dt,
+                       &gt);
+  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+
+  const Rigid3d imu_from_cam(
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.2, Eigen::Vector3d(1, 0, 0))),
+      Eigen::Vector3d(0.01, 0.02, -0.01));
+
+  const Eigen::Quaterniond q_iori_i(
+      Eigen::AngleAxisd(0.12, Eigen::Vector3d(0, 1, 0)));
+  const Eigen::Quaterniond q_iori_j(
+      Eigen::AngleAxisd(-0.08, Eigen::Vector3d(0, 0, 1)));
+
+  // Ground-truth cam_from_world accounting for stabilization:
+  // R_CW = R_iori * R_CI * R_IW
+  const Eigen::Quaterniond q_CI = imu_from_cam.rotation().conjugate();
+  const Eigen::Quaterniond q_CW_i =
+      q_iori_i * q_CI * gt.body_from_world_i.rotation();
+  const Eigen::Quaterniond q_CW_j =
+      q_iori_j * q_CI * gt.body_from_world_j.rotation();
+
+  Eigen::Vector3d aa_i, aa_j;
+  AngleAxisFromEigenQuaternion(q_CW_i.coeffs().data(), aa_i.data());
+  AngleAxisFromEigenQuaternion(q_CW_j.coeffs().data(), aa_j.data());
+
+  double state_i[9], state_j[9];
+  PackImuState(
+      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
+  PackImuState(
+      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
+
+  std::unique_ptr<ceres::CostFunction> cost(InertialRotationCostFunctor::Create(
+      &data, imu_from_cam, q_iori_i, q_iori_j));
 
   std::vector<double*> params = {aa_i.data(), state_i, aa_j.data(), state_j};
   double residuals[6];
