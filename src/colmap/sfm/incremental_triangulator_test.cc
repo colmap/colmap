@@ -157,6 +157,45 @@ TEST(IncrementalTriangulator, TriangulateImage) {
             synthetic_options.num_points3D * reconstruction.NumRegImages());
 }
 
+TEST(IncrementalTriangulator, TriangulateImageContinuationTie) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 1;
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+  auto cache = DatabaseCache::Create(*database, DatabaseCache::Options());
+
+  const point3D_t point3D_id = reconstruction.Points3D().begin()->first;
+  SplitPoint3D(reconstruction, point3D_id);
+  const TrackElement ref = reconstruction.Point3D(point3D_id).track.Element(0);
+  reconstruction.DeleteObservation(ref.image_id, ref.point2D_idx);
+
+  IncrementalTriangulator::Options options;
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+  cache->CorrespondenceGraph()->ExtractTransitiveCorrespondences(
+      ref.image_id, ref.point2D_idx, options.max_transitivity, &corrs);
+  ASSERT_FALSE(corrs.empty());
+  const point3D_t expected_point3D_id = reconstruction.Image(corrs[0].image_id)
+                                            .Point2D(corrs[0].point2D_idx)
+                                            .point3D_id;
+  const size_t track_length =
+      reconstruction.Point3D(expected_point3D_id).track.Length();
+
+  IncrementalTriangulator triangulator(cache->CorrespondenceGraph(),
+                                       reconstruction);
+  EXPECT_EQ(triangulator.TriangulateImage(options, ref.image_id), 1);
+  EXPECT_EQ(
+      reconstruction.Image(ref.image_id).Point2D(ref.point2D_idx).point3D_id,
+      expected_point3D_id);
+  EXPECT_EQ(reconstruction.Point3D(expected_point3D_id).track.Length(),
+            track_length + 1);
+  EXPECT_THAT(triangulator.GetModifiedPoints3D(),
+              testing::UnorderedElementsAre(expected_point3D_id));
+}
+
 TEST(IncrementalTriangulator, CompleteImage) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
