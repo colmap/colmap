@@ -5,15 +5,12 @@
 namespace colmap {
 
 std::ostream& operator<<(std::ostream& stream, const Imu& imu) {
-  stream << "Imu("
-         << "imu_id=" << imu.imu_id << ", "
-         << "camera_id=" << imu.camera_id << ")";
+  stream << "Imu(imu_id=" << imu.imu_id << ")";
   return stream;
 }
 
 std::ostream& operator<<(std::ostream& stream, const ImuState& state) {
   stream << "ImuState("
-         << "vel=[" << state.velocity().transpose() << "], "
          << "bias_gyro=[" << state.bias_gyro().transpose() << "], "
          << "bias_accel=[" << state.bias_accel().transpose() << "])";
   return stream;

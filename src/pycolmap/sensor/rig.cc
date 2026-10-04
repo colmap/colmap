@@ -48,10 +48,19 @@ void BindSensorRig(py::module& m) {
       .def("sensor_ids",
            &Rig::SensorIds,
            "Get all sensor ids (including the reference sensor) in the rig.")
-      .def("sensor_from_rig",
-           py::overload_cast<sensor_t>(&Rig::MaybeSensorFromRig),
-           "sensor_id"_a,
-           "The transformation from rig to the sensor.")
+      .def(
+          "sensor_from_rig",
+          [](py::object self, sensor_t sensor_id) -> py::object {
+            auto& rig = self.cast<Rig&>();
+            if (!rig.HasSensorFromRig(sensor_id)) {
+              return py::none();
+            }
+            return py::cast(&rig.SensorFromRig(sensor_id),
+                            py::return_value_policy::reference_internal,
+                            self);
+          },
+          "sensor_id"_a,
+          "The transformation from rig to the sensor.")
       .def("set_sensor_from_rig",
            py::overload_cast<sensor_t, const std::optional<Rigid3d>&>(
                &Rig::SetSensorFromRig),

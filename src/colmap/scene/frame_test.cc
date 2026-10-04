@@ -32,6 +32,7 @@ TEST(Frame, Copy) {
   const data_t data_id1(sensor_t(SensorType::CAMERA, 1), 1);
   const data_t data_id2(sensor_t(SensorType::CAMERA, 1), 2);
   frame.AddDataId(data_id1);
+  frame.SetVelocityInWorld(Eigen::Vector3d(1, 2, 3));
   frame.FinalizeDataIds();
 
   // Copy constructor: copy should not be finalized.
@@ -39,6 +40,8 @@ TEST(Frame, Copy) {
   EXPECT_FALSE(copy.HasFinalDataIds());
   EXPECT_EQ(copy.FrameId(), 1);
   EXPECT_EQ(copy.RigId(), 2);
+  EXPECT_TRUE(copy.HasVelocity());
+  EXPECT_EQ(copy.VelocityInWorld(), Eigen::Vector3d(1, 2, 3));
   EXPECT_TRUE(copy.HasDataId(data_id1));
   EXPECT_NO_THROW(copy.AddDataId(data_id2));
   EXPECT_TRUE(copy.HasDataId(data_id2));
@@ -50,6 +53,8 @@ TEST(Frame, Copy) {
   assigned = frame;
   EXPECT_FALSE(assigned.HasFinalDataIds());
   EXPECT_EQ(assigned.FrameId(), 1);
+  EXPECT_TRUE(assigned.HasVelocity());
+  EXPECT_EQ(assigned.VelocityInWorld(), Eigen::Vector3d(1, 2, 3));
   EXPECT_TRUE(assigned.HasDataId(data_id1));
   EXPECT_NO_THROW(assigned.AddDataId(data_id2));
 
@@ -191,6 +196,22 @@ TEST(Frame, SetResetPose) {
   EXPECT_EQ(frame.MaybeRigFromWorld(), std::nullopt);
 }
 
+TEST(Frame, SetResetVelocity) {
+  Frame frame;
+  EXPECT_FALSE(frame.HasVelocity());
+  EXPECT_ANY_THROW(frame.VelocityInWorld());
+  EXPECT_EQ(frame.MaybeVelocityInWorld(), std::nullopt);
+  const Eigen::Vector3d velocity(1, 2, 3);
+  frame.SetVelocityInWorld(velocity);
+  EXPECT_TRUE(frame.HasVelocity());
+  EXPECT_EQ(frame.VelocityInWorld(), velocity);
+  EXPECT_EQ(frame.MaybeVelocityInWorld().value(), velocity);
+  frame.ResetVelocity();
+  EXPECT_FALSE(frame.HasVelocity());
+  EXPECT_ANY_THROW(frame.VelocityInWorld());
+  EXPECT_EQ(frame.MaybeVelocityInWorld(), std::nullopt);
+}
+
 TEST(Frame, SetCamFromWorld) {
   Frame frame;
   Rig rig;
@@ -216,13 +237,17 @@ TEST(Frame, SetCamFromWorld) {
               EigenMatrixNear(sensor2_from_world.rotation().coeffs(), 1e-6));
 }
 
-TEST(Image, Equals) {
+TEST(Frame, Equals) {
   Frame frame;
   Frame other = frame;
   EXPECT_EQ(frame, other);
   frame.SetFrameId(2);
   EXPECT_NE(frame, other);
   other.SetFrameId(2);
+  EXPECT_EQ(frame, other);
+  frame.SetVelocityInWorld(Eigen::Vector3d(1, 2, 3));
+  EXPECT_NE(frame, other);
+  other.SetVelocityInWorld(Eigen::Vector3d(1, 2, 3));
   EXPECT_EQ(frame, other);
 }
 
@@ -235,7 +260,7 @@ TEST(Frame, Print) {
   std::ostringstream stream;
   stream << frame;
   EXPECT_EQ(stream.str(),
-            "Frame(frame_id=1, rig_id=2, has_pose=0, "
+            "Frame(frame_id=1, rig_id=2, has_pose=0, has_velocity=0, "
             "data_ids=[(CAMERA, 1, 3), (IMU, 0, 2)])");
 }
 
