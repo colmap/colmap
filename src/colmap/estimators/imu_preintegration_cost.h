@@ -1184,6 +1184,90 @@ class InertialGlobalPositioningCostFunctor {
   Eigen::Matrix<double, 9, 9> sqrt_information_9x9_;
 };
 
+// 3D Gaussian prior on a 3D bias slice of an IMU state parameter block
+// (default: 9D [v(3), bg(3), ba(3)]) or a standalone 3D bias block.
+// Wraps NormalPriorCostFunctor<3> to evaluate:
+//   residuals = state[bias_offset : bias_offset + 3] - prior_bias
+template <int kStateDim = 9>
+class BiasPriorCostFunctor
+    : public AutoDiffCostFunctor<BiasPriorCostFunctor<kStateDim>,
+                                 3,
+                                 kStateDim> {
+ public:
+  using AutoDiffCostFunctor<BiasPriorCostFunctor<kStateDim>, 3, kStateDim>::
+      Create;
+
+  explicit BiasPriorCostFunctor(const Eigen::Vector3d& prior_bias,
+                                int bias_offset = (kStateDim == 9 ? 3 : 0))
+      : normal_prior_(prior_bias), bias_offset_(bias_offset) {
+    THROW_CHECK_GE(bias_offset, 0);
+    THROW_CHECK_LE(bias_offset + 3, kStateDim);
+  }
+
+  static ceres::CostFunction* CreateGyro(const Eigen::Vector3d& prior_bias) {
+    static_assert(kStateDim == 9, "CreateGyro requires 9D state dimension.");
+    return BiasPriorCostFunctor<9>::Create(prior_bias, /*bias_offset=*/3);
+  }
+
+  static ceres::CostFunction* CreateGyro(const Eigen::Vector3d& prior_bias,
+                                         double stddev) {
+    static_assert(kStateDim == 9, "CreateGyro requires 9D state dimension.");
+    return ScaleWeightedCostFunctor<BiasPriorCostFunctor<9>>::Create(
+        stddev, prior_bias, /*bias_offset=*/3);
+  }
+
+  static ceres::CostFunction* CreateGyro(const Eigen::Vector3d& prior_bias,
+                                         const Eigen::Matrix3d& cov) {
+    static_assert(kStateDim == 9, "CreateGyro requires 9D state dimension.");
+    return CovarianceWeightedCostFunctor<BiasPriorCostFunctor<9>>::Create(
+        cov, prior_bias, /*bias_offset=*/3);
+  }
+
+  static ceres::CostFunction* CreateAccel(const Eigen::Vector3d& prior_bias) {
+    static_assert(kStateDim == 9, "CreateAccel requires 9D state dimension.");
+    return BiasPriorCostFunctor<9>::Create(prior_bias, /*bias_offset=*/6);
+  }
+
+  static ceres::CostFunction* CreateAccel(const Eigen::Vector3d& prior_bias,
+                                          double stddev) {
+    static_assert(kStateDim == 9, "CreateAccel requires 9D state dimension.");
+    return ScaleWeightedCostFunctor<BiasPriorCostFunctor<9>>::Create(
+        stddev, prior_bias, /*bias_offset=*/6);
+  }
+
+  static ceres::CostFunction* CreateAccel(const Eigen::Vector3d& prior_bias,
+                                          const Eigen::Matrix3d& cov) {
+    static_assert(kStateDim == 9, "CreateAccel requires 9D state dimension.");
+    return CovarianceWeightedCostFunctor<BiasPriorCostFunctor<9>>::Create(
+        cov, prior_bias, /*bias_offset=*/6);
+  }
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& prior_bias,
+                                     double stddev,
+                                     int bias_offset = (kStateDim == 9 ? 3
+                                                                       : 0)) {
+    return ScaleWeightedCostFunctor<BiasPriorCostFunctor<kStateDim>>::Create(
+        stddev, prior_bias, bias_offset);
+  }
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& prior_bias,
+                                     const Eigen::Matrix3d& cov,
+                                     int bias_offset = (kStateDim == 9 ? 3
+                                                                       : 0)) {
+    return CovarianceWeightedCostFunctor<
+        BiasPriorCostFunctor<kStateDim>>::Create(cov, prior_bias, bias_offset);
+  }
+
+  template <typename T>
+  bool operator()(const T* const state, T* residuals) const {
+    return normal_prior_(state + bias_offset_, residuals);
+  }
+
+ private:
+  NormalPriorCostFunctor<3> normal_prior_;
+  int bias_offset_;
+};
+
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
 inline std::unique_ptr<ceres::Manifold> CreateImuStateGyroOnlyManifold() {
