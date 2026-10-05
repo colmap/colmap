@@ -293,6 +293,13 @@ TEST(Equirectangular, ImgFromCamWithJac) {
   TestModelImgFromCamWithJac<EquirectangularCameraModel>({1000, 500});
 }
 
+TEST(Perspective, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<PerspectiveCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.0});
+  TestModelImgFromCamWithJac<PerspectiveCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.8});
+}
+
 TEST(CamRayFromImgJac, RankDeficientReturnsNullopt) {
   // Rank 1: both image directions respond identically, so the projection is
   // not locally invertible and there is no unprojection Jacobian.

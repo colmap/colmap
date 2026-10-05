@@ -62,7 +62,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
                                 kEUCM,                    // = 16
-                                kEquirectangular          // = 17
+                                kEquirectangular,         // = 17
+                                kPerspective              // = 18
 );
 
 // Builds a consecutive parameter index array {Offset, ..., Offset + N - 1}.
@@ -185,7 +186,8 @@ constexpr std::array<size_t, N> IotaArray() {
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FisheyeCameraModel)             \
-  CAMERA_MODEL_CASE(EUCMCameraModel)
+  CAMERA_MODEL_CASE(EUCMCameraModel)                \
+  CAMERA_MODEL_CASE(PerspectiveCameraModel)
 #endif
 
 #ifndef SPHERICAL_CAMERA_MODEL_CASES

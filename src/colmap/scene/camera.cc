@@ -41,6 +41,9 @@ Eigen::Matrix3d Camera::CalibrationMatrix() const {
   K(1, 1) = FocalLengthY();
   K(0, 2) = PrincipalPointX();
   K(1, 2) = PrincipalPointY();
+  if (model_id == PerspectiveCameraModel::model_id) {
+    K(0, 1) = params[PerspectiveCameraModel::extra_params_idxs[0]];
+  }
   return K;
 }
 
