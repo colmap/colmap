@@ -10,6 +10,7 @@
 #include "colmap/util/testing.h"
 
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <utility>
 
@@ -25,6 +26,57 @@ struct ScaleDifferenceCostFunctor {
     return true;
   }
 };
+
+double ObservationWeightedCost(const GlobalPositionerOptions& options,
+                               const Reconstruction& reconstruction) {
+  double expected_cost = 0.0;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.track.Length() <
+        static_cast<size_t>(options.min_num_view_per_track)) {
+      continue;
+    }
+    for (const auto& observation : point3D.track.Elements()) {
+      const Image& image = reconstruction.Image(observation.image_id);
+      const Camera& camera = *image.CameraPtr();
+      const Eigen::Vector2d pixel = image.Point2D(observation.point2D_idx).xy;
+      const Eigen::Vector3d bearing = *camera.CamRayFromImg(pixel);
+      // Independently differentiate unprojection, then whiten in a tangent
+      // basis.
+      Eigen::Matrix3x2d jacobian;
+      constexpr double step = 1e-3;
+      for (int axis = 0; axis < 2; ++axis) {
+        const Eigen::Vector2d delta = step * Eigen::Vector2d::Unit(axis);
+        jacobian.col(axis) = (*camera.CamRayFromImg(pixel + delta) -
+                              *camera.CamRayFromImg(pixel - delta)) /
+                             (2 * step);
+      }
+      Eigen::Matrix3x2d tangent;
+      tangent.col(0) = bearing.unitOrthogonal();
+      tangent.col(1) = bearing.cross(tangent.col(0));
+      const Eigen::Matrix2d J = tangent.transpose() * jacobian;
+      const double stddev = *options.experimental_observation_stddev;
+      const Eigen::Matrix2d precision =
+          (stddev * stddev * J * J.transpose()).inverse();
+      const Eigen::Vector3d frame_center =
+          image.FramePtr()->RigFromWorld().TgtOriginInSrc();
+      Eigen::Vector3d displacement = point3D.xyz - frame_center;
+      if (!image.IsRefInFrame()) {
+        const Rigid3d& cam_from_rig =
+            image.FramePtr()->RigPtr()->SensorFromRig(camera.SensorId());
+        displacement += image.CamFromWorld().rotation().inverse() *
+                        cam_from_rig.translation();
+      }
+      const Eigen::Vector3d residual =
+          bearing - image.CamFromWorld().rotation() * displacement;
+      const Eigen::Vector2d transverse = tangent.transpose() * residual;
+      const double longitudinal = bearing.dot(residual);
+      expected_cost +=
+          0.5 * (transverse.dot(precision * transverse) +
+                 0.5 * precision.trace() * longitudinal * longitudinal);
+    }
+  }
+  return expected_cost;
+}
 
 Reconstruction CreateGlobalPositioningTestReconstruction() {
   Reconstruction reconstruction;
@@ -173,6 +225,134 @@ TEST(GlobalPositioning, ComposableProblem) {
   EXPECT_TRUE(unordered->Solve().IsSolutionUsable());
 }
 
+TEST(GlobalPositioning, ObservationUncertainty) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions dataset_options;
+  dataset_options.num_rigs = 1;
+  dataset_options.num_cameras_per_rig = 2;
+  dataset_options.num_frames_per_rig = 4;
+  dataset_options.num_points3D = 30;
+  SynthesizeDataset(dataset_options, &reconstruction);
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    reconstruction.Camera(camera_id).has_prior_focal_length = true;
+  }
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  options.generate_random_positions = false;
+  options.generate_random_points = false;
+  for (const double stddev : {1.0, 8.0}) {
+    options.experimental_observation_stddev = stddev;
+    const double expected_cost =
+        ObservationWeightedCost(options, reconstruction);
+    auto positioner =
+        GlobalPositioner::CreateDefault(options,
+                                        PoseGraph(),
+                                        reconstruction,
+                                        std::make_shared<ceres::TrivialLoss>());
+    double cost = 0.0;
+    ASSERT_TRUE(positioner->Problem().Evaluate(
+        ceres::Problem::EvaluateOptions(), &cost, nullptr, nullptr, nullptr));
+    EXPECT_GT(expected_cost, 0.0);
+    EXPECT_NEAR(cost, expected_cost, 1e-7 * expected_cost);
+  }
+  for (const double stddev : {0.0, -1.0}) {
+    options.experimental_observation_stddev = stddev;
+    EXPECT_ANY_THROW(
+        GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction));
+  }
+
+  // Force radial variance underflow after successful ray unprojection.
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    reconstruction.Camera(camera_id).SetFocalLength(1e100);
+  }
+  options.experimental_observation_stddev = 1.0;
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+  EXPECT_EQ(positioner->Problem().NumResidualBlocks(), 0);
+}
+
+TEST(GlobalPositioning, UncalibratedObservationWeight) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+  for (const bool calibrated : {false, true}) {
+    for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+      reconstruction.Camera(camera_id).has_prior_focal_length = calibrated;
+    }
+    GlobalPositionerOptions options;
+    options.use_gpu = false;
+    options.uncalibrated_observation_weight = 0.2;
+    auto positioner =
+        GlobalPositioner::CreateDefault(options,
+                                        PoseGraph(),
+                                        reconstruction,
+                                        std::make_shared<ceres::TrivialLoss>());
+    std::vector<ceres::ResidualBlockId> residuals;
+    positioner->Problem().GetResidualBlocks(&residuals);
+    ASSERT_FALSE(residuals.empty());
+    double rho[3];
+    positioner->Problem()
+        .GetLossFunctionForResidualBlock(residuals.front())
+        ->Evaluate(1.0, rho);
+    EXPECT_DOUBLE_EQ(rho[0], calibrated ? 1.0 : 0.2);
+  }
+}
+
+TEST(GlobalPositioning, ObservationScaleGauge) {
+  for (const bool optimize : {false, true}) {
+    for (const bool fix_gauge : {false, true}) {
+      Reconstruction reconstruction =
+          CreateGlobalPositioningTestReconstruction();
+      GlobalPositionerOptions options;
+      options.use_gpu = false;
+      options.optimize_scales = optimize;
+      options.fix_first_scale = fix_gauge;
+      auto positioner =
+          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      auto& problem = positioner->Problem();
+      std::vector<double*> blocks;
+      problem.GetParameterBlocks(&blocks);
+      int num_scales = 0;
+      int num_constant = 0;
+      for (double* block : blocks) {
+        if (problem.ParameterBlockSize(block) != 1) continue;
+        ++num_scales;
+        num_constant += problem.IsParameterBlockConstant(block);
+      }
+      ASSERT_GT(num_scales, 1);
+      EXPECT_EQ(num_constant,
+                optimize ? static_cast<int>(fix_gauge) : num_scales);
+    }
+  }
+}
+
+TEST(GlobalPositioning, ScaleInitialization) {
+  for (const bool from_geometry : {false, true}) {
+    for (const bool optimize_points : {false, true}) {
+      Reconstruction reconstruction =
+          CreateGlobalPositioningTestReconstruction();
+      GlobalPositionerOptions options;
+      options.use_gpu = false;
+      options.generate_random_positions = false;
+      options.generate_random_points = false;
+      options.optimize_points = optimize_points;
+      options.initialize_scales_from_geometry = from_geometry;
+      auto positioner =
+          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      std::vector<ceres::ResidualBlockId> residuals;
+      positioner->Problem().GetResidualBlocks(&residuals);
+      ASSERT_FALSE(residuals.empty());
+      std::vector<double*> blocks;
+      positioner->Problem().GetParameterBlocksForResidualBlock(
+          residuals.front(), &blocks);
+      ASSERT_EQ(blocks.size(), 3);
+      // With noiseless observations, the geometric scale is inverse distance.
+      const double distance = (Eigen::Map<Eigen::Vector3d>(blocks[1]) -
+                               Eigen::Map<Eigen::Vector3d>(blocks[0]))
+                                  .norm();
+      EXPECT_NEAR(*blocks[2], from_geometry ? 1.0 / distance : 1.0, 1e-12);
+    }
+  }
+}
+
 TEST(GlobalPositioning, MultiCameraRig) {
   const auto database_path = CreateTestDir() / "database.db";
 
@@ -205,6 +385,7 @@ TEST(GlobalPositioning, MultiCameraRig) {
   GlobalPositionerOptions options;
   options.use_gpu = false;
   options.random_seed = 42;
+  options.experimental_observation_stddev = 8.0;
   options.solver_options.minimizer_progress_to_stdout = false;
 
   const bool success =

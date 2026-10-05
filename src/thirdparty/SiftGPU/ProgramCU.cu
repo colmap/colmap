@@ -24,6 +24,8 @@
 #include "GL/glew.h"
 #include "stdio.h"
 
+#include "colmap/util/cuda_to_hip.h"
+
 #include "CuTexImage.h"
 #include "ProgramCU.h"
 #include "GlobalUtil.h"
@@ -474,10 +476,19 @@ void __global__ ComputeDOG_Kernel(cudaTextureObject_t texC, cudaTextureObject_t 
 		float vp = tex1Dfetch<float>(texP, index);
 		float v = tex1Dfetch<float>(texC, index);
 		d_dog[index] = v - vp;
-		float vxn = tex1Dfetch<float>(texC, index + 1);
-		float vxp = tex1Dfetch<float>(texC, index - 1);
-		float vyp = tex1Dfetch<float>(texC, index - width);
-		float vyn = tex1Dfetch<float>(texC, index + width);
+		// The gradient stencil reaches one pixel in each direction. Clamp it to
+		// the image instead of letting the border wrap into the neighbouring row
+		// or read past the end of the buffer: this is a linear texture binding,
+		// where the address mode does not apply, so the corner reads really were
+		// out of range.
+		const int colp = max(col - 1, 0);
+		const int coln = min(col + 1, width - 1);
+		const int rowp = max(row - 1, 0);
+		const int rown = min(row + 1, height - 1);
+		float vxn = tex1Dfetch<float>(texC, IMUL(row, width) + coln);
+		float vxp = tex1Dfetch<float>(texC, IMUL(row, width) + colp);
+		float vyp = tex1Dfetch<float>(texC, IMUL(rowp, width) + col);
+		float vyn = tex1Dfetch<float>(texC, IMUL(rown, width) + col);
 		float dx = vxn - vxp, dy = vyn - vyp;
 		float grd = 0.5f * sqrt(dx * dx  + dy * dy);
 		float rot = (grd == 0.0f? 0.0f : atan2(dy, dx));
@@ -848,7 +859,7 @@ void __global__ ComputeOrientation_Kernel(cudaTextureObject_t texDataF2,
 			float dy = y - key.y;
 			float sq_dist  = dx * dx + dy * dy;
 			if(sq_dist >= dist_threshold) continue;
-			float2 got = tex2D<float2>(texDataF2, x, y);
+			float2 got = tex1Dfetch<float2>(texDataF2, IMUL(int(y), width) + int(x));
 			float weight = got.x * exp(sq_dist * factor);
 			float fidx = floorf(got.y * ten_degree_per_radius);
 			int oidx = fidx;
@@ -970,7 +981,14 @@ void ProgramCU::ComputeOrientation(CuTexImage* list, CuTexImage* got, CuTexImage
         }
 	}
 
-	CuTexImage::CuTexObj gotTex = got->BindTexture2D(texDataDesc, cudaCreateChannelDesc<float2>());
+	// The gradient/orientation image is bound linearly and indexed explicitly
+	// by the kernels rather than bound as a 2D pitched texture. The binding is
+	// point-filtered and every consumer already clamps its coordinates to the
+	// image, so the sampled values are the same either way, while a pitched
+	// binding additionally requires the row pitch to be a multiple of the
+	// device's texture alignment (256 bytes on AMD GPUs), which a tightly
+	// packed pyramid level does not satisfy.
+	CuTexImage::CuTexObj gotTex = got->BindTexture(texDataDesc, cudaCreateChannelDesc<float2>());
 
 	const int block_width = len < ORIENTATION_COMPUTE_PER_BLOCK ? 16 : ORIENTATION_COMPUTE_PER_BLOCK;
 	dim3 grid((len + block_width -1) / block_width);
@@ -1030,7 +1048,7 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(cudaTe
 			float nyn = fabs(ny);
 			if(nxn < 1.0f && nyn < 1.0f)
 			{
-				float2 cc = tex2D<float2>(texDataF2, x, y);
+				float2 cc = tex1Dfetch<float2>(texDataF2, IMUL(int(y), width) + int(x));
 				float dnx = nx + offsetpt.x;
 				float dny = ny + offsetpt.y;
 				float ww = exp(-0.125f * (dnx * dnx + dny * dny));
@@ -1103,7 +1121,7 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptorRECT_Kernel(cu
 			float nyn = fabs(ny);
 			if(nxn < 1.0f && nyn < 1.0f)
 			{
-				float2 cc = tex2D<float2>(texDataF2, x, y);
+				float2 cc = tex1Dfetch<float2>(texDataF2, IMUL(int(y), width) + int(x));
 				float wx = 1.0 - nxn;
 				float wy = 1.0 - nyn;
 				float weight =  wx * wy * cc.x;
@@ -1184,7 +1202,7 @@ void ProgramCU::ComputeDescriptor(CuTexImage*list, CuTexImage* got, CuTexImage* 
 	int height = got->GetImgHeight();
 
     dtex->InitTexture(num * 128, 1, 1);
-    CuTexImage::CuTexObj gotTex = got->BindTexture2D(texDataDesc, cudaCreateChannelDesc<float2>());
+    CuTexImage::CuTexObj gotTex = got->BindTexture(texDataDesc, cudaCreateChannelDesc<float2>());
     CuTexImage::CuTexObj listTex = list->BindTexture(texDataDesc, cudaCreateChannelDesc<float4>());
 	int block_width = DESCRIPTOR_COMPUTE_BLOCK_SIZE;
 	dim3 grid((num * 16 + block_width -1) / block_width);

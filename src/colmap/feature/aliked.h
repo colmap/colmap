@@ -3,6 +3,7 @@
 #pragma once
 
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/lightglue.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/resources.h"

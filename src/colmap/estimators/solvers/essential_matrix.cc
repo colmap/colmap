@@ -200,7 +200,7 @@ bool EssentialMatrixTangentSampsonEstimator::Refine(
   }
 
   // Nonlinear pixel-space tangent Sampson refinement of the full 7-parameter
-  // pose via ceres::TinySolver, applying the relative pose manifold. Plain
+  // pose via colmap::TinySolver, applying the relative pose manifold. Plain
   // least squares: robustness comes from the RANSAC inlier selection.
   TinyTangentSampsonErrorCostFunctor f(cam_rays1_with_jac, cam_rays2_with_jac);
   using Solver = TinySolver<decltype(f), RelativePoseManifold>;
@@ -209,12 +209,11 @@ bool EssentialMatrixTangentSampsonEstimator::Refine(
   options.max_num_iterations = 25;
 
   RelPoseParams x = RelPoseParamsFromRigid3d(cam2_from_cam1);
-  solver.Solve(f, &x, options);
-
-  // Keep the refined pose only if the solve stayed finite.
-  if (x.allFinite()) {
-    cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
+  if (solver.Solve(f, &x, options).status == Solver::NUMERICAL_FAILURE) {
+    return false;
   }
+
+  cam2_from_cam1 = Rigid3dFromRelPoseParams(x.data());
   *E = EssentialMatrixFromPose(cam2_from_cam1);
   return true;
 }

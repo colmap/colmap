@@ -3,6 +3,7 @@
 #include "colmap/estimators/global_positioning.h"
 
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
@@ -10,7 +11,10 @@
 #include "colmap/util/threading.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
+
+#include <Eigen/Cholesky>
 
 namespace colmap {
 namespace {
@@ -19,6 +23,36 @@ Eigen::Vector3d RandVector3d(double low, double high) {
   return Eigen::Vector3d(RandomUniformReal(low, high),
                          RandomUniformReal(low, high),
                          RandomUniformReal(low, high));
+}
+
+std::optional<Eigen::Matrix3d> ComputeObservationCovariance(
+    const CamRayWithJac& ray,
+    const Eigen::Quaterniond& cam_from_world,
+    const double pixel_stddev) {
+  const Eigen::Matrix2d gram = ray.jacobian.transpose() * ray.jacobian;
+  // The propagated covariance is rank deficient along the bearing, where
+  // BATA's free scale absorbs point distance. Match the radial precision
+  // to the mean tangent precision for numerical stability of the optimization.
+  const double radial_variance = 2.0 / gram.inverse().trace();
+  if (!(radial_variance > 0.0) || !std::isfinite(radial_variance)) {
+    return std::nullopt;
+  }
+  const Eigen::Matrix3d camera_covariance =
+      pixel_stddev * pixel_stddev *
+      (ray.jacobian * ray.jacobian.transpose() +
+       radial_variance * ray.ray * ray.ray.transpose());
+  const Eigen::Matrix3d rotation = cam_from_world.toRotationMatrix();
+  return rotation.transpose() * camera_covariance * rotation;
+}
+
+template <typename CostFunctor, typename... Args>
+ceres::CostFunction* CreateBATACostFunction(
+    const std::optional<Eigen::Matrix3d>& covariance, Args&&... args) {
+  if (!covariance) {
+    return CostFunctor::Create(std::forward<Args>(args)...);
+  }
+  return CovarianceWeightedCostFunctor<CostFunctor>::Create(
+      *covariance, std::forward<Args>(args)...);
 }
 
 class DefaultGlobalPositioner final : public GlobalPositioner {
@@ -39,6 +73,11 @@ class DefaultGlobalPositioner final : public GlobalPositioner {
 
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
+  THROW_CHECK(std::isfinite(options_.uncalibrated_observation_weight));
+  THROW_CHECK_GT(options_.uncalibrated_observation_weight, 0.0);
+  if (options_.experimental_observation_stddev.has_value()) {
+    THROW_CHECK_GT(*options_.experimental_observation_stddev, 0.0);
+  }
   if (options_.random_seed >= 0) {
     SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
   }
@@ -161,9 +200,11 @@ void GlobalPositioner::AddPointToCameraConstraints(
           << " point to camera constraints were added to the position "
              "estimation problem.";
 
-  // Down-weight uncalibrated cameras.
+  // Reweight uncalibrated cameras.
   loss_function_ptcam_uncalibrated_ = std::make_shared<ceres::ScaledLoss>(
-      loss_function_.get(), 0.5, ceres::DO_NOT_TAKE_OWNERSHIP);
+      loss_function_.get(),
+      options_.uncalibrated_observation_weight,
+      ceres::DO_NOT_TAKE_OWNERSHIP);
   loss_function_ptcam_calibrated_ = loss_function_;
 
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
@@ -195,12 +236,27 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     Image& image = reconstruction.Image(observation.image_id);
     if (!image.HasPose()) continue;
 
-    const std::optional<Eigen::Vector3d> cam_ray =
-        image.CameraPtr()->CamRayFromImg(
-            image.Point2D(observation.point2D_idx).xy);
+    const Camera& camera = *image.CameraPtr();
+    const Eigen::Vector2d& pixel = image.Point2D(observation.point2D_idx).xy;
+    std::optional<Eigen::Vector3d> cam_ray;
+    std::optional<Eigen::Matrix3d> covariance;
+    if (options_.experimental_observation_stddev) {
+      const auto ray = camera.CamRayFromImgWithJac(pixel);
+      if (ray) {
+        covariance = ComputeObservationCovariance(
+            *ray,
+            image.CamFromWorld().rotation(),
+            *options_.experimental_observation_stddev);
+        if (covariance) {
+          cam_ray = ray->ray;
+        }
+      }
+    } else {
+      cam_ray = camera.CamRayFromImg(pixel);
+    }
     if (!cam_ray.has_value()) {
       LOG(WARNING)
-          << "Ignoring feature because it failed to project: point3D_id="
+          << "Ignoring feature with invalid ray or covariance: point3D_id="
           << point3D_id << ", image_id=" << observation.image_id
           << ", feature_id=" << observation.point2D_idx;
       continue;
@@ -211,7 +267,7 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
 
     double& scale = scales_.emplace_back(1);
 
-    if (!options_.generate_scales && random_initialization) {
+    if (options_.initialize_scales_from_geometry) {
       const Eigen::Vector3d cam_from_point3D_translation =
           point3D.xyz - frame_centers_[image.FrameId()];
       scale = std::max(1e-5,
@@ -221,8 +277,6 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
 
     // For calibrated and uncalibrated cameras, use different loss
     // functions
-    // Down weight the uncalibrated cameras
-    Camera& camera = reconstruction.Camera(image.CameraId());
     ceres::LossFunction* loss_function =
         (camera.has_prior_focal_length)
             ? loss_function_ptcam_calibrated_.get()
@@ -231,7 +285,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     // If the image is not part of a camera rig, use the standard BATA error
     if (image.IsRefInFrame()) {
       ceres::CostFunction* cost_function =
-          BATAPairwiseDirectionCostFunctor::Create(cam_from_point3D_dir);
+          CreateBATACostFunction<BATAPairwiseDirectionCostFunctor>(
+              covariance, cam_from_point3D_dir);
 
       problem_->AddResidualBlock(cost_function,
                                  loss_function,
@@ -250,9 +305,9 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
             image.CamFromWorld().rotation().inverse() *
             cam_from_rig.translation();
 
-        ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionConstantRigCostFunctor::Create(
-                cam_from_point3D_dir, cam_from_rig_dir);
+        ceres::CostFunction* cost_function = CreateBATACostFunction<
+            RigBATAPairwiseDirectionConstantRigCostFunctor>(
+            covariance, cam_from_point3D_dir, cam_from_rig_dir);
 
         problem_->AddResidualBlock(cost_function,
                                    loss_function,
@@ -273,7 +328,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
         }
 
         ceres::CostFunction* cost_function =
-            RigBATAPairwiseDirectionCostFunctor::Create(
+            CreateBATACostFunction<RigBATAPairwiseDirectionCostFunctor>(
+                covariance,
                 cam_from_point3D_dir,
                 image.FramePtr()->RigFromWorld().rotation());
 
@@ -367,12 +423,13 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
         problem_->SetParameterBlockConstant(&scale);
       }
     }
-  }
-  // Set the first scale to be constant to remove the gauge ambiguity.
-  for (double& scale : scales_) {
-    if (problem_->HasParameterBlock(&scale)) {
-      problem_->SetParameterBlockConstant(&scale);
-      break;
+  } else if (options_.fix_first_scale) {
+    // Set the first scale to be constant to remove the gauge ambiguity.
+    for (double& scale : scales_) {
+      if (problem_->HasParameterBlock(&scale)) {
+        problem_->SetParameterBlockConstant(&scale);
+        break;
+      }
     }
   }
 

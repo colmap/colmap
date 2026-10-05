@@ -6,7 +6,7 @@ import pycolmap
 
 pytestmark = pytest.mark.skipif(
     not hasattr(pycolmap, "PatchMatchOptions"),
-    reason="PatchMatchOptions not available (requires CUDA)",
+    reason="PatchMatchOptions not available (requires CUDA or HIP)",
 )
 
 

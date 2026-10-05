@@ -13,6 +13,7 @@ COLMAP_ADD_LIBRARY(
         sprt.h sprt.cc
         support_measurement.h support_measurement.cc
         tiny_solver.h
+        two_group_sampler.h two_group_sampler.cc
     PUBLIC_LINK_LIBS
         colmap_math
         colmap_util
@@ -76,4 +77,9 @@ COLMAP_ADD_TEST(
         colmap_estimators_cost_functions
         Ceres::ceres
         Eigen3::Eigen
+)
+COLMAP_ADD_TEST(
+    NAME two_group_sampler_test
+    SRCS two_group_sampler_test.cc
+    LINK_LIBS colmap_optim
 )

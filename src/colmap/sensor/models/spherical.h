@@ -68,20 +68,21 @@ struct EquirectangularCameraModel
   // coordinates (u = X/Z, v = Y/Z) of the pixel's ray, valid only when the ray
   // falls in the forward hemisphere (Z > 0). Back-hemisphere pixels return
   // false; use CamRayFromImg for the full-sphere 3D bearing.
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    const double width = params[0];
-    const double height = params[1];
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T width = params[0];
+    const T height = params[1];
 
-    const double theta = 2.0 * EIGEN_PI * (x / width - 0.5);
-    const double phi = EIGEN_PI * (0.5 - y / height);
+    const T theta = T(2.0 * EIGEN_PI) * (x / width - T(0.5));
+    const T phi = T(EIGEN_PI) * (T(0.5) - y / height);
 
-    const double cos_phi = std::cos(phi);
-    const double rx = cos_phi * std::sin(theta);
-    const double ry = -std::sin(phi);
-    const double rz = cos_phi * std::cos(theta);
+    const T cos_phi = ceres::cos(phi);
+    const T rx = cos_phi * ceres::sin(theta);
+    const T ry = -ceres::sin(phi);
+    const T rz = cos_phi * ceres::cos(theta);
 
-    if (rz <= std::numeric_limits<double>::epsilon()) {
+    if (rz <= T(std::numeric_limits<double>::epsilon())) {
       return false;
     }
 
@@ -113,20 +114,17 @@ struct EquirectangularCameraModel
   // for back-hemisphere pixels. EQUIRECTANGULAR can produce valid unit bearings
   // for any pixel in the equirectangular image, so we compute the ray directly
   // from the azimuth/elevation parametrization.
-  static inline bool CamRayFromImg(const double* params,
-                                   double x,
-                                   double y,
-                                   double* rx,
-                                   double* ry,
-                                   double* rz) {
-    const double width = params[0];
-    const double height = params[1];
-    const double theta = 2.0 * EIGEN_PI * (x / width - 0.5);
-    const double phi = EIGEN_PI * (0.5 - y / height);
-    const double cos_phi = std::cos(phi);
-    *rx = cos_phi * std::sin(theta);
-    *ry = -std::sin(phi);
-    *rz = cos_phi * std::cos(theta);
+  template <typename T>
+  static inline bool CamRayFromImg(
+      const T* params, const T& x, const T& y, T* rx, T* ry, T* rz) {
+    const T width = params[0];
+    const T height = params[1];
+    const T theta = T(2.0 * EIGEN_PI) * (x / width - T(0.5));
+    const T phi = T(EIGEN_PI) * (T(0.5) - y / height);
+    const T cos_phi = ceres::cos(phi);
+    *rx = cos_phi * ceres::sin(theta);
+    *ry = -ceres::sin(phi);
+    *rz = cos_phi * ceres::cos(theta);
     return true;
   }
 };

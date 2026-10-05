@@ -2,6 +2,8 @@
 
 #include "colmap/controllers/option_manager.h"
 
+#include "colmap/calibration/anycalib.h"
+#include "colmap/calibration/single_view_calibrator.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/image_reader.h"
@@ -65,6 +67,7 @@ std::string MakeCameraModelsHelpText() {
 OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
+  single_view_calibration = std::make_shared<SingleViewCalibrationOptions>();
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
@@ -200,6 +203,7 @@ void OptionManager::ModifyForExtremeQuality() {
 
 void OptionManager::AddAllOptions() {
   BaseOptionManager::AddAllOptions();
+  AddSingleViewCalibrationOptions();
   AddFeatureExtractionOptions();
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -221,6 +225,41 @@ void OptionManager::AddAllOptions() {
   AddMeshSimplificationOptions();
 #endif
   AddRenderOptions();
+}
+
+void OptionManager::AddSingleViewCalibrationOptions() {
+  if (!RegisterOptionGroupOnce("single_view_calibration")) {
+    return;
+  }
+
+  AddDefaultEnumOption("SingleViewCalibration.type",
+                       &single_view_calibration->type,
+                       SingleViewCalibratorTypeToString,
+                       SingleViewCalibratorTypeFromString);
+  AddDefaultOption("SingleViewCalibration.camera_model",
+                   &single_view_calibration->camera_model);
+  AddDefaultOption("SingleViewCalibration.num_threads",
+                   &single_view_calibration->num_threads);
+  AddDefaultOption("SingleViewCalibration.use_gpu",
+                   &single_view_calibration->use_gpu);
+  AddDefaultOption("SingleViewCalibration.gpu_index",
+                   &single_view_calibration->gpu_index);
+  AddDefaultOption("SingleViewCalibration.min_focal_length_ratio",
+                   &single_view_calibration->min_focal_length_ratio);
+  AddDefaultOption("SingleViewCalibration.max_focal_length_ratio",
+                   &single_view_calibration->max_focal_length_ratio);
+  AddDefaultOption("SingleViewCalibration.max_extra_param",
+                   &single_view_calibration->max_extra_param);
+  AddDefaultOption("SingleViewCalibration.anycalib_model_path",
+                   &single_view_calibration->anycalib->model_path);
+  AddDefaultOption(
+      "SingleViewCalibration.max_num_iterations",
+      &single_view_calibration->anycalib->fitting.max_num_iterations);
+  AddDefaultOption("SingleViewCalibration.max_num_points",
+                   &single_view_calibration->anycalib->fitting.max_num_points);
+  AddDefaultOption(
+      "SingleViewCalibration.prior_focal_length_weight",
+      &single_view_calibration->anycalib->fitting.prior_focal_length_weight);
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
@@ -1189,6 +1228,7 @@ void OptionManager::Reset(bool reset_logging) {
 
 void OptionManager::ResetOptions(const bool reset_paths) {
   *image_reader = ImageReaderOptions();
+  *single_view_calibration = SingleViewCalibrationOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
   *exhaustive_pairing = ExhaustivePairingOptions();
@@ -1224,6 +1264,8 @@ bool OptionManager::Check() {
   bool success = true;
 
   if (image_reader) success = success && image_reader->Check();
+  if (single_view_calibration)
+    success = success && single_view_calibration->Check();
   if (feature_extraction) success = success && feature_extraction->Check();
 
   if (feature_matching) success = success && feature_matching->Check();

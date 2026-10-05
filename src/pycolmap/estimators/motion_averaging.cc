@@ -25,10 +25,19 @@ void BindGlobalPositioner(py::module& m) {
           .def_readwrite("generate_random_points",
                          &GlobalPositionerOptions::generate_random_points,
                          "Whether to initialize 3D point positions randomly.")
-          .def_readwrite("generate_scales",
-                         &GlobalPositionerOptions::generate_scales,
-                         "Whether to initialize scales to constant 1 or derive "
-                         "from positions.")
+          .def_readwrite(
+              "initialize_scales_from_geometry",
+              &GlobalPositionerOptions::initialize_scales_from_geometry,
+              "Derive scales from initialized camera and point positions; "
+              "otherwise use 1.")
+          .def_readwrite("fix_first_scale",
+                         &GlobalPositionerOptions::fix_first_scale,
+                         "Whether to fix the first active observation scale.")
+          .def_readwrite(
+              "uncalibrated_observation_weight",
+              &GlobalPositionerOptions::uncalibrated_observation_weight,
+              "Positive loss multiplier for observations without "
+              "a focal-length prior.")
           .def_readwrite("optimize_positions",
                          &GlobalPositionerOptions::optimize_positions,
                          "Whether to optimize camera positions.")
@@ -61,7 +70,16 @@ void BindGlobalPositioner(py::module& m) {
                          "non-deterministic.")
           .def_readwrite("loss_function_scale",
                          &GlobalPositionerOptions::loss_function_scale,
-                         "Scaling factor for the loss function.")
+                         "Scaling factor for the loss function. "
+                         "Negative values (default -1) use 1.0 (stddev units) "
+                         "when experimental_observation_stddev is set, "
+                         "otherwise 0.1 (radians).")
+          .def_readwrite(
+              "experimental_observation_stddev",
+              &GlobalPositionerOptions::experimental_observation_stddev,
+              "Isotropic observation uncertainty in pixels. None disables "
+              "weighting. When enabled, loss_function_scale applies to "
+              "whitened residuals.")
           .def_readwrite("use_parameter_block_ordering",
                          &GlobalPositionerOptions::use_parameter_block_ordering,
                          "Whether to use custom parameter block ordering.");

@@ -45,6 +45,11 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
 BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
     const BundleAdjustmentOptions& ba_options) {
   BundleAdjustmentOptions custom_ba_options = ba_options;
+  custom_ba_options.refine_focal_length = false;
+  custom_ba_options.refine_principal_point = false;
+  custom_ba_options.refine_extra_params = false;
+  custom_ba_options.refine_sensor_from_rig = false;
+  custom_ba_options.refine_rig_from_world = false;
   custom_ba_options.print_summary = false;
   custom_ba_options.min_track_length = 0;
   if (custom_ba_options.ceres) {
@@ -483,7 +488,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
       mapper_options,
       RefinementBundleAdjustmentOptions(ba_options),
       options,
-      /*normalize_reconstruction=*/true);
+      /*normalize_reconstruction=*/false);
 
   mapper.EndReconstruction(/*discard=*/false);
 
