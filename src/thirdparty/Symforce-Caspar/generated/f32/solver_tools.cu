@@ -3,9 +3,7 @@
  * This source code is under the Apache 2.0 license found in the LICENSE file.
  * ---------------------------------------------------------------------------- */
 
-#include <cub/cub.cuh>
-#include <cuda_runtime.h>
-
+#include "cuda_to_hip.h"
 #include "solver_tools.h"
 
 namespace caspar {

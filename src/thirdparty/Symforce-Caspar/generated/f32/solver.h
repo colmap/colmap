@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cstdint>
+
+#include "cuda_to_hip.h"
+
 #include <vector>
 
 #include "shared_indices.h"
 #include "solver_params.h"
-#include <cuda_runtime.h>
 
 namespace caspar {
 
