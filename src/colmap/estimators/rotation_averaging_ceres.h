@@ -58,7 +58,7 @@ class CeresRotationAverager {
       image_t image_id1,
       image_t image_id2,
       const Eigen::Quaterniond& cam2_from_cam1,
-      std::shared_ptr<ceres::LossFunction> loss_function);
+      const std::shared_ptr<ceres::LossFunction>& loss_function);
 
  private:
   Reconstruction& reconstruction_;

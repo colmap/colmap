@@ -2,6 +2,7 @@
 
 import gc
 
+import numpy as np
 import pytest
 
 import pycolmap
@@ -11,7 +12,7 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
     pyceres = pytest.importorskip("pyceres")
 
     class PythonLoss(pyceres.LossFunction):
-        def Evaluate(self, squared_norm, rho):
+        def Evaluate(self, squared_norm: float, rho: np.ndarray) -> None:
             rho[:] = [squared_norm, 1.0, 0.0]
 
     dataset_options = pycolmap.SyntheticDatasetOptions()
@@ -20,11 +21,12 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
     dataset_options.num_frames_per_rig = 2
     dataset_options.num_points3D = 10
     reconstruction = pycolmap.synthesize_dataset(dataset_options)
-    image_ids = sorted(reconstruction.images)
+    image_id1, image_id2 = sorted(reconstruction.images)
 
     pose_graph = pycolmap.PoseGraph()
     pose_graph.add_edge(
-        *image_ids,
+        image_id1,
+        image_id2,
         pycolmap.PoseGraphEdge(
             cam2_from_cam1=pycolmap.Rigid3d(), num_matches=10
         ),
@@ -44,7 +46,7 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
     loss = PythonLoss()
     for _ in range(100):
         averager.add_relative_rotation_residual(
-            *image_ids, pycolmap.Rigid3d().rotation, loss
+            image_id1, image_id2, pycolmap.Rigid3d().rotation, loss
         )
     assert averager.problem.num_residual_blocks() == 101
     del loss

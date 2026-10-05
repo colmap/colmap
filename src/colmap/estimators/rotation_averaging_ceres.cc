@@ -199,7 +199,7 @@ void CeresRotationAverager::AddRelativeRotationResidual(
     const image_t image_id1,
     const image_t image_id2,
     const Eigen::Quaterniond& cam2_from_cam1,
-    std::shared_ptr<ceres::LossFunction> loss_function) {
+    const std::shared_ptr<ceres::LossFunction>& loss_function) {
   const Image& image1 = reconstruction_.Image(image_id1);
   const Image& image2 = reconstruction_.Image(image_id2);
   Frame& frame1 = *image1.FramePtr();
@@ -227,7 +227,7 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   }
   ceres::LossFunction* loss = loss_function.get();
   if (loss != nullptr) {
-    losses_.try_emplace(loss, std::move(loss_function));
+    losses_.try_emplace(loss, loss_function);
   }
   if (sensor1 == nullptr && sensor2 == nullptr && !same_frame) {
     problem_->AddResidualBlock(RelativeRotationError::Create(cam2_from_cam1),
