@@ -11,7 +11,7 @@ namespace {
 
 TEST(Imu, Default) {
   const Imu imu;
-  EXPECT_EQ(imu.imu_id, kInvalidCameraId);
+  EXPECT_EQ(imu.imu_id, kInvalidImuId);
   EXPECT_EQ(imu.camera_id, kInvalidCameraId);
 }
 

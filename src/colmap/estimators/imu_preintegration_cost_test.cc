@@ -114,7 +114,7 @@ TEST(ImuPreintegrationCostFunctor, ZeroResidualAtGroundTruth) {
 
   TrajectoryGT gt;
   PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
-  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+  data.sqrt_info = Eigen::Matrix<double, 15, 15>::Identity();
 
   std::unique_ptr<ceres::CostFunction> cost_function(
       ImuPreintegrationCostFunctor::Create(&data, kGravity));
@@ -146,7 +146,7 @@ TEST(ImuPreintegrationCostFunctor, ZeroResidualWithMotion) {
 
   TrajectoryGT gt;
   PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
-  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+  data.sqrt_info = Eigen::Matrix<double, 15, 15>::Identity();
 
   std::unique_ptr<ceres::CostFunction> cost_function(
       ImuPreintegrationCostFunctor::Create(&data, kGravity));
@@ -179,7 +179,7 @@ TEST(VisualCentricImuPreintegrationCostFunctor,
 
   TrajectoryGT gt;
   PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
-  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+  data.sqrt_info = Eigen::Matrix<double, 15, 15>::Identity();
 
   std::unique_ptr<ceres::CostFunction> cost_function(
       VisualCentricImuPreintegrationCostFunctor::Create(&data));
@@ -219,7 +219,7 @@ TEST(ImuPreintegrationCostConsistency, ImuAndVisualCentricMatch) {
 
   TrajectoryGT gt;
   PreintegratedImuData data = MakeConstantData(accel, gyro, N, dt, &gt);
-  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+  data.sqrt_info = Eigen::Matrix<double, 15, 15>::Identity();
 
   gt.v_i += Eigen::Vector3d(0.01, -0.02, 0.005);
 
@@ -468,7 +468,7 @@ TEST_P(PhysicsConsistencyTest, CostFunctionMatchesPhysics) {
         ImuMeasurement(TimestampFromSeconds(i * dt), gyro, accel));
   }
   PreintegratedImuData data = integrator.Extract();
-  data.sqrt_information = Eigen::Matrix<double, 15, 15>::Identity();
+  data.sqrt_info = Eigen::Matrix<double, 15, 15>::Identity();
 
   //--------------------------------------------------------------------------
   // Step 3: Evaluate cost function with TRUE physical poses.

@@ -164,8 +164,8 @@ TEST_P(ImuPreintegratorTest, ExtractAndUpdateConsistent) {
               EigenMatrixNear(data_update.delta_p, 1e-12));
   EXPECT_THAT(data_extract.delta_v,
               EigenMatrixNear(data_update.delta_v, 1e-12));
-  EXPECT_THAT(data_extract.sqrt_information,
-              EigenMatrixNear(data_update.sqrt_information, 1e-10));
+  EXPECT_THAT(data_extract.sqrt_info,
+              EigenMatrixNear(data_update.sqrt_info, 1e-10));
 }
 
 TEST_P(ImuPreintegratorTest, CovariancePositiveDefinite) {

@@ -195,6 +195,11 @@ TEST(ImuMeasurements, DuplicateThrows) {
   ms4.Insert(CreateMeasurement(5));
   EXPECT_ANY_THROW(
       ms4.InsertSorted({CreateMeasurement(10), CreateMeasurement(10)}));
+
+  // Unsorted input to InsertSorted throws.
+  ImuMeasurements ms5;
+  EXPECT_ANY_THROW(
+      ms5.InsertSorted({CreateMeasurement(20), CreateMeasurement(10)}));
 }
 
 TEST(ImuMeasurements, ExtractMeasurementsInRange) {
@@ -204,74 +209,64 @@ TEST(ImuMeasurements, ExtractMeasurementsInRange) {
     ms.Insert(CreateMeasurement(t));
   }
 
+  ImuMeasurements r;
+
   // Nominal interior with exact matches: [200, 400] -> [200, 300, 400].
   // upper_bound(200)->300, it1-1->200; lower_bound(400)->400, it2+1->500.
-  {
-    const ImuMeasurements r = ms.ExtractMeasurementsInRange(200, 400);
-    ASSERT_EQ(r.Size(), 3);
-    EXPECT_EQ(r[0].timestamp, 200);
-    EXPECT_EQ(r[1].timestamp, 300);
-    EXPECT_EQ(r[2].timestamp, 400);
-  }
+  ms.ExtractMeasurementsInRange(200, 400, &r);
+  ASSERT_EQ(r.Size(), 3);
+  EXPECT_EQ(r[0].timestamp, 200);
+  EXPECT_EQ(r[1].timestamp, 300);
+  EXPECT_EQ(r[2].timestamp, 400);
 
   // Full range: [100, 500] -> all five.
-  {
-    const ImuMeasurements r = ms.ExtractMeasurementsInRange(100, 500);
-    ASSERT_EQ(r.Size(), 5);
-    EXPECT_EQ(r[0].timestamp, 100);
-    EXPECT_EQ(r[4].timestamp, 500);
-  }
+  ms.ExtractMeasurementsInRange(100, 500, &r);
+  ASSERT_EQ(r.Size(), 5);
+  EXPECT_EQ(r[0].timestamp, 100);
+  EXPECT_EQ(r[4].timestamp, 500);
 
   // t1 between samples: [150, 400] -> includes 100 (sample before t1).
-  {
-    const ImuMeasurements r = ms.ExtractMeasurementsInRange(150, 400);
-    ASSERT_EQ(r.Size(), 4);
-    EXPECT_EQ(r[0].timestamp, 100);
-    EXPECT_EQ(r[3].timestamp, 400);
-  }
+  ms.ExtractMeasurementsInRange(150, 400, &r);
+  ASSERT_EQ(r.Size(), 4);
+  EXPECT_EQ(r[0].timestamp, 100);
+  EXPECT_EQ(r[3].timestamp, 400);
 
   // t2 between samples: [200, 350] -> includes 400 (sample after t2).
-  {
-    const ImuMeasurements r = ms.ExtractMeasurementsInRange(200, 350);
-    ASSERT_EQ(r.Size(), 3);
-    EXPECT_EQ(r[0].timestamp, 200);
-    EXPECT_EQ(r[1].timestamp, 300);
-    EXPECT_EQ(r[2].timestamp, 400);
-  }
+  ms.ExtractMeasurementsInRange(200, 350, &r);
+  ASSERT_EQ(r.Size(), 3);
+  EXPECT_EQ(r[0].timestamp, 200);
+  EXPECT_EQ(r[1].timestamp, 300);
+  EXPECT_EQ(r[2].timestamp, 400);
 
   // Both between same adjacent pair: [210, 290] -> [200, 300].
-  {
-    const ImuMeasurements r = ms.ExtractMeasurementsInRange(210, 290);
-    ASSERT_EQ(r.Size(), 2);
-    EXPECT_EQ(r[0].timestamp, 200);
-    EXPECT_EQ(r[1].timestamp, 300);
-  }
+  ms.ExtractMeasurementsInRange(210, 290, &r);
+  ASSERT_EQ(r.Size(), 2);
+  EXPECT_EQ(r[0].timestamp, 200);
+  EXPECT_EQ(r[1].timestamp, 300);
 
   // Minimal adjacent exact matches: [200, 300] -> [200, 300].
-  {
-    const ImuMeasurements r = ms.ExtractMeasurementsInRange(200, 300);
-    ASSERT_EQ(r.Size(), 2);
-    EXPECT_EQ(r[0].timestamp, 200);
-    EXPECT_EQ(r[1].timestamp, 300);
-  }
+  ms.ExtractMeasurementsInRange(200, 300, &r);
+  ASSERT_EQ(r.Size(), 2);
+  EXPECT_EQ(r[0].timestamp, 200);
+  EXPECT_EQ(r[1].timestamp, 300);
 
   // Both between samples spanning multiple: [150, 350] -> [100, 200, 300, 400].
-  {
-    const ImuMeasurements r = ms.ExtractMeasurementsInRange(150, 350);
-    ASSERT_EQ(r.Size(), 4);
-    EXPECT_EQ(r[0].timestamp, 100);
-    EXPECT_EQ(r[3].timestamp, 400);
-  }
+  ms.ExtractMeasurementsInRange(150, 350, &r);
+  ASSERT_EQ(r.Size(), 4);
+  EXPECT_EQ(r[0].timestamp, 100);
+  EXPECT_EQ(r[3].timestamp, 400);
 
   // Error cases.
   ImuMeasurements empty;
-  EXPECT_ANY_THROW(empty.ExtractMeasurementsInRange(100, 200));
-  EXPECT_ANY_THROW(ms.ExtractMeasurementsInRange(300, 200));
-  EXPECT_ANY_THROW(ms.ExtractMeasurementsInRange(200, 200));
+  EXPECT_ANY_THROW(empty.ExtractMeasurementsInRange(100, 200, &r));
+  EXPECT_ANY_THROW(ms.ExtractMeasurementsInRange(300, 200, &r));
+  EXPECT_ANY_THROW(ms.ExtractMeasurementsInRange(200, 200, &r));
   // Ranges that extend beyond the available samples cannot bracket the edge
-  // and return empty rather than throwing.
-  EXPECT_TRUE(ms.ExtractMeasurementsInRange(50, 300).Empty());
-  EXPECT_TRUE(ms.ExtractMeasurementsInRange(200, 600).Empty());
+  // and leave output empty rather than throwing.
+  ms.ExtractMeasurementsInRange(50, 300, &r);
+  EXPECT_TRUE(r.Empty());
+  ms.ExtractMeasurementsInRange(200, 600, &r);
+  EXPECT_TRUE(r.Empty());
 }
 
 }  // namespace

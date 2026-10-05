@@ -63,11 +63,11 @@ void BindImu(py::module& m) {
            py::overload_cast<const ImuMeasurement&>(&ImuMeasurements::Insert),
            "measurement"_a)
       .def("insert",
-           py::overload_cast<const std::vector<ImuMeasurement>&>(
+           py::overload_cast<std::vector<ImuMeasurement>>(
                &ImuMeasurements::Insert),
            "measurements"_a)
       .def("insert",
-           py::overload_cast<const ImuMeasurements&>(&ImuMeasurements::Insert),
+           py::overload_cast<ImuMeasurements>(&ImuMeasurements::Insert),
            "measurements"_a)
       .def("insert_sorted",
            &ImuMeasurements::InsertSorted,
@@ -76,10 +76,15 @@ void BindImu(py::module& m) {
       .def("empty", &ImuMeasurements::Empty)
       .def("__len__", &ImuMeasurements::Size)
       .def("__getitem__", &ImuMeasurements::operator[])
-      .def("extract_measurements_in_range",
-           &ImuMeasurements::ExtractMeasurementsInRange,
-           "t1"_a,
-           "t2"_a)
+      .def(
+          "extract_measurements_in_range",
+          [](const ImuMeasurements& self, timestamp_t t1, timestamp_t t2) {
+            ImuMeasurements result;
+            self.ExtractMeasurementsInRange(t1, t2, &result);
+            return result;
+          },
+          "t1"_a,
+          "t2"_a)
       .def(
           "__iter__",
           [](const ImuMeasurements& ms) {

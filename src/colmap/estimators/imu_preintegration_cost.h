@@ -45,7 +45,7 @@ class ImuPreintegrationCostFunctor {
   ImuPreintegrationCostFunctor(const PreintegratedImuData* data,
                                const Eigen::Vector3d& gravity)
       : data_(data), gravity_(gravity) {
-    THROW_CHECK(!data_->sqrt_information.isZero())
+    THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function. Call Extract() or Update() on the integrator, or "
            "Finalize() on the data directly.";
@@ -133,7 +133,7 @@ class ImuPreintegrationCostFunctor {
 
     // Weight by sqrt information.
     Eigen::Map<Eigen::Matrix<T, 15, 1>> residuals_data(residuals);
-    residuals_data.applyOnTheLeft(data_->sqrt_information.cast<T>());
+    residuals_data.applyOnTheLeft(data_->sqrt_info.cast<T>());
     return true;
   }
 
@@ -172,7 +172,7 @@ class AnalyticalImuPreintegrationCostFunction
   AnalyticalImuPreintegrationCostFunction(const PreintegratedImuData* data,
                                           const Eigen::Vector3d& gravity)
       : data_(data), gravity_(gravity) {
-    THROW_CHECK(!data_->sqrt_information.isZero())
+    THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function.";
   }
@@ -241,7 +241,7 @@ class AnalyticalImuPreintegrationCostFunction
     r.segment<3>(12) = ba_j - ba_i;
 
     // Weight by sqrt information.
-    r = data_->sqrt_information * r;
+    r = data_->sqrt_info * r;
 
     if (jacobians == nullptr) return true;
 
@@ -289,7 +289,7 @@ class AnalyticalImuPreintegrationCostFunction
       QuaternionRotatePointWithJac(parameters[0], dv_W.data(), J_vel_qi.data());
       J.block<3, 4>(6, 0) = J_vel_qi;
 
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // Jacobian w.r.t. imu_state_i [9].
@@ -313,7 +313,7 @@ class AnalyticalImuPreintegrationCostFunction
       J.block<3, 3>(9, 3) = -Eigen::Matrix3d::Identity();
       J.block<3, 3>(12, 6) = -Eigen::Matrix3d::Identity();
 
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // Jacobian w.r.t. body_from_world_j [7].
@@ -341,7 +341,7 @@ class AnalyticalImuPreintegrationCostFunction
       QuaternionRotatePointWithJac(q_conj_arr, t_BW_j.data(), dRtv_dq.data());
       J.block<3, 4>(3, 0) = -R_BW_i * dRtv_dq * dconj;
 
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // Jacobian w.r.t. imu_state_j [9].
@@ -355,7 +355,7 @@ class AnalyticalImuPreintegrationCostFunction
       J.block<3, 3>(9, 3) = Eigen::Matrix3d::Identity();
       J.block<3, 3>(12, 6) = Eigen::Matrix3d::Identity();
 
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     return true;
@@ -404,7 +404,7 @@ class VisualCentricImuPreintegrationCostFunctor {
   explicit VisualCentricImuPreintegrationCostFunctor(
       const PreintegratedImuData* data)
       : data_(data) {
-    THROW_CHECK(!data_->sqrt_information.isZero())
+    THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function. Call Extract() or Update() on the integrator, or "
            "Finalize() on the data directly.";
@@ -528,7 +528,7 @@ class VisualCentricImuPreintegrationCostFunctor {
 
     // Weight by sqrt information.
     Eigen::Map<Eigen::Matrix<T, 15, 1>> residuals_data(residuals);
-    residuals_data.applyOnTheLeft(data_->sqrt_information.cast<T>());
+    residuals_data.applyOnTheLeft(data_->sqrt_info.cast<T>());
     return true;
   }
 
@@ -561,7 +561,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
   explicit AnalyticalVisualCentricImuPreintegrationCostFunction(
       const PreintegratedImuData* data)
       : data_(data) {
-    THROW_CHECK(!data_->sqrt_information.isZero())
+    THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function.";
   }
@@ -643,7 +643,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
     r.segment<3>(9) = bg_j - bg_i;
     r.segment<3>(12) = ba_j - ba_i;
 
-    r = data_->sqrt_information * r;
+    r = data_->sqrt_info * r;
 
     if (jacobians == nullptr) return true;
 
@@ -663,7 +663,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
           R_IW_i * (t_WI_j_unscaled - t_WI_i_unscaled - v_i_data * dt) * scale;
       // d(r_vel)/d(log_s) = R_IW_i * (v_j_data - v_i_data) * scale
       J.segment<3>(6) = R_IW_i * (v_j_data - v_i_data) * scale;
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // [1] gravity_direction (3).
@@ -672,7 +672,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       J.setZero();
       J.block<3, 3>(3, 0) = -0.5 * dt * dt * grav_mag * R_IW_i;
       J.block<3, 3>(6, 0) = -dt * grav_mag * R_IW_i;
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // [2] imu_from_cam (7).
@@ -725,7 +725,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       }
       J.block<3, 4>(6, 0) = dRdvW_dqIWi * dqIWi_dqIC;
 
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // [3] i_from_world (7).
@@ -770,7 +770,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       }
       J.block<3, 4>(6, 0) = dRdvW_dqIWi * dqIWi_dqCWi;
 
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // [4] i_imu_state (9).
@@ -786,7 +786,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       J.block<3, 3>(6, 6) = -data_->dv_dba;
       J.block<3, 3>(9, 3) = -Eigen::Matrix3d::Identity();
       J.block<3, 3>(12, 6) = -Eigen::Matrix3d::Identity();
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // [5] j_from_world (7).
@@ -814,7 +814,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       J.block<3, 4>(3, 0) = scale * R_IW_i * dRv_dqWCj * dconj;
       J.block<3, 3>(3, 4) = -scale * R_IW_i * R_WC_j;
 
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     // [6] j_imu_state (9).
@@ -824,7 +824,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       J.block<3, 3>(6, 0) = scale * R_IW_i;
       J.block<3, 3>(9, 3) = Eigen::Matrix3d::Identity();
       J.block<3, 3>(12, 6) = Eigen::Matrix3d::Identity();
-      J = data_->sqrt_information * J;
+      J = data_->sqrt_info * J;
     }
 
     return true;

@@ -21,7 +21,7 @@ namespace colmap {
 // proper sensor in the rig and using sensor_from_rig transforms.
 struct Imu {
   ImuCalibration calib;
-  camera_t imu_id = kInvalidCameraId;
+  imu_t imu_id = kInvalidImuId;
 
   // Information for the associated visual camera. TODO: Use Rig instead.
   camera_t camera_id = kInvalidCameraId;  // The camera linked to IMU.

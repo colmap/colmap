@@ -46,9 +46,9 @@ void PreintegratedImuData::Finalize(double max_condition_number) {
     D_inv_sqrt(i) = (eval > 0.0) ? 1.0 / std::sqrt(eval) : 0.0;
   }
 
-  // sqrt_information = D^{-1/2} * V^T
+  // sqrt_info = D^{-1/2} * V^T
   // so that sqrt_info^T * sqrt_info = V * D^{-1} * V^T = information.
-  sqrt_information = D_inv_sqrt.asDiagonal() * saes.eigenvectors().transpose();
+  sqrt_info = D_inv_sqrt.asDiagonal() * saes.eigenvectors().transpose();
 }
 
 ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
@@ -433,7 +433,7 @@ std::unique_ptr<const ImuIntegrator> ImuIntegrator::Create(
     case ImuIntegrationMethod::RK4:
       return std::make_unique<Rk4ImuIntegrator>();
   }
-  LOG(FATAL) << "Unhandled ImuIntegrationMethod";
+  LOG(FATAL_THROW) << "Unhandled ImuIntegrationMethod";
   return nullptr;
 }
 

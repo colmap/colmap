@@ -93,9 +93,9 @@ def test_preintegration_constant_acceleration(
     assert data.delta_v[2] == pytest.approx(9.81 * T, abs=1e-9)
     assert data.delta_p[2] == pytest.approx(0.5 * 9.81 * T * T, abs=1e-9)
 
-    # Covariance is finalized (SPD) and sqrt_information is populated.
+    # Covariance is finalized (SPD) and sqrt_info is populated.
     assert data.covariance.shape == (15, 15)
-    assert data.sqrt_information.shape == (15, 15)
+    assert data.sqrt_info.shape == (15, 15)
     assert np.linalg.eigvalsh(data.covariance).min() > 0.0
 
 
@@ -191,7 +191,7 @@ def test_update_in_place() -> None:
         data_extract.delta_p, data_update.delta_p, atol=1e-12
     )
     np.testing.assert_allclose(
-        data_extract.sqrt_information, data_update.sqrt_information, atol=1e-10
+        data_extract.sqrt_info, data_update.sqrt_info, atol=1e-10
     )
 
 

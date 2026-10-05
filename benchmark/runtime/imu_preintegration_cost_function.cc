@@ -5,7 +5,7 @@
 // (body-centric, visual-centric).
 //
 // Evaluate() reads only the fixed-size preintegrated result (delta_R/p/v, bias
-// Jacobians, 15x15 sqrt_information), so its cost is invariant to both the
+// Jacobians, 15x15 sqrt_info), so its cost is invariant to both the
 // number of integrated measurements and the integration method (MIDPOINT/RK4)
 // that produced the data -- those only affect the one-off preintegration step,
 // not this residual evaluation. The data is therefore built once with fixed
@@ -53,7 +53,7 @@ PreintegratedImuData MakeImuData() {
                               TimestampFromSeconds(0.0),
                               TimestampFromSeconds(kNumMeasurements * dt));
   for (int i = 0; i <= kNumMeasurements; ++i) {
-    integrator.FeedImu(
+    integrator.Integrate(
         ImuMeasurement(TimestampFromSeconds(i * dt), kGyro, kAccel));
   }
   return integrator.Extract();

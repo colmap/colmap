@@ -55,8 +55,7 @@ void BindImuPreintegration(py::module& m) {
       .def_readwrite("dv_dba", &PreintegratedImuData::dv_dba)
       .def_readwrite("biases", &PreintegratedImuData::biases)
       .def_readwrite("covariance", &PreintegratedImuData::covariance)
-      .def_readwrite("sqrt_information",
-                     &PreintegratedImuData::sqrt_information)
+      .def_readwrite("sqrt_info", &PreintegratedImuData::sqrt_info)
       .def_readwrite("gravity_magnitude",
                      &PreintegratedImuData::gravity_magnitude)
       .def("finalize",

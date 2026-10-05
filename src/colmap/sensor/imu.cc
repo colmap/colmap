@@ -13,8 +13,14 @@
 namespace colmap {
 namespace {
 
-void ThrowIfHasDuplicates(const std::vector<ImuMeasurement>& ms) {
+void ThrowIfDuplicatesOrNotSorted(const std::vector<ImuMeasurement>& ms) {
   for (size_t i = 1; i < ms.size(); ++i) {
+    if (ms[i].timestamp < ms[i - 1].timestamp) {
+      throw std::invalid_argument(
+          "ImuMeasurements are not sorted by timestamp: " +
+          std::to_string(ms[i - 1].timestamp) + " > " +
+          std::to_string(ms[i].timestamp));
+    }
     if (ms[i].timestamp == ms[i - 1].timestamp) {
       throw std::invalid_argument("Duplicate timestamp in ImuMeasurements: " +
                                   std::to_string(ms[i].timestamp));
@@ -42,30 +48,28 @@ void ImuMeasurements::Insert(const ImuMeasurement& m) {
   measurements_.insert(it, m);
 }
 
-void ImuMeasurements::Insert(const std::vector<ImuMeasurement>& ms) {
-  std::vector<ImuMeasurement> sorted = ms;
-  std::sort(sorted.begin(),
-            sorted.end(),
+void ImuMeasurements::Insert(std::vector<ImuMeasurement> ms) {
+  std::sort(ms.begin(),
+            ms.end(),
             [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
               return m1.timestamp < m2.timestamp;
             });
-  InsertSorted(sorted);
+  InsertSorted(std::move(ms));
 }
 
-void ImuMeasurements::Insert(const ImuMeasurements& ms) {
+void ImuMeasurements::Insert(ImuMeasurements ms) {
   if (Empty()) {
-    measurements_ = ms.Data();
+    measurements_ = std::move(ms.measurements_);
   } else {
-    InsertSorted(ms.Data());
+    InsertSorted(std::move(ms.measurements_));
   }
 }
 
-void ImuMeasurements::InsertSorted(
-    const std::vector<ImuMeasurement>& sorted_ms) {
+void ImuMeasurements::InsertSorted(std::vector<ImuMeasurement> sorted_ms) {
   if (sorted_ms.empty()) return;
-  ThrowIfHasDuplicates(sorted_ms);
+  ThrowIfDuplicatesOrNotSorted(sorted_ms);
   if (Empty()) {
-    measurements_ = sorted_ms;
+    measurements_ = std::move(sorted_ms);
     return;
   }
   if (sorted_ms.front().timestamp > measurements_.back().timestamp) {
@@ -88,7 +92,7 @@ void ImuMeasurements::InsertSorted(
                return m1.timestamp < m2.timestamp;
              });
   // Check for cross-range duplicates after merge.
-  ThrowIfHasDuplicates(merged);
+  ThrowIfDuplicatesOrNotSorted(merged);
   measurements_ = std::move(merged);
 }
 
@@ -106,15 +110,17 @@ void ImuMeasurements::Remove(const ImuMeasurement& m) {
     throw std::invalid_argument("Element not found in the list");
 }
 
-ImuMeasurements ImuMeasurements::ExtractMeasurementsInRange(
-    timestamp_t t1, timestamp_t t2) const {
+void ImuMeasurements::ExtractMeasurementsInRange(
+    timestamp_t t1, timestamp_t t2, ImuMeasurements* measurements) const {
+  THROW_CHECK_NOTNULL(measurements);
   THROW_CHECK(!Empty()) << "Cannot query measurements from empty container.";
   THROW_CHECK_LT(t1, t2) << "t1 must be less than t2.";
+  measurements->Clear();
   // The edge cannot be bracketed if it extends beyond the available samples
-  // (e.g. the first/last image edge or across an IMU gap). Return empty so
-  // callers can skip this edge rather than treating it as a fatal error.
+  // (e.g. the first/last image edge or across an IMU gap). Leave output empty
+  // so callers can skip this edge rather than treating it as a fatal error.
   if (t1 < front().timestamp || t2 > back().timestamp) {
-    return ImuMeasurements();
+    return;
   }
   auto cmp = [](const ImuMeasurement& m1, const ImuMeasurement& m2) {
     return m1.timestamp < m2.timestamp;
@@ -125,9 +131,7 @@ ImuMeasurements ImuMeasurements::ExtractMeasurementsInRange(
   range.timestamp = t2;
   auto it2 = std::lower_bound(begin(), end(), range, cmp);
   // Range: sample at/before t1 through sample at/after t2.
-  ImuMeasurements result;
-  result.InsertSorted(std::vector<ImuMeasurement>(it1 - 1, it2 + 1));
-  return result;
+  measurements->measurements_.assign(it1 - 1, it2 + 1);
 }
 
 std::ostream& operator<<(std::ostream& stream,

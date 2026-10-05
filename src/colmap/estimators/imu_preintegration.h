@@ -83,13 +83,13 @@ struct PreintegratedImuData {
 
   // Square root of the information matrix (inverse covariance), computed
   // via eigendecomposition in Finalize().
-  Eigen::Matrix<double, 15, 15> sqrt_information =
+  Eigen::Matrix<double, 15, 15> sqrt_info =
       Eigen::Matrix<double, 15, 15>::Zero();
 
   // Gravity magnitude used during preintegration.
   double gravity_magnitude = 9.81;
 
-  // Compute sqrt_information from covariance. max_condition_number limits
+  // Compute sqrt_info from covariance. max_condition_number limits
   // the condition number of the information matrix by clamping small
   // eigenvalues. Set to -1 to disable clamping.
   void Finalize(double max_condition_number = -1);

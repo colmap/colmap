@@ -60,10 +60,10 @@ struct ImuMeasurement {
   Eigen::Vector3d accel = Eigen::Vector3d::Zero();
 
   ImuMeasurement() {}
-  ImuMeasurement(timestamp_t t,
+  ImuMeasurement(timestamp_t timestamp,
                  const Eigen::Vector3d& gyro,
                  const Eigen::Vector3d& accel)
-      : timestamp(t), gyro(gyro), accel(accel) {}
+      : timestamp(timestamp), gyro(gyro), accel(accel) {}
 };
 
 std::ostream& operator<<(std::ostream& stream,
@@ -76,25 +76,29 @@ std::ostream& operator<<(std::ostream& stream,
 class ImuMeasurements {
  public:
   ImuMeasurements() = default;
-  explicit ImuMeasurements(const std::vector<ImuMeasurement>& ms) {
-    Insert(ms);
+  explicit ImuMeasurements(std::vector<ImuMeasurement> ms) {
+    Insert(std::move(ms));
   }
 
   // Insert a single measurement, keeping the list sorted by timestamp.
   // Throws on a duplicate timestamp.
+  // Note: Repeated out-of-order single insertions are O(N^2) due to vector
+  // shifts; prefer batch-inserting multiple measurements via Insert(ms) or
+  // InsertSorted(sorted_ms).
   void Insert(const ImuMeasurement& m);
 
   // Insert (unsorted) measurements, keeping the list sorted by timestamp.
   // Throws on a duplicate timestamp.
-  void Insert(const std::vector<ImuMeasurement>& ms);
+  void Insert(std::vector<ImuMeasurement> ms);
 
   // Merge in another sorted list. Throws on a duplicate timestamp.
-  void Insert(const ImuMeasurements& ms);
+  void Insert(ImuMeasurements ms);
 
   // Insert measurements that are already sorted by timestamp.
   // If all new measurements come after the existing ones, this is O(m) append.
-  // Otherwise falls back to O(n+m) merge. Throws on duplicate timestamps.
-  void InsertSorted(const std::vector<ImuMeasurement>& sorted_ms);
+  // Otherwise falls back to O(n+m) merge. Throws on unsorted or duplicate
+  // timestamps.
+  void InsertSorted(std::vector<ImuMeasurement> sorted_ms);
 
   // Remove the measurement with a matching timestamp. Throws if not found.
   void Remove(const ImuMeasurement& m);
@@ -120,8 +124,9 @@ class ImuMeasurements {
   // sample at or just before t1 to the sample at or just after t2. This
   // ensures the returned range brackets both endpoints, which is required
   // for correct IMU preintegration when t1/t2 fall between samples.
-  ImuMeasurements ExtractMeasurementsInRange(timestamp_t t1,
-                                             timestamp_t t2) const;
+  void ExtractMeasurementsInRange(timestamp_t t1,
+                                  timestamp_t t2,
+                                  ImuMeasurements* measurements) const;
 
  private:
   std::vector<ImuMeasurement> measurements_;
