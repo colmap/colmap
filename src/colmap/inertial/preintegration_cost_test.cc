@@ -2,8 +2,8 @@
 
 #include "colmap/inertial/preintegration_cost.h"
 
-#include "colmap/inertial/preintegration.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/inertial/preintegration.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/timestamp.h"
 
