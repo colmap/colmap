@@ -14,6 +14,18 @@
 #include <vector>
 
 namespace colmap {
+namespace {
+
+double* MaybeGetSensorRotationBlock(const Image& image) {
+  if (image.IsRefInFrame()) return nullptr;
+  const sensor_t sensor_id = image.CameraPtr()->SensorId();
+  Rigid3d& sensor_from_rig =
+      image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
+  return sensor_from_rig.rotation().coeffs().data();
+}
+
+}  // namespace
+
 CeresRotationAveragerOptions::CeresRotationAveragerOptions() {
   solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 }
@@ -174,23 +186,20 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   const Image& image2 = reconstruction_.Image(image_id2);
   Frame& frame1 = *image1.FramePtr();
   Frame& frame2 = *image2.FramePtr();
-  double* rotation1 = frame1.RigFromWorld().rotation().coeffs().data();
-  double* rotation2 = frame2.RigFromWorld().rotation().coeffs().data();
-  THROW_CHECK(problem_->HasParameterBlock(rotation1));
-  THROW_CHECK(problem_->HasParameterBlock(rotation2));
-  const auto sensor_block = [](const Image& image) -> double* {
-    if (image.IsRefInFrame()) return nullptr;
-    const sensor_t sensor_id = image.CameraPtr()->SensorId();
-    Rigid3d& sensor_from_rig =
-        image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
-    return sensor_from_rig.rotation().coeffs().data();
-  };
-  double* sensor1 = sensor_block(image1);
-  double* sensor2 = sensor_block(image2);
-  THROW_CHECK(sensor1 == nullptr || problem_->HasParameterBlock(sensor1));
-  THROW_CHECK(sensor2 == nullptr || problem_->HasParameterBlock(sensor2));
+  double* rig1_from_world_rot_ptr =
+      frame1.RigFromWorld().rotation().coeffs().data();
+  double* rig2_from_world_rot_ptr =
+      frame2.RigFromWorld().rotation().coeffs().data();
+  THROW_CHECK(problem_->HasParameterBlock(rig1_from_world_rot_ptr));
+  THROW_CHECK(problem_->HasParameterBlock(rig2_from_world_rot_ptr));
+  double* sensor1_from_rig_rot_ptr = MaybeGetSensorRotationBlock(image1);
+  double* sensor2_from_rig_rot_ptr = MaybeGetSensorRotationBlock(image2);
+  THROW_CHECK(sensor1_from_rig_rot_ptr == nullptr ||
+              problem_->HasParameterBlock(sensor1_from_rig_rot_ptr));
+  THROW_CHECK(sensor2_from_rig_rot_ptr == nullptr ||
+              problem_->HasParameterBlock(sensor2_from_rig_rot_ptr));
   const bool same_frame = image1.FrameId() == image2.FrameId();
-  if (same_frame && sensor1 == sensor2) {
+  if (same_frame && sensor1_from_rig_rot_ptr == sensor2_from_rig_rot_ptr) {
     LOG(WARNING) << "Skipping self-loop for image pair " << image_id1 << ", "
                  << image_id2;
     return;
@@ -199,32 +208,40 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   if (loss != nullptr) {
     losses_.try_emplace(loss, loss_function);
   }
-  if (sensor1 == nullptr && sensor2 == nullptr && !same_frame) {
+  if (sensor1_from_rig_rot_ptr == nullptr &&
+      sensor2_from_rig_rot_ptr == nullptr && !same_frame) {
     problem_->AddResidualBlock(
         RelativeRotationCostFunctor::Create(cam2_from_cam1),
         loss,
-        rotation1,
-        rotation2);
+        rig1_from_world_rot_ptr,
+        rig2_from_world_rot_ptr);
     return;
   }
-  std::vector<double*> blocks;
-  if (!same_frame) blocks = {rotation1, rotation2};
-  const auto sensor_index = [&](double* sensor) {
-    if (sensor == nullptr) return -1;
-    const auto it = std::find(blocks.begin(), blocks.end(), sensor);
-    const int index = static_cast<int>(it - blocks.begin());
-    if (it == blocks.end()) blocks.push_back(sensor);
-    return index;
-  };
-  auto* cost =
+  std::vector<double*> parameter_blocks;
+  if (!same_frame)
+    parameter_blocks = {rig1_from_world_rot_ptr, rig2_from_world_rot_ptr};
+  const auto get_sensor_index_in_parameters =
+      [&](double* sensor_from_rig_rot_ptr) {
+        if (sensor_from_rig_rot_ptr == nullptr) return -1;
+        const auto it = std::find(parameter_blocks.begin(),
+                                  parameter_blocks.end(),
+                                  sensor_from_rig_rot_ptr);
+        const int index = static_cast<int>(it - parameter_blocks.begin());
+        if (it == parameter_blocks.end())
+          parameter_blocks.push_back(sensor_from_rig_rot_ptr);
+        return index;
+      };
+  auto* cost_function =
       new ceres::DynamicAutoDiffCostFunction<RelativeRotationCostFunctor, 8>(
-          new RelativeRotationCostFunctor{cam2_from_cam1,
-                                          sensor_index(sensor1),
-                                          sensor_index(sensor2),
-                                          same_frame});
-  for (size_t i = 0; i < blocks.size(); ++i) cost->AddParameterBlock(4);
-  cost->SetNumResiduals(3);
-  problem_->AddResidualBlock(cost, loss, blocks);
+          new RelativeRotationCostFunctor{
+              cam2_from_cam1,
+              get_sensor_index_in_parameters(sensor1_from_rig_rot_ptr),
+              get_sensor_index_in_parameters(sensor2_from_rig_rot_ptr),
+              same_frame});
+  for (size_t i = 0; i < parameter_blocks.size(); ++i)
+    cost_function->AddParameterBlock(4);
+  cost_function->SetNumResiduals(3);
+  problem_->AddResidualBlock(cost_function, loss, parameter_blocks);
 }
 
 std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
