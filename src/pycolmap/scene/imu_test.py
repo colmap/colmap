@@ -41,6 +41,20 @@ def test_imu_measurements_sorted_insert() -> None:
     ]
 
 
+def test_imu_measurements_getitem() -> None:
+    ms = pycolmap.ImuMeasurements()
+    zero = np.zeros(3)
+    for t in [100, 200, 300]:
+        ms.insert(pycolmap.ImuMeasurement(t, zero, zero))
+    assert ms[0].timestamp == 100
+    assert ms[-1].timestamp == 300
+    assert ms[-3].timestamp == 100
+    with pytest.raises(IndexError):
+        ms[3]
+    with pytest.raises(IndexError):
+        ms[-4]
+
+
 def test_imu_measurements_extract_in_range() -> None:
     ms = pycolmap.ImuMeasurements()
     zero = np.zeros(3)

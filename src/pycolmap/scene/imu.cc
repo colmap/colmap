@@ -75,7 +75,17 @@ void BindImu(py::module& m) {
       .def("clear", &ImuMeasurements::Clear)
       .def("empty", &ImuMeasurements::Empty)
       .def("__len__", &ImuMeasurements::Size)
-      .def("__getitem__", &ImuMeasurements::operator[])
+      .def("__getitem__",
+           [](const ImuMeasurements& self, py::ssize_t index) {
+             const py::ssize_t size = static_cast<py::ssize_t>(self.Size());
+             if (index < 0) {
+               index += size;
+             }
+             if (index < 0 || index >= size) {
+               throw py::index_error("ImuMeasurements index out of range");
+             }
+             return self[index];
+           })
       .def(
           "extract_measurements_in_range",
           [](const ImuMeasurements& self, timestamp_t t1, timestamp_t t2) {
