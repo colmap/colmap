@@ -165,7 +165,9 @@ def solve_bundle_adjustment(
             imu_data[image_id],
             variables["imu_states"][image_id],
         )
-    solver_options.callbacks.append(callback)
+    # Assign the list. The callbacks getter returns a copy, so appending to it
+    # would not register the callback.
+    solver_options.callbacks = [callback]
     solver_options.update_state_every_iteration = True
     summary = pyceres.SolverSummary()
     pyceres.solve(solver_options, problem, summary)
