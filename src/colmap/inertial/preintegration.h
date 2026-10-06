@@ -15,14 +15,14 @@
 
 namespace colmap {
 
-// Midpoint: trapezoidal integration with numerical bias Jacobians.
+// Midpoint: trapezoidal integration with exact bias Jacobians.
 //   Faster, sufficient for high-rate IMUs (200-1000 Hz). Use when speed
 //   matters and the IMU rate is well above the dynamics bandwidth.
 // RK4: closed-form rotation integrals with analytical bias Jacobians and
 //   RK4 covariance propagation. More accurate for low-rate IMUs (<200 Hz)
 //   or when precise covariance/Jacobians are needed. Default choice.
 //   Note: RK4's analytical dp_dbg Jacobian carries a small (~1e-5)
-//   first-order approximation that MIDPOINT's numerical Jacobians do not.
+//   first-order approximation that MIDPOINT's Jacobians do not.
 MAKE_ENUM_CLASS(ImuIntegrationMethod, 0, MIDPOINT, RK4);
 
 struct ImuPreintegrationOptions {

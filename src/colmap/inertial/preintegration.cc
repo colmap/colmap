@@ -93,7 +93,7 @@ void ImuPreintegrator::SetLinearizationBiases(const Eigen::Vector6d& biases) {
 
 namespace {
 
-// Midpoint (trapezoidal) integration with numerical bias Jacobians.
+// Midpoint (trapezoidal) integration with exact bias Jacobians.
 class MidpointImuIntegrator : public ImuIntegrator {
  public:
   void Integrate(const ImuPreintegrationOptions& options,
