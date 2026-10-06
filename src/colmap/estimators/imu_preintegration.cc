@@ -28,8 +28,9 @@ void PreintegratedImuData::Finalize(double max_condition_number) {
   THROW_CHECK(max_condition_number > 0.0 || max_condition_number == -1.0)
       << "max_condition_number must be positive or -1 (disabled)";
 
-  // Enforce symmetry.
-  covariance = (covariance + covariance.transpose()) / 2.0;
+  // Enforce symmetry. eval() avoids aliasing between covariance and its
+  // transpose.
+  covariance = (0.5 * (covariance + covariance.transpose())).eval();
 
   // Eigendecomposition for robust sqrt-information.
   const Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>> saes(
@@ -67,11 +68,16 @@ ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
 }
 
 void ImuPreintegrator::Reset() {
+  ResetData();
+  measurements_.Clear();
+  has_started_ = false;
+}
+
+void ImuPreintegrator::ResetData() {
   data_ = PreintegratedImuData();
   // Restore the fields that are not zero-initialized defaults.
   data_.biases = biases_;
   data_.gravity_magnitude = calib_.gravity_magnitude;
-  has_started_ = false;
 }
 
 void ImuPreintegrator::SetLinearizationBiases(const Eigen::Vector6d& biases) {
@@ -438,7 +444,8 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     data->covariance.block<3, 3>(3, 3).diagonal().array() +=
         options.integration_noise_density * options.integration_noise_density *
         dt;
-    data->covariance = 0.5 * (data->covariance + data->covariance.transpose());
+    data->covariance =
+        (0.5 * (data->covariance + data->covariance.transpose())).eval();
   }
 };
 
@@ -562,11 +569,14 @@ PreintegratedImuData ImuPreintegrator::Extract() {
   return data_;
 }
 
-void ImuPreintegrator::Update(PreintegratedImuData* data) { *data = data_; }
+void ImuPreintegrator::Update(PreintegratedImuData* data) {
+  data_.Finalize(options_.max_condition_number);
+  *data = data_;
+}
 
 void ImuPreintegrator::Reintegrate() {
-  Reset();
-  has_started_ = true;
+  ResetData();
+  has_started_ = !measurements_.Empty();
   for (size_t i = 1; i < measurements_.Size(); ++i) {
     IntegrateOneMeasurement(measurements_[i - 1], measurements_[i]);
   }

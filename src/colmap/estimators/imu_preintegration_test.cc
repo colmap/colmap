@@ -122,6 +122,72 @@ TEST_P(ImuPreintegratorTest, Reset) {
       data.delta_R.angularDistance(Eigen::Quaterniond::Identity()), 0.0, 1e-15);
 }
 
+TEST_P(ImuPreintegratorTest, ResetThenIntegrateMatchesFresh) {
+  const int N = 10;
+  const double dt = 0.01;
+  Eigen::Vector3d accel(1.0, 0.0, 9.81);
+  Eigen::Vector3d gyro(0.0, 0.1, 0.0);
+
+  auto integrator_fresh = MakeIntegrator(N * dt, GetParam());
+  FeedConstant(integrator_fresh, accel, gyro, N, dt);
+  PreintegratedImuData data_fresh = integrator_fresh.Extract();
+
+  // Reset drops the stored measurements, so the same ones can be fed again.
+  auto integrator = MakeIntegrator(N * dt, GetParam());
+  FeedConstant(integrator, accel, gyro, N, dt);
+  integrator.Reset();
+  EXPECT_FALSE(integrator.HasStarted());
+  EXPECT_TRUE(integrator.Measurements().Empty());
+  FeedConstant(integrator, accel, gyro, N, dt);
+  PreintegratedImuData data = integrator.Extract();
+
+  EXPECT_NEAR(data_fresh.delta_t, data.delta_t, 1e-15);
+  EXPECT_THAT(data_fresh.delta_p, EigenMatrixNear(data.delta_p, 1e-12));
+  EXPECT_THAT(data_fresh.delta_v, EigenMatrixNear(data.delta_v, 1e-12));
+  EXPECT_THAT(data_fresh.covariance, EigenMatrixNear(data.covariance, 1e-15));
+}
+
+TEST_P(ImuPreintegratorTest, UpdateFinalizes) {
+  const int N = 10;
+  const double dt = 0.01;
+  auto integrator = MakeIntegrator(N * dt, GetParam());
+  FeedConstant(integrator,
+               Eigen::Vector3d(1.0, -0.5, 9.81),
+               Eigen::Vector3d(0.05, 0.1, -0.02),
+               N,
+               dt);
+
+  PreintegratedImuData data_update;
+  integrator.Update(&data_update);
+  EXPECT_FALSE(data_update.sqrt_info.isZero());
+  PreintegratedImuData data_extract = integrator.Extract();
+  EXPECT_THAT(data_update.sqrt_info,
+              EigenMatrixNear(data_extract.sqrt_info, 1e-10));
+}
+
+TEST_P(ImuPreintegratorTest, ReintegrateWithoutMeasurements) {
+  const int N = 10;
+  const double dt = 0.01;
+  Eigen::Vector3d accel(1.0, 0.0, 9.81);
+  Eigen::Vector3d gyro(0.0, 0.1, 0.0);
+
+  auto integrator_fresh = MakeIntegrator(N * dt, GetParam());
+  FeedConstant(integrator_fresh, accel, gyro, N, dt);
+  PreintegratedImuData data_fresh = integrator_fresh.Extract();
+
+  // Reintegrating with no stored measurements must leave the integrator
+  // ready to accept its first measurement.
+  auto integrator = MakeIntegrator(N * dt, GetParam());
+  integrator.Reintegrate();
+  EXPECT_FALSE(integrator.HasStarted());
+  FeedConstant(integrator, accel, gyro, N, dt);
+  PreintegratedImuData data = integrator.Extract();
+
+  EXPECT_NEAR(data_fresh.delta_t, data.delta_t, 1e-15);
+  EXPECT_THAT(data_fresh.delta_p, EigenMatrixNear(data.delta_p, 1e-12));
+  EXPECT_THAT(data_fresh.delta_v, EigenMatrixNear(data.delta_v, 1e-12));
+}
+
 TEST_P(ImuPreintegratorTest, ReintegrateMatchesFresh) {
   const int N = 10;
   const double dt = 0.01;

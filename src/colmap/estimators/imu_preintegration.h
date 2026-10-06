@@ -132,7 +132,8 @@ class ImuPreintegrator {
                    timestamp_t t_start,
                    timestamp_t t_end);
 
-  // Reset the integrator state.
+  // Reset the integrator state and drop all stored measurements. The
+  // linearization biases are kept.
   void Reset();
 
   // Set the bias linearization point [bias_gyro(3), bias_accel(3)].
@@ -165,6 +166,9 @@ class ImuPreintegrator {
   const ImuMeasurements& Measurements() const { return measurements_; }
 
  private:
+  // Reset the accumulated data but keep the stored measurements.
+  void ResetData();
+
   void IntegrateOneMeasurement(const ImuMeasurement& prev,
                                const ImuMeasurement& curr);
 
