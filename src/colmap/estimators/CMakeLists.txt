@@ -3,7 +3,6 @@
 set(FOLDER_NAME "estimators")
 
 add_subdirectory(cost_functions)
-add_subdirectory(inertial)
 add_subdirectory(solvers)
 
 set(ESTIMATORS_SRCS
@@ -39,7 +38,6 @@ COLMAP_ADD_LIBRARY(
         colmap_scene
         colmap_optim
         colmap_estimators_cost_functions
-        colmap_estimators_inertial
         colmap_estimators_solvers
         Eigen3::Eigen
         Ceres::ceres

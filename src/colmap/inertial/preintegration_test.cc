@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/estimators/inertial/preintegration.h"
+#include "colmap/inertial/preintegration.h"
 
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/timestamp.h"

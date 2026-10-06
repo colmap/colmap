@@ -4,7 +4,7 @@
 
 #include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
-#include "colmap/estimators/inertial/preintegration.h"
+#include "colmap/inertial/preintegration.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
 

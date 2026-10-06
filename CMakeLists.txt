@@ -294,12 +294,12 @@ endif()
 COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/cost_functions ESTIMATORS_COST_FUNCTIONS_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/inertial ESTIMATORS_INERTIAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/solvers ESTIMATORS_SOLVERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/geometry GEOMETRY_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/image IMAGE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/inertial INERTIAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/math MATH_SRCS *.h *.cc)
 if(MVS_ENABLED)
     COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
@@ -329,12 +329,12 @@ if(ALL_SOURCE_TARGET)
         ${CONTROLLERS_SRCS}
         ${ESTIMATORS_SRCS}
         ${ESTIMATORS_COST_FUNCTIONS_SRCS}
-        ${ESTIMATORS_INERTIAL_SRCS}
         ${ESTIMATORS_SOLVERS_SRCS}
         ${EXE_SRCS}
         ${FEATURE_SRCS}
         ${GEOMETRY_SRCS}
         ${IMAGE_SRCS}
+        ${INERTIAL_SRCS}
         ${MATH_SRCS}
         ${OPTIM_SRCS}
         ${RETRIEVAL_SRCS}
@@ -410,13 +410,13 @@ set(COLMAP_EXPORT_LIBS
     colmap_controllers
     colmap_estimators
     colmap_estimators_cost_functions
-    colmap_estimators_inertial
     colmap_estimators_solvers
     colmap_exe
     colmap_feature_types
     colmap_feature
     colmap_geometry
     colmap_image
+    colmap_inertial
     colmap_math
     colmap_optim
     colmap_retrieval

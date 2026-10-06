@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/estimators/inertial/preintegration_cost.h"
+#include "colmap/inertial/preintegration_cost.h"
 
-#include "colmap/estimators/inertial/preintegration.h"
+#include "colmap/inertial/preintegration.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/timestamp.h"

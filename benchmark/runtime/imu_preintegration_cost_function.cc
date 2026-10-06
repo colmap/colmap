@@ -16,8 +16,8 @@
 // residual blocks are O(#frames), vastly outnumbered by O(#observations)
 // reprojection blocks, so a per-Evaluate win may not move end-to-end BA time.
 
-#include "colmap/estimators/inertial/preintegration.h"
-#include "colmap/estimators/inertial/preintegration_cost.h"
+#include "colmap/inertial/preintegration.h"
+#include "colmap/inertial/preintegration_cost.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/sensor/imu.h"
 #include "colmap/util/eigen_alignment.h"
