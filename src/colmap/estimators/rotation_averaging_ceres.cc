@@ -47,9 +47,35 @@ CeresRotationAverager::CeresRotationAverager(
         "Ceres rotation averaging requires a connected pose graph");
   }
 
+  InitializeRotations(options, pose_graph, image_ids);
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  problem_ = std::make_unique<ceres::Problem>(problem_options);
+  SetupParameterBlocks(options, image_ids);
+
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    if (options.reweighting ==
+            RotationAveragingReweighting::INLIER_MATCH_COUNT &&
+        max_num_matches > 0) {
+      if (edge.num_matches == 0) continue;
+      loss =
+          CreateCeresLossFunction(options.loss_function_type,
+                                  options.loss_function_scale,
+                                  double(edge.num_matches) / max_num_matches);
+    }
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    AddRelativeRotationResidual(
+        image_id1, image_id2, edge.cam2_from_cam1.rotation(), loss);
+  }
+}
+
+void CeresRotationAverager::InitializeRotations(
+    const CeresRotationAveragerOptions& options,
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& image_ids) {
   // Validate fixed sensors before replacing invalid initial rotations.
   for (const image_t image_id : image_ids) {
-    const auto& image = reconstruction.Image(image_id);
+    const auto& image = reconstruction_.Image(image_id);
     if (image.IsRefInFrame()) continue;
     const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
         image.CameraPtr()->SensorId());
@@ -63,7 +89,7 @@ CeresRotationAverager::CeresRotationAverager(
     }
   }
   for (const image_t image_id : image_ids) {
-    const auto& image = reconstruction.Image(image_id);
+    const auto& image = reconstruction_.Image(image_id);
     if (image.IsRefInFrame()) continue;
     auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
         image.CameraPtr()->SensorId());
@@ -73,11 +99,13 @@ CeresRotationAverager::CeresRotationAverager(
   }
   if (!options.skip_initialization) {
     InitializeFromMaximumSpanningTree(
-        pose_graph, image_ids, reconstruction, options.refine_sensor_from_rig);
+        pose_graph, image_ids, reconstruction_, options.refine_sensor_from_rig);
   }
-  ceres::Problem::Options problem_options;
-  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
-  problem_ = std::make_unique<ceres::Problem>(problem_options);
+}
+
+void CeresRotationAverager::SetupParameterBlocks(
+    const CeresRotationAveragerOptions& options,
+    const FlatHashSet<image_t>& image_ids) {
   const auto add_rotation = [&](Eigen::Map<Eigen::Quaterniond> rotation) {
     double* block = rotation.coeffs().data();
     if (!problem_->HasParameterBlock(block)) {
@@ -87,7 +115,7 @@ CeresRotationAverager::CeresRotationAverager(
     return block;
   };
   for (const image_t image_id : image_ids) {
-    const Image& image = reconstruction.Image(image_id);
+    const Image& image = reconstruction_.Image(image_id);
     Frame& frame = *image.FramePtr();
     if (!frame.HasPose()) {
       frame.SetRigFromWorld(Rigid3d(
@@ -112,24 +140,9 @@ CeresRotationAverager::CeresRotationAverager(
   const image_t root_image_id =
       *std::min_element(image_ids.begin(), image_ids.end());
   Frame& root_frame =
-      reconstruction.Frame(reconstruction.Image(root_image_id).FrameId());
+      reconstruction_.Frame(reconstruction_.Image(root_image_id).FrameId());
   problem_->SetParameterBlockConstant(
       root_frame.RigFromWorld().rotation().coeffs().data());
-
-  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-    if (options.reweighting ==
-            RotationAveragingReweighting::INLIER_MATCH_COUNT &&
-        max_num_matches > 0) {
-      if (edge.num_matches == 0) continue;
-      loss =
-          CreateCeresLossFunction(options.loss_function_type,
-                                  options.loss_function_scale,
-                                  double(edge.num_matches) / max_num_matches);
-    }
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    AddRelativeRotationResidual(
-        image_id1, image_id2, edge.cam2_from_cam1.rotation(), loss);
-  }
 }
 
 ceres::Solver::Summary CeresRotationAverager::Solve() {

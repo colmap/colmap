@@ -61,6 +61,12 @@ class CeresRotationAverager {
       const std::shared_ptr<ceres::LossFunction>& loss_function);
 
  private:
+  void InitializeRotations(const CeresRotationAveragerOptions& options,
+                           const PoseGraph& pose_graph,
+                           const FlatHashSet<image_t>& image_ids);
+  void SetupParameterBlocks(const CeresRotationAveragerOptions& options,
+                            const FlatHashSet<image_t>& image_ids);
+
   Reconstruction& reconstruction_;
   // Keep losses alive until the problem is destroyed.
   FlatHashMap<ceres::LossFunction*, std::shared_ptr<ceres::LossFunction>>
