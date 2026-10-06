@@ -114,60 +114,67 @@ class MidpointImuIntegrator : public ImuIntegrator {
     // time
     data->delta_t += dt;
 
+    // Derivative of the rotated accel w.r.t. the rotation error phi, where
+    // delta_R_true = delta_R * Exp(phi): (delta_R * Exp(phi))^T * a
+    // ≈ Rs_T * a + Rs_T * [a]x * Rs * phi.
+    const Eigen::Matrix3d dRa_dphi = Rs_T * CrossProductMatrix(accel_true) * Rs;
+
     // Update jacobians over bias.
-    const Eigen::Matrix3d skew_accel = CrossProductMatrix(accel_true);
-
-    // Covariance propagation.
-    // Step 1: jacobian-based propagation.
-    // Note: we use right-perturbation model (delta_R * Exp(delta)) for
-    // Jacobians, which propagates trivially under left-multiply integration:
-    // A(0,0) = I.
-    Eigen::Matrix<double, 15, 15> A = Eigen::Matrix<double, 15, 15>::Identity();
-
-    // translation
-    A.block<3, 3>(3, 0) = -0.5 * Rs_T * skew_accel * dt * dt;
-    A.block<3, 3>(3, 6) = Eigen::Matrix3d::Identity() * dt;
-
-    // velocity
-    A.block<3, 3>(6, 0) = -Rs_T * skew_accel * dt;
-
-    // Fill in the bias-related jacobians.
-    // Covariance state: [rotation(3), position(3), velocity(3),
-    //                    bias_gyro(3), bias_accel(3)]
     // NOTE: rotation must be updated last — translation and velocity
     // read the old dR_dbg.
 
     // translation
-    A.block<3, 3>(3, 9) = (data->dv_dbg * dt + 0.5 * Rs_T * skew_accel * Rs *
-                                                   data->dR_dbg * dt * dt);
-    A.block<3, 3>(3, 12) = data->dv_dba * dt - 0.5 * Rs_T * dt * dt;
-    data->dp_dbg += A.block<3, 3>(3, 9);
-    data->dp_dba += A.block<3, 3>(3, 12);
+    data->dp_dbg += data->dv_dbg * dt + 0.5 * dRa_dphi * data->dR_dbg * dt * dt;
+    data->dp_dba += data->dv_dba * dt - 0.5 * Rs_T * dt * dt;
 
     // velocity
-    A.block<3, 3>(6, 9) = Rs_T * skew_accel * Rs * data->dR_dbg * dt;
-    A.block<3, 3>(6, 12) = -Rs_T * dt;
-    data->dv_dbg += A.block<3, 3>(6, 9);
-    data->dv_dba += A.block<3, 3>(6, 12);
+    data->dv_dbg += dRa_dphi * data->dR_dbg * dt;
+    data->dv_dba += -Rs_T * dt;
 
     // rotation: bias Jacobian transport (right-perturbation, additive).
     // From BCH: Exp(-w*dt + dbg*dt) ≈ Exp(-w*dt) * Exp(Jl(w*dt) * dbg * dt).
     // Right-perturbation transport gives the additive update:
     //   dR_dbg_{k+1} = dR_dbg_k + delta_R_k^T * Jl(w*dt) * dt
     const Eigen::Matrix3d Jl = LeftJacobianFromAngleAxis(gyro_true * dt);
-    const Eigen::Matrix3d dR_dbg_updated = data->dR_dbg + Rs_T * Jl * dt;
-    A.block<3, 3>(0, 9) = dR_dbg_updated - data->dR_dbg;
-    data->dR_dbg = dR_dbg_updated;
+    const Eigen::Matrix3d dR_dbg_step = Rs_T * Jl * dt;
+    data->dR_dbg += dR_dbg_step;
+
+    // Covariance propagation.
+    // Step 1: one-step error transition.
+    // Covariance state: [rotation(3), position(3), velocity(3),
+    //                    bias_gyro(3), bias_accel(3)]
+    // The rotation error is the right perturbation phi used by the cost
+    // function, which left-multiply integration leaves unchanged: A(0,0) = I.
+    // The bias columns hold only the direct effect of the bias error in this
+    // step. Its effect through earlier steps already reaches position and
+    // velocity via the rotation and velocity errors, so the accumulated bias
+    // Jacobians must not be used here.
+    Eigen::Matrix<double, 15, 15> A = Eigen::Matrix<double, 15, 15>::Identity();
+
+    // rotation
+    A.block<3, 3>(0, 9) = dR_dbg_step;
+
+    // translation
+    A.block<3, 3>(3, 0) = 0.5 * dRa_dphi * dt * dt;
+    A.block<3, 3>(3, 6) = Eigen::Matrix3d::Identity() * dt;
+    A.block<3, 3>(3, 12) = -0.5 * Rs_T * dt * dt;
+
+    // velocity
+    A.block<3, 3>(6, 0) = dRa_dphi * dt;
+    A.block<3, 3>(6, 12) = -Rs_T * dt;
 
     // propagate
     data->covariance = A * data->covariance * A.transpose();
 
     // Step 2: add noise.
+    // The same accel noise sample n enters velocity as Rs_T * n * dt and
+    // position as 0.5 * Rs_T * n * dt^2, so it also correlates the two.
     const double vars_v = accel_noise_density * accel_noise_density * dt;
     const double vars_omega = gyro_noise_density * gyro_noise_density * dt;
     const double vars_p =
-        0.5 * vars_v * dt * dt + options.integration_noise_density *
-                                     options.integration_noise_density * dt;
+        0.25 * vars_v * dt * dt + options.integration_noise_density *
+                                      options.integration_noise_density * dt;
+    const double covs_pv = 0.5 * vars_v * dt;
     const double vars_ba = calib.bias_accel_random_walk_sigma *
                            calib.bias_accel_random_walk_sigma * dt;
     const double vars_bg = calib.bias_gyro_random_walk_sigma *
@@ -175,6 +182,8 @@ class MidpointImuIntegrator : public ImuIntegrator {
     data->covariance.block<3, 3>(0, 0).diagonal().array() += vars_omega;
     data->covariance.block<3, 3>(3, 3).diagonal().array() += vars_p;
     data->covariance.block<3, 3>(6, 6).diagonal().array() += vars_v;
+    data->covariance.block<3, 3>(3, 6).diagonal().array() += covs_pv;
+    data->covariance.block<3, 3>(6, 3).diagonal().array() += covs_pv;
     data->covariance.block<3, 3>(9, 9).diagonal().array() += vars_bg;
     data->covariance.block<3, 3>(12, 12).diagonal().array() += vars_ba;
   }
@@ -387,6 +396,13 @@ class Rk4ImuIntegrator : public ImuIntegrator {
                       ((1.0 - std::cos(half_w_dt)) / (mag_w * mag_w)) * w_x_2;
     const Eigen::Matrix3d R_eval_mid = R_mid * Rs;
 
+    // F and G propagate the left rotation error psi, defined by
+    // delta_R_true = Exp(-psi) * delta_R. The stored covariance uses the right
+    // perturbation phi = -delta_R^T * psi of the cost function, so map the
+    // rotation block to psi for this step and back to phi afterwards.
+    data->covariance.topRows<3>() = -Rs * data->covariance.topRows<3>();
+    data->covariance.leftCols<3>() = data->covariance.leftCols<3>() * (-Rs_T);
+
     // k1: evaluate at start rotation.
     const auto [F1, G1] = build_F_G(Rs);
     const Eigen::Matrix<double, 15, 15> P_dot_1 =
@@ -415,6 +431,10 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     // Combine RK4 increments.
     data->covariance +=
         (dt / 6.0) * (P_dot_1 + 2.0 * P_dot_2 + 2.0 * P_dot_3 + P_dot_4);
+    // Map the rotation error back from psi to phi.
+    data->covariance.topRows<3>() =
+        -Rs_new.transpose() * data->covariance.topRows<3>();
+    data->covariance.leftCols<3>() = data->covariance.leftCols<3>() * (-Rs_new);
     // Add integration noise to position covariance (same as midpoint path).
     data->covariance.block<3, 3>(3, 3).diagonal().array() +=
         options.integration_noise_density * options.integration_noise_density *

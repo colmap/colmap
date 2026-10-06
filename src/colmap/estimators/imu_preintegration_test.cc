@@ -5,6 +5,9 @@
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/timestamp.h"
 
+#include <cmath>
+#include <random>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
@@ -184,6 +187,87 @@ TEST_P(ImuPreintegratorTest, CovariancePositiveDefinite) {
       data.covariance);
   EXPECT_TRUE(solver.info() == Eigen::Success);
   EXPECT_GT(solver.eigenvalues().minCoeff(), 0.0);
+}
+
+TEST_P(ImuPreintegratorTest, CovarianceMatchesMonteCarlo) {
+  // The propagated covariance must match the empirical covariance of the cost
+  // function residual at the true states, so its whitened eigenvalues must be
+  // one up to sampling noise. Noise is exaggerated so that the
+  // cross-covariances dominate the linearization error.
+  const int kNumSteps = 100;
+  const int kNumRuns = 1000;
+  const double dt = 0.005;
+  ImuCalibration calib;
+  calib.gyro_noise_density = 0.02;
+  calib.accel_noise_density = 0.2;
+  calib.bias_gyro_random_walk_sigma = 0.02;
+  calib.bias_accel_random_walk_sigma = 0.2;
+  ImuPreintegrationOptions options;
+  options.method = GetParam();
+  const Eigen::Vector3d gyro(0.4, -0.3, 0.6);
+  const Eigen::Vector3d accel(0.5, 0.3, 9.81);
+
+  std::mt19937 rng(42);
+  std::normal_distribution<double> normal;
+  auto random_vector = [&](double stddev) -> Eigen::Vector3d {
+    return Eigen::Vector3d(normal(rng), normal(rng), normal(rng)) * stddev;
+  };
+
+  // Biases random-walk from the linearization biases (zero). Returns the
+  // biases at the end of the window.
+  auto integrate = [&](bool noisy, PreintegratedImuData* data) {
+    ImuPreintegrator integrator(options,
+                                calib,
+                                TimestampFromSeconds(0.0),
+                                TimestampFromSeconds(kNumSteps * dt));
+    Eigen::Vector6d biases = Eigen::Vector6d::Zero();
+    for (int k = 0; k <= kNumSteps; ++k) {
+      Eigen::Vector3d gyro_meas = gyro;
+      Eigen::Vector3d accel_meas = accel;
+      if (noisy) {
+        if (k > 0) {
+          biases.head<3>() +=
+              random_vector(calib.bias_gyro_random_walk_sigma * std::sqrt(dt));
+          biases.tail<3>() +=
+              random_vector(calib.bias_accel_random_walk_sigma * std::sqrt(dt));
+        }
+        gyro_meas += biases.head<3>() +
+                     random_vector(calib.gyro_noise_density / std::sqrt(dt));
+        accel_meas += biases.tail<3>() +
+                      random_vector(calib.accel_noise_density / std::sqrt(dt));
+      }
+      integrator.Integrate(
+          ImuMeasurement(TimestampFromSeconds(k * dt), gyro_meas, accel_meas));
+    }
+    *data = integrator.Extract();
+    return biases;
+  };
+
+  // Noise-free integration is the truth, so discretization error cancels.
+  PreintegratedImuData data_true;
+  integrate(/*noisy=*/false, &data_true);
+
+  Eigen::Matrix<double, 15, 15> empirical_covariance =
+      Eigen::Matrix<double, 15, 15>::Zero();
+  for (int run = 0; run < kNumRuns; ++run) {
+    PreintegratedImuData data;
+    const Eigen::Vector6d biases = integrate(/*noisy=*/true, &data);
+    const Eigen::AngleAxisd rotation_error(data.delta_R.inverse() *
+                                           data_true.delta_R);
+    Eigen::Matrix<double, 15, 1> residual;
+    residual << rotation_error.angle() * rotation_error.axis(),
+        data_true.delta_p - data.delta_p, data_true.delta_v - data.delta_v,
+        biases;
+    empirical_covariance += residual * residual.transpose() / kNumRuns;
+  }
+
+  // Eigenvalues of covariance^-1 * empirical_covariance. With 1000 runs,
+  // sampling noise alone spreads them to about [0.73, 1.25]. A wrong sign or
+  // frame in the rotation cross-covariance gives about [0.42, 2.4].
+  const Eigen::GeneralizedSelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>>
+      solver(empirical_covariance, data_true.covariance);
+  EXPECT_GT(solver.eigenvalues().minCoeff(), 0.6);
+  EXPECT_LT(solver.eigenvalues().maxCoeff(), 1.5);
 }
 
 INSTANTIATE_TEST_SUITE_P(ImuPreintegrator,
