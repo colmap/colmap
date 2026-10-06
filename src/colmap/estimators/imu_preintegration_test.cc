@@ -122,6 +122,32 @@ TEST_P(ImuPreintegratorTest, Reset) {
       data.delta_R.angularDistance(Eigen::Quaterniond::Identity()), 0.0, 1e-15);
 }
 
+TEST_P(ImuPreintegratorTest, SetLinearizationBiasesAfterIntegrate) {
+  const int N = 10;
+  const double dt = 0.01;
+  auto integrator = MakeIntegrator(N * dt, GetParam());
+  FeedConstant(integrator,
+               Eigen::Vector3d(1.0, -0.5, 9.81),
+               Eigen::Vector3d(0.05, 0.1, -0.02),
+               N,
+               dt);
+  const PreintegratedImuData data_before = integrator.Extract();
+
+  // The integrated data keeps the biases it was integrated at.
+  Eigen::Vector6d biases;
+  biases << 0.01, -0.02, 0.03, 0.1, -0.2, 0.3;
+  integrator.SetLinearizationBiases(biases);
+  const PreintegratedImuData data_set = integrator.Extract();
+  EXPECT_THAT(data_set.biases, EigenMatrixNear(data_before.biases, 0.0));
+  EXPECT_THAT(data_set.delta_v, EigenMatrixNear(data_before.delta_v, 0.0));
+
+  // Reintegration picks up the new biases.
+  integrator.Reintegrate();
+  const PreintegratedImuData data_reint = integrator.Extract();
+  EXPECT_THAT(data_reint.biases, EigenMatrixNear(biases, 0.0));
+  EXPECT_GT((data_reint.delta_v - data_before.delta_v).norm(), 1e-6);
+}
+
 TEST_P(ImuPreintegratorTest, ResetThenIntegrateMatchesFresh) {
   const int N = 10;
   const double dt = 0.01;
@@ -333,6 +359,21 @@ TEST_P(ImuPreintegratorTest, CovarianceMatchesMonteCarlo) {
       solver(empirical_covariance, data_true.covariance);
   EXPECT_GT(solver.eigenvalues().minCoeff(), 0.8);
   EXPECT_LT(solver.eigenvalues().maxCoeff(), 1.2);
+}
+
+TEST(ImuPreintegrator, RejectsZeroNoise) {
+  for (double ImuCalibration::* sigma :
+       {&ImuCalibration::gyro_noise_density,
+        &ImuCalibration::accel_noise_density,
+        &ImuCalibration::bias_gyro_random_walk_sigma,
+        &ImuCalibration::bias_accel_random_walk_sigma}) {
+    ImuCalibration calib;
+    calib.*sigma = 0.0;
+    EXPECT_ANY_THROW(ImuPreintegrator(ImuPreintegrationOptions(),
+                                      calib,
+                                      TimestampFromSeconds(0.0),
+                                      TimestampFromSeconds(1.0)));
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(ImuPreintegrator,

@@ -62,6 +62,10 @@ ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
       integrator_(ImuIntegrator::Create(options.method)),
       calib_(calib) {
   THROW_CHECK_LT(t_start, t_end);
+  THROW_CHECK_GT(calib.gyro_noise_density, 0);
+  THROW_CHECK_GT(calib.accel_noise_density, 0);
+  THROW_CHECK_GT(calib.bias_gyro_random_walk_sigma, 0);
+  THROW_CHECK_GT(calib.bias_accel_random_walk_sigma, 0);
   Reset();
 }
 
@@ -80,7 +84,11 @@ void ImuPreintegrator::ResetData() {
 
 void ImuPreintegrator::SetLinearizationBiases(const Eigen::Vector6d& biases) {
   biases_ = biases;
-  data_.biases = biases;
+  // Integrated data keeps the biases it was integrated at until the next
+  // Reintegrate().
+  if (data_.delta_t == 0) {
+    data_.biases = biases;
+  }
 }
 
 namespace {

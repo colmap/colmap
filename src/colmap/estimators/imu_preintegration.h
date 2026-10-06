@@ -138,7 +138,7 @@ class ImuPreintegrator {
 
   // Set the bias linearization point [bias_gyro(3), bias_accel(3)].
   // These biases are subtracted from raw IMU measurements during integration.
-  // Must be called before Integrate() if nonzero biases are expected.
+  // Measurements integrated already keep their biases until Reintegrate().
   void SetLinearizationBiases(const Eigen::Vector6d& biases);
 
   // Integrate measurements. Must be added in chronological order.
