@@ -131,7 +131,7 @@ struct PinholeCameraModel
   }
 };
 
-// Perspective camera model.
+// Skewed pinhole camera model.
 //
 // The pinhole projection with the most general linear (distortion-free)
 // calibration matrix, i.e. the PINHOLE model plus a skew parameter:
@@ -157,10 +157,10 @@ struct PinholeCameraModel
 //    fx, fy, cx, cy, s
 //
 // See https://en.wikipedia.org/wiki/Camera_resectioning#Intrinsic_parameters
-struct PerspectiveCameraModel
-    : public BasePerspectivePinholeCameraModel<PerspectiveCameraModel> {
-  PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(CameraModelId::kPerspective,
-                                       "PERSPECTIVE",
+struct SkewedPinholeCameraModel
+    : public BasePerspectivePinholeCameraModel<SkewedPinholeCameraModel> {
+  PERSPECTIVE_CAMERA_MODEL_DEFINITIONS(CameraModelId::kSkewedPinhole,
+                                       "SKEWED_PINHOLE",
                                        "fx, fy, cx, cy, s",
                                        2,
                                        2,
@@ -186,7 +186,7 @@ struct PerspectiveCameraModel
   static inline void Rescale(double scale_x,
                              double scale_y,
                              std::vector<double>* params) {
-    BasePerspectiveCameraModel<PerspectiveCameraModel>::Rescale(
+    BasePerspectiveCameraModel<SkewedPinholeCameraModel>::Rescale(
         scale_x, scale_y, params);
     (*params)[4] *= scale_x;
   }

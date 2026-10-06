@@ -19,7 +19,7 @@ export const CAMERA_MODEL_NAMES = [
   "FISHEYE",
   "EUCM",
   "EQUIRECTANGULAR",
-  "PERSPECTIVE",
+  "SKEWED_PINHOLE",
 ] as const;
 
 export const CAMERA_MODEL_PARAM_COUNTS = [

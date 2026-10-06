@@ -1535,15 +1535,15 @@ bool EquirectangularCameraModel::ImgFromCamWithJac(
 }
 
 template <bool Enable, typename std::enable_if<Enable, int>::type>
-bool PerspectiveCameraModel::ImgFromCamWithJac(const double* params,
-                                               const double& u,
-                                               const double& v,
-                                               const double& w,
-                                               double* x,
-                                               double* y,
-                                               double* J_params,
-                                               double* J_uvw,
-                                               const bool check_cheirality) {
+bool SkewedPinholeCameraModel::ImgFromCamWithJac(const double* params,
+                                                 const double& u,
+                                                 const double& v,
+                                                 const double& w,
+                                                 double* x,
+                                                 double* y,
+                                                 double* J_params,
+                                                 double* J_uvw,
+                                                 const bool check_cheirality) {
   if (!HasProjectableDepth(w, check_cheirality)) {
     return false;
   }

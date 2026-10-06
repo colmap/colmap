@@ -36,7 +36,7 @@ model that is complex enough to model the distortion effects:
 - ``EUCM``: Use this camera model for wide-angle fisheye cameras and catadioptric
   systems. It represents radial distortion using two
   parameters in addition to the standard pinhole parameters.
-- ``PERSPECTIVE``: Use this camera model, if your images are undistorted a
+- ``SKEWED_PINHOLE``: Use this camera model, if your images are undistorted a
   priori but the pixel axes are not orthogonal. It extends the ``PINHOLE``
   model by a skew parameter ``s`` (in pixels), giving the most general linear
   calibration matrix. Typical sources are cameras synthesized from other
@@ -86,7 +86,7 @@ the number of focal length parameters (a single shared ``f`` or separate ``fx``,
 ``fy``) and in the distortion function, e.g. ``RADIAL`` adds a second radial term
 ``k2`` and ``OPENCV`` adds tangential terms ``p1, p2``. The fisheye models
 instead replace the perspective division with an equidistant projection. The
-``PERSPECTIVE`` model has no distortion step but adds a skew term to the
+``SKEWED_PINHOLE`` model has no distortion step but adds a skew term to the
 intrinsic transform, :math:`x = f_x \, u + s \, v + c_x`. The exact parameter
 list of every model is given by its ``params_info`` string and defined in the
 camera models header:

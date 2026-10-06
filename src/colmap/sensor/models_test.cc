@@ -510,10 +510,12 @@ TEST(EUCMCamera, RejectsInvalidExtraParams) {
       1.0));
 }
 
-TEST(Perspective, Nominal) {
-  TestModel<PerspectiveCameraModel>({651.123, 655.123, 386.123, 511.123, 0});
-  TestModel<PerspectiveCameraModel>({651.123, 655.123, 386.123, 511.123, 0.2});
-  TestModel<PerspectiveCameraModel>({651.123, 655.123, 386.123, 511.123, -0.7});
+TEST(SkewedPinhole, Nominal) {
+  TestModel<SkewedPinholeCameraModel>({651.123, 655.123, 386.123, 511.123, 0});
+  TestModel<SkewedPinholeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.2});
+  TestModel<SkewedPinholeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, -0.7});
 }
 
 TEST(CameraModelRescale, Perspective) {

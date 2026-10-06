@@ -88,7 +88,7 @@ struct Camera {
 
   // Get intrinsic calibration matrix composed from focal length and principal
   // point parameters, excluding distortion parameters. The skew of the
-  // PERSPECTIVE model is part of the matrix.
+  // SKEWED_PINHOLE model is part of the matrix.
   //
   // This is the affine part of the projection, which is a projective camera
   // matrix only for pinhole models. For fisheye models the normalized

@@ -293,10 +293,10 @@ TEST(Equirectangular, ImgFromCamWithJac) {
   TestModelImgFromCamWithJac<EquirectangularCameraModel>({1000, 500});
 }
 
-TEST(Perspective, ImgFromCamWithJac) {
-  TestModelImgFromCamWithJac<PerspectiveCameraModel>(
+TEST(SkewedPinhole, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<SkewedPinholeCameraModel>(
       {651.123, 655.123, 386.123, 511.123, 0.0});
-  TestModelImgFromCamWithJac<PerspectiveCameraModel>(
+  TestModelImgFromCamWithJac<SkewedPinholeCameraModel>(
       {651.123, 655.123, 386.123, 511.123, 0.8});
 }
 
