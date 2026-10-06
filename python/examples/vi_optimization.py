@@ -13,10 +13,10 @@ from typing import Any
 
 import numpy as np
 import pyceres
-import pycolmap.inertial
 import wget
 
 import pycolmap
+import pycolmap.inertial
 from pycolmap import logging
 
 
