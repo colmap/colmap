@@ -49,7 +49,4 @@ void BindScene(py::module& m) {
   BindSynthetic(m);
   BindPoseGraph(m);
   BindImu(m);
-
-  // Must be defined here, see: https://github.com/colmap/colmap/pull/2558
-  py::implicitly_convertible<py::iterable, Point2DVector>();
 }
