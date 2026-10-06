@@ -36,15 +36,7 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
   THROW_CHECK(IsPerspective())
       << "CalibrationMatrix() only defined for perspective cameras.";
-  Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
-  K(0, 0) = FocalLengthX();
-  K(1, 1) = FocalLengthY();
-  K(0, 2) = PrincipalPointX();
-  K(1, 2) = PrincipalPointY();
-  if (model_id == SkewedPinholeCameraModel::model_id) {
-    K(0, 1) = params[SkewedPinholeCameraModel::extra_params_idxs[0]];
-  }
-  return K;
+  return CameraModelCalibrationMatrix(model_id, params);
 }
 
 double Camera::MeanFocalLength() const {

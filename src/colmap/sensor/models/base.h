@@ -366,6 +366,24 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     (*params)[CameraModel::principal_point_idxs[1]] *= scale_y;
   }
 
+  // Compose the calibration matrix from the focal length and principal point
+  // parameters, excluding distortion parameters. A single shared focal length
+  // is used for both axes. Models with a skew parameter override this to fill
+  // K(0, 1).
+  static inline Eigen::Matrix3d CalibrationMatrix(
+      const std::vector<double>& params) {
+    Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
+    K(0, 0) = params[CameraModel::focal_length_idxs[0]];
+    if constexpr (CameraModel::num_focal_params == 1) {
+      K(1, 1) = K(0, 0);
+    } else {
+      K(1, 1) = params[CameraModel::focal_length_idxs[1]];
+    }
+    K(0, 2) = params[CameraModel::principal_point_idxs[0]];
+    K(1, 2) = params[CameraModel::principal_point_idxs[1]];
+    return K;
+  }
+
  protected:
   // Undistorts coordinates with proper Jacobian propagation for auto-diff.
   // This is the key function that enables CamFromImg to work with Ceres Jets.

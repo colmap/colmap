@@ -191,6 +191,16 @@ struct SkewedPinholeCameraModel
     (*params)[4] *= scale_x;
   }
 
+  // The skew enters the calibration matrix as K(0, 1).
+  static inline Eigen::Matrix3d CalibrationMatrix(
+      const std::vector<double>& params) {
+    Eigen::Matrix3d K =
+        BasePerspectiveCameraModel<SkewedPinholeCameraModel>::CalibrationMatrix(
+            params);
+    K(0, 1) = params[4];
+    return K;
+  }
+
   template <typename T>
   static inline bool ImgFromCam(const T* params,
                                 const T& u,
