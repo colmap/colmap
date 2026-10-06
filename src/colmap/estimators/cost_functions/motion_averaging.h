@@ -12,7 +12,7 @@
 namespace colmap {
 
 // Angular error in radians between two camera rotations and a relative
-// rotation.
+// rotation. Parameter blocks are unit quaternions in Eigen (x, y, z, w) order.
 struct RelativeRotationCostFunctor {
   template <typename T>
   bool operator()(const T* const sensor1_from_world_rotation,
@@ -23,12 +23,19 @@ struct RelativeRotationCostFunctor {
     return (*this)(parameters, residuals);
   }
 
+  // Creates a cost with two blocks: sensor1_from_world_rotation, then
+  // sensor2_from_world_rotation.
   static ceres::CostFunction* Create(const Eigen::Quaterniond& cam2_from_cam1) {
     return new ceres::
         AutoDiffCostFunction<RelativeRotationCostFunctor, 3, 4, 4>(
             new RelativeRotationCostFunctor{cam2_from_cam1});
   }
 
+  // For rigs, parameters[0] and [1] are rig1_from_world and rig2_from_world.
+  // sensor1_index and sensor2_index locate the sensor_from_rig blocks;
+  // -1 denotes identity, and shared sensors may use the same block.
+  // With same_frame=true, omit the rig_from_world blocks and index only
+  // the sensor_from_rig blocks.
   template <typename T>
   bool operator()(T const* const* parameters, T* residuals) const {
     Eigen::Quaternion<T> error = sensor2_from_sensor1_prior.cast<T>();
