@@ -60,9 +60,7 @@ ImuPreintegrator::ImuPreintegrator(const ImuPreintegrationOptions& options,
       t_end_(t_end),
       options_(options),
       integrator_(ImuIntegrator::Create(options.method)),
-      calib_(calib),
-      accel_true_from_measured_(calib.accel_rectification.inverse()),
-      gyro_true_from_measured_(calib.gyro_rectification.inverse()) {
+      calib_(calib) {
   THROW_CHECK_LT(t_start, t_end);
   Reset();
 }
@@ -499,10 +497,9 @@ void ImuPreintegrator::IntegrateOneMeasurement(const ImuMeasurement& prev,
   accel_e = accel_e_tmp;
   gyro_e = gyro_e_tmp;
 
-  Eigen::Vector3d accel_true = 0.5 * (accel_s + accel_e) - biases_.tail<3>();
-  accel_true = accel_true_from_measured_ * accel_true;
-  Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.head<3>();
-  gyro_true = gyro_true_from_measured_ * gyro_true;
+  const Eigen::Vector3d accel_true =
+      0.5 * (accel_s + accel_e) - biases_.tail<3>();
+  const Eigen::Vector3d gyro_true = 0.5 * (gyro_s + gyro_e) - biases_.head<3>();
 
   // Check saturation.
   double accel_noise_density = calib_.accel_noise_density;

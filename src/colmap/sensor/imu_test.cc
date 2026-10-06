@@ -18,8 +18,6 @@ ImuMeasurement CreateMeasurement(timestamp_t t) {
 
 TEST(ImuCalibration, Default) {
   const ImuCalibration calib;
-  EXPECT_EQ(calib.gyro_rectification, Eigen::Matrix3d::Identity());
-  EXPECT_EQ(calib.accel_rectification, Eigen::Matrix3d::Identity());
   EXPECT_GT(calib.imu_rate, 0.0);
   EXPECT_GT(calib.gravity_magnitude, 0.0);
 }

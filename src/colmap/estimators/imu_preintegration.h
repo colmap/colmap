@@ -148,7 +148,7 @@ class ImuPreintegrator {
   // Extract the preintegrated data struct. Calls Finalize() internally.
   PreintegratedImuData Extract();
 
-  // Copy the current (finalized) integration result into an existing data
+  // Finalize the current integration result and copy it into an existing data
   // struct. Use after Reintegrate() to update data that a cost function
   // references by pointer, so the cost function sees the new values.
   void Update(PreintegratedImuData* data);
@@ -193,10 +193,6 @@ class ImuPreintegrator {
 
   // IMU Calibration.
   const ImuCalibration calib_;
-  // Inverse rectification (true_from_measured): maps a bias-corrected raw
-  // reading to the true value, true = M^{-1} * (measured - bias).
-  Eigen::Matrix3d accel_true_from_measured_ = Eigen::Matrix3d::Identity();
-  Eigen::Matrix3d gyro_true_from_measured_ = Eigen::Matrix3d::Identity();
   Eigen::Vector6d biases_ =
       Eigen::Vector6d::Zero();  // [bias_gyro(3), bias_accel(3)]
 };

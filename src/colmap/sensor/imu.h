@@ -15,6 +15,11 @@ namespace colmap {
 // [2]
 // https://github.com/uzh-rpg/rpg_svo_pro_open/blob/master/svo_common/include/svo/common/imu_calibration.h
 // Default parameters are for ADIS16448 IMU.
+//
+// The only modeled sensor error is an additive bias per axis, which is
+// estimated during optimization. Scale and axis misalignment must be
+// corrected before integration, and the noise parameters below then refer
+// to the corrected signal.
 struct ImuCalibration {
   // Gyro noise density (sigma). [rad/s*1/sqrt(Hz)]
   double gyro_noise_density = 0.00073088444;
@@ -39,19 +44,6 @@ struct ImuCalibration {
 
   /// Expected IMU rate. [1/s]
   double imu_rate = 20.0;
-
-  /// Rectification matrices correcting axis misalignment and scale. Each matrix
-  /// M is measured_from_true: it maps the true (rectified) value to the raw
-  /// sensor reading,
-  ///     measured = M * true + bias,
-  /// so a raw reading is rectified by inverting the relation,
-  ///     true = M^{-1} * (measured - bias),
-  /// where `measured` is the raw gyro/accel reading and `bias` the sensor bias.
-  /// Identity if the data is already rectified.
-  /// TODO: Support online calibration by making these optimizable
-  /// as parameter blocks in the IMU cost function.
-  Eigen::Matrix3d gyro_rectification = Eigen::Matrix3d::Identity();
-  Eigen::Matrix3d accel_rectification = Eigen::Matrix3d::Identity();
 };
 
 struct ImuMeasurement {

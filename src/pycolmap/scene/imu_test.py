@@ -8,8 +8,6 @@ import pycolmap
 
 def test_imu_calibration_defaults() -> None:
     calib = pycolmap.ImuCalibration()
-    np.testing.assert_array_equal(calib.gyro_rectification, np.eye(3))
-    np.testing.assert_array_equal(calib.accel_rectification, np.eye(3))
     assert calib.imu_rate > 0.0
     assert calib.gravity_magnitude > 0.0
 
