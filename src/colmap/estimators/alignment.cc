@@ -395,11 +395,7 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
       }
       const Point2D& tgt_point2D = tgt_image.Point2D(track_el.point2D_idx);
       if (tgt_point2D.HasPoint3D()) {
-        if (counts.find(tgt_point2D.point3D_id) != counts.end()) {
-          counts[tgt_point2D.point3D_id]++;
-        } else {
-          counts[tgt_point2D.point3D_id] = 0;
-        }
+        ++counts[tgt_point2D.point3D_id];
       }
     }
     if (counts.empty()) {
