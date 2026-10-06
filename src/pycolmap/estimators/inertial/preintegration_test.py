@@ -13,18 +13,18 @@ def _ts(seconds: float) -> int:
 
 
 def _make_integrator(
-    method: pycolmap.ImuIntegrationMethod, t_end_seconds: float
-) -> pycolmap.ImuPreintegrator:
-    options = pycolmap.ImuPreintegrationOptions()
+    method: pycolmap.inertial.ImuIntegrationMethod, t_end_seconds: float
+) -> pycolmap.inertial.ImuPreintegrator:
+    options = pycolmap.inertial.ImuPreintegrationOptions()
     options.method = method
     calib = pycolmap.ImuCalibration()
-    return pycolmap.ImuPreintegrator(
+    return pycolmap.inertial.ImuPreintegrator(
         options, calib, _ts(0.0), _ts(t_end_seconds)
     )
 
 
 def _feed_constant(
-    integrator: pycolmap.ImuPreintegrator,
+    integrator: pycolmap.inertial.ImuPreintegrator,
     accel: Sequence[float] | np.ndarray,
     gyro: Sequence[float] | np.ndarray,
     num_steps: int,
@@ -40,30 +40,30 @@ def _feed_constant(
 
 def test_integration_method_enum() -> None:
     assert (
-        pycolmap.ImuIntegrationMethod.MIDPOINT
-        != pycolmap.ImuIntegrationMethod.RK4
+        pycolmap.inertial.ImuIntegrationMethod.MIDPOINT
+        != pycolmap.inertial.ImuIntegrationMethod.RK4
     )
     # String constructor is registered for the enum.
     assert (
-        pycolmap.ImuIntegrationMethod("RK4")
-        == pycolmap.ImuIntegrationMethod.RK4
+        pycolmap.inertial.ImuIntegrationMethod("RK4")
+        == pycolmap.inertial.ImuIntegrationMethod.RK4
     )
 
 
 def test_preintegration_options_dataclass() -> None:
-    options = pycolmap.ImuPreintegrationOptions()
+    options = pycolmap.inertial.ImuPreintegrationOptions()
     # Default method is RK4.
-    assert options.method == pycolmap.ImuIntegrationMethod.RK4
-    options.method = pycolmap.ImuIntegrationMethod.MIDPOINT
+    assert options.method == pycolmap.inertial.ImuIntegrationMethod.RK4
+    options.method = pycolmap.inertial.ImuIntegrationMethod.MIDPOINT
     options.integration_noise_density = 0.1
     options.max_condition_number = 1e6
-    assert options.method == pycolmap.ImuIntegrationMethod.MIDPOINT
+    assert options.method == pycolmap.inertial.ImuIntegrationMethod.MIDPOINT
     assert options.integration_noise_density == pytest.approx(0.1)
     assert options.max_condition_number == pytest.approx(1e6)
 
 
 def test_reintegration_options_dataclass() -> None:
-    options = pycolmap.ImuReintegrationOptions()
+    options = pycolmap.inertial.ImuReintegrationOptions()
     options.reintegrate_angle_norm_thres = 1e-3
     options.reintegrate_vel_norm_thres = 1e-3
     assert options.reintegrate_angle_norm_thres == pytest.approx(1e-3)
@@ -72,10 +72,13 @@ def test_reintegration_options_dataclass() -> None:
 
 @pytest.mark.parametrize(
     "method",
-    [pycolmap.ImuIntegrationMethod.MIDPOINT, pycolmap.ImuIntegrationMethod.RK4],
+    [
+        pycolmap.inertial.ImuIntegrationMethod.MIDPOINT,
+        pycolmap.inertial.ImuIntegrationMethod.RK4,
+    ],
 )
 def test_preintegration_constant_acceleration(
-    method: pycolmap.ImuIntegrationMethod,
+    method: pycolmap.inertial.ImuIntegrationMethod,
 ) -> None:
     num_steps, dt = 10, 0.01
     T = num_steps * dt
@@ -101,10 +104,13 @@ def test_preintegration_constant_acceleration(
 
 @pytest.mark.parametrize(
     "method",
-    [pycolmap.ImuIntegrationMethod.MIDPOINT, pycolmap.ImuIntegrationMethod.RK4],
+    [
+        pycolmap.inertial.ImuIntegrationMethod.MIDPOINT,
+        pycolmap.inertial.ImuIntegrationMethod.RK4,
+    ],
 )
 def test_integrate_measurements_batch(
-    method: pycolmap.ImuIntegrationMethod,
+    method: pycolmap.inertial.ImuIntegrationMethod,
 ) -> None:
     num_steps, dt = 10, 0.01
     T = num_steps * dt
@@ -140,7 +146,7 @@ def test_integrate_measurements_batch(
 def test_reset() -> None:
     num_steps, dt = 5, 0.01
     integrator = _make_integrator(
-        pycolmap.ImuIntegrationMethod.RK4, num_steps * dt
+        pycolmap.inertial.ImuIntegrationMethod.RK4, num_steps * dt
     )
     _feed_constant(
         integrator, [1.0, 2.0, 9.81], [0.1, -0.2, 0.05], num_steps, dt
@@ -160,7 +166,7 @@ def test_reintegrate_matches_fresh() -> None:
     accel = [1.0, 0.0, 9.81]
     gyro = [0.0, 0.1, 0.0]
 
-    integrator = _make_integrator(pycolmap.ImuIntegrationMethod.RK4, T)
+    integrator = _make_integrator(pycolmap.inertial.ImuIntegrationMethod.RK4, T)
     _feed_constant(integrator, accel, gyro, num_steps, dt)
     data_before = integrator.extract()
 
@@ -178,14 +184,14 @@ def test_reintegrate_matches_fresh() -> None:
 def test_update_in_place() -> None:
     num_steps, dt = 10, 0.01
     integrator = _make_integrator(
-        pycolmap.ImuIntegrationMethod.RK4, num_steps * dt
+        pycolmap.inertial.ImuIntegrationMethod.RK4, num_steps * dt
     )
     _feed_constant(
         integrator, [1.0, -0.5, 9.81], [0.05, 0.1, -0.02], num_steps, dt
     )
 
     data_extract = integrator.extract()
-    data_update = pycolmap.PreintegratedImuData()
+    data_update = pycolmap.inertial.PreintegratedImuData()
     integrator.update(data_update)
     np.testing.assert_allclose(
         data_extract.delta_p, data_update.delta_p, atol=1e-12
@@ -201,7 +207,7 @@ def test_set_linearization_biases_changes_result() -> None:
     gyro = [0.1, -0.05, 0.02]
 
     integrator = _make_integrator(
-        pycolmap.ImuIntegrationMethod.RK4, num_steps * dt
+        pycolmap.inertial.ImuIntegrationMethod.RK4, num_steps * dt
     )
     _feed_constant(integrator, accel, gyro, num_steps, dt)
     data_zero_bias = integrator.extract()

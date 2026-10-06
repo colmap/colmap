@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/estimators/imu_preintegration.h"
+#include "colmap/estimators/inertial/preintegration.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -15,7 +15,12 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void BindImuPreintegration(py::module& m) {
+void BindImuPreintegrationCosts(py::module& m);
+
+void BindImuPreintegration(py::module& m_parent) {
+  py::module_ m = m_parent.def_submodule("inertial");
+  IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
+
   auto PyImuIntegrationMethod =
       py::enum_<ImuIntegrationMethod>(m, "ImuIntegrationMethod")
           .value("MIDPOINT", ImuIntegrationMethod::MIDPOINT)
@@ -99,4 +104,6 @@ void BindImuPreintegration(py::module& m) {
                &ImuPreintegrator::Reintegrate),
            "biases"_a)
       .def_property_readonly("measurements", &ImuPreintegrator::Measurements);
+
+  BindImuPreintegrationCosts(m);
 }

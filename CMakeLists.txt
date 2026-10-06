@@ -294,6 +294,7 @@ endif()
 COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/cost_functions ESTIMATORS_COST_FUNCTIONS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/inertial ESTIMATORS_INERTIAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators/solvers ESTIMATORS_SOLVERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
@@ -328,6 +329,7 @@ if(ALL_SOURCE_TARGET)
         ${CONTROLLERS_SRCS}
         ${ESTIMATORS_SRCS}
         ${ESTIMATORS_COST_FUNCTIONS_SRCS}
+        ${ESTIMATORS_INERTIAL_SRCS}
         ${ESTIMATORS_SOLVERS_SRCS}
         ${EXE_SRCS}
         ${FEATURE_SRCS}
@@ -408,6 +410,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_controllers
     colmap_estimators
     colmap_estimators_cost_functions
+    colmap_estimators_inertial
     colmap_estimators_solvers
     colmap_exe
     colmap_feature_types
