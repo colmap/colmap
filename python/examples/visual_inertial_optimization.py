@@ -308,7 +308,7 @@ def iterative_refine(
     return mapper.reconstruction
 
 
-def run_vi_optimization(
+def run_visual_inertial_optimization(
     sfm_path: str,
     database_path: str,
     output_folder: str,
@@ -344,7 +344,7 @@ def run() -> None:
     database_path = "./sample_data/database.db"
     image_timestamps_data = "./sample_data/image_timestamps.npy"
     imu_data_path = "./sample_data/rectified_imu_measurements.npy"
-    output_path = "./vi_optimization_output"
+    output_path = "./visual_inertial_optimization_output"
     image_timestamps: dict[int, int] = np.load(
         image_timestamps_data, allow_pickle=True
     ).item()
@@ -414,7 +414,7 @@ def run() -> None:
         variables["imu_states"][i].velocity = vel
 
     # Iterative optimization.
-    run_vi_optimization(
+    run_visual_inertial_optimization(
         sfm_path,
         database_path,
         output_path,
