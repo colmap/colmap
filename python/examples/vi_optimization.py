@@ -129,10 +129,12 @@ def add_imu_residuals(
         prob.set_parameter_block_constant(variables["imu_from_cam"].params)
     if not optimize_bias:
         constant_idxs = np.arange(3, 9)
-        for image_id in variables["imu_states"]:
+        for imu_state in variables["imu_states"].values():
+            # States of images without IMU edges are not in the problem.
+            if not prob.has_parameter_block(imu_state.params):
+                continue
             prob.set_manifold(
-                variables["imu_states"][image_id].params,
-                pyceres.SubsetManifold(9, constant_idxs),
+                imu_state.params, pyceres.SubsetManifold(9, constant_idxs)
             )
     return prob
 
@@ -375,7 +377,7 @@ def run() -> None:
     # reintegration updates the data in place.
     integrators: dict[int, pycolmap.ImuPreintegrator] = {}
     preintegrated: dict[int, pycolmap.PreintegratedImuData] = {}
-    for i in range(1, num_images - 1):
+    for i in range(1, num_images):
         t1, t2 = image_timestamps[i], image_timestamps[i + 1]
         # Timestamps are in nanoseconds (int64).
         ms = imu_measurements.extract_measurements_in_range(t1, t2)
@@ -391,13 +393,15 @@ def run() -> None:
     variables["gravity"] = np.array([0.0, 0.0, -1.0])
     variables["log_scale"] = np.array([0.0])
     variables["imu_states"] = {}
-    for i in range(1, num_images):
+    for i in range(1, num_images + 1):
+        # Finite-difference velocity, backward for the last image.
+        j, k = (i, i + 1) if i < num_images else (i - 1, i)
         dt = pycolmap.timestamp_diff_seconds(
-            image_timestamps[i + 1], image_timestamps[i]
+            image_timestamps[k], image_timestamps[j]
         )
-        pi = reconstruction.images[i].cam_from_world().inverse().translation
-        pj = reconstruction.images[i + 1].cam_from_world().inverse().translation
-        vel = (pj - pi) / dt
+        pj = reconstruction.images[j].cam_from_world().inverse().translation
+        pk = reconstruction.images[k].cam_from_world().inverse().translation
+        vel = (pk - pj) / dt
         variables["imu_states"][i] = pycolmap.ImuState()
         variables["imu_states"][i].velocity = vel
 
