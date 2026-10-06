@@ -147,8 +147,7 @@ class MidpointImuIntegrator : public ImuIntegrator {
     // function, which left-multiply integration leaves unchanged: A(0,0) = I.
     // The bias columns hold only the direct effect of the bias error in this
     // step. Its effect through earlier steps already reaches position and
-    // velocity via the rotation and velocity errors, so the accumulated bias
-    // Jacobians must not be used here.
+    // velocity via the rotation and velocity errors.
     Eigen::Matrix<double, 15, 15> A = Eigen::Matrix<double, 15, 15>::Identity();
 
     // rotation

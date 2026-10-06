@@ -194,9 +194,9 @@ TEST_P(ImuPreintegratorTest, CovarianceMatchesMonteCarlo) {
   // function residual at the true states, so its whitened eigenvalues must be
   // one up to sampling noise. Noise is exaggerated so that the
   // cross-covariances dominate the linearization error.
-  const int kNumSteps = 100;
-  const int kNumRuns = 1000;
-  const double dt = 0.005;
+  const int kNumSteps = 20;
+  const int kNumRuns = 4000;
+  const double dt = 0.025;
   ImuCalibration calib;
   calib.gyro_noise_density = 0.02;
   calib.accel_noise_density = 0.2;
@@ -261,13 +261,12 @@ TEST_P(ImuPreintegratorTest, CovarianceMatchesMonteCarlo) {
     empirical_covariance += residual * residual.transpose() / kNumRuns;
   }
 
-  // Eigenvalues of covariance^-1 * empirical_covariance. With 1000 runs,
-  // sampling noise alone spreads them to about [0.73, 1.25]. A wrong sign or
-  // frame in the rotation cross-covariance gives about [0.42, 2.4].
+  // Eigenvalues of covariance^-1 * empirical_covariance. With 4000 runs,
+  // sampling noise alone spreads them to about [0.84, 1.12].
   const Eigen::GeneralizedSelfAdjointEigenSolver<Eigen::Matrix<double, 15, 15>>
       solver(empirical_covariance, data_true.covariance);
-  EXPECT_GT(solver.eigenvalues().minCoeff(), 0.6);
-  EXPECT_LT(solver.eigenvalues().maxCoeff(), 1.5);
+  EXPECT_GT(solver.eigenvalues().minCoeff(), 0.8);
+  EXPECT_LT(solver.eigenvalues().maxCoeff(), 1.2);
 }
 
 INSTANTIATE_TEST_SUITE_P(ImuPreintegrator,
