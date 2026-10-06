@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/quaternion_utils.h"
 #include "colmap/estimators/cost_functions/utils.h"
 
 #include <Eigen/Core>
@@ -9,6 +10,49 @@
 #include <ceres/rotation.h>
 
 namespace colmap {
+
+// Angular error in radians between two camera rotations and a relative
+// rotation.
+struct RelativeRotationCostFunctor {
+  template <typename T>
+  bool operator()(const T* const sensor1_from_world_rotation,
+                  const T* const sensor2_from_world_rotation,
+                  T* residuals) const {
+    const T* parameters[] = {sensor1_from_world_rotation,
+                             sensor2_from_world_rotation};
+    return (*this)(parameters, residuals);
+  }
+
+  static ceres::CostFunction* Create(const Eigen::Quaterniond& cam2_from_cam1) {
+    return new ceres::
+        AutoDiffCostFunction<RelativeRotationCostFunctor, 3, 4, 4>(
+            new RelativeRotationCostFunctor{cam2_from_cam1});
+  }
+
+  template <typename T>
+  bool operator()(T const* const* parameters, T* residuals) const {
+    Eigen::Quaternion<T> error = sensor2_from_sensor1_prior.cast<T>();
+    if (sensor2_index >= 0) {
+      error =
+          EigenQuaternionMap<T>(parameters[sensor2_index]).conjugate() * error;
+    }
+    if (sensor1_index >= 0) {
+      error = error * EigenQuaternionMap<T>(parameters[sensor1_index]);
+    }
+    // The shared frame rotation cancels from the angular cost.
+    if (!same_frame) {
+      error = EigenQuaternionMap<T>(parameters[1]).conjugate() * error *
+              EigenQuaternionMap<T>(parameters[0]);
+    }
+    AngleAxisFromEigenQuaternion(error.coeffs().data(), residuals);
+    return true;
+  }
+
+  Eigen::Quaterniond sensor2_from_sensor1_prior;
+  int sensor1_index = -1;
+  int sensor2_index = -1;
+  bool same_frame = false;
+};
 
 // Computes the error between a translation direction and the direction formed
 // from two positions such that: t_ij - scale * (p_j - p_i) is minimized.

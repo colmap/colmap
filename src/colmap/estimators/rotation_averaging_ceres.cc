@@ -3,7 +3,7 @@
 #include "colmap/estimators/rotation_averaging_ceres.h"
 
 #include "colmap/estimators/cost_functions/manifold.h"
-#include "colmap/estimators/cost_functions/quaternion_utils.h"
+#include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
@@ -14,49 +14,6 @@
 #include <vector>
 
 namespace colmap {
-namespace {
-
-struct RelativeRotationError {
-  template <typename T>
-  bool operator()(const T* const rotation1,
-                  const T* const rotation2,
-                  T* residuals) const {
-    const T* parameters[] = {rotation1, rotation2};
-    return (*this)(parameters, residuals);
-  }
-
-  static ceres::CostFunction* Create(const Eigen::Quaterniond& cam2_from_cam1) {
-    return new ceres::AutoDiffCostFunction<RelativeRotationError, 3, 4, 4>(
-        new RelativeRotationError{cam2_from_cam1});
-  }
-
-  template <typename T>
-  bool operator()(T const* const* parameters, T* residuals) const {
-    Eigen::Quaternion<T> error = measurement.cast<T>();
-    if (sensor2_index >= 0) {
-      error =
-          EigenQuaternionMap<T>(parameters[sensor2_index]).conjugate() * error;
-    }
-    if (sensor1_index >= 0) {
-      error = error * EigenQuaternionMap<T>(parameters[sensor1_index]);
-    }
-    // The shared frame rotation cancels from the angular cost.
-    if (!same_frame) {
-      error = EigenQuaternionMap<T>(parameters[1]).conjugate() * error *
-              EigenQuaternionMap<T>(parameters[0]);
-    }
-    AngleAxisFromEigenQuaternion(error.coeffs().data(), residuals);
-    return true;
-  }
-
-  Eigen::Quaterniond measurement;
-  int sensor1_index = -1;
-  int sensor2_index = -1;
-  bool same_frame = false;
-};
-
-}  // namespace
-
 CeresRotationAveragerOptions::CeresRotationAveragerOptions() {
   solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
 }
@@ -230,10 +187,11 @@ void CeresRotationAverager::AddRelativeRotationResidual(
     losses_.try_emplace(loss, loss_function);
   }
   if (sensor1 == nullptr && sensor2 == nullptr && !same_frame) {
-    problem_->AddResidualBlock(RelativeRotationError::Create(cam2_from_cam1),
-                               loss,
-                               rotation1,
-                               rotation2);
+    problem_->AddResidualBlock(
+        RelativeRotationCostFunctor::Create(cam2_from_cam1),
+        loss,
+        rotation1,
+        rotation2);
     return;
   }
   std::vector<double*> blocks;
@@ -245,11 +203,12 @@ void CeresRotationAverager::AddRelativeRotationResidual(
     if (it == blocks.end()) blocks.push_back(sensor);
     return index;
   };
-  auto* cost = new ceres::DynamicAutoDiffCostFunction<RelativeRotationError, 8>(
-      new RelativeRotationError{cam2_from_cam1,
-                                sensor_index(sensor1),
-                                sensor_index(sensor2),
-                                same_frame});
+  auto* cost =
+      new ceres::DynamicAutoDiffCostFunction<RelativeRotationCostFunctor, 8>(
+          new RelativeRotationCostFunctor{cam2_from_cam1,
+                                          sensor_index(sensor1),
+                                          sensor_index(sensor2),
+                                          same_frame});
   for (size_t i = 0; i < blocks.size(); ++i) cost->AddParameterBlock(4);
   cost->SetNumResiduals(3);
   problem_->AddResidualBlock(cost, loss, blocks);
