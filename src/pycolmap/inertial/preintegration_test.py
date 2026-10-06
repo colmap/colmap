@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 import pycolmap
+import pycolmap.inertial
 
 
 def _ts(seconds: float) -> int:
