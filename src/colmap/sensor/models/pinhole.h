@@ -56,11 +56,12 @@ struct SimplePinholeCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    const double f = params[0];
-    const double c1 = params[1];
-    const double c2 = params[2];
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T f = params[0];
+    const T c1 = params[1];
+    const T c2 = params[2];
 
     *u = (x - c1) / f;
     *v = (y - c2) / f;
@@ -115,12 +116,13 @@ struct PinholeCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    const double f1 = params[0];
-    const double f2 = params[1];
-    const double c1 = params[2];
-    const double c2 = params[3];
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T f1 = params[0];
+    const T f2 = params[1];
+    const T c1 = params[2];
+    const T c2 = params[3];
 
     *u = (x - c1) / f1;
     *v = (y - c2) / f2;
