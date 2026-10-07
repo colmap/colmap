@@ -20,6 +20,60 @@ TEST(ComputeClosestRotationMatrix, Nominal) {
   EXPECT_THAT(ComputeClosestRotationMatrix(2 * A), EigenMatrixNear(A, 1e-6));
 }
 
+TEST(ComputeClosestRotationMatrix, Reflection) {
+  const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
+  for (const Eigen::Vector3d& diagonal : {Eigen::Vector3d(-1, 2, 3),
+                                          Eigen::Vector3d(3, -1, 2),
+                                          Eigen::Vector3d(3, 2, -1)}) {
+    const Eigen::Matrix3d A = diagonal.asDiagonal();
+    const Eigen::Matrix3d R = ComputeClosestRotationMatrix(A);
+    EXPECT_THAT(R, EigenMatrixNear(identity, 1e-12));
+    EXPECT_NEAR((A - R).squaredNorm(), 9.0, 1e-12);
+  }
+}
+
+TEST(ComputeClosestRotationMatrix, RotatedReflection) {
+  const Eigen::Matrix3d R1 = EulerAnglesToRotationMatrix(0.2, -0.3, 0.4);
+  const Eigen::Matrix3d R2 = EulerAnglesToRotationMatrix(-0.6, 0.4, 0.8);
+  const Eigen::Matrix3d expected_R = R1 * R2.transpose();
+  for (const Eigen::Vector3d& diagonal : {Eigen::Vector3d(-1, 2, 3),
+                                          Eigen::Vector3d(3, -1, 2),
+                                          Eigen::Vector3d(3, 2, -1)}) {
+    for (const double scale : {0.25, 1.0, 4.0}) {
+      const Eigen::Matrix3d A =
+          scale * R1 * diagonal.asDiagonal() * R2.transpose();
+      EXPECT_THAT(ComputeClosestRotationMatrix(A),
+                  EigenMatrixNear(expected_R, 1e-12));
+    }
+  }
+}
+
+TEST(ComputeClosestRotationMatrix, OrthogonalReflection) {
+  const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
+  for (const Eigen::Vector3d& diagonal : {Eigen::Vector3d(-1, 1, 1),
+                                          Eigen::Vector3d(1, -1, 1),
+                                          Eigen::Vector3d(1, 1, -1),
+                                          Eigen::Vector3d(-1, -1, -1)}) {
+    const Eigen::Matrix3d A = diagonal.asDiagonal();
+    const Eigen::Matrix3d R = ComputeClosestRotationMatrix(A);
+    EXPECT_THAT(R.transpose() * R, EigenMatrixNear(identity, 1e-12));
+    EXPECT_NEAR(R.determinant(), 1.0, 1e-12);
+    EXPECT_NEAR((A - R).squaredNorm(), 4.0, 1e-12);
+  }
+}
+
+TEST(ComputeClosestRotationMatrix, PositiveDeterminant) {
+  const Eigen::Matrix3d R1 = EulerAnglesToRotationMatrix(0.2, -0.3, 0.4);
+  const Eigen::Matrix3d R2 = EulerAnglesToRotationMatrix(-0.6, 0.4, 0.8);
+  const Eigen::Matrix3d expected_R = R1 * R2.transpose();
+  for (const double scale : {0.25, 1.0, 4.0}) {
+    const Eigen::Matrix3d A =
+        scale * R1 * Eigen::Vector3d(3, 2, 1).asDiagonal() * R2.transpose();
+    EXPECT_THAT(ComputeClosestRotationMatrix(A),
+                EigenMatrixNear(expected_R, 1e-12));
+  }
+}
+
 TEST(DecomposeProjectionMatrix, Nominal) {
   for (int i = 1; i < 100; ++i) {
     Eigen::Matrix3d ref_K = i * Eigen::Matrix3d::Identity();
@@ -36,6 +90,28 @@ TEST(DecomposeProjectionMatrix, Nominal) {
     EXPECT_THAT(cam_from_world.rotation().toRotationMatrix(),
                 EigenMatrixNear(R, 1e-6));
     EXPECT_THAT(cam_from_world.translation(), EigenMatrixNear(T, 1e-6));
+  }
+}
+
+TEST(DecomposeProjectionMatrix, NegativeScale) {
+  Eigen::Matrix3d ref_K;
+  ref_K << 700, 20, 320, 0, 900, 240, 0, 0, 1;
+  const Rigid3d cam_from_world(
+      Eigen::Quaterniond(EulerAnglesToRotationMatrix(0.2, -0.3, 0.4)),
+      Eigen::Vector3d(1, 2, 3));
+  const Eigen::Vector3d expected_T = cam_from_world.translation();
+  for (const double scale : {-1.0, -2.0}) {
+    const Eigen::Matrix3x4d P = scale * ref_K * cam_from_world.ToMatrix();
+    const Eigen::Matrix3d expected_K = -scale * ref_K;
+    Eigen::Matrix3d K;
+    Eigen::Matrix3d R;
+    Eigen::Vector3d T;
+    ASSERT_TRUE(DecomposeProjectionMatrix(P, &K, &R, &T));
+    EXPECT_THAT(K, EigenMatrixNear(expected_K, 1e-9));
+    EXPECT_THAT(
+        R,
+        EigenMatrixNear(cam_from_world.rotation().toRotationMatrix(), 1e-12));
+    EXPECT_THAT(T, EigenMatrixNear(expected_T, 1e-12));
   }
 }
 
