@@ -2521,38 +2521,7 @@ class SqliteDatabase : public Database {
     // Migrate cameras table to composite primary key (camera_id, source)
     // and recreate images table without foreign key to cameras.
     if (user_version <= MakeDatabaseVersionNumber(4, 3, 0, 0)) {
-      bool needs_cameras_migration = false;
-      if (ExistsTable("cameras")) {
-        sqlite3_stmt* table_info_stmt;
-        SQLITE3_CALL(sqlite3_prepare_v2(database_,
-                                        "PRAGMA table_info(cameras);",
-                                        -1,
-                                        &table_info_stmt,
-                                        nullptr));
-        int pk_count = 0;
-        bool has_source = false;
-        bool has_prior_focal_length_col = false;
-        while (SQLITE3_CALL(sqlite3_step(table_info_stmt)) == SQLITE_ROW) {
-          const std::string col_name = reinterpret_cast<const char*>(
-              sqlite3_column_text(table_info_stmt, 1));
-          const int is_pk = sqlite3_column_int(table_info_stmt, 5);
-          if (is_pk > 0) {
-            pk_count++;
-          }
-          if (col_name == "source") {
-            has_source = true;
-          }
-          if (col_name == "prior_focal_length") {
-            has_prior_focal_length_col = true;
-          }
-        }
-        SQLITE3_CALL(sqlite3_finalize(table_info_stmt));
-        if (pk_count <= 1 || !has_source || has_prior_focal_length_col) {
-          needs_cameras_migration = true;
-        }
-      }
-
-      if (needs_cameras_migration) {
+      if (ExistsTable("cameras") && !ExistsColumn("cameras", "source")) {
         SQLITE3_EXEC(database_, "PRAGMA foreign_keys = OFF;", nullptr);
         SQLITE3_EXEC(database_, "PRAGMA legacy_alter_table = ON;", nullptr);
 
@@ -2560,33 +2529,14 @@ class SqliteDatabase : public Database {
             database_, "ALTER TABLE cameras RENAME TO cameras_old;", nullptr);
         CreateCameraTable();
 
-        if (ExistsTable("camera_calibrations")) {
-          const std::string migrate_calibs_sql =
-              "INSERT OR IGNORE INTO cameras "
-              "(camera_id, model, width, height, params, source) "
-              "SELECT camera_id, model, width, height, params, source "
-              "FROM camera_calibrations;";
-          SQLITE3_EXEC(database_, migrate_calibs_sql.c_str(), nullptr);
-          SQLITE3_EXEC(database_, "DROP TABLE camera_calibrations;", nullptr);
-        }
-
-        std::string migrate_sql;
-        if (ExistsColumn("cameras_old", "source")) {
-          migrate_sql =
-              "INSERT OR IGNORE INTO cameras "
-              "(camera_id, model, width, height, params, source) "
-              "SELECT camera_id, model, width, height, params, source "
-              "FROM cameras_old;";
-        } else {
-          migrate_sql = StringPrintf(
-              "INSERT OR IGNORE INTO cameras "
-              "(camera_id, model, width, height, params, source) "
-              "SELECT camera_id, model, width, height, params, "
-              "CASE WHEN prior_focal_length != 0 THEN %d ELSE %d END "
-              "FROM cameras_old;",
-              static_cast<int>(CameraSource::EXIF),
-              static_cast<int>(CameraSource::GUESS));
-        }
+        const std::string migrate_sql = StringPrintf(
+            "INSERT OR IGNORE INTO cameras "
+            "(camera_id, model, width, height, params, source) "
+            "SELECT camera_id, model, width, height, params, "
+            "CASE WHEN prior_focal_length != 0 THEN %d ELSE %d END "
+            "FROM cameras_old;",
+            static_cast<int>(CameraSource::EXIF),
+            static_cast<int>(CameraSource::GUESS));
         SQLITE3_EXEC(database_, migrate_sql.c_str(), nullptr);
         SQLITE3_EXEC(database_, "DROP TABLE cameras_old;", nullptr);
 
@@ -2604,14 +2554,6 @@ class SqliteDatabase : public Database {
 
         SQLITE3_EXEC(database_, "PRAGMA legacy_alter_table = OFF;", nullptr);
         SQLITE3_EXEC(database_, "PRAGMA foreign_keys = ON;", nullptr);
-      } else if (ExistsTable("camera_calibrations")) {
-        const std::string migrate_calibs_sql =
-            "INSERT OR IGNORE INTO cameras "
-            "(camera_id, model, width, height, params, source) "
-            "SELECT camera_id, model, width, height, params, source "
-            "FROM camera_calibrations;";
-        SQLITE3_EXEC(database_, migrate_calibs_sql.c_str(), nullptr);
-        SQLITE3_EXEC(database_, "DROP TABLE camera_calibrations;", nullptr);
       }
     }
 
