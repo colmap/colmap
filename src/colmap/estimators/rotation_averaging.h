@@ -30,8 +30,7 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingReweighting,
 
 // Solver backend for rotation averaging.
 //   L1_IRLS: L1 regression (ADMM) followed by IRLS using CHOLMOD.
-//   CERES: Nonlinear least squares on SO(3) using Ceres Solver, optionally
-//     preceded by L1 regression when max_num_l1_iterations > 0.
+//   CERES: Nonlinear least squares on SO(3) using Ceres Solver.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingBackend, 0, L1_IRLS, CERES);
 
 struct RotationEstimatorOptions {
@@ -151,6 +150,11 @@ class RotationEstimator {
                               const std::vector<PosePrior>& pose_priors,
                               const FlatHashSet<image_t>& active_image_ids,
                               Reconstruction& reconstruction);
+
+  bool SolveRotationAveragingWithCeres(
+      const PoseGraph& pose_graph,
+      const FlatHashSet<image_t>& active_image_ids,
+      Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
 };

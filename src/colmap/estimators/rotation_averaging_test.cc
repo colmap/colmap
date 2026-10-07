@@ -130,21 +130,21 @@ void RunAndVerifyRotationAveraging(const Reconstruction& gt_reconstruction,
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, max_rotation_error_deg);
 
-    if (!use_gravity) {
-      for (const int max_num_l1_iterations : {0, 5}) {
-        Reconstruction ceres_reconstruction = reconstruction;
-        PoseGraph ceres_pose_graph = pose_graph;
-        RotationEstimatorOptions ceres_options =
-            CreateRATestOptions(/*use_gravity=*/false);
-        ceres_options.backend = RotationAveragingBackend::CERES;
-        ceres_options.max_num_l1_iterations = max_num_l1_iterations;
-        ASSERT_TRUE(RunRotationAveraging(ceres_options,
-                                         ceres_pose_graph,
-                                         ceres_reconstruction,
-                                         pose_priors));
-        ExpectEqualRotations(
-            gt_reconstruction, ceres_reconstruction, max_rotation_error_deg);
-      }
+    Reconstruction ceres_reconstruction = reconstruction;
+    PoseGraph ceres_pose_graph = pose_graph;
+    RotationEstimatorOptions ceres_options = CreateRATestOptions(use_gravity);
+    ceres_options.backend = RotationAveragingBackend::CERES;
+    if (use_gravity) {
+      EXPECT_THROW(RunRotationAveraging(ceres_options,
+                                        ceres_pose_graph,
+                                        ceres_reconstruction,
+                                        pose_priors),
+                   std::invalid_argument);
+    } else {
+      ASSERT_TRUE(RunRotationAveraging(
+          ceres_options, ceres_pose_graph, ceres_reconstruction, pose_priors));
+      ExpectEqualRotations(
+          gt_reconstruction, ceres_reconstruction, max_rotation_error_deg);
     }
   }
 }

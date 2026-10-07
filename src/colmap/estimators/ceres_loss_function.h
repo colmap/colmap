@@ -10,8 +10,17 @@
 
 namespace colmap {
 
+#ifdef __CUDACC__
+enum class CeresLossFunctionType {
+  TRIVIAL = 0,
+  SOFT_L1 = 1,
+  CAUCHY = 2,
+  HUBER = 3,
+};
+#else
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(
     CeresLossFunctionType, 0, TRIVIAL, SOFT_L1, CAUCHY, HUBER);
+#endif
 
 // Standard construction accepts a non-negative `robust_scale` and finite
 // positive `weight`.
