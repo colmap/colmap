@@ -129,6 +129,13 @@ int FindCubicPolynomialRoots(double c2,
     b *= -0.5;
     (*real)[0] = std::cbrt(b + c) + std::cbrt(b - c) - c2_over_3;
     num_roots = 1;
+  } else if (c == 0) {
+    const double root = std::cbrt(-b / 2.0);
+    (*real)[0] = 2 * root - c2_over_3;
+    (*real)[1] = -root - c2_over_3;
+    (*real)[2] = (*real)[1];
+    // Repeated roots have zero derivatives, so skip Newton refinement.
+    return 3;
   } else {
     c = 3.0 * b / (2.0 * a) * std::sqrt(-3.0 / a);
     double d = 2.0 * std::sqrt(-a / 3.0);
