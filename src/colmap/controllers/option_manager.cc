@@ -5,6 +5,7 @@
 #include "colmap/calibration/anycalib.h"
 #include "colmap/calibration/single_view_calibrator.h"
 #include "colmap/controllers/global_pipeline.h"
+#include "colmap/controllers/gravity_estimation.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
@@ -68,6 +69,7 @@ OptionManager::OptionManager(bool add_project_options)
     : BaseOptionManager(add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
   single_view_calibration = std::make_shared<SingleViewCalibrationOptions>();
+  gravity_estimation = std::make_shared<GravityEstimationOptions>();
   feature_extraction = std::make_shared<FeatureExtractionOptions>();
   feature_matching = std::make_shared<FeatureMatchingOptions>();
   two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
@@ -204,6 +206,7 @@ void OptionManager::ModifyForExtremeQuality() {
 void OptionManager::AddAllOptions() {
   BaseOptionManager::AddAllOptions();
   AddSingleViewCalibrationOptions();
+  AddGravityEstimationOptions();
   AddFeatureExtractionOptions();
   AddFeatureMatchingOptions();
   AddTwoViewGeometryOptions();
@@ -260,6 +263,56 @@ void OptionManager::AddSingleViewCalibrationOptions() {
   AddDefaultOption(
       "SingleViewCalibration.prior_focal_length_weight",
       &single_view_calibration->anycalib->fitting.prior_focal_length_weight);
+}
+
+void OptionManager::AddGravityEstimationOptions() {
+  if (!RegisterOptionGroupOnce("gravity_estimation")) {
+    return;
+  }
+
+  AddDefaultOption("GravityEstimation.camera_model",
+                   &gravity_estimation->camera_model);
+  AddDefaultOption("GravityEstimation.refine_intrinsics",
+                   &gravity_estimation->refine_intrinsics);
+  AddDefaultOption("GravityEstimation.force_refine_intrinsics",
+                   &gravity_estimation->force_refine_intrinsics);
+  AddDefaultOption("GravityEstimation.min_focal_length_ratio",
+                   &gravity_estimation->min_focal_length_ratio);
+  AddDefaultOption("GravityEstimation.max_focal_length_ratio",
+                   &gravity_estimation->max_focal_length_ratio);
+  AddDefaultOption("GravityEstimation.max_extra_param",
+                   &gravity_estimation->max_extra_param);
+  AddDefaultOption("GravityEstimation.model_path",
+                   &gravity_estimation->geocalib.model_path);
+  AddDefaultOption("GravityEstimation.image_size",
+                   &gravity_estimation->geocalib.image_size);
+  AddDefaultOption("GravityEstimation.force_square",
+                   &gravity_estimation->geocalib.force_square);
+  AddDefaultOption("GravityEstimation.num_threads",
+                   &gravity_estimation->geocalib.num_threads);
+  AddDefaultOption("GravityEstimation.use_gpu",
+                   &gravity_estimation->geocalib.use_gpu);
+  AddDefaultOption("GravityEstimation.gpu_index",
+                   &gravity_estimation->geocalib.gpu_index);
+  AddDefaultOption("GravityEstimation.max_num_iterations",
+                   &gravity_estimation->geocalib.fitting.max_num_iterations);
+  AddDefaultOption("GravityEstimation.loss_function_scale",
+                   &gravity_estimation->geocalib.fitting.loss_function_scale);
+  AddDefaultOption("GravityEstimation.stride",
+                   &gravity_estimation->geocalib.fitting.stride);
+  AddDefaultOption("GravityEstimation.max_pool_confidence",
+                   &gravity_estimation->geocalib.fitting.max_pool_confidence);
+  AddDefaultOption("GravityEstimation.min_confidence",
+                   &gravity_estimation->geocalib.fitting.min_confidence);
+  AddDefaultOption("GravityEstimation.use_confidence",
+                   &gravity_estimation->geocalib.fitting.use_confidence);
+  AddDefaultOption("GravityEstimation.refine_focal_length",
+                   &gravity_estimation->geocalib.fitting.refine_focal_length);
+  AddDefaultOption(
+      "GravityEstimation.refine_principal_point",
+      &gravity_estimation->geocalib.fitting.refine_principal_point);
+  AddDefaultOption("GravityEstimation.refine_extra_params",
+                   &gravity_estimation->geocalib.fitting.refine_extra_params);
 }
 
 void OptionManager::AddFeatureExtractionOptions() {
@@ -1229,6 +1282,7 @@ void OptionManager::Reset(bool reset_logging) {
 void OptionManager::ResetOptions(const bool reset_paths) {
   *image_reader = ImageReaderOptions();
   *single_view_calibration = SingleViewCalibrationOptions();
+  *gravity_estimation = GravityEstimationOptions();
   *feature_extraction = FeatureExtractionOptions();
   *feature_matching = FeatureMatchingOptions();
   *exhaustive_pairing = ExhaustivePairingOptions();
@@ -1266,6 +1320,7 @@ bool OptionManager::Check() {
   if (image_reader) success = success && image_reader->Check();
   if (single_view_calibration)
     success = success && single_view_calibration->Check();
+  if (gravity_estimation) success = success && gravity_estimation->Check();
   if (feature_extraction) success = success && feature_extraction->Check();
 
   if (feature_matching) success = success && feature_matching->Check();

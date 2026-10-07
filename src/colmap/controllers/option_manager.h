@@ -10,6 +10,7 @@ namespace colmap {
 
 struct ImageReaderOptions;
 struct SingleViewCalibrationOptions;
+struct GravityEstimationOptions;
 struct FeatureExtractionOptions;
 struct FeatureMatchingOptions;
 struct SiftMatchingOptions;
@@ -65,6 +66,7 @@ class OptionManager : public BaseOptionManager {
 
   void AddAllOptions() override;
   void AddSingleViewCalibrationOptions();
+  void AddGravityEstimationOptions();
   void AddFeatureExtractionOptions();
   void AddFeatureMatchingOptions();
   void AddTwoViewGeometryOptions();
@@ -99,6 +101,7 @@ class OptionManager : public BaseOptionManager {
 
   std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<SingleViewCalibrationOptions> single_view_calibration;
+  std::shared_ptr<GravityEstimationOptions> gravity_estimation;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
   std::shared_ptr<FeatureMatchingOptions> feature_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
