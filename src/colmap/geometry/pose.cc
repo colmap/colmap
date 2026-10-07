@@ -63,7 +63,9 @@ Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
       matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
   Eigen::Matrix3d R = svd.matrixU() * (svd.matrixV().transpose());
   if (R.determinant() < 0.0) {
-    R *= -1.0;
+    Eigen::Matrix3d U = svd.matrixU();
+    U.col(2) *= -1.0;
+    R = U * svd.matrixV().transpose();
   }
   return R;
 }

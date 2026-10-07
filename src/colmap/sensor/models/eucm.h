@@ -85,35 +85,33 @@ struct EUCMCameraModel
     return true;
   }
 
-  static inline bool CamFromImg(const double* params,
-                                const double x,
-                                const double y,
-                                double* u,
-                                double* v) {
-    const double f1 = params[0];
-    const double f2 = params[1];
-    const double c1 = params[2];
-    const double c2 = params[3];
+  template <typename T>
+  static inline bool CamFromImg(
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T f1 = params[0];
+    const T f2 = params[1];
+    const T c1 = params[2];
+    const T c2 = params[3];
 
-    const double alpha = params[4];
-    const double beta = params[5];
+    const T alpha = params[4];
+    const T beta = params[5];
 
     // Lift points to normalized plane
     *u = (x - c1) / f1;
     *v = (y - c2) / f2;
 
-    const double r2 = *u * *u + *v * *v;
-    const double gamma = 1.0 - alpha;
-    const double radicand = 1.0 - (alpha - gamma) * beta * r2;
-    if (radicand < 0) {
+    const T r2 = *u * *u + *v * *v;
+    const T gamma = T(1.0) - alpha;
+    const T radicand = T(1.0) - (alpha - gamma) * beta * r2;
+    if (radicand < T(0.0)) {
       return false;
     }
-    const double helper_den = alpha * std::sqrt(radicand) + gamma;
-    if (helper_den < std::numeric_limits<double>::epsilon()) {
+    const T helper_den = alpha * ceres::sqrt(radicand) + gamma;
+    if (helper_den < T(std::numeric_limits<double>::epsilon())) {
       return false;
     }
-    const double helper = (1.0 - alpha * alpha * beta * r2) / helper_den;
-    if (helper < std::numeric_limits<double>::epsilon()) {
+    const T helper = (T(1.0) - alpha * alpha * beta * r2) / helper_den;
+    if (helper < T(std::numeric_limits<double>::epsilon())) {
       return false;
     }
 

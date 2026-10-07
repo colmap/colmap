@@ -301,7 +301,7 @@ the available options, e.g.::
                                                   {SIMPLE_PINHOLE, PINHOLE, SIMPLE_RADIAL, RADIAL, OPENCV, OPENCV_FISHEYE,
                                                   FULL_OPENCV, FOV, SIMPLE_RADIAL_FISHEYE, RADIAL_FISHEYE, THIN_PRISM_FISHEYE,
                                                   RAD_TAN_THIN_PRISM_FISHEYE, SIMPLE_DIVISION, DIVISION, SIMPLE_FISHEYE, FISHEYE,
-                                                  EUCM, EQUIRECTANGULAR}
+                                                  EUCM, EQUIRECTANGULAR, SKEWED_PINHOLE}
             --ImageReader.single_camera arg (=0)
             --ImageReader.single_camera_per_folder arg (=0)
             --ImageReader.single_camera_per_image arg (=0)

@@ -19,10 +19,11 @@ export const CAMERA_MODEL_NAMES = [
   "FISHEYE",
   "EUCM",
   "EQUIRECTANGULAR",
+  "SKEWED_PINHOLE",
 ] as const;
 
 export const CAMERA_MODEL_PARAM_COUNTS = [
-  3, 4, 4, 5, 8, 8, 12, 5, 4, 5, 12, 16, 4, 5, 3, 4, 6, 2,
+  3, 4, 4, 5, 8, 8, 12, 5, 4, 5, 12, 16, 4, 5, 3, 4, 6, 2, 5,
 ] as const;
 
 function fisheyeFromNormal(u: number, v: number): Vec2 {
@@ -147,6 +148,12 @@ export function project(camera: Camera, pointInCamera: Vec3): Vec2 | null {
 
   if (model === 0) return pinhole(p, [u / w, v / w], true);
   if (model === 1) return pinhole(p, [u / w, v / w], false);
+  if (model === 18) {
+    // Pinhole with skew: x = fx * u + s * v + cx, y = fy * v + cy.
+    const uu = u / w;
+    const vv = v / w;
+    return [p[0]! * uu + p[4]! * vv + p[2]!, p[1]! * vv + p[3]!];
+  }
 
   if (model === 7) {
     const uu = u / w;

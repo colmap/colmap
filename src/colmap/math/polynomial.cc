@@ -5,6 +5,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+
 #include <Eigen/Eigenvalues>
 
 namespace colmap {
@@ -129,8 +131,17 @@ int FindCubicPolynomialRoots(double c2,
     b *= -0.5;
     (*real)[0] = std::cbrt(b + c) + std::cbrt(b - c) - c2_over_3;
     num_roots = 1;
+  } else if (c == 0) {
+    const double root = std::cbrt(-b / 2.0);
+    (*real)[0] = 2 * root - c2_over_3;
+    (*real)[1] = -root - c2_over_3;
+    (*real)[2] = (*real)[1];
+    // Repeated roots have zero derivatives, so skip Newton refinement.
+    return 3;
   } else {
-    c = 3.0 * b / (2.0 * a) * std::sqrt(-3.0 / a);
+    // Clamp the argument, as rounding errors may push it outside [-1, 1]
+    // near repeated roots, where std::acos returns NaN.
+    c = std::clamp(3.0 * b / (2.0 * a) * std::sqrt(-3.0 / a), -1.0, 1.0);
     double d = 2.0 * std::sqrt(-a / 3.0);
     const double acos_over_3 = std::acos(c) / 3.0;
     (*real)[0] = d * std::cos(acos_over_3) - c2_over_3;
@@ -139,14 +150,25 @@ int FindCubicPolynomialRoots(double c2,
     num_roots = 3;
   }
 
-  // Single Newton iteration.
+  // Single Newton iteration. The update is only kept if it reduces the
+  // residual: near repeated roots, both the function value and the
+  // derivative are rounding noise, so the update is meaningless there and
+  // must not corrupt the closed-form estimate.
   for (int i = 0; i < num_roots; ++i) {
     const double x = (*real)[i];
     const double x2 = x * x;
     const double x3 = x * x2;
-    const double dx =
-        -(x3 + c2 * x2 + c1 * x + c0) / (3 * x2 + 2 * c2 * x + c1);
-    (*real)[i] += dx;
+    const double fx = x3 + c2 * x2 + c1 * x + c0;
+    const double denom = 3 * x2 + 2 * c2 * x + c1;
+    if (denom != 0) {
+      const double x_new = x - fx / denom;
+      const double x_new2 = x_new * x_new;
+      const double x_new3 = x_new * x_new2;
+      const double fx_new = x_new3 + c2 * x_new2 + c1 * x_new + c0;
+      if (std::abs(fx_new) <= std::abs(fx)) {
+        (*real)[i] = x_new;
+      }
+    }
   }
 
   return num_roots;

@@ -158,6 +158,82 @@ TEST(FindCubicPolynomialRoots, SingleRoot) {
       1e-6);
 }
 
+TEST(FindCubicPolynomialRoots, NearRepeatedRoots) {
+  for (const double epsilon : {1e-2, 1e-6, 1e-10}) {
+    Eigen::Vector3d real;
+    ASSERT_EQ(FindCubicPolynomialRoots(0, epsilon, 0, &real), 1);
+    EXPECT_NEAR(real(0), 0, 1e-12);
+
+    ASSERT_EQ(FindCubicPolynomialRoots(0, -epsilon, 0, &real), 3);
+    ASSERT_TRUE(real.allFinite());
+    std::sort(real.data(), real.data() + real.size());
+    const Eigen::Vector3d expected(-std::sqrt(epsilon), 0, std::sqrt(epsilon));
+    EXPECT_THAT(real, EigenMatrixNear(expected, 1e-12));
+  }
+}
+
+TEST(FindCubicPolynomialRoots, TripleRoot) {
+  for (const double root : {-2.0, -1.0, 0.0, 1.0, 2.0}) {
+    Eigen::Vector3d real;
+    ASSERT_EQ(FindCubicPolynomialRoots(
+                  -3 * root, 3 * root * root, -root * root * root, &real),
+              3);
+    EXPECT_TRUE(real.allFinite());
+    const Eigen::Vector3d expected = Eigen::Vector3d::Constant(root);
+    EXPECT_THAT(real, EigenMatrixNear(expected, 1e-12));
+  }
+}
+
+TEST(FindCubicPolynomialRoots, DoubleRoot) {
+  for (const double root : {-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0}) {
+    for (const double offset : {-3.0, 3.0}) {
+      const double simple_root = root + offset;
+      Eigen::Vector3d real;
+      ASSERT_EQ(FindCubicPolynomialRoots(-2 * root - simple_root,
+                                         root * root + 2 * root * simple_root,
+                                         -root * root * simple_root,
+                                         &real),
+                3);
+      ASSERT_TRUE(real.allFinite());
+      std::sort(real.data(), real.data() + real.size());
+      Eigen::Vector3d expected(root, root, simple_root);
+      std::sort(expected.data(), expected.data() + expected.size());
+      EXPECT_THAT(real, EigenMatrixNear(expected, 1e-12));
+    }
+  }
+}
+
+TEST(FindCubicPolynomialRoots, DoubleRootRounding) {
+  // (x - root)^2 (x - simple_root) with fractional roots, where rounding
+  // of the discriminant takes the trigonometric branch: the acos argument
+  // may round outside [-1, 1], and the Newton update divides rounding
+  // noise by rounding noise. The first case used to return NaNs, the
+  // second infinities or inaccurate roots, depending on the build.
+  const double cases[][2] = {{-7.424214552093327, 9.502857898721292},
+                             {0.73860616877870156, -0.22275443202436795}};
+  for (const auto& roots : cases) {
+    const double root = roots[0];
+    const double simple_root = roots[1];
+    Eigen::Vector3d real;
+    const int num_roots =
+        FindCubicPolynomialRoots(-2 * root - simple_root,
+                                 root * root + 2 * root * simple_root,
+                                 -root * root * simple_root,
+                                 &real);
+    // Near a zero discriminant, the single- vs. three-root branch itself
+    // is rounding-dependent; both are valid, but the roots must be finite.
+    ASSERT_TRUE(num_roots == 1 || num_roots == 3);
+    ASSERT_TRUE(real.head(num_roots).allFinite());
+    // Loose tolerance: repeated roots are ill-conditioned, with
+    // perturbations scaling as the square root of the coefficient error.
+    for (int i = 0; i < num_roots; ++i) {
+      EXPECT_LT(
+          std::min(std::abs(real(i) - root), std::abs(real(i) - simple_root)),
+          1e-6);
+    }
+  }
+}
+
 TEST(FindCubicPolynomialRoots, MultiRoot) {
   const Eigen::Vector4d coeffs(1, -3, -3, 5);
   Eigen::Vector3d real;
