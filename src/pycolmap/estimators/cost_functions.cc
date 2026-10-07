@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/cost_functions/alignment.h"
+#include "colmap/estimators/cost_functions/motion_averaging.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/sampson_error.h"
@@ -8,6 +9,7 @@
 #include "colmap/geometry/rigid3.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -324,6 +326,12 @@ void BindCostFunctions(py::module& m_parent) {
         "position_in_world_prior"_a,
         "3-DoF error on the absolute camera pose's position with per-axis "
         "prior standard deviations.");
+
+  m.def("RelativeRotationCost",
+        &RelativeRotationCostFunctor::Create,
+        "cam2_from_cam1"_a,
+        "Angular error in radians between camera-from-world quaternions "
+        "(x, y, z, w) and a relative rotation.");
 
   m.def("RelativePosePriorCost",
         &RelativePosePriorCostFunctor::Create<const Rigid3d&>,
