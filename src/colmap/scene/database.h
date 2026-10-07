@@ -131,11 +131,18 @@ class Database {
   virtual std::optional<Rig> ReadRigWithSensor(sensor_t sensor_id) const = 0;
   virtual std::vector<Rig> ReadAllRigs() const = 0;
 
+  // Read camera calibration for `camera_id` and `source`. When `source` is
+  // `CameraSource::BEST` (the default), automatically selects and returns the
+  // highest-priority calibration available for the camera according to the
+  // `CameraSource` ordering.
   virtual Camera ReadCamera(camera_t camera_id,
                             CameraSource source = CameraSource::BEST) const = 0;
   virtual Camera ReadCameraExcludingSources(
       camera_t camera_id,
       const FlatHashSet<CameraSource>& excluded_sources) const;
+  // Read all cameras for `source`. When `source` is `CameraSource::BEST` (the
+  // default), returns one camera per `camera_id` using its highest-priority
+  // calibration source.
   virtual std::vector<Camera> ReadAllCameras(
       CameraSource source = CameraSource::BEST) const = 0;
   virtual NodeHashMap<camera_t, Camera> ReadAllCamerasExcludingSources(
@@ -186,8 +193,11 @@ class Database {
   // is false a new identifier is automatically generated.
   virtual rig_t WriteRig(const Rig& rig, bool use_rig_id = false) = 0;
 
-  // Add new camera and return its database identifier. If `use_camera_id`
-  // is false a new identifier is automatically generated.
+  // Add a new camera with its initial calibration source and return its
+  // database identifier. If `use_camera_id` is false, a new identifier is
+  // automatically generated; if true, `camera.camera_id` must not already exist
+  // in the database. `camera.source` cannot be `CameraSource::BEST`. To add or
+  // update calibrations for an existing `camera_id`, use `UpdateCamera`.
   virtual camera_t WriteCamera(const Camera& camera,
                                bool use_camera_id = false) = 0;
 
@@ -228,8 +238,11 @@ class Database {
   // making sure that the entry already exists.
   virtual void UpdateRig(const Rig& rig) = 0;
 
-  // Update an existing camera in the database. The user is responsible for
-  // making sure that the entry already exists.
+  // Insert or overwrite a calibration source for an existing camera in the
+  // database. Throws if `camera.camera_id` does not exist or if `camera.source`
+  // is `CameraSource::BEST`. If `camera.source` is `CameraSource::UNKNOWN`,
+  // updates the camera's currently active (`CameraSource::BEST`) calibration
+  // source in place.
   virtual void UpdateCamera(const Camera& camera) = 0;
 
   // Update an existing frame in the database. The user is responsible for
