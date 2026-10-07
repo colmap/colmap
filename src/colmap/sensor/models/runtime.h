@@ -83,6 +83,16 @@ inline void CameraModelRescale(CameraModelId model_id,
                                double scale_y,
                                std::vector<double>& params);
 
+// Compose the calibration matrix from the focal length and principal point
+// parameters (and the skew, for models that have one), excluding distortion
+// parameters. Only defined for perspective camera models; throws for
+// spherical models, which have no focal length.
+//
+// @param model_id     Unique identifier of camera model.
+// @param params       Array of camera parameters.
+inline Eigen::Matrix3d CameraModelCalibrationMatrix(
+    CameraModelId model_id, const std::vector<double>& params);
+
 // Check whether parameters are valid, i.e. the parameter vector has
 // the correct dimensions that match the specified camera model.
 //
@@ -493,6 +503,22 @@ void CameraModelRescale(const CameraModelId model_id,
     CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
+  }
+}
+
+Eigen::Matrix3d CameraModelCalibrationMatrix(
+    const CameraModelId model_id, const std::vector<double>& params) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel) \
+  case CameraModel::model_id:          \
+    return CameraModel::CalibrationMatrix(params);
+
+    PERSPECTIVE_CAMERA_MODEL_CASES
+
+#undef CAMERA_MODEL_CASE
+    default:
+      throw std::domain_error(
+          "Calibration matrix only defined for perspective camera models");
   }
 }
 

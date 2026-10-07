@@ -62,7 +62,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
                                 kEUCM,                    // = 16
-                                kEquirectangular          // = 17
+                                kEquirectangular,         // = 17
+                                kSkewedPinhole            // = 18
 );
 
 // Builds a consecutive parameter index array {Offset, ..., Offset + N - 1}.
@@ -185,7 +186,8 @@ constexpr std::array<size_t, N> IotaArray() {
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FisheyeCameraModel)             \
-  CAMERA_MODEL_CASE(EUCMCameraModel)
+  CAMERA_MODEL_CASE(EUCMCameraModel)                \
+  CAMERA_MODEL_CASE(SkewedPinholeCameraModel)
 #endif
 
 #ifndef SPHERICAL_CAMERA_MODEL_CASES
@@ -362,6 +364,24 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     }
     (*params)[CameraModel::principal_point_idxs[0]] *= scale_x;
     (*params)[CameraModel::principal_point_idxs[1]] *= scale_y;
+  }
+
+  // Compose the calibration matrix from the focal length and principal point
+  // parameters, excluding distortion parameters. A single shared focal length
+  // is used for both axes. Models with a skew parameter override this to fill
+  // K(0, 1).
+  static inline Eigen::Matrix3d CalibrationMatrix(
+      const std::vector<double>& params) {
+    Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
+    K(0, 0) = params[CameraModel::focal_length_idxs[0]];
+    if constexpr (CameraModel::num_focal_params == 1) {
+      K(1, 1) = K(0, 0);
+    } else {
+      K(1, 1) = params[CameraModel::focal_length_idxs[1]];
+    }
+    K(0, 2) = params[CameraModel::principal_point_idxs[0]];
+    K(1, 2) = params[CameraModel::principal_point_idxs[1]];
+    return K;
   }
 
  protected:
