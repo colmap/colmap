@@ -58,7 +58,8 @@ TEST(DecomposeHomographyMatrix, Nominal) {
 
 TEST(DecomposeHomographyMatrix, NearPureRotation) {
   const Eigen::Matrix3d ref_rotation =
-      Eigen::AngleAxisd(2.0 * M_PI / 3.0, Eigen::Vector3d::UnitX()).matrix();
+      Eigen::AngleAxisd(2.0 * EIGEN_PI / 3.0, Eigen::Vector3d::UnitX())
+          .matrix();
   Eigen::Matrix3d stretch = Eigen::Matrix3d::Identity();
   stretch(0, 0) = 1.00049;
   stretch(2, 2) = 0.99951;
