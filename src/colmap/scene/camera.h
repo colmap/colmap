@@ -82,12 +82,15 @@ struct Camera {
                                   CameraModelId model_id,
                                   double focal_length,
                                   size_t width,
-                                  size_t height);
-  static Camera CreateFromModelName(camera_t camera_id,
-                                    const std::string& model_name,
-                                    double focal_length,
-                                    size_t width,
-                                    size_t height);
+                                  size_t height,
+                                  CameraSource source = CameraSource::UNKNOWN);
+  static Camera CreateFromModelName(
+      camera_t camera_id,
+      const std::string& model_name,
+      double focal_length,
+      size_t width,
+      size_t height,
+      CameraSource source = CameraSource::UNKNOWN);
 
   inline const std::string& ModelName() const;
 

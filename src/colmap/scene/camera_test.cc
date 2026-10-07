@@ -59,6 +59,14 @@ TEST(Camera, HasPriorFocalLength) {
   EXPECT_TRUE(camera.HasPriorFocalLength());
   camera.source = CameraSource::VIEW_GRAPH;
   EXPECT_TRUE(camera.HasPriorFocalLength());
+
+  const Camera camera_with_source = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1, CameraSource::EXIF);
+  EXPECT_EQ(camera_with_source.source, CameraSource::EXIF);
+  EXPECT_THROW(
+      Camera::CreateFromModelId(
+          1, SimplePinholeCameraModel::model_id, 1.0, 1, 1, CameraSource::BEST),
+      std::invalid_argument);
 }
 
 TEST(Camera, Print) {

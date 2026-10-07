@@ -239,10 +239,10 @@ ImageReader::Status ImageReader::Next(Rig* rig,
                                                  prev_camera_.model_id,
                                                  focal_length,
                                                  bitmap->Width(),
-                                                 bitmap->Height());
-        prev_camera_.source = maybe_focal_length.has_value()
-                                  ? CameraSource::EXIF
-                                  : CameraSource::GUESS;
+                                                 bitmap->Height(),
+                                                 maybe_focal_length.has_value()
+                                                     ? CameraSource::EXIF
+                                                     : CameraSource::GUESS);
       }
 
       prev_camera_.width = static_cast<size_t>(bitmap->Width());

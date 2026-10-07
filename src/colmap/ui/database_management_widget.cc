@@ -426,7 +426,8 @@ void CameraTab::SetModel() {
                                          camera_model.toUtf8().constData(),
                                          camera.MeanFocalLength(),
                                          camera.width,
-                                         camera.height);
+                                         camera.height,
+                                         camera.source);
     database_->UpdateCamera(camera);
   }
 

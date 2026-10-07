@@ -42,18 +42,25 @@ def test_camera_default_init() -> None:
 
 def test_camera_create_from_model_id() -> None:
     camera = pycolmap.Camera.create_from_model_id(
-        1, pycolmap.CameraModelId.PINHOLE, 500.0, 1024, 768
+        1,
+        pycolmap.CameraModelId.PINHOLE,
+        500.0,
+        1024,
+        768,
+        pycolmap.CameraSource.EXIF,
     )
     assert camera is not None
     assert camera.camera_id == 1
+    assert camera.source == pycolmap.CameraSource.EXIF
 
 
 def test_camera_create_from_model_name() -> None:
     camera = pycolmap.Camera.create_from_model_name(
-        2, "PINHOLE", 500.0, 1024, 768
+        2, "PINHOLE", 500.0, 1024, 768, pycolmap.CameraSource.USER
     )
     assert camera is not None
     assert camera.camera_id == 2
+    assert camera.source == pycolmap.CameraSource.USER
 
 
 def test_camera_camera_id_readwrite(simple_camera: pycolmap.Camera) -> None:

@@ -55,7 +55,8 @@ void BindCamera(py::module& m) {
                   "model"_a,
                   "focal_length"_a,
                   "width"_a,
-                  "height"_a)
+                  "height"_a,
+                  "source"_a = CameraSource::UNKNOWN)
       .def_static("create_from_model_name",
                   &Camera::CreateFromModelName,
                   "camera_id"_a,
@@ -63,6 +64,7 @@ void BindCamera(py::module& m) {
                   "focal_length"_a,
                   "width"_a,
                   "height"_a,
+                  "source"_a = CameraSource::UNKNOWN,
                   "Create camera from model name string.")
       .def_readwrite(
           "camera_id", &Camera::camera_id, "Unique identifier of the camera.")

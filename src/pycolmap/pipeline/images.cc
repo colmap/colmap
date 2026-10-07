@@ -90,9 +90,10 @@ Camera InferCameraFromImage(const std::filesystem::path& image_path,
                                               options.camera_model,
                                               focal_length,
                                               bitmap.Width(),
-                                              bitmap.Height());
-  camera.source =
-      maybe_focal_length.has_value() ? CameraSource::EXIF : CameraSource::GUESS;
+                                              bitmap.Height(),
+                                              maybe_focal_length.has_value()
+                                                  ? CameraSource::EXIF
+                                                  : CameraSource::GUESS);
   THROW_CHECK(camera.VerifyParams())
       << "Invalid camera params: " << camera.ParamsToString();
 
