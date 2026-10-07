@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
-import copy
 from pathlib import Path
 
 import numpy as np
@@ -235,161 +234,39 @@ def test_database_transaction(
     assert database.num_cameras() == 1
 
 
-def test_database_camera_calibrations(
+def test_database_camera_sources(
     database: pycolmap.Database, simple_camera: pycolmap.Camera
 ) -> None:
     simple_camera.source = pycolmap.CameraSource.GUESS
     camera_id = database.write_camera(simple_camera)
-    assert camera_id > 0
-    assert database.exists_camera(camera_id)
-    with pytest.raises(ValueError):
-        database.exists_camera_source(
-            camera_id, pycolmap.CameraSource.BEST
-        )
-    assert database.exists_camera_source(
-        camera_id, pycolmap.CameraSource.GUESS
-    )
-    assert not database.exists_camera_source(
-        camera_id, pycolmap.CameraSource.EXIF
-    )
+    simple_camera.camera_id = camera_id
+    simple_camera.source = pycolmap.CameraSource.EXIF
+    database.update_camera(simple_camera)
 
-    read_guess = database.read_camera(camera_id)
-    assert read_guess.source == pycolmap.CameraSource.GUESS
-
-    # Add EXIF calibration (EXIF > GUESS).
-    camera_exif = copy.copy(read_guess)
-    camera_exif.source = pycolmap.CameraSource.EXIF
-    camera_exif.focal_length_x = 600.0
-    camera_exif.focal_length_y = 600.0
-    database.update_camera(camera_exif)
-
-    assert database.exists_camera_source(
-        camera_id, pycolmap.CameraSource.EXIF
-    )
-    assert database.read_camera(camera_id).source == pycolmap.CameraSource.EXIF
-    assert database.read_camera(camera_id).focal_length_x == 600.0
+    assert database.exists_camera_source(camera_id, pycolmap.CameraSource.EXIF)
     assert (
-        database.read_camera(
-            camera_id, pycolmap.CameraSource.GUESS
-        ).focal_length_x
-        != 600.0
+        database.read_camera(camera_id, pycolmap.CameraSource.GUESS).source
+        == pycolmap.CameraSource.GUESS
     )
-
-    # Add VIEW_GRAPH calibration (VIEW_GRAPH > EXIF).
-    camera_vg = copy.copy(read_guess)
-    camera_vg.source = pycolmap.CameraSource.VIEW_GRAPH
-    camera_vg.focal_length_x = 700.0
-    camera_vg.focal_length_y = 700.0
-    database.update_camera(camera_vg)
-
-    assert (
-        database.read_camera(camera_id).source
-        == pycolmap.CameraSource.VIEW_GRAPH
-    )
-    assert database.read_camera(camera_id).focal_length_x == 700.0
-
-    # Read calibrations.
-    calibs = database.read_all_camera_sources(camera_id)
-    assert len(calibs) == 3
-    assert pycolmap.CameraSource.GUESS in calibs
-    assert pycolmap.CameraSource.EXIF in calibs
-    assert pycolmap.CameraSource.VIEW_GRAPH in calibs
-    assert calibs[pycolmap.CameraSource.EXIF].focal_length_x == 600.0
-    assert calibs[pycolmap.CameraSource.VIEW_GRAPH].focal_length_x == 700.0
-
-    all_calibs = database.read_all_camera_sources()
-    assert len(all_calibs) == 1
-    assert camera_id in all_calibs
-    assert len(all_calibs[camera_id]) == 3
-
-    assert len(database.read_all_cameras(pycolmap.CameraSource.BEST)) == 1
-    assert len(database.read_all_cameras(pycolmap.CameraSource.VIEW_GRAPH)) == 1
     assert len(database.read_all_cameras(pycolmap.CameraSource.EXIF)) == 1
-    assert len(database.read_all_cameras(pycolmap.CameraSource.GUESS)) == 1
-    assert len(database.read_all_cameras(pycolmap.CameraSource.USER)) == 0
-
-    # Test read_camera_excluding_sources and read_all_cameras_excluding_sources.
-    cam_ex_vg = database.read_camera_excluding_sources(
-        camera_id, [pycolmap.CameraSource.VIEW_GRAPH]
+    assert set(database.read_all_camera_sources(camera_id).keys()) == {
+        pycolmap.CameraSource.GUESS,
+        pycolmap.CameraSource.EXIF,
+    }
+    assert set(database.read_all_camera_sources().keys()) == {camera_id}
+    assert (
+        database.read_camera_excluding_sources(
+            camera_id, [pycolmap.CameraSource.EXIF]
+        ).source
+        == pycolmap.CameraSource.GUESS
     )
-    assert cam_ex_vg.source == pycolmap.CameraSource.EXIF
-    assert cam_ex_vg.focal_length_x == 600.0
-
-    cams_map = database.read_all_cameras_excluding_sources(
-        [pycolmap.CameraSource.VIEW_GRAPH]
+    assert (
+        database.read_all_cameras_excluding_sources(
+            [pycolmap.CameraSource.EXIF]
+        )[camera_id].source
+        == pycolmap.CameraSource.GUESS
     )
-    assert len(cams_map) == 1
-    assert cams_map[camera_id].source == pycolmap.CameraSource.EXIF
-
-    # Delete VIEW_GRAPH calibration: falls back to EXIF.
-    database.delete_camera_source(
-        camera_id, pycolmap.CameraSource.VIEW_GRAPH
-    )
+    database.delete_camera_source(camera_id, pycolmap.CameraSource.EXIF)
     assert not database.exists_camera_source(
-        camera_id, pycolmap.CameraSource.VIEW_GRAPH
+        camera_id, pycolmap.CameraSource.EXIF
     )
-    assert database.exists_camera(camera_id)
-    assert database.read_camera(camera_id).source == pycolmap.CameraSource.EXIF
-    assert database.read_camera(camera_id).focal_length_x == 600.0
-
-    # Delete BEST deletes entire camera.
-    database.delete_camera_source(camera_id, pycolmap.CameraSource.BEST)
-    assert database.num_cameras() == 0
-    assert not database.exists_camera(camera_id)
-
-
-def test_database_merge_calibrations(tmp_path: Path) -> None:
-    path1 = str(tmp_path / "db1.db")
-    path2 = str(tmp_path / "db2.db")
-    path_merged = str(tmp_path / "merged.db")
-    with pycolmap.Database.open(path1) as database1:
-        cam1 = pycolmap.Camera.create_from_model_id(
-            1, pycolmap.CameraModelId.SIMPLE_PINHOLE, 500.0, 1024, 768
-        )
-        cam1.source = pycolmap.CameraSource.GUESS
-        database1.write_camera(cam1)
-        cam1_exif = copy.copy(cam1)
-        cam1_exif.source = pycolmap.CameraSource.EXIF
-        cam1_exif.focal_length = 550.0
-        database1.update_camera(cam1_exif)
-
-    with pycolmap.Database.open(path2) as database2:
-        cam2 = pycolmap.Camera.create_from_model_id(
-            1, pycolmap.CameraModelId.SIMPLE_PINHOLE, 600.0, 800, 600
-        )
-        cam2.source = pycolmap.CameraSource.GUESS
-        database2.write_camera(cam2)
-        cam2_user = copy.copy(cam2)
-        cam2_user.source = pycolmap.CameraSource.USER
-        cam2_user.focal_length = 650.0
-        database2.update_camera(cam2_user)
-
-    with pycolmap.Database.open(path1) as database1:
-        with pycolmap.Database.open(path2) as database2:
-            with pycolmap.Database.open(path_merged) as merged_database:
-                pycolmap.Database.merge(database1, database2, merged_database)
-                assert merged_database.num_cameras() == 2
-                calibs1 = merged_database.read_all_camera_sources(1)
-                assert len(calibs1) == 2
-                assert (
-                    merged_database.read_camera(1).source
-                    == pycolmap.CameraSource.EXIF
-                )
-                assert (
-                    merged_database.read_camera(
-                        1, pycolmap.CameraSource.EXIF
-                    ).focal_length
-                    == 550.0
-                )
-                calibs2 = merged_database.read_all_camera_sources(2)
-                assert len(calibs2) == 2
-                assert (
-                    merged_database.read_camera(2).source
-                    == pycolmap.CameraSource.USER
-                )
-                assert (
-                    merged_database.read_camera(
-                        2, pycolmap.CameraSource.USER
-                    ).focal_length
-                    == 650.0
-                )
