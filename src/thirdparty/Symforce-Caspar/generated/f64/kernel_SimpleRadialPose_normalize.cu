@@ -1,32 +1,30 @@
-#include "kernel_SimpleRadialPose_normalize.h"
-#include "memops.cuh"
 #include <cooperative_groups.h>
 #include <cooperative_groups/details/partitioning.h>
 #include <cooperative_groups/memcpy_async.h>
 #include <cooperative_groups/reduce.h>
 #include <cuda_runtime.h>
 
+#include "kernel_SimpleRadialPose_normalize.h"
+#include "memops.cuh"
+
 namespace cg = cooperative_groups;
 
 namespace caspar {
 
-__global__ void __launch_bounds__(1024, 1)
-    SimpleRadialPoseNormalizeKernel(double* precond_diag,
-                                    unsigned int precond_diag_num_alloc,
-                                    double* precond_tril,
-                                    unsigned int precond_tril_num_alloc,
-                                    double* njtr,
-                                    unsigned int njtr_num_alloc,
-                                    const double* const diag,
-                                    double* out_normalized,
-                                    unsigned int out_normalized_num_alloc,
-                                    size_t problem_size) {
+__global__ void __launch_bounds__(1024, 1) SimpleRadialPoseNormalizeKernel(
+    double *precond_diag, unsigned int precond_diag_num_alloc,
+    double *precond_tril, unsigned int precond_tril_num_alloc, double *njtr,
+    unsigned int njtr_num_alloc, const double *const diag,
+    double *out_normalized, unsigned int out_normalized_num_alloc,
+    size_t problem_size) {
   const int global_thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
   __shared__ uint8_t inout_shared[8192];
 
-  double r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
-      r16, r17, r18, r19, r20, r21, r22, r23, r24, r25, r26, r27, r28, r29, r30,
-      r31, r32, r33, r34, r35, r36;
+  double r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0, r5 = 0, r6 = 0, r7 = 0, r8 = 0,
+         r9 = 0, r10 = 0, r11 = 0, r12 = 0, r13 = 0, r14 = 0, r15 = 0, r16 = 0,
+         r17 = 0, r18 = 0, r19 = 0, r20 = 0, r21 = 0, r22 = 0, r23 = 0, r24 = 0,
+         r25 = 0, r26 = 0, r27 = 0, r28 = 0, r29 = 0, r30 = 0, r31 = 0, r32 = 0,
+         r33 = 0, r34 = 0, r35 = 0, r36 = 0;
 
   if (global_thread_idx < problem_size) {
     r0 = -1.00000000000000000e+00;
@@ -39,9 +37,9 @@ __global__ void __launch_bounds__(1024, 1)
     ReadIdx2<1024, double, double, double2>(
         precond_diag, 0 * precond_diag_num_alloc, global_thread_idx, r7, r8);
   };
-  LoadUnique<1, double, double>(diag, 0, (double*)inout_shared);
+  LoadUnique<1, double, double>(diag, 0, (double *)inout_shared);
   if (global_thread_idx < problem_size) {
-    ReadShared1<double>((double*)inout_shared, 0, r9);
+    ReadShared1<double>((double *)inout_shared, 0, r9);
   };
   __syncthreads();
   if (global_thread_idx < problem_size) {
@@ -126,16 +124,16 @@ __global__ void __launch_bounds__(1024, 1)
     r14 = fma(r0, r1, r14);
     r14 = 1.0 / r14;
     r1 = r17 * r14;
-    ReadIdx2<1024, double, double, double2>(
-        njtr, 4 * njtr_num_alloc, global_thread_idx, r20, r19);
+    ReadIdx2<1024, double, double, double2>(njtr, 4 * njtr_num_alloc,
+                                            global_thread_idx, r20, r19);
     r28 = r0 * r2;
-    ReadIdx2<1024, double, double, double2>(
-        njtr, 0 * njtr_num_alloc, global_thread_idx, r30, r31);
+    ReadIdx2<1024, double, double, double2>(njtr, 0 * njtr_num_alloc,
+                                            global_thread_idx, r30, r31);
     r31 = fma(r30, r12, r31);
     r28 = r28 * r31;
     r28 = fma(r8, r28, r20);
-    ReadIdx2<1024, double, double, double2>(
-        njtr, 2 * njtr_num_alloc, global_thread_idx, r20, r32);
+    ReadIdx2<1024, double, double, double2>(njtr, 2 * njtr_num_alloc,
+                                            global_thread_idx, r20, r32);
     r33 = r0 * r31;
     r33 = fma(r22, r33, r32);
     r32 = r0 * r16;
@@ -212,47 +210,34 @@ __global__ void __launch_bounds__(1024, 1)
     r12 = fma(r30, r7, r12);
     WriteIdx2<1024, double, double, double2>(out_normalized,
                                              0 * out_normalized_num_alloc,
-                                             global_thread_idx,
-                                             r12,
-                                             r1);
+                                             global_thread_idx, r12, r1);
     WriteIdx2<1024, double, double, double2>(out_normalized,
                                              2 * out_normalized_num_alloc,
-                                             global_thread_idx,
-                                             r22,
-                                             r10);
+                                             global_thread_idx, r22, r10);
     WriteIdx2<1024, double, double, double2>(out_normalized,
                                              4 * out_normalized_num_alloc,
-                                             global_thread_idx,
-                                             r14,
-                                             r36);
+                                             global_thread_idx, r14, r36);
   };
 }
 
-void SimpleRadialPoseNormalize(double* precond_diag,
+void SimpleRadialPoseNormalize(double *precond_diag,
                                unsigned int precond_diag_num_alloc,
-                               double* precond_tril,
+                               double *precond_tril,
                                unsigned int precond_tril_num_alloc,
-                               double* njtr,
-                               unsigned int njtr_num_alloc,
-                               const double* const diag,
-                               double* out_normalized,
+                               double *njtr, unsigned int njtr_num_alloc,
+                               const double *const diag, double *out_normalized,
                                unsigned int out_normalized_num_alloc,
                                size_t problem_size) {
+
   if (problem_size == 0) {
     return;
   }
 
   const int n_blocks = (problem_size + 1024 - 1) / 1024;
-  SimpleRadialPoseNormalizeKernel<<<n_blocks, 1024>>>(precond_diag,
-                                                      precond_diag_num_alloc,
-                                                      precond_tril,
-                                                      precond_tril_num_alloc,
-                                                      njtr,
-                                                      njtr_num_alloc,
-                                                      diag,
-                                                      out_normalized,
-                                                      out_normalized_num_alloc,
-                                                      problem_size);
+  SimpleRadialPoseNormalizeKernel<<<n_blocks, 1024>>>(
+      precond_diag, precond_diag_num_alloc, precond_tril,
+      precond_tril_num_alloc, njtr, njtr_num_alloc, diag, out_normalized,
+      out_normalized_num_alloc, problem_size);
 }
 
-}  // namespace caspar
+} // namespace caspar
