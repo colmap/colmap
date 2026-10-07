@@ -34,7 +34,7 @@ std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
 Camera Database::ReadCameraExcludingSources(
     const camera_t camera_id,
     const FlatHashSet<CameraSource>& excluded_sources) const {
-  const auto calibrations = ReadAllCameraCalibrations(camera_id);
+  const auto calibrations = ReadAllCameraSources(camera_id);
   if (calibrations.empty()) {
     return Camera();
   }
@@ -51,7 +51,7 @@ Camera Database::ReadCameraExcludingSources(
 NodeHashMap<camera_t, Camera> Database::ReadAllCamerasExcludingSources(
     const FlatHashSet<CameraSource>& excluded_sources) const {
   NodeHashMap<camera_t, Camera> cameras;
-  const auto all_calibrations = ReadAllCameraCalibrations();
+  const auto all_calibrations = ReadAllCameraSources();
   cameras.reserve(all_calibrations.size());
   for (const auto& [camera_id, calibrations] : all_calibrations) {
     if (calibrations.empty()) {
@@ -80,7 +80,7 @@ void Database::Merge(const Database& database1,
                           NodeHashMap<camera_t, camera_t>* new_camera_ids) {
     for (const auto& best_camera : src_database.ReadAllCameras()) {
       const auto calibrations =
-          src_database.ReadAllCameraCalibrations(best_camera.camera_id);
+          src_database.ReadAllCameraSources(best_camera.camera_id);
       camera_t new_camera_id = kInvalidCameraId;
       if (calibrations.empty()) {
         new_camera_id = dst_database->WriteCamera(best_camera);

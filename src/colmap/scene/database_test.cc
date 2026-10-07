@@ -180,17 +180,14 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
 
   EXPECT_EQ(database->NumCameras(), 1);
   EXPECT_TRUE(database->ExistsCamera(camera_id));
-  EXPECT_TRUE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::GUESS));
+  EXPECT_TRUE(database->ExistsCameraSource(camera_id, CameraSource::GUESS));
+  EXPECT_FALSE(database->ExistsCameraSource(camera_id, CameraSource::EXIF));
   EXPECT_FALSE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::EXIF));
+      database->ExistsCameraSource(camera_id, CameraSource::SINGLE_VIEW));
+  EXPECT_FALSE(database->ExistsCameraSource(camera_id, CameraSource::USER));
   EXPECT_FALSE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::SINGLE_VIEW));
-  EXPECT_FALSE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::USER));
-  EXPECT_FALSE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::VIEW_GRAPH));
-  EXPECT_THROW(database->ExistsCameraCalibration(camera_id, CameraSource::BEST),
+      database->ExistsCameraSource(camera_id, CameraSource::VIEW_GRAPH));
+  EXPECT_THROW(database->ExistsCameraSource(camera_id, CameraSource::BEST),
                std::invalid_argument);
 
   EXPECT_EQ(database->ReadCamera(camera_id), camera_guess);
@@ -204,9 +201,8 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   database->UpdateCamera(camera_exif);
 
   EXPECT_TRUE(database->ExistsCamera(camera_id));
-  EXPECT_TRUE(database->ExistsCameraCalibration(camera_id, CameraSource::EXIF));
-  EXPECT_TRUE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::GUESS));
+  EXPECT_TRUE(database->ExistsCameraSource(camera_id, CameraSource::EXIF));
+  EXPECT_TRUE(database->ExistsCameraSource(camera_id, CameraSource::GUESS));
   EXPECT_EQ(database->ReadCamera(camera_id), camera_exif);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_exif);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::EXIF), camera_exif);
@@ -245,8 +241,8 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_vg);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::USER), camera_user);
 
-  // 6. Test ReadAllCameraCalibrations(camera_id).
-  const auto calibrations = database->ReadAllCameraCalibrations(camera_id);
+  // 6. Test ReadAllCameraSources(camera_id).
+  const auto calibrations = database->ReadAllCameraSources(camera_id);
   EXPECT_EQ(calibrations.size(), 5);
   EXPECT_EQ(calibrations.at(CameraSource::GUESS), camera_guess);
   EXPECT_EQ(calibrations.at(CameraSource::EXIF), camera_exif);
@@ -254,8 +250,8 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   EXPECT_EQ(calibrations.at(CameraSource::USER), camera_user);
   EXPECT_EQ(calibrations.at(CameraSource::VIEW_GRAPH), camera_vg);
 
-  // 7. Test ReadAllCameraCalibrations() (all cameras).
-  const auto all_calibrations = database->ReadAllCameraCalibrations();
+  // 7. Test ReadAllCameraSources() (all cameras).
+  const auto all_calibrations = database->ReadAllCameraSources();
   EXPECT_EQ(all_calibrations.size(), 1);
   EXPECT_EQ(all_calibrations.at(camera_id).size(), 5);
 
@@ -311,28 +307,27 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   EXPECT_EQ(cams_ex_sv_vg.size(), 1);
   EXPECT_EQ(cams_ex_sv_vg.at(camera_id), camera_user);
 
-  // 10. Test DeleteCameraCalibration for a specific source (VIEW_GRAPH).
+  // 10. Test DeleteCameraSource for a specific source (VIEW_GRAPH).
   // Deleting VIEW_GRAPH should fallback to USER as BEST.
-  database->DeleteCameraCalibration(camera_id, CameraSource::VIEW_GRAPH);
+  database->DeleteCameraSource(camera_id, CameraSource::VIEW_GRAPH);
   EXPECT_FALSE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::VIEW_GRAPH));
+      database->ExistsCameraSource(camera_id, CameraSource::VIEW_GRAPH));
   EXPECT_EQ(database->NumCameras(), 1);
   EXPECT_EQ(database->ReadCamera(camera_id), camera_user);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_user);
-  EXPECT_EQ(database->ReadAllCameraCalibrations(camera_id).size(), 4);
+  EXPECT_EQ(database->ReadAllCameraSources(camera_id).size(), 4);
 
   // 10. Delete another source (USER). Fallback to SINGLE_VIEW.
-  database->DeleteCameraCalibration(camera_id, CameraSource::USER);
-  EXPECT_FALSE(
-      database->ExistsCameraCalibration(camera_id, CameraSource::USER));
+  database->DeleteCameraSource(camera_id, CameraSource::USER);
+  EXPECT_FALSE(database->ExistsCameraSource(camera_id, CameraSource::USER));
   EXPECT_EQ(database->ReadCamera(camera_id), camera_sv);
 
   // 11. Delete with BEST deletes the entire camera and all remaining
   // calibrations.
-  database->DeleteCameraCalibration(camera_id, CameraSource::BEST);
+  database->DeleteCameraSource(camera_id, CameraSource::BEST);
   EXPECT_EQ(database->NumCameras(), 0);
   EXPECT_FALSE(database->ExistsCamera(camera_id));
-  EXPECT_TRUE(database->ReadAllCameraCalibrations(camera_id).empty());
+  EXPECT_TRUE(database->ReadAllCameraSources(camera_id).empty());
 }
 
 TEST_P(ParameterizedDatabaseTests, CameraMergeCalibrations) {
@@ -373,7 +368,7 @@ TEST_P(ParameterizedDatabaseTests, CameraMergeCalibrations) {
             100.0);
   EXPECT_EQ(merged_database->ReadCamera(1, CameraSource::EXIF).FocalLength(),
             120.0);
-  const auto calibs1 = merged_database->ReadAllCameraCalibrations(1);
+  const auto calibs1 = merged_database->ReadAllCameraSources(1);
   EXPECT_EQ(calibs1.size(), 2);
 
   // Check camera 2 in merged db.
@@ -383,7 +378,7 @@ TEST_P(ParameterizedDatabaseTests, CameraMergeCalibrations) {
             200.0);
   EXPECT_EQ(merged_database->ReadCamera(2, CameraSource::USER).FocalLength(),
             250.0);
-  const auto calibs2 = merged_database->ReadAllCameraCalibrations(2);
+  const auto calibs2 = merged_database->ReadAllCameraSources(2);
   EXPECT_EQ(calibs2.size(), 2);
 }
 
@@ -413,7 +408,7 @@ TEST_P(ParameterizedDatabaseTests, CameraAutoIncrement) {
   database->UpdateCamera(camera1_user);
 
   EXPECT_EQ(database->NumCameras(), 1);
-  EXPECT_EQ(database->ReadAllCameraCalibrations(id1).size(), 3);
+  EXPECT_EQ(database->ReadAllCameraSources(id1).size(), 3);
 
   // 3. Write second camera with use_camera_id=false. ID should be 2.
   Camera camera2 = Camera::CreateFromModelId(
@@ -430,7 +425,7 @@ TEST_P(ParameterizedDatabaseTests, CameraAutoIncrement) {
   EXPECT_EQ(database->NumCameras(), 3);
 
   // 5. Delete camera 2 completely.
-  database->DeleteCameraCalibration(id2, CameraSource::BEST);
+  database->DeleteCameraSource(id2, CameraSource::BEST);
   EXPECT_EQ(database->NumCameras(), 2);
   EXPECT_FALSE(database->ExistsCamera(id2));
 
@@ -1335,7 +1330,7 @@ TEST(DatabaseMigrationTest, LegacyCameraTableMigration) {
   EXPECT_EQ(database->ReadCamera(1).source, CameraSource::VIEW_GRAPH);
   EXPECT_EQ(database->ReadCamera(1, CameraSource::EXIF).source,
             CameraSource::EXIF);
-  EXPECT_EQ(database->ReadAllCameraCalibrations(1).size(), 2);
+  EXPECT_EQ(database->ReadAllCameraSources(1).size(), 2);
 
   // 4. Verify auto-increment for new camera works (next ID is 3).
   Camera cam3 = Camera::CreateFromModelId(
@@ -1506,7 +1501,7 @@ TEST(DatabaseMigrationTest, IntermediateCameraCalibrationsTableMigration) {
   auto database = Database::Open(database_path);
 
   EXPECT_EQ(database->NumCameras(), 1);
-  EXPECT_EQ(database->ReadAllCameraCalibrations(1).size(), 3);
+  EXPECT_EQ(database->ReadAllCameraSources(1).size(), 3);
   EXPECT_EQ(database->ReadCamera(1).source, CameraSource::VIEW_GRAPH);
   EXPECT_EQ(database->ReadCamera(1, CameraSource::USER).source,
             CameraSource::USER);

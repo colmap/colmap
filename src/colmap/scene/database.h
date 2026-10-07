@@ -63,8 +63,8 @@ class Database {
   // `image_id1` and `image_id2` does not matter.
   virtual bool ExistsRig(rig_t rig_id) const = 0;
   virtual bool ExistsCamera(camera_t camera_id) const = 0;
-  virtual bool ExistsCameraCalibration(camera_t camera_id,
-                                       CameraSource source) const = 0;
+  virtual bool ExistsCameraSource(camera_t camera_id,
+                                  CameraSource source) const = 0;
   virtual bool ExistsFrame(frame_t frame_id) const = 0;
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;
@@ -140,10 +140,10 @@ class Database {
       CameraSource source = CameraSource::BEST) const = 0;
   virtual NodeHashMap<camera_t, Camera> ReadAllCamerasExcludingSources(
       const FlatHashSet<CameraSource>& excluded_sources) const;
-  virtual std::map<CameraSource, Camera> ReadAllCameraCalibrations(
+  virtual std::map<CameraSource, Camera> ReadAllCameraSources(
       camera_t camera_id) const = 0;
   virtual NodeHashMap<camera_t, std::map<CameraSource, Camera>>
-  ReadAllCameraCalibrations() const = 0;
+  ReadAllCameraSources() const = 0;
 
   virtual Frame ReadFrame(frame_t frame_id) const = 0;
   virtual std::vector<Frame> ReadAllFrames() const = 0;
@@ -268,8 +268,7 @@ class Database {
 
   // Delete camera calibration for a specific source (or all calibrations if
   // BEST).
-  virtual void DeleteCameraCalibration(camera_t camera_id,
-                                       CameraSource source) = 0;
+  virtual void DeleteCameraSource(camera_t camera_id, CameraSource source) = 0;
 
   // Clear all database tables
   virtual void ClearAllTables() = 0;

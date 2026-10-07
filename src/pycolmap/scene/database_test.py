@@ -243,13 +243,13 @@ def test_database_camera_calibrations(
     assert camera_id > 0
     assert database.exists_camera(camera_id)
     with pytest.raises(ValueError):
-        database.exists_camera_calibration(
+        database.exists_camera_source(
             camera_id, pycolmap.CameraSource.BEST
         )
-    assert database.exists_camera_calibration(
+    assert database.exists_camera_source(
         camera_id, pycolmap.CameraSource.GUESS
     )
-    assert not database.exists_camera_calibration(
+    assert not database.exists_camera_source(
         camera_id, pycolmap.CameraSource.EXIF
     )
 
@@ -263,7 +263,7 @@ def test_database_camera_calibrations(
     camera_exif.focal_length_y = 600.0
     database.update_camera(camera_exif)
 
-    assert database.exists_camera_calibration(
+    assert database.exists_camera_source(
         camera_id, pycolmap.CameraSource.EXIF
     )
     assert database.read_camera(camera_id).source == pycolmap.CameraSource.EXIF
@@ -289,7 +289,7 @@ def test_database_camera_calibrations(
     assert database.read_camera(camera_id).focal_length_x == 700.0
 
     # Read calibrations.
-    calibs = database.read_all_camera_calibrations(camera_id)
+    calibs = database.read_all_camera_sources(camera_id)
     assert len(calibs) == 3
     assert pycolmap.CameraSource.GUESS in calibs
     assert pycolmap.CameraSource.EXIF in calibs
@@ -297,7 +297,7 @@ def test_database_camera_calibrations(
     assert calibs[pycolmap.CameraSource.EXIF].focal_length_x == 600.0
     assert calibs[pycolmap.CameraSource.VIEW_GRAPH].focal_length_x == 700.0
 
-    all_calibs = database.read_all_camera_calibrations()
+    all_calibs = database.read_all_camera_sources()
     assert len(all_calibs) == 1
     assert camera_id in all_calibs
     assert len(all_calibs[camera_id]) == 3
@@ -322,10 +322,10 @@ def test_database_camera_calibrations(
     assert cams_map[camera_id].source == pycolmap.CameraSource.EXIF
 
     # Delete VIEW_GRAPH calibration: falls back to EXIF.
-    database.delete_camera_calibration(
+    database.delete_camera_source(
         camera_id, pycolmap.CameraSource.VIEW_GRAPH
     )
-    assert not database.exists_camera_calibration(
+    assert not database.exists_camera_source(
         camera_id, pycolmap.CameraSource.VIEW_GRAPH
     )
     assert database.exists_camera(camera_id)
@@ -333,7 +333,7 @@ def test_database_camera_calibrations(
     assert database.read_camera(camera_id).focal_length_x == 600.0
 
     # Delete BEST deletes entire camera.
-    database.delete_camera_calibration(camera_id, pycolmap.CameraSource.BEST)
+    database.delete_camera_source(camera_id, pycolmap.CameraSource.BEST)
     assert database.num_cameras() == 0
     assert not database.exists_camera(camera_id)
 
@@ -369,7 +369,7 @@ def test_database_merge_calibrations(tmp_path: Path) -> None:
             with pycolmap.Database.open(path_merged) as merged_database:
                 pycolmap.Database.merge(database1, database2, merged_database)
                 assert merged_database.num_cameras() == 2
-                calibs1 = merged_database.read_all_camera_calibrations(1)
+                calibs1 = merged_database.read_all_camera_sources(1)
                 assert len(calibs1) == 2
                 assert (
                     merged_database.read_camera(1).source
@@ -381,7 +381,7 @@ def test_database_merge_calibrations(tmp_path: Path) -> None:
                     ).focal_length
                     == 550.0
                 )
-                calibs2 = merged_database.read_all_camera_calibrations(2)
+                calibs2 = merged_database.read_all_camera_sources(2)
                 assert len(calibs2) == 2
                 assert (
                     merged_database.read_camera(2).source

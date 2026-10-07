@@ -55,10 +55,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     PYBIND11_OVERRIDE_PURE(bool, Database, ExistsCamera, camera_id);
   }
 
-  bool ExistsCameraCalibration(camera_t camera_id,
-                               CameraSource source) const override {
+  bool ExistsCameraSource(camera_t camera_id,
+                          CameraSource source) const override {
     PYBIND11_OVERRIDE_PURE(
-        bool, Database, ExistsCameraCalibration, camera_id, source);
+        bool, Database, ExistsCameraSource, camera_id, source);
   }
 
   bool ExistsFrame(frame_t frame_id) const override {
@@ -184,18 +184,18 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
         std::vector<Camera>, Database, ReadAllCameras, source);
   }
 
-  std::map<CameraSource, Camera> ReadAllCameraCalibrations(
+  std::map<CameraSource, Camera> ReadAllCameraSources(
       camera_t camera_id) const override {
     using ReturnType = std::map<CameraSource, Camera>;
     PYBIND11_OVERRIDE_PURE(
-        ReturnType, Database, ReadAllCameraCalibrations, camera_id);
+        ReturnType, Database, ReadAllCameraSources, camera_id);
   }
 
-  NodeHashMap<camera_t, std::map<CameraSource, Camera>>
-  ReadAllCameraCalibrations() const override {
+  NodeHashMap<camera_t, std::map<CameraSource, Camera>> ReadAllCameraSources()
+      const override {
     py::gil_scoped_acquire gil;
     py::function func = py::get_override(static_cast<const Database*>(this),
-                                         "read_all_camera_calibrations");
+                                         "read_all_camera_sources");
     if (func) {
       auto py_result =
           func().cast<std::map<camera_t, std::map<CameraSource, Camera>>>();
@@ -203,7 +203,7 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
     }
     pybind11::pybind11_fail(
         "Tried to call pure virtual function "
-        "\"Database::ReadAllCameraCalibrations\"");
+        "\"Database::ReadAllCameraSources\"");
   }
 
   Frame ReadFrame(frame_t frame_id) const override {
@@ -423,10 +423,10 @@ class PyDatabaseImpl : public Database, py::trampoline_self_life_support {
         void, Database, DeleteInlierMatches, image_id1, image_id2);
   }
 
-  void DeleteCameraCalibration(
-      camera_t camera_id, CameraSource source = CameraSource::BEST) override {
+  void DeleteCameraSource(camera_t camera_id,
+                          CameraSource source = CameraSource::BEST) override {
     PYBIND11_OVERRIDE_PURE(
-        void, Database, DeleteCameraCalibration, camera_id, source);
+        void, Database, DeleteCameraSource, camera_id, source);
   }
 
   void ClearAllTables() override {
@@ -506,8 +506,8 @@ void BindDatabase(py::module& m) {
            &Database::ExistsCamera,
            "camera_id"_a,
            "Check if camera exists in database.")
-      .def("exists_camera_calibration",
-           &Database::ExistsCameraCalibration,
+      .def("exists_camera_source",
+           &Database::ExistsCameraSource,
            "camera_id"_a,
            "source"_a,
            "Check if a specific camera calibration source exists in database.")
@@ -555,16 +555,16 @@ void BindDatabase(py::module& m) {
       .def("read_all_cameras",
            &Database::ReadAllCameras,
            "source"_a = CameraSource::BEST)
-      .def("read_all_camera_calibrations",
-           py::overload_cast<camera_t>(&Database::ReadAllCameraCalibrations,
+      .def("read_all_camera_sources",
+           py::overload_cast<camera_t>(&Database::ReadAllCameraSources,
                                        py::const_),
            "camera_id"_a,
            "Read all camera calibrations for a camera as a map of CameraSource "
            "to Camera.")
       .def(
-          "read_all_camera_calibrations",
+          "read_all_camera_sources",
           [](const Database& self) {
-            const auto calibrations = self.ReadAllCameraCalibrations();
+            const auto calibrations = self.ReadAllCameraSources();
             return std::map<camera_t, std::map<CameraSource, Camera>>(
                 calibrations.begin(), calibrations.end());
           },
@@ -745,8 +745,8 @@ void BindDatabase(py::module& m) {
            &Database::DeleteInlierMatches,
            "image_id1"_a,
            "image_id2"_a)
-      .def("delete_camera_calibration",
-           &Database::DeleteCameraCalibration,
+      .def("delete_camera_source",
+           &Database::DeleteCameraSource,
            "camera_id"_a,
            "source"_a = CameraSource::BEST)
       .def("clear_all_tables", &Database::ClearAllTables)

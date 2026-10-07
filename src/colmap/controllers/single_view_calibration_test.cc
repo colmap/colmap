@@ -221,8 +221,7 @@ TEST(SingleViewCalibrationControllerTest, FakeCalibratorUpdatesDatabase) {
   EXPECT_EQ(camera.source, CameraSource::SINGLE_VIEW);
 
   auto database = Database::Open(scene.database_path);
-  const auto calibrations =
-      database->ReadAllCameraCalibrations(camera.camera_id);
+  const auto calibrations = database->ReadAllCameraSources(camera.camera_id);
   EXPECT_EQ(calibrations.size(), 2);
   EXPECT_EQ(calibrations.at(CameraSource::SINGLE_VIEW).params, camera.params);
 }
@@ -256,7 +255,7 @@ TEST(SingleViewCalibrationControllerTest, CalibrationsWithViewGraph) {
   ExpectParamsNear(active_camera.params, {700, 32, 24, 0.20});
 
   // SINGLE_VIEW calibration was stored in camera_calibrations table.
-  const auto calibrations = database->ReadAllCameraCalibrations(1);
+  const auto calibrations = database->ReadAllCameraSources(1);
   EXPECT_EQ(calibrations.size(), 3);
   EXPECT_TRUE(calibrations.find(CameraSource::SINGLE_VIEW) !=
               calibrations.end());
