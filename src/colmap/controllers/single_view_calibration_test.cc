@@ -254,7 +254,7 @@ TEST(SingleViewCalibrationControllerTest, CalibrationsWithViewGraph) {
   EXPECT_EQ(active_camera.source, CameraSource::VIEW_GRAPH);
   ExpectParamsNear(active_camera.params, {700, 32, 24, 0.20});
 
-  // SINGLE_VIEW calibration was stored in camera_calibrations table.
+  // SINGLE_VIEW calibration was stored in cameras table.
   const auto calibrations = database->ReadAllCameraSources(1);
   EXPECT_EQ(calibrations.size(), 3);
   EXPECT_TRUE(calibrations.find(CameraSource::SINGLE_VIEW) !=
