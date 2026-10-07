@@ -1935,6 +1935,8 @@ class SqliteDatabase : public Database {
         "SELECT rig_id FROM rigs "
         "WHERE ref_sensor_id = ? AND ref_sensor_type = ?;",
         &sql_stmt_read_rig_with_ref_sensor_);
+    // Relies on SQLite returning bare columns from the row matching the single
+    // MAX() aggregate; do not add a second aggregate to this query.
     prepare_sql_stmt(
         "SELECT camera_id, model, width, height, params, MAX(source) FROM "
         "cameras GROUP BY camera_id ORDER BY camera_id ASC;",
