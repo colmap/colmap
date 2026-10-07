@@ -1373,6 +1373,19 @@ TEST(DatabaseMigrationTest, LegacyCameraTableMigration) {
   sqlite3_finalize(info_stmt);
   EXPECT_FALSE(has_prior_col);
 
+  // 8. Verify index_name index still exists on images table.
+  sqlite3_stmt* index_stmt;
+  ASSERT_EQ(sqlite3_prepare_v2(
+                db,
+                "SELECT name FROM sqlite_master WHERE type='index' AND "
+                "name='index_name' AND tbl_name='images';",
+                -1,
+                &index_stmt,
+                nullptr),
+            SQLITE_OK);
+  EXPECT_EQ(sqlite3_step(index_stmt), SQLITE_ROW);
+  sqlite3_finalize(index_stmt);
+
   sqlite3_close(db);
 }
 

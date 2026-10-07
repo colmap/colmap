@@ -2571,6 +2571,7 @@ class SqliteDatabase : public Database {
         SQLITE3_EXEC(database_, "DROP TABLE cameras_old;", nullptr);
 
         if (ExistsTable("images")) {
+          SQLITE3_EXEC(database_, "DROP INDEX IF EXISTS index_name;", nullptr);
           SQLITE3_EXEC(
               database_, "ALTER TABLE images RENAME TO images_old;", nullptr);
           CreateImageTable();
