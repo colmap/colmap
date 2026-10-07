@@ -31,6 +31,33 @@ std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
   throw std::runtime_error("No registered database factory succeeded.");
 }
 
+namespace {
+
+const Camera& SelectBestCameraExcludingSources(
+    const std::map<CameraSource, Camera>& calibrations,
+    const FlatHashSet<CameraSource>& excluded_sources) {
+  const Camera* best_non_excluded = nullptr;
+  int best_non_excluded_priority = -1;
+  const Camera* best_overall = nullptr;
+  int best_overall_priority = -1;
+  for (const auto& [source, camera] : calibrations) {
+    const int priority = CameraSourcePriority(source);
+    if (best_overall == nullptr || priority > best_overall_priority) {
+      best_overall = &camera;
+      best_overall_priority = priority;
+    }
+    if (!excluded_sources.contains(source) &&
+        (best_non_excluded == nullptr ||
+         priority > best_non_excluded_priority)) {
+      best_non_excluded = &camera;
+      best_non_excluded_priority = priority;
+    }
+  }
+  return best_non_excluded != nullptr ? *best_non_excluded : *best_overall;
+}
+
+}  // namespace
+
 Camera Database::ReadCameraExcludingSources(
     const camera_t camera_id,
     const FlatHashSet<CameraSource>& excluded_sources) const {
@@ -38,14 +65,7 @@ Camera Database::ReadCameraExcludingSources(
   if (calibrations.empty()) {
     return Camera();
   }
-  auto it = calibrations.rbegin();
-  while (it != calibrations.rend() && excluded_sources.contains(it->first)) {
-    ++it;
-  }
-  if (it != calibrations.rend()) {
-    return it->second;
-  }
-  return calibrations.rbegin()->second;
+  return SelectBestCameraExcludingSources(calibrations, excluded_sources);
 }
 
 NodeHashMap<camera_t, Camera> Database::ReadAllCamerasExcludingSources(
@@ -57,15 +77,9 @@ NodeHashMap<camera_t, Camera> Database::ReadAllCamerasExcludingSources(
     if (calibrations.empty()) {
       continue;
     }
-    auto it = calibrations.rbegin();
-    while (it != calibrations.rend() && excluded_sources.contains(it->first)) {
-      ++it;
-    }
-    if (it != calibrations.rend()) {
-      cameras.emplace(camera_id, it->second);
-    } else {
-      cameras.emplace(camera_id, calibrations.rbegin()->second);
-    }
+    cameras.emplace(
+        camera_id,
+        SelectBestCameraExcludingSources(calibrations, excluded_sources));
   }
   return cameras;
 }

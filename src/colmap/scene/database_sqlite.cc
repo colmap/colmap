@@ -1935,15 +1935,31 @@ class SqliteDatabase : public Database {
         "SELECT rig_id FROM rigs "
         "WHERE ref_sensor_id = ? AND ref_sensor_type = ?;",
         &sql_stmt_read_rig_with_ref_sensor_);
+    std::string camera_source_priority_sql = "CASE source";
+    for (const CameraSource source : {CameraSource::UNKNOWN,
+                                      CameraSource::USER,
+                                      CameraSource::GUESS,
+                                      CameraSource::EXIF,
+                                      CameraSource::SINGLE_VIEW,
+                                      CameraSource::VIEW_GRAPH}) {
+      camera_source_priority_sql += StringPrintf(" WHEN %d THEN %d",
+                                                 static_cast<int>(source),
+                                                 CameraSourcePriority(source));
+    }
+    camera_source_priority_sql += " END";
     // Relies on SQLite returning bare columns from the row matching the single
     // MAX() aggregate; do not add a second aggregate to this query.
     prepare_sql_stmt(
-        "SELECT camera_id, model, width, height, params, MAX(source) FROM "
-        "cameras GROUP BY camera_id ORDER BY camera_id ASC;",
+        StringPrintf("SELECT camera_id, model, width, height, params, source, "
+                     "MAX(%s) FROM cameras GROUP BY camera_id "
+                     "ORDER BY camera_id ASC;",
+                     camera_source_priority_sql.c_str()),
         &sql_stmt_read_cameras_);
     prepare_sql_stmt(
-        "SELECT camera_id, model, width, height, params, source FROM cameras "
-        "WHERE camera_id = ? ORDER BY source DESC LIMIT 1;",
+        StringPrintf("SELECT camera_id, model, width, height, params, source "
+                     "FROM cameras WHERE camera_id = ? ORDER BY %s DESC "
+                     "LIMIT 1;",
+                     camera_source_priority_sql.c_str()),
         &sql_stmt_read_camera_);
     prepare_sql_stmt(
         "SELECT camera_id, model, width, height, params, source FROM cameras "
@@ -2562,14 +2578,14 @@ class SqliteDatabase : public Database {
               "SELECT camera_id, model, width, height, params, source "
               "FROM cameras_old;";
         } else {
-          static_assert(static_cast<int>(CameraSource::GUESS) == 1);
-          static_assert(static_cast<int>(CameraSource::EXIF) == 2);
-          migrate_sql =
+          migrate_sql = StringPrintf(
               "INSERT OR IGNORE INTO cameras "
               "(camera_id, model, width, height, params, source) "
               "SELECT camera_id, model, width, height, params, "
-              "CASE WHEN prior_focal_length != 0 THEN 2 ELSE 1 END "
-              "FROM cameras_old;";
+              "CASE WHEN prior_focal_length != 0 THEN %d ELSE %d END "
+              "FROM cameras_old;",
+              static_cast<int>(CameraSource::EXIF),
+              static_cast<int>(CameraSource::GUESS));
         }
         SQLITE3_EXEC(database_, migrate_sql.c_str(), nullptr);
         SQLITE3_EXEC(database_, "DROP TABLE cameras_old;", nullptr);

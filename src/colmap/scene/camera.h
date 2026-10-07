@@ -25,15 +25,14 @@ constexpr double kDefaultMaxFocalLengthRatio = 10.0;
 constexpr double kDefaultMaxExtraParam = 1.0;
 
 // Camera calibration source indicating origin of intrinsics.
-// Priority: GUESS < EXIF < SINGLE_VIEW < USER < VIEW_GRAPH.
 #ifdef __CUDACC__
 enum class CameraSource {
   BEST = -1,
   UNKNOWN = 0,
-  GUESS = 1,
-  EXIF = 2,
-  SINGLE_VIEW = 3,
-  USER = 4,
+  USER = 1,
+  GUESS = 2,
+  EXIF = 3,
+  SINGLE_VIEW = 4,
   VIEW_GRAPH = 5,
 };
 #else
@@ -41,12 +40,35 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraSource,
                                 -1,
                                 BEST,
                                 UNKNOWN,
+                                USER,
                                 GUESS,
                                 EXIF,
                                 SINGLE_VIEW,
-                                USER,
                                 VIEW_GRAPH);
 #endif
+
+// Returns the reliability priority of a camera calibration source (higher is
+// more reliable). Decouples the persisted enum integer values from their
+// priority ranking.
+constexpr int CameraSourcePriority(CameraSource source) {
+  switch (source) {
+    case CameraSource::UNKNOWN:
+      return 0;
+    case CameraSource::GUESS:
+      return 1;
+    case CameraSource::EXIF:
+      return 2;
+    case CameraSource::SINGLE_VIEW:
+      return 3;
+    case CameraSource::USER:
+      return 4;
+    case CameraSource::VIEW_GRAPH:
+      return 5;
+    case CameraSource::BEST:
+      break;
+  }
+  return -1;
+}
 
 // Camera class that holds the intrinsic parameters. Cameras may be shared
 // between multiple images, e.g., if the same "physical" camera took multiple
@@ -73,7 +95,8 @@ struct Camera {
   // Whether there is a good prior for the focal length, e.g. manually provided,
   // extracted from EXIF, or from view graph calibration.
   inline bool HasPriorFocalLength() const {
-    return source > CameraSource::GUESS;
+    return CameraSourcePriority(source) >
+           CameraSourcePriority(CameraSource::GUESS);
   }
 
   // Initialize parameters for given camera model and focal length, and set

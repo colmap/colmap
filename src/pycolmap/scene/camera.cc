@@ -39,10 +39,10 @@ void BindCamera(py::module& m) {
   py::enum_<CameraSource> PyCameraSource(m, "CameraSource");
   PyCameraSource.value("BEST", CameraSource::BEST)
       .value("UNKNOWN", CameraSource::UNKNOWN)
+      .value("USER", CameraSource::USER)
       .value("GUESS", CameraSource::GUESS)
       .value("EXIF", CameraSource::EXIF)
       .value("SINGLE_VIEW", CameraSource::SINGLE_VIEW)
-      .value("USER", CameraSource::USER)
       .value("VIEW_GRAPH", CameraSource::VIEW_GRAPH);
   AddStringToEnumConstructor(PyCameraSource);
   py::implicitly_convertible<int, CameraSource>();

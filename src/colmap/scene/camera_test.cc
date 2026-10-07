@@ -46,6 +46,19 @@ TEST(Camera, Equals) {
 }
 
 TEST(Camera, HasPriorFocalLength) {
+  EXPECT_LT(CameraSourcePriority(CameraSource::BEST),
+            CameraSourcePriority(CameraSource::UNKNOWN));
+  EXPECT_LT(CameraSourcePriority(CameraSource::UNKNOWN),
+            CameraSourcePriority(CameraSource::GUESS));
+  EXPECT_LT(CameraSourcePriority(CameraSource::GUESS),
+            CameraSourcePriority(CameraSource::EXIF));
+  EXPECT_LT(CameraSourcePriority(CameraSource::EXIF),
+            CameraSourcePriority(CameraSource::SINGLE_VIEW));
+  EXPECT_LT(CameraSourcePriority(CameraSource::SINGLE_VIEW),
+            CameraSourcePriority(CameraSource::USER));
+  EXPECT_LT(CameraSourcePriority(CameraSource::USER),
+            CameraSourcePriority(CameraSource::VIEW_GRAPH));
+
   Camera camera;
   camera.source = CameraSource::UNKNOWN;
   EXPECT_FALSE(camera.HasPriorFocalLength());
