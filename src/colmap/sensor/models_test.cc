@@ -518,6 +518,29 @@ TEST(SkewedPinhole, Nominal) {
       {651.123, 655.123, 386.123, 511.123, -0.7});
 }
 
+TEST(SkewedPinhole, BoundsSkewRelativeToFocalLength) {
+  // The skew is in pixels, so the extra-parameter bound applies to the
+  // dimensionless shear s / f, with f the mean focal length, and the verdict
+  // does not depend on the pixel scale of the camera (pinhole approximations
+  // of pushbroom satellite images, for example, reach skews of 1e6 px at
+  // shears of 0.2). The focal-length ratio bound is relaxed here to isolate
+  // the skew check.
+  for (const double f : {1e3, 1e6}) {
+    const std::vector<double> params = {f, f, 500, 500, 0.05 * f};
+    // Shear 0.05 is below a bound of 0.1 ...
+    EXPECT_FALSE(CameraModelHasBogusParams(
+        SkewedPinholeCameraModel::model_id, params, 1000, 1000, 0.1, 1e4, 0.1));
+    // ... and above a bound of 0.01.
+    EXPECT_TRUE(CameraModelHasBogusParams(SkewedPinholeCameraModel::model_id,
+                                          params,
+                                          1000,
+                                          1000,
+                                          0.1,
+                                          1e4,
+                                          0.01));
+  }
+}
+
 TEST(CameraModelRescale, Perspective) {
   // Distinct per-axis scale factors to verify each is applied to the right
   // parameter; all results are exactly representable.
@@ -547,6 +570,45 @@ TEST(CameraModelRescale, Perspective) {
         SimpleRadialCameraModel::model_id, scale_x, scale_y, params);
     EXPECT_EQ(params, (std::vector<double>{250, 100, 240, 0.3}));
   }
+
+  // The skew of SKEWED_PINHOLE is in pixels along x and scales with the width.
+  {
+    std::vector<double> params = {100, 200, 50, 80, 10};  // fx, fy, cx, cy, s
+    CameraModelRescale(
+        SkewedPinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{200, 600, 100, 240, 20}));
+  }
+}
+
+TEST(CameraModelCalibrationMatrix, Nominal) {
+  Eigen::Matrix3d K_ref;
+
+  // A single shared focal length fills both diagonal entries.
+  K_ref << 100, 0, 50, 0, 100, 80, 0, 0, 1;
+  EXPECT_EQ(CameraModelCalibrationMatrix(SimplePinholeCameraModel::model_id,
+                                         {100, 50, 80}),
+            K_ref);
+
+  // Separate focal lengths; distortion parameters are not part of K.
+  K_ref << 100, 0, 50, 0, 200, 80, 0, 0, 1;
+  EXPECT_EQ(CameraModelCalibrationMatrix(PinholeCameraModel::model_id,
+                                         {100, 200, 50, 80}),
+            K_ref);
+  EXPECT_EQ(
+      CameraModelCalibrationMatrix(OpenCVCameraModel::model_id,
+                                   {100, 200, 50, 80, 0.1, 0.01, 0.001, 0.002}),
+      K_ref);
+
+  // SKEWED_PINHOLE adds the skew.
+  K_ref << 100, 10, 50, 0, 200, 80, 0, 0, 1;
+  EXPECT_EQ(CameraModelCalibrationMatrix(SkewedPinholeCameraModel::model_id,
+                                         {100, 200, 50, 80, 10}),
+            K_ref);
+
+  // Spherical models have no calibration matrix.
+  EXPECT_THROW(CameraModelCalibrationMatrix(
+                   EquirectangularCameraModel::model_id, {1000, 500}),
+               std::domain_error);
 }
 
 TEST(CameraModelRescale, Spherical) {
