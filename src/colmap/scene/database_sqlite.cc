@@ -2562,6 +2562,8 @@ class SqliteDatabase : public Database {
               "SELECT camera_id, model, width, height, params, source "
               "FROM cameras_old;";
         } else {
+          static_assert(static_cast<int>(CameraSource::GUESS) == 1);
+          static_assert(static_cast<int>(CameraSource::EXIF) == 2);
           migrate_sql =
               "INSERT OR IGNORE INTO cameras "
               "(camera_id, model, width, height, params, source) "
