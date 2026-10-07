@@ -133,9 +133,11 @@ std::vector<Eigen::Vector3d> GPSTransform::ECEFToEllipsoid(
       const double sin_lat = std::sin(lat);
       const double N = a_ / std::sqrt(1 - e2_ * sin_lat * sin_lat);
       const double prev_alt = alt;
-      alt = radius_xy / std::cos(lat) - N;
+      // Project onto the ellipsoid normal to avoid division by cos(lat).
+      alt = radius_xy * std::cos(lat) + z * sin_lat -
+            N * (1 - e2_ * sin_lat * sin_lat);
       const double prev_lat = lat;
-      lat = std::atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
+      lat = std::atan2(z, radius_xy * (1 - e2_ * N / (N + alt)));
 
       if (std::abs(prev_lat - lat) < kEps && std::abs(prev_alt - alt) < kEps) {
         break;
