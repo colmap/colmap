@@ -182,6 +182,44 @@ TEST(Alignment, AlignReconstructionsViaPoints) {
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
+TEST(Alignment, AlignReconstructionsViaPointsMinCommonObservations) {
+  for (const size_t track_length : {2, 3, 4}) {
+    SCOPED_TRACE(track_length);
+    Reconstruction src_reconstruction;
+    SyntheticDatasetOptions options;
+    options.num_rigs = 1;
+    options.num_frames_per_rig = 5;
+    options.num_points3D = 10;
+    options.track_length = track_length;
+    SynthesizeDataset(options, &src_reconstruction);
+    for (const auto& [_, point3D] : src_reconstruction.Points3D()) {
+      ASSERT_EQ(point3D.track.Length(), track_length);
+    }
+
+    Reconstruction tgt_reconstruction = src_reconstruction;
+    const Sim3d gt_tgt_from_src = TestSim3d();
+    tgt_reconstruction.Transform(gt_tgt_from_src);
+
+    for (size_t min_common_observations = 1;
+         min_common_observations <= track_length + 1;
+         ++min_common_observations) {
+      SCOPED_TRACE(min_common_observations);
+      Sim3d tgt_from_src;
+      const bool success =
+          AlignReconstructionsViaPoints(src_reconstruction,
+                                        tgt_reconstruction,
+                                        min_common_observations,
+                                        /*max_error=*/0.01,
+                                        /*min_inlier_ratio=*/0.9,
+                                        &tgt_from_src);
+      EXPECT_EQ(success, min_common_observations <= track_length);
+      if (success) {
+        ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
+      }
+    }
+  }
+}
+
 TEST(Alignment, MergeReconstructions) {
   // Synthesize a reconstruction which has at least two cameras
   Reconstruction src_reconstruction;

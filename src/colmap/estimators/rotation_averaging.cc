@@ -484,8 +484,10 @@ bool RotationEstimator::SolveRotationAveraging(
   // intialization, the gravity-aligned rotation averaging is prone to random
   // flips by 180deg.
   if (!options_.skip_initialization) {
-    InitializeFromMaximumSpanningTree(
-        pose_graph, active_image_ids, reconstruction);
+    InitializeFromMaximumSpanningTree(pose_graph,
+                                      active_image_ids,
+                                      reconstruction,
+                                      options_.refine_sensor_from_rig);
   }
 
   // Build the optimization problem.
@@ -502,10 +504,11 @@ bool RotationEstimator::SolveRotationAveraging(
   return true;
 }
 
-void RotationEstimator::InitializeFromMaximumSpanningTree(
+void InitializeFromMaximumSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& active_image_ids,
-    Reconstruction& reconstruction) {
+    Reconstruction& reconstruction,
+    bool refine_sensor_from_rig) {
   // Compute maximum spanning tree over active images.
   NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
@@ -545,7 +548,7 @@ void RotationEstimator::InitializeFromMaximumSpanningTree(
   }
 
   InitializeRigRotationsFromImages(
-      cams_from_world, reconstruction, options_.refine_sensor_from_rig);
+      cams_from_world, reconstruction, refine_sensor_from_rig);
 }
 
 bool InitializeRigRotationsFromImages(

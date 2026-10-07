@@ -24,6 +24,24 @@
 
 namespace colmap {
 
+// Type trait to detect ceres::Jet types.
+template <typename T>
+struct IsJet : std::false_type {};
+
+template <typename T, int N>
+struct IsJet<ceres::Jet<T, N>> : std::true_type {};
+
+// Helper to extract scalar value from Jet or scalar types.
+template <typename T>
+inline double GetScalarValue(const T& x) {
+  return static_cast<double>(x);
+}
+
+template <typename T, int N>
+inline double GetScalarValue(const ceres::Jet<T, N>& x) {
+  return static_cast<double>(x.a);
+}
+
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 -1,
                                 kInvalid,                 // = -1
@@ -44,7 +62,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraModelId,
                                 kSimpleFisheye,           // = 14
                                 kFisheye,                 // = 15
                                 kEUCM,                    // = 16
-                                kEquirectangular          // = 17
+                                kEquirectangular,         // = 17
+                                kSkewedPinhole            // = 18
 );
 
 // Builds a consecutive parameter index array {Offset, ..., Offset + N - 1}.
@@ -167,7 +186,8 @@ constexpr std::array<size_t, N> IotaArray() {
   CAMERA_MODEL_CASE(DivisionCameraModel)            \
   CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FisheyeCameraModel)             \
-  CAMERA_MODEL_CASE(EUCMCameraModel)
+  CAMERA_MODEL_CASE(EUCMCameraModel)                \
+  CAMERA_MODEL_CASE(SkewedPinholeCameraModel)
 #endif
 
 #ifndef SPHERICAL_CAMERA_MODEL_CASES
@@ -308,85 +328,23 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     return threshold / mean_focal_length;
   }
 
-  static inline bool IterativeUndistortion(const double* params,
-                                           double* u,
-                                           double* v) {
-    // Parameters for Newton iteration. 100 iterations should be enough for
-    // complex camera models with higher order terms.
-    constexpr size_t kNumIterations = 100;
-    constexpr double kMinStepSquaredNorm = 1e-10;
-    // Trust region: step_x.norm() <= max(x.norm() * kRelStepRadius,
-    // kStepRadius)
-    constexpr double kRelStepRadius = 0.1;
-    constexpr double kStepRadius = 0.1;
-
-    Eigen::Matrix2d J;
-    const Eigen::Vector2d x0(*u, *v);
-    Eigen::Vector2d x(*u, *v);
-    Eigen::Vector2d dx;
-
-    ceres::Jet<double, 2> params_jet[CameraModel::num_extra_params];
-    for (size_t i = 0; i < CameraModel::num_extra_params; ++i) {
-      params_jet[i] = ceres::Jet<double, 2>(params[i]);
-    }
-    for (size_t i = 0; i < kNumIterations; ++i) {
-      // Get Jacobian
-      ceres::Jet<double, 2> x_jet[2];
-      x_jet[0] = ceres::Jet<double, 2>(x(0), 0);
-      x_jet[1] = ceres::Jet<double, 2>(x(1), 1);
-      ceres::Jet<double, 2> dx_jet[2];
-      CameraModel::Distortion(
-          params_jet, x_jet[0], x_jet[1], &dx_jet[0], &dx_jet[1]);
-      dx[0] = dx_jet[0].a;
-      dx[1] = dx_jet[1].a;
-      J(0, 0) = dx_jet[0].v[0] + 1;
-      J(0, 1) = dx_jet[0].v[1];
-      J(1, 0) = dx_jet[1].v[0];
-      J(1, 1) = dx_jet[1].v[1] + 1;
-
-      // Update
-      Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
-      const double radius_sqr =
-          std::max(x.squaredNorm() * kRelStepRadius * kRelStepRadius,
-                   kStepRadius * kStepRadius);
-      const double step_x_norm_sqr = step_x.squaredNorm();
-      if (step_x_norm_sqr > radius_sqr) {
-        step_x *= std::sqrt(radius_sqr / step_x_norm_sqr);
-      }
-      x -= step_x;
-      if (step_x.squaredNorm() < kMinStepSquaredNorm) {
-        *u = x(0);
-        *v = x(1);
-        return true;
-      }
-    }
-
-    *u = x(0);
-    *v = x(1);
-
-    return false;
-  }
-
   // Unproject a pixel to a unit bearing vector in the camera frame.
   //
   // Default implementation: delegates to CameraModel::CamFromImg and
   // normalizes the resulting homogeneous coordinate. Correct for perspective
   // and fisheye-with-FOV<=180° cameras — the returned ray always has rz > 0.
-  static inline bool CamRayFromImg(const double* params,
-                                   double x,
-                                   double y,
-                                   double* rx,
-                                   double* ry,
-                                   double* rz) {
-    double u = 0;
-    double v = 0;
+  template <typename T>
+  static inline bool CamRayFromImg(
+      const T* params, const T& x, const T& y, T* rx, T* ry, T* rz) {
+    T u(0);
+    T v(0);
     if (!CameraModel::CamFromImg(params, x, y, &u, &v)) {
       return false;
     }
-    const double norm = std::sqrt(u * u + v * v + 1.0);
+    const T norm = ceres::sqrt(u * u + v * v + T(1.0));
     *rx = u / norm;
     *ry = v / norm;
-    *rz = 1.0 / norm;
+    *rz = T(1.0) / norm;
     return true;
   }
 
@@ -408,7 +366,162 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     (*params)[CameraModel::principal_point_idxs[1]] *= scale_y;
   }
 
+  // Compose the calibration matrix from the focal length and principal point
+  // parameters, excluding distortion parameters. A single shared focal length
+  // is used for both axes. Models with a skew parameter override this to fill
+  // K(0, 1).
+  static inline Eigen::Matrix3d CalibrationMatrix(
+      const std::vector<double>& params) {
+    Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
+    K(0, 0) = params[CameraModel::focal_length_idxs[0]];
+    if constexpr (CameraModel::num_focal_params == 1) {
+      K(1, 1) = K(0, 0);
+    } else {
+      K(1, 1) = params[CameraModel::focal_length_idxs[1]];
+    }
+    K(0, 2) = params[CameraModel::principal_point_idxs[0]];
+    K(1, 2) = params[CameraModel::principal_point_idxs[1]];
+    return K;
+  }
+
+ protected:
+  // Undistorts coordinates with proper Jacobian propagation for auto-diff.
+  // This is the key function that enables CamFromImg to work with Ceres Jets.
+  //
+  // On input: (u, v) are distorted normalized coordinates (can be Jets)
+  // On output: (u, v) are undistorted normalized coordinates (with correct
+  //            Jacobians if Jets)
+  // extra_params: distortion parameters (can be Jets)
+  //
+  // For scalar types, this just calls IterativeUndistortionScalar.
+  // For Jet types, this uses implicit function theorem to compute Jacobians:
+  //   d(u_undist, v_undist) / d(u_dist, v_dist) = J^(-1)
+  //   d(u_undist, v_undist) / d(extra_params) = -J^(-1) *
+  //   d(Distortion)/d(extra_params)
+  template <typename T>
+  static inline bool IterativeUndistortion(const T* extra_params, T* u, T* v) {
+    constexpr size_t N = CameraModel::num_extra_params;
+    static_assert(
+        N > 0, "IterativeUndistortion requires extra distortion parameters.");
+    double extra_params_scalar[N];
+    for (size_t i = 0; i < N; ++i) {
+      extra_params_scalar[i] = GetScalarValue(extra_params[i]);
+    }
+    double u_scalar = GetScalarValue(*u);
+    double v_scalar = GetScalarValue(*v);
+
+    Eigen::Matrix2d J;
+    if (!IterativeUndistortionScalar(
+            extra_params_scalar, &u_scalar, &v_scalar, &J)) {
+      return false;
+    }
+
+    if constexpr (!IsJet<T>::value) {
+      *u = static_cast<T>(u_scalar);
+      *v = static_cast<T>(v_scalar);
+    } else {
+      const Eigen::Matrix2d J_inv = J.inverse();
+
+      Eigen::Matrix<double, 2, N> dD_dparams;
+      {
+        ceres::Jet<double, N> params_jet[N];
+        for (size_t i = 0; i < N; ++i) {
+          params_jet[i].a = extra_params_scalar[i];
+          params_jet[i].v.setZero();
+          params_jet[i].v[i] = 1.0;
+        }
+        ceres::Jet<double, N> u_jet(u_scalar);
+        ceres::Jet<double, N> v_jet(v_scalar);
+        ceres::Jet<double, N> du_jet, dv_jet;
+        CameraModel::Distortion(params_jet, u_jet, v_jet, &du_jet, &dv_jet);
+        for (size_t i = 0; i < N; ++i) {
+          dD_dparams(0, i) = du_jet.v[i];
+          dD_dparams(1, i) = dv_jet.v[i];
+        }
+      }
+
+      const Eigen::Matrix<double, 2, N> dUV_dparams = -J_inv * dD_dparams;
+
+      u->a = u_scalar;
+      v->a = v_scalar;
+
+      const auto du_in = u->v.eval();
+      const auto dv_in = v->v.eval();
+      u->v = J_inv(0, 0) * du_in + J_inv(0, 1) * dv_in;
+      v->v = J_inv(1, 0) * du_in + J_inv(1, 1) * dv_in;
+      for (size_t i = 0; i < N; ++i) {
+        u->v += dUV_dparams(0, i) * extra_params[i].v;
+        v->v += dUV_dparams(1, i) * extra_params[i].v;
+      }
+    }
+
+    return true;
+  }
+
  private:
+  static inline bool IterativeUndistortionScalar(
+      const double* extra_params,
+      double* u,
+      double* v,
+      Eigen::Matrix2d* J_out = nullptr) {
+    // Parameters for Newton iteration. 100 iterations should be enough for
+    // complex camera models with higher order terms.
+    constexpr size_t kNumIterations = 100;
+    constexpr double kMinStepSquaredNorm = 1e-10;
+    // Trust region: step_x.norm() <= max(x.norm() * kRelStepRadius,
+    // kStepRadius)
+    constexpr double kRelStepRadius = 0.1;
+    constexpr double kStepRadius = 0.1;
+
+    Eigen::Matrix2d J;
+    const Eigen::Vector2d x0(*u, *v);
+    Eigen::Vector2d x(*u, *v);
+    Eigen::Vector2d dx;
+
+    ceres::Jet<double, 2> extra_params_jet[CameraModel::num_extra_params];
+    for (size_t i = 0; i < CameraModel::num_extra_params; ++i) {
+      extra_params_jet[i] = ceres::Jet<double, 2>(extra_params[i]);
+    }
+    for (size_t i = 0; i < kNumIterations; ++i) {
+      // Get Jacobian
+      ceres::Jet<double, 2> x_jet[2];
+      x_jet[0] = ceres::Jet<double, 2>(x(0), 0);
+      x_jet[1] = ceres::Jet<double, 2>(x(1), 1);
+      ceres::Jet<double, 2> dx_jet[2];
+      CameraModel::Distortion(
+          extra_params_jet, x_jet[0], x_jet[1], &dx_jet[0], &dx_jet[1]);
+      dx[0] = dx_jet[0].a;
+      dx[1] = dx_jet[1].a;
+      J(0, 0) = dx_jet[0].v[0] + 1;
+      J(0, 1) = dx_jet[0].v[1];
+      J(1, 0) = dx_jet[1].v[0];
+      J(1, 1) = dx_jet[1].v[1] + 1;
+
+      // Update
+      Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
+      const double radius_sqr =
+          std::max(x.squaredNorm() * kRelStepRadius * kRelStepRadius,
+                   kStepRadius * kStepRadius);
+      const double step_x_norm_sqr = step_x.squaredNorm();
+      if (step_x_norm_sqr > radius_sqr) {
+        step_x *= std::sqrt(radius_sqr / step_x_norm_sqr);
+      }
+      x -= step_x;
+      if (step_x.squaredNorm() < kMinStepSquaredNorm) {
+        *u = x(0);
+        *v = x(1);
+        if (J_out) *J_out = J;
+        return true;
+      }
+    }
+
+    *u = x(0);
+    *v = x(1);
+    if (J_out) *J_out = J;
+
+    return false;
+  }
+
   BasePerspectiveCameraModel() = default;
   friend CameraModel;
 };

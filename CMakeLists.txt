@@ -299,6 +299,7 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/geometry GEOMETRY_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/image IMAGE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/inertial INERTIAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/math MATH_SRCS *.h *.cc)
 if(MVS_ENABLED)
     COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
@@ -333,6 +334,7 @@ if(ALL_SOURCE_TARGET)
         ${FEATURE_SRCS}
         ${GEOMETRY_SRCS}
         ${IMAGE_SRCS}
+        ${INERTIAL_SRCS}
         ${MATH_SRCS}
         ${OPTIM_SRCS}
         ${RETRIEVAL_SRCS}
@@ -414,6 +416,7 @@ set(COLMAP_EXPORT_LIBS
     colmap_feature
     colmap_geometry
     colmap_image
+    colmap_inertial
     colmap_math
     colmap_optim
     colmap_retrieval

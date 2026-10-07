@@ -8,6 +8,7 @@ add_subdirectory(solvers)
 set(ESTIMATORS_SRCS
     alignment.h alignment.cc
     bundle_adjustment.h bundle_adjustment.cc
+    bundle_adjustment_caspar.h bundle_adjustment_caspar.cc
     bundle_adjustment_ceres.h bundle_adjustment_ceres.cc
     ceres_loss_function.h ceres_loss_function.cc
     coordinate_frame.h coordinate_frame.cc
@@ -18,18 +19,12 @@ set(ESTIMATORS_SRCS
     gravity_refinement.h gravity_refinement.cc
     pose.h pose.cc
     rotation_averaging.h rotation_averaging.cc
+    rotation_averaging_ceres.h rotation_averaging_ceres.cc
     rotation_averaging_impl.h rotation_averaging_impl.cc
     triangulation.h triangulation.cc
     two_view_geometry.h two_view_geometry.cc
     view_graph_calibration.h view_graph_calibration.cc
 )
-
-if(CASPAR_ENABLED)
-    list(APPEND ESTIMATORS_SRCS
-        bundle_adjustment_caspar.h
-        bundle_adjustment_caspar.cc
-    )
-endif()
 
 COLMAP_ADD_LIBRARY(
     NAME colmap_estimators
@@ -119,6 +114,12 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME rotation_averaging_test
     SRCS rotation_averaging_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME rotation_averaging_ceres_test
+    SRCS rotation_averaging_ceres_test.cc
     LINK_LIBS colmap_estimators
 )
 

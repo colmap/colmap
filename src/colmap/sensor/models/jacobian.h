@@ -1534,4 +1534,59 @@ bool EquirectangularCameraModel::ImgFromCamWithJac(
   return true;
 }
 
+template <bool Enable, typename std::enable_if<Enable, int>::type>
+bool SkewedPinholeCameraModel::ImgFromCamWithJac(const double* params,
+                                                 const double& u,
+                                                 const double& v,
+                                                 const double& w,
+                                                 double* x,
+                                                 double* y,
+                                                 double* J_params,
+                                                 double* J_uvw,
+                                                 const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
+    return false;
+  }
+
+  const double f1 = params[0];
+  const double f2 = params[1];
+  const double c1 = params[2];
+  const double c2 = params[3];
+  const double s = params[4];
+
+  const double inv_w = 1.0 / w;
+  const double uu = u * inv_w;
+  const double vv = v * inv_w;
+
+  *x = f1 * uu + s * vv + c1;
+  *y = f2 * vv + c2;
+
+  if (J_uvw) {
+    // J_uvw is a 2x3 matrix (row-major): d(x, y) / d(u, v, w)
+    // x = fx * u / w + s * v / w + cx, y = fy * v / w + cy
+    J_uvw[0] = f1 * inv_w;
+    J_uvw[1] = s * inv_w;
+    J_uvw[2] = -inv_w * (f1 * uu + s * vv);
+    J_uvw[3] = 0.0;
+    J_uvw[4] = f2 * inv_w;
+    J_uvw[5] = -f2 * inv_w * vv;
+  }
+
+  if (J_params) {
+    // J_params is a 2x5 matrix (row-major): d(x, y) / d(fx, fy, cx, cy, s)
+    J_params[0] = uu;
+    J_params[1] = 0.0;
+    J_params[2] = 1.0;
+    J_params[3] = 0.0;
+    J_params[4] = vv;
+    J_params[5] = 0.0;
+    J_params[6] = vv;
+    J_params[7] = 0.0;
+    J_params[8] = 1.0;
+    J_params[9] = 0.0;
+  }
+
+  return true;
+}
+
 }  // namespace colmap
