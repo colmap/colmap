@@ -280,8 +280,12 @@ class Database {
   virtual void DeleteInlierMatches(image_t image_id1, image_t image_id2) = 0;
 
   // Delete camera calibration for a specific source (or all calibrations if
-  // BEST).
-  virtual void DeleteCameraSource(camera_t camera_id, CameraSource source) = 0;
+  // `CameraSource::BEST`). When deleting all calibrations of a camera (either
+  // via `CameraSource::BEST` or by removing its last remaining source), the
+  // caller is responsible for ensuring that no images in the database still
+  // reference `camera_id`.
+  virtual void DeleteCameraSource(camera_t camera_id,
+                                  CameraSource source = CameraSource::BEST) = 0;
 
   // Clear all database tables
   virtual void ClearAllTables() = 0;
@@ -289,7 +293,8 @@ class Database {
   // Clear the entire rigs table
   virtual void ClearRigs() = 0;
 
-  // Clear the entire cameras table
+  // Clear the entire cameras table. The caller is responsible for ensuring
+  // that no images in the database still reference any cameras.
   virtual void ClearCameras() = 0;
 
   // Clear the entire frames table
