@@ -174,7 +174,6 @@ class SingleViewCalibrationController : public Thread {
           configured_model_id == CameraModelId::kInvalid ? camera.model_id
                                                          : configured_model_id;
       if (AggregateSingleViewCalibrations(model_id, params_list, &camera)) {
-        camera.source = CameraSource::SINGLE_VIEW;
         database_->UpdateCamera(camera);
         ++num_cameras_updated;
         VLOG(1) << "Updated camera " << camera_id << ": "
