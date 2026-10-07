@@ -36,13 +36,14 @@ namespace {
 const Camera& SelectBestCameraExcludingSources(
     const std::map<CameraSource, Camera>& calibrations,
     const FlatHashSet<CameraSource>& excluded_sources) {
+  THROW_CHECK(!calibrations.empty());
   const Camera* best_non_excluded = nullptr;
   int best_non_excluded_priority = -1;
-  const Camera* best_overall = nullptr;
-  int best_overall_priority = -1;
+  const Camera* best_overall = &calibrations.begin()->second;
+  int best_overall_priority = CameraSourcePriority(calibrations.begin()->first);
   for (const auto& [source, camera] : calibrations) {
     const int priority = CameraSourcePriority(source);
-    if (best_overall == nullptr || priority > best_overall_priority) {
+    if (priority > best_overall_priority) {
       best_overall = &camera;
       best_overall_priority = priority;
     }
