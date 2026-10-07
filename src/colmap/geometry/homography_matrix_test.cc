@@ -56,6 +56,57 @@ TEST(DecomposeHomographyMatrix, Nominal) {
   EXPECT_TRUE(ref_solution_exists);
 }
 
+TEST(DecomposeHomographyMatrix, NearPureRotation) {
+  const Eigen::Matrix3d ref_rotation =
+      Eigen::AngleAxisd(2.0 * M_PI / 3.0, Eigen::Vector3d::UnitX()).matrix();
+  Eigen::Matrix3d stretch = Eigen::Matrix3d::Identity();
+  stretch(0, 0) = 1.00049;
+  stretch(2, 2) = 0.99951;
+  const Eigen::Matrix3d H = ref_rotation * stretch;
+
+  std::vector<Rigid3d> cams2_from_cams1;
+  std::vector<Eigen::Vector3d> normals;
+  DecomposeHomographyMatrix(H,
+                            Eigen::Matrix3d::Identity(),
+                            Eigen::Matrix3d::Identity(),
+                            &cams2_from_cams1,
+                            &normals);
+
+  ASSERT_EQ(cams2_from_cams1.size(), 1);
+  ASSERT_EQ(normals.size(), 1);
+  EXPECT_NEAR(cams2_from_cams1[0].rotation().norm(), 1.0, 1e-12);
+  EXPECT_THAT(cams2_from_cams1[0].rotation().toRotationMatrix(),
+              EigenMatrixNear(ref_rotation, 1e-12));
+  EXPECT_EQ(cams2_from_cams1[0].translation(), Eigen::Vector3d::Zero());
+  EXPECT_EQ(normals[0], Eigen::Vector3d::Zero());
+}
+
+TEST(DecomposeHomographyMatrix, IllConditioned) {
+  const Eigen::Matrix3d H = Eigen::Vector3d(2.0, 1.0, 1e-9).asDiagonal();
+
+  std::vector<Rigid3d> cams2_from_cams1;
+  std::vector<Eigen::Vector3d> normals;
+  DecomposeHomographyMatrix(H,
+                            Eigen::Matrix3d::Identity(),
+                            Eigen::Matrix3d::Identity(),
+                            &cams2_from_cams1,
+                            &normals);
+
+  ASSERT_EQ(cams2_from_cams1.size(), 4);
+  ASSERT_EQ(normals.size(), 4);
+  for (size_t i = 0; i < cams2_from_cams1.size(); ++i) {
+    const Rigid3d& cam2_from_cam1 = cams2_from_cams1[i];
+    EXPECT_TRUE(cam2_from_cam1.params.allFinite());
+    EXPECT_TRUE(normals[i].allFinite());
+    EXPECT_NEAR(cam2_from_cam1.rotation().norm(), 1.0, 1e-6);
+
+    const Eigen::Matrix3d H_reconstructed =
+        cam2_from_cam1.rotation().toRotationMatrix() -
+        cam2_from_cam1.translation() * normals[i].transpose();
+    EXPECT_THAT(H_reconstructed, EigenMatrixNear(H, 1e-6));
+  }
+}
+
 TEST(DecomposeHomographyMatrix, Random) {
   constexpr int kNumIters = 100;
 
