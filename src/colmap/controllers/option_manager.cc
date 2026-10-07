@@ -215,6 +215,7 @@ void OptionManager::AddAllOptions() {
   AddImportedPairingOptions();
   AddBundleAdjustmentOptions();
   AddMapperOptions();
+  AddGlobalMapperOptions();
 #if defined(COLMAP_MVS_ENABLED)
   AddPatchMatchStereoOptions();
   AddStereoFusionOptions();
@@ -946,6 +947,26 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.retriangulation.min_angle);
 
   // Rotation averaging options.
+  AddDefaultEnumOption("GlobalMapper.ra_backend",
+                       &global_mapper->mapper.rotation_averaging.backend,
+                       RotationAveragingBackendToString,
+                       RotationAveragingBackendFromString,
+                       EnumHelpText(RotationAveragingBackendStrings()));
+  AddDefaultOption(
+      "GlobalMapper.ra_max_num_l1_iterations",
+      &global_mapper->mapper.rotation_averaging.max_num_l1_iterations);
+  AddDefaultOption(
+      "GlobalMapper.ra_max_num_irls_iterations",
+      &global_mapper->mapper.rotation_averaging.max_num_irls_iterations);
+  AddDefaultOption(
+      "GlobalMapper.ra_irls_loss_parameter_sigma",
+      &global_mapper->mapper.rotation_averaging.irls_loss_parameter_sigma);
+  AddDefaultEnumOption(
+      "GlobalMapper.ra_ceres_loss_function_type",
+      &global_mapper->mapper.rotation_averaging.ceres_loss_function_type,
+      CeresLossFunctionTypeToString,
+      CeresLossFunctionTypeFromString,
+      EnumHelpText(CeresLossFunctionTypeStrings()));
   AddDefaultOption("GlobalMapper.ra_use_gravity",
                    &global_mapper->mapper.rotation_averaging.use_gravity);
   AddDefaultOption("GlobalMapper.ra_use_stratified",

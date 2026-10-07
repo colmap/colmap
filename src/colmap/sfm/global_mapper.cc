@@ -69,6 +69,7 @@ BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
 RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
   RotationEstimatorOptions opts = rotation_averaging;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.num_threads = num_threads;
   if (random_seed >= 0) {
     opts.random_seed = random_seed;
   }

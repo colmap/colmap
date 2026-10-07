@@ -210,13 +210,26 @@ void BindRotationEstimator(py::module& m) {
                  RotationAveragingReweighting::INLIER_MATCH_COUNT);
   AddStringToEnumConstructor(PyRotationAveragingReweighting);
 
+  auto PyRotationAveragingBackend =
+      py::enum_<RotationAveragingBackend>(m, "RotationAveragingBackend")
+          .value("L1_IRLS", RotationAveragingBackend::L1_IRLS)
+          .value("CERES", RotationAveragingBackend::CERES);
+  AddStringToEnumConstructor(PyRotationAveragingBackend);
+
   auto PyRotationEstimatorOptions =
       py::classh<RotationEstimatorOptions>(m, "RotationEstimatorOptions")
           .def(py::init<>())
+          .def_readwrite("num_threads",
+                         &RotationEstimatorOptions::num_threads,
+                         "Number of threads for the solver (-1 for auto).")
           .def_readwrite("random_seed",
                          &RotationEstimatorOptions::random_seed,
                          "PRNG seed. -1 for non-deterministic, >=0 for "
                          "deterministic.")
+          .def_readwrite("backend",
+                         &RotationEstimatorOptions::backend,
+                         "Solver backend for rotation averaging: L1_IRLS or "
+                         "CERES.")
           .def_readwrite("max_num_l1_iterations",
                          &RotationEstimatorOptions::max_num_l1_iterations,
                          "Maximum number of L1 minimization iterations.")
@@ -226,7 +239,7 @@ void BindRotationEstimator(py::module& m) {
               "Average step size threshold to terminate L1 minimization.")
           .def_readwrite("max_num_irls_iterations",
                          &RotationEstimatorOptions::max_num_irls_iterations,
-                         "Number of IRLS iterations to perform.")
+                         "Number of IRLS (or Ceres) iterations to perform.")
           .def_readwrite(
               "irls_step_convergence_threshold",
               &RotationEstimatorOptions::irls_step_convergence_threshold,
@@ -237,7 +250,11 @@ void BindRotationEstimator(py::module& m) {
           .def_readwrite(
               "irls_loss_parameter_sigma",
               &RotationEstimatorOptions::irls_loss_parameter_sigma,
-              "Point where Huber-like cost switches from L1 to L2 (degrees).")
+              "Point where Huber-like cost switches from L1 to L2 (or Ceres "
+              "loss scale, in degrees).")
+          .def_readwrite("ceres_loss_function_type",
+                         &RotationEstimatorOptions::ceres_loss_function_type,
+                         "Loss function type when backend == CERES.")
           .def_readwrite(
               "ridge_regularization",
               &RotationEstimatorOptions::ridge_regularization,

@@ -25,10 +25,22 @@ def test_rotation_averaging_reweighting_enum() -> None:
     }
 
 
+def test_rotation_averaging_backend_enum() -> None:
+    assert {
+        k: int(v)
+        for k, v in pycolmap.RotationAveragingBackend.__members__.items()
+    } == {
+        "L1_IRLS": 0,
+        "CERES": 1,
+    }
+
+
 def test_rotation_estimator_options_default_init() -> None:
     options = pycolmap.RotationEstimatorOptions()
     assert options is not None
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+    assert options.backend == pycolmap.RotationAveragingBackend.L1_IRLS
+    assert options.ceres_loss_function_type == pycolmap.LossFunctionType.CAUCHY
 
 
 def test_rotation_estimator_options_reweighting_readwrite() -> None:
@@ -42,6 +54,10 @@ def test_rotation_estimator_options_reweighting_readwrite() -> None:
     )
     options.reweighting = "UNIFORM"  # type: ignore[assignment]
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+    options.backend = "CERES"  # type: ignore[assignment]
+    assert options.backend == pycolmap.RotationAveragingBackend.CERES
+    options.ceres_loss_function_type = "HUBER"  # type: ignore[assignment]
+    assert options.ceres_loss_function_type == pycolmap.LossFunctionType.HUBER
 
 
 def test_gravity_refiner_options_default_init() -> None:

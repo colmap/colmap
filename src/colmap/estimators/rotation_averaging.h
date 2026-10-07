@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
@@ -22,14 +23,29 @@ namespace colmap {
 //   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
 //     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
 //     edge, normalized to (0, 1].
-MAKE_ENUM_CLASS(RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT);
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingReweighting,
+                                0,
+                                UNIFORM,
+                                INLIER_MATCH_COUNT);
+
+// Solver backend for rotation averaging.
+//   L1_IRLS: L1 regression (ADMM) followed by IRLS using CHOLMOD.
+//   CERES: Nonlinear least squares on SO(3) using Ceres Solver, optionally
+//     preceded by L1 regression when max_num_l1_iterations > 0.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingBackend, 0, L1_IRLS, CERES);
 
 struct RotationEstimatorOptions {
+  // Number of threads for the solver (-1 = auto-select).
+  int num_threads = -1;
+
   // PRNG seed for stochastic methods during rotation averaging.
   // If -1 (default), the seed is derived from the current time
   // (non-deterministic). If >= 0, the rotation averaging is deterministic with
   // the given seed.
   int random_seed = -1;
+
+  // Solver backend to use for rotation averaging.
+  RotationAveragingBackend backend = RotationAveragingBackend::L1_IRLS;
 
   // Maximum number of times to run L1 minimization.
   int max_num_l1_iterations = 5;
@@ -37,7 +53,8 @@ struct RotationEstimatorOptions {
   // Average step size threshold to terminate the L1 minimization.
   double l1_step_convergence_threshold = 0.001;
 
-  // The number of iterative reweighted least squares iterations to perform.
+  // The number of iterative reweighted least squares (or Ceres) iterations to
+  // perform.
   int max_num_irls_iterations = 100;
 
   // Average step size threshold to terminate the IRLS minimization.
@@ -46,8 +63,13 @@ struct RotationEstimatorOptions {
   // Gravity direction.
   Eigen::Vector3d gravity_dir = Eigen::Vector3d::UnitY();
 
-  // The point where the Huber-like cost function switches from L1 to L2.
+  // The point where the Huber-like cost function switches from L1 to L2 (or
+  // the Ceres loss function scale, in degrees).
   double irls_loss_parameter_sigma = 5.0;  // in degrees
+
+  // Loss function type when backend == CERES.
+  CeresLossFunctionType ceres_loss_function_type =
+      CeresLossFunctionType::CAUCHY;
 
   // Tikhonov ridge added to the diagonal of the normal equations A^T (W) A
   // before each Cholesky factorization in the L1 and IRLS phases. The

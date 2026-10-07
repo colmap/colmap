@@ -2,11 +2,13 @@
 
 #include "colmap/estimators/rotation_averaging.h"
 
+#include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_impl.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/threading.h"
 
 #include <algorithm>
 #include <queue>
@@ -488,6 +490,65 @@ bool RotationEstimator::SolveRotationAveraging(
                                       active_image_ids,
                                       reconstruction,
                                       options_.refine_sensor_from_rig);
+  }
+
+  if (options_.backend == RotationAveragingBackend::CERES) {
+    if (UseGravity(options_, pose_priors)) {
+      LOG(WARNING) << "Ceres rotation averaging does not support gravity "
+                      "priors; falling back to L1_IRLS solver.";
+    } else {
+      if (options_.max_num_l1_iterations > 0) {
+        RotationEstimatorOptions l1_options = options_;
+        l1_options.max_num_irls_iterations = 0;
+        RotationAveragingProblem l1_problem(pose_graph,
+                                            pose_priors,
+                                            l1_options,
+                                            active_image_ids,
+                                            reconstruction);
+        RotationAveragingSolver l1_solver(l1_options);
+        if (!l1_solver.Solve(l1_problem)) {
+          return false;
+        }
+        l1_problem.ApplyResultsToReconstruction(reconstruction);
+      }
+
+      CeresRotationAveragerOptions ceres_options;
+      ceres_options.loss_function_type = options_.ceres_loss_function_type;
+      ceres_options.loss_function_scale =
+          DegToRad(options_.irls_loss_parameter_sigma);
+      ceres_options.reweighting = options_.reweighting;
+      ceres_options.skip_initialization = true;
+      ceres_options.refine_sensor_from_rig = options_.refine_sensor_from_rig;
+      ceres_options.solver_options.max_num_iterations =
+          options_.max_num_irls_iterations;
+      ceres_options.solver_options.num_threads =
+          GetEffectiveNumThreads(options_.num_threads);
+      ceres_options.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
+
+      const PoseGraph* active_pose_graph = &pose_graph;
+      std::optional<PoseGraph> filtered_pose_graph;
+      for (const auto& [pair_id, _] : pose_graph.ValidEdges()) {
+        const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+        if (!active_image_ids.count(image_id1) ||
+            !active_image_ids.count(image_id2)) {
+          filtered_pose_graph = pose_graph;
+          filtered_pose_graph->InvalidatePairsOutsideActiveImageIds(
+              active_image_ids);
+          active_pose_graph = &(*filtered_pose_graph);
+          break;
+        }
+      }
+
+      auto averager = CreateDefaultCeresRotationAverager(
+          ceres_options, *active_pose_graph, reconstruction);
+      const ceres::Solver::Summary summary = averager->Solve();
+      if (VLOG_IS_ON(2)) {
+        LOG(INFO) << summary.FullReport();
+      } else {
+        VLOG(1) << summary.BriefReport();
+      }
+      return summary.IsSolutionUsable();
+    }
   }
 
   // Build the optimization problem.

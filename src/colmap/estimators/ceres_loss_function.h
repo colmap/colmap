@@ -2,13 +2,16 @@
 
 #pragma once
 
+#include "colmap/util/enum_utils.h"
+
 #include <memory>
 
 #include <ceres/loss_function.h>
 
 namespace colmap {
 
-enum class CeresLossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    CeresLossFunctionType, 0, TRIVIAL, SOFT_L1, CAUCHY, HUBER);
 
 // Standard construction accepts a non-negative `robust_scale` and finite
 // positive `weight`.
