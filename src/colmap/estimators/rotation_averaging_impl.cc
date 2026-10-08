@@ -794,8 +794,7 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
 
     // Compute the weight.
     double w = 0;
-    if (options_.weight_type ==
-        L1IrlsRotationAveragerOptions::GEMAN_MCCLURE) {
+    if (options_.weight_type == L1IrlsRotationAveragerOptions::GEMAN_MCCLURE) {
       double tmp = err_squared + sigma * sigma;
       w = sigma * sigma / (tmp * tmp);
     } else if (options_.weight_type ==

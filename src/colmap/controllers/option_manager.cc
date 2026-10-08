@@ -955,9 +955,9 @@ void OptionManager::AddGlobalMapperOptions() {
                        RotationAveragingBackendFromString,
                        EnumHelpText(RotationAveragingBackendStrings()));
   // L1-IRLS-specific rotation averaging options.
-  AddDefaultOption("GlobalMapper.ra_max_num_l1_iterations",
-                   &global_mapper->mapper.rotation_averaging.l1_irls
-                        ->max_num_l1_iterations);
+  AddDefaultOption(
+      "GlobalMapper.ra_max_num_l1_iterations",
+      &global_mapper->mapper.rotation_averaging.l1_irls->max_num_l1_iterations);
   AddDefaultOption("GlobalMapper.ra_max_num_irls_iterations",
                    &global_mapper->mapper.rotation_averaging.l1_irls
                         ->max_num_irls_iterations);

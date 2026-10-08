@@ -219,8 +219,8 @@ void BindRotationEstimator(py::module& m) {
   AddStringToEnumConstructor(PyRotationAveragingBackend);
 
   auto PyL1IrlsRotationAveragerOptions =
-      py::classh<L1IrlsRotationAveragerOptions>(
-          m, "L1IrlsRotationAveragerOptions")
+      py::classh<L1IrlsRotationAveragerOptions>(m,
+                                                "L1IrlsRotationAveragerOptions")
           .def(py::init<>())
           .def_readwrite("max_num_l1_iterations",
                          &L1IrlsRotationAveragerOptions::max_num_l1_iterations,
