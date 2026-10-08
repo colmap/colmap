@@ -240,7 +240,8 @@ void BindRotationEstimator(py::module& m) {
           .def_readwrite(
               "irls_loss_parameter_sigma",
               &L1IrlsRotationAveragerOptions::irls_loss_parameter_sigma,
-              "Point where Huber-like cost switches from L1 to L2 (degrees).")
+              "Scale of the Geman-McClure IRLS weight (degrees). Unused by "
+              "HALF_NORM.")
           .def_readwrite(
               "ridge_regularization",
               &L1IrlsRotationAveragerOptions::ridge_regularization,

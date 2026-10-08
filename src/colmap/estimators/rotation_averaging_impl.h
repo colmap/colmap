@@ -28,8 +28,9 @@ struct L1IrlsRotationAveragerOptions {
   // Average step size threshold to terminate the IRLS minimization.
   double irls_step_convergence_threshold = 0.001;
 
-  // The point where the Huber-like cost function switches from L1 to L2.
-  double irls_loss_parameter_sigma = 5.0;  // in degrees
+  // Scale of the Geman-McClure IRLS weight sigma^2 / (e^2 + sigma^2)^2, in
+  // degrees. Unused by HALF_NORM.
+  double irls_loss_parameter_sigma = 5.0;
 
   // Tikhonov ridge added to the diagonal of the normal equations A^T (W) A
   // before each Cholesky factorization in the L1 and IRLS phases. The
