@@ -2,6 +2,7 @@
 
 #include "colmap/mvs/fusion.h"
 
+#include "colmap/math/math.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
