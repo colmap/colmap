@@ -275,6 +275,23 @@ std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
   return std::nullopt;
 }
 
+// Adds the isotropic floor to the relative rotation covariances and assigns
+// the isotropic fallback covariance to valid edges without one.
+void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
+                                   PoseGraph& pose_graph) {
+  const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
+  const double fallback_sigma = DegToRad(options.covariance_fallback_sigma_deg);
+  const Eigen::Matrix3d floor_cov =
+      floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
+  const Eigen::Matrix3d fallback_cov =
+      fallback_sigma * fallback_sigma * Eigen::Matrix3d::Identity();
+  for (auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (edge.valid) {
+      edge.rot_cov = edge.rot_cov.value_or(fallback_cov) + floor_cov;
+    }
+  }
+}
+
 }  // namespace
 
 RotationEstimatorBackendOptions::RotationEstimatorBackendOptions()
@@ -589,8 +606,14 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
     Reconstruction& reconstruction) {
   THROW_CHECK_NOTNULL(options_.ceres);
 
-  const std::optional<PoseGraph> filtered_pose_graph =
+  std::optional<PoseGraph> filtered_pose_graph =
       MaybeFilterPoseGraphToActiveImages(pose_graph, active_image_ids);
+  if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
+    if (!filtered_pose_graph.has_value()) {
+      filtered_pose_graph = pose_graph;
+    }
+    RegularizeRotationCovariances(options_, *filtered_pose_graph);
+  }
   const PoseGraph& active_pose_graph =
       filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
 

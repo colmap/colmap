@@ -653,8 +653,6 @@ void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
   }
   TwoViewPoseCovarianceOptions cov_options;
   cov_options.num_threads = options.num_threads;
-  cov_options.rotation_sigma_floor_rad =
-      DegToRad(options.covariance_sigma_floor_deg);
   EstimatePoseGraphCovariances(database_cache, pose_graph, cov_options);
 }
 

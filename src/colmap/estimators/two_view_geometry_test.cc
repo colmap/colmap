@@ -1976,8 +1976,6 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
 
   TwoViewPoseCovarianceOptions options;
   options.min_sigma_obs_px = 0.01;
-  options.max_rotation_cov_cond = 0;
-  options.rotation_sigma_floor_rad = 0;
 
   std::vector<double> nees;
   nees.reserve(kNumTrials);
@@ -2021,9 +2019,9 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
         EstimateTwoViewPoseCovariance(
             camera, points1, camera, points2, geometry, options);
     ASSERT_TRUE(cov.has_value());
-    ASSERT_FALSE(cov->is_rotation_degenerate);
+    ASSERT_TRUE(cov->cov_rot.has_value());
     EXPECT_EQ(cov->num_inliers, kNumPoints);
-    EXPECT_EQ(cov->is_translation_degenerate, is_panoramic);
+    EXPECT_EQ(cov->cov_trans_tangent.has_value(), !is_panoramic);
 
     // Right perturbation: estimated = true * Exp(delta).
     const Eigen::AngleAxisd delta_angle_axis(
@@ -2031,7 +2029,7 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
         estimated_cam2_from_cam1.rotation());
     const Eigen::Vector3d delta =
         delta_angle_axis.angle() * delta_angle_axis.axis();
-    nees.push_back(delta.dot(cov->cov_rot.ldlt().solve(delta)));
+    nees.push_back(delta.dot(cov->cov_rot->ldlt().solve(delta)));
     sum_sigma_obs += cov->sigma_obs_px;
   }
 
@@ -2080,16 +2078,14 @@ INSTANTIATE_TEST_SUITE_P(
       return info.param.name;
     });
 
-TEST(EstimateTwoViewPoseCovariance, FloorAndConditioning) {
+TEST(EstimateTwoViewPoseCovariance, Nominal) {
   SetPRNGSeed(0);
   const TwoViewGeometryPoseTestData data = CreateTwoViewGeometryPoseTestData(
       TwoViewGeometry::ConfigurationType::CALIBRATED);
-  TwoViewGeometry geometry = data.geometry;
+  const TwoViewGeometry& geometry = data.geometry;
   ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
 
   TwoViewPoseCovarianceOptions options;
-  options.max_rotation_cov_cond = 0;
-  options.rotation_sigma_floor_rad = 0;
   const std::optional<TwoViewPoseCovariance> cov =
       EstimateTwoViewPoseCovariance(data.camera1,
                                     data.points1,
@@ -2098,40 +2094,30 @@ TEST(EstimateTwoViewPoseCovariance, FloorAndConditioning) {
                                     geometry,
                                     options);
   ASSERT_TRUE(cov.has_value());
-  ASSERT_FALSE(cov->is_rotation_degenerate);
-  EXPECT_TRUE(cov->cov_rot.isApprox(cov->cov_rot.transpose()));
-  EXPECT_GT(cov->cov_rot.ldlt().vectorD().minCoeff(), 0);
+  ASSERT_TRUE(cov->cov_rot.has_value());
+  EXPECT_TRUE(cov->cov_rot->isApprox(cov->cov_rot->transpose()));
+  EXPECT_GT(cov->cov_rot->ldlt().vectorD().minCoeff(), 0);
+  ASSERT_TRUE(cov->cov_trans_tangent.has_value());
+  EXPECT_TRUE(
+      cov->cov_trans_tangent->isApprox(cov->cov_trans_tangent->transpose()));
+  EXPECT_GT(cov->cov_trans_tangent->ldlt().vectorD().minCoeff(), 0);
   // Noise-free observations are clamped to the minimum observation noise.
   EXPECT_EQ(cov->sigma_obs_px, options.min_sigma_obs_px);
 
-  options.rotation_sigma_floor_rad = DegToRad(0.5);
-  const std::optional<TwoViewPoseCovariance> cov_floor =
+  // The rotation is degenerate if less certain than the maximum sigma.
+  const double max_sigma_deg =
+      RadToDeg(std::sqrt(cov->cov_rot->eigenvalues().real().maxCoeff()));
+  options.max_rotation_sigma_deg = 0.5 * max_sigma_deg;
+  const std::optional<TwoViewPoseCovariance> cov_degenerate =
       EstimateTwoViewPoseCovariance(data.camera1,
                                     data.points1,
                                     data.camera2,
                                     data.points2,
                                     geometry,
                                     options);
-  ASSERT_TRUE(cov_floor.has_value());
-  EXPECT_TRUE(cov_floor->cov_rot.isApprox(cov->cov_rot +
-                                          options.rotation_sigma_floor_rad *
-                                              options.rotation_sigma_floor_rad *
-                                              Eigen::Matrix3d::Identity()));
-
-  options.rotation_sigma_floor_rad = 0;
-  options.max_rotation_cov_cond = 2;
-  const std::optional<TwoViewPoseCovariance> cov_cond =
-      EstimateTwoViewPoseCovariance(data.camera1,
-                                    data.points1,
-                                    data.camera2,
-                                    data.points2,
-                                    geometry,
-                                    options);
-  ASSERT_TRUE(cov_cond.has_value());
-  const Eigen::Vector3d cond_eigvals =
-      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(cov_cond->cov_rot)
-          .eigenvalues();
-  EXPECT_LE(cond_eigvals(2) / cond_eigvals(0), 2 + 1e-6);
+  ASSERT_TRUE(cov_degenerate.has_value());
+  EXPECT_FALSE(cov_degenerate->cov_rot.has_value());
+  EXPECT_EQ(cov_degenerate->cov_trans_tangent, cov->cov_trans_tangent);
 }
 
 TEST(EstimateTwoViewPoseCovariance, MissingPoseOrTooFewInliers) {
@@ -2177,8 +2163,16 @@ TEST(EstimatePoseGraphCovariances, Nominal) {
   const Eigen::Matrix3d preset_cov = 2 * Eigen::Matrix3d::Identity();
   pose_graph.Edges().begin()->second.rot_cov = preset_cov;
 
+  // Degenerate rotations are left unset.
+  PoseGraph degenerate_pose_graph = pose_graph;
   TwoViewPoseCovarianceOptions options;
-  options.rotation_sigma_floor_rad = DegToRad(0.1);
+  options.max_rotation_sigma_deg = 1e-6;
+  EstimatePoseGraphCovariances(*cache, degenerate_pose_graph, options);
+  for (const auto& [pair_id, edge] : degenerate_pose_graph.Edges()) {
+    EXPECT_EQ(edge.rot_cov.has_value(), pair_id == preset_pair_id);
+  }
+
+  options = TwoViewPoseCovarianceOptions();
   EstimatePoseGraphCovariances(*cache, pose_graph, options);
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
     ASSERT_TRUE(edge.rot_cov.has_value());
@@ -2190,13 +2184,9 @@ TEST(EstimatePoseGraphCovariances, Nominal) {
     const Eigen::Vector3d eigvals =
         Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(*edge.rot_cov)
             .eigenvalues();
-    EXPECT_GE(
-        eigvals(0),
-        options.rotation_sigma_floor_rad * options.rotation_sigma_floor_rad);
-    // Well-constrained synthetic pairs are much more certain than the fallback.
-    EXPECT_LT(eigvals(2),
-              0.01 * options.fallback_rotation_sigma_rad *
-                  options.fallback_rotation_sigma_rad);
+    EXPECT_GT(eigvals(0), 0);
+    // Well-constrained synthetic pairs are certain to below a degree.
+    EXPECT_LT(eigvals(2), DegToRad(1.0) * DegToRad(1.0));
   }
 }
 

@@ -24,8 +24,10 @@ namespace colmap {
 //     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
 //     edge, normalized to (0, 1].
 //   COVARIANCE: whiten each constraint with the covariance of its relative
-//     rotation (PoseGraph::Edge::rot_cov), which must be set for all edges.
-//     The global mapper estimates it from the two-view correspondences (see
+//     rotation (PoseGraph::Edge::rot_cov), regularized with
+//     RotationEstimatorOptions::covariance_sigma_floor_deg. Edges without a
+//     covariance use covariance_fallback_sigma_deg. The global mapper
+//     estimates the covariances from the two-view correspondences (see
 //     EstimatePoseGraphCovariances). Only supported by the CERES backend,
 //     which then uses CeresRotationAveragerOptions::covariance_loss_scale.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(
@@ -109,6 +111,11 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
   // pairs with many correspondences from dominating.
   double covariance_sigma_floor_deg = 0.02;
+
+  // With COVARIANCE reweighting, isotropic standard deviation (in degrees) of
+  // the relative rotations without an estimated covariance, e.g., because
+  // their rotation is degenerate.
+  double covariance_fallback_sigma_deg = 5.0;
 
   // With COVARIANCE reweighting, number of threads for estimating the relative
   // rotation covariances (-1 = auto-select).

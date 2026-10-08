@@ -46,6 +46,7 @@ def test_rotation_estimator_options_default_init() -> None:
     assert options.ceres.loss_function_type == pycolmap.LossFunctionType.CAUCHY
     assert options.ceres.covariance_loss_scale == 3.0
     assert options.covariance_sigma_floor_deg == 0.02
+    assert options.covariance_fallback_sigma_deg == 5.0
 
 
 def test_rotation_estimator_options_reweighting_readwrite() -> None:
@@ -69,6 +70,8 @@ def test_rotation_estimator_options_reweighting_readwrite() -> None:
     assert options.ceres.loss_function_type == pycolmap.LossFunctionType.HUBER
     options.covariance_sigma_floor_deg = 0.1
     assert options.covariance_sigma_floor_deg == 0.1
+    options.covariance_fallback_sigma_deg = 2.0
+    assert options.covariance_fallback_sigma_deg == 2.0
 
 
 def test_rotation_estimator_options_l1_irls_readwrite() -> None:

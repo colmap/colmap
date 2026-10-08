@@ -314,6 +314,12 @@ void BindRotationEstimator(py::module& m) {
               "Isotropic standard deviation (degrees) added in quadrature to "
               "the estimated relative rotation covariances with COVARIANCE "
               "reweighting.")
+          .def_readwrite(
+              "covariance_fallback_sigma_deg",
+              &RotationEstimatorOptions::covariance_fallback_sigma_deg,
+              "Isotropic standard deviation (degrees) of the relative "
+              "rotations without an estimated covariance with COVARIANCE "
+              "reweighting.")
           .def_readwrite("num_threads",
                          &RotationEstimatorOptions::num_threads,
                          "Number of threads for estimating the relative "

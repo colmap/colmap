@@ -1928,6 +1928,9 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
   result.num_inliers = num_inliers;
 
   constexpr double kNormalMadScale = 1.482602218505602;
+  // Relative tolerance below which an eigenvalue of the information matrix is
+  // considered numerically zero.
+  constexpr double kMinRelativeEigenvalue = 1e-12;
   Eigen::Matrix3d Lambda_R_eff = Eigen::Matrix3d::Zero();
 
   if (is_panoramic) {
@@ -1985,7 +1988,6 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
     result.sigma_obs_px = std::max(sigma_mad, options.min_sigma_obs_px);
     Lambda_R_eff =
         unscaled_Lambda_RR / (result.sigma_obs_px * result.sigma_obs_px);
-    result.is_translation_degenerate = true;
   } else {
     using RelativePoseManifold =
         ProductManifold<EigenQuaternionManifold, SphereManifold<3>>;
@@ -2024,15 +2026,16 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
         Lambda_2v.topRightCorner<3, 2>();
     const Eigen::Matrix2d Lambda_tt = Lambda_2v.bottomRightCorner<2, 2>();
 
+    // Marginalize the translation direction with the Schur complement,
+    // excluding only numerically null directions of its information.
     const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> trans_eig(Lambda_tt);
     if (trans_eig.info() != Eigen::Success) {
       return std::nullopt;
     }
     const Eigen::Vector2d trans_evals = trans_eig.eigenvalues();
     const Eigen::Matrix2d trans_evecs = trans_eig.eigenvectors();
-    const double trans_thresh = std::max(
-        options.min_translation_eigenvalue,
-        options.min_translation_rel_eigenvalue * std::max(0.0, trans_evals(1)));
+    const double trans_thresh =
+        kMinRelativeEigenvalue * std::max(0.0, trans_evals(1));
 
     Eigen::Matrix2d Lambda_tt_pinv = Eigen::Matrix2d::Zero();
     for (int j = 0; j < 2; ++j) {
@@ -2042,12 +2045,11 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
             (trans_evecs.col(j) * trans_evecs.col(j).transpose());
       }
     }
-    result.is_translation_degenerate = (trans_evals(0) <= trans_thresh);
 
     Lambda_R_eff =
         Lambda_RR - Lambda_Rt * Lambda_tt_pinv * Lambda_Rt.transpose();
 
-    if (!result.is_translation_degenerate) {
+    if (trans_evals(0) > trans_thresh) {
       const Eigen::LDLT<Eigen::Matrix3d> rot_ldlt(Lambda_RR);
       if (rot_ldlt.info() == Eigen::Success) {
         const Eigen::Matrix2d Lambda_t_eff =
@@ -2055,41 +2057,41 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
         const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> t_eff_eig(
             Lambda_t_eff);
         if (t_eff_eig.info() == Eigen::Success &&
-            t_eff_eig.eigenvalues()(0) > trans_thresh) {
+            t_eff_eig.eigenvalues()(0) >
+                kMinRelativeEigenvalue *
+                    std::max(0.0, t_eff_eig.eigenvalues()(1))) {
           result.cov_trans_tangent =
               t_eff_eig.eigenvectors() *
               t_eff_eig.eigenvalues().cwiseInverse().asDiagonal() *
               t_eff_eig.eigenvectors().transpose();
-        } else {
-          result.is_translation_degenerate = true;
         }
       }
     }
   }
 
+  // The rotation is degenerate if its standard deviation along the least
+  // constrained axis exceeds max_rotation_sigma_deg.
   Lambda_R_eff = 0.5 * (Lambda_R_eff + Lambda_R_eff.transpose());
+  const double max_rotation_sigma = DegToRad(options.max_rotation_sigma_deg);
   const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> rot_eig(Lambda_R_eff);
   if (rot_eig.info() != Eigen::Success ||
-      rot_eig.eigenvalues()(0) <= options.min_rotation_eigenvalue) {
-    result.is_rotation_degenerate = true;
+      rot_eig.eigenvalues()(0) * max_rotation_sigma * max_rotation_sigma <=
+          1.0) {
     return result;
   }
 
-  result.is_rotation_degenerate = false;
+  // Clamp the anisotropy of the covariance to avoid near-singular whitening.
+  constexpr double kMaxRotationCovConditionNumber = 1e4;
   Eigen::Vector3d rot_vars = rot_eig.eigenvalues().cwiseInverse();
-  if (options.max_rotation_cov_cond > 0.0) {
-    const double min_allowed_var = rot_vars(0) / options.max_rotation_cov_cond;
-    for (int j = 0; j < 3; ++j) {
-      rot_vars(j) = std::max(rot_vars(j), min_allowed_var);
-    }
+  const double min_allowed_var = rot_vars(0) / kMaxRotationCovConditionNumber;
+  for (int j = 0; j < 3; ++j) {
+    rot_vars(j) = std::max(rot_vars(j), min_allowed_var);
   }
-  const double floor_var =
-      options.rotation_sigma_floor_rad * options.rotation_sigma_floor_rad;
-  rot_vars.array() += floor_var;
 
-  result.cov_rot = rot_eig.eigenvectors() * rot_vars.asDiagonal() *
-                   rot_eig.eigenvectors().transpose();
-  result.cov_rot = 0.5 * (result.cov_rot + result.cov_rot.transpose());
+  const Eigen::Matrix3d cov_rot = rot_eig.eigenvectors() *
+                                  rot_vars.asDiagonal() *
+                                  rot_eig.eigenvectors().transpose();
+  result.cov_rot = 0.5 * (cov_rot + cov_rot.transpose());
   return result;
 }
 
@@ -2136,13 +2138,6 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   const auto& images = database_cache.Images();
   const auto correspondence_graph = database_cache.CorrespondenceGraph();
 
-  const double fallback_var =
-      options.fallback_rotation_sigma_rad *
-          options.fallback_rotation_sigma_rad +
-      options.rotation_sigma_floor_rad * options.rotation_sigma_floor_rad;
-  const Eigen::Matrix3d fallback_cov =
-      fallback_var * Eigen::Matrix3d::Identity();
-
   std::atomic<size_t> num_degenerate(0);
   ThreadPool thread_pool(GetEffectiveNumThreads(options.num_threads));
   std::vector<std::shared_future<void>> futures;
@@ -2170,10 +2165,9 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
                                                      image_points.at(image_id2),
                                                      two_view_geometry,
                                                      options);
-      if (cov.has_value() && !cov->is_rotation_degenerate) {
-        edge_ptr->rot_cov = cov->cov_rot;
+      if (cov.has_value() && cov->cov_rot.has_value()) {
+        edge_ptr->rot_cov = *cov->cov_rot;
       } else {
-        edge_ptr->rot_cov = fallback_cov;
         num_degenerate.fetch_add(1, std::memory_order_relaxed);
       }
     }));
@@ -2184,7 +2178,7 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   }
 
   LOG(INFO) << StringPrintf(
-      "Estimated %zu two-view rotation covariances (%zu fallback) in %.3fs",
+      "Estimated %zu two-view rotation covariances (%zu degenerate) in %.3fs",
       tasks.size(),
       num_degenerate.load(),
       timer.ElapsedSeconds());

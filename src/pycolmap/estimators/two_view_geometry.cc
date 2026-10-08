@@ -153,22 +153,12 @@ void BindTwoViewGeometryEstimator(py::module& m) {
                          &TwoViewPoseCovarianceOptions::num_threads)
           .def_readwrite("min_sigma_obs_px",
                          &TwoViewPoseCovarianceOptions::min_sigma_obs_px)
-          .def_readwrite("min_rotation_eigenvalue",
-                         &TwoViewPoseCovarianceOptions::min_rotation_eigenvalue)
           .def_readwrite(
-              "min_translation_eigenvalue",
-              &TwoViewPoseCovarianceOptions::min_translation_eigenvalue)
-          .def_readwrite(
-              "min_translation_rel_eigenvalue",
-              &TwoViewPoseCovarianceOptions::min_translation_rel_eigenvalue)
-          .def_readwrite("max_rotation_cov_cond",
-                         &TwoViewPoseCovarianceOptions::max_rotation_cov_cond)
-          .def_readwrite(
-              "rotation_sigma_floor_rad",
-              &TwoViewPoseCovarianceOptions::rotation_sigma_floor_rad)
-          .def_readwrite(
-              "fallback_rotation_sigma_rad",
-              &TwoViewPoseCovarianceOptions::fallback_rotation_sigma_rad);
+              "max_rotation_sigma_deg",
+              &TwoViewPoseCovarianceOptions::max_rotation_sigma_deg,
+              "Maximum standard deviation (degrees) of the relative rotation "
+              "along its least constrained axis, beyond which no rotation "
+              "covariance is returned.");
   MakeDataclass(PyTwoViewPoseCovarianceOptions);
 
   py::classh<TwoViewPoseCovariance>(m, "TwoViewPoseCovariance")
@@ -177,11 +167,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       .def_readwrite("cov_trans_tangent",
                      &TwoViewPoseCovariance::cov_trans_tangent)
       .def_readwrite("sigma_obs_px", &TwoViewPoseCovariance::sigma_obs_px)
-      .def_readwrite("num_inliers", &TwoViewPoseCovariance::num_inliers)
-      .def_readwrite("is_rotation_degenerate",
-                     &TwoViewPoseCovariance::is_rotation_degenerate)
-      .def_readwrite("is_translation_degenerate",
-                     &TwoViewPoseCovariance::is_translation_degenerate);
+      .def_readwrite("num_inliers", &TwoViewPoseCovariance::num_inliers);
 
   m.def("estimate_two_view_pose_covariance",
         &EstimateTwoViewPoseCovariance,

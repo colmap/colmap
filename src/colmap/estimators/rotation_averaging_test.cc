@@ -352,13 +352,19 @@ TEST(RotationAveraging, CovarianceReweighting) {
   options.backend = RotationAveragingBackend::CERES;
   options.reweighting = RotationAveragingReweighting::COVARIANCE;
 
-  // Covariances are required on all edges.
+  // Edges without a covariance use the isotropic fallback.
   {
     Reconstruction reconstruction = data.reconstruction;
     PoseGraph pose_graph = data.pose_graph;
-    EXPECT_THROW(RunRotationAveraging(
-                     options, pose_graph, reconstruction, data.pose_priors),
-                 std::invalid_argument);
+    ASSERT_TRUE(RunRotationAveraging(
+        options, pose_graph, reconstruction, data.pose_priors));
+    ExpectEqualRotations(data.gt_reconstruction,
+                         reconstruction,
+                         /*max_rotation_error_deg=*/3);
+    // The input pose graph is not modified.
+    for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+      EXPECT_FALSE(edge.rot_cov.has_value());
+    }
   }
 
   DatabaseCache database_cache;
