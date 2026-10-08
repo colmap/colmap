@@ -17,7 +17,7 @@
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
-#include "colmap/estimators/rotation_averaging_impl.h"
+#include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/loma.h"

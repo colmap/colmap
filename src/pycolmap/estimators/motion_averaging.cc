@@ -4,7 +4,7 @@
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
-#include "colmap/estimators/rotation_averaging_impl.h"
+#include "colmap/estimators/rotation_averaging_l1_irls.h"
 
 #include "pycolmap/helpers.h"
 

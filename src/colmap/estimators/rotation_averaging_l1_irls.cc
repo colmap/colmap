@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/estimators/rotation_averaging_impl.h"
+#include "colmap/estimators/rotation_averaging_l1_irls.h"
 
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"

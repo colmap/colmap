@@ -39,7 +39,7 @@ struct CeresRotationAveragerOptions;
 struct RotationEstimatorBackendOptions {
   // L1-IRLS-specific options (used when backend == L1_IRLS and when CERES
   // falls back to L1_IRLS for gravity priors).
-  // Type defined in rotation_averaging_impl.h.
+  // Type defined in rotation_averaging_l1_irls.h.
   std::shared_ptr<L1IrlsRotationAveragerOptions> l1_irls;
 
   // Ceres-specific options (only used when backend == CERES).
