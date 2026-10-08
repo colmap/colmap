@@ -363,7 +363,7 @@ TEST(RotationAveraging, CovarianceReweighting) {
                          /*max_rotation_error_deg=*/3);
     // The input pose graph is not modified.
     for (const auto& [pair_id, edge] : pose_graph.Edges()) {
-      EXPECT_FALSE(edge.rot_cov.has_value());
+      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
     }
   }
 
@@ -371,7 +371,7 @@ TEST(RotationAveraging, CovarianceReweighting) {
   database_cache.Load(*data.database, DatabaseCache::Options());
   EstimatePoseGraphCovariances(database_cache, data.pose_graph);
   for (const auto& [pair_id, edge] : data.pose_graph.ValidEdges()) {
-    ASSERT_TRUE(edge.rot_cov.has_value());
+    ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
   }
 
   Reconstruction reconstruction = data.reconstruction;

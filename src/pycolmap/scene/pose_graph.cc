@@ -25,8 +25,8 @@ void BindPoseGraph(py::module& m) {
           .def_readwrite("cam2_from_cam1",
                          &PoseGraph::Edge::cam2_from_cam1,
                          "Relative pose from image 1 to image 2.")
-          .def_readwrite("rot_cov",
-                         &PoseGraph::Edge::rot_cov,
+          .def_readwrite("cam2_from_cam1_rotation_cov",
+                         &PoseGraph::Edge::cam2_from_cam1_rotation_cov,
                          "Optional 3x3 marginal rotation covariance of "
                          "cam2_from_cam1 in camera 1's local tangent frame.")
           .def_readwrite("num_matches",

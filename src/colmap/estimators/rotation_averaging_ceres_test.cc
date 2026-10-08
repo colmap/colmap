@@ -490,7 +490,7 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
         Eigen::Quaterniond(Eigen::AngleAxisd(0.05, Eigen::Vector3d::UnitX()));
     const Eigen::Quaterniond prior = ZRotation(0.2);
     PoseGraph graph;
-    graph.AddEdge(1, 2, Edge(prior)).rot_cov = cov;
+    graph.AddEdge(1, 2, Edge(prior)).cam2_from_cam1_rotation_cov = cov;
     const Eigen::Vector3d residual =
         RelativeRotationResidual(prior, RelativeRotation(reconstruction, 1, 2));
 
@@ -519,7 +519,7 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
         Eigen::Quaterniond(Eigen::AngleAxisd(0.03, Eigen::Vector3d::UnitY())) *
         estimate;
     PoseGraph graph;
-    graph.AddEdge(image_id1, image_id2, Edge(prior)).rot_cov = cov;
+    graph.AddEdge(image_id1, image_id2, Edge(prior)).cam2_from_cam1_rotation_cov = cov;
     const Eigen::Vector3d residual = RelativeRotationResidual(prior, estimate);
 
     options.reweighting = RotationAveragingReweighting::COVARIANCE;
@@ -534,7 +534,7 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
 TEST(CeresRotationAverager, CovarianceReweightingRequiresCovariances) {
   Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
   PoseGraph graph;
-  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).rot_cov =
+  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
       Eigen::Matrix3d::Identity();
   graph.AddEdge(2, 3, Edge(ZRotation(0.2)));
   RotationEstimatorOptions options;
@@ -547,11 +547,11 @@ TEST(CeresRotationAverager, CovarianceReweightingRequiresCovariances) {
 TEST(CeresRotationAverager, CovarianceDownweightsUncertainEdges) {
   // Inconsistent loop: the 1-3 edge disagrees by 0.1 rad with the others.
   PoseGraph graph;
-  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).rot_cov =
+  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
       Eigen::Matrix3d::Identity() * 1e-6;
-  graph.AddEdge(2, 3, Edge(ZRotation(0.2))).rot_cov =
+  graph.AddEdge(2, 3, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
       Eigen::Matrix3d::Identity() * 1e-6;
-  graph.AddEdge(1, 3, Edge(ZRotation(0.5))).rot_cov =
+  graph.AddEdge(1, 3, Edge(ZRotation(0.5))).cam2_from_cam1_rotation_cov =
       Eigen::Matrix3d::Identity() * 1e-2;
   RotationEstimatorOptions options;
   options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
@@ -582,7 +582,7 @@ TEST(CeresRotationAverager, CovarianceReweightingWithRigs) {
   const Reconstruction truth = MakeRigReconstruction(2);
   PoseGraph graph = MakePoseGraph(truth);
   for (auto& [pair_id, edge] : graph.Edges()) {
-    edge.rot_cov = AnisotropicCovariance();
+    edge.cam2_from_cam1_rotation_cov = AnisotropicCovariance();
   }
   Reconstruction reconstruction = truth;
   RotationEstimatorOptions options;

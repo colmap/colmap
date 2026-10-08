@@ -24,7 +24,7 @@ namespace colmap {
 //     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
 //     edge, normalized to (0, 1].
 //   COVARIANCE: whiten each constraint with the covariance of its relative
-//     rotation (PoseGraph::Edge::rot_cov), regularized with
+//     rotation (PoseGraph::Edge::cam2_from_cam1_rotation_cov), regularized with
 //     RotationEstimatorOptions::covariance_sigma_floor_deg. Edges without a
 //     covariance use covariance_fallback_sigma_deg. The global mapper
 //     estimates the covariances from the two-view correspondences (see

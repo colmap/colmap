@@ -27,7 +27,7 @@ class PoseGraph {
 
     // Optional 3x3 marginal rotation covariance of cam2_from_cam1 in
     // camera 1's local tangent frame (right perturbation R21 * Exp(delta)).
-    std::optional<Eigen::Matrix3d> rot_cov;
+    std::optional<Eigen::Matrix3d> cam2_from_cam1_rotation_cov;
 
     // Number of two-view matches used to compute the relative pose.
     int num_matches = 0;
@@ -37,10 +37,10 @@ class PoseGraph {
 
     // Invert the geometry to match swapped image order.
     void Invert() {
-      if (rot_cov.has_value()) {
+      if (cam2_from_cam1_rotation_cov.has_value()) {
         const Eigen::Matrix3d R21 =
             cam2_from_cam1.rotation().toRotationMatrix();
-        rot_cov = R21 * (*rot_cov) * R21.transpose();
+        cam2_from_cam1_rotation_cov = R21 * (*cam2_from_cam1_rotation_cov) * R21.transpose();
       }
       cam2_from_cam1 = Inverse(cam2_from_cam1);
     }

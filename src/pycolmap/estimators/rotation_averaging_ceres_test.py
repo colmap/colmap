@@ -76,7 +76,7 @@ def test_ceres_rotation_averager_covariance_reweighting() -> None:
     edge = pycolmap.PoseGraphEdge(
         cam2_from_cam1=pycolmap.Rigid3d(prior, np.zeros(3))
     )
-    edge.rot_cov = cov
+    edge.cam2_from_cam1_rotation_cov = cov
     pose_graph = pycolmap.PoseGraph()
     pose_graph.add_edge(image_id1, image_id2, edge)
     options = pycolmap.RotationEstimatorOptions()
@@ -98,7 +98,7 @@ def test_ceres_rotation_averager_covariance_reweighting() -> None:
     expected = residual @ np.linalg.solve(cov, residual)
     np.testing.assert_allclose(residuals @ residuals, 2 * expected, rtol=1e-6)
 
-    edge.rot_cov = None
+    edge.cam2_from_cam1_rotation_cov = None
     pose_graph = pycolmap.PoseGraph()
     pose_graph.add_edge(image_id1, image_id2, edge)
     with pytest.raises(ValueError):

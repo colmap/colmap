@@ -65,7 +65,7 @@ CeresRotationAverager::CeresRotationAverager(
     image_ids.insert(image_id1);
     image_ids.insert(image_id2);
     max_num_matches = std::max(max_num_matches, edge.num_matches);
-    if (use_covariance && !edge.rot_cov.has_value()) {
+    if (use_covariance && !edge.cam2_from_cam1_rotation_cov.has_value()) {
       throw std::invalid_argument(
           "COVARIANCE reweighting requires a rotation covariance for every "
           "edge");
@@ -102,7 +102,7 @@ CeresRotationAverager::CeresRotationAverager(
                                 image_id2,
                                 edge.cam2_from_cam1.rotation(),
                                 loss,
-                                use_covariance ? edge.rot_cov : std::nullopt);
+                                use_covariance ? edge.cam2_from_cam1_rotation_cov : std::nullopt);
   }
 }
 

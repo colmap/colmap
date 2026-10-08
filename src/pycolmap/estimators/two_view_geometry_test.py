@@ -116,8 +116,8 @@ def test_estimate_pose_graph_covariances() -> None:
     pose_graph.load(database_cache.correspondence_graph)
     assert pose_graph.num_edges > 0
     for edge in pose_graph.edges.values():
-        assert edge.rot_cov is None
+        assert edge.cam2_from_cam1_rotation_cov is None
     pycolmap.estimate_pose_graph_covariances(database_cache, pose_graph)
     for edge in pose_graph.edges.values():
-        assert edge.rot_cov is not None
-        assert np.all(np.linalg.eigvalsh(edge.rot_cov) > 0)
+        assert edge.cam2_from_cam1_rotation_cov is not None
+        assert np.all(np.linalg.eigvalsh(edge.cam2_from_cam1_rotation_cov) > 0)
