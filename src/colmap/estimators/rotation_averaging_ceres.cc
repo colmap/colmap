@@ -46,7 +46,8 @@ CeresRotationAverager::CeresRotationAverager(
     solver_options.minimizer_progress_to_stdout = true;
   }
   std::shared_ptr<ceres::LossFunction> loss(CreateCeresLossFunction(
-      ceres_options.loss_function_type, ceres_options.loss_function_scale));
+      ceres_options.loss_function_type,
+      DegToRad(ceres_options.loss_function_scale)));
   FlatHashSet<image_t> image_ids;
   int max_num_matches = 0;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
@@ -82,7 +83,7 @@ CeresRotationAverager::CeresRotationAverager(
       if (edge.num_matches == 0) continue;
       loss =
           CreateCeresLossFunction(ceres_options.loss_function_type,
-                                  ceres_options.loss_function_scale,
+                                  DegToRad(ceres_options.loss_function_scale),
                                   double(edge.num_matches) / max_num_matches);
     }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);

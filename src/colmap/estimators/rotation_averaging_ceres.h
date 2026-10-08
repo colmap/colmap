@@ -23,8 +23,8 @@ class Reconstruction;
 struct CeresRotationAveragerOptions {
   // Robust loss function applied to the relative-rotation residuals.
   CeresLossFunctionType loss_function_type = CeresLossFunctionType::CAUCHY;
-  // Loss function scale in radians.
-  double loss_function_scale = DegToRad(0.5);
+  // Loss function scale in degrees.
+  double loss_function_scale = 0.5;
 
   // Number of solver iterations of a Huber-loss warm-start (with the same
   // loss_function_scale) run by RotationEstimator before the main solve. The

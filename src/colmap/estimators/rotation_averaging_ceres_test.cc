@@ -141,7 +141,7 @@ TEST(CeresRotationAverager, MatchCountReweighting) {
   RotationEstimatorOptions options;
   options.skip_initialization = true;
   options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
-  options.ceres->loss_function_scale = 0.1;
+  options.ceres->loss_function_scale = RadToDeg(0.1);
   for (const int num_matches : {10, 0}) {
     PoseGraph graph;
     graph.AddEdge(1, 2, Edge(ZRotation(0.2), num_matches));

@@ -26,7 +26,7 @@ void BindCeresRotationAveragerOptions(py::module& m) {
                          "Loss function for relative-rotation residuals.")
           .def_readwrite("loss_function_scale",
                          &CeresRotationAveragerOptions::loss_function_scale,
-                         "Loss function scale in radians.")
+                         "Loss function scale in degrees.")
           .def_readwrite(
               "max_num_warm_start_iterations",
               &CeresRotationAveragerOptions::max_num_warm_start_iterations,
