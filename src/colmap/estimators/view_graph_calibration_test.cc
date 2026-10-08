@@ -105,10 +105,13 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // Verify cameras with priors are unchanged.
+  // Verify cameras with priors are unchanged and not duplicated as VIEW_GRAPH.
   for (const auto& [camera_id, original_focal] : original_focals) {
     const Camera camera = database->ReadCamera(camera_id);
     EXPECT_EQ(camera.MeanFocalLength(), original_focal);
+    EXPECT_EQ(camera.source, CameraSource::USER);
+    EXPECT_FALSE(
+        database->ExistsCameraSource(camera_id, CameraSource::VIEW_GRAPH));
   }
 }
 

@@ -187,9 +187,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
     return result;
   }
 
-  // Initialize focal lengths from all perspective pinhole cameras. Only these
-  // are calibrated below, and every camera seeded here is reported back to the
-  // caller, which marks it as having a prior focal length.
+  // Initialize focal lengths from all perspective pinhole cameras.
   struct FocalLengthState {
     double optimized = 0.0;
     double initial = 0.0;
@@ -255,9 +253,6 @@ FocalLengthCalibResult CalibrateFocalLengths(
 
   if (num_cameras == 0) {
     LOG(INFO) << "No cameras to optimize";
-    for (const auto& [camera_id, focal] : focal_lengths) {
-      result.focal_lengths[camera_id] = focal.initial;
-    }
     result.success = true;
     return result;
   }
@@ -287,7 +282,9 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Validate focal lengths and revert degenerate ones.
   size_t rejected_cameras = 0;
   for (const auto& [camera_id, camera] : cameras) {
-    if (!camera.IsPerspectivePinhole()) continue;
+    if (!camera.IsPerspectivePinhole() || camera.HasPriorFocalLength()) {
+      continue;
+    }
     auto& focal = focal_lengths[camera_id];
     if (!problem.HasParameterBlock(&focal.optimized)) continue;
 
@@ -300,14 +297,12 @@ FocalLengthCalibResult CalibrateFocalLengths(
       rejected_cameras++;
       // Reset to original focal length.
       focal.optimized = focal.initial;
+      continue;
     }
+    result.focal_lengths[camera_id] = focal.optimized;
   }
   LOG(INFO) << rejected_cameras
             << " cameras rejected in view graph calibration";
-
-  for (const auto& [camera_id, focal] : focal_lengths) {
-    result.focal_lengths[camera_id] = focal.optimized;
-  }
 
   // Evaluate calibration errors.
   ceres::Problem::EvaluateOptions eval_options;
