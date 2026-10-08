@@ -93,26 +93,25 @@ void Database::Merge(const Database& database1,
   auto merge_cameras = [](const Database& src_database,
                           Database* dst_database,
                           NodeHashMap<camera_t, camera_t>* new_camera_ids) {
-    for (const auto& best_camera : src_database.ReadAllCameras()) {
-      const auto calibrations =
-          src_database.ReadAllCameraSources(best_camera.camera_id);
+    const auto all_calibrations = src_database.ReadAllCameraSources();
+    std::vector<camera_t> camera_ids;
+    camera_ids.reserve(all_calibrations.size());
+    for (const auto& [camera_id, _] : all_calibrations) {
+      camera_ids.push_back(camera_id);
+    }
+    std::sort(camera_ids.begin(), camera_ids.end());
+    for (const camera_t camera_id : camera_ids) {
       camera_t new_camera_id = kInvalidCameraId;
-      if (calibrations.empty()) {
-        new_camera_id = dst_database->WriteCamera(best_camera);
-      } else {
-        bool first = true;
-        for (const auto& [source, camera] : calibrations) {
+      for (const auto& [source, camera] : all_calibrations.at(camera_id)) {
+        if (new_camera_id == kInvalidCameraId) {
+          new_camera_id = dst_database->WriteCamera(camera);
+        } else {
           Camera camera_copy = camera;
-          if (first) {
-            new_camera_id = dst_database->WriteCamera(camera_copy);
-            first = false;
-          } else {
-            camera_copy.camera_id = new_camera_id;
-            dst_database->UpdateCamera(camera_copy);
-          }
+          camera_copy.camera_id = new_camera_id;
+          dst_database->UpdateCamera(camera_copy);
         }
       }
-      new_camera_ids->emplace(best_camera.camera_id, new_camera_id);
+      new_camera_ids->emplace(camera_id, new_camera_id);
     }
   };
 
