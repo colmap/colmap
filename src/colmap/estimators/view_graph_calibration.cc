@@ -352,10 +352,24 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
   // instead of ignoring them, improves the calibration initialization.
   std::vector<std::pair<image_pair_t, TwoViewGeometry>> pairs;
   for (auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
-    if (tvg.config == TwoViewGeometry::UNCALIBRATED ||
-        tvg.config == TwoViewGeometry::CALIBRATED) {
-      pairs.emplace_back(pair_id, std::move(tvg));
+    if (tvg.config != TwoViewGeometry::UNCALIBRATED &&
+        tvg.config != TwoViewGeometry::CALIBRATED) {
+      continue;
     }
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const Camera& camera1 = *image_id_to_camera.at(image_id1);
+    const Camera& camera2 = *image_id_to_camera.at(image_id2);
+    // A previous run of view graph calibration upgrades UNCALIBRATED pairs to
+    // CALIBRATED and re-estimates cam2_from_cam1 with the VIEW_GRAPH cameras.
+    // Since VIEW_GRAPH cameras are excluded above, downgrade any pair whose
+    // cameras do not both have a non-VIEW_GRAPH prior back to UNCALIBRATED so
+    // its pixel-space F is not overwritten using GUESS intrinsics below.
+    if (tvg.config == TwoViewGeometry::CALIBRATED && !camera1.IsSpherical() &&
+        !camera2.IsSpherical() &&
+        (!camera1.HasPriorFocalLength() || !camera2.HasPriorFocalLength())) {
+      tvg.config = TwoViewGeometry::UNCALIBRATED;
+    }
+    pairs.emplace_back(pair_id, std::move(tvg));
   }
 
   if (pairs.empty()) {

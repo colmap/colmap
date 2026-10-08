@@ -50,7 +50,6 @@ TEST(CalibrateViewGraph, Nominal) {
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
   // Verify focal lengths are calibrated close to ground truth and source is
@@ -62,15 +61,16 @@ TEST(CalibrateViewGraph, Nominal) {
     EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 
-  // Verify pairs are now CALIBRATED with valid E matrices.
+  // Verify pairs are now CALIBRATED with valid E matrices and relative poses.
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     EXPECT_TRUE(tvg.E.has_value());
+    EXPECT_TRUE(tvg.cam2_from_cam1.has_value());
   }
 
   // Re-running view graph calibration should succeed and use the original
   // non-VIEW_GRAPH calibrations as input rather than compounding on previous
-  // output.
+  // output or rebuilding F from the GUESS cameras.
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
   for (const auto& [camera_id, gt_focal] : gt_focals) {
     const Camera camera = database->ReadCamera(camera_id);
