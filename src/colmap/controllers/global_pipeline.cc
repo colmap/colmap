@@ -93,12 +93,8 @@ ComponentDecomposition ComputeComponentsByRotationAveraging(
       continue;
     }
 
-    if (decomposition_options.max_rotation_error_deg > 0) {
-      FilterEdgesByRelativeRotation(
-          component_pose_graph,
-          reconstruction,
-          decomposition_options.max_rotation_error_deg);
-    }
+    FilterRelativeRotationOutliers(
+        decomposition_options, component_pose_graph, reconstruction);
 
     std::vector<FlatHashSet<image_t>> sub_components =
         component_pose_graph.ConnectedImageIdsForFrameComponents(

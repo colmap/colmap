@@ -98,12 +98,15 @@ CeresRotationAverager::CeresRotationAverager(
                                   double(edge.num_matches) / max_num_matches);
     }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    AddRelativeRotationResidual(
+    const ceres::ResidualBlockId residual_block = AddRelativeRotationResidual(
         image_id1,
         image_id2,
         edge.cam2_from_cam1.rotation(),
         loss,
         use_covariance ? edge.cam2_from_cam1_rotation_cov : std::nullopt);
+    if (residual_block != nullptr) {
+      edge_residual_blocks_.emplace(pair_id, residual_block);
+    }
   }
 }
 
@@ -203,7 +206,12 @@ const ceres::Problem& CeresRotationAverager::Problem() const {
   return *problem_;
 }
 
-void CeresRotationAverager::AddRelativeRotationResidual(
+const FlatHashMap<image_pair_t, ceres::ResidualBlockId>&
+CeresRotationAverager::EdgeResidualBlocks() const {
+  return edge_residual_blocks_;
+}
+
+ceres::ResidualBlockId CeresRotationAverager::AddRelativeRotationResidual(
     const image_t image_id1,
     const image_t image_id2,
     const Eigen::Quaterniond& cam2_from_cam1,
@@ -229,7 +237,7 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   if (same_frame && sensor1_from_rig_rot_ptr == sensor2_from_rig_rot_ptr) {
     LOG(WARNING) << "Skipping self-loop for image pair " << image_id1 << ", "
                  << image_id2;
-    return;
+    return nullptr;
   }
   ceres::LossFunction* loss = loss_function.get();
   if (loss != nullptr) {
@@ -244,9 +252,8 @@ void CeresRotationAverager::AddRelativeRotationResidual(
           CreateCovarianceWeightedCostFunction<RelativeRotationCostFunctor>(
               *cam2_from_cam1_cov, cost_function);
     }
-    problem_->AddResidualBlock(
+    return problem_->AddResidualBlock(
         cost_function, loss, rig1_from_world_rot_ptr, rig2_from_world_rot_ptr);
-    return;
   }
   std::vector<double*> parameter_blocks;
   if (!same_frame)
@@ -277,7 +284,7 @@ void CeresRotationAverager::AddRelativeRotationResidual(
     cost_function = new DynamicCovarianceWeightedCostFunction<3>(
         *cam2_from_cam1_cov, cost_function);
   }
-  problem_->AddResidualBlock(cost_function, loss, parameter_blocks);
+  return problem_->AddResidualBlock(cost_function, loss, parameter_blocks);
 }
 
 std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(

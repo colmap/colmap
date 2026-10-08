@@ -65,11 +65,15 @@ class CeresRotationAverager {
   ceres::Solver::Summary Solve();
   ceres::Problem& Problem();
   const ceres::Problem& Problem() const;
+  // Residual blocks of the pose graph edges passed to the constructor.
+  const FlatHashMap<image_pair_t, ceres::ResidualBlockId>& EdgeResidualBlocks()
+      const;
   // Frame and sensor rotations for both images must be configured in Problem().
   // If given, the residual is whitened with the covariance of the relative
   // rotation, expressed in the frame of camera 1 (right perturbation, see
-  // RelativeRotationCostFunctor).
-  void AddRelativeRotationResidual(
+  // RelativeRotationCostFunctor). Returns nullptr if the residual is skipped
+  // because both images share the same frame and sensor.
+  ceres::ResidualBlockId AddRelativeRotationResidual(
       image_t image_id1,
       image_t image_id2,
       const Eigen::Quaterniond& cam2_from_cam1,
@@ -88,6 +92,7 @@ class CeresRotationAverager {
   FlatHashMap<ceres::LossFunction*, std::shared_ptr<ceres::LossFunction>>
       losses_;
   std::unique_ptr<ceres::Problem> problem_;
+  FlatHashMap<image_pair_t, ceres::ResidualBlockId> edge_residual_blocks_;
 };
 
 // Calibrated sensor rotations are fixed by default and can be made variable

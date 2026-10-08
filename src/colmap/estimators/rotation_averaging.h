@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "colmap/estimators/rotation_averaging_statistics.h"
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
@@ -96,6 +97,15 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // after solving, then recompute active set.
   double max_rotation_error_deg = 10.0;
 
+  // If > 0, additionally filter image pairs whose relative rotation is
+  // statistically inconsistent with the solution at this significance level
+  // (see EstimateRotationAveragingStatistics), before recomputing the active
+  // set. Most meaningful with COVARIANCE reweighting.
+  double rotation_outlier_significance = 0.0;
+
+  // Options of the statistical test of the relative rotations.
+  RelativeRotationStatisticsOptions rotation_statistics;
+
   // When false, treat each non-ref sensor's cam_from_rig rotation as a
   // pre-calibrated constant
   bool refine_sensor_from_rig = true;
@@ -117,8 +127,8 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // their rotation is degenerate.
   double covariance_fallback_sigma_deg = 5.0;
 
-  // With COVARIANCE reweighting, number of threads for estimating the relative
-  // rotation covariances (-1 = auto-select).
+  // Number of threads for estimating the relative rotation covariances with
+  // COVARIANCE reweighting and for the statistical test (-1 = auto-select).
   int num_threads = -1;
 };
 
@@ -201,11 +211,25 @@ bool RunRotationAveragingOnComponent(
     Reconstruction& reconstruction,
     const std::vector<PosePrior>& pose_priors);
 
+// Adds the isotropic covariance_sigma_floor_deg to the relative rotation
+// covariances of the valid edges and assigns the isotropic
+// covariance_fallback_sigma_deg to the valid edges without a covariance.
+void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
+                                   PoseGraph& pose_graph);
+
 // Marks image pairs as invalid whose relative rotation disagrees with the
 // reconstructed rotations by more than `max_angle_deg`. Pairs whose images do
 // not both have a pose are left untouched.
 void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
                                    const Reconstruction& reconstruction,
                                    double max_angle_deg);
+
+// Marks image pairs as invalid that fail the statistical test (if
+// rotation_outlier_significance > 0) or whose relative rotation error exceeds
+// max_rotation_error_deg (if > 0), given the rotations in the reconstruction.
+// Returns whether any of the two filters is enabled.
+bool FilterRelativeRotationOutliers(const RotationEstimatorOptions& options,
+                                    PoseGraph& pose_graph,
+                                    Reconstruction& reconstruction);
 
 }  // namespace colmap

@@ -21,6 +21,7 @@ set(ESTIMATORS_SRCS
     rotation_averaging.h rotation_averaging.cc
     rotation_averaging_ceres.h rotation_averaging_ceres.cc
     rotation_averaging_l1_irls.h rotation_averaging_l1_irls.cc
+    rotation_averaging_statistics.h rotation_averaging_statistics.cc
     triangulation.h triangulation.cc
     two_view_geometry.h two_view_geometry.cc
     two_view_pose_covariance.h two_view_pose_covariance.cc
@@ -123,6 +124,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 
+COLMAP_ADD_TEST(
+    NAME rotation_averaging_statistics_test
+    SRCS rotation_averaging_statistics_test.cc
+    LINK_LIBS colmap_estimators
+)
 COLMAP_ADD_TEST(
     NAME rotation_averaging_ceres_test
     SRCS rotation_averaging_ceres_test.cc

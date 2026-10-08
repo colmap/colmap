@@ -5,8 +5,10 @@
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
+#include "colmap/estimators/rotation_averaging_statistics.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
@@ -255,6 +257,37 @@ void BindRotationEstimator(py::module& m) {
                          "Weight type for IRLS: GEMAN_MCCLURE or HALF_NORM.");
   MakeDataclass(PyL1IrlsRotationAveragerOptions);
 
+  auto PyRelativeRotationStatisticsOptions =
+      py::classh<RelativeRotationStatisticsOptions>(
+          m, "RelativeRotationStatisticsOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "min_redundancy",
+              &RelativeRotationStatisticsOptions::min_redundancy,
+              "Minimum redundancy of a rotation axis of a relative rotation, "
+              "i.e., the fraction of its information provided by the rest of "
+              "the pose graph, for the axis to be tested.")
+          .def_readwrite(
+              "estimate_variance_factor",
+              &RelativeRotationStatisticsOptions::estimate_variance_factor,
+              "Whether to estimate the variance factor of the relative "
+              "rotation covariances instead of assuming it is 1.");
+  MakeDataclass(PyRelativeRotationStatisticsOptions);
+
+  py::classh<RelativeRotationStatistics>(m, "RelativeRotationStatistics")
+      .def(py::init<>())
+      .def_readwrite("statistic", &RelativeRotationStatistics::statistic)
+      .def_readwrite("num_dofs", &RelativeRotationStatistics::num_dofs)
+      .def_readwrite("min_redundancy",
+                     &RelativeRotationStatistics::min_redundancy)
+      .def_readwrite("p_value", &RelativeRotationStatistics::p_value);
+
+  py::classh<RotationAveragingStatistics>(m, "RotationAveragingStatistics")
+      .def(py::init<>())
+      .def_readwrite("variance_factor",
+                     &RotationAveragingStatistics::variance_factor)
+      .def_readwrite("edges", &RotationAveragingStatistics::edges);
+
   auto PyRotationEstimatorOptions =
       py::classh<RotationEstimatorOptions>(m, "RotationEstimatorOptions")
           .def(py::init<>())
@@ -299,6 +332,16 @@ void BindRotationEstimator(py::module& m) {
               "Filter pairs with rotation error exceeding this threshold "
               "(degrees).")
           .def_readwrite(
+              "rotation_outlier_significance",
+              &RotationEstimatorOptions::rotation_outlier_significance,
+              "If > 0, additionally filter pairs whose relative rotation is "
+              "statistically inconsistent with the solution at this "
+              "significance level.")
+          .def_readwrite("rotation_statistics",
+                         &RotationEstimatorOptions::rotation_statistics,
+                         "Options of the statistical test of the relative "
+                         "rotations.")
+          .def_readwrite(
               "refine_sensor_from_rig",
               &RotationEstimatorOptions::refine_sensor_from_rig,
               "When False, treat each non-ref sensor's cam_from_rig as a "
@@ -324,7 +367,7 @@ void BindRotationEstimator(py::module& m) {
                          &RotationEstimatorOptions::num_threads,
                          "Number of threads for estimating the relative "
                          "rotation covariances with COVARIANCE reweighting "
-                         "(-1 for auto).");
+                         "and for the statistical test (-1 for auto).");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(
@@ -344,6 +387,34 @@ void BindRotationEstimator(py::module& m) {
       "pose_priors"_a,
       "High-level rotation averaging solver that handles rig expansion. "
       "Returns True if rotation averaging succeeded.");
+
+  m.def("estimate_rotation_averaging_statistics",
+        &EstimateRotationAveragingStatistics,
+        "options"_a,
+        "pose_graph"_a,
+        "reconstruction"_a,
+        py::call_guard<py::gil_scoped_release>(),
+        "Test the valid edges between images with poses for consistency "
+        "with the rotation averaging solution in the reconstruction. Returns "
+        "None if the posterior covariance cannot be computed.");
+
+  m.def("filter_edges_by_relative_rotation_statistics",
+        &FilterEdgesByRelativeRotationStatistics,
+        "statistics"_a,
+        "significance"_a,
+        "pose_graph"_a,
+        "Mark the edges whose p-value is below the significance level as "
+        "invalid and return their number.");
+
+  m.def("filter_relative_rotation_outliers",
+        &FilterRelativeRotationOutliers,
+        "options"_a,
+        "pose_graph"_a,
+        "reconstruction"_a,
+        py::call_guard<py::gil_scoped_release>(),
+        "Mark the edges that fail the statistical test or whose relative "
+        "rotation error exceeds max_rotation_error_deg as invalid. Returns "
+        "whether any of the two filters is enabled.");
 }
 
 void BindMotionAveraging(py::module& m) {

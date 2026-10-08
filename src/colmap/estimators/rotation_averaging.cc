@@ -275,8 +275,8 @@ std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
   return std::nullopt;
 }
 
-// Adds the isotropic floor to the relative rotation covariances and assigns
-// the isotropic fallback covariance to valid edges without one.
+}  // namespace
+
 void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
                                    PoseGraph& pose_graph) {
   const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
@@ -292,8 +292,6 @@ void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
     }
   }
 }
-
-}  // namespace
 
 RotationEstimatorBackendOptions::RotationEstimatorBackendOptions()
     : l1_irls(std::make_shared<L1IrlsRotationAveragerOptions>()),
@@ -356,6 +354,27 @@ void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
   LOG(INFO) << "Marked " << num_invalid
             << " image pairs as invalid with relative rotation error > "
             << max_angle_deg << " degrees";
+}
+
+bool FilterRelativeRotationOutliers(const RotationEstimatorOptions& options,
+                                    PoseGraph& pose_graph,
+                                    Reconstruction& reconstruction) {
+  const bool filter_statistically = options.rotation_outlier_significance > 0;
+  const bool filter_angularly = options.max_rotation_error_deg > 0;
+  if (filter_statistically) {
+    const std::optional<RotationAveragingStatistics> statistics =
+        EstimateRotationAveragingStatistics(
+            options, pose_graph, reconstruction);
+    if (statistics.has_value()) {
+      FilterEdgesByRelativeRotationStatistics(
+          *statistics, options.rotation_outlier_significance, pose_graph);
+    }
+  }
+  if (filter_angularly) {
+    FilterEdgesByRelativeRotation(
+        pose_graph, reconstruction, options.max_rotation_error_deg);
+  }
+  return filter_statistically || filter_angularly;
 }
 
 bool RunRotationAveragingOnComponent(
@@ -835,10 +854,7 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
   }
 
   // Step 2: Filter outlier pairs by rotation error and update the active set.
-  if (options.max_rotation_error_deg > 0) {
-    FilterEdgesByRelativeRotation(
-        pose_graph, reconstruction, options.max_rotation_error_deg);
-
+  if (FilterRelativeRotationOutliers(options, pose_graph, reconstruction)) {
     // Recompute largest connected component among registered frames.
     const FlatHashSet<image_t> filtered_active_image_ids =
         ComputeLargestConnectedComponentImageIds(

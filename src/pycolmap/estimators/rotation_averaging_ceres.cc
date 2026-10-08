@@ -52,17 +52,26 @@ void BindCeresRotationAverager(py::module& m) {
            py::call_guard<py::gil_scoped_release>(),
            "Optimize rotations in the reconstruction and return the solver "
            "summary.")
-      .def("add_relative_rotation_residual",
-           &CeresRotationAverager::AddRelativeRotationResidual,
-           "image_id1"_a,
-           "image_id2"_a,
-           "cam2_from_cam1"_a,
-           "loss"_a,
-           "cam2_from_cam1_cov"_a = py::none(),
-           "Add a relative-rotation residual between images whose frame and "
-           "sensor rotations are configured in the problem. If given, the "
-           "residual is whitened with the 3x3 covariance of the relative "
-           "rotation, expressed in the frame of camera 1.")
+      .def(
+          "add_relative_rotation_residual",
+          [](CeresRotationAverager& self,
+             image_t image_id1,
+             image_t image_id2,
+             const Eigen::Quaterniond& cam2_from_cam1,
+             const std::shared_ptr<ceres::LossFunction>& loss,
+             const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov) {
+            self.AddRelativeRotationResidual(
+                image_id1, image_id2, cam2_from_cam1, loss, cam2_from_cam1_cov);
+          },
+          "image_id1"_a,
+          "image_id2"_a,
+          "cam2_from_cam1"_a,
+          "loss"_a,
+          "cam2_from_cam1_cov"_a = py::none(),
+          "Add a relative-rotation residual between images whose frame and "
+          "sensor rotations are configured in the problem. If given, the "
+          "residual is whitened with the 3x3 covariance of the relative "
+          "rotation, expressed in the frame of camera 1.")
       .def_property_readonly(
           "problem",
           py::overload_cast<>(&CeresRotationAverager::Problem),

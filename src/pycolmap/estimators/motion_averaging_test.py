@@ -234,9 +234,127 @@ def test_global_positioner_frame_center_parameter_block() -> None:
     "name",
     [
         "run_rotation_averaging",
+        "estimate_rotation_averaging_statistics",
+        "filter_edges_by_relative_rotation_statistics",
+        "filter_relative_rotation_outliers",
         "run_gravity_refinement",
         "run_global_positioning",
     ],
 )
 def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))
+
+
+def _synthesize_rotation_pose_graph(
+    sigma_rad: float, outlier_angle_rad: float
+) -> tuple[pycolmap.Reconstruction, pycolmap.PoseGraph, int]:
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 8
+    dataset_options.num_points3D = 50
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    image_ids = sorted(reconstruction.images)
+    rng = np.random.default_rng(0)
+    pose_graph = pycolmap.PoseGraph()
+    outlier_pair_id = pycolmap.image_pair_to_pair_id(image_ids[0], image_ids[1])
+    for i, image_id1 in enumerate(image_ids):
+        for image_id2 in image_ids[i + 1 :]:
+            cam2_from_cam1 = reconstruction.images[
+                image_id2
+            ].cam_from_world() * (
+                reconstruction.images[image_id1].cam_from_world().inverse()
+            )
+            noise = rng.normal(scale=sigma_rad, size=3)
+            pair_id = pycolmap.image_pair_to_pair_id(image_id1, image_id2)
+            if pair_id == outlier_pair_id:
+                noise = np.array([outlier_angle_rad, 0.0, 0.0])
+            cam2_from_cam1.rotation = (
+                pycolmap.Rotation3d(noise) * cam2_from_cam1.rotation
+            )
+            edge = pycolmap.PoseGraphEdge(
+                cam2_from_cam1=cam2_from_cam1, num_matches=100
+            )
+            edge.cam2_from_cam1_rotation_cov = sigma_rad**2 * np.eye(3)
+            pose_graph.add_edge(image_id1, image_id2, edge)
+    return reconstruction, pose_graph, outlier_pair_id
+
+
+def _statistical_rotation_estimator_options() -> (
+    pycolmap.RotationEstimatorOptions
+):
+    options = pycolmap.RotationEstimatorOptions()
+    options.backend = pycolmap.RotationAveragingBackend.CERES
+    options.reweighting = pycolmap.RotationAveragingReweighting.COVARIANCE
+    options.covariance_sigma_floor_deg = 0.0
+    options.max_rotation_error_deg = 0.0
+    options.random_seed = 0
+    return options
+
+
+def test_relative_rotation_statistics_options() -> None:
+    options = pycolmap.RotationEstimatorOptions()
+    assert options.rotation_outlier_significance == 0.0
+    assert options.rotation_statistics.min_redundancy == 0.05
+    assert options.rotation_statistics.estimate_variance_factor
+    options.rotation_outlier_significance = 1e-3
+    options.rotation_statistics.min_redundancy = 0.1
+    options.rotation_statistics.estimate_variance_factor = False
+    assert options.rotation_outlier_significance == 1e-3
+    assert options.rotation_statistics.min_redundancy == 0.1
+    assert not options.rotation_statistics.estimate_variance_factor
+
+
+def test_estimate_rotation_averaging_statistics() -> None:
+    reconstruction, pose_graph, outlier_pair_id = (
+        _synthesize_rotation_pose_graph(
+            sigma_rad=np.deg2rad(0.5), outlier_angle_rad=np.deg2rad(10.0)
+        )
+    )
+    options = _statistical_rotation_estimator_options()
+    options.rotation_statistics.estimate_variance_factor = False
+    assert pycolmap.run_rotation_averaging(
+        options, pose_graph, reconstruction, []
+    )
+    statistics = pycolmap.estimate_rotation_averaging_statistics(
+        options, pose_graph, reconstruction
+    )
+    assert statistics is not None
+    assert statistics.variance_factor == 1.0
+    assert len(statistics.edges) == pose_graph.num_edges
+    for pair_id, edge_statistics in statistics.edges.items():
+        assert edge_statistics.num_dofs == 3
+        assert 0 < edge_statistics.min_redundancy < 1
+        if pair_id == outlier_pair_id:
+            assert edge_statistics.p_value < 1e-6
+        else:
+            assert edge_statistics.p_value > 1e-4
+    assert (
+        pycolmap.filter_edges_by_relative_rotation_statistics(
+            statistics, 1e-4, pose_graph
+        )
+        == 1
+    )
+    assert not pose_graph.is_valid(outlier_pair_id)
+
+
+def test_filter_relative_rotation_outliers() -> None:
+    reconstruction, pose_graph, outlier_pair_id = (
+        _synthesize_rotation_pose_graph(
+            sigma_rad=np.deg2rad(0.5), outlier_angle_rad=np.deg2rad(10.0)
+        )
+    )
+    options = _statistical_rotation_estimator_options()
+    assert pycolmap.run_rotation_averaging(
+        options, pose_graph, reconstruction, []
+    )
+    assert not pycolmap.filter_relative_rotation_outliers(
+        options, pose_graph, reconstruction
+    )
+    options.rotation_outlier_significance = 1e-4
+    options.rotation_statistics.estimate_variance_factor = False
+    assert pycolmap.filter_relative_rotation_outliers(
+        options, pose_graph, reconstruction
+    )
+    for pair_id in pose_graph.edges:
+        assert pose_graph.is_valid(pair_id) == (pair_id != outlier_pair_id)

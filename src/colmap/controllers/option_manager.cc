@@ -998,6 +998,16 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_covariance_sigma_floor_deg",
       &global_mapper->mapper.rotation_averaging.covariance_sigma_floor_deg);
+  AddDefaultOption(
+      "GlobalMapper.ra_rotation_outlier_significance",
+      &global_mapper->mapper.rotation_averaging.rotation_outlier_significance);
+  AddDefaultOption("GlobalMapper.ra_rotation_statistics_min_redundancy",
+                   &global_mapper->mapper.rotation_averaging.rotation_statistics
+                        .min_redundancy);
+  AddDefaultOption(
+      "GlobalMapper.ra_rotation_statistics_estimate_variance_factor",
+      &global_mapper->mapper.rotation_averaging.rotation_statistics
+           .estimate_variance_factor);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
