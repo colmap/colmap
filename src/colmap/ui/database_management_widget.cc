@@ -256,7 +256,7 @@ CameraTab::CameraTab(QWidget* parent) : QWidget(parent) {
                << "width"
                << "height"
                << "params"
-               << "prior_focal_length";
+               << "source";
   table_widget_->setHorizontalHeaderLabels(table_header);
 
   table_widget_->setShowGrid(true);
@@ -318,7 +318,8 @@ void CameraTab::Reload(const std::shared_ptr<Database>& database) {
     table_widget_->setItem(
         i,
         5,
-        new QTableWidgetItem(QString::number(camera.HasPriorFocalLength())));
+        new QTableWidgetItem(QString::fromStdString(
+            std::string(CameraSourceToString(camera.source)))));
   }
   table_widget_->resizeColumnsToContents();
 
@@ -351,11 +352,24 @@ void CameraTab::itemChanged(QTableWidgetItem* item) {
         table_widget_->blockSignals(false);
       }
       break;
-    case 5:
-      camera.source = item->data(Qt::DisplayRole).toInt() != 0
-                          ? CameraSource::USER
-                          : CameraSource::GUESS;
+    case 5: {
+      try {
+        const CameraSource new_source =
+            CameraSourceFromString(item->text().toUtf8().constData());
+        if (new_source == CameraSource::BEST) {
+          throw std::invalid_argument("Camera source cannot be BEST.");
+        }
+        camera.source = new_source;
+      } catch (const std::exception&) {
+        QMessageBox::critical(this, "", tr("Invalid camera source."));
+        table_widget_->blockSignals(true);
+        item->setText(QString::fromStdString(
+            std::string(CameraSourceToString(camera.source))));
+        table_widget_->blockSignals(false);
+        return;
+      }
       break;
+    }
     default:
       break;
   }
