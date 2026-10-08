@@ -8,6 +8,7 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <vector>
 
 namespace colmap {
@@ -24,6 +25,10 @@ class PoseGraph {
     // Relative pose from image 1 to image 2.
     Rigid3d cam2_from_cam1;
 
+    // Optional 3x3 marginal rotation covariance of cam2_from_cam1 in
+    // camera 1's local tangent frame (right perturbation R21 * Exp(delta)).
+    std::optional<Eigen::Matrix3d> rot_cov;
+
     // Number of two-view matches used to compute the relative pose.
     int num_matches = 0;
 
@@ -31,7 +36,14 @@ class PoseGraph {
     bool valid = true;
 
     // Invert the geometry to match swapped image order.
-    void Invert() { cam2_from_cam1 = Inverse(cam2_from_cam1); }
+    void Invert() {
+      if (rot_cov.has_value()) {
+        const Eigen::Matrix3d R21 =
+            cam2_from_cam1.rotation().toRotationMatrix();
+        rot_cov = R21 * (*rot_cov) * R21.transpose();
+      }
+      cam2_from_cam1 = Inverse(cam2_from_cam1);
+    }
   };
 
   PoseGraph() = default;

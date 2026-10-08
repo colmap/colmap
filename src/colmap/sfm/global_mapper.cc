@@ -5,6 +5,7 @@
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"
@@ -70,6 +71,7 @@ BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
 RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
   RotationEstimatorOptions opts = rotation_averaging;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.num_threads = num_threads;
   opts.ceres->solver_options.num_threads = num_threads;
   if (random_seed >= 0) {
     opts.random_seed = random_seed;
@@ -136,6 +138,8 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
 
   // Read pose priors from the database cache.
   const std::vector<PosePrior>& pose_priors = database_cache_->PosePriors();
+
+  MaybeEstimatePoseGraphCovariances(options, *database_cache_, *pose_graph_);
 
   // First pass: solve rotation averaging on all frames, then filter outlier
   // pairs by rotation error and de-register frames outside the largest
@@ -639,6 +643,19 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
   reconstruction_->UpdatePoint3DErrors();
 
   return true;
+}
+
+void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
+                                       const DatabaseCache& database_cache,
+                                       PoseGraph& pose_graph) {
+  if (options.reweighting != RotationAveragingReweighting::COVARIANCE) {
+    return;
+  }
+  TwoViewPoseCovarianceOptions cov_options;
+  cov_options.num_threads = options.num_threads;
+  cov_options.rotation_sigma_floor_rad =
+      DegToRad(options.covariance_sigma_floor_deg);
+  EstimatePoseGraphCovariances(database_cache, pose_graph, cov_options);
 }
 
 }  // namespace colmap

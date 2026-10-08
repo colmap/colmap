@@ -2,6 +2,8 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
+#include "colmap/estimators/cost_functions/tiny_manifold.h"
+#include "colmap/estimators/cost_functions/tiny_sampson_error.h"
 #include "colmap/estimators/fundamental_matrix_degensac.h"
 #include "colmap/estimators/generalized_pose.h"
 #include "colmap/estimators/solvers/essential_matrix.h"
@@ -18,12 +20,16 @@
 #include "colmap/optim/ransac.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
 #include <algorithm>
 
+#include <Eigen/Cholesky>
+#include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -1875,6 +1881,311 @@ void MaybeDecomposeRelativePoses(DatabaseCache* database_cache) {
                             decompose_count,
                             decompose_failed_count,
                             timer.ElapsedSeconds());
+}
+
+std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const TwoViewGeometry& geometry,
+    const TwoViewPoseCovarianceOptions& options) {
+  if (!geometry.cam2_from_cam1.has_value()) {
+    return std::nullopt;
+  }
+
+  const Camera& effective_camera1 =
+      geometry.camera1.has_value() ? *geometry.camera1 : camera1;
+  const Camera& effective_camera2 =
+      geometry.camera2.has_value() ? *geometry.camera2 : camera2;
+
+  std::vector<CamRayWithJac> inlier_rays1_with_jac;
+  std::vector<CamRayWithJac> inlier_rays2_with_jac;
+  inlier_rays1_with_jac.reserve(geometry.inlier_matches.size());
+  inlier_rays2_with_jac.reserve(geometry.inlier_matches.size());
+  for (const FeatureMatch& match : geometry.inlier_matches) {
+    const auto ray1 =
+        effective_camera1.CamRayFromImgWithJac(points1[match.point2D_idx1]);
+    const auto ray2 =
+        effective_camera2.CamRayFromImgWithJac(points2[match.point2D_idx2]);
+    if (ray1.has_value() && ray2.has_value() && !ray1->ray.isZero() &&
+        !ray2->ray.isZero()) {
+      inlier_rays1_with_jac.push_back(*ray1);
+      inlier_rays2_with_jac.push_back(*ray2);
+    }
+  }
+
+  const size_t num_inliers = inlier_rays1_with_jac.size();
+  const bool is_panoramic =
+      geometry.config == TwoViewGeometry::ConfigurationType::PANORAMIC ||
+      geometry.cam2_from_cam1->translation().squaredNorm() < 1e-12;
+  const size_t min_inliers = is_panoramic ? 3 : 5;
+  if (num_inliers < min_inliers) {
+    return std::nullopt;
+  }
+
+  TwoViewPoseCovariance result;
+  result.num_inliers = num_inliers;
+
+  constexpr double kNormalMadScale = 1.482602218505602;
+  Eigen::Matrix3d Lambda_R_eff = Eigen::Matrix3d::Zero();
+
+  if (is_panoramic) {
+    // Pure-rotation (zero-baseline) model: each correspondence constrains the
+    // 2D tangent plane orthogonal to ray2 via c_i = B2^T (R21 * ray1).
+    const Eigen::Matrix3d R21 =
+        geometry.cam2_from_cam1->rotation().toRotationMatrix();
+    Eigen::Matrix3d unscaled_Lambda_RR = Eigen::Matrix3d::Zero();
+    std::vector<double> abs_residuals;
+    abs_residuals.reserve(2 * num_inliers);
+
+    for (size_t i = 0; i < num_inliers; ++i) {
+      const Eigen::Vector3d& x1 = inlier_rays1_with_jac[i].ray;
+      const Eigen::Matrix3x2d& J1 = inlier_rays1_with_jac[i].jacobian;
+      const Eigen::Vector3d& x2 = inlier_rays2_with_jac[i].ray;
+      const Eigen::Matrix3x2d& J2 = inlier_rays2_with_jac[i].jacobian;
+
+      Eigen::Matrix<double, 3, 2, Eigen::RowMajor> B2;
+      SphereManifold<3>().PlusJacobian(x2.data(), B2.data());
+
+      const Eigen::Vector3d R21_x1 = R21 * x1;
+      const Eigen::Vector2d c_i = B2.transpose() * R21_x1;
+      const Eigen::Matrix3x2d R21_J1 = R21 * J1;
+      const Eigen::Matrix2d C_i =
+          B2.transpose() * (R21_J1 * R21_J1.transpose() + J2 * J2.transpose()) *
+          B2;
+
+      const Eigen::LLT<Eigen::Matrix2d> llt(C_i);
+      if (llt.info() != Eigen::Success) {
+        continue;
+      }
+
+      // d(R21 * Exp(delta) * x1)/d(delta) = -R21 * [x1]_x.
+      Eigen::Matrix3d x1_skew;
+      x1_skew << 0.0, -x1.z(), x1.y(), x1.z(), 0.0, -x1.x(), -x1.y(), x1.x(),
+          0.0;
+      const Eigen::Matrix<double, 2, 3> J_c = -B2.transpose() * R21 * x1_skew;
+
+      const Eigen::Vector2d e_i = llt.matrixL().solve(c_i);
+      const Eigen::Matrix<double, 2, 3> J_R_i = llt.matrixL().solve(J_c);
+
+      abs_residuals.push_back(std::abs(e_i.x()));
+      abs_residuals.push_back(std::abs(e_i.y()));
+      unscaled_Lambda_RR.noalias() += J_R_i.transpose() * J_R_i;
+    }
+
+    if (abs_residuals.size() < 6) {
+      return std::nullopt;
+    }
+    const double dof_scale = std::sqrt(
+        static_cast<double>(abs_residuals.size()) /
+        static_cast<double>(std::max<size_t>(1, abs_residuals.size() - 3)));
+    const double sigma_mad =
+        kNormalMadScale * dof_scale * Median(abs_residuals);
+    result.sigma_obs_px = std::max(sigma_mad, options.min_sigma_obs_px);
+    Lambda_R_eff =
+        unscaled_Lambda_RR / (result.sigma_obs_px * result.sigma_obs_px);
+    result.is_translation_degenerate = true;
+  } else {
+    using RelativePoseManifold =
+        ProductManifold<EigenQuaternionManifold, SphereManifold<3>>;
+
+    const RelPoseParams params = RelPoseParamsFromRigid3d(
+        Rigid3d(geometry.cam2_from_cam1->rotation(),
+                geometry.cam2_from_cam1->translation().normalized()));
+
+    const TinyTangentSampsonErrorCostFunctor cost_fn(inlier_rays1_with_jac,
+                                                     inlier_rays2_with_jac);
+    Eigen::VectorXd residuals(num_inliers);
+    Eigen::Matrix<double, Eigen::Dynamic, 7, Eigen::ColMajor> J_amb(num_inliers,
+                                                                    7);
+    cost_fn(params.data(), residuals.data(), J_amb.data());
+
+    Eigen::Matrix<double, 7, 5, Eigen::RowMajor> plus_jac;
+    RelativePoseManifold().PlusJacobian(params.data(), plus_jac.data());
+    const Eigen::Matrix<double, Eigen::Dynamic, 5> J_tan = J_amb * plus_jac;
+
+    std::vector<double> abs_residuals(num_inliers);
+    for (size_t i = 0; i < num_inliers; ++i) {
+      abs_residuals[i] = std::abs(residuals(i));
+    }
+    const double dof_scale =
+        std::sqrt(static_cast<double>(num_inliers) /
+                  static_cast<double>(std::max<size_t>(1, num_inliers - 5)));
+    const double sigma_mad =
+        kNormalMadScale * dof_scale * Median(abs_residuals);
+    result.sigma_obs_px = std::max(sigma_mad, options.min_sigma_obs_px);
+
+    const Eigen::Matrix<double, 5, 5> Lambda_2v =
+        (J_tan.transpose() * J_tan) /
+        (result.sigma_obs_px * result.sigma_obs_px);
+    const Eigen::Matrix3d Lambda_RR = Lambda_2v.topLeftCorner<3, 3>();
+    const Eigen::Matrix<double, 3, 2> Lambda_Rt =
+        Lambda_2v.topRightCorner<3, 2>();
+    const Eigen::Matrix2d Lambda_tt = Lambda_2v.bottomRightCorner<2, 2>();
+
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> trans_eig(Lambda_tt);
+    if (trans_eig.info() != Eigen::Success) {
+      return std::nullopt;
+    }
+    const Eigen::Vector2d trans_evals = trans_eig.eigenvalues();
+    const Eigen::Matrix2d trans_evecs = trans_eig.eigenvectors();
+    const double trans_thresh = std::max(
+        options.min_translation_eigenvalue,
+        options.min_translation_rel_eigenvalue * std::max(0.0, trans_evals(1)));
+
+    Eigen::Matrix2d Lambda_tt_pinv = Eigen::Matrix2d::Zero();
+    for (int j = 0; j < 2; ++j) {
+      if (trans_evals(j) > trans_thresh) {
+        Lambda_tt_pinv.noalias() +=
+            (1.0 / trans_evals(j)) *
+            (trans_evecs.col(j) * trans_evecs.col(j).transpose());
+      }
+    }
+    result.is_translation_degenerate = (trans_evals(0) <= trans_thresh);
+
+    Lambda_R_eff =
+        Lambda_RR - Lambda_Rt * Lambda_tt_pinv * Lambda_Rt.transpose();
+
+    if (!result.is_translation_degenerate) {
+      const Eigen::LDLT<Eigen::Matrix3d> rot_ldlt(Lambda_RR);
+      if (rot_ldlt.info() == Eigen::Success) {
+        const Eigen::Matrix2d Lambda_t_eff =
+            Lambda_tt - Lambda_Rt.transpose() * rot_ldlt.solve(Lambda_Rt);
+        const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> t_eff_eig(
+            Lambda_t_eff);
+        if (t_eff_eig.info() == Eigen::Success &&
+            t_eff_eig.eigenvalues()(0) > trans_thresh) {
+          result.cov_trans_tangent =
+              t_eff_eig.eigenvectors() *
+              t_eff_eig.eigenvalues().cwiseInverse().asDiagonal() *
+              t_eff_eig.eigenvectors().transpose();
+        } else {
+          result.is_translation_degenerate = true;
+        }
+      }
+    }
+  }
+
+  Lambda_R_eff = 0.5 * (Lambda_R_eff + Lambda_R_eff.transpose());
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> rot_eig(Lambda_R_eff);
+  if (rot_eig.info() != Eigen::Success ||
+      rot_eig.eigenvalues()(0) <= options.min_rotation_eigenvalue) {
+    result.is_rotation_degenerate = true;
+    return result;
+  }
+
+  result.is_rotation_degenerate = false;
+  Eigen::Vector3d rot_vars = rot_eig.eigenvalues().cwiseInverse();
+  if (options.max_rotation_cov_cond > 0.0) {
+    const double min_allowed_var = rot_vars(0) / options.max_rotation_cov_cond;
+    for (int j = 0; j < 3; ++j) {
+      rot_vars(j) = std::max(rot_vars(j), min_allowed_var);
+    }
+  }
+  const double floor_var =
+      options.rotation_sigma_floor_rad * options.rotation_sigma_floor_rad;
+  rot_vars.array() += floor_var;
+
+  result.cov_rot = rot_eig.eigenvectors() * rot_vars.asDiagonal() *
+                   rot_eig.eigenvectors().transpose();
+  result.cov_rot = 0.5 * (result.cov_rot + result.cov_rot.transpose());
+  return result;
+}
+
+void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
+                                  PoseGraph& pose_graph,
+                                  const TwoViewPoseCovarianceOptions& options) {
+  Timer timer;
+  timer.Start();
+
+  std::vector<std::pair<image_pair_t, PoseGraph::Edge*>> tasks;
+  tasks.reserve(pose_graph.NumEdges());
+  FlatHashSet<image_t> needed_image_ids;
+  for (auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (!edge.valid || edge.rot_cov.has_value()) {
+      continue;
+    }
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!database_cache.ExistsImage(image_id1) ||
+        !database_cache.ExistsImage(image_id2)) {
+      continue;
+    }
+    needed_image_ids.insert(image_id1);
+    needed_image_ids.insert(image_id2);
+    tasks.emplace_back(pair_id, &edge);
+  }
+
+  if (tasks.empty()) {
+    return;
+  }
+
+  NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_points;
+  image_points.reserve(needed_image_ids.size());
+  for (const image_t image_id : needed_image_ids) {
+    const Image& image = database_cache.Image(image_id);
+    std::vector<Eigen::Vector2d> points;
+    points.reserve(image.NumPoints2D());
+    for (const Point2D& point : image.Points2D()) {
+      points.push_back(point.xy);
+    }
+    image_points.emplace(image_id, std::move(points));
+  }
+
+  const auto& cameras = database_cache.Cameras();
+  const auto& images = database_cache.Images();
+  const auto correspondence_graph = database_cache.CorrespondenceGraph();
+
+  const double fallback_var =
+      options.fallback_rotation_sigma_rad *
+          options.fallback_rotation_sigma_rad +
+      options.rotation_sigma_floor_rad * options.rotation_sigma_floor_rad;
+  const Eigen::Matrix3d fallback_cov =
+      fallback_var * Eigen::Matrix3d::Identity();
+
+  std::atomic<size_t> num_degenerate(0);
+  ThreadPool thread_pool(GetEffectiveNumThreads(options.num_threads));
+  std::vector<std::shared_future<void>> futures;
+  futures.reserve(tasks.size());
+
+  for (const auto& [pair_id, edge_ptr] : tasks) {
+    futures.push_back(thread_pool.AddTask([&, pair_id, edge_ptr]() {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      TwoViewGeometry two_view_geometry =
+          correspondence_graph->ExtractTwoViewGeometry(
+              image_id1, image_id2, /*extract_inlier_matches=*/true);
+      // Evaluate the covariance at the measurement used by the pose graph.
+      two_view_geometry.cam2_from_cam1 = edge_ptr->cam2_from_cam1;
+
+      const Image& image1 = images.at(image_id1);
+      const Image& image2 = images.at(image_id2);
+      const Camera& camera1 = cameras.at(image1.CameraId());
+      const Camera& camera2 = cameras.at(image2.CameraId());
+
+      const auto cov = EstimateTwoViewPoseCovariance(camera1,
+                                                     image_points.at(image_id1),
+                                                     camera2,
+                                                     image_points.at(image_id2),
+                                                     two_view_geometry,
+                                                     options);
+      if (cov.has_value() && !cov->is_rotation_degenerate) {
+        edge_ptr->rot_cov = cov->cov_rot;
+      } else {
+        edge_ptr->rot_cov = fallback_cov;
+        num_degenerate.fetch_add(1, std::memory_order_relaxed);
+      }
+    }));
+  }
+
+  for (auto& future : futures) {
+    future.get();
+  }
+
+  LOG(INFO) << StringPrintf(
+      "Estimated %zu two-view rotation covariances (%zu fallback) in %.3fs",
+      tasks.size(),
+      num_degenerate.load(),
+      timer.ElapsedSeconds());
 }
 
 }  // namespace colmap

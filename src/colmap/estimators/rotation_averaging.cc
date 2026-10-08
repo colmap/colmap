@@ -64,11 +64,15 @@ image_t ComputeMaximumPoseGraphSpanningTree(
     idx_to_image_id.push_back(image_id);
   }
 
-  // Build edges and weights from view graph.
+  // Build edges and weights from view graph. If all edges have a rotation
+  // covariance, prefer the most certain relative rotations, otherwise those
+  // with the most inlier matches.
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
+  std::vector<float> rot_cov_weights;
   edges.reserve(pose_graph.NumEdges());
   weights.reserve(pose_graph.NumEdges());
+  rot_cov_weights.reserve(pose_graph.NumEdges());
 
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -79,6 +83,15 @@ image_t ComputeMaximumPoseGraphSpanningTree(
     }
     edges.emplace_back(it1->second, it2->second);
     weights.push_back(static_cast<float>(edge.num_matches));
+    if (edge.rot_cov.has_value()) {
+      // The trace is the expected squared angular error in radians.
+      rot_cov_weights.push_back(
+          static_cast<float>(1.0 / std::max(edge.rot_cov->trace(), 1e-12)));
+    }
+  }
+
+  if (!edges.empty() && rot_cov_weights.size() == edges.size()) {
+    weights = std::move(rot_cov_weights);
   }
 
   // Compute spanning tree using generic algorithm.
@@ -534,8 +547,16 @@ bool RotationEstimator::SolveRotationAveraging(
       return SolveRotationAveragingWithCeres(
           pose_graph, active_image_ids, reconstruction);
     }
+    // L1_IRLS ignores COVARIANCE reweighting (equivalent to UNIFORM).
     LOG(WARNING) << "Gravity priors are not supported by the CERES rotation "
-                    "averaging backend, falling back to L1_IRLS";
+                    "averaging backend, falling back to L1_IRLS"
+                 << (options_.reweighting ==
+                             RotationAveragingReweighting::COVARIANCE
+                         ? " without COVARIANCE reweighting"
+                         : "");
+  } else if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
+    LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
+                        "L1_IRLS rotation averaging backend";
   }
 
   // Initialize rotations from maximum spanning tree. Note that without
@@ -591,6 +612,12 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
     warm_start_options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
     warm_start_options.ceres->solver_options.max_num_iterations =
         options.ceres->max_num_warm_start_iterations;
+    if (options.reweighting == RotationAveragingReweighting::COVARIANCE) {
+      // Warm-start on angular residuals: with whitening, confidently wrong
+      // relative rotations (e.g., from symmetric structures) dominate the
+      // early iterations.
+      warm_start_options.reweighting = RotationAveragingReweighting::UNIFORM;
+    }
     if (!solve(warm_start_options)) {
       return false;
     }

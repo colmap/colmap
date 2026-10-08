@@ -8,6 +8,7 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
+#include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
@@ -24,6 +25,10 @@ void BindPoseGraph(py::module& m) {
           .def_readwrite("cam2_from_cam1",
                          &PoseGraph::Edge::cam2_from_cam1,
                          "Relative pose from image 1 to image 2.")
+          .def_readwrite("rot_cov",
+                         &PoseGraph::Edge::rot_cov,
+                         "Optional 3x3 marginal rotation covariance of "
+                         "cam2_from_cam1 in camera 1's local tangent frame.")
           .def_readwrite("num_matches",
                          &PoseGraph::Edge::num_matches,
                          "Number of two-view matches used to compute the "
