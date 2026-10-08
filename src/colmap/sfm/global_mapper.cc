@@ -5,7 +5,7 @@
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
-#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/estimators/two_view_pose_covariance.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"

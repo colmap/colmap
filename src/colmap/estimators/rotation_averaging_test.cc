@@ -3,7 +3,7 @@
 #include "colmap/estimators/rotation_averaging.h"
 
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
-#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/estimators/two_view_pose_covariance.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
