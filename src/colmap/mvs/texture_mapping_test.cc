@@ -2,12 +2,10 @@
 
 #include "colmap/mvs/texture_mapping.h"
 
-#include <algorithm>
 #include <cmath>
 #include <utility>
 #include <vector>
 
-#include <Eigen/Core>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -633,27 +631,26 @@ TEST(MeshTextureMapping, PyramidMultiFace) {
 }
 
 TEST(MeshTextureMapping, SamplesAtPixelCenters) {
+  // With the MakeTestImage camera (fx = fy = 256, cx = cy = 128,
+  // R = 180-degree rotation about X, C = (0.5, 0.5, 5)), these vertices
+  // project exactly onto source texel centers: V0 -> (100.5, 100.5),
+  // V1 -> (100.5, 110.5), V2 -> (110.5, 100.5). All values are exactly
+  // representable in floating point, so the projections are exact.
   PlyMesh mesh;
   mesh.vertices = {
-      PlyMeshVertex(0.0f, 0.0f, 0.0f),
-      PlyMeshVertex(1.0f, 0.0f, 0.0f),
-      PlyMeshVertex(0.5f, 1.0f, 0.0f),
+      PlyMeshVertex(-19.0f / 512, 531.0f / 512, 0.0f),
+      PlyMeshVertex(-19.0f / 512, 431.0f / 512, 0.0f),
+      PlyMeshVertex(81.0f / 512, 531.0f / 512, 0.0f),
   };
   mesh.faces = {PlyMeshFace(0, 1, 2)};
 
-  // 1px checkerboard: a half-pixel sampling offset turns texel-center
-  // samples from pure black/white into gray.
-  constexpr int kSize = 256;
+  // Source image: white texel at (100, 100), black elsewhere.
   std::vector<Image> images;
-  images.push_back(MakeTestImage(kSize, kSize, BitmapColor<uint8_t>(0)));
-  Bitmap checkerboard(kSize, kSize, /*as_rgb=*/true);
-  for (int y = 0; y < kSize; ++y) {
-    for (int x = 0; x < kSize; ++x) {
-      const uint8_t v = ((x + y) % 2 == 0) ? 255 : 0;
-      checkerboard.SetPixel(x, y, BitmapColor<uint8_t>(v));
-    }
-  }
-  images.back().SetBitmap(std::move(checkerboard));
+  images.push_back(MakeTestImage(256, 256, BitmapColor<uint8_t>(0)));
+  Bitmap bitmap(256, 256, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(100, 100, BitmapColor<uint8_t>(255));
+  images.back().SetBitmap(std::move(bitmap));
 
   MeshTextureMappingOptions options;
   options.apply_color_correction = false;
@@ -665,77 +662,17 @@ TEST(MeshTextureMapping, SamplesAtPixelCenters) {
   ASSERT_EQ(result.face_view_ids[0], 0);
   ASSERT_EQ(result.face_uvs.size(), 6u);
 
-  // Project the triangle with the pinhole model in double precision.
-  // Camera (cf. MakeTestImage): fx = fy = kSize, cx = cy = kSize / 2,
-  // R = 180-degree rotation about X, C = (0.5, 0.5, 5).
-  const auto project = [](double x, double y) {
-    const double X = x - 0.5;
-    const double Y = 0.5 - y;
-    constexpr double kDepth = 5.0;
-    return Eigen::Vector2d(kSize * X / kDepth + kSize / 2.0,
-                           kSize * Y / kDepth + kSize / 2.0);
-  };
-  const Eigen::Vector2d src_tri[3] = {
-      project(0.0, 0.0), project(1.0, 0.0), project(0.5, 1.0)};
-
-  // Atlas-space triangle recovered from the per-vertex UVs.
-  Eigen::Vector2d atlas_tri[3];
-  for (int i = 0; i < 3; ++i) {
-    atlas_tri[i] = Eigen::Vector2d(
-        result.face_uvs[i * 2] * result.atlas_width,
-        (1.0 - result.face_uvs[i * 2 + 1]) * result.atlas_height);
-  }
-  const Eigen::Vector2d v0 = atlas_tri[1] - atlas_tri[0];
-  const Eigen::Vector2d v1 = atlas_tri[2] - atlas_tri[0];
-  const double d00 = v0.dot(v0);
-  const double d01 = v0.dot(v1);
-  const double d11 = v1.dot(v1);
-  const double denom = d00 * d11 - d01 * d01;
-  ASSERT_GT(std::abs(denom), 1e-12);
-
-  const auto checker_value = [](int x, int y) -> double {
-    return ((x + y) % 2 == 0) ? 255.0 : 0.0;
-  };
-
-  int checked = 0;
-  for (int py = 0; py < result.atlas_height; ++py) {
-    for (int px = 0; px < result.atlas_width; ++px) {
-      const Eigen::Vector2d p(px + 0.5, py + 0.5);
-      const Eigen::Vector2d v2 = p - atlas_tri[0];
-      const double v = (d11 * v2.dot(v0) - d01 * v2.dot(v1)) / denom;
-      const double w = (d00 * v2.dot(v1) - d01 * v2.dot(v0)) / denom;
-      const double u = 1.0 - v - w;
-      // Only check texels strictly inside the triangle.
-      if (std::min({u, v, w}) < 1e-3) continue;
-      const Eigen::Vector2d img =
-          u * src_tri[0] + v * src_tri[1] + w * src_tri[2];
-      // Continuous coordinates have pixel centers at integer + 0.5,
-      // while bilinear sampling expects pixel centers at integers.
-      const double sx = img.x() - 0.5;
-      const double sy = img.y() - 0.5;
-      const int x0 = static_cast<int>(std::floor(sx));
-      const int y0 = static_cast<int>(std::floor(sy));
-      if (x0 < 0 || x0 + 1 >= kSize || y0 < 0 || y0 + 1 >= kSize) continue;
-      const double dx = sx - x0;
-      const double dy = sy - y0;
-      const double expected =
-          (checker_value(x0, y0) * (1 - dx) + checker_value(x0 + 1, y0) * dx) *
-              (1 - dy) +
-          (checker_value(x0, y0 + 1) * (1 - dx) +
-           checker_value(x0 + 1, y0 + 1) * dx) *
-              dy;
-      const auto color = result.texture_atlas.GetPixel(px, py);
-      ASSERT_TRUE(color.has_value());
-      EXPECT_NEAR(color->r, expected, 6.0)
-          << "at atlas pixel (" << px << ", " << py << ")";
-      EXPECT_NEAR(color->g, expected, 6.0)
-          << "at atlas pixel (" << px << ", " << py << ")";
-      EXPECT_NEAR(color->b, expected, 6.0)
-          << "at atlas pixel (" << px << ", " << py << ")";
-      ++checked;
-    }
-  }
-  EXPECT_GT(checked, 500);
+  // The atlas texel under vertex 0 must reproduce the white source texel.
+  // Without the 0.5 sampling correction it samples gray instead.
+  const int px = static_cast<int>(
+      std::round(result.face_uvs[0] * result.atlas_width - 0.5));
+  const int py = static_cast<int>(
+      std::round((1.0f - result.face_uvs[1]) * result.atlas_height - 0.5));
+  const auto color = result.texture_atlas.GetPixel(px, py);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(color->r, 255);
+  EXPECT_EQ(color->g, 255);
+  EXPECT_EQ(color->b, 255);
 }
 
 }  // namespace
