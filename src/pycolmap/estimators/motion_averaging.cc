@@ -264,12 +264,13 @@ void BindRotationEstimator(py::module& m) {
           .def_readwrite("backend",
                          &RotationEstimatorOptions::backend,
                          "Solver backend for rotation averaging: L1_IRLS or "
-                         "CERES. CERES falls back to L1_IRLS when gravity "
-                         "priors are used.")
+                         "CERES. CERES falls back to L1_IRLS when use_gravity "
+                         "is set and gravity priors are given.")
           .def_readwrite("l1_irls",
                          &RotationEstimatorOptions::l1_irls,
-                         "L1-IRLS-specific rotation averaging options (only "
-                         "used when backend == L1_IRLS).")
+                         "L1-IRLS-specific rotation averaging options (used "
+                         "when backend == L1_IRLS and when CERES falls back "
+                         "to L1_IRLS for gravity priors).")
           .def_readwrite("ceres",
                          &RotationEstimatorOptions::ceres,
                          "Ceres-specific rotation averaging options (only "

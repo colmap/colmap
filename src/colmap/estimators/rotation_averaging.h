@@ -37,7 +37,8 @@ struct L1IrlsRotationAveragerOptions;
 struct CeresRotationAveragerOptions;
 
 struct RotationEstimatorBackendOptions {
-  // L1-IRLS-specific options (only used when backend == L1_IRLS).
+  // L1-IRLS-specific options (used when backend == L1_IRLS and when CERES
+  // falls back to L1_IRLS for gravity priors).
   // Type defined in rotation_averaging_impl.h.
   std::shared_ptr<L1IrlsRotationAveragerOptions> l1_irls;
 
@@ -65,7 +66,7 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // Solver backend to use for rotation averaging. Backend-specific options are
   // in the corresponding member of RotationEstimatorBackendOptions. The CERES
   // backend does not support gravity priors and falls back to L1_IRLS when
-  // use_gravity is true.
+  // use_gravity is true and gravity priors are given.
   RotationAveragingBackend backend = RotationAveragingBackend::L1_IRLS;
 
   // Gravity direction.
