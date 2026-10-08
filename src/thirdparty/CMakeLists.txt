@@ -55,17 +55,16 @@ endif()
 if(FETCH_FAISS)
     include(FetchContent)
     FetchContent_Declare(faiss
-        URL https://github.com/facebookresearch/faiss/archive/refs/tags/v1.14.1.zip
-        URL_HASH SHA256=4b1ae7e7a0a46385b4084f0e3945623a15fcf99d793bf44d82aae8e24f11e5f5
+        URL https://github.com/facebookresearch/faiss/archive/refs/tags/v1.15.1.zip
+        URL_HASH SHA256=f46290cc461f5ae88bc52f400e2066c537746328e494f79faa1fa719815e7b66
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
     # Use dynamic dispatch (dd) to automatically select the highest SIMD
     # instruction set supported by the target machine (e.g., AVX2, AVX512).
-    # Dynamic dispatch is not supported on MSVC (faiss v1.14.1).
-    if(NOT IS_MSVC)
-        set(FAISS_OPT_LEVEL dd)
-    endif()
+    # Supported on all platforms including MSVC since faiss v1.15
+    # (per-file /arch flags in the dd block of faiss/CMakeLists.txt).
+    set(FAISS_OPT_LEVEL dd)
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
     set(FAISS_ENABLE_MKL OFF)
