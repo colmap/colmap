@@ -2148,7 +2148,9 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   std::vector<std::shared_future<void>> futures;
   futures.reserve(tasks.size());
 
-  for (const auto& [pair_id, edge_ptr] : tasks) {
+  for (const auto& task : tasks) {
+    const image_pair_t pair_id = task.first;
+    PoseGraph::Edge* edge_ptr = task.second;
     futures.push_back(thread_pool.AddTask([&, pair_id, edge_ptr]() {
       const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
       TwoViewGeometry two_view_geometry =

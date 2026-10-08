@@ -1945,7 +1945,7 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
                                test_case.translation);
 
   constexpr int kNumPoints = 100;
-  constexpr int kNumTrials = 300;
+  constexpr int kNumTrials = 2000;
   constexpr double kPoint2DStddev = 1.0;
 
   std::vector<Eigen::Vector3d> points3D;
@@ -2037,8 +2037,9 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
 
   // The first-order covariance is exact only asymptotically, so a few trials
   // fall into a slightly heavier tail. Use robust statistics: the median of
-  // chi2(3) is 2.366 (the sample median of 300 trials has a standard deviation
-  // of ~0.14) and only 1% of chi2(3) samples exceed 11.34.
+  // chi2(3) is 2.366 (the sample median of 2000 trials has a standard deviation
+  // of ~0.06, so the bounds are robust to platform-dependent random draws) and
+  // only 1% of chi2(3) samples exceed 11.34.
   const double median_nees = Median(nees);
   const double tail_fraction =
       std::count_if(
