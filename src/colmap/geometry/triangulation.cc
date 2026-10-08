@@ -177,8 +177,9 @@ bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,
 
   Eigen::Vector2d optimal_point1;
   Eigen::Vector2d optimal_point2;
+  // The correction helper uses point1^T E point2 = 0.
   FindOptimalImageObservations(
-      E, cam_point1, cam_point2, &optimal_point1, &optimal_point2);
+      E.transpose(), cam_point1, cam_point2, &optimal_point1, &optimal_point2);
 
   return TriangulatePoint(cam1_from_world_mat,
                           cam2_from_world_mat,
