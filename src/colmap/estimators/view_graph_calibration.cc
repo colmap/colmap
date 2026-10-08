@@ -165,8 +165,10 @@ void ReestimateRelativePoses(
       const std::vector<Eigen::Vector2d>& points1 = image_points.at(image_id1);
       const std::vector<Eigen::Vector2d>& points2 = image_points.at(image_id2);
 
+      std::optional<Eigen::Matrix3d> orig_F = std::move(tvg.F);
       tvg = EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, two_view_options);
+      tvg.F = std::move(orig_F);
     });
   }
   thread_pool.Wait();
