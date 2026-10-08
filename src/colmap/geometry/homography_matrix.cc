@@ -48,7 +48,7 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   // Remove scale from normalized homography.
   Eigen::JacobiSVD<Eigen::Matrix3d> hmatrix_norm_svd(
       H_normalized, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Eigen::Vector3d singular_values = hmatrix_norm_svd.singularValues();
+  const Eigen::Vector3d& singular_values = hmatrix_norm_svd.singularValues();
   H_normalized.array() /= singular_values[1];
 
   // Ensure that we always return rotations, and never reflections.
