@@ -143,14 +143,14 @@ jobs:
 
           if [ ! -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
             set -x
-            wget https://github.com/ccache/ccache/releases/download/v4.13.6/ccache-4.13.6-linux-x86_64-glibc.tar.xz
-            echo "508b2a1217dc6e04a23e967c7b95a0fb45d8a7e16fde9e180919698f2e2be060  ccache-4.13.6-linux-x86_64-glibc.tar.xz" | sha256sum --check
-            tar xfv ccache-4.13.6-linux-x86_64-glibc.tar.xz
+            wget https://github.com/ccache/ccache/releases/download/v4.14.1/ccache-4.14.1-linux-x86_64-glibc.tar.xz
+            echo "ad63d19f5d09ea13f749651653a561c98a59994e673504a4266617b8754218f7  ccache-4.14.1-linux-x86_64-glibc.tar.xz" | sha256sum --check
+            tar xfv ccache-4.14.1-linux-x86_64-glibc.tar.xz
             mkdir -p "$COMPILER_CACHE_DIR/bin"
-            mv ./ccache-4.13.6-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
-            ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
+            mv ./ccache-4.14.1-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
+            ctcache_commit_id="857b14271d3ded5511c2e6a60f2dc20c1e4b5680"
             wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
-            echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
+            echo "4c3e15bae65754a5095e9a80edb395077371bee3b9e3333c95259deb4f2d5aa0  ${ctcache_commit_id}.zip" | sha256sum --check
             unzip "${ctcache_commit_id}.zip"
             mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
           fi

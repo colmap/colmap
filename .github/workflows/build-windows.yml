@@ -134,8 +134,8 @@ jobs:
           # expands to Turing..Blackwell (75..120). Older CMake predates CUDA 13
           # and would expand it to a stale set including Maxwell/Pascal/Volta
           # (compute_50/60/70), which CUDA 13 no longer supports.
-          cmakeVersion: "4.3.2"
-          ninjaVersion: "1.12.1"
+          cmakeVersion: "4.4.4"
+          ninjaVersion: "1.13.2"
 
       - name: Configure and build
         shell: pwsh
