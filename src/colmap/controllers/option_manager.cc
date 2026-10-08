@@ -17,6 +17,7 @@
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
+#include "colmap/estimators/rotation_averaging_impl.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/loma.h"
@@ -953,15 +954,16 @@ void OptionManager::AddGlobalMapperOptions() {
                        RotationAveragingBackendToString,
                        RotationAveragingBackendFromString,
                        EnumHelpText(RotationAveragingBackendStrings()));
-  AddDefaultOption(
-      "GlobalMapper.ra_max_num_l1_iterations",
-      &global_mapper->mapper.rotation_averaging.max_num_l1_iterations);
-  AddDefaultOption(
-      "GlobalMapper.ra_max_num_irls_iterations",
-      &global_mapper->mapper.rotation_averaging.max_num_irls_iterations);
-  AddDefaultOption(
-      "GlobalMapper.ra_irls_loss_parameter_sigma",
-      &global_mapper->mapper.rotation_averaging.irls_loss_parameter_sigma);
+  // L1-IRLS-specific rotation averaging options.
+  AddDefaultOption("GlobalMapper.ra_max_num_l1_iterations",
+                   &global_mapper->mapper.rotation_averaging.l1_irls
+                        ->max_num_l1_iterations);
+  AddDefaultOption("GlobalMapper.ra_max_num_irls_iterations",
+                   &global_mapper->mapper.rotation_averaging.l1_irls
+                        ->max_num_irls_iterations);
+  AddDefaultOption("GlobalMapper.ra_irls_loss_parameter_sigma",
+                   &global_mapper->mapper.rotation_averaging.l1_irls
+                        ->irls_loss_parameter_sigma);
   // Ceres-specific rotation averaging options.
   AddDefaultEnumOption(
       "GlobalMapper.ra_ceres_loss_function_type",

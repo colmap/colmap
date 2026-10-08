@@ -794,10 +794,12 @@ std::optional<Eigen::VectorXd> RotationAveragingSolver::ComputeIRLSWeights(
 
     // Compute the weight.
     double w = 0;
-    if (options_.weight_type == RotationEstimatorOptions::GEMAN_MCCLURE) {
+    if (options_.weight_type ==
+        L1IrlsRotationAveragerOptions::GEMAN_MCCLURE) {
       double tmp = err_squared + sigma * sigma;
       w = sigma * sigma / (tmp * tmp);
-    } else if (options_.weight_type == RotationEstimatorOptions::HALF_NORM) {
+    } else if (options_.weight_type ==
+               L1IrlsRotationAveragerOptions::HALF_NORM) {
       // Exponent for half-norm weight: (p - 2) / 2 where p = 0.5.
       constexpr double kHalfNormExponent = (0.5 - 2) / 2;
       w = std::pow(err_squared, kHalfNormExponent);

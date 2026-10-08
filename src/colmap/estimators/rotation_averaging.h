@@ -33,9 +33,14 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingReweighting,
 //   CERES: Nonlinear least squares on SO(3) using Ceres Solver.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingBackend, 0, L1_IRLS, CERES);
 
+struct L1IrlsRotationAveragerOptions;
 struct CeresRotationAveragerOptions;
 
 struct RotationEstimatorBackendOptions {
+  // L1-IRLS-specific options (only used when backend == L1_IRLS).
+  // Type defined in rotation_averaging_impl.h.
+  std::shared_ptr<L1IrlsRotationAveragerOptions> l1_irls;
+
   // Ceres-specific options (only used when backend == CERES).
   // Type defined in rotation_averaging_ceres.h.
   std::shared_ptr<CeresRotationAveragerOptions> ceres;
@@ -58,52 +63,13 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   int random_seed = -1;
 
   // Solver backend to use for rotation averaging. Backend-specific options are
-  // in the corresponding member of RotationEstimatorBackendOptions (e.g.,
-  // ceres) or, for L1_IRLS, in the options marked as such below. The CERES
+  // in the corresponding member of RotationEstimatorBackendOptions. The CERES
   // backend does not support gravity priors and falls back to L1_IRLS when
   // use_gravity is true.
   RotationAveragingBackend backend = RotationAveragingBackend::L1_IRLS;
 
-  // Maximum number of times to run L1 minimization (L1_IRLS only).
-  int max_num_l1_iterations = 5;
-
-  // Average step size threshold to terminate the L1 minimization (L1_IRLS
-  // only).
-  double l1_step_convergence_threshold = 0.001;
-
-  // The number of iterative reweighted least squares iterations to perform
-  // (L1_IRLS only).
-  int max_num_irls_iterations = 100;
-
-  // Average step size threshold to terminate the IRLS minimization (L1_IRLS
-  // only).
-  double irls_step_convergence_threshold = 0.001;
-
   // Gravity direction.
   Eigen::Vector3d gravity_dir = Eigen::Vector3d::UnitY();
-
-  // The point where the Huber-like cost function switches from L1 to L2
-  // (L1_IRLS only).
-  double irls_loss_parameter_sigma = 5.0;  // in degrees
-
-  // Tikhonov ridge added to the diagonal of the normal equations A^T (W) A
-  // before each Cholesky factorization in the L1 and IRLS phases. The
-  // theoretical normal equations of a connected pose graph plus gauge fix are
-  // positive definite, but supernodal Cholesky may still report "matrix not
-  // positive definite" on poorly conditioned graphs (e.g., long sequential
-  // video chains). Set to a small positive value (e.g., 1e-9) to stabilize
-  // such systems. Zero disables regularization (no computational overhead).
-  double ridge_regularization = 1e-9;
-
-  // IRLS weight function (L1_IRLS only).
-  enum WeightType {
-    // Geman-McClure weight from "Efficient and robust large-scale rotation
-    // averaging" (Chatterjee et al., 2013)
-    GEMAN_MCCLURE,
-    // Half norm from "Robust Relative Rotation Averaging"
-    // (Chatterjee et al., 2017)
-    HALF_NORM,
-  } weight_type = GEMAN_MCCLURE;
 
   // Flag to skip maximum spanning tree initialization.
   bool skip_initialization = false;

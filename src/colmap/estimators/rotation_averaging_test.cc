@@ -2,6 +2,7 @@
 
 #include "colmap/estimators/rotation_averaging.h"
 
+#include "colmap/estimators/rotation_averaging_impl.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
@@ -414,7 +415,7 @@ TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
   // Run once with no regularization.
   Reconstruction reconstruction_no_ridge = data.reconstruction;
   PoseGraph pose_graph_no_ridge = data.pose_graph;
-  options.ridge_regularization = 0;
+  options.l1_irls->ridge_regularization = 0;
   ASSERT_TRUE(RunRotationAveraging(
       options, pose_graph_no_ridge, reconstruction_no_ridge, data.pose_priors));
 
@@ -422,7 +423,7 @@ TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
   // option must flow through L1 and IRLS without biasing the solution.
   Reconstruction reconstruction_ridge = data.reconstruction;
   PoseGraph pose_graph_ridge = data.pose_graph;
-  options.ridge_regularization = 1e-9;
+  options.l1_irls->ridge_regularization = 1e-9;
   ASSERT_TRUE(RunRotationAveraging(
       options, pose_graph_ridge, reconstruction_ridge, data.pose_priors));
 

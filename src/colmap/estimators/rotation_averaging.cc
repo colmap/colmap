@@ -265,10 +265,14 @@ std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
 }  // namespace
 
 RotationEstimatorBackendOptions::RotationEstimatorBackendOptions()
-    : ceres(std::make_shared<CeresRotationAveragerOptions>()) {}
+    : l1_irls(std::make_shared<L1IrlsRotationAveragerOptions>()),
+      ceres(std::make_shared<CeresRotationAveragerOptions>()) {}
 
 RotationEstimatorBackendOptions::RotationEstimatorBackendOptions(
     const RotationEstimatorBackendOptions& other) {
+  if (other.l1_irls) {
+    l1_irls = std::make_shared<L1IrlsRotationAveragerOptions>(*other.l1_irls);
+  }
   if (other.ceres) {
     ceres = std::make_shared<CeresRotationAveragerOptions>(*other.ceres);
   }
@@ -278,6 +282,11 @@ RotationEstimatorBackendOptions& RotationEstimatorBackendOptions::operator=(
     const RotationEstimatorBackendOptions& other) {
   if (this == &other) {
     return *this;
+  }
+  if (other.l1_irls) {
+    l1_irls = std::make_shared<L1IrlsRotationAveragerOptions>(*other.l1_irls);
+  } else {
+    l1_irls.reset();
   }
   if (other.ceres) {
     ceres = std::make_shared<CeresRotationAveragerOptions>(*other.ceres);
@@ -544,7 +553,7 @@ bool RotationEstimator::SolveRotationAveraging(
       pose_graph, pose_priors, options_, active_image_ids, reconstruction);
 
   // Solve and apply results.
-  RotationAveragingSolver solver(options_);
+  RotationAveragingSolver solver(*THROW_CHECK_NOTNULL(options_.l1_irls));
   if (!solver.Solve(problem)) {
     return false;
   }
