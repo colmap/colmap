@@ -54,9 +54,9 @@ jobs:
     steps:
       - name: Free disk space
         if: runner.os == 'Linux' && matrix.config.cudaEnabled
-        uses: jlumbroso/free-disk-space@v1.3.1
+        uses: jlumbroso/free-disk-space@v2.0.0
         with:
-          tool-cache: false
+          preinstalled-runtimes: false
           android: true
           dotnet: true
           haskell: true
@@ -232,7 +232,7 @@ jobs:
 
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.1.0
+        uses: pypa/cibuildwheel@v4.3.0
         with:
           package-dir: ./
         env:
@@ -304,7 +304,7 @@ jobs:
       - name: Move wheels
         run: mkdir ./wheelhouse && mv ./artifacts/**/*.whl ./wheelhouse/
       - name: Publish package
-        uses: pypa/gh-action-pypi-publish@v1.14.0
+        uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           skip-existing: true
           packages-dir: ./wheelhouse/
@@ -317,7 +317,7 @@ jobs:
       - uses: actions/checkout@v7   # conf.py's get_git_revision() needs a git checkout
 
       # Detect whether docs-relevant files changed (gates the deploy/preview steps).
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -326,11 +326,11 @@ jobs:
               - 'CHANGELOG.rst'
               - 'python/**'   # pycolmap bindings feed the autodoc API pages
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'   # Sphinx 9.1 needs >=3.12; matches the cp312 wheel
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
