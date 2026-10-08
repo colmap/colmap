@@ -134,7 +134,7 @@ class Database {
   // Read camera calibration for `camera_id` and `source`. When `source` is
   // `CameraSource::BEST` (the default), automatically selects and returns the
   // highest-priority calibration available for the camera according to the
-  // `CameraSource` ordering.
+  // `CameraSourcePriority` ordering.
   virtual Camera ReadCamera(camera_t camera_id,
                             CameraSource source = CameraSource::BEST) const = 0;
   virtual Camera ReadCameraExcludingSources(
