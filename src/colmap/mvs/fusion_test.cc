@@ -202,7 +202,8 @@ TEST(StereoFusion, Rotation180Invariance) {
     Mat<float> normal_map(width, height, 3);
     normal_map.Fill(0.0f);
     normal_map.Set(row, col, 2, 1.0f);
-    normal_map.Write(dir / "stereo" / "normal_maps" / "image.png.geometric.bin");
+    normal_map.Write(dir / "stereo" / "normal_maps" /
+                     "image.png.geometric.bin");
 
     Bitmap bitmap(width, height, true);
     bitmap.Fill(BitmapColor<uint8_t>(100, 100, 100));
