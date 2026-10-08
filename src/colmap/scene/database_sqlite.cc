@@ -2521,32 +2521,45 @@ class SqliteDatabase : public Database {
     // Migrate cameras table to composite primary key (camera_id, source)
     // and recreate images table without foreign key to cameras.
     if (user_version <= MakeDatabaseVersionNumber(4, 3, 0, 0)) {
-      if (ExistsTable("cameras") && !ExistsColumn("cameras", "source")) {
+      const bool needs_camera_rename =
+          ExistsTable("cameras") && !ExistsColumn("cameras", "source");
+      if (needs_camera_rename || ExistsTable("cameras_old") ||
+          ExistsTable("images_old")) {
         SQLITE3_EXEC(database_, "PRAGMA foreign_keys = OFF;", nullptr);
         SQLITE3_EXEC(database_, "PRAGMA legacy_alter_table = ON;", nullptr);
 
-        SQLITE3_EXEC(
-            database_, "ALTER TABLE cameras RENAME TO cameras_old;", nullptr);
-        CreateCameraTable();
-
-        const std::string migrate_sql = StringPrintf(
-            "INSERT OR IGNORE INTO cameras "
-            "(camera_id, model, width, height, params, source) "
-            "SELECT camera_id, model, width, height, params, "
-            "CASE WHEN prior_focal_length != 0 THEN %d ELSE %d END "
-            "FROM cameras_old;",
-            static_cast<int>(CameraSource::EXIF),
-            static_cast<int>(CameraSource::GUESS));
-        SQLITE3_EXEC(database_, migrate_sql.c_str(), nullptr);
-        SQLITE3_EXEC(database_, "DROP TABLE cameras_old;", nullptr);
-
-        if (ExistsTable("images")) {
-          SQLITE3_EXEC(database_, "DROP INDEX IF EXISTS index_name;", nullptr);
+        if (needs_camera_rename) {
           SQLITE3_EXEC(
-              database_, "ALTER TABLE images RENAME TO images_old;", nullptr);
+              database_, "ALTER TABLE cameras RENAME TO cameras_old;", nullptr);
+          CreateCameraTable();
+        }
+
+        if (ExistsTable("cameras_old")) {
+          const std::string migrate_sql = StringPrintf(
+              "INSERT OR IGNORE INTO cameras "
+              "(camera_id, model, width, height, params, source) "
+              "SELECT camera_id, model, width, height, params, "
+              "CASE WHEN prior_focal_length != 0 THEN %d ELSE %d END "
+              "FROM cameras_old;",
+              static_cast<int>(CameraSource::EXIF),
+              static_cast<int>(CameraSource::GUESS));
+          SQLITE3_EXEC(database_, migrate_sql.c_str(), nullptr);
+
+          if (ExistsTable("images") && !ExistsTable("images_old")) {
+            SQLITE3_EXEC(
+                database_, "DROP INDEX IF EXISTS index_name;", nullptr);
+            SQLITE3_EXEC(
+                database_, "ALTER TABLE images RENAME TO images_old;", nullptr);
+            CreateImageTable();
+          }
+
+          SQLITE3_EXEC(database_, "DROP TABLE cameras_old;", nullptr);
+        }
+
+        if (ExistsTable("images_old")) {
           CreateImageTable();
           const std::string migrate_images_sql =
-              "INSERT INTO images (image_id, name, camera_id) "
+              "INSERT OR IGNORE INTO images (image_id, name, camera_id) "
               "SELECT image_id, name, camera_id FROM images_old;";
           SQLITE3_EXEC(database_, migrate_images_sql.c_str(), nullptr);
           SQLITE3_EXEC(database_, "DROP TABLE images_old;", nullptr);
