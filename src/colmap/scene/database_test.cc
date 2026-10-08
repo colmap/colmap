@@ -219,27 +219,27 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::SINGLE_VIEW),
             camera_sv);
 
-  // 4. Add VIEW_GRAPH calibration (VIEW_GRAPH > USER > SINGLE_VIEW).
-  Camera camera_vg = camera_guess;
-  camera_vg.source = CameraSource::VIEW_GRAPH;
-  camera_vg.SetFocalLength(140.0);
-  database->UpdateCamera(camera_vg);
-
-  EXPECT_EQ(database->ReadCamera(camera_id), camera_vg);
-  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_vg);
-  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::VIEW_GRAPH),
-            camera_vg);
-
-  // 5. Add USER calibration (USER < VIEW_GRAPH).
-  // Writing USER should store the calibration, but BEST remains VIEW_GRAPH.
+  // 4. Add USER calibration (USER > VIEW_GRAPH > SINGLE_VIEW).
   Camera camera_user = camera_guess;
   camera_user.source = CameraSource::USER;
-  camera_user.SetFocalLength(135.0);
+  camera_user.SetFocalLength(140.0);
   database->UpdateCamera(camera_user);
 
-  EXPECT_EQ(database->ReadCamera(camera_id), camera_vg);
-  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_vg);
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_user);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_user);
   EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::USER), camera_user);
+
+  // 5. Add VIEW_GRAPH calibration (VIEW_GRAPH < USER).
+  // Writing VIEW_GRAPH should store the calibration, but BEST remains USER.
+  Camera camera_vg = camera_guess;
+  camera_vg.source = CameraSource::VIEW_GRAPH;
+  camera_vg.SetFocalLength(135.0);
+  database->UpdateCamera(camera_vg);
+
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_user);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_user);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::VIEW_GRAPH),
+            camera_vg);
 
   // 6. Test ReadAllCameraSources(camera_id).
   const auto calibrations = database->ReadAllCameraSources(camera_id);
@@ -247,8 +247,8 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   EXPECT_EQ(calibrations.at(CameraSource::GUESS), camera_guess);
   EXPECT_EQ(calibrations.at(CameraSource::EXIF), camera_exif);
   EXPECT_EQ(calibrations.at(CameraSource::SINGLE_VIEW), camera_sv);
-  EXPECT_EQ(calibrations.at(CameraSource::USER), camera_user);
   EXPECT_EQ(calibrations.at(CameraSource::VIEW_GRAPH), camera_vg);
+  EXPECT_EQ(calibrations.at(CameraSource::USER), camera_user);
 
   // 7. Test ReadAllCameraSources() (all cameras).
   const auto all_calibrations = database->ReadAllCameraSources();
@@ -257,11 +257,11 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
 
   // 8. Test ReadAllCameras(source).
   EXPECT_THAT(database->ReadAllCameras(CameraSource::BEST),
-              testing::ElementsAre(camera_vg));
-  EXPECT_THAT(database->ReadAllCameras(CameraSource::VIEW_GRAPH),
-              testing::ElementsAre(camera_vg));
+              testing::ElementsAre(camera_user));
   EXPECT_THAT(database->ReadAllCameras(CameraSource::USER),
               testing::ElementsAre(camera_user));
+  EXPECT_THAT(database->ReadAllCameras(CameraSource::VIEW_GRAPH),
+              testing::ElementsAre(camera_vg));
   EXPECT_THAT(database->ReadAllCameras(CameraSource::SINGLE_VIEW),
               testing::ElementsAre(camera_sv));
   EXPECT_THAT(database->ReadAllCameras(CameraSource::EXIF),
@@ -271,55 +271,55 @@ TEST_P(ParameterizedDatabaseTests, CameraCalibrations) {
   EXPECT_TRUE(database->ReadAllCameras(CameraSource::UNKNOWN).empty());
 
   // 9. Test ReadCameraExcludingSources and ReadAllCamerasExcludingSources.
-  EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
-                                                 {CameraSource::VIEW_GRAPH}),
-            camera_user);
+  EXPECT_EQ(
+      database->ReadCameraExcludingSources(camera_id, {CameraSource::USER}),
+      camera_vg);
   EXPECT_EQ(database->ReadCameraExcludingSources(
-                camera_id, {CameraSource::VIEW_GRAPH, CameraSource::USER}),
+                camera_id, {CameraSource::USER, CameraSource::VIEW_GRAPH}),
             camera_sv);
   EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
-                                                 {CameraSource::VIEW_GRAPH,
-                                                  CameraSource::USER,
+                                                 {CameraSource::USER,
+                                                  CameraSource::VIEW_GRAPH,
                                                   CameraSource::SINGLE_VIEW}),
             camera_exif);
   EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
-                                                 {CameraSource::VIEW_GRAPH,
-                                                  CameraSource::USER,
+                                                 {CameraSource::USER,
+                                                  CameraSource::VIEW_GRAPH,
                                                   CameraSource::SINGLE_VIEW,
                                                   CameraSource::EXIF}),
             camera_guess);
   // Fallback to highest available when all are excluded.
   EXPECT_EQ(database->ReadCameraExcludingSources(camera_id,
-                                                 {CameraSource::VIEW_GRAPH,
-                                                  CameraSource::USER,
+                                                 {CameraSource::USER,
+                                                  CameraSource::VIEW_GRAPH,
                                                   CameraSource::SINGLE_VIEW,
                                                   CameraSource::EXIF,
                                                   CameraSource::GUESS}),
-            camera_vg);
+            camera_user);
 
-  const auto cams_ex_vg =
-      database->ReadAllCamerasExcludingSources({CameraSource::VIEW_GRAPH});
-  EXPECT_EQ(cams_ex_vg.size(), 1);
-  EXPECT_EQ(cams_ex_vg.at(camera_id), camera_user);
+  const auto cams_ex_user =
+      database->ReadAllCamerasExcludingSources({CameraSource::USER});
+  EXPECT_EQ(cams_ex_user.size(), 1);
+  EXPECT_EQ(cams_ex_user.at(camera_id), camera_vg);
 
-  const auto cams_ex_sv_vg = database->ReadAllCamerasExcludingSources(
-      {CameraSource::SINGLE_VIEW, CameraSource::VIEW_GRAPH});
-  EXPECT_EQ(cams_ex_sv_vg.size(), 1);
-  EXPECT_EQ(cams_ex_sv_vg.at(camera_id), camera_user);
+  const auto cams_ex_vg_user = database->ReadAllCamerasExcludingSources(
+      {CameraSource::VIEW_GRAPH, CameraSource::USER});
+  EXPECT_EQ(cams_ex_vg_user.size(), 1);
+  EXPECT_EQ(cams_ex_vg_user.at(camera_id), camera_sv);
 
-  // 10. Test DeleteCameraSource for a specific source (VIEW_GRAPH).
-  // Deleting VIEW_GRAPH should fallback to USER as BEST.
+  // 10. Test DeleteCameraSource for a specific source (USER).
+  // Deleting USER should fallback to VIEW_GRAPH as BEST.
+  database->DeleteCameraSource(camera_id, CameraSource::USER);
+  EXPECT_FALSE(database->ExistsCameraSource(camera_id, CameraSource::USER));
+  EXPECT_EQ(database->NumCameras(), 1);
+  EXPECT_EQ(database->ReadCamera(camera_id), camera_vg);
+  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_vg);
+  EXPECT_EQ(database->ReadAllCameraSources(camera_id).size(), 4);
+
+  // 10. Delete another source (VIEW_GRAPH). Fallback to SINGLE_VIEW.
   database->DeleteCameraSource(camera_id, CameraSource::VIEW_GRAPH);
   EXPECT_FALSE(
       database->ExistsCameraSource(camera_id, CameraSource::VIEW_GRAPH));
-  EXPECT_EQ(database->NumCameras(), 1);
-  EXPECT_EQ(database->ReadCamera(camera_id), camera_user);
-  EXPECT_EQ(database->ReadCamera(camera_id, CameraSource::BEST), camera_user);
-  EXPECT_EQ(database->ReadAllCameraSources(camera_id).size(), 4);
-
-  // 10. Delete another source (USER). Fallback to SINGLE_VIEW.
-  database->DeleteCameraSource(camera_id, CameraSource::USER);
-  EXPECT_FALSE(database->ExistsCameraSource(camera_id, CameraSource::USER));
   EXPECT_EQ(database->ReadCamera(camera_id), camera_sv);
 
   // 11. Delete with BEST deletes the entire camera and all remaining

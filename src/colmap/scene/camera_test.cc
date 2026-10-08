@@ -55,9 +55,9 @@ TEST(Camera, HasPriorFocalLength) {
   EXPECT_LT(CameraSourcePriority(CameraSource::EXIF),
             CameraSourcePriority(CameraSource::SINGLE_VIEW));
   EXPECT_LT(CameraSourcePriority(CameraSource::SINGLE_VIEW),
-            CameraSourcePriority(CameraSource::USER));
-  EXPECT_LT(CameraSourcePriority(CameraSource::USER),
             CameraSourcePriority(CameraSource::VIEW_GRAPH));
+  EXPECT_LT(CameraSourcePriority(CameraSource::VIEW_GRAPH),
+            CameraSourcePriority(CameraSource::USER));
 
   Camera camera;
   camera.source = CameraSource::UNKNOWN;

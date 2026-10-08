@@ -60,9 +60,9 @@ constexpr int CameraSourcePriority(CameraSource source) {
       return 2;
     case CameraSource::SINGLE_VIEW:
       return 3;
-    case CameraSource::USER:
-      return 4;
     case CameraSource::VIEW_GRAPH:
+      return 4;
+    case CameraSource::USER:
       return 5;
     case CameraSource::BEST:
       break;
