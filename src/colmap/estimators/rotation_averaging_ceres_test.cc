@@ -124,7 +124,7 @@ TEST(CeresRotationAverager, RecoversNominalRotations) {
   PoseGraph pose_graph;
   pose_graph.AddEdge(1, 2, Edge(ZRotation(0.2)));
   pose_graph.AddEdge(2, 3, Edge(ZRotation(-0.1)));
-  CeresRotationAveragerOptions options;
+  RotationEstimatorOptions options;
 
   auto averager =
       CreateDefaultCeresRotationAverager(options, pose_graph, reconstruction);
@@ -138,9 +138,10 @@ TEST(CeresRotationAverager, RecoversNominalRotations) {
 
 TEST(CeresRotationAverager, MatchCountReweighting) {
   Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
-  CeresRotationAveragerOptions options;
+  RotationEstimatorOptions options;
   options.skip_initialization = true;
-  options.loss_function_scale = 0.1;
+  options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
+  options.ceres->loss_function_scale = 0.1;
   for (const int num_matches : {10, 0}) {
     PoseGraph graph;
     graph.AddEdge(1, 2, Edge(ZRotation(0.2), num_matches));
@@ -169,7 +170,7 @@ TEST(CeresRotationAverager, AddsIndividualRelativeRotationResidual) {
   PoseGraph pose_graph;
   pose_graph.AddEdge(1, 2, Edge(ZRotation(0.2)));
   auto averager = CreateDefaultCeresRotationAverager(
-      CeresRotationAveragerOptions(), pose_graph, reconstruction);
+      RotationEstimatorOptions(), pose_graph, reconstruction);
 
   auto loss = std::make_shared<ceres::CauchyLoss>(0.05);
   averager->AddRelativeRotationResidual(1, 1, ZRotation(0.2), loss);
@@ -186,7 +187,7 @@ TEST(CeresRotationAverager, RejectsUnconfiguredRotationBlocks) {
   const auto images = RigImages(reconstruction);
   PoseGraph graph;
   graph.AddEdge(images[0][0], images[1][0], Edge(ZRotation(0.2)));
-  CeresRotationAveragerOptions options;
+  RotationEstimatorOptions options;
   options.skip_initialization = true;
   auto averager =
       CreateDefaultCeresRotationAverager(options, graph, reconstruction);
@@ -212,7 +213,7 @@ TEST(CeresRotationAverager, SelectsMstOrSuppliedInitialization) {
   pose_graph.AddEdge(1, 2, Edge(ZRotation(0.2)));
 
   auto mst = CreateDefaultCeresRotationAverager(
-      CeresRotationAveragerOptions(), pose_graph, initialized);
+      RotationEstimatorOptions(), pose_graph, initialized);
   EXPECT_NEAR((initialized.Frame(2).RigFromWorld().rotation() *
                initialized.Frame(1).RigFromWorld().rotation().inverse())
                   .angularDistance(ZRotation(0.2)),
@@ -221,7 +222,7 @@ TEST(CeresRotationAverager, SelectsMstOrSuppliedInitialization) {
   EXPECT_TRUE(
       initialized.Frame(1).RigFromWorld().translation().array().isNaN().all());
 
-  CeresRotationAveragerOptions options;
+  RotationEstimatorOptions options;
   options.skip_initialization = true;
   auto preserved =
       CreateDefaultCeresRotationAverager(options, pose_graph, supplied);
@@ -237,7 +238,7 @@ TEST(CeresRotationAverager, RejectsDisconnectedPoseGraph) {
   pose_graph.AddEdge(1, 2, Edge(ZRotation(0.1)));
   pose_graph.AddEdge(3, 4, Edge(ZRotation(0.2)));
   EXPECT_THROW(CreateDefaultCeresRotationAverager(
-                   CeresRotationAveragerOptions(), pose_graph, reconstruction),
+                   RotationEstimatorOptions(), pose_graph, reconstruction),
                std::invalid_argument);
 }
 
@@ -253,7 +254,7 @@ TEST(CeresRotationAverager, CalibratedRigs) {
             std::numeric_limits<double>::quiet_NaN();
       }
     }
-    CeresRotationAveragerOptions options;
+    RotationEstimatorOptions options;
     options.skip_initialization = skip_initialization;
     options.refine_sensor_from_rig = false;
     auto averager =
@@ -297,7 +298,7 @@ TEST(CeresRotationAverager, CalibratedRigWithDisconnectedImageGraph) {
     reconstruction.DeRegisterFrame(id);
   }
   auto averager = CreateDefaultCeresRotationAverager(
-      CeresRotationAveragerOptions(), graph, reconstruction);
+      RotationEstimatorOptions(), graph, reconstruction);
   ASSERT_TRUE(averager->Solve().IsSolutionUsable());
   ExpectRelativeRotations(reconstruction, graph, 1e-7);
 }
@@ -325,11 +326,11 @@ TEST(CeresRotationAverager, EstimatesUncalibratedRigs) {
         }
       }
     }
-    CeresRotationAveragerOptions options;
+    RotationEstimatorOptions options;
     options.skip_initialization = mode == 2 || mode == 4;
-    options.solver_options.function_tolerance = 1e-12;
-    options.solver_options.gradient_tolerance = 1e-12;
-    options.solver_options.parameter_tolerance = 1e-12;
+    options.ceres->solver_options.function_tolerance = 1e-12;
+    options.ceres->solver_options.gradient_tolerance = 1e-12;
+    options.ceres->solver_options.parameter_tolerance = 1e-12;
     auto averager =
         CreateDefaultCeresRotationAverager(options, graph, reconstruction);
     EXPECT_EQ(averager->Problem().NumParameterBlocks(),
@@ -362,7 +363,7 @@ TEST(CeresRotationAverager, RefinesCalibrationThroughPreparedProblem) {
       image.FramePtr()->RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
   sensor.rotation() = ZRotation(0.2) * sensor.rotation();
   auto averager = CreateDefaultCeresRotationAverager(
-      CeresRotationAveragerOptions(), graph, reconstruction);
+      RotationEstimatorOptions(), graph, reconstruction);
   double* rotation = sensor.rotation().coeffs().data();
   EXPECT_TRUE(averager->Problem().IsParameterBlockConstant(rotation));
   averager->Problem().SetParameterBlockVariable(rotation);
@@ -389,7 +390,7 @@ TEST(CeresRotationAverager, MissingSensorRotation) {
   rig.ResetSensorFromRig(sensor_id);
   reconstruction.DeRegisterFrame(reconstruction.Image(images[2][1]).FrameId());
   const Reconstruction before = reconstruction;
-  CeresRotationAveragerOptions options;
+  RotationEstimatorOptions options;
   options.skip_initialization = true;
   options.refine_sensor_from_rig = false;
   EXPECT_THROW(
@@ -431,6 +432,26 @@ TEST(CeresRotationAverager, MissingSensorRotation) {
             Eigen::Quaterniond::Identity().coeffs());
   ASSERT_TRUE(averager->Solve().IsSolutionUsable());
   ExpectRelativeRotations(reconstruction, graph, 1e-7);
+}
+
+TEST(RotationEstimatorOptions, DeepCopiesCeresOptions) {
+  RotationEstimatorOptions options;
+  ASSERT_NE(options.ceres, nullptr);
+  EXPECT_EQ(options.ceres->loss_function_type, CeresLossFunctionType::CAUCHY);
+  options.ceres->loss_function_scale = 0.1;
+
+  RotationEstimatorOptions copied = options;
+  ASSERT_NE(copied.ceres, nullptr);
+  EXPECT_NE(copied.ceres.get(), options.ceres.get());
+  EXPECT_EQ(copied.ceres->loss_function_scale, 0.1);
+  copied.ceres->loss_function_scale = 0.2;
+  EXPECT_EQ(options.ceres->loss_function_scale, 0.1);
+
+  RotationEstimatorOptions assigned;
+  assigned = options;
+  ASSERT_NE(assigned.ceres, nullptr);
+  EXPECT_NE(assigned.ceres.get(), options.ceres.get());
+  EXPECT_EQ(assigned.ceres->loss_function_scale, 0.1);
 }
 
 }  // namespace

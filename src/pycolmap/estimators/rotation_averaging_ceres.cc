@@ -14,7 +14,7 @@ using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
-void BindCeresRotationAverager(py::module& m) {
+void BindCeresRotationAveragerOptions(py::module& m) {
   IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
 
   auto PyOptions =
@@ -27,25 +27,20 @@ void BindCeresRotationAverager(py::module& m) {
           .def_readwrite("loss_function_scale",
                          &CeresRotationAveragerOptions::loss_function_scale,
                          "Loss function scale in radians.")
-          .def_readwrite("reweighting",
-                         &CeresRotationAveragerOptions::reweighting,
-                         "Reweighting scheme for relative-rotation "
-                         "constraints: UNIFORM or INLIER_MATCH_COUNT.")
+          .def_readwrite(
+              "max_num_warm_start_iterations",
+              &CeresRotationAveragerOptions::max_num_warm_start_iterations,
+              "Number of solver iterations of a Huber-loss warm-start (with "
+              "the same loss scale) run by RotationEstimator before the main "
+              "solve. Set to 0 to disable.")
           .def_readwrite("solver_options",
                          &CeresRotationAveragerOptions::solver_options,
                          "Options for the Ceres solver. Using this member "
-                         "requires having PyCeres installed.")
-          .def_readwrite("skip_initialization",
-                         &CeresRotationAveragerOptions::skip_initialization,
-                         "Skip maximum spanning tree initialization.")
-          .def_readwrite(
-              "refine_sensor_from_rig",
-              &CeresRotationAveragerOptions::refine_sensor_from_rig,
-              "Refine uncalibrated sensor rotations (missing pose or NaN "
-              "translation). Fully calibrated sensor rotations stay constant "
-              "unless the user flips them via the problem.");
+                         "requires having PyCeres installed.");
   MakeDataclass(PyOptions);
+}
 
+void BindCeresRotationAverager(py::module& m) {
   py::classh<CeresRotationAverager>(m, "CeresRotationAverager")
       .def("solve",
            &CeresRotationAverager::Solve,

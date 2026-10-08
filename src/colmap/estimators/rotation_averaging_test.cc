@@ -130,22 +130,15 @@ void RunAndVerifyRotationAveraging(const Reconstruction& gt_reconstruction,
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, max_rotation_error_deg);
 
+    // The CERES backend falls back to L1_IRLS when gravity priors are used.
     Reconstruction ceres_reconstruction = reconstruction;
     PoseGraph ceres_pose_graph = pose_graph;
     RotationEstimatorOptions ceres_options = CreateRATestOptions(use_gravity);
     ceres_options.backend = RotationAveragingBackend::CERES;
-    if (use_gravity) {
-      EXPECT_THROW(RunRotationAveraging(ceres_options,
-                                        ceres_pose_graph,
-                                        ceres_reconstruction,
-                                        pose_priors),
-                   std::invalid_argument);
-    } else {
-      ASSERT_TRUE(RunRotationAveraging(
-          ceres_options, ceres_pose_graph, ceres_reconstruction, pose_priors));
-      ExpectEqualRotations(
-          gt_reconstruction, ceres_reconstruction, max_rotation_error_deg);
-    }
+    ASSERT_TRUE(RunRotationAveraging(
+        ceres_options, ceres_pose_graph, ceres_reconstruction, pose_priors));
+    ExpectEqualRotations(
+        gt_reconstruction, ceres_reconstruction, max_rotation_error_deg);
   }
 }
 

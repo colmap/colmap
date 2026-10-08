@@ -40,7 +40,8 @@ def test_rotation_estimator_options_default_init() -> None:
     assert options is not None
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
     assert options.backend == pycolmap.RotationAveragingBackend.L1_IRLS
-    assert options.ceres_loss_function_type == pycolmap.LossFunctionType.CAUCHY
+    assert isinstance(options.ceres, pycolmap.CeresRotationAveragerOptions)
+    assert options.ceres.loss_function_type == pycolmap.LossFunctionType.CAUCHY
 
 
 def test_rotation_estimator_options_reweighting_readwrite() -> None:
@@ -56,8 +57,17 @@ def test_rotation_estimator_options_reweighting_readwrite() -> None:
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
     options.backend = "CERES"  # type: ignore[assignment]
     assert options.backend == pycolmap.RotationAveragingBackend.CERES
-    options.ceres_loss_function_type = "HUBER"  # type: ignore[assignment]
-    assert options.ceres_loss_function_type == pycolmap.LossFunctionType.HUBER
+    options.ceres.loss_function_type = "HUBER"  # type: ignore[assignment]
+    assert options.ceres.loss_function_type == pycolmap.LossFunctionType.HUBER
+
+
+def test_rotation_estimator_options_ceres_readwrite() -> None:
+    options = pycolmap.RotationEstimatorOptions()
+    assert options.ceres.max_num_warm_start_iterations == 5
+    options.ceres.loss_function_scale = 0.1
+    options.ceres.max_num_warm_start_iterations = 0
+    assert options.ceres.loss_function_scale == 0.1
+    assert options.ceres.max_num_warm_start_iterations == 0
 
 
 def test_gravity_refiner_options_default_init() -> None:

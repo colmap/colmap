@@ -16,6 +16,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
+#include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/loma.h"
@@ -961,12 +962,22 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_irls_loss_parameter_sigma",
       &global_mapper->mapper.rotation_averaging.irls_loss_parameter_sigma);
+  // Ceres-specific rotation averaging options.
   AddDefaultEnumOption(
       "GlobalMapper.ra_ceres_loss_function_type",
-      &global_mapper->mapper.rotation_averaging.ceres_loss_function_type,
+      &global_mapper->mapper.rotation_averaging.ceres->loss_function_type,
       CeresLossFunctionTypeToString,
       CeresLossFunctionTypeFromString,
       EnumHelpText(CeresLossFunctionTypeStrings()));
+  AddDefaultOption(
+      "GlobalMapper.ra_ceres_loss_function_scale",
+      &global_mapper->mapper.rotation_averaging.ceres->loss_function_scale);
+  AddDefaultOption("GlobalMapper.ra_ceres_max_num_warm_start_iterations",
+                   &global_mapper->mapper.rotation_averaging.ceres
+                        ->max_num_warm_start_iterations);
+  AddDefaultOption("GlobalMapper.ra_ceres_max_num_iterations",
+                   &global_mapper->mapper.rotation_averaging.ceres
+                        ->solver_options.max_num_iterations);
   AddDefaultOption("GlobalMapper.ra_use_gravity",
                    &global_mapper->mapper.rotation_averaging.use_gravity);
   AddDefaultOption("GlobalMapper.ra_use_stratified",

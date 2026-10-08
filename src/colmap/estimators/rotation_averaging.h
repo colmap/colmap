@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/hash_containers.h"
 
+#include <memory>
 #include <vector>
 
 #include <Eigen/Core>
@@ -33,42 +33,58 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingReweighting,
 //   CERES: Nonlinear least squares on SO(3) using Ceres Solver.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingBackend, 0, L1_IRLS, CERES);
 
-struct RotationEstimatorOptions {
-  // Number of threads for the solver (-1 = auto-select).
-  int num_threads = -1;
+struct CeresRotationAveragerOptions;
 
+struct RotationEstimatorBackendOptions {
+  // Ceres-specific options (only used when backend == CERES).
+  // Type defined in rotation_averaging_ceres.h.
+  std::shared_ptr<CeresRotationAveragerOptions> ceres;
+
+  RotationEstimatorBackendOptions();
+  RotationEstimatorBackendOptions(const RotationEstimatorBackendOptions& other);
+  RotationEstimatorBackendOptions& operator=(
+      const RotationEstimatorBackendOptions& other);
+  RotationEstimatorBackendOptions(RotationEstimatorBackendOptions&& other) =
+      default;
+  RotationEstimatorBackendOptions& operator=(
+      RotationEstimatorBackendOptions&& other) = default;
+};
+
+struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // PRNG seed for stochastic methods during rotation averaging.
   // If -1 (default), the seed is derived from the current time
   // (non-deterministic). If >= 0, the rotation averaging is deterministic with
   // the given seed.
   int random_seed = -1;
 
-  // Solver backend to use for rotation averaging.
+  // Solver backend to use for rotation averaging. Backend-specific options are
+  // in the corresponding member of RotationEstimatorBackendOptions (e.g.,
+  // ceres) or, for L1_IRLS, in the options marked as such below. The CERES
+  // backend does not support gravity priors and falls back to L1_IRLS when
+  // use_gravity is true.
   RotationAveragingBackend backend = RotationAveragingBackend::L1_IRLS;
 
-  // Maximum number of times to run L1 minimization.
+  // Maximum number of times to run L1 minimization (L1_IRLS only).
   int max_num_l1_iterations = 5;
 
-  // Average step size threshold to terminate the L1 minimization.
+  // Average step size threshold to terminate the L1 minimization (L1_IRLS
+  // only).
   double l1_step_convergence_threshold = 0.001;
 
-  // The number of iterative reweighted least squares (or Ceres) iterations to
-  // perform.
+  // The number of iterative reweighted least squares iterations to perform
+  // (L1_IRLS only).
   int max_num_irls_iterations = 100;
 
-  // Average step size threshold to terminate the IRLS minimization.
+  // Average step size threshold to terminate the IRLS minimization (L1_IRLS
+  // only).
   double irls_step_convergence_threshold = 0.001;
 
   // Gravity direction.
   Eigen::Vector3d gravity_dir = Eigen::Vector3d::UnitY();
 
-  // The point where the Huber-like cost function switches from L1 to L2 (or
-  // the Ceres loss function scale, in degrees).
+  // The point where the Huber-like cost function switches from L1 to L2
+  // (L1_IRLS only).
   double irls_loss_parameter_sigma = 5.0;  // in degrees
-
-  // Loss function type when backend == CERES.
-  CeresLossFunctionType ceres_loss_function_type =
-      CeresLossFunctionType::CAUCHY;
 
   // Tikhonov ridge added to the diagonal of the normal equations A^T (W) A
   // before each Cholesky factorization in the L1 and IRLS phases. The
@@ -79,6 +95,7 @@ struct RotationEstimatorOptions {
   // such systems. Zero disables regularization (no computational overhead).
   double ridge_regularization = 1e-9;
 
+  // IRLS weight function (L1_IRLS only).
   enum WeightType {
     // Geman-McClure weight from "Efficient and robust large-scale rotation
     // averaging" (Chatterjee et al., 2013)

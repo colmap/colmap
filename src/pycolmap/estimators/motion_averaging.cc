@@ -3,6 +3,7 @@
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging_ceres.h"
 
 #include "pycolmap/helpers.h"
 
@@ -219,9 +220,6 @@ void BindRotationEstimator(py::module& m) {
   auto PyRotationEstimatorOptions =
       py::classh<RotationEstimatorOptions>(m, "RotationEstimatorOptions")
           .def(py::init<>())
-          .def_readwrite("num_threads",
-                         &RotationEstimatorOptions::num_threads,
-                         "Number of threads for the solver (-1 for auto).")
           .def_readwrite("random_seed",
                          &RotationEstimatorOptions::random_seed,
                          "PRNG seed. -1 for non-deterministic, >=0 for "
@@ -229,32 +227,36 @@ void BindRotationEstimator(py::module& m) {
           .def_readwrite("backend",
                          &RotationEstimatorOptions::backend,
                          "Solver backend for rotation averaging: L1_IRLS or "
-                         "CERES.")
+                         "CERES. CERES falls back to L1_IRLS when gravity "
+                         "priors are used.")
+          .def_readwrite("ceres",
+                         &RotationEstimatorOptions::ceres,
+                         "Ceres-specific rotation averaging options (only "
+                         "used when backend == CERES).")
           .def_readwrite("max_num_l1_iterations",
                          &RotationEstimatorOptions::max_num_l1_iterations,
-                         "Maximum number of L1 minimization iterations.")
+                         "Maximum number of L1 minimization iterations "
+                         "(L1_IRLS only).")
           .def_readwrite(
               "l1_step_convergence_threshold",
               &RotationEstimatorOptions::l1_step_convergence_threshold,
-              "Average step size threshold to terminate L1 minimization.")
+              "Average step size threshold to terminate L1 minimization "
+              "(L1_IRLS only).")
           .def_readwrite("max_num_irls_iterations",
                          &RotationEstimatorOptions::max_num_irls_iterations,
-                         "Number of IRLS (or Ceres) iterations to perform.")
+                         "Number of IRLS iterations to perform (L1_IRLS only).")
           .def_readwrite(
               "irls_step_convergence_threshold",
               &RotationEstimatorOptions::irls_step_convergence_threshold,
-              "Average step size threshold to terminate IRLS.")
+              "Average step size threshold to terminate IRLS (L1_IRLS only).")
           .def_readwrite("gravity_dir",
                          &RotationEstimatorOptions::gravity_dir,
                          "Gravity direction vector.")
           .def_readwrite(
               "irls_loss_parameter_sigma",
               &RotationEstimatorOptions::irls_loss_parameter_sigma,
-              "Point where Huber-like cost switches from L1 to L2 (or Ceres "
-              "loss scale, in degrees).")
-          .def_readwrite("ceres_loss_function_type",
-                         &RotationEstimatorOptions::ceres_loss_function_type,
-                         "Loss function type when backend == CERES.")
+              "Point where Huber-like cost switches from L1 to L2 (degrees, "
+              "L1_IRLS only).")
           .def_readwrite(
               "ridge_regularization",
               &RotationEstimatorOptions::ridge_regularization,
