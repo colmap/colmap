@@ -40,7 +40,8 @@ class PoseGraph {
       if (cam2_from_cam1_rotation_cov.has_value()) {
         const Eigen::Matrix3d R21 =
             cam2_from_cam1.rotation().toRotationMatrix();
-        cam2_from_cam1_rotation_cov = R21 * (*cam2_from_cam1_rotation_cov) * R21.transpose();
+        cam2_from_cam1_rotation_cov =
+            R21 * (*cam2_from_cam1_rotation_cov) * R21.transpose();
       }
       cam2_from_cam1 = Inverse(cam2_from_cam1);
     }

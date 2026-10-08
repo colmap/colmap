@@ -85,8 +85,8 @@ image_t ComputeMaximumPoseGraphSpanningTree(
     weights.push_back(static_cast<float>(edge.num_matches));
     if (edge.cam2_from_cam1_rotation_cov.has_value()) {
       // The trace is the expected squared angular error in radians.
-      rot_cov_weights.push_back(
-          static_cast<float>(1.0 / std::max(edge.cam2_from_cam1_rotation_cov->trace(), 1e-12)));
+      rot_cov_weights.push_back(static_cast<float>(
+          1.0 / std::max(edge.cam2_from_cam1_rotation_cov->trace(), 1e-12)));
     }
   }
 
@@ -287,7 +287,8 @@ void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
       fallback_sigma * fallback_sigma * Eigen::Matrix3d::Identity();
   for (auto& [pair_id, edge] : pose_graph.Edges()) {
     if (edge.valid) {
-      edge.cam2_from_cam1_rotation_cov = edge.cam2_from_cam1_rotation_cov.value_or(fallback_cov) + floor_cov;
+      edge.cam2_from_cam1_rotation_cov =
+          edge.cam2_from_cam1_rotation_cov.value_or(fallback_cov) + floor_cov;
     }
   }
 }

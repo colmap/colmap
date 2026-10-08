@@ -321,9 +321,10 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
     const TwoViewPoseCovarianceOptions& options =
         TwoViewPoseCovarianceOptions());
 
-// Populate `edge.cam2_from_cam1_rotation_cov` in parallel for all valid edges in `pose_graph` that
-// do not already have a rotation covariance set. Edges whose rotation
-// covariance cannot be estimated or is degenerate are left unset.
+// Populate `edge.cam2_from_cam1_rotation_cov` in parallel for all valid edges
+// in `pose_graph` that do not already have a rotation covariance set. Edges
+// whose rotation covariance cannot be estimated or is degenerate are left
+// unset.
 void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
                                   PoseGraph& pose_graph,
                                   const TwoViewPoseCovarianceOptions& options =

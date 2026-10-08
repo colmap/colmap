@@ -98,11 +98,12 @@ CeresRotationAverager::CeresRotationAverager(
                                   double(edge.num_matches) / max_num_matches);
     }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    AddRelativeRotationResidual(image_id1,
-                                image_id2,
-                                edge.cam2_from_cam1.rotation(),
-                                loss,
-                                use_covariance ? edge.cam2_from_cam1_rotation_cov : std::nullopt);
+    AddRelativeRotationResidual(
+        image_id1,
+        image_id2,
+        edge.cam2_from_cam1.rotation(),
+        loss,
+        use_covariance ? edge.cam2_from_cam1_rotation_cov : std::nullopt);
   }
 }
 

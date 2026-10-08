@@ -360,7 +360,8 @@ TEST(PoseGraph, InvertEdgeCovariance) {
   pose_graph.AddEdge(2, 1, edge);
   const PoseGraph::Edge stored = pose_graph.GetEdge(1, 2);
   ASSERT_TRUE(stored.cam2_from_cam1_rotation_cov.has_value());
-  EXPECT_TRUE(stored.cam2_from_cam1_rotation_cov->isApprox(expected_inv_cov, 1e-12));
+  EXPECT_TRUE(
+      stored.cam2_from_cam1_rotation_cov->isApprox(expected_inv_cov, 1e-12));
 
   const PoseGraph::Edge round_trip = pose_graph.GetEdge(2, 1);
   ASSERT_TRUE(round_trip.cam2_from_cam1_rotation_cov.has_value());

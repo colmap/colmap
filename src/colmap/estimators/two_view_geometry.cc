@@ -1969,8 +1969,7 @@ std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
 
     // d(R21 * Exp(delta) * x1)/d(delta) = -R21 * [x1]_x.
     Eigen::Matrix3d x1_skew;
-    x1_skew << 0.0, -x1.z(), x1.y(), x1.z(), 0.0, -x1.x(), -x1.y(), x1.x(),
-        0.0;
+    x1_skew << 0.0, -x1.z(), x1.y(), x1.z(), 0.0, -x1.x(), -x1.y(), x1.x(), 0.0;
     const Eigen::Matrix<double, 2, 3> J_c = -B2.transpose() * R21 * x1_skew;
 
     const Eigen::Vector2d e_i = llt.matrixL().solve(c_i);
@@ -2064,10 +2063,9 @@ std::optional<Eigen::Matrix3d> MarginalizeTranslationDirection(
           t_eff_eig.eigenvalues()(0) >
               kMinRelativeEigenvalue *
                   std::max(0.0, t_eff_eig.eigenvalues()(1))) {
-        *translation_cov =
-            t_eff_eig.eigenvectors() *
-            t_eff_eig.eigenvalues().cwiseInverse().asDiagonal() *
-            t_eff_eig.eigenvectors().transpose();
+        *translation_cov = t_eff_eig.eigenvectors() *
+                           t_eff_eig.eigenvalues().cwiseInverse().asDiagonal() *
+                           t_eff_eig.eigenvectors().transpose();
       }
     }
   }
@@ -2093,8 +2091,8 @@ std::optional<Eigen::Matrix3d> RotationCovarianceFromInformation(
   Eigen::Vector3d variances = eig.eigenvalues().cwiseInverse();
   variances = variances.cwiseMax(variances.maxCoeff() / kMaxConditionNumber);
 
-  const Eigen::Matrix3d cov =
-      eig.eigenvectors() * variances.asDiagonal() * eig.eigenvectors().transpose();
+  const Eigen::Matrix3d cov = eig.eigenvectors() * variances.asDiagonal() *
+                              eig.eigenvectors().transpose();
   return 0.5 * (cov + cov.transpose());
 }
 
@@ -2157,7 +2155,8 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
 namespace {
 
 NodeHashMap<image_t, std::vector<Eigen::Vector2d>> ExtractImagePoints(
-    const DatabaseCache& database_cache, const FlatHashSet<image_t>& image_ids) {
+    const DatabaseCache& database_cache,
+    const FlatHashSet<image_t>& image_ids) {
   NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_points;
   image_points.reserve(image_ids.size());
   for (const image_t image_id : image_ids) {

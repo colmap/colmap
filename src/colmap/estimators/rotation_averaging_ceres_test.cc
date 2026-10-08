@@ -519,7 +519,8 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
         Eigen::Quaterniond(Eigen::AngleAxisd(0.03, Eigen::Vector3d::UnitY())) *
         estimate;
     PoseGraph graph;
-    graph.AddEdge(image_id1, image_id2, Edge(prior)).cam2_from_cam1_rotation_cov = cov;
+    graph.AddEdge(image_id1, image_id2, Edge(prior))
+        .cam2_from_cam1_rotation_cov = cov;
     const Eigen::Vector3d residual = RelativeRotationResidual(prior, estimate);
 
     options.reweighting = RotationAveragingReweighting::COVARIANCE;

@@ -2169,7 +2169,8 @@ TEST(EstimatePoseGraphCovariances, Nominal) {
   options.max_rotation_sigma_deg = 1e-6;
   EstimatePoseGraphCovariances(*cache, degenerate_pose_graph, options);
   for (const auto& [pair_id, edge] : degenerate_pose_graph.Edges()) {
-    EXPECT_EQ(edge.cam2_from_cam1_rotation_cov.has_value(), pair_id == preset_pair_id);
+    EXPECT_EQ(edge.cam2_from_cam1_rotation_cov.has_value(),
+              pair_id == preset_pair_id);
   }
 
   options = TwoViewPoseCovarianceOptions();
@@ -2180,9 +2181,11 @@ TEST(EstimatePoseGraphCovariances, Nominal) {
       EXPECT_EQ(*edge.cam2_from_cam1_rotation_cov, preset_cov);
       continue;
     }
-    EXPECT_TRUE(edge.cam2_from_cam1_rotation_cov->isApprox(edge.cam2_from_cam1_rotation_cov->transpose()));
+    EXPECT_TRUE(edge.cam2_from_cam1_rotation_cov->isApprox(
+        edge.cam2_from_cam1_rotation_cov->transpose()));
     const Eigen::Vector3d eigvals =
-        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(*edge.cam2_from_cam1_rotation_cov)
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
+            *edge.cam2_from_cam1_rotation_cov)
             .eigenvalues();
     EXPECT_GT(eigvals(0), 0);
     // Well-constrained synthetic pairs are certain to below a degree.
