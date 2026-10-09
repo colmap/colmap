@@ -53,8 +53,8 @@ struct CeresRotationAveragerOptions {
 // Ceres-specific options in options.ceres and the solver-agnostic options
 // reweighting, skip_initialization, and refine_sensor_from_rig. With COVARIANCE
 // reweighting, every valid edge must already have a positive-definite
-// cam2_from_cam1_rotation_cov; covariance_sigma_floor_deg and
-// covariance_fallback_sigma_deg are applied by RotationEstimator, not here.
+// cam2_from_cam1_rotation_cov; RotationEstimator is responsible for ensuring
+// this condition.
 class CeresRotationAverager {
  public:
   CeresRotationAverager(const RotationEstimatorOptions& options,
