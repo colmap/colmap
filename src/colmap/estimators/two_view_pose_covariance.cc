@@ -47,6 +47,8 @@ InlierCamRaysWithJac ExtractInlierCamRaysWithJac(
   rays.rays1.reserve(matches.size());
   rays.rays2.reserve(matches.size());
   for (const FeatureMatch& match : matches) {
+    THROW_CHECK_LT(match.point2D_idx1, points1.size());
+    THROW_CHECK_LT(match.point2D_idx2, points2.size());
     const auto ray1 = camera1.CamRayFromImgWithJac(points1[match.point2D_idx1]);
     const auto ray2 = camera2.CamRayFromImgWithJac(points2[match.point2D_idx2]);
     if (ray1.has_value() && ray2.has_value() && !ray1->ray.isZero() &&
