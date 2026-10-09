@@ -347,6 +347,12 @@ TEST(EstimateTwoViewPoseCovariance, MissingPoseOrTooFewInliers) {
       EstimateTwoViewPoseCovariance(
           data.camera1, data.points1, data.camera2, data.points2, geometry)
           .has_value());
+  geometry.config = TwoViewGeometry::PANORAMIC;
+  geometry.inlier_matches.resize(2);
+  EXPECT_FALSE(
+      EstimateTwoViewPoseCovariance(
+          data.camera1, data.points1, data.camera2, data.points2, geometry)
+          .has_value());
 }
 
 TEST(EstimatePoseGraphCovariances, Nominal) {
