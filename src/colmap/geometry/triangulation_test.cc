@@ -244,6 +244,59 @@ TEST(TriangulateMultiViewPoint, Bearings) {
   }
 }
 
+TEST(TriangulateOptimalPoint, RotatedCameras) {
+  const std::vector<Eigen::Vector3d> points3D = {Eigen::Vector3d(-0.5, 0.2, 3),
+                                                 Eigen::Vector3d(0.3, -0.4, 5),
+                                                 Eigen::Vector3d(0.7, 0.6, 8)};
+  for (const Rigid3d& cam1_from_world :
+       {Rigid3d(),
+        Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                    0.1, Eigen::Vector3d(1, 2, 3).normalized())),
+                Eigen::Vector3d(0.2, -0.1, 0.3))}) {
+    for (const Eigen::Vector3d& axis : {Eigen::Vector3d::UnitX().eval(),
+                                        Eigen::Vector3d::UnitY().eval(),
+                                        Eigen::Vector3d::UnitZ().eval()}) {
+      const Rigid3d cam2_from_cam1(
+          Eigen::Quaterniond(Eigen::AngleAxisd(0.2, axis)),
+          Eigen::Vector3d(1, 0.2, 0.1));
+      const Rigid3d cam2_from_world = cam2_from_cam1 * cam1_from_world;
+      for (const Eigen::Vector3d& point3D : points3D) {
+        const Eigen::Vector2d point1 =
+            (cam1_from_world * point3D).hnormalized();
+        const Eigen::Vector2d point2 =
+            (cam2_from_world * point3D).hnormalized();
+        Eigen::Vector3d tri_point3D;
+        ASSERT_TRUE(TriangulateOptimalPoint(cam1_from_world.ToMatrix(),
+                                            cam2_from_world.ToMatrix(),
+                                            point1,
+                                            point2,
+                                            &tri_point3D));
+        EXPECT_THAT(tri_point3D, EigenMatrixNear(point3D, 1e-10));
+        ASSERT_TRUE(TriangulateOptimalPoint(cam2_from_world.ToMatrix(),
+                                            cam1_from_world.ToMatrix(),
+                                            point2,
+                                            point1,
+                                            &tri_point3D));
+        EXPECT_THAT(tri_point3D, EigenMatrixNear(point3D, 1e-10));
+      }
+    }
+  }
+}
+
+TEST(TriangulateOptimalPoint, NoisyRectifiedObservations) {
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0));
+  Eigen::Vector3d point3D;
+  ASSERT_TRUE(TriangulateOptimalPoint(cam1_from_world.ToMatrix(),
+                                      cam2_from_world.ToMatrix(),
+                                      Eigen::Vector2d(0.2, 0.1),
+                                      Eigen::Vector2d(0.4, 0.12),
+                                      &point3D));
+  // Rectified stereo keeps x and averages y, giving depth 1 / (0.4 - 0.2).
+  EXPECT_THAT(point3D, EigenMatrixNear(Eigen::Vector3d(1, 0.55, 5), 1e-10));
+}
+
 TEST(CalculateTriangulationAngle, Nominal) {
   const Eigen::Vector3d tvec1(0, 0, 0);
   const Eigen::Vector3d tvec2(0, 1, 0);

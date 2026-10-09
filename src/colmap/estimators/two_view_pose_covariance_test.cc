@@ -148,7 +148,7 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
       /*focal_length=*/500.0,
       /*width=*/640,
       /*height=*/480);
-  camera.has_prior_focal_length = true;
+  camera.source = CameraSource::USER;
 
   const bool is_panoramic = test_case.translation.isZero();
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond(Eigen::AngleAxisd(

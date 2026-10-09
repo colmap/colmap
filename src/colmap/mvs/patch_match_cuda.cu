@@ -1684,9 +1684,9 @@ void PatchMatchCuda::InitTransforms() {
 
   for (size_t i = 0; i < 4; ++i) {
     ref_K_host_[i][0] = ref_image.GetK()[0];
-    ref_K_host_[i][1] = ref_image.GetK()[2];
+    ref_K_host_[i][1] = ref_image.GetK()[2] - 0.5f;
     ref_K_host_[i][2] = ref_image.GetK()[4];
-    ref_K_host_[i][3] = ref_image.GetK()[5];
+    ref_K_host_[i][3] = ref_image.GetK()[5] - 0.5f;
   }
 
   // Rotated by 90 degrees.
@@ -1750,8 +1750,12 @@ void PatchMatchCuda::InitTransforms() {
     for (const auto image_idx : problem_.src_image_idxs) {
       const Image& image = problem_.images->at(image_idx);
 
-      const float K[4] = {
-          image.GetK()[0], image.GetK()[2], image.GetK()[4], image.GetK()[5]};
+      float src_K[9];
+      memcpy(src_K, image.GetK(), 9 * sizeof(float));
+      src_K[2] -= 0.5f;
+      src_K[5] -= 0.5f;
+
+      const float K[4] = {src_K[0], src_K[2], src_K[4], src_K[5]};
       memcpy(poses_host_data.data() + offset, K, 4 * sizeof(float));
       offset += 4;
 
@@ -1770,12 +1774,12 @@ void PatchMatchCuda::InitTransforms() {
       offset += 3;
 
       float P[12];
-      ComposeProjectionMatrix(image.GetK(), rel_R, rel_T, P);
+      ComposeProjectionMatrix(src_K, rel_R, rel_T, P);
       memcpy(poses_host_data.data() + offset, P, 12 * sizeof(float));
       offset += 12;
 
       float inv_P[12];
-      ComposeInverseProjectionMatrix(image.GetK(), rel_R, rel_T, inv_P);
+      ComposeInverseProjectionMatrix(src_K, rel_R, rel_T, inv_P);
       memcpy(poses_host_data.data() + offset, inv_P, 12 * sizeof(float));
       offset += 12;
     }

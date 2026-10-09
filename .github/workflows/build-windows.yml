@@ -52,8 +52,8 @@ jobs:
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 13
-      CUDA_MINOR_VERSION: 2
-      CUDA_PATCH_VERSION: 0
+      CUDA_MINOR_VERSION: 3
+      CUDA_PATCH_VERSION: 1
 
     steps:
       - uses: actions/checkout@v7
@@ -100,7 +100,7 @@ jobs:
           & "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe" --zero-stats
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.35
+        uses: Jimver/cuda-toolkit@v0.2.36
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
@@ -134,8 +134,8 @@ jobs:
           # expands to Turing..Blackwell (75..120). Older CMake predates CUDA 13
           # and would expand it to a stale set including Maxwell/Pascal/Volta
           # (compute_50/60/70), which CUDA 13 no longer supports.
-          cmakeVersion: "4.3.2"
-          ninjaVersion: "1.12.1"
+          cmakeVersion: "4.4.4"
+          ninjaVersion: "1.13.2"
 
       - name: Configure and build
         shell: pwsh

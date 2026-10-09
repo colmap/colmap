@@ -156,7 +156,7 @@ class AnyCalibCalibrator : public SingleViewCalibrator {
 
     std::vector<double> prior_focal_lengths;
     if (options_.anycalib->fitting.prior_focal_length_weight > 0.0 &&
-        camera->has_prior_focal_length && camera->IsPerspective()) {
+        camera->HasPriorFocalLength() && camera->IsPerspective()) {
       if (CameraModelFocalLengthIdxs(model_id).size() == 1) {
         prior_focal_lengths.push_back(camera->MeanFocalLength());
       } else {
@@ -178,7 +178,7 @@ class AnyCalibCalibrator : public SingleViewCalibrator {
     calibrated.width = bitmap.Width();
     calibrated.height = bitmap.Height();
     calibrated.params = fitted.params;
-    calibrated.has_prior_focal_length = true;
+    calibrated.source = CameraSource::SINGLE_VIEW;
     if (!IsValidCalibration(calibrated)) {
       return false;
     }

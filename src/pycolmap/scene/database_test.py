@@ -232,3 +232,41 @@ def test_database_transaction(
     with pycolmap.DatabaseTransaction(database):
         database.write_camera(simple_camera)
     assert database.num_cameras() == 1
+
+
+def test_database_camera_sources(
+    database: pycolmap.Database, simple_camera: pycolmap.Camera
+) -> None:
+    simple_camera.source = pycolmap.CameraSource.GUESS
+    camera_id = database.write_camera(simple_camera)
+    simple_camera.camera_id = camera_id
+    simple_camera.source = pycolmap.CameraSource.EXIF
+    database.update_camera(simple_camera)
+
+    assert database.exists_camera_source(camera_id, pycolmap.CameraSource.EXIF)
+    assert (
+        database.read_camera(camera_id, pycolmap.CameraSource.GUESS).source
+        == pycolmap.CameraSource.GUESS
+    )
+    assert len(database.read_all_cameras(pycolmap.CameraSource.EXIF)) == 1
+    assert set(database.read_all_camera_sources(camera_id).keys()) == {
+        pycolmap.CameraSource.GUESS,
+        pycolmap.CameraSource.EXIF,
+    }
+    assert set(database.read_all_camera_sources().keys()) == {camera_id}
+    assert (
+        database.read_camera_excluding_sources(
+            camera_id, [pycolmap.CameraSource.EXIF]
+        ).source
+        == pycolmap.CameraSource.GUESS
+    )
+    assert (
+        database.read_all_cameras_excluding_sources(
+            [pycolmap.CameraSource.EXIF]
+        )[camera_id].source
+        == pycolmap.CameraSource.GUESS
+    )
+    database.delete_camera_source(camera_id, pycolmap.CameraSource.EXIF)
+    assert not database.exists_camera_source(
+        camera_id, pycolmap.CameraSource.EXIF
+    )

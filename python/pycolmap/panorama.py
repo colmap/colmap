@@ -115,16 +115,14 @@ def create_virtual_camera(
     image_width = int(pano_width * hfov_deg / 360)
     image_height = int(pano_height * vfov_deg / 180)
     focal = image_width / (2 * np.tan(np.deg2rad(hfov_deg) / 2))
-    camera = pycolmap.Camera.create_from_model_id(
+    return pycolmap.Camera.create_from_model_id(
         camera_id=0,
         model=pycolmap.CameraModelId.SIMPLE_PINHOLE,
         focal_length=focal,
         width=image_width,
         height=image_height,
+        source=pycolmap.CameraSource.USER,
     )
-    # Not set by create_from_model_id.
-    camera.has_prior_focal_length = True
-    return camera
 
 
 def get_virtual_camera_rays(

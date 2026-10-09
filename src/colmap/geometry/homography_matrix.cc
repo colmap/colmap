@@ -46,8 +46,10 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   Eigen::Matrix3d H_normalized = K2.inverse() * H * K1;
 
   // Remove scale from normalized homography.
-  Eigen::JacobiSVD<Eigen::Matrix3d> hmatrix_norm_svd(H_normalized);
-  H_normalized.array() /= hmatrix_norm_svd.singularValues()[1];
+  Eigen::JacobiSVD<Eigen::Matrix3d> hmatrix_norm_svd(
+      H_normalized, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  const Eigen::Vector3d& singular_values = hmatrix_norm_svd.singularValues();
+  H_normalized.array() /= singular_values[1];
 
   // Ensure that we always return rotations, and never reflections.
   //
@@ -60,8 +62,10 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   // - By Sylvester's idenitity: det(Id + x y^t) = (1 + x^t y), which
   //   is positive by choice of x and y (page 24).
   // - So det(R) and det(H_normalized) have the same sign.
+  double homography_sign = 1.0;
   if (H_normalized.determinant() < 0) {
     H_normalized.array() *= -1.0;
+    homography_sign = -1.0;
   }
 
   const Eigen::Matrix3d S =
@@ -70,8 +74,11 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   // Check if H is rotation matrix.
   constexpr double kMinInfinityNorm = 1e-3;
   if (S.lpNorm<Eigen::Infinity>() < kMinInfinityNorm) {
+    const Eigen::Matrix3d rotation = homography_sign *
+                                     hmatrix_norm_svd.matrixU() *
+                                     hmatrix_norm_svd.matrixV().transpose();
     *cams2_from_cams1 = {
-        Rigid3d(Eigen::Quaterniond(H_normalized), Eigen::Vector3d::Zero())};
+        Rigid3d(Eigen::Quaterniond(rotation), Eigen::Vector3d::Zero())};
     *normals = {Eigen::Vector3d::Zero()};
     return;
   }
@@ -126,8 +133,8 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   }
 
   const double traceS = S.trace();
-  const double v =
-      2.0 * std::sqrt(std::max(1.0 + traceS - M00 - M11 - M22, 0.));
+  const double v = 2.0 * (singular_values[0] / singular_values[1]) *
+                   (singular_values[2] / singular_values[1]);
 
   const double ESii = SignOfNumber(S(idx, idx));
   const double r_2 = 2 + traceS + v;
