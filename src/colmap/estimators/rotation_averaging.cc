@@ -47,7 +47,8 @@ bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
   return all_known;
 }
 
-// Compute maximum spanning tree of the pose graph weighted by inlier count.
+// Compute maximum spanning tree of the pose graph weighted by rotation
+// certainty (if covariances are present on all edges) or inlier count.
 // Returns the root image_id and populates the parents map.
 image_t ComputeMaximumPoseGraphSpanningTree(
     const PoseGraph& pose_graph,
@@ -639,7 +640,8 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
     if (options.reweighting == RotationAveragingReweighting::COVARIANCE) {
       // Warm-start on angular residuals: with whitening, confidently wrong
       // relative rotations (e.g., from symmetric structures) dominate the
-      // early iterations.
+      // early iterations. The MST initialization inside this warm-start still
+      // weights edges by their rotation covariance.
       warm_start_options.reweighting = RotationAveragingReweighting::UNIFORM;
     }
     if (!solve(warm_start_options)) {
