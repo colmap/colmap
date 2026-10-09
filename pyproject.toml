@@ -1,11 +1,11 @@
 [build-system]
 requires = [
-    "scikit-build-core>=0.3.3",
+    "scikit-build-core>=1.0",
     "pybind11==3.1.0",
     "pybind11_stubgen @ git+https://github.com/sarlinpe/pybind11-stubgen@sarlinpe/fix-2025-08-20",
     "numpy",
-    "ruff==0.15.20",
-    "clang-format==22.1.5",
+    "ruff==0.16.10",
+    "clang-format==23.1.3",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -51,7 +51,7 @@ build-frontend = {name = "build", args = ["--no-isolation"]}
 before-build = "python {project}/python/ci/install-build-requirements.py"
 # pillow and requests are imported by the TartanAir packaging script, whose
 # tests are otherwise silently skipped.
-test-requires = "pytest>=8.0 mypy==2.1.0 enlighten==1.14.1 pillow requests"
+test-requires = "pytest>=8.0 mypy==2.4.0 enlighten==1.14.1 pillow requests"
 test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
