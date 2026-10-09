@@ -6,6 +6,7 @@
 #include "colmap/util/logging.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include <Eigen/Eigenvalues>
 
@@ -82,18 +83,32 @@ bool FindQuadraticPolynomialRoots(const Eigen::VectorXd& coeffs,
     return true;
   }
 
-  const double d = b * b - 4 * a * c;
+  // Scale the discriminant products by a common power of two. Scaling the
+  // coefficients themselves can erase c when their magnitudes differ widely.
+  int a_exp, b_exp, c_exp;
+  const double a_frac = std::frexp(a, &a_exp);
+  const double b_frac = std::frexp(b, &b_exp);
+  const double c_frac = std::frexp(c, &c_exp);
+  const int ac_exp = (a_exp + c_exp + 2) / 2;
+  const int exponent =
+      b == 0 ? ac_exp : (c == 0 ? b_exp : std::max(b_exp, ac_exp));
+  const double scaled_b = std::scalbn(b_frac, b_exp - exponent);
+  const double d =
+      scaled_b * scaled_b -
+      std::scalbn(4 * a_frac * c_frac, a_exp + c_exp - 2 * exponent);
 
   if (d >= 0) {
     const double sqrt_d = std::sqrt(d);
     if (real != nullptr) {
       real->resize(2);
       if (b >= 0) {
-        (*real)(0) = (-b - sqrt_d) / (2 * a);
-        (*real)(1) = (2 * c) / (-b - sqrt_d);
+        const double q = (-scaled_b - sqrt_d) / 2;
+        (*real)(0) = std::scalbn(q / a_frac, exponent - a_exp);
+        (*real)(1) = std::scalbn(c_frac / q, c_exp - exponent);
       } else {
-        (*real)(0) = (2 * c) / (-b + sqrt_d);
-        (*real)(1) = (-b + sqrt_d) / (2 * a);
+        const double q = (-scaled_b + sqrt_d) / 2;
+        (*real)(0) = std::scalbn(c_frac / q, c_exp - exponent);
+        (*real)(1) = std::scalbn(q / a_frac, exponent - a_exp);
       }
     }
     if (imag != nullptr) {
@@ -103,11 +118,11 @@ bool FindQuadraticPolynomialRoots(const Eigen::VectorXd& coeffs,
   } else {
     if (real != nullptr) {
       real->resize(2);
-      real->setConstant(-b / (2 * a));
+      real->setConstant(std::scalbn(-b_frac / (2 * a_frac), b_exp - a_exp));
     }
     if (imag != nullptr) {
       imag->resize(2);
-      (*imag)(0) = std::sqrt(-d) / (2 * a);
+      (*imag)(0) = std::scalbn(std::sqrt(-d) / (2 * a_frac), exponent - a_exp);
       (*imag)(1) = -(*imag)(0);
     }
   }
