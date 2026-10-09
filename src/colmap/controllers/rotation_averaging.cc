@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/scene/pose_graph.h"
@@ -38,6 +39,8 @@ RotationAveragingPipeline::RotationAveragingPipeline(
 void RotationAveragingPipeline::Run() {
   // Propagate options to component options.
   RotationAveragingPipelineOptions options = options_;
+  options.rotation_estimation.ceres->solver_options.num_threads =
+      options.num_threads;
   options.rotation_estimation.random_seed = options.random_seed;
   options.gravity_refiner.solver_options.num_threads = options.num_threads;
 

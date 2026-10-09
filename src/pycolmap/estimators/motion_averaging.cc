@@ -3,6 +3,8 @@
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging_ceres.h"
+#include "colmap/estimators/rotation_averaging_l1_irls.h"
 
 #include "pycolmap/helpers.h"
 
@@ -197,7 +199,7 @@ void BindGravityRefiner(py::module& m) {
 }
 
 void BindRotationEstimator(py::module& m) {
-  using WeightType = RotationEstimatorOptions::WeightType;
+  using WeightType = L1IrlsRotationAveragerOptions::WeightType;
   auto PyWeightType = py::enum_<WeightType>(m, "RotationWeightType")
                           .value("GEMAN_MCCLURE", WeightType::GEMAN_MCCLURE)
                           .value("HALF_NORM", WeightType::HALF_NORM);
@@ -210,6 +212,48 @@ void BindRotationEstimator(py::module& m) {
                  RotationAveragingReweighting::INLIER_MATCH_COUNT);
   AddStringToEnumConstructor(PyRotationAveragingReweighting);
 
+  auto PyRotationAveragingBackend =
+      py::enum_<RotationAveragingBackend>(m, "RotationAveragingBackend")
+          .value("L1_IRLS", RotationAveragingBackend::L1_IRLS)
+          .value("CERES", RotationAveragingBackend::CERES);
+  AddStringToEnumConstructor(PyRotationAveragingBackend);
+
+  auto PyL1IrlsRotationAveragerOptions =
+      py::classh<L1IrlsRotationAveragerOptions>(m,
+                                                "L1IrlsRotationAveragerOptions")
+          .def(py::init<>())
+          .def_readwrite("max_num_l1_iterations",
+                         &L1IrlsRotationAveragerOptions::max_num_l1_iterations,
+                         "Maximum number of L1 minimization iterations.")
+          .def_readwrite(
+              "l1_step_convergence_threshold",
+              &L1IrlsRotationAveragerOptions::l1_step_convergence_threshold,
+              "Average step size threshold to terminate L1 minimization.")
+          .def_readwrite(
+              "max_num_irls_iterations",
+              &L1IrlsRotationAveragerOptions::max_num_irls_iterations,
+              "Number of IRLS iterations to perform.")
+          .def_readwrite(
+              "irls_step_convergence_threshold",
+              &L1IrlsRotationAveragerOptions::irls_step_convergence_threshold,
+              "Average step size threshold to terminate IRLS.")
+          .def_readwrite(
+              "irls_loss_parameter_sigma",
+              &L1IrlsRotationAveragerOptions::irls_loss_parameter_sigma,
+              "Scale of the Geman-McClure IRLS weight (degrees). Unused by "
+              "HALF_NORM.")
+          .def_readwrite(
+              "ridge_regularization",
+              &L1IrlsRotationAveragerOptions::ridge_regularization,
+              "Tikhonov ridge added to the diagonal of the normal equations "
+              "before each Cholesky factorization in the L1 and IRLS phases. "
+              "Set to a small positive value (e.g., 1e-9) to stabilize poorly "
+              "conditioned systems. Zero disables regularization.")
+          .def_readwrite("weight_type",
+                         &L1IrlsRotationAveragerOptions::weight_type,
+                         "Weight type for IRLS: GEMAN_MCCLURE or HALF_NORM.");
+  MakeDataclass(PyL1IrlsRotationAveragerOptions);
+
   auto PyRotationEstimatorOptions =
       py::classh<RotationEstimatorOptions>(m, "RotationEstimatorOptions")
           .def(py::init<>())
@@ -217,37 +261,23 @@ void BindRotationEstimator(py::module& m) {
                          &RotationEstimatorOptions::random_seed,
                          "PRNG seed. -1 for non-deterministic, >=0 for "
                          "deterministic.")
-          .def_readwrite("max_num_l1_iterations",
-                         &RotationEstimatorOptions::max_num_l1_iterations,
-                         "Maximum number of L1 minimization iterations.")
-          .def_readwrite(
-              "l1_step_convergence_threshold",
-              &RotationEstimatorOptions::l1_step_convergence_threshold,
-              "Average step size threshold to terminate L1 minimization.")
-          .def_readwrite("max_num_irls_iterations",
-                         &RotationEstimatorOptions::max_num_irls_iterations,
-                         "Number of IRLS iterations to perform.")
-          .def_readwrite(
-              "irls_step_convergence_threshold",
-              &RotationEstimatorOptions::irls_step_convergence_threshold,
-              "Average step size threshold to terminate IRLS.")
+          .def_readwrite("backend",
+                         &RotationEstimatorOptions::backend,
+                         "Solver backend for rotation averaging: L1_IRLS or "
+                         "CERES. CERES falls back to L1_IRLS when use_gravity "
+                         "is set and gravity priors are given.")
+          .def_readwrite("l1_irls",
+                         &RotationEstimatorOptions::l1_irls,
+                         "L1-IRLS-specific rotation averaging options (used "
+                         "when backend == L1_IRLS and when CERES falls back "
+                         "to L1_IRLS for gravity priors).")
+          .def_readwrite("ceres",
+                         &RotationEstimatorOptions::ceres,
+                         "Ceres-specific rotation averaging options (only "
+                         "used when backend == CERES).")
           .def_readwrite("gravity_dir",
                          &RotationEstimatorOptions::gravity_dir,
                          "Gravity direction vector.")
-          .def_readwrite(
-              "irls_loss_parameter_sigma",
-              &RotationEstimatorOptions::irls_loss_parameter_sigma,
-              "Point where Huber-like cost switches from L1 to L2 (degrees).")
-          .def_readwrite(
-              "ridge_regularization",
-              &RotationEstimatorOptions::ridge_regularization,
-              "Tikhonov ridge added to the diagonal of the normal equations "
-              "before each Cholesky factorization in the L1 and IRLS phases. "
-              "Set to a small positive value (e.g., 1e-9) to stabilize poorly "
-              "conditioned systems. Zero disables regularization.")
-          .def_readwrite("weight_type",
-                         &RotationEstimatorOptions::weight_type,
-                         "Weight type for IRLS: GEMAN_MCCLURE or HALF_NORM.")
           .def_readwrite("skip_initialization",
                          &RotationEstimatorOptions::skip_initialization,
                          "Skip maximum spanning tree initialization.")

@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"
@@ -69,6 +70,7 @@ BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
 RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
   RotationEstimatorOptions opts = rotation_averaging;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.ceres->solver_options.num_threads = num_threads;
   if (random_seed >= 0) {
     opts.random_seed = random_seed;
   }

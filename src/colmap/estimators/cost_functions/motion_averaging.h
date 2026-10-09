@@ -12,7 +12,8 @@
 namespace colmap {
 
 // Angular error in radians between two camera rotations and a relative
-// rotation. Parameter blocks are unit quaternions in Eigen (x, y, z, w) order.
+// rotation, expressed in the frame of sensor 1. Parameter blocks are unit
+// quaternions in Eigen (x, y, z, w) order.
 struct RelativeRotationCostFunctor {
   template <typename T>
   bool operator()(const T* const sensor1_from_world_rotation,
@@ -38,19 +39,20 @@ struct RelativeRotationCostFunctor {
   // the sensor_from_rig blocks.
   template <typename T>
   bool operator()(T const* const* parameters, T* residuals) const {
-    Eigen::Quaternion<T> error = sensor2_from_sensor1_prior.cast<T>();
+    // Compute hat_sensor2_from_sensor1 in sensor 2 / sensor 1 frames; the
+    // shared world frame rotation cancels from the 3D residual vector.
+    Eigen::Quaternion<T> error =
+        same_frame ? Eigen::Quaternion<T>::Identity()
+                   : EigenQuaternionMap<T>(parameters[1]) *
+                         EigenQuaternionMap<T>(parameters[0]).conjugate();
     if (sensor2_index >= 0) {
-      error =
-          EigenQuaternionMap<T>(parameters[sensor2_index]).conjugate() * error;
+      error = EigenQuaternionMap<T>(parameters[sensor2_index]) * error;
     }
     if (sensor1_index >= 0) {
-      error = error * EigenQuaternionMap<T>(parameters[sensor1_index]);
+      error =
+          error * EigenQuaternionMap<T>(parameters[sensor1_index]).conjugate();
     }
-    // The shared frame rotation cancels from the angular cost.
-    if (!same_frame) {
-      error = EigenQuaternionMap<T>(parameters[1]).conjugate() * error *
-              EigenQuaternionMap<T>(parameters[0]);
-    }
+    error = sensor2_from_sensor1_prior.conjugate().cast<T>() * error;
     AngleAxisFromEigenQuaternion(error.coeffs().data(), residuals);
     return true;
   }

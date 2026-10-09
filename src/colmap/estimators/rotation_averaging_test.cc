@@ -2,6 +2,7 @@
 
 #include "colmap/estimators/rotation_averaging.h"
 
+#include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
@@ -122,13 +123,23 @@ void RunAndVerifyRotationAveraging(const Reconstruction& gt_reconstruction,
   for (const bool use_gravity : use_gravity_values) {
     Reconstruction reconstruction_copy = reconstruction;
     PoseGraph pose_graph_copy = pose_graph;
-    RunRotationAveraging(CreateRATestOptions(use_gravity),
-                         pose_graph_copy,
-                         reconstruction_copy,
-                         pose_priors);
+    ASSERT_TRUE(RunRotationAveraging(CreateRATestOptions(use_gravity),
+                                     pose_graph_copy,
+                                     reconstruction_copy,
+                                     pose_priors));
 
     ExpectEqualRotations(
         gt_reconstruction, reconstruction_copy, max_rotation_error_deg);
+
+    // The CERES backend falls back to L1_IRLS when gravity priors are used.
+    Reconstruction ceres_reconstruction = reconstruction;
+    PoseGraph ceres_pose_graph = pose_graph;
+    RotationEstimatorOptions ceres_options = CreateRATestOptions(use_gravity);
+    ceres_options.backend = RotationAveragingBackend::CERES;
+    ASSERT_TRUE(RunRotationAveraging(
+        ceres_options, ceres_pose_graph, ceres_reconstruction, pose_priors));
+    ExpectEqualRotations(
+        gt_reconstruction, ceres_reconstruction, max_rotation_error_deg);
   }
 }
 
@@ -404,7 +415,7 @@ TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
   // Run once with no regularization.
   Reconstruction reconstruction_no_ridge = data.reconstruction;
   PoseGraph pose_graph_no_ridge = data.pose_graph;
-  options.ridge_regularization = 0;
+  options.l1_irls->ridge_regularization = 0;
   ASSERT_TRUE(RunRotationAveraging(
       options, pose_graph_no_ridge, reconstruction_no_ridge, data.pose_priors));
 
@@ -412,7 +423,7 @@ TEST(RotationAveraging, RidgeRegularizationDoesNotBiasSolution) {
   // option must flow through L1 and IRLS without biasing the solution.
   Reconstruction reconstruction_ridge = data.reconstruction;
   PoseGraph pose_graph_ridge = data.pose_graph;
-  options.ridge_regularization = 1e-9;
+  options.l1_irls->ridge_regularization = 1e-9;
   ASSERT_TRUE(RunRotationAveraging(
       options, pose_graph_ridge, reconstruction_ridge, data.pose_priors));
 
