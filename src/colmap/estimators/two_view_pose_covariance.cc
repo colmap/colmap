@@ -151,8 +151,7 @@ PoseInformation<5> EstimateRelativePoseInformation(
   using RelativePoseManifold =
       ProductManifold<EigenQuaternionManifold, SphereManifold<3>>;
 
-  const RelPoseParams params = RelPoseParamsFromRigid3d(Rigid3d(
-      cam2_from_cam1.rotation(), cam2_from_cam1.translation().normalized()));
+  const RelPoseParams params = RelPoseParamsFromRigid3d(cam2_from_cam1);
 
   const size_t num_inliers = rays.rays1.size();
   const TinyTangentSampsonErrorCostFunctor cost_fn(rays.rays1, rays.rays2);
