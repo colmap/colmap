@@ -2029,6 +2029,18 @@ def compare_reports(
     if not keys:
         raise SystemExit("No scenes shared across all reports.")
 
+    for dataset, category, scene in keys:
+        reference = reports_a[0][dataset][category][scene]
+        for report in reports_a[1:] + reports_b:
+            metrics = report[dataset][category][scene]
+            if metrics.error_type != reference.error_type or not np.array_equal(
+                metrics.error_thresholds, reference.error_thresholds
+            ):
+                raise ValueError(
+                    "Inconsistent error thresholds or types for "
+                    f"{dataset}/{category}/{scene}"
+                )
+
     first_metrics = _first_metrics(reports_a[0])
     error_type = first_metrics.error_type
     thresholds = np.asarray(first_metrics.error_thresholds)
