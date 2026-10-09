@@ -74,6 +74,11 @@ void BindCorrespondenceGraph(py::module& m) {
            "image_id1"_a,
            "image_id2"_a,
            "two_view_geometry"_a)
+      .def("add_or_update_two_view_geometry",
+           &CorrespondenceGraph::AddOrUpdateTwoViewGeometry,
+           "image_id1"_a,
+           "image_id2"_a,
+           "two_view_geometry"_a)
       .def(
           "extract_correspondences",
           [](const CorrespondenceGraph& self,

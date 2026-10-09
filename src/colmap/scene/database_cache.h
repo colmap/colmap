@@ -38,6 +38,10 @@ class DatabaseCache {
     // least one valid match pair are loaded.
     bool load_all_images = false;
 
+    // Whether to load all raw feature matches from the database in addition to
+    // the verified two-view geometries.
+    bool load_all_matches = false;
+
     // Whether to convert pose priors to ENU coordinate system.
     bool convert_pose_priors_to_enu = false;
   };
@@ -68,6 +72,7 @@ class DatabaseCache {
   void AddFrame(class Frame frame);
   void AddImage(class Image image);
   void AddPosePrior(struct PosePrior pose_prior);
+  void AddMatches(image_t image_id1, image_t image_id2, FeatureMatches matches);
 
   // Get specific objects.
   inline class Rig& Rig(rig_t rig_id);
@@ -85,6 +90,7 @@ class DatabaseCache {
   inline const NodeHashMap<frame_t, class Frame>& Frames() const;
   inline const NodeHashMap<image_t, class Image>& Images() const;
   inline const std::vector<struct PosePrior>& PosePriors() const;
+  inline const FlatHashMap<image_pair_t, FeatureMatches>& Matches() const;
 
   // Check whether specific object exists.
   inline bool ExistsRig(rig_t rig_id) const;
@@ -108,6 +114,7 @@ class DatabaseCache {
   NodeHashMap<frame_t, class Frame> frames_;
   NodeHashMap<image_t, class Image> images_;
   std::vector<struct PosePrior> pose_priors_;
+  FlatHashMap<image_pair_t, FeatureMatches> matches_;
   std::shared_ptr<class CorrespondenceGraph> correspondence_graph_;
 };
 
@@ -173,6 +180,11 @@ const NodeHashMap<image_t, class Image>& DatabaseCache::Images() const {
 
 const std::vector<struct PosePrior>& DatabaseCache::PosePriors() const {
   return pose_priors_;
+}
+
+const FlatHashMap<image_pair_t, FeatureMatches>& DatabaseCache::Matches()
+    const {
+  return matches_;
 }
 
 bool DatabaseCache::ExistsRig(const rig_t rig_id) const {

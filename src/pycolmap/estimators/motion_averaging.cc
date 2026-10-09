@@ -280,7 +280,11 @@ void BindRotationEstimator(py::module& m) {
       .def_readwrite("num_dofs", &RelativeRotationStatistics::num_dofs)
       .def_readwrite("min_redundancy",
                      &RelativeRotationStatistics::min_redundancy)
-      .def_readwrite("p_value", &RelativeRotationStatistics::p_value);
+      .def_readwrite("p_value", &RelativeRotationStatistics::p_value)
+      .def_readwrite("cam2_from_cam1_rotation",
+                     &RelativeRotationStatistics::cam2_from_cam1_rotation)
+      .def_readwrite("cam2_from_cam1_rotation_cov",
+                     &RelativeRotationStatistics::cam2_from_cam1_rotation_cov);
 
   py::classh<RotationAveragingStatistics>(m, "RotationAveragingStatistics")
       .def(py::init<>())
@@ -393,6 +397,7 @@ void BindRotationEstimator(py::module& m) {
         "options"_a,
         "pose_graph"_a,
         "reconstruction"_a,
+        "query_pairs"_a = FlatHashSet<image_pair_t>(),
         py::call_guard<py::gil_scoped_release>(),
         "Test the valid edges between images with poses for consistency "
         "with the rotation averaging solution in the reconstruction. Returns "

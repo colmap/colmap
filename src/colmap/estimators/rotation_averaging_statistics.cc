@@ -14,20 +14,13 @@
 #include <utility>
 #include <vector>
 
+#include <Eigen/Cholesky>
 #include <Eigen/Eigenvalues>
+#include <Eigen/Geometry>
 #include <ceres/ceres.h>
 
 namespace colmap {
-namespace {
 
-// Median of the chi-squared distribution with 3 degrees of freedom.
-constexpr double kChiSquaredMedianThreeDof = 2.365973884375338;
-
-// Minimum number of fully testable edges to estimate the variance factor.
-constexpr int kMinNumEdgesForVarianceFactor = 10;
-
-// Probability that a chi-squared variable with num_dofs in [1, 3] degrees of
-// freedom exceeds x.
 double ChiSquaredSurvival(double x, int num_dofs) {
   const double sqrt_half_x = std::sqrt(0.5 * std::max(0.0, x));
   switch (num_dofs) {
@@ -45,6 +38,18 @@ double ChiSquaredSurvival(double x, int num_dofs) {
   }
 }
 
+namespace {
+
+// Median of the chi-squared distribution with 3 degrees of freedom.
+constexpr double kChiSquaredMedianThreeDof = 2.365973884375338;
+
+// Minimum number of fully testable edges to estimate the variance factor.
+constexpr int kMinNumEdgesForVarianceFactor = 10;
+
+// Minimum redundancy used to bound the leave-one-out covariance on untestable
+// bridge axes.
+constexpr double kMinLeaveOneOutRedundancy = 1e-3;
+
 using Matrix3dRowMajor = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>;
 
 // Whitened residual of an edge, with its Jacobians w.r.t. the tangent spaces
@@ -54,6 +59,9 @@ struct EdgeLinearization {
   std::vector<const double*> parameter_blocks;
   std::vector<Matrix3dRowMajor> jacobians;
   double loss_weight = 1.0;
+  Eigen::Quaterniond hat_cam2_from_cam1 = Eigen::Quaterniond::Identity();
+  std::optional<Eigen::Matrix3d> edge_cov;
+  bool is_valid_edge = true;
 };
 
 std::optional<EdgeLinearization> LinearizeEdge(
@@ -92,12 +100,32 @@ std::optional<EdgeLinearization> LinearizeEdge(
   return linearization;
 }
 
-// Leave-one-out test statistic of an edge before normalization by the variance
-// factor, in the whitened residual space.
+void AddCovarianceBlocksForLinearization(
+    const EdgeLinearization& linearization,
+    FlatHashSet<std::pair<const double*, const double*>, PairHash>&
+        covariance_block_set,
+    std::vector<std::pair<const double*, const double*>>& covariance_blocks) {
+  const std::vector<const double*>& blocks = linearization.parameter_blocks;
+  for (size_t i = 0; i < blocks.size(); ++i) {
+    for (size_t j = i; j < blocks.size(); ++j) {
+      std::pair<const double*, const double*> block_pair =
+          std::minmax(blocks[i], blocks[j]);
+      if (covariance_block_set.insert(block_pair).second) {
+        covariance_blocks.push_back(block_pair);
+      }
+    }
+  }
+}
+
+// Leave-one-out test statistic and relative rotation prior of an edge before
+// normalization by the variance factor.
 struct UnnormalizedEdgeStatistics {
   double statistic = 0.0;
   int num_dofs = 0;
   double min_redundancy = 1.0;
+  bool is_valid_edge = true;
+  Eigen::Quaterniond cam2_from_cam1_rotation = Eigen::Quaterniond::Identity();
+  Eigen::Matrix3d cam2_from_cam1_rotation_cov = Eigen::Matrix3d::Zero();
 };
 
 // With the whitened residual r, its posterior covariance P, and the robust
@@ -107,40 +135,79 @@ struct UnnormalizedEdgeStatistics {
 // P = sum_i p_i u_i u_i^T of (u_i^T r)^2 / ((1 - w p_i) (1 + (1 - w) p_i)),
 // where 1 - w p_i is the redundancy of axis u_i.
 UnnormalizedEdgeStatistics ComputeLeaveOneOutStatistics(
-    const Eigen::Vector3d& residual,
+    const EdgeLinearization& linearization,
     const Eigen::Matrix3d& posterior_cov,
-    double loss_weight,
     double min_redundancy) {
   const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(posterior_cov);
   UnnormalizedEdgeStatistics statistics;
+  statistics.is_valid_edge = linearization.is_valid_edge;
+  Eigen::Vector3d loo_whitened_shift = Eigen::Vector3d::Zero();
+  Eigen::Vector3d loo_whitened_variances = Eigen::Vector3d::Zero();
+  const double safe_min_redundancy =
+      std::max(min_redundancy, kMinLeaveOneOutRedundancy);
   for (int i = 0; i < 3; ++i) {
     const double posterior_var = std::max(0.0, eig.eigenvalues()(i));
     const double redundancy =
-        std::clamp(1.0 - loss_weight * posterior_var, 0.0, 1.0);
+        std::clamp(1.0 - linearization.loss_weight * posterior_var, 0.0, 1.0);
     statistics.min_redundancy = std::min(statistics.min_redundancy, redundancy);
+    const double safe_redundancy = std::max(redundancy, safe_min_redundancy);
+    loo_whitened_variances(i) = posterior_var / safe_redundancy;
+    const double projected_residual =
+        eig.eigenvectors().col(i).dot(linearization.residual);
+    loo_whitened_shift += ((1.0 - safe_redundancy) / safe_redundancy) *
+                          projected_residual * eig.eigenvectors().col(i);
     if (redundancy < min_redundancy) {
       continue;
     }
-    const double projected_residual = eig.eigenvectors().col(i).dot(residual);
     statistics.statistic +=
         projected_residual * projected_residual /
-        (redundancy * (1.0 + (1.0 - loss_weight) * posterior_var));
+        (redundancy *
+         (1.0 + (1.0 - linearization.loss_weight) * posterior_var));
     ++statistics.num_dofs;
   }
+
+  const Eigen::Matrix3d loo_whitened_cov = eig.eigenvectors() *
+                                           loo_whitened_variances.asDiagonal() *
+                                           eig.eigenvectors().transpose();
+  Eigen::Vector3d loo_shift = loo_whitened_shift;
+  if (linearization.edge_cov.has_value()) {
+    const Eigen::Matrix3d inv_left_sqrt_info =
+        linearization.edge_cov->inverse().llt().matrixL().transpose().solve(
+            Eigen::Matrix3d::Identity());
+    loo_shift = inv_left_sqrt_info * loo_whitened_shift;
+    statistics.cam2_from_cam1_rotation_cov =
+        inv_left_sqrt_info * loo_whitened_cov * inv_left_sqrt_info.transpose();
+  } else {
+    statistics.cam2_from_cam1_rotation_cov = loo_whitened_cov;
+  }
+
+  const double shift_angle = loo_shift.norm();
+  const Eigen::Quaterniond delta_rot =
+      shift_angle > 1e-12 ? Eigen::Quaterniond(Eigen::AngleAxisd(
+                                shift_angle, loo_shift / shift_angle))
+                          : Eigen::Quaterniond::Identity();
+  statistics.cam2_from_cam1_rotation =
+      (linearization.hat_cam2_from_cam1 * delta_rot).normalized();
   return statistics;
 }
 
-// Computes the statistics of the valid edges of a connected pose graph.
+// Computes the statistics of the valid edges of a connected pose graph and of
+// any additional query_pairs in the component.
 bool ComputeComponentStatistics(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& image_ids,
+    const FlatHashSet<image_pair_t>& query_pairs,
     Reconstruction& reconstruction,
     FlatHashMap<image_pair_t, UnnormalizedEdgeStatistics>& edge_statistics) {
   CeresRotationAverager averager(options, pose_graph, reconstruction);
   ceres::Problem& problem = averager.Problem();
+  const bool use_covariance =
+      options.reweighting == RotationAveragingReweighting::COVARIANCE;
 
   std::vector<std::pair<image_pair_t, EdgeLinearization>> linearizations;
-  linearizations.reserve(averager.EdgeResidualBlocks().size());
+  linearizations.reserve(averager.EdgeResidualBlocks().size() +
+                         query_pairs.size());
   std::vector<std::pair<const double*, const double*>> covariance_blocks;
   FlatHashSet<std::pair<const double*, const double*>, PairHash>
       covariance_block_set;
@@ -150,16 +217,49 @@ bool ComputeComponentStatistics(
     if (!linearization.has_value()) {
       return false;
     }
-    const std::vector<const double*>& blocks = linearization->parameter_blocks;
-    for (size_t i = 0; i < blocks.size(); ++i) {
-      for (size_t j = i; j < blocks.size(); ++j) {
-        std::pair<const double*, const double*> block_pair =
-            std::minmax(blocks[i], blocks[j]);
-        if (covariance_block_set.insert(block_pair).second) {
-          covariance_blocks.push_back(block_pair);
-        }
-      }
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    linearization->hat_cam2_from_cam1 =
+        reconstruction.Image(image_id2).CamFromWorld().rotation() *
+        reconstruction.Image(image_id1).CamFromWorld().rotation().inverse();
+    if (use_covariance) {
+      linearization->edge_cov =
+          pose_graph.Edges().at(pair_id).cam2_from_cam1_rotation_cov;
     }
+    AddCovarianceBlocksForLinearization(
+        *linearization, covariance_block_set, covariance_blocks);
+    linearizations.emplace_back(pair_id, std::move(*linearization));
+  }
+
+  for (const image_pair_t pair_id : query_pairs) {
+    if (averager.EdgeResidualBlocks().count(pair_id) > 0) {
+      continue;
+    }
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!image_ids.count(image_id1) || !image_ids.count(image_id2)) {
+      continue;
+    }
+    const Eigen::Quaterniond hat_cam2_from_cam1 =
+        reconstruction.Image(image_id2).CamFromWorld().rotation() *
+        reconstruction.Image(image_id1).CamFromWorld().rotation().inverse();
+    const ceres::ResidualBlockId residual_block =
+        averager.AddRelativeRotationResidual(image_id1,
+                                             image_id2,
+                                             hat_cam2_from_cam1,
+                                             /*loss_function=*/nullptr);
+    if (residual_block == nullptr) {
+      continue;
+    }
+    std::optional<EdgeLinearization> linearization =
+        LinearizeEdge(problem, residual_block);
+    problem.RemoveResidualBlock(residual_block);
+    if (!linearization.has_value()) {
+      return false;
+    }
+    linearization->loss_weight = 0.0;
+    linearization->hat_cam2_from_cam1 = hat_cam2_from_cam1;
+    linearization->is_valid_edge = false;
+    AddCovarianceBlocksForLinearization(
+        *linearization, covariance_block_set, covariance_blocks);
     linearizations.emplace_back(pair_id, std::move(*linearization));
   }
 
@@ -188,9 +288,8 @@ bool ComputeComponentStatistics(
     edge_statistics.emplace(
         pair_id,
         ComputeLeaveOneOutStatistics(
-            linearization.residual,
+            linearization,
             0.5 * (posterior_cov + posterior_cov.transpose()),
-            linearization.loss_weight,
             options.rotation_statistics.min_redundancy));
   }
   return true;
@@ -201,7 +300,8 @@ bool ComputeComponentStatistics(
 std::optional<RotationAveragingStatistics> EstimateRotationAveragingStatistics(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
-    Reconstruction& reconstruction) {
+    Reconstruction& reconstruction,
+    const FlatHashSet<image_pair_t>& query_pairs) {
   // Evaluate the problem at the given rotations.
   RotationEstimatorOptions problem_options = options;
   problem_options.skip_initialization = true;
@@ -230,6 +330,8 @@ std::optional<RotationAveragingStatistics> EstimateRotationAveragingStatistics(
     }
     if (!ComputeComponentStatistics(problem_options,
                                     component_pose_graph,
+                                    image_ids,
+                                    query_pairs,
                                     reconstruction,
                                     edge_statistics)) {
       LOG(WARNING) << "Failed to compute the posterior covariance of the "
@@ -242,13 +344,16 @@ std::optional<RotationAveragingStatistics> EstimateRotationAveragingStatistics(
   if (options.rotation_statistics.estimate_variance_factor) {
     std::vector<double> full_rank_statistics;
     for (const auto& [_, edge] : edge_statistics) {
-      if (edge.num_dofs == 3) {
+      if (edge.is_valid_edge && edge.num_dofs == 3) {
         full_rank_statistics.push_back(edge.statistic);
       }
     }
     if (full_rank_statistics.size() >= kMinNumEdgesForVarianceFactor) {
-      statistics.variance_factor =
-          Median(full_rank_statistics) / kChiSquaredMedianThreeDof;
+      const double median_statistic = Median(full_rank_statistics);
+      if (median_statistic > 0.0) {
+        statistics.variance_factor =
+            median_statistic / kChiSquaredMedianThreeDof;
+      }
     } else {
       LOG(WARNING) << "Too few testable edges to estimate the variance factor";
     }
@@ -259,10 +364,15 @@ std::optional<RotationAveragingStatistics> EstimateRotationAveragingStatistics(
     RelativeRotationStatistics& edge_out = statistics.edges[pair_id];
     edge_out.num_dofs = edge.num_dofs;
     edge_out.min_redundancy = edge.min_redundancy;
-    if (edge.num_dofs > 0) {
+    if (edge.is_valid_edge && edge.num_dofs > 0) {
       edge_out.statistic = edge.statistic / statistics.variance_factor;
       edge_out.p_value = ChiSquaredSurvival(edge_out.statistic, edge.num_dofs);
     }
+    edge_out.cam2_from_cam1_rotation = edge.cam2_from_cam1_rotation;
+    edge_out.cam2_from_cam1_rotation_cov =
+        0.5 * statistics.variance_factor *
+        (edge.cam2_from_cam1_rotation_cov +
+         edge.cam2_from_cam1_rotation_cov.transpose());
   }
   return statistics;
 }

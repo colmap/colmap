@@ -857,6 +857,8 @@ void OptionManager::AddGlobalMapperOptions() {
                    &global_mapper->mapper.ba_num_iterations);
   AddDefaultOption("GlobalMapper.skip_rotation_averaging",
                    &global_mapper->mapper.skip_rotation_averaging);
+  AddDefaultOption("GlobalMapper.skip_two_view_pose_salvage",
+                   &global_mapper->mapper.skip_two_view_pose_salvage);
   AddDefaultOption("GlobalMapper.skip_track_establishment",
                    &global_mapper->mapper.skip_track_establishment);
   AddDefaultOption("GlobalMapper.skip_global_positioning",
@@ -1008,6 +1010,30 @@ void OptionManager::AddGlobalMapperOptions() {
       "GlobalMapper.ra_rotation_statistics_estimate_variance_factor",
       &global_mapper->mapper.rotation_averaging.rotation_statistics
            .estimate_variance_factor);
+
+  // Two-view pose salvage options.
+  AddDefaultOption(
+      "GlobalMapper.salvage_max_epipolar_error_px",
+      &global_mapper->mapper.two_view_pose_salvage.max_epipolar_error_px);
+  AddDefaultOption(
+      "GlobalMapper.salvage_min_num_inliers",
+      &global_mapper->mapper.two_view_pose_salvage.min_num_inliers);
+  AddDefaultOption(
+      "GlobalMapper.salvage_min_tri_angle_deg",
+      &global_mapper->mapper.two_view_pose_salvage.min_tri_angle_deg);
+  AddDefaultOption("GlobalMapper.salvage_max_num_trials",
+                   &global_mapper->mapper.two_view_pose_salvage.max_num_trials);
+  AddDefaultOption("GlobalMapper.salvage_min_num_trials",
+                   &global_mapper->mapper.two_view_pose_salvage.min_num_trials);
+  AddDefaultOption(
+      "GlobalMapper.salvage_sample_rotation_sigma_deg",
+      &global_mapper->mapper.two_view_pose_salvage.sample_rotation_sigma_deg);
+  AddDefaultOption(
+      "GlobalMapper.salvage_gate_significance",
+      &global_mapper->mapper.two_view_pose_salvage.gate_significance);
+  AddDefaultOption(
+      "GlobalMapper.salvage_posterior_significance",
+      &global_mapper->mapper.two_view_pose_salvage.posterior_significance);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",

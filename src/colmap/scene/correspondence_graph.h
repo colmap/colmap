@@ -121,6 +121,12 @@ class CorrespondenceGraph {
                              image_t image_id2,
                              struct TwoViewGeometry two_view_geometry);
 
+  // Add or update the two-view geometry and inlier matches for an image pair.
+  // Works both before and after Finalize().
+  void AddOrUpdateTwoViewGeometry(image_t image_id1,
+                                  image_t image_id2,
+                                  struct TwoViewGeometry two_view_geometry);
+
   // Check whether the image point has correspondences.
   inline bool HasCorrespondences(image_t image_id, point2D_t point2D_idx) const;
 

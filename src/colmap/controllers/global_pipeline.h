@@ -77,7 +77,7 @@ class GlobalPipeline : public BaseController {
   // reconstruction is added to the manager so callbacks can render it. The
   // caller decides whether to keep it.
   std::optional<std::shared_ptr<Reconstruction>> ReconstructSingleComponent(
-      const std::shared_ptr<const DatabaseCache>& database_cache,
+      const std::shared_ptr<DatabaseCache>& database_cache,
       const GlobalMapperOptions& mapper_options);
 
   // Partition the input view graph once using rotation averaging and

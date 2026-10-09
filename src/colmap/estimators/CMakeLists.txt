@@ -25,6 +25,7 @@ set(ESTIMATORS_SRCS
     triangulation.h triangulation.cc
     two_view_geometry.h two_view_geometry.cc
     two_view_pose_covariance.h two_view_pose_covariance.cc
+    two_view_pose_salvage.h two_view_pose_salvage.cc
     view_graph_calibration.h view_graph_calibration.cc
 )
 
@@ -110,6 +111,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME two_view_pose_covariance_test
     SRCS two_view_pose_covariance_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME two_view_pose_salvage_test
+    SRCS two_view_pose_salvage_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

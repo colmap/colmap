@@ -429,5 +429,72 @@ TEST(RunRotationAveraging, StatisticalFiltering) {
   EXPECT_EQ(reconstruction.NumRegFrames(), kNumImages);
 }
 
+TEST(EstimateRotationAveragingStatistics, LeaveOneOutRotationAndQueryPairs) {
+  SetPRNGSeed(7);
+  RotationEstimatorOptions options = CreateCovarianceOptions();
+  options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
+  options.rotation_statistics.estimate_variance_factor = false;
+  constexpr int kNumImages = 12;
+  std::vector<Eigen::Quaterniond> rotations;
+  Reconstruction reconstruction = CreateReconstruction(kNumImages, rotations);
+  PoseGraph pose_graph;
+  for (image_t i = 1; i <= kNumImages; ++i) {
+    for (image_t j = i + 1;
+         j <= std::min(static_cast<image_t>(kNumImages), i + 4);
+         ++j) {
+      AddNoisyEdge(rotations, i, j, IsotropicCovariance(0.1), pose_graph);
+    }
+  }
+
+  // Inject a 4-degree bias on edge (1, 2). With TRIVIAL loss, the full
+  // solution is pulled slightly toward the biased edge, whereas the
+  // leave-one-out rotation for (1, 2) removes its influence.
+  const Eigen::Quaterniond true_rel_12 = rotations[1] * rotations[0].inverse();
+  pose_graph.EdgeRef(1, 2).first.cam2_from_cam1.rotation() =
+      true_rel_12 * ExpMap(Eigen::Vector3d(DegToRad(4.0), 0.0, 0.0));
+
+  SolveRotationAveraging(options, pose_graph, reconstruction);
+
+  const image_pair_t query_pair_id = ImagePairToPairId(1, kNumImages);
+  ASSERT_FALSE(pose_graph.HasEdge(1, kNumImages));
+
+  const std::optional<RotationAveragingStatistics> stats =
+      EstimateRotationAveragingStatistics(
+          options, pose_graph, reconstruction, {query_pair_id});
+  ASSERT_TRUE(stats.has_value());
+
+  const RelativeRotationStatistics& edge_12 =
+      stats->edges.at(ImagePairToPairId(1, 2));
+  const Eigen::Quaterniond full_rel_12 =
+      reconstruction.Image(2).CamFromWorld().rotation() *
+      reconstruction.Image(1).CamFromWorld().rotation().inverse();
+  const double full_err_deg =
+      RadToDeg(full_rel_12.angularDistance(true_rel_12));
+  const double loo_err_deg =
+      RadToDeg(edge_12.cam2_from_cam1_rotation.angularDistance(true_rel_12));
+  EXPECT_LT(loo_err_deg, full_err_deg);
+  EXPECT_LT(loo_err_deg, 0.25);
+  EXPECT_GT(edge_12.cam2_from_cam1_rotation_cov.trace(), 0.0);
+
+  // Verify the inactive query pair (1, kNumImages) is also populated and
+  // equals the full rotation averaging relative rotation.
+  ASSERT_GT(stats->edges.count(query_pair_id), 0u);
+  const RelativeRotationStatistics& query_stats =
+      stats->edges.at(query_pair_id);
+  const Eigen::Quaterniond full_rel_query =
+      reconstruction.Image(kNumImages).CamFromWorld().rotation() *
+      reconstruction.Image(1).CamFromWorld().rotation().inverse();
+  EXPECT_NEAR(
+      query_stats.cam2_from_cam1_rotation.angularDistance(full_rel_query),
+      0.0,
+      1e-12);
+  const Eigen::Quaterniond true_rel_query =
+      rotations[kNumImages - 1] * rotations[0].inverse();
+  EXPECT_LT(RadToDeg(query_stats.cam2_from_cam1_rotation.angularDistance(
+                true_rel_query)),
+            1.0);
+  EXPECT_GT(query_stats.cam2_from_cam1_rotation_cov.trace(), 0.0);
+}
+
 }  // namespace
 }  // namespace colmap

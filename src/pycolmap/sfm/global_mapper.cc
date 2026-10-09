@@ -38,6 +38,7 @@ void BindGlobalMapper(py::module& m) {
                        "rotation averaging, global positioning and "
                        "bundle adjustment.")
         .def_readwrite("rotation_averaging", &Opts::rotation_averaging)
+        .def_readwrite("two_view_pose_salvage", &Opts::two_view_pose_salvage)
         .def_readwrite("global_positioning", &Opts::global_positioning)
         .def_readwrite("bundle_adjustment", &Opts::bundle_adjustment)
         .def_readwrite("retriangulation", &Opts::retriangulation)
@@ -63,6 +64,8 @@ void BindGlobalMapper(py::module& m) {
                        &Opts::ba_skip_joint_optimization_stage)
         .def_readwrite("skip_rotation_averaging",
                        &Opts::skip_rotation_averaging)
+        .def_readwrite("skip_two_view_pose_salvage",
+                       &Opts::skip_two_view_pose_salvage)
         .def_readwrite("skip_track_establishment",
                        &Opts::skip_track_establishment)
         .def_readwrite("skip_global_positioning",
@@ -72,6 +75,9 @@ void BindGlobalMapper(py::module& m) {
         .def("get_rotation_averaging",
              &Opts::RotationAveraging,
              "Get rotation averaging options with shared settings applied.")
+        .def("get_two_view_pose_salvage",
+             &Opts::TwoViewPoseSalvage,
+             "Get two-view pose salvage options with shared settings applied.")
         .def("get_global_positioning",
              &Opts::GlobalPositioning,
              "Get global positioning options with shared settings applied.")

@@ -324,6 +324,166 @@ void CorrespondenceGraph::UpdateTwoViewGeometry(
   image_pair_it->second.two_view_geometry = std::move(two_view_geometry);
 }
 
+void CorrespondenceGraph::AddOrUpdateTwoViewGeometry(
+    const image_t image_id1,
+    const image_t image_id2,
+    struct TwoViewGeometry two_view_geometry) {
+  if (image_id1 == image_id2) {
+    LOG(WARNING) << "Cannot use self-matches for image_id=" << image_id1;
+    return;
+  }
+
+  struct Image& image1 = images_.at(image_id1);
+  struct Image& image2 = images_.at(image_id2);
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+
+  if (!finalized_) {
+    if (image_pairs_.find(pair_id) != image_pairs_.end()) {
+      const auto remove_corrs_for_image = [](struct Image& image,
+                                             const image_t other_image_id) {
+        for (auto& corrs : image.corrs) {
+          if (corrs.empty()) {
+            continue;
+          }
+          const size_t prev_size = corrs.size();
+          corrs.erase(std::remove_if(corrs.begin(),
+                                     corrs.end(),
+                                     [other_image_id](const Correspondence& c) {
+                                       return c.image_id == other_image_id;
+                                     }),
+                      corrs.end());
+          image.num_correspondences -=
+              static_cast<point2D_t>(prev_size - corrs.size());
+          if (corrs.empty()) {
+            image.num_observations -= 1;
+          }
+        }
+      };
+      remove_corrs_for_image(image1, image_id2);
+      remove_corrs_for_image(image2, image_id1);
+      image_pairs_.erase(pair_id);
+    }
+    AddTwoViewGeometry(image_id1, image_id2, std::move(two_view_geometry));
+    return;
+  }
+
+  const size_t num_points1 = image1.flat_corr_begs.size() - 1;
+  const size_t num_points2 = image2.flat_corr_begs.size() - 1;
+
+  FeatureMatches valid_matches;
+  valid_matches.reserve(two_view_geometry.inlier_matches.size());
+  FlatHashSet<std::pair<point2D_t, point2D_t>, PairHash> seen_matches;
+  seen_matches.reserve(two_view_geometry.inlier_matches.size());
+
+  for (const auto& match : two_view_geometry.inlier_matches) {
+    const bool valid_idx1 = match.point2D_idx1 < num_points1;
+    const bool valid_idx2 = match.point2D_idx2 < num_points2;
+    if (valid_idx1 && valid_idx2) {
+      if (!seen_matches.emplace(match.point2D_idx1, match.point2D_idx2)
+               .second) {
+        LOG(WARNING) << StringPrintf(
+            "Duplicate correspondence between "
+            "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
+            "image_id=%d",
+            match.point2D_idx1,
+            image_id1,
+            match.point2D_idx2,
+            image_id2);
+      } else {
+        valid_matches.push_back(match);
+      }
+    } else {
+      if (!valid_idx1) {
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
+            match.point2D_idx1,
+            image_id1);
+      }
+      if (!valid_idx2) {
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
+            match.point2D_idx2,
+            image_id2);
+      }
+    }
+  }
+
+  const auto rebuild_finalized_image = [](struct Image& image,
+                                          const image_t other_image_id,
+                                          const FeatureMatches& matches,
+                                          const bool is_first_image) {
+    const point2D_t num_points2D =
+        static_cast<point2D_t>(image.flat_corr_begs.size() - 1);
+    std::vector<point2D_t> new_begs(num_points2D + 1, 0);
+
+    for (point2D_t p = 0; p < num_points2D; ++p) {
+      const point2D_t beg = image.flat_corr_begs[p];
+      const point2D_t end = image.flat_corr_begs[p + 1];
+      point2D_t count = 0;
+      for (point2D_t idx = beg; idx < end; ++idx) {
+        if (image.flat_corrs[idx].image_id != other_image_id) {
+          count += 1;
+        }
+      }
+      new_begs[p + 1] = count;
+    }
+
+    for (const auto& match : matches) {
+      const point2D_t p =
+          is_first_image ? match.point2D_idx1 : match.point2D_idx2;
+      new_begs[p + 1] += 1;
+    }
+
+    point2D_t num_observations = 0;
+    for (point2D_t p = 0; p < num_points2D; ++p) {
+      if (new_begs[p + 1] > 0) {
+        num_observations += 1;
+      }
+      new_begs[p + 1] += new_begs[p];
+    }
+
+    std::vector<Correspondence> new_flat_corrs(new_begs[num_points2D]);
+    std::vector<point2D_t> write_pos = new_begs;
+
+    for (point2D_t p = 0; p < num_points2D; ++p) {
+      const point2D_t beg = image.flat_corr_begs[p];
+      const point2D_t end = image.flat_corr_begs[p + 1];
+      for (point2D_t idx = beg; idx < end; ++idx) {
+        if (image.flat_corrs[idx].image_id != other_image_id) {
+          new_flat_corrs[write_pos[p]++] = image.flat_corrs[idx];
+        }
+      }
+    }
+
+    for (const auto& match : matches) {
+      const point2D_t p =
+          is_first_image ? match.point2D_idx1 : match.point2D_idx2;
+      const point2D_t other_p =
+          is_first_image ? match.point2D_idx2 : match.point2D_idx1;
+      new_flat_corrs[write_pos[p]++] = Correspondence(other_image_id, other_p);
+    }
+
+    image.num_observations = num_observations;
+    image.num_correspondences = static_cast<point2D_t>(new_flat_corrs.size());
+    image.flat_corrs = std::move(new_flat_corrs);
+    image.flat_corr_begs = std::move(new_begs);
+  };
+
+  rebuild_finalized_image(
+      image1, image_id2, valid_matches, /*is_first_image=*/true);
+  rebuild_finalized_image(
+      image2, image_id1, valid_matches, /*is_first_image=*/false);
+
+  FeatureMatches().swap(two_view_geometry.inlier_matches);
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
+    two_view_geometry.Invert();
+  }
+
+  auto& image_pair = image_pairs_[pair_id];
+  image_pair.num_matches = static_cast<point2D_t>(valid_matches.size());
+  image_pair.two_view_geometry = std::move(two_view_geometry);
+}
+
 bool CorrespondenceGraph::IsTwoViewObservation(
     const image_t image_id, const point2D_t point2D_idx) const {
   const CorrespondenceRange range = FindCorrespondences(image_id, point2D_idx);

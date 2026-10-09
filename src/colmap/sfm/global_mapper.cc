@@ -79,6 +79,16 @@ RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
   return opts;
 }
 
+TwoViewPoseSalvageOptions GlobalMapperOptions::TwoViewPoseSalvage() const {
+  TwoViewPoseSalvageOptions opts = two_view_pose_salvage;
+  opts.num_threads = num_threads;
+  opts.covariance_options.num_threads = num_threads;
+  if (random_seed >= 0) {
+    opts.random_seed = random_seed;
+  }
+  return opts;
+}
+
 GlobalPositionerOptions GlobalMapperOptions::GlobalPositioning() const {
   GlobalPositionerOptions opts = global_positioning;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
@@ -111,7 +121,7 @@ IncrementalTriangulator::Options GlobalMapperOptions::Retriangulation() const {
   return opts;
 }
 
-GlobalMapper::GlobalMapper(std::shared_ptr<const DatabaseCache> database_cache)
+GlobalMapper::GlobalMapper(std::shared_ptr<DatabaseCache> database_cache)
     : database_cache_(std::move(THROW_CHECK_NOTNULL(database_cache))) {}
 
 void GlobalMapper::BeginReconstruction(
@@ -164,6 +174,19 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
           << " images are within the connected component.";
 
   return true;
+}
+
+size_t GlobalMapper::SalvageTwoViewPoses(
+    const TwoViewPoseSalvageOptions& options,
+    const RotationEstimatorOptions& rotation_options) {
+  THROW_CHECK_NOTNULL(reconstruction_);
+  THROW_CHECK_NOTNULL(pose_graph_);
+  return colmap::SalvageTwoViewPoses(options,
+                                     rotation_options,
+                                     *database_cache_,
+                                     *reconstruction_,
+                                     *pose_graph_,
+                                     *database_cache_->CorrespondenceGraph());
 }
 
 void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
@@ -565,6 +588,17 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
       return false;
     }
     LOG(INFO) << "Rotation averaging done in " << run_timer.ElapsedSeconds()
+              << " seconds";
+  }
+
+  // Two-view pose salvage
+  if (!options.skip_two_view_pose_salvage) {
+    LOG_HEADING1("Running two-view pose salvage");
+    Timer run_timer;
+    run_timer.Start();
+    SalvageTwoViewPoses(options.TwoViewPoseSalvage(),
+                        options.RotationAveraging());
+    LOG(INFO) << "Two-view pose salvage done in " << run_timer.ElapsedSeconds()
               << " seconds";
   }
 

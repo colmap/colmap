@@ -123,6 +123,8 @@ GlobalPipeline::GlobalPipeline(
   DatabaseCache::Options database_cache_options;
   database_cache_options.min_num_matches = options_.min_num_matches;
   database_cache_options.ignore_watermarks = options_.ignore_watermarks;
+  database_cache_options.load_all_matches =
+      !options_.mapper.skip_two_view_pose_salvage;
   database_cache_options.image_names = {options_.image_names.begin(),
                                         options_.image_names.end()};
   database_cache_ = DatabaseCache::Create(*database, database_cache_options);
@@ -135,7 +137,7 @@ GlobalPipeline::GlobalPipeline(
 
 std::optional<std::shared_ptr<Reconstruction>>
 GlobalPipeline::ReconstructSingleComponent(
-    const std::shared_ptr<const DatabaseCache>& database_cache,
+    const std::shared_ptr<DatabaseCache>& database_cache,
     const GlobalMapperOptions& mapper_options) {
   auto reconstruction =
       reconstruction_manager_->Get(reconstruction_manager_->Add());

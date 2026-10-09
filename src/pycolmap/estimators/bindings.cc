@@ -21,6 +21,7 @@ void BindSimilarityTransformEstimator(py::module& m);
 void BindTriangulationEstimator(py::module& m);
 void BindTwoViewGeometryEstimator(py::module& m);
 void BindTwoViewPoseCovarianceEstimator(py::module& m);
+void BindTwoViewPoseSalvageEstimator(py::module& m);
 void BindMotionAveraging(py::module& m);
 
 void BindEstimators(py::module& m) {
@@ -39,6 +40,7 @@ void BindEstimators(py::module& m) {
   BindTriangulationEstimator(m);
   BindTwoViewGeometryEstimator(m);
   BindTwoViewPoseCovarianceEstimator(m);
+  BindTwoViewPoseSalvageEstimator(m);
   BindCeresRotationAveragerOptions(m);
   BindMotionAveraging(m);
   BindCeresRotationAverager(m);

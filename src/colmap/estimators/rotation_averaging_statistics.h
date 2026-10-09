@@ -45,6 +45,12 @@ struct RelativeRotationStatistics {
   // Probability of a statistic at least as large for an inlier relative
   // rotation. 1 if no rotation axis is testable.
   double p_value = 1.0;
+
+  // Leave-one-out relative rotation estimated from the rest of the pose graph,
+  // and its covariance in camera 1's tangent frame (right perturbation, scaled
+  // by the variance factor).
+  Eigen::Quaterniond cam2_from_cam1_rotation = Eigen::Quaterniond::Identity();
+  Eigen::Matrix3d cam2_from_cam1_rotation_cov = Eigen::Matrix3d::Zero();
 };
 
 struct RotationAveragingStatistics {
@@ -52,9 +58,14 @@ struct RotationAveragingStatistics {
   // covariances.
   double variance_factor = 1.0;
 
-  // Statistics of the valid edges between images with poses.
+  // Statistics of the valid edges between images with poses, and of any
+  // requested query_pairs in the same connected component.
   FlatHashMap<image_pair_t, RelativeRotationStatistics> edges;
 };
+
+// Probability that a chi-squared variable with num_dofs in [1, 3] degrees of
+// freedom exceeds x.
+double ChiSquaredSurvival(double x, int num_dofs);
 
 // Tests the valid edges between images with poses for consistency with the
 // rotations in the reconstruction, which are assumed to minimize the rotation
@@ -68,12 +79,15 @@ struct RotationAveragingStatistics {
 //   (r_k^(-k))^T (Sigma_k + P_k^(-k))^-1 r_k^(-k) / sigma_0^2,
 // restricted to the testable rotation axes, where r_k^(-k) and P_k^(-k) are the
 // leave-one-out residual and posterior covariance and sigma_0^2 is the
-// variance factor. Returns nullopt if the posterior covariance cannot be
-// computed.
+// variance factor. Also populates the leave-one-out relative rotation and
+// covariance for any additional pair in `query_pairs` whose images are in a
+// posed connected component. Returns nullopt if the posterior covariance cannot
+// be computed.
 std::optional<RotationAveragingStatistics> EstimateRotationAveragingStatistics(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
-    Reconstruction& reconstruction);
+    Reconstruction& reconstruction,
+    const FlatHashSet<image_pair_t>& query_pairs = {});
 
 // Marks the edges whose p-value is below the significance level as invalid and
 // returns their number.

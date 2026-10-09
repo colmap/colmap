@@ -239,6 +239,8 @@ def test_global_positioner_frame_center_parameter_block() -> None:
         "filter_relative_rotation_outliers",
         "run_gravity_refinement",
         "run_global_positioning",
+        "salvage_two_view_pose",
+        "salvage_two_view_poses",
     ],
 )
 def test_public_api_callable(name: str) -> None:
@@ -325,6 +327,7 @@ def test_estimate_rotation_averaging_statistics() -> None:
     for pair_id, edge_statistics in statistics.edges.items():
         assert edge_statistics.num_dofs == 3
         assert 0 < edge_statistics.min_redundancy < 1
+        assert edge_statistics.cam2_from_cam1_rotation_cov.shape == (3, 3)
         if pair_id == outlier_pair_id:
             assert edge_statistics.p_value < 1e-6
         else:
@@ -358,3 +361,59 @@ def test_filter_relative_rotation_outliers() -> None:
     )
     for pair_id in pose_graph.edges:
         assert pose_graph.is_valid(pair_id) == (pair_id != outlier_pair_id)
+
+
+def test_two_view_pose_salvage() -> None:
+    salvage_options = pycolmap.TwoViewPoseSalvageOptions()
+    salvage_options.random_seed = 42
+    salvage_options.num_threads = 1
+    assert salvage_options.max_epipolar_error_px == 4.0
+    assert salvage_options.min_num_inliers == 30
+
+    mapper_options = pycolmap.GlobalMapperOptions()
+    assert mapper_options.skip_two_view_pose_salvage
+    mapper_options.skip_two_view_pose_salvage = False
+    assert not mapper_options.skip_two_view_pose_salvage
+
+    camera = pycolmap.Camera.create_from_model_id(
+        1, pycolmap.CameraModelId.SIMPLE_PINHOLE, 800.0, 1000, 800
+    )
+    camera.has_prior_focal_length = True
+    true_pose = pycolmap.Rigid3d(
+        pycolmap.Rotation3d(np.array([0.0, np.deg2rad(12.0), 0.0])),
+        np.array([1.0, 0.2, -0.1]) / np.linalg.norm([1.0, 0.2, -0.1]),
+    )
+    rng = np.random.default_rng(42)
+    pts3d = np.column_stack(
+        [
+            rng.uniform(-2.0, 2.0, size=60),
+            rng.uniform(-2.0, 2.0, size=60),
+            rng.uniform(4.0, 10.0, size=60),
+        ]
+    )
+    pts1 = [camera.img_from_cam(p) for p in pts3d]
+    pts2 = [camera.img_from_cam(true_pose * p) for p in pts3d]
+    matches = np.column_stack([np.arange(60), np.arange(60)]).astype(np.uint32)
+    prior_cov = (np.deg2rad(1.0) ** 2) * np.eye(3)
+    res = pycolmap.salvage_two_view_pose(
+        camera,
+        pts1,
+        camera,
+        pts2,
+        matches,
+        true_pose.rotation,
+        prior_cov,
+        salvage_options,
+    )
+    assert res is not None
+    assert res.geometry.cam2_from_cam1 is not None
+    assert (
+        np.rad2deg(
+            (
+                res.geometry.cam2_from_cam1.rotation.inverse()
+                * true_pose.rotation
+            ).angle()
+        )
+        < 0.5
+    )
+    assert res.posterior_p_value > salvage_options.posterior_significance

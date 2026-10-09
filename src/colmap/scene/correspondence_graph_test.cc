@@ -381,5 +381,56 @@ TEST(CorrespondenceGraph, UpdateTwoViewGeometrySwapped) {
               Rigid3dNear(Inverse(cam1_from_cam0), 1e-6, 1e-6));
 }
 
+TEST_P(CorrespondenceGraphFinalizeTest, AddOrUpdateTwoViewGeometry) {
+  const bool finalize = GetParam();
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  correspondence_graph.AddImage(2, 10);
+
+  TwoViewGeometry tvg01;
+  tvg01.config = TwoViewGeometry::CALIBRATED;
+  tvg01.inlier_matches = {{0, 0}, {1, 1}, {2, 2}};
+  correspondence_graph.AddTwoViewGeometry(0, 1, tvg01);
+
+  if (finalize) {
+    correspondence_graph.Finalize();
+  }
+
+  // Replace existing pair (0, 1) with new matches and add new pair (1, 2).
+  TwoViewGeometry new_tvg01;
+  new_tvg01.config = TwoViewGeometry::CALIBRATED;
+  new_tvg01.cam2_from_cam1 =
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  new_tvg01.inlier_matches = {{0, 0}, {4, 5}};
+  correspondence_graph.AddOrUpdateTwoViewGeometry(0, 1, new_tvg01);
+
+  TwoViewGeometry new_tvg12;
+  new_tvg12.config = TwoViewGeometry::CALIBRATED;
+  new_tvg12.inlier_matches = {{5, 6}, {7, 8}};
+  correspondence_graph.AddOrUpdateTwoViewGeometry(1, 2, new_tvg12);
+
+  EXPECT_EQ(correspondence_graph.NumMatchesBetweenImages(0, 1), 2);
+  EXPECT_EQ(correspondence_graph.NumMatchesBetweenImages(1, 2), 2);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(0), 2);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 2);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(1), 3);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
+  EXPECT_EQ(correspondence_graph.NumObservationsForImage(2), 2);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(2), 2);
+
+  FeatureMatches matches01;
+  correspondence_graph.ExtractMatchesBetweenImages(0, 1, matches01);
+  EXPECT_EQ(matches01, new_tvg01.inlier_matches);
+
+  FeatureMatches matches12;
+  correspondence_graph.ExtractMatchesBetweenImages(1, 2, matches12);
+  EXPECT_EQ(matches12, new_tvg12.inlier_matches);
+
+  // Old correspondence (1, 1) and (2, 2) between 0 and 1 should be gone.
+  EXPECT_FALSE(correspondence_graph.HasCorrespondences(0, 1));
+  EXPECT_FALSE(correspondence_graph.HasCorrespondences(0, 2));
+}
+
 }  // namespace
 }  // namespace colmap

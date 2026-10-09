@@ -34,6 +34,11 @@ void BindDatabaseCache(py::module& m) {
           "Whether to load all candidate images regardless of whether they "
           "have correspondences. Only useful for triangulation.")
       .def_readwrite(
+          "load_all_matches",
+          &Opts::load_all_matches,
+          "Whether to load all raw feature matches from the database in "
+          "addition to the verified two-view geometries.")
+      .def_readwrite(
           "convert_pose_priors_to_enu",
           &Opts::convert_pose_priors_to_enu,
           "Whether to convert pose priors to ENU coordinate system.");
@@ -93,7 +98,7 @@ void BindDatabaseCache(py::module& m) {
       .def_property_readonly("pose_priors", &DatabaseCache::PosePriors)
       .def_property_readonly(
           "correspondence_graph",
-          static_cast<std::shared_ptr<const class CorrespondenceGraph> (
-              DatabaseCache::*)() const>(&DatabaseCache::CorrespondenceGraph))
+          static_cast<std::shared_ptr<class CorrespondenceGraph> (
+              DatabaseCache::*)()>(&DatabaseCache::CorrespondenceGraph))
       .def("find_image_with_name", &DatabaseCache::FindImageWithName, "name"_a);
 }

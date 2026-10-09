@@ -300,6 +300,27 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
   LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs);
+
+  if (options.load_all_matches) {
+    timer.Restart();
+    LOG(INFO) << "Loading raw matches...";
+
+    std::vector<std::pair<image_pair_t, FeatureMatches>> all_matches =
+        database.ReadAllMatches();
+    matches_.reserve(all_matches.size());
+    for (auto& [pair_id, matches] : all_matches) {
+      if (matches.size() < options.min_num_matches) {
+        continue;
+      }
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (images_.count(image_id1) > 0 && images_.count(image_id2) > 0) {
+        matches_.emplace(pair_id, std::move(matches));
+      }
+    }
+
+    LOG(INFO) << StringPrintf(
+        " %d in %.3fs", matches_.size(), timer.ElapsedSeconds());
+  }
 }
 
 std::shared_ptr<DatabaseCache> DatabaseCache::Create(const Database& database,
@@ -422,6 +443,19 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
 
   cache->correspondence_graph_->Finalize();
 
+  if (!database_cache.Matches().empty()) {
+    for (const auto& [pair_id, matches] : database_cache.Matches()) {
+      if (matches.size() < options.min_num_matches) {
+        continue;
+      }
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      if (cache->images_.count(image_id1) > 0 &&
+          cache->images_.count(image_id2) > 0) {
+        cache->matches_.emplace(pair_id, matches);
+      }
+    }
+  }
+
   return cache;
 }
 
@@ -461,6 +495,18 @@ void DatabaseCache::AddImage(class Image image) {
 
 void DatabaseCache::AddPosePrior(struct PosePrior pose_prior) {
   pose_priors_.push_back(std::move(pose_prior));
+}
+
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+void DatabaseCache::AddMatches(const image_t image_id1,
+                               const image_t image_id2,
+                               FeatureMatches matches) {
+  if (ShouldSwapImagePair(image_id1, image_id2)) {
+    for (auto& match : matches) {
+      std::swap(match.point2D_idx1, match.point2D_idx2);
+    }
+  }
+  matches_[ImagePairToPairId(image_id1, image_id2)] = std::move(matches);
 }
 
 const class Image* DatabaseCache::FindImageWithName(

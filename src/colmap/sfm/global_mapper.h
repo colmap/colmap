@@ -5,6 +5,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/estimators/two_view_pose_salvage.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
@@ -35,6 +36,7 @@ struct GlobalMapperOptions {
 
   // Options for each component.
   RotationEstimatorOptions rotation_averaging;
+  TwoViewPoseSalvageOptions two_view_pose_salvage;
   GlobalPositionerOptions global_positioning;
   BundleAdjustmentOptions bundle_adjustment = [] {
     BundleAdjustmentOptions options;
@@ -103,12 +105,14 @@ struct GlobalMapperOptions {
 
   // Control the flow of the global sfm
   bool skip_rotation_averaging = false;
+  bool skip_two_view_pose_salvage = true;
   bool skip_track_establishment = false;
   bool skip_global_positioning = false;
   bool skip_bundle_adjustment = false;
   bool skip_retriangulation = false;
 
   RotationEstimatorOptions RotationAveraging() const;
+  TwoViewPoseSalvageOptions TwoViewPoseSalvage() const;
   GlobalPositionerOptions GlobalPositioning() const;
   BundleAdjustmentOptions BundleAdjustment() const;
   IncrementalTriangulator::Options Retriangulation() const;
@@ -116,7 +120,7 @@ struct GlobalMapperOptions {
 
 class GlobalMapper {
  public:
-  explicit GlobalMapper(std::shared_ptr<const DatabaseCache> database_cache);
+  explicit GlobalMapper(std::shared_ptr<DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
   // reconstruction and view graph from the database.
@@ -132,6 +136,11 @@ class GlobalMapper {
 
   // Run rotation averaging to estimate global rotations.
   bool RotationAveraging(const RotationEstimatorOptions& options);
+
+  // Attempt to salvage invalid pose graph edges and unverified candidate match
+  // pairs using rotation-gated two-view pose estimation.
+  size_t SalvageTwoViewPoses(const TwoViewPoseSalvageOptions& options,
+                             const RotationEstimatorOptions& rotation_options);
 
   // Establish tracks from feature matches.
   void EstablishTracks(const GlobalMapperOptions& options);
@@ -164,7 +173,7 @@ class GlobalMapper {
   std::shared_ptr<class Reconstruction> Reconstruction() const;
 
  private:
-  std::shared_ptr<const DatabaseCache> database_cache_;
+  std::shared_ptr<DatabaseCache> database_cache_;
   std::shared_ptr<class PoseGraph> pose_graph_;
   std::shared_ptr<class Reconstruction> reconstruction_;
 };
