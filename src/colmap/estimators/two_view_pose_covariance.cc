@@ -212,10 +212,16 @@ MarginalRelativePose MarginalizeTranslationDirection(
   }
 
   if (trans_evals(0) > trans_thresh) {
-    const Eigen::LDLT<Eigen::Matrix3d> rot_ldlt(Lambda_RR);
-    if (rot_ldlt.info() == Eigen::Success) {
+    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> rot_eig(Lambda_RR);
+    if (rot_eig.info() == Eigen::Success &&
+        rot_eig.eigenvalues()(0) >
+            kMinRelativeEigenvalue * std::max(0.0, rot_eig.eigenvalues()(2))) {
+      const Eigen::Matrix3d Lambda_RR_inv =
+          rot_eig.eigenvectors() *
+          rot_eig.eigenvalues().cwiseInverse().asDiagonal() *
+          rot_eig.eigenvectors().transpose();
       const Eigen::Matrix2d Lambda_t_eff =
-          Lambda_tt - Lambda_Rt.transpose() * rot_ldlt.solve(Lambda_Rt);
+          Lambda_tt - Lambda_Rt.transpose() * Lambda_RR_inv * Lambda_Rt;
       const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> t_eff_eig(
           Lambda_t_eff);
       if (t_eff_eig.info() == Eigen::Success &&
