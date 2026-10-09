@@ -207,9 +207,10 @@ Eigen::Matrix3d LeftJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
   const Eigen::Matrix3d a_x = CrossProductMatrix(a);
   const double sin_theta = std::sin(theta);
   const double sinc_theta = sin_theta / theta;
+  const double sin_half_theta = std::sin(theta / 2);
   return sinc_theta * Eigen::Matrix3d::Identity() +
          (1.0 - sinc_theta) * a * a.transpose() +
-         ((1.0 - std::cos(theta)) / theta) * a_x;
+         (2 * sin_half_theta * sin_half_theta / theta) * a_x;
 }
 
 Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
