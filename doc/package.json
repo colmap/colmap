@@ -10,14 +10,14 @@
     "test:browser": "playwright test"
   },
   "dependencies": {
-    "three": "0.185.1"
+    "three": "0.186.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.61.1",
-    "@types/node": "26.1.1",
-    "@types/three": "0.185.1",
+    "@playwright/test": "1.64.0",
+    "@types/node": "26.6.4",
+    "@types/three": "0.186.0",
     "typescript": "7.0.2",
-    "vite": "8.1.5",
-    "vitest": "4.1.11"
+    "vite": "8.3.3",
+    "vitest": "5.0.3"
   }
 }
