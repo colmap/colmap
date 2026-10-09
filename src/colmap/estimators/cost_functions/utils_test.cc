@@ -257,9 +257,9 @@ TEST(CovarianceWeightedCostFunction, RejectsNonPositiveDefiniteCovariance) {
   for (const Eigen::Matrix3d& cov :
        {Eigen::Matrix3d(Eigen::Matrix3d::Zero()),
         Eigen::Vector3d(1.0, -1.0, 1.0).asDiagonal().toDenseMatrix()}) {
-    EXPECT_THROW(
-        CovarianceWeightedCostFunctor<NormalErrorCostFunctor<3>>::Create(cov),
-        std::invalid_argument);
+    EXPECT_THROW(CovarianceWeightedCostFunction<NormalErrorCostFunctor<3>>(
+                     cov, NormalErrorCostFunctor<3>::Create()),
+                 std::invalid_argument);
     EXPECT_THROW(DynamicCovarianceWeightedCostFunction<3>(
                      cov, NormalErrorCostFunctor<3>::Create()),
                  std::invalid_argument);
