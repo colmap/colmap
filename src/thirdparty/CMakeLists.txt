@@ -70,6 +70,34 @@ if(FETCH_FAISS)
     set(FAISS_ENABLE_MKL OFF)
     set(BUILD_TESTING OFF)
     FetchContent_MakeAvailable(faiss)
+    # faiss v1.15 dynamic dispatch unconditionally compiles
+    # impl/scalar_quantizer/sq-avx512-spr.cpp with the Sapphire Rapids flag
+    # set, including -mavx512fp16, which requires GCC 12+ (Ubuntu 22.04
+    # ships GCC 11). On x86 compilers without that flag, drop the SPR
+    # dispatch level: the source is fully guarded by
+    # COMPILE_SIMD_AVX512_SPR, so dispatch falls back to AVX512_VPOPCNT.
+    # MSVC needs no handling (/arch:AVX512 has no per-feature flags).
+    if(IS_X86 AND NOT WIN32 AND TARGET faiss AND FAISS_OPT_LEVEL STREQUAL "dd")
+        include(CheckCXXCompilerFlag)
+        check_cxx_compiler_flag(
+            "-mavx512fp16" COLMAP_COMPILER_SUPPORTS_AVX512FP16)
+        if(NOT COLMAP_COMPILER_SUPPORTS_AVX512FP16)
+            message(
+                STATUS
+                "Compiler lacks -mavx512fp16, disabling faiss AVX512_SPR dispatch"
+            )
+            get_target_property(_faiss_defs faiss COMPILE_DEFINITIONS)
+            if(_faiss_defs)
+                list(REMOVE_ITEM _faiss_defs COMPILE_SIMD_AVX512_SPR)
+                set_target_properties(
+                    faiss PROPERTIES COMPILE_DEFINITIONS "${_faiss_defs}")
+            endif()
+            set_source_files_properties(
+                "${faiss_SOURCE_DIR}/faiss/impl/scalar_quantizer/sq-avx512-spr.cpp"
+                TARGET_DIRECTORY faiss
+                PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma;-mf16c;-mpopcnt")
+        endif()
+    endif()
     # Fix MSVC linker warning LNK4286: faiss headers use FAISS_API which
     # defaults to dllimport on Windows, but we build faiss as a static library.
     # Adding FAISS_MAIN_LIB as PUBLIC ensures consumers also get this defined.
