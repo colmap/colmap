@@ -6,10 +6,10 @@ param (
     [string] $Destination
 )
 
-$version = "4.13.6"
+$version = "4.14.1"
 $folder="ccache-$version-windows-x86_64"
 $url = "https://github.com/ccache/ccache/releases/download/v$version/$folder.zip"
-$expectedSha256 = "3D7CEBB05850AD704E197B3F1D3F0F924AB6C9FDFC561578E146184FE9D89380"
+$expectedSha256 = "6219F3865CA59AEC41EE4B678DF171D5D35855ECB2B6DBBBD20690B3A68AF7B4"
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
