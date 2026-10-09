@@ -51,7 +51,10 @@ struct CeresRotationAveragerOptions {
 // outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
 // gravity/pose priors, outlier filtering, or frame deregistration. Uses the
 // Ceres-specific options in options.ceres and the solver-agnostic options
-// reweighting, skip_initialization, and refine_sensor_from_rig.
+// reweighting, skip_initialization, and refine_sensor_from_rig. With COVARIANCE
+// reweighting, every valid edge must already have a positive-definite
+// cam2_from_cam1_rotation_cov; covariance_sigma_floor_deg and
+// covariance_fallback_sigma_deg are applied by RotationEstimator, not here.
 class CeresRotationAverager {
  public:
   CeresRotationAverager(const RotationEstimatorOptions& options,
