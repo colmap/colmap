@@ -414,6 +414,27 @@ TEST(LeftJacobianFromAngleAxis, IdentityAtZero) {
   EXPECT_THAT(Jl, EigenMatrixNear(I, 1e-10));
 }
 
+TEST(LeftJacobianFromAngleAxis, SmallAngleSeries) {
+  const Eigen::Vector3d axis = Eigen::Vector3d(1, -2, 3).normalized();
+  for (const double theta : {1e-12, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-4}) {
+    const Eigen::Vector3d omega = theta * axis;
+    const Eigen::Matrix3d omega_x = CrossProductMatrix(omega);
+    // J_l = integral_0^1 Exp(t [omega]_x) dt = sum [omega]_x^k / (k+1)!.
+    Eigen::Matrix3d term = Eigen::Matrix3d::Identity();
+    Eigen::Matrix3d expected = term;
+    for (int k = 1; k <= 8; ++k) {
+      term = (term * omega_x / (k + 1)).eval();
+      expected += term;
+    }
+    EXPECT_THAT(LeftJacobianFromAngleAxis(omega),
+                EigenMatrixNear(expected, 2e-16))
+        << "theta=" << theta;
+    EXPECT_THAT(RightJacobianFromAngleAxis(omega),
+                EigenMatrixNear(expected.transpose().eval(), 2e-16))
+        << "theta=" << theta;
+  }
+}
+
 TEST(LeftJacobianFromAngleAxis, RelationToRight) {
   // Jr(w) = Jl(-w) for all w.
   for (int i = 0; i < 100; ++i) {
