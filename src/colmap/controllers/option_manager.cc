@@ -998,6 +998,9 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_covariance_sigma_floor_deg",
       &global_mapper->mapper.rotation_averaging.covariance_sigma_floor_deg);
+  AddDefaultOption(
+      "GlobalMapper.ra_covariance_fallback_sigma_deg",
+      &global_mapper->mapper.rotation_averaging.covariance_fallback_sigma_deg);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
