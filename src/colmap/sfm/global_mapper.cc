@@ -333,7 +333,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
     for (const auto& track_el : point3D.track.Elements()) {
       const auto& image = reconstruction_->Image(track_el.image_id);
       const auto& camera = *image.CameraPtr();
-      if (!camera.has_prior_focal_length) {
+      if (!camera.HasPriorFocalLength()) {
         continue;
       }
       const auto& point2D = image.Point2D(track_el.point2D_idx);

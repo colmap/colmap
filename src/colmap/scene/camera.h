@@ -5,6 +5,7 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/enum_utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -22,6 +23,52 @@ namespace colmap {
 constexpr double kDefaultMinFocalLengthRatio = 0.1;
 constexpr double kDefaultMaxFocalLengthRatio = 10.0;
 constexpr double kDefaultMaxExtraParam = 1.0;
+
+// Camera calibration source indicating origin of intrinsics.
+#ifdef __CUDACC__
+enum class CameraSource {
+  BEST = -1,
+  UNKNOWN = 0,
+  USER = 1,
+  GUESS = 2,
+  EXIF = 3,
+  SINGLE_VIEW = 4,
+  VIEW_GRAPH = 5,
+};
+#else
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(CameraSource,
+                                -1,
+                                BEST,
+                                UNKNOWN,
+                                USER,
+                                GUESS,
+                                EXIF,
+                                SINGLE_VIEW,
+                                VIEW_GRAPH);
+#endif
+
+// Returns the reliability priority of a camera calibration source (higher is
+// more reliable). Decouples the persisted enum integer values from their
+// priority ranking.
+constexpr int CameraSourcePriority(CameraSource source) {
+  switch (source) {
+    case CameraSource::UNKNOWN:
+      return 0;
+    case CameraSource::GUESS:
+      return 1;
+    case CameraSource::EXIF:
+      return 2;
+    case CameraSource::SINGLE_VIEW:
+      return 3;
+    case CameraSource::VIEW_GRAPH:
+      return 4;
+    case CameraSource::USER:
+      return 5;
+    case CameraSource::BEST:
+      break;
+  }
+  return -1;
+}
 
 // Camera class that holds the intrinsic parameters. Cameras may be shared
 // between multiple images, e.g., if the same "physical" camera took multiple
@@ -42,9 +89,15 @@ struct Camera {
   // model is not specified, this vector is empty.
   std::vector<double> params;
 
+  // The origin / source of the camera calibration parameters.
+  CameraSource source = CameraSource::UNKNOWN;
+
   // Whether there is a good prior for the focal length, e.g. manually provided,
   // extracted from EXIF, or from view graph calibration.
-  bool has_prior_focal_length = false;
+  inline bool HasPriorFocalLength() const {
+    return CameraSourcePriority(source) >
+           CameraSourcePriority(CameraSource::GUESS);
+  }
 
   // Initialize parameters for given camera model and focal length, and set
   // the principal point to be the image center.
@@ -52,12 +105,15 @@ struct Camera {
                                   CameraModelId model_id,
                                   double focal_length,
                                   size_t width,
-                                  size_t height);
-  static Camera CreateFromModelName(camera_t camera_id,
-                                    const std::string& model_name,
-                                    double focal_length,
-                                    size_t width,
-                                    size_t height);
+                                  size_t height,
+                                  CameraSource source = CameraSource::UNKNOWN);
+  static Camera CreateFromModelName(
+      camera_t camera_id,
+      const std::string& model_name,
+      double focal_length,
+      size_t width,
+      size_t height,
+      CameraSource source = CameraSource::UNKNOWN);
 
   inline const std::string& ModelName() const;
 
@@ -356,8 +412,7 @@ std::optional<CamRayWithJac> Camera::CamRayFromImgWithJac(
 bool Camera::operator==(const Camera& other) const {
   return camera_id == other.camera_id && model_id == other.model_id &&
          width == other.width && height == other.height &&
-         params == other.params &&
-         has_prior_focal_length == other.has_prior_focal_length;
+         params == other.params && source == other.source;
 }
 
 bool Camera::operator!=(const Camera& other) const { return !(*this == other); }

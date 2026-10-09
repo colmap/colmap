@@ -131,7 +131,7 @@ bool AggregateSingleViewCalibrations(
 
   camera->model_id = candidate.model_id;
   camera->params = std::move(candidate.params);
-  camera->has_prior_focal_length = true;
+  camera->source = CameraSource::SINGLE_VIEW;
   return true;
 }
 

@@ -12,8 +12,10 @@ Camera Camera::CreateFromModelId(camera_t camera_id,
                                  const CameraModelId model_id,
                                  const double focal_length,
                                  const size_t width,
-                                 const size_t height) {
+                                 const size_t height,
+                                 const CameraSource source) {
   THROW_CHECK(ExistsCameraModelWithId(model_id));
+  THROW_CHECK_NE(source, CameraSource::BEST) << "Camera source cannot be BEST.";
   Camera camera;
   camera.camera_id = camera_id;
   camera.model_id = model_id;
@@ -21,6 +23,7 @@ Camera Camera::CreateFromModelId(camera_t camera_id,
   camera.height = height;
   camera.params =
       CameraModelInitializeParams(model_id, focal_length, width, height);
+  camera.source = source;
   return camera;
 }
 
@@ -28,9 +31,14 @@ Camera Camera::CreateFromModelName(camera_t camera_id,
                                    const std::string& model_name,
                                    const double focal_length,
                                    const size_t width,
-                                   const size_t height) {
-  return CreateFromModelId(
-      camera_id, CameraModelNameToId(model_name), focal_length, width, height);
+                                   const size_t height,
+                                   const CameraSource source) {
+  return CreateFromModelId(camera_id,
+                           CameraModelNameToId(model_name),
+                           focal_length,
+                           width,
+                           height,
+                           source);
 }
 
 Eigen::Matrix3d Camera::CalibrationMatrix() const {
