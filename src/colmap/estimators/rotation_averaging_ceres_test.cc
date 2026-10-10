@@ -454,5 +454,146 @@ TEST(RotationEstimatorOptions, DeepCopiesCeresOptions) {
   EXPECT_EQ(assigned.ceres->loss_function_scale, 0.1);
 }
 
+Eigen::Matrix3d AnisotropicCovariance() {
+  const Eigen::Matrix3d R =
+      Eigen::AngleAxisd(0.4, Eigen::Vector3d(1, 2, 3).normalized())
+          .toRotationMatrix();
+  return R * Eigen::Vector3d(1e-4, 4e-4, 9e-4).asDiagonal() * R.transpose();
+}
+
+// Residual convention: hat_cam2_from_cam1 = prior * Exp(residual).
+Eigen::Vector3d RelativeRotationResidual(const Eigen::Quaterniond& prior,
+                                         const Eigen::Quaterniond& estimate) {
+  const Eigen::AngleAxisd error(prior.inverse() * estimate);
+  return error.angle() * error.axis();
+}
+
+double EvaluateCost(CeresRotationAverager& averager) {
+  double cost = 0;
+  THROW_CHECK(averager.Problem().Evaluate(
+      ceres::Problem::EvaluateOptions(), &cost, nullptr, nullptr, nullptr));
+  return cost;
+}
+
+TEST(CeresRotationAverager, CovarianceWhitening) {
+  const Eigen::Matrix3d cov = AnisotropicCovariance();
+  RotationEstimatorOptions options;
+  options.skip_initialization = true;
+  options.refine_sensor_from_rig = false;
+  options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
+
+  // Trivial frames use the fixed-size cost function.
+  {
+    Reconstruction reconstruction = MakeTrivialReconstruction({1, 2});
+    reconstruction.Frame(2).RigFromWorld().rotation() =
+        ZRotation(0.25) *
+        Eigen::Quaterniond(Eigen::AngleAxisd(0.05, Eigen::Vector3d::UnitX()));
+    const Eigen::Quaterniond prior = ZRotation(0.2);
+    PoseGraph graph;
+    graph.AddEdge(1, 2, Edge(prior)).cam2_from_cam1_rotation_cov = cov;
+    const Eigen::Vector3d residual =
+        RelativeRotationResidual(prior, RelativeRotation(reconstruction, 1, 2));
+
+    options.reweighting = RotationAveragingReweighting::UNIFORM;
+    auto uniform =
+        CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+    EXPECT_NEAR(EvaluateCost(*uniform), 0.5 * residual.squaredNorm(), 1e-12);
+
+    options.reweighting = RotationAveragingReweighting::COVARIANCE;
+    auto whitened =
+        CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+    EXPECT_NEAR(EvaluateCost(*whitened),
+                0.5 * residual.dot(cov.ldlt().solve(residual)),
+                1e-9);
+  }
+
+  // Rig sensors use the dynamic cost function.
+  {
+    Reconstruction reconstruction = MakeRigReconstruction();
+    const auto images = RigImages(reconstruction);
+    const image_t image_id1 = images[0][1];
+    const image_t image_id2 = images[1][0];
+    const Eigen::Quaterniond estimate =
+        RelativeRotation(reconstruction, image_id1, image_id2);
+    const Eigen::Quaterniond prior =
+        Eigen::Quaterniond(Eigen::AngleAxisd(0.03, Eigen::Vector3d::UnitY())) *
+        estimate;
+    PoseGraph graph;
+    graph.AddEdge(image_id1, image_id2, Edge(prior))
+        .cam2_from_cam1_rotation_cov = cov;
+    const Eigen::Vector3d residual = RelativeRotationResidual(prior, estimate);
+
+    options.reweighting = RotationAveragingReweighting::COVARIANCE;
+    auto whitened =
+        CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+    EXPECT_NEAR(EvaluateCost(*whitened),
+                0.5 * residual.dot(cov.ldlt().solve(residual)),
+                1e-9);
+  }
+}
+
+TEST(CeresRotationAverager, CovarianceReweightingRequiresCovariances) {
+  Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
+  PoseGraph graph;
+  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
+      Eigen::Matrix3d::Identity();
+  graph.AddEdge(2, 3, Edge(ZRotation(0.2)));
+  RotationEstimatorOptions options;
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  EXPECT_THROW(
+      CreateDefaultCeresRotationAverager(options, graph, reconstruction),
+      std::invalid_argument);
+}
+
+TEST(CeresRotationAverager, CovarianceDownweightsUncertainEdges) {
+  // Inconsistent loop: the 1-3 edge disagrees by 0.1 rad with the others.
+  PoseGraph graph;
+  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
+      Eigen::Matrix3d::Identity() * 1e-6;
+  graph.AddEdge(2, 3, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
+      Eigen::Matrix3d::Identity() * 1e-6;
+  graph.AddEdge(1, 3, Edge(ZRotation(0.5))).cam2_from_cam1_rotation_cov =
+      Eigen::Matrix3d::Identity() * 1e-2;
+  RotationEstimatorOptions options;
+  options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
+  for (const auto reweighting : {RotationAveragingReweighting::UNIFORM,
+                                 RotationAveragingReweighting::COVARIANCE}) {
+    Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
+    options.reweighting = reweighting;
+    auto averager =
+        CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+    ASSERT_TRUE(averager->Solve().IsSolutionUsable());
+    const double error12 =
+        RelativeRotation(reconstruction, 1, 2).angularDistance(ZRotation(0.2));
+    const double error13 =
+        RelativeRotation(reconstruction, 1, 3).angularDistance(ZRotation(0.5));
+    if (reweighting == RotationAveragingReweighting::UNIFORM) {
+      // The inconsistency is spread evenly over the three edges.
+      EXPECT_NEAR(error12, 0.1 / 3, 1e-4);
+      EXPECT_NEAR(error13, 0.1 / 3, 1e-4);
+    } else {
+      // The uncertain edge absorbs the inconsistency.
+      EXPECT_LT(error12, 1e-4);
+      EXPECT_NEAR(error13, 0.1, 1e-4);
+    }
+  }
+}
+
+TEST(CeresRotationAverager, CovarianceReweightingWithRigs) {
+  const Reconstruction truth = MakeRigReconstruction(2);
+  PoseGraph graph = MakePoseGraph(truth);
+  for (auto& [pair_id, edge] : graph.Edges()) {
+    edge.cam2_from_cam1_rotation_cov = AnisotropicCovariance();
+  }
+  Reconstruction reconstruction = truth;
+  RotationEstimatorOptions options;
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  options.ceres->covariance_loss_scale = 2.0;
+  auto averager =
+      CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+  ASSERT_TRUE(averager->Solve().IsSolutionUsable());
+  ExpectRelativeRotations(reconstruction, graph, 1e-7);
+}
+
 }  // namespace
 }  // namespace colmap

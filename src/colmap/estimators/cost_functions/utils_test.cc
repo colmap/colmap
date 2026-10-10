@@ -210,5 +210,61 @@ TEST(CovarianceWeightedCostFunction, WrapsAnalyticalCostFunction) {
   EXPECT_THAT(residuals_only, EigenMatrixNear(autodiff_residuals, 1e-10));
 }
 
+TEST(DynamicCovarianceWeightedCostFunction, MatchesCovarianceWeighted) {
+  const Eigen::Vector3d param0(1, 2, 3);
+  const Eigen::Vector3d param1(4, 6, 5);
+  Eigen::Matrix3d covariance;
+  covariance << 4.0, 0.5, 0.2, 0.5, 2.0, -0.3, 0.2, -0.3, 1.0;
+
+  std::unique_ptr<ceres::CostFunction> fixed_cost_function(
+      CovarianceWeightedCostFunctor<NormalErrorCostFunctor<3>>::Create(
+          covariance));
+  std::unique_ptr<ceres::CostFunction> dynamic_cost_function(
+      new DynamicCovarianceWeightedCostFunction<3>(
+          covariance, NormalErrorCostFunctor<3>::Create()));
+  EXPECT_EQ(dynamic_cost_function->num_residuals(), 3);
+  EXPECT_EQ(dynamic_cost_function->parameter_block_sizes(),
+            fixed_cost_function->parameter_block_sizes());
+
+  const double* parameters[2] = {param0.data(), param1.data()};
+  Eigen::Vector3d fixed_residuals;
+  Eigen::Vector3d dynamic_residuals;
+  Eigen::Matrix<double, 3, 3, Eigen::RowMajor> fixed_jacobian0;
+  Eigen::Matrix<double, 3, 3, Eigen::RowMajor> fixed_jacobian1;
+  Eigen::Matrix<double, 3, 3, Eigen::RowMajor> dynamic_jacobian1;
+  double* fixed_jacobians[2] = {fixed_jacobian0.data(), fixed_jacobian1.data()};
+  // Skip the jacobian of the first block, as Ceres does for constant blocks.
+  double* dynamic_jacobians[2] = {nullptr, dynamic_jacobian1.data()};
+  EXPECT_TRUE(fixed_cost_function->Evaluate(
+      parameters, fixed_residuals.data(), fixed_jacobians));
+  EXPECT_TRUE(dynamic_cost_function->Evaluate(
+      parameters, dynamic_residuals.data(), dynamic_jacobians));
+  EXPECT_THAT(dynamic_residuals, EigenMatrixNear(fixed_residuals, 1e-10));
+  EXPECT_THAT(dynamic_jacobian1, EigenMatrixNear(fixed_jacobian1, 1e-10));
+  // Whitened squared norm equals the Mahalanobis distance.
+  const Eigen::Vector3d error = param0 - param1;
+  EXPECT_NEAR(dynamic_residuals.squaredNorm(),
+              error.dot(covariance.ldlt().solve(error)),
+              1e-10);
+
+  Eigen::Vector3d residuals_only;
+  EXPECT_TRUE(dynamic_cost_function->Evaluate(
+      parameters, residuals_only.data(), nullptr));
+  EXPECT_THAT(residuals_only, EigenMatrixNear(fixed_residuals, 1e-10));
+}
+
+TEST(CovarianceWeightedCostFunction, RejectsNonPositiveDefiniteCovariance) {
+  for (const Eigen::Matrix3d& cov :
+       {Eigen::Matrix3d(Eigen::Matrix3d::Zero()),
+        Eigen::Vector3d(1.0, -1.0, 1.0).asDiagonal().toDenseMatrix()}) {
+    EXPECT_THROW(CovarianceWeightedCostFunction<NormalErrorCostFunctor<3>>(
+                     cov, NormalErrorCostFunctor<3>::Create()),
+                 std::invalid_argument);
+    EXPECT_THROW(DynamicCovarianceWeightedCostFunction<3>(
+                     cov, NormalErrorCostFunctor<3>::Create()),
+                 std::invalid_argument);
+  }
+}
+
 }  // namespace
 }  // namespace colmap

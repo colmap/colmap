@@ -28,6 +28,11 @@ void BindCeresRotationAveragerOptions(py::module& m) {
                          &CeresRotationAveragerOptions::loss_function_scale,
                          "Loss function scale in degrees.")
           .def_readwrite(
+              "covariance_loss_scale",
+              &CeresRotationAveragerOptions::covariance_loss_scale,
+              "Loss function scale with COVARIANCE reweighting, in standard "
+              "deviations of the whitened residuals.")
+          .def_readwrite(
               "max_num_warm_start_iterations",
               &CeresRotationAveragerOptions::max_num_warm_start_iterations,
               "Number of solver iterations of a Huber-loss warm-start (with "
@@ -53,8 +58,11 @@ void BindCeresRotationAverager(py::module& m) {
            "image_id2"_a,
            "cam2_from_cam1"_a,
            "loss"_a,
+           "cam2_from_cam1_cov"_a = py::none(),
            "Add a relative-rotation residual between images whose frame and "
-           "sensor rotations are configured in the problem.")
+           "sensor rotations are configured in the problem. If given, the "
+           "residual is whitened with the 3x3 covariance of the relative "
+           "rotation, expressed in the frame of camera 1.")
       .def_property_readonly(
           "problem",
           py::overload_cast<>(&CeresRotationAverager::Problem),
