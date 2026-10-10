@@ -648,8 +648,18 @@ bool GlobalMapper::Solve(const GlobalMapperOptions& options,
 void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
                                        const DatabaseCache& database_cache,
                                        PoseGraph& pose_graph) {
-  if (options.reweighting != RotationAveragingReweighting::COVARIANCE) {
+  if (options.reweighting != RotationAveragingReweighting::COVARIANCE ||
+      options.backend != RotationAveragingBackend::CERES) {
     return;
+  }
+  if (options.use_gravity) {
+    const auto& pose_priors = database_cache.PosePriors();
+    if (std::any_of(
+            pose_priors.begin(), pose_priors.end(), [](const PosePrior& prior) {
+              return prior.HasGravity();
+            })) {
+      return;
+    }
   }
   TwoViewPoseCovarianceOptions cov_options;
   cov_options.num_threads = options.num_threads;
