@@ -19,9 +19,13 @@ image timestamp is `index / video_fps`, with the frame rate read from the
 telemetry.
 
 The cameras must be in the video's native stabilized (HyperSmooth) frames. The
-per-frame stabilization rotation (GPMF IORI, virtual camera from physical
-camera) is passed to the IMU cost function, which relates the IMU to the
-physical camera.
+stabilization is a per-frame rotation about the camera center (GPMF IORI,
+virtual camera from physical camera). It is undone upfront: keypoints are mapped
+by the infinite homography K * R_iori^T * K^-1 and poses are rotated into the
+physical camera frame, which is rigidly attached to the IMU, so that the
+standard IMU cost function applies. The camera intrinsics are thus kept fixed.
+The output is rotated back into the stabilized frames, with the original
+keypoints.
 
 Assumptions (GoPro HERO11/HERO12, Linear lens, fixed capture mode):
   - IMU axes are mapped to the camera optical frame by `P_CAM_FROM_RAW`, so the
@@ -391,11 +395,50 @@ def build_imu_edges(
     return edges
 
 
-def world_from_physical_cam(
-    rec: pycolmap.Reconstruction, timing: ImageTiming
-) -> pycolmap.Rotation3d:
-    world_from_cam = rec.images[timing.image_id].cam_from_world().rotation
-    return world_from_cam.inverse() * timing.q_iori
+def undo_stabilization(
+    rec: pycolmap.Reconstruction, timings: list[ImageTiming]
+) -> dict[int, np.ndarray]:
+    """Express each image in its physical camera frame. Returns the original
+    (stabilized) keypoints, to restore them with `redo_stabilization`.
+
+    The stabilization rotates the camera about its center, so the 3D points
+    are unchanged: cam_phys_from_world = R_iori^T * cam_from_world, and the
+    keypoints follow the infinite homography K * R_iori^T * K^-1 with the
+    current intrinsics K.
+    """
+    original_keypoints = {}
+    for timing in timings:
+        image = rec.images[timing.image_id]
+        camera = rec.cameras[image.camera_id]
+        keypoints = np.array([p.xy for p in image.points2D]).reshape(-1, 2)
+        original_keypoints[timing.image_id] = keypoints
+        rays = np.column_stack(
+            [camera.cam_from_img(keypoints), np.ones(len(keypoints))]
+        )
+        phys_keypoints = camera.img_from_cam(timing.q_iori.inverse() * rays)
+        for point2D, xy in zip(image.points2D, phys_keypoints, strict=True):
+            point2D.xy = xy
+        phys_from_virtual = pycolmap.Rigid3d(
+            timing.q_iori.inverse(), np.zeros(3)
+        )
+        image.frame.rig_from_world = phys_from_virtual * image.cam_from_world()
+    return original_keypoints
+
+
+def redo_stabilization(
+    rec: pycolmap.Reconstruction,
+    timings: list[ImageTiming],
+    original_keypoints: dict[int, np.ndarray],
+) -> None:
+    """Inverse of `undo_stabilization`."""
+    for timing in timings:
+        image = rec.images[timing.image_id]
+        for point2D, xy in zip(
+            image.points2D, original_keypoints[timing.image_id], strict=True
+        ):
+            point2D.xy = xy
+        virtual_from_phys = pycolmap.Rigid3d(timing.q_iori, np.zeros(3))
+        image.frame.rig_from_world = virtual_from_phys * image.cam_from_world()
 
 
 def gravity_from_grav_stream(
@@ -404,14 +447,21 @@ def gravity_from_grav_stream(
     telemetry: GoProTelemetry,
 ) -> np.ndarray:
     """Mean world gravity direction from the camera's GRAV stream (gravity
-    sensor fusion in the physical camera frame), for diagnostics."""
+    sensor fusion in the physical camera frame), for diagnostics. Expects
+    images in their physical camera frames."""
     total = np.zeros(3)
     for timing in timings:
         grav = telemetry.frame_quantity(telemetry.grav_cam, timing.frame_index)
-        total += world_from_physical_cam(rec, timing) * (
+        cam_from_world = rec.images[timing.image_id].cam_from_world()
+        total += cam_from_world.rotation.inverse() * (
             grav / np.linalg.norm(grav)
         )
     return total / np.linalg.norm(total)
+
+
+def mean_reprojection_error(rec: pycolmap.Reconstruction) -> float:
+    rec.update_point_3d_errors()
+    return rec.compute_mean_reprojection_error()
 
 
 def angle_deg(a: np.ndarray, b: np.ndarray) -> float:
@@ -469,7 +519,6 @@ def add_imu_residuals(
     problem: pyceres.Problem,
     rec: pycolmap.Reconstruction,
     edges: list[ImuEdge],
-    timings: dict[int, ImageTiming],
     variables: InertialVariables,
     refine_imu_from_cam_rotation: bool,
 ) -> None:
@@ -481,9 +530,7 @@ def add_imu_residuals(
         if len(frame_i.rig.non_ref_sensors) or len(frame_j.rig.non_ref_sensors):
             raise ValueError("The IMU cost function requires trivial rigs")
         cost = pycolmap.inertial.AnalyticalVisualCentricImuPreintegrationCost(
-            edge.data,
-            q_iori_i=timings[edge.image_id1].q_iori,
-            q_iori_j=timings[edge.image_id2].q_iori,
+            edge.data
         )
         problem.add_residual_block(
             cost,
@@ -568,7 +615,7 @@ def initialize_inertial_variables(
     sum_delta_v = np.zeros(3)
     for edge in edges:
         world_from_imu = (
-            world_from_physical_cam(rec, timing_of[edge.image_id1])
+            rec.images[edge.image_id1].cam_from_world().rotation.inverse()
             * imu_from_cam_rotation.inverse()
         )
         sum_delta_v += world_from_imu * edge.data.delta_v
@@ -580,7 +627,7 @@ def initialize_inertial_variables(
     )
 
     problem = pyceres.Problem()
-    add_imu_residuals(problem, rec, edges, timing_of, variables, False)
+    add_imu_residuals(problem, rec, edges, variables, False)
     for image_id in image_ids:
         problem.set_parameter_block_constant(
             rec.images[image_id].frame.rig_from_world.params
@@ -598,7 +645,6 @@ def solve_visual_inertial_bundle_adjustment(
     rec: pycolmap.Reconstruction,
     ba_options: pycolmap.BundleAdjustmentOptions,
     edges: list[ImuEdge],
-    timings: dict[int, ImageTiming],
     variables: InertialVariables,
     refine_imu_from_cam_rotation: bool,
 ) -> pyceres.SolverSummary:
@@ -613,7 +659,7 @@ def solve_visual_inertial_bundle_adjustment(
     )
     problem = bundle_adjuster.problem
     add_imu_residuals(
-        problem, rec, edges, timings, variables, refine_imu_from_cam_rotation
+        problem, rec, edges, variables, refine_imu_from_cam_rotation
     )
     solver_options = pyceres.SolverOptions(
         ba_options.ceres.create_solver_options(ba_config, problem)
@@ -625,7 +671,6 @@ def refine(
     rec: pycolmap.Reconstruction,
     database_path: Path | None,
     edges: list[ImuEdge],
-    timings: dict[int, ImageTiming],
     variables: InertialVariables,
     refine_imu_from_cam_rotation: bool,
 ) -> pycolmap.Reconstruction:
@@ -640,9 +685,13 @@ def refine(
     mapper_options = pipeline_options.get_mapper()
     tri_options = pipeline_options.get_triangulation()
     ba_options = pipeline_options.get_global_bundle_adjustment()
-    ba_options.refine_focal_length = True
+    # Keep the intrinsics of the input reconstruction. The keypoints were
+    # mapped to the physical cameras with these intrinsics: refining them
+    # would make the mapping inconsistent and, through it, let the focal
+    # length absorb rotational disagreements between IMU and vision.
+    ba_options.refine_focal_length = False
     ba_options.refine_principal_point = False
-    ba_options.refine_extra_params = True
+    ba_options.refine_extra_params = False
 
     mapper = None
     if database_path is not None:
@@ -666,7 +715,6 @@ def refine(
             rec,
             ba_options,
             edges,
-            timings,
             variables,
             refine_imu_from_cam_rotation,
         )
@@ -760,7 +808,6 @@ def run(
         f"{telemetry.video_fps:.3f} fps"
     )
     timings = collect_image_timings(rec, telemetry)
-    timing_of = {t.image_id: t for t in timings}
     edges = build_imu_edges(
         timings,
         telemetry,
@@ -772,6 +819,7 @@ def run(
     if not edges:
         raise RuntimeError("No IMU edges")
 
+    original_keypoints = undo_stabilization(rec, timings)
     variables = initialize_inertial_variables(rec, timings, edges)
     grav_ref = gravity_from_grav_stream(rec, timings, telemetry)
     logging.info(
@@ -783,7 +831,6 @@ def run(
         rec,
         database_path,
         edges,
-        timing_of,
         variables,
         refine_imu_from_cam_rotation,
     )
@@ -795,7 +842,12 @@ def run(
         f"GRAV: {gravity_vs_grav:.2f} deg, camera-IMU rotation: "
         f"{np.degrees(variables.imu_from_cam.rotation.angle()):.3f} deg, "
         "mean reprojection error: "
-        f"{rec.compute_mean_reprojection_error():.3f} px"
+        f"{mean_reprojection_error(rec):.3f} px"
+    )
+    redo_stabilization(rec, timings, original_keypoints)
+    logging.info(
+        "Mean reprojection error in the stabilized frames: "
+        f"{mean_reprojection_error(rec):.3f} px"
     )
     metric_from_sfm = metric_gravity_aligned_from_sfm(rec, timings, variables)
     write_inertial_states(

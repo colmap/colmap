@@ -3,7 +3,6 @@
 #include "colmap/inertial/preintegration_cost.h"
 
 #include "pycolmap/helpers.h"
-#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
@@ -39,15 +38,10 @@ void BindImuPreintegrationCosts(py::module& m) {
 
   m.def(
       "VisualCentricImuPreintegrationCost",
-      [](PreintegratedImuData& data,
-         const Eigen::Quaterniond& q_iori_i,
-         const Eigen::Quaterniond& q_iori_j) {
-        return VisualCentricImuPreintegrationCostFunctor::Create(
-            &data, q_iori_i, q_iori_j);
+      [](PreintegratedImuData& data) {
+        return VisualCentricImuPreintegrationCostFunctor::Create(&data);
       },
       "preintegrated_imu_data"_a,
-      "q_iori_i"_a = Eigen::Quaterniond::Identity(),
-      "q_iori_j"_a = Eigen::Quaterniond::Identity(),
       py::keep_alive<0, 1>(),
       "IMU preintegration cost function for post-hoc SfM refinement "
       "(7 parameter blocks: scale, gravity, extrinsics, poses, states). "
@@ -55,16 +49,11 @@ void BindImuPreintegrationCosts(py::module& m) {
 
   m.def(
       "AnalyticalVisualCentricImuPreintegrationCost",
-      [](PreintegratedImuData& data,
-         const Eigen::Quaterniond& q_iori_i,
-         const Eigen::Quaterniond& q_iori_j) {
+      [](PreintegratedImuData& data) {
         return std::unique_ptr<ceres::CostFunction>(
-            new AnalyticalVisualCentricImuPreintegrationCostFunction(
-                &data, q_iori_i, q_iori_j));
+            new AnalyticalVisualCentricImuPreintegrationCostFunction(&data));
       },
       "preintegrated_imu_data"_a,
-      "q_iori_i"_a = Eigen::Quaterniond::Identity(),
-      "q_iori_j"_a = Eigen::Quaterniond::Identity(),
       py::keep_alive<0, 1>(),
       "IMU preintegration cost function with analytical Jacobians for "
       "post-hoc SfM refinement (7 parameter blocks). "
