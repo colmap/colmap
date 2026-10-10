@@ -370,6 +370,105 @@ bool RadialCameraModel::ImgFromCamWithJac(const double* params,
 }
 
 template <bool Enable, typename std::enable_if<Enable, int>::type>
+bool BrownConradyCameraModel::ImgFromCamWithJac(const double* params,
+                                                const double& u,
+                                                const double& v,
+                                                const double& w,
+                                                double* x,
+                                                double* y,
+                                                double* J_params,
+                                                double* J_uvw,
+                                                const bool check_cheirality) {
+  if (!HasProjectableDepth(w, check_cheirality)) {
+    return false;
+  }
+
+  const double f = params[0];
+  const double c1 = params[1];
+  const double c2 = params[2];
+  const double k1 = params[3];
+  const double k2 = params[4];
+  const double k3 = params[5];
+  const double p1 = params[6];
+  const double p2 = params[7];
+
+  const double inv_w = 1.0 / w;
+  const double uu = u * inv_w;
+  const double vv = v * inv_w;
+
+  const double uu2 = uu * uu;
+  const double vv2 = vv * vv;
+  const double uv = uu * vv;
+  const double r2 = uu2 + vv2;
+  const double r4 = r2 * r2;
+  const double r6 = r4 * r2;
+  const double radial = k1 * r2 + k2 * r4 + k3 * r6;
+
+  const double du = uu * radial + 2.0 * p1 * uv + p2 * (r2 + 2.0 * uu2);
+  const double dv = vv * radial + 2.0 * p2 * uv + p1 * (r2 + 2.0 * vv2);
+  const double xd = uu + du;
+  const double yd = vv + dv;
+
+  *x = f * xd + c1;
+  *y = f * yd + c2;
+
+  if (J_uvw) {
+    // J_uvw is a 2x3 matrix (row-major): d(x, y) / d(u, v, w).
+    // Partial derivatives of the Brown-Conrady distortion (radial up to 6th
+    // order + tangential) in normalized coordinates (uu, vv), with
+    // d_radial_d_r2 = k1 + 2 * k2 * r2 + 3 * k3 * r4:
+    //   d(du)/d(uu) = radial + 2*uu^2*d_radial_d_r2 + 2*p1*vv + 6*p2*uu
+    //   d(du)/d(vv) = 2*uu*vv*d_radial_d_r2 + 2*p1*uu + 2*p2*vv
+    //   d(dv)/d(uu) = 2*uu*vv*d_radial_d_r2 + 2*p2*vv + 2*p1*uu
+    //   d(dv)/d(vv) = radial + 2*vv^2*d_radial_d_r2 + 2*p2*uu + 6*p1*vv
+    // The chain rule through (uu, vv) = (u/w, v/w) yields the columns below.
+    const double d_radial_d_r2 = k1 + 2.0 * k2 * r2 + 3.0 * k3 * r4;
+    const double cross = 2.0 * uv * d_radial_d_r2;
+    const double du_duu =
+        radial + 2.0 * uu2 * d_radial_d_r2 + 2.0 * p1 * vv + 6.0 * p2 * uu;
+    const double du_dvv = cross + 2.0 * p1 * uu + 2.0 * p2 * vv;
+    const double dv_duu = cross + 2.0 * p2 * vv + 2.0 * p1 * uu;
+    const double dv_dvv =
+        radial + 2.0 * vv2 * d_radial_d_r2 + 2.0 * p2 * uu + 6.0 * p1 * vv;
+
+    const double a00 = f * (1.0 + du_duu);
+    const double a01 = f * du_dvv;
+    const double a10 = f * dv_duu;
+    const double a11 = f * (1.0 + dv_dvv);
+
+    J_uvw[0] = a00 * inv_w;
+    J_uvw[1] = a01 * inv_w;
+    J_uvw[2] = -(a00 * uu + a01 * vv) * inv_w;
+    J_uvw[3] = a10 * inv_w;
+    J_uvw[4] = a11 * inv_w;
+    J_uvw[5] = -(a10 * uu + a11 * vv) * inv_w;
+  }
+
+  if (J_params) {
+    // J_params is a 2x8 matrix (row-major):
+    //   d(x, y) / d(f, cx, cy, k1, k2, k3, p1, p2)
+    J_params[0] = xd;
+    J_params[1] = 1.0;
+    J_params[2] = 0.0;
+    J_params[3] = f * uu * r2;
+    J_params[4] = f * uu * r4;
+    J_params[5] = f * uu * r6;
+    J_params[6] = f * 2.0 * uv;
+    J_params[7] = f * (r2 + 2.0 * uu2);
+    J_params[8] = yd;
+    J_params[9] = 0.0;
+    J_params[10] = 1.0;
+    J_params[11] = f * vv * r2;
+    J_params[12] = f * vv * r4;
+    J_params[13] = f * vv * r6;
+    J_params[14] = f * (r2 + 2.0 * vv2);
+    J_params[15] = f * 2.0 * uv;
+  }
+
+  return true;
+}
+
+template <bool Enable, typename std::enable_if<Enable, int>::type>
 bool OpenCVCameraModel::ImgFromCamWithJac(const double* params,
                                           const double& u,
                                           const double& v,

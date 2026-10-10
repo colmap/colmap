@@ -8,6 +8,7 @@
 // analytic Jacobians on top.
 
 #include "colmap/sensor/models/base.h"
+#include "colmap/sensor/models/brown_conrady.h"
 #include "colmap/sensor/models/division.h"
 #include "colmap/sensor/models/eucm.h"
 #include "colmap/sensor/models/fisheye.h"
