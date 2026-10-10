@@ -96,4 +96,12 @@ void BindRigid3(py::module& m) {
         "cam1_from_world"_a,
         "cam2_from_world"_a,
         "t"_a);
+  m.def(
+      "gravity_aligned_rotation",
+      [](const Eigen::Vector3d& gravity) {
+        return Eigen::Quaterniond(GravityAlignedRotation(gravity));
+      },
+      "gravity"_a,
+      "Rotation whose Y axis is the given unit gravity direction, i.e. "
+      "R * [0, 1, 0] = gravity.");
 }

@@ -150,3 +150,14 @@ def test_interpolate_camera_poses() -> None:
     rigid2.translation = np.array([2.0, 0.0, 0.0])
     result = pycolmap.interpolate_camera_poses(rigid1, rigid2, 0.5)
     assert isinstance(result, pycolmap.Rigid3d)
+
+
+def test_gravity_aligned_rotation() -> None:
+    gravity = np.array([0.3, 0.9, -0.2])
+    gravity /= np.linalg.norm(gravity)
+    rotation = pycolmap.gravity_aligned_rotation(gravity)
+    assert isinstance(rotation, pycolmap.Rotation3d)
+    np.testing.assert_allclose(rotation * np.array([0.0, 1.0, 0.0]), gravity)
+    np.testing.assert_allclose(
+        rotation.inverse() * gravity, [0.0, 1.0, 0.0], atol=1e-12
+    )
