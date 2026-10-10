@@ -29,6 +29,12 @@ def test_visual_centric_imu_preintegration_cost_constructs() -> None:
     c = pycolmap.inertial.VisualCentricImuPreintegrationCost(data)
     assert c is not None
 
+    q_iori = pycolmap.Rotation3d()
+    c_stab = pycolmap.inertial.VisualCentricImuPreintegrationCost(
+        data, q_iori, q_iori
+    )
+    assert c_stab is not None
+
 
 def test_analytical_visual_centric_imu_preintegration_cost_constructs() -> None:
     assert hasattr(
@@ -39,6 +45,12 @@ def test_analytical_visual_centric_imu_preintegration_cost_constructs() -> None:
     c = pycolmap.inertial.AnalyticalVisualCentricImuPreintegrationCost(data)
     assert c is not None
 
+    q_iori = pycolmap.Rotation3d()
+    c_stab = pycolmap.inertial.AnalyticalVisualCentricImuPreintegrationCost(
+        data, q_iori, q_iori
+    )
+    assert c_stab is not None
+
 
 def test_inertial_rotation_cost_constructs() -> None:
     assert hasattr(pycolmap.inertial, "InertialRotationCost")
@@ -46,12 +58,27 @@ def test_inertial_rotation_cost_constructs() -> None:
     data = _make_dummy_preintegrated_data()
     rig = pycolmap.Rigid3d()
     q = pycolmap.Rotation3d()
+    q_iori = pycolmap.Rotation3d()
+    sqrt_info = np.eye(6)
 
     c_rig = pycolmap.inertial.InertialRotationCost(data, rig)
     assert c_rig is not None
 
     c_q = pycolmap.inertial.InertialRotationCost(data, q)
     assert c_q is not None
+
+    c_stab_rig = pycolmap.inertial.InertialRotationCost(
+        data, rig, q_iori, q_iori
+    )
+    assert c_stab_rig is not None
+
+    c_stab_q = pycolmap.inertial.InertialRotationCost(data, q, q_iori, q_iori)
+    assert c_stab_q is not None
+
+    c_sqrt_stab = pycolmap.inertial.InertialRotationCost(
+        data, rig, sqrt_info, q_iori, q_iori
+    )
+    assert c_sqrt_stab is not None
 
 
 def test_inertial_global_positioning_cost_constructs() -> None:
