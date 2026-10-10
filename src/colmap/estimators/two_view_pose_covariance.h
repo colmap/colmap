@@ -31,24 +31,13 @@ struct TwoViewPoseCovarianceOptions {
   double max_rotation_sigma_deg = 60.0;
 };
 
-struct TwoViewPoseCovariance {
-  // 3x3 marginal rotation covariance in camera 1's local tangent frame
-  // (corresponding to right perturbation R21 * Exp(delta_theta)). Unset if the
-  // rotation is degenerate.
-  std::optional<Eigen::Matrix3d> cov_rot;
-
-  // Estimated observation noise standard deviation in pixels.
-  double sigma_obs_px = 0.0;
-
-  // Number of valid inlier correspondences used.
-  size_t num_inliers = 0;
-};
-
-// Estimate the marginal relative-pose uncertainty from the tangent Sampson
-// Jacobian (or 2D tangent ray alignment for panoramic pairs) evaluated at
-// `geometry.cam2_from_cam1` over `geometry.inlier_matches`. Returns nullopt if
-// the relative pose is missing or has too few valid inliers.
-std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
+// Estimate the marginal relative-rotation covariance in camera 1's local
+// tangent frame (corresponding to right perturbation R21 * Exp(delta_theta))
+// from the tangent Sampson Jacobian (or 2D tangent ray alignment for panoramic
+// pairs) evaluated at `geometry.cam2_from_cam1` over `geometry.inlier_matches`.
+// Returns nullopt if the relative pose is missing, has too few valid inliers,
+// or the rotation is degenerate.
+std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,

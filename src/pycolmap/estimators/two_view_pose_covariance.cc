@@ -35,12 +35,6 @@ void BindTwoViewPoseCovarianceEstimator(py::module& m) {
               "covariance is returned.");
   MakeDataclass(PyTwoViewPoseCovarianceOptions);
 
-  py::classh<TwoViewPoseCovariance>(m, "TwoViewPoseCovariance")
-      .def(py::init<>())
-      .def_readwrite("cov_rot", &TwoViewPoseCovariance::cov_rot)
-      .def_readwrite("sigma_obs_px", &TwoViewPoseCovariance::sigma_obs_px)
-      .def_readwrite("num_inliers", &TwoViewPoseCovariance::num_inliers);
-
   m.def("estimate_two_view_pose_covariance",
         &EstimateTwoViewPoseCovariance,
         "camera1"_a,

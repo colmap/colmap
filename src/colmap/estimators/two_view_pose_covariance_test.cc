@@ -191,7 +191,6 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
 
   std::vector<double> nees;
   nees.reserve(kNumTrials);
-  double sum_sigma_obs = 0;
   for (int trial = 0; trial < kNumTrials; ++trial) {
     std::vector<Eigen::Vector2d> points1(kNumPoints);
     std::vector<Eigen::Vector2d> points2(kNumPoints);
@@ -227,12 +226,9 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
     }
     geometry.cam2_from_cam1 = estimated_cam2_from_cam1;
 
-    const std::optional<TwoViewPoseCovariance> cov =
-        EstimateTwoViewPoseCovariance(
-            camera, points1, camera, points2, geometry, options);
+    const std::optional<Eigen::Matrix3d> cov = EstimateTwoViewPoseCovariance(
+        camera, points1, camera, points2, geometry, options);
     ASSERT_TRUE(cov.has_value());
-    ASSERT_TRUE(cov->cov_rot.has_value());
-    EXPECT_EQ(cov->num_inliers, kNumPoints);
 
     // Right perturbation: estimated = true * Exp(delta).
     const Eigen::AngleAxisd delta_angle_axis(
@@ -240,8 +236,7 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
         estimated_cam2_from_cam1.rotation());
     const Eigen::Vector3d delta =
         delta_angle_axis.angle() * delta_angle_axis.axis();
-    nees.push_back(delta.dot(cov->cov_rot->ldlt().solve(delta)));
-    sum_sigma_obs += cov->sigma_obs_px;
+    nees.push_back(delta.dot(cov->ldlt().solve(delta)));
   }
 
   // The first-order covariance is exact only asymptotically, so a few trials
@@ -254,14 +249,11 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
       std::count_if(
           nees.begin(), nees.end(), [](double v) { return v > 11.34; }) /
       static_cast<double>(kNumTrials);
-  const double mean_sigma_obs = sum_sigma_obs / kNumTrials;
   LOG(INFO) << test_case.name << ": median NEES=" << median_nees
-            << ", tail fraction=" << tail_fraction
-            << ", mean sigma_obs=" << mean_sigma_obs;
+            << ", tail fraction=" << tail_fraction;
   EXPECT_GT(median_nees, 1.9);
   EXPECT_LT(median_nees, 2.9);
   EXPECT_LT(tail_fraction, 0.05);
-  EXPECT_NEAR(mean_sigma_obs, kPoint2DStddev, 0.15);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -297,7 +289,7 @@ TEST(EstimateTwoViewPoseCovariance, Nominal) {
   ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
 
   TwoViewPoseCovarianceOptions options;
-  const std::optional<TwoViewPoseCovariance> cov =
+  const std::optional<Eigen::Matrix3d> cov =
       EstimateTwoViewPoseCovariance(data.camera1,
                                     data.points1,
                                     data.camera2,
@@ -305,25 +297,20 @@ TEST(EstimateTwoViewPoseCovariance, Nominal) {
                                     geometry,
                                     options);
   ASSERT_TRUE(cov.has_value());
-  ASSERT_TRUE(cov->cov_rot.has_value());
-  EXPECT_TRUE(cov->cov_rot->isApprox(cov->cov_rot->transpose()));
-  EXPECT_GT(cov->cov_rot->ldlt().vectorD().minCoeff(), 0);
-  // Noise-free observations are clamped to the minimum observation noise.
-  EXPECT_EQ(cov->sigma_obs_px, options.min_sigma_obs_px);
+  EXPECT_TRUE(cov->isApprox(cov->transpose()));
+  EXPECT_GT(cov->ldlt().vectorD().minCoeff(), 0);
 
   // The rotation is degenerate if less certain than the maximum sigma.
   const double max_sigma_deg =
-      RadToDeg(std::sqrt(cov->cov_rot->eigenvalues().real().maxCoeff()));
+      RadToDeg(std::sqrt(cov->eigenvalues().real().maxCoeff()));
   options.max_rotation_sigma_deg = 0.5 * max_sigma_deg;
-  const std::optional<TwoViewPoseCovariance> cov_degenerate =
-      EstimateTwoViewPoseCovariance(data.camera1,
-                                    data.points1,
-                                    data.camera2,
-                                    data.points2,
-                                    geometry,
-                                    options);
-  ASSERT_TRUE(cov_degenerate.has_value());
-  EXPECT_FALSE(cov_degenerate->cov_rot.has_value());
+  EXPECT_FALSE(EstimateTwoViewPoseCovariance(data.camera1,
+                                             data.points1,
+                                             data.camera2,
+                                             data.points2,
+                                             geometry,
+                                             options)
+                   .has_value());
 }
 
 TEST(EstimateTwoViewPoseCovariance, MissingPoseOrTooFewInliers) {

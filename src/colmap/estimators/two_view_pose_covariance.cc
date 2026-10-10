@@ -77,18 +77,10 @@ double EstimateObservationNoise(std::vector<double> abs_residuals,
   return std::max(sigma, min_sigma);
 }
 
-// Information matrix of N pose parameters, scaled by the observation noise
-// estimated from the residuals.
-template <int N>
-struct PoseInformation {
-  Eigen::Matrix<double, N, N> information;
-  double sigma_obs_px = 0.0;
-};
-
 // Information matrix of the relative rotation under a pure-rotation
 // (zero-baseline) model, in which each correspondence constrains the 2D
 // tangent plane orthogonal to ray2 via c_i = B2^T (R21 * ray1).
-std::optional<PoseInformation<3>> EstimatePanoramicRotationInformation(
+std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
     const InlierCamRaysWithJac& rays,
     const Eigen::Quaterniond& cam2_from_cam1_rotation,
     double min_sigma_obs_px) {
@@ -133,18 +125,15 @@ std::optional<PoseInformation<3>> EstimatePanoramicRotationInformation(
   if (abs_residuals.size() < 6) {
     return std::nullopt;
   }
-  PoseInformation<3> result;
-  result.sigma_obs_px = EstimateObservationNoise(
+  const double sigma_obs_px = EstimateObservationNoise(
       std::move(abs_residuals), /*num_params=*/3, min_sigma_obs_px);
-  result.information =
-      unscaled_information / (result.sigma_obs_px * result.sigma_obs_px);
-  return result;
+  return unscaled_information / (sigma_obs_px * sigma_obs_px);
 }
 
 // Information matrix of the relative pose from the tangent Sampson errors,
 // w.r.t. the right perturbation of the rotation and the perturbation of the
 // translation direction on the tangent space of S^2.
-PoseInformation<5> EstimateRelativePoseInformation(
+Eigen::Matrix<double, 5, 5> EstimateRelativePoseInformation(
     const InlierCamRaysWithJac& rays,
     const Rigid3d& cam2_from_cam1,
     double min_sigma_obs_px) {
@@ -168,12 +157,9 @@ PoseInformation<5> EstimateRelativePoseInformation(
   for (size_t i = 0; i < num_inliers; ++i) {
     abs_residuals[i] = std::abs(residuals(i));
   }
-  PoseInformation<5> result;
-  result.sigma_obs_px = EstimateObservationNoise(
+  const double sigma_obs_px = EstimateObservationNoise(
       std::move(abs_residuals), /*num_params=*/5, min_sigma_obs_px);
-  result.information =
-      (J_tan.transpose() * J_tan) / (result.sigma_obs_px * result.sigma_obs_px);
-  return result;
+  return (J_tan.transpose() * J_tan) / (sigma_obs_px * sigma_obs_px);
 }
 
 // Marginalizes the translation direction out of the relative pose information
@@ -232,7 +218,7 @@ std::optional<Eigen::Matrix3d> RotationCovarianceFromInformation(
 
 }  // namespace
 
-std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
+std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
@@ -260,31 +246,21 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
     return std::nullopt;
   }
 
-  TwoViewPoseCovariance result;
-  result.num_inliers = num_inliers;
   std::optional<Eigen::Matrix3d> rotation_information;
   if (is_panoramic) {
-    const std::optional<PoseInformation<3>> rotation_info =
-        EstimatePanoramicRotationInformation(
-            rays, cam2_from_cam1.rotation(), options.min_sigma_obs_px);
-    if (rotation_info.has_value()) {
-      rotation_information = rotation_info->information;
-      result.sigma_obs_px = rotation_info->sigma_obs_px;
-    }
+    rotation_information = EstimatePanoramicRotationInformation(
+        rays, cam2_from_cam1.rotation(), options.min_sigma_obs_px);
   } else {
-    const PoseInformation<5> pose_info = EstimateRelativePoseInformation(
-        rays, cam2_from_cam1, options.min_sigma_obs_px);
-    result.sigma_obs_px = pose_info.sigma_obs_px;
     rotation_information =
-        MarginalizeTranslationDirection(pose_info.information);
+        MarginalizeTranslationDirection(EstimateRelativePoseInformation(
+            rays, cam2_from_cam1, options.min_sigma_obs_px));
   }
   if (!rotation_information.has_value()) {
     return std::nullopt;
   }
 
-  result.cov_rot = RotationCovarianceFromInformation(
-      *rotation_information, options.max_rotation_sigma_deg);
-  return result;
+  return RotationCovarianceFromInformation(*rotation_information,
+                                           options.max_rotation_sigma_deg);
 }
 
 namespace {
@@ -321,18 +297,13 @@ std::optional<Eigen::Matrix3d> EstimateEdgeRotationCovariance(
           image_id1, image_id2, /*extract_inlier_matches=*/true);
   two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
 
-  const std::optional<TwoViewPoseCovariance> cov =
-      EstimateTwoViewPoseCovariance(
-          database_cache.Camera(database_cache.Image(image_id1).CameraId()),
-          image_points.at(image_id1),
-          database_cache.Camera(database_cache.Image(image_id2).CameraId()),
-          image_points.at(image_id2),
-          two_view_geometry,
-          options);
-  if (!cov.has_value()) {
-    return std::nullopt;
-  }
-  return cov->cov_rot;
+  return EstimateTwoViewPoseCovariance(
+      database_cache.Camera(database_cache.Image(image_id1).CameraId()),
+      image_points.at(image_id1),
+      database_cache.Camera(database_cache.Image(image_id2).CameraId()),
+      image_points.at(image_id2),
+      two_view_geometry,
+      options);
 }
 
 }  // namespace
