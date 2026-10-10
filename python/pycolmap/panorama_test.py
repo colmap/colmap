@@ -8,11 +8,65 @@ import pytest
 import pycolmap
 
 from .panorama import (
+    PANO_RENDER_OPTIONS,
+    PanoProcessor,
     PanoramaReconstructionOptions,
+    PanoRenderType,
     filter_database_by_covisibility,
     get_virtual_rotations,
     run_perspective,
 )
+
+
+@pytest.mark.parametrize("mode", ["P", "CMYK", "RGB", "RGBA", "L", "LA"])
+def test_process_preserves_image_colors(tmp_path: Path, mode: str) -> None:
+    pytest.importorskip("cv2")
+    image_module = pytest.importorskip("PIL.Image")
+    image = image_module.new("RGB", (128, 64), (32, 96, 160))
+    image = image.quantize(colors=1) if mode == "P" else image.convert(mode)
+    pano_name = "pano.jpg" if mode == "CMYK" else "pano.png"
+    image.save(tmp_path / pano_name)
+    with image_module.open(tmp_path / pano_name) as source:
+        expected_color = np.asarray(source.convert("RGB"))[0, 0]
+
+    processor = PanoProcessor(
+        tmp_path,
+        tmp_path / "images",
+        tmp_path / "masks",
+        PANO_RENDER_OPTIONS[PanoRenderType.PERSPECTIVE_NON_OVERLAPPING],
+    )
+    processor.process(pano_name)
+
+    for cam_idx in range(4):
+        image_path = tmp_path / "images" / f"pano_camera{cam_idx}" / pano_name
+        with image_module.open(image_path) as rendered:
+            pixels = np.asarray(rendered.convert("RGB"))
+            np.testing.assert_allclose(
+                pixels,
+                np.broadcast_to(expected_color, pixels.shape),
+                atol=1,
+                rtol=0,
+            )
+
+
+def test_process_preserves_palette_transparency(tmp_path: Path) -> None:
+    pytest.importorskip("cv2")
+    image_module = pytest.importorskip("PIL.Image")
+    image = image_module.new("RGB", (128, 64), (32, 96, 160)).quantize(colors=1)
+    image.save(tmp_path / "pano.png", transparency=image.getpixel((0, 0)))
+    processor = PanoProcessor(
+        tmp_path,
+        tmp_path / "images",
+        tmp_path / "masks",
+        PANO_RENDER_OPTIONS[PanoRenderType.PERSPECTIVE_NON_OVERLAPPING],
+    )
+    processor.process("pano.png")
+
+    for cam_idx in range(4):
+        image_path = tmp_path / "images" / f"pano_camera{cam_idx}/pano.png"
+        with image_module.open(image_path) as rendered:
+            assert rendered.mode == "RGBA"
+            assert not np.asarray(rendered)[..., 3].any()
 
 
 def test_get_virtual_rotations() -> None:
