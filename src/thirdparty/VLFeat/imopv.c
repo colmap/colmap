@@ -36,6 +36,7 @@ the terms of the BSD license (see the COPYING file).
 
 #include "imopv.h"
 #include "imopv_sse2.h"
+#include "imopv_neon.h"
 #include "mathop.h"
 
 #define FLT VL_TYPE_FLOAT
@@ -131,6 +132,19 @@ VL_XCAT(vl_imconvcol_v, SFX)
   vl_bool zeropad = (flags & VL_PAD_MASK) == VL_PAD_BY_ZERO ;
 
   /* dispatch to accelerated version */
+#if (FLT == VL_TYPE_FLOAT) && !defined(VL_DISABLE_NEON)
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+  if (vl_get_simd_enabled()) {
+    VL_XCAT3(_vl_imconvcol_v,SFX,_neon)
+    (dst,dst_stride,
+     src,src_width,src_height,src_stride,
+     filt,filt_begin,filt_end,
+     step,flags) ;
+    return ;
+  }
+#endif
+#endif
+
 #ifndef VL_DISABLE_SSE2
   if (vl_cpu_has_sse2() && vl_get_simd_enabled()) {
     VL_XCAT3(_vl_imconvcol_v,SFX,_sse2)
