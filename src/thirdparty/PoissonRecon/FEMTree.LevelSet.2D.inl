@@ -687,7 +687,7 @@ public:
 									{
 										char desired = 1 , expected = 0;
 #ifdef SANITIZED_PR
-										if( edgeSet.compare_exchange_weak( expected , desired ) )
+										if( edgeSet.compare_exchange_strong( expected , desired ) )
 #else // !SANITIZED_PR
 										if( SetAtomic( edgeSet , desired , expected ) )
 #endif // SANITIZED_PR
