@@ -255,7 +255,7 @@ class PanoProcessor:
 
         pano_path = self.pano_image_dir / pano_name
         try:
-            pano_pil_image = PIL.Image.open(pano_path)
+            pano_pil_image: PIL.Image.Image = PIL.Image.open(pano_path)
         except PIL.Image.UnidentifiedImageError:
             logging.info(f"Skipping file {pano_path} as it cannot be read.")
             return
@@ -266,6 +266,11 @@ class PanoProcessor:
             PIL.ExifTags.IFD.GPSInfo
         )
 
+        # Resolve palette indices and CMYK colors before interpolating pixels.
+        if pano_pil_image.mode in ("P", "CMYK"):
+            pano_pil_image = pano_pil_image.convert(
+                "RGBA" if "transparency" in pano_pil_image.info else "RGB"
+            )
         pano_image = np.asarray(pano_pil_image)
         pano_height, pano_width, *_ = pano_image.shape
         if pano_width != pano_height * 2:
