@@ -52,10 +52,10 @@ inline Eigen::Matrix<double, 6, 6> ExtractRotationGyroBiasCovariance(
     const Eigen::Matrix<double, 15, 15>& cov) {
   // Indices: {0, 1, 2, 9, 10, 11}
   Eigen::Matrix<double, 6, 6> sub;
-  const std::array<int, 6> idx = {0, 1, 2, 9, 10, 11};
+  constexpr static std::array<int, 6> kIdx = {0, 1, 2, 9, 10, 11};
   for (int r = 0; r < 6; ++r) {
     for (int c = 0; c < 6; ++c) {
-      sub(r, c) = cov(idx[r], idx[c]);
+      sub(r, c) = cov(kIdx[r], kIdx[c]);
     }
   }
   return sub;
@@ -65,10 +65,10 @@ inline Eigen::Matrix<double, 9, 9> ExtractPositionVelocityAccelBiasCovariance(
     const Eigen::Matrix<double, 15, 15>& cov) {
   // Indices: {3, 4, 5, 6, 7, 8, 12, 13, 14}
   Eigen::Matrix<double, 9, 9> sub;
-  const std::array<int, 9> idx = {3, 4, 5, 6, 7, 8, 12, 13, 14};
+  constexpr static std::array<int, 9> kIdx = {3, 4, 5, 6, 7, 8, 12, 13, 14};
   for (int r = 0; r < 9; ++r) {
     for (int c = 0; c < 9; ++c) {
-      sub(r, c) = cov(idx[r], idx[c]);
+      sub(r, c) = cov(kIdx[r], kIdx[c]);
     }
   }
   return sub;
