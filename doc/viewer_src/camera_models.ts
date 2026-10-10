@@ -20,10 +20,11 @@ export const CAMERA_MODEL_NAMES = [
   "EUCM",
   "EQUIRECTANGULAR",
   "SKEWED_PINHOLE",
+  "BROWN_CONRADY",
 ] as const;
 
 export const CAMERA_MODEL_PARAM_COUNTS = [
-  3, 4, 4, 5, 8, 8, 12, 5, 4, 5, 12, 16, 4, 5, 3, 4, 6, 2, 5,
+  3, 4, 4, 5, 8, 8, 12, 5, 4, 5, 12, 16, 4, 5, 3, 4, 6, 2, 5, 8,
 ] as const;
 
 function fisheyeFromNormal(u: number, v: number): Vec2 {
@@ -56,6 +57,20 @@ function opencvDistortion(u: number, v: number, p: number[]): Vec2 {
   const uv = u * v;
   const r2 = u2 + v2;
   const factor = 1 + k1 * r2 + k2 * r2 * r2;
+  return [
+    u * factor + 2 * p1 * uv + p2 * (r2 + 2 * u2),
+    v * factor + 2 * p2 * uv + p1 * (r2 + 2 * v2),
+  ];
+}
+
+function brownConradyDistortion(u: number, v: number, p: number[]): Vec2 {
+  const [k1 = 0, k2 = 0, k3 = 0, p1 = 0, p2 = 0] = p;
+  const u2 = u * u;
+  const v2 = v * v;
+  const uv = u * v;
+  const r2 = u2 + v2;
+  const r4 = r2 * r2;
+  const factor = 1 + k1 * r2 + k2 * r4 + k3 * r4 * r2;
   return [
     u * factor + 2 * p1 * uv + p2 * (r2 + 2 * u2),
     v * factor + 2 * p2 * uv + p1 * (r2 + 2 * v2),
@@ -182,8 +197,9 @@ export function project(camera: Camera, pointInCamera: Vec3): Vec2 | null {
     case 9: normalized = radial(normalized[0], normalized[1], p.slice(3, 5)); break;
     case 10: normalized = thinPrismDistortion(normalized[0], normalized[1], p.slice(4)); break;
     case 11: normalized = radTanThinPrism(normalized[0], normalized[1], p.slice(4)); break;
+    case 19: normalized = brownConradyDistortion(normalized[0], normalized[1], p.slice(3)); break;
   }
-  return [0, 2, 3, 8, 9, 14].includes(model)
+  return [0, 2, 3, 8, 9, 14, 19].includes(model)
     ? pinhole(p, normalized, true)
     : pinhole(p, normalized, false);
 }

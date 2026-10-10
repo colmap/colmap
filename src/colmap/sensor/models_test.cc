@@ -364,6 +364,17 @@ TEST(Radial, Nominal) {
   TestModel<RadialCameraModel>({651.123, 386.123, 511.123, 0.05, 0.03});
 }
 
+TEST(BrownConrady, Nominal) {
+  TestModel<BrownConradyCameraModel>(
+      {651.123, 386.123, 511.123, 0, 0, 0, 0, 0});
+  TestModel<BrownConradyCameraModel>(
+      {651.123, 386.123, 511.123, -0.471, 0.223, -0.05, -0.001, 0.001});
+  TestModel<BrownConradyCameraModel>(
+      {651.123, 386.123, 511.123, 0.1, 0.05, 0.01, 0, 0});
+  TestModel<BrownConradyCameraModel>(
+      {651.123, 386.123, 511.123, 0, 0, 0, -0.001, 0.001});
+}
+
 TEST(OpenCV, Nominal) {
   TestModel<OpenCVCameraModel>(
       {651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001});
