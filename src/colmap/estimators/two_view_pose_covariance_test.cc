@@ -233,7 +233,6 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
     ASSERT_TRUE(cov.has_value());
     ASSERT_TRUE(cov->cov_rot.has_value());
     EXPECT_EQ(cov->num_inliers, kNumPoints);
-    EXPECT_EQ(cov->cov_trans_tangent.has_value(), !is_panoramic);
 
     // Right perturbation: estimated = true * Exp(delta).
     const Eigen::AngleAxisd delta_angle_axis(
@@ -309,10 +308,6 @@ TEST(EstimateTwoViewPoseCovariance, Nominal) {
   ASSERT_TRUE(cov->cov_rot.has_value());
   EXPECT_TRUE(cov->cov_rot->isApprox(cov->cov_rot->transpose()));
   EXPECT_GT(cov->cov_rot->ldlt().vectorD().minCoeff(), 0);
-  ASSERT_TRUE(cov->cov_trans_tangent.has_value());
-  EXPECT_TRUE(
-      cov->cov_trans_tangent->isApprox(cov->cov_trans_tangent->transpose()));
-  EXPECT_GT(cov->cov_trans_tangent->ldlt().vectorD().minCoeff(), 0);
   // Noise-free observations are clamped to the minimum observation noise.
   EXPECT_EQ(cov->sigma_obs_px, options.min_sigma_obs_px);
 
@@ -329,7 +324,6 @@ TEST(EstimateTwoViewPoseCovariance, Nominal) {
                                     options);
   ASSERT_TRUE(cov_degenerate.has_value());
   EXPECT_FALSE(cov_degenerate->cov_rot.has_value());
-  EXPECT_EQ(cov_degenerate->cov_trans_tangent, cov->cov_trans_tangent);
 }
 
 TEST(EstimateTwoViewPoseCovariance, MissingPoseOrTooFewInliers) {

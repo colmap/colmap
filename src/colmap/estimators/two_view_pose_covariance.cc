@@ -176,19 +176,11 @@ PoseInformation<5> EstimateRelativePoseInformation(
   return result;
 }
 
-// Marginals of the relative rotation and translation direction. Each is unset
-// if degenerate.
-struct MarginalRelativePose {
-  std::optional<Eigen::Matrix3d> rotation_information;
-  std::optional<Eigen::Matrix2d> translation_cov;
-};
-
 // Marginalizes the translation direction out of the relative pose information
 // with the Schur complement, excluding only numerically null directions of its
-// information. Also returns the marginal translation direction covariance.
-MarginalRelativePose MarginalizeTranslationDirection(
+// information.
+std::optional<Eigen::Matrix3d> MarginalizeTranslationDirection(
     const Eigen::Matrix<double, 5, 5>& information) {
-  MarginalRelativePose marginals;
   const Eigen::Matrix3d Lambda_RR = information.topLeftCorner<3, 3>();
   const Eigen::Matrix<double, 3, 2> Lambda_Rt =
       information.topRightCorner<3, 2>();
@@ -196,7 +188,7 @@ MarginalRelativePose MarginalizeTranslationDirection(
 
   const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> trans_eig(Lambda_tt);
   if (trans_eig.info() != Eigen::Success) {
-    return marginals;
+    return std::nullopt;
   }
   const Eigen::Vector2d& trans_evals = trans_eig.eigenvalues();
   const Eigen::Matrix2d& trans_evecs = trans_eig.eigenvectors();
@@ -212,34 +204,7 @@ MarginalRelativePose MarginalizeTranslationDirection(
     }
   }
 
-  if (trans_evals(0) > trans_thresh) {
-    const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> rot_eig(Lambda_RR);
-    if (rot_eig.info() == Eigen::Success &&
-        rot_eig.eigenvalues()(0) >
-            kMinRelativeEigenvalue * std::max(0.0, rot_eig.eigenvalues()(2))) {
-      const Eigen::Matrix3d Lambda_RR_inv =
-          rot_eig.eigenvectors() *
-          rot_eig.eigenvalues().cwiseInverse().asDiagonal() *
-          rot_eig.eigenvectors().transpose();
-      const Eigen::Matrix2d Lambda_t_eff =
-          Lambda_tt - Lambda_Rt.transpose() * Lambda_RR_inv * Lambda_Rt;
-      const Eigen::SelfAdjointEigenSolver<Eigen::Matrix2d> t_eff_eig(
-          Lambda_t_eff);
-      if (t_eff_eig.info() == Eigen::Success &&
-          t_eff_eig.eigenvalues()(0) >
-              kMinRelativeEigenvalue *
-                  std::max(0.0, t_eff_eig.eigenvalues()(1))) {
-        marginals.translation_cov =
-            t_eff_eig.eigenvectors() *
-            t_eff_eig.eigenvalues().cwiseInverse().asDiagonal() *
-            t_eff_eig.eigenvectors().transpose();
-      }
-    }
-  }
-
-  marginals.rotation_information =
-      Lambda_RR - Lambda_Rt * Lambda_tt_pinv * Lambda_Rt.transpose();
-  return marginals;
+  return Lambda_RR - Lambda_Rt * Lambda_tt_pinv * Lambda_Rt.transpose();
 }
 
 // Inverts the rotation information into a covariance. Returns nullopt if the
@@ -310,10 +275,8 @@ std::optional<TwoViewPoseCovariance> EstimateTwoViewPoseCovariance(
     const PoseInformation<5> pose_info = EstimateRelativePoseInformation(
         rays, cam2_from_cam1, options.min_sigma_obs_px);
     result.sigma_obs_px = pose_info.sigma_obs_px;
-    const MarginalRelativePose marginals =
+    rotation_information =
         MarginalizeTranslationDirection(pose_info.information);
-    rotation_information = marginals.rotation_information;
-    result.cov_trans_tangent = marginals.translation_cov;
   }
   if (!rotation_information.has_value()) {
     return std::nullopt;

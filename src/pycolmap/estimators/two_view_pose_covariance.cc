@@ -38,8 +38,6 @@ void BindTwoViewPoseCovarianceEstimator(py::module& m) {
   py::classh<TwoViewPoseCovariance>(m, "TwoViewPoseCovariance")
       .def(py::init<>())
       .def_readwrite("cov_rot", &TwoViewPoseCovariance::cov_rot)
-      .def_readwrite("cov_trans_tangent",
-                     &TwoViewPoseCovariance::cov_trans_tangent)
       .def_readwrite("sigma_obs_px", &TwoViewPoseCovariance::sigma_obs_px)
       .def_readwrite("num_inliers", &TwoViewPoseCovariance::num_inliers);
 

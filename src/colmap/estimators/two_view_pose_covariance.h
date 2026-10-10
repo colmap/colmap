@@ -37,11 +37,6 @@ struct TwoViewPoseCovariance {
   // rotation is degenerate.
   std::optional<Eigen::Matrix3d> cov_rot;
 
-  // 2x2 marginal translation covariance on the tangent space of S^2 at
-  // cam2_from_cam1.translation().normalized(). Unset for panoramic pairs or if
-  // the translation direction is degenerate.
-  std::optional<Eigen::Matrix2d> cov_trans_tangent;
-
   // Estimated observation noise standard deviation in pixels.
   double sigma_obs_px = 0.0;
 

@@ -44,8 +44,6 @@ def test_estimate_two_view_pose_covariance() -> None:
     assert cov is not None
     assert cov.num_inliers == len(points1)
     assert cov.cov_rot is not None
-    assert cov.cov_trans_tangent is not None
-    assert cov.cov_trans_tangent.shape == (2, 2)
     assert cov.cov_rot.shape == (3, 3)
     np.testing.assert_allclose(cov.cov_rot, cov.cov_rot.T)
     assert np.all(np.linalg.eigvalsh(cov.cov_rot) > 0)
