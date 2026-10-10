@@ -25,8 +25,8 @@ void BindTwoViewPoseCovarianceEstimator(py::module& m) {
           .def(py::init<>())
           .def_readwrite("num_threads",
                          &TwoViewPoseCovarianceOptions::num_threads)
-          .def_readwrite("min_sigma_obs_px",
-                         &TwoViewPoseCovarianceOptions::min_sigma_obs_px)
+          .def_readwrite("point2D_stddev_px",
+                         &TwoViewPoseCovarianceOptions::point2D_stddev_px)
           .def_readwrite(
               "max_rotation_sigma_deg",
               &TwoViewPoseCovarianceOptions::max_rotation_sigma_deg,

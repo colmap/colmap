@@ -60,34 +60,16 @@ InlierCamRaysWithJac ExtractInlierCamRaysWithJac(
   return rays;
 }
 
-// Robustly estimates the standard deviation of the observation noise from the
-// absolute residuals of a model with num_params parameters.
-double EstimateObservationNoise(std::vector<double> abs_residuals,
-                                int num_params,
-                                double min_sigma) {
-  // Ratio between the standard deviation and the median absolute value of a
-  // zero-mean normal distribution, i.e., 1 / Phi^-1(3/4), where Phi is its
-  // cumulative distribution function.
-  constexpr double kNormalMadScale = 1.482602218505602;
-  // Correct for the degrees of freedom absorbed by the estimated parameters.
-  const double num_residuals = static_cast<double>(abs_residuals.size());
-  const double dof_scale =
-      std::sqrt(num_residuals / std::max(1.0, num_residuals - num_params));
-  const double sigma = kNormalMadScale * dof_scale * Median(abs_residuals);
-  return std::max(sigma, min_sigma);
-}
-
 // Information matrix of the relative rotation under a pure-rotation
 // (zero-baseline) model, in which each correspondence constrains the 2D
 // tangent plane orthogonal to ray2 via c_i = B2^T (R21 * ray1).
 std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
     const InlierCamRaysWithJac& rays,
     const Eigen::Quaterniond& cam2_from_cam1_rotation,
-    double min_sigma_obs_px) {
+    double point2D_stddev_px) {
   const Eigen::Matrix3d R21 = cam2_from_cam1_rotation.toRotationMatrix();
   Eigen::Matrix3d unscaled_information = Eigen::Matrix3d::Zero();
-  std::vector<double> abs_residuals;
-  abs_residuals.reserve(2 * rays.rays1.size());
+  size_t num_valid = 0;
 
   for (size_t i = 0; i < rays.rays1.size(); ++i) {
     const Eigen::Vector3d& x1 = rays.rays1[i].ray;
@@ -98,8 +80,8 @@ std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
     Eigen::Matrix<double, 3, 2, Eigen::RowMajor> B2;
     SphereManifold<3>().PlusJacobian(x2.data(), B2.data());
 
-    // Whiten the residual with its covariance propagated from the image noise.
-    const Eigen::Vector2d c_i = B2.transpose() * (R21 * x1);
+    // Whiten the residual Jacobian with the covariance propagated from the
+    // image noise.
     const Eigen::Matrix3x2d R21_J1 = R21 * J1;
     const Eigen::Matrix2d C_i =
         B2.transpose() * (R21_J1 * R21_J1.transpose() + J2 * J2.transpose()) *
@@ -113,21 +95,16 @@ std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
     Eigen::Matrix3d x1_skew;
     x1_skew << 0.0, -x1.z(), x1.y(), x1.z(), 0.0, -x1.x(), -x1.y(), x1.x(), 0.0;
     const Eigen::Matrix<double, 2, 3> J_c = -B2.transpose() * R21 * x1_skew;
-
-    const Eigen::Vector2d e_i = llt.matrixL().solve(c_i);
     const Eigen::Matrix<double, 2, 3> J_R_i = llt.matrixL().solve(J_c);
 
-    abs_residuals.push_back(std::abs(e_i.x()));
-    abs_residuals.push_back(std::abs(e_i.y()));
     unscaled_information.noalias() += J_R_i.transpose() * J_R_i;
+    ++num_valid;
   }
 
-  if (abs_residuals.size() < 6) {
+  if (num_valid < 3) {
     return std::nullopt;
   }
-  const double sigma_obs_px = EstimateObservationNoise(
-      std::move(abs_residuals), /*num_params=*/3, min_sigma_obs_px);
-  return unscaled_information / (sigma_obs_px * sigma_obs_px);
+  return unscaled_information / (point2D_stddev_px * point2D_stddev_px);
 }
 
 // Information matrix of the relative pose from the tangent Sampson errors,
@@ -136,7 +113,7 @@ std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
 Eigen::Matrix<double, 5, 5> EstimateRelativePoseInformation(
     const InlierCamRaysWithJac& rays,
     const Rigid3d& cam2_from_cam1,
-    double min_sigma_obs_px) {
+    double point2D_stddev_px) {
   using RelativePoseManifold =
       ProductManifold<EigenQuaternionManifold, SphereManifold<3>>;
 
@@ -153,13 +130,7 @@ Eigen::Matrix<double, 5, 5> EstimateRelativePoseInformation(
   RelativePoseManifold().PlusJacobian(params.data(), plus_jac.data());
   const Eigen::Matrix<double, Eigen::Dynamic, 5> J_tan = J_amb * plus_jac;
 
-  std::vector<double> abs_residuals(num_inliers);
-  for (size_t i = 0; i < num_inliers; ++i) {
-    abs_residuals[i] = std::abs(residuals(i));
-  }
-  const double sigma_obs_px = EstimateObservationNoise(
-      std::move(abs_residuals), /*num_params=*/5, min_sigma_obs_px);
-  return (J_tan.transpose() * J_tan) / (sigma_obs_px * sigma_obs_px);
+  return (J_tan.transpose() * J_tan) / (point2D_stddev_px * point2D_stddev_px);
 }
 
 // Marginalizes the translation direction out of the relative pose information
@@ -249,11 +220,11 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
   std::optional<Eigen::Matrix3d> rotation_information;
   if (is_panoramic) {
     rotation_information = EstimatePanoramicRotationInformation(
-        rays, cam2_from_cam1.rotation(), options.min_sigma_obs_px);
+        rays, cam2_from_cam1.rotation(), options.point2D_stddev_px);
   } else {
     rotation_information =
         MarginalizeTranslationDirection(EstimateRelativePoseInformation(
-            rays, cam2_from_cam1, options.min_sigma_obs_px));
+            rays, cam2_from_cam1, options.point2D_stddev_px));
   }
   if (!rotation_information.has_value()) {
     return std::nullopt;

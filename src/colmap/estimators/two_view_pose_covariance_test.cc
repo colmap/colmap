@@ -187,7 +187,7 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
   }
 
   TwoViewPoseCovarianceOptions options;
-  options.min_sigma_obs_px = 0.01;
+  options.point2D_stddev_px = kPoint2DStddev;
 
   std::vector<double> nees;
   nees.reserve(kNumTrials);

@@ -20,10 +20,8 @@ struct TwoViewPoseCovarianceOptions {
   // auto).
   int num_threads = -1;
 
-  // Minimum observation noise standard deviation in pixels, preventing
-  // near-zero residuals on minimal configurations from producing infinite
-  // information.
-  double min_sigma_obs_px = 0.5;
+  // Standard deviation of the 2D image point observations in pixels.
+  double point2D_stddev_px = 1.0;
 
   // Maximum standard deviation (in degrees) of the relative rotation along its
   // least constrained axis, beyond which the rotation is considered
