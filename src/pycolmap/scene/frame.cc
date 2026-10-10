@@ -91,6 +91,26 @@ void BindFrame(py::module& m) {
           "rig space.")
       .def("has_pose", &Frame::HasPose, "Whether the frame has a valid pose.")
       .def("reset_pose", &Frame::ResetPose, "Invalidate the pose of the frame.")
+      .def_property(
+          "velocity_in_world",
+          [](py::object self) -> py::object {
+            Frame& frame = self.cast<Frame&>();
+            if (!frame.HasVelocity()) {
+              return py::none();
+            }
+            return py::array_t<double>(
+                {3}, {sizeof(double)}, frame.VelocityInWorld().data(), self);
+          },
+          [](Frame& self, const std::optional<Eigen::Vector3d>& velocity) {
+            self.SetVelocityInWorld(velocity);
+          },
+          "The velocity of the frame in world coordinates.")
+      .def("has_velocity",
+           &Frame::HasVelocity,
+           "Whether the frame has a valid velocity.")
+      .def("reset_velocity",
+           &Frame::ResetVelocity,
+           "Invalidate the velocity of the frame.")
       .def("sensor_from_world",
            &Frame::SensorFromWorld,
            "sensor_id"_a,

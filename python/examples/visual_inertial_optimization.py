@@ -64,7 +64,7 @@ class ImuReintegrationCallback(pyceres.IterationCallback):
         self, summary: pyceres.IterationSummary
     ) -> pyceres.CallbackReturnType:
         for integrator, data, imu_state in self.edges:
-            biases = imu_state.params[3:9]
+            biases = imu_state.params
             if self._should_reintegrate(data, biases):
                 integrator.reintegrate(biases)
                 integrator.update(data)
@@ -78,7 +78,7 @@ def add_imu_residuals(
     variables: dict[str, Any],
     optimize_scale: bool = True,
     optimize_gravity: bool = True,
-    optimize_imu_from_cam: bool = True,
+    optimize_cam_from_imu: bool = True,
     optimize_bias: bool = True,
 ) -> pyceres.Problem:
     loss = pyceres.TrivialLoss()
@@ -87,18 +87,16 @@ def add_imu_residuals(
         image_j = reconstruction.images[image_id + 1]
         assert image_i.frame is not None
         assert image_i.frame.rig is not None
-        assert len(image_i.frame.rig.non_ref_sensors) == 0, (
-            "IMU cost function requires trivial frame (no rig)"
-        )
+        assert image_i.frame.rig.ref_sensor_id.type == pycolmap.SensorType.IMU
         assert image_j.frame is not None
         assert image_j.frame.rig is not None
-        assert len(image_j.frame.rig.non_ref_sensors) == 0, (
-            "IMU cost function requires trivial frame (no rig)"
-        )
+        assert image_j.frame.rig.ref_sensor_id.type == pycolmap.SensorType.IMU
         i_from_world = image_i.frame.rig_from_world
         j_from_world = image_j.frame.rig_from_world
         assert i_from_world is not None
         assert j_from_world is not None
+        assert image_i.frame.has_velocity()
+        assert image_j.frame.has_velocity()
 
         prob.add_residual_block(
             pycolmap.inertial.AnalyticalVisualCentricImuPreintegrationCost(
@@ -108,36 +106,33 @@ def add_imu_residuals(
             [
                 variables["log_scale"],
                 variables["gravity"],
-                variables["imu_from_cam"].params,
                 i_from_world.params,
+                image_i.frame.velocity_in_world,
                 variables["imu_states"][image_id].params,
                 j_from_world.params,
+                image_j.frame.velocity_in_world,
                 variables["imu_states"][image_id + 1].params,
             ],
         )
     prob.set_manifold(variables["gravity"], pyceres.SphereManifold(3))
-    prob.set_manifold(
-        variables["imu_from_cam"].params,
-        pyceres.ProductManifold(
-            pyceres.EigenQuaternionManifold(), pyceres.EuclideanManifold(3)
-        ),
-    )
     # [Optional] fix variables.
     if not optimize_scale:
         prob.set_parameter_block_constant(variables["log_scale"])
     if not optimize_gravity:
         prob.set_parameter_block_constant(variables["gravity"])
-    if not optimize_imu_from_cam:
-        prob.set_parameter_block_constant(variables["imu_from_cam"].params)
+    for rig in reconstruction.rigs.values():
+        for sensor_id in rig.non_ref_sensors:
+            sensor_from_rig = rig.sensor_from_rig(sensor_id)
+            assert sensor_from_rig is not None
+            if prob.has_parameter_block(sensor_from_rig.params):
+                if optimize_cam_from_imu:
+                    prob.set_parameter_block_variable(sensor_from_rig.params)
+                else:
+                    prob.set_parameter_block_constant(sensor_from_rig.params)
     if not optimize_bias:
-        constant_idxs = np.arange(3, 9)
-        for imu_state in variables["imu_states"].values():
-            # States of images without IMU edges are not in the problem.
-            if not prob.has_parameter_block(imu_state.params):
-                continue
-            prob.set_manifold(
-                imu_state.params, pyceres.SubsetManifold(9, constant_idxs)
-            )
+        for state in variables["imu_states"].values():
+            if prob.has_parameter_block(state.params):
+                prob.set_parameter_block_constant(state.params)
     return prob
 
 
@@ -231,6 +226,14 @@ def run_iterative(
     )
     for _ in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
+        for image_id in reconstruction.reg_image_ids():
+            img = reconstruction.images[image_id]
+            if img.frame is not None and not img.frame.has_velocity():
+                img.frame.velocity_in_world = np.zeros(3)
+            if image_id not in variables["imu_states"]:
+                variables["imu_states"][image_id] = pycolmap.ImuState(
+                    np.zeros(3), np.zeros(3)
+                )
         adjust_global_bundle(
             mapper,
             mapper_options,
@@ -295,8 +298,55 @@ def iterative_refine(
         database_cache = pycolmap.DatabaseCache.create(database, cache_options)
     mapper = pycolmap.IncrementalMapper(database_cache)
     mapper.begin_reconstruction(recon)
+
+    orig_cam_from_world = {
+        image_id: recon.images[image_id].cam_from_world()
+        for image_id in recon.reg_image_ids()
+    }
+    imu = pycolmap.Imu()
+    imu.imu_id = 1
+    for rig_id in list(recon.rigs.keys()):
+        camera = recon.cameras[1]
+        rig = pycolmap.Rig()
+        rig.rig_id = rig_id
+        rig.add_ref_sensor(imu.sensor_id)
+        rig.add_sensor(camera.sensor_id, pycolmap.Rigid3d())
+        recon.rigs[rig_id] = rig
+
+    for image_id, cam_from_world in orig_cam_from_world.items():
+        image = recon.images[image_id]
+        if image.frame is not None:
+            image.frame.set_cam_from_world(image.camera_id, cam_from_world)
+            if (
+                "initial_velocities" in variables
+                and image_id in variables["initial_velocities"]
+            ):
+                image.frame.velocity_in_world = variables["initial_velocities"][
+                    image_id
+                ]
+            elif not image.frame.has_velocity():
+                image.frame.velocity_in_world = np.zeros(3)
+
     options = pycolmap.IncrementalPipelineOptions()
     options.fix_existing_frames = False
+
+    # Warm-start IMU states, gravity, scale, and cam_from_imu with 3D points
+    # fixed.
+    init_ba_options = options.get_global_bundle_adjustment()
+    init_ba_options.refine_points3D = False
+    init_ba_options.refine_focal_length = False
+    init_ba_options.refine_extra_params = False
+    init_ba_config = pycolmap.BundleAdjustmentConfig()
+    for image_id in recon.reg_image_ids():
+        init_ba_config.add_image(image_id)
+    solve_bundle_adjustment(
+        recon, init_ba_options, init_ba_config, integrators, imu_data, variables
+    )
+    for image_id, cam_from_world in orig_cam_from_world.items():
+        image = recon.images[image_id]
+        if image.frame is not None:
+            image.frame.set_cam_from_world(image.camera_id, cam_from_world)
+
     iterative_global_refinement(
         options,
         options.get_mapper(),
@@ -315,13 +365,14 @@ def run_visual_inertial_optimization(
     integrators: dict[int, pycolmap.inertial.ImuPreintegrator],
     imu_data: dict[int, pycolmap.inertial.PreintegratedImuData],
     variables: dict[str, Any],
-) -> None:
+) -> pycolmap.Reconstruction:
     rec = pycolmap.Reconstruction(sfm_path)
     os.makedirs(output_folder, exist_ok=True)
     rec_optimized = iterative_refine(
         database_path, rec, integrators, imu_data, variables
     )
     rec_optimized.write(output_folder)
+    return rec_optimized
 
 
 def download_data() -> None:
@@ -397,10 +448,10 @@ def run() -> None:
 
     # Set up variables.
     variables: dict[str, Any] = {}
-    variables["imu_from_cam"] = pycolmap.Rigid3d()
     variables["gravity"] = np.array([0.0, 0.0, -1.0])
     variables["log_scale"] = np.array([0.0])
     variables["imu_states"] = {}
+    initial_velocities: dict[int, np.ndarray] = {}
     for i in range(1, num_images + 1):
         # Finite-difference velocity, backward for the last image.
         j, k = (i, i + 1) if i < num_images else (i - 1, i)
@@ -409,12 +460,12 @@ def run() -> None:
         )
         pj = reconstruction.images[j].cam_from_world().inverse().translation
         pk = reconstruction.images[k].cam_from_world().inverse().translation
-        vel = (pk - pj) / dt
-        variables["imu_states"][i] = pycolmap.ImuState()
-        variables["imu_states"][i].velocity = vel
+        initial_velocities[i] = (pk - pj) / dt
+        variables["imu_states"][i] = pycolmap.ImuState(np.zeros(3), np.zeros(3))
+    variables["initial_velocities"] = initial_velocities
 
     # Iterative optimization.
-    run_visual_inertial_optimization(
+    rec_optimized = run_visual_inertial_optimization(
         sfm_path,
         database_path,
         output_path,
@@ -424,16 +475,29 @@ def run() -> None:
     )
 
     # Eval.
-    imu_from_cam = variables["imu_from_cam"]
+    rig = rec_optimized.rigs[1]
+    camera = rec_optimized.cameras[1]
+    cam_from_imu = rig.sensor_from_rig(camera.sensor_id)
+    assert cam_from_imu is not None
+    imu_from_cam = cam_from_imu.inverse()
     gravity = variables["gravity"]
     log_scale = variables["log_scale"]
     imu_states = variables["imu_states"]
     logging.info("Values after Optimization")
+    logging.info(f"cam_from_imu = {cam_from_imu}")
     logging.info(f"imu_from_cam = {imu_from_cam}")
     logging.info(f"gravity = {gravity}")
-    logging.info(f"scale = exp({log_scale}) = {np.exp(log_scale)}")
-    for image_id in range(1, 402, 50):
-        logging.info(f"imu_states[{image_id}] = {imu_states[image_id]}")
+    logging.info(
+        f"scale = exp({log_scale[0]:.6f}) = {np.exp(log_scale[0]):.6f}"
+    )
+    for image_id in range(1, min(len(rec_optimized.images) + 1, 402), 50):
+        if image_id in imu_states:
+            logging.info(f"imu_states[{image_id}] = {imu_states[image_id]}")
+        frame = rec_optimized.images[image_id].frame
+        if frame is not None and frame.has_velocity():
+            logging.info(
+                f"frame[{image_id}].velocity = {frame.velocity_in_world}"
+            )
 
 
 if __name__ == "__main__":
