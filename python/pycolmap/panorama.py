@@ -255,18 +255,30 @@ class PanoProcessor:
 
         pano_path = self.pano_image_dir / pano_name
         try:
-            pano_pil_image = PIL.Image.open(pano_path)
+            with PIL.Image.open(pano_path) as pano_file:
+                pano_exif = pano_file.getexif()
+                gpsonly_exif = PIL.Image.Exif()
+                gpsonly_exif[PIL.ExifTags.IFD.GPSInfo] = pano_exif.get_ifd(
+                    PIL.ExifTags.IFD.GPSInfo
+                )
+
+                pano_pil_image: PIL.Image.Image = pano_file
+                # Resolve palette indices and CMYK colors before
+                # interpolating pixels.
+                mode = pano_pil_image.mode
+                if mode == "CMYK":
+                    pano_pil_image = pano_pil_image.convert("RGB")
+                elif mode in ("P", "PA"):
+                    has_alpha = (
+                        mode == "PA" or "transparency" in pano_pil_image.info
+                    )
+                    pano_pil_image = pano_pil_image.convert(
+                        "RGBA" if has_alpha else "RGB"
+                    )
+                pano_image = np.asarray(pano_pil_image)
         except PIL.Image.UnidentifiedImageError:
             logging.info(f"Skipping file {pano_path} as it cannot be read.")
             return
-
-        pano_exif = pano_pil_image.getexif()
-        gpsonly_exif = PIL.Image.Exif()
-        gpsonly_exif[PIL.ExifTags.IFD.GPSInfo] = pano_exif.get_ifd(
-            PIL.ExifTags.IFD.GPSInfo
-        )
-
-        pano_image = np.asarray(pano_pil_image)
         pano_height, pano_width, *_ = pano_image.shape
         if pano_width != pano_height * 2:
             raise ValueError("Only 360° panoramas are supported.")
@@ -324,7 +336,15 @@ class PanoProcessor:
 
             image_path = self.output_image_dir / image_name
             image_path.parent.mkdir(exist_ok=True, parents=True)
-            PIL.Image.fromarray(image).save(image_path, exif=gpsonly_exif)
+            output_image = PIL.Image.fromarray(image)
+            if image_path.suffix.lower() in (".jpg", ".jpeg"):
+                # JPEG has no alpha channel; drop it instead of failing.
+                if output_image.mode == "RGBA":
+                    output_image = output_image.convert("RGB")
+                elif output_image.mode == "LA":
+                    output_image = output_image.convert("L")
+            # EXIF must be serialized: TIFF cannot save in-memory IFDs.
+            output_image.save(image_path, exif=gpsonly_exif.tobytes())
 
             mask_path = self.mask_dir / mask_name
             mask_path.parent.mkdir(exist_ok=True, parents=True)
