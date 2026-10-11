@@ -915,6 +915,30 @@ TEST(Reconstruction, Crop) {
   EXPECT_FALSE(cropped2.Image(3).HasPose());
 }
 
+TEST(Reconstruction, CropPreservesPointErrors) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+
+  Track known_track;
+  known_track.AddElement(1, 0);
+  const point3D_t known_point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), known_track);
+  reconstruction.Point3D(known_point3D_id).error = 2.5;
+
+  Track unknown_track;
+  unknown_track.AddElement(2, 0);
+  reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), unknown_track);
+
+  const Reconstruction cropped = reconstruction.Crop(Eigen::AlignedBox3d(
+      Eigen::Vector3d(-1, -1, -1), Eigen::Vector3d(1, 1, 1)));
+  ASSERT_EQ(cropped.NumPoints3D(), 2);
+  EXPECT_DOUBLE_EQ(
+      cropped.Point3D(cropped.Image(1).Point2D(0).point3D_id).error, 2.5);
+  EXPECT_DOUBLE_EQ(
+      cropped.Point3D(cropped.Image(2).Point2D(0).point3D_id).error, -1.0);
+  EXPECT_DOUBLE_EQ(cropped.ComputeMeanReprojectionError(), 2.5);
+}
+
 TEST(Reconstruction, Transform) {
   Reconstruction reconstruction;
   GenerateReconstruction(3, &reconstruction);
