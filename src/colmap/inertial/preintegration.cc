@@ -226,7 +226,11 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     // Angular velocity quantities.
     const double mag_w = gyro_true.norm();
     const double w_dt = mag_w * dt;
-    const bool small_w = (mag_w < 1e-6);
+    // Use Taylor expansions when the integrated angle is small: the closed-form
+    // coefficients below divide O(1)-cancellation numerators by powers of
+    // mag_w, which amplifies rounding noise to O(1) errors for small angles.
+    // The expansions match the closed forms to ~1e-9 relative at the cutoff.
+    const bool small_angle = (w_dt < 1e-4);
     const double cos_wt = std::cos(w_dt);
     const double sin_wt = std::sin(w_dt);
 
@@ -241,9 +245,9 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     // Incremental rotation Exp(-w*dt) via Rodrigues formula.
     // Body-from-world evolves as R_BW_{k+1} = Exp(-w*dt) * R_BW_k.
     const Eigen::Matrix3d dR =
-        small_w ? I3 - dt * w_x + (dt2 / 2) * w_x_2
-                : I3 - (sin_wt / mag_w) * w_x +
-                      ((1.0 - cos_wt) / (mag_w * mag_w)) * w_x_2;
+        small_angle ? I3 - dt * w_x + (dt2 / 2) * w_x_2
+                    : I3 - (sin_wt / mag_w) * w_x +
+                          ((1.0 - cos_wt) / (mag_w * mag_w)) * w_x_2;
 
     // Accumulated rotation before and after update.
     const Eigen::Matrix3d Rs = data->delta_R.toRotationMatrix();
@@ -251,7 +255,7 @@ class Rk4ImuIntegrator : public ImuIntegrator {
 
     // Closed-form integral coefficients for position and velocity.
     double f_1, f_2, f_3, f_4;
-    if (small_w) {
+    if (small_angle) {
       f_1 = -(dt2 * dt / 3);
       f_2 = (dt2 * dt2 / 8);
       f_3 = -(dt2 / 2);
@@ -314,7 +318,7 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     double df_dw[4][3];
     {
       double g[4];
-      if (small_w) {
+      if (small_angle) {
         g[0] = -(dt2 * dt2 * dt / 15);
         g[1] = (dt2 * dt2 * dt2 / 72);
         g[2] = -(dt2 * dt2 / 12);
@@ -402,9 +406,10 @@ class Rk4ImuIntegrator : public ImuIntegrator {
     // Midpoint rotation for k2/k3 evaluation: Exp(-w*dt/2) * Rs.
     const double half_w_dt = mag_w * 0.5 * dt;
     const Eigen::Matrix3d R_mid =
-        small_w ? I3 - 0.5 * dt * w_x + (0.125 * dt2) * w_x_2
-                : I3 - (std::sin(half_w_dt) / mag_w) * w_x +
-                      ((1.0 - std::cos(half_w_dt)) / (mag_w * mag_w)) * w_x_2;
+        small_angle
+            ? I3 - 0.5 * dt * w_x + (0.125 * dt2) * w_x_2
+            : I3 - (std::sin(half_w_dt) / mag_w) * w_x +
+                  ((1.0 - std::cos(half_w_dt)) / (mag_w * mag_w)) * w_x_2;
     const Eigen::Matrix3d R_eval_mid = R_mid * Rs;
 
     // F and G propagate the left rotation error psi, defined by
