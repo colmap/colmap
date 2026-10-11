@@ -1364,6 +1364,74 @@ TEST(Reconstruction, ReadWriteBinaryRoundtrip) {
   ExpectValidPtrs(loaded);
 }
 
+class ReconstructionReadTest : public testing::TestWithParam<bool> {};
+
+TEST_P(ReconstructionReadTest, ReplacesExistingModel) {
+  const bool binary = GetParam();
+  const auto test_dir = CreateTestDir();
+  auto write = [&](const Reconstruction& reconstruction) {
+    if (binary) {
+      reconstruction.WriteBinary(test_dir);
+    } else {
+      reconstruction.WriteText(test_dir);
+    }
+  };
+  auto read = [&](Reconstruction& reconstruction) {
+    if (binary) {
+      reconstruction.ReadBinary(test_dir);
+    } else {
+      reconstruction.ReadText(test_dir);
+    }
+  };
+
+  Reconstruction loaded;
+  GenerateReconstruction(3, &loaded);
+  loaded.AddPoint3D(100, Point3D());
+
+  Reconstruction replacement;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 2;
+  options.num_points3D = 5;
+  SynthesizeDataset(options, &replacement);
+  replacement.AddPoint3D(7, Point3D());
+  write(replacement);
+  read(loaded);
+
+  EXPECT_THAT(loaded, ReconstructionEq(replacement));
+  EXPECT_EQ(loaded.NumRegFrames(), replacement.NumRegFrames());
+  EXPECT_EQ(loaded.NumRegImages(), replacement.NumRegImages());
+  EXPECT_THAT(loaded.RegFrameIds(),
+              testing::UnorderedElementsAreArray(replacement.RegFrameIds()));
+  EXPECT_NO_THROW(loaded.RegImageIds());
+  EXPECT_EQ(loaded.AddPoint3D(Eigen::Vector3d::Zero(), Track()), 8);
+  ASSERT_TRUE(loaded.IsValid());
+  EXPECT_THAT(loaded.RegImageIds(),
+              testing::UnorderedElementsAreArray(replacement.RegImageIds()));
+  ExpectValidPtrs(loaded);
+
+  // Re-reading the same model must rebuild its registration state.
+  read(loaded);
+  EXPECT_EQ(loaded.NumRegImages(), replacement.NumRegImages());
+  EXPECT_THAT(loaded.RegImageIds(),
+              testing::UnorderedElementsAreArray(replacement.RegImageIds()));
+  EXPECT_TRUE(loaded.IsValid());
+
+  // An empty model must also replace all state from the previous read.
+  write(Reconstruction());
+  read(loaded);
+  EXPECT_EQ(loaded.NumRegFrames(), 0);
+  EXPECT_EQ(loaded.NumRegImages(), 0);
+  EXPECT_TRUE(loaded.RegImageIds().empty());
+  EXPECT_TRUE(loaded.IsValid());
+  EXPECT_EQ(loaded.AddPoint3D(Eigen::Vector3d::Zero(), Track()), 1);
+}
+
+INSTANTIATE_TEST_SUITE_P(TextAndBinary,
+                         ReconstructionReadTest,
+                         testing::Bool());
+
 TEST(Reconstruction, ReadAutoDetectFormat) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
