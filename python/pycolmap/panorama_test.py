@@ -18,16 +18,28 @@ from .panorama import (
 )
 
 
-@pytest.mark.parametrize("mode", ["P", "CMYK", "RGB", "RGBA", "L", "LA"])
+@pytest.mark.parametrize("mode", ["P", "PA", "CMYK", "RGB", "RGBA", "L", "LA"])
 def test_process_preserves_image_colors(tmp_path: Path, mode: str) -> None:
     pytest.importorskip("cv2")
     image_module = pytest.importorskip("PIL.Image")
     image = image_module.new("RGB", (128, 64), (32, 96, 160))
-    image = image.quantize(colors=1) if mode == "P" else image.convert(mode)
-    pano_name = "pano.jpg" if mode == "CMYK" else "pano.png"
+    if mode == "P":
+        image = image.quantize(colors=1)
+    elif mode == "PA":
+        # No dithering, so the solid fixture stays uniform.
+        image = image.convert("PA", dither=image_module.Dither.NONE)
+    else:
+        image = image.convert(mode)
+    # PNG cannot store CMYK; TIFF round-trips palette+alpha (PA).
+    pano_suffix = {"CMYK": "jpg", "PA": "tiff"}.get(mode, "png")
+    pano_name = f"pano.{pano_suffix}"
     image.save(tmp_path / pano_name)
     with image_module.open(tmp_path / pano_name) as source:
         expected_color = np.asarray(source.convert("RGB"))[0, 0]
+
+    # JPEG compression is lossy; the CMYK fixture must round-trip through
+    # JPEG (PNG cannot store CMYK), so it needs a wider tolerance.
+    atol = 8 if mode == "CMYK" else 1
 
     processor = PanoProcessor(
         tmp_path,
@@ -44,7 +56,7 @@ def test_process_preserves_image_colors(tmp_path: Path, mode: str) -> None:
             np.testing.assert_allclose(
                 pixels,
                 np.broadcast_to(expected_color, pixels.shape),
-                atol=1,
+                atol=atol,
                 rtol=0,
             )
 
@@ -67,6 +79,43 @@ def test_process_preserves_palette_transparency(tmp_path: Path) -> None:
         with image_module.open(image_path) as rendered:
             assert rendered.mode == "RGBA"
             assert not np.asarray(rendered)[..., 3].any()
+
+
+@pytest.mark.parametrize(
+    ("mode", "color", "expected_mode"),
+    [("RGBA", (32, 96, 160, 200), "RGB"), ("LA", (128, 200), "L")],
+)
+def test_process_drops_alpha_for_jpeg_output(
+    tmp_path: Path, mode: str, color: tuple[int, ...], expected_mode: str
+) -> None:
+    pytest.importorskip("cv2")
+    image_module = pytest.importorskip("PIL.Image")
+    image = image_module.new(mode, (128, 64), color)
+    # PNG-encoded bytes under a .jpg name, as with misnamed uploads. JPEG
+    # output cannot store alpha; it must be dropped instead of raising
+    # `OSError: cannot write mode RGBA as JPEG`.
+    image.save(tmp_path / "pano.jpg", format="PNG")
+    processor = PanoProcessor(
+        tmp_path,
+        tmp_path / "images",
+        tmp_path / "masks",
+        PANO_RENDER_OPTIONS[PanoRenderType.PERSPECTIVE_NON_OVERLAPPING],
+    )
+    processor.process("pano.jpg")
+
+    for cam_idx in range(4):
+        image_path = tmp_path / "images" / f"pano_camera{cam_idx}/pano.jpg"
+        with image_module.open(image_path) as rendered:
+            assert rendered.mode == expected_mode
+            pixels = np.asarray(rendered)
+            # JPEG output is lossy; the semi-transparent alpha is dropped
+            # rather than composited, so only the color channels remain.
+            np.testing.assert_allclose(
+                pixels,
+                np.broadcast_to(np.asarray(color[:-1]), pixels.shape),
+                atol=8,
+                rtol=0,
+            )
 
 
 def test_get_virtual_rotations() -> None:
