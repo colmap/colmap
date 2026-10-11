@@ -402,6 +402,34 @@ PreintegratedImuData IntegrateWithBiases(const Eigen::Vector3d& accel,
   return integrator.Extract();
 }
 
+// Helper: numeric gyro-bias Jacobians via central differences of the
+// trajectory integrated at zero biases.
+void NumericDbgJacobians(const Eigen::Vector3d& accel,
+                         const Eigen::Vector3d& gyro,
+                         int N,
+                         double dt,
+                         ImuIntegrationMethod method,
+                         double eps,
+                         Eigen::Matrix3d* dR_dbg,
+                         Eigen::Matrix3d* dp_dbg,
+                         Eigen::Matrix3d* dv_dbg) {
+  for (int k = 0; k < 3; ++k) {
+    Eigen::Vector6d biases_plus = Eigen::Vector6d::Zero();
+    Eigen::Vector6d biases_minus = Eigen::Vector6d::Zero();
+    biases_plus(k) += eps;
+    biases_minus(k) -= eps;
+    const PreintegratedImuData data_plus =
+        IntegrateWithBiases(accel, gyro, N, dt, biases_plus, method);
+    const PreintegratedImuData data_minus =
+        IntegrateWithBiases(accel, gyro, N, dt, biases_minus, method);
+    const Eigen::AngleAxisd dR_aa(data_minus.delta_R.inverse() *
+                                  data_plus.delta_R);
+    dR_dbg->col(k) = (dR_aa.angle() * dR_aa.axis()) / (2 * eps);
+    dp_dbg->col(k) = (data_plus.delta_p - data_minus.delta_p) / (2 * eps);
+    dv_dbg->col(k) = (data_plus.delta_v - data_minus.delta_v) / (2 * eps);
+  }
+}
+
 class BiasJacobianTest : public ::testing::TestWithParam<ImuIntegrationMethod> {
 };
 
@@ -421,28 +449,17 @@ TEST_P(BiasJacobianTest, NumericDerivative) {
 
   // Numeric Jacobians via central differences.
   Eigen::Matrix3d dR_dbg_numeric, dp_dbg_numeric, dv_dbg_numeric;
+  NumericDbgJacobians(accel,
+                      gyro,
+                      N,
+                      dt,
+                      method,
+                      kEps,
+                      &dR_dbg_numeric,
+                      &dp_dbg_numeric,
+                      &dv_dbg_numeric);
+
   Eigen::Matrix3d dp_dba_numeric, dv_dba_numeric;
-
-  for (int k = 0; k < 3; ++k) {
-    Eigen::Vector6d biases_plus = biases;
-    Eigen::Vector6d biases_minus = biases;
-    biases_plus(k) += kEps;
-    biases_minus(k) -= kEps;
-
-    PreintegratedImuData data_plus =
-        IntegrateWithBiases(accel, gyro, N, dt, biases_plus, method);
-    PreintegratedImuData data_minus =
-        IntegrateWithBiases(accel, gyro, N, dt, biases_minus, method);
-
-    Eigen::AngleAxisd dR_aa(data_minus.delta_R.inverse() * data_plus.delta_R);
-    dR_dbg_numeric.col(k) = (dR_aa.angle() * dR_aa.axis()) / (2 * kEps);
-
-    dp_dbg_numeric.col(k) =
-        (data_plus.delta_p - data_minus.delta_p) / (2 * kEps);
-    dv_dbg_numeric.col(k) =
-        (data_plus.delta_v - data_minus.delta_v) / (2 * kEps);
-  }
-
   for (int k = 0; k < 3; ++k) {
     Eigen::Vector6d biases_plus = biases;
     Eigen::Vector6d biases_minus = biases;
@@ -554,6 +571,47 @@ TEST(ImuReintegrationCallback, NoReintegrationWhenBiasBelowThreshold) {
   EXPECT_EQ(data.delta_R.coeffs(), original_delta_R.coeffs());
   EXPECT_EQ(data.delta_v, original_delta_v);
   EXPECT_EQ(data.delta_p, original_delta_p);
+}
+
+TEST(Rk4SmallRotationRate, StableForSmallRates) {
+  // Regression test: the RK4 closed-form coefficients divide O(1)-cancellation
+  // numerators by powers of the rotation rate, which corrupts the state and
+  // bias Jacobians for small but nonzero rates unless the Taylor branch below
+  // w*dt = 1e-4 is taken. Several magnitudes are probed since pre-fix failures
+  // depend on fp rounding.
+  const Eigen::Vector3d axis = Eigen::Vector3d(1, -2, 3).normalized();
+  const Eigen::Vector3d accel(0.5, -0.3, 9.81);
+  const int N = 20;
+  const double dt = 0.01;
+  const double T = N * dt;
+  constexpr double kEps = 1e-7;
+  for (const double mag : {0.0, 1e-6, 1.1e-6, 2e-6, 5e-6, 1e-5}) {
+    const Eigen::Vector3d gyro = mag * axis;
+    auto rk4 = MakeIntegrator(T, ImuIntegrationMethod::RK4);
+    FeedConstant(rk4, accel, gyro, N, dt);
+    const PreintegratedImuData data = rk4.Extract();
+
+    // Position matches MIDPOINT, which shares no code with the RK4 closed
+    // forms; their discretization differs by far less than the bound below.
+    auto midpoint = MakeIntegrator(T, ImuIntegrationMethod::MIDPOINT);
+    FeedConstant(midpoint, accel, gyro, N, dt);
+    const PreintegratedImuData data_mid = midpoint.Extract();
+    EXPECT_LE((data.delta_p - data_mid.delta_p).norm(), 1e-6) << "mag=" << mag;
+
+    // Gyro-bias Jacobians match central differences of the trajectory itself.
+    Eigen::Matrix3d dR_dbg_numeric, dp_dbg_numeric, dv_dbg_numeric;
+    NumericDbgJacobians(accel,
+                        gyro,
+                        N,
+                        dt,
+                        ImuIntegrationMethod::RK4,
+                        kEps,
+                        &dR_dbg_numeric,
+                        &dp_dbg_numeric,
+                        &dv_dbg_numeric);
+    EXPECT_LE((data.dp_dbg - dp_dbg_numeric).norm(), 1e-4) << "mag=" << mag;
+    EXPECT_LE((data.dv_dbg - dv_dbg_numeric).norm(), 1e-4) << "mag=" << mag;
+  }
 }
 
 }  // namespace
