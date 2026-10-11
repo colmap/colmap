@@ -89,7 +89,11 @@ bool FindQuadraticPolynomialRoots(const Eigen::VectorXd& coeffs,
   const double a_frac = std::frexp(a, &a_exp);
   const double b_frac = std::frexp(b, &b_exp);
   const double c_frac = std::frexp(c, &c_exp);
-  const int ac_exp = (a_exp + c_exp + 2) / 2;
+  // Floor of half the 4*a*c exponent sum. Plain integer division truncates
+  // toward zero, which rounds up for negative odd sums and would leave the
+  // scaled 4*a*c term a factor of two smaller than intended.
+  const int ac_sum = a_exp + c_exp + 2;
+  const int ac_exp = ac_sum / 2 - ((ac_sum < 0 && ac_sum % 2 != 0) ? 1 : 0);
   const int exponent =
       b == 0 ? ac_exp : (c == 0 ? b_exp : std::max(b_exp, ac_exp));
   const double scaled_b = std::scalbn(b_frac, b_exp - exponent);

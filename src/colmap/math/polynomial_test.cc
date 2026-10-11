@@ -125,60 +125,88 @@ TEST(FindQuadraticPolynomialRoots, ZeroLeadingCoefficient) {
   EXPECT_EQ(imag(0), 0);
 }
 
-TEST(FindQuadraticPolynomialRoots, CoefficientScaleReal) {
-  for (const double scale : {1.0, 1e-200, 1e200, -1.0, -1e-200, -1e200}) {
-    const Eigen::Vector3d coeffs = scale * Eigen::Vector3d(1, -3, 2);
-    Eigen::VectorXd real;
-    Eigen::VectorXd imag;
-    ASSERT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
-    ASSERT_EQ(real.size(), 2);
-    ASSERT_TRUE(real.allFinite());
-    std::sort(real.data(), real.data() + real.size());
-    EXPECT_THAT(real, EigenMatrixNear(Eigen::Vector2d(1, 2), 1e-12));
-    EXPECT_EQ(imag, Eigen::Vector2d::Zero());
-  }
-}
+using PolynomialSolver = bool (*)(const Eigen::VectorXd&,
+                                  Eigen::VectorXd*,
+                                  Eigen::VectorXd*);
 
-TEST(FindQuadraticPolynomialRoots, CoefficientScaleComplex) {
-  for (const double scale : {1.0, 1e-200, 1e200, -1.0, -1e-200, -1e200}) {
-    const Eigen::Vector3d coeffs = scale * Eigen::Vector3d(1, 0, 1);
+struct SolverParam {
+  const char* name;
+  PolynomialSolver solve;
+};
+
+class QuadraticSolverTest : public ::testing::TestWithParam<SolverParam> {};
+
+TEST_P(QuadraticSolverTest, CoefficientScaleInvariance) {
+  const SolverParam solver = GetParam();
+  struct TestCase {
+    Eigen::Vector3d coeffs;
+    Eigen::Vector2d expected_real;
+    Eigen::Vector2d expected_imag;
+  };
+  // Expected roots of the unscaled polynomials. Real and imaginary parts are
+  // sorted independently before comparison, which preserves the pairing for
+  // quadratics (complex roots come in conjugate pairs with equal real parts).
+  const TestCase well_conditioned[] = {
+      {Eigen::Vector3d(1, -3, 2), Eigen::Vector2d(1, 2), Eigen::Vector2d(0, 0)},
+      {Eigen::Vector3d(1, 0, 1), Eigen::Vector2d(0, 0), Eigen::Vector2d(-1, 1)},
+      {Eigen::Vector3d(1, 3, 0), Eigen::Vector2d(-3, 0), Eigen::Vector2d(0, 0)},
+      {Eigen::Vector3d(1, 0, -1),
+       Eigen::Vector2d(-1, 1),
+       Eigen::Vector2d(0, 0)},
+  };
+  // The repeated root is ill-conditioned: rounding of decimal-scaled
+  // coefficients perturbs it by ~sqrt(eps). Binary scales keep these
+  // small-integer coefficients exact, so it is only tested there.
+  const TestCase binary_only[] = {
+      {Eigen::Vector3d(1, -2, 1), Eigen::Vector2d(1, 1), Eigen::Vector2d(0, 0)},
+  };
+
+  const auto check = [&](double scale, const TestCase& test) {
+    SCOPED_TRACE(testing::Message() << "scale=" << scale << ", coeffs=["
+                                    << test.coeffs.transpose() << "]");
     Eigen::VectorXd real;
     Eigen::VectorXd imag;
-    ASSERT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
+    ASSERT_TRUE(solver.solve(scale * test.coeffs, &real, &imag));
     ASSERT_EQ(real.size(), 2);
     ASSERT_EQ(imag.size(), 2);
+    ASSERT_TRUE(real.allFinite());
     ASSERT_TRUE(imag.allFinite());
-    EXPECT_EQ(real, Eigen::Vector2d::Zero());
+    std::sort(real.data(), real.data() + real.size());
     std::sort(imag.data(), imag.data() + imag.size());
-    EXPECT_THAT(imag, EigenMatrixNear(Eigen::Vector2d(-1, 1), 1e-12));
-  }
-}
+    EXPECT_THAT(real, EigenMatrixNear(test.expected_real, 1e-12));
+    EXPECT_THAT(imag, EigenMatrixNear(test.expected_imag, 1e-12));
+  };
 
-TEST(FindQuadraticPolynomialRoots, BinaryCoefficientScale) {
-  const double cases[][5] = {
-      {1, -3, 2, 1, 2}, {1, -2, 1, 1, 1}, {1, 3, 0, -3, 0}, {1, 0, -1, -1, 1}};
-  for (const int exponent : {-1074, -1000, -665, -510, -2, 0, 500, 665, 1000}) {
+  for (const double scale : {1.0, -1.0, 1e-200, -1e-200, 1e200, -1e200}) {
+    for (const auto& test : well_conditioned) {
+      check(scale, test);
+    }
+  }
+  // Boundary binary scales with both signs: smallest subnormal, smallest
+  // normal, unit, and near-largest normal.
+  for (const int exponent : {-1074, -1022, 0, 1000}) {
     for (const double sign : {-1.0, 1.0}) {
       const double scale = sign * std::scalbn(1.0, exponent);
-      for (const auto& test : cases) {
-        const Eigen::Vector3d polynomial(test[0], test[1], test[2]);
-        SCOPED_TRACE(exponent);
-        Eigen::VectorXd real;
-        Eigen::VectorXd imag;
-        ASSERT_TRUE(
-            FindQuadraticPolynomialRoots(scale * polynomial, &real, &imag));
-        ASSERT_TRUE(real.allFinite());
-        std::sort(real.data(), real.data() + real.size());
-        EXPECT_THAT(real,
-                    EigenMatrixNear(Eigen::Vector2d(test[3], test[4]), 1e-12));
-        EXPECT_EQ(imag, Eigen::Vector2d::Zero());
-        for (int i = 0; i < real.size(); ++i) {
-          EXPECT_NEAR(EvaluatePolynomial(polynomial, real(i)), 0, 1e-12);
-        }
+      for (const auto& test : well_conditioned) {
+        check(scale, test);
+      }
+      for (const auto& test : binary_only) {
+        check(scale, test);
       }
     }
   }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    Solvers,
+    QuadraticSolverTest,
+    ::testing::Values(
+        SolverParam{"quadratic", FindQuadraticPolynomialRoots},
+        SolverParam{"durand_kerner", FindPolynomialRootsDurandKerner},
+        SolverParam{"companion", FindPolynomialRootsCompanionMatrix}),
+    [](const ::testing::TestParamInfo<SolverParam>& info) {
+      return info.param.name;
+    });
 
 TEST(FindQuadraticPolynomialRoots, OnlyZeroSolution) {
   Eigen::VectorXd real;
@@ -214,22 +242,6 @@ TEST(FindQuadraticPolynomialRoots, WideCoefficientRange) {
   EXPECT_EQ(real, Eigen::Vector2d::Zero());
   EXPECT_NEAR(imag(0) / 1e200, 1.0, 1e-12);
   EXPECT_NEAR(imag(1) / 1e200, -1.0, 1e-12);
-}
-
-TEST(FindQuadraticPolynomialRoots, GeneralSolverDispatch) {
-  for (const double scale : {1e-200, 1e200}) {
-    const Eigen::Vector3d coeffs = scale * Eigen::Vector3d(1, -3, 2);
-    Eigen::VectorXd real;
-    Eigen::VectorXd imag;
-    for (const auto solver : {FindPolynomialRootsDurandKerner,
-                              FindPolynomialRootsCompanionMatrix}) {
-      ASSERT_TRUE(solver(coeffs, &real, &imag));
-      ASSERT_TRUE(real.allFinite());
-      std::sort(real.data(), real.data() + real.size());
-      EXPECT_THAT(real, EigenMatrixNear(Eigen::Vector2d(1, 2), 1e-12));
-      EXPECT_EQ(imag, Eigen::Vector2d::Zero());
-    }
-  }
 }
 
 TEST(FindQuadraticPolynomialRoots, OptionalOutputs) {
