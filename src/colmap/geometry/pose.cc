@@ -10,6 +10,11 @@
 
 namespace colmap {
 
+namespace {
+// Cutoff below which so(3) exponentials use first-order Taylor expansions.
+constexpr double kSmallAngleThreshold = 1e-10;
+}  // namespace
+
 Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
                                    const Eigen::VectorXd& weights) {
   THROW_CHECK_GT(vectors.cols(), 0) << "Cannot average empty set of vectors";
@@ -111,9 +116,7 @@ Eigen::Vector3d RotationMatrixToAngleAxis(const Eigen::Matrix3d& R) {
 
 Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w) {
   const double angle = w.norm();
-  if (angle > 1e-12) {
-    return Eigen::AngleAxis<double>(angle, w / angle).toRotationMatrix();
-  } else {
+  if (angle < kSmallAngleThreshold) {
     // Small angle approximation: I + [w]_x.
     Eigen::Matrix3d R;
     R(0, 0) = 1;
@@ -127,6 +130,7 @@ Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w) {
     R(2, 2) = 1;
     return R;
   }
+  return Eigen::AngleAxis<double>(angle, w / angle).toRotationMatrix();
 }
 
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
@@ -182,10 +186,6 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
       cam1_from_world.rotation().slerp(t, cam2_from_world.rotation()),
       cam1_from_world.translation() + translation12 * t);
 }
-
-namespace {
-constexpr double kSmallAngleThreshold = 1e-10;
-}  // namespace
 
 Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
   const double theta = omega.norm();
