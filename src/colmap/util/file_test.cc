@@ -27,6 +27,11 @@ TEST(HasFileExtension, Nominal) {
   EXPECT_TRUE(HasFileExtension("test.jpg", ".jpg"));
   EXPECT_TRUE(HasFileExtension("test.jpg", ".Jpg"));
   EXPECT_TRUE(HasFileExtension("test.jpg", ".JPG"));
+  EXPECT_TRUE(HasFileExtension("test.JPG", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.JpG", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.JPG", ".JPG"));
+  EXPECT_TRUE(HasFileExtension("cloud.PLY", ".ply"));
+  EXPECT_FALSE(HasFileExtension("test.PNG", ".jpg"));
   EXPECT_TRUE(HasFileExtension("test.", "."));
 }
 
