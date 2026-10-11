@@ -915,6 +915,61 @@ TEST(Reconstruction, Crop) {
   EXPECT_FALSE(cropped2.Image(3).HasPose());
 }
 
+TEST(Reconstruction, CropPreservesPointErrors) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  reconstruction.Image(1).Point2D(0).xy = Eigen::Vector2d(0.5, 0.5);
+  Track track;
+  track.AddElement(1, 0);
+  const point3D_t known_point3D_id = reconstruction.AddPoint3D(
+      Eigen::Vector3d(0, 1, 1), track, Eigen::Vector3ub(12, 34, 56));
+  reconstruction.UpdatePoint3DErrors();
+  ASSERT_DOUBLE_EQ(reconstruction.Point3D(known_point3D_id).error, 1.0);
+  ASSERT_DOUBLE_EQ(reconstruction.ComputeMeanReprojectionError(), 1.0);
+
+  Track unknown_track;
+  unknown_track.AddElement(1, 1);
+  unknown_track.AddElement(2, 0);
+  const point3D_t unknown_point3D_id = reconstruction.AddPoint3D(
+      Eigen::Vector3d(0, 0, 1), unknown_track, Eigen::Vector3ub(78, 90, 123));
+  ASSERT_DOUBLE_EQ(reconstruction.Point3D(unknown_point3D_id).error, -1.0);
+  const point3D_t outside_point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(2, 1, 1), Track());
+  reconstruction.AddObservation(outside_point3D_id, TrackElement(2, 1));
+
+  const Eigen::AlignedBox3d bbox(Eigen::Vector3d(-1, 0, 0),
+                                 Eigen::Vector3d(1, 2, 2));
+  for (const double error : {1.0, 2.5}) {
+    reconstruction.Point3D(known_point3D_id).error = error;
+    ASSERT_DOUBLE_EQ(reconstruction.ComputeMeanReprojectionError(), error);
+    const Reconstruction cropped = reconstruction.Crop(bbox);
+    ASSERT_EQ(cropped.NumPoints3D(), 2);
+    EXPECT_FALSE(cropped.Image(2).Point2D(1).HasPoint3D());
+    for (const point3D_t point3D_id : {known_point3D_id, unknown_point3D_id}) {
+      const auto& point3D = reconstruction.Point3D(point3D_id);
+      const auto& track_el = point3D.track.Element(0);
+      const auto& point2D =
+          cropped.Image(track_el.image_id).Point2D(track_el.point2D_idx);
+      ASSERT_TRUE(point2D.HasPoint3D());
+      const auto& cropped_point3D = cropped.Point3D(point2D.point3D_id);
+      EXPECT_EQ(cropped_point3D.xyz, point3D.xyz);
+      EXPECT_EQ(cropped_point3D.color, point3D.color);
+      EXPECT_EQ(cropped_point3D.track, point3D.track);
+      EXPECT_DOUBLE_EQ(cropped_point3D.error, point3D.error);
+    }
+    EXPECT_DOUBLE_EQ(cropped.ComputeMeanReprojectionError(), error);
+
+    const auto test_dir = CreateTestDir();
+    cropped.WriteBinary(test_dir);
+    Reconstruction loaded;
+    loaded.ReadBinary(test_dir);
+    EXPECT_DOUBLE_EQ(
+        loaded.Point3D(loaded.Image(1).Point2D(0).point3D_id).error, error);
+    EXPECT_DOUBLE_EQ(
+        loaded.Point3D(loaded.Image(1).Point2D(1).point3D_id).error, -1.0);
+  }
+}
+
 TEST(Reconstruction, Transform) {
   Reconstruction reconstruction;
   GenerateReconstruction(3, &reconstruction);
