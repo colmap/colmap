@@ -259,6 +259,10 @@ class Reconstruction {
   void CreateImageDirs(const std::filesystem::path& path) const;
 
  private:
+  // Reset all reconstruction data and bookkeeping state, so that this object
+  // can be reused to load a replacement model (see ReadText and ReadBinary).
+  void Clear();
+
   std::pair<Eigen::AlignedBox3d, Eigen::Vector3d> ComputeBBBoxAndCentroid(
       double min_percentile, double max_percentile, bool use_images) const;
 

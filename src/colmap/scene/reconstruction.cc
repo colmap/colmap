@@ -978,7 +978,7 @@ void Reconstruction::Write(const std::filesystem::path& path) const {
   WriteBinary(path);
 }
 
-void Reconstruction::ReadText(const std::filesystem::path& path) {
+void Reconstruction::Clear() {
   cameras_.clear();
   rigs_.clear();
   frames_.clear();
@@ -987,6 +987,10 @@ void Reconstruction::ReadText(const std::filesystem::path& path) {
   reg_frame_ids_.clear();
   num_reg_images_ = 0;
   max_point3D_id_ = 0;
+}
+
+void Reconstruction::ReadText(const std::filesystem::path& path) {
+  Clear();
   ReadCamerasText(*this, path / "cameras.txt");
   const auto rigs_path = path / "rigs.txt";
   if (ExistsFile(rigs_path)) {
@@ -1001,14 +1005,7 @@ void Reconstruction::ReadText(const std::filesystem::path& path) {
 }
 
 void Reconstruction::ReadBinary(const std::filesystem::path& path) {
-  cameras_.clear();
-  rigs_.clear();
-  frames_.clear();
-  images_.clear();
-  points3D_.clear();
-  reg_frame_ids_.clear();
-  num_reg_images_ = 0;
-  max_point3D_id_ = 0;
+  Clear();
   ReadCamerasBinary(*this, path / "cameras.bin");
   const auto rigs_path = path / "rigs.bin";
   if (ExistsFile(rigs_path)) {
