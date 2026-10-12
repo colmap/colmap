@@ -29,8 +29,8 @@ struct UTMParams {
   static constexpr double k0 = 0.9996;
   // Easting of the origin in km.
   static constexpr double E0 = 500;
-  // Northing of the origin in km.
-  static double N0(double lat_or_hemi) { return lat_or_hemi > 0 ? 0 : 1e4; }
+  // Northing of the origin in km. The equator uses the northern offset.
+  static double N0(bool is_north) { return is_north ? 0 : 1e4; }
 
   UTMParams(double a, double f) {
     n[0] = 1;
@@ -279,7 +279,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
     }
 
     E = params.E0 + params.k0 * params.A * E;
-    N = params.N0(lla[0]) + params.k0 * params.A * N;
+    N = params.N0(lla[0] >= 0) + params.k0 * params.A * N;
 
     xyz_in_utm.emplace_back(E * 1000, N * 1000, lla[2]);  // Convert to meters.
   }
