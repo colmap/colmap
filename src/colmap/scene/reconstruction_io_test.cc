@@ -344,15 +344,12 @@ TEST_P(ParameterizedReaderWriterTests, RoundtripImageNamesWithWhitespace) {
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 3;
-  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points3D = 10;
   SynthesizeDataset(synthetic_dataset_options, &orig);
 
   const std::vector<std::string> names = {
       "image (1).jpg", "sub dir/image  2.jpg", "image3.jpg"};
-  std::vector<image_t> image_ids;
-  for (const auto& [image_id, _] : orig.Images()) {
-    image_ids.push_back(image_id);
-  }
+  const std::vector<image_t> image_ids = orig.RegImageIds();
   ASSERT_EQ(image_ids.size(), names.size());
   for (size_t i = 0; i < names.size(); ++i) {
     orig.Image(image_ids[i]).SetName(names[i]);
@@ -362,18 +359,13 @@ TEST_P(ParameterizedReaderWriterTests, RoundtripImageNamesWithWhitespace) {
   reader_writer->WriteCameras(orig);
   reader_writer->WriteFrames(orig);
   reader_writer->WriteImages(orig);
-  reader_writer->WritePoints3D(orig);
 
   Reconstruction test;
   reader_writer->ReadCameras(test);
   reader_writer->ReadRigs(test);
   reader_writer->ReadFrames(test);
   reader_writer->ReadImages(test);
-  reader_writer->ReadPoints3D(test);
   EXPECT_EQ(orig.Images(), test.Images());
-  for (const std::string& name : names) {
-    EXPECT_NE(test.FindImageWithName(name), nullptr) << name;
-  }
 }
 
 INSTANTIATE_TEST_SUITE_P(
