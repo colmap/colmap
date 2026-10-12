@@ -351,7 +351,7 @@ TEST(GPS, UTMHemisphereNorthing) {
     const GPSTransform gps_tform(ellipsoid);
     for (const double latitude : {-45.0, -1e-5, -0.0, 0.0, 1e-5, 45.0}) {
       // Central meridians and their zones.
-      for (const auto [longitude, expected_zone] :
+      for (const auto& [longitude, expected_zone] :
            {std::pair{-177.0, 1}, std::pair{3.0, 31}, std::pair{177.0, 60}}) {
         const Eigen::Vector3d ell(latitude, longitude, 123);
         const auto [utm, zone] = gps_tform.EllipsoidToUTM({ell, ell});
