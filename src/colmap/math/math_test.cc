@@ -205,6 +205,67 @@ TEST(TruncateCast, Nominal) {
   EXPECT_EQ((TruncateCast<int, uint8_t>(256)), 255);
   EXPECT_EQ((TruncateCast<int, uint16_t>(-1)), 0);
   EXPECT_EQ((TruncateCast<int, uint16_t>(65536)), 65535);
+  EXPECT_EQ((TruncateCast<float, uint8_t>(-1.0f)), 0);
+  EXPECT_EQ((TruncateCast<float, uint8_t>(42.75f)), 42);
+  EXPECT_EQ((TruncateCast<float, uint8_t>(256.0f)), 255);
+}
+
+TEST(TruncateCast, Signedness) {
+  EXPECT_EQ((TruncateCast<uint16_t, int16_t>(1234)), 1234);
+  EXPECT_EQ((TruncateCast<uint16_t, int16_t>(65535)), 32767);
+  EXPECT_EQ((TruncateCast<int16_t, uint16_t>(1234)), 1234);
+  EXPECT_EQ((TruncateCast<int16_t, uint16_t>(-1)), 0);
+  EXPECT_EQ((TruncateCast<int64_t, uint64_t>(42)), 42u);
+  EXPECT_EQ((TruncateCast<uint64_t, int64_t>(42)), 42);
+  EXPECT_EQ(
+      (TruncateCast<uint64_t, int64_t>(std::numeric_limits<uint64_t>::max())),
+      std::numeric_limits<int64_t>::max());
+}
+
+TEST(TruncateCast, Widening) {
+  EXPECT_EQ((TruncateCast<int8_t, int16_t>(-5)), -5);
+  EXPECT_EQ((TruncateCast<int16_t, int32_t>(-1234)), -1234);
+  EXPECT_EQ((TruncateCast<int16_t, int32_t>(1234)), 1234);
+  EXPECT_EQ((TruncateCast<uint8_t, uint16_t>(42)), 42);
+  EXPECT_EQ(
+      (TruncateCast<uint32_t, int64_t>(std::numeric_limits<uint32_t>::max())),
+      std::numeric_limits<uint32_t>::max());
+}
+
+TEST(TruncateCast, FloatingDestination) {
+  EXPECT_EQ((TruncateCast<double, float>(-1.0)), -1.0f);
+  EXPECT_EQ((TruncateCast<double, float>(0.0)), 0.0f);
+  EXPECT_EQ((TruncateCast<double, float>(-1e300)),
+            std::numeric_limits<float>::lowest());
+  EXPECT_EQ((TruncateCast<double, float>(1e300)),
+            std::numeric_limits<float>::max());
+  EXPECT_EQ((TruncateCast<float, double>(-1.0f)), -1.0);
+  EXPECT_EQ((TruncateCast<float, double>(0.0f)), 0.0);
+  EXPECT_EQ((TruncateCast<int, float>(-42)), -42.0f);
+  EXPECT_EQ((TruncateCast<int, double>(42)), 42.0);
+  const float subnormal = std::numeric_limits<float>::denorm_min();
+  EXPECT_EQ((TruncateCast<double, float>(subnormal)), subnormal);
+}
+
+TEST(TruncateCast, FloatingIntegerEndpoints) {
+  EXPECT_EQ((TruncateCast<float, int32_t>(2147483648.0f)),
+            std::numeric_limits<int32_t>::max());
+  EXPECT_EQ((TruncateCast<double, int64_t>(9223372036854775808.0)),
+            std::numeric_limits<int64_t>::max());
+  EXPECT_EQ((TruncateCast<double, uint64_t>(18446744073709551616.0)),
+            std::numeric_limits<uint64_t>::max());
+  EXPECT_EQ((TruncateCast<double, int64_t>(
+                std::nextafter(9223372036854775808.0, 0.0))),
+            9223372036854774784LL);
+}
+
+TEST(TruncateCast, PreserveIntegerPrecision) {
+  const int64_t signed_value = std::numeric_limits<int64_t>::max() - 1;
+  const uint64_t unsigned_value = std::numeric_limits<uint64_t>::max() - 1;
+  EXPECT_EQ((TruncateCast<int64_t, int64_t>(signed_value)), signed_value);
+  EXPECT_EQ((TruncateCast<int64_t, uint64_t>(signed_value)),
+            static_cast<uint64_t>(signed_value));
+  EXPECT_EQ((TruncateCast<uint64_t, uint64_t>(unsigned_value)), unsigned_value);
 }
 
 }  // namespace
