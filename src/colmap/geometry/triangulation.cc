@@ -6,6 +6,10 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
 #include <Eigen/Dense>
 
 namespace colmap {
@@ -220,11 +224,17 @@ double CalculateAngleBetweenVectors(const Eigen::Vector3d& v1,
       std::min(squared_norm1, squared_norm2) >=
           std::numeric_limits<double>::min()) {
     const double cosine = v1.dot(v2) / std::sqrt(squared_norm_product);
-    // Avoid the loss of accuracy of acos near parallel or opposite vectors.
-    if (std::abs(cosine) < 1.0 - 1e-8) {
+    // acos loses accuracy near parallel or opposite vectors (|cosine| within
+    // 1e-8 of 1, i.e. within ~1.4e-4 rad of 0 or pi), so only use it for
+    // ordinary angles and fall through to the stable formulation below.
+    constexpr double kAcosCosineThreshold = 1.0 - 1e-8;
+    if (std::abs(cosine) < kAcosCosineThreshold) {
       return std::acos(cosine);
     }
   }
+  // Rescale by the largest component to avoid overflow/underflow of the
+  // squared norms, then use atan2 of the cross-product norm and the dot
+  // product, which remains accurate for small angles and near pi.
   const double scale1 = v1.cwiseAbs().maxCoeff();
   const double scale2 = v2.cwiseAbs().maxCoeff();
   if (scale1 == 0.0 || scale2 == 0.0) {
