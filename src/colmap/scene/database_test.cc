@@ -54,7 +54,8 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenFileWithNonASCIIPath) {
-  const auto database_path = CreateTestDir() / u8"äöü時临.db";
+  const auto database_path =
+      CreateTestDir() / std::filesystem::u8path(u8"äöü時临.db");
   std::shared_ptr<Database> database = GetParam()(database_path);
   EXPECT_TRUE(ExistsPath(database_path));
 }
