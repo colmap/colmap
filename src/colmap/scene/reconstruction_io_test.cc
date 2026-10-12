@@ -336,6 +336,38 @@ TEST_P(ParameterizedReaderWriterTests, LegacyWithoutRigsAndFrames) {
   EXPECT_EQ(orig.Points3D(), test.Points3D());
 }
 
+TEST_P(ParameterizedReaderWriterTests, RoundtripImageNamesWithWhitespace) {
+  std::unique_ptr<ReaderWriter> reader_writer = GetParam()();
+
+  Reconstruction orig;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 10;
+  SynthesizeDataset(synthetic_dataset_options, &orig);
+
+  const std::vector<std::string> names = {
+      "image (1).jpg", "sub dir/image  2.jpg", "image3.jpg"};
+  const std::vector<image_t> image_ids = orig.RegImageIds();
+  ASSERT_EQ(image_ids.size(), names.size());
+  for (size_t i = 0; i < names.size(); ++i) {
+    orig.Image(image_ids[i]).SetName(names[i]);
+  }
+
+  reader_writer->WriteRigs(orig);
+  reader_writer->WriteCameras(orig);
+  reader_writer->WriteFrames(orig);
+  reader_writer->WriteImages(orig);
+
+  Reconstruction test;
+  reader_writer->ReadCameras(test);
+  reader_writer->ReadRigs(test);
+  reader_writer->ReadFrames(test);
+  reader_writer->ReadImages(test);
+  EXPECT_EQ(orig.Images(), test.Images());
+}
+
 INSTANTIATE_TEST_SUITE_P(
     ReaderWriterTests,
     ParameterizedReaderWriterTests,
