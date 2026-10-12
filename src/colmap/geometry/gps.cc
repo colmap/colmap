@@ -279,7 +279,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
     }
 
     E = params.E0 + params.k0 * params.A * E;
-    N = params.N0(lla[0]) + params.k0 * params.A * N;
+    N = params.N0(lla[0] >= 0) + params.k0 * params.A * N;
 
     xyz_in_utm.emplace_back(E * 1000, N * 1000, lla[2]);  // Convert to meters.
   }

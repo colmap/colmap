@@ -343,6 +343,48 @@ TEST(GPS, ENUToECEF) {
   }
 }
 
+TEST(GPS, EllipsoidToUTMEquator) {
+  for (const auto ellipsoid :
+       {GPSTransform::Ellipsoid::GRS80, GPSTransform::Ellipsoid::WGS84}) {
+    const GPSTransform gps_tform(ellipsoid);
+    for (const double latitude : {-0.0, 0.0}) {
+      for (const int expected_zone : {1, 31, 60}) {
+        const double longitude = 6 * expected_zone - 183;
+        const Eigen::Vector3d ell(latitude, longitude, 123);
+        const auto [utm, zone] = gps_tform.EllipsoidToUTM({ell});
+        EXPECT_EQ(zone, expected_zone);
+        EXPECT_THAT(utm[0],
+                    EigenMatrixNear(Eigen::Vector3d(500000, 0, 123), 1e-8));
+        EXPECT_THAT(gps_tform.UTMToEllipsoid(utm, zone, true)[0],
+                    EigenMatrixNear(ell, 1e-8));
+      }
+    }
+  }
+}
+
+TEST(GPS, UTMRoundTripHemispheres) {
+  for (const auto ellipsoid :
+       {GPSTransform::Ellipsoid::GRS80, GPSTransform::Ellipsoid::WGS84}) {
+    const GPSTransform gps_tform(ellipsoid);
+    for (const double latitude : {-45.0, -1e-5, 1e-5, 45.0}) {
+      const Eigen::Vector3d ell(latitude, 3, 123);
+      const auto [utm, zone] = gps_tform.EllipsoidToUTM({ell, ell});
+      ASSERT_EQ(utm.size(), 2);
+      EXPECT_EQ(zone, 31);
+      EXPECT_DOUBLE_EQ(utm[0](0), 500000);
+      EXPECT_THAT(utm[0], EigenMatrixNear(utm[1], 0));
+      EXPECT_THAT(gps_tform.EllipsoidToUTM({ell}).first[0],
+                  EigenMatrixNear(utm[0], 0));
+      EXPECT_THAT(gps_tform.UTMToEllipsoid(utm, zone, latitude >= 0)[0],
+                  EigenMatrixNear(ell, 1e-7));
+    }
+    // Explicit southern coordinates at the equator remain valid inverse input.
+    EXPECT_THAT(gps_tform.UTMToEllipsoid(
+                    {Eigen::Vector3d(500000, 10000000, 123)}, 31, false)[0],
+                EigenMatrixNear(Eigen::Vector3d(0, 3, 123), 1e-8));
+  }
+}
+
 TEST(GPS, EllipsoidToUTMWGS84) {
   std::vector<Eigen::Vector3d> ell;
   ell.reserve(3);
