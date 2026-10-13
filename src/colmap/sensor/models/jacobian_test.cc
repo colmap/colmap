@@ -193,6 +193,10 @@ TEST(FOV, ImgFromCamWithJac) {
       {651.123, 655.123, 386.123, 511.123, 0.9});
   TestModelImgFromCamWithJac<FOVCameraModel>(
       {651.123, 655.123, 386.123, 511.123, 0.5});
+  for (const double omega : {0.0, -0.009, -0.005, 0.005, 0.009}) {
+    TestModelImgFromCamWithJac<FOVCameraModel>(
+        {651.123, 655.123, 386.123, 511.123, omega});
+  }
 }
 
 TEST(SimpleRadialFisheye, ImgFromCamWithJac) {
