@@ -1067,7 +1067,25 @@ TEST(Reconstruction, DeleteAllPoints2DAndPoints3D) {
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   reconstruction.DeleteAllPoints2DAndPoints3D();
   EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+  EXPECT_EQ(reconstruction.ComputeNumObservations(), 0);
+  for (const auto& [_, image] : reconstruction.Images()) {
+    EXPECT_EQ(image.NumPoints2D(), 0);
+    EXPECT_EQ(image.NumPoints3D(), 0);
+  }
+  EXPECT_TRUE(reconstruction.IsValid());
   ExpectValidPtrs(reconstruction);
+
+  const auto reg_image_ids = reconstruction.RegImageIds();
+  Track track;
+  for (size_t i = 0; i < 2; ++i) {
+    reconstruction.Image(reg_image_ids[i])
+        .SetPoints2D(std::vector<Eigen::Vector2d>(1, Eigen::Vector2d::Zero()));
+    track.AddElement(reg_image_ids[i], 0);
+  }
+  reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), track);
+  EXPECT_EQ(reconstruction.NumPoints3D(), 1);
+  EXPECT_EQ(reconstruction.ComputeNumObservations(), 2);
+  EXPECT_TRUE(reconstruction.IsValid());
 }
 
 TEST(Reconstruction, TranscribeImageIdsToDatabase) {
