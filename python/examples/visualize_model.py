@@ -151,8 +151,8 @@ def draw_camera(
     points = [Kinv @ p for p in points_pixel]
 
     # image plane
-    width = abs(points[1][0]) + abs(points[3][0])
-    height = abs(points[1][1]) + abs(points[3][1])
+    width = points[2][0] - points[1][0]
+    height = points[3][1] - points[1][1]
     plane = open3d.geometry.TriangleMesh.create_box(width, height, depth=1e-6)
     plane.paint_uniform_color(color)
     plane.translate([points[1][0], points[1][1], scale])
