@@ -121,11 +121,20 @@ TEST(Reconstruction, ConstructCopy) {
   synthetic_dataset_options.num_frames_per_rig = 8;
   synthetic_dataset_options.num_points3D = 21;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
-  const Reconstruction reconstruction_copy(reconstruction);
+  Reconstruction reconstruction_copy(reconstruction);
   EXPECT_THAT(reconstruction, ReconstructionEq(reconstruction_copy));
   ExpectEqualSerialization(reconstruction, reconstruction_copy);
   ExpectValidPtrs(reconstruction);
   ExpectValidPtrs(reconstruction_copy);
+  for (const auto& [frame_id, _] : reconstruction_copy.Frames()) {
+    auto& frame = reconstruction_copy.Frame(frame_id);
+    EXPECT_TRUE(frame.HasFinalDataIds());
+    EXPECT_ANY_THROW(frame.AddDataId(*frame.DataIds().begin()));
+    EXPECT_ANY_THROW(frame.ClearDataIds());
+  }
+  EXPECT_EQ(reconstruction_copy.NumRegImages(),
+            reconstruction_copy.RegImageIds().size());
+  EXPECT_TRUE(reconstruction_copy.IsValid());
 }
 
 TEST(Reconstruction, AssignCopy) {
@@ -143,6 +152,15 @@ TEST(Reconstruction, AssignCopy) {
   ExpectEqualSerialization(reconstruction, reconstruction_copy);
   ExpectValidPtrs(reconstruction);
   ExpectValidPtrs(reconstruction_copy);
+  for (const auto& [frame_id, _] : reconstruction_copy.Frames()) {
+    auto& frame = reconstruction_copy.Frame(frame_id);
+    EXPECT_TRUE(frame.HasFinalDataIds());
+    EXPECT_ANY_THROW(frame.AddDataId(*frame.DataIds().begin()));
+    EXPECT_ANY_THROW(frame.ClearDataIds());
+  }
+  EXPECT_EQ(reconstruction_copy.NumRegImages(),
+            reconstruction_copy.RegImageIds().size());
+  EXPECT_TRUE(reconstruction_copy.IsValid());
 }
 
 TEST(Reconstruction, Print) {
