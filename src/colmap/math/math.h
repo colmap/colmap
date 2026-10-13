@@ -268,7 +268,7 @@ T2 TruncateCast(const T1 value) {
   if constexpr (InputLimits::is_integer && OutputLimits::is_integer) {
     if constexpr (InputLimits::is_signed && !OutputLimits::is_signed) {
       if (value < 0) {
-        return 0;
+        return OutputLimits::lowest();
       }
     }
     if constexpr (InputLimits::digits > OutputLimits::digits) {
@@ -283,6 +283,7 @@ T2 TruncateCast(const T1 value) {
     }
   } else if constexpr (OutputLimits::is_integer &&
                        OutputLimits::digits <= InputLimits::digits) {
+    // The integer bounds are exactly representable in the floating input type.
     return static_cast<T2>(std::clamp(value,
                                       static_cast<T1>(OutputLimits::lowest()),
                                       static_cast<T1>(OutputLimits::max())));
