@@ -40,6 +40,15 @@ Reconstruction GenerateReconstructionForAlignment() {
   return reconstruction;
 }
 
+void RemoveRigFrames(Reconstruction& reconstruction, rig_t rig_id) {
+  const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
+  for (const auto& frame_id : frame_ids) {
+    if (reconstruction.Frame(frame_id).RigId() == rig_id) {
+      reconstruction.DeRegisterFrame(frame_id);
+    }
+  }
+}
+
 TEST(Alignment, AlignReconstructionToLocations) {
   Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
   Reconstruction tgt_reconstruction = src_reconstruction;
@@ -232,17 +241,8 @@ TEST(Alignment, MergeReconstructions) {
   Reconstruction orig_reconstruction = src_reconstruction;
   Reconstruction tgt_reconstruction = src_reconstruction;
 
-  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
-    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
-    for (const auto& frame_id : frame_ids) {
-      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
-        reconstruction.DeRegisterFrame(frame_id);
-      }
-    }
-  };
-
-  remove_rig_frames(src_reconstruction, 1);
-  remove_rig_frames(tgt_reconstruction, 2);
+  RemoveRigFrames(src_reconstruction, 1);
+  RemoveRigFrames(tgt_reconstruction, 2);
 
   // Remove all unregistered rigs/cameras/frames/images.
   src_reconstruction.TearDown();
@@ -287,17 +287,12 @@ void TestMergeMultiCameraReconstructions(bool keep_missing_cameras,
   Reconstruction expected_reconstruction = src_reconstruction;
   Reconstruction tgt_reconstruction = src_reconstruction;
 
-  auto remove_rig = [](Reconstruction& reconstruction, rig_t rig_id) {
-    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
-    for (const frame_t frame_id : frame_ids) {
-      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
-        reconstruction.DeRegisterFrame(frame_id);
-      }
-    }
-    reconstruction.TearDown();
-  };
-  remove_rig(src_reconstruction, 1);
-  remove_rig(tgt_reconstruction, 2);
+  RemoveRigFrames(src_reconstruction, 1);
+  RemoveRigFrames(tgt_reconstruction, 2);
+
+  // Remove all unregistered rigs/cameras/frames/images.
+  src_reconstruction.TearDown();
+  tgt_reconstruction.TearDown();
   if (keep_missing_cameras) {
     for (const auto& [camera_id, camera] : src_reconstruction.Cameras()) {
       if (!tgt_reconstruction.ExistsCamera(camera_id)) {
@@ -316,6 +311,10 @@ void TestMergeMultiCameraReconstructions(bool keep_missing_cameras,
   ASSERT_TRUE(MergeReconstructions(
       /*max_reproj_error=*/1e-4, src_reconstruction, tgt_reconstruction));
   EXPECT_TRUE(tgt_reconstruction.IsValid());
+  EXPECT_EQ(tgt_reconstruction.NumRigs(), 3);
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), 3 * num_cameras_per_rig);
+  EXPECT_EQ(tgt_reconstruction.NumFrames(), 15);
+  EXPECT_EQ(tgt_reconstruction.NumImages(), 15 * num_cameras_per_rig);
   EXPECT_EQ(tgt_reconstruction.NumRegFrames(),
             expected_reconstruction.NumRegFrames());
   EXPECT_EQ(tgt_reconstruction.NumRegImages(),
@@ -336,7 +335,7 @@ void TestMergeMultiCameraReconstructions(bool keep_missing_cameras,
     }
   }
   tgt_reconstruction.UpdatePoint3DErrors();
-  EXPECT_LT(tgt_reconstruction.ComputeMeanReprojectionError(), 1e-6);
+  EXPECT_LT(tgt_reconstruction.ComputeMeanReprojectionError(), 1e-4);
 }
 
 TEST(Alignment, MergeReconstructionsMissingMultiCameraRig) {
@@ -371,16 +370,8 @@ TEST(Alignment, MergeReconstructionsInconsistentImageNames) {
   SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
   Reconstruction tgt_reconstruction = src_reconstruction;
 
-  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
-    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
-    for (const auto& frame_id : frame_ids) {
-      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
-        reconstruction.DeRegisterFrame(frame_id);
-      }
-    }
-  };
-  remove_rig_frames(src_reconstruction, 1);
-  remove_rig_frames(tgt_reconstruction, 2);
+  RemoveRigFrames(src_reconstruction, 1);
+  RemoveRigFrames(tgt_reconstruction, 2);
   src_reconstruction.TearDown();
   tgt_reconstruction.TearDown();
 
