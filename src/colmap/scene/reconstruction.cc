@@ -1061,10 +1061,8 @@ void Reconstruction::ImportPLY(const std::filesystem::path& path) {
 }
 
 void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
-  for (auto it = points3D_.begin(); it != points3D_.end();) {
-    const point3D_t point3D_id = it->first;
-    ++it;
-    DeletePoint3D(point3D_id);
+  while (!points3D_.empty()) {
+    DeletePoint3D(points3D_.begin()->first);
   }
   points3D_.reserve(ply_points.size());
   for (const auto& ply_point : ply_points) {

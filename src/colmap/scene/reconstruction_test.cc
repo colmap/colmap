@@ -1354,7 +1354,10 @@ TEST(Reconstruction, ImportPLYFromVector) {
   EXPECT_EQ(it_p2->second.color(2), 70);
 }
 
-class ReconstructionImportPLYTest : public testing::TestWithParam<bool> {};
+enum class ImportPLYSource { kVector, kBinaryFile, kTextFile };
+
+class ReconstructionImportPLYTest
+    : public testing::TestWithParam<ImportPLYSource> {};
 
 TEST_P(ReconstructionImportPLYTest, ReplacesPointsAndClearsObservations) {
   for (const size_t num_ply_points : {0, 2}) {
@@ -1380,12 +1383,16 @@ TEST_P(ReconstructionImportPLYTest, ReplacesPointsAndClearsObservations) {
       point.g = 20;
       point.b = 30;
     }
-    if (GetParam()) {
-      const auto ply_path = CreateTestDir() / "points.ply";
-      WriteBinaryPlyPoints(ply_path, ply_points);
-      reconstruction.ImportPLY(ply_path);
-    } else {
+    if (GetParam() == ImportPLYSource::kVector) {
       reconstruction.ImportPLY(ply_points);
+    } else {
+      const auto ply_path = CreateTestDir() / "points.ply";
+      if (GetParam() == ImportPLYSource::kBinaryFile) {
+        WriteBinaryPlyPoints(ply_path, ply_points);
+      } else {
+        WriteTextPlyPoints(ply_path, ply_points);
+      }
+      reconstruction.ImportPLY(ply_path);
     }
 
     EXPECT_TRUE(reconstruction.IsValid());
@@ -1412,9 +1419,11 @@ TEST_P(ReconstructionImportPLYTest, ReplacesPointsAndClearsObservations) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(FileAndVector,
+INSTANTIATE_TEST_SUITE_P(AllSources,
                          ReconstructionImportPLYTest,
-                         testing::Bool());
+                         testing::Values(ImportPLYSource::kVector,
+                                         ImportPLYSource::kBinaryFile,
+                                         ImportPLYSource::kTextFile));
 
 TEST(Reconstruction, Point3DIds) {
   Reconstruction reconstruction;
