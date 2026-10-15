@@ -32,6 +32,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
   for (auto& [_, frame] : frames_) {
     frame.ResetRigPtr();
     frame.SetRigPtr(&Rig(frame.RigId()));
+    frame.FinalizeDataIds();
   }
   for (auto& [_, image] : images_) {
     image.ResetCameraPtr();
@@ -54,6 +55,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     for (auto& [_, frame] : frames_) {
       frame.ResetRigPtr();
       frame.SetRigPtr(&Rig(frame.RigId()));
+      frame.FinalizeDataIds();
     }
     for (auto& [_, image] : images_) {
       image.ResetCameraPtr();
