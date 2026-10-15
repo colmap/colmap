@@ -18,6 +18,9 @@ TEST(ProgressiveSampler, LessSamples) {
     sampler.Sample(&samples);
     EXPECT_EQ(samples.size(), 2);
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 2);
+    for (const size_t sample : samples) {
+      EXPECT_LT(sample, 5);
+    }
   }
 }
 
@@ -30,6 +33,9 @@ TEST(ProgressiveSampler, EqualSamples) {
     sampler.Sample(&samples);
     EXPECT_EQ(samples.size(), 5);
     EXPECT_EQ(FlatHashSet<size_t>(samples.begin(), samples.end()).size(), 5);
+    for (const size_t sample : samples) {
+      EXPECT_LT(sample, 5);
+    }
   }
 }
 
@@ -41,10 +47,24 @@ TEST(ProgressiveSampler, Progressive) {
   for (size_t i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
+    EXPECT_LT(samples.back(), 50);
     for (size_t i = 0; i < samples.size() - 1; ++i) {
       EXPECT_LT(samples[i], samples.back());
       EXPECT_GE(samples.back(), prev_last_sample);
       prev_last_sample = samples.back();
+    }
+  }
+}
+
+TEST(ProgressiveSampler, FullPopulationWithOneSample) {
+  ProgressiveSampler sampler(1);
+  for (size_t iteration = 0; iteration < 3; ++iteration) {
+    sampler.Initialize(1);
+    for (size_t draw = 0; draw < 2; ++draw) {
+      std::vector<size_t> samples;
+      sampler.Sample(&samples);
+      ASSERT_EQ(samples.size(), 1);
+      EXPECT_EQ(samples[0], 0);
     }
   }
 }
