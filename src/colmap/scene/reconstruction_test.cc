@@ -1354,6 +1354,68 @@ TEST(Reconstruction, ImportPLYFromVector) {
   EXPECT_EQ(it_p2->second.color(2), 70);
 }
 
+class ReconstructionImportPLYTest : public testing::TestWithParam<bool> {};
+
+TEST_P(ReconstructionImportPLYTest, ReplacesPointsAndClearsObservations) {
+  for (const size_t num_ply_points : {0, 2}) {
+    Reconstruction reconstruction;
+    GenerateReconstruction(2, &reconstruction);
+    Track track;
+    track.AddElement(1, 0);
+    track.AddElement(2, 1);
+    const point3D_t old_point3D_id =
+        reconstruction.AddPoint3D(Eigen::Vector3d(1, 2, 3), track);
+    Track second_track;
+    second_track.AddElement(1, 2);
+    reconstruction.AddPoint3D(Eigen::Vector3d(2, 3, 4), second_track);
+    reconstruction.AddPoint3D(Eigen::Vector3d(3, 4, 5), Track());
+    ASSERT_TRUE(reconstruction.IsValid());
+
+    std::vector<PlyPoint> ply_points(num_ply_points);
+    for (auto& point : ply_points) {
+      point.x = 4;
+      point.y = 5;
+      point.z = 6;
+      point.r = 10;
+      point.g = 20;
+      point.b = 30;
+    }
+    if (GetParam()) {
+      const auto ply_path = CreateTestDir() / "points.ply";
+      WriteBinaryPlyPoints(ply_path, ply_points);
+      reconstruction.ImportPLY(ply_path);
+    } else {
+      reconstruction.ImportPLY(ply_points);
+    }
+
+    EXPECT_TRUE(reconstruction.IsValid());
+    EXPECT_FALSE(reconstruction.ExistsPoint3D(old_point3D_id));
+    EXPECT_EQ(reconstruction.NumPoints3D(), num_ply_points);
+    EXPECT_EQ(reconstruction.NumCameras(), 1);
+    EXPECT_EQ(reconstruction.NumRegImages(), 2);
+    EXPECT_EQ(reconstruction.NumRegFrames(), 2);
+    ExpectValidPtrs(reconstruction);
+    for (const auto& [_, image] : reconstruction.Images()) {
+      EXPECT_EQ(image.NumPoints2D(), 10);
+      EXPECT_EQ(image.NumPoints3D(), 0);
+      EXPECT_EQ(image.CamFromWorld().translation(), Eigen::Vector3d::Zero());
+      for (const auto& point2D : image.Points2D()) {
+        EXPECT_FALSE(point2D.HasPoint3D());
+        EXPECT_EQ(point2D.xy, Eigen::Vector2d::Zero());
+      }
+    }
+    for (const auto& [_, point3D] : reconstruction.Points3D()) {
+      EXPECT_EQ(point3D.xyz, Eigen::Vector3d(4, 5, 6));
+      EXPECT_EQ(point3D.color, Eigen::Vector3ub(10, 20, 30));
+      EXPECT_EQ(point3D.track.Length(), 0);
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(FileAndVector,
+                         ReconstructionImportPLYTest,
+                         testing::Bool());
+
 TEST(Reconstruction, Point3DIds) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
