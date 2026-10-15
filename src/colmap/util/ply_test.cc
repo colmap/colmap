@@ -235,8 +235,7 @@ TEST(Ply, ReadMeshVerticesAsPoints) {
       WriteTextPlyMesh(test_file, PlyTexturedMesh{mesh});
     }
     const auto points = ReadPly(test_file);
-    EXPECT_EQ(points.size(), mesh.vertices.size());
-    ASSERT_GE(points.size(), mesh.vertices.size());
+    ASSERT_EQ(points.size(), mesh.vertices.size());
     for (size_t i = 0; i < mesh.vertices.size(); ++i) {
       EXPECT_EQ(points[i].x, mesh.vertices[i].x);
       EXPECT_EQ(points[i].y, mesh.vertices[i].y);
@@ -263,7 +262,7 @@ TEST(Ply, ReadTextTruncatedVertices) {
           "property float x\nproperty float y\nproperty float z\n"
           "end_header\n1 2 3\n";
   file.close();
-  EXPECT_ANY_THROW(ReadPly(test_file));
+  EXPECT_THROW(ReadPly(test_file), std::invalid_argument);
 }
 
 TEST(Ply, RoundTripTextPlyMesh) {
