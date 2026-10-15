@@ -82,24 +82,21 @@ def test_imu_measurements_duplicate_raises() -> None:
 def test_imu() -> None:
     imu = pycolmap.Imu()
     imu.imu_id = 1
-    imu.camera_id = 2
     assert imu.imu_id == 1
-    assert imu.camera_id == 2
+    sensor_id = imu.sensor_id
+    assert sensor_id.type == pycolmap.SensorType.IMU
+    assert sensor_id.id == 1
 
 
 def test_imu_state_accessors() -> None:
     state = pycolmap.ImuState(
         np.array([1.0, 2.0, 3.0]),
         np.array([4.0, 5.0, 6.0]),
-        np.array([7.0, 8.0, 9.0]),
     )
-    np.testing.assert_array_equal(state.velocity, [1.0, 2.0, 3.0])
-    np.testing.assert_array_equal(state.bias_gyro, [4.0, 5.0, 6.0])
-    np.testing.assert_array_equal(state.bias_accel, [7.0, 8.0, 9.0])
-    np.testing.assert_array_equal(
-        state.params, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
-    )
+    np.testing.assert_array_equal(state.bias_gyro, [1.0, 2.0, 3.0])
+    np.testing.assert_array_equal(state.bias_accel, [4.0, 5.0, 6.0])
+    np.testing.assert_array_equal(state.params, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
 
     # Writing through an accessor updates the underlying params.
-    state.velocity = np.array([10.0, 11.0, 12.0])
+    state.bias_gyro = np.array([10.0, 11.0, 12.0])
     np.testing.assert_array_equal(state.params[:3], [10.0, 11.0, 12.0])

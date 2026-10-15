@@ -677,6 +677,7 @@ void Reconstruction::DeRegisterFrame(const frame_t frame_id) {
   }
 
   frame.ResetPose();
+  frame.ResetVelocity();
   reg_frame_ids_.erase(erase_begin_it, reg_frame_ids_.end());
 }
 
@@ -782,6 +783,11 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
     if (frame.HasPose()) {
       frame.SetRigFromWorld(
           TransformCameraWorld(new_from_old_world, frame.RigFromWorld()));
+    }
+    if (frame.HasVelocity()) {
+      frame.SetVelocityInWorld(Eigen::Vector3d(
+          new_from_old_world.scale() *
+          (new_from_old_world.rotation() * frame.VelocityInWorld())));
     }
   }
   for (auto& [_, point3D] : points3D_) {

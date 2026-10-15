@@ -102,47 +102,38 @@ void BindImu(py::module& m) {
         return "ImuMeasurements(size=" + std::to_string(ms.Size()) + ")";
       });
 
-  py::classh<Imu>(m, "Imu")
-      .def(py::init<>())
+  py::classh_ext<Imu> PyImu(m, "Imu");
+  PyImu.def(py::init<>())
+      .def_readwrite("calib", &Imu::calib)
       .def_readwrite("imu_id", &Imu::imu_id)
-      .def_readwrite("camera_id", &Imu::camera_id)
-      .def_readwrite("imu_from_cam", &Imu::imu_from_cam)
+      .def_property_readonly(
+          "sensor_id", &Imu::SensorId, "Unique identifier of the sensor.")
       .def("__repr__", [](const Imu& s) {
         std::ostringstream ss;
         ss << s;
         return ss.str();
       });
+  MakeDataclass(PyImu);
 
-  py::classh<ImuState>(m, "ImuState")
-      .def(py::init<>())
-      .def(py::init<const Eigen::Vector3d&,
-                    const Eigen::Vector3d&,
-                    const Eigen::Vector3d&>(),
-           "velocity"_a,
+  py::classh_ext<ImuState> PyImuState(m, "ImuState");
+  PyImuState.def(py::init<>())
+      .def(py::init<const Eigen::Vector3d&, const Eigen::Vector3d&>(),
            "bias_gyro"_a,
            "bias_accel"_a)
       .def_property(
           "params",
-          [](ImuState& self) -> Eigen::Matrix<double, 9, 1>& {
+          [](ImuState& self) -> Eigen::Matrix<double, 6, 1>& {
             return self.params;
           },
-          [](ImuState& self, const Eigen::Matrix<double, 9, 1>& params) {
+          [](ImuState& self, const Eigen::Matrix<double, 6, 1>& params) {
             self.params = params;
           })
-      .def_property(
-          "velocity",
-          [](py::object self) {
-            ImuState& state = self.cast<ImuState&>();
-            return py::array_t<double>(
-                {3}, {sizeof(double)}, state.params.data(), self);
-          },
-          [](ImuState& self, const Eigen::Vector3d& v) { self.velocity() = v; })
       .def_property(
           "bias_gyro",
           [](py::object self) {
             ImuState& state = self.cast<ImuState&>();
             return py::array_t<double>(
-                {3}, {sizeof(double)}, state.params.data() + 3, self);
+                {3}, {sizeof(double)}, state.params.data(), self);
           },
           [](ImuState& self, const Eigen::Vector3d& bg) {
             self.bias_gyro() = bg;
@@ -152,7 +143,7 @@ void BindImu(py::module& m) {
           [](py::object self) {
             ImuState& state = self.cast<ImuState&>();
             return py::array_t<double>(
-                {3}, {sizeof(double)}, state.params.data() + 6, self);
+                {3}, {sizeof(double)}, state.params.data() + 3, self);
           },
           [](ImuState& self, const Eigen::Vector3d& ba) {
             self.bias_accel() = ba;
@@ -162,4 +153,5 @@ void BindImu(py::module& m) {
         ss << s;
         return ss.str();
       });
+  MakeDataclass(PyImuState);
 }
