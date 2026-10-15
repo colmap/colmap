@@ -1059,21 +1059,13 @@ std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
 }
 
 void Reconstruction::ImportPLY(const std::filesystem::path& path) {
-  points3D_.clear();
-
-  const auto ply_points = ReadPly(path);
-
-  points3D_.reserve(ply_points.size());
-
-  for (const auto& ply_point : ply_points) {
-    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z),
-               Track(),
-               Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
-  }
+  ImportPLY(ReadPly(path));
 }
 
 void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
-  points3D_.clear();
+  while (!points3D_.empty()) {
+    DeletePoint3D(points3D_.begin()->first);
+  }
   points3D_.reserve(ply_points.size());
   for (const auto& ply_point : ply_points) {
     AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z),
