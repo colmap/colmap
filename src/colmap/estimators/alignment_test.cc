@@ -40,6 +40,15 @@ Reconstruction GenerateReconstructionForAlignment() {
   return reconstruction;
 }
 
+void RemoveRigFrames(Reconstruction& reconstruction, rig_t rig_id) {
+  const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
+  for (const auto& frame_id : frame_ids) {
+    if (reconstruction.Frame(frame_id).RigId() == rig_id) {
+      reconstruction.DeRegisterFrame(frame_id);
+    }
+  }
+}
+
 TEST(Alignment, AlignReconstructionToLocations) {
   Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
   Reconstruction tgt_reconstruction = src_reconstruction;
@@ -232,17 +241,8 @@ TEST(Alignment, MergeReconstructions) {
   Reconstruction orig_reconstruction = src_reconstruction;
   Reconstruction tgt_reconstruction = src_reconstruction;
 
-  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
-    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
-    for (const auto& frame_id : frame_ids) {
-      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
-        reconstruction.DeRegisterFrame(frame_id);
-      }
-    }
-  };
-
-  remove_rig_frames(src_reconstruction, 1);
-  remove_rig_frames(tgt_reconstruction, 2);
+  RemoveRigFrames(src_reconstruction, 1);
+  RemoveRigFrames(tgt_reconstruction, 2);
 
   // Remove all unregistered rigs/cameras/frames/images.
   src_reconstruction.TearDown();
@@ -271,6 +271,91 @@ TEST(Alignment, MergeReconstructions) {
             orig_reconstruction.ComputeNumObservations());
 }
 
+void TestMergeMultiCameraReconstructions(bool keep_missing_cameras,
+                                         int num_cameras_per_rig,
+                                         double scale) {
+  SCOPED_TRACE(num_cameras_per_rig);
+  SCOPED_TRACE(scale);
+  SetPRNGSeed(0);
+  Reconstruction src_reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 3;
+  options.num_cameras_per_rig = num_cameras_per_rig;
+  options.num_frames_per_rig = 5;
+  options.num_points3D = 20;
+  SynthesizeDataset(options, &src_reconstruction);
+  Reconstruction expected_reconstruction = src_reconstruction;
+  Reconstruction tgt_reconstruction = src_reconstruction;
+
+  RemoveRigFrames(src_reconstruction, 1);
+  RemoveRigFrames(tgt_reconstruction, 2);
+
+  // Remove all unregistered rigs/cameras/frames/images.
+  src_reconstruction.TearDown();
+  tgt_reconstruction.TearDown();
+  if (keep_missing_cameras) {
+    for (const auto& [camera_id, camera] : src_reconstruction.Cameras()) {
+      if (!tgt_reconstruction.ExistsCamera(camera_id)) {
+        tgt_reconstruction.AddCamera(camera);
+      }
+    }
+  }
+
+  const Sim3d tgt_from_src(
+      scale,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.3, Eigen::Vector3d::UnitY())),
+      Eigen::Vector3d(1, -2, 3));
+  tgt_reconstruction.Transform(tgt_from_src);
+  expected_reconstruction.Transform(tgt_from_src);
+
+  ASSERT_TRUE(MergeReconstructions(
+      /*max_reproj_error=*/1e-4, src_reconstruction, tgt_reconstruction));
+  EXPECT_TRUE(tgt_reconstruction.IsValid());
+  EXPECT_EQ(tgt_reconstruction.NumRigs(), 3);
+  EXPECT_EQ(tgt_reconstruction.NumCameras(), 3 * num_cameras_per_rig);
+  EXPECT_EQ(tgt_reconstruction.NumFrames(), 15);
+  EXPECT_EQ(tgt_reconstruction.NumImages(), 15 * num_cameras_per_rig);
+  EXPECT_EQ(tgt_reconstruction.NumRegFrames(),
+            expected_reconstruction.NumRegFrames());
+  EXPECT_EQ(tgt_reconstruction.NumRegImages(),
+            expected_reconstruction.NumRegImages());
+  EXPECT_EQ(tgt_reconstruction.NumPoints3D(), options.num_points3D);
+  EXPECT_EQ(tgt_reconstruction.ComputeNumObservations(),
+            expected_reconstruction.ComputeNumObservations());
+  for (const auto& [image_id, image] : expected_reconstruction.Images()) {
+    SCOPED_TRACE(image_id);
+    EXPECT_THAT(tgt_reconstruction.Image(image_id).CamFromWorld(),
+                Rigid3dNear(image.CamFromWorld(), 1e-6, 1e-6));
+  }
+  for (const auto& [rig_id, rig] : expected_reconstruction.Rigs()) {
+    for (const auto& [sensor_id, sensor_from_rig] : rig.NonRefSensors()) {
+      ASSERT_TRUE(sensor_from_rig.has_value());
+      EXPECT_THAT(tgt_reconstruction.Rig(rig_id).SensorFromRig(sensor_id),
+                  Rigid3dNear(*sensor_from_rig, 1e-6, 1e-6));
+    }
+  }
+  tgt_reconstruction.UpdatePoint3DErrors();
+  EXPECT_LT(tgt_reconstruction.ComputeMeanReprojectionError(), 1e-4);
+}
+
+TEST(Alignment, MergeReconstructionsMissingMultiCameraRig) {
+  for (const int num_cameras_per_rig : {1, 2, 3}) {
+    for (const double scale : {0.5, 1.0, 2.0}) {
+      TestMergeMultiCameraReconstructions(
+          /*keep_missing_cameras=*/false, num_cameras_per_rig, scale);
+    }
+  }
+}
+
+TEST(Alignment, MergeReconstructionsScaledMultiCameraRig) {
+  for (const int num_cameras_per_rig : {1, 2, 3}) {
+    for (const double scale : {0.5, 1.0, 2.0}) {
+      TestMergeMultiCameraReconstructions(
+          /*keep_missing_cameras=*/true, num_cameras_per_rig, scale);
+    }
+  }
+}
+
 TEST(Alignment, MergeReconstructionsInconsistentImageNames) {
   // Reconstructions built from independent databases can assign the same image
   // id to distinct physical images. Merging by id would then silently drop
@@ -285,16 +370,8 @@ TEST(Alignment, MergeReconstructionsInconsistentImageNames) {
   SynthesizeDataset(synthetic_dataset_options, &src_reconstruction);
   Reconstruction tgt_reconstruction = src_reconstruction;
 
-  auto remove_rig_frames = [](Reconstruction& reconstruction, rig_t rig_id) {
-    const std::vector<frame_t> frame_ids = reconstruction.RegFrameIds();
-    for (const auto& frame_id : frame_ids) {
-      if (reconstruction.Frame(frame_id).RigId() == rig_id) {
-        reconstruction.DeRegisterFrame(frame_id);
-      }
-    }
-  };
-  remove_rig_frames(src_reconstruction, 1);
-  remove_rig_frames(tgt_reconstruction, 2);
+  RemoveRigFrames(src_reconstruction, 1);
+  RemoveRigFrames(tgt_reconstruction, 2);
   src_reconstruction.TearDown();
   tgt_reconstruction.TearDown();
 

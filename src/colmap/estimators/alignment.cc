@@ -438,8 +438,23 @@ void CopyRegisteredImage(image_t image_id,
         src_reconstruction.Camera(src_image.CameraId()));
   }
   if (!tgt_reconstruction.ExistsRig(src_image.FramePtr()->RigId())) {
-    tgt_reconstruction.AddRig(
-        src_reconstruction.Rig(src_image.FramePtr()->RigId()));
+    Rig tgt_rig = src_reconstruction.Rig(src_image.FramePtr()->RigId());
+    // All cameras must exist before adding their rig, including sensors that
+    // have no image in the frame currently being copied.
+    for (const sensor_t& sensor_id : tgt_rig.SensorIds()) {
+      if (sensor_id.type == SensorType::CAMERA &&
+          !tgt_reconstruction.ExistsCamera(sensor_id.id)) {
+        tgt_reconstruction.AddCamera(src_reconstruction.Camera(sensor_id.id));
+      }
+    }
+    // Rig baselines must use the same scale as the transformed camera poses
+    // and points. Existing target rigs already use the target scale.
+    for (auto& [_, sensor_from_rig] : tgt_rig.NonRefSensors()) {
+      if (sensor_from_rig.has_value()) {
+        sensor_from_rig->translation() *= tgt_from_src.scale();
+      }
+    }
+    tgt_reconstruction.AddRig(std::move(tgt_rig));
   }
   if (!tgt_reconstruction.ExistsFrame(src_image.FrameId())) {
     Frame tgt_frame = src_reconstruction.Frame(src_image.FrameId());
