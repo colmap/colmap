@@ -365,16 +365,24 @@ void ApplyRigConfig(const std::vector<RigConfig>& configs,
       }
     }
 
-    std::set<camera_t> unique_camera_ids;
+    // Sensors are identified by their camera, so images of different sensors
+    // must not share a camera. Otherwise, their images would all be assigned
+    // to the same sensor in the frames below.
+    std::map<camera_t, size_t> camera_id_to_idx;
     for (size_t camera_idx = 0; camera_idx < num_cameras; ++camera_idx) {
       const auto& config_camera = config.cameras[camera_idx];
-      std::optional<camera_t>& camera_id = camera_ids[camera_idx];
+      const std::optional<camera_t>& camera_id = camera_ids[camera_idx];
       THROW_CHECK(camera_id.has_value())
           << "At least one image must exist for each camera in the rig";
-      if (!unique_camera_ids.insert(*camera_id).second) {
-        // Clone the camera, if multiple cameras in the rig share a camera.
-        *camera_id = database.WriteCamera(database.ReadCamera(*camera_id));
-      }
+      const auto [it, inserted] =
+          camera_id_to_idx.emplace(*camera_id, camera_idx);
+      THROW_CHECK(inserted)
+          << "Images with prefixes " << config.cameras[it->second].image_prefix
+          << " and " << config_camera.image_prefix << " share camera "
+          << *camera_id
+          << ". Consider setting --ImageReader.single_camera_per_folder "
+             "during feature extraction or manually assign distinct "
+             "camera_id's.";
       if (config_camera.ref_sensor) {
         rig.AddRefSensor(sensor_t(SensorType::CAMERA, *camera_id));
       } else {
