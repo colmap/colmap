@@ -406,7 +406,12 @@ TEST(ApplyRigConfig, RejectsCameraSharedBetweenSensors) {
   auto& camera2 = config.cameras.emplace_back();
   camera2.image_prefix = "camera1_";
 
-  EXPECT_ANY_THROW(ApplyRigConfig(configs, *database));
+  try {
+    ApplyRigConfig(configs, *database);
+    ADD_FAILURE() << "Expected ApplyRigConfig to throw";
+  } catch (const std::exception& e) {
+    EXPECT_THAT(e.what(), testing::HasSubstr("share camera"));
+  }
 }
 
 TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
