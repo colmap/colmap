@@ -198,22 +198,26 @@ void CreateTestData(int num_frames,
                     int num_cameras_per_rig,
                     Database* database,
                     Reconstruction* reconstruction) {
-  // Create a synthetic dataset with a single rig and trivial frames.
+  // Create a synthetic dataset with one trivial rig per camera, so that the
+  // images of each camera in the rig config have their own camera.
   SyntheticDatasetOptions options;
-  options.num_rigs = 1;
+  options.num_rigs = num_cameras_per_rig;
   options.num_cameras_per_rig = 1;
-  options.num_frames_per_rig = num_frames * num_cameras_per_rig;
+  options.num_frames_per_rig = num_frames;
   SynthesizeDataset(options, reconstruction, database);
 
   // Manually overwrite the image names to match the expected rig config.
-  int image_idx = 0;
-  int frame_idx = 0;
+  std::map<camera_t, int> camera_id_to_idx;
+  std::map<camera_t, int> camera_id_to_num_images;
   for (auto& image : database->ReadAllImages()) {
-    if (image_idx++ % num_cameras_per_rig == 0) {
-      ++frame_idx;
-    }
-    image.SetName("camera" + std::to_string(image_idx % num_cameras_per_rig) +
-                  "_frame" + std::to_string(frame_idx));
+    const int camera_idx =
+        camera_id_to_idx
+            .emplace(image.CameraId(),
+                     static_cast<int>(camera_id_to_idx.size()))
+            .first->second;
+    const int frame_idx = ++camera_id_to_num_images[image.CameraId()];
+    image.SetName("camera" + std::to_string(camera_idx) + "_frame" +
+                  std::to_string(frame_idx));
     reconstruction->Image(image.ImageId()).SetName(image.Name());
     database->UpdateImage(image);
   }
@@ -319,11 +323,12 @@ TEST(ApplyRigConfig, WithPartialReconstruction) {
       database.get(),
       &reconstruction);
 
+  // Trivial frames 1-5 hold the camera0_ images and 6-10 the camera1_ images.
   reconstruction.DeRegisterFrame(1);
-  reconstruction.DeRegisterFrame(2);
+  reconstruction.DeRegisterFrame(6);
   // De-register only one image in the frame.
   // The other image allows us to register the frame.
-  reconstruction.DeRegisterFrame(3);
+  reconstruction.DeRegisterFrame(7);
 
   std::vector<RigConfig> configs;
   auto& config = configs.emplace_back();
@@ -372,6 +377,41 @@ TEST(ApplyRigConfig, WithoutReconstruction) {
   EXPECT_EQ(sensor2_from_rig.value().translation(),
             camera2.cam_from_rig.value().translation());
   EXPECT_EQ(database->ReadCamera(sensor_id2.id), camera2.camera);
+}
+
+TEST(ApplyRigConfig, RejectsCameraSharedBetweenSensors) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 4;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  // Split the images of the single camera between two rig sensors, as happens
+  // when images of identical cameras were extracted into a shared camera.
+  int image_idx = 0;
+  for (auto& image : database->ReadAllImages()) {
+    image.SetName("camera" + std::to_string(image_idx % 2) + "_frame" +
+                  std::to_string(image_idx / 2));
+    database->UpdateImage(image);
+    ++image_idx;
+  }
+
+  std::vector<RigConfig> configs;
+  auto& config = configs.emplace_back();
+  auto& camera1 = config.cameras.emplace_back();
+  camera1.image_prefix = "camera0_";
+  camera1.ref_sensor = true;
+  auto& camera2 = config.cameras.emplace_back();
+  camera2.image_prefix = "camera1_";
+
+  try {
+    ApplyRigConfig(configs, *database);
+    ADD_FAILURE() << "Expected ApplyRigConfig to throw";
+  } catch (const std::exception& e) {
+    EXPECT_THAT(e.what(), testing::HasSubstr("share camera"));
+  }
 }
 
 TEST(ApplyRigConfig, WithUnconfiguredSingleAndConfiguredMultiCameraRigs) {
