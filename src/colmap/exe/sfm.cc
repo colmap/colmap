@@ -5,6 +5,7 @@
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/global_pipeline.h"
+#include "colmap/controllers/gravity_estimation.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
 #include "colmap/controllers/rotation_averaging.h"
@@ -812,6 +813,34 @@ int RunSingleViewCalibrator(int argc, char** argv) {
                                             image_names);
   calibrator->Start();
   calibrator->Wait();
+
+  return EXIT_SUCCESS;
+}
+
+int RunGravityEstimator(int argc, char** argv) {
+  std::filesystem::path image_list_path;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddGravityEstimationOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  std::vector<std::string> image_names;
+  if (!image_list_path.empty()) {
+    image_names = ReadTextFileLines(image_list_path);
+  }
+
+  auto controller =
+      CreateGravityEstimationController(*options.database_path,
+                                        *options.image_path,
+                                        *options.gravity_estimation,
+                                        image_names);
+  controller->Start();
+  controller->Wait();
 
   return EXIT_SUCCESS;
 }
