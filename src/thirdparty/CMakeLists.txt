@@ -55,22 +55,93 @@ endif()
 if(FETCH_FAISS)
     include(FetchContent)
     FetchContent_Declare(faiss
-        URL https://github.com/facebookresearch/faiss/archive/refs/tags/v1.14.1.zip
-        URL_HASH SHA256=4b1ae7e7a0a46385b4084f0e3945623a15fcf99d793bf44d82aae8e24f11e5f5
+        URL https://github.com/facebookresearch/faiss/archive/refs/tags/v1.15.1.zip
+        URL_HASH SHA256=f46290cc461f5ae88bc52f400e2066c537746328e494f79faa1fa719815e7b66
         ${_fetch_content_declare_args}
     )
     message(STATUS "Configuring faiss...")
     # Use dynamic dispatch (dd) to automatically select the highest SIMD
     # instruction set supported by the target machine (e.g., AVX2, AVX512).
-    # Dynamic dispatch is not supported on MSVC (faiss v1.14.1).
-    if(NOT IS_MSVC)
-        set(FAISS_OPT_LEVEL dd)
-    endif()
+    # Supported on all platforms including MSVC since faiss v1.15
+    # (per-file /arch flags in the dd block of faiss/CMakeLists.txt).
+    set(FAISS_OPT_LEVEL dd)
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
     set(FAISS_ENABLE_MKL OFF)
     set(BUILD_TESTING OFF)
     FetchContent_MakeAvailable(faiss)
+    # faiss v1.15 dynamic dispatch unconditionally compiles AVX512 sources,
+    # two of which need newer compilers than our minimum (GCC 10, used for
+    # CUDA builds on Ubuntu 22.04):
+    # - impl/scalar_quantizer/sq-avx512.cpp uses _mm256_loadu_epi8, which
+    #   requires GCC 11+. Without it, drop the AVX512, AVX512_VPOPCNT, and
+    #   AVX512_SPR dispatch levels; the sources are fully guarded by their
+    #   COMPILE_SIMD_* macros, so dispatch falls back to AVX2.
+    # - impl/scalar_quantizer/sq-avx512-spr.cpp is compiled with the Sapphire
+    #   Rapids flag set, including -mavx512fp16, which requires GCC 12+
+    #   (Ubuntu 22.04 ships GCC 11). Without that flag, drop only the SPR
+    #   dispatch level, falling back to AVX512_VPOPCNT.
+    # MSVC needs no handling (/arch:AVX512 has no per-feature flags and its
+    # headers provide the intrinsics).
+    if(IS_X86 AND NOT WIN32 AND TARGET faiss AND FAISS_OPT_LEVEL STREQUAL "dd")
+        include(CheckCXXCompilerFlag)
+        include(CheckCXXSourceCompiles)
+        check_cxx_compiler_flag(
+            "-mavx512fp16" COLMAP_COMPILER_SUPPORTS_AVX512FP16)
+        set(CMAKE_REQUIRED_FLAGS
+            "-mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
+        check_cxx_source_compiles(
+            "#include <immintrin.h>
+             int main() {
+                 const unsigned char* ptr = 0;
+                 __m256i v = _mm256_loadu_epi8(ptr);
+                 (void)v;
+                 return 0;
+             }"
+            COLMAP_COMPILER_SUPPORTS_AVX512_LOADU_EPI8)
+        unset(CMAKE_REQUIRED_FLAGS)
+
+        set(_faiss_disabled_simd_levels "")
+        if(NOT COLMAP_COMPILER_SUPPORTS_AVX512_LOADU_EPI8)
+            message(
+                STATUS
+                "Compiler lacks _mm256_loadu_epi8, disabling faiss AVX512 dispatch"
+            )
+            list(
+                APPEND
+                _faiss_disabled_simd_levels
+                COMPILE_SIMD_AVX512
+                COMPILE_SIMD_AVX512_VPOPCNT
+                COMPILE_SIMD_AVX512_SPR)
+        elseif(NOT COLMAP_COMPILER_SUPPORTS_AVX512FP16)
+            message(
+                STATUS
+                "Compiler lacks -mavx512fp16, disabling faiss AVX512_SPR dispatch"
+            )
+            list(APPEND _faiss_disabled_simd_levels COMPILE_SIMD_AVX512_SPR)
+        endif()
+
+        if(_faiss_disabled_simd_levels)
+            get_target_property(_faiss_defs faiss COMPILE_DEFINITIONS)
+            if(_faiss_defs)
+                list(REMOVE_ITEM _faiss_defs ${_faiss_disabled_simd_levels})
+                set_target_properties(
+                    faiss PROPERTIES COMPILE_DEFINITIONS "${_faiss_defs}")
+            endif()
+        endif()
+
+        # The SPR source is compiled with -mavx512fp16, which an unsupported
+        # compiler rejects outright (even for the now-empty TU), so give it
+        # AVX2 flags whenever the flag is unsupported.
+        if(NOT COLMAP_COMPILER_SUPPORTS_AVX512FP16)
+            set_source_files_properties(
+                "${faiss_SOURCE_DIR}/faiss/impl/scalar_quantizer/sq-avx512-spr.cpp"
+                TARGET_DIRECTORY faiss
+                PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma;-mf16c;-mpopcnt")
+        endif()
+        unset(_faiss_disabled_simd_levels)
+        unset(_faiss_defs)
+    endif()
     # Fix MSVC linker warning LNK4286: faiss headers use FAISS_API which
     # defaults to dllimport on Windows, but we build faiss as a static library.
     # Adding FAISS_MAIN_LIB as PUBLIC ensures consumers also get this defined.

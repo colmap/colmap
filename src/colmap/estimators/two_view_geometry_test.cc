@@ -450,7 +450,7 @@ TEST(EstimateTwoViewGeometry, UncalibratedFisheyeIsDegenerate) {
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
   ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
-  ASSERT_FALSE(test_data.camera1.has_prior_focal_length);
+  ASSERT_FALSE(test_data.camera1.HasPriorFocalLength());
 
   // Without a focal length prior the only remaining model is the fundamental
   // matrix, which assumes a pinhole projection that a fisheye camera does not
@@ -482,7 +482,7 @@ TEST(EstimateTwoViewGeometry, CalibratedFisheyeIsEstimated) {
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
   ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
-  ASSERT_TRUE(test_data.camera1.has_prior_focal_length);
+  ASSERT_TRUE(test_data.camera1.HasPriorFocalLength());
 
   // With a known focal length the calibrated path applies, which works on
   // bearing vectors and is therefore valid for fisheye cameras.
@@ -651,7 +651,7 @@ TEST(EstimateTwoViewGeometry, PanoramicWithUndistortedFisheyeCameraIsDetected) {
       /*focal_length=*/500.0,
       /*width=*/2048,
       /*height=*/2048);
-  camera.has_prior_focal_length = true;
+  camera.source = CameraSource::USER;
   ASSERT_TRUE(camera.IsPerspectiveFisheye());
   ASSERT_TRUE(camera.IsUndistorted());
 
@@ -709,8 +709,8 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
        {SimplePinholeCameraModel::model_id, PinholeCameraModel::model_id}) {
     Camera camera = Camera::CreateFromModelId(
         /*camera_id=*/1, model_id, kFocal, /*width=*/2048, /*height=*/2048);
-    camera.has_prior_focal_length = false;
-    ASSERT_FALSE(camera.has_prior_focal_length);
+    camera.source = CameraSource::GUESS;
+    ASSERT_FALSE(camera.HasPriorFocalLength());
     ASSERT_TRUE(camera.IsPerspective());
 
     // Ground-truth relative pose with a unit baseline and a bounded rotation so
@@ -810,14 +810,14 @@ TEST(EstimateTwoViewGeometry, OneSidedFocal) {
         kUncalibFocal,
         /*width=*/2048,
         /*height=*/2048);
-    uncalib_camera.has_prior_focal_length = false;
+    uncalib_camera.source = CameraSource::GUESS;
     Camera calib_camera = Camera::CreateFromModelId(
         /*camera_id=*/2,
         model_id,
         kCalibFocal,
         /*width=*/2048,
         /*height=*/2048);
-    calib_camera.has_prior_focal_length = true;
+    calib_camera.source = CameraSource::USER;
 
     // Ground-truth relative pose with a unit baseline and a bounded rotation so
     // the point cloud is visible in both views. Unlike the shared-focal case no
@@ -1040,7 +1040,7 @@ TEST(EstimateTwoViewGeometry, SphericalAndUncalibratedPerspective) {
   // camera would carry COLMAP's default guess. The recovered focal therefore
   // cannot merely echo its input.
   Camera uncalib_camera = true_camera;
-  uncalib_camera.has_prior_focal_length = false;
+  uncalib_camera.source = CameraSource::GUESS;
   uncalib_camera.SetFocalLength(0.5 * kTrueFocal);
 
   const Camera spherical_camera =
@@ -1778,7 +1778,7 @@ TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
   Camera default_camera = true_camera;
   default_camera.SetFocalLength(
       1.2 * std::max(true_camera.width, true_camera.height));
-  default_camera.has_prior_focal_length = false;
+  default_camera.source = CameraSource::GUESS;
   ASSERT_GT(
       std::abs(default_camera.FocalLength() / true_camera.FocalLength() - 1.0),
       0.1);

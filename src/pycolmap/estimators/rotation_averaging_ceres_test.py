@@ -31,12 +31,12 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
             cam2_from_cam1=pycolmap.Rigid3d(), num_matches=10
         ),
     )
-    options = pycolmap.CeresRotationAveragerOptions()
+    options = pycolmap.RotationEstimatorOptions()
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
     options.reweighting = (
         pycolmap.RotationAveragingReweighting.INLIER_MATCH_COUNT
     )
-    options.solver_options.num_threads = 1
+    options.ceres.solver_options.num_threads = 1
     averager = pycolmap.create_default_ceres_rotation_averager(
         options, pose_graph, reconstruction
     )

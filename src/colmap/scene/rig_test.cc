@@ -127,7 +127,8 @@ TEST(ReadRigConfig, Nominal) {
   ASSERT_FALSE(configs[0].cameras[0].cam_from_rig.has_value());
   ASSERT_TRUE(configs[0].cameras[0].camera.has_value());
   EXPECT_EQ(configs[0].cameras[0].camera->model_id, CameraModelId::kOpenCV);
-  EXPECT_TRUE(configs[0].cameras[0].camera->has_prior_focal_length);
+  EXPECT_TRUE(configs[0].cameras[0].camera->HasPriorFocalLength());
+  EXPECT_EQ(configs[0].cameras[0].camera->source, CameraSource::USER);
   EXPECT_THAT(configs[0].cameras[0].camera->params,
               testing::ElementsAre(640, 480, 320, 240, 0.1, 0.2, 0.3, 0.4));
 

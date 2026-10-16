@@ -9,9 +9,11 @@
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/sensor/rig.h"
 #include "colmap/util/eigen_alignment.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <map>
 #include <mutex>
 #include <vector>
 
@@ -61,6 +63,8 @@ class Database {
   // `image_id1` and `image_id2` does not matter.
   virtual bool ExistsRig(rig_t rig_id) const = 0;
   virtual bool ExistsCamera(camera_t camera_id) const = 0;
+  virtual bool ExistsCameraSource(camera_t camera_id,
+                                  CameraSource source) const = 0;
   virtual bool ExistsFrame(frame_t frame_id) const = 0;
   virtual bool ExistsImage(image_t image_id) const = 0;
   virtual bool ExistsImageWithName(const std::string& name) const = 0;
@@ -127,8 +131,26 @@ class Database {
   virtual std::optional<Rig> ReadRigWithSensor(sensor_t sensor_id) const = 0;
   virtual std::vector<Rig> ReadAllRigs() const = 0;
 
-  virtual Camera ReadCamera(camera_t camera_id) const = 0;
-  virtual std::vector<Camera> ReadAllCameras() const = 0;
+  // Read camera calibration for `camera_id` and `source`. When `source` is
+  // `CameraSource::BEST` (the default), automatically selects and returns the
+  // highest-priority calibration available for the camera according to the
+  // `CameraSourcePriority` ordering.
+  virtual Camera ReadCamera(camera_t camera_id,
+                            CameraSource source = CameraSource::BEST) const = 0;
+  virtual Camera ReadCameraExcludingSources(
+      camera_t camera_id,
+      const FlatHashSet<CameraSource>& excluded_sources) const;
+  // Read all cameras for `source`. When `source` is `CameraSource::BEST` (the
+  // default), returns one camera per `camera_id` using its highest-priority
+  // calibration source.
+  virtual std::vector<Camera> ReadAllCameras(
+      CameraSource source = CameraSource::BEST) const = 0;
+  virtual NodeHashMap<camera_t, Camera> ReadAllCamerasExcludingSources(
+      const FlatHashSet<CameraSource>& excluded_sources) const;
+  virtual std::map<CameraSource, Camera> ReadAllCameraSources(
+      camera_t camera_id) const = 0;
+  virtual NodeHashMap<camera_t, std::map<CameraSource, Camera>>
+  ReadAllCameraSources() const = 0;
 
   virtual Frame ReadFrame(frame_t frame_id) const = 0;
   virtual std::vector<Frame> ReadAllFrames() const = 0;
@@ -171,8 +193,11 @@ class Database {
   // is false a new identifier is automatically generated.
   virtual rig_t WriteRig(const Rig& rig, bool use_rig_id = false) = 0;
 
-  // Add new camera and return its database identifier. If `use_camera_id`
-  // is false a new identifier is automatically generated.
+  // Add a new camera with its initial calibration source and return its
+  // database identifier. If `use_camera_id` is false, a new identifier is
+  // automatically generated; if true, `camera.camera_id` must not already exist
+  // in the database. `camera.source` cannot be `CameraSource::BEST`. To add or
+  // update calibrations for an existing `camera_id`, use `UpdateCamera`.
   virtual camera_t WriteCamera(const Camera& camera,
                                bool use_camera_id = false) = 0;
 
@@ -213,8 +238,11 @@ class Database {
   // making sure that the entry already exists.
   virtual void UpdateRig(const Rig& rig) = 0;
 
-  // Update an existing camera in the database. The user is responsible for
-  // making sure that the entry already exists.
+  // Insert or overwrite a calibration source for an existing camera in the
+  // database. Throws if `camera.camera_id` does not exist or if `camera.source`
+  // is `CameraSource::BEST`. If `camera.source` is `CameraSource::UNKNOWN`,
+  // updates the camera's currently active (`CameraSource::BEST`) calibration
+  // source in place.
   virtual void UpdateCamera(const Camera& camera) = 0;
 
   // Update an existing frame in the database. The user is responsible for
@@ -251,13 +279,22 @@ class Database {
   // Delete inlier matches of an image pair.
   virtual void DeleteInlierMatches(image_t image_id1, image_t image_id2) = 0;
 
+  // Delete camera calibration for a specific source (or all calibrations if
+  // `CameraSource::BEST`). When deleting all calibrations of a camera (either
+  // via `CameraSource::BEST` or by removing its last remaining source), the
+  // caller is responsible for ensuring that no images in the database still
+  // reference `camera_id`.
+  virtual void DeleteCameraSource(camera_t camera_id,
+                                  CameraSource source = CameraSource::BEST) = 0;
+
   // Clear all database tables
   virtual void ClearAllTables() = 0;
 
   // Clear the entire rigs table
   virtual void ClearRigs() = 0;
 
-  // Clear the entire cameras table
+  // Clear the entire cameras table. The caller is responsible for ensuring
+  // that no images in the database still reference any cameras.
   virtual void ClearCameras() = 0;
 
   // Clear the entire frames table

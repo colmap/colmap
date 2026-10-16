@@ -278,7 +278,7 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     // For calibrated and uncalibrated cameras, use different loss
     // functions
     ceres::LossFunction* loss_function =
-        (camera.has_prior_focal_length)
+        (camera.HasPriorFocalLength())
             ? loss_function_ptcam_calibrated_.get()
             : loss_function_ptcam_uncalibrated_.get();
 

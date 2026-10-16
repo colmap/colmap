@@ -615,6 +615,44 @@ class TestDiffMetrics:
         assert scene_diff.num_components == 1
 
 
+@pytest.mark.parametrize(
+    ("changed_report", "thresholds", "error_type"),
+    [
+        ("b0", [10.0, 20.0], "relative_auc"),
+        ("a1", [10.0, 20.0], "relative_auc"),
+        ("b0", [1.0, 2.0], "relative_recall"),
+    ],
+)
+def test_compare_reports_rejects_incompatible_seeded_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+    changed_report: str,
+    thresholds: list[float],
+    error_type: str,
+) -> None:
+    paths_a = [Path("a0"), Path("a1")]
+    paths_b = [Path("b0"), Path("b1")]
+    reports = {}
+    for path in paths_a + paths_b:
+        changed = path.name == changed_report
+        metrics = Metrics(
+            aucs=np.array([20.0, 30.0]),
+            recalls=np.array([40.0, 50.0]),
+            error_thresholds=np.array(thresholds if changed else [1.0, 2.0]),
+            error_type=error_type if changed else "relative_auc",
+            num_images=2,
+            num_reg_images=2,
+            num_components=1,
+            largest_component=2,
+        )
+        reports[path] = {"toy": {"cat": {"scene": metrics}}}
+    monkeypatch.setattr(utils, "load_report", reports.__getitem__)
+
+    with pytest.raises(
+        ValueError, match="Inconsistent error thresholds or types"
+    ):
+        utils.compare_reports(paths_a, paths_b)
+
+
 def create_test_reconstruction() -> pycolmap.Reconstruction:
     pycolmap.set_random_seed(0)
     synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()

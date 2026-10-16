@@ -215,7 +215,7 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
 // `camera1`/`camera2` is the uncalibrated image; the other stays unset, its
 // intrinsics being an input rather than an estimate.
 //
-// Exactly one of `camera1`/`camera2` must have `has_prior_focal_length` set,
+// Exactly one of `camera1`/`camera2` must have `HasPriorFocalLength()` true,
 // and the uncalibrated one must use a pinhole projection. A single isotropic
 // focal is recovered; multi-focal models are seeded fx = fy = f and refined
 // later. Distortion on the uncalibrated side is absorbed by the epipolar fit,

@@ -32,6 +32,7 @@ Reconstruction::Reconstruction(const Reconstruction& other)
   for (auto& [_, frame] : frames_) {
     frame.ResetRigPtr();
     frame.SetRigPtr(&Rig(frame.RigId()));
+    frame.FinalizeDataIds();
   }
   for (auto& [_, image] : images_) {
     image.ResetCameraPtr();
@@ -54,6 +55,7 @@ Reconstruction& Reconstruction::operator=(const Reconstruction& other) {
     for (auto& [_, frame] : frames_) {
       frame.ResetRigPtr();
       frame.SetRigPtr(&Rig(frame.RigId()));
+      frame.FinalizeDataIds();
     }
     for (auto& [_, image] : images_) {
       image.ResetCameraPtr();
@@ -816,8 +818,9 @@ Reconstruction Reconstruction::Crop(const Eigen::AlignedBox3d& bbox) const {
       for (const auto& track_el : point3D.track.Elements()) {
         cropped_frame_ids.insert(Image(track_el.image_id).FrameId());
       }
-      cropped_reconstruction.AddPoint3D(
+      const point3D_t new_point3D_id = cropped_reconstruction.AddPoint3D(
           point3D.xyz, point3D.track, point3D.color);
+      cropped_reconstruction.Point3D(new_point3D_id).error = point3D.error;
     }
   }
   for (const auto& [frame_id, _] : cropped_reconstruction.Frames()) {
@@ -978,12 +981,19 @@ void Reconstruction::Write(const std::filesystem::path& path) const {
   WriteBinary(path);
 }
 
-void Reconstruction::ReadText(const std::filesystem::path& path) {
+void Reconstruction::Clear() {
   cameras_.clear();
   rigs_.clear();
   frames_.clear();
   images_.clear();
   points3D_.clear();
+  reg_frame_ids_.clear();
+  num_reg_images_ = 0;
+  max_point3D_id_ = 0;
+}
+
+void Reconstruction::ReadText(const std::filesystem::path& path) {
+  Clear();
   ReadCamerasText(*this, path / "cameras.txt");
   const auto rigs_path = path / "rigs.txt";
   if (ExistsFile(rigs_path)) {
@@ -998,11 +1008,7 @@ void Reconstruction::ReadText(const std::filesystem::path& path) {
 }
 
 void Reconstruction::ReadBinary(const std::filesystem::path& path) {
-  cameras_.clear();
-  rigs_.clear();
-  frames_.clear();
-  images_.clear();
-  points3D_.clear();
+  Clear();
   ReadCamerasBinary(*this, path / "cameras.bin");
   const auto rigs_path = path / "rigs.bin";
   if (ExistsFile(rigs_path)) {
@@ -1053,21 +1059,13 @@ std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
 }
 
 void Reconstruction::ImportPLY(const std::filesystem::path& path) {
-  points3D_.clear();
-
-  const auto ply_points = ReadPly(path);
-
-  points3D_.reserve(ply_points.size());
-
-  for (const auto& ply_point : ply_points) {
-    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z),
-               Track(),
-               Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
-  }
+  ImportPLY(ReadPly(path));
 }
 
 void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
-  points3D_.clear();
+  while (!points3D_.empty()) {
+    DeletePoint3D(points3D_.begin()->first);
+  }
   points3D_.reserve(ply_points.size());
   for (const auto& ply_point : ply_points) {
     AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z),

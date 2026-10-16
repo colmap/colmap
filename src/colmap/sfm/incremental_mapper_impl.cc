@@ -110,7 +110,7 @@ std::vector<image_t> IncrementalMapperImpl::FindFirstInitialImage(
 
     image_infos.push_back(
         {image_id,
-         image.CameraPtr()->has_prior_focal_length,
+         image.CameraPtr()->HasPriorFocalLength(),
          correspondence_graph.NumCorrespondencesForImage(image_id)});
   }
 
@@ -151,7 +151,7 @@ std::vector<image_t> IncrementalMapperImpl::FindSecondInitialImage(
     if (num_corrs >= init_min_num_inliers) {
       const Image& image = reconstruction.Image(image_id);
       image_infos.push_back({image_id,
-                             image.CameraPtr()->has_prior_focal_length,
+                             image.CameraPtr()->HasPriorFocalLength(),
                              static_cast<size_t>(num_corrs)});
     }
   }

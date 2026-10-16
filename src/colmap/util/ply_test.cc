@@ -218,6 +218,53 @@ TEST(Ply, RoundTripBinaryPlyPointsXYZOnly) {
   EXPECT_EQ(loaded_points[0].b, 0);
 }
 
+TEST(Ply, ReadMeshVerticesAsPoints) {
+  const auto test_dir = CreateTestDir();
+  PlyMesh mesh;
+  mesh.vertices.emplace_back(0.0f, 0.0f, 0.0f);
+  mesh.vertices.emplace_back(1.0f, 0.0f, 0.0f);
+  mesh.vertices.emplace_back(0.0f, 1.0f, 0.0f);
+  mesh.faces.emplace_back(0, 1, 2);
+
+  for (const bool binary : {false, true}) {
+    SCOPED_TRACE(binary);
+    const auto test_file = test_dir / (binary ? "binary.ply" : "text.ply");
+    if (binary) {
+      WriteBinaryPlyMesh(test_file, PlyTexturedMesh{mesh});
+    } else {
+      WriteTextPlyMesh(test_file, PlyTexturedMesh{mesh});
+    }
+    const auto points = ReadPly(test_file);
+    ASSERT_EQ(points.size(), mesh.vertices.size());
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+      EXPECT_EQ(points[i].x, mesh.vertices[i].x);
+      EXPECT_EQ(points[i].y, mesh.vertices[i].y);
+      EXPECT_EQ(points[i].z, mesh.vertices[i].z);
+    }
+  }
+}
+
+TEST(Ply, ReadTextZeroVerticesIgnoresFollowingElements) {
+  const auto test_file = CreateTestDir() / "empty.ply";
+  std::ofstream file(test_file);
+  file << "ply\nformat ascii 1.0\nelement vertex 0\n"
+          "property float x\nproperty float y\nproperty float z\n"
+          "element color 1\nproperty uchar red\nproperty uchar green\n"
+          "property uchar blue\nend_header\n1 2 3\n";
+  file.close();
+  EXPECT_TRUE(ReadPly(test_file).empty());
+}
+
+TEST(Ply, ReadTextTruncatedVertices) {
+  const auto test_file = CreateTestDir() / "truncated.ply";
+  std::ofstream file(test_file);
+  file << "ply\nformat ascii 1.0\nelement vertex 2\n"
+          "property float x\nproperty float y\nproperty float z\n"
+          "end_header\n1 2 3\n";
+  file.close();
+  EXPECT_THROW(ReadPly(test_file), std::invalid_argument);
+}
+
 TEST(Ply, RoundTripTextPlyMesh) {
   const auto test_dir = CreateTestDir();
   const auto test_file = test_dir / "mesh.ply";

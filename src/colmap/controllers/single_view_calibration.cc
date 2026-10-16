@@ -67,10 +67,12 @@ class SingleViewCalibrationController : public Thread {
       return;
     }
 
-    FlatHashMap<camera_t, Camera> cameras;
-    for (const Camera& camera : database_->ReadAllCameras()) {
-      cameras[camera.camera_id] = camera;
-    }
+    // Read cameras, preferring the best calibration that is neither
+    // SINGLE_VIEW nor VIEW_GRAPH, so that re-running single-view calibration
+    // does not rely on its own or subsequent calibration output.
+    const NodeHashMap<camera_t, Camera> cameras =
+        database_->ReadAllCamerasExcludingSources(
+            {CameraSource::SINGLE_VIEW, CameraSource::VIEW_GRAPH});
     FlatHashMap<image_t, PosePrior> pose_priors;
     for (PosePrior& pose_prior : database_->ReadAllPosePriors()) {
       if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA) {

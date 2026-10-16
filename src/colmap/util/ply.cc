@@ -264,7 +264,9 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
       points.push_back(point);
     }
   } else {
-    while (std::getline(file, line)) {
+    for (size_t i = 0; i < num_vertices; ++i) {
+      THROW_CHECK(std::getline(file, line))
+          << "Unexpected end of PLY file at vertex " << i;
       StringTrim(&line);
       std::stringstream line_stream(line);
 

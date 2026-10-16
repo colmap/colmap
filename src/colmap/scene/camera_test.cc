@@ -17,7 +17,8 @@ TEST(Camera, Empty) {
   EXPECT_EQ(camera.ModelName(), "");
   EXPECT_EQ(camera.width, 0);
   EXPECT_EQ(camera.height, 0);
-  EXPECT_FALSE(camera.has_prior_focal_length);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
+  EXPECT_EQ(camera.source, CameraSource::UNKNOWN);
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
   EXPECT_THROW(camera.PrincipalPointIdxs(), std::domain_error);
   EXPECT_THROW(camera.ExtraParamsIdxs(), std::domain_error);
@@ -38,6 +39,47 @@ TEST(Camera, Equals) {
   EXPECT_NE(camera, other);
   other.SetFocalLength(2.);
   EXPECT_EQ(camera, other);
+  camera.source = CameraSource::USER;
+  EXPECT_NE(camera, other);
+  other.source = CameraSource::USER;
+  EXPECT_EQ(camera, other);
+}
+
+TEST(Camera, HasPriorFocalLength) {
+  EXPECT_LT(CameraSourcePriority(CameraSource::BEST),
+            CameraSourcePriority(CameraSource::UNKNOWN));
+  EXPECT_LT(CameraSourcePriority(CameraSource::UNKNOWN),
+            CameraSourcePriority(CameraSource::GUESS));
+  EXPECT_LT(CameraSourcePriority(CameraSource::GUESS),
+            CameraSourcePriority(CameraSource::EXIF));
+  EXPECT_LT(CameraSourcePriority(CameraSource::EXIF),
+            CameraSourcePriority(CameraSource::SINGLE_VIEW));
+  EXPECT_LT(CameraSourcePriority(CameraSource::SINGLE_VIEW),
+            CameraSourcePriority(CameraSource::VIEW_GRAPH));
+  EXPECT_LT(CameraSourcePriority(CameraSource::VIEW_GRAPH),
+            CameraSourcePriority(CameraSource::USER));
+
+  Camera camera;
+  camera.source = CameraSource::UNKNOWN;
+  EXPECT_FALSE(camera.HasPriorFocalLength());
+  camera.source = CameraSource::GUESS;
+  EXPECT_FALSE(camera.HasPriorFocalLength());
+  camera.source = CameraSource::EXIF;
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+  camera.source = CameraSource::SINGLE_VIEW;
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+  camera.source = CameraSource::USER;
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+  camera.source = CameraSource::VIEW_GRAPH;
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+
+  const Camera camera_with_source = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1, CameraSource::EXIF);
+  EXPECT_EQ(camera_with_source.source, CameraSource::EXIF);
+  EXPECT_THROW(
+      Camera::CreateFromModelId(
+          1, SimplePinholeCameraModel::model_id, 1.0, 1, 1, CameraSource::BEST),
+      std::invalid_argument);
 }
 
 TEST(Camera, Print) {
@@ -211,7 +253,7 @@ TEST(Camera, CreateFromModelId) {
   EXPECT_EQ(camera.ModelName(), "SIMPLE_PINHOLE");
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
-  EXPECT_FALSE(camera.has_prior_focal_length);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
@@ -237,7 +279,7 @@ TEST(Camera, CreateFromModelName) {
   EXPECT_EQ(camera.ModelName(), "SIMPLE_PINHOLE");
   EXPECT_EQ(camera.width, 1);
   EXPECT_EQ(camera.height, 1);
-  EXPECT_FALSE(camera.has_prior_focal_length);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);

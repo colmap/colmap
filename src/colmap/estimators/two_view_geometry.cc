@@ -36,7 +36,7 @@ using FundamentalMatrixReport = LORANSAC<FundamentalMatrixSevenPointEstimator,
 // Whether a camera's intrinsics are known: it either carries a focal prior, or
 // is spherical and has no focal length to estimate in the first place.
 bool IsCameraCalibrated(const Camera& camera) {
-  return camera.IsSpherical() || camera.has_prior_focal_length;
+  return camera.IsSpherical() || camera.HasPriorFocalLength();
 }
 
 // DEGENSAC uses a different estimator type, so its report is a distinct type;
@@ -704,7 +704,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
       return EstimateSphericalTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);
     } else if (camera1.camera_id == camera2.camera_id &&
-               !camera1.has_prior_focal_length &&
+               !camera1.HasPriorFocalLength() &&
                camera1.IsPerspectivePinhole()) {
       // A single shared unknown focal. Multi-focal models (e.g. PINHOLE) are
       // seeded isotropically (fx = fy = f) and refined later by bundle
@@ -712,8 +712,7 @@ TwoViewGeometry EstimateTwoViewGeometry(
       // fundamental-matrix path.
       return EstimateSharedFocalTwoViewGeometry(
           camera1, points1, points2, matches, options);
-    } else if (camera1.has_prior_focal_length &&
-               camera2.has_prior_focal_length) {
+    } else if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
       // Both focals are known, so the pair reduces to the relative pose.
       return EstimateCalibratedTwoViewGeometry(
           camera1, points1, camera2, points2, matches, options);

@@ -75,7 +75,7 @@ void ProgressiveSampler::Sample(std::vector<size_t>* sampled_idxs) {
 
   // In progressive sampling mode, the last element is mandatory.
   if (T_n_p_ >= t_) {
-    sampled_idxs->push_back(n_);
+    sampled_idxs->push_back(n_ - 1);
   }
 }
 

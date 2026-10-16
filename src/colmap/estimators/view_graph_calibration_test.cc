@@ -45,25 +45,38 @@ TEST(CalibrateViewGraph, Nominal) {
     for (const size_t idx : camera.FocalLengthIdxs()) {
       camera.params[idx] += noise;
     }
-    camera.has_prior_focal_length = false;
+    camera.source = CameraSource::GUESS;
     database->UpdateCamera(camera);
   }
 
   ViewGraphCalibrationOptions calib_options;
-  calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // Verify focal lengths are calibrated close to ground truth.
+  // Verify focal lengths are calibrated close to ground truth and source is
+  // VIEW_GRAPH.
   for (const auto& [camera_id, gt_focal] : gt_focals) {
     const Camera camera = database->ReadCamera(camera_id);
-    EXPECT_TRUE(camera.has_prior_focal_length);
+    EXPECT_TRUE(camera.HasPriorFocalLength());
+    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
     EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 
-  // Verify pairs are now CALIBRATED with valid E matrices.
+  // Verify pairs are now CALIBRATED with valid E matrices and relative poses.
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
     EXPECT_EQ(tvg.config, TwoViewGeometry::CALIBRATED);
     EXPECT_TRUE(tvg.E.has_value());
+    EXPECT_TRUE(tvg.cam2_from_cam1.has_value());
+  }
+
+  // Re-running view graph calibration should succeed and use the original
+  // non-VIEW_GRAPH calibrations as input rather than compounding on previous
+  // output or rebuilding F from the GUESS cameras.
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+  for (const auto& [camera_id, gt_focal] : gt_focals) {
+    const Camera camera = database->ReadCamera(camera_id);
+    EXPECT_TRUE(camera.HasPriorFocalLength());
+    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
+    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
   }
 }
 
@@ -92,10 +105,13 @@ TEST(CalibrateViewGraph, PriorFocalLength) {
   calib_options.reestimate_relative_pose = false;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // Verify cameras with priors are unchanged.
+  // Verify cameras with priors are unchanged and not duplicated as VIEW_GRAPH.
   for (const auto& [camera_id, original_focal] : original_focals) {
     const Camera camera = database->ReadCamera(camera_id);
     EXPECT_EQ(camera.MeanFocalLength(), original_focal);
+    EXPECT_EQ(camera.source, CameraSource::USER);
+    EXPECT_FALSE(
+        database->ExistsCameraSource(camera_id, CameraSource::VIEW_GRAPH));
   }
 }
 
@@ -285,8 +301,81 @@ TEST(CalibrateViewGraph, FisheyeCamerasAreIgnored) {
     EXPECT_EQ(camera.params, params);
     // Never calibrated, so it must not be marked as having a prior focal
     // length, which would make downstream stages trust an unestimated value.
-    EXPECT_FALSE(camera.has_prior_focal_length);
+    EXPECT_FALSE(camera.HasPriorFocalLength());
   }
+}
+
+TEST(CalibrateViewGraph, RejectedAndUnconnectedCamerasRemainGuess) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+
+  SyntheticDatasetOptions options;
+  options.num_rigs = 10;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 200;
+  options.camera_model_id = SimplePinholeCameraModel::model_id;
+  options.camera_params = {1280, 512, 384};
+  options.camera_has_prior_focal_length = false;
+
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  // Perturb camera 1's initial GUESS focal length so that the optimized/initial
+  // ratio exceeds max_focal_length_ratio and camera 1 gets rejected, while
+  // camera 2 has small noise within the allowed ratio.
+  const camera_t rejected_camera_id = 1;
+  {
+    Camera camera = database->ReadCamera(rejected_camera_id);
+    camera.SetFocalLength(1230.0);
+    camera.source = CameraSource::GUESS;
+    database->UpdateCamera(camera);
+  }
+  const camera_t valid_camera_id = 2;
+  {
+    Camera camera = database->ReadCamera(valid_camera_id);
+    camera.SetFocalLength(1260.0);
+    camera.source = CameraSource::GUESS;
+    database->UpdateCamera(camera);
+  }
+
+  // Add an unconnected GUESS camera with no image pairs.
+  Camera unconnected_camera =
+      Camera::CreateFromModelId(kInvalidCameraId,
+                                SimplePinholeCameraModel::model_id,
+                                /*focal_length=*/1000.0,
+                                /*width=*/1024,
+                                /*height=*/768);
+  unconnected_camera.source = CameraSource::GUESS;
+  const camera_t unconnected_camera_id =
+      database->WriteCamera(unconnected_camera);
+
+  ViewGraphCalibrationOptions calib_options;
+  calib_options.reestimate_relative_pose = false;
+  calib_options.min_focal_length_ratio = 0.98;
+  calib_options.max_focal_length_ratio = 1.02;
+  EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
+
+  // Valid connected camera is promoted to VIEW_GRAPH.
+  const Camera valid_camera = database->ReadCamera(valid_camera_id);
+  EXPECT_EQ(valid_camera.source, CameraSource::VIEW_GRAPH);
+  EXPECT_TRUE(valid_camera.HasPriorFocalLength());
+  EXPECT_NEAR(valid_camera.MeanFocalLength(), 1280.0, 1.0);
+
+  // Rejected camera stays GUESS and has no VIEW_GRAPH calibration.
+  const Camera rejected_camera = database->ReadCamera(rejected_camera_id);
+  EXPECT_EQ(rejected_camera.source, CameraSource::GUESS);
+  EXPECT_FALSE(rejected_camera.HasPriorFocalLength());
+  EXPECT_EQ(rejected_camera.MeanFocalLength(), 1230.0);
+  EXPECT_FALSE(database->ExistsCameraSource(rejected_camera_id,
+                                            CameraSource::VIEW_GRAPH));
+
+  // Unconnected camera stays GUESS and has no VIEW_GRAPH calibration.
+  const Camera read_unconnected = database->ReadCamera(unconnected_camera_id);
+  EXPECT_EQ(read_unconnected.source, CameraSource::GUESS);
+  EXPECT_FALSE(read_unconnected.HasPriorFocalLength());
+  EXPECT_EQ(read_unconnected.MeanFocalLength(), 1000.0);
+  EXPECT_FALSE(database->ExistsCameraSource(unconnected_camera_id,
+                                            CameraSource::VIEW_GRAPH));
 }
 
 }  // namespace

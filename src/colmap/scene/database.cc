@@ -31,22 +31,95 @@ std::shared_ptr<Database> Database::Open(const std::filesystem::path& path) {
   throw std::runtime_error("No registered database factory succeeded.");
 }
 
+namespace {
+
+const Camera& SelectBestCameraExcludingSources(
+    const std::map<CameraSource, Camera>& calibrations,
+    const FlatHashSet<CameraSource>& excluded_sources) {
+  THROW_CHECK(!calibrations.empty());
+  const Camera* best_non_excluded = nullptr;
+  int best_non_excluded_priority = -1;
+  const Camera* best_overall = &calibrations.begin()->second;
+  int best_overall_priority = CameraSourcePriority(calibrations.begin()->first);
+  for (const auto& [source, camera] : calibrations) {
+    const int priority = CameraSourcePriority(source);
+    if (priority > best_overall_priority) {
+      best_overall = &camera;
+      best_overall_priority = priority;
+    }
+    if (!excluded_sources.contains(source) &&
+        (best_non_excluded == nullptr ||
+         priority > best_non_excluded_priority)) {
+      best_non_excluded = &camera;
+      best_non_excluded_priority = priority;
+    }
+  }
+  return best_non_excluded != nullptr ? *best_non_excluded : *best_overall;
+}
+
+}  // namespace
+
+Camera Database::ReadCameraExcludingSources(
+    const camera_t camera_id,
+    const FlatHashSet<CameraSource>& excluded_sources) const {
+  const auto calibrations = ReadAllCameraSources(camera_id);
+  if (calibrations.empty()) {
+    return Camera();
+  }
+  return SelectBestCameraExcludingSources(calibrations, excluded_sources);
+}
+
+NodeHashMap<camera_t, Camera> Database::ReadAllCamerasExcludingSources(
+    const FlatHashSet<CameraSource>& excluded_sources) const {
+  NodeHashMap<camera_t, Camera> cameras;
+  const auto all_calibrations = ReadAllCameraSources();
+  cameras.reserve(all_calibrations.size());
+  for (const auto& [camera_id, calibrations] : all_calibrations) {
+    if (calibrations.empty()) {
+      continue;
+    }
+    cameras.emplace(
+        camera_id,
+        SelectBestCameraExcludingSources(calibrations, excluded_sources));
+  }
+  return cameras;
+}
+
 void Database::Merge(const Database& database1,
                      const Database& database2,
                      Database* merged_database) {
   // Merge the cameras.
 
+  auto merge_cameras = [](const Database& src_database,
+                          Database* dst_database,
+                          NodeHashMap<camera_t, camera_t>* new_camera_ids) {
+    const auto all_calibrations = src_database.ReadAllCameraSources();
+    std::vector<camera_t> camera_ids;
+    camera_ids.reserve(all_calibrations.size());
+    for (const auto& [camera_id, _] : all_calibrations) {
+      camera_ids.push_back(camera_id);
+    }
+    std::sort(camera_ids.begin(), camera_ids.end());
+    for (const camera_t camera_id : camera_ids) {
+      camera_t new_camera_id = kInvalidCameraId;
+      for (const auto& [source, camera] : all_calibrations.at(camera_id)) {
+        if (new_camera_id == kInvalidCameraId) {
+          new_camera_id = dst_database->WriteCamera(camera);
+        } else {
+          Camera camera_copy = camera;
+          camera_copy.camera_id = new_camera_id;
+          dst_database->UpdateCamera(camera_copy);
+        }
+      }
+      new_camera_ids->emplace(camera_id, new_camera_id);
+    }
+  };
+
   NodeHashMap<camera_t, camera_t> new_camera_ids1;
-  for (const auto& camera : database1.ReadAllCameras()) {
-    const camera_t new_camera_id = merged_database->WriteCamera(camera);
-    new_camera_ids1.emplace(camera.camera_id, new_camera_id);
-  }
+  merge_cameras(database1, merged_database, &new_camera_ids1);
 
   NodeHashMap<camera_t, camera_t> new_camera_ids2;
-  for (const auto& camera : database2.ReadAllCameras()) {
-    const camera_t new_camera_id = merged_database->WriteCamera(camera);
-    new_camera_ids2.emplace(camera.camera_id, new_camera_id);
-  }
+  merge_cameras(database2, merged_database, &new_camera_ids2);
 
   // Merge the rigs.
 

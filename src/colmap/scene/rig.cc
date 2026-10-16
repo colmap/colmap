@@ -234,7 +234,7 @@ void UpdateRigsAndFramesFromDatabase(const Database& database,
 void CopyCameraIntrinsics(const Camera& src, Camera& dst) {
   dst.model_id = src.model_id;
   dst.params = src.params;
-  dst.has_prior_focal_length = src.has_prior_focal_length;
+  dst.source = src.source;
 }
 
 }  // namespace
@@ -302,7 +302,7 @@ std::vector<RigConfig> ReadRigConfig(
         config_camera.camera = std::make_optional<Camera>();
         config_camera.camera->model_id = CameraModelNameToId(
             camera.second.get<std::string>("camera_model_name"));
-        config_camera.camera->has_prior_focal_length = true;
+        config_camera.camera->source = CameraSource::USER;
         for (const auto& node : camera_params_node.get()) {
           config_camera.camera->params.push_back(
               StringToDouble(node.second.get_value<std::string>()));

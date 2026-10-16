@@ -2,11 +2,13 @@
 
 #include "colmap/estimators/rotation_averaging.h"
 
-#include "colmap/estimators/rotation_averaging_impl.h"
+#include "colmap/estimators/rotation_averaging_ceres.h"
+#include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/threading.h"
 
 #include <algorithm>
 #include <queue>
@@ -245,7 +247,54 @@ Reconstruction CreateExpandedReconstruction(
   return recon_expanded;
 }
 
+std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
+    const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids) {
+  for (const auto& [pair_id, _] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!active_image_ids.count(image_id1) ||
+        !active_image_ids.count(image_id2)) {
+      PoseGraph filtered_pose_graph = pose_graph;
+      filtered_pose_graph.InvalidatePairsOutsideActiveImageIds(
+          active_image_ids);
+      return filtered_pose_graph;
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace
+
+RotationEstimatorBackendOptions::RotationEstimatorBackendOptions()
+    : l1_irls(std::make_shared<L1IrlsRotationAveragerOptions>()),
+      ceres(std::make_shared<CeresRotationAveragerOptions>()) {}
+
+RotationEstimatorBackendOptions::RotationEstimatorBackendOptions(
+    const RotationEstimatorBackendOptions& other) {
+  if (other.l1_irls) {
+    l1_irls = std::make_shared<L1IrlsRotationAveragerOptions>(*other.l1_irls);
+  }
+  if (other.ceres) {
+    ceres = std::make_shared<CeresRotationAveragerOptions>(*other.ceres);
+  }
+}
+
+RotationEstimatorBackendOptions& RotationEstimatorBackendOptions::operator=(
+    const RotationEstimatorBackendOptions& other) {
+  if (this == &other) {
+    return *this;
+  }
+  if (other.l1_irls) {
+    l1_irls = std::make_shared<L1IrlsRotationAveragerOptions>(*other.l1_irls);
+  } else {
+    l1_irls.reset();
+  }
+  if (other.ceres) {
+    ceres = std::make_shared<CeresRotationAveragerOptions>(*other.ceres);
+  } else {
+    ceres.reset();
+  }
+  return *this;
+}
 
 // Mark edges as invalid if their relative rotation differs from the
 // reconstructed rotation by more than max_angle_deg.
@@ -480,6 +529,15 @@ bool RotationEstimator::SolveRotationAveraging(
     const std::vector<PosePrior>& pose_priors,
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
+  if (options_.backend == RotationAveragingBackend::CERES) {
+    if (!UseGravity(options_, pose_priors)) {
+      return SolveRotationAveragingWithCeres(
+          pose_graph, active_image_ids, reconstruction);
+    }
+    LOG(WARNING) << "Gravity priors are not supported by the CERES rotation "
+                    "averaging backend, falling back to L1_IRLS";
+  }
+
   // Initialize rotations from maximum spanning tree. Note that without
   // intialization, the gravity-aligned rotation averaging is prone to random
   // flips by 180deg.
@@ -495,13 +553,52 @@ bool RotationEstimator::SolveRotationAveraging(
       pose_graph, pose_priors, options_, active_image_ids, reconstruction);
 
   // Solve and apply results.
-  RotationAveragingSolver solver(options_);
+  RotationAveragingSolver solver(*THROW_CHECK_NOTNULL(options_.l1_irls));
   if (!solver.Solve(problem)) {
     return false;
   }
 
   problem.ApplyResultsToReconstruction(reconstruction);
   return true;
+}
+
+bool RotationEstimator::SolveRotationAveragingWithCeres(
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& active_image_ids,
+    Reconstruction& reconstruction) {
+  THROW_CHECK_NOTNULL(options_.ceres);
+
+  const std::optional<PoseGraph> filtered_pose_graph =
+      MaybeFilterPoseGraphToActiveImages(pose_graph, active_image_ids);
+  const PoseGraph& active_pose_graph =
+      filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
+
+  const auto solve = [&](const RotationEstimatorOptions& options) {
+    auto averager = CreateDefaultCeresRotationAverager(
+        options, active_pose_graph, reconstruction);
+    const ceres::Solver::Summary summary = averager->Solve();
+    if (VLOG_IS_ON(2)) {
+      LOG(INFO) << summary.FullReport();
+    } else {
+      VLOG(1) << summary.BriefReport();
+    }
+    return summary.IsSolutionUsable();
+  };
+
+  RotationEstimatorOptions options = options_;
+  if (options.ceres->max_num_warm_start_iterations > 0) {
+    RotationEstimatorOptions warm_start_options = options;
+    warm_start_options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
+    warm_start_options.ceres->solver_options.max_num_iterations =
+        options.ceres->max_num_warm_start_iterations;
+    if (!solve(warm_start_options)) {
+      return false;
+    }
+    // Continue from the warm-started rotations.
+    options.skip_initialization = true;
+  }
+
+  return solve(options);
 }
 
 void InitializeFromMaximumSpanningTree(

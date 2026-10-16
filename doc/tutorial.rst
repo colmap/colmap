@@ -541,13 +541,14 @@ database are only effective after clicking ``Save``.
 
 To share intrinsic camera parameters between arbitrary groups of images, select
 one or more images, choose ``Set camera`` and set the ``camera_id``,
-which corresponds to the unique ``camera_id`` column in the cameras table. You can
-also add new cameras with specific parameters. By setting the
-``prior_focal_length`` flag to 0 or 1, you can give a hint whether the
-reconstruction algorithm should trust the focal length value. In case of a prior
-lab calibration, you should set this value to 1. Without prior knowledge about
-the focal length, it is recommended to set this value to ``1.25 *
-max(width_in_px, height_in_px)``.
+which corresponds to the ``camera_id`` column in the cameras table. You can
+also add new cameras with specific parameters. By setting the ``source`` column
+(e.g., ``GUESS``, ``EXIF``, or ``USER``), you can indicate the origin of the
+calibration and whether the reconstruction algorithm should trust the focal
+length value. In case of a prior lab calibration, you should set ``source`` to
+``USER``. Without prior knowledge about the focal length, it is recommended to
+set the focal length to ``1.25 * max(width_in_px, height_in_px)`` and
+``source`` to ``GUESS``.
 
 The database management tool has only limited functionality and, for full
 control over the data, you must directly modify the SQLite database (see

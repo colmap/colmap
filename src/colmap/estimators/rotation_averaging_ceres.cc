@@ -7,6 +7,7 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/threading.h"
 
 #include <algorithm>
 #include <limits>
@@ -28,15 +29,25 @@ double* MaybeGetSensorRotationBlock(const Image& image) {
 
 CeresRotationAveragerOptions::CeresRotationAveragerOptions() {
   solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+  solver_options.max_num_iterations = 100;
+  solver_options.num_threads = -1;
 }
 
 CeresRotationAverager::CeresRotationAverager(
-    const CeresRotationAveragerOptions& options,
+    const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction)
-    : solver_options(options.solver_options), reconstruction_(reconstruction) {
-  std::shared_ptr<ceres::LossFunction> loss(CreateCeresLossFunction(
-      options.loss_function_type, options.loss_function_scale));
+    : solver_options(THROW_CHECK_NOTNULL(options.ceres)->solver_options),
+      reconstruction_(reconstruction) {
+  const CeresRotationAveragerOptions& ceres_options = *options.ceres;
+  solver_options.num_threads =
+      GetEffectiveNumThreads(solver_options.num_threads);
+  if (VLOG_IS_ON(2)) {
+    solver_options.minimizer_progress_to_stdout = true;
+  }
+  std::shared_ptr<ceres::LossFunction> loss(
+      CreateCeresLossFunction(ceres_options.loss_function_type,
+                              DegToRad(ceres_options.loss_function_scale)));
   FlatHashSet<image_t> image_ids;
   int max_num_matches = 0;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
@@ -71,8 +82,8 @@ CeresRotationAverager::CeresRotationAverager(
         max_num_matches > 0) {
       if (edge.num_matches == 0) continue;
       loss =
-          CreateCeresLossFunction(options.loss_function_type,
-                                  options.loss_function_scale,
+          CreateCeresLossFunction(ceres_options.loss_function_type,
+                                  DegToRad(ceres_options.loss_function_scale),
                                   double(edge.num_matches) / max_num_matches);
     }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
@@ -82,7 +93,7 @@ CeresRotationAverager::CeresRotationAverager(
 }
 
 void CeresRotationAverager::InitializeRotations(
-    const CeresRotationAveragerOptions& options,
+    const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& image_ids) {
   // Validate fixed sensors before replacing invalid initial rotations.
@@ -116,7 +127,7 @@ void CeresRotationAverager::InitializeRotations(
 }
 
 void CeresRotationAverager::SetupParameterBlocks(
-    const CeresRotationAveragerOptions& options,
+    const RotationEstimatorOptions& options,
     const FlatHashSet<image_t>& image_ids) {
   const auto add_rotation = [&](Eigen::Map<Eigen::Quaterniond> rotation) {
     double* block = rotation.coeffs().data();
@@ -245,7 +256,7 @@ void CeresRotationAverager::AddRelativeRotationResidual(
 }
 
 std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
-    const CeresRotationAveragerOptions& options,
+    const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction) {
   return std::make_unique<CeresRotationAverager>(
