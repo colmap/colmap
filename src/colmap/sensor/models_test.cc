@@ -4,6 +4,8 @@
 
 #include "colmap/math/random.h"
 
+#include <cmath>
+
 #include <ceres/ceres.h>
 #include <gtest/gtest.h>
 
@@ -400,7 +402,8 @@ TEST(FOV, Nominal) {
 }
 
 TEST(FOV, SmallOmegaProjection) {
-  for (const double omega : {-0.009, -0.001, 0.001, 0.009}) {
+  // 0.011 sits just above the |omega| < 0.01 small-omega branch threshold.
+  for (const double omega : {-0.011, -0.009, -0.001, 0.001, 0.009, 0.011}) {
     const std::vector<double> params = {650, 655, 400, 300, omega};
     for (const Eigen::Vector2d& uv : {Eigen::Vector2d(0.1, -0.2),
                                     Eigen::Vector2d(0.8, -0.6),
@@ -419,7 +422,8 @@ TEST(FOV, SmallOmegaProjection) {
 }
 
 TEST(FOV, SmallOmegaRoundTrip) {
-  for (const double omega : {-0.009, -0.001, 0.001, 0.009}) {
+  // 0.011 sits just above the |omega| < 0.01 small-omega branch threshold.
+  for (const double omega : {-0.011, -0.009, -0.001, 0.001, 0.009, 0.011}) {
     const std::vector<double> params = {650, 655, 400, 300, omega};
     for (const Eigen::Vector2d& uv : {Eigen::Vector2d(0.1, -0.2),
                                     Eigen::Vector2d(0.8, -0.6),
