@@ -49,9 +49,9 @@ TEST(PerspectiveFieldFittingTest, SubsampleMaxPoolVsUniform) {
 }
 
 TEST(PerspectiveFieldFittingTest, FixedCameraRecoversGravity) {
-  Camera camera = Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 80.0, 64, 48);
+  Camera camera = Camera::CreateFromModelName(
+      1, "SIMPLE_RADIAL", 80.0, 64, 48, CameraSource::EXIF);
   camera.params[3] = -0.15;
-  camera.has_prior_focal_length = true;
 
   const Eigen::Vector3d gt_gravity =
       Eigen::Vector3d(0.25, 0.85, -0.45).normalized();
@@ -93,9 +93,12 @@ TEST_P(RefineCameraPerspectiveFieldTest, RecoversGravityAndIntrinsics) {
       gt_camera, gt_gravity, 32, 24);
 
   // Start with a wrong focal length and zero distortion.
-  Camera est_camera = Camera::CreateFromModelId(
-      1, gt_camera.model_id, /*focal_length=*/45.0, 64, 48);
-  est_camera.has_prior_focal_length = false;
+  Camera est_camera = Camera::CreateFromModelId(1,
+                                                gt_camera.model_id,
+                                                /*focal_length=*/45.0,
+                                                64,
+                                                48,
+                                                CameraSource::GUESS);
 
   PerspectiveFieldFittingOptions options;
   options.stride = 2;
@@ -106,6 +109,8 @@ TEST_P(RefineCameraPerspectiveFieldTest, RecoversGravityAndIntrinsics) {
   const FittedPerspectiveFields fitted =
       FitPerspectiveField(options, field, &est_camera, /*refine_camera=*/true);
   ASSERT_TRUE(fitted.success);
+  EXPECT_EQ(est_camera.source, CameraSource::SINGLE_VIEW);
+  EXPECT_TRUE(est_camera.HasPriorFocalLength());
   EXPECT_LT(fitted.final_cost, 1e-8);
   EXPECT_THAT(fitted.gravity_in_rig, EigenMatrixNear(gt_gravity, 1e-3));
   for (size_t i = 0; i < test_case.gt_params.size(); ++i) {
@@ -120,6 +125,7 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         CameraModelCase{"SIMPLE_PINHOLE", {72.0, 32.0, 24.0}},
         CameraModelCase{"PINHOLE", {72.0, 72.0, 32.0, 24.0}},
+        CameraModelCase{"SKEWED_PINHOLE", {72.0, 72.0, 32.0, 24.0, 0.0}},
         CameraModelCase{"SIMPLE_RADIAL", {72.0, 32.0, 24.0, -0.12}},
         CameraModelCase{"SIMPLE_DIVISION", {72.0, 32.0, 24.0, -0.15}},
         CameraModelCase{"SIMPLE_FISHEYE", {55.0, 32.0, 24.0}},
@@ -163,11 +169,10 @@ TEST(PerspectiveFieldFittingTest, MultiCameraRigJointOptimization) {
       cam2, gt_gravity_cam2, 32, 24);
 
   // Perturb cam1 intrinsics and keep cam2 fixed.
-  Camera est_cam1 =
-      Camera::CreateFromModelName(1, "SIMPLE_RADIAL", 50.0, 64, 48);
-  est_cam1.has_prior_focal_length = false;
+  Camera est_cam1 = Camera::CreateFromModelName(
+      1, "SIMPLE_RADIAL", 50.0, 64, 48, CameraSource::GUESS);
   Camera est_cam2 = cam2;
-  est_cam2.has_prior_focal_length = true;
+  est_cam2.source = CameraSource::EXIF;
 
   std::vector<PerspectiveFieldCameraInput> inputs(2);
   inputs[0].field = &field1;

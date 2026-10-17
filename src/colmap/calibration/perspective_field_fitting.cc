@@ -152,7 +152,7 @@ PerspectiveField GatherPerspectiveField(
 // Initialize uncalibrated focal length to 0.7 * max(width, height) and zero
 // distortion, mirroring GeoCalib's get_trivial_estimation in lm_optimizer.py.
 void InitializeFocalLengthFromPerspectiveField(Camera* camera) {
-  if (camera->has_prior_focal_length ||
+  if (camera->HasPriorFocalLength() ||
       CameraModelIsSpherical(camera->model_id)) {
     return;
   }
@@ -419,7 +419,8 @@ void SetCameraParamsManifold(const PerspectiveFieldFittingOptions& options,
         const_camera_params.end(), idxs.begin(), idxs.end());
   }
   const span<const size_t> extra_idxs = camera.ExtraParamsIdxs();
-  if (!options.refine_extra_params) {
+  if (!options.refine_extra_params ||
+      camera.model_id == CameraModelId::kSkewedPinhole) {
     const_camera_params.insert(
         const_camera_params.end(), extra_idxs.begin(), extra_idxs.end());
   } else if (extra_idxs.size() > 1) {
@@ -574,7 +575,7 @@ FittedPerspectiveFields FitPerspectiveFields(
     total_points += subsampled_fields[k].NumPoints();
 
     if (inputs[k].refine_camera && options.refine_focal_length &&
-        !inputs[k].camera->has_prior_focal_length) {
+        !inputs[k].camera->HasPriorFocalLength()) {
       InitializeFocalLengthFromPerspectiveField(inputs[k].camera);
     }
   }
@@ -657,6 +658,14 @@ FittedPerspectiveFields FitPerspectiveFields(
 
   result.gravity_in_rig.normalize();
   result.success = summary.IsSolutionUsable();
+  if (result.success && any_intrinsic_refined) {
+    for (size_t k = 0; k < inputs.size(); ++k) {
+      if (inputs[k].refine_camera &&
+          !CameraModelIsSpherical(inputs[k].camera->model_id)) {
+        inputs[k].camera->source = CameraSource::SINGLE_VIEW;
+      }
+    }
+  }
   result.initial_cost = summary.initial_cost;
   result.final_cost = summary.final_cost;
   return result;

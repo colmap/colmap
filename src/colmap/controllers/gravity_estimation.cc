@@ -43,10 +43,18 @@ std::vector<Image> SelectImages(const Database& database,
   return images;
 }
 
-DatabaseScene LoadDatabaseScene(const Database& database) {
+DatabaseScene LoadDatabaseScene(const Database& database,
+                                const GravityEstimationOptions& options) {
   DatabaseScene scene;
-  for (const Camera& camera : database.ReadAllCameras()) {
-    scene.cameras[camera.camera_id] = camera;
+  if (options.refine_intrinsics && options.force_refine_intrinsics) {
+    for (auto& [camera_id, camera] : database.ReadAllCamerasExcludingSources(
+             {CameraSource::SINGLE_VIEW, CameraSource::VIEW_GRAPH})) {
+      scene.cameras.emplace(camera_id, std::move(camera));
+    }
+  } else {
+    for (Camera& camera : database.ReadAllCameras()) {
+      scene.cameras.emplace(camera.camera_id, std::move(camera));
+    }
   }
   for (const Rig& rig : database.ReadAllRigs()) {
     scene.rigs[rig.RigId()] = rig;
@@ -126,7 +134,7 @@ std::vector<FrameImageGroup> GroupImagesByFrame(
 bool ShouldRefineCamera(const Camera& camera,
                         const GravityEstimationOptions& options) {
   return options.refine_intrinsics &&
-         (options.force_refine_intrinsics || !camera.has_prior_focal_length);
+         (options.force_refine_intrinsics || !camera.HasPriorFocalLength());
 }
 
 void PredictGroupPerspectiveFields(const FrameImageGroup& group,
@@ -199,8 +207,8 @@ void PrepareWorkingCameras(const FrameImageGroup& group,
                                                    configured_model_id,
                                                    orig_cam.MeanFocalLength(),
                                                    orig_cam.width,
-                                                   orig_cam.height);
-      converted.has_prior_focal_length = orig_cam.has_prior_focal_length;
+                                                   orig_cam.height,
+                                                   orig_cam.source);
       (*working_cameras)[camera_id] = std::move(converted);
     } else {
       (*working_cameras)[camera_id] = orig_cam;
@@ -268,7 +276,7 @@ bool EstimateFrameGroup(
     if (!refine_camera_flags.at(camera_id)) {
       continue;
     }
-    working_cam.has_prior_focal_length = true;
+    working_cam.source = CameraSource::SINGLE_VIEW;
     if (!IsValidCalibration(working_cam) ||
         working_cam.HasBogusParams(options.min_focal_length_ratio,
                                    options.max_focal_length_ratio,
@@ -365,7 +373,7 @@ class GravityEstimationController : public Thread {
       return;
     }
 
-    DatabaseScene scene = LoadDatabaseScene(*database_);
+    DatabaseScene scene = LoadDatabaseScene(*database_, options_);
     const std::vector<FrameImageGroup> groups =
         GroupImagesByFrame(all_images, scene.frames, scene.rigs);
 

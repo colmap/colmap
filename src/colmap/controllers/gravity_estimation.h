@@ -19,10 +19,10 @@ struct GravityEstimationOptions {
   // Empty preserves each camera's existing model instead of converting it.
   std::string camera_model;
 
-  // Whether to refine camera intrinsics when !camera.has_prior_focal_length.
+  // Whether to refine camera intrinsics when !camera.HasPriorFocalLength().
   bool refine_intrinsics = true;
 
-  // If true, refine intrinsics even for cameras with has_prior_focal_length.
+  // If true, refine intrinsics even for cameras with HasPriorFocalLength().
   bool force_refine_intrinsics = false;
 
   // Plausibility bounds on the calibrated intrinsics, shared with the

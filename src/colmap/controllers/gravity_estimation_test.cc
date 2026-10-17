@@ -69,9 +69,8 @@ TEST(GravityEstimationControllerTest,
 
   {
     auto database = Database::Open(database_path);
-    Camera init_cam =
-        Camera::CreateFromModelName(1, "SIMPLE_PINHOLE", 45.0, 64, 48);
-    init_cam.has_prior_focal_length = false;
+    Camera init_cam = Camera::CreateFromModelName(
+        1, "SIMPLE_PINHOLE", 45.0, 64, 48, CameraSource::GUESS);
     const camera_t camera_id = database->WriteCamera(init_cam);
 
     Image img0;
@@ -109,8 +108,15 @@ TEST(GravityEstimationControllerTest,
 
   const std::vector<Camera> cameras = database->ReadAllCameras();
   ASSERT_EQ(cameras.size(), 1);
-  EXPECT_TRUE(cameras[0].has_prior_focal_length);
+  EXPECT_TRUE(cameras[0].HasPriorFocalLength());
+  EXPECT_EQ(cameras[0].source, CameraSource::SINGLE_VIEW);
   EXPECT_NEAR(cameras[0].MeanFocalLength(), 72.0, 1e-2);
+
+  const auto calibrations =
+      database->ReadAllCameraSources(cameras[0].camera_id);
+  EXPECT_EQ(calibrations.size(), 2);
+  EXPECT_EQ(calibrations.at(CameraSource::SINGLE_VIEW).params,
+            cameras[0].params);
 }
 
 TEST(GravityEstimationControllerTest, MultiCameraRigEstimatesSingleRigGravity) {
@@ -131,11 +137,11 @@ TEST(GravityEstimationControllerTest, MultiCameraRigEstimatesSingleRigGravity) {
   {
     auto database = Database::Open(database_path);
     Camera cam0 = gt_camera;
-    cam0.has_prior_focal_length = true;
+    cam0.source = CameraSource::EXIF;
     const camera_t cam0_id = database->WriteCamera(cam0);
 
     Camera cam1 = gt_camera;
-    cam1.has_prior_focal_length = true;
+    cam1.source = CameraSource::EXIF;
     const camera_t cam1_id = database->WriteCamera(cam1);
 
     Rig rig;
