@@ -410,7 +410,8 @@ void RectifyStereoCameras(const Camera& camera1,
   *H2 = K * R2 * camera2.CalibrationMatrix().inverse();
 
   // Determine the inverse projection matrix that transforms disparity values
-  // to 3D world coordinates: [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w.
+  // to 3D coordinates in the rectified first camera frame:
+  // [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w.
   *Q = Eigen::Matrix4d::Zero();
   (*Q)(0, 0) = 1;
   (*Q)(1, 1) = 1;

@@ -493,14 +493,19 @@ TEST(RectifyStereoCameras, DisparityTo3DRoundTrip) {
         Camera::CreateFromModelId(2, CameraModelId::kPinhole, 750, 640, height);
     const Eigen::Matrix3d K1 = camera1.CalibrationMatrix();
     const Eigen::Matrix3d K2 = camera2.CalibrationMatrix();
+    // Mirror the rectified calibration matrix construction of
+    // RectifyStereoCameras (minimum focal length, first camera's cx, averaged
+    // cy), so that the test also locks in that convention.
     Eigen::Matrix3d K = K1;
     K(0, 0) = K(1, 1) = 750;
 
     for (const double baseline : {-0.2, 0.2}) {
       for (const double angle : {0.0, 0.1}) {
+        // Use a non-zero Y translation component to cover general,
+        // non-axis-aligned translations in all cases.
         const Rigid3d cam2_from_cam1(
             Eigen::Quaterniond(EulerAnglesToRotationMatrix(angle, 0.0, 0.0)),
-            Eigen::Vector3d(baseline, angle, 0.0));
+            Eigen::Vector3d(baseline, 0.05, 0.0));
         Eigen::Matrix3d H1;
         Eigen::Matrix3d H2;
         Eigen::Matrix4d Q;
