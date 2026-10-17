@@ -6,6 +6,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <limits>
+
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -137,9 +139,16 @@ void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
                                  double* rx,
                                  double* ry,
                                  double* rz) {
-  *rx = std::atan2(R(2, 1), R(2, 2));
-  *ry = std::asin(-R(2, 0));
-  *rz = std::atan2(R(1, 0), R(0, 0));
+  const double cos_ry = std::hypot(R(0, 0), R(1, 0));
+  *ry = std::atan2(-R(2, 0), cos_ry);
+  if (cos_ry > std::numeric_limits<double>::epsilon()) {
+    *rx = std::atan2(R(2, 1), R(2, 2));
+    *rz = std::atan2(R(1, 0), R(0, 0));
+  } else {
+    // Roll and yaw are coupled at gimbal lock. Choose zero yaw.
+    *rx = std::atan2(-R(1, 2), R(1, 1));
+    *rz = 0;
+  }
 
   *rx = std::isnan(*rx) ? 0 : *rx;
   *ry = std::isnan(*ry) ? 0 : *ry;
