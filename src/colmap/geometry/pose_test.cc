@@ -184,6 +184,32 @@ TEST(EulerAngles, XYZ) {
   EXPECT_NEAR(rz, rzz, 1e-6);
 }
 
+TEST(EulerAngles, GimbalLock) {
+  const double yaw = 0.7;
+  for (const double sign : {-1.0, 1.0}) {
+    Eigen::Matrix3d R;
+    R << 0, -std::sin(yaw), sign * std::cos(yaw), 0, std::cos(yaw),
+        sign * std::sin(yaw), -sign, 0, 0;
+    double rx, ry, rz;
+    RotationMatrixToEulerAngles(R, &rx, &ry, &rz);
+    EXPECT_THAT(EulerAnglesToRotationMatrix(rx, ry, rz),
+                EigenMatrixNear(R, 1e-14));
+  }
+}
+
+TEST(EulerAngles, NearGimbalLock) {
+  for (const double sign : {-1.0, 1.0}) {
+    for (const double offset : {1e-4, 1e-8, 1e-12}) {
+      const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(
+          0.7, sign * (DegToRad(90.0) - offset), 0.3);
+      double rx, ry, rz;
+      RotationMatrixToEulerAngles(R, &rx, &ry, &rz);
+      EXPECT_THAT(EulerAnglesToRotationMatrix(rx, ry, rz),
+                  EigenMatrixNear(R, 1e-14));
+    }
+  }
+}
+
 TEST(AverageQuaternions, Nominal) {
   std::vector<Eigen::Quaterniond> quats;
   std::vector<double> weights;

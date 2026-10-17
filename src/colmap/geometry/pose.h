@@ -71,6 +71,7 @@ Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w);
 //
 // The convention `R = Rz * Ry * Rx` is used,
 // using a right-handed coordinate system.
+// At gimbal lock, rz is chosen as zero and rx captures the coupled rotation.
 //
 // @param R              3x3 rotation matrix.
 // @param rx, ry, rz     Euler angles in radians.
