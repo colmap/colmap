@@ -573,10 +573,12 @@ class VisualCentricImuPreintegrationCostFunctor {
   explicit VisualCentricImuPreintegrationCostFunctor(
       const PreintegratedImuData* data,
       const Eigen::Quaterniond& q_iori_i = Eigen::Quaterniond::Identity(),
-      const Eigen::Quaterniond& q_iori_j = Eigen::Quaterniond::Identity())
+      const Eigen::Quaterniond& q_iori_j = Eigen::Quaterniond::Identity(),
+      const bool metric_imu_from_cam = false)
       : data_(data),
         q_iori_i_(q_iori_i.normalized()),
-        q_iori_j_(q_iori_j.normalized()) {
+        q_iori_j_(q_iori_j.normalized()),
+        metric_imu_from_cam_(metric_imu_from_cam) {
     THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function. Call Extract() or Update() on the integrator, or "
@@ -586,7 +588,8 @@ class VisualCentricImuPreintegrationCostFunctor {
   static ceres::CostFunction* Create(
       const PreintegratedImuData* data,
       const Eigen::Quaterniond& q_iori_i = Eigen::Quaterniond::Identity(),
-      const Eigen::Quaterniond& q_iori_j = Eigen::Quaterniond::Identity()) {
+      const Eigen::Quaterniond& q_iori_j = Eigen::Quaterniond::Identity(),
+      const bool metric_imu_from_cam = false) {
     return (new ceres::AutoDiffCostFunction<
             VisualCentricImuPreintegrationCostFunctor,
             15,
@@ -597,7 +600,7 @@ class VisualCentricImuPreintegrationCostFunctor {
             9,
             7,
             9>(new VisualCentricImuPreintegrationCostFunctor(
-        data, q_iori_i, q_iori_j)));
+        data, q_iori_i, q_iori_j, metric_imu_from_cam)));
   }
 
   template <typename T>
@@ -637,20 +640,20 @@ class VisualCentricImuPreintegrationCostFunctor {
     Eigen::Quaternion<T> world_from_j_unrot_q =
         world_from_j_q * q_iori_j_.cast<T>();
 
-    // Compose: world_from_imu = world_from_unrot_cam * cam_from_imu.
+    // Compose: world_from_imu = world_from_unrot_cam * cam_from_imu,
+    // and apply metric scale to SfM positions and velocities.
+    T scale = ceres::exp(log_scale[0]);
+    T extrinsics_scale = metric_imu_from_cam_ ? T(1.0) : scale;
     Eigen::Quaternion<T> world_from_i_imu_q =
         world_from_i_unrot_q * cam_from_imu_q;
     Eigen::Matrix<T, 3, 1> world_from_i_imu_t =
-        world_from_i_unrot_q * cam_from_imu_t + world_from_i_t;
+        world_from_i_unrot_q * (cam_from_imu_t * extrinsics_scale) +
+        world_from_i_t * scale;
     Eigen::Quaternion<T> world_from_j_imu_q =
         world_from_j_unrot_q * cam_from_imu_q;
     Eigen::Matrix<T, 3, 1> world_from_j_imu_t =
-        world_from_j_unrot_q * cam_from_imu_t + world_from_j_t;
-
-    // Apply metric scale to positions and velocities.
-    T scale = ceres::exp(log_scale[0]);
-    world_from_i_imu_t = world_from_i_imu_t * scale;
-    world_from_j_imu_t = world_from_j_imu_t * scale;
+        world_from_j_unrot_q * (cam_from_imu_t * extrinsics_scale) +
+        world_from_j_t * scale;
     Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
     Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
 
@@ -685,6 +688,7 @@ class VisualCentricImuPreintegrationCostFunctor {
   const PreintegratedImuData* data_;
   Eigen::Quaterniond q_iori_i_;
   Eigen::Quaterniond q_iori_j_;
+  bool metric_imu_from_cam_;
 };
 
 // Analytical-Jacobian version of VisualCentricImuPreintegrationCostFunctor.
@@ -712,10 +716,12 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
   explicit AnalyticalVisualCentricImuPreintegrationCostFunction(
       const PreintegratedImuData* data,
       const Eigen::Quaterniond& q_iori_i = Eigen::Quaterniond::Identity(),
-      const Eigen::Quaterniond& q_iori_j = Eigen::Quaterniond::Identity())
+      const Eigen::Quaterniond& q_iori_j = Eigen::Quaterniond::Identity(),
+      const bool metric_imu_from_cam = false)
       : data_(data),
         q_iori_i_(q_iori_i.normalized()),
-        q_iori_j_(q_iori_j.normalized()) {
+        q_iori_j_(q_iori_j.normalized()),
+        metric_imu_from_cam_(metric_imu_from_cam) {
     THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function.";
@@ -742,6 +748,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
     const double dt = data_->delta_t;
     const double scale = std::exp(log_scale);
+    const double extrinsics_scale = metric_imu_from_cam_ ? 1.0 : scale;
     const double grav_mag = data_->gravity_magnitude;
     const Eigen::Vector3d gravity = gravity_dir * grav_mag;
 
@@ -771,8 +778,10 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
     const Eigen::Quaterniond q_WI_j = q_WC_phys_j * q_CI;
     const Eigen::Vector3d t_WI_j_unscaled = R_WC_phys_j * t_CI + t_WC_j;
 
-    const Eigen::Vector3d p_i = t_WI_i_unscaled * scale;
-    const Eigen::Vector3d p_j = t_WI_j_unscaled * scale;
+    const Eigen::Vector3d p_i =
+        R_WC_phys_i * (t_CI * extrinsics_scale) + t_WC_i * scale;
+    const Eigen::Vector3d p_j =
+        R_WC_phys_j * (t_CI * extrinsics_scale) + t_WC_j * scale;
     const Eigen::Vector3d v_i = v_i_data * scale;
     const Eigen::Vector3d v_j = v_j_data * scale;
 
@@ -821,9 +830,11 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
     if (jacobians[0] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 15, 1>> J(jacobians[0]);
       J.setZero();
-      // d(r_pos)/d(log_s) = R_IW_i * (t_WI_j - t_WI_i - v_i_data*dt) * scale
-      J.segment<3>(3) =
-          R_IW_i * (t_WI_j_unscaled - t_WI_i_unscaled - v_i_data * dt) * scale;
+      const Eigen::Vector3d dp_W_dlog_s =
+          metric_imu_from_cam_
+              ? (t_WC_j - t_WC_i - v_i_data * dt) * scale
+              : (t_WI_j_unscaled - t_WI_i_unscaled - v_i_data * dt) * scale;
+      J.segment<3>(3) = R_IW_i * dp_W_dlog_s;
       // d(r_vel)/d(log_s) = R_IW_i * (v_j_data - v_i_data) * scale
       J.segment<3>(6) = R_IW_i * (v_j_data - v_i_data) * scale;
       J = data_->sqrt_info * J;
@@ -876,8 +887,9 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
       J.block<3, 4>(3, 0) =
           dRdpW_dqIWi * dqIWi_dqIC +
-          R_IW_i * scale * (R_WC_phys_j - R_WC_phys_i) * dtCI_dqIC;
-      J.block<3, 3>(3, 4) = scale * R_IW_i * (R_WC_phys_i - R_WC_phys_j) * R_CI;
+          R_IW_i * extrinsics_scale * (R_WC_phys_j - R_WC_phys_i) * dtCI_dqIC;
+      J.block<3, 3>(3, 4) =
+          extrinsics_scale * R_IW_i * (R_WC_phys_i - R_WC_phys_j) * R_CI;
 
       // Velocity residual: only through R_IW_i.
       Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRdvW_dqIWi;
@@ -926,10 +938,11 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
             q_arr, t_CW_i.data(), dR_tCWi_dqWCi.data());
       }
       Eigen::Matrix<double, 3, 4> dp_i_dqWCi =
-          dR_tCI_dqWCphys_i * QuaternionRightMultMatrix(q_iori_i_) -
-          dR_tCWi_dqWCi;
+          extrinsics_scale * dR_tCI_dqWCphys_i *
+              QuaternionRightMultMatrix(q_iori_i_) -
+          scale * dR_tCWi_dqWCi;
       J.block<3, 4>(3, 0) =
-          dRdpW_dqIWi * dqIWi_dqCWi - scale * R_IW_i * dp_i_dqWCi * dconj;
+          dRdpW_dqIWi * dqIWi_dqCWi - R_IW_i * dp_i_dqWCi * dconj;
       J.block<3, 3>(3, 4) = scale * R_IW_i * R_WC_i;
 
       // Velocity: through R_IW_i only.
@@ -987,9 +1000,10 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
         QuaternionRotatePointWithJac(q_arr, t_CW_j.data(), dR_tCW_dqWCj.data());
       }
       Eigen::Matrix<double, 3, 4> dp_j_dqWCj =
-          dR_tCI_dqWCphys_j * QuaternionRightMultMatrix(q_iori_j_) -
-          dR_tCW_dqWCj;
-      J.block<3, 4>(3, 0) = scale * R_IW_i * dp_j_dqWCj * dconj;
+          extrinsics_scale * dR_tCI_dqWCphys_j *
+              QuaternionRightMultMatrix(q_iori_j_) -
+          scale * dR_tCW_dqWCj;
+      J.block<3, 4>(3, 0) = R_IW_i * dp_j_dqWCj * dconj;
       J.block<3, 3>(3, 4) = -scale * R_IW_i * R_WC_j;
 
       J = data_->sqrt_info * J;
@@ -1012,6 +1026,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
   const PreintegratedImuData* data_;
   Eigen::Quaterniond q_iori_i_;
   Eigen::Quaterniond q_iori_j_;
+  bool metric_imu_from_cam_;
 };
 
 // Inertial rotation cost functor for rotation averaging.
@@ -1198,12 +1213,14 @@ class InertialGlobalPositioningCostFunctor {
       const Eigen::Quaterniond& i_from_world_q,
       const Eigen::Quaterniond& j_from_world_q,
       const Eigen::Matrix<double, 9, 9>& sqrt_info =
-          Eigen::Matrix<double, 9, 9>::Zero())
+          Eigen::Matrix<double, 9, 9>::Zero(),
+      const bool metric_imu_from_cam = false)
       : data_(data),
         sqrt_info_9x9_(
             sqrt_info.isZero()
                 ? ExtractPositionVelocityAccelBiasSqrtInformation(*data)
-                : sqrt_info) {
+                : sqrt_info),
+        metric_imu_from_cam_(metric_imu_from_cam) {
     THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function.";
@@ -1227,7 +1244,8 @@ class InertialGlobalPositioningCostFunctor {
       const Eigen::Quaterniond& i_from_world_q,
       const Eigen::Quaterniond& j_from_world_q,
       const Eigen::Matrix<double, 9, 9>& sqrt_info =
-          Eigen::Matrix<double, 9, 9>::Zero()) {
+          Eigen::Matrix<double, 9, 9>::Zero(),
+      const bool metric_imu_from_cam = false) {
     return new ceres::AutoDiffCostFunction<InertialGlobalPositioningCostFunctor,
                                            9,
                                            1,
@@ -1236,8 +1254,12 @@ class InertialGlobalPositioningCostFunctor {
                                            9,
                                            3,
                                            9>(
-        new InertialGlobalPositioningCostFunctor(
-            data, imu_from_cam, i_from_world_q, j_from_world_q, sqrt_info));
+        new InertialGlobalPositioningCostFunctor(data,
+                                                 imu_from_cam,
+                                                 i_from_world_q,
+                                                 j_from_world_q,
+                                                 sqrt_info,
+                                                 metric_imu_from_cam));
   }
 
   template <typename T>
@@ -1249,10 +1271,13 @@ class InertialGlobalPositioningCostFunctor {
                   const T* const j_imu_state,
                   T* residuals) const {
     const T scale = ceres::exp(log_scale[0]);
+    const T extrinsics_scale = metric_imu_from_cam_ ? T(1.0) : scale;
     const Eigen::Matrix<T, 3, 1> p_i =
-        (EigenVector3Map<T>(i_center_in_world) + d_W_i_.cast<T>()) * scale;
+        EigenVector3Map<T>(i_center_in_world) * scale +
+        d_W_i_.cast<T>() * extrinsics_scale;
     const Eigen::Matrix<T, 3, 1> p_j =
-        (EigenVector3Map<T>(j_center_in_world) + d_W_j_.cast<T>()) * scale;
+        EigenVector3Map<T>(j_center_in_world) * scale +
+        d_W_j_.cast<T>() * extrinsics_scale;
     const Eigen::Matrix<T, 3, 1> v_i = EigenVector3Map<T>(i_imu_state) * scale;
     const Eigen::Matrix<T, 3, 1> v_j = EigenVector3Map<T>(j_imu_state) * scale;
 
@@ -1283,6 +1308,7 @@ class InertialGlobalPositioningCostFunctor {
   Eigen::Vector3d d_W_i_;
   Eigen::Vector3d d_W_j_;
   Eigen::Matrix<double, 9, 9> sqrt_info_9x9_;
+  bool metric_imu_from_cam_;
 };
 
 #if CERES_VERSION_MAJOR >= 3 || \

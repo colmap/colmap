@@ -41,13 +41,15 @@ void BindImuPreintegrationCosts(py::module& m) {
       "VisualCentricImuPreintegrationCost",
       [](PreintegratedImuData& data,
          const Eigen::Quaterniond& q_iori_i,
-         const Eigen::Quaterniond& q_iori_j) {
+         const Eigen::Quaterniond& q_iori_j,
+         const bool metric_imu_from_cam) {
         return VisualCentricImuPreintegrationCostFunctor::Create(
-            &data, q_iori_i, q_iori_j);
+            &data, q_iori_i, q_iori_j, metric_imu_from_cam);
       },
       "preintegrated_imu_data"_a,
       "q_iori_i"_a = Eigen::Quaterniond::Identity(),
       "q_iori_j"_a = Eigen::Quaterniond::Identity(),
+      "metric_imu_from_cam"_a = false,
       py::keep_alive<0, 1>(),
       "IMU preintegration cost function for post-hoc SfM refinement "
       "(7 parameter blocks: scale, gravity, extrinsics, poses, states). "
@@ -57,14 +59,16 @@ void BindImuPreintegrationCosts(py::module& m) {
       "AnalyticalVisualCentricImuPreintegrationCost",
       [](PreintegratedImuData& data,
          const Eigen::Quaterniond& q_iori_i,
-         const Eigen::Quaterniond& q_iori_j) {
+         const Eigen::Quaterniond& q_iori_j,
+         const bool metric_imu_from_cam) {
         return std::unique_ptr<ceres::CostFunction>(
             new AnalyticalVisualCentricImuPreintegrationCostFunction(
-                &data, q_iori_i, q_iori_j));
+                &data, q_iori_i, q_iori_j, metric_imu_from_cam));
       },
       "preintegrated_imu_data"_a,
       "q_iori_i"_a = Eigen::Quaterniond::Identity(),
       "q_iori_j"_a = Eigen::Quaterniond::Identity(),
+      "metric_imu_from_cam"_a = false,
       py::keep_alive<0, 1>(),
       "IMU preintegration cost function with analytical Jacobians for "
       "post-hoc SfM refinement (7 parameter blocks). "
@@ -158,14 +162,21 @@ void BindImuPreintegrationCosts(py::module& m) {
       [](PreintegratedImuData& data,
          const Rigid3d& imu_from_cam,
          const Eigen::Quaterniond& i_from_world_q,
-         const Eigen::Quaterniond& j_from_world_q) {
+         const Eigen::Quaterniond& j_from_world_q,
+         const bool metric_imu_from_cam) {
         return InertialGlobalPositioningCostFunctor::Create(
-            &data, imu_from_cam, i_from_world_q, j_from_world_q);
+            &data,
+            imu_from_cam,
+            i_from_world_q,
+            j_from_world_q,
+            Eigen::Matrix<double, 9, 9>::Zero(),
+            metric_imu_from_cam);
       },
       "preintegrated_imu_data"_a,
       "imu_from_cam"_a,
       "i_from_world_q"_a,
       "j_from_world_q"_a,
+      "metric_imu_from_cam"_a = false,
       py::keep_alive<0, 1>(),
       "Inertial position and velocity cost function for global positioning "
       "(6 parameter blocks: log_scale[1], gravity_direction[3], "
