@@ -2,6 +2,13 @@
 
 #include "colmap/util/cache.h"
 
+#include <condition_variable>
+#include <exception>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -338,6 +345,83 @@ TEST(ThreadSafeLRUCache, ConcurrentGet) {
   thread2.join();
 
   EXPECT_THAT(*cache.Get(1), 4);
+}
+
+TEST(ThreadSafeLRUCache, DoesNotEvictNewerEntryAfterLoadFailure) {
+  std::mutex mutex;
+  std::condition_variable cv;
+  bool first_load_started = false;
+  bool release_first_load = false;
+  bool second_load_started = false;
+  bool release_second_load = false;
+  int num_key0_loads = 0;
+
+  ThreadSafeLRUCache<int, int> cache(1, [&](const int key) {
+    if (key != 0) {
+      return std::make_shared<int>(key);
+    }
+
+    std::unique_lock<std::mutex> lock(mutex);
+    const int load_number = ++num_key0_loads;
+    if (load_number == 1) {
+      first_load_started = true;
+      cv.notify_all();
+      cv.wait(lock, [&release_first_load] { return release_first_load; });
+      throw std::runtime_error("first load failed");
+    }
+    if (load_number == 2) {
+      second_load_started = true;
+      cv.notify_all();
+      cv.wait(lock, [&release_second_load] { return release_second_load; });
+    }
+    return std::make_shared<int>(42);
+  });
+
+  std::exception_ptr first_exception;
+  std::thread first_thread([&] {
+    try {
+      cache.Get(0);
+    } catch (...) {
+      first_exception = std::current_exception();
+    }
+  });
+
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    cv.wait(lock, [&first_load_started] { return first_load_started; });
+  }
+
+  EXPECT_EQ(*cache.Get(1), 1);
+
+  std::shared_ptr<int> second_value;
+  std::thread second_thread([&] { second_value = cache.Get(0); });
+  {
+    std::unique_lock<std::mutex> lock(mutex);
+    cv.wait(lock, [&second_load_started] { return second_load_started; });
+  }
+
+  {
+    const std::lock_guard<std::mutex> lock(mutex);
+    release_first_load = true;
+  }
+  cv.notify_all();
+  first_thread.join();
+
+  {
+    const std::lock_guard<std::mutex> lock(mutex);
+    release_second_load = true;
+  }
+  cv.notify_all();
+  second_thread.join();
+
+  ASSERT_NE(first_exception, nullptr);
+  EXPECT_THROW(std::rethrow_exception(first_exception), std::runtime_error);
+  ASSERT_NE(second_value, nullptr);
+  EXPECT_EQ(*second_value, 42);
+  EXPECT_EQ(num_key0_loads, 2);
+
+  EXPECT_EQ(*cache.Get(0), 42);
+  EXPECT_EQ(num_key0_loads, 2);
 }
 
 TEST(ThreadSafeLRUCache, Evict) {
