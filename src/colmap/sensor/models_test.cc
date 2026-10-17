@@ -406,8 +406,8 @@ TEST(FOV, SmallOmegaProjection) {
   for (const double omega : {-0.011, -0.009, -0.001, 0.001, 0.009, 0.011}) {
     const std::vector<double> params = {650, 655, 400, 300, omega};
     for (const Eigen::Vector2d& uv : {Eigen::Vector2d(0.1, -0.2),
-                                    Eigen::Vector2d(0.8, -0.6),
-                                    Eigen::Vector2d(2, 1)}) {
+                                      Eigen::Vector2d(0.8, -0.6),
+                                      Eigen::Vector2d(2, 1)}) {
       const double radius = uv.norm();
       const double factor =
           std::atan(2 * radius * std::tan(omega / 2)) / (radius * omega);
@@ -426,8 +426,8 @@ TEST(FOV, SmallOmegaRoundTrip) {
   for (const double omega : {-0.011, -0.009, -0.001, 0.001, 0.009, 0.011}) {
     const std::vector<double> params = {650, 655, 400, 300, omega};
     for (const Eigen::Vector2d& uv : {Eigen::Vector2d(0.1, -0.2),
-                                    Eigen::Vector2d(0.8, -0.6),
-                                    Eigen::Vector2d(2, 1)}) {
+                                      Eigen::Vector2d(0.8, -0.6),
+                                      Eigen::Vector2d(2, 1)}) {
       const auto xy = CameraModelImgFromCam(
           FOVCameraModel::model_id, params, uv.homogeneous());
       ASSERT_TRUE(xy.has_value());
