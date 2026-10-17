@@ -19,6 +19,11 @@ model that is complex enough to model the distortion effects:
   if you share the intrinsics for multiple images. Note that the automatic
   estimation of parameters will most likely fail, if every image has a separate
   set of intrinsic parameters.
+- ``BROWN_CONRADY``: Brown-Conrady model with a single shared focal length and
+  three radial plus two tangential distortion coefficients
+  (``f, cx, cy, k1, k2, k3, p1, p2``). It generalizes ``SIMPLE_RADIAL`` and
+  ``RADIAL`` with an additional radial term and tangential terms, and it is the
+  single-focal-length counterpart to ``OPENCV`` extended with ``k3``.
 - ``SIMPLE_RADIAL_FISHEYE``, ``RADIAL_FISHEYE``, ``OPENCV_FISHEYE``, ``FOV``,
   ``THIN_PRISM_FISHEYE``, ``RAD_TAN_THIN_PRISM_FISHEYE``: Use these camera models
   for fisheye lenses and note that all other models are not really capable of
@@ -84,7 +89,8 @@ point, divides by the focal length, and then removes the distortion iteratively.
 All other perspective models share this three-step structure and differ only in
 the number of focal length parameters (a single shared ``f`` or separate ``fx``,
 ``fy``) and in the distortion function, e.g. ``RADIAL`` adds a second radial term
-``k2`` and ``OPENCV`` adds tangential terms ``p1, p2``. The fisheye models
+``k2``, ``BROWN_CONRADY`` adds a third radial term ``k3`` and tangential terms
+``p1, p2``, and ``OPENCV`` adds tangential terms ``p1, p2``. The fisheye models
 instead replace the perspective division with an equidistant projection. The
 ``SKEWED_PINHOLE`` model has no distortion step but adds a skew term to the
 intrinsic transform, :math:`x = f_x \, u + s \, v + c_x`. The exact parameter
