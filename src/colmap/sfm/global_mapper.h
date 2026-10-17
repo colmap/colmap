@@ -169,4 +169,12 @@ class GlobalMapper {
   std::shared_ptr<class Reconstruction> reconstruction_;
 };
 
+// With CERES rotation averaging and COVARIANCE reweighting (without gravity
+// priors), estimates the rotation covariances of the valid pose graph edges
+// that do not have one yet from their two-view correspondences. No-op
+// otherwise.
+void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
+                                       const DatabaseCache& database_cache,
+                                       PoseGraph& pose_graph);
+
 }  // namespace colmap

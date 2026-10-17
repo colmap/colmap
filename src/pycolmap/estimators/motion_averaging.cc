@@ -209,7 +209,8 @@ void BindRotationEstimator(py::module& m) {
       py::enum_<RotationAveragingReweighting>(m, "RotationAveragingReweighting")
           .value("UNIFORM", RotationAveragingReweighting::UNIFORM)
           .value("INLIER_MATCH_COUNT",
-                 RotationAveragingReweighting::INLIER_MATCH_COUNT);
+                 RotationAveragingReweighting::INLIER_MATCH_COUNT)
+          .value("COVARIANCE", RotationAveragingReweighting::COVARIANCE);
   AddStringToEnumConstructor(PyRotationAveragingReweighting);
 
   auto PyRotationAveragingBackend =
@@ -305,8 +306,25 @@ void BindRotationEstimator(py::module& m) {
           .def_readwrite("reweighting",
                          &RotationEstimatorOptions::reweighting,
                          "Reweighting scheme for relative-rotation "
-                         "constraints: UNIFORM or "
-                         "INLIER_MATCH_COUNT.");
+                         "constraints: UNIFORM, INLIER_MATCH_COUNT, or "
+                         "COVARIANCE.")
+          .def_readwrite(
+              "covariance_sigma_floor_deg",
+              &RotationEstimatorOptions::covariance_sigma_floor_deg,
+              "Isotropic standard deviation (degrees) added in quadrature to "
+              "the estimated relative rotation covariances with COVARIANCE "
+              "reweighting.")
+          .def_readwrite(
+              "covariance_fallback_sigma_deg",
+              &RotationEstimatorOptions::covariance_fallback_sigma_deg,
+              "Isotropic standard deviation (degrees) of the relative "
+              "rotations without an estimated covariance with COVARIANCE "
+              "reweighting.")
+          .def_readwrite("num_threads",
+                         &RotationEstimatorOptions::num_threads,
+                         "Number of threads for estimating the relative "
+                         "rotation covariances with COVARIANCE reweighting "
+                         "(-1 for auto).");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(

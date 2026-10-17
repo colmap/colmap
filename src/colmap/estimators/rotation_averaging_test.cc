@@ -3,6 +3,7 @@
 #include "colmap/estimators/rotation_averaging.h"
 
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
+#include "colmap/estimators/two_view_pose_covariance.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
@@ -331,6 +332,62 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
                                 data.pose_priors,
                                 {true, false},
                                 /*max_rotation_error_deg=*/3);
+}
+
+TEST(RotationAveraging, CovarianceReweighting) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.prior_gravity = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  auto data =
+      CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
+
+  RotationEstimatorOptions options = CreateRATestOptions();
+  options.backend = RotationAveragingBackend::CERES;
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+
+  // Edges without a covariance use the isotropic fallback.
+  {
+    Reconstruction reconstruction = data.reconstruction;
+    PoseGraph pose_graph = data.pose_graph;
+    ASSERT_TRUE(RunRotationAveraging(
+        options, pose_graph, reconstruction, data.pose_priors));
+    ExpectEqualRotations(data.gt_reconstruction,
+                         reconstruction,
+                         /*max_rotation_error_deg=*/3);
+    // The input pose graph is not modified.
+    for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+    }
+  }
+
+  DatabaseCache database_cache;
+  database_cache.Load(*data.database, DatabaseCache::Options());
+  EstimatePoseGraphCovariances(database_cache, data.pose_graph);
+  for (const auto& [pair_id, edge] : data.pose_graph.ValidEdges()) {
+    ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
+  }
+
+  Reconstruction reconstruction = data.reconstruction;
+  PoseGraph pose_graph = data.pose_graph;
+  ASSERT_TRUE(RunRotationAveraging(
+      options, pose_graph, reconstruction, data.pose_priors));
+  ExpectEqualRotations(data.gt_reconstruction,
+                       reconstruction,
+                       /*max_rotation_error_deg=*/3);
+
+  // The L1-IRLS backend does not support covariance reweighting.
+  options.backend = RotationAveragingBackend::L1_IRLS;
+  reconstruction = data.reconstruction;
+  pose_graph = data.pose_graph;
+  EXPECT_ANY_THROW(RunRotationAveraging(
+      options, pose_graph, reconstruction, data.pose_priors));
 }
 
 TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {

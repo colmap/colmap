@@ -23,10 +23,15 @@ namespace colmap {
 //   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
 //     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
 //     edge, normalized to (0, 1].
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingReweighting,
-                                0,
-                                UNIFORM,
-                                INLIER_MATCH_COUNT);
+//   COVARIANCE: whiten each constraint with the covariance of its relative
+//     rotation (PoseGraph::Edge::cam2_from_cam1_rotation_cov), regularized with
+//     RotationEstimatorOptions::covariance_sigma_floor_deg. Edges without a
+//     covariance use covariance_fallback_sigma_deg. The global mapper
+//     estimates the covariances from the two-view correspondences (see
+//     EstimatePoseGraphCovariances). Only supported by the CERES backend,
+//     which then uses CeresRotationAveragerOptions::covariance_loss_scale.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT, COVARIANCE);
 
 // Solver backend for rotation averaging.
 //   L1_IRLS: L1 regression (ADMM) followed by IRLS using CHOLMOD.
@@ -100,6 +105,21 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // (consistent) system yields an identical solution regardless of reweighting.
   RotationAveragingReweighting reweighting =
       RotationAveragingReweighting::UNIFORM;
+
+  // With COVARIANCE reweighting, isotropic standard deviation (in degrees)
+  // added in quadrature to the estimated relative rotation covariances. It
+  // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
+  // pairs with many correspondences from dominating.
+  double covariance_sigma_floor_deg = 0.02;
+
+  // With COVARIANCE reweighting, isotropic standard deviation (in degrees) of
+  // the relative rotations without an estimated covariance, e.g., because
+  // their rotation is degenerate.
+  double covariance_fallback_sigma_deg = 5.0;
+
+  // With COVARIANCE reweighting, number of threads for estimating the relative
+  // rotation covariances (-1 = auto-select).
+  int num_threads = -1;
 };
 
 // High-level interface for rotation averaging.

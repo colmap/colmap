@@ -258,6 +258,8 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
     LOG(ERROR) << "Cannot continue with empty pose graph";
     return stats;
   }
+  MaybeEstimatePoseGraphCovariances(
+      mapper_options.RotationAveraging(), *database_cache_, pose_graph);
 
   // Decompose the view graph once after rotation filtering. The full mapper is
   // then run at most once per resulting component; any additional fragments
