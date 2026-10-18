@@ -4,7 +4,22 @@
 
 #include "colmap/util/hash_containers.h"
 
+#include <cmath>
+
 namespace colmap {
+
+namespace {
+
+bool CameraModelParamsAreFinite(const std::vector<double>& params) {
+  for (const double param : params) {
+    if (!std::isfinite(param)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
 
 bool ExistsCameraModelWithName(const std::string& model_name) {
   return CameraModelNameToId(model_name) != CameraModelId::kInvalid;
@@ -199,7 +214,7 @@ bool CameraModelVerifyParams(const CameraModelId model_id,
 #define CAMERA_MODEL_CASE(CameraModel)              \
   case CameraModel::model_id:                       \
     if (params.size() == CameraModel::num_params) { \
-      return true;                                  \
+      return CameraModelParamsAreFinite(params);    \
     }                                               \
     break;
 
@@ -221,7 +236,8 @@ bool CameraModelHasBogusParams(const CameraModelId model_id,
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                         \
   case CameraModel::model_id:                                  \
-    return CameraModel::HasBogusParams(params,                 \
+    return !CameraModelParamsAreFinite(params) ||              \
+           CameraModel::HasBogusParams(params,                 \
                                        width,                  \
                                        height,                 \
                                        min_focal_length_ratio, \

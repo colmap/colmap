@@ -4,6 +4,8 @@
 
 #include "colmap/sensor/models.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -197,6 +199,8 @@ TEST(Camera, VerifyParams) {
       1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.VerifyParams());
   camera.params.resize(2);
+  EXPECT_FALSE(camera.VerifyParams());
+  camera.params = {std::numeric_limits<double>::quiet_NaN(), 0.5, 0.5};
   EXPECT_FALSE(camera.VerifyParams());
 }
 

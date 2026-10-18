@@ -94,7 +94,8 @@ inline Eigen::Matrix3d CameraModelCalibrationMatrix(
     CameraModelId model_id, const std::vector<double>& params);
 
 // Check whether parameters are valid, i.e. the parameter vector has
-// the correct dimensions that match the specified camera model.
+// the correct dimensions that match the specified camera model and contains
+// only finite values.
 //
 // @param model_id      Unique identifier of camera model.
 // @param params        Array of camera parameters.

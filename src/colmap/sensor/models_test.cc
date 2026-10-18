@@ -5,6 +5,7 @@
 #include "colmap/math/random.h"
 
 #include <cmath>
+#include <limits>
 
 #include <ceres/ceres.h>
 #include <gtest/gtest.h>
@@ -284,6 +285,32 @@ TEST(Pinhole, Nominal) {
   TestModel<PinholeCameraModel>({651.123, 655.123, 386.123, 511.123});
 }
 
+TEST(CameraModel, RejectsNonFiniteParams) {
+  const std::vector<double> nominal_params{100.0, 50.0, 50.0};
+  for (const double value : {std::numeric_limits<double>::quiet_NaN(),
+                             std::numeric_limits<double>::infinity(),
+                             -std::numeric_limits<double>::infinity()}) {
+    std::vector<double> params = nominal_params;
+    params[0] = value;
+    EXPECT_FALSE(
+        CameraModelVerifyParams(SimplePinholeCameraModel::model_id, params));
+    EXPECT_TRUE(CameraModelHasBogusParams(
+        SimplePinholeCameraModel::model_id, params, 100, 100, 0.1, 2.0, 1.0));
+  }
+
+  std::vector<double> spherical_params{800.0, 400.0};
+  spherical_params[0] = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(CameraModelVerifyParams(EquirectangularCameraModel::model_id,
+                                       spherical_params));
+  EXPECT_TRUE(CameraModelHasBogusParams(EquirectangularCameraModel::model_id,
+                                        spherical_params,
+                                        800,
+                                        400,
+                                        0.1,
+                                        2.0,
+                                        1.0));
+}
+
 TEST(Spherical, Nominal) {
   // params = (w, h) of the equirectangular image.
   const std::vector<double> params = {800, 400};
@@ -311,8 +338,9 @@ TEST(Spherical, Nominal) {
   EXPECT_TRUE(
       CameraModelMetaDataParamsIdxs(PinholeCameraModel::model_id).empty());
 
-  // EQUIRECTANGULAR is non-perspective, spherical, and never has bogus
-  // parameters.
+  // EQUIRECTANGULAR is non-perspective and spherical. It has no
+  // model-specific plausibility bounds, but non-finite parameters are still
+  // invalid.
   EXPECT_FALSE(CameraModelIsPerspective(EquirectangularCameraModel::model_id));
   EXPECT_TRUE(CameraModelIsPerspective(PinholeCameraModel::model_id));
   EXPECT_TRUE(CameraModelIsSpherical(EquirectangularCameraModel::model_id));
