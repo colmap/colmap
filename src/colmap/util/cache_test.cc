@@ -71,6 +71,31 @@ TEST(LRUCache, Evict) {
   EXPECT_FALSE(cache.Exists(1));
 }
 
+TEST(LRUCache, EvictWithExpectedValue) {
+  LRUCache<int, int> cache(
+      5, [](const int key) { return std::make_shared<int>(key); });
+  const std::shared_ptr<int> value = cache.Get(0);
+  EXPECT_TRUE(cache.Exists(0));
+
+  // A different shared_ptr to an equal value must not evict, since eviction
+  // is guarded by pointer identity.
+  EXPECT_FALSE(cache.Evict(0, std::make_shared<int>(0)));
+  EXPECT_TRUE(cache.Exists(0));
+  EXPECT_EQ(cache.NumElems(), 1);
+
+  // A missing key returns false.
+  EXPECT_FALSE(cache.Evict(1, value));
+  EXPECT_EQ(cache.NumElems(), 1);
+
+  // The matching expected value evicts.
+  EXPECT_TRUE(cache.Evict(0, value));
+  EXPECT_EQ(cache.NumElems(), 0);
+  EXPECT_FALSE(cache.Exists(0));
+
+  // An already evicted entry returns false.
+  EXPECT_FALSE(cache.Evict(0, value));
+}
+
 TEST(LRUCache, Pop) {
   LRUCache<int, int> cache(
       5, [](const int key) { return std::make_shared<int>(key); });
@@ -394,7 +419,14 @@ TEST(ThreadSafeLRUCache, DoesNotEvictNewerEntryAfterLoadFailure) {
   EXPECT_EQ(*cache.Get(1), 1);
 
   std::shared_ptr<int> second_value;
-  std::thread second_thread([&] { second_value = cache.Get(0); });
+  std::exception_ptr second_exception;
+  std::thread second_thread([&] {
+    try {
+      second_value = cache.Get(0);
+    } catch (...) {
+      second_exception = std::current_exception();
+    }
+  });
   {
     std::unique_lock<std::mutex> lock(mutex);
     cv.wait(lock, [&second_load_started] { return second_load_started; });
@@ -416,6 +448,7 @@ TEST(ThreadSafeLRUCache, DoesNotEvictNewerEntryAfterLoadFailure) {
 
   ASSERT_NE(first_exception, nullptr);
   EXPECT_THROW(std::rethrow_exception(first_exception), std::runtime_error);
+  EXPECT_EQ(second_exception, nullptr);
   ASSERT_NE(second_value, nullptr);
   EXPECT_EQ(*second_value, 42);
   EXPECT_EQ(num_key0_loads, 2);
