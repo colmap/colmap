@@ -162,7 +162,8 @@ struct Camera {
   bool SetParamsFromString(const std::string& string);
 
   // Check whether parameters are valid, i.e. the parameter vector has
-  // the correct dimensions that match the specified camera model.
+  // the correct dimensions that match the specified camera model and
+  // contains only finite values.
   inline bool VerifyParams() const;
 
   // Check whether camera is already undistorted.
