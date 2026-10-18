@@ -544,7 +544,7 @@ class VisualCentricImuPreintegrationCostFunctor {
 
  private:
   const PreintegratedImuData* data_;
-  bool imu_from_cam_is_metric_;
+  const bool imu_from_cam_is_metric_;
 };
 
 // Analytical-Jacobian version of VisualCentricImuPreintegrationCostFunctor.
@@ -852,7 +852,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
  private:
   const PreintegratedImuData* data_;
-  bool imu_from_cam_is_metric_;
+  const bool imu_from_cam_is_metric_;
 };
 
 }  // namespace colmap
