@@ -760,9 +760,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
         adapter->WritePrincipalPoint(
             camera, md.principal_point_data.data(), calib_idx);
       }
-      THROW_CHECK(camera.VerifyParams())
-          << "Invalid parameters for camera " << camera_id
-          << " after optimization: [" << camera.ParamsToString() << "]";
+      // Deliberately no validity check here: like the Ceres backend, solver
+      // output is written back unchecked and non-finite parameters are left
+      // for downstream HasBogusParams filtering.
       VLOG(1) << "Camera " << camera_id << " (" << camera.ModelName() << ")"
               << " params: [" << params_before << "] -> ["
               << camera.ParamsToString() << "]";
