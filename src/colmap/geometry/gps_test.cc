@@ -386,7 +386,8 @@ TEST(GPS, UTMAntimeridian) {
       const auto [utm, zone] = gps_tform.EllipsoidToUTM({ell, ell});
       ASSERT_EQ(zone, expected_zone);
       ASSERT_EQ(utm.size(), 2);
-      // PROJ: Proj(proj="utm", zone=60, ellps="WGS84")(180, 0).
+      // PROJ: Proj(proj="utm", zone=60, ellps="WGS84")(180, 0) and
+      // Proj(proj="utm", zone=1, ellps="WGS84")(-180, 0).
       const double expected_easting =
           longitude > 0 ? 833978.5569194604 : 166021.4430805396;
       EXPECT_THAT(

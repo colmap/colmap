@@ -62,6 +62,7 @@ struct UTMParams {
   static double ZoneToCentralMeridian(int zone) { return 6 * zone - 183; }
 
   static int MeridianToZone(double meridian) {
+    // Clamp: +180 degrees is valid input but the formula yields zone 61.
     return std::min(static_cast<int>(std::floor((meridian + 180) / 6)) + 1, 60);
   }
 };
