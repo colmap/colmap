@@ -481,8 +481,54 @@ TEST(RectifyStereoCameras, Nominal) {
   EXPECT_THAT(H2, EigenMatrixNear<Eigen::Matrix3d>(H2_ref.transpose(), 1e-5));
 
   Eigen::Matrix4d Q_ref;
-  Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
+  Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, -2.67261, -0.5, -0.5, 1, 0;
   EXPECT_THAT(Q, EigenMatrixNear(Q_ref, 1e-5));
+}
+
+TEST(RectifyStereoCameras, DisparityTo3DRoundTrip) {
+  for (const size_t height : {480, 640}) {
+    const Camera camera1 =
+        Camera::CreateFromModelId(1, CameraModelId::kPinhole, 800, 640, height);
+    const Camera camera2 =
+        Camera::CreateFromModelId(2, CameraModelId::kPinhole, 750, 640, height);
+    const Eigen::Matrix3d K1 = camera1.CalibrationMatrix();
+    const Eigen::Matrix3d K2 = camera2.CalibrationMatrix();
+    // Mirror the rectified calibration matrix construction of
+    // RectifyStereoCameras (minimum focal length, first camera's cx, averaged
+    // cy), so that the test also locks in that convention.
+    Eigen::Matrix3d K = K1;
+    K(0, 0) = K(1, 1) = 750;
+
+    for (const double baseline : {-0.2, 0.2}) {
+      for (const double angle : {0.0, 0.1}) {
+        // Use a non-zero Y translation component to cover general,
+        // non-axis-aligned translations in all cases.
+        const Rigid3d cam2_from_cam1(
+            Eigen::Quaterniond(EulerAnglesToRotationMatrix(angle, 0.0, 0.0)),
+            Eigen::Vector3d(baseline, 0.05, 0.0));
+        Eigen::Matrix3d H1;
+        Eigen::Matrix3d H2;
+        Eigen::Matrix4d Q;
+        RectifyStereoCameras(camera1, camera2, cam2_from_cam1, &H1, &H2, &Q);
+        const Eigen::Matrix3d rectified_from_cam1 = K.inverse() * H1 * K1;
+
+        for (const Eigen::Vector3d& point : {Eigen::Vector3d(0.2, -0.1, 4.0),
+                                             Eigen::Vector3d(-0.5, 0.3, 8.0)}) {
+          const Eigen::Vector2d xy1 = (H1 * K1 * point).hnormalized();
+          const Eigen::Vector2d xy2 =
+              (H2 * K2 * (cam2_from_cam1 * point)).hnormalized();
+          ASSERT_NEAR(xy1.y(), xy2.y(), 1e-10);
+          const Eigen::Vector4d xy_disparity(
+              xy1.x(), xy1.y(), xy1.x() - xy2.x(), 1.0);
+          const Eigen::Vector3d recovered_point =
+              (Q.transpose() * xy_disparity).hnormalized();
+          EXPECT_THAT(
+              recovered_point,
+              EigenMatrixNear((rectified_from_cam1 * point).eval(), 1e-10));
+        }
+      }
+    }
+  }
 }
 
 TEST(RectifyAndUndistortStereoImages, Nominal) {

@@ -633,9 +633,9 @@ bool FOVCameraModel::ImgFromCamWithJac(const double* params,
   double factor_r = 0;
   double factor_omega = 0;
   if (omega2 < kEpsilon) {
-    factor = (omega2 * radius2) / 3.0 - omega2 / 12.0 + 1.0;
-    factor_r = omega2 / 3.0;
-    factor_omega = 2.0 * omega * radius2 / 3.0 - omega / 6.0;
+    factor = omega2 / 12.0 - (omega2 * radius2) / 3.0 + 1.0;
+    factor_r = -omega2 / 3.0;
+    factor_omega = omega / 6.0 - 2.0 * omega * radius2 / 3.0;
   } else if (radius2 < kEpsilon) {
     const double t = std::tan(omega / 2.0);
     const double t2 = t * t;
