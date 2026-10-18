@@ -435,10 +435,10 @@ TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
     SCOPED_TRACE(metric ? "metric" : "sfm_units");
     auto analytical_cost =
         std::make_unique<AnalyticalVisualCentricImuPreintegrationCostFunction>(
-            &data, /*metric_imu_from_cam=*/metric);
+            &data, /*imu_from_cam_is_metric=*/metric);
     std::unique_ptr<ceres::CostFunction> autodiff_cost(
         VisualCentricImuPreintegrationCostFunctor::Create(
-            &data, /*metric_imu_from_cam=*/metric));
+            &data, /*imu_from_cam_is_metric=*/metric));
 
     // In SfM units, the extrinsics translation is the metric one divided by
     // the scale.

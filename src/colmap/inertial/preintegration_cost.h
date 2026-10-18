@@ -391,7 +391,7 @@ class AnalyticalImuPreintegrationCostFunction
 //       from PreintegratedImuData::gravity_magnitude.
 //   [2] imu_from_cam:       7  (qx,qy,qz,qw, tx,ty,tz)
 //       Rigid transform from camera to IMU body frame. The translation is in
-//       SfM units by default, or metric if metric_imu_from_cam is true.
+//       SfM units by default, or metric if imu_from_cam_is_metric is true.
 //   [3] i_from_world:       7  (qx,qy,qz,qw, tx,ty,tz)
 //       Camera pose at frame i (cam_from_world in SfM frame).
 //   [4] i_imu_state:        9  (vx,vy,vz, bgx,bgy,bgz, bax,bay,baz)
@@ -401,22 +401,24 @@ class AnalyticalImuPreintegrationCostFunction
 //   [6] j_imu_state:        9
 //       Velocity and biases at frame j.
 //
-// If metric_imu_from_cam is true, the imu_from_cam translation is not
+// If imu_from_cam_is_metric is true, the imu_from_cam translation is not
 // multiplied by the scale. This allows using a calibrated metric translation
 // (e.g. from the factory) while the scale is still unknown.
 class VisualCentricImuPreintegrationCostFunctor {
  public:
   explicit VisualCentricImuPreintegrationCostFunctor(
-      const PreintegratedImuData* data, const bool metric_imu_from_cam = false)
-      : data_(data), metric_imu_from_cam_(metric_imu_from_cam) {
+      const PreintegratedImuData* data,
+      const bool imu_from_cam_is_metric = false)
+      : data_(data), imu_from_cam_is_metric_(imu_from_cam_is_metric) {
     THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function. Call Extract() or Update() on the integrator, or "
            "Finalize() on the data directly.";
   }
 
-  static ceres::CostFunction* Create(const PreintegratedImuData* data,
-                                     const bool metric_imu_from_cam = false) {
+  static ceres::CostFunction* Create(
+      const PreintegratedImuData* data,
+      const bool imu_from_cam_is_metric = false) {
     return (new ceres::AutoDiffCostFunction<
             VisualCentricImuPreintegrationCostFunctor,
             15,
@@ -427,7 +429,7 @@ class VisualCentricImuPreintegrationCostFunctor {
             9,
             7,
             9>(new VisualCentricImuPreintegrationCostFunctor(
-        data, metric_imu_from_cam)));
+        data, imu_from_cam_is_metric)));
   }
 
   template <typename T>
@@ -472,7 +474,7 @@ class VisualCentricImuPreintegrationCostFunctor {
     // metric scale to positions and velocities. The imu_from_cam translation
     // is only scaled if it is in SfM units.
     T scale = ceres::exp(log_scale[0]);
-    const T imu_from_cam_scale = metric_imu_from_cam_ ? T(1.) : scale;
+    const T imu_from_cam_scale = imu_from_cam_is_metric_ ? T(1.) : scale;
     Eigen::Quaternion<T> world_from_i_imu_q = world_from_i_q * cam_from_imu_q;
     Eigen::Matrix<T, 3, 1> world_from_i_imu_t =
         world_from_i_q * cam_from_imu_t * imu_from_cam_scale +
@@ -542,7 +544,7 @@ class VisualCentricImuPreintegrationCostFunctor {
 
  private:
   const PreintegratedImuData* data_;
-  bool metric_imu_from_cam_;
+  bool imu_from_cam_is_metric_;
 };
 
 // Analytical-Jacobian version of VisualCentricImuPreintegrationCostFunctor.
@@ -568,8 +570,9 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
     : public ceres::SizedCostFunction<15, 1, 3, 7, 7, 9, 7, 9> {
  public:
   explicit AnalyticalVisualCentricImuPreintegrationCostFunction(
-      const PreintegratedImuData* data, const bool metric_imu_from_cam = false)
-      : data_(data), metric_imu_from_cam_(metric_imu_from_cam) {
+      const PreintegratedImuData* data,
+      const bool imu_from_cam_is_metric = false)
+      : data_(data), imu_from_cam_is_metric_(imu_from_cam_is_metric) {
     THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function.";
@@ -596,7 +599,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
     const double dt = data_->delta_t;
     const double scale = std::exp(log_scale);
-    const double imu_from_cam_scale = metric_imu_from_cam_ ? 1.0 : scale;
+    const double imu_from_cam_scale = imu_from_cam_is_metric_ ? 1.0 : scale;
     const double grav_mag = data_->gravity_magnitude;
     const Eigen::Vector3d gravity = gravity_dir * grav_mag;
 
@@ -672,7 +675,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       // The imu_from_cam translation only depends on the scale if it is in SfM
       // units.
       Eigen::Vector3d dpji_dlog_s = (t_WC_j - t_WC_i) * scale;
-      if (!metric_imu_from_cam_) {
+      if (!imu_from_cam_is_metric_) {
         dpji_dlog_s += t_CI_W_j - t_CI_W_i;
       }
       J.segment<3>(3) = R_IW_i * (dpji_dlog_s - v_i * dt);
@@ -849,7 +852,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
  private:
   const PreintegratedImuData* data_;
-  bool metric_imu_from_cam_;
+  bool imu_from_cam_is_metric_;
 };
 
 }  // namespace colmap
