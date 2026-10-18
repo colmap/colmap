@@ -751,7 +751,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
       Camera& camera = reconstruction_.Camera(camera_id);
       ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
       const ModelData& md = model_data_per_model_.at(camera.model_id);
-      const std::string params_before = camera.ParamsToString();
       if (IsFocalAndExtraVariable(camera_id)) {
         adapter->WriteFocalAndExtra(
             camera, md.focal_and_extra_data.data(), calib_idx);
@@ -760,12 +759,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
         adapter->WritePrincipalPoint(
             camera, md.principal_point_data.data(), calib_idx);
       }
-      // Deliberately no validity check here: like the Ceres backend, solver
-      // output is written back unchecked and non-finite parameters are left
-      // for downstream HasBogusParams filtering.
-      VLOG(1) << "Camera " << camera_id << " (" << camera.ModelName() << ")"
-              << " params: [" << params_before << "] -> ["
-              << camera.ParamsToString() << "]";
+      LOG_IF(WARNING, !camera.VerifyParams())
+          << "Invalid parameters for camera " << camera_id
+          << " after optimization: [" << camera.ParamsToString() << "]";
     }
   }
 
