@@ -62,7 +62,7 @@ struct UTMParams {
   static double ZoneToCentralMeridian(int zone) { return 6 * zone - 183; }
 
   static int MeridianToZone(double meridian) {
-    return static_cast<int>(std::floor((meridian + 180) / 6)) + 1;
+    return std::min(static_cast<int>(std::floor((meridian + 180) / 6)) + 1, 60);
   }
 };
 }  // namespace
