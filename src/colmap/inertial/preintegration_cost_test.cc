@@ -90,20 +90,16 @@ void PackRigid3d(const Rigid3d& rigid, double* out) {
   out[6] = rigid.translation().z();
 }
 
-// Pack IMU state: [vx, vy, vz, bgx, bgy, bgz, bax, bay, baz].
-void PackImuState(const Eigen::Vector3d& velocity,
-                  const Eigen::Vector3d& gyro_bias,
+// Pack IMU state: [bgx, bgy, bgz, bax, bay, baz].
+void PackImuState(const Eigen::Vector3d& gyro_bias,
                   const Eigen::Vector3d& acc_bias,
                   double* data) {
-  data[0] = velocity.x();
-  data[1] = velocity.y();
-  data[2] = velocity.z();
-  data[3] = gyro_bias.x();
-  data[4] = gyro_bias.y();
-  data[5] = gyro_bias.z();
-  data[6] = acc_bias.x();
-  data[7] = acc_bias.y();
-  data[8] = acc_bias.z();
+  data[0] = gyro_bias.x();
+  data[1] = gyro_bias.y();
+  data[2] = gyro_bias.z();
+  data[3] = acc_bias.x();
+  data[4] = acc_bias.y();
+  data[5] = acc_bias.z();
 }
 
 TEST(ImuPreintegrationCostFunctor, ZeroResidualAtGroundTruth) {
@@ -120,17 +116,19 @@ TEST(ImuPreintegrationCostFunctor, ZeroResidualAtGroundTruth) {
       ImuPreintegrationCostFunctor::Create(&data, kGravity));
 
   double body_from_world_i[7], body_from_world_j[7];
-  double imu_state_i[9], imu_state_j[9];
+  double imu_state_i[6], imu_state_j[6];
   PackRigid3d(gt.body_from_world_i, body_from_world_i);
   PackRigid3d(gt.body_from_world_j, body_from_world_j);
-  PackImuState(
-      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
-  PackImuState(
-      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   double residuals[15];
-  const double* parameters[4] = {
-      body_from_world_i, imu_state_i, body_from_world_j, imu_state_j};
+  const double* parameters[6] = {body_from_world_i,
+                                 gt.v_i.data(),
+                                 imu_state_i,
+                                 body_from_world_j,
+                                 gt.v_j.data(),
+                                 imu_state_j};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 
   for (int i = 0; i < 15; ++i) {
@@ -152,17 +150,19 @@ TEST(ImuPreintegrationCostFunctor, ZeroResidualWithMotion) {
       ImuPreintegrationCostFunctor::Create(&data, kGravity));
 
   double body_from_world_i[7], body_from_world_j[7];
-  double imu_state_i[9], imu_state_j[9];
+  double imu_state_i[6], imu_state_j[6];
   PackRigid3d(gt.body_from_world_i, body_from_world_i);
   PackRigid3d(gt.body_from_world_j, body_from_world_j);
-  PackImuState(
-      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
-  PackImuState(
-      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   double residuals[15];
-  const double* parameters[4] = {
-      body_from_world_i, imu_state_i, body_from_world_j, imu_state_j};
+  const double* parameters[6] = {body_from_world_i,
+                                 gt.v_i.data(),
+                                 imu_state_i,
+                                 body_from_world_j,
+                                 gt.v_j.data(),
+                                 imu_state_j};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 
   for (int i = 0; i < 15; ++i) {
@@ -170,8 +170,7 @@ TEST(ImuPreintegrationCostFunctor, ZeroResidualWithMotion) {
   }
 }
 
-TEST(VisualCentricImuPreintegrationCostFunctor,
-     ZeroResidualIdentityExtrinsics) {
+TEST(VisualCentricImuPreintegrationCostFunctor, ZeroResidualAtGroundTruth) {
   const int N = 10;
   const double dt = 0.01;
   Eigen::Vector3d accel(0, 0, 9.81);
@@ -186,23 +185,21 @@ TEST(VisualCentricImuPreintegrationCostFunctor,
 
   double log_scale[1] = {0.0};
   double gravity_direction[3] = {0, 0, -1};
-  double imu_from_cam[7] = {0, 0, 0, 1, 0, 0, 0};
   double i_from_world[7], j_from_world[7];
-  double imu_state_i[9], imu_state_j[9];
+  double imu_state_i[6], imu_state_j[6];
   PackRigid3d(gt.body_from_world_i, i_from_world);
   PackRigid3d(gt.body_from_world_j, j_from_world);
-  PackImuState(
-      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
-  PackImuState(
-      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   double residuals[15];
-  const double* parameters[7] = {log_scale,
+  const double* parameters[8] = {log_scale,
                                  gravity_direction,
-                                 imu_from_cam,
                                  i_from_world,
+                                 gt.v_i.data(),
                                  imu_state_i,
                                  j_from_world,
+                                 gt.v_j.data(),
                                  imu_state_j};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 
@@ -226,30 +223,29 @@ TEST(ImuPreintegrationCostConsistency, ImuAndVisualCentricMatch) {
   // Body-centric.
   std::unique_ptr<ceres::CostFunction> body_cost(
       ImuPreintegrationCostFunctor::Create(&data, kGravity));
-  double body_i[7], body_j[7], state_i[9], state_j[9];
+  double body_i[7], body_j[7], state_i[6], state_j[6];
   PackRigid3d(gt.body_from_world_i, body_i);
   PackRigid3d(gt.body_from_world_j, body_j);
-  PackImuState(
-      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
-  PackImuState(
-      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
   double body_residuals[15];
-  const double* body_params[4] = {body_i, state_i, body_j, state_j};
+  const double* body_params[6] = {
+      body_i, gt.v_i.data(), state_i, body_j, gt.v_j.data(), state_j};
   EXPECT_TRUE(body_cost->Evaluate(body_params, body_residuals, nullptr));
 
-  // Visual-centric with identity extrinsics and unit scale.
+  // Visual-centric with unit scale.
   std::unique_ptr<ceres::CostFunction> visual_cost(
       VisualCentricImuPreintegrationCostFunctor::Create(&data));
   double log_scale[1] = {0.0};
   double gravity_direction[3] = {0, 0, -1};
-  double imu_from_cam[7] = {0, 0, 0, 1, 0, 0, 0};
   double visual_residuals[15];
-  const double* visual_params[7] = {log_scale,
+  const double* visual_params[8] = {log_scale,
                                     gravity_direction,
-                                    imu_from_cam,
                                     body_i,
+                                    gt.v_i.data(),
                                     state_i,
                                     body_j,
+                                    gt.v_j.data(),
                                     state_j};
   EXPECT_TRUE(visual_cost->Evaluate(visual_params, visual_residuals, nullptr));
 
@@ -276,15 +272,14 @@ TEST(AnalyticalImuPreintegrationCostFunction, AnalyticalVersusNumeric) {
       std::make_unique<AnalyticalImuPreintegrationCostFunction>(&data,
                                                                 kGravity);
 
-  double body_i[7], body_j[7], state_i[9], state_j[9];
+  double body_i[7], body_j[7], state_i[6], state_j[6];
   PackRigid3d(gt.body_from_world_i, body_i);
   PackRigid3d(gt.body_from_world_j, body_j);
-  PackImuState(
-      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
-  PackImuState(
-      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_i);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), state_j);
 
-  std::vector<double*> parameter_blocks{body_i, state_i, body_j, state_j};
+  std::vector<double*> parameter_blocks{
+      body_i, gt.v_i.data(), state_i, body_j, gt.v_j.data(), state_j};
 
   // Verify residuals match AutoDiff.
   std::unique_ptr<ceres::CostFunction> auto_diff_cost_function(
@@ -304,15 +299,25 @@ TEST(AnalyticalImuPreintegrationCostFunction, AnalyticalVersusNumeric) {
   // Compare analytical Jacobians against AutoDiff Jacobians at ground truth.
   // We compare against AutoDiff rather than numeric diff to avoid issues with
   // quaternion unit-norm constraint (our Jacobians assume unit quaternions).
-  double analytical_jac_0[15 * 7], analytical_jac_1[15 * 9];
-  double analytical_jac_2[15 * 7], analytical_jac_3[15 * 9];
-  double* analytical_jacs[4] = {
-      analytical_jac_0, analytical_jac_1, analytical_jac_2, analytical_jac_3};
+  double analytical_jac_0[15 * 7], analytical_jac_1[15 * 3],
+      analytical_jac_2[15 * 6];
+  double analytical_jac_3[15 * 7], analytical_jac_4[15 * 3],
+      analytical_jac_5[15 * 6];
+  double* analytical_jacs[6] = {analytical_jac_0,
+                                analytical_jac_1,
+                                analytical_jac_2,
+                                analytical_jac_3,
+                                analytical_jac_4,
+                                analytical_jac_5};
 
-  double autodiff_jac_0[15 * 7], autodiff_jac_1[15 * 9];
-  double autodiff_jac_2[15 * 7], autodiff_jac_3[15 * 9];
-  double* autodiff_jacs[4] = {
-      autodiff_jac_0, autodiff_jac_1, autodiff_jac_2, autodiff_jac_3};
+  double autodiff_jac_0[15 * 7], autodiff_jac_1[15 * 3], autodiff_jac_2[15 * 6];
+  double autodiff_jac_3[15 * 7], autodiff_jac_4[15 * 3], autodiff_jac_5[15 * 6];
+  double* autodiff_jacs[6] = {autodiff_jac_0,
+                              autodiff_jac_1,
+                              autodiff_jac_2,
+                              autodiff_jac_3,
+                              autodiff_jac_4,
+                              autodiff_jac_5};
 
   double r1[15], r2[15];
   EXPECT_TRUE(analytical_cost_function->Evaluate(
@@ -321,9 +326,9 @@ TEST(AnalyticalImuPreintegrationCostFunction, AnalyticalVersusNumeric) {
       parameter_blocks.data(), r2, autodiff_jacs));
 
   constexpr double kJacTol = 1e-8;
-  for (int b = 0; b < 4; ++b) {
-    const int cols = (b == 0 || b == 2) ? 7 : 9;
-    for (int i = 0; i < 15 * cols; ++i) {
+  const int block_sizes[6] = {7, 3, 6, 7, 3, 6};
+  for (int b = 0; b < 6; ++b) {
+    for (int i = 0; i < 15 * block_sizes[b]; ++i) {
       EXPECT_NEAR(analytical_jacs[b][i], autodiff_jacs[b][i], kJacTol)
           << "block=" << b << " element=" << i;
     }
@@ -353,22 +358,20 @@ TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
 
   double log_scale[1] = {0.0};
   double gravity_direction[3] = {0, 0, -1};
-  double imu_from_cam[7] = {0, 0, 0, 1, 0, 0, 0};
   double i_from_world[7], j_from_world[7];
-  double imu_state_i[9], imu_state_j[9];
+  double imu_state_i[6], imu_state_j[6];
   PackRigid3d(gt.body_from_world_i, i_from_world);
   PackRigid3d(gt.body_from_world_j, j_from_world);
-  PackImuState(
-      gt.v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
-  PackImuState(
-      gt.v_j, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   std::vector<double*> params = {log_scale,
                                  gravity_direction,
-                                 imu_from_cam,
                                  i_from_world,
+                                 gt.v_i.data(),
                                  imu_state_i,
                                  j_from_world,
+                                 gt.v_j.data(),
                                  imu_state_j};
 
   // Residuals should match.
@@ -380,10 +383,10 @@ TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
   }
 
   // Compare Jacobians: analytical vs AutoDiff.
-  const int block_sizes[7] = {1, 3, 7, 7, 9, 7, 9};
-  std::vector<std::vector<double>> aj(7), adj(7);
-  std::vector<double*> aj_ptrs(7), adj_ptrs(7);
-  for (int b = 0; b < 7; ++b) {
+  const int block_sizes[8] = {1, 3, 7, 3, 6, 7, 3, 6};
+  std::vector<std::vector<double>> aj(8), adj(8);
+  std::vector<double*> aj_ptrs(8), adj_ptrs(8);
+  for (int b = 0; b < 8; ++b) {
     aj[b].resize(15 * block_sizes[b], 0.0);
     adj[b].resize(15 * block_sizes[b], 0.0);
     aj_ptrs[b] = aj[b].data();
@@ -394,7 +397,7 @@ TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
   EXPECT_TRUE(autodiff_cost->Evaluate(params.data(), r2, adj_ptrs.data()));
 
   constexpr double kJacTol = 1e-8;
-  for (int b = 0; b < 7; ++b) {
+  for (int b = 0; b < 8; ++b) {
     for (int i = 0; i < 15 * block_sizes[b]; ++i) {
       EXPECT_NEAR(aj[b][i], adj[b][i], kJacTol)
           << "block=" << b << " element=" << i;
@@ -477,17 +480,19 @@ TEST_P(PhysicsConsistencyTest, CostFunctionMatchesPhysics) {
       ImuPreintegrationCostFunctor::Create(&data, gravity));
 
   double body_from_world_i[7], body_from_world_j[7];
-  double imu_state_i[9], imu_state_j[9];
+  double imu_state_i[6], imu_state_j[6];
   PackRigid3d(Rigid3d(q_BW_i, t_BW_i), body_from_world_i);
   PackRigid3d(Rigid3d(q_BW_j, t_BW_j), body_from_world_j);
-  PackImuState(
-      v_W_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
-  PackImuState(
-      v_W, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+  PackImuState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_j);
 
   double residuals[15];
-  const double* parameters[4] = {
-      body_from_world_i, imu_state_i, body_from_world_j, imu_state_j};
+  const double* parameters[6] = {body_from_world_i,
+                                 v_W_i.data(),
+                                 imu_state_i,
+                                 body_from_world_j,
+                                 v_W.data(),
+                                 imu_state_j};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
 
   // RK4 with closed-form integrals is very accurate; midpoint has O(dt^2)
