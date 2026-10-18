@@ -102,7 +102,8 @@ inline Eigen::Matrix3d CameraModelCalibrationMatrix(
 bool CameraModelVerifyParams(CameraModelId model_id,
                              const std::vector<double>& params);
 
-// Check whether camera has bogus parameters.
+// Check whether camera has bogus parameters. Parameters containing
+// non-finite values (NaN or infinity) are always considered bogus.
 //
 // @param model_id                Unique identifier of camera model.
 // @param params                  Array of camera parameters.

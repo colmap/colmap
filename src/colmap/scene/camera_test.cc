@@ -247,6 +247,10 @@ TEST(Camera, HasBogusParams) {
   EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 1.0));
   camera.params[3] = -1.01;
   EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
+  camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  camera.params[0] = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
 }
 
 TEST(Camera, CreateFromModelId) {

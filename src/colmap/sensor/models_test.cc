@@ -286,29 +286,35 @@ TEST(Pinhole, Nominal) {
 }
 
 TEST(CameraModel, RejectsNonFiniteParams) {
-  const std::vector<double> nominal_params{100.0, 50.0, 50.0};
-  for (const double value : {std::numeric_limits<double>::quiet_NaN(),
-                             std::numeric_limits<double>::infinity(),
-                             -std::numeric_limits<double>::infinity()}) {
-    std::vector<double> params = nominal_params;
-    params[0] = value;
-    EXPECT_FALSE(
-        CameraModelVerifyParams(SimplePinholeCameraModel::model_id, params));
-    EXPECT_TRUE(CameraModelHasBogusParams(
-        SimplePinholeCameraModel::model_id, params, 100, 100, 0.1, 2.0, 1.0));
+  const std::vector<double> non_finite_values{
+      std::numeric_limits<double>::quiet_NaN(),
+      std::numeric_limits<double>::infinity(),
+      -std::numeric_limits<double>::infinity()};
+  // Cover every parameter group (focal length, principal point, extra,
+  // metadata) as well as the models with custom bogus-parameter bounds.
+  const std::vector<CameraModelId> model_ids{
+      SimplePinholeCameraModel::model_id,
+      RadialCameraModel::model_id,
+      EUCMCameraModel::model_id,
+      SkewedPinholeCameraModel::model_id,
+      EquirectangularCameraModel::model_id,
+  };
+  for (const CameraModelId model_id : model_ids) {
+    const std::vector<double> nominal_params =
+        CameraModelInitializeParams(model_id, /*focal_length=*/100, 100, 100);
+    ASSERT_TRUE(CameraModelVerifyParams(model_id, nominal_params));
+    for (size_t idx = 0; idx < nominal_params.size(); ++idx) {
+      for (const double value : non_finite_values) {
+        std::vector<double> params = nominal_params;
+        params[idx] = value;
+        EXPECT_FALSE(CameraModelVerifyParams(model_id, params))
+            << CameraModelIdToName(model_id) << " param " << idx;
+        EXPECT_TRUE(CameraModelHasBogusParams(
+            model_id, params, 100, 100, 0.1, 2.0, 1.0))
+            << CameraModelIdToName(model_id) << " param " << idx;
+      }
+    }
   }
-
-  std::vector<double> spherical_params{800.0, 400.0};
-  spherical_params[0] = std::numeric_limits<double>::quiet_NaN();
-  EXPECT_FALSE(CameraModelVerifyParams(EquirectangularCameraModel::model_id,
-                                       spherical_params));
-  EXPECT_TRUE(CameraModelHasBogusParams(EquirectangularCameraModel::model_id,
-                                        spherical_params,
-                                        800,
-                                        400,
-                                        0.1,
-                                        2.0,
-                                        1.0));
 }
 
 TEST(Spherical, Nominal) {
