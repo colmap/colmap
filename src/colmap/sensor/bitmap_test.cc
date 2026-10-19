@@ -730,7 +730,7 @@ TEST(Bitmap, SetGetMetaData) {
   EXPECT_FALSE(bitmap.GetMetaData("does_not_exist").has_value());
 }
 
-TEST(Bitmap, WriteJpegWithEmptyIptcMetadata) {
+TEST(Bitmap, WriteJpegAndTiffWithEmptyIptcMetadata) {
   const auto input_path = CreateTestDir() / "empty_iptc.jpg";
   Bitmap source_bitmap(2, 2, /*as_rgb=*/true);
   ASSERT_TRUE(source_bitmap.Write(input_path));
@@ -754,6 +754,19 @@ TEST(Bitmap, WriteJpegWithEmptyIptcMetadata) {
   const auto output_city = output_bitmap.GetMetaData("IPTC:City");
   ASSERT_TRUE(output_city.has_value());
   EXPECT_EQ(output_city.value(), "Chapel Hill");
+
+  // TIFF IPTC writing is opt-in, so enable it to exercise the same encoder.
+  const int write_iptc = 1;
+  bitmap.SetMetaData("tiff:write_iptc", "int", &write_iptc);
+  const auto tiff_output_path = CreateTestDir() / "written_iptc.tif";
+  ASSERT_TRUE(bitmap.Write(tiff_output_path));
+
+  Bitmap tiff_output_bitmap;
+  ASSERT_TRUE(tiff_output_bitmap.Read(tiff_output_path));
+  EXPECT_FALSE(tiff_output_bitmap.GetMetaData("IPTC:ObjectName").has_value());
+  const auto tiff_output_city = tiff_output_bitmap.GetMetaData("IPTC:City");
+  ASSERT_TRUE(tiff_output_city.has_value());
+  EXPECT_EQ(tiff_output_city.value(), "Chapel Hill");
 }
 
 TEST(Bitmap, CloneMetaData) {

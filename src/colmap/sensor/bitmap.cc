@@ -477,19 +477,19 @@ bool Bitmap::Write(const std::filesystem::path& path,
     output_data_ptr = maybe_linearized_output_data.data();
   }
 
-  if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
-    // Older OIIO JPEG writers can assert when encoding empty IPTC fields.
-    // Omit empty IPTC strings while preserving populated metadata.
-    auto& attributes = meta_data.image_spec.extra_attribs;
-    attributes.erase(
-        std::remove_if(attributes.begin(),
-                       attributes.end(),
-                       [](const OIIO::ParamValue& attribute) {
-                         return IsIptcMetadata(attribute) &&
-                                attribute.get_string(0).empty();
-                       }),
-        attributes.end());
+  // OIIO format writers that encode IPTC metadata can assert on empty fields.
+  // Omit empty IPTC strings while preserving populated metadata.
+  auto& attributes = meta_data.image_spec.extra_attribs;
+  attributes.erase(
+      std::remove_if(attributes.begin(),
+                     attributes.end(),
+                     [](const OIIO::ParamValue& attribute) {
+                       return IsIptcMetadata(attribute) &&
+                              attribute.get_string(0).empty();
+                     }),
+      attributes.end());
 
+  if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
     if (!GetMetaData("Compression").has_value()) {
       // Save JPEG in superb quality by default to reduce compression artifacts.
       meta_data.image_spec["Compression"] = "jpeg:100";
