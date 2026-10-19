@@ -154,7 +154,8 @@ void BindCamera(py::module& m) {
       .def("verify_params",
            &Camera::VerifyParams,
            "Check whether parameters are valid, i.e. the parameter vector has"
-           " the correct dimensions that match the specified camera model.")
+           " the correct dimensions that match the specified camera model and"
+           " contains only finite values.")
       .def("has_bogus_params",
            &Camera::HasBogusParams,
            "min_focal_length_ratio"_a,

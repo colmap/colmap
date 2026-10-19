@@ -4,6 +4,8 @@
 
 #include "colmap/sensor/models.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -198,6 +200,8 @@ TEST(Camera, VerifyParams) {
   EXPECT_TRUE(camera.VerifyParams());
   camera.params.resize(2);
   EXPECT_FALSE(camera.VerifyParams());
+  camera.params = {std::numeric_limits<double>::quiet_NaN(), 0.5, 0.5};
+  EXPECT_FALSE(camera.VerifyParams());
 }
 
 TEST(Camera, IsUndistorted) {
@@ -242,6 +246,10 @@ TEST(Camera, HasBogusParams) {
   camera.params[3] = -0.5;
   EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 1.0));
   camera.params[3] = -1.01;
+  EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
+  camera = Camera::CreateFromModelId(
+      1, SimplePinholeCameraModel::model_id, 1.0, 1, 1);
+  camera.params[0] = std::numeric_limits<double>::quiet_NaN();
   EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
 }
 

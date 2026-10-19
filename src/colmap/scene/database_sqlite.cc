@@ -538,11 +538,14 @@ class SqliteDatabase : public Database {
   // Open and close database. The same database should not be opened
   // concurrently in multiple threads or processes.
   //
-  // On Windows, the input path is converted from the local code page to UTF-8
-  // for compatibility with SQLite. On POSIX platforms, the path is assumed to
-  // be UTF-8.
+  // SQLite expects a UTF-8 file name on all platforms. On Windows,
+  // path.string() would convert to the active code page and throw for
+  // characters it cannot represent, so the path is converted via u8string().
   static std::shared_ptr<Database> Open(const std::filesystem::path& path) {
     auto database = std::make_shared<SqliteDatabase>(path);
+
+    // u8string() returns std::string in C++17 and std::u8string in C++20.
+    const auto utf8_path = path.u8string();
 
     // SQLITE_OPEN_NOMUTEX specifies that the connection should not have a
     // mutex (so that we don't serialize the connection's operations).
@@ -550,7 +553,7 @@ class SqliteDatabase : public Database {
     // connections can read concurrently.
     try {
       SQLITE3_CALL(sqlite3_open_v2(
-          PlatformToUTF8(path.string()).c_str(),
+          reinterpret_cast<const char*>(utf8_path.c_str()),
           &database->database_,
           SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
           nullptr));

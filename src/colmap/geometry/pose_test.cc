@@ -184,6 +184,55 @@ TEST(EulerAngles, XYZ) {
   EXPECT_NEAR(rz, rzz, 1e-6);
 }
 
+TEST(EulerAngles, GimbalLock) {
+  const double yaw = 0.7;
+  for (const double sign : {-1.0, 1.0}) {
+    Eigen::Matrix3d R;
+    R << 0, -std::sin(yaw), sign * std::cos(yaw), 0, std::cos(yaw),
+        sign * std::sin(yaw), -sign, 0, 0;
+    double rx, ry, rz;
+    RotationMatrixToEulerAngles(R, &rx, &ry, &rz);
+    EXPECT_DOUBLE_EQ(rz, 0.0);
+    EXPECT_NEAR(ry, sign * DegToRad(90.0), 1e-14);
+    EXPECT_THAT(EulerAnglesToRotationMatrix(rx, ry, rz),
+                EigenMatrixNear(R, 1e-14));
+  }
+}
+
+TEST(EulerAngles, NearGimbalLock) {
+  for (const double sign : {-1.0, 1.0}) {
+    for (const double offset : {1e-4, 1e-8, 1e-12}) {
+      const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(
+          0.7, sign * (DegToRad(90.0) - offset), 0.3);
+      double rx, ry, rz;
+      RotationMatrixToEulerAngles(R, &rx, &ry, &rz);
+      EXPECT_THAT(EulerAnglesToRotationMatrix(rx, ry, rz),
+                  EigenMatrixNear(R, 1e-14));
+    }
+  }
+}
+
+TEST(EulerAngles, NearGimbalLockFromQuaternion) {
+  for (const double sign : {-1.0, 1.0}) {
+    for (const double offset : {1e-4, 1e-8, 1e-12}) {
+      for (const double roll : {-2.0, 0.7, 2.0}) {
+        for (const double yaw : {-1.2, 0.3, 1.9}) {
+          const Eigen::Quaterniond q =
+              Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) *
+              Eigen::AngleAxisd(sign * (DegToRad(90.0) - offset),
+                                Eigen::Vector3d::UnitY()) *
+              Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX());
+          const Eigen::Matrix3d R = q.normalized().toRotationMatrix();
+          double rx, ry, rz;
+          RotationMatrixToEulerAngles(R, &rx, &ry, &rz);
+          EXPECT_THAT(EulerAnglesToRotationMatrix(rx, ry, rz),
+                      EigenMatrixNear(R, 1e-14));
+        }
+      }
+    }
+  }
+}
+
 TEST(AverageQuaternions, Nominal) {
   std::vector<Eigen::Quaterniond> quats;
   std::vector<double> weights;

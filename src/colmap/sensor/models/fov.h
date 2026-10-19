@@ -94,7 +94,7 @@ struct FOVCameraModel
       // factor(radius) = atan(radius * 2 * tan(omega / 2)) / ...
       //                  (radius * omega);
       // simplify(taylor(factor, omega, 'order', 3))
-      factor = (omega2 * radius2) / T(3) - omega2 / T(12) + T(1);
+      factor = omega2 / T(12) - (omega2 * radius2) / T(3) + T(1);
     } else if (radius2 < kEpsilon) {
       // Derivation of this case with Matlab:
       // syms radius omega;
