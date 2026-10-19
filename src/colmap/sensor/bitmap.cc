@@ -7,6 +7,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/oiio_utils.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include <OpenImageIO/color.h>
@@ -37,6 +38,17 @@ struct OIIOMetaData : public Bitmap::MetaData {
 // conversion from std::string_view.
 OIIO::string_view OIIOFromStdStringView(std::string_view value) {
   return {value.data(), value.size()};
+}
+
+bool IsIptcMetadata(const OIIO::ParamValue& attribute) {
+  if (attribute.type().basetype != OIIO::TypeDesc::STRING) {
+    return false;
+  }
+
+  const std::string_view name(attribute.name().c_str());
+  return name.substr(0, 5) == "IPTC:" || name == "Keywords" ||
+         name == "Software" || name == "Artist" || name == "Copyright" ||
+         name == "ImageDescription";
 }
 
 // Convert a filesystem path to a UTF-8 std::string. On Windows,
@@ -466,6 +478,18 @@ bool Bitmap::Write(const std::filesystem::path& path,
   }
 
   if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
+    // Older OIIO JPEG writers can assert when encoding empty IPTC fields.
+    // Omit empty IPTC strings while preserving populated metadata.
+    auto& attributes = meta_data.image_spec.extra_attribs;
+    attributes.erase(
+        std::remove_if(attributes.begin(),
+                       attributes.end(),
+                       [](const OIIO::ParamValue& attribute) {
+                         return IsIptcMetadata(attribute) &&
+                                attribute.get_string(0).empty();
+                       }),
+        attributes.end());
+
     if (!GetMetaData("Compression").has_value()) {
       // Save JPEG in superb quality by default to reduce compression artifacts.
       meta_data.image_spec["Compression"] = "jpeg:100";

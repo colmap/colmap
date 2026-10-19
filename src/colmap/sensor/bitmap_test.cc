@@ -5,7 +5,10 @@
 #include "colmap/util/testing.h"
 
 #include <fstream>
+#include <iterator>
+#include <string>
 #include <tuple>
+#include <vector>
 
 #include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imageio.h>
@@ -29,6 +32,68 @@ void WriteImageOIIO(const int width,
   ASSERT_TRUE(output->open(path.string(), spec));
   ASSERT_TRUE(output->write_image(OIIO::TypeDesc::UINT8, data));
   ASSERT_TRUE(output->close());
+}
+
+bool AddIptcMetadataToJpeg(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return false;
+  }
+
+  const std::istreambuf_iterator<char> begin(input);
+  const std::istreambuf_iterator<char> end;
+  std::string jpeg(begin, end);
+  input.close();
+  if (jpeg.size() < 2 ||
+      static_cast<uint8_t>(jpeg[0]) != 0xff ||
+      static_cast<uint8_t>(jpeg[1]) != 0xd8) {
+    return false;
+  }
+
+  // Add an empty IPTC ObjectName followed by a populated City tag.
+  const std::string city = "Chapel Hill";
+  std::vector<uint8_t> iptc_data = {
+      0x1c, 0x02, 0x05, 0x00, 0x00, 0x1c, 0x02, 0x5a,
+      0x00, static_cast<uint8_t>(city.size())};
+  iptc_data.insert(iptc_data.end(), city.begin(), city.end());
+
+  std::vector<uint8_t> resource;
+  const std::string resource_signature = "8BIM";
+  resource.insert(
+      resource.end(), resource_signature.begin(), resource_signature.end());
+  resource.insert(resource.end(), {0x04, 0x04, 0x00, 0x00});
+  const uint32_t resource_size = static_cast<uint32_t>(iptc_data.size());
+  resource.push_back(static_cast<uint8_t>(resource_size >> 24));
+  resource.push_back(static_cast<uint8_t>(resource_size >> 16));
+  resource.push_back(static_cast<uint8_t>(resource_size >> 8));
+  resource.push_back(static_cast<uint8_t>(resource_size));
+  resource.insert(resource.end(), iptc_data.begin(), iptc_data.end());
+  if (iptc_data.size() % 2 != 0) {
+    resource.push_back(0);
+  }
+
+  std::vector<uint8_t> payload;
+  const std::string photoshop_header = "Photoshop 3.0";
+  payload.insert(
+      payload.end(), photoshop_header.begin(), photoshop_header.end());
+  payload.push_back(0);
+  payload.insert(payload.end(), resource.begin(), resource.end());
+
+  const uint16_t segment_size = static_cast<uint16_t>(payload.size() + 2);
+  std::vector<uint8_t> app13 = {
+      0xff,
+      0xed,
+      static_cast<uint8_t>(segment_size >> 8),
+      static_cast<uint8_t>(segment_size)};
+  app13.insert(app13.end(), payload.begin(), payload.end());
+  jpeg.insert(2, reinterpret_cast<const char*>(app13.data()), app13.size());
+
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  if (!output) {
+    return false;
+  }
+  output.write(jpeg.data(), static_cast<std::streamsize>(jpeg.size()));
+  return output.good();
 }
 
 TEST(BitmapColor, Empty) {
@@ -663,6 +728,32 @@ TEST(Bitmap, SetGetMetaData) {
   EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "int8", &value));
   EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "float", &value));
   EXPECT_FALSE(bitmap.GetMetaData("does_not_exist").has_value());
+}
+
+TEST(Bitmap, WriteJpegWithEmptyIptcMetadata) {
+  const auto input_path = CreateTestDir() / "empty_iptc.jpg";
+  Bitmap source_bitmap(2, 2, /*as_rgb=*/true);
+  ASSERT_TRUE(source_bitmap.Write(input_path));
+  ASSERT_TRUE(AddIptcMetadataToJpeg(input_path));
+
+  Bitmap bitmap;
+  ASSERT_TRUE(bitmap.Read(input_path));
+  const auto object_name = bitmap.GetMetaData("IPTC:ObjectName");
+  ASSERT_TRUE(object_name.has_value());
+  EXPECT_TRUE(object_name->empty());
+  const auto city = bitmap.GetMetaData("IPTC:City");
+  ASSERT_TRUE(city.has_value());
+  EXPECT_EQ(city.value(), "Chapel Hill");
+
+  const auto output_path = CreateTestDir() / "written_iptc.jpg";
+  ASSERT_TRUE(bitmap.Write(output_path));
+
+  Bitmap output_bitmap;
+  ASSERT_TRUE(output_bitmap.Read(output_path));
+  EXPECT_FALSE(output_bitmap.GetMetaData("IPTC:ObjectName").has_value());
+  const auto output_city = output_bitmap.GetMetaData("IPTC:City");
+  ASSERT_TRUE(output_city.has_value());
+  EXPECT_EQ(output_city.value(), "Chapel Hill");
 }
 
 TEST(Bitmap, CloneMetaData) {
