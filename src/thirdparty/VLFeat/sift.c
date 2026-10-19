@@ -664,6 +664,9 @@ Gaussian window size is set to have standard deviation
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
+#if !defined(VL_DISABLE_NEON) && (defined(__ARM_NEON) || defined(__ARM_NEON__))
+#include <arm_neon.h>
+#endif
 
 /** @internal @brief Use bilinear interpolation to compute orientations */
 #define VL_SIFT_BILINEAR_ORIENTATIONS 1
@@ -1457,6 +1460,109 @@ update_gradient (VlSiftFilt *f)
 
   if (f->grad_o == f->o_cur) return ;
 
+#if !defined(VL_DISABLE_NEON) && (defined(__ARM_NEON) || defined(__ARM_NEON__))
+  if (vl_get_simd_enabled()) {
+    for (s  = s_min + 1 ;
+         s <= s_max - 2 ; ++ s) {
+      vl_sift_pix *src = vl_sift_get_octave (f,s) ;
+      vl_sift_pix *grad = f->grad + 2 * so * (s - s_min -1) ;
+
+      for (y = 0 ; y < h ; ++ y) {
+        vl_sift_pix const *row = src + y * w ;
+        vl_sift_pix const *row_up = src + (y > 0 ? (y - 1) * w : 0) ;
+        vl_sift_pix const *row_down = src + (y < h - 1 ? (y + 1) * w : (h - 1) * w) ;
+        vl_sift_pix *grad_row = grad + 2 * y * w ;
+
+        /* left boundary pixel */
+        {
+          vl_sift_pix gx = row[1] - row[0] ;
+          vl_sift_pix gy ;
+          if (y == 0) {
+            gy = row_down[0] - row[0] ;
+          } else if (y == h - 1) {
+            gy = row[0] - row_up[0] ;
+          } else {
+            gy = 0.5f * (row_down[0] - row_up[0]) ;
+          }
+          grad_row[0] = vl_fast_sqrt_f(gx * gx + gy * gy) ;
+          grad_row[1] = vl_mod_2pi_f(vl_fast_atan2_f(gy, gx) + 2 * VL_PI) ;
+        }
+
+        {
+          int x = 1 ;
+          for (; x + 4 <= w - 1 ; x += 4) {
+            float32x4_t left = vld1q_f32(row + x - 1) ;
+            float32x4_t right = vld1q_f32(row + x + 1) ;
+            float32x4_t gx = vmulq_n_f32(vsubq_f32(right, left), 0.5f) ;
+            float32x4_t gy ;
+
+            if (y == 0) {
+              float32x4_t cur = vld1q_f32(row + x) ;
+              float32x4_t down = vld1q_f32(row_down + x) ;
+              gy = vsubq_f32(down, cur) ;
+            } else if (y == h - 1) {
+              float32x4_t cur = vld1q_f32(row + x) ;
+              float32x4_t up = vld1q_f32(row_up + x) ;
+              gy = vsubq_f32(cur, up) ;
+            } else {
+              float32x4_t down = vld1q_f32(row_down + x) ;
+              float32x4_t up = vld1q_f32(row_up + x) ;
+              gy = vmulq_n_f32(vsubq_f32(down, up), 0.5f) ;
+            }
+
+            {
+              float gxv[4], gyv[4], modv[4], angv[4] ;
+              float32x4x2_t outv ;
+              int i ;
+              vst1q_f32(gxv, gx) ;
+              vst1q_f32(gyv, gy) ;
+              for (i = 0 ; i < 4 ; ++ i) {
+                modv[i] = vl_fast_sqrt_f(gxv[i] * gxv[i] + gyv[i] * gyv[i]) ;
+                angv[i] = vl_mod_2pi_f(vl_fast_atan2_f(gyv[i], gxv[i]) + 2 * VL_PI) ;
+              }
+              outv.val[0] = vld1q_f32(modv) ;
+              outv.val[1] = vld1q_f32(angv) ;
+              vst2q_f32(grad_row + 2 * x, outv) ;
+            }
+          }
+
+          for (; x < w - 1 ; ++ x) {
+            vl_sift_pix gx = 0.5f * (row[x + 1] - row[x - 1]) ;
+            vl_sift_pix gy ;
+            if (y == 0) {
+              gy = row_down[x] - row[x] ;
+            } else if (y == h - 1) {
+              gy = row[x] - row_up[x] ;
+            } else {
+              gy = 0.5f * (row_down[x] - row_up[x]) ;
+            }
+            grad_row[2 * x + 0] = vl_fast_sqrt_f(gx * gx + gy * gy) ;
+            grad_row[2 * x + 1] = vl_mod_2pi_f(vl_fast_atan2_f(gy, gx) + 2 * VL_PI) ;
+          }
+        }
+
+        /* right boundary pixel */
+        {
+          int x = w - 1 ;
+          vl_sift_pix gx = row[x] - row[x - 1] ;
+          vl_sift_pix gy ;
+          if (y == 0) {
+            gy = row_down[x] - row[x] ;
+          } else if (y == h - 1) {
+            gy = row[x] - row_up[x] ;
+          } else {
+            gy = 0.5f * (row_down[x] - row_up[x]) ;
+          }
+          grad_row[2 * x + 0] = vl_fast_sqrt_f(gx * gx + gy * gy) ;
+          grad_row[2 * x + 1] = vl_mod_2pi_f(vl_fast_atan2_f(gy, gx) + 2 * VL_PI) ;
+        }
+      }
+    }
+    f->grad_o = f->o_cur ;
+    return ;
+  }
+#endif
+
   for (s  = s_min + 1 ;
        s <= s_max - 2 ; ++ s) {
 
@@ -1801,7 +1907,6 @@ vl_sift_calc_raw_descriptor (VlSiftFilt const *f,
 
 #undef atd
 #define atd(dbinx,dbiny,dbint) *(dpt + (dbint)*binto + (dbiny)*binyo + (dbinx)*binxo)
-
   /*
    * Process pixels in the intersection of the image rectangle
    * (1,1)-(M-1,N-1) and the keypoint bounding box.
@@ -2003,6 +2108,108 @@ vl_sift_calc_keypoint_descriptor (VlSiftFilt *f,
    * Process pixels in the intersection of the image rectangle
    * (1,1)-(M-1,N-1) and the keypoint bounding box.
    */
+#if !defined(VL_DISABLE_NEON) && (defined(__ARM_NEON) || defined(__ARM_NEON__))
+  if (vl_get_simd_enabled()) {
+    vl_sift_pix const angle0f = (vl_sift_pix)angle0 ;
+    vl_sift_pix const wsigma = f->windowSize ;
+    vl_sift_pix const inv_sbp = (vl_sift_pix)(1.0 / SBP) ;
+    vl_sift_pix const nt_scale = (vl_sift_pix)(NBO / (2.0 * VL_PI)) ;
+    vl_sift_pix const win_scale = (vl_sift_pix)(1.0 / (2.0 * wsigma * wsigma)) ;
+    vl_sift_pix const dx_offsets_data[4] = {0.0f, 1.0f, 2.0f, 3.0f} ;
+    float32x4_t const v_dx_offsets = vld1q_f32(dx_offsets_data) ;
+    float32x4_t const v_ct0 = vdupq_n_f32((vl_sift_pix)ct0) ;
+    float32x4_t const v_st0 = vdupq_n_f32((vl_sift_pix)st0) ;
+    float32x4_t const v_neg_st0 = vdupq_n_f32((vl_sift_pix)(-st0)) ;
+    float32x4_t const v_inv_sbp = vdupq_n_f32(inv_sbp) ;
+#define VL_SIFT_DESC_ACCUM_SAMPLE(_mod, _nx, _ny, _nt, _win)                            \
+    do {                                                                                  \
+      int const _binx = (int)vl_floor_f((_nx) - 0.5f) ;                                  \
+      int const _biny = (int)vl_floor_f((_ny) - 0.5f) ;                                  \
+      int const _bint = (int)vl_floor_f(_nt) ;                                           \
+      int const _bint1 = (_bint + 1) % NBO ;                                             \
+      int const _bx0 = _binx ;                                                           \
+      int const _bx1 = _binx + 1 ;                                                       \
+      int const _by0 = _biny ;                                                           \
+      int const _by1 = _biny + 1 ;                                                       \
+      vl_sift_pix const _rbinx = (_nx) - (_binx + 0.5f) ;                                \
+      vl_sift_pix const _rbiny = (_ny) - (_biny + 0.5f) ;                                \
+      vl_sift_pix const _rbint = (_nt) - _bint ;                                         \
+      vl_sift_pix const _wx0 = 1.0f - _rbinx ;                                           \
+      vl_sift_pix const _wx1 = _rbinx ;                                                  \
+      vl_sift_pix const _wy0 = 1.0f - _rbiny ;                                           \
+      vl_sift_pix const _wy1 = _rbiny ;                                                  \
+      vl_sift_pix const _wt0 = 1.0f - _rbint ;                                           \
+      vl_sift_pix const _wt1 = _rbint ;                                                  \
+      vl_sift_pix const _base = (_win) * (_mod) ;                                        \
+      vl_sift_pix _wxy ;                                                                 \
+      if (_bx0 >= -(NBP/2) && _bx0 < (NBP/2) && _by0 >= -(NBP/2) && _by0 < (NBP/2)) {   \
+        _wxy = (_base * _wx0) * _wy0 ;                                                   \
+        atd(_bx0, _by0, _bint ) += _wxy * _wt0 ;                                         \
+        atd(_bx0, _by0, _bint1) += _wxy * _wt1 ;                                         \
+      }                                                                                   \
+      if (_bx0 >= -(NBP/2) && _bx0 < (NBP/2) && _by1 >= -(NBP/2) && _by1 < (NBP/2)) {   \
+        _wxy = (_base * _wx0) * _wy1 ;                                                   \
+        atd(_bx0, _by1, _bint ) += _wxy * _wt0 ;                                         \
+        atd(_bx0, _by1, _bint1) += _wxy * _wt1 ;                                         \
+      }                                                                                   \
+      if (_bx1 >= -(NBP/2) && _bx1 < (NBP/2) && _by0 >= -(NBP/2) && _by0 < (NBP/2)) {   \
+        _wxy = (_base * _wx1) * _wy0 ;                                                   \
+        atd(_bx1, _by0, _bint ) += _wxy * _wt0 ;                                         \
+        atd(_bx1, _by0, _bint1) += _wxy * _wt1 ;                                         \
+      }                                                                                   \
+      if (_bx1 >= -(NBP/2) && _bx1 < (NBP/2) && _by1 >= -(NBP/2) && _by1 < (NBP/2)) {   \
+        _wxy = (_base * _wx1) * _wy1 ;                                                   \
+        atd(_bx1, _by1, _bint ) += _wxy * _wt0 ;                                         \
+        atd(_bx1, _by1, _bint1) += _wxy * _wt1 ;                                         \
+      }                                                                                   \
+    } while (0)
+
+    for(dyi =  VL_MAX (- W, 1 - yi    ) ;
+        dyi <= VL_MIN (+ W, h - yi - 2) ; ++ dyi) {
+      int dxi_begin = VL_MAX (- W, 1 - xi    ) ;
+      int dxi_end   = VL_MIN (+ W, w - xi - 2) ;
+      vl_sift_pix const dy = (vl_sift_pix)(yi + dyi - y) ;
+      float32x4_t const v_dy = vdupq_n_f32(dy) ;
+
+      for (dxi = dxi_begin ; dxi + 3 <= dxi_end ; dxi += 4) {
+        vl_sift_pix const *sample = pt + dxi*xo + dyi*yo ;
+        float32x4x2_t mod_angle = vld2q_f32(sample) ;
+        float32x4_t dx = vaddq_f32(vdupq_n_f32((vl_sift_pix)(xi + dxi - x)), v_dx_offsets) ;
+        float32x4_t nx = vmulq_f32(vaddq_f32(vmulq_f32(v_ct0, dx), vmulq_f32(v_st0, v_dy)),
+                                   v_inv_sbp) ;
+        float32x4_t ny = vmulq_f32(vaddq_f32(vmulq_f32(v_neg_st0, dx), vmulq_f32(v_ct0, v_dy)),
+                                   v_inv_sbp) ;
+        vl_sift_pix modv[4], angv[4], nxv[4], nyv[4] ;
+        int lane ;
+        vst1q_f32(modv, mod_angle.val[0]) ;
+        vst1q_f32(angv, mod_angle.val[1]) ;
+        vst1q_f32(nxv, nx) ;
+        vst1q_f32(nyv, ny) ;
+
+        for (lane = 0 ; lane < 4 ; ++lane) {
+          vl_sift_pix const theta = vl_mod_2pi_f (angv[lane] - angle0f) ;
+          vl_sift_pix const nt = nt_scale * theta ;
+          vl_sift_pix const win = fast_expn ((nxv[lane]*nxv[lane] + nyv[lane]*nyv[lane]) * win_scale) ;
+          VL_SIFT_DESC_ACCUM_SAMPLE(modv[lane], nxv[lane], nyv[lane], nt, win) ;
+        }
+      }
+
+      for (; dxi <= dxi_end ; ++ dxi) {
+        vl_sift_pix mod   = *( pt + dxi*xo + dyi*yo + 0 ) ;
+        vl_sift_pix angle = *( pt + dxi*xo + dyi*yo + 1 ) ;
+        vl_sift_pix theta = vl_mod_2pi_f (angle - angle0f) ;
+        vl_sift_pix dx = (vl_sift_pix)(xi + dxi - x) ;
+        vl_sift_pix nx = ( (vl_sift_pix)ct0 * dx + (vl_sift_pix)st0 * dy) * inv_sbp ;
+        vl_sift_pix ny = ((vl_sift_pix)(-st0) * dx + (vl_sift_pix)ct0 * dy) * inv_sbp ;
+        vl_sift_pix nt = nt_scale * theta ;
+        vl_sift_pix win = fast_expn ((nx*nx + ny*ny) * win_scale) ;
+        VL_SIFT_DESC_ACCUM_SAMPLE(mod, nx, ny, nt, win) ;
+      }
+    }
+  }
+#undef VL_SIFT_DESC_ACCUM_SAMPLE
+  else
+#endif
   for(dyi =  VL_MAX (- W, 1 - yi    ) ;
       dyi <= VL_MIN (+ W, h - yi - 2) ; ++ dyi) {
 
