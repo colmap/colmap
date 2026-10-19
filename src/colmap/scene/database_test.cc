@@ -54,7 +54,12 @@ TEST_P(ParameterizedDatabaseTests, OpenCloseFile) {
 }
 
 TEST_P(ParameterizedDatabaseTests, OpenFileWithNonASCIIPath) {
-  const auto database_path = CreateTestDir() / u8"äöü時临.db";
+  // Cover a non-ASCII file name inside a non-ASCII directory, as databases
+  // often live in project folders outside the Windows code page.
+  const std::filesystem::path database_path =
+      CreateTestDir() / std::filesystem::u8path(u8"日本語") /
+      std::filesystem::u8path(u8"äöü時临.db");
+  std::filesystem::create_directories(database_path.parent_path());
   std::shared_ptr<Database> database = GetParam()(database_path);
   EXPECT_TRUE(ExistsPath(database_path));
 }

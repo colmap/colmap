@@ -390,7 +390,8 @@ class AnalyticalImuPreintegrationCostFunction
 //       Constrain with SphereManifold(3). The gravity magnitude is taken
 //       from PreintegratedImuData::gravity_magnitude.
 //   [2] imu_from_cam:       7  (qx,qy,qz,qw, tx,ty,tz)
-//       Rigid transform from camera to IMU body frame.
+//       Rigid transform from camera to IMU body frame. The translation is in
+//       SfM units by default, or metric if imu_from_cam_is_metric is true.
 //   [3] i_from_world:       7  (qx,qy,qz,qw, tx,ty,tz)
 //       Camera pose at frame i (cam_from_world in SfM frame).
 //   [4] i_imu_state:        9  (vx,vy,vz, bgx,bgy,bgz, bax,bay,baz)
@@ -399,18 +400,25 @@ class AnalyticalImuPreintegrationCostFunction
 //       Camera pose at frame j.
 //   [6] j_imu_state:        9
 //       Velocity and biases at frame j.
+//
+// If imu_from_cam_is_metric is true, the imu_from_cam translation is not
+// multiplied by the scale. This allows using a calibrated metric translation
+// (e.g. from the factory) while the scale is still unknown.
 class VisualCentricImuPreintegrationCostFunctor {
  public:
   explicit VisualCentricImuPreintegrationCostFunctor(
-      const PreintegratedImuData* data)
-      : data_(data) {
+      const PreintegratedImuData* data,
+      const bool imu_from_cam_is_metric = false)
+      : data_(data), imu_from_cam_is_metric_(imu_from_cam_is_metric) {
     THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function. Call Extract() or Update() on the integrator, or "
            "Finalize() on the data directly.";
   }
 
-  static ceres::CostFunction* Create(const PreintegratedImuData* data) {
+  static ceres::CostFunction* Create(
+      const PreintegratedImuData* data,
+      const bool imu_from_cam_is_metric = false) {
     return (new ceres::AutoDiffCostFunction<
             VisualCentricImuPreintegrationCostFunctor,
             15,
@@ -420,7 +428,8 @@ class VisualCentricImuPreintegrationCostFunctor {
             7,
             9,
             7,
-            9>(new VisualCentricImuPreintegrationCostFunctor(data)));
+            9>(new VisualCentricImuPreintegrationCostFunctor(
+        data, imu_from_cam_is_metric)));
   }
 
   template <typename T>
@@ -461,18 +470,19 @@ class VisualCentricImuPreintegrationCostFunctor {
         EigenQuaternionMap<T>(j_from_world).conjugate();
     Eigen::Matrix<T, 3, 1> world_from_j_t =
         world_from_j_q * EigenVector3Map<T>(j_from_world + 4) * T(-1.);
-    // Compose: world_from_imu = world_from_cam * cam_from_imu.
+    // Compose: world_from_imu = world_from_cam * cam_from_imu, and apply
+    // metric scale to positions and velocities. The imu_from_cam translation
+    // is only scaled if it is in SfM units.
+    T scale = ceres::exp(log_scale[0]);
+    const T imu_from_cam_scale = imu_from_cam_is_metric_ ? T(1.) : scale;
     Eigen::Quaternion<T> world_from_i_imu_q = world_from_i_q * cam_from_imu_q;
     Eigen::Matrix<T, 3, 1> world_from_i_imu_t =
-        world_from_i_q * cam_from_imu_t + world_from_i_t;
+        world_from_i_q * cam_from_imu_t * imu_from_cam_scale +
+        world_from_i_t * scale;
     Eigen::Quaternion<T> world_from_j_imu_q = world_from_j_q * cam_from_imu_q;
     Eigen::Matrix<T, 3, 1> world_from_j_imu_t =
-        world_from_j_q * cam_from_imu_t + world_from_j_t;
-
-    // Apply metric scale to positions and velocities.
-    T scale = ceres::exp(log_scale[0]);
-    world_from_i_imu_t = world_from_i_imu_t * scale;
-    world_from_j_imu_t = world_from_j_imu_t * scale;
+        world_from_j_q * cam_from_imu_t * imu_from_cam_scale +
+        world_from_j_t * scale;
     Eigen::Matrix<T, 3, 1> v_i = v_i_data * scale;
     Eigen::Matrix<T, 3, 1> v_j = v_j_data * scale;
 
@@ -534,6 +544,7 @@ class VisualCentricImuPreintegrationCostFunctor {
 
  private:
   const PreintegratedImuData* data_;
+  const bool imu_from_cam_is_metric_;
 };
 
 // Analytical-Jacobian version of VisualCentricImuPreintegrationCostFunctor.
@@ -559,8 +570,9 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
     : public ceres::SizedCostFunction<15, 1, 3, 7, 7, 9, 7, 9> {
  public:
   explicit AnalyticalVisualCentricImuPreintegrationCostFunction(
-      const PreintegratedImuData* data)
-      : data_(data) {
+      const PreintegratedImuData* data,
+      const bool imu_from_cam_is_metric = false)
+      : data_(data), imu_from_cam_is_metric_(imu_from_cam_is_metric) {
     THROW_CHECK(!data_->sqrt_info.isZero())
         << "PreintegratedImuData must be finalized before use in cost "
            "function.";
@@ -587,6 +599,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
     const double dt = data_->delta_t;
     const double scale = std::exp(log_scale);
+    const double imu_from_cam_scale = imu_from_cam_is_metric_ ? 1.0 : scale;
     const double grav_mag = data_->gravity_magnitude;
     const Eigen::Vector3d gravity = gravity_dir * grav_mag;
 
@@ -604,12 +617,12 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
     const Eigen::Vector3d t_WC_j = -(R_WC_j * t_CW_j);
 
     const Eigen::Quaterniond q_WI_i = q_WC_i * q_CI;
-    const Eigen::Vector3d t_WI_i_unscaled = R_WC_i * t_CI + t_WC_i;
     const Eigen::Quaterniond q_WI_j = q_WC_j * q_CI;
-    const Eigen::Vector3d t_WI_j_unscaled = R_WC_j * t_CI + t_WC_j;
 
-    const Eigen::Vector3d p_i = t_WI_i_unscaled * scale;
-    const Eigen::Vector3d p_j = t_WI_j_unscaled * scale;
+    const Eigen::Vector3d t_CI_W_i = imu_from_cam_scale * (R_WC_i * t_CI);
+    const Eigen::Vector3d t_CI_W_j = imu_from_cam_scale * (R_WC_j * t_CI);
+    const Eigen::Vector3d p_i = t_CI_W_i + t_WC_i * scale;
+    const Eigen::Vector3d p_j = t_CI_W_j + t_WC_j * scale;
     const Eigen::Vector3d v_i = v_i_data * scale;
     const Eigen::Vector3d v_j = v_j_data * scale;
 
@@ -658,9 +671,14 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
     if (jacobians[0] != nullptr) {
       Eigen::Map<Eigen::Matrix<double, 15, 1>> J(jacobians[0]);
       J.setZero();
-      // d(r_pos)/d(log_s) = R_IW_i * (t_WI_j - t_WI_i - v_i_data*dt) * scale
-      J.segment<3>(3) =
-          R_IW_i * (t_WI_j_unscaled - t_WI_i_unscaled - v_i_data * dt) * scale;
+      // d(r_pos)/d(log_s) = R_IW_i * (d(p_j - p_i)/d(log_s) - v_i * dt).
+      // The imu_from_cam translation only depends on the scale if it is in SfM
+      // units.
+      Eigen::Vector3d dpji_dlog_s = (t_WC_j - t_WC_i) * scale;
+      if (!imu_from_cam_is_metric_) {
+        dpji_dlog_s += t_CI_W_j - t_CI_W_i;
+      }
+      J.segment<3>(3) = R_IW_i * (dpji_dlog_s - v_i * dt);
       // d(r_vel)/d(log_s) = R_IW_i * (v_j_data - v_i_data) * scale
       J.segment<3>(6) = R_IW_i * (v_j_data - v_i_data) * scale;
       J = data_->sqrt_info * J;
@@ -713,9 +731,11 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
       }
       Eigen::Matrix<double, 3, 4> dtCI_dqIC = -dRtIC_dqCI * dconj;
 
-      J.block<3, 4>(3, 0) = dRdpW_dqIWi * dqIWi_dqIC +
-                            R_IW_i * scale * (R_WC_j - R_WC_i) * dtCI_dqIC;
-      J.block<3, 3>(3, 4) = scale * R_IW_i * (R_WC_i - R_WC_j) * R_CI;
+      J.block<3, 4>(3, 0) =
+          dRdpW_dqIWi * dqIWi_dqIC +
+          R_IW_i * imu_from_cam_scale * (R_WC_j - R_WC_i) * dtCI_dqIC;
+      J.block<3, 3>(3, 4) =
+          imu_from_cam_scale * R_IW_i * (R_WC_i - R_WC_j) * R_CI;
 
       // Velocity residual: only through R_IW_i.
       Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRdvW_dqIWi;
@@ -751,15 +771,15 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
         double q_arr[4] = {q_IW_i.x(), q_IW_i.y(), q_IW_i.z(), q_IW_i.w()};
         QuaternionRotatePointWithJac(q_arr, dp_W.data(), dRdpW_dqIWi.data());
       }
-      // t_WI_i = R(conj(q_CW_i)) * (t_CI - t_CW_i)
-      const Eigen::Vector3d v_tWIi = t_CI - t_CW_i;
+      // p_i = R(conj(q_CW_i)) * (imu_from_cam_scale * t_CI - scale * t_CW_i)
+      const Eigen::Vector3d v_tWIi = imu_from_cam_scale * t_CI - scale * t_CW_i;
       Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRv_dqWCi;
       {
         double q_arr[4] = {q_WC_i.x(), q_WC_i.y(), q_WC_i.z(), q_WC_i.w()};
         QuaternionRotatePointWithJac(q_arr, v_tWIi.data(), dRv_dqWCi.data());
       }
       J.block<3, 4>(3, 0) =
-          dRdpW_dqIWi * dqIWi_dqCWi - scale * R_IW_i * dRv_dqWCi * dconj;
+          dRdpW_dqIWi * dqIWi_dqCWi - R_IW_i * dRv_dqWCi * dconj;
       J.block<3, 3>(3, 4) = scale * R_IW_i * R_WC_i;
 
       // Velocity: through R_IW_i only.
@@ -804,14 +824,14 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
           QuaternionRightMultMatrix(q_WI_i) * dconj * dqWIj_dqCWj;
 
       // Position: through p_j only.
-      // t_WI_j = R(conj(q_CW_j)) * (t_CI - t_CW_j)
-      const Eigen::Vector3d v_tWIj = t_CI - t_CW_j;
+      // p_j = R(conj(q_CW_j)) * (imu_from_cam_scale * t_CI - scale * t_CW_j)
+      const Eigen::Vector3d v_tWIj = imu_from_cam_scale * t_CI - scale * t_CW_j;
       Eigen::Matrix<double, 3, 4, Eigen::RowMajor> dRv_dqWCj;
       {
         double q_arr[4] = {q_WC_j.x(), q_WC_j.y(), q_WC_j.z(), q_WC_j.w()};
         QuaternionRotatePointWithJac(q_arr, v_tWIj.data(), dRv_dqWCj.data());
       }
-      J.block<3, 4>(3, 0) = scale * R_IW_i * dRv_dqWCj * dconj;
+      J.block<3, 4>(3, 0) = R_IW_i * dRv_dqWCj * dconj;
       J.block<3, 3>(3, 4) = -scale * R_IW_i * R_WC_j;
 
       J = data_->sqrt_info * J;
@@ -832,6 +852,7 @@ class AnalyticalVisualCentricImuPreintegrationCostFunction
 
  private:
   const PreintegratedImuData* data_;
+  const bool imu_from_cam_is_metric_;
 };
 
 }  // namespace colmap
