@@ -16,6 +16,9 @@
 
 namespace colmap {
 
+// Per-observation BATA displacement scales keyed by TrackElement.
+using ObservationScaleMap = NodeHashMap<TrackElement, double>;
+
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
@@ -70,6 +73,8 @@ struct GlobalPositionerOptions {
     solver_options.function_tolerance = 1e-5;
   }
 
+  bool Check() const;
+
   std::shared_ptr<ceres::LossFunction> CreateLossFunction() {
     const double default_scale = experimental_observation_stddev ? 1.0 : 0.1;
     return std::make_shared<ceres::HuberLoss>(
@@ -81,11 +86,14 @@ class GlobalPositioner {
  public:
   virtual ~GlobalPositioner() = default;
 
-  // The reconstruction must outlive the returned positioner.
+  // Build from supplied frame poses, points, and scales without initialization.
+  // Scales update in place; included observations require finite positive values.
+  // Unused entries are ignored. Reconstruction and scales must outlive the
+  // positioner and its problem; active scale entries must remain valid.
   static std::unique_ptr<GlobalPositioner> CreateDefault(
       const GlobalPositionerOptions& options,
-      const PoseGraph& pose_graph,
       Reconstruction& reconstruction,
+      ObservationScaleMap& observation_scales,
       std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 
   // Solve the prepared problem and publish its results.
@@ -108,15 +116,11 @@ class GlobalPositioner {
   explicit GlobalPositioner(const GlobalPositionerOptions& options);
 
   // Construct the problem without solving it.
-  void Prepare(const PoseGraph& pose_graph,
-               Reconstruction& reconstruction,
+  void Prepare(Reconstruction& reconstruction,
+               ObservationScaleMap& observation_scales,
                std::shared_ptr<ceres::LossFunction> loss_function);
 
   void SetupProblem(std::shared_ptr<ceres::LossFunction> loss_function);
-
-  // Initialize all cameras to be random.
-  void InitializeRandomPositions(const PoseGraph& pose_graph,
-                                 Reconstruction& reconstruction);
 
   // Add tracks to the problem
   void AddPointToCameraConstraints(Reconstruction& reconstruction);
@@ -137,10 +141,6 @@ class GlobalPositioner {
 
   GlobalPositionerOptions options_;
 
- private:
-  std::vector<double> scales_;
-
- protected:
   // Loss functions for reweighted terms.
   std::shared_ptr<ceres::LossFunction> loss_function_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_uncalibrated_;
@@ -157,12 +157,28 @@ class GlobalPositioner {
 
   // Retained for Finalize().
   Reconstruction* reconstruction_ = nullptr;
+  ObservationScaleMap* observation_scales_ = nullptr;
   std::unique_ptr<ceres::Problem> problem_;
 };
 
+// Randomize rig-frame centers and 3D points according to options; keep rotations.
+// Frames come from pose_graph or posed observations in tracks meeting
+// min_num_view_per_track; points must meet the same track threshold.
+void RandomizeReconstructionPositions(const GlobalPositionerOptions& options,
+                                      const PoseGraph& pose_graph,
+                                      Reconstruction& reconstruction);
+
+// Generate ones or geometry-based scales without modifying reconstruction.
+// Geometric initialization skips observations without usable poses or rays.
+ObservationScaleMap GenerateObservationScales(
+    const Reconstruction& reconstruction, bool from_geometry = false);
+
 // Solve global positioning using point-to-camera constraints.
+// Omitted scales trigger initialization according to options; supplied scales
+// preserve caller initialization and are optimized in place.
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          Reconstruction& reconstruction);
+                          Reconstruction& reconstruction,
+                          ObservationScaleMap* observation_scales = nullptr);
 
 }  // namespace colmap

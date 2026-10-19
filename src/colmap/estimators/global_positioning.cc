@@ -58,11 +58,11 @@ ceres::CostFunction* CreateBATACostFunction(
 class DefaultGlobalPositioner final : public GlobalPositioner {
  public:
   DefaultGlobalPositioner(const GlobalPositionerOptions& options,
-                          const PoseGraph& pose_graph,
                           Reconstruction& reconstruction,
+                          ObservationScaleMap& observation_scales,
                           std::shared_ptr<ceres::LossFunction> loss_function)
       : GlobalPositioner(options) {
-    Prepare(pose_graph, reconstruction, std::move(loss_function));
+    Prepare(reconstruction, observation_scales, std::move(loss_function));
     options_.solver_options.num_threads =
         GetEffectiveNumThreads(options_.solver_options.num_threads);
     options_.solver_options.minimizer_progress_to_stdout = VLOG_IS_ON(2);
@@ -71,13 +71,18 @@ class DefaultGlobalPositioner final : public GlobalPositioner {
 
 }  // namespace
 
+bool GlobalPositionerOptions::Check() const {
+  CHECK_OPTION(std::isfinite(uncalibrated_observation_weight));
+  CHECK_OPTION_GT(uncalibrated_observation_weight, 0.0);
+  if (experimental_observation_stddev.has_value()) {
+    CHECK_OPTION_GT(*experimental_observation_stddev, 0.0);
+  }
+  return true;
+}
+
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
-  THROW_CHECK(std::isfinite(options_.uncalibrated_observation_weight));
-  THROW_CHECK_GT(options_.uncalibrated_observation_weight, 0.0);
-  if (options_.experimental_observation_stddev.has_value()) {
-    THROW_CHECK_GT(*options_.experimental_observation_stddev, 0.0);
-  }
+  THROW_CHECK(options_.Check());
   if (options_.random_seed >= 0) {
     SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
   }
@@ -103,19 +108,16 @@ bool GlobalPositioner::Finalize(const ceres::Solver::Summary& summary) {
 }
 
 void GlobalPositioner::Prepare(
-    const PoseGraph& pose_graph,
     Reconstruction& reconstruction,
+    ObservationScaleMap& observation_scales,
     std::shared_ptr<ceres::LossFunction> loss_function) {
   reconstruction_ = &reconstruction;
+  observation_scales_ = &observation_scales;
 
   LOG(INFO) << "Setting up the global positioner problem";
 
   // Setup the problem.
   SetupProblem(std::move(loss_function));
-
-  // Initialize camera translations to be random.
-  // Also, convert the camera pose translation to be the camera center.
-  InitializeRandomPositions(pose_graph, reconstruction);
 
   // Add the point to camera constraints to the problem.
   AddPointToCameraConstraints(reconstruction);
@@ -143,55 +145,6 @@ void GlobalPositioner::SetupProblem(
   // Clear temporary storage from previous runs.
   frame_centers_.clear();
   cams_in_rig_.clear();
-
-  // Allocate enough memory for the scales. One for each residual.
-  // Due to possibly invalid tracks, the actual number of residuals may be
-  // smaller.
-  scales_.clear();
-  size_t total_observations = 0;
-  for (const auto& [point3D_id, point3D] : reconstruction_->Points3D()) {
-    total_observations += point3D.track.Length();
-  }
-  scales_.reserve(total_observations);
-}
-
-void GlobalPositioner::InitializeRandomPositions(
-    const PoseGraph& pose_graph, Reconstruction& reconstruction) {
-  FlatHashSet<frame_t> constrained_positions;
-  constrained_positions.reserve(reconstruction.NumFrames());
-  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    constrained_positions.insert(reconstruction.Image(image_id1).FrameId());
-    constrained_positions.insert(reconstruction.Image(image_id2).FrameId());
-  }
-
-  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
-    if (point3D.track.Length() <
-        static_cast<size_t>(options_.min_num_view_per_track)) {
-      continue;
-    }
-    for (const auto& observation : point3D.track.Elements()) {
-      THROW_CHECK(reconstruction.ExistsImage(observation.image_id));
-      const Image& image = reconstruction.Image(observation.image_id);
-      if (!image.HasPose()) continue;
-      constrained_positions.insert(image.FrameId());
-    }
-  }
-
-  // Initialize frame centers in temporary storage.
-  // The reconstruction poses remain in cam_from_world convention.
-  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
-    if (constrained_positions.find(frame_id) == constrained_positions.end()) {
-      continue;
-    }
-    if (options_.generate_random_positions && options_.optimize_positions) {
-      frame_centers_[frame_id] = 100.0 * RandVector3d(-1, 1);
-    } else {
-      frame_centers_[frame_id] = frame.RigFromWorld().TgtOriginInSrc();
-    }
-  }
-
-  VLOG(2) << "Constrained positions: " << constrained_positions.size();
 }
 
 void GlobalPositioner::AddPointToCameraConstraints(
@@ -219,15 +172,7 @@ void GlobalPositioner::AddPointToCameraConstraints(
 
 void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
                                            Reconstruction& reconstruction) {
-  const bool random_initialization =
-      options_.optimize_points && options_.generate_random_points;
-
   Point3D& point3D = reconstruction.Point3D(point3D_id);
-
-  // Only set the points to be random if they are needed to be optimized
-  if (random_initialization) {
-    point3D.xyz = 100.0 * RandVector3d(-1, 1);
-  }
 
   // For each view in the track add the point to camera correspondences.
   for (const auto& observation : point3D.track.Elements()) {
@@ -265,15 +210,14 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     const Eigen::Vector3d cam_from_point3D_dir =
         image.CamFromWorld().rotation().inverse() * (*cam_ray);
 
-    double& scale = scales_.emplace_back(1);
-
-    if (options_.initialize_scales_from_geometry) {
-      const Eigen::Vector3d cam_from_point3D_translation =
-          point3D.xyz - frame_centers_[image.FrameId()];
-      scale = std::max(1e-5,
-                       cam_from_point3D_dir.dot(cam_from_point3D_translation) /
-                           cam_from_point3D_translation.squaredNorm());
-    }
+    const auto entry = observation_scales_->find(observation);
+    THROW_CHECK(entry != observation_scales_->end())
+        << "missing observation scale: " << observation;
+    double& scale = entry->second;
+    THROW_CHECK(std::isfinite(scale) && scale > 0.0)
+        << "observation scale must be finite and positive: " << observation;
+    frame_centers_.try_emplace(
+        image.FrameId(), image.FramePtr()->RigFromWorld().TgtOriginInSrc());
 
     // For calibrated and uncalibrated cameras, use different loss
     // functions
@@ -343,6 +287,11 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     }
 
     problem_->SetParameterLowerBound(&scale, 0, 1e-5);
+    // Fix all scales, or the first scale to remove the gauge ambiguity.
+    if (!options_.optimize_scales ||
+        (options_.fix_first_scale && problem_->NumResidualBlocks() == 1)) {
+      problem_->SetParameterBlockConstant(&scale);
+    }
   }
 }
 
@@ -355,8 +304,10 @@ void GlobalPositioner::AddCamerasAndPointsToParameterGroups(
       options_.solver_options.linear_solver_ordering.get();
 
   // Add scale parameters to group 0 (large and independent)
-  for (double& scale : scales_) {
-    parameter_ordering->AddElementToGroup(&scale, 0);
+  for (auto& [observation, scale] : *observation_scales_) {
+    if (problem_->HasParameterBlock(&scale)) {
+      parameter_ordering->AddElementToGroup(&scale, 0);
+    }
   }
 
   // Add point parameters to group 1.
@@ -412,23 +363,6 @@ void GlobalPositioner::ParameterizeVariables(Reconstruction& reconstruction) {
       if (problem_->HasParameterBlock(point3D.xyz.data())) {
         problem_->SetParameterBlockConstant(
             reconstruction.Point3D(point3D_id).xyz.data());
-      }
-    }
-  }
-
-  // If do not optimize the scales, set the scales to be constant
-  if (!options_.optimize_scales) {
-    for (double& scale : scales_) {
-      if (problem_->HasParameterBlock(&scale)) {
-        problem_->SetParameterBlockConstant(&scale);
-      }
-    }
-  } else if (options_.fix_first_scale) {
-    // Set the first scale to be constant to remove the gauge ambiguity.
-    for (double& scale : scales_) {
-      if (problem_->HasParameterBlock(&scale)) {
-        problem_->SetParameterBlockConstant(&scale);
-        break;
       }
     }
   }
@@ -587,24 +521,122 @@ void GlobalPositioner::ExtendParameterBlockOrdering(
 
 std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
     const GlobalPositionerOptions& options,
-    const PoseGraph& pose_graph,
     Reconstruction& reconstruction,
+    ObservationScaleMap& observation_scales,
     std::shared_ptr<ceres::LossFunction> loss_function) {
   return std::make_unique<DefaultGlobalPositioner>(
-      options, pose_graph, reconstruction, std::move(loss_function));
+      options, reconstruction, observation_scales, std::move(loss_function));
+}
+
+void RandomizeReconstructionPositions(const GlobalPositionerOptions& options,
+                                      const PoseGraph& pose_graph,
+                                      Reconstruction& reconstruction) {
+  if (options.random_seed >= 0) {
+    SetPRNGSeed(static_cast<unsigned>(options.random_seed));
+  }
+  FlatHashSet<frame_t> constrained_positions;
+  constrained_positions.reserve(reconstruction.NumFrames());
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    constrained_positions.insert(reconstruction.Image(image_id1).FrameId());
+    constrained_positions.insert(reconstruction.Image(image_id2).FrameId());
+  }
+
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    if (point3D.track.Length() <
+        static_cast<size_t>(options.min_num_view_per_track)) {
+      continue;
+    }
+    for (const auto& observation : point3D.track.Elements()) {
+      THROW_CHECK(reconstruction.ExistsImage(observation.image_id));
+      const Image& image = reconstruction.Image(observation.image_id);
+      if (!image.HasPose()) continue;
+      constrained_positions.insert(image.FrameId());
+    }
+  }
+
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (constrained_positions.find(frame_id) == constrained_positions.end()) {
+      continue;
+    }
+    auto& pose = reconstruction.Frame(frame_id).RigFromWorld();
+    if (options.generate_random_positions && options.optimize_positions) {
+      const Eigen::Vector3d center = 100.0 * RandVector3d(-1, 1);
+      pose.translation() = -(pose.rotation() * center);
+    }
+  }
+
+  VLOG(2) << "Constrained positions: " << constrained_positions.size();
+
+  const bool random_initialization =
+      options.optimize_points && options.generate_random_points;
+
+  // Only set the points to be random if they are needed to be optimized
+  if (random_initialization) {
+    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+      if (point3D.track.Length() <
+          static_cast<size_t>(options.min_num_view_per_track)) {
+        continue;
+      }
+      reconstruction.Point3D(point3D_id).xyz = 100.0 * RandVector3d(-1, 1);
+    }
+  }
+}
+
+ObservationScaleMap GenerateObservationScales(
+    const Reconstruction& reconstruction, bool from_geometry) {
+  ObservationScaleMap scales;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    for (const auto& observation : point3D.track.Elements()) {
+      double scale = 1.0;
+      if (from_geometry) {
+        if (!reconstruction.ExistsImage(observation.image_id)) continue;
+        const Image& image = reconstruction.Image(observation.image_id);
+        if (!image.HasPose()) continue;
+
+        const Camera& camera = *image.CameraPtr();
+        const Eigen::Vector2d& pixel =
+            image.Point2D(observation.point2D_idx).xy;
+        const auto cam_ray = camera.CamRayFromImg(pixel);
+        if (!cam_ray.has_value()) continue;
+        const Eigen::Vector3d cam_from_point3D_dir =
+            image.CamFromWorld().rotation().inverse() * (*cam_ray);
+        const Eigen::Vector3d cam_from_point3D_translation =
+            point3D.xyz - image.FramePtr()->RigFromWorld().TgtOriginInSrc();
+        scale =
+            std::max(1e-5,
+                     cam_from_point3D_dir.dot(cam_from_point3D_translation) /
+                         cam_from_point3D_translation.squaredNorm());
+      }
+      scales.emplace(observation, scale);
+    }
+  }
+  return scales;
 }
 
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          Reconstruction& reconstruction) {
+                          Reconstruction& reconstruction,
+                          ObservationScaleMap* observation_scales) {
   if (reconstruction.NumImages() == 0 || reconstruction.NumPoints3D() == 0) {
     LOG(ERROR) << "Failed to run global positioning for empty incomplete "
                   "reconstruction: "
                << reconstruction;
     return false;
   }
-  auto positioner =
-      GlobalPositioner::CreateDefault(options, pose_graph, reconstruction);
+  ObservationScaleMap local_scales;
+  auto positioner_options = options;
+  if (observation_scales == nullptr) {
+    THROW_CHECK(options.Check());
+    RandomizeReconstructionPositions(options, pose_graph, reconstruction);
+    local_scales = GenerateObservationScales(
+        reconstruction, options.initialize_scales_from_geometry);
+    observation_scales = &local_scales;
+    // Continue the random sequence already started by position initialization.
+    positioner_options.random_seed = -1;
+  }
+  auto positioner = GlobalPositioner::CreateDefault(
+      positioner_options, reconstruction, *observation_scales);
   return positioner->Solve().IsSolutionUsable();
 }
 
