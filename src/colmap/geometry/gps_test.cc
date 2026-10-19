@@ -376,6 +376,30 @@ TEST(GPS, UTMHemisphereNorthing) {
   }
 }
 
+TEST(GPS, UTMAntimeridian) {
+  for (const auto ellipsoid :
+       {GPSTransform::Ellipsoid::GRS80, GPSTransform::Ellipsoid::WGS84}) {
+    const GPSTransform gps_tform(ellipsoid);
+    for (const auto& [longitude, expected_zone] :
+         {std::pair{-180.0, 1}, std::pair{180.0, 60}}) {
+      const Eigen::Vector3d ell(0, longitude, 123);
+      const auto [utm, zone] = gps_tform.EllipsoidToUTM({ell, ell});
+      ASSERT_EQ(zone, expected_zone);
+      ASSERT_EQ(utm.size(), 2);
+      // PROJ: Proj(proj="utm", zone=60, ellps="WGS84")(180, 0) and
+      // Proj(proj="utm", zone=1, ellps="WGS84")(-180, 0).
+      const double expected_easting =
+          longitude > 0 ? 833978.5569194604 : 166021.4430805396;
+      EXPECT_THAT(
+          utm[0],
+          EigenMatrixNear(Eigen::Vector3d(expected_easting, 0, 123), 1e-6));
+      EXPECT_THAT(utm[0], EigenMatrixNear(utm[1], 0));
+      EXPECT_THAT(gps_tform.UTMToEllipsoid(utm, zone, true)[0],
+                  EigenMatrixNear(ell, 1e-8));
+    }
+  }
+}
+
 TEST(GPS, UTMConversion) {
   std::vector<Eigen::Vector3d> ell;
   ell.reserve(3);

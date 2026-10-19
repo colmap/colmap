@@ -37,7 +37,8 @@ struct EUCMCameraModel
 
     const T alpha = params[4];
     const T beta = params[5];
-    return alpha < T(0) || alpha > T(1) || beta <= T(0);
+    // Negated range check, so that NaN values read as bogus.
+    return !(alpha >= T(0) && alpha <= T(1) && beta > T(0));
   }
 
   static inline std::vector<double> InitializeParams(const double focal_length,
