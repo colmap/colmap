@@ -288,8 +288,9 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
     const T inv_max_size = 1.0 / std::max(width, height);
     for (const size_t idx : CameraModel::focal_length_idxs) {
       const T focal_length_ratio = params[idx] * inv_max_size;
-      if (focal_length_ratio < min_focal_length_ratio ||
-          focal_length_ratio > max_focal_length_ratio) {
+      // Negated range check, so that NaN ratios read as bogus.
+      if (!(focal_length_ratio >= min_focal_length_ratio &&
+            focal_length_ratio <= max_focal_length_ratio)) {
         return true;
       }
     }
@@ -303,14 +304,16 @@ struct BasePerspectiveCameraModel : public BaseCameraModel<CameraModel> {
                                             const size_t height) {
     const T cx = params[CameraModel::principal_point_idxs[0]];
     const T cy = params[CameraModel::principal_point_idxs[1]];
-    return cx < 0 || cx > width || cy < 0 || cy > height;
+    // Negated range check, so that NaN coordinates read as bogus.
+    return !(cx >= 0 && cx <= width && cy >= 0 && cy <= height);
   }
 
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
                                          const T max_extra_param) {
     for (const size_t idx : CameraModel::extra_params_idxs) {
-      if (std::abs(params[idx]) > max_extra_param) {
+      // Negated bound check, so that NaN parameters read as bogus.
+      if (!(std::abs(params[idx]) <= max_extra_param)) {
         return true;
       }
     }
