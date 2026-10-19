@@ -51,6 +51,7 @@ bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
 // Returns the root image_id and populates the parents map.
 image_t ComputeMaximumPoseGraphSpanningTree(
     const PoseGraph& pose_graph,
+    const PoseGraph& rig_edges,
     const FlatHashSet<image_t>& image_ids,
     NodeHashMap<image_t, image_t>& parents) {
   // Build mapping between image_id and contiguous indices.
@@ -67,6 +68,7 @@ image_t ComputeMaximumPoseGraphSpanningTree(
   // Build edges and weights from view graph.
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
+  float max_weight = 0;
   edges.reserve(pose_graph.NumEdges());
   weights.reserve(pose_graph.NumEdges());
 
@@ -79,6 +81,15 @@ image_t ComputeMaximumPoseGraphSpanningTree(
     }
     edges.emplace_back(it1->second, it2->second);
     weights.push_back(static_cast<float>(edge.num_matches));
+    max_weight = std::max(max_weight, weights.back());
+  }
+
+  // Fixed rig calibration takes precedence over measured relative rotations.
+  for (const auto& [pair_id, edge] : rig_edges.ValidEdges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    edges.emplace_back(image_id_to_idx.at(image_id1),
+                       image_id_to_idx.at(image_id2));
+    weights.push_back(max_weight + 1);
   }
 
   // Compute spanning tree using generic algorithm.
@@ -606,10 +617,35 @@ void InitializeFromMaximumSpanningTree(
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction,
     bool refine_sensor_from_rig) {
+  PoseGraph rig_edges;
+  FlatHashMap<frame_t, std::pair<image_t, Rigid3d>> frame_images;
+  for (const image_t image_id : active_image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    Rigid3d cam_from_rig;
+    if (!image.IsRefInFrame()) {
+      const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
+          image.CameraPtr()->SensorId());
+      if (!pose.has_value() || !pose->rotation().coeffs().allFinite() ||
+          (refine_sensor_from_rig && pose->translation().hasNaN())) {
+        continue;
+      }
+      cam_from_rig = *pose;
+    }
+    const auto [it, inserted] =
+        frame_images.try_emplace(image.FrameId(), image_id, cam_from_rig);
+    if (!inserted) {
+      const auto& [first_image_id, first_cam_from_rig] = it->second;
+      rig_edges.AddEdge(
+          first_image_id,
+          image_id,
+          PoseGraph::Edge(cam_from_rig * Inverse(first_cam_from_rig)));
+    }
+  }
+
   // Compute maximum spanning tree over active images.
   NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
-      pose_graph, active_image_ids, parents);
+      pose_graph, rig_edges, active_image_ids, parents);
   THROW_CHECK(active_image_ids.count(root));
 
   // Iterate through the tree to initialize the rotation.
@@ -639,7 +675,9 @@ void InitializeFromMaximumSpanningTree(
 
     // Directly use the relative pose for estimation rotation.
     // GetEdge(parent, curr) returns curr_from_parent
-    const PoseGraph::Edge edge = pose_graph.GetEdge(parents[curr], curr);
+    const PoseGraph& graph =
+        rig_edges.HasEdge(parents[curr], curr) ? rig_edges : pose_graph;
+    const PoseGraph::Edge edge = graph.GetEdge(parents[curr], curr);
     cams_from_world[curr].rotation() =
         (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation();
   }
