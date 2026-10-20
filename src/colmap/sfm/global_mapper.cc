@@ -125,6 +125,10 @@ std::shared_ptr<Reconstruction> GlobalMapper::Reconstruction() const {
   return reconstruction_;
 }
 
+std::shared_ptr<class PoseGraph> GlobalMapper::PoseGraph() const {
+  return pose_graph_;
+}
+
 bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_NOTNULL(pose_graph_);
@@ -315,6 +319,22 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
     return false;
   }
 
+  FilterAfterGlobalPositioning(max_angular_reproj_error_deg,
+                               max_normalized_reproj_error,
+                               min_tri_angle_deg);
+
+  // Normalize the structure for numerical stability.
+  // TODO: Skip normalization when position priors are used (similar to
+  // incremental mapper's !use_prior_position condition).
+  reconstruction_->Normalize();
+
+  return true;
+}
+
+void GlobalMapper::FilterAfterGlobalPositioning(
+    double max_angular_reproj_error_deg,
+    double max_normalized_reproj_error,
+    double min_tri_angle_deg) {
   // Filter tracks based on the estimation
   ObservationManager obs_manager(*reconstruction_);
 
@@ -360,13 +380,6 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
       10 * max_normalized_reproj_error,
       reconstruction_->Point3DIds(),
       ReprojectionErrorType::NORMALIZED);
-
-  // Normalize the structure for numerical stability.
-  // TODO: Skip normalization when position priors are used (similar to
-  // incremental mapper's !use_prior_position condition).
-  reconstruction_->Normalize();
-
-  return true;
 }
 
 bool GlobalMapper::IterativeBundleAdjustment(

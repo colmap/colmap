@@ -45,6 +45,7 @@ void BindPoseGraph(py::module& m) {
 
   py::classh<PoseGraph>(m, "PoseGraph")
       .def(py::init<>())
+      .def(py::init<const PoseGraph&>(), "other"_a)
       .def_property_readonly("edges",
                              py::overload_cast<>(&PoseGraph::Edges),
                              py::return_value_policy::reference_internal,
@@ -106,6 +107,10 @@ void BindPoseGraph(py::module& m) {
            &PoseGraph::SetInvalidEdge,
            "pair_id"_a,
            "Mark an edge as invalid.")
+      .def("connected_image_ids_for_frame_components",
+           &PoseGraph::ConnectedImageIdsForFrameComponents,
+           "reconstruction"_a,
+           "filter_unregistered"_a = true)
       .def("largest_connected_frame_component",
            &PoseGraph::LargestConnectedFrameComponent,
            "reconstruction"_a,

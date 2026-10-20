@@ -1,0 +1,188 @@
+# SPDX-License-Identifier: BSD-3-Clause
+
+import copy
+
+import custom_global_pipeline as custom
+import numpy as np
+import pytest
+
+import pycolmap
+
+
+def create_database(
+    path, cameras=1, components=False, unknown=False, noise=False, relative=True
+):
+    pycolmap.set_random_seed(2)
+    database = pycolmap.Database.open(path)
+    truth = pycolmap.synthesize_dataset(
+        pycolmap.SyntheticDatasetOptions(
+            num_rigs=2,
+            num_cameras_per_rig=cameras,
+            num_frames_per_rig=5,
+            num_points3D=40,
+            two_view_geometry_has_relative_pose=relative,
+        ),
+        database,
+    )
+    if components:
+        ids, _ = database.read_two_view_geometries()
+        for pair_id in ids:
+            i, j = pycolmap.pair_id_to_image_pair(pair_id)
+            if truth.images[i].frame.rig_id != truth.images[j].frame.rig_id:
+                database.delete_two_view_geometry(i, j)
+    if unknown:
+        for rig in database.read_all_rigs():
+            for sensor in rig.non_ref_sensors:
+                rig.reset_sensor_from_rig(sensor)
+            database.update_rig(rig)
+    if noise:
+        pycolmap.synthesize_noise(
+            pycolmap.SyntheticNoiseOptions(point2D_stddev=0.25), truth, database
+        )
+    return database
+
+
+def run(database, custom_run, options, stop=False):
+    pycolmap.set_random_seed(42)
+    options = copy.deepcopy(options)
+    updates = []
+
+    def on_update(reconstruction):
+        updates.append(reconstruction.num_reg_frames())
+        return stop
+
+    if custom_run:
+        return custom.main_global_mapper(database, options, on_update), updates
+    manager = pycolmap.ReconstructionManager()
+    controller = pycolmap.GlobalPipeline(options, database, manager)
+    controller.add_callback(
+        pycolmap.GlobalPipelineCallback.MODEL_UPDATE_CALLBACK,
+        lambda: on_update(manager.get(manager.size() - 1)),
+    )
+    controller.run()
+    return [manager.get(i) for i in range(manager.size())], updates
+
+
+def compare(native, python):
+    assert len(native) == len(python)
+    native = {frozenset(r.reg_image_ids()): r for r in native}
+    for result in python:
+        reference = native[frozenset(result.reg_image_ids())]
+        assert result.num_reg_frames() == reference.num_reg_frames()
+        assert result.num_points3D() == reference.num_points3D()
+        assert (
+            result.compute_num_observations()
+            == reference.compute_num_observations()
+        )
+        for camera_id, camera in result.cameras.items():
+            np.testing.assert_allclose(
+                camera.params,
+                reference.cameras[camera_id].params,
+                atol=1e-7,
+                rtol=1e-7,
+            )
+        for image_id in result.reg_image_ids():
+            np.testing.assert_allclose(
+                result.images[image_id].cam_from_world().matrix(),
+                reference.images[image_id].cam_from_world().matrix(),
+                atol=1e-7,
+                rtol=1e-7,
+            )
+        for point_id, point in result.points3D.items():
+            np.testing.assert_allclose(
+                point.xyz,
+                reference.points3D[point_id].xyz,
+                atol=1e-7,
+                rtol=1e-7,
+            )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "mono",
+        "rig",
+        "unknown",
+        "noise",
+        "ceres",
+        "decompose",
+        "ba_stop",
+        "skip_ba",
+        "skip_retriangulation",
+        "components",
+        "largest",
+        "empty",
+        "small",
+    ],
+)
+def test_matches_native(tmp_path, case):
+    database = create_database(
+        tmp_path / "database.db",
+        cameras=2 if case in ("rig", "unknown") else 1,
+        components=case in ("components", "largest"),
+        unknown=case == "unknown",
+        noise=case == "noise",
+        relative=case != "decompose",
+    )
+    if case == "empty":
+        database.clear_two_view_geometries()
+    options = pycolmap.GlobalPipelineOptions(num_threads=1, random_seed=42)
+    options.mapper.bundle_adjustment.ceres.use_gpu = False
+    options.mapper.global_positioning.use_gpu = False
+    options.multiple_models = case != "largest"
+    if case == "ceres":
+        options.mapper.rotation_averaging.backend = (
+            pycolmap.RotationAveragingBackend.CERES
+        )
+    if case == "ba_stop":
+        options.mapper.bundle_adjustment.check_if_stopped = lambda: True
+    if case == "skip_ba":
+        options.mapper.skip_bundle_adjustment = True
+    if case == "skip_retriangulation":
+        options.mapper.skip_retriangulation = True
+    if case == "small":
+        options.min_model_size = 100
+    native, native_updates = run(database, False, options)
+    python, python_updates = run(database, True, options)
+    compare(native, python)
+    assert native_updates == python_updates
+    assert len(python) == (
+        0 if case in ("empty", "small") else 2 if case == "components" else 1
+    )
+
+
+def test_replaceable_builders(tmp_path, monkeypatch):
+    database = create_database(tmp_path / "database.db")
+    options = pycolmap.GlobalPipelineOptions(num_threads=1, random_seed=42)
+    options.mapper.bundle_adjustment.ceres.use_gpu = False
+    options.mapper.global_positioning.use_gpu = False
+    gp_builder = custom.build_global_positioner
+    ba_builder = custom.build_bundle_adjuster
+    calls = {"gp": 0, "ba": 0, "refinement": 0}
+
+    def gp(*args):
+        calls["gp"] += 1
+        return gp_builder(*args)
+
+    def ba(options, config, reconstruction):
+        calls["ba"] += 1
+        if not options.refine_rig_from_world:
+            calls["refinement"] += 1
+        return ba_builder(options, config, reconstruction)
+
+    monkeypatch.setattr(custom, "build_global_positioner", gp)
+    monkeypatch.setattr(custom, "build_bundle_adjuster", ba)
+    result, _ = run(database, True, options)
+    assert len(result) == 1
+    assert calls["gp"] == 1
+    assert calls["ba"] >= 5
+    assert calls["refinement"] >= 1
+
+
+def test_stop_after_global_positioning(tmp_path):
+    database = create_database(tmp_path / "database.db", components=True)
+    options = pycolmap.GlobalPipelineOptions(num_threads=1, random_seed=42)
+    models, updates = run(database, True, options, stop=True)
+    assert len(models) == len(updates) == 1
+    assert models[0].num_reg_frames() == 5
+    assert models[0].num_points3D() > 0

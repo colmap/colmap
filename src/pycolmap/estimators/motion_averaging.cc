@@ -7,6 +7,7 @@
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
 
 #include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
 
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
@@ -308,6 +309,21 @@ void BindRotationEstimator(py::module& m) {
                          "constraints: UNIFORM or "
                          "INLIER_MATCH_COUNT.");
   MakeDataclass(PyRotationEstimatorOptions);
+
+  m.def("run_rotation_averaging_on_component",
+        &RunRotationAveragingOnComponent,
+        "options"_a,
+        "pose_graph"_a,
+        "active_image_ids"_a,
+        "reconstruction"_a,
+        "pose_priors"_a,
+        py::call_guard<py::gil_scoped_release>());
+  m.def("filter_edges_by_relative_rotation",
+        &FilterEdgesByRelativeRotation,
+        "pose_graph"_a,
+        "reconstruction"_a,
+        "max_angle_deg"_a,
+        py::call_guard<py::gil_scoped_release>());
 
   m.def(
       "run_rotation_averaging",

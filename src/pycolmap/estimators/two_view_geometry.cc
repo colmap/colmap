@@ -119,6 +119,11 @@ void BindTwoViewGeometryEstimator(py::module& m) {
       py::arg_v(
           "options", TwoViewGeometryOptions(), "TwoViewGeometryOptions()"));
 
+  m.def("maybe_decompose_relative_poses",
+        &MaybeDecomposeRelativePoses,
+        "database_cache"_a,
+        py::call_guard<py::gil_scoped_release>());
+
   m.def("estimate_two_view_geometry_pose",
         &EstimateTwoViewGeometryPose,
         "camera1"_a,
