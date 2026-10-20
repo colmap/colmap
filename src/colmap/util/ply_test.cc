@@ -2,8 +2,10 @@
 
 #include "colmap/util/ply.h"
 
+#include "colmap/util/endian.h"
 #include "colmap/util/testing.h"
 
+#include <cstdint>
 #include <fstream>
 
 #include <gtest/gtest.h>
@@ -678,6 +680,43 @@ TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
   EXPECT_EQ(mesh.vertices[2].r, 10);
   EXPECT_EQ(mesh.vertices[2].g, 20);
   EXPECT_EQ(mesh.vertices[2].b, 30);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithIntegerCoordinates) {
+  const auto test_file = CreateTestDir() / "mesh_integer_coords.ply";
+
+  {
+    std::ofstream text_file(test_file);
+    text_file << "ply\n";
+    text_file << "format binary_little_endian 1.0\n";
+    text_file << "element vertex 2\n";
+    text_file << "property short x\n";
+    text_file << "property ushort y\n";
+    text_file << "property int z\n";
+    text_file << "element face 0\n";
+    text_file << "property list uchar int vertex_index\n";
+    text_file << "end_header\n";
+    text_file.close();
+
+    std::ofstream binary_file(
+        test_file, std::ios::out | std::ios::binary | std::ios::app);
+    WriteBinaryLittleEndian<int16_t>(&binary_file, -2);
+    WriteBinaryLittleEndian<uint16_t>(&binary_file, 400);
+    WriteBinaryLittleEndian<int32_t>(&binary_file, 100000);
+    WriteBinaryLittleEndian<int16_t>(&binary_file, 30000);
+    WriteBinaryLittleEndian<uint16_t>(&binary_file, 50000);
+    WriteBinaryLittleEndian<int32_t>(&binary_file, -500000);
+  }
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  EXPECT_EQ(mesh.vertices[0].x, -2.0f);
+  EXPECT_EQ(mesh.vertices[0].y, 400.0f);
+  EXPECT_EQ(mesh.vertices[0].z, 100000.0f);
+  EXPECT_EQ(mesh.vertices[1].x, 30000.0f);
+  EXPECT_EQ(mesh.vertices[1].y, 50000.0f);
+  EXPECT_EQ(mesh.vertices[1].z, -500000.0f);
 }
 
 TEST(Ply, HasPlyMeshFacesWithMesh) {
