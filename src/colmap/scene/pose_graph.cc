@@ -53,6 +53,39 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
+void PoseGraph::AddRigEdges(const Reconstruction& reconstruction,
+                            const FlatHashSet<image_t>& active_image_ids,
+                            bool refine_sensor_from_rig) {
+  FlatHashMap<frame_t, std::pair<image_t, Rigid3d>> frame_images;
+  for (const image_t image_id : active_image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    Rigid3d cam_from_rig;
+    if (!image.IsRefInFrame()) {
+      const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
+          image.CameraPtr()->SensorId());
+      if (!pose.has_value() || !pose->rotation().coeffs().allFinite() ||
+          (refine_sensor_from_rig && pose->translation().hasNaN())) {
+        continue;
+      }
+      cam_from_rig = *pose;
+    }
+    const auto [it, inserted] =
+        frame_images.try_emplace(image.FrameId(), image_id, cam_from_rig);
+    if (!inserted) {
+      const auto& [first_image_id, first_cam_from_rig] = it->second;
+      const auto [entry, edge_inserted] =
+          edges_.try_emplace(ImagePairToPairId(first_image_id, image_id));
+      auto& edge = entry->second;
+      if (edge_inserted) {
+        edge.cam2_from_cam1 = cam_from_rig * Inverse(first_cam_from_rig);
+        if (ShouldSwapImagePair(first_image_id, image_id)) edge.Invert();
+        edge.valid = false;
+      }
+      edge.prior = true;
+    }
+  }
+}
+
 std::vector<FlatHashSet<frame_t>> PoseGraph::ConnectedFrameComponents(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
   FrameGraph graph =

@@ -186,6 +186,14 @@ TEST(RotationAveraging, InitializeFrameConnectedRig) {
     pose_graph.AddEdge(1, 2, PoseGraph::Edge(Rigid3d())).num_matches = 1000;
     pose_graph.AddEdge(2, num_cameras + 1, PoseGraph::Edge(Rigid3d()))
         .num_matches = 1;
+    pose_graph.AddRigEdges(reconstruction, image_ids);
+    EXPECT_TRUE(pose_graph.GetEdge(1, 2).prior);
+    EXPECT_EQ(pose_graph.GetEdge(1, 2).num_matches, 1000);
+    EXPECT_FALSE(pose_graph.GetEdge(1, num_cameras + 2).prior);
+    FilterEdgesByRelativeRotation(pose_graph, truth, 1.0);
+    EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 2)));
+    pose_graph.AddRigEdges(reconstruction, image_ids);
+    EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 2)));
     InitializeFromMaximumSpanningTree(
         pose_graph, image_ids, reconstruction, /*refine_sensor_from_rig=*/true);
 
@@ -193,6 +201,8 @@ TEST(RotationAveraging, InitializeFrameConnectedRig) {
       ASSERT_TRUE(reconstruction.Image(image_id).HasPose());
     }
     ExpectEqualRotations(truth, reconstruction, 1e-8);
+    RunAndVerifyRotationAveraging(
+        truth, reconstruction, pose_graph, {}, {false}, 1e-2);
   }
 }
 
