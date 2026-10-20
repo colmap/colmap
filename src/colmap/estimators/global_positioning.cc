@@ -585,7 +585,12 @@ void RandomizeReconstructionPositions(const GlobalPositionerOptions& options,
 
 ObservationScaleMap GenerateObservationScales(
     const Reconstruction& reconstruction, bool from_geometry) {
+  size_t total_observations = 0;
+  for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+    total_observations += point3D.track.Length();
+  }
   ObservationScaleMap scales;
+  scales.reserve(total_observations);
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     for (const auto& observation : point3D.track.Elements()) {
       double scale = 1.0;
