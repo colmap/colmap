@@ -214,8 +214,8 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     THROW_CHECK(entry != observation_scales_->end())
         << "missing observation scale: " << observation;
     double& scale = entry->second;
-    THROW_CHECK(std::isfinite(scale) && scale > 0.0)
-        << "observation scale must be finite and positive: " << observation;
+    THROW_CHECK(std::isfinite(scale) && scale >= 1e-5)
+        << "observation scale must be finite and at least 1e-5: " << observation;
     frame_centers_.try_emplace(
         image.FrameId(), image.FramePtr()->RigFromWorld().TgtOriginInSrc());
 

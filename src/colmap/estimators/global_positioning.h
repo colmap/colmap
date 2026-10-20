@@ -87,7 +87,7 @@ class GlobalPositioner {
   virtual ~GlobalPositioner() = default;
 
   // Build from supplied frame poses, points, and scales without initialization.
-  // Scales update in place; included observations require finite positive values.
+  // Scales update in place; included observations require finite values >= 1e-5.
   // Unused entries are ignored. Reconstruction and scales must outlive the
   // positioner and its problem; active scale entries must remain valid.
   static std::unique_ptr<GlobalPositioner> CreateDefault(

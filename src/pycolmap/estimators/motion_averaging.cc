@@ -171,7 +171,7 @@ void BindGlobalPositioner(py::module& m) {
       py::keep_alive<0, 2>(),
       py::keep_alive<0, 3>(),
       "Prepare from supplied frame poses, points, and scales without "
-      "initialization. Included observations require finite positive scales. "
+      "initialization. Included observations require finite scales >= 1e-5. "
       "Optimization updates the map in place; unused entries are ignored.");
 
   m.def("randomize_reconstruction_positions",

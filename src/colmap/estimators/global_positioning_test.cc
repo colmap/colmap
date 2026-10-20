@@ -490,7 +490,8 @@ TEST(GlobalPositioning, CallerOwnedObservationScaleValidation) {
   GlobalPositionerOptions options;
   options.use_gpu = false;
   auto scales = GenerateObservationScales(reconstruction);
-  for (const double value : {0.0,
+  for (const double value : {0.5e-5,
+                             0.0,
                              -1.0,
                              std::numeric_limits<double>::infinity(),
                              std::numeric_limits<double>::quiet_NaN()}) {
@@ -502,10 +503,10 @@ TEST(GlobalPositioning, CallerOwnedObservationScaleValidation) {
   scales.erase(observation);
   EXPECT_THROW(GlobalPositioner::CreateDefault(options, reconstruction, scales),
                std::invalid_argument);
-  scales.emplace(observation, 0.5e-5);
+  scales.emplace(observation, 1e-5);
   auto positioner =
       GlobalPositioner::CreateDefault(options, reconstruction, scales);
-  EXPECT_DOUBLE_EQ(scales.at(observation), 0.5e-5);
+  EXPECT_DOUBLE_EQ(scales.at(observation), 1e-5);
   EXPECT_DOUBLE_EQ(
       positioner->Problem().GetParameterLowerBound(&scales.at(observation), 0),
       1e-5);
