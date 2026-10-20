@@ -198,6 +198,14 @@ TEST(NChooseK, Nominal) {
   EXPECT_EQ(NChooseK(10000, 5), 832500291625002000);
 }
 
+TEST(NChooseK, AvoidIntermediateOverflow) {
+  EXPECT_EQ(NChooseK(66, 33), 7219428434016265740ULL);
+  EXPECT_EQ(NChooseK(67, 33), 14226520737620288370ULL);
+  EXPECT_EQ(NChooseK(100, 99), 100);
+  EXPECT_EQ(NChooseK(100, 90), 17310309456440ULL);
+  EXPECT_EQ(NChooseK(1000, 993), 194280608456793000ULL);
+}
+
 TEST(TruncateCast, Nominal) {
   EXPECT_EQ((TruncateCast<int, int8_t>(-129)), -128);
   EXPECT_EQ((TruncateCast<int, int8_t>(128)), 127);
