@@ -42,6 +42,40 @@ TEST(PoseGraph, AddRigEdgesUsesSmallestEligibleImage) {
   }
 }
 
+TEST(PoseGraph, AddRigEdgesFlagsAllCalibratedMeasuredPairs) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 4;
+  options.num_frames_per_rig = 2;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+
+  PoseGraph graph;
+  for (image_t image_id1 = 1; image_id1 < 3; ++image_id1) {
+    for (image_t image_id2 = image_id1 + 1; image_id2 <= 3; ++image_id2) {
+      auto edge = SynthesizeEdge(42);
+      edge.cam2_from_cam1.translation() = Eigen::Vector3d(1, 2, 3);
+      edge.valid = image_id1 == 1;
+      graph.AddEdge(image_id1, image_id2, edge);
+    }
+  }
+  graph.AddEdge(1, 4, SynthesizeEdge());  // Inactive image.
+  graph.AddEdge(1, 5, SynthesizeEdge());  // Different frame.
+  const auto measured_edges = graph.Edges();
+  graph.AddRigEdges(reconstruction, {1, 2, 3, 5});
+  EXPECT_EQ(graph.NumEdges(), measured_edges.size());
+  for (const auto& [pair_id, measured] : measured_edges) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const auto edge = graph.GetEdge(image_id1, image_id2);
+    EXPECT_EQ(edge.prior, image_id2 <= 3);
+    EXPECT_EQ(edge.valid, measured.valid);
+    EXPECT_EQ(edge.num_matches, measured.num_matches);
+    EXPECT_TRUE(edge.cam2_from_cam1.ToMatrix().isApprox(
+        measured.cam2_from_cam1.ToMatrix()));
+  }
+}
+
 TEST(PoseGraph, Nominal) {
   PoseGraph pose_graph;
 
