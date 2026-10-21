@@ -8,6 +8,8 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -74,6 +76,38 @@ TEST(PoseGraph, AddRigEdgesFlagsAllCalibratedMeasuredPairs) {
     EXPECT_TRUE(edge.cam2_from_cam1.ToMatrix().isApprox(
         measured.cam2_from_cam1.ToMatrix()));
   }
+}
+
+TEST(PoseGraph, AddRigEdgesCalibration) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+  auto& rig = reconstruction.Rig(1);
+  const sensor_t sensor_id = reconstruction.Camera(2).SensorId();
+  const auto connects = [&](bool refine) {
+    PoseGraph graph;
+    graph.AddRigEdges(reconstruction, {1, 2}, refine);
+    return graph.HasEdge(1, 2);
+  };
+  EXPECT_TRUE(connects(false));
+  EXPECT_TRUE(connects(true));
+
+  auto& pose = rig.SensorFromRig(sensor_id);
+  pose.translation().setConstant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_TRUE(connects(false));
+  EXPECT_FALSE(connects(true));
+
+  pose.rotation().coeffs().setConstant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_FALSE(connects(false));
+  EXPECT_FALSE(connects(true));
+
+  rig.ResetSensorFromRig(sensor_id);
+  EXPECT_FALSE(connects(false));
+  EXPECT_FALSE(connects(true));
 }
 
 TEST(PoseGraph, Nominal) {

@@ -50,7 +50,10 @@ class PoseGraph {
   // Load edges from the correspondence graph.
   void Load(const CorrespondenceGraph& corr_graph);
 
-  // Add fixed rig connections; new edges are not valid measurements.
+  // Add fixed rig connections as prior edges for active images.
+  // Existing edges retain their measured poses and validity; new edges are not
+  // valid measurements. Call after adding measured edges, since AddEdge rejects
+  // duplicates.
   void AddRigEdges(const Reconstruction& reconstruction,
                    const FlatHashSet<image_t>& active_image_ids,
                    bool refine_sensor_from_rig = true);
