@@ -21,6 +21,27 @@ PoseGraph::Edge SynthesizeEdge(int num_matches = 50) {
   return edge;
 }
 
+TEST(PoseGraph, AddRigEdgesUsesSmallestEligibleImage) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 4;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+
+  for (const image_t first : {1, 2}) {
+    FlatHashSet<image_t> active_image_ids = {1, 2, 3, 4};
+    if (first == 2) active_image_ids.erase(1);
+    PoseGraph graph;
+    graph.AddRigEdges(reconstruction, active_image_ids);
+    EXPECT_EQ(graph.NumEdges(), 4 - first);
+    for (image_t image_id = first + 1; image_id <= 4; ++image_id) {
+      EXPECT_TRUE(graph.HasEdge(first, image_id));
+    }
+  }
+}
+
 TEST(PoseGraph, Nominal) {
   PoseGraph pose_graph;
 

@@ -57,7 +57,10 @@ void PoseGraph::AddRigEdges(const Reconstruction& reconstruction,
                             const FlatHashSet<image_t>& active_image_ids,
                             bool refine_sensor_from_rig) {
   FlatHashMap<frame_t, std::pair<image_t, Rigid3d>> frame_images;
-  for (const image_t image_id : active_image_ids) {
+  std::vector<image_t> image_ids(active_image_ids.begin(),
+                                 active_image_ids.end());
+  std::sort(image_ids.begin(), image_ids.end());
+  for (const image_t image_id : image_ids) {
     const auto& image = reconstruction.Image(image_id);
     Rigid3d cam_from_rig;
     if (!image.IsRefInFrame()) {
