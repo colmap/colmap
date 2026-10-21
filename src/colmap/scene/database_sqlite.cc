@@ -156,14 +156,12 @@ MatrixType ReadDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
   MatrixType matrix;
 
   if (rc == SQLITE_ROW) {
-    const size_t rows =
-        static_cast<size_t>(sqlite3_column_int64(sql_stmt, col + 0));
-    const size_t cols =
-        static_cast<size_t>(sqlite3_column_int64(sql_stmt, col + 1));
+    const sqlite3_int64 rows = sqlite3_column_int64(sql_stmt, col + 0);
+    const sqlite3_int64 cols = sqlite3_column_int64(sql_stmt, col + 1);
 
     THROW_CHECK_GE(rows, 0);
     THROW_CHECK_GE(cols, 0);
-    matrix = MatrixType(rows, cols);
+    matrix = MatrixType(static_cast<size_t>(rows), static_cast<size_t>(cols));
 
     const size_t num_bytes =
         static_cast<size_t>(sqlite3_column_bytes(sql_stmt, col + 2));

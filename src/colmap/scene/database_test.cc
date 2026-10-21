@@ -1408,5 +1408,39 @@ TEST(Database, CameraSourceBestRejected) {
   EXPECT_THROW(database->UpdateCamera(camera), std::invalid_argument);
 }
 
+TEST(Database, RejectsNegativeFeatureMatrixDimensions) {
+  const auto database_path = CreateTestDir() / "negative_dimensions.db";
+  const image_t image_id = [&]() {
+    auto database = Database::Open(database_path);
+    const camera_t camera_id = database->WriteCamera(
+        Camera::CreateFromModelId(1,
+                                  SimplePinholeCameraModel::model_id,
+                                  1.0,
+                                  1,
+                                  1));
+    Image image;
+    image.SetName("image.jpg");
+    image.SetCameraId(camera_id);
+    const image_t id = database->WriteImage(image);
+    database->WriteKeypoints(id, FeatureKeypoints(1));
+    database->Close();
+    return id;
+  }();
+
+  sqlite3* db = nullptr;
+  ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &db), SQLITE_OK);
+  ASSERT_EQ(sqlite3_exec(db,
+                         "UPDATE keypoints SET rows=-1, cols=0, "
+                         "data=zeroblob(0);",
+                         nullptr,
+                         nullptr,
+                         nullptr),
+            SQLITE_OK);
+  sqlite3_close(db);
+
+  auto database = Database::Open(database_path);
+  EXPECT_THROW(database->ReadKeypointsBlob(image_id), std::invalid_argument);
+}
+
 }  // namespace
 }  // namespace colmap
