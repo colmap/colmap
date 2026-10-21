@@ -63,9 +63,8 @@ CeresRotationAverager::CeresRotationAverager(
   if (image_ids.empty()) {
     throw std::invalid_argument("Ceres rotation averaging requires edges");
   }
-  const auto image_components =
-      pose_graph.ConnectedImageIdsForFrameComponents(
-          reconstruction, /*filter_unregistered=*/false);
+  const auto image_components = pose_graph.ConnectedImageIdsForFrameComponents(
+      reconstruction, /*filter_unregistered=*/false);
   if (image_components.size() != 1) {
     throw std::invalid_argument(
         "Ceres rotation averaging requires a connected pose graph");

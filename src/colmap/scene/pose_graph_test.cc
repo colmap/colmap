@@ -101,7 +101,8 @@ TEST(PoseGraph, AddRigEdgesCalibration) {
   EXPECT_TRUE(connects(false));
   EXPECT_FALSE(connects(true));
 
-  pose.rotation().coeffs().setConstant(std::numeric_limits<double>::quiet_NaN());
+  pose.rotation().coeffs().setConstant(
+      std::numeric_limits<double>::quiet_NaN());
   EXPECT_FALSE(connects(false));
   EXPECT_FALSE(connects(true));
 

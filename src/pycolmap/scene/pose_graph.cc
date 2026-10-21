@@ -32,9 +32,10 @@ void BindPoseGraph(py::module& m) {
                          &PoseGraph::Edge::prior,
                          "Whether fixed rig calibration is available for "
                          "initialization.")
-          .def_readwrite("valid",
-                         &PoseGraph::Edge::valid,
-                         "Whether this edge has a valid measured relative pose.")
+          .def_readwrite(
+              "valid",
+              &PoseGraph::Edge::valid,
+              "Whether this edge has a valid measured relative pose.")
           .def("invert",
                &PoseGraph::Edge::Invert,
                "Invert the geometry to match swapped image order.");
