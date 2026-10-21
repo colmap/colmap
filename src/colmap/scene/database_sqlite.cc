@@ -376,8 +376,12 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   camera.camera_id = static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 0));
   camera.model_id =
       static_cast<CameraModelId>(sqlite3_column_int64(sql_stmt, 1));
-  camera.width = static_cast<size_t>(sqlite3_column_int64(sql_stmt, 2));
-  camera.height = static_cast<size_t>(sqlite3_column_int64(sql_stmt, 3));
+  const sqlite3_int64 width = sqlite3_column_int64(sql_stmt, 2);
+  const sqlite3_int64 height = sqlite3_column_int64(sql_stmt, 3);
+  THROW_CHECK_GE(width, 0);
+  THROW_CHECK_GE(height, 0);
+  camera.width = static_cast<size_t>(width);
+  camera.height = static_cast<size_t>(height);
 
   const size_t num_params_bytes =
       static_cast<size_t>(sqlite3_column_bytes(sql_stmt, 4));

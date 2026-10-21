@@ -9,7 +9,9 @@
 #include "colmap/util/testing.h"
 
 #include <filesystem>
+#include <string>
 #include <thread>
+#include <utility>
 
 #include <Eigen/Geometry>
 #include <gmock/gmock.h>
@@ -1410,36 +1412,62 @@ TEST(Database, CameraSourceBestRejected) {
 
 TEST(Database, RejectsNegativeFeatureMatrixDimensions) {
   const auto database_path = CreateTestDir() / "negative_dimensions.db";
-  const image_t image_id = [&]() {
+  const auto [neg_rows_image_id, neg_cols_image_id] = [&]() {
     auto database = Database::Open(database_path);
-    const camera_t camera_id = database->WriteCamera(
-        Camera::CreateFromModelId(1,
-                                  SimplePinholeCameraModel::model_id,
-                                  1.0,
-                                  1,
-                                  1));
+    const camera_t camera_id = database->WriteCamera(Camera::CreateFromModelId(
+        1, SimplePinholeCameraModel::model_id, 1.0, 1, 1));
     Image image;
-    image.SetName("image.jpg");
     image.SetCameraId(camera_id);
-    const image_t id = database->WriteImage(image);
-    database->WriteKeypoints(id, FeatureKeypoints(1));
+    image.SetName("neg_rows.jpg");
+    const image_t neg_rows_id = database->WriteImage(image);
+    database->WriteKeypoints(neg_rows_id, FeatureKeypoints(1));
+    image.SetName("neg_cols.jpg");
+    const image_t neg_cols_id = database->WriteImage(image);
+    database->WriteKeypoints(neg_cols_id, FeatureKeypoints(1));
+    database->Close();
+    return std::make_pair(neg_rows_id, neg_cols_id);
+  }();
+
+  sqlite3* db = nullptr;
+  ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &db), SQLITE_OK);
+  const std::string corrupt_sql =
+      "UPDATE keypoints SET rows=-1, cols=0, data=zeroblob(0) WHERE image_id=" +
+      std::to_string(neg_rows_image_id) +
+      ";"
+      "UPDATE keypoints SET rows=0, cols=-1, data=zeroblob(0) WHERE image_id=" +
+      std::to_string(neg_cols_image_id) + ";";
+  ASSERT_EQ(sqlite3_exec(db, corrupt_sql.c_str(), nullptr, nullptr, nullptr),
+            SQLITE_OK);
+  sqlite3_close(db);
+
+  auto database = Database::Open(database_path);
+  EXPECT_THROW(database->ReadKeypointsBlob(neg_rows_image_id),
+               std::invalid_argument);
+  EXPECT_THROW(database->ReadKeypointsBlob(neg_cols_image_id),
+               std::invalid_argument);
+}
+
+TEST(Database, RejectsNegativeCameraDimensions) {
+  const auto database_path = CreateTestDir() / "negative_camera_dimensions.db";
+  const camera_t camera_id = [&]() {
+    auto database = Database::Open(database_path);
+    const camera_t id = database->WriteCamera(Camera::CreateFromModelId(
+        1, SimplePinholeCameraModel::model_id, 1.0, 1, 1));
     database->Close();
     return id;
   }();
 
   sqlite3* db = nullptr;
   ASSERT_EQ(sqlite3_open(database_path.string().c_str(), &db), SQLITE_OK);
-  ASSERT_EQ(sqlite3_exec(db,
-                         "UPDATE keypoints SET rows=-1, cols=0, "
-                         "data=zeroblob(0);",
-                         nullptr,
-                         nullptr,
-                         nullptr),
+  const std::string corrupt_sql =
+      "UPDATE cameras SET width=-1 WHERE camera_id=" +
+      std::to_string(camera_id) + ";";
+  ASSERT_EQ(sqlite3_exec(db, corrupt_sql.c_str(), nullptr, nullptr, nullptr),
             SQLITE_OK);
   sqlite3_close(db);
 
   auto database = Database::Open(database_path);
-  EXPECT_THROW(database->ReadKeypointsBlob(image_id), std::invalid_argument);
+  EXPECT_THROW(database->ReadCamera(camera_id), std::invalid_argument);
 }
 
 }  // namespace
