@@ -65,8 +65,8 @@ bool HasEmptyIptcString(const OIIO::ParamValue& attribute) {
   if (!IsIptcMetadata(attribute)) {
     return false;
   }
-  for (size_t i = 0; i < attribute.nvalues(); ++i) {
-    if (attribute.get_string(i).empty()) {
+  for (int i = 0; i < attribute.nvalues(); ++i) {
+    if (attribute.get_string_indexed(i).empty()) {
       return true;
     }
   }
