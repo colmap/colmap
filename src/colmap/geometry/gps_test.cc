@@ -416,8 +416,8 @@ TEST(GPS, UTMInverseAcrossAntimeridian) {
         ASSERT_EQ(actual.size(), ell.size());
         for (size_t i = 0; i < ell.size(); ++i) {
           EXPECT_THAT(actual[i], EigenMatrixNear(ell[i], 1e-8));
-          EXPECT_GE(actual[i](1), -180);
-          EXPECT_LE(actual[i](1), 180);
+          EXPECT_GE(actual[i](1), -180.0);
+          EXPECT_LE(actual[i](1), 180.0);
         }
       }
     }
