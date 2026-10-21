@@ -772,7 +772,15 @@ TEST(Bitmap, WriteJpegAndTiffWithEmptyIptcMetadata) {
   EXPECT_FALSE(tiff_output_bitmap.GetMetaData("IPTC:ObjectName").has_value());
   const auto tiff_output_city = tiff_output_bitmap.GetMetaData("IPTC:City");
   ASSERT_TRUE(tiff_output_city.has_value());
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(2, 4, 0)
   EXPECT_EQ(tiff_output_city.value(), "Chapel Hill");
+#else
+  // OIIO 2.2 corrupts TIFF IPTC string values on roundtrip, so only verify
+  // presence (i.e. populated fields are preserved, not filtered) there. The
+  // exact value is checked where TIFF IPTC is known to roundtrip correctly.
+  // The JPEG assertions above cover the exact-value preservation on all OIIO
+  // versions.
+#endif
 }
 
 TEST(Bitmap, CloneMetaData) {
