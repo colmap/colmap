@@ -156,14 +156,12 @@ MatrixType ReadDynamicMatrixBlob(sqlite3_stmt* sql_stmt,
   MatrixType matrix;
 
   if (rc == SQLITE_ROW) {
-    const size_t rows =
-        static_cast<size_t>(sqlite3_column_int64(sql_stmt, col + 0));
-    const size_t cols =
-        static_cast<size_t>(sqlite3_column_int64(sql_stmt, col + 1));
+    const sqlite3_int64 rows = sqlite3_column_int64(sql_stmt, col + 0);
+    const sqlite3_int64 cols = sqlite3_column_int64(sql_stmt, col + 1);
 
     THROW_CHECK_GE(rows, 0);
     THROW_CHECK_GE(cols, 0);
-    matrix = MatrixType(rows, cols);
+    matrix = MatrixType(static_cast<size_t>(rows), static_cast<size_t>(cols));
 
     const size_t num_bytes =
         static_cast<size_t>(sqlite3_column_bytes(sql_stmt, col + 2));
@@ -378,8 +376,12 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   camera.camera_id = static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 0));
   camera.model_id =
       static_cast<CameraModelId>(sqlite3_column_int64(sql_stmt, 1));
-  camera.width = static_cast<size_t>(sqlite3_column_int64(sql_stmt, 2));
-  camera.height = static_cast<size_t>(sqlite3_column_int64(sql_stmt, 3));
+  const sqlite3_int64 width = sqlite3_column_int64(sql_stmt, 2);
+  const sqlite3_int64 height = sqlite3_column_int64(sql_stmt, 3);
+  THROW_CHECK_GE(width, 0);
+  THROW_CHECK_GE(height, 0);
+  camera.width = static_cast<size_t>(width);
+  camera.height = static_cast<size_t>(height);
 
   const size_t num_params_bytes =
       static_cast<size_t>(sqlite3_column_bytes(sql_stmt, 4));
@@ -538,11 +540,14 @@ class SqliteDatabase : public Database {
   // Open and close database. The same database should not be opened
   // concurrently in multiple threads or processes.
   //
-  // On Windows, the input path is converted from the local code page to UTF-8
-  // for compatibility with SQLite. On POSIX platforms, the path is assumed to
-  // be UTF-8.
+  // SQLite expects a UTF-8 file name on all platforms. On Windows,
+  // path.string() would convert to the active code page and throw for
+  // characters it cannot represent, so the path is converted via u8string().
   static std::shared_ptr<Database> Open(const std::filesystem::path& path) {
     auto database = std::make_shared<SqliteDatabase>(path);
+
+    // u8string() returns std::string in C++17 and std::u8string in C++20.
+    const auto utf8_path = path.u8string();
 
     // SQLITE_OPEN_NOMUTEX specifies that the connection should not have a
     // mutex (so that we don't serialize the connection's operations).
@@ -550,7 +555,7 @@ class SqliteDatabase : public Database {
     // connections can read concurrently.
     try {
       SQLITE3_CALL(sqlite3_open_v2(
-          PlatformToUTF8(path.string()).c_str(),
+          reinterpret_cast<const char*>(utf8_path.c_str()),
           &database->database_,
           SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX,
           nullptr));

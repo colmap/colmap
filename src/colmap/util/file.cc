@@ -47,9 +47,11 @@ bool HasFileExtension(const std::filesystem::path& file_name,
                       const std::string& ext) {
   THROW_CHECK(!ext.empty());
   THROW_CHECK_EQ(ext.at(0), '.');
+  std::string file_ext_lower = file_name.extension().string();
+  StringToLower(&file_ext_lower);
   std::string ext_lower = ext;
   StringToLower(&ext_lower);
-  return file_name.extension() == ext_lower;
+  return file_ext_lower == ext_lower;
 }
 
 std::filesystem::path AddFileExtension(std::filesystem::path path,

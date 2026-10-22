@@ -268,8 +268,18 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     double& scale = scales_.emplace_back(1);
 
     if (options_.initialize_scales_from_geometry) {
-      const Eigen::Vector3d cam_from_point3D_translation =
+      Eigen::Vector3d cam_from_point3D_translation =
           point3D.xyz - frame_centers_[image.FrameId()];
+      if (!image.IsRefInFrame()) {
+        const Rigid3d& cam_from_rig =
+            image.FramePtr()->RigPtr()->SensorFromRig(camera.SensorId());
+        if (!cam_from_rig.translation().hasNaN()) {
+          // Match the fixed-rig residual's camera-to-point displacement.
+          cam_from_point3D_translation +=
+              image.CamFromWorld().rotation().inverse() *
+              cam_from_rig.translation();
+        }
+      }
       scale = std::max(1e-5,
                        cam_from_point3D_dir.dot(cam_from_point3D_translation) /
                            cam_from_point3D_translation.squaredNorm());

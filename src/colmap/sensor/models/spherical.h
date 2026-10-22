@@ -4,6 +4,8 @@
 
 #include "colmap/sensor/models/base.h"
 
+#include <cmath>
+
 namespace colmap {
 
 // Equirectangular (spherical panorama) camera model.
@@ -92,12 +94,19 @@ struct EquirectangularCameraModel
   }
 
   template <typename T>
-  static inline bool HasBogusParams(const std::vector<T>& /*params*/,
+  static inline bool HasBogusParams(const std::vector<T>& params,
                                     size_t /*width*/,
                                     size_t /*height*/,
                                     T /*min_focal_length_ratio*/,
                                     T /*max_focal_length_ratio*/,
                                     T /*max_extra_param*/) {
+    // The metadata parameters (image dimensions) have no plausibility
+    // bounds, but non-finite values read as bogus.
+    for (const size_t idx : metadata_idxs) {
+      if (!std::isfinite(GetScalarValue(params[idx]))) {
+        return true;
+      }
+    }
     return false;
   }
 

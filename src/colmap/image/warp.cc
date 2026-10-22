@@ -178,6 +178,18 @@ void WarpImageWithHomographyBetweenCamerasImpl(const WarpImageOptions& options,
 
   const bool warp_directly =
       ShouldWarpDirectly(source_camera, target_camera, options);
+  Eigen::Matrix3d warp_H = H;
+  if (!warp_directly) {
+    // The intermediate image is at source resolution, but H maps pixels in
+    // the target camera's coordinate system.
+    const Eigen::Vector3d target_from_intermediate_scale(
+        static_cast<double>(target_camera.width) /
+            static_cast<double>(source_camera.width),
+        static_cast<double>(target_camera.height) /
+            static_cast<double>(source_camera.height),
+        1.0);
+    warp_H = H * target_from_intermediate_scale.asDiagonal();
+  }
   *target_image = Bitmap(static_cast<int>(warp_directly ? target_camera.width
                                                         : source_camera.width),
                          static_cast<int>(warp_directly ? target_camera.height
@@ -191,7 +203,7 @@ void WarpImageWithHomographyBetweenCamerasImpl(const WarpImageOptions& options,
       image_point.x() = x + 0.5;
 
       // Camera models assume that the upper left pixel center is (0.5, 0.5).
-      const Eigen::Vector3d warped_point = H * image_point;
+      const Eigen::Vector3d warped_point = warp_H * image_point;
       if (warped_point.z() == 0) {
         continue;
       }

@@ -48,8 +48,9 @@ bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
 }
 
 // Compute maximum spanning tree of the pose graph weighted by rotation
-// certainty (if covariances are present on all edges) or inlier count.
-// Returns the root image_id and populates the parents map.
+// certainty (if covariances are present on all measured edges) or inlier
+// count, with rig calibration edges taking precedence. Returns the root
+// image_id and populates the parents map.
 image_t ComputeMaximumPoseGraphSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& image_ids,
@@ -65,17 +66,22 @@ image_t ComputeMaximumPoseGraphSpanningTree(
     idx_to_image_id.push_back(image_id);
   }
 
-  // Build edges and weights from view graph. If all edges have a rotation
-  // covariance, prefer the most certain relative rotations, otherwise those
-  // with the most inlier matches.
+  // Build edges and weights from view graph. If all measured edges have a
+  // rotation covariance, prefer the most certain relative rotations, otherwise
+  // those with the most inlier matches.
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
   std::vector<float> rot_cov_weights;
+  std::vector<bool> is_prior;
+  bool all_measured_have_rot_cov = true;
   edges.reserve(pose_graph.NumEdges());
   weights.reserve(pose_graph.NumEdges());
   rot_cov_weights.reserve(pose_graph.NumEdges());
+  is_prior.reserve(pose_graph.NumEdges());
 
-  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+  // A rejected measurement does not invalidate its rig calibration.
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (!edge.valid && !edge.prior) continue;
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     const auto it1 = image_id_to_idx.find(image_id1);
     const auto it2 = image_id_to_idx.find(image_id2);
@@ -88,11 +94,32 @@ image_t ComputeMaximumPoseGraphSpanningTree(
       // The trace is the expected squared angular error in radians.
       rot_cov_weights.push_back(static_cast<float>(
           1.0 / std::max(edge.cam2_from_cam1_rotation_cov->trace(), 1e-12)));
+    } else {
+      rot_cov_weights.push_back(0);
+      // Prior edges are re-weighted below and need no covariance.
+      all_measured_have_rot_cov &= edge.prior;
     }
+    is_prior.push_back(edge.prior);
   }
 
-  if (!edges.empty() && rot_cov_weights.size() == edges.size()) {
+  if (!edges.empty() && all_measured_have_rot_cov) {
     weights = std::move(rot_cov_weights);
+  }
+
+  // Fixed rig calibration takes precedence over measured relative rotations.
+  float max_weight = 0;
+  for (size_t i = 0; i < weights.size(); ++i) {
+    if (!is_prior[i]) {
+      max_weight = std::max(max_weight, weights[i]);
+    }
+  }
+  // Covariance weights can be large enough for max_weight + 1 to round to
+  // max_weight in single precision.
+  const float prior_weight = std::max(max_weight + 1, 2 * max_weight);
+  for (size_t i = 0; i < weights.size(); ++i) {
+    if (is_prior[i]) {
+      weights[i] = prior_weight;
+    }
   }
 
   // Compute spanning tree using generic algorithm.
@@ -370,6 +397,9 @@ bool RunRotationAveragingOnComponent(
     return false;
   }
 
+  pose_graph.AddRigEdges(
+      reconstruction, active_image_ids, options.refine_sensor_from_rig);
+
   if (!HasUnknownCamsFromRig(reconstruction)) {
     pose_graph.InvalidatePairsOutsideActiveImageIds(active_image_ids);
 
@@ -525,6 +555,9 @@ bool RotationEstimator::MaybeSolveGravityAlignedSubset(
                                                  gravity_reconstruction,
                                                  /*filter_unregistered=*/false);
     gravity_pose_graph.InvalidatePairsOutsideActiveImageIds(gravity_image_ids);
+    gravity_pose_graph.AddRigEdges(gravity_reconstruction,
+                                   gravity_image_ids,
+                                   options_.refine_sensor_from_rig);
 
     if (!SolveRotationAveraging(gravity_pose_graph,
                                 pose_priors,
@@ -659,6 +692,13 @@ void InitializeFromMaximumSpanningTree(
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction,
     bool refine_sensor_from_rig) {
+  const auto cam_from_rig = [&](image_t image_id) {
+    const auto& image = reconstruction.Image(image_id);
+    return image.IsRefInFrame() ? Rigid3d()
+                                : image.FramePtr()->RigPtr()->SensorFromRig(
+                                      image.CameraPtr()->SensorId());
+  };
+
   // Compute maximum spanning tree over active images.
   NodeHashMap<image_t, image_t> parents;
   const image_t root = ComputeMaximumPoseGraphSpanningTree(
@@ -693,8 +733,11 @@ void InitializeFromMaximumSpanningTree(
     // Directly use the relative pose for estimation rotation.
     // GetEdge(parent, curr) returns curr_from_parent
     const PoseGraph::Edge edge = pose_graph.GetEdge(parents[curr], curr);
+    const Rigid3d curr_from_parent =
+        edge.prior ? cam_from_rig(curr) * Inverse(cam_from_rig(parents[curr]))
+                   : edge.cam2_from_cam1;
     cams_from_world[curr].rotation() =
-        (edge.cam2_from_cam1 * cams_from_world[parents[curr]]).rotation();
+        (curr_from_parent * cams_from_world[parents[curr]]).rotation();
   }
 
   InitializeRigRotationsFromImages(

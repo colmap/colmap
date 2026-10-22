@@ -4,6 +4,8 @@
 
 #include "colmap/util/eigen_matchers.h"
 
+#include <utility>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -343,7 +345,86 @@ TEST(GPS, ENUToECEF) {
   }
 }
 
-TEST(GPS, EllipsoidToUTMWGS84) {
+TEST(GPS, UTMHemisphereNorthing) {
+  for (const auto ellipsoid :
+       {GPSTransform::Ellipsoid::GRS80, GPSTransform::Ellipsoid::WGS84}) {
+    const GPSTransform gps_tform(ellipsoid);
+    for (const double latitude : {-45.0, -1e-5, -0.0, 0.0, 1e-5, 45.0}) {
+      // Central meridians and their zones.
+      for (const auto& [longitude, expected_zone] :
+           {std::pair{-177.0, 1}, std::pair{3.0, 31}, std::pair{177.0, 60}}) {
+        const Eigen::Vector3d ell(latitude, longitude, 123);
+        const auto [utm, zone] = gps_tform.EllipsoidToUTM({ell, ell});
+        ASSERT_EQ(utm.size(), 2);
+        EXPECT_EQ(zone, expected_zone);
+        EXPECT_DOUBLE_EQ(utm[0](0), 500000);
+        EXPECT_THAT(utm[0], EigenMatrixNear(utm[1], 0));
+        EXPECT_THAT(gps_tform.EllipsoidToUTM({ell}).first[0],
+                    EigenMatrixNear(utm[0], 0));
+        if (latitude == 0) {
+          // The equator uses the northern hemisphere offset.
+          EXPECT_DOUBLE_EQ(utm[0](1), 0);
+        }
+        EXPECT_THAT(gps_tform.UTMToEllipsoid(utm, zone, latitude >= 0)[0],
+                    EigenMatrixNear(ell, 1e-8));
+      }
+    }
+    // Southern-encoded equator coordinates remain valid inverse input.
+    EXPECT_THAT(gps_tform.UTMToEllipsoid(
+                    {Eigen::Vector3d(500000, 10000000, 123)}, 31, false)[0],
+                EigenMatrixNear(Eigen::Vector3d(0, 3, 123), 1e-8));
+  }
+}
+
+TEST(GPS, UTMAntimeridian) {
+  for (const auto ellipsoid :
+       {GPSTransform::Ellipsoid::GRS80, GPSTransform::Ellipsoid::WGS84}) {
+    const GPSTransform gps_tform(ellipsoid);
+    for (const auto& [longitude, expected_zone] :
+         {std::pair{-180.0, 1}, std::pair{180.0, 60}}) {
+      const Eigen::Vector3d ell(0, longitude, 123);
+      const auto [utm, zone] = gps_tform.EllipsoidToUTM({ell, ell});
+      ASSERT_EQ(zone, expected_zone);
+      ASSERT_EQ(utm.size(), 2);
+      // PROJ: Proj(proj="utm", zone=60, ellps="WGS84")(180, 0) and
+      // Proj(proj="utm", zone=1, ellps="WGS84")(-180, 0).
+      const double expected_easting =
+          longitude > 0 ? 833978.5569194604 : 166021.4430805396;
+      EXPECT_THAT(
+          utm[0],
+          EigenMatrixNear(Eigen::Vector3d(expected_easting, 0, 123), 1e-6));
+      EXPECT_THAT(utm[0], EigenMatrixNear(utm[1], 0));
+      EXPECT_THAT(gps_tform.UTMToEllipsoid(utm, zone, true)[0],
+                  EigenMatrixNear(ell, 1e-8));
+    }
+  }
+}
+
+TEST(GPS, UTMInverseAcrossAntimeridian) {
+  for (const auto ellipsoid :
+       {GPSTransform::Ellipsoid::GRS80, GPSTransform::Ellipsoid::WGS84}) {
+    const GPSTransform gps_tform(ellipsoid);
+    for (const double latitude : {-10.0, 10.0}) {
+      for (const double sign : {-1.0, 1.0}) {
+        const std::vector<Eigen::Vector3d> ell = {
+            {latitude, sign * 179.9, 123},
+            {latitude, sign * 179.9, 456},
+            {latitude, -sign * 179.9, 789}};
+        const auto [utm, zone] = gps_tform.EllipsoidToUTM(ell);
+        ASSERT_EQ(zone, sign > 0 ? 60 : 1);
+        const auto actual = gps_tform.UTMToEllipsoid(utm, zone, latitude > 0);
+        ASSERT_EQ(actual.size(), ell.size());
+        for (size_t i = 0; i < ell.size(); ++i) {
+          EXPECT_THAT(actual[i], EigenMatrixNear(ell[i], 1e-8));
+          EXPECT_GE(actual[i](1), -180.0);
+          EXPECT_LE(actual[i](1), 180.0);
+        }
+      }
+    }
+  }
+}
+
+TEST(GPS, UTMConversion) {
   std::vector<Eigen::Vector3d> ell;
   ell.reserve(3);
   //(48.1476954472, 11.5695882694, 561.1851) zone32
@@ -359,149 +440,40 @@ TEST(GPS, EllipsoidToUTMWGS84) {
                    12 + 34. / 60 + 11.77179 / 3600,
                    561.1509);
 
-  // Calculated from GeographicLib
+  // Reference values calculated from GeographicLib, e.g.
   // echo 48.1476954472 11.5695882694 | TransverseMercatorProj -l 9 -p 9
-  // echo 48.1478904861 11.5699366083 | TransverseMercatorProj -l 9 -p 9
-  // echo 48.1478904861 12.5699366083 | TransverseMercatorProj -l 9 -p 9
+  // (append `-e 6378137.0 1.0/298.257222100882711243162837` for GRS80).
   const double east_offset = 5.0e5;
-  std::vector<Eigen::Vector3d> ref_utm;
-  ref_utm.reserve(3);
-  ref_utm.emplace_back(
-      1.91125018424899e5 + east_offset, 5.335909515367108e6, 561.1851);
-  ref_utm.emplace_back(
-      1.91150201163177e5 + east_offset, 5.335932057413140e6, 561.1509);
-  ref_utm.emplace_back(
-      2.65520501819149e5 + east_offset, 5.338903134602814e6, 561.1509);
+  struct TestCase {
+    GPSTransform::Ellipsoid ellipsoid;
+    std::vector<Eigen::Vector3d> ref_utm;
+  };
+  const std::vector<TestCase> test_cases = {
+      {GPSTransform::Ellipsoid::WGS84,
+       {{1.91125018424899e5 + east_offset, 5.335909515367108e6, 561.1851},
+        {1.91150201163177e5 + east_offset, 5.335932057413140e6, 561.1509},
+        {2.65520501819149e5 + east_offset, 5.338903134602814e6, 561.1509}}},
+      {GPSTransform::Ellipsoid::GRS80,
+       {{1.91125018426643e5 + east_offset, 5.335909515244992e6, 561.1851},
+        {1.91150201164921e5 + east_offset, 5.335932057291023e6, 561.1509},
+        {2.65520501821572e5 + east_offset, 5.338903134480723e6, 561.1509}}},
+  };
 
-  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
-  const auto [utm, zone] = gps_tform.EllipsoidToUTM(ell);
-
-  double tolerance = 1e-8;  // 10nm
-  for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(utm[i], EigenMatrixNear(ref_utm[i], tolerance));
-  }
-  EXPECT_EQ(zone, 32);
-}
-
-TEST(GPS, EllipsoidToUTMGRS80) {
-  std::vector<Eigen::Vector3d> ell;
-  ell.reserve(3);
-  //(48.1476954472, 11.5695882694, 561.1851) zone32
-  ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
-                   11 + 34. / 60 + 10.51777 / 3600,
-                   561.1851);
-  //(48.1478904861, 11.5699366083, 561.1509) zone32
-  ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
-                   11 + 34. / 60 + 11.77179 / 3600,
-                   561.1509);
-  //(48.1478904861, 12.5699366083, 561.1509) zone33
-  ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
-                   12 + 34. / 60 + 11.77179 / 3600,
-                   561.1509);
-
-  // Calculated from GeographicLib
-  // echo 48.1476954472 11.5695882694 | TransverseMercatorProj -l 9 -p 9
-  // -e 6378137.0 1.0/298.257222100882711243162837
-  // echo 48.1478904861 11.5699366083 | TransverseMercatorProj -l 9 -p 9
-  // -e 6378137.0 1.0/298.257222100882711243162837
-  // echo 48.1478904861 12.5699366083 | TransverseMercatorProj -l 9 -p 9
-  // -e 6378137.0 1.0/298.257222100882711243162837
-  const double east_offset = 5.0e5;
-  std::vector<Eigen::Vector3d> ref_utm;
-  ref_utm.reserve(3);
-  ref_utm.emplace_back(
-      1.91125018426643e5 + east_offset, 5.335909515244992e6, 561.1851);
-  ref_utm.emplace_back(
-      1.91150201164921e5 + east_offset, 5.335932057291023e6, 561.1509);
-  ref_utm.emplace_back(
-      2.65520501821572e5 + east_offset, 5.338903134480723e6, 561.1509);
-
-  GPSTransform gps_tform(GPSTransform::Ellipsoid::GRS80);
-  const auto [utm, zone] = gps_tform.EllipsoidToUTM(ell);
-
-  double tolerance = 1e-8;  // 10nm
-  for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(utm[i], EigenMatrixNear(ref_utm[i], tolerance));
-  }
-  EXPECT_EQ(zone, 32);
-}
-
-TEST(GPS, UTMToEllipsoidWGS84) {
-  const double east_offset = 5.0e5;
-  std::vector<Eigen::Vector3d> utm;
-  utm.reserve(3);
-  utm.emplace_back(
-      1.91125018424899e5 + east_offset, 5.335909515367108e6, 561.1851);
-  utm.emplace_back(
-      1.91150201163177e5 + east_offset, 5.335932057413140e6, 561.1509);
-  utm.emplace_back(
-      2.65520501819149e5 + east_offset, 5.338903134602814e6, 561.1509);
-
-  // Calculated from GeographicLib
-  // echo 191125.018424899 5335909.515367108|TransverseMercatorProj -l 9 -p 9 -r
-  // echo 191150.201163177 5335932.057413140|TransverseMercatorProj -l 9 -p 9 -r
-  // echo 265520.501819149 5338903.134602814|TransverseMercatorProj -l 9 -p 9 -r
-  std::vector<Eigen::Vector3d> ref_ell;
-  ref_ell.reserve(3);
-  //(48.1476954472, 11.5695882694, 561.1851) zone32
-  ref_ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
-                       11 + 34. / 60 + 10.51777 / 3600,
-                       561.1851);
-  //(48.1478904861, 11.5699366083, 561.1509) zone32
-  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
-                       11 + 34. / 60 + 11.77179 / 3600,
-                       561.1509);
-  //(48.1478904861, 12.5699366083, 561.1509) zone33
-  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
-                       12 + 34. / 60 + 11.77179 / 3600,
-                       561.1509);
-  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
-  const auto ell = gps_tform.UTMToEllipsoid(utm, 32, true);
-
-  double tolerance = 1e-8;
-  for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], tolerance));
-  }
-}
-
-TEST(GPS, UTMToEllipsoidGRS80) {
-  const double east_offset = 5.0e5;
-  std::vector<Eigen::Vector3d> utm;
-  utm.reserve(3);
-  utm.emplace_back(
-      1.91125018426643e5 + east_offset, 5.335909515244992e6, 561.1851);
-  utm.emplace_back(
-      1.91150201164921e5 + east_offset, 5.335932057291023e6, 561.1509);
-  utm.emplace_back(
-      2.65520501821572e5 + east_offset, 5.338903134480723e6, 561.1509);
-
-  // Calculated from GeographicLib
-  // echo 191125.018424899 5335909.515367108|TransverseMercatorProj -l 9 -p 9 -r
-  // -e 6378137.0 1.0/298.257222100882711243162837
-  // echo 191150.201163177 5335932.057413140|TransverseMercatorProj -l 9 -p 9 -r
-  // -e 6378137.0 1.0/298.257222100882711243162837
-  // echo 265520.501819149 5338903.134602814|TransverseMercatorProj -l 9 -p 9 -r
-  // -e 6378137.0 1.0/298.257222100882711243162837
-  std::vector<Eigen::Vector3d> ref_ell;
-  ref_ell.reserve(3);
-  //(48.1476954472, 11.5695882694, 561.1851) zone32
-  ref_ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
-                       11 + 34. / 60 + 10.51777 / 3600,
-                       561.1851);
-  //(48.1478904861, 11.5699366083, 561.1509) zone32
-  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
-                       11 + 34. / 60 + 11.77179 / 3600,
-                       561.1509);
-  //(48.1478904861, 12.5699366083, 561.1509) zone33
-  ref_ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
-                       12 + 34. / 60 + 11.77179 / 3600,
-                       561.1509);
-  GPSTransform gps_tform(GPSTransform::Ellipsoid::WGS84);
-  const auto ell = gps_tform.UTMToEllipsoid(utm, 32, true);
-
-  double tolerance = 1e-8;
-  for (size_t i = 0; i < ell.size(); ++i) {
-    EXPECT_THAT(ell[i], EigenMatrixNear(ref_ell[i], tolerance));
+  const double utm_tolerance = 1e-8;  // 10nm
+  const double ell_tolerance = 1e-8;  // ~1mm in latitude/longitude
+  for (const auto& test_case : test_cases) {
+    const GPSTransform gps_tform(test_case.ellipsoid);
+    const auto [utm, zone] = gps_tform.EllipsoidToUTM(ell);
+    for (size_t i = 0; i < ell.size(); ++i) {
+      EXPECT_THAT(utm[i], EigenMatrixNear(test_case.ref_utm[i], utm_tolerance));
+    }
+    // The points span zones 32 and 33; the predominant zone wins.
+    EXPECT_EQ(zone, 32);
+    const auto ell_from_utm =
+        gps_tform.UTMToEllipsoid(test_case.ref_utm, 32, true);
+    for (size_t i = 0; i < ell.size(); ++i) {
+      EXPECT_THAT(ell_from_utm[i], EigenMatrixNear(ell[i], ell_tolerance));
+    }
   }
 }
 

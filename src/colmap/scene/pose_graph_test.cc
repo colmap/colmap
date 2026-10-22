@@ -8,6 +8,8 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
 
+#include <limits>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -19,6 +21,94 @@ PoseGraph::Edge SynthesizeEdge(int num_matches = 50) {
   edge.cam2_from_cam1 = Rigid3d();
   edge.num_matches = num_matches;
   return edge;
+}
+
+TEST(PoseGraph, AddRigEdgesUsesSmallestEligibleImage) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 4;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+
+  for (const image_t first : {1, 2}) {
+    FlatHashSet<image_t> active_image_ids = {1, 2, 3, 4};
+    if (first == 2) active_image_ids.erase(1);
+    PoseGraph graph;
+    graph.AddRigEdges(reconstruction, active_image_ids);
+    EXPECT_EQ(graph.NumEdges(), 4 - first);
+    for (image_t image_id = first + 1; image_id <= 4; ++image_id) {
+      EXPECT_TRUE(graph.HasEdge(first, image_id));
+    }
+  }
+}
+
+TEST(PoseGraph, AddRigEdgesFlagsAllCalibratedMeasuredPairs) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 4;
+  options.num_frames_per_rig = 2;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+
+  PoseGraph graph;
+  for (image_t image_id1 = 1; image_id1 < 3; ++image_id1) {
+    for (image_t image_id2 = image_id1 + 1; image_id2 <= 3; ++image_id2) {
+      auto edge = SynthesizeEdge(42);
+      edge.cam2_from_cam1.translation() = Eigen::Vector3d(1, 2, 3);
+      edge.valid = image_id1 == 1;
+      graph.AddEdge(image_id1, image_id2, edge);
+    }
+  }
+  graph.AddEdge(1, 4, SynthesizeEdge());  // Inactive image.
+  graph.AddEdge(1, 5, SynthesizeEdge());  // Different frame.
+  const auto measured_edges = graph.Edges();
+  graph.AddRigEdges(reconstruction, {1, 2, 3, 5});
+  EXPECT_EQ(graph.NumEdges(), measured_edges.size());
+  for (const auto& [pair_id, measured] : measured_edges) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const auto edge = graph.GetEdge(image_id1, image_id2);
+    EXPECT_EQ(edge.prior, image_id2 <= 3);
+    EXPECT_EQ(edge.valid, measured.valid);
+    EXPECT_EQ(edge.num_matches, measured.num_matches);
+    EXPECT_TRUE(edge.cam2_from_cam1.ToMatrix().isApprox(
+        measured.cam2_from_cam1.ToMatrix()));
+  }
+}
+
+TEST(PoseGraph, AddRigEdgesCalibration) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+  auto& rig = reconstruction.Rig(1);
+  const sensor_t sensor_id = reconstruction.Camera(2).SensorId();
+  const auto connects = [&](bool refine) {
+    PoseGraph graph;
+    graph.AddRigEdges(reconstruction, {1, 2}, refine);
+    return graph.HasEdge(1, 2);
+  };
+  EXPECT_TRUE(connects(false));
+  EXPECT_TRUE(connects(true));
+
+  auto& pose = rig.SensorFromRig(sensor_id);
+  pose.translation().setConstant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_TRUE(connects(false));
+  EXPECT_FALSE(connects(true));
+
+  pose.rotation().coeffs().setConstant(
+      std::numeric_limits<double>::quiet_NaN());
+  EXPECT_FALSE(connects(false));
+  EXPECT_FALSE(connects(true));
+
+  rig.ResetSensorFromRig(sensor_id);
+  EXPECT_FALSE(connects(false));
+  EXPECT_FALSE(connects(true));
 }
 
 TEST(PoseGraph, Nominal) {

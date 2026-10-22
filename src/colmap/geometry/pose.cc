@@ -6,9 +6,17 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
+#include <limits>
+
 #include <Eigen/Geometry>
 
 namespace colmap {
+
+namespace {
+// Cutoff below which so(3) exponentials use first-order Taylor expansions.
+constexpr double kSmallAngleThreshold = 1e-10;
+}  // namespace
 
 Eigen::VectorXd AverageUnitVectors(const Eigen::MatrixXd& vectors,
                                    const Eigen::VectorXd& weights) {
@@ -111,9 +119,7 @@ Eigen::Vector3d RotationMatrixToAngleAxis(const Eigen::Matrix3d& R) {
 
 Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w) {
   const double angle = w.norm();
-  if (angle > 1e-12) {
-    return Eigen::AngleAxis<double>(angle, w / angle).toRotationMatrix();
-  } else {
+  if (angle < kSmallAngleThreshold) {
     // Small angle approximation: I + [w]_x.
     Eigen::Matrix3d R;
     R(0, 0) = 1;
@@ -127,15 +133,24 @@ Eigen::Matrix3d AngleAxisToRotationMatrix(const Eigen::Vector3d& w) {
     R(2, 2) = 1;
     return R;
   }
+  return Eigen::AngleAxis<double>(angle, w / angle).toRotationMatrix();
 }
 
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
                                  double* rx,
                                  double* ry,
                                  double* rz) {
-  *rx = std::atan2(R(2, 1), R(2, 2));
-  *ry = std::asin(-R(2, 0));
-  *rz = std::atan2(R(1, 0), R(0, 0));
+  const double cos_ry = std::hypot(R(0, 0), R(1, 0));
+  *ry = std::atan2(-R(2, 0), cos_ry);
+  // Roll and yaw are coupled at gimbal lock. Choose zero yaw.
+  *rz = cos_ry > std::numeric_limits<double>::epsilon()
+            ? std::atan2(R(1, 0), R(0, 0))
+            : 0;
+  const double cos_rz = std::cos(*rz);
+  const double sin_rz = std::sin(*rz);
+  // Remove yaw before extracting roll to avoid independent near-lock errors.
+  *rx = std::atan2(sin_rz * R(0, 2) - cos_rz * R(1, 2),
+                   cos_rz * R(1, 1) - sin_rz * R(0, 1));
 
   *rx = std::isnan(*rx) ? 0 : *rx;
   *ry = std::isnan(*ry) ? 0 : *ry;
@@ -183,10 +198,6 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam1_from_world,
       cam1_from_world.translation() + translation12 * t);
 }
 
-namespace {
-constexpr double kSmallAngleThreshold = 1e-10;
-}  // namespace
-
 Eigen::Quaterniond QuaternionFromAngleAxis(const Eigen::Vector3d& omega) {
   const double theta = omega.norm();
   if (theta < kSmallAngleThreshold) {
@@ -207,9 +218,10 @@ Eigen::Matrix3d LeftJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
   const Eigen::Matrix3d a_x = CrossProductMatrix(a);
   const double sin_theta = std::sin(theta);
   const double sinc_theta = sin_theta / theta;
+  const double sin_half_theta = std::sin(theta / 2);
   return sinc_theta * Eigen::Matrix3d::Identity() +
          (1.0 - sinc_theta) * a * a.transpose() +
-         ((1.0 - std::cos(theta)) / theta) * a_x;
+         (2 * sin_half_theta * sin_half_theta / theta) * a_x;
 }
 
 Eigen::Matrix3d RightJacobianFromAngleAxis(const Eigen::Vector3d& omega) {
