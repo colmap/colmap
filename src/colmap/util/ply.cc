@@ -8,6 +8,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -25,6 +26,33 @@ T ReadFromBuffer(const char* buffer, size_t offset) {
   T value;
   std::memcpy(&value, buffer + offset, sizeof(T));
   return value;
+}
+
+// Byte size of a PLY scalar property type (e.g. "float", "int", "uchar").
+// Shared by header stride computation, bounds validation, and binary decoding
+// so that all of them agree on every type's width. Terminates on unknown
+// types; callers must only pass validated header types.
+size_t PlyScalarTypeSize(const std::string& type) {
+  if (type == "float" || type == "float32" || type == "int" ||
+      type == "int32" || type == "uint" || type == "uint32") {
+    return sizeof(uint32_t);
+  } else if (type == "double" || type == "float64") {
+    return sizeof(double);
+  } else if (type == "short" || type == "int16" || type == "ushort" ||
+             type == "uint16") {
+    return sizeof(uint16_t);
+  } else if (type == "char" || type == "int8" || type == "uchar" ||
+             type == "uint8") {
+    return sizeof(uint8_t);
+  }
+  LOG(FATAL_THROW) << "Invalid PLY scalar data type: " << type;
+  return 0;
+}
+
+// Whether a PLY scalar property type is a floating-point type.
+bool IsPlyFloatType(const std::string& type) {
+  return type == "float" || type == "float32" || type == "double" ||
+         type == "float64";
 }
 
 }  // namespace
@@ -432,7 +460,12 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
   int R_index = -1, G_index = -1, B_index = -1;
   int X_byte_pos = -1, Y_byte_pos = -1, Z_byte_pos = -1;
   int R_byte_pos = -1, G_byte_pos = -1, B_byte_pos = -1;
-  bool X_double = false, Y_double = false, Z_double = false;
+  std::string X_type;
+  std::string Y_type;
+  std::string Z_type;
+  std::string R_type;
+  std::string G_type;
+  std::string B_type;
 
   while (std::getline(file, line)) {
     StringTrim(&line);
@@ -497,41 +530,31 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       if (pname == "x") {
         X_index = num_vertex_props;
         X_byte_pos = num_bytes_per_vertex;
-        X_double = (dtype == "double" || dtype == "float64");
+        X_type = dtype;
       } else if (pname == "y") {
         Y_index = num_vertex_props;
         Y_byte_pos = num_bytes_per_vertex;
-        Y_double = (dtype == "double" || dtype == "float64");
+        Y_type = dtype;
       } else if (pname == "z") {
         Z_index = num_vertex_props;
         Z_byte_pos = num_bytes_per_vertex;
-        Z_double = (dtype == "double" || dtype == "float64");
+        Z_type = dtype;
       } else if (pname == "red" || pname == "r" || pname == "diffuse_red") {
         R_index = num_vertex_props;
         R_byte_pos = num_bytes_per_vertex;
+        R_type = dtype;
       } else if (pname == "green" || pname == "g" || pname == "diffuse_green") {
         G_index = num_vertex_props;
         G_byte_pos = num_bytes_per_vertex;
+        G_type = dtype;
       } else if (pname == "blue" || pname == "b" || pname == "diffuse_blue") {
         B_index = num_vertex_props;
         B_byte_pos = num_bytes_per_vertex;
+        B_type = dtype;
       }
 
       num_vertex_props += 1;
-      if (dtype == "float" || dtype == "float32" || dtype == "int" ||
-          dtype == "int32" || dtype == "uint" || dtype == "uint32") {
-        num_bytes_per_vertex += 4;
-      } else if (dtype == "double" || dtype == "float64") {
-        num_bytes_per_vertex += 8;
-      } else if (dtype == "short" || dtype == "int16" || dtype == "ushort" ||
-                 dtype == "uint16") {
-        num_bytes_per_vertex += 2;
-      } else if (dtype == "uchar" || dtype == "uint8" || dtype == "char" ||
-                 dtype == "int8") {
-        num_bytes_per_vertex += 1;
-      } else {
-        LOG(FATAL_THROW) << "Invalid vertex data type: " << dtype;
-      }
+      num_bytes_per_vertex += PlyScalarTypeSize(dtype);
     }
   }
 
@@ -541,22 +564,26 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
   const bool has_colors = (R_index != -1) && (G_index != -1) && (B_index != -1);
 
   // Validate byte positions against buffer size for binary PLY mesh files.
+  // The size lookup happens inside the check, so absent properties (which
+  // have no declared type) are skipped without evaluating a lookup.
   if (is_binary && num_bytes_per_vertex > 0) {
-    auto CheckBytePos = [&](int byte_pos, size_t type_size, const char* name) {
+    auto CheckBytePos = [&](int byte_pos,
+                            const std::string& type,
+                            const char* name) {
       if (byte_pos >= 0) {
-        THROW_CHECK_LE(static_cast<size_t>(byte_pos) + type_size,
+        THROW_CHECK_LE(static_cast<size_t>(byte_pos) + PlyScalarTypeSize(type),
                        num_bytes_per_vertex)
             << "PLY mesh property " << name
             << " byte position exceeds vertex buffer size";
       }
     };
-    CheckBytePos(X_byte_pos, X_double ? sizeof(double) : sizeof(float), "x");
-    CheckBytePos(Y_byte_pos, Y_double ? sizeof(double) : sizeof(float), "y");
-    CheckBytePos(Z_byte_pos, Z_double ? sizeof(double) : sizeof(float), "z");
+    CheckBytePos(X_byte_pos, X_type, "x");
+    CheckBytePos(Y_byte_pos, Y_type, "y");
+    CheckBytePos(Z_byte_pos, Z_type, "z");
     if (has_colors) {
-      CheckBytePos(R_byte_pos, sizeof(uint8_t), "r");
-      CheckBytePos(G_byte_pos, sizeof(uint8_t), "g");
-      CheckBytePos(B_byte_pos, sizeof(uint8_t), "b");
+      CheckBytePos(R_byte_pos, R_type, "r");
+      CheckBytePos(G_byte_pos, G_type, "g");
+      CheckBytePos(B_byte_pos, B_type, "b");
     }
   }
 
@@ -572,17 +599,46 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
   }
 
   if (is_binary) {
-    auto ReadCoord = [&](const char* buf, bool is_double, size_t byte_pos) {
-      if (is_double) {
-        const auto val = ReadFromBuffer<double>(buf, byte_pos);
+    auto ReadScalar = [&](const char* buf,
+                          const size_t byte_pos,
+                          const std::string& type) {
+      auto ReadTyped = [&](auto type_tag) {
+        using T = decltype(type_tag);
+        const auto val = ReadFromBuffer<T>(buf, byte_pos);
         return static_cast<float>(is_little_endian ? LittleEndianToNative(val)
                                                    : BigEndianToNative(val));
-      } else {
-        const auto val = ReadFromBuffer<float>(buf, byte_pos);
-        return is_little_endian ? LittleEndianToNative(val)
-                                : BigEndianToNative(val);
+      };
+
+      if (type == "float" || type == "float32") {
+        return ReadTyped(float{});
+      } else if (type == "double" || type == "float64") {
+        return ReadTyped(double{});
+      } else if (type == "char" || type == "int8") {
+        return ReadTyped(int8_t{});
+      } else if (type == "uchar" || type == "uint8") {
+        return ReadTyped(uint8_t{});
+      } else if (type == "short" || type == "int16") {
+        return ReadTyped(int16_t{});
+      } else if (type == "ushort" || type == "uint16") {
+        return ReadTyped(uint16_t{});
+      } else if (type == "int" || type == "int32") {
+        return ReadTyped(int32_t{});
+      } else if (type == "uint" || type == "uint32") {
+        return ReadTyped(uint32_t{});
       }
+      LOG(FATAL_THROW) << "Invalid PLY vertex data type: " << type;
+      return 0.0f;
     };
+
+    // Decode a color channel from its declared scalar type. Integer channels
+    // are clamped to the 8-bit range; float/double channels use the standard
+    // 0-1 range and are scaled to 8-bit (truncating fractional values).
+    auto ReadColor =
+        [&](const char* buf, size_t byte_pos, const std::string& type) {
+          const float value = ReadScalar(buf, byte_pos, type);
+          const float scaled = IsPlyFloatType(type) ? value * 255.0f : value;
+          return static_cast<uint8_t>(std::clamp(scaled, 0.0f, 255.0f));
+        };
 
     auto ReadInt = [&](const char* buf, size_t num_bytes) {
       if (num_bytes == 4) {
@@ -604,14 +660,14 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       file.read(buffer.data(), num_bytes_per_vertex);
       THROW_CHECK(file.good()) << "Unexpected end of PLY file at vertex " << i;
 
-      const float x = ReadCoord(buffer.data(), X_double, X_byte_pos);
-      const float y = ReadCoord(buffer.data(), Y_double, Y_byte_pos);
-      const float z = ReadCoord(buffer.data(), Z_double, Z_byte_pos);
+      const float x = ReadScalar(buffer.data(), X_byte_pos, X_type);
+      const float y = ReadScalar(buffer.data(), Y_byte_pos, Y_type);
+      const float z = ReadScalar(buffer.data(), Z_byte_pos, Z_type);
 
       if (has_colors) {
-        const uint8_t r = ReadFromBuffer<uint8_t>(buffer.data(), R_byte_pos);
-        const uint8_t g = ReadFromBuffer<uint8_t>(buffer.data(), G_byte_pos);
-        const uint8_t b = ReadFromBuffer<uint8_t>(buffer.data(), B_byte_pos);
+        const uint8_t r = ReadColor(buffer.data(), R_byte_pos, R_type);
+        const uint8_t g = ReadColor(buffer.data(), G_byte_pos, G_type);
+        const uint8_t b = ReadColor(buffer.data(), B_byte_pos, B_type);
         result.mesh.vertices.emplace_back(x, y, z, r, g, b);
       } else {
         result.mesh.vertices.emplace_back(x, y, z);
@@ -621,18 +677,10 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
     // Read binary face data
     // Determine byte sizes of the face count and index types from the header.
     auto PlyTypeBytes = [](const std::string& type) -> size_t {
-      if (type == "int" || type == "int32" || type == "uint" ||
-          type == "uint32") {
-        return 4;
-      } else if (type == "short" || type == "int16" || type == "ushort" ||
-                 type == "uint16") {
-        return 2;
-      } else if (type == "char" || type == "int8" || type == "uchar" ||
-                 type == "uint8") {
-        return 1;
+      if (IsPlyFloatType(type)) {
+        LOG(FATAL_THROW) << "Unsupported PLY face data type: " << type;
       }
-      LOG(FATAL_THROW) << "Unsupported PLY face data type: " << type;
-      return 0;
+      return PlyScalarTypeSize(type);
     };
 
     const size_t face_count_bytes = PlyTypeBytes(face_count_type);
@@ -681,6 +729,18 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       }
     }
   } else {
+    // Parse an ASCII color channel from its declared scalar type. Integer
+    // channels keep the historical parsing; float/double channels use the
+    // standard 0-1 range and are scaled to 8-bit, matching the binary path.
+    auto ParseAsciiColor = [](const std::string& item,
+                              const std::string& type) {
+      if (IsPlyFloatType(type)) {
+        const float value = StringToDouble(item);
+        return static_cast<uint8_t>(std::clamp(value * 255.0f, 0.0f, 255.0f));
+      }
+      return static_cast<uint8_t>(std::stoi(item));
+    };
+
     // Read ASCII vertex data
     for (size_t i = 0; i < num_vertices; ++i) {
       std::getline(file, line);
@@ -698,9 +758,9 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
       const float z = StringToDouble(items.at(Z_index));
 
       if (has_colors) {
-        const uint8_t r = static_cast<uint8_t>(std::stoi(items.at(R_index)));
-        const uint8_t g = static_cast<uint8_t>(std::stoi(items.at(G_index)));
-        const uint8_t b = static_cast<uint8_t>(std::stoi(items.at(B_index)));
+        const uint8_t r = ParseAsciiColor(items.at(R_index), R_type);
+        const uint8_t g = ParseAsciiColor(items.at(G_index), G_type);
+        const uint8_t b = ParseAsciiColor(items.at(B_index), B_type);
         result.mesh.vertices.emplace_back(x, y, z, r, g, b);
       } else {
         result.mesh.vertices.emplace_back(x, y, z);
