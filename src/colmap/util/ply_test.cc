@@ -90,47 +90,52 @@ std::filesystem::path WriteTextPlyMesh(
   return test_file;
 }
 
+// Check a mesh vertex or point position.
+template <typename Vertex>
+void ExpectPositionEq(const Vertex& vertex, float x, float y, float z) {
+  EXPECT_EQ(vertex.x, x);
+  EXPECT_EQ(vertex.y, y);
+  EXPECT_EQ(vertex.z, z);
+}
+
+// Check a point normal.
+void ExpectNormalEq(const PlyPoint& point, float nx, float ny, float nz) {
+  EXPECT_EQ(point.nx, nx);
+  EXPECT_EQ(point.ny, ny);
+  EXPECT_EQ(point.nz, nz);
+}
+
+// Check a mesh vertex or point color.
+template <typename Vertex>
+void ExpectColorEq(const Vertex& vertex, int r, int g, int b) {
+  EXPECT_EQ(vertex.r, r);
+  EXPECT_EQ(vertex.g, g);
+  EXPECT_EQ(vertex.b, b);
+}
+
 TEST(PlyPoint, DefaultConstructor) {
   PlyPoint point;
-  EXPECT_EQ(point.x, 0.0f);
-  EXPECT_EQ(point.y, 0.0f);
-  EXPECT_EQ(point.z, 0.0f);
-  EXPECT_EQ(point.nx, 0.0f);
-  EXPECT_EQ(point.ny, 0.0f);
-  EXPECT_EQ(point.nz, 0.0f);
-  EXPECT_EQ(point.r, 0);
-  EXPECT_EQ(point.g, 0);
-  EXPECT_EQ(point.b, 0);
+  ExpectPositionEq(point, 0.0f, 0.0f, 0.0f);
+  ExpectNormalEq(point, 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(point, 0, 0, 0);
 }
 
 TEST(PlyMeshVertex, DefaultConstructor) {
   PlyMeshVertex vertex;
-  EXPECT_EQ(vertex.x, 0.0f);
-  EXPECT_EQ(vertex.y, 0.0f);
-  EXPECT_EQ(vertex.z, 0.0f);
-  EXPECT_EQ(vertex.r, 200);
-  EXPECT_EQ(vertex.g, 200);
-  EXPECT_EQ(vertex.b, 200);
+  ExpectPositionEq(vertex, 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(vertex, 200, 200, 200);
 }
 
 TEST(PlyMeshVertex, ParameterizedConstructor) {
   PlyMeshVertex vertex(1.5f, 2.5f, 3.5f);
-  EXPECT_EQ(vertex.x, 1.5f);
-  EXPECT_EQ(vertex.y, 2.5f);
-  EXPECT_EQ(vertex.z, 3.5f);
-  EXPECT_EQ(vertex.r, 200);
-  EXPECT_EQ(vertex.g, 200);
-  EXPECT_EQ(vertex.b, 200);
+  ExpectPositionEq(vertex, 1.5f, 2.5f, 3.5f);
+  ExpectColorEq(vertex, 200, 200, 200);
 }
 
 TEST(PlyMeshVertex, ColorConstructor) {
   PlyMeshVertex vertex(1.0f, 2.0f, 3.0f, 10, 20, 30);
-  EXPECT_EQ(vertex.x, 1.0f);
-  EXPECT_EQ(vertex.y, 2.0f);
-  EXPECT_EQ(vertex.z, 3.0f);
-  EXPECT_EQ(vertex.r, 10);
-  EXPECT_EQ(vertex.g, 20);
-  EXPECT_EQ(vertex.b, 30);
+  ExpectPositionEq(vertex, 1.0f, 2.0f, 3.0f);
+  ExpectColorEq(vertex, 10, 20, 30);
 }
 
 TEST(PlyMeshFace, DefaultConstructor) {
@@ -175,15 +180,18 @@ TEST(Ply, RoundTripTextPlyPointsFullData) {
   ASSERT_EQ(loaded_points.size(), original_points.size());
 
   for (size_t i = 0; i < original_points.size(); ++i) {
-    EXPECT_EQ(loaded_points[i].x, original_points[i].x);
-    EXPECT_EQ(loaded_points[i].y, original_points[i].y);
-    EXPECT_EQ(loaded_points[i].z, original_points[i].z);
-    EXPECT_EQ(loaded_points[i].nx, original_points[i].nx);
-    EXPECT_EQ(loaded_points[i].ny, original_points[i].ny);
-    EXPECT_EQ(loaded_points[i].nz, original_points[i].nz);
-    EXPECT_EQ(loaded_points[i].r, original_points[i].r);
-    EXPECT_EQ(loaded_points[i].g, original_points[i].g);
-    EXPECT_EQ(loaded_points[i].b, original_points[i].b);
+    ExpectPositionEq(loaded_points[i],
+                     original_points[i].x,
+                     original_points[i].y,
+                     original_points[i].z);
+    ExpectNormalEq(loaded_points[i],
+                   original_points[i].nx,
+                   original_points[i].ny,
+                   original_points[i].nz);
+    ExpectColorEq(loaded_points[i],
+                  original_points[i].r,
+                  original_points[i].g,
+                  original_points[i].b);
   }
 }
 
@@ -210,16 +218,10 @@ TEST(Ply, RoundTripTextPlyPointsXYZOnly) {
   std::vector<PlyPoint> loaded_points = ReadPly(test_file);
 
   ASSERT_EQ(loaded_points.size(), 1);
-  EXPECT_EQ(loaded_points[0].x, 1.5f);
-  EXPECT_EQ(loaded_points[0].y, 2.5f);
-  EXPECT_EQ(loaded_points[0].z, 3.5f);
+  ExpectPositionEq(loaded_points[0], 1.5f, 2.5f, 3.5f);
   // Normals and colors should be default (0)
-  EXPECT_EQ(loaded_points[0].nx, 0.0f);
-  EXPECT_EQ(loaded_points[0].ny, 0.0f);
-  EXPECT_EQ(loaded_points[0].nz, 0.0f);
-  EXPECT_EQ(loaded_points[0].r, 0);
-  EXPECT_EQ(loaded_points[0].g, 0);
-  EXPECT_EQ(loaded_points[0].b, 0);
+  ExpectNormalEq(loaded_points[0], 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(loaded_points[0], 0, 0, 0);
 }
 
 TEST(Ply, RoundTripBinaryPlyPointsFullData) {
@@ -250,15 +252,18 @@ TEST(Ply, RoundTripBinaryPlyPointsFullData) {
   ASSERT_EQ(loaded_points.size(), original_points.size());
 
   for (size_t i = 0; i < original_points.size(); ++i) {
-    EXPECT_EQ(loaded_points[i].x, original_points[i].x);
-    EXPECT_EQ(loaded_points[i].y, original_points[i].y);
-    EXPECT_EQ(loaded_points[i].z, original_points[i].z);
-    EXPECT_EQ(loaded_points[i].nx, original_points[i].nx);
-    EXPECT_EQ(loaded_points[i].ny, original_points[i].ny);
-    EXPECT_EQ(loaded_points[i].nz, original_points[i].nz);
-    EXPECT_EQ(loaded_points[i].r, original_points[i].r);
-    EXPECT_EQ(loaded_points[i].g, original_points[i].g);
-    EXPECT_EQ(loaded_points[i].b, original_points[i].b);
+    ExpectPositionEq(loaded_points[i],
+                     original_points[i].x,
+                     original_points[i].y,
+                     original_points[i].z);
+    ExpectNormalEq(loaded_points[i],
+                   original_points[i].nx,
+                   original_points[i].ny,
+                   original_points[i].nz);
+    ExpectColorEq(loaded_points[i],
+                  original_points[i].r,
+                  original_points[i].g,
+                  original_points[i].b);
   }
 }
 
@@ -285,16 +290,10 @@ TEST(Ply, RoundTripBinaryPlyPointsXYZOnly) {
   std::vector<PlyPoint> loaded_points = ReadPly(test_file);
 
   ASSERT_EQ(loaded_points.size(), 1);
-  EXPECT_EQ(loaded_points[0].x, 10.5f);
-  EXPECT_EQ(loaded_points[0].y, 20.5f);
-  EXPECT_EQ(loaded_points[0].z, 30.5f);
+  ExpectPositionEq(loaded_points[0], 10.5f, 20.5f, 30.5f);
   // Normals and colors should be default (0)
-  EXPECT_EQ(loaded_points[0].nx, 0.0f);
-  EXPECT_EQ(loaded_points[0].ny, 0.0f);
-  EXPECT_EQ(loaded_points[0].nz, 0.0f);
-  EXPECT_EQ(loaded_points[0].r, 0);
-  EXPECT_EQ(loaded_points[0].g, 0);
-  EXPECT_EQ(loaded_points[0].b, 0);
+  ExpectNormalEq(loaded_points[0], 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(loaded_points[0], 0, 0, 0);
 }
 
 TEST(Ply, ReadMeshVerticesAsPoints) {
@@ -316,9 +315,10 @@ TEST(Ply, ReadMeshVerticesAsPoints) {
     const auto points = ReadPly(test_file);
     ASSERT_EQ(points.size(), mesh.vertices.size());
     for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-      EXPECT_EQ(points[i].x, mesh.vertices[i].x);
-      EXPECT_EQ(points[i].y, mesh.vertices[i].y);
-      EXPECT_EQ(points[i].z, mesh.vertices[i].z);
+      ExpectPositionEq(points[i],
+                       mesh.vertices[i].x,
+                       mesh.vertices[i].y,
+                       mesh.vertices[i].z);
     }
   }
 }
@@ -365,13 +365,12 @@ TEST(Ply, RoundTripTextPlyMesh) {
   ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
 
   for (size_t i = 0; i < original_mesh.vertices.size(); ++i) {
-    EXPECT_EQ(loaded_mesh.vertices[i].x, original_mesh.vertices[i].x);
-    EXPECT_EQ(loaded_mesh.vertices[i].y, original_mesh.vertices[i].y);
-    EXPECT_EQ(loaded_mesh.vertices[i].z, original_mesh.vertices[i].z);
+    ExpectPositionEq(loaded_mesh.vertices[i],
+                     original_mesh.vertices[i].x,
+                     original_mesh.vertices[i].y,
+                     original_mesh.vertices[i].z);
     // No colors in file, should get defaults.
-    EXPECT_EQ(loaded_mesh.vertices[i].r, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].g, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].b, 200);
+    ExpectColorEq(loaded_mesh.vertices[i], 200, 200, 200);
   }
 
   for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
@@ -405,13 +404,12 @@ TEST(Ply, RoundTripBinaryPlyMesh) {
   ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
 
   for (size_t i = 0; i < original_mesh.vertices.size(); ++i) {
-    EXPECT_EQ(loaded_mesh.vertices[i].x, original_mesh.vertices[i].x);
-    EXPECT_EQ(loaded_mesh.vertices[i].y, original_mesh.vertices[i].y);
-    EXPECT_EQ(loaded_mesh.vertices[i].z, original_mesh.vertices[i].z);
+    ExpectPositionEq(loaded_mesh.vertices[i],
+                     original_mesh.vertices[i].x,
+                     original_mesh.vertices[i].y,
+                     original_mesh.vertices[i].z);
     // No colors in file, should get defaults.
-    EXPECT_EQ(loaded_mesh.vertices[i].r, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].g, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].b, 200);
+    ExpectColorEq(loaded_mesh.vertices[i], 200, 200, 200);
   }
 
   for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
@@ -464,9 +462,10 @@ void VerifyTexturedMesh(const PlyTexturedMesh& loaded,
   ASSERT_EQ(loaded.face_uvs.size(), original.face_uvs.size());
 
   for (size_t i = 0; i < original.mesh.vertices.size(); ++i) {
-    EXPECT_EQ(loaded.mesh.vertices[i].x, original.mesh.vertices[i].x);
-    EXPECT_EQ(loaded.mesh.vertices[i].y, original.mesh.vertices[i].y);
-    EXPECT_EQ(loaded.mesh.vertices[i].z, original.mesh.vertices[i].z);
+    ExpectPositionEq(loaded.mesh.vertices[i],
+                     original.mesh.vertices[i].x,
+                     original.mesh.vertices[i].y,
+                     original.mesh.vertices[i].z);
   }
 
   for (size_t i = 0; i < original.mesh.faces.size(); ++i) {
@@ -540,15 +539,9 @@ TEST(Ply, ReadTextPlyMeshWithVertexColors) {
   ASSERT_EQ(mesh.vertices.size(), 3);
   ASSERT_EQ(mesh.faces.size(), 1);
 
-  EXPECT_EQ(mesh.vertices[0].r, 255);
-  EXPECT_EQ(mesh.vertices[0].g, 0);
-  EXPECT_EQ(mesh.vertices[0].b, 0);
-  EXPECT_EQ(mesh.vertices[1].r, 0);
-  EXPECT_EQ(mesh.vertices[1].g, 255);
-  EXPECT_EQ(mesh.vertices[1].b, 0);
-  EXPECT_EQ(mesh.vertices[2].r, 0);
-  EXPECT_EQ(mesh.vertices[2].g, 0);
-  EXPECT_EQ(mesh.vertices[2].b, 255);
+  ExpectColorEq(mesh.vertices[0], 255, 0, 0);
+  ExpectColorEq(mesh.vertices[1], 0, 255, 0);
+  ExpectColorEq(mesh.vertices[2], 0, 0, 255);
 
   EXPECT_EQ(mesh.faces[0].vertex_idx1, 0);
   EXPECT_EQ(mesh.faces[0].vertex_idx2, 1);
@@ -592,22 +585,14 @@ TEST(Ply, ReadBinaryPlyMeshWithVertexColors) {
   ASSERT_EQ(mesh.vertices.size(), 3);
   ASSERT_EQ(mesh.faces.size(), 1);
 
-  EXPECT_EQ(mesh.vertices[0].x, 1.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 2.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 3.0f);
-  EXPECT_EQ(mesh.vertices[0].r, 100);
-  EXPECT_EQ(mesh.vertices[0].g, 150);
-  EXPECT_EQ(mesh.vertices[0].b, 200);
+  ExpectPositionEq(mesh.vertices[0], 1.0f, 2.0f, 3.0f);
+  ExpectColorEq(mesh.vertices[0], 100, 150, 200);
 
-  EXPECT_EQ(mesh.vertices[1].x, 4.0f);
-  EXPECT_EQ(mesh.vertices[1].r, 10);
-  EXPECT_EQ(mesh.vertices[1].g, 20);
-  EXPECT_EQ(mesh.vertices[1].b, 30);
+  ExpectPositionEq(mesh.vertices[1], 4.0f, 5.0f, 6.0f);
+  ExpectColorEq(mesh.vertices[1], 10, 20, 30);
 
-  EXPECT_EQ(mesh.vertices[2].x, 7.0f);
-  EXPECT_EQ(mesh.vertices[2].r, 50);
-  EXPECT_EQ(mesh.vertices[2].g, 60);
-  EXPECT_EQ(mesh.vertices[2].b, 70);
+  ExpectPositionEq(mesh.vertices[2], 7.0f, 8.0f, 9.0f);
+  ExpectColorEq(mesh.vertices[2], 50, 60, 70);
 }
 
 TEST(Ply, ReadTextPlyMeshWithExtraProperties) {
@@ -632,22 +617,14 @@ TEST(Ply, ReadTextPlyMeshWithExtraProperties) {
   ASSERT_EQ(mesh.vertices.size(), 3);
 
   // Positions should be read correctly.
-  EXPECT_EQ(mesh.vertices[0].x, 1.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 2.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 3.0f);
-  EXPECT_EQ(mesh.vertices[1].x, 4.0f);
-  EXPECT_EQ(mesh.vertices[2].x, 7.0f);
+  ExpectPositionEq(mesh.vertices[0], 1.0f, 2.0f, 3.0f);
+  ExpectPositionEq(mesh.vertices[1], 4.0f, 5.0f, 6.0f);
+  ExpectPositionEq(mesh.vertices[2], 7.0f, 8.0f, 9.0f);
 
   // Colors should be read correctly despite extra normal properties.
-  EXPECT_EQ(mesh.vertices[0].r, 255);
-  EXPECT_EQ(mesh.vertices[0].g, 128);
-  EXPECT_EQ(mesh.vertices[0].b, 64);
-  EXPECT_EQ(mesh.vertices[1].r, 32);
-  EXPECT_EQ(mesh.vertices[1].g, 64);
-  EXPECT_EQ(mesh.vertices[1].b, 96);
-  EXPECT_EQ(mesh.vertices[2].r, 10);
-  EXPECT_EQ(mesh.vertices[2].g, 20);
-  EXPECT_EQ(mesh.vertices[2].b, 30);
+  ExpectColorEq(mesh.vertices[0], 255, 128, 64);
+  ExpectColorEq(mesh.vertices[1], 32, 64, 96);
+  ExpectColorEq(mesh.vertices[2], 10, 20, 30);
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
@@ -698,22 +675,14 @@ TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
 
   ASSERT_EQ(mesh.vertices.size(), 3);
 
-  EXPECT_EQ(mesh.vertices[0].x, 1.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 2.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 3.0f);
-  EXPECT_EQ(mesh.vertices[0].r, 255);
-  EXPECT_EQ(mesh.vertices[0].g, 128);
-  EXPECT_EQ(mesh.vertices[0].b, 64);
+  ExpectPositionEq(mesh.vertices[0], 1.0f, 2.0f, 3.0f);
+  ExpectColorEq(mesh.vertices[0], 255, 128, 64);
 
-  EXPECT_EQ(mesh.vertices[1].x, 4.0f);
-  EXPECT_EQ(mesh.vertices[1].r, 32);
-  EXPECT_EQ(mesh.vertices[1].g, 64);
-  EXPECT_EQ(mesh.vertices[1].b, 96);
+  ExpectPositionEq(mesh.vertices[1], 4.0f, 5.0f, 6.0f);
+  ExpectColorEq(mesh.vertices[1], 32, 64, 96);
 
-  EXPECT_EQ(mesh.vertices[2].x, 7.0f);
-  EXPECT_EQ(mesh.vertices[2].r, 10);
-  EXPECT_EQ(mesh.vertices[2].g, 20);
-  EXPECT_EQ(mesh.vertices[2].b, 30);
+  ExpectPositionEq(mesh.vertices[2], 7.0f, 8.0f, 9.0f);
+  ExpectColorEq(mesh.vertices[2], 10, 20, 30);
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithIntegerCoordinates) {
@@ -733,12 +702,8 @@ TEST(Ply, ReadBinaryPlyMeshWithIntegerCoordinates) {
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 2);
-  EXPECT_EQ(mesh.vertices[0].x, -2.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 400.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 100000.0f);
-  EXPECT_EQ(mesh.vertices[1].x, 30000.0f);
-  EXPECT_EQ(mesh.vertices[1].y, 50000.0f);
-  EXPECT_EQ(mesh.vertices[1].z, -500000.0f);
+  ExpectPositionEq(mesh.vertices[0], -2.0f, 400.0f, 100000.0f);
+  ExpectPositionEq(mesh.vertices[1], 30000.0f, 50000.0f, -500000.0f);
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithDoubleCoordinates) {
@@ -759,12 +724,8 @@ TEST(Ply, ReadBinaryPlyMeshWithDoubleCoordinates) {
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 2);
-  EXPECT_EQ(mesh.vertices[0].x, 1.5f);
-  EXPECT_EQ(mesh.vertices[0].y, -2.25f);
-  EXPECT_EQ(mesh.vertices[0].z, 100000.0f);
-  EXPECT_EQ(mesh.vertices[1].x, -0.5f);
-  EXPECT_EQ(mesh.vertices[1].y, 0.0f);
-  EXPECT_EQ(mesh.vertices[1].z, -30000.0f);
+  ExpectPositionEq(mesh.vertices[0], 1.5f, -2.25f, 100000.0f);
+  ExpectPositionEq(mesh.vertices[1], -0.5f, 0.0f, -30000.0f);
 }
 
 TEST(Ply, ReadBinaryPlyMeshWith8And32BitCoordinates) {
@@ -784,12 +745,8 @@ TEST(Ply, ReadBinaryPlyMeshWith8And32BitCoordinates) {
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 2);
-  EXPECT_EQ(mesh.vertices[0].x, -100.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 0.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 12345678.0f);
-  EXPECT_EQ(mesh.vertices[1].x, 100.0f);
-  EXPECT_EQ(mesh.vertices[1].y, 255.0f);
-  EXPECT_EQ(mesh.vertices[1].z, 100.0f);
+  ExpectPositionEq(mesh.vertices[0], -100.0f, 0.0f, 12345678.0f);
+  ExpectPositionEq(mesh.vertices[1], 100.0f, 255.0f, 100.0f);
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithBigEndianIntegerCoordinates) {
@@ -809,12 +766,8 @@ TEST(Ply, ReadBinaryPlyMeshWithBigEndianIntegerCoordinates) {
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 2);
-  EXPECT_EQ(mesh.vertices[0].x, -300.0f);
-  EXPECT_EQ(mesh.vertices[0].y, -500000.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 1.5f);
-  EXPECT_EQ(mesh.vertices[1].x, 30000.0f);
-  EXPECT_EQ(mesh.vertices[1].y, 500000.0f);
-  EXPECT_EQ(mesh.vertices[1].z, -2.5f);
+  ExpectPositionEq(mesh.vertices[0], -300.0f, -500000.0f, 1.5f);
+  ExpectPositionEq(mesh.vertices[1], 30000.0f, 500000.0f, -2.5f);
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithMixedColorTypes) {
@@ -846,12 +799,8 @@ TEST(Ply, ReadBinaryPlyMeshWithMixedColorTypes) {
 
   ASSERT_EQ(mesh.vertices.size(), 2);
   // Out-of-range integer channels clamp to 255; 0-1 float channels scale.
-  EXPECT_EQ(mesh.vertices[0].r, 200);
-  EXPECT_EQ(mesh.vertices[0].g, 100);
-  EXPECT_EQ(mesh.vertices[0].b, 255);
-  EXPECT_EQ(mesh.vertices[1].r, 10);
-  EXPECT_EQ(mesh.vertices[1].g, 255);
-  EXPECT_EQ(mesh.vertices[1].b, 127);
+  ExpectColorEq(mesh.vertices[0], 200, 100, 255);
+  ExpectColorEq(mesh.vertices[1], 10, 255, 127);
 }
 
 TEST(Ply, ReadTextPlyMeshWithFloatColors) {
@@ -868,12 +817,8 @@ TEST(Ply, ReadTextPlyMeshWithFloatColors) {
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 2);
-  EXPECT_EQ(mesh.vertices[0].r, 255);
-  EXPECT_EQ(mesh.vertices[0].g, 127);
-  EXPECT_EQ(mesh.vertices[0].b, 0);
-  EXPECT_EQ(mesh.vertices[1].r, 0);
-  EXPECT_EQ(mesh.vertices[1].g, 255);
-  EXPECT_EQ(mesh.vertices[1].b, 63);
+  ExpectColorEq(mesh.vertices[0], 255, 127, 0);
+  ExpectColorEq(mesh.vertices[1], 0, 255, 63);
 }
 
 TEST(Ply, HasPlyMeshFacesWithMesh) {
