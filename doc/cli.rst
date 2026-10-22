@@ -107,7 +107,8 @@ Graceful shutdown and resuming
 ------------------------------
 
 The feature extraction and matching commands, ``mapper``,
-``pose_prior_mapper``, ``bundle_adjuster``, ``point_triangulator``,
+``pose_prior_mapper``, ``bundle_adjuster``, ``pose_prior_bundle_adjuster``,
+``point_triangulator``,
 ``image_registrator``, ``single_view_calibrator``, the image undistortion commands,
 ``patch_match_stereo``, and ``stereo_fusion`` handle ``SIGINT`` and ``SIGTERM``
 cooperatively. ``automatic_reconstructor`` supports graceful shutdown when
@@ -260,6 +261,7 @@ The available commands can be listed using the command::
           patch_match_stereo
           point_filtering
           point_triangulator
+          pose_prior_bundle_adjuster
           pose_prior_mapper
           poisson_mesher
           project_generator
@@ -383,6 +385,10 @@ available as ``colmap [command]``:
   camera calibrations manually.
 
 - ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose priors.
+
+- ``pose_prior_bundle_adjuster``: Run global bundle adjustment on a
+  reconstructed scene with position constraints from the pose priors stored in
+  the database, as done internally by ``pose_prior_mapper``.
 
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.

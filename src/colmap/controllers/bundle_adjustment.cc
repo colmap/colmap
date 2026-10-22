@@ -10,8 +10,11 @@
 namespace colmap {
 BundleAdjustmentController::BundleAdjustmentController(
     const OptionManager& options,
-    std::shared_ptr<Reconstruction> reconstruction)
-    : options_(options), reconstruction_(std::move(reconstruction)) {}
+    std::shared_ptr<Reconstruction> reconstruction,
+    std::unique_ptr<PosePriorConfig> pose_prior_config)
+    : options_(options),
+      reconstruction_(std::move(reconstruction)),
+      pose_prior_config_(std::move(pose_prior_config)) {}
 
 void BundleAdjustmentController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
@@ -39,15 +42,27 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     ba_config.AddImage(image_id);
   }
-  // Fixing the gauge with two cameras leads to a more stable optimization
-  // with fewer steps as compared to fixing three points.
-  // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
-  // as initial experiments show that it is even faster.
-  ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  std::unique_ptr<BundleAdjuster> bundle_adjuster;
+  if (pose_prior_config_ != nullptr) {
+    // The pose prior bundle adjuster fixes the gauge by itself if the priors
+    // cannot constrain it.
+    bundle_adjuster = CreatePosePriorBundleAdjuster(ba_options,
+                                                    pose_prior_config_->options,
+                                                    ba_config,
+                                                    pose_prior_config_->pose_priors,
+                                                    *reconstruction_);
+  } else {
+    // Fixing the gauge with two cameras leads to a more stable optimization
+    // with fewer steps as compared to fixing three points.
+    // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
+    // as initial experiments show that it is even faster.
+    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+    bundle_adjuster =
+        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
+  }
 
   // Run bundle adjustment.
-  std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
   bundle_adjuster->Solve();
   reconstruction_->UpdatePoint3DErrors();
 
