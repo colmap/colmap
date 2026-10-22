@@ -186,3 +186,64 @@ def test_stop_after_global_positioning(tmp_path):
     assert len(models) == len(updates) == 1
     assert models[0].num_reg_frames() == 5
     assert models[0].num_points3D() > 0
+
+
+@pytest.mark.parametrize("stop_after", [None, 0, 1, 2, 3])
+def test_solve_callback(tmp_path, stop_after):
+    database = create_database(tmp_path / "database.db", noise=True)
+    cache = pycolmap.DatabaseCache.create(
+        database, pycolmap.DatabaseCacheOptions()
+    )
+    mapper = pycolmap.GlobalMapper(cache)
+    reconstruction = pycolmap.Reconstruction()
+    mapper.begin_reconstruction(reconstruction)
+    options = pycolmap.GlobalMapperOptions(num_threads=1, random_seed=42)
+    options.bundle_adjustment.ceres.use_gpu = False
+    options.global_positioning.use_gpu = False
+    calls = 0
+
+    def on_progress():
+        nonlocal calls
+        calls += 1
+        expected = copy.deepcopy(reconstruction)
+        expected.update_point_3d_errors()
+        for point_id, point in reconstruction.points3D.items():
+            np.testing.assert_allclose(
+                point.error,
+                expected.points3D[point_id].error,
+                atol=1e-10,
+                rtol=1e-10,
+            )
+        return calls == stop_after
+
+    callback = None if stop_after is None else on_progress
+    assert custom.solve(mapper, cache, options, callback)
+    assert reconstruction.num_points3D() > 0
+    if stop_after is None:
+        assert calls == 0
+    elif stop_after:
+        # A stop during BA exits its loop; retriangulation still reports.
+        assert calls == (3 if stop_after == 2 else stop_after)
+    else:
+        assert calls >= 3
+
+
+def test_cli_preserves_model_order(tmp_path, monkeypatch):
+    models = [
+        pycolmap.synthesize_dataset(
+            pycolmap.SyntheticDatasetOptions(
+                num_rigs=1,
+                num_frames_per_rig=frames,
+                num_points3D=points,
+            )
+        )
+        for frames, points in [(6, 10), (3, 20)]
+    ]
+    database_path = tmp_path / "database.db"
+    create_database(database_path).close()
+    monkeypatch.setattr(custom, "main_global_mapper", lambda *args: models)
+    custom.main(database_path, None, tmp_path / "output")
+    for i, model in enumerate(models):
+        saved = pycolmap.Reconstruction(tmp_path / "output" / str(i))
+        assert saved.num_reg_frames() == model.num_reg_frames()
+        assert saved.num_points3D() == model.num_points3D()

@@ -167,6 +167,7 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
 }
 
 void GlobalMapper::EstablishTracks(const GlobalMapperOptions& options) {
+  THROW_CHECK_NOTNULL(reconstruction_);
   using Observation = std::pair<image_t, point2D_t>;
   THROW_CHECK_EQ(reconstruction_->NumPoints3D(), 0);
 
@@ -335,6 +336,7 @@ void GlobalMapper::FilterAfterGlobalPositioning(
     double max_angular_reproj_error_deg,
     double max_normalized_reproj_error,
     double min_tri_angle_deg) {
+  THROW_CHECK_NOTNULL(reconstruction_);
   // Filter tracks based on the estimation
   ObservationManager obs_manager(*reconstruction_);
 

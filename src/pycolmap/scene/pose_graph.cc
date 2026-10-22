@@ -46,6 +46,11 @@ void BindPoseGraph(py::module& m) {
   py::classh<PoseGraph>(m, "PoseGraph")
       .def(py::init<>())
       .def(py::init<const PoseGraph&>(), "other"_a)
+      .def("__copy__", [](const PoseGraph& self) { return PoseGraph(self); })
+      .def("__deepcopy__",
+           [](const PoseGraph& self, const py::dict&) {
+             return PoseGraph(self);
+           })
       .def_property_readonly("edges",
                              py::overload_cast<>(&PoseGraph::Edges),
                              py::return_value_policy::reference_internal,

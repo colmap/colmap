@@ -118,8 +118,10 @@ def iterative_bundle_adjustment(reconstruction, options, on_progress):
         ):
             return False
         reconstruction.normalize()
-        if on_progress():
-            break
+        if on_progress:
+            reconstruction.update_point_3d_errors()
+            if on_progress():
+                break
         filtered = 0
         status = True
         while status and iteration < options.ba_num_iterations:
@@ -190,7 +192,7 @@ def iterative_retriangulate_and_refine(mapper, database_cache, options):
     return True
 
 
-def solve(mapper, database_cache, options, on_progress):
+def solve(mapper, database_cache, options, on_progress=None):
     """Equivalent to GlobalMapper::Solve."""
     if mapper.pose_graph.empty:
         return False
@@ -203,8 +205,10 @@ def solve(mapper, database_cache, options, on_progress):
     if not options.skip_global_positioning:
         if not global_positioning(mapper, options):
             return False
-        if on_progress():
-            return True
+        if on_progress:
+            mapper.reconstruction.update_point_3d_errors()
+            if on_progress():
+                return True
     if not options.skip_bundle_adjustment and not iterative_bundle_adjustment(
         mapper.reconstruction, options, on_progress
     ):
@@ -214,8 +218,10 @@ def solve(mapper, database_cache, options, on_progress):
             mapper, database_cache, options
         ):
             return False
-        if on_progress():
-            return True
+        if on_progress:
+            mapper.reconstruction.update_point_3d_errors()
+            if on_progress():
+                return True
     mapper.reconstruction.update_point_3d_errors()
     return True
 
@@ -261,7 +267,6 @@ def reconstruct_single_component(cache, options, on_progress):
     mapper.begin_reconstruction(reconstruction)
 
     def report_progress():
-        reconstruction.update_point_3d_errors()
         return on_progress(reconstruction)
 
     if not solve(mapper, cache, options, report_progress):
@@ -378,9 +383,7 @@ def main(database_path, image_path, output_path, options=None):
     with pycolmap.Database.open(database_path) as database:
         models = main_global_mapper(database, options)
     output_path.mkdir(parents=True, exist_ok=True)
-    for i, reconstruction in enumerate(
-        sorted(models, key=lambda model: model.num_points3D(), reverse=True)
-    ):
+    for i, reconstruction in enumerate(models):
         model_path = output_path / str(i)
         model_path.mkdir(exist_ok=True)
         reconstruction.write(model_path)

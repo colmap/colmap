@@ -121,7 +121,7 @@ void BindTwoViewGeometryEstimator(py::module& m) {
 
   m.def("maybe_decompose_relative_poses",
         &MaybeDecomposeRelativePoses,
-        "database_cache"_a,
+        "database_cache"_a.none(false),
         py::call_guard<py::gil_scoped_release>());
 
   m.def("estimate_two_view_geometry_pose",
