@@ -400,6 +400,30 @@ TEST(GPS, UTMAntimeridian) {
   }
 }
 
+TEST(GPS, UTMInverseAcrossAntimeridian) {
+  for (const auto ellipsoid :
+       {GPSTransform::Ellipsoid::GRS80, GPSTransform::Ellipsoid::WGS84}) {
+    const GPSTransform gps_tform(ellipsoid);
+    for (const double latitude : {-10.0, 10.0}) {
+      for (const double sign : {-1.0, 1.0}) {
+        const std::vector<Eigen::Vector3d> ell = {
+            {latitude, sign * 179.9, 123},
+            {latitude, sign * 179.9, 456},
+            {latitude, -sign * 179.9, 789}};
+        const auto [utm, zone] = gps_tform.EllipsoidToUTM(ell);
+        ASSERT_EQ(zone, sign > 0 ? 60 : 1);
+        const auto actual = gps_tform.UTMToEllipsoid(utm, zone, latitude > 0);
+        ASSERT_EQ(actual.size(), ell.size());
+        for (size_t i = 0; i < ell.size(); ++i) {
+          EXPECT_THAT(actual[i], EigenMatrixNear(ell[i], 1e-8));
+          EXPECT_GE(actual[i](1), -180.0);
+          EXPECT_LE(actual[i](1), 180.0);
+        }
+      }
+    }
+  }
+}
+
 TEST(GPS, UTMConversion) {
   std::vector<Eigen::Vector3d> ell;
   ell.reserve(3);

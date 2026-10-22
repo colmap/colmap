@@ -606,8 +606,18 @@ ObservationScaleMap GenerateObservationScales(
         if (!cam_ray.has_value()) continue;
         const Eigen::Vector3d cam_from_point3D_dir =
             image.CamFromWorld().rotation().inverse() * (*cam_ray);
-        const Eigen::Vector3d cam_from_point3D_translation =
+        Eigen::Vector3d cam_from_point3D_translation =
             point3D.xyz - image.FramePtr()->RigFromWorld().TgtOriginInSrc();
+        if (!image.IsRefInFrame()) {
+          const Rigid3d& cam_from_rig =
+              image.FramePtr()->RigPtr()->SensorFromRig(camera.SensorId());
+          if (!cam_from_rig.translation().hasNaN()) {
+            // Match the fixed-rig residual's camera-to-point displacement.
+            cam_from_point3D_translation +=
+                image.CamFromWorld().rotation().inverse() *
+                cam_from_rig.translation();
+          }
+        }
         scale =
             std::max(1e-5,
                      cam_from_point3D_dir.dot(cam_from_point3D_translation) /
