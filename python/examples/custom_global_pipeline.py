@@ -169,7 +169,19 @@ def iterative_retriangulate_and_refine(mapper, database_cache, options):
             observations = reconstruction.compute_num_observations()
             incremental.observation_manager.filter_observations_with_negative_depth()
             if reconstruction.num_reg_images() >= 2:
-                run_bundle_adjustment(refinement, reconstruction)
+                custom_ba_options = copy.deepcopy(refinement)
+                # Use stricter convergence criteria for first registered images.
+                if (
+                    reconstruction.num_reg_frames() < 10
+                    and custom_ba_options.ceres
+                ):
+                    solver = custom_ba_options.ceres.solver_options
+                    solver.function_tolerance /= 10
+                    solver.gradient_tolerance /= 10
+                    solver.parameter_tolerance /= 10
+                    solver.max_num_iterations *= 2
+                    solver.max_linear_solver_iterations = 200
+                run_bundle_adjustment(custom_ba_options, reconstruction)
             if refinement.check_if_stopped and refinement.check_if_stopped():
                 break
             changed = incremental.complete_and_merge_tracks(tri_options)
