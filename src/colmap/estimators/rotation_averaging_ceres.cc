@@ -63,14 +63,14 @@ CeresRotationAverager::CeresRotationAverager(
   if (image_ids.empty()) {
     throw std::invalid_argument("Ceres rotation averaging requires edges");
   }
-  const auto frame_components = pose_graph.ConnectedFrameComponents(
+  const auto image_components = pose_graph.ConnectedImageIdsForFrameComponents(
       reconstruction, /*filter_unregistered=*/false);
-  if (frame_components.size() != 1) {
+  if (image_components.size() != 1) {
     throw std::invalid_argument(
         "Ceres rotation averaging requires a connected pose graph");
   }
 
-  InitializeRotations(options, pose_graph, image_ids);
+  InitializeRotations(options, pose_graph, image_components.front());
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
