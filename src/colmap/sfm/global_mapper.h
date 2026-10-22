@@ -142,7 +142,8 @@ class GlobalMapper {
                          double max_normalized_reproj_error,
                          double min_tri_angle_deg);
 
-  // Filter tracks after global positioning, without normalizing the scene.
+  // Remove outlier observations and points after global positioning, without
+  // normalizing the scene.
   void FilterAfterGlobalPositioning(double max_angular_reproj_error_deg,
                                     double max_normalized_reproj_error,
                                     double min_tri_angle_deg);

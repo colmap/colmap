@@ -345,7 +345,12 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("min_track_length",
                          &BAOpts::min_track_length,
                          "Minimum track length for a 3D point.")
-          .def_readwrite("check_if_stopped", &BAOpts::check_if_stopped)
+          .def_readwrite(
+              "check_if_stopped",
+              &BAOpts::check_if_stopped,
+              "Optional cooperative cancellation callback. Ceres evaluates this "
+              "after each iteration. Other backends may only evaluate it "
+              "between solver runs. Not preserved by pickling.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")

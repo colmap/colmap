@@ -115,7 +115,11 @@ void BindPoseGraph(py::module& m) {
       .def("connected_image_ids_for_frame_components",
            &PoseGraph::ConnectedImageIdsForFrameComponents,
            "reconstruction"_a,
-           "filter_unregistered"_a = true)
+           "filter_unregistered"_a = true,
+           "Returns image IDs for each connected frame component. The outer list "
+           "is sorted by the number of frames in each component, largest "
+           "first. If filter_unregistered is True, only considers frames "
+           "whose has_pose() returns True.")
       .def("largest_connected_frame_component",
            &PoseGraph::LargestConnectedFrameComponent,
            "reconstruction"_a,

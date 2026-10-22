@@ -310,20 +310,29 @@ void BindRotationEstimator(py::module& m) {
                          "INLIER_MATCH_COUNT.");
   MakeDataclass(PyRotationEstimatorOptions);
 
-  m.def("run_rotation_averaging_on_component",
-        &RunRotationAveragingOnComponent,
-        "options"_a,
-        "pose_graph"_a,
-        "active_image_ids"_a,
-        "reconstruction"_a,
-        "pose_priors"_a,
-        py::call_guard<py::gil_scoped_release>());
+  m.def(
+      "run_rotation_averaging_on_component",
+      &RunRotationAveragingOnComponent,
+      "options"_a,
+      "pose_graph"_a,
+      "active_image_ids"_a,
+      "reconstruction"_a,
+      "pose_priors"_a,
+      py::call_guard<py::gil_scoped_release>(),
+      "Estimates rotations for the given connected component active_image_ids "
+      "and registers its frames. Handles rigs with unknown cam_from_rig by "
+      "first solving on an expanded reconstruction. Does not perform outlier "
+      "filtering or de-registration; callers compose these primitives to "
+      "implement the desired post-processing.");
   m.def("filter_edges_by_relative_rotation",
         &FilterEdgesByRelativeRotation,
         "pose_graph"_a,
         "reconstruction"_a,
         "max_angle_deg"_a,
-        py::call_guard<py::gil_scoped_release>());
+        py::call_guard<py::gil_scoped_release>(),
+        "Marks image pairs as invalid whose relative rotation disagrees with the "
+        "reconstructed rotations by more than max_angle_deg. Pairs whose "
+        "images do not both have a pose are left untouched.");
 
   m.def(
       "run_rotation_averaging",
