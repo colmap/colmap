@@ -1173,7 +1173,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
     ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster =
-        CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
+        CreateDefaultBundleAdjuster(custom_ba_options, ba_config, *reconstruction_);
   } else {
     PosePriorBundleAdjustmentOptions prior_options;
     if (options.use_robust_loss_on_prior_position) {
