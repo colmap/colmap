@@ -2,56 +2,140 @@
 
 #include "colmap/util/ply.h"
 
+#include "colmap/util/endian.h"
 #include "colmap/util/testing.h"
 
+#include <array>
+#include <cstdint>
 #include <fstream>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
 
+// Write a binary PLY mesh with the given vertex properties (e.g. "short x")
+// and triangular faces. The payload callback receives a Write function that
+// encodes one scalar in the file's endianness; it must write exactly
+// num_vertices vertices. Pass explicitly typed values (e.g. int16_t(-300))
+// so that scalars get the intended width.
+template <typename WritePayload>
+std::filesystem::path WriteBinaryPlyMesh(
+    const std::string& file_name,
+    const std::string& format,
+    size_t num_vertices,
+    const std::vector<std::string>& properties,
+    WritePayload&& write_payload,
+    const std::vector<std::array<int, 3>>& faces = {}) {
+  const auto test_file = CreateTestDir() / file_name;
+  {
+    std::ofstream text_file(test_file);
+    text_file << "ply\n";
+    text_file << "format " << format << " 1.0\n";
+    text_file << "element vertex " << num_vertices << "\n";
+    for (const auto& property : properties) {
+      text_file << "property " << property << "\n";
+    }
+    text_file << "element face " << faces.size() << "\n";
+    text_file << "property list uchar int vertex_index\n";
+    text_file << "end_header\n";
+    text_file.close();
+
+    std::ofstream binary_file(test_file,
+                              std::ios::out | std::ios::binary | std::ios::app);
+    const bool little_endian = (format == "binary_little_endian");
+    const auto Write = [&](auto value) {
+      const auto converted = little_endian ? NativeToLittleEndian(value)
+                                           : NativeToBigEndian(value);
+      binary_file.write(reinterpret_cast<const char*>(&converted),
+                        sizeof(converted));
+    };
+    write_payload(Write);
+    for (const auto& face : faces) {
+      Write(uint8_t(3));
+      for (int idx : face) {
+        Write(int32_t(idx));
+      }
+    }
+  }
+  return test_file;
+}
+
+// Write an ASCII PLY mesh with the given vertex properties, vertex lines,
+// and face lines.
+std::filesystem::path WriteTextPlyMesh(
+    const std::string& file_name,
+    const std::vector<std::string>& properties,
+    const std::vector<std::string>& vertex_lines,
+    const std::vector<std::string>& face_lines = {}) {
+  const auto test_file = CreateTestDir() / file_name;
+  std::ofstream file(test_file);
+  file << "ply\n";
+  file << "format ascii 1.0\n";
+  file << "element vertex " << vertex_lines.size() << "\n";
+  for (const auto& property : properties) {
+    file << "property " << property << "\n";
+  }
+  file << "element face " << face_lines.size() << "\n";
+  file << "property list uchar int vertex_index\n";
+  file << "end_header\n";
+  for (const auto& vertex_line : vertex_lines) {
+    file << vertex_line << "\n";
+  }
+  for (const auto& face_line : face_lines) {
+    file << face_line << "\n";
+  }
+  return test_file;
+}
+
+// Check a mesh vertex or point position.
+template <typename Vertex>
+void ExpectPositionEq(const Vertex& vertex, float x, float y, float z) {
+  EXPECT_EQ(vertex.x, x);
+  EXPECT_EQ(vertex.y, y);
+  EXPECT_EQ(vertex.z, z);
+}
+
+// Check a point normal.
+void ExpectNormalEq(const PlyPoint& point, float nx, float ny, float nz) {
+  EXPECT_EQ(point.nx, nx);
+  EXPECT_EQ(point.ny, ny);
+  EXPECT_EQ(point.nz, nz);
+}
+
+// Check a mesh vertex or point color.
+template <typename Vertex>
+void ExpectColorEq(const Vertex& vertex, int r, int g, int b) {
+  EXPECT_EQ(vertex.r, r);
+  EXPECT_EQ(vertex.g, g);
+  EXPECT_EQ(vertex.b, b);
+}
+
 TEST(PlyPoint, DefaultConstructor) {
   PlyPoint point;
-  EXPECT_EQ(point.x, 0.0f);
-  EXPECT_EQ(point.y, 0.0f);
-  EXPECT_EQ(point.z, 0.0f);
-  EXPECT_EQ(point.nx, 0.0f);
-  EXPECT_EQ(point.ny, 0.0f);
-  EXPECT_EQ(point.nz, 0.0f);
-  EXPECT_EQ(point.r, 0);
-  EXPECT_EQ(point.g, 0);
-  EXPECT_EQ(point.b, 0);
+  ExpectPositionEq(point, 0.0f, 0.0f, 0.0f);
+  ExpectNormalEq(point, 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(point, 0, 0, 0);
 }
 
 TEST(PlyMeshVertex, DefaultConstructor) {
   PlyMeshVertex vertex;
-  EXPECT_EQ(vertex.x, 0.0f);
-  EXPECT_EQ(vertex.y, 0.0f);
-  EXPECT_EQ(vertex.z, 0.0f);
-  EXPECT_EQ(vertex.r, 200);
-  EXPECT_EQ(vertex.g, 200);
-  EXPECT_EQ(vertex.b, 200);
+  ExpectPositionEq(vertex, 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(vertex, 200, 200, 200);
 }
 
 TEST(PlyMeshVertex, ParameterizedConstructor) {
   PlyMeshVertex vertex(1.5f, 2.5f, 3.5f);
-  EXPECT_EQ(vertex.x, 1.5f);
-  EXPECT_EQ(vertex.y, 2.5f);
-  EXPECT_EQ(vertex.z, 3.5f);
-  EXPECT_EQ(vertex.r, 200);
-  EXPECT_EQ(vertex.g, 200);
-  EXPECT_EQ(vertex.b, 200);
+  ExpectPositionEq(vertex, 1.5f, 2.5f, 3.5f);
+  ExpectColorEq(vertex, 200, 200, 200);
 }
 
 TEST(PlyMeshVertex, ColorConstructor) {
   PlyMeshVertex vertex(1.0f, 2.0f, 3.0f, 10, 20, 30);
-  EXPECT_EQ(vertex.x, 1.0f);
-  EXPECT_EQ(vertex.y, 2.0f);
-  EXPECT_EQ(vertex.z, 3.0f);
-  EXPECT_EQ(vertex.r, 10);
-  EXPECT_EQ(vertex.g, 20);
-  EXPECT_EQ(vertex.b, 30);
+  ExpectPositionEq(vertex, 1.0f, 2.0f, 3.0f);
+  ExpectColorEq(vertex, 10, 20, 30);
 }
 
 TEST(PlyMeshFace, DefaultConstructor) {
@@ -96,15 +180,18 @@ TEST(Ply, RoundTripTextPlyPointsFullData) {
   ASSERT_EQ(loaded_points.size(), original_points.size());
 
   for (size_t i = 0; i < original_points.size(); ++i) {
-    EXPECT_EQ(loaded_points[i].x, original_points[i].x);
-    EXPECT_EQ(loaded_points[i].y, original_points[i].y);
-    EXPECT_EQ(loaded_points[i].z, original_points[i].z);
-    EXPECT_EQ(loaded_points[i].nx, original_points[i].nx);
-    EXPECT_EQ(loaded_points[i].ny, original_points[i].ny);
-    EXPECT_EQ(loaded_points[i].nz, original_points[i].nz);
-    EXPECT_EQ(loaded_points[i].r, original_points[i].r);
-    EXPECT_EQ(loaded_points[i].g, original_points[i].g);
-    EXPECT_EQ(loaded_points[i].b, original_points[i].b);
+    ExpectPositionEq(loaded_points[i],
+                     original_points[i].x,
+                     original_points[i].y,
+                     original_points[i].z);
+    ExpectNormalEq(loaded_points[i],
+                   original_points[i].nx,
+                   original_points[i].ny,
+                   original_points[i].nz);
+    ExpectColorEq(loaded_points[i],
+                  original_points[i].r,
+                  original_points[i].g,
+                  original_points[i].b);
   }
 }
 
@@ -131,16 +218,10 @@ TEST(Ply, RoundTripTextPlyPointsXYZOnly) {
   std::vector<PlyPoint> loaded_points = ReadPly(test_file);
 
   ASSERT_EQ(loaded_points.size(), 1);
-  EXPECT_EQ(loaded_points[0].x, 1.5f);
-  EXPECT_EQ(loaded_points[0].y, 2.5f);
-  EXPECT_EQ(loaded_points[0].z, 3.5f);
+  ExpectPositionEq(loaded_points[0], 1.5f, 2.5f, 3.5f);
   // Normals and colors should be default (0)
-  EXPECT_EQ(loaded_points[0].nx, 0.0f);
-  EXPECT_EQ(loaded_points[0].ny, 0.0f);
-  EXPECT_EQ(loaded_points[0].nz, 0.0f);
-  EXPECT_EQ(loaded_points[0].r, 0);
-  EXPECT_EQ(loaded_points[0].g, 0);
-  EXPECT_EQ(loaded_points[0].b, 0);
+  ExpectNormalEq(loaded_points[0], 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(loaded_points[0], 0, 0, 0);
 }
 
 TEST(Ply, RoundTripBinaryPlyPointsFullData) {
@@ -171,15 +252,18 @@ TEST(Ply, RoundTripBinaryPlyPointsFullData) {
   ASSERT_EQ(loaded_points.size(), original_points.size());
 
   for (size_t i = 0; i < original_points.size(); ++i) {
-    EXPECT_EQ(loaded_points[i].x, original_points[i].x);
-    EXPECT_EQ(loaded_points[i].y, original_points[i].y);
-    EXPECT_EQ(loaded_points[i].z, original_points[i].z);
-    EXPECT_EQ(loaded_points[i].nx, original_points[i].nx);
-    EXPECT_EQ(loaded_points[i].ny, original_points[i].ny);
-    EXPECT_EQ(loaded_points[i].nz, original_points[i].nz);
-    EXPECT_EQ(loaded_points[i].r, original_points[i].r);
-    EXPECT_EQ(loaded_points[i].g, original_points[i].g);
-    EXPECT_EQ(loaded_points[i].b, original_points[i].b);
+    ExpectPositionEq(loaded_points[i],
+                     original_points[i].x,
+                     original_points[i].y,
+                     original_points[i].z);
+    ExpectNormalEq(loaded_points[i],
+                   original_points[i].nx,
+                   original_points[i].ny,
+                   original_points[i].nz);
+    ExpectColorEq(loaded_points[i],
+                  original_points[i].r,
+                  original_points[i].g,
+                  original_points[i].b);
   }
 }
 
@@ -206,16 +290,10 @@ TEST(Ply, RoundTripBinaryPlyPointsXYZOnly) {
   std::vector<PlyPoint> loaded_points = ReadPly(test_file);
 
   ASSERT_EQ(loaded_points.size(), 1);
-  EXPECT_EQ(loaded_points[0].x, 10.5f);
-  EXPECT_EQ(loaded_points[0].y, 20.5f);
-  EXPECT_EQ(loaded_points[0].z, 30.5f);
+  ExpectPositionEq(loaded_points[0], 10.5f, 20.5f, 30.5f);
   // Normals and colors should be default (0)
-  EXPECT_EQ(loaded_points[0].nx, 0.0f);
-  EXPECT_EQ(loaded_points[0].ny, 0.0f);
-  EXPECT_EQ(loaded_points[0].nz, 0.0f);
-  EXPECT_EQ(loaded_points[0].r, 0);
-  EXPECT_EQ(loaded_points[0].g, 0);
-  EXPECT_EQ(loaded_points[0].b, 0);
+  ExpectNormalEq(loaded_points[0], 0.0f, 0.0f, 0.0f);
+  ExpectColorEq(loaded_points[0], 0, 0, 0);
 }
 
 TEST(Ply, ReadMeshVerticesAsPoints) {
@@ -237,9 +315,10 @@ TEST(Ply, ReadMeshVerticesAsPoints) {
     const auto points = ReadPly(test_file);
     ASSERT_EQ(points.size(), mesh.vertices.size());
     for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-      EXPECT_EQ(points[i].x, mesh.vertices[i].x);
-      EXPECT_EQ(points[i].y, mesh.vertices[i].y);
-      EXPECT_EQ(points[i].z, mesh.vertices[i].z);
+      ExpectPositionEq(points[i],
+                       mesh.vertices[i].x,
+                       mesh.vertices[i].y,
+                       mesh.vertices[i].z);
     }
   }
 }
@@ -286,13 +365,12 @@ TEST(Ply, RoundTripTextPlyMesh) {
   ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
 
   for (size_t i = 0; i < original_mesh.vertices.size(); ++i) {
-    EXPECT_EQ(loaded_mesh.vertices[i].x, original_mesh.vertices[i].x);
-    EXPECT_EQ(loaded_mesh.vertices[i].y, original_mesh.vertices[i].y);
-    EXPECT_EQ(loaded_mesh.vertices[i].z, original_mesh.vertices[i].z);
+    ExpectPositionEq(loaded_mesh.vertices[i],
+                     original_mesh.vertices[i].x,
+                     original_mesh.vertices[i].y,
+                     original_mesh.vertices[i].z);
     // No colors in file, should get defaults.
-    EXPECT_EQ(loaded_mesh.vertices[i].r, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].g, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].b, 200);
+    ExpectColorEq(loaded_mesh.vertices[i], 200, 200, 200);
   }
 
   for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
@@ -326,13 +404,12 @@ TEST(Ply, RoundTripBinaryPlyMesh) {
   ASSERT_EQ(loaded_mesh.faces.size(), original_mesh.faces.size());
 
   for (size_t i = 0; i < original_mesh.vertices.size(); ++i) {
-    EXPECT_EQ(loaded_mesh.vertices[i].x, original_mesh.vertices[i].x);
-    EXPECT_EQ(loaded_mesh.vertices[i].y, original_mesh.vertices[i].y);
-    EXPECT_EQ(loaded_mesh.vertices[i].z, original_mesh.vertices[i].z);
+    ExpectPositionEq(loaded_mesh.vertices[i],
+                     original_mesh.vertices[i].x,
+                     original_mesh.vertices[i].y,
+                     original_mesh.vertices[i].z);
     // No colors in file, should get defaults.
-    EXPECT_EQ(loaded_mesh.vertices[i].r, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].g, 200);
-    EXPECT_EQ(loaded_mesh.vertices[i].b, 200);
+    ExpectColorEq(loaded_mesh.vertices[i], 200, 200, 200);
   }
 
   for (size_t i = 0; i < original_mesh.faces.size(); ++i) {
@@ -385,9 +462,10 @@ void VerifyTexturedMesh(const PlyTexturedMesh& loaded,
   ASSERT_EQ(loaded.face_uvs.size(), original.face_uvs.size());
 
   for (size_t i = 0; i < original.mesh.vertices.size(); ++i) {
-    EXPECT_EQ(loaded.mesh.vertices[i].x, original.mesh.vertices[i].x);
-    EXPECT_EQ(loaded.mesh.vertices[i].y, original.mesh.vertices[i].y);
-    EXPECT_EQ(loaded.mesh.vertices[i].z, original.mesh.vertices[i].z);
+    ExpectPositionEq(loaded.mesh.vertices[i],
+                     original.mesh.vertices[i].x,
+                     original.mesh.vertices[i].y,
+                     original.mesh.vertices[i].z);
   }
 
   for (size_t i = 0; i < original.mesh.faces.size(); ++i) {
@@ -445,44 +523,25 @@ TEST(Ply, ReadPlyMeshWithoutTexcoords) {
 }
 
 TEST(Ply, ReadTextPlyMeshWithVertexColors) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_colors.ply";
-
-  // Write a PLY mesh with per-vertex colors manually.
-  {
-    std::ofstream file(test_file);
-    file << "ply\n";
-    file << "format ascii 1.0\n";
-    file << "element vertex 3\n";
-    file << "property float x\n";
-    file << "property float y\n";
-    file << "property float z\n";
-    file << "property uchar red\n";
-    file << "property uchar green\n";
-    file << "property uchar blue\n";
-    file << "element face 1\n";
-    file << "property list uchar int vertex_index\n";
-    file << "end_header\n";
-    file << "0 0 0 255 0 0\n";
-    file << "1 0 0 0 255 0\n";
-    file << "0 1 0 0 0 255\n";
-    file << "3 0 1 2\n";
-  }
+  const auto test_file =
+      WriteTextPlyMesh("mesh_colors.ply",
+                       {"float x",
+                        "float y",
+                        "float z",
+                        "uchar red",
+                        "uchar green",
+                        "uchar blue"},
+                       {"0 0 0 255 0 0", "1 0 0 0 255 0", "0 1 0 0 0 255"},
+                       {"3 0 1 2"});
 
   PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
   ASSERT_EQ(mesh.faces.size(), 1);
 
-  EXPECT_EQ(mesh.vertices[0].r, 255);
-  EXPECT_EQ(mesh.vertices[0].g, 0);
-  EXPECT_EQ(mesh.vertices[0].b, 0);
-  EXPECT_EQ(mesh.vertices[1].r, 0);
-  EXPECT_EQ(mesh.vertices[1].g, 255);
-  EXPECT_EQ(mesh.vertices[1].b, 0);
-  EXPECT_EQ(mesh.vertices[2].r, 0);
-  EXPECT_EQ(mesh.vertices[2].g, 0);
-  EXPECT_EQ(mesh.vertices[2].b, 255);
+  ExpectColorEq(mesh.vertices[0], 255, 0, 0);
+  ExpectColorEq(mesh.vertices[1], 0, 255, 0);
+  ExpectColorEq(mesh.vertices[2], 0, 0, 255);
 
   EXPECT_EQ(mesh.faces[0].vertex_idx1, 0);
   EXPECT_EQ(mesh.faces[0].vertex_idx2, 1);
@@ -490,194 +549,276 @@ TEST(Ply, ReadTextPlyMeshWithVertexColors) {
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithVertexColors) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_colors_bin.ply";
-
-  // Write a binary PLY mesh with per-vertex colors manually.
-  {
-    std::ofstream text_file(test_file);
-    text_file << "ply\n";
-    text_file << "format binary_little_endian 1.0\n";
-    text_file << "element vertex 3\n";
-    text_file << "property float x\n";
-    text_file << "property float y\n";
-    text_file << "property float z\n";
-    text_file << "property uchar red\n";
-    text_file << "property uchar green\n";
-    text_file << "property uchar blue\n";
-    text_file << "element face 1\n";
-    text_file << "property list uchar int vertex_index\n";
-    text_file << "end_header\n";
-    text_file.close();
-
-    std::ofstream bin_file(test_file,
-                           std::ios::out | std::ios::binary | std::ios::app);
-    const float v0[] = {1.0f, 2.0f, 3.0f};
-    const uint8_t c0[] = {100, 150, 200};
-    bin_file.write(reinterpret_cast<const char*>(v0), sizeof(v0));
-    bin_file.write(reinterpret_cast<const char*>(c0), sizeof(c0));
-    const float v1[] = {4.0f, 5.0f, 6.0f};
-    const uint8_t c1[] = {10, 20, 30};
-    bin_file.write(reinterpret_cast<const char*>(v1), sizeof(v1));
-    bin_file.write(reinterpret_cast<const char*>(c1), sizeof(c1));
-    const float v2[] = {7.0f, 8.0f, 9.0f};
-    const uint8_t c2[] = {50, 60, 70};
-    bin_file.write(reinterpret_cast<const char*>(v2), sizeof(v2));
-    bin_file.write(reinterpret_cast<const char*>(c2), sizeof(c2));
-    const uint8_t num_verts = 3;
-    const int idx[] = {0, 1, 2};
-    bin_file.write(reinterpret_cast<const char*>(&num_verts),
-                   sizeof(num_verts));
-    bin_file.write(reinterpret_cast<const char*>(idx), sizeof(idx));
-    bin_file.close();
-  }
+  const auto test_file = WriteBinaryPlyMesh("mesh_colors_bin.ply",
+                                            "binary_little_endian",
+                                            3,
+                                            {"float x",
+                                             "float y",
+                                             "float z",
+                                             "uchar red",
+                                             "uchar green",
+                                             "uchar blue"},
+                                            [](const auto& Write) {
+                                              Write(1.0f);
+                                              Write(2.0f);
+                                              Write(3.0f);
+                                              Write(uint8_t(100));
+                                              Write(uint8_t(150));
+                                              Write(uint8_t(200));
+                                              Write(4.0f);
+                                              Write(5.0f);
+                                              Write(6.0f);
+                                              Write(uint8_t(10));
+                                              Write(uint8_t(20));
+                                              Write(uint8_t(30));
+                                              Write(7.0f);
+                                              Write(8.0f);
+                                              Write(9.0f);
+                                              Write(uint8_t(50));
+                                              Write(uint8_t(60));
+                                              Write(uint8_t(70));
+                                            },
+                                            {{0, 1, 2}});
 
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
   ASSERT_EQ(mesh.faces.size(), 1);
 
-  EXPECT_EQ(mesh.vertices[0].x, 1.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 2.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 3.0f);
-  EXPECT_EQ(mesh.vertices[0].r, 100);
-  EXPECT_EQ(mesh.vertices[0].g, 150);
-  EXPECT_EQ(mesh.vertices[0].b, 200);
+  ExpectPositionEq(mesh.vertices[0], 1.0f, 2.0f, 3.0f);
+  ExpectColorEq(mesh.vertices[0], 100, 150, 200);
 
-  EXPECT_EQ(mesh.vertices[1].x, 4.0f);
-  EXPECT_EQ(mesh.vertices[1].r, 10);
-  EXPECT_EQ(mesh.vertices[1].g, 20);
-  EXPECT_EQ(mesh.vertices[1].b, 30);
+  ExpectPositionEq(mesh.vertices[1], 4.0f, 5.0f, 6.0f);
+  ExpectColorEq(mesh.vertices[1], 10, 20, 30);
 
-  EXPECT_EQ(mesh.vertices[2].x, 7.0f);
-  EXPECT_EQ(mesh.vertices[2].r, 50);
-  EXPECT_EQ(mesh.vertices[2].g, 60);
-  EXPECT_EQ(mesh.vertices[2].b, 70);
+  ExpectPositionEq(mesh.vertices[2], 7.0f, 8.0f, 9.0f);
+  ExpectColorEq(mesh.vertices[2], 50, 60, 70);
 }
 
 TEST(Ply, ReadTextPlyMeshWithExtraProperties) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_extra.ply";
-
-  // Write a PLY mesh with normals and colors (normals should be skipped).
-  {
-    std::ofstream file(test_file);
-    file << "ply\n";
-    file << "format ascii 1.0\n";
-    file << "element vertex 3\n";
-    file << "property float x\n";
-    file << "property float y\n";
-    file << "property float z\n";
-    file << "property float nx\n";
-    file << "property float ny\n";
-    file << "property float nz\n";
-    file << "property uchar red\n";
-    file << "property uchar green\n";
-    file << "property uchar blue\n";
-    file << "element face 1\n";
-    file << "property list uchar int vertex_index\n";
-    file << "end_header\n";
-    file << "1 2 3 0.1 0.2 0.3 255 128 64\n";
-    file << "4 5 6 0.4 0.5 0.6 32 64 96\n";
-    file << "7 8 9 0.7 0.8 0.9 10 20 30\n";
-    file << "3 0 1 2\n";
-  }
+  // Normals should be skipped.
+  const auto test_file = WriteTextPlyMesh("mesh_extra.ply",
+                                          {"float x",
+                                           "float y",
+                                           "float z",
+                                           "float nx",
+                                           "float ny",
+                                           "float nz",
+                                           "uchar red",
+                                           "uchar green",
+                                           "uchar blue"},
+                                          {"1 2 3 0.1 0.2 0.3 255 128 64",
+                                           "4 5 6 0.4 0.5 0.6 32 64 96",
+                                           "7 8 9 0.7 0.8 0.9 10 20 30"},
+                                          {"3 0 1 2"});
 
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
 
   // Positions should be read correctly.
-  EXPECT_EQ(mesh.vertices[0].x, 1.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 2.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 3.0f);
-  EXPECT_EQ(mesh.vertices[1].x, 4.0f);
-  EXPECT_EQ(mesh.vertices[2].x, 7.0f);
+  ExpectPositionEq(mesh.vertices[0], 1.0f, 2.0f, 3.0f);
+  ExpectPositionEq(mesh.vertices[1], 4.0f, 5.0f, 6.0f);
+  ExpectPositionEq(mesh.vertices[2], 7.0f, 8.0f, 9.0f);
 
   // Colors should be read correctly despite extra normal properties.
-  EXPECT_EQ(mesh.vertices[0].r, 255);
-  EXPECT_EQ(mesh.vertices[0].g, 128);
-  EXPECT_EQ(mesh.vertices[0].b, 64);
-  EXPECT_EQ(mesh.vertices[1].r, 32);
-  EXPECT_EQ(mesh.vertices[1].g, 64);
-  EXPECT_EQ(mesh.vertices[1].b, 96);
-  EXPECT_EQ(mesh.vertices[2].r, 10);
-  EXPECT_EQ(mesh.vertices[2].g, 20);
-  EXPECT_EQ(mesh.vertices[2].b, 30);
+  ExpectColorEq(mesh.vertices[0], 255, 128, 64);
+  ExpectColorEq(mesh.vertices[1], 32, 64, 96);
+  ExpectColorEq(mesh.vertices[2], 10, 20, 30);
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_extra_bin.ply";
-
-  // Write a binary PLY mesh with normals + colors.
-  {
-    std::ofstream text_file(test_file);
-    text_file << "ply\n";
-    text_file << "format binary_little_endian 1.0\n";
-    text_file << "element vertex 3\n";
-    text_file << "property float x\n";
-    text_file << "property float y\n";
-    text_file << "property float z\n";
-    text_file << "property float nx\n";
-    text_file << "property float ny\n";
-    text_file << "property float nz\n";
-    text_file << "property uchar red\n";
-    text_file << "property uchar green\n";
-    text_file << "property uchar blue\n";
-    text_file << "element face 1\n";
-    text_file << "property list uchar int vertex_index\n";
-    text_file << "end_header\n";
-    text_file.close();
-
-    std::ofstream bin_file(test_file,
-                           std::ios::out | std::ios::binary | std::ios::app);
-    const float pos0[] = {1.0f, 2.0f, 3.0f};
-    const float norm0[] = {0.1f, 0.2f, 0.3f};
-    const uint8_t col0[] = {255, 128, 64};
-    bin_file.write(reinterpret_cast<const char*>(pos0), sizeof(pos0));
-    bin_file.write(reinterpret_cast<const char*>(norm0), sizeof(norm0));
-    bin_file.write(reinterpret_cast<const char*>(col0), sizeof(col0));
-    const float pos1[] = {4.0f, 5.0f, 6.0f};
-    const float norm1[] = {0.4f, 0.5f, 0.6f};
-    const uint8_t col1[] = {32, 64, 96};
-    bin_file.write(reinterpret_cast<const char*>(pos1), sizeof(pos1));
-    bin_file.write(reinterpret_cast<const char*>(norm1), sizeof(norm1));
-    bin_file.write(reinterpret_cast<const char*>(col1), sizeof(col1));
-    const float pos2[] = {7.0f, 8.0f, 9.0f};
-    const float norm2[] = {0.7f, 0.8f, 0.9f};
-    const uint8_t col2[] = {10, 20, 30};
-    bin_file.write(reinterpret_cast<const char*>(pos2), sizeof(pos2));
-    bin_file.write(reinterpret_cast<const char*>(norm2), sizeof(norm2));
-    bin_file.write(reinterpret_cast<const char*>(col2), sizeof(col2));
-    const uint8_t num_verts = 3;
-    const int idx[] = {0, 1, 2};
-    bin_file.write(reinterpret_cast<const char*>(&num_verts),
-                   sizeof(num_verts));
-    bin_file.write(reinterpret_cast<const char*>(idx), sizeof(idx));
-    bin_file.close();
-  }
+  const auto test_file = WriteBinaryPlyMesh("mesh_extra_bin.ply",
+                                            "binary_little_endian",
+                                            3,
+                                            {"float x",
+                                             "float y",
+                                             "float z",
+                                             "float nx",
+                                             "float ny",
+                                             "float nz",
+                                             "uchar red",
+                                             "uchar green",
+                                             "uchar blue"},
+                                            [](const auto& Write) {
+                                              Write(1.0f);
+                                              Write(2.0f);
+                                              Write(3.0f);
+                                              Write(0.1f);
+                                              Write(0.2f);
+                                              Write(0.3f);
+                                              Write(uint8_t(255));
+                                              Write(uint8_t(128));
+                                              Write(uint8_t(64));
+                                              Write(4.0f);
+                                              Write(5.0f);
+                                              Write(6.0f);
+                                              Write(0.4f);
+                                              Write(0.5f);
+                                              Write(0.6f);
+                                              Write(uint8_t(32));
+                                              Write(uint8_t(64));
+                                              Write(uint8_t(96));
+                                              Write(7.0f);
+                                              Write(8.0f);
+                                              Write(9.0f);
+                                              Write(0.7f);
+                                              Write(0.8f);
+                                              Write(0.9f);
+                                              Write(uint8_t(10));
+                                              Write(uint8_t(20));
+                                              Write(uint8_t(30));
+                                            },
+                                            {{0, 1, 2}});
 
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
   ASSERT_EQ(mesh.vertices.size(), 3);
 
-  EXPECT_EQ(mesh.vertices[0].x, 1.0f);
-  EXPECT_EQ(mesh.vertices[0].y, 2.0f);
-  EXPECT_EQ(mesh.vertices[0].z, 3.0f);
-  EXPECT_EQ(mesh.vertices[0].r, 255);
-  EXPECT_EQ(mesh.vertices[0].g, 128);
-  EXPECT_EQ(mesh.vertices[0].b, 64);
+  ExpectPositionEq(mesh.vertices[0], 1.0f, 2.0f, 3.0f);
+  ExpectColorEq(mesh.vertices[0], 255, 128, 64);
 
-  EXPECT_EQ(mesh.vertices[1].x, 4.0f);
-  EXPECT_EQ(mesh.vertices[1].r, 32);
-  EXPECT_EQ(mesh.vertices[1].g, 64);
-  EXPECT_EQ(mesh.vertices[1].b, 96);
+  ExpectPositionEq(mesh.vertices[1], 4.0f, 5.0f, 6.0f);
+  ExpectColorEq(mesh.vertices[1], 32, 64, 96);
 
-  EXPECT_EQ(mesh.vertices[2].x, 7.0f);
-  EXPECT_EQ(mesh.vertices[2].r, 10);
-  EXPECT_EQ(mesh.vertices[2].g, 20);
-  EXPECT_EQ(mesh.vertices[2].b, 30);
+  ExpectPositionEq(mesh.vertices[2], 7.0f, 8.0f, 9.0f);
+  ExpectColorEq(mesh.vertices[2], 10, 20, 30);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithIntegerCoordinates) {
+  const auto test_file = WriteBinaryPlyMesh("mesh_integer_coords.ply",
+                                            "binary_little_endian",
+                                            2,
+                                            {"short x", "ushort y", "int z"},
+                                            [](const auto& Write) {
+                                              Write(int16_t(-2));
+                                              Write(uint16_t(400));
+                                              Write(int32_t(100000));
+                                              Write(int16_t(30000));
+                                              Write(uint16_t(50000));
+                                              Write(int32_t(-500000));
+                                            });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  ExpectPositionEq(mesh.vertices[0], -2.0f, 400.0f, 100000.0f);
+  ExpectPositionEq(mesh.vertices[1], 30000.0f, 50000.0f, -500000.0f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithDoubleCoordinates) {
+  const auto test_file =
+      WriteBinaryPlyMesh("mesh_double_coords.ply",
+                         "binary_little_endian",
+                         2,
+                         {"double x", "double y", "double z"},
+                         [](const auto& Write) {
+                           Write(1.5);
+                           Write(-2.25);
+                           Write(100000.0);
+                           Write(-0.5);
+                           Write(0.0);
+                           Write(-30000.0);
+                         });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  ExpectPositionEq(mesh.vertices[0], 1.5f, -2.25f, 100000.0f);
+  ExpectPositionEq(mesh.vertices[1], -0.5f, 0.0f, -30000.0f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWith8And32BitCoordinates) {
+  const auto test_file = WriteBinaryPlyMesh("mesh_small_coords.ply",
+                                            "binary_little_endian",
+                                            2,
+                                            {"char x", "uchar y", "uint z"},
+                                            [](const auto& Write) {
+                                              Write(int8_t(-100));
+                                              Write(uint8_t(0));
+                                              Write(uint32_t(12345678));
+                                              Write(int8_t(100));
+                                              Write(uint8_t(255));
+                                              Write(uint32_t(100));
+                                            });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  ExpectPositionEq(mesh.vertices[0], -100.0f, 0.0f, 12345678.0f);
+  ExpectPositionEq(mesh.vertices[1], 100.0f, 255.0f, 100.0f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithBigEndianIntegerCoordinates) {
+  const auto test_file = WriteBinaryPlyMesh("mesh_big_endian_coords.ply",
+                                            "binary_big_endian",
+                                            2,
+                                            {"short x", "int y", "float z"},
+                                            [](const auto& Write) {
+                                              Write(int16_t(-300));
+                                              Write(int32_t(-500000));
+                                              Write(1.5f);
+                                              Write(int16_t(30000));
+                                              Write(int32_t(500000));
+                                              Write(-2.5f);
+                                            });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  ExpectPositionEq(mesh.vertices[0], -300.0f, -500000.0f, 1.5f);
+  ExpectPositionEq(mesh.vertices[1], 30000.0f, 500000.0f, -2.5f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithMixedColorTypes) {
+  const auto test_file = WriteBinaryPlyMesh("mesh_mixed_colors.ply",
+                                            "binary_little_endian",
+                                            2,
+                                            {"float x",
+                                             "float y",
+                                             "float z",
+                                             "uchar red",
+                                             "ushort green",
+                                             "float blue"},
+                                            [](const auto& Write) {
+                                              Write(1.0f);
+                                              Write(2.0f);
+                                              Write(3.0f);
+                                              Write(uint8_t(200));
+                                              Write(uint16_t(100));
+                                              Write(1.0f);
+                                              Write(4.0f);
+                                              Write(5.0f);
+                                              Write(6.0f);
+                                              Write(uint8_t(10));
+                                              Write(uint16_t(300));
+                                              Write(0.5f);
+                                            });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  // Out-of-range integer channels clamp to 255; 0-1 float channels scale.
+  ExpectColorEq(mesh.vertices[0], 200, 100, 255);
+  ExpectColorEq(mesh.vertices[1], 10, 255, 127);
+}
+
+TEST(Ply, ReadTextPlyMeshWithFloatColors) {
+  const auto test_file =
+      WriteTextPlyMesh("mesh_float_colors.ply",
+                       {"float x",
+                        "float y",
+                        "float z",
+                        "float red",
+                        "float green",
+                        "float blue"},
+                       {"0 0 0 1.0 0.5 0.0", "1 0 0 0.0 1.0 0.25"});
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  ExpectColorEq(mesh.vertices[0], 255, 127, 0);
+  ExpectColorEq(mesh.vertices[1], 0, 255, 63);
 }
 
 TEST(Ply, HasPlyMeshFacesWithMesh) {

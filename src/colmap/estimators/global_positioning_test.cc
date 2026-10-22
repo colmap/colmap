@@ -354,6 +354,55 @@ TEST(GlobalPositioning, ScaleInitialization) {
   }
 }
 
+TEST(GlobalPositioning, ScaleInitializationUsesCameraCenter) {
+  for (const double baseline : {0.0, 0.4}) {
+    Reconstruction reconstruction;
+    SyntheticDatasetOptions dataset_options;
+    dataset_options.num_rigs = 1;
+    dataset_options.num_cameras_per_rig = 2;
+    dataset_options.num_frames_per_rig = 4;
+    dataset_options.num_points3D = 10;
+    dataset_options.camera_model_id = PinholeCameraModel::model_id;
+    dataset_options.camera_params = {1000, 900, 512, 384};
+    SynthesizeDataset(dataset_options, &reconstruction);
+    reconstruction.Rig(1).SetSensorFromRig(
+        sensor_t(SensorType::CAMERA, 2),
+        Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                    0.2, Eigen::Vector3d(1, 2, 3).normalized())),
+                baseline * Eigen::Vector3d(1, -0.2, 0.3)));
+    // Reproject after changing the extrinsics to obtain exact observations.
+    for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
+      for (const auto& observation : point3D.track.Elements()) {
+        Image& image = reconstruction.Image(observation.image_id);
+        const auto pixel =
+            image.CameraPtr()->ImgFromCam(image.CamFromWorld() * point3D.xyz);
+        ASSERT_TRUE(pixel.has_value());
+        image.Point2D(observation.point2D_idx).xy = *pixel;
+      }
+    }
+    for (const bool weighted : {false, true}) {
+      SCOPED_TRACE(::testing::Message()
+                   << "baseline=" << baseline << " weighted=" << weighted);
+      GlobalPositionerOptions options;
+      options.use_gpu = false;
+      options.generate_random_positions = false;
+      options.generate_random_points = false;
+      options.initialize_scales_from_geometry = true;
+      if (weighted) options.experimental_observation_stddev = 1.0;
+      auto positioner =
+          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      auto& problem = positioner->Problem();
+      ASSERT_GT(problem.NumResidualBlocks(), 0);
+      ceres::Problem::EvaluateOptions evaluate_options;
+      evaluate_options.apply_loss_function = false;
+      double cost = 0;
+      ASSERT_TRUE(
+          problem.Evaluate(evaluate_options, &cost, nullptr, nullptr, nullptr));
+      EXPECT_LT(cost, weighted ? 1e-20 : 1e-26);
+    }
+  }
+}
+
 TEST(GlobalPositioning, MultiCameraRig) {
   const auto database_path = CreateTestDir() / "database.db";
 

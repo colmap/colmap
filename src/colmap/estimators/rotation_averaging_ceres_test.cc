@@ -283,9 +283,27 @@ TEST(CeresRotationAverager, CalibratedRigs) {
 }
 
 TEST(CeresRotationAverager, CalibratedRigWithDisconnectedImageGraph) {
-  Reconstruction reconstruction = MakeRigReconstruction();
-  const auto images = RigImages(reconstruction);
+  Reconstruction reconstruction = MakeRigReconstruction(2, 3);
+  auto images = RigImages(reconstruction);
   PoseGraph graph;
+  FlatHashSet<image_t> image_ids;
+  for (const auto& [id, image] : reconstruction.Images()) image_ids.insert(id);
+  graph.AddRigEdges(reconstruction, image_ids);
+  std::map<image_t, int> rig_degree;
+  for (const auto& [pair_id, edge] : graph.Edges()) {
+    const auto [id1, id2] = PairIdToImagePair(pair_id);
+    ++rig_degree[id1];
+    ++rig_degree[id2];
+  }
+  // Measure only the leaves, so the rig's connecting camera has no matches.
+  for (auto& frame_images : images) {
+    std::vector<image_t> leaves;
+    for (const image_t id : frame_images) {
+      if (rig_degree[id] == 1) leaves.push_back(id);
+    }
+    ASSERT_EQ(leaves.size(), 2);
+    frame_images = std::move(leaves);
+  }
   graph.AddEdge(
       images[0][0],
       images[1][0],
@@ -299,6 +317,11 @@ TEST(CeresRotationAverager, CalibratedRigWithDisconnectedImageGraph) {
   }
   auto averager = CreateDefaultCeresRotationAverager(
       RotationEstimatorOptions(), graph, reconstruction);
+  ExpectRelativeRotations(reconstruction, graph, 1e-7);
+  EXPECT_EQ(averager->Problem().NumResidualBlocks(), 2);
+  for (size_t i = 3; i < images.size(); ++i) {
+    EXPECT_FALSE(reconstruction.Image(images[i][0]).HasPose());
+  }
   ASSERT_TRUE(averager->Solve().IsSolutionUsable());
   ExpectRelativeRotations(reconstruction, graph, 1e-7);
 }
@@ -357,11 +380,12 @@ TEST(CeresRotationAverager, RefinesCalibrationThroughPreparedProblem) {
   PoseGraph graph;
   graph.AddEdge(images[0][0],
                 images[0][1],
-                Edge(RelativeRotation(truth, images[0][0], images[0][1])));
+                Edge(RelativeRotation(truth, images[0][0], images[0][1]), 0));
   const Image& image = reconstruction.Image(images[0][1]);
   auto& sensor =
       image.FramePtr()->RigPtr()->SensorFromRig(image.CameraPtr()->SensorId());
   sensor.rotation() = ZRotation(0.2) * sensor.rotation();
+  graph.AddRigEdges(reconstruction, {images[0][0], images[0][1]});
   auto averager = CreateDefaultCeresRotationAverager(
       RotationEstimatorOptions(), graph, reconstruction);
   double* rotation = sensor.rotation().coeffs().data();

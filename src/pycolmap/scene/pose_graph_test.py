@@ -136,3 +136,26 @@ def test_pose_graph_edge_map_type() -> None:
     graph = pycolmap.PoseGraph()
     edges = graph.edges
     assert isinstance(edges, pycolmap.PoseGraphEdgeMap)
+
+
+def test_pose_graph_edge_prior_readwrite() -> None:
+    edge = pycolmap.PoseGraphEdge()
+    assert edge.prior is False
+    edge.prior = True
+    assert edge.prior is True
+    edge.prior = False
+    assert edge.prior is False
+
+
+def test_pose_graph_add_rig_edges() -> None:
+    options = pycolmap.SyntheticDatasetOptions(
+        num_rigs=1, num_cameras_per_rig=2, num_frames_per_rig=1, num_points3D=0
+    )
+    reconstruction = pycolmap.synthesize_dataset(options)
+    graph = pycolmap.PoseGraph()
+    graph.add_rig_edges(reconstruction, {1, 2})
+    assert graph.num_edges == 1
+    edge = graph.get_edge(1, 2)
+    assert edge.prior is True
+    assert edge.valid is False
+    assert edge.num_matches == 0

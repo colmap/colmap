@@ -80,6 +80,7 @@ class CeresRotationAverager {
 // Calibrated sensor rotations are fixed by default and can be made variable
 // through Problem(). MST initialization requires sensor rotations for all rigs
 // in the reconstruction when sensor refinement is disabled.
+// For calibrated multi-camera rigs, call PoseGraph::AddRigEdges first.
 std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
