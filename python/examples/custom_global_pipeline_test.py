@@ -65,6 +65,7 @@ def run(database, custom_run, options, stop=False):
 
 def compare(native, python):
     assert len(native) == len(python)
+    assert all(r.num_reg_frames() > 0 and r.num_points3D() > 0 for r in python)
     native = {frozenset(r.reg_image_ids()): r for r in native}
     for result in python:
         reference = native[frozenset(result.reg_image_ids())]
@@ -74,6 +75,33 @@ def compare(native, python):
             result.compute_num_observations()
             == reference.compute_num_observations()
         )
+        assert result.num_images() == reference.num_images()
+        assert result.num_cameras() == reference.num_cameras()
+        assert result.num_frames() == reference.num_frames()
+        assert result.num_rigs() == reference.num_rigs()
+        for frame_id in result.reg_frame_ids():
+            frame, expected = (
+                result.frames[frame_id],
+                reference.frames[frame_id],
+            )
+            assert frame.rig_id == expected.rig_id
+            np.testing.assert_allclose(
+                frame.rig_from_world.matrix(),
+                expected.rig_from_world.matrix(),
+                atol=1e-7,
+                rtol=1e-7,
+            )
+        for rig_id, rig in result.rigs.items():
+            expected = reference.rigs[rig_id]
+            assert rig.ref_sensor_id == expected.ref_sensor_id
+            assert set(rig.non_ref_sensors) == set(expected.non_ref_sensors)
+            for sensor in rig.non_ref_sensors:
+                np.testing.assert_allclose(
+                    rig.sensor_from_rig(sensor).matrix(),
+                    expected.sensor_from_rig(sensor).matrix(),
+                    atol=1e-7,
+                    rtol=1e-7,
+                )
         for camera_id, camera in result.cameras.items():
             np.testing.assert_allclose(
                 camera.params,
@@ -89,6 +117,14 @@ def compare(native, python):
                 rtol=1e-7,
             )
         for point_id, point in result.points3D.items():
+            expected = reference.points3D[point_id]
+            assert {
+                (e.image_id, e.point2D_idx) for e in point.track.elements
+            } == {(e.image_id, e.point2D_idx) for e in expected.track.elements}
+            np.testing.assert_array_equal(point.color, expected.color)
+            np.testing.assert_allclose(
+                point.error, expected.error, atol=1e-7, rtol=1e-7
+            )
             np.testing.assert_allclose(
                 point.xyz,
                 reference.points3D[point_id].xyz,
@@ -98,30 +134,34 @@ def compare(native, python):
 
 
 @pytest.mark.parametrize(
-    "case",
+    "case, expected_models",
     [
-        "mono",
-        "rig",
-        "unknown",
-        "noise",
-        "ceres",
-        "decompose",
-        "ba_stop",
-        "skip_ba",
-        "skip_retriangulation",
-        "components",
-        "largest",
-        "empty",
-        "small",
+        ("mono", 1),
+        ("rig", 1),
+        ("unknown", 1),
+        ("noise", 1),
+        ("small_noise", 2),
+        ("caspar_fixed", 1),
+        ("skip_track_establishment", 0),
+        ("skip_global_positioning", 1),
+        ("ceres", 1),
+        ("decompose", 1),
+        ("ba_stop", 1),
+        ("skip_ba", 1),
+        ("skip_retriangulation", 1),
+        ("components", 2),
+        ("largest", 1),
+        ("empty", 0),
+        ("small", 0),
     ],
 )
-def test_matches_native(tmp_path, case):
+def test_matches_native(tmp_path, case, expected_models):
     database = create_database(
         tmp_path / "database.db",
         cameras=2 if case in ("rig", "unknown") else 1,
-        components=case in ("components", "largest"),
+        components=case in ("components", "largest", "small_noise"),
         unknown=case == "unknown",
-        noise=case == "noise",
+        noise=case in ("noise", "small_noise", "ba_stop"),
         relative=case != "decompose",
     )
     if case == "empty":
@@ -134,6 +174,17 @@ def test_matches_native(tmp_path, case):
         options.mapper.rotation_averaging.backend = (
             pycolmap.RotationAveragingBackend.CERES
         )
+    if case == "caspar_fixed":
+        options.mapper.bundle_adjustment.backend = (
+            pycolmap.BundleAdjustmentBackend.CASPAR
+        )
+        options.mapper.ba_skip_joint_optimization_stage = True
+        options.mapper.skip_retriangulation = True
+    if case in ("skip_track_establishment", "skip_global_positioning"):
+        setattr(options.mapper, case, True)
+    if case == "skip_global_positioning":
+        options.mapper.skip_bundle_adjustment = True
+        options.mapper.skip_retriangulation = True
     if case == "ba_stop":
         options.mapper.bundle_adjustment.check_if_stopped = lambda: True
     if case == "skip_ba":
@@ -146,9 +197,30 @@ def test_matches_native(tmp_path, case):
     python, python_updates = run(database, True, options)
     compare(native, python)
     assert native_updates == python_updates
-    assert len(python) == (
-        0 if case in ("empty", "small") else 2 if case == "components" else 1
-    )
+    assert len(python) == expected_models
+
+    if case == "ba_stop":
+        options.mapper.bundle_adjustment.check_if_stopped = None
+        baseline, _ = run(database, False, options)
+        assert (
+            abs(
+                baseline[0].compute_mean_reprojection_error()
+                - native[0].compute_mean_reprojection_error()
+            )
+            > 1e-6
+        )
+
+
+def test_skip_rotation_averaging_without_poses(tmp_path):
+    database = create_database(tmp_path / "database.db")
+    options = pycolmap.GlobalPipelineOptions(num_threads=1, random_seed=42)
+    options.mapper.bundle_adjustment.ceres.use_gpu = False
+    options.mapper.global_positioning.use_gpu = False
+    options.mapper.skip_rotation_averaging = True
+    # Neither pipeline can establish tracks without initialized poses.
+    for custom_run in (False, True):
+        with pytest.raises(ValueError, match="Missing keypoints"):
+            run(database, custom_run, options)
 
 
 def test_replaceable_builders(tmp_path, monkeypatch):
