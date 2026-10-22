@@ -183,8 +183,10 @@ void WarpImageWithHomographyBetweenCamerasImpl(const WarpImageOptions& options,
     // The intermediate image is at source resolution, but H maps pixels in
     // the target camera's coordinate system.
     const Eigen::Vector3d target_from_intermediate_scale(
-        static_cast<double>(target_camera.width) / source_camera.width,
-        static_cast<double>(target_camera.height) / source_camera.height,
+        static_cast<double>(target_camera.width) /
+            static_cast<double>(source_camera.width),
+        static_cast<double>(target_camera.height) /
+            static_cast<double>(source_camera.height),
         1.0);
     warp_H = H * target_from_intermediate_scale.asDiagonal();
   }

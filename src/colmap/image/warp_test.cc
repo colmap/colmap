@@ -381,6 +381,9 @@ TEST(Warp, HomographyDownsamplingCoordinates) {
                                             target_camera,
                                             source_image,
                                             &resized_image);
+      // Only compare the interior: resampling near the borders differs
+      // between the direct and resize paths, and more so on the right where
+      // H shifts samples out of bounds.
       for (int y = 4; y < resized_image.Height() - 4; ++y) {
         for (int x = 4; x < resized_image.Width() - 8; ++x) {
           EXPECT_NEAR(direct_image.GetPixel(x, y)->r,
