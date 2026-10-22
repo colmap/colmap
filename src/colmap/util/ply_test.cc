@@ -5,13 +5,90 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/testing.h"
 
+#include <array>
 #include <cstdint>
 #include <fstream>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+// Write a binary PLY mesh with the given vertex properties (e.g. "short x")
+// and triangular faces. The payload callback receives a Write function that
+// encodes one scalar in the file's endianness; it must write exactly
+// num_vertices vertices. Pass explicitly typed values (e.g. int16_t(-300))
+// so that scalars get the intended width.
+template <typename WritePayload>
+std::filesystem::path WriteBinaryPlyMesh(
+    const std::string& file_name,
+    const std::string& format,
+    size_t num_vertices,
+    const std::vector<std::string>& properties,
+    WritePayload&& write_payload,
+    const std::vector<std::array<int, 3>>& faces = {}) {
+  const auto test_file = CreateTestDir() / file_name;
+  {
+    std::ofstream text_file(test_file);
+    text_file << "ply\n";
+    text_file << "format " << format << " 1.0\n";
+    text_file << "element vertex " << num_vertices << "\n";
+    for (const auto& property : properties) {
+      text_file << "property " << property << "\n";
+    }
+    text_file << "element face " << faces.size() << "\n";
+    text_file << "property list uchar int vertex_index\n";
+    text_file << "end_header\n";
+    text_file.close();
+
+    std::ofstream binary_file(test_file,
+                              std::ios::out | std::ios::binary | std::ios::app);
+    const bool little_endian = (format == "binary_little_endian");
+    const auto Write = [&](auto value) {
+      const auto converted = little_endian ? NativeToLittleEndian(value)
+                                           : NativeToBigEndian(value);
+      binary_file.write(reinterpret_cast<const char*>(&converted),
+                        sizeof(converted));
+    };
+    write_payload(Write);
+    for (const auto& face : faces) {
+      Write(uint8_t(3));
+      for (int idx : face) {
+        Write(int32_t(idx));
+      }
+    }
+  }
+  return test_file;
+}
+
+// Write an ASCII PLY mesh with the given vertex properties, vertex lines,
+// and face lines.
+std::filesystem::path WriteTextPlyMesh(
+    const std::string& file_name,
+    const std::vector<std::string>& properties,
+    const std::vector<std::string>& vertex_lines,
+    const std::vector<std::string>& face_lines = {}) {
+  const auto test_file = CreateTestDir() / file_name;
+  std::ofstream file(test_file);
+  file << "ply\n";
+  file << "format ascii 1.0\n";
+  file << "element vertex " << vertex_lines.size() << "\n";
+  for (const auto& property : properties) {
+    file << "property " << property << "\n";
+  }
+  file << "element face " << face_lines.size() << "\n";
+  file << "property list uchar int vertex_index\n";
+  file << "end_header\n";
+  for (const auto& vertex_line : vertex_lines) {
+    file << vertex_line << "\n";
+  }
+  for (const auto& face_line : face_lines) {
+    file << face_line << "\n";
+  }
+  return test_file;
+}
 
 TEST(PlyPoint, DefaultConstructor) {
   PlyPoint point;
@@ -447,29 +524,16 @@ TEST(Ply, ReadPlyMeshWithoutTexcoords) {
 }
 
 TEST(Ply, ReadTextPlyMeshWithVertexColors) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_colors.ply";
-
-  // Write a PLY mesh with per-vertex colors manually.
-  {
-    std::ofstream file(test_file);
-    file << "ply\n";
-    file << "format ascii 1.0\n";
-    file << "element vertex 3\n";
-    file << "property float x\n";
-    file << "property float y\n";
-    file << "property float z\n";
-    file << "property uchar red\n";
-    file << "property uchar green\n";
-    file << "property uchar blue\n";
-    file << "element face 1\n";
-    file << "property list uchar int vertex_index\n";
-    file << "end_header\n";
-    file << "0 0 0 255 0 0\n";
-    file << "1 0 0 0 255 0\n";
-    file << "0 1 0 0 0 255\n";
-    file << "3 0 1 2\n";
-  }
+  const auto test_file =
+      WriteTextPlyMesh("mesh_colors.ply",
+                       {"float x",
+                        "float y",
+                        "float z",
+                        "uchar red",
+                        "uchar green",
+                        "uchar blue"},
+                       {"0 0 0 255 0 0", "1 0 0 0 255 0", "0 1 0 0 0 255"},
+                       {"3 0 1 2"});
 
   PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
@@ -492,47 +556,36 @@ TEST(Ply, ReadTextPlyMeshWithVertexColors) {
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithVertexColors) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_colors_bin.ply";
-
-  // Write a binary PLY mesh with per-vertex colors manually.
-  {
-    std::ofstream text_file(test_file);
-    text_file << "ply\n";
-    text_file << "format binary_little_endian 1.0\n";
-    text_file << "element vertex 3\n";
-    text_file << "property float x\n";
-    text_file << "property float y\n";
-    text_file << "property float z\n";
-    text_file << "property uchar red\n";
-    text_file << "property uchar green\n";
-    text_file << "property uchar blue\n";
-    text_file << "element face 1\n";
-    text_file << "property list uchar int vertex_index\n";
-    text_file << "end_header\n";
-    text_file.close();
-
-    std::ofstream bin_file(test_file,
-                           std::ios::out | std::ios::binary | std::ios::app);
-    const float v0[] = {1.0f, 2.0f, 3.0f};
-    const uint8_t c0[] = {100, 150, 200};
-    bin_file.write(reinterpret_cast<const char*>(v0), sizeof(v0));
-    bin_file.write(reinterpret_cast<const char*>(c0), sizeof(c0));
-    const float v1[] = {4.0f, 5.0f, 6.0f};
-    const uint8_t c1[] = {10, 20, 30};
-    bin_file.write(reinterpret_cast<const char*>(v1), sizeof(v1));
-    bin_file.write(reinterpret_cast<const char*>(c1), sizeof(c1));
-    const float v2[] = {7.0f, 8.0f, 9.0f};
-    const uint8_t c2[] = {50, 60, 70};
-    bin_file.write(reinterpret_cast<const char*>(v2), sizeof(v2));
-    bin_file.write(reinterpret_cast<const char*>(c2), sizeof(c2));
-    const uint8_t num_verts = 3;
-    const int idx[] = {0, 1, 2};
-    bin_file.write(reinterpret_cast<const char*>(&num_verts),
-                   sizeof(num_verts));
-    bin_file.write(reinterpret_cast<const char*>(idx), sizeof(idx));
-    bin_file.close();
-  }
+  const auto test_file = WriteBinaryPlyMesh("mesh_colors_bin.ply",
+                                            "binary_little_endian",
+                                            3,
+                                            {"float x",
+                                             "float y",
+                                             "float z",
+                                             "uchar red",
+                                             "uchar green",
+                                             "uchar blue"},
+                                            [](const auto& Write) {
+                                              Write(1.0f);
+                                              Write(2.0f);
+                                              Write(3.0f);
+                                              Write(uint8_t(100));
+                                              Write(uint8_t(150));
+                                              Write(uint8_t(200));
+                                              Write(4.0f);
+                                              Write(5.0f);
+                                              Write(6.0f);
+                                              Write(uint8_t(10));
+                                              Write(uint8_t(20));
+                                              Write(uint8_t(30));
+                                              Write(7.0f);
+                                              Write(8.0f);
+                                              Write(9.0f);
+                                              Write(uint8_t(50));
+                                              Write(uint8_t(60));
+                                              Write(uint8_t(70));
+                                            },
+                                            {{0, 1, 2}});
 
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
@@ -558,32 +611,21 @@ TEST(Ply, ReadBinaryPlyMeshWithVertexColors) {
 }
 
 TEST(Ply, ReadTextPlyMeshWithExtraProperties) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_extra.ply";
-
-  // Write a PLY mesh with normals and colors (normals should be skipped).
-  {
-    std::ofstream file(test_file);
-    file << "ply\n";
-    file << "format ascii 1.0\n";
-    file << "element vertex 3\n";
-    file << "property float x\n";
-    file << "property float y\n";
-    file << "property float z\n";
-    file << "property float nx\n";
-    file << "property float ny\n";
-    file << "property float nz\n";
-    file << "property uchar red\n";
-    file << "property uchar green\n";
-    file << "property uchar blue\n";
-    file << "element face 1\n";
-    file << "property list uchar int vertex_index\n";
-    file << "end_header\n";
-    file << "1 2 3 0.1 0.2 0.3 255 128 64\n";
-    file << "4 5 6 0.4 0.5 0.6 32 64 96\n";
-    file << "7 8 9 0.7 0.8 0.9 10 20 30\n";
-    file << "3 0 1 2\n";
-  }
+  // Normals should be skipped.
+  const auto test_file = WriteTextPlyMesh("mesh_extra.ply",
+                                          {"float x",
+                                           "float y",
+                                           "float z",
+                                           "float nx",
+                                           "float ny",
+                                           "float nz",
+                                           "uchar red",
+                                           "uchar green",
+                                           "uchar blue"},
+                                          {"1 2 3 0.1 0.2 0.3 255 128 64",
+                                           "4 5 6 0.4 0.5 0.6 32 64 96",
+                                           "7 8 9 0.7 0.8 0.9 10 20 30"},
+                                          {"3 0 1 2"});
 
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
@@ -609,56 +651,48 @@ TEST(Ply, ReadTextPlyMeshWithExtraProperties) {
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
-  const auto test_dir = CreateTestDir();
-  const auto test_file = test_dir / "mesh_extra_bin.ply";
-
-  // Write a binary PLY mesh with normals + colors.
-  {
-    std::ofstream text_file(test_file);
-    text_file << "ply\n";
-    text_file << "format binary_little_endian 1.0\n";
-    text_file << "element vertex 3\n";
-    text_file << "property float x\n";
-    text_file << "property float y\n";
-    text_file << "property float z\n";
-    text_file << "property float nx\n";
-    text_file << "property float ny\n";
-    text_file << "property float nz\n";
-    text_file << "property uchar red\n";
-    text_file << "property uchar green\n";
-    text_file << "property uchar blue\n";
-    text_file << "element face 1\n";
-    text_file << "property list uchar int vertex_index\n";
-    text_file << "end_header\n";
-    text_file.close();
-
-    std::ofstream bin_file(test_file,
-                           std::ios::out | std::ios::binary | std::ios::app);
-    const float pos0[] = {1.0f, 2.0f, 3.0f};
-    const float norm0[] = {0.1f, 0.2f, 0.3f};
-    const uint8_t col0[] = {255, 128, 64};
-    bin_file.write(reinterpret_cast<const char*>(pos0), sizeof(pos0));
-    bin_file.write(reinterpret_cast<const char*>(norm0), sizeof(norm0));
-    bin_file.write(reinterpret_cast<const char*>(col0), sizeof(col0));
-    const float pos1[] = {4.0f, 5.0f, 6.0f};
-    const float norm1[] = {0.4f, 0.5f, 0.6f};
-    const uint8_t col1[] = {32, 64, 96};
-    bin_file.write(reinterpret_cast<const char*>(pos1), sizeof(pos1));
-    bin_file.write(reinterpret_cast<const char*>(norm1), sizeof(norm1));
-    bin_file.write(reinterpret_cast<const char*>(col1), sizeof(col1));
-    const float pos2[] = {7.0f, 8.0f, 9.0f};
-    const float norm2[] = {0.7f, 0.8f, 0.9f};
-    const uint8_t col2[] = {10, 20, 30};
-    bin_file.write(reinterpret_cast<const char*>(pos2), sizeof(pos2));
-    bin_file.write(reinterpret_cast<const char*>(norm2), sizeof(norm2));
-    bin_file.write(reinterpret_cast<const char*>(col2), sizeof(col2));
-    const uint8_t num_verts = 3;
-    const int idx[] = {0, 1, 2};
-    bin_file.write(reinterpret_cast<const char*>(&num_verts),
-                   sizeof(num_verts));
-    bin_file.write(reinterpret_cast<const char*>(idx), sizeof(idx));
-    bin_file.close();
-  }
+  const auto test_file = WriteBinaryPlyMesh("mesh_extra_bin.ply",
+                                            "binary_little_endian",
+                                            3,
+                                            {"float x",
+                                             "float y",
+                                             "float z",
+                                             "float nx",
+                                             "float ny",
+                                             "float nz",
+                                             "uchar red",
+                                             "uchar green",
+                                             "uchar blue"},
+                                            [](const auto& Write) {
+                                              Write(1.0f);
+                                              Write(2.0f);
+                                              Write(3.0f);
+                                              Write(0.1f);
+                                              Write(0.2f);
+                                              Write(0.3f);
+                                              Write(uint8_t(255));
+                                              Write(uint8_t(128));
+                                              Write(uint8_t(64));
+                                              Write(4.0f);
+                                              Write(5.0f);
+                                              Write(6.0f);
+                                              Write(0.4f);
+                                              Write(0.5f);
+                                              Write(0.6f);
+                                              Write(uint8_t(32));
+                                              Write(uint8_t(64));
+                                              Write(uint8_t(96));
+                                              Write(7.0f);
+                                              Write(8.0f);
+                                              Write(9.0f);
+                                              Write(0.7f);
+                                              Write(0.8f);
+                                              Write(0.9f);
+                                              Write(uint8_t(10));
+                                              Write(uint8_t(20));
+                                              Write(uint8_t(30));
+                                            },
+                                            {{0, 1, 2}});
 
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
@@ -683,30 +717,18 @@ TEST(Ply, ReadBinaryPlyMeshWithExtraProperties) {
 }
 
 TEST(Ply, ReadBinaryPlyMeshWithIntegerCoordinates) {
-  const auto test_file = CreateTestDir() / "mesh_integer_coords.ply";
-
-  {
-    std::ofstream text_file(test_file);
-    text_file << "ply\n";
-    text_file << "format binary_little_endian 1.0\n";
-    text_file << "element vertex 2\n";
-    text_file << "property short x\n";
-    text_file << "property ushort y\n";
-    text_file << "property int z\n";
-    text_file << "element face 0\n";
-    text_file << "property list uchar int vertex_index\n";
-    text_file << "end_header\n";
-    text_file.close();
-
-    std::ofstream binary_file(
-        test_file, std::ios::out | std::ios::binary | std::ios::app);
-    WriteBinaryLittleEndian<int16_t>(&binary_file, -2);
-    WriteBinaryLittleEndian<uint16_t>(&binary_file, 400);
-    WriteBinaryLittleEndian<int32_t>(&binary_file, 100000);
-    WriteBinaryLittleEndian<int16_t>(&binary_file, 30000);
-    WriteBinaryLittleEndian<uint16_t>(&binary_file, 50000);
-    WriteBinaryLittleEndian<int32_t>(&binary_file, -500000);
-  }
+  const auto test_file = WriteBinaryPlyMesh("mesh_integer_coords.ply",
+                                            "binary_little_endian",
+                                            2,
+                                            {"short x", "ushort y", "int z"},
+                                            [](const auto& Write) {
+                                              Write(int16_t(-2));
+                                              Write(uint16_t(400));
+                                              Write(int32_t(100000));
+                                              Write(int16_t(30000));
+                                              Write(uint16_t(50000));
+                                              Write(int32_t(-500000));
+                                            });
 
   const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
 
@@ -717,6 +739,141 @@ TEST(Ply, ReadBinaryPlyMeshWithIntegerCoordinates) {
   EXPECT_EQ(mesh.vertices[1].x, 30000.0f);
   EXPECT_EQ(mesh.vertices[1].y, 50000.0f);
   EXPECT_EQ(mesh.vertices[1].z, -500000.0f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithDoubleCoordinates) {
+  const auto test_file =
+      WriteBinaryPlyMesh("mesh_double_coords.ply",
+                         "binary_little_endian",
+                         2,
+                         {"double x", "double y", "double z"},
+                         [](const auto& Write) {
+                           Write(1.5);
+                           Write(-2.25);
+                           Write(100000.0);
+                           Write(-0.5);
+                           Write(0.0);
+                           Write(-30000.0);
+                         });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  EXPECT_EQ(mesh.vertices[0].x, 1.5f);
+  EXPECT_EQ(mesh.vertices[0].y, -2.25f);
+  EXPECT_EQ(mesh.vertices[0].z, 100000.0f);
+  EXPECT_EQ(mesh.vertices[1].x, -0.5f);
+  EXPECT_EQ(mesh.vertices[1].y, 0.0f);
+  EXPECT_EQ(mesh.vertices[1].z, -30000.0f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWith8And32BitCoordinates) {
+  const auto test_file = WriteBinaryPlyMesh("mesh_small_coords.ply",
+                                            "binary_little_endian",
+                                            2,
+                                            {"char x", "uchar y", "uint z"},
+                                            [](const auto& Write) {
+                                              Write(int8_t(-100));
+                                              Write(uint8_t(0));
+                                              Write(uint32_t(12345678));
+                                              Write(int8_t(100));
+                                              Write(uint8_t(255));
+                                              Write(uint32_t(100));
+                                            });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  EXPECT_EQ(mesh.vertices[0].x, -100.0f);
+  EXPECT_EQ(mesh.vertices[0].y, 0.0f);
+  EXPECT_EQ(mesh.vertices[0].z, 12345678.0f);
+  EXPECT_EQ(mesh.vertices[1].x, 100.0f);
+  EXPECT_EQ(mesh.vertices[1].y, 255.0f);
+  EXPECT_EQ(mesh.vertices[1].z, 100.0f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithBigEndianIntegerCoordinates) {
+  const auto test_file = WriteBinaryPlyMesh("mesh_big_endian_coords.ply",
+                                            "binary_big_endian",
+                                            2,
+                                            {"short x", "int y", "float z"},
+                                            [](const auto& Write) {
+                                              Write(int16_t(-300));
+                                              Write(int32_t(-500000));
+                                              Write(1.5f);
+                                              Write(int16_t(30000));
+                                              Write(int32_t(500000));
+                                              Write(-2.5f);
+                                            });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  EXPECT_EQ(mesh.vertices[0].x, -300.0f);
+  EXPECT_EQ(mesh.vertices[0].y, -500000.0f);
+  EXPECT_EQ(mesh.vertices[0].z, 1.5f);
+  EXPECT_EQ(mesh.vertices[1].x, 30000.0f);
+  EXPECT_EQ(mesh.vertices[1].y, 500000.0f);
+  EXPECT_EQ(mesh.vertices[1].z, -2.5f);
+}
+
+TEST(Ply, ReadBinaryPlyMeshWithMixedColorTypes) {
+  const auto test_file = WriteBinaryPlyMesh("mesh_mixed_colors.ply",
+                                            "binary_little_endian",
+                                            2,
+                                            {"float x",
+                                             "float y",
+                                             "float z",
+                                             "uchar red",
+                                             "ushort green",
+                                             "float blue"},
+                                            [](const auto& Write) {
+                                              Write(1.0f);
+                                              Write(2.0f);
+                                              Write(3.0f);
+                                              Write(uint8_t(200));
+                                              Write(uint16_t(100));
+                                              Write(1.0f);
+                                              Write(4.0f);
+                                              Write(5.0f);
+                                              Write(6.0f);
+                                              Write(uint8_t(10));
+                                              Write(uint16_t(300));
+                                              Write(0.5f);
+                                            });
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  // Out-of-range integer channels clamp to 255; 0-1 float channels scale.
+  EXPECT_EQ(mesh.vertices[0].r, 200);
+  EXPECT_EQ(mesh.vertices[0].g, 100);
+  EXPECT_EQ(mesh.vertices[0].b, 255);
+  EXPECT_EQ(mesh.vertices[1].r, 10);
+  EXPECT_EQ(mesh.vertices[1].g, 255);
+  EXPECT_EQ(mesh.vertices[1].b, 127);
+}
+
+TEST(Ply, ReadTextPlyMeshWithFloatColors) {
+  const auto test_file =
+      WriteTextPlyMesh("mesh_float_colors.ply",
+                       {"float x",
+                        "float y",
+                        "float z",
+                        "float red",
+                        "float green",
+                        "float blue"},
+                       {"0 0 0 1.0 0.5 0.0", "1 0 0 0.0 1.0 0.25"});
+
+  const PlyMesh mesh = ReadPlyMesh(test_file).mesh;
+
+  ASSERT_EQ(mesh.vertices.size(), 2);
+  EXPECT_EQ(mesh.vertices[0].r, 255);
+  EXPECT_EQ(mesh.vertices[0].g, 127);
+  EXPECT_EQ(mesh.vertices[0].b, 0);
+  EXPECT_EQ(mesh.vertices[1].r, 0);
+  EXPECT_EQ(mesh.vertices[1].g, 255);
+  EXPECT_EQ(mesh.vertices[1].b, 63);
 }
 
 TEST(Ply, HasPlyMeshFacesWithMesh) {
