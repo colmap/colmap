@@ -7,6 +7,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/oiio_utils.h"
 
+#include <algorithm>
 #include <cstring>
 
 #include <OpenImageIO/color.h>
@@ -37,6 +38,39 @@ struct OIIOMetaData : public Bitmap::MetaData {
 // conversion from std::string_view.
 OIIO::string_view OIIOFromStdStringView(std::string_view value) {
   return {value.data(), value.size()};
+}
+
+// OIIO's IPTC IIM encoder reads the "IPTC:*" attributes plus the TIFF/EXIF
+// synonyms from its IIM tag table (Software, Artist, Copyright, and
+// ImageDescription, see the `iimtag` table in OIIO's
+// src/libOpenImageIO/iptc.cpp). OIIO 2.x aborts on empty string values in
+// `encode_iptc_iim_one_tag` (see colmap/colmap#4599), so detect these
+// attributes here in order to omit them from written files. "Keywords" is
+// included as a defensive alias for the repeatable IPTC:Keywords field. Empty
+// strings carry no information, so omitting them is lossless.
+bool IsIptcMetadata(const OIIO::ParamValue& attribute) {
+  if (attribute.type().basetype != OIIO::TypeDesc::STRING) {
+    return false;
+  }
+
+  const std::string_view name(attribute.name().c_str());
+  return name.substr(0, 5) == "IPTC:" || name == "Keywords" ||
+         name == "Software" || name == "Artist" || name == "Copyright" ||
+         name == "ImageDescription";
+}
+
+// Check all values, as repeatable IPTC fields (e.g. Keywords) may hold
+// multiple strings and OIIO encodes each of them.
+bool HasEmptyIptcString(const OIIO::ParamValue& attribute) {
+  if (!IsIptcMetadata(attribute)) {
+    return false;
+  }
+  for (int i = 0; i < attribute.nvalues(); ++i) {
+    if (attribute.get_string_indexed(i).empty()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Convert a filesystem path to a UTF-8 std::string. On Windows,
@@ -464,6 +498,15 @@ bool Bitmap::Write(const std::filesystem::path& path,
         data_.data(), width_, height_, channels_, "linear", *colorspace);
     output_data_ptr = maybe_linearized_output_data.data();
   }
+
+  // OIIO writers that encode IPTC metadata (e.g. JPEG, or TIFF with
+  // tiff:write_iptc) abort on empty fields in OIIO 2.x. Filter the copied spec
+  // for all formats, as empty IPTC strings carry no information anyway, while
+  // preserving populated metadata.
+  auto& attributes = meta_data.image_spec.extra_attribs;
+  attributes.erase(
+      std::remove_if(attributes.begin(), attributes.end(), HasEmptyIptcString),
+      attributes.end());
 
   if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
     if (!GetMetaData("Compression").has_value()) {

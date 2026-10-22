@@ -144,6 +144,8 @@ class RotationEstimator {
 };
 
 // Initializes rotations from maximum spanning tree.
+// For calibrated multi-camera rigs, add their connections with
+// PoseGraph::AddRigEdges before initialization.
 void InitializeFromMaximumSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& active_image_ids,
