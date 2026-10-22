@@ -54,6 +54,54 @@ void UpdateDatabasePosePriorsCovariance(
   }
 }
 
+// Command-line options to overwrite the covariance of the pose priors stored
+// in the database.
+struct PosePriorCovarianceOptions {
+  bool overwrite_priors_covariance = false;
+  double prior_position_std_x = 1.;
+  double prior_position_std_y = 1.;
+  double prior_position_std_z = 1.;
+};
+
+// Registers the pose prior options shared by the pose_prior_mapper and
+// bundle_adjuster commands. The loss options are bound to the fields of the
+// respective command options.
+void AddPosePriorOptions(OptionManager* options,
+                         bool* use_robust_loss_on_prior_position,
+                         double* prior_position_loss_scale,
+                         PosePriorCovarianceOptions* covariance_options) {
+  options->AddDefaultOption(
+      "overwrite_priors_covariance",
+      &covariance_options->overwrite_priors_covariance,
+      "Priors covariance read from database. If true, overwrite the priors "
+      "covariance using the following prior_position_std_... options");
+  options->AddDefaultOption("prior_position_std_x",
+                            &covariance_options->prior_position_std_x);
+  options->AddDefaultOption("prior_position_std_y",
+                            &covariance_options->prior_position_std_y);
+  options->AddDefaultOption("prior_position_std_z",
+                            &covariance_options->prior_position_std_z);
+  options->AddDefaultOption("use_robust_loss_on_prior_position",
+                            use_robust_loss_on_prior_position);
+  options->AddDefaultOption("prior_position_loss_scale",
+                            prior_position_loss_scale);
+}
+
+void MaybeOverwritePosePriorsCovariance(
+    const std::filesystem::path& database_path,
+    const PosePriorCovarianceOptions& covariance_options) {
+  if (!covariance_options.overwrite_priors_covariance) {
+    return;
+  }
+  UpdateDatabasePosePriorsCovariance(
+      database_path,
+      Eigen::Vector3d(covariance_options.prior_position_std_x,
+                      covariance_options.prior_position_std_y,
+                      covariance_options.prior_position_std_z)
+          .cwiseAbs2()
+          .asDiagonal());
+}
+
 }  // namespace
 
 int RunAutomaticReconstructor(int argc, char** argv) {
@@ -166,11 +214,26 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 int RunBundleAdjuster(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
+  PosePriorCovarianceOptions prior_covariance_options;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddBundleAdjustmentOptions();
+  // Only required when using pose priors, hence not AddDatabaseOptions().
+  options.AddDefaultOption("database_path", options.database_path.get());
+  options.AddDefaultOption(
+      "use_prior_position",
+      &options.bundle_adjustment_pose_prior->use_prior_position,
+      "If true, constrain the camera positions with the pose priors stored in "
+      "the database. Requires database_path");
+  AddPosePriorOptions(
+      &options,
+      &options.bundle_adjustment_pose_prior->use_robust_loss_on_prior_position,
+      &options.bundle_adjustment_pose_prior->prior_position_loss_scale,
+      &prior_covariance_options);
+  options.AddDefaultOption("random_seed",
+                           &options.bundle_adjustment_pose_prior->random_seed);
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
@@ -183,6 +246,22 @@ int RunBundleAdjuster(int argc, char** argv) {
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
+  }
+
+  if (options.bundle_adjustment_pose_prior->use_prior_position) {
+    if (options.database_path->empty()) {
+      LOG(ERROR) << "`database_path` is required with `use_prior_position`";
+      return EXIT_FAILURE;
+    }
+    if (!ExistsFile(*options.database_path)) {
+      LOG(ERROR) << "`database_path` is not a file";
+      return EXIT_FAILURE;
+    }
+    MaybeOverwritePosePriorsCovariance(*options.database_path,
+                                       prior_covariance_options);
+  } else if (prior_covariance_options.overwrite_priors_covariance) {
+    LOG(WARNING) << "Ignoring `overwrite_priors_covariance`, as "
+                    "`use_prior_position` is false";
   }
 
   auto reconstruction = std::make_shared<Reconstruction>();
@@ -482,10 +561,7 @@ int RunPosePriorMapper(int argc, char** argv) {
   std::filesystem::path input_path;
   std::filesystem::path output_path;
 
-  bool overwrite_priors_covariance = false;
-  double prior_position_std_x = 1.;
-  double prior_position_std_y = 1.;
-  double prior_position_std_z = 1.;
+  PosePriorCovarianceOptions prior_covariance_options;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -496,19 +572,16 @@ int RunPosePriorMapper(int argc, char** argv) {
 
   options.mapper->use_prior_position = true;
 
-  options.AddDefaultOption(
-      "overwrite_priors_covariance",
-      &overwrite_priors_covariance,
-      "Priors covariance read from database. If true, overwrite the priors "
-      "covariance using the following prior_position_std_... options");
-  options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
-  options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
-  options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
-  options.AddDefaultOption("use_robust_loss_on_prior_position",
-                           &options.mapper->use_robust_loss_on_prior_position);
-  options.AddDefaultOption("prior_position_loss_scale",
-                           &options.mapper->prior_position_loss_scale);
+  AddPosePriorOptions(&options,
+                      &options.mapper->use_robust_loss_on_prior_position,
+                      &options.mapper->prior_position_loss_scale,
+                      &prior_covariance_options);
   if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsFile(*options.database_path)) {
+    LOG(ERROR) << "`database_path` is not a file.";
     return EXIT_FAILURE;
   }
 
@@ -517,14 +590,8 @@ int RunPosePriorMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (overwrite_priors_covariance) {
-    const Eigen::Matrix3d covariance =
-        Eigen::Vector3d(
-            prior_position_std_x, prior_position_std_y, prior_position_std_z)
-            .cwiseAbs2()
-            .asDiagonal();
-    UpdateDatabasePosePriorsCovariance(*options.database_path, covariance);
-  }
+  MaybeOverwritePosePriorsCovariance(*options.database_path,
+                                     prior_covariance_options);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   if (input_path != "") {
