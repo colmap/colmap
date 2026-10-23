@@ -389,10 +389,13 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
     counts.clear();
     // Count how often a 3D point in tgt is associated to this 3D point.
     for (const auto& track_el : src_point3D.second.track.Elements()) {
-      const Image& tgt_image = tgt_reconstruction.Image(track_el.image_id);
-      if (!tgt_image.HasPose()) {
+      const auto tgt_image_it =
+          tgt_reconstruction.Images().find(track_el.image_id);
+      if (tgt_image_it == tgt_reconstruction.Images().end() ||
+          !tgt_image_it->second.HasPose()) {
         continue;
       }
+      const Image& tgt_image = tgt_image_it->second;
       const Point2D& tgt_point2D = tgt_image.Point2D(track_el.point2D_idx);
       if (tgt_point2D.HasPoint3D()) {
         ++counts[tgt_point2D.point3D_id];
