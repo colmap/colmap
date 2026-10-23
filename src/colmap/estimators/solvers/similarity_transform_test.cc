@@ -155,6 +155,7 @@ void TestAffineRank() {
     }
     const double scale = kEstimateScale ? 2.0 : 1.0;
     std::vector<Point> tgt;
+    tgt.reserve(src.size());
     for (const auto& point : src) {
       tgt.push_back(scale * point + Point::Constant(3));
     }
@@ -196,6 +197,7 @@ TEST(Sim3d, EstimatePlanarRobust) {
   const std::vector<Eigen::Vector3d> src = {
       {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}};
   std::vector<Eigen::Vector3d> tgt;
+  tgt.reserve(src.size());
   for (const auto& point : src) {
     tgt.push_back(expected * point);
   }
