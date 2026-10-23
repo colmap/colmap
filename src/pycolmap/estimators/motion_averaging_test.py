@@ -144,8 +144,8 @@ def test_global_positioner_prepared_problem() -> None:
     loss = pyceres.CauchyLoss(0.1)
     owner = pycolmap.create_default_global_positioner(
         options,
-        pycolmap.PoseGraph(),
         reconstruction,
+        pycolmap.generate_observation_scales(reconstruction),
         loss_function=loss,
     )
     del loss
@@ -177,7 +177,9 @@ def test_global_positioner_observation_stddev() -> None:
     for stddev in (1.0, 8.0):
         options.experimental_observation_stddev = stddev
         owner = pycolmap.create_default_global_positioner(
-            options, pycolmap.PoseGraph(), reconstruction
+            options,
+            reconstruction,
+            pycolmap.generate_observation_scales(reconstruction),
         )
         residuals = np.asarray(owner.problem.evaluate_residuals(evaluation))
         assert residuals.size > 0
@@ -197,7 +199,9 @@ def test_global_positioner_frame_center_parameter_block() -> None:
     options = pycolmap.GlobalPositionerOptions()
     options.use_gpu = False
     owner = pycolmap.create_default_global_positioner(
-        options, pycolmap.PoseGraph(), reconstruction
+        options,
+        reconstruction,
+        pycolmap.generate_observation_scales(reconstruction),
     )
     frame_id = next(iter(reconstruction.frames))
     center = owner.frame_center_parameter_block(frame_id)
@@ -226,3 +230,88 @@ def test_global_positioner_frame_center_parameter_block() -> None:
 )
 def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))
+
+
+def _observation_scale_scene(
+    num_cameras: int = 1,
+) -> tuple[pycolmap.Reconstruction, pycolmap.GlobalPositionerOptions]:
+    dataset = pycolmap.SyntheticDatasetOptions()
+    dataset.num_rigs = 1
+    dataset.num_cameras_per_rig = num_cameras
+    dataset.num_frames_per_rig = 4
+    dataset.num_points3D = 12
+    reconstruction = pycolmap.synthesize_dataset(dataset)
+    options = pycolmap.GlobalPositionerOptions(
+        use_gpu=False,
+        optimize_positions=False,
+        optimize_points=False,
+        fix_first_scale=False,
+        refine_sensor_from_rig=False,
+    )
+    return reconstruction, options
+
+
+def test_global_positioner_caller_owned_scales_lifetime() -> None:
+    import gc
+    import weakref
+
+    pyceres = pytest.importorskip("pyceres")
+    reconstruction, options = _observation_scale_scene(2)
+    scales = pycolmap.generate_observation_scales(reconstruction)
+    point = next(iter(reconstruction.points3D.values()))
+    element = point.track.elements[0]
+    key = pycolmap.TrackElement(element.image_id, element.point2D_idx)
+    expected = 1.0 / np.linalg.norm(
+        point.xyz - reconstruction.images[key.image_id].projection_center()
+    )
+    array = scales.parameter_block(key)
+    scales[key] = 0.75
+    assert array[0] == 0.75
+    array[0] = 0.6
+    assert scales[key] == 0.6
+    owner = pycolmap.create_default_global_positioner(
+        options, reconstruction, scales
+    )
+    problem, solver = owner.problem, owner.solver_options
+    assert problem.has_parameter_block(array)
+    scales_ref = weakref.ref(scales)
+    reconstruction_ref = weakref.ref(reconstruction)
+    del owner, reconstruction, scales, point, element, array
+    gc.collect()
+    retained_scales = scales_ref()
+    assert retained_scales is not None
+    assert reconstruction_ref() is not None
+    array = retained_scales.parameter_block(key)
+    del retained_scales
+    summary = pyceres.SolverSummary()
+    pyceres.solve(solver, problem, summary)
+    assert summary.IsSolutionUsable()
+    assert array[0] == pytest.approx(expected, abs=1e-8)
+    del problem, solver
+    gc.collect()
+    assert scales_ref() is array.base
+    del array
+    gc.collect()
+    assert scales_ref() is None
+
+
+def test_global_positioner_requires_explicit_scale_map() -> None:
+    reconstruction, options = _observation_scale_scene()
+    with pytest.raises(TypeError, match="must be an ObservationScaleMap"):
+        pycolmap.create_default_global_positioner(options, reconstruction, {})
+
+
+def test_run_global_positioning_observation_scales() -> None:
+    reconstruction, options = _observation_scale_scene()
+    scales = pycolmap.generate_observation_scales(reconstruction)
+    point = next(iter(reconstruction.points3D.values()))
+    observation = point.track.elements[0]
+    expected = 1.0 / np.linalg.norm(
+        point.xyz
+        - reconstruction.images[observation.image_id].projection_center()
+    )
+    scales[observation] = 1.2 * expected
+    assert pycolmap.run_global_positioning(
+        options, pycolmap.PoseGraph(), reconstruction, scales
+    )
+    assert scales[observation] == pytest.approx(expected)
