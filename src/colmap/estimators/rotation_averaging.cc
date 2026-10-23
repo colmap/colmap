@@ -303,21 +303,26 @@ std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
   return std::nullopt;
 }
 
-// Adds the isotropic floor to the relative rotation covariances and assigns
-// the isotropic fallback covariance to valid edges without one.
+// Adds the isotropic floor to the relative rotation covariances, which every
+// valid edge must have.
 void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
                                    PoseGraph& pose_graph) {
   const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
-  const double fallback_sigma = DegToRad(options.covariance_fallback_sigma_deg);
   const Eigen::Matrix3d floor_cov =
       floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
-  const Eigen::Matrix3d fallback_cov =
-      fallback_sigma * fallback_sigma * Eigen::Matrix3d::Identity();
   for (auto& [pair_id, edge] : pose_graph.Edges()) {
-    if (edge.valid) {
-      edge.cam2_from_cam1_rotation_cov =
-          edge.cam2_from_cam1_rotation_cov.value_or(fallback_cov) + floor_cov;
+    if (!edge.valid) {
+      continue;
     }
+    if (!edge.cam2_from_cam1_rotation_cov.has_value()) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      LOG(FATAL_THROW) << "COVARIANCE reweighting requires a rotation "
+                          "covariance for every valid edge, but edge ("
+                       << image_id1 << ", " << image_id2
+                       << ") has none. Call EstimatePoseGraphCovariances "
+                          "first.";
+    }
+    *edge.cam2_from_cam1_rotation_cov += floor_cov;
   }
 }
 

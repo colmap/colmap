@@ -171,8 +171,8 @@ class GlobalMapper {
 
 // With CERES rotation averaging and COVARIANCE reweighting (without gravity
 // priors), estimates the rotation covariances of the valid pose graph edges
-// that do not have one yet from their two-view correspondences. No-op
-// otherwise.
+// that do not have one yet from their two-view correspondences, and
+// invalidates the edges whose covariance cannot be estimated. No-op otherwise.
 void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
                                        const DatabaseCache& database_cache,
                                        PoseGraph& pose_graph);

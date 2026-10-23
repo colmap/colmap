@@ -415,19 +415,12 @@ TEST(RotationAveraging, CovarianceReweighting) {
   options.backend = RotationAveragingBackend::CERES;
   options.reweighting = RotationAveragingReweighting::COVARIANCE;
 
-  // Edges without a covariance use the isotropic fallback.
+  // Every valid edge requires a covariance.
   {
     Reconstruction reconstruction = data.reconstruction;
     PoseGraph pose_graph = data.pose_graph;
-    ASSERT_TRUE(RunRotationAveraging(
+    EXPECT_ANY_THROW(RunRotationAveraging(
         options, pose_graph, reconstruction, data.pose_priors));
-    ExpectEqualRotations(data.gt_reconstruction,
-                         reconstruction,
-                         /*max_rotation_error_deg=*/3);
-    // The input pose graph is not modified.
-    for (const auto& [pair_id, edge] : pose_graph.Edges()) {
-      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
-    }
   }
 
   DatabaseCache database_cache;
@@ -444,6 +437,11 @@ TEST(RotationAveraging, CovarianceReweighting) {
   ExpectEqualRotations(data.gt_reconstruction,
                        reconstruction,
                        /*max_rotation_error_deg=*/3);
+  // The covariances of the input pose graph are not regularized in place.
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    EXPECT_EQ(*edge.cam2_from_cam1_rotation_cov,
+              *data.pose_graph.Edges().at(pair_id).cam2_from_cam1_rotation_cov);
+  }
 
   // The L1-IRLS backend does not support covariance reweighting.
   options.backend = RotationAveragingBackend::L1_IRLS;
