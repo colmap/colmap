@@ -87,9 +87,9 @@ class GlobalPositioner {
   virtual ~GlobalPositioner() = default;
 
   // Build from supplied frame poses, points, and scales without initialization.
-  // Scales update in place; included observations require finite values >= 1e-5.
-  // Unused entries are ignored. Reconstruction and scales must outlive the
-  // positioner and its problem; active scale entries must remain valid.
+  // Scales update in place; included observations require finite values >=
+  // 1e-5. Unused entries are ignored. Reconstruction and scales must outlive
+  // the positioner and its problem; active scale entries must remain valid.
   static std::unique_ptr<GlobalPositioner> CreateDefault(
       const GlobalPositionerOptions& options,
       Reconstruction& reconstruction,
@@ -161,9 +161,9 @@ class GlobalPositioner {
   std::unique_ptr<ceres::Problem> problem_;
 };
 
-// Randomize rig-frame centers and 3D points according to options; keep rotations.
-// Frames come from pose_graph or posed observations in tracks meeting
-// min_num_view_per_track; points must meet the same track threshold.
+// Randomize rig-frame centers and 3D points according to options; keep
+// rotations. Frames come from pose_graph or posed observations in tracks
+// meeting min_num_view_per_track; points must meet the same track threshold.
 void RandomizeReconstructionPositions(const GlobalPositionerOptions& options,
                                       const PoseGraph& pose_graph,
                                       Reconstruction& reconstruction);

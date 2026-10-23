@@ -232,7 +232,9 @@ def test_public_api_callable(name: str) -> None:
     assert callable(getattr(pycolmap, name))
 
 
-def _observation_scale_scene(num_cameras=1):
+def _observation_scale_scene(
+    num_cameras: int = 1,
+) -> tuple[pycolmap.Reconstruction, pycolmap.GlobalPositionerOptions]:
     dataset = pycolmap.SyntheticDatasetOptions()
     dataset.num_rigs = 1
     dataset.num_cameras_per_rig = num_cameras
@@ -249,7 +251,7 @@ def _observation_scale_scene(num_cameras=1):
     return reconstruction, options
 
 
-def test_global_positioner_caller_owned_scales_lifetime():
+def test_global_positioner_caller_owned_scales_lifetime() -> None:
     import gc
     import weakref
 
@@ -276,9 +278,11 @@ def test_global_positioner_caller_owned_scales_lifetime():
     reconstruction_ref = weakref.ref(reconstruction)
     del owner, reconstruction, scales, point, element, array
     gc.collect()
-    assert scales_ref() is not None
+    retained_scales = scales_ref()
+    assert retained_scales is not None
     assert reconstruction_ref() is not None
-    array = scales_ref().parameter_block(key)
+    array = retained_scales.parameter_block(key)
+    del retained_scales
     summary = pyceres.SolverSummary()
     pyceres.solve(solver, problem, summary)
     assert summary.IsSolutionUsable()
@@ -291,13 +295,13 @@ def test_global_positioner_caller_owned_scales_lifetime():
     assert scales_ref() is None
 
 
-def test_global_positioner_requires_explicit_scale_map():
+def test_global_positioner_requires_explicit_scale_map() -> None:
     reconstruction, options = _observation_scale_scene()
     with pytest.raises(TypeError, match="must be an ObservationScaleMap"):
         pycolmap.create_default_global_positioner(options, reconstruction, {})
 
 
-def test_run_global_positioning_observation_scales():
+def test_run_global_positioning_observation_scales() -> None:
     reconstruction, options = _observation_scale_scene()
     scales = pycolmap.generate_observation_scales(reconstruction)
     point = next(iter(reconstruction.points3D.values()))
