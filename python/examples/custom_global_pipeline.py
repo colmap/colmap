@@ -6,25 +6,37 @@ Python reimplementation of the C++ global mapper with equivalent logic.
 
 import argparse
 import copy
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 import pycolmap
 from pycolmap import logging
 
 
-def build_global_positioner(options, pose_graph, reconstruction):
+def build_global_positioner(
+    options: pycolmap.GlobalPositionerOptions,
+    pose_graph: pycolmap.PoseGraph,
+    reconstruction: pycolmap.Reconstruction,
+) -> pycolmap.GlobalPositioner:
     return pycolmap.create_default_global_positioner(
         options, pose_graph, reconstruction
     )
 
 
-def build_bundle_adjuster(options, config, reconstruction):
+def build_bundle_adjuster(
+    options: pycolmap.BundleAdjustmentOptions,
+    config: pycolmap.BundleAdjustmentConfig,
+    reconstruction: pycolmap.Reconstruction,
+) -> pycolmap.BundleAdjuster:
     return pycolmap.create_default_bundle_adjuster(
         options, config, reconstruction
     )
 
 
-def run_bundle_adjustment(options, reconstruction):
+def run_bundle_adjustment(
+    options: pycolmap.BundleAdjustmentOptions,
+    reconstruction: pycolmap.Reconstruction,
+) -> bool:
     if reconstruction.num_images() == 0 or reconstruction.num_points3D() == 0:
         return False
     config = pycolmap.BundleAdjustmentConfig()
@@ -39,7 +51,9 @@ def run_bundle_adjustment(options, reconstruction):
     )
 
 
-def refinement_bundle_adjustment_options(options):
+def refinement_bundle_adjustment_options(
+    options: pycolmap.BundleAdjustmentOptions,
+) -> pycolmap.BundleAdjustmentOptions:
     options = copy.deepcopy(options)
     options.refine_focal_length = False
     options.refine_principal_point = False
@@ -59,7 +73,9 @@ def refinement_bundle_adjustment_options(options):
     return options
 
 
-def filter_reprojection(reconstruction, max_error):
+def filter_reprojection(
+    reconstruction: pycolmap.Reconstruction, max_error: float
+) -> int:
     return pycolmap.ObservationManager(
         reconstruction
     ).filter_points3D_with_large_reprojection_error(
@@ -69,7 +85,9 @@ def filter_reprojection(reconstruction, max_error):
     )
 
 
-def filter_final(reconstruction, max_error, min_angle):
+def filter_final(
+    reconstruction: pycolmap.Reconstruction, max_error: float, min_angle: float
+) -> None:
     filter_reprojection(reconstruction, max_error)
     pycolmap.ObservationManager(
         reconstruction
@@ -78,7 +96,9 @@ def filter_final(reconstruction, max_error, min_angle):
     )
 
 
-def global_positioning(mapper, options):
+def global_positioning(
+    mapper: pycolmap.GlobalMapper, options: pycolmap.GlobalMapperOptions
+) -> bool:
     reconstruction = mapper.reconstruction
     if reconstruction.num_images() == 0 or reconstruction.num_points3D() == 0:
         return False
@@ -96,7 +116,11 @@ def global_positioning(mapper, options):
     return True
 
 
-def iterative_bundle_adjustment(reconstruction, options, on_progress):
+def iterative_bundle_adjustment(
+    reconstruction: pycolmap.Reconstruction,
+    options: pycolmap.GlobalMapperOptions,
+    on_progress: Callable[[], bool] | None,
+) -> bool:
     ba_options = options.get_bundle_adjustment()
     iteration = 0
     while iteration < options.ba_num_iterations:
@@ -144,7 +168,11 @@ def iterative_bundle_adjustment(reconstruction, options, on_progress):
     return True
 
 
-def iterative_retriangulate_and_refine(mapper, database_cache, options):
+def iterative_retriangulate_and_refine(
+    mapper: pycolmap.GlobalMapper,
+    database_cache: pycolmap.DatabaseCache,
+    options: pycolmap.GlobalMapperOptions,
+) -> bool:
     reconstruction = mapper.reconstruction
     tri_options = options.get_retriangulation()
     ba_options = options.get_bundle_adjustment()
@@ -213,7 +241,12 @@ def iterative_retriangulate_and_refine(mapper, database_cache, options):
     return True
 
 
-def solve(mapper, database_cache, options, on_progress=None):
+def solve(
+    mapper: pycolmap.GlobalMapper,
+    database_cache: pycolmap.DatabaseCache,
+    options: pycolmap.GlobalMapperOptions,
+    on_progress: Callable[[], bool] | None = None,
+) -> bool:
     """Equivalent to GlobalMapper::Solve."""
     if mapper.pose_graph.empty:
         return False
@@ -247,11 +280,19 @@ def solve(mapper, database_cache, options, on_progress=None):
     return True
 
 
-def num_frames_for_images(reconstruction, image_ids):
+def num_frames_for_images(
+    reconstruction: pycolmap.Reconstruction, image_ids: Iterable[int]
+) -> int:
     return len({reconstruction.images[i].frame_id for i in image_ids})
 
 
-def compute_components(options, pose_graph, base, pose_priors, min_model_size):
+def compute_components(
+    options: pycolmap.RotationEstimatorOptions,
+    pose_graph: pycolmap.PoseGraph,
+    base: pycolmap.Reconstruction,
+    pose_priors: Sequence[pycolmap.PosePrior],
+    min_model_size: int,
+) -> tuple[list[set[int]], int, int]:
     components = []
     failed = too_small = 0
     for image_ids in pose_graph.connected_image_ids_for_frame_components(
@@ -282,12 +323,16 @@ def compute_components(options, pose_graph, base, pose_priors, min_model_size):
     return components, failed, too_small
 
 
-def reconstruct_single_component(cache, options, on_progress):
+def reconstruct_single_component(
+    cache: pycolmap.DatabaseCache,
+    options: pycolmap.GlobalMapperOptions,
+    on_progress: Callable[[pycolmap.Reconstruction], bool],
+) -> pycolmap.Reconstruction | None:
     reconstruction = pycolmap.Reconstruction()
     mapper = pycolmap.GlobalMapper(cache)
     mapper.begin_reconstruction(reconstruction)
 
-    def report_progress():
+    def report_progress() -> bool:
         return on_progress(reconstruction)
 
     if not solve(mapper, cache, options, report_progress):
@@ -296,7 +341,11 @@ def reconstruct_single_component(cache, options, on_progress):
     return reconstruction
 
 
-def main_global_mapper(database, options, on_progress=None):
+def main_global_mapper(
+    database: pycolmap.Database,
+    options: pycolmap.GlobalPipelineOptions,
+    on_progress: Callable[[pycolmap.Reconstruction], bool] | None = None,
+) -> list[pycolmap.Reconstruction]:
     """Run mapping; on_progress(reconstruction) returns True to stop."""
     if options.min_model_size < 0:
         raise ValueError("min_model_size must be nonnegative")
@@ -328,12 +377,12 @@ def main_global_mapper(database, options, on_progress=None):
     if insufficient_focals:
         logging.warning(warning)
 
-    def report_progress(reconstruction):
+    def report_progress(reconstruction: pycolmap.Reconstruction) -> bool:
         nonlocal stopped
         stopped = bool(on_progress and on_progress(reconstruction)) or stopped
         return stopped
 
-    def reconstruct(component_cache):
+    def reconstruct(component_cache: pycolmap.DatabaseCache) -> None:
         nonlocal failed, too_small
         result = reconstruct_single_component(
             component_cache, mapper_options, report_progress
@@ -394,7 +443,12 @@ def main_global_mapper(database, options, on_progress=None):
     return models
 
 
-def main(database_path, image_path, output_path, options=None):
+def main(
+    database_path: Path,
+    image_path: Path | None,
+    output_path: Path,
+    options: pycolmap.GlobalPipelineOptions | None = None,
+) -> list[pycolmap.Reconstruction]:
     if not database_path.is_file():
         raise FileNotFoundError(database_path)
     if options is None:
