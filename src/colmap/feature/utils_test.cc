@@ -38,6 +38,20 @@ TEST(L1RootNormalizeFeatureDescriptors, Nominal) {
   }
 }
 
+TEST(L1RootNormalizeFeatureDescriptors, ZeroRows) {
+  FeatureDescriptorsFloatData descriptors =
+      FeatureDescriptorsFloatData::Zero(3, 128);
+  descriptors.row(1).setOnes();
+
+  L1RootNormalizeFeatureDescriptors(&descriptors);
+
+  EXPECT_TRUE(descriptors.allFinite());
+  EXPECT_TRUE(descriptors.row(0).isZero());
+  EXPECT_TRUE(descriptors.row(2).isZero());
+  EXPECT_TRUE(descriptors.row(1).isApprox(
+      FeatureDescriptorsFloatData::Constant(1, 128, std::sqrt(1.0f / 128))));
+}
+
 TEST(FeatureDescriptorsToUnsignedByte, Nominal) {
   Eigen::MatrixXf descriptors = RandomEigenMatrixXf(100, 128);
   descriptors.array() += 1.0f;
