@@ -325,6 +325,76 @@ TEST(Warp, HomographyDirectWarpMinScale) {
                                             &default_image));
 }
 
+TEST(Warp, HomographyDownsamplingIdentity) {
+  const Camera source_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100, 100, 80);
+  const Bitmap source_image = GenerateRandomBitmap(100, 80, true);
+  for (const size_t height : {20, 32}) {
+    Camera target_camera = source_camera;
+    target_camera.Rescale(40, height);
+    for (const auto interpolation :
+         {WarpImageOptions::Interpolation::kNearestNeighbor,
+          WarpImageOptions::Interpolation::kBilinear}) {
+      WarpImageOptions options;
+      options.interpolation = interpolation;
+      Bitmap expected;
+      WarpImageBetweenCameras(
+          options, source_camera, target_camera, source_image, &expected);
+      Bitmap actual;
+      WarpImageWithHomographyBetweenCameras(options,
+                                            Eigen::Matrix3d::Identity(),
+                                            source_camera,
+                                            target_camera,
+                                            source_image,
+                                            &actual);
+      CheckBitmapsExactlyEqual(expected, actual);
+    }
+  }
+}
+
+TEST(Warp, HomographyDownsamplingCoordinates) {
+  const Camera source_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100, 100, 80);
+  Bitmap source_image(100, 80, false);
+  for (int y = 0; y < source_image.Height(); ++y) {
+    for (int x = 0; x < source_image.Width(); ++x) {
+      source_image.SetPixel(x, y, BitmapColor<uint8_t>(x + y));
+    }
+  }
+  for (const size_t height : {20, 32}) {
+    Camera target_camera = source_camera;
+    target_camera.Rescale(40, height);
+    for (const double perspective : {0.0, 0.001}) {
+      Eigen::Matrix3d H;
+      H << 1, 0.1, 2.5, -0.1, 1, 1.25, perspective, 0, 1;
+      Bitmap direct_image;
+      WarpImageWithHomographyBetweenCameras(DirectWarpMinScaleOptions(0.0),
+                                            H,
+                                            source_camera,
+                                            target_camera,
+                                            source_image,
+                                            &direct_image);
+      Bitmap resized_image;
+      WarpImageWithHomographyBetweenCameras(WarpImageOptions(),
+                                            H,
+                                            source_camera,
+                                            target_camera,
+                                            source_image,
+                                            &resized_image);
+      // Only compare the interior: resampling near the borders differs
+      // between the direct and resize paths, and more so on the right where
+      // H shifts samples out of bounds.
+      for (int y = 4; y < resized_image.Height() - 4; ++y) {
+        for (int x = 4; x < resized_image.Width() - 8; ++x) {
+          EXPECT_NEAR(direct_image.GetPixel(x, y)->r,
+                      resized_image.GetPixel(x, y)->r,
+                      2);
+        }
+      }
+    }
+  }
+}
+
 TEST(Warp, HomographyInterpolation) {
   const Camera source_camera =
       Camera::CreateFromModelId(1, CameraModelId::kPinhole, 4, 4, 4);
