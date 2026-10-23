@@ -160,11 +160,17 @@ def iterative_retriangulate_and_refine(mapper, database_cache, options):
         random_seed=tri_options.random_seed
     )
     refinement = refinement_bundle_adjustment_options(ba_options)
-    if not (refinement.check_if_stopped and refinement.check_if_stopped()):
+    if not (
+        refinement.check_if_stopped is not None
+        and refinement.check_if_stopped()
+    ):
         incremental.complete_and_merge_tracks(tri_options)
         incremental.retriangulate(tri_options)
         for _ in range(5):
-            if refinement.check_if_stopped and refinement.check_if_stopped():
+            if (
+                refinement.check_if_stopped is not None
+                and refinement.check_if_stopped()
+            ):
                 break
             observations = reconstruction.compute_num_observations()
             incremental.observation_manager.filter_observations_with_negative_depth()
@@ -182,7 +188,10 @@ def iterative_retriangulate_and_refine(mapper, database_cache, options):
                     solver.max_num_iterations *= 2
                     solver.max_linear_solver_iterations = 200
                 run_bundle_adjustment(custom_ba_options, reconstruction)
-            if refinement.check_if_stopped and refinement.check_if_stopped():
+            if (
+                refinement.check_if_stopped is not None
+                and refinement.check_if_stopped()
+            ):
                 break
             changed = incremental.complete_and_merge_tracks(tri_options)
             changed += incremental.filter_points(mapper_options)

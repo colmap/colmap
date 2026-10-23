@@ -324,15 +324,16 @@ void BindRotationEstimator(py::module& m) {
       "first solving on an expanded reconstruction. Does not perform outlier "
       "filtering or de-registration; callers compose these primitives to "
       "implement the desired post-processing.");
-  m.def("filter_edges_by_relative_rotation",
-        &FilterEdgesByRelativeRotation,
-        "pose_graph"_a,
-        "reconstruction"_a,
-        "max_angle_deg"_a,
-        py::call_guard<py::gil_scoped_release>(),
-        "Marks image pairs as invalid whose relative rotation disagrees with the "
-        "reconstructed rotations by more than max_angle_deg. Pairs whose "
-        "images do not both have a pose are left untouched.");
+  m.def(
+      "filter_edges_by_relative_rotation",
+      &FilterEdgesByRelativeRotation,
+      "pose_graph"_a,
+      "reconstruction"_a,
+      "max_angle_deg"_a,
+      py::call_guard<py::gil_scoped_release>(),
+      "Marks image pairs as invalid whose relative rotation disagrees with the "
+      "reconstructed rotations by more than max_angle_deg. Pairs whose "
+      "images do not both have a pose are left untouched.");
 
   m.def(
       "run_rotation_averaging",
