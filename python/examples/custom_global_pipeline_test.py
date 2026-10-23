@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from pathlib import Path
 
 import custom_global_pipeline as custom
 import numpy as np
@@ -10,8 +11,13 @@ import pycolmap
 
 
 def create_database(
-    path, cameras=1, components=False, unknown=False, noise=False, relative=True
-):
+    path: Path,
+    cameras: int = 1,
+    components: bool = False,
+    unknown: bool = False,
+    noise: bool = False,
+    relative: bool = True,
+) -> pycolmap.Database:
     pycolmap.set_random_seed(2)
     database = pycolmap.Database.open(path)
     truth = pycolmap.synthesize_dataset(
@@ -28,7 +34,10 @@ def create_database(
         ids, _ = database.read_two_view_geometries()
         for pair_id in ids:
             i, j = pycolmap.pair_id_to_image_pair(pair_id)
-            if truth.images[i].frame.rig_id != truth.images[j].frame.rig_id:
+            if (
+                truth.frames[truth.images[i].frame_id].rig_id
+                != truth.frames[truth.images[j].frame_id].rig_id
+            ):
                 database.delete_two_view_geometry(i, j)
     if unknown:
         for rig in database.read_all_rigs():
@@ -42,12 +51,17 @@ def create_database(
     return database
 
 
-def run(database, custom_run, options, stop=False):
+def run(
+    database: pycolmap.Database,
+    custom_run: bool,
+    options: pycolmap.GlobalPipelineOptions,
+    stop: bool = False,
+) -> tuple[list[pycolmap.Reconstruction], list[int]]:
     pycolmap.set_random_seed(42)
     options = copy.deepcopy(options)
     updates = []
 
-    def on_update(reconstruction):
+    def on_update(reconstruction: pycolmap.Reconstruction) -> bool:
         updates.append(reconstruction.num_reg_frames())
         return stop
 
@@ -55,20 +69,26 @@ def run(database, custom_run, options, stop=False):
         return custom.main_global_mapper(database, options, on_update), updates
     manager = pycolmap.ReconstructionManager()
     controller = pycolmap.GlobalPipeline(options, database, manager)
+
+    def on_model_update() -> None:
+        on_update(manager.get(manager.size() - 1))
+
     controller.add_callback(
-        pycolmap.GlobalPipelineCallback.MODEL_UPDATE_CALLBACK,
-        lambda: on_update(manager.get(manager.size() - 1)),
+        pycolmap.GlobalPipelineCallback.MODEL_UPDATE_CALLBACK, on_model_update
     )
     controller.run()
     return [manager.get(i) for i in range(manager.size())], updates
 
 
-def compare(native, python):
+def compare(
+    native: list[pycolmap.Reconstruction],
+    python: list[pycolmap.Reconstruction],
+) -> None:
     assert len(native) == len(python)
     assert all(r.num_reg_frames() > 0 and r.num_points3D() > 0 for r in python)
-    native = {frozenset(r.reg_image_ids()): r for r in native}
+    native_by_images = {frozenset(r.reg_image_ids()): r for r in native}
     for result in python:
-        reference = native[frozenset(result.reg_image_ids())]
+        reference = native_by_images[frozenset(result.reg_image_ids())]
         assert result.num_reg_frames() == reference.num_reg_frames()
         assert result.num_points3D() == reference.num_points3D()
         assert (
@@ -80,25 +100,30 @@ def compare(native, python):
         assert result.num_frames() == reference.num_frames()
         assert result.num_rigs() == reference.num_rigs()
         for frame_id in result.reg_frame_ids():
-            frame, expected = (
+            frame, expected_frame = (
                 result.frames[frame_id],
                 reference.frames[frame_id],
             )
-            assert frame.rig_id == expected.rig_id
+            assert frame.rig_id == expected_frame.rig_id
+            assert frame.rig_from_world is not None
+            assert expected_frame.rig_from_world is not None
             np.testing.assert_allclose(
                 frame.rig_from_world.matrix(),
-                expected.rig_from_world.matrix(),
+                expected_frame.rig_from_world.matrix(),
                 atol=1e-7,
                 rtol=1e-7,
             )
         for rig_id, rig in result.rigs.items():
-            expected = reference.rigs[rig_id]
-            assert rig.ref_sensor_id == expected.ref_sensor_id
-            assert set(rig.non_ref_sensors) == set(expected.non_ref_sensors)
-            for sensor in rig.non_ref_sensors:
+            expected_rig = reference.rigs[rig_id]
+            assert rig.ref_sensor_id == expected_rig.ref_sensor_id
+            assert set(rig.non_ref_sensors) == set(expected_rig.non_ref_sensors)
+            for sensor, sensor_from_rig in rig.non_ref_sensors.items():
+                expected_pose = expected_rig.sensor_from_rig(sensor)
+                assert sensor_from_rig is not None
+                assert expected_pose is not None
                 np.testing.assert_allclose(
-                    rig.sensor_from_rig(sensor).matrix(),
-                    expected.sensor_from_rig(sensor).matrix(),
+                    sensor_from_rig.matrix(),
+                    expected_pose.matrix(),
                     atol=1e-7,
                     rtol=1e-7,
                 )
@@ -117,13 +142,16 @@ def compare(native, python):
                 rtol=1e-7,
             )
         for point_id, point in result.points3D.items():
-            expected = reference.points3D[point_id]
+            expected_point = reference.points3D[point_id]
             assert {
                 (e.image_id, e.point2D_idx) for e in point.track.elements
-            } == {(e.image_id, e.point2D_idx) for e in expected.track.elements}
-            np.testing.assert_array_equal(point.color, expected.color)
+            } == {
+                (e.image_id, e.point2D_idx)
+                for e in expected_point.track.elements
+            }
+            np.testing.assert_array_equal(point.color, expected_point.color)
             np.testing.assert_allclose(
-                point.error, expected.error, atol=1e-7, rtol=1e-7
+                point.error, expected_point.error, atol=1e-7, rtol=1e-7
             )
             np.testing.assert_allclose(
                 point.xyz,
@@ -155,7 +183,9 @@ def compare(native, python):
         ("small", 0),
     ],
 )
-def test_matches_native(tmp_path, case, expected_models):
+def test_matches_native(
+    tmp_path: Path, case: str, expected_models: int
+) -> None:
     database = create_database(
         tmp_path / "database.db",
         cameras=2 if case in ("rig", "unknown") else 1,
@@ -200,7 +230,7 @@ def test_matches_native(tmp_path, case, expected_models):
     assert len(python) == expected_models
 
     if case == "ba_stop":
-        options.mapper.bundle_adjustment.check_if_stopped = None
+        options.mapper.bundle_adjustment.check_if_stopped = lambda: False
         baseline, _ = run(database, False, options)
         assert (
             abs(
@@ -211,7 +241,7 @@ def test_matches_native(tmp_path, case, expected_models):
         )
 
 
-def test_skip_rotation_averaging_without_poses(tmp_path):
+def test_skip_rotation_averaging_without_poses(tmp_path: Path) -> None:
     database = create_database(tmp_path / "database.db")
     options = pycolmap.GlobalPipelineOptions(num_threads=1, random_seed=42)
     options.mapper.bundle_adjustment.ceres.use_gpu = False
@@ -223,7 +253,9 @@ def test_skip_rotation_averaging_without_poses(tmp_path):
             run(database, custom_run, options)
 
 
-def test_replaceable_builders(tmp_path, monkeypatch):
+def test_replaceable_builders(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     database = create_database(tmp_path / "database.db")
     options = pycolmap.GlobalPipelineOptions(num_threads=1, random_seed=42)
     options.mapper.bundle_adjustment.ceres.use_gpu = False
@@ -232,11 +264,19 @@ def test_replaceable_builders(tmp_path, monkeypatch):
     ba_builder = custom.build_bundle_adjuster
     calls = {"gp": 0, "ba": 0, "refinement": 0}
 
-    def gp(*args):
+    def gp(
+        options: pycolmap.GlobalPositionerOptions,
+        pose_graph: pycolmap.PoseGraph,
+        reconstruction: pycolmap.Reconstruction,
+    ) -> pycolmap.GlobalPositioner:
         calls["gp"] += 1
-        return gp_builder(*args)
+        return gp_builder(options, pose_graph, reconstruction)
 
-    def ba(options, config, reconstruction):
+    def ba(
+        options: pycolmap.BundleAdjustmentOptions,
+        config: pycolmap.BundleAdjustmentConfig,
+        reconstruction: pycolmap.Reconstruction,
+    ) -> pycolmap.BundleAdjuster:
         calls["ba"] += 1
         if not options.refine_rig_from_world:
             calls["refinement"] += 1
@@ -251,7 +291,7 @@ def test_replaceable_builders(tmp_path, monkeypatch):
     assert calls["refinement"] >= 1
 
 
-def test_stop_after_global_positioning(tmp_path):
+def test_stop_after_global_positioning(tmp_path: Path) -> None:
     database = create_database(tmp_path / "database.db", components=True)
     options = pycolmap.GlobalPipelineOptions(num_threads=1, random_seed=42)
     models, updates = run(database, True, options, stop=True)
@@ -261,7 +301,7 @@ def test_stop_after_global_positioning(tmp_path):
 
 
 @pytest.mark.parametrize("stop_after", [None, 0, 1, 2, 3])
-def test_solve_callback(tmp_path, stop_after):
+def test_solve_callback(tmp_path: Path, stop_after: int | None) -> None:
     database = create_database(tmp_path / "database.db", noise=True)
     cache = pycolmap.DatabaseCache.create(
         database, pycolmap.DatabaseCacheOptions()
@@ -274,7 +314,7 @@ def test_solve_callback(tmp_path, stop_after):
     options.global_positioning.use_gpu = False
     calls = 0
 
-    def on_progress():
+    def on_progress() -> bool:
         nonlocal calls
         calls += 1
         expected = copy.deepcopy(reconstruction)
@@ -300,7 +340,9 @@ def test_solve_callback(tmp_path, stop_after):
         assert calls >= 3
 
 
-def test_cli_preserves_model_order(tmp_path, monkeypatch):
+def test_cli_preserves_model_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     models = [
         pycolmap.synthesize_dataset(
             pycolmap.SyntheticDatasetOptions(
