@@ -164,22 +164,30 @@ std::optional<Eigen::Matrix3d> MarginalizeTranslationDirection(
   return Lambda_RR - Lambda_Rt * Lambda_tt_pinv * Lambda_Rt.transpose();
 }
 
-// Inverts the rotation information into a covariance. Returns nullopt if the
-// rotation is degenerate, i.e., if its standard deviation along the least
-// constrained axis exceeds max_sigma_deg.
+// Inverts the rotation information into a covariance. The standard deviation
+// along poorly or not constrained axes, e.g., of geometrically degenerate
+// configurations, is capped to max_sigma_deg, such that such edges are never
+// more certain than well-conditioned ones. Returns nullopt if the
+// eigendecomposition fails.
 std::optional<Eigen::Matrix3d> RotationCovarianceFromInformation(
     const Eigen::Matrix3d& information, double max_sigma_deg) {
   const double max_sigma = DegToRad(max_sigma_deg);
+  const double max_variance = max_sigma * max_sigma;
   const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(
       0.5 * (information + information.transpose()));
-  if (eig.info() != Eigen::Success ||
-      eig.eigenvalues()(0) * max_sigma * max_sigma <= 1.0) {
+  if (eig.info() != Eigen::Success) {
     return std::nullopt;
+  }
+
+  Eigen::Vector3d variances;
+  for (int i = 0; i < 3; ++i) {
+    const double eigenvalue = eig.eigenvalues()(i);
+    variances(i) =
+        eigenvalue * max_variance > 1.0 ? 1.0 / eigenvalue : max_variance;
   }
 
   // Clamp the anisotropy of the covariance to avoid near-singular whitening.
   constexpr double kMaxConditionNumber = 1e4;
-  Eigen::Vector3d variances = eig.eigenvalues().cwiseInverse();
   variances = variances.cwiseMax(variances.maxCoeff() / kMaxConditionNumber);
 
   const Eigen::Matrix3d cov = eig.eigenvectors() * variances.asDiagonal() *
@@ -309,7 +317,10 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   const auto image_points = ExtractImagePoints(database_cache, image_ids);
   const auto correspondence_graph = database_cache.CorrespondenceGraph();
 
-  std::atomic<size_t> num_degenerate(0);
+  const double max_sigma = DegToRad(options.max_rotation_sigma_deg);
+  const double max_variance = max_sigma * max_sigma;
+  std::atomic<size_t> num_capped(0);
+  std::atomic<size_t> num_failed(0);
   ThreadPool thread_pool(GetEffectiveNumThreads(options.num_threads));
   std::vector<std::shared_future<void>> futures;
   futures.reserve(edges.size());
@@ -325,7 +336,11 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
                                          edge->cam2_from_cam1,
                                          options);
       if (!edge->cam2_from_cam1_rotation_cov.has_value()) {
-        num_degenerate.fetch_add(1, std::memory_order_relaxed);
+        num_failed.fetch_add(1, std::memory_order_relaxed);
+      } else if (Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
+                     *edge->cam2_from_cam1_rotation_cov, Eigen::EigenvaluesOnly)
+                     .eigenvalues()(2) >= (1 - 1e-6) * max_variance) {
+        num_capped.fetch_add(1, std::memory_order_relaxed);
       }
     }));
   }
@@ -334,9 +349,11 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   }
 
   LOG(INFO) << StringPrintf(
-      "Estimated %zu two-view rotation covariances (%zu degenerate) in %.3fs",
+      "Estimated %zu two-view rotation covariances (%zu capped, %zu failed) "
+      "in %.3fs",
       edges.size(),
-      num_degenerate.load(),
+      num_capped.load(),
+      num_failed.load(),
       timer.ElapsedSeconds());
 }
 

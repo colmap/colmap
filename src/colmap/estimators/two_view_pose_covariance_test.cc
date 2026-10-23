@@ -16,6 +16,7 @@
 #include "colmap/util/testing.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
@@ -300,17 +301,53 @@ TEST(EstimateTwoViewPoseCovariance, Nominal) {
   EXPECT_TRUE(cov->isApprox(cov->transpose()));
   EXPECT_GT(cov->ldlt().vectorD().minCoeff(), 0);
 
-  // The rotation is degenerate if less certain than the maximum sigma.
-  const double max_sigma_deg =
-      RadToDeg(std::sqrt(cov->eigenvalues().real().maxCoeff()));
-  options.max_rotation_sigma_deg = 0.5 * max_sigma_deg;
-  EXPECT_FALSE(EstimateTwoViewPoseCovariance(data.camera1,
-                                             data.points1,
-                                             data.camera2,
-                                             data.points2,
-                                             geometry,
-                                             options)
-                   .has_value());
+  // Axes less certain than the maximum sigma are capped to it.
+  const Eigen::Vector3d eigvals =
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(*cov).eigenvalues();
+  const double max_sigma_deg = 0.5 * RadToDeg(std::sqrt(eigvals(2)));
+  const double max_variance = std::pow(DegToRad(max_sigma_deg), 2);
+  options.max_rotation_sigma_deg = max_sigma_deg;
+  const std::optional<Eigen::Matrix3d> capped_cov =
+      EstimateTwoViewPoseCovariance(data.camera1,
+                                    data.points1,
+                                    data.camera2,
+                                    data.points2,
+                                    geometry,
+                                    options);
+  ASSERT_TRUE(capped_cov.has_value());
+  const Eigen::Vector3d capped_eigvals =
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(*capped_cov).eigenvalues();
+  EXPECT_NEAR(capped_eigvals(2), max_variance, 1e-6 * max_variance);
+  EXPECT_GT(capped_eigvals(0), 0);
+}
+
+TEST(EstimateTwoViewPoseCovariance, UnconstrainedAxisIsCapped) {
+  // A pure rotation observed through a single viewing ray does not constrain
+  // the rotation about that ray.
+  const Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1,
+      SimplePinholeCameraModel::model_id,
+      /*focal_length=*/500.0,
+      /*width=*/640,
+      /*height=*/480);
+  const std::vector<Eigen::Vector2d> points(3, Eigen::Vector2d(320, 240));
+  TwoViewGeometry geometry;
+  geometry.config = TwoViewGeometry::ConfigurationType::PANORAMIC;
+  geometry.cam2_from_cam1 = Rigid3d();
+  for (int i = 0; i < 3; ++i) {
+    geometry.inlier_matches.emplace_back(i, i);
+  }
+
+  TwoViewPoseCovarianceOptions options;
+  const std::optional<Eigen::Matrix3d> cov = EstimateTwoViewPoseCovariance(
+      camera, points, camera, points, geometry, options);
+  ASSERT_TRUE(cov.has_value());
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(*cov);
+  const double max_variance =
+      std::pow(DegToRad(options.max_rotation_sigma_deg), 2);
+  EXPECT_NEAR(eig.eigenvalues()(2), max_variance, 1e-6 * max_variance);
+  EXPECT_NEAR(std::abs(eig.eigenvectors().col(2).z()), 1.0, 1e-6);
+  EXPECT_GT(eig.eigenvalues()(0), 0);
 }
 
 TEST(EstimateTwoViewPoseCovariance, MissingPoseOrTooFewInliers) {
@@ -362,14 +399,23 @@ TEST(EstimatePoseGraphCovariances, Nominal) {
   const Eigen::Matrix3d preset_cov = 2 * Eigen::Matrix3d::Identity();
   pose_graph.Edges().begin()->second.cam2_from_cam1_rotation_cov = preset_cov;
 
-  // Degenerate rotations are left unset.
-  PoseGraph degenerate_pose_graph = pose_graph;
+  // Poorly constrained rotations are capped to the maximum sigma.
+  PoseGraph capped_pose_graph = pose_graph;
   TwoViewPoseCovarianceOptions options;
   options.max_rotation_sigma_deg = 1e-6;
-  EstimatePoseGraphCovariances(*cache, degenerate_pose_graph, options);
-  for (const auto& [pair_id, edge] : degenerate_pose_graph.Edges()) {
-    EXPECT_EQ(edge.cam2_from_cam1_rotation_cov.has_value(),
-              pair_id == preset_pair_id);
+  const double max_variance =
+      std::pow(DegToRad(options.max_rotation_sigma_deg), 2);
+  EstimatePoseGraphCovariances(*cache, capped_pose_graph, options);
+  for (const auto& [pair_id, edge] : capped_pose_graph.Edges()) {
+    ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
+    if (pair_id == preset_pair_id) {
+      continue;
+    }
+    const Eigen::Vector3d eigvals =
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
+            *edge.cam2_from_cam1_rotation_cov)
+            .eigenvalues();
+    EXPECT_NEAR(eigvals(2), max_variance, 1e-6 * max_variance);
   }
 
   options = TwoViewPoseCovarianceOptions();

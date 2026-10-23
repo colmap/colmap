@@ -31,8 +31,8 @@ void BindTwoViewPoseCovarianceEstimator(py::module& m) {
               "max_rotation_sigma_deg",
               &TwoViewPoseCovarianceOptions::max_rotation_sigma_deg,
               "Maximum standard deviation (degrees) of the relative rotation "
-              "along its least constrained axis, beyond which no rotation "
-              "covariance is returned.");
+              "along any axis. Poorly or not constrained axes are capped to "
+              "it.");
   MakeDataclass(PyTwoViewPoseCovarianceOptions);
 
   m.def("estimate_two_view_pose_covariance",

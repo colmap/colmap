@@ -114,7 +114,7 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
 
   // With COVARIANCE reweighting, isotropic standard deviation (in degrees) of
   // the relative rotations without an estimated covariance, e.g., because
-  // their rotation is degenerate.
+  // they have too few valid inliers.
   double covariance_fallback_sigma_deg = 5.0;
 
   // With COVARIANCE reweighting, number of threads for estimating the relative
