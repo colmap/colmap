@@ -106,6 +106,34 @@ void BindGlobalMapper(py::module& m) {
     MakeDataclass(PyOpts);
   }
 
+  py::classh<GlobalMapper>(m, "GlobalMapper")
+      .def(py::init<std::shared_ptr<const DatabaseCache>>(), "database_cache"_a)
+      .def("begin_reconstruction",
+           &GlobalMapper::BeginReconstruction,
+           "reconstruction"_a,
+           "Prepare the mapper for a new reconstruction. This will initialize "
+           "the reconstruction and view graph from the database.")
+      .def_property_readonly("reconstruction", &GlobalMapper::Reconstruction)
+      .def_property_readonly("pose_graph", &GlobalMapper::PoseGraph)
+      .def("rotation_averaging",
+           &GlobalMapper::RotationAveraging,
+           "options"_a,
+           py::call_guard<py::gil_scoped_release>(),
+           "Run rotation averaging to estimate global rotations.")
+      .def("establish_tracks",
+           &GlobalMapper::EstablishTracks,
+           "options"_a,
+           py::call_guard<py::gil_scoped_release>(),
+           "Establish tracks from feature matches.")
+      .def("filter_after_global_positioning",
+           &GlobalMapper::FilterAfterGlobalPositioning,
+           "max_angular_reproj_error_deg"_a,
+           "max_normalized_reproj_error"_a,
+           "min_tri_angle_deg"_a,
+           py::call_guard<py::gil_scoped_release>(),
+           "Remove outlier observations and points after global positioning, "
+           "without normalizing the scene.");
+
   using CallbackType = GlobalPipeline::CallbackType;
   auto PyCallbackType =
       py::enum_<CallbackType>(m, "GlobalPipelineCallback")
