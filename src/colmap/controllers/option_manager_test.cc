@@ -134,6 +134,41 @@ TEST(OptionManager, WriteAndRead) {
             options_write.mapper->min_num_matches);
 }
 
+TEST(OptionManager, MapperSolverThresholds) {
+  OptionManager options;
+  options.AddMapperOptions();
+  std::vector<std::string> args = {
+      "colmap",
+      "--Mapper.ba_min_num_images_gpu_solver=7",
+      "--Mapper.ba_max_num_images_direct_dense_cpu_solver=11",
+      "--Mapper.ba_max_num_images_direct_sparse_cpu_solver=101",
+      "--Mapper.ba_max_num_images_direct_dense_gpu_solver=23",
+      "--Mapper.ba_max_num_images_direct_sparse_gpu_solver=1001"};
+  std::vector<char*> argv;
+  for (auto& arg : args) {
+    argv.push_back(arg.data());
+  }
+  ASSERT_TRUE(options.Parse(argv.size(), argv.data()));
+  EXPECT_EQ(options.mapper->ba_min_num_images_gpu_solver, 7);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_dense_cpu_solver, 11);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_sparse_cpu_solver, 101);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_dense_gpu_solver, 23);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_sparse_gpu_solver, 1001);
+
+  const auto config_path = CreateTestDir() / "mapper.ini";
+  options.Write(config_path);
+  OptionManager options_read;
+  options_read.AddMapperOptions();
+  ASSERT_TRUE(options_read.Read(config_path));
+  EXPECT_EQ(options_read.mapper->ba_min_num_images_gpu_solver, 7);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_dense_cpu_solver, 11);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_sparse_cpu_solver,
+            101);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_dense_gpu_solver, 23);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_sparse_gpu_solver,
+            1001);
+}
+
 TEST(OptionManager, ReRead) {
   const auto test_dir = CreateTestDir();
   const auto config_path = test_dir / "config.ini";
