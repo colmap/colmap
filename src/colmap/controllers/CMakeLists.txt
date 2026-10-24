@@ -8,6 +8,7 @@ COLMAP_ADD_LIBRARY(
         automatic_reconstruction.h automatic_reconstruction.cc
         base_option_manager.h base_option_manager.cc
         bundle_adjustment.h bundle_adjustment.cc
+        gravity_estimation.h gravity_estimation.cc
         single_view_calibration.h single_view_calibration.cc
         hierarchical_pipeline.h hierarchical_pipeline.cc
         feature_extraction.h feature_extraction.cc
@@ -58,6 +59,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
     SRCS bundle_adjustment_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME gravity_estimation_test
+    SRCS gravity_estimation_test.cc
     LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
