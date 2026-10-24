@@ -117,9 +117,6 @@ struct BundleAdjustmentOptions {
 
   // Scaling factor determines residual at which robustification takes place.
   double loss_function_scale = 1.0;
-  
-  // Weight determines the multiplier applied to the residual.
-  double loss_function_weight = 1.0;
 
   // Whether to refine the focal length parameter group.
   bool refine_focal_length = true;

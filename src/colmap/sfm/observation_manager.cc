@@ -343,20 +343,9 @@ size_t ObservationManager::FilterObservationsWithNegativeDepth() {
 size_t ObservationManager::FilterPoints3DWithSmallTriangulationAngle(
     const double min_tri_angle,
     const std::unordered_set<point3D_t>& point3D_ids) {
-  const std::vector<point3D_t> ids_vec(point3D_ids.begin(), point3D_ids.end());
-  const std::vector<point3D_t> to_remove = FindPoints3DWithSmallTriangulationAngle(min_tri_angle, ids_vec);
-  for (const point3D_t id : to_remove) {
-    DeletePoint3D(id);
-  }
-  return to_remove.size();
-}
+  // Number of filtered points.
+  size_t num_filtered = 0;
 
-std::vector<point3D_t> ObservationManager::FindPoints3DWithSmallTriangulationAngle(
-    const double min_tri_angle,
-    const std::vector<point3D_t>& point3D_ids) {
-  
-  std::vector<point3D_t> result;
-  
   // Minimum triangulation angle in radians.
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
@@ -405,11 +394,12 @@ std::vector<point3D_t> ObservationManager::FindPoints3DWithSmallTriangulationAng
     }
 
     if (!keep_point) {
-      result.push_back(point3D_id);
+      num_filtered += 1;
+      DeletePoint3D(point3D_id);
     }
   }
 
-  return result;
+  return num_filtered;
 }
 
 size_t ObservationManager::FilterPoints3DWithLargeReprojectionError(
