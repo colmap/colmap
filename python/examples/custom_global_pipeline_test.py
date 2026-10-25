@@ -81,6 +81,7 @@ def run(
 
 
 def compare(
+    *,
     native: list[pycolmap.Reconstruction],
     python: list[pycolmap.Reconstruction],
 ) -> None:
@@ -225,7 +226,7 @@ def test_matches_native(
         options.min_model_size = 100
     native, native_updates = run(database, False, options)
     python, python_updates = run(database, True, options)
-    compare(native, python)
+    compare(native=native, python=python)
     assert native_updates == python_updates
     assert len(python) == expected_models
 

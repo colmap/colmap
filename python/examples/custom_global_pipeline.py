@@ -74,7 +74,7 @@ def refinement_bundle_adjustment_options(
 
 
 def filter_reprojection(
-    reconstruction: pycolmap.Reconstruction, max_error: float
+    reconstruction: pycolmap.Reconstruction, *, max_error: float
 ) -> int:
     return pycolmap.ObservationManager(
         reconstruction
@@ -86,9 +86,12 @@ def filter_reprojection(
 
 
 def filter_final(
-    reconstruction: pycolmap.Reconstruction, max_error: float, min_angle: float
+    reconstruction: pycolmap.Reconstruction,
+    *,
+    max_error: float,
+    min_angle: float,
 ) -> None:
-    filter_reprojection(reconstruction, max_error)
+    filter_reprojection(reconstruction, max_error=max_error)
     pycolmap.ObservationManager(
         reconstruction
     ).filter_points3D_with_small_triangulation_angle(
@@ -151,7 +154,8 @@ def iterative_bundle_adjustment(
         while status and iteration < options.ba_num_iterations:
             filtered += filter_reprojection(
                 reconstruction,
-                max(3 - iteration, 1) * options.max_normalized_reproj_error,
+                max_error=max(3 - iteration, 1)
+                * options.max_normalized_reproj_error,
             )
             if filtered > 1e-3 * reconstruction.num_points3D():
                 status = False
@@ -162,8 +166,8 @@ def iterative_bundle_adjustment(
         iteration += 1
     filter_final(
         reconstruction,
-        options.max_normalized_reproj_error,
-        options.min_tri_angle_deg,
+        max_error=options.max_normalized_reproj_error,
+        min_angle=options.min_tri_angle_deg,
     )
     return True
 
@@ -229,14 +233,16 @@ def iterative_retriangulate_and_refine(
     incremental.end_reconstruction(discard=False)
 
     for _ in range(2):
-        filter_reprojection(reconstruction, options.max_normalized_reproj_error)
+        filter_reprojection(
+            reconstruction, max_error=options.max_normalized_reproj_error
+        )
         if not run_bundle_adjustment(ba_options, reconstruction):
             return False
     reconstruction.normalize()
     filter_final(
         reconstruction,
-        options.max_normalized_reproj_error,
-        options.min_tri_angle_deg,
+        max_error=options.max_normalized_reproj_error,
+        min_angle=options.min_tri_angle_deg,
     )
     return True
 
@@ -294,12 +300,12 @@ def compute_components(
     min_model_size: int,
 ) -> tuple[list[set[int]], int, int]:
     components = []
-    failed = too_small = 0
+    num_failed = num_too_small = 0
     for image_ids in pose_graph.connected_image_ids_for_frame_components(
         base, filter_unregistered=False
     ):
         if num_frames_for_images(base, image_ids) < min_model_size:
-            too_small += 1
+            num_too_small += 1
             continue
         reconstruction = copy.deepcopy(base)
         graph = pycolmap.PoseGraph(pose_graph)
@@ -309,7 +315,7 @@ def compute_components(
         if not pycolmap.run_rotation_averaging_on_component(
             ra_options, graph, image_ids, reconstruction, pose_priors
         ):
-            failed += 1
+            num_failed += 1
             continue
         if ra_options.max_rotation_error_deg > 0:
             pycolmap.filter_edges_by_relative_rotation(
@@ -320,7 +326,7 @@ def compute_components(
                 reconstruction, filter_unregistered=True
             )
         )
-    return components, failed, too_small
+    return components, num_failed, num_too_small
 
 
 def reconstruct_single_component(
@@ -365,7 +371,7 @@ def main_global_mapper(
     mapper_options.random_seed = options.random_seed
     models = []
     stopped = False
-    failed = too_small = 0
+    num_failed = num_too_small = 0
     insufficient_focals = (
         sum(camera.has_prior_focal_length for camera in cache.cameras.values())
         < 0.5 * cache.num_cameras()
@@ -383,14 +389,14 @@ def main_global_mapper(
         return stopped
 
     def reconstruct(component_cache: pycolmap.DatabaseCache) -> None:
-        nonlocal failed, too_small
+        nonlocal num_failed, num_too_small
         result = reconstruct_single_component(
             component_cache, mapper_options, report_progress
         )
         if result is None:
-            failed += 1
+            num_failed += 1
         elif result.num_reg_frames() < options.min_model_size:
-            too_small += 1
+            num_too_small += 1
         else:
             models.append(result)
 
@@ -400,7 +406,7 @@ def main_global_mapper(
         graph = pycolmap.PoseGraph()
         graph.load(cache.correspondence_graph)
         if not graph.empty:
-            components, failed, too_small = compute_components(
+            components, num_failed, num_too_small = compute_components(
                 mapper_options.get_rotation_averaging(),
                 graph,
                 base,
@@ -414,7 +420,7 @@ def main_global_mapper(
                     num_frames_for_images(base, image_ids)
                     < options.min_model_size
                 ):
-                    too_small += 1
+                    num_too_small += 1
                     continue
                 component_cache = pycolmap.DatabaseCache.create_from_cache(
                     cache,
@@ -435,8 +441,8 @@ def main_global_mapper(
                 options.image_path, options.num_threads
             )
     logging.info(
-        f"Kept {len(models)} reconstruction(s), discarded {too_small} small "
-        f"components, and failed to reconstruct {failed}"
+        f"Kept {len(models)} reconstruction(s), discarded {num_too_small} "
+        f"small components, and failed to reconstruct {num_failed}"
     )
     if insufficient_focals:
         logging.warning(warning)
