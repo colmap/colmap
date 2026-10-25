@@ -172,6 +172,63 @@ def iterative_bundle_adjustment(
     return True
 
 
+def adjust_refinement_bundle(
+    reconstruction: pycolmap.Reconstruction,
+    refinement: pycolmap.BundleAdjustmentOptions,
+) -> None:
+    if reconstruction.num_reg_images() < 2:
+        return
+    custom_ba_options = copy.deepcopy(refinement)
+    # Use stricter convergence criteria for first registered images.
+    if reconstruction.num_reg_frames() < 10 and custom_ba_options.ceres:
+        solver = custom_ba_options.ceres.solver_options
+        solver.function_tolerance /= 10
+        solver.gradient_tolerance /= 10
+        solver.parameter_tolerance /= 10
+        solver.max_num_iterations *= 2
+        solver.max_linear_solver_iterations = 200
+    run_bundle_adjustment(custom_ba_options, reconstruction)
+
+
+def iterative_global_refinement(
+    incremental: pycolmap.IncrementalMapper,
+    reconstruction: pycolmap.Reconstruction,
+    tri_options: pycolmap.IncrementalTriangulatorOptions,
+    ba_options: pycolmap.BundleAdjustmentOptions,
+) -> None:
+    """Mirror IncrementalMapper::IterativeGlobalRefinement with fixed poses."""
+    mapper_options = pycolmap.IncrementalMapperOptions(
+        random_seed=tri_options.random_seed
+    )
+    refinement = refinement_bundle_adjustment_options(ba_options)
+    if (
+        refinement.check_if_stopped is not None
+        and refinement.check_if_stopped()
+    ):
+        return
+    incremental.complete_and_merge_tracks(tri_options)
+    incremental.retriangulate(tri_options)
+    for _ in range(5):
+        if (
+            refinement.check_if_stopped is not None
+            and refinement.check_if_stopped()
+        ):
+            break
+        observations = reconstruction.compute_num_observations()
+        incremental.observation_manager.filter_observations_with_negative_depth()
+        adjust_refinement_bundle(reconstruction, refinement)
+        if (
+            refinement.check_if_stopped is not None
+            and refinement.check_if_stopped()
+        ):
+            break
+        changed = incremental.complete_and_merge_tracks(tri_options)
+        changed += incremental.filter_points(mapper_options)
+        if (changed / observations if observations else 0) < 0.0005:
+            break
+    incremental.clear_modified_points3D()
+
+
 def iterative_retriangulate_and_refine(
     mapper: pycolmap.GlobalMapper,
     database_cache: pycolmap.DatabaseCache,
@@ -186,50 +243,9 @@ def iterative_retriangulate_and_refine(
     for image_id in reconstruction.reg_image_ids():
         incremental.triangulate_image(tri_options, image_id)
 
-    # Equivalent to IncrementalMapper::IterativeGlobalRefinement with the
-    # default mapper options and fixed-pose BA used by the global mapper.
-    mapper_options = pycolmap.IncrementalMapperOptions(
-        random_seed=tri_options.random_seed
+    iterative_global_refinement(
+        incremental, reconstruction, tri_options, ba_options
     )
-    refinement = refinement_bundle_adjustment_options(ba_options)
-    if not (
-        refinement.check_if_stopped is not None
-        and refinement.check_if_stopped()
-    ):
-        incremental.complete_and_merge_tracks(tri_options)
-        incremental.retriangulate(tri_options)
-        for _ in range(5):
-            if (
-                refinement.check_if_stopped is not None
-                and refinement.check_if_stopped()
-            ):
-                break
-            observations = reconstruction.compute_num_observations()
-            incremental.observation_manager.filter_observations_with_negative_depth()
-            if reconstruction.num_reg_images() >= 2:
-                custom_ba_options = copy.deepcopy(refinement)
-                # Use stricter convergence criteria for first registered images.
-                if (
-                    reconstruction.num_reg_frames() < 10
-                    and custom_ba_options.ceres
-                ):
-                    solver = custom_ba_options.ceres.solver_options
-                    solver.function_tolerance /= 10
-                    solver.gradient_tolerance /= 10
-                    solver.parameter_tolerance /= 10
-                    solver.max_num_iterations *= 2
-                    solver.max_linear_solver_iterations = 200
-                run_bundle_adjustment(custom_ba_options, reconstruction)
-            if (
-                refinement.check_if_stopped is not None
-                and refinement.check_if_stopped()
-            ):
-                break
-            changed = incremental.complete_and_merge_tracks(tri_options)
-            changed += incremental.filter_points(mapper_options)
-            if (changed / observations if observations else 0) < 0.0005:
-                break
-        incremental.clear_modified_points3D()
     incremental.end_reconstruction(discard=False)
 
     for _ in range(2):
@@ -347,6 +363,68 @@ def reconstruct_single_component(
     return reconstruction
 
 
+def reconstruct_models(
+    cache: pycolmap.DatabaseCache,
+    options: pycolmap.GlobalPipelineOptions,
+    mapper_options: pycolmap.GlobalMapperOptions,
+    on_progress: Callable[[pycolmap.Reconstruction], bool] | None,
+) -> tuple[list[pycolmap.Reconstruction], int, int]:
+    """Reconstruct selected components and count failed or undersized models."""
+    models = []
+    stopped = False
+    num_failed = num_too_small = 0
+
+    def report_progress(reconstruction: pycolmap.Reconstruction) -> bool:
+        nonlocal stopped
+        stopped = bool(on_progress and on_progress(reconstruction)) or stopped
+        return stopped
+
+    def reconstruct(component_cache: pycolmap.DatabaseCache) -> None:
+        nonlocal num_failed, num_too_small
+        result = reconstruct_single_component(
+            component_cache, mapper_options, report_progress
+        )
+        if result is None:
+            num_failed += 1
+        elif result.num_reg_frames() < options.min_model_size:
+            num_too_small += 1
+        else:
+            models.append(result)
+
+    if not options.multiple_models:
+        reconstruct(cache)
+        return models, num_failed, num_too_small
+
+    base = pycolmap.Reconstruction()
+    base.load(cache)
+    graph = pycolmap.PoseGraph()
+    graph.load(cache.correspondence_graph)
+    if graph.empty:
+        return models, num_failed, num_too_small
+
+    components, num_failed, num_too_small = compute_components(
+        mapper_options.get_rotation_averaging(),
+        graph,
+        base,
+        cache.pose_priors,
+        options.min_model_size,
+    )
+    for image_ids in components:
+        if stopped:
+            break
+        if num_frames_for_images(base, image_ids) < options.min_model_size:
+            num_too_small += 1
+            continue
+        component_cache = pycolmap.DatabaseCache.create_from_cache(
+            cache,
+            pycolmap.DatabaseCacheOptions(
+                image_names={base.images[i].name for i in image_ids}
+            ),
+        )
+        reconstruct(component_cache)
+    return models, num_failed, num_too_small
+
+
 def main_global_mapper(
     database: pycolmap.Database,
     options: pycolmap.GlobalPipelineOptions,
@@ -369,9 +447,6 @@ def main_global_mapper(
     mapper_options.image_path = options.image_path
     mapper_options.num_threads = options.num_threads
     mapper_options.random_seed = options.random_seed
-    models = []
-    stopped = False
-    num_failed = num_too_small = 0
     insufficient_focals = (
         sum(camera.has_prior_focal_length for camera in cache.cameras.values())
         < 0.5 * cache.num_cameras()
@@ -383,54 +458,9 @@ def main_global_mapper(
     if insufficient_focals:
         logging.warning(warning)
 
-    def report_progress(reconstruction: pycolmap.Reconstruction) -> bool:
-        nonlocal stopped
-        stopped = bool(on_progress and on_progress(reconstruction)) or stopped
-        return stopped
-
-    def reconstruct(component_cache: pycolmap.DatabaseCache) -> None:
-        nonlocal num_failed, num_too_small
-        result = reconstruct_single_component(
-            component_cache, mapper_options, report_progress
-        )
-        if result is None:
-            num_failed += 1
-        elif result.num_reg_frames() < options.min_model_size:
-            num_too_small += 1
-        else:
-            models.append(result)
-
-    if options.multiple_models:
-        base = pycolmap.Reconstruction()
-        base.load(cache)
-        graph = pycolmap.PoseGraph()
-        graph.load(cache.correspondence_graph)
-        if not graph.empty:
-            components, num_failed, num_too_small = compute_components(
-                mapper_options.get_rotation_averaging(),
-                graph,
-                base,
-                cache.pose_priors,
-                options.min_model_size,
-            )
-            for image_ids in components:
-                if stopped:
-                    break
-                if (
-                    num_frames_for_images(base, image_ids)
-                    < options.min_model_size
-                ):
-                    num_too_small += 1
-                    continue
-                component_cache = pycolmap.DatabaseCache.create_from_cache(
-                    cache,
-                    pycolmap.DatabaseCacheOptions(
-                        image_names={base.images[i].name for i in image_ids}
-                    ),
-                )
-                reconstruct(component_cache)
-    else:
-        reconstruct(cache)
+    models, num_failed, num_too_small = reconstruct_models(
+        cache, options, mapper_options, on_progress
+    )
 
     models.sort(
         key=lambda reconstruction: reconstruction.num_reg_frames(), reverse=True
