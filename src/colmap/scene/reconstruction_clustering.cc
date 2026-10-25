@@ -104,19 +104,26 @@ NodeHashMap<frame_t, int> ClusterReconstructionFrames(
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() <= 2) continue;
 
+    std::vector<frame_t> point_frame_ids;
+    point_frame_ids.reserve(point3D.track.Length());
+    FlatHashSet<frame_t> point_frame_id_set;
+
     for (size_t i = 0; i < point3D.track.Length(); i++) {
       const image_t image_id1 = point3D.track.Element(i).image_id;
       const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
 
-      nodes.insert(frame_id1);
-      // TODO: This may over-count frame pairs when multiple images from the
-      // same frame appear in a track (e.g., rig cameras). Figure out if
-      // intended.
-      for (size_t j = i + 1; j < point3D.track.Length(); j++) {
-        const image_t image_id2 = point3D.track.Element(j).image_id;
-        const frame_t frame_id2 = reconstruction.Image(image_id2).FrameId();
-        if (frame_id1 == frame_id2) continue;
-        const frame_pair_t pair_id = ImagePairToPairId(frame_id1, frame_id2);
+      if (point_frame_id_set.insert(frame_id1).second) {
+        point_frame_ids.push_back(frame_id1);
+        nodes.insert(frame_id1);
+      }
+    }
+
+    // Count each frame pair at most once per 3D point. A track may contain
+    // multiple images from the same frame when the reconstruction uses a rig.
+    for (size_t i = 0; i < point_frame_ids.size(); ++i) {
+      for (size_t j = i + 1; j < point_frame_ids.size(); ++j) {
+        const frame_pair_t pair_id =
+            ImagePairToPairId(point_frame_ids[i], point_frame_ids[j]);
         frame_covisibility_count[pair_id]++;
       }
     }
