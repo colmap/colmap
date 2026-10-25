@@ -69,8 +69,9 @@ void ThrowCheckONNXElementType(std::string_view name,
 class ONNXModel {
  public:
   // A capability probe propagates initialization failures without logging an
-  // error. When a non-CPU provider is selected, it also requires that provider
-  // to support the complete graph instead of falling back to CPU.
+  // error. CUDA probes permit CPU shape/index operators but require CUDA work
+  // and reject CPU arithmetic fallback. Other accelerators and ONNX Runtime
+  // versions before 1.24 require the complete graph on the selected provider.
   ONNXModel(std::string model_path,
             int num_threads,
             bool use_gpu,
@@ -110,6 +111,10 @@ class ONNXModel {
   // execution providers, so it can be reused to rebuild session_options_ for a
   // CPU-only fallback.
   void ConfigureSessionOptions(int num_threads);
+
+#if ORT_API_VERSION >= 24
+  void CheckCudaCapabilityProbeAssignments() const;
+#endif
 
   Ort::Env env_;
   Ort::AllocatorWithDefaultOptions allocator_;

@@ -167,7 +167,16 @@ void ONNXModel::InitializeSession(const std::string& model_path,
   ConfigureSessionOptions(num_threads);
   execution_provider_ = SelectONNXExecutionProvider(use_gpu);
 
-  if (is_capability_probe &&
+  bool inspect_cuda_probe = false;
+#if ORT_API_VERSION >= 24
+  inspect_cuda_probe =
+      is_capability_probe && execution_provider_ == ONNXExecutionProvider::CUDA;
+  if (inspect_cuda_probe) {
+    session_options_.AddConfigEntry("session.record_ep_graph_assignment_info",
+                                    "1");
+  }
+#endif
+  if (is_capability_probe && !inspect_cuda_probe &&
       execution_provider_ != ONNXExecutionProvider::CPU) {
     // Fail if any node would fall back to CPU.
     session_options_.AddConfigEntry(kDisableCpuEpFallback, "1");
@@ -232,6 +241,10 @@ void ONNXModel::InitializeSession(const std::string& model_path,
         std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
   }
 
+#if ORT_API_VERSION >= 24
+  if (inspect_cuda_probe) CheckCudaCapabilityProbeAssignments();
+#endif
+
   VLOG(2) << "Parsing the inputs";
   const int num_inputs = session_->GetInputCount();
   input_name_strs_.reserve(num_inputs);
@@ -266,6 +279,40 @@ void ONNXModel::InitializeSession(const std::string& model_path,
                                            .GetElementType());
   }
 }
+
+#if ORT_API_VERSION >= 24
+void ONNXModel::CheckCudaCapabilityProbeAssignments() const {
+  bool has_cuda_nodes = false;
+  for (const auto& subgraph : session_->GetEpGraphAssignmentInfo()) {
+    const std::string provider = subgraph.GetEpName();
+    if (provider == "CUDAExecutionProvider") {
+      has_cuda_nodes |= !subgraph.GetNodes().empty();
+      continue;
+    }
+    for (const auto& node : subgraph.GetNodes()) {
+      const std::string domain = node.GetDomain();
+      const std::string op = node.GetOperatorType();
+      // ORT deliberately places shape/index manipulation on CPU. Reject
+      // arithmetic fallback (in particular unsupported BF16 matrix kernels),
+      // while permitting this small set of data-movement/metadata operators.
+      const bool shape_or_index =
+          (domain.empty() || domain == "ai.onnx") &&
+          (op == "Shape" || op == "Size" || op == "Gather" || op == "Squeeze" ||
+           op == "Unsqueeze" || op == "Concat" || op == "Slice");
+      if (provider != "CPUExecutionProvider" || !shape_or_index) {
+        const std::string message =
+            "CUDA capability probe requires CPU execution of node '" +
+            node.GetName() + "' (" + domain + ":" + op + ")";
+        throw Ort::Exception(message.c_str(), ORT_NOT_IMPLEMENTED);
+      }
+    }
+  }
+  if (!has_cuda_nodes) {
+    throw Ort::Exception("CUDA capability probe contains no CUDA kernels",
+                         ORT_NOT_IMPLEMENTED);
+  }
+}
+#endif
 
 std::vector<Ort::Value> ONNXModel::Run(
     const std::vector<Ort::Value>& input_tensors) const {

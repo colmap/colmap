@@ -5,6 +5,10 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#ifdef COLMAP_CUDA_ENABLED
+#include "colmap/util/cuda.h"
+#endif
+
 #include <cstddef>
 #include <filesystem>
 #include <vector>
@@ -189,6 +193,79 @@ TEST(CreateONNXScalarTensorTest, Nominal) {
   EXPECT_TRUE(int_tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
   EXPECT_EQ(*int_tensor.GetTensorData<int64_t>(), 7);
 }
+
+#if defined(COLMAP_CUDA_ENABLED) && ORT_API_VERSION >= 24
+
+std::filesystem::path WriteMixedProbeModel() {
+  // Dynamic MatMul plus CPU Shape; identity weights make inference exact.
+  constexpr char kModel[] =
+      "\x08\x08\x3a\xa7\x01\x0a\x1d\x0a\x01\x58\x0a\x01"
+      "\x57\x12\x01\x59\x1a\x0a\x67\x70\x75\x5f\x6d\x61"
+      "\x74\x6d\x75\x6c\x22\x06\x4d\x61\x74\x4d\x75\x6c"
+      "\x0a\x18\x0a\x01\x58\x12\x01\x53\x1a\x09\x63\x70"
+      "\x75\x5f\x73\x68\x61\x70\x65\x22\x05\x53\x68\x61"
+      "\x70\x65\x12\x12\x6d\x69\x78\x65\x64\x5f\x73\x68"
+      "\x61\x70\x65\x5f\x6d\x61\x74\x6d\x75\x6c\x2a\x1b"
+      "\x08\x02\x08\x02\x10\x01\x22\x10\x00\x00\x80\x3f"
+      "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x3f"
+      "\x42\x01\x57\x5a\x14\x0a\x01\x58\x12\x0f\x0a\x0d"
+      "\x08\x01\x12\x09\x0a\x03\x12\x01\x4e\x0a\x02\x08"
+      "\x02\x62\x14\x0a\x01\x59\x12\x0f\x0a\x0d\x08\x01"
+      "\x12\x09\x0a\x03\x12\x01\x4e\x0a\x02\x08\x02\x62"
+      "\x0f\x0a\x01\x53\x12\x0a\x0a\x08\x08\x07\x12\x04"
+      "\x0a\x02\x08\x02\x42\x02\x10\x0d";
+  const auto path = CreateTestDir() / "mixed.onnx";
+  WriteBinaryBlob(path, {kModel, sizeof(kModel) - 1});
+  return path;
+}
+
+std::filesystem::path WriteCpuStringModel() {
+  // CPU-only string computation, not shape/index bookkeeping.
+  constexpr char kModel[] =
+      "\x08\x08\x3a\x6b\x0a\x34\x0a\x01\x58\x12\x01\x59"
+      "\x1a\x0a\x63\x70\x75\x5f\x73\x74\x72\x69\x6e\x67"
+      "\x22\x10\x53\x74\x72\x69\x6e\x67\x4e\x6f\x72\x6d"
+      "\x61\x6c\x69\x7a\x65\x72\x2a\x0e\x0a\x06\x6c\x6f"
+      "\x63\x61\x6c\x65\x22\x01\x43\xa0\x01\x03\x12\x10"
+      "\x63\x70\x75\x5f\x73\x74\x72\x69\x6e\x67\x5f\x67"
+      "\x72\x61\x70\x68\x5a\x0f\x0a\x01\x58\x12\x0a\x0a"
+      "\x08\x08\x08\x12\x04\x0a\x02\x08\x01\x62\x10\x0a"
+      "\x01\x59\x12\x0b\x0a\x09\x08\x08\x12\x05\x0a\x03"
+      "\x12\x01\x4e\x42\x02\x10\x0d";
+  const auto path = CreateTestDir() / "cpu-string.onnx";
+  WriteBinaryBlob(path, {kModel, sizeof(kModel) - 1});
+  return path;
+}
+
+TEST(ONNXModelTest, CudaCapabilityProbeAllowsShapeNodes) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "CUDA device required";
+  // Dynamic X[batch,2]: MatMul stays on CUDA, Shape runs on CPU.
+  ONNXModel model(WriteMixedProbeModel().string(), 1, true, "0", true);
+  EXPECT_EQ(model.execution_provider(), ONNXExecutionProvider::CUDA);
+  std::vector<float> data{1.25f, -2.5f, 3.0f, 4.0f};
+  std::vector<Ort::Value> inputs;
+  inputs.push_back(CreateONNXTensor(data, {2, 2}));
+  const auto outputs = model.Run(inputs);
+  ASSERT_EQ(outputs.size(), 2);
+  for (size_t i = 0; i < data.size(); ++i)
+    EXPECT_FLOAT_EQ(outputs[0].GetTensorData<float>()[i], data[i]);
+  EXPECT_EQ(outputs[1].GetTensorData<int64_t>()[0], 2);
+  EXPECT_EQ(outputs[1].GetTensorData<int64_t>()[1], 2);
+}
+
+TEST(ONNXModelTest, CudaCapabilityProbeRejectsCpuCompute) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "CUDA device required";
+  ErrorLogSink log_sink;
+  try {
+    ONNXModel model(WriteCpuStringModel().string(), 1, true, "0", true);
+    FAIL() << "Expected CPU compute fallback to be rejected";
+  } catch (const Ort::Exception& error) {
+    EXPECT_NE(std::string(error.what()).find("StringNormalizer"),
+              std::string::npos);
+  }
+  EXPECT_EQ(log_sink.NumErrorLogs(), 0);
+}
+#endif
 
 }  // namespace
 }  // namespace colmap

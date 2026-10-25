@@ -207,6 +207,9 @@ if(ONNX_ENABLED)
             colmap_util
             onnxruntime::onnxruntime
     )
+    if(TESTS_ENABLED AND CUDA_ENABLED)
+        target_link_libraries(colmap_util_onnx_test PRIVATE colmap_util_cuda)
+    endif()
 endif()
 COLMAP_ADD_TEST(
     NAME string_test

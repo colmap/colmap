@@ -4,8 +4,15 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/onnx.h"
+#include "colmap/util/string.h"
 
+#ifdef COLMAP_CUDA_ENABLED
+#include "colmap/util/cudacc.h"
+#endif
+
+#include <algorithm>
 #include <cstring>
 #include <memory>
 
@@ -16,6 +23,25 @@ namespace colmap {
 namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
+
+#ifdef COLMAP_CUDA_ENABLED
+// CUDA BF16 matrix kernels require Ampere or newer. Session construction can
+// succeed on an older GPU even though the first matrix operation would fail.
+void CheckLomaBf16CudaDevice(const ONNXModel& model,
+                             const std::string& gpu_index) {
+  if (model.execution_provider() != ONNXExecutionProvider::CUDA) return;
+  cudaDeviceProp properties{};
+  const auto indices = CSVToVector<int>(gpu_index);
+  THROW_CHECK_EQ(indices.size(), 1);
+  CUDA_SAFE_CALL(
+      cudaGetDeviceProperties(&properties, std::max(0, indices.front())));
+  if (properties.major < 8) {
+    throw Ort::Exception(
+        "LoMa BF16 requires CUDA compute capability 8.0 or newer",
+        ORT_NOT_IMPLEMENTED);
+  }
+}
+#endif
 
 // Fast bilinear resample instead of Bitmap::Rescale()'s filtered resize --
 // see LomaExtractionOptions::use_fast_resize for the speed/accuracy tradeoff.
@@ -74,6 +100,11 @@ class LomaFeatureExtractor : public FeatureExtractor {
                     options.use_gpu,
                     options.gpu_index,
                     probe_descriptor_support) {
+#ifdef COLMAP_CUDA_ENABLED
+    if (probe_descriptor_support) {
+      CheckLomaBf16CudaDevice(descriptor_, options.gpu_index);
+    }
+#endif
     THROW_CHECK(options.Check());
 
     // Detector: image [1, 3, H, W], num_keypoints [1] (int64, runtime input --
@@ -266,6 +297,9 @@ class LomaFeatureMatcher : public FeatureMatcher {
                options.use_gpu,
                options.gpu_index,
                probe_model_support) {
+#ifdef COLMAP_CUDA_ENABLED
+    if (probe_model_support) CheckLomaBf16CudaDevice(model_, options.gpu_index);
+#endif
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 4);
     THROW_CHECK_GE(model_.output_shapes().size(), 2);
