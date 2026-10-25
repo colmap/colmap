@@ -349,8 +349,7 @@ void BindBundleAdjuster(py::module& m) {
               "check_if_stopped",
               &BAOpts::check_if_stopped,
               "Optional cooperative cancellation callback. Ceres evaluates "
-              "this "
-              "after each iteration. Other backends may only evaluate it "
+              "this after each iteration. Other backends may only evaluate it "
               "between solver runs. Not preserved by pickling.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
