@@ -85,4 +85,19 @@ bool CudaDeviceSupportsBf16(const int gpu_index) {
 #endif
 }
 
+bool CudaDeviceHasTensorCores(const int gpu_index) {
+#ifdef COLMAP_HIP_ENABLED
+  return false;
+#else
+  cudaDeviceProp properties;
+  if (cudaGetDeviceProperties(&properties, gpu_index) != cudaSuccess) {
+    // Reset the error for an invalid device so that later CUDA_CHECK() calls
+    // do not report it. Initialization errors (e.g., no device) are sticky.
+    cudaGetLastError();
+    return false;
+  }
+  return properties.major >= 7;
+#endif
+}
+
 }  // namespace colmap
