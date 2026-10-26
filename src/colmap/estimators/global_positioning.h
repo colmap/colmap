@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "colmap/estimators/cost_functions/depth.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/hash_containers.h"
@@ -97,6 +98,8 @@ class GlobalPositioner {
   // allowing additional residuals to constrain the same variable. Returns
   // nullptr if the frame is not active.
   double* FrameCenterParameterBlock(frame_t frame_id);
+  // Temporary sensor center in rig coordinates, or nullptr for a fixed sensor.
+  double* SensorCenterParameterBlock(sensor_t sensor_id);
   bool Finalize(const ceres::Solver::Summary& summary);
   // Extends an existing ordering after adding parameter blocks.
   // Independent single-residual scalars use group 0; other new blocks use
@@ -164,5 +167,23 @@ class GlobalPositioner {
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
                           Reconstruction& reconstruction);
+
+struct GPDepthConstraintOptions {
+  DepthResidualType residual_type = DepthResidualType::kLinear;
+  // Depth-ratio threshold in (0, 1) for the log-linear continuation.
+  double log_linear_threshold = 0.1;
+};
+
+// Append depth constraints using the positioner's point and frame-center
+// blocks. Depth measurements, caller-owned log scale, and loss follow
+// AppendBADepthConstraints.
+size_t AppendGPDepthConstraints(
+    GlobalPositioner& positioner,
+    Reconstruction& reconstruction,
+    image_t image_id,
+    const FlatHashMap<point2D_t, std::pair<double, double>>& depths,
+    double* log_depth_scale,
+    const GPDepthConstraintOptions& options = {},
+    ceres::LossFunction* loss_function = nullptr);
 
 }  // namespace colmap

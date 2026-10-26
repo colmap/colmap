@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/global_positioning.h"
 #include "colmap/scene/synthetic.h"
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -107,6 +109,69 @@ TEST(AppendDepthConstraints, RigPosesAndParameterizations) {
   }
 }
 
+TEST(AppendDepthConstraints, NativeGlobalPositioningRigCenters) {
+  for (bool estimate_sensor : {false, true}) {
+    for (bool fix_depth_scale : {false, true}) {
+      auto reconstruction = MakeRig();
+      auto& rig = reconstruction.Rig(reconstruction.Rigs().begin()->first);
+      const auto sensor = rig.NonRefSensors().begin()->first;
+      const auto sensor_center = rig.SensorFromRig(sensor).TgtOriginInSrc();
+      auto depths = MakeDepths(reconstruction);
+      if (estimate_sensor) {
+        rig.SensorFromRig(sensor).translation().setConstant(
+            std::numeric_limits<double>::quiet_NaN());
+      }
+      GlobalPositionerOptions options;
+      options.generate_random_positions = false;
+      options.generate_random_points = false;
+      options.optimize_positions = false;
+      options.fix_first_scale = false;
+      options.use_gpu = false;
+      auto gp =
+          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      if (estimate_sensor) {
+        ASSERT_NE(gp->SensorCenterParameterBlock(sensor), nullptr);
+        Eigen::Map<Eigen::Vector3d>(gp->SensorCenterParameterBlock(sensor)) =
+            sensor_center;
+      } else {
+        EXPECT_EQ(gp->SensorCenterParameterBlock(sensor), nullptr);
+      }
+      auto& problem = gp->Problem();
+      const int blocks = problem.NumParameterBlocks();
+      std::vector<ceres::ResidualBlockId> before;
+      problem.GetResidualBlocks(&before);
+      double log_depth_scale = 0.0;
+      size_t count = 0;
+      for (const auto& [id, values] : depths)
+        count += AppendGPDepthConstraints(
+            *gp, reconstruction, id, values, &log_depth_scale);
+      EXPECT_EQ(count, reconstruction.ComputeNumObservations());
+      EXPECT_EQ(problem.NumParameterBlocks(), blocks + 1);
+      if (fix_depth_scale) problem.SetParameterBlockConstant(&log_depth_scale);
+      gp->ExtendParameterBlockOrdering({{&log_depth_scale, 2}});
+      ASSERT_NE(gp->SolverOptions().linear_solver_ordering, nullptr);
+      EXPECT_EQ(gp->SolverOptions().linear_solver_ordering->NumElements(),
+                problem.NumParameterBlocks());
+      std::vector<ceres::ResidualBlockId> after;
+      problem.GetResidualBlocks(&after);
+      ceres::Problem::EvaluateOptions eval;
+      for (auto id : after)
+        if (std::find(before.begin(), before.end(), id) == before.end())
+          eval.residual_blocks.push_back(id);
+      double cost;
+      ASSERT_TRUE(problem.Evaluate(eval, &cost, nullptr, nullptr, nullptr));
+      EXPECT_NEAR(cost, 0, 1e-20);
+      for (const auto& [id, point] : reconstruction.Points3D())
+        reconstruction.Point3D(id).xyz.z() += 0.1;
+      ASSERT_TRUE(problem.Evaluate(eval, &cost, nullptr, nullptr, nullptr));
+      EXPECT_GT(cost, 0);
+      ASSERT_TRUE(gp->Solve().IsSolutionUsable());
+      ASSERT_TRUE(problem.Evaluate(eval, &cost, nullptr, nullptr, nullptr));
+      EXPECT_LT(cost, 1e-8);
+    }
+  }
+}
+
 TEST(AppendDepthConstraints, ScaledResiduals) {
   const Rigid3d cam_from_world;
   const double log_depth_scale = std::log(2.0);
@@ -130,6 +195,70 @@ TEST(AppendDepthConstraints, ScaledResiduals) {
                                  : (z - 4) / 0.5,
                   1e-12);
       EXPECT_NEAR(derivative, z <= 0 ? 0 : log_residual ? -8 : -2 * z, 1e-12);
+    }
+  }
+}
+
+TEST(AppendDepthConstraints, LogDepthResiduals) {
+  for (double prior : {0.01, 10.0}) {
+    WorldFromCamCenterDepthCostFunctor error{prior,
+                                             0.1 * prior,
+                                             DepthResidualType::kLogLinear,
+                                             0.1,
+                                             Eigen::RowVector3d(0, 0, 1)};
+    using Jet = ceres::Jet<double, 1>;
+    const Jet center[3] = {Jet(0), Jet(0), Jet(0)};
+    const Jet log_scale_jet(std::log(2.0));
+    auto evaluate = [&](const auto& cost, double ratio) {
+      Jet point[3] = {Jet(0), Jet(0), Jet(2 * prior * ratio, 0)};
+      Jet residual;
+      EXPECT_TRUE(cost(point, center, &log_scale_jet, &residual));
+      return residual;
+    };
+    EXPECT_NEAR(evaluate(error, 1).a, 0, 1e-12);
+    for (double ratio : {-1.0, 0.0, 0.1, 1.0}) {
+      const Jet residual = evaluate(error, ratio);
+      EXPECT_TRUE(std::isfinite(residual.a));
+      EXPECT_GT(residual.v[0], 0);
+      if (ratio < 1) {
+        EXPECT_LT(residual.a, 0);
+      }
+    }
+    const Jet left = evaluate(error, 0.1 - 1e-8);
+    const Jet right = evaluate(error, 0.1 + 1e-8);
+    EXPECT_NEAR(left.a, right.a, 3e-6);
+    EXPECT_NEAR(left.v[0], right.v[0], 1e-6 * left.v[0]);
+
+    Eigen::Vector3d point(0, 0, -prior), origin = Eigen::Vector3d::Zero();
+    double log_depth_scale = std::log(2.0);
+    ceres::Problem problem;
+    problem.AddResidualBlock(
+        WorldFromCamCenterDepthCostFunctor::Create(error),
+        nullptr,
+        point.data(),
+        origin.data(),
+        &log_depth_scale);
+    problem.SetParameterBlockConstant(origin.data());
+    problem.SetParameterBlockConstant(&log_depth_scale);
+    problem.SetManifold(point.data(), new ceres::SubsetManifold(3, {0, 1}));
+    ceres::Solver::Options options;
+    options.linear_solver_type = ceres::DENSE_QR;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+    ASSERT_TRUE(summary.IsSolutionUsable());
+    EXPECT_NEAR(point.z(), 2 * prior, 1e-6 * prior);
+
+    const WorldFromCamCenterDepthCostFunctor log_error{
+        prior,
+        0.1 * prior,
+        DepthResidualType::kLog,
+        0.1,
+        Eigen::RowVector3d(0, 0, 1)};
+    for (double ratio : {-1.0, 0.0, 0.05, 1.0, 2.0}) {
+      const Jet residual = evaluate(log_error, ratio);
+      EXPECT_NEAR(residual.a, ratio > 0 ? 10 * std::log(ratio) : 0, 1e-12);
+      EXPECT_NEAR(
+          residual.v[0], ratio > 0 ? 10 / (2 * prior * ratio) : 0, 1e-12);
     }
   }
 }
@@ -200,6 +329,8 @@ TEST_F(BADepthConstraintsTest, InvalidInputs) {
     EXPECT_THROW(Append({}), std::exception);
   }
   log_depth_scale = 0.0;
+  EXPECT_THROW(CamFromWorldDepthCostFunctor(2, 1, DepthResidualType::kLogLinear),
+               std::exception);
   EXPECT_THROW(Append({{idx, {2, 0}}}), std::exception);
   EXPECT_THROW(Append({{static_cast<point2D_t>(image.NumPoints2D()), {2, 1}}}),
                std::exception);

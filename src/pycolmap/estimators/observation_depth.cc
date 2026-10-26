@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/global_positioning.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -26,7 +27,8 @@ void BindObservationDepth(py::module& m) {
   auto PyDepthResidualType =
       py::enum_<DepthResidualType>(m, "DepthResidualType")
           .value("LINEAR", DepthResidualType::kLinear)
-          .value("LOG", DepthResidualType::kLog);
+          .value("LOG", DepthResidualType::kLog)
+          .value("LOG_LINEAR", DepthResidualType::kLogLinear);
   AddStringToEnumConstructor(PyDepthResidualType);
   auto PyBADepthConstraintOptions =
       py::classh<BADepthConstraintOptions>(m, "BADepthConstraintOptions")
@@ -34,6 +36,14 @@ void BindObservationDepth(py::module& m) {
           .def_readwrite("residual_type",
                          &BADepthConstraintOptions::residual_type);
   MakeDataclass(PyBADepthConstraintOptions);
+  auto PyGPDepthConstraintOptions =
+      py::classh<GPDepthConstraintOptions>(m, "GPDepthConstraintOptions")
+          .def(py::init<>())
+          .def_readwrite("residual_type",
+                         &GPDepthConstraintOptions::residual_type)
+          .def_readwrite("log_linear_threshold",
+                         &GPDepthConstraintOptions::log_linear_threshold);
+  MakeDataclass(PyGPDepthConstraintOptions);
   m.def(
       "append_ba_depth_constraints",
       [](CeresBundleAdjuster& bundle_adjuster,
@@ -57,6 +67,35 @@ void BindObservationDepth(py::module& m) {
       "depths"_a,
       "log_depth_scale"_a.noconvert().none(false),
       "options"_a = BADepthConstraintOptions(),
+      "loss_function"_a = py::none(),
+      py::keep_alive<1, 2>(),
+      py::keep_alive<1, 5>(),
+      py::keep_alive<1, 7>(),
+      "Append selected image depths with a caller-owned log scale. "
+      "The loss function is shared by the selected observations.");
+  m.def(
+      "append_gp_depth_constraints",
+      [](GlobalPositioner& positioner,
+         Reconstruction& reconstruction,
+         image_t image_id,
+         const FlatHashMap<point2D_t, std::pair<double, double>>& depths,
+         py::array_t<double, py::array::c_style> log_depth_scale,
+         const GPDepthConstraintOptions& options,
+         ceres::LossFunction* loss_function) {
+        return AppendGPDepthConstraints(positioner,
+                                        reconstruction,
+                                        image_id,
+                                        depths,
+                                        LogDepthScalePointer(log_depth_scale),
+                                        options,
+                                        loss_function);
+      },
+      "positioner"_a,
+      "reconstruction"_a,
+      "image_id"_a,
+      "depths"_a,
+      "log_depth_scale"_a.noconvert().none(false),
+      "options"_a = GPDepthConstraintOptions(),
       "loss_function"_a = py::none(),
       py::keep_alive<1, 2>(),
       py::keep_alive<1, 5>(),

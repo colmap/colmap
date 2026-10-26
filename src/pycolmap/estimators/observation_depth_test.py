@@ -9,29 +9,49 @@ import pytest
 import pycolmap
 
 
-@pytest.fixture
-def depth_problem():
+@pytest.fixture(params=[False, True], ids=["ba", "gp"])
+def depth_problem(request):
     reconstruction = pycolmap.synthesize_dataset(
         pycolmap.SyntheticDatasetOptions(num_points3D=5)
     )
     image_id = next(iter(reconstruction.images))
-    config = pycolmap.BundleAdjustmentConfig()
-    config.add_image(image_id)
-    owner = pycolmap.create_default_ceres_bundle_adjuster(
-        pycolmap.BundleAdjustmentOptions(
-            refine_rig_from_world=False,
-            refine_sensor_from_rig=False,
-            refine_focal_length=False,
-            refine_extra_params=False,
-        ),
-        config,
-        reconstruction,
+    if request.param:
+        owner = pycolmap.create_default_global_positioner(
+            pycolmap.GlobalPositionerOptions(
+                generate_random_positions=False,
+                generate_random_points=False,
+                optimize_positions=False,
+                optimize_points=False,
+                optimize_scales=False,
+                fix_first_scale=False,
+                use_gpu=False,
+            ),
+            pycolmap.PoseGraph(),
+            reconstruction,
+        )
+    else:
+        config = pycolmap.BundleAdjustmentConfig()
+        config.add_image(image_id)
+        owner = pycolmap.create_default_ceres_bundle_adjuster(
+            pycolmap.BundleAdjustmentOptions(
+                refine_rig_from_world=False,
+                refine_sensor_from_rig=False,
+                refine_focal_length=False,
+                refine_extra_params=False,
+            ),
+            config,
+            reconstruction,
+        )
+        image = reconstruction.images[image_id]
+        for idx in image.get_observation_point2D_idxs():
+            point = reconstruction.points3D[image.points2D[idx].point3D_id]
+            owner.problem.set_parameter_block_constant(point.xyz)
+    append = (
+        pycolmap.append_gp_depth_constraints
+        if request.param
+        else pycolmap.append_ba_depth_constraints
     )
-    image = reconstruction.images[image_id]
-    for idx in image.get_observation_point2D_idxs():
-        point = reconstruction.points3D[image.points2D[idx].point3D_id]
-        owner.problem.set_parameter_block_constant(point.xyz)
-    return owner, reconstruction, image_id, pycolmap.append_ba_depth_constraints
+    return owner, reconstruction, image_id, append
 
 
 def test_caller_owned_scale(depth_problem):
@@ -43,7 +63,13 @@ def test_caller_owned_scale(depth_problem):
         point = reconstruction.points3D[image.points2D[idx].point3D_id]
         priors[idx] = (image.cam_from_world() * point.xyz)[2] / 2, 0.05
     log_depth_scale = np.array([-1.0])
-    options = pycolmap.BADepthConstraintOptions()
+    options = (
+        pycolmap.GPDepthConstraintOptions(
+            residual_type=pycolmap.DepthResidualType.LOG_LINEAR,
+        )
+        if isinstance(owner, pycolmap.GlobalPositioner)
+        else pycolmap.BADepthConstraintOptions()
+    )
     # Both batches share the scale and retain their losses.
     for group, loss_type in zip(
         np.array_split(indices, 2),
@@ -60,12 +86,18 @@ def test_caller_owned_scale(depth_problem):
             options,
             loss,
         ) == len(group)
+    if isinstance(owner, pycolmap.GlobalPositioner):
+        owner.extend_parameter_block_ordering([(log_depth_scale, 2)])
     ref = weakref.ref(log_depth_scale)
     del log_depth_scale, loss
     gc.collect()
     assert ref() is not None
     summary = owner.solve()
-    assert summary.is_solution_usable()
+    assert (
+        summary.IsSolutionUsable()
+        if isinstance(owner, pycolmap.GlobalPositioner)
+        else summary.is_solution_usable()
+    )
     np.testing.assert_allclose(ref()[0], np.log(2), rtol=1e-5)
 
 

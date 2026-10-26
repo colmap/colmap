@@ -540,6 +540,14 @@ double* GlobalPositioner::FrameCenterParameterBlock(const frame_t frame_id) {
   return center->second.data();
 }
 
+double* GlobalPositioner::SensorCenterParameterBlock(const sensor_t sensor_id) {
+  const auto center = cams_in_rig_.find(sensor_id);
+  if (center == cams_in_rig_.end() ||
+      !problem_->HasParameterBlock(center->second.data()))
+    return nullptr;
+  return center->second.data();
+}
+
 void GlobalPositioner::ExtendParameterBlockOrdering(
     const std::vector<std::pair<double*, int>>& parameter_groups) {
   const auto& ordering = options_.solver_options.linear_solver_ordering;
@@ -616,6 +624,83 @@ bool RunGlobalPositioning(const GlobalPositionerOptions& options,
   auto positioner =
       GlobalPositioner::CreateDefault(options, pose_graph, reconstruction);
   return positioner->Solve().IsSolutionUsable();
+}
+
+size_t AppendGPDepthConstraints(
+    GlobalPositioner& positioner,
+    Reconstruction& reconstruction,
+    image_t image_id,
+    const FlatHashMap<point2D_t, std::pair<double, double>>& depths,
+    double* log_depth_scale,
+    const GPDepthConstraintOptions& options,
+    ceres::LossFunction* loss) {
+  if (options.residual_type == DepthResidualType::kLogLinear) {
+    THROW_CHECK(std::isfinite(options.log_linear_threshold));
+    THROW_CHECK_GT(options.log_linear_threshold, 0.0);
+    THROW_CHECK_LT(options.log_linear_threshold, 1.0);
+  }
+  auto& image = reconstruction.Image(image_id);
+  double* rig_in_world = positioner.FrameCenterParameterBlock(image.FrameId());
+  if (!rig_in_world) return 0;
+  auto& problem = positioner.Problem();
+  THROW_CHECK_NOTNULL(log_depth_scale);
+  THROW_CHECK(std::isfinite(*log_depth_scale));
+  if (!image.HasPose()) return 0;
+  const sensor_t sensor_id = image.CameraPtr()->SensorId();
+  const Rigid3d cam_from_rig =
+      image.IsRefInFrame()
+          ? Rigid3d()
+          : image.FramePtr()->RigPtr()->SensorFromRig(sensor_id);
+  double* cam_in_rig = positioner.SensorCenterParameterBlock(sensor_id);
+  const double cam_from_rig_translation_z =
+      cam_in_rig ? 0 : cam_from_rig.translation().z();
+  THROW_CHECK(std::isfinite(cam_from_rig_translation_z));
+  const Eigen::RowVector3d cam_axis_in_world = image.ViewingDirection();
+  const Eigen::RowVector3d cam_axis_in_rig =
+      cam_from_rig.rotation().toRotationMatrix().row(2);
+  size_t count = 0;
+  for (const auto& [idx, prior] : depths) {
+    THROW_CHECK_LT(idx, image.NumPoints2D());
+    const auto& [depth, stddev] = prior;
+    THROW_CHECK(std::isfinite(depth) && depth > 0);
+    THROW_CHECK(std::isfinite(stddev) && stddev > 0);
+    const auto& point2D = image.Point2D(idx);
+    if (!point2D.HasPoint3D()) continue;
+    double* point = reconstruction.Point3D(point2D.point3D_id).xyz.data();
+    if (!problem.HasParameterBlock(point)) continue;
+    const WorldFromCamCenterDepthCostFunctor depth_cost{
+        depth,
+        stddev,
+        options.residual_type,
+        options.log_linear_threshold,
+        cam_axis_in_world};
+    if (cam_in_rig) {
+      problem.AddResidualBlock(RigWorldFromCamCenterDepthCostFunctor::Create(
+                                   depth_cost, cam_axis_in_rig),
+                               loss,
+                               point,
+                               rig_in_world,
+                               cam_in_rig,
+                               log_depth_scale);
+    } else if (!image.IsRefInFrame()) {
+      problem.AddResidualBlock(
+          RigWorldFromCamCenterDepthConstantRigCostFunctor::Create(
+              depth_cost, cam_from_rig_translation_z),
+          loss,
+          point,
+          rig_in_world,
+          log_depth_scale);
+    } else {
+      problem.AddResidualBlock(
+          WorldFromCamCenterDepthCostFunctor::Create(depth_cost),
+          loss,
+          point,
+          rig_in_world,
+          log_depth_scale);
+    }
+    ++count;
+  }
+  return count;
 }
 
 }  // namespace colmap
