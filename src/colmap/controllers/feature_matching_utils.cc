@@ -105,6 +105,7 @@ void FeatureMatcherWorker::Run() {
                   cache_->GetKeypoints(data.image_id1),
                   cache_->GetDescriptors(data.image_id1),
                   cache_->FindImagePosePriorOrNull(data.image_id1),
+                  cache_->GetImage(data.image_id1).Name(),
               },
               {
                   data.image_id2,
@@ -112,6 +113,7 @@ void FeatureMatcherWorker::Run() {
                   cache_->GetKeypoints(data.image_id2),
                   cache_->GetDescriptors(data.image_id2),
                   cache_->FindImagePosePriorOrNull(data.image_id2),
+                  cache_->GetImage(data.image_id2).Name(),
               },
               &data.two_view_geometry);
         } else {
@@ -122,6 +124,7 @@ void FeatureMatcherWorker::Run() {
                   cache_->GetKeypoints(data.image_id1),
                   cache_->GetDescriptors(data.image_id1),
                   cache_->FindImagePosePriorOrNull(data.image_id1),
+                  cache_->GetImage(data.image_id1).Name(),
               },
               {
                   data.image_id2,
@@ -129,6 +132,7 @@ void FeatureMatcherWorker::Run() {
                   cache_->GetKeypoints(data.image_id2),
                   cache_->GetDescriptors(data.image_id2),
                   cache_->FindImagePosePriorOrNull(data.image_id2),
+                  cache_->GetImage(data.image_id2).Name(),
               },
               &data.matches);
         }
@@ -307,12 +311,18 @@ FeatureMatcherController::FeatureMatcherController(
     }
   } else {
     auto worker_matching_options = matching_options_;
-    // Prevent nested threading.
-    worker_matching_options.num_threads = 1;
     // The first matching is always without guided matching.
     worker_matching_options.guided_matching = false;
-    matchers_.reserve(num_threads);
-    for (int i = 0; i < num_threads; ++i) {
+    // FlexGlue loads large models and caches dense features per matcher, so a
+    // single worker runs them with all threads instead of one copy per thread.
+    int num_workers = 1;
+    if (matching_options_.type != FeatureMatcherType::FLEXGLUE) {
+      // Prevent nested threading.
+      worker_matching_options.num_threads = 1;
+      num_workers = num_threads;
+    }
+    matchers_.reserve(num_workers);
+    for (int i = 0; i < num_workers; ++i) {
       matchers_.emplace_back(
           std::make_unique<FeatureMatcherWorker>(worker_matching_options,
                                                  geometry_options_,
