@@ -11,6 +11,9 @@
 #include "colmap/controllers/single_view_calibration.h"
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
+#include "colmap/feature/aliked.h"
+#include "colmap/feature/loma.h"
+#include "colmap/feature/sift.h"
 #if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/advancing_front_meshing.h"
 #include "colmap/mvs/delaunay_meshing.h"
@@ -82,6 +85,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForHighQuality();
   } else if (options_.quality == Quality::EXTREME) {
     option_manager_.ModifyForExtremeQuality();
+  }
+
+  // Must come after quality, which sets the number of SIFT features.
+  if (options_.max_num_features > 0) {
+    option_manager_.feature_extraction->sift->max_num_features =
+        options_.max_num_features;
+    option_manager_.feature_extraction->aliked->max_num_features =
+        options_.max_num_features;
+    option_manager_.feature_extraction->loma->max_num_features =
+        options_.max_num_features;
   }
 
   // Feature-specific overrides that must come after quality.
