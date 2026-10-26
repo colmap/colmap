@@ -142,6 +142,12 @@ class GlobalMapper {
                          double max_normalized_reproj_error,
                          double min_tri_angle_deg);
 
+  // Remove outlier observations and points after global positioning, without
+  // normalizing the scene.
+  void FilterAfterGlobalPositioning(double max_angular_reproj_error_deg,
+                                    double max_normalized_reproj_error,
+                                    double min_tri_angle_deg);
+
   // Run iterative bundle adjustment to refine poses and structure. The optional
   // `on_progress` callback is invoked after each iteration and returns true if
   // a stop has been requested, in which case the iteration terminates early.
@@ -162,6 +168,7 @@ class GlobalMapper {
 
   // Getter functions.
   std::shared_ptr<class Reconstruction> Reconstruction() const;
+  std::shared_ptr<class PoseGraph> PoseGraph() const;
 
  private:
   std::shared_ptr<const DatabaseCache> database_cache_;
