@@ -457,6 +457,13 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "--quality", default="high", choices=["low", "medium", "high"]
     )
     parser.add_argument(
+        "--max_num_features",
+        type=int,
+        default=-1,
+        help="Maximum number of features per image (non-positive: default of "
+        "the feature type and quality).",
+    )
+    parser.add_argument(
         "--uncalibrated",
         default=False,
         action="store_true",
@@ -684,6 +691,8 @@ def colmap_reconstruction(
         "--quality",
         args.quality,
     ]
+    if args.max_num_features > 0:
+        colmap_args += ["--max_num_features", str(args.max_num_features)]
 
     # Learned calibration runs in the extraction step: the automatic
     # reconstructor runs extraction and calibration sequentially in one

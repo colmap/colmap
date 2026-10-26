@@ -84,6 +84,10 @@ class AutomaticReconstructionController : public Thread {
     // The feature extraction/matching algorithm to be used.
     Feature feature = Feature::SIFT;
 
+    // Maximum number of features per image. If non-positive, the default of
+    // the selected feature type and quality is used.
+    int max_num_features = -1;
+
     // The mapping algorithm to be used.
     Mapper mapper = Mapper::INCREMENTAL;
 
