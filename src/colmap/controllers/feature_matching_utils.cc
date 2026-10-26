@@ -102,6 +102,7 @@ void FeatureMatcherWorker::Run() {
                 cache_->GetKeypoints(data.image_id1),
                 cache_->GetDescriptors(data.image_id1),
                 cache_->FindImagePosePriorOrNull(data.image_id1),
+                cache_->GetImage(data.image_id1).Name(),
             },
             {
                 data.image_id2,
@@ -109,6 +110,7 @@ void FeatureMatcherWorker::Run() {
                 cache_->GetKeypoints(data.image_id2),
                 cache_->GetDescriptors(data.image_id2),
                 cache_->FindImagePosePriorOrNull(data.image_id2),
+                cache_->GetImage(data.image_id2).Name(),
             },
             &data.two_view_geometry);
       } else {
@@ -119,6 +121,7 @@ void FeatureMatcherWorker::Run() {
                 cache_->GetKeypoints(data.image_id1),
                 cache_->GetDescriptors(data.image_id1),
                 cache_->FindImagePosePriorOrNull(data.image_id1),
+                cache_->GetImage(data.image_id1).Name(),
             },
             {
                 data.image_id2,
@@ -126,6 +129,7 @@ void FeatureMatcherWorker::Run() {
                 cache_->GetKeypoints(data.image_id2),
                 cache_->GetDescriptors(data.image_id2),
                 cache_->FindImagePosePriorOrNull(data.image_id2),
+                cache_->GetImage(data.image_id2).Name(),
             },
             &data.matches);
       }

@@ -5,6 +5,7 @@
 #include "colmap/feature/utils.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/lightglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
@@ -82,7 +83,8 @@ void BindFeatureMatching(py::module& m) {
       .value("LOMA_B128", FeatureMatcherType::LOMA_B128)
       .value("LOMA_R", FeatureMatcherType::LOMA_R)
       .value("LOMA_L", FeatureMatcherType::LOMA_L)
-      .value("LOMA_G", FeatureMatcherType::LOMA_G);
+      .value("LOMA_G", FeatureMatcherType::LOMA_G)
+      .value("FLEXGLUE", FeatureMatcherType::FLEXGLUE);
 
 #ifdef COLMAP_ONNX_ENABLED
   auto PyBruteForceONNXMatchingOptions =
@@ -163,6 +165,49 @@ void BindFeatureMatching(py::module& m) {
                          "Brute-force matching options.")
           .def("check", &LomaMatchingOptions::Check);
   MakeDataclass(PyLomaMatchingOptions);
+
+  auto PyFlexGlueMatchingOptions =
+      py::classh<FlexGlueMatchingOptions>(m, "FlexGlueMatchingOptions")
+          .def(py::init<>())
+          .def_readwrite("image_path",
+                         &FlexGlueMatchingOptions::image_path,
+                         "Root folder of the images, which are read during "
+                         "matching to compute the dense features.")
+          .def_readwrite("filter_threshold",
+                         &FlexGlueMatchingOptions::filter_threshold,
+                         "Minimum match confidence (geometric mean of the "
+                         "confidences of both matching directions).")
+          .def_readwrite(
+              "max_distance_px",
+              &FlexGlueMatchingOptions::max_distance_px,
+              "Maximum distance between a keypoint and the predicted "
+              "correspondence of its mutual nearest neighbor, in "
+              "pixels of the resized image fed to the descriptor. "
+              "Non-positive values disable the check.")
+          .def_readwrite("min_covisibility",
+                         &FlexGlueMatchingOptions::min_covisibility,
+                         "Reject all matches of a pair whose covisibility "
+                         "score is below this value (0 disables it).")
+          .def_readwrite("feature_cache_size",
+                         &FlexGlueMatchingOptions::feature_cache_size,
+                         "Maximum number of images whose dense features are "
+                         "cached in memory.")
+          .def_readwrite("descriptor_model_path",
+                         &FlexGlueMatchingOptions::descriptor_model_path,
+                         "Path to the ONNX model of the dense descriptor.")
+          .def_readwrite("matcher_model_path",
+                         &FlexGlueMatchingOptions::matcher_model_path,
+                         "Path to the ONNX model of the matcher.")
+          .def_readwrite("matcher_model_path_fp16",
+                         &FlexGlueMatchingOptions::matcher_model_path_fp16,
+                         "Path to the ONNX model of the matcher with float16 "
+                         "transformer layers, used on CUDA GPUs.")
+          .def_readwrite("use_fp16",
+                         &FlexGlueMatchingOptions::use_fp16,
+                         "Whether to use the float16 matcher on CUDA GPUs "
+                         "(falls back to float32 otherwise).")
+          .def("check", &FlexGlueMatchingOptions::Check);
+  MakeDataclass(PyFlexGlueMatchingOptions);
 #endif
 
   auto PySiftMatchingOptions =
@@ -235,6 +280,8 @@ void BindFeatureMatching(py::module& m) {
   PyFeatureMatchingOptions.def_readwrite("aliked",
                                          &FeatureMatchingOptions::aliked);
   PyFeatureMatchingOptions.def_readwrite("loma", &FeatureMatchingOptions::loma);
+  PyFeatureMatchingOptions.def_readwrite("flexglue",
+                                         &FeatureMatchingOptions::flexglue);
 #endif
   MakeDataclass(PyFeatureMatchingOptions);
 
@@ -252,19 +299,23 @@ void BindFeatureMatching(py::module& m) {
              const FeatureKeypoints* keypoints1,
              std::shared_ptr<const FeatureDescriptors> descriptors1,
              const FeatureKeypoints* keypoints2,
-             std::shared_ptr<const FeatureDescriptors> descriptors2) {
+             std::shared_ptr<const FeatureDescriptors> descriptors2,
+             const std::string& name1,
+             const std::string& name2) {
             FeatureMatcher::Image image1;
             if (keypoints1) {
               image1.keypoints = std::shared_ptr<const FeatureKeypoints>(
                   std::shared_ptr<void>(), keypoints1);
             }
             image1.descriptors = std::move(descriptors1);
+            image1.name = name1;
             FeatureMatcher::Image image2;
             if (keypoints2) {
               image2.keypoints = std::shared_ptr<const FeatureKeypoints>(
                   std::shared_ptr<void>(), keypoints2);
             }
             image2.descriptors = std::move(descriptors2);
+            image2.name = name2;
             FeatureMatches matches;
             self.Match(image1, image2, &matches);
             return MatchesToMatrix(matches);
@@ -273,8 +324,12 @@ void BindFeatureMatching(py::module& m) {
           "descriptors1"_a,
           "keypoints2"_a,
           "descriptors2"_a,
+          "name1"_a = "",
+          "name2"_a = "",
           "Match features between two images. Keypoints are optional. "
-          "Returns an Nx2 matrix of point2D indices.")
+          "Image names (relative to the image path of the matcher options) "
+          "are only required by matchers that read the image pixels, such as "
+          "FlexGlue. Returns an Nx2 matrix of point2D indices.")
       .def(
           "match_guided",
           [](FeatureMatcher& self,

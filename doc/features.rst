@@ -85,6 +85,16 @@ The following feature matcher types are available:
 - ``LOMA_B128``: Dedicated matcher for the lightweight 128-dim ``LOMA_B128``
   descriptor. Requires ONNX support to be enabled at build time.
 
+- ``FLEXGLUE``: Neural network matcher operating on dense image features
+  (FlexGlue). It works with the keypoints of any feature extractor and ignores
+  the descriptors. Since FlexGlue computes dense features from the image
+  pixels, the images are read during matching from
+  ``--FlexGlueMatching.image_path``. FlexGlue also predicts whether two images
+  are covisible at all, and ``--FlexGlueMatching.min_covisibility`` (default
+  0.5, 0 disables it) rejects all matches of pairs with a lower covisibility
+  score, which suppresses look-alike pairs of repeated structures. Requires ONNX support to be enabled
+  at build time; a GPU is strongly recommended.
+
 To select a feature matcher type via the command-line::
 
     $ colmap exhaustive_matcher \
@@ -115,6 +125,9 @@ The feature extractor and matcher types should be compatible:
   ``LOMA_L``, or ``LOMA_G`` matching.
 - Use ``LOMA_B128`` extraction with ``LOMA_BRUTEFORCE`` or ``LOMA_B128``
   matching.
+
+- ``FLEXGLUE`` matching works with any extraction type, as it only uses the
+  keypoint locations.
 
 Mixing incompatible types (e.g., SIFT features with ALIKED matcher, or
 ``LOMA_B128`` features with the ``LOMA_B`` matcher) will result in a runtime
@@ -166,6 +179,36 @@ URL, COLMAP will automatically download and cache it. Extraction and
 matching also support an opt-in ``use_bf16`` mode
 (``--LomaExtraction.use_bf16`` / ``--LomaMatching.use_bf16``) for faster
 inference.
+
+
+FlexGlue
+--------
+
+FlexGlue encodes each image into a dense stride-8 feature map with a
+DINOv3-ConvNeXt backbone (at a fixed 512x512 resolution), refines the feature
+maps of both images jointly with a transformer, and predicts the
+correspondence of every keypoint in the other image. Keypoints are then matched
+by mutual nearest neighbors between the keypoints and the predicted
+correspondences. Example usage::
+
+    $ colmap exhaustive_matcher \
+        --database_path $DATASET_PATH/database.db \
+        --FeatureMatching.type FLEXGLUE \
+        --FlexGlueMatching.image_path $DATASET_PATH/images
+
+The dense features of the most recently used images are cached in memory
+(``--FlexGlueMatching.feature_cache_size``, ~4MB per image). On CUDA GPUs, a
+variant of the matcher whose transformer layers run in float16 is used by
+default (``--FlexGlueMatching.use_fp16``), which is about twice as fast as the
+float32 matcher with practically identical matches; the float32 matcher is used on the
+CPU or if the float16 variant fails to initialize. The
+``automatic_reconstructor`` provides the ``--feature flexglue`` preset, which
+extracts the same DaD keypoints as the LoMa presets and matches them with
+FlexGlue. The models are downloaded automatically, and custom models can
+be specified with ``--FlexGlueMatching.descriptor_model_path``,
+``--FlexGlueMatching.matcher_model_path``, and
+``--FlexGlueMatching.matcher_model_path_fp16``. The models are exported with
+``onnx/export.py`` from https://github.com/cvg/FlexGlue.
 
 
 Iterative Runs
