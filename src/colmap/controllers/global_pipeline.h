@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/global_mapper.h"
 #include "colmap/util/base_controller.h"
@@ -75,10 +76,12 @@ class GlobalPipeline : public BaseController {
   // Run the full global SfM pipeline on the given database cache and return
   // the resulting reconstruction, or nullopt if mapping fails. The in-progress
   // reconstruction is added to the manager so callbacks can render it. The
-  // caller decides whether to keep it.
+  // caller decides whether to keep it. If null, the pose graph is loaded from
+  // the database cache.
   std::optional<std::shared_ptr<Reconstruction>> ReconstructSingleComponent(
       const std::shared_ptr<const DatabaseCache>& database_cache,
-      const GlobalMapperOptions& mapper_options);
+      const GlobalMapperOptions& mapper_options,
+      std::shared_ptr<PoseGraph> pose_graph = nullptr);
 
   // Partition the input view graph once using rotation averaging and
   // reconstruct each resulting component at most once.
