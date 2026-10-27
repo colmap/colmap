@@ -6,8 +6,8 @@
 #include "colmap/math/random.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/file.h"
 
-#include <cstdlib>
 #include <memory>
 
 #include <glog/logging.h>
@@ -131,8 +131,7 @@ TEST_F(LomaTest, Nominal) {
 }
 
 TEST_F(LomaTest, HeavyNominalLomaB) {
-  // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  if (std::getenv("COLMAP_TEST_HEAVY") == nullptr) {
+  if (!GetEnvSafe("COLMAP_TEST_HEAVY").has_value()) {
     GTEST_SKIP() << "Set COLMAP_TEST_HEAVY=1 to run the LOMA_B smoke test.";
   }
   auto extractor = CreateTestExtractor(FeatureExtractorType::LOMA_B, 0.0, 512);
