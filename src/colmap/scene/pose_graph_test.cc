@@ -433,6 +433,95 @@ TEST(PoseGraph, InvalidatePairsOutsideActiveImageIds) {
   EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(2, 3)));
 }
 
+TEST(PoseGraph, Subgraph) {
+  PoseGraph pose_graph;
+  PoseGraph::Edge edge = SynthesizeEdge(/*num_matches=*/42);
+  edge.cam2_from_cam1 =
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  edge.cam2_from_cam1_rotation_cov = 2 * Eigen::Matrix3d::Identity();
+  edge.prior = true;
+  pose_graph.AddEdge(1, 2, edge);
+  pose_graph.AddEdge(1, 3, SynthesizeEdge());
+  pose_graph.AddEdge(2, 3, SynthesizeEdge());
+  pose_graph.AddEdge(2, 4, SynthesizeEdge());
+  pose_graph.SetInvalidEdge(ImagePairToPairId(2, 4));
+
+  const PoseGraph subgraph = pose_graph.Subgraph({1, 2, 4});
+  EXPECT_EQ(subgraph.NumEdges(), 2);
+  EXPECT_FALSE(subgraph.HasEdge(1, 3));
+  EXPECT_FALSE(subgraph.HasEdge(2, 3));
+
+  // Edges are copied with all their data and validity.
+  const PoseGraph::Edge& subgraph_edge =
+      subgraph.Edges().at(ImagePairToPairId(1, 2));
+  EXPECT_EQ(
+      subgraph_edge.cam2_from_cam1.params,
+      pose_graph.Edges().at(ImagePairToPairId(1, 2)).cam2_from_cam1.params);
+  EXPECT_EQ(subgraph_edge.num_matches, 42);
+  EXPECT_TRUE(subgraph_edge.prior);
+  EXPECT_TRUE(subgraph_edge.valid);
+  ASSERT_TRUE(subgraph_edge.cam2_from_cam1_rotation_cov.has_value());
+  EXPECT_EQ(*subgraph_edge.cam2_from_cam1_rotation_cov,
+            *pose_graph.Edges()
+                 .at(ImagePairToPairId(1, 2))
+                 .cam2_from_cam1_rotation_cov);
+  EXPECT_TRUE(subgraph.HasEdge(2, 4));
+  EXPECT_FALSE(subgraph.IsValid(ImagePairToPairId(2, 4)));
+
+  EXPECT_TRUE(pose_graph.Subgraph({}).Empty());
+}
+
+// The subgraph of a component equals the pose graph loaded from the database
+// cache of that component, which GlobalPipeline relies on.
+TEST(PoseGraph, SubgraphMatchesComponentDatabaseCache) {
+  const auto test_dir = CreateTestDir();
+  auto database = Database::Open(test_dir / "database.db");
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 2;
+  synthetic_options.num_cameras_per_rig = 2;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.two_view_geometry_has_relative_pose = true;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  DatabaseCache::Options cache_options;
+  const auto cache = DatabaseCache::Create(*database, cache_options);
+  PoseGraph pose_graph;
+  pose_graph.Load(*cache->CorrespondenceGraph());
+
+  // Select the images of the reference cameras of some frames. The component
+  // cache also includes the other images of their frames.
+  DatabaseCache::Options component_options;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (image.IsRefInFrame() && image.FrameId() % 2 == 0) {
+      component_options.image_names.insert(image.Name());
+    }
+  }
+  ASSERT_FALSE(component_options.image_names.empty());
+  const auto component_cache =
+      DatabaseCache::CreateFromCache(*cache, component_options);
+  PoseGraph component_pose_graph;
+  component_pose_graph.Load(*component_cache->CorrespondenceGraph());
+
+  FlatHashSet<image_t> component_image_ids;
+  for (const auto& [image_id, _] : component_cache->Images()) {
+    component_image_ids.insert(image_id);
+  }
+  ASSERT_GT(component_image_ids.size(), component_options.image_names.size());
+  const PoseGraph subgraph = pose_graph.Subgraph(component_image_ids);
+
+  ASSERT_GT(subgraph.NumEdges(), 0);
+  ASSERT_EQ(subgraph.NumEdges(), component_pose_graph.NumEdges());
+  for (const auto& [pair_id, edge] : component_pose_graph.Edges()) {
+    ASSERT_TRUE(subgraph.Edges().count(pair_id));
+    const PoseGraph::Edge& subgraph_edge = subgraph.Edges().at(pair_id);
+    EXPECT_EQ(subgraph_edge.cam2_from_cam1.params, edge.cam2_from_cam1.params);
+    EXPECT_EQ(subgraph_edge.num_matches, edge.num_matches);
+    EXPECT_EQ(subgraph_edge.valid, edge.valid);
+  }
+}
+
 TEST(PoseGraph, InvertEdgeCovariance) {
   PoseGraph::Edge edge;
   const Eigen::Quaterniond q21 =
