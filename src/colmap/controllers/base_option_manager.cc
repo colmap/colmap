@@ -13,6 +13,44 @@
 namespace config = boost::program_options;
 
 namespace colmap {
+namespace {
+
+bool ParseConfigFile(const std::filesystem::path& path,
+                     const config::options_description& desc,
+                     const bool allow_unregistered,
+                     config::variables_map* vmap) {
+  if (!ExistsFile(path)) {
+    LOG(ERROR) << "Configuration file does not exist.";
+    return false;
+  }
+
+  try {
+    std::ifstream file(path);
+    THROW_CHECK_FILE_OPEN(file, path);
+
+    const config::parsed_options parsed_options =
+        config::parse_config_file(file, desc, allow_unregistered);
+    config::store(parsed_options, *vmap);
+
+    if (allow_unregistered) {
+      for (const auto& option : parsed_options.options) {
+        if (option.unregistered) {
+          LOG(WARNING) << "Unrecognized option key: " << option.string_key;
+        }
+      }
+    }
+  } catch (std::exception& e) {
+    LOG(ERROR) << "Failed to parse options " << e.what() << ".";
+    return false;
+  } catch (...) {
+    LOG(ERROR) << "Failed to parse options for unknown reason.";
+    return false;
+  }
+
+  return true;
+}
+
+}  // namespace
 
 BaseOptionManager::BaseOptionManager(bool add_project_options) {
   project_path = std::make_shared<std::filesystem::path>();
@@ -212,10 +250,11 @@ void BaseOptionManager::AddAllOptions() {
 }
 
 bool BaseOptionManager::Parse(const int argc, char** argv) {
-  config::variables_map vmap;
-
   try {
-    config::store(config::parse_command_line(argc, argv, *desc_), vmap);
+    const config::parsed_options parsed_command_line =
+        config::parse_command_line(argc, argv, *desc_);
+    config::variables_map vmap;
+    config::store(parsed_command_line, vmap);
 
     if (vmap.count("help")) {
       PrintHelp();
@@ -225,9 +264,11 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
 
     if (vmap.count("project_path")) {
       *project_path = vmap["project_path"].as<std::string>();
-      if (!Read(*project_path)) {
+      if (!ParseConfigFile(
+              *project_path, *desc_, /*allow_unregistered=*/true, &vmap)) {
         return false;
       }
+      vmap.notify();
     } else {
       vmap.notify();
     }
@@ -255,28 +296,11 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
 bool BaseOptionManager::Read(const std::filesystem::path& path,
                              bool allow_unregistered) {
   config::variables_map vmap;
-
-  if (!ExistsFile(path)) {
-    LOG(ERROR) << "Configuration file does not exist.";
+  if (!ParseConfigFile(path, *desc_, allow_unregistered, &vmap)) {
     return false;
   }
 
   try {
-    std::ifstream file(path);
-    THROW_CHECK_FILE_OPEN(file, path);
-
-    const config::parsed_options parsed_options =
-        config::parse_config_file(file, *desc_, allow_unregistered);
-    config::store(parsed_options, vmap);
-
-    if (allow_unregistered) {
-      for (const auto& option : parsed_options.options) {
-        if (option.unregistered) {
-          LOG(WARNING) << "Unrecognized option key: " << option.string_key;
-        }
-      }
-    }
-
     vmap.notify();
     ApplyEnumConversions();
   } catch (std::exception& e) {

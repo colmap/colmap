@@ -296,6 +296,41 @@ TEST(BaseOptionManager, ParseWithProjectPath) {
   EXPECT_EQ(*options.image_path, *options_write.image_path);
 }
 
+TEST(BaseOptionManager, CommandLineOptionsOverrideProjectFile) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  CreateDirIfNotExists(test_dir / "images");
+
+  BaseOptionManager options_write;
+  options_write.AddDatabaseOptions();
+  options_write.AddImageOptions();
+  *options_write.database_path = test_dir / "config.db";
+  *options_write.image_path = test_dir / "images";
+  options_write.Write(config_path);
+
+  BaseOptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  const auto command_line_database_path = test_dir / "command_line.db";
+  const std::vector<std::string> args = {
+      "colmap",
+      "--project_path",
+      config_path.string(),
+      "--database_path",
+      command_line_database_path.string(),
+  };
+
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (const auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  ASSERT_TRUE(options.Parse(argv.size(), argv.data()));
+  EXPECT_EQ(*options.database_path, command_line_database_path);
+  EXPECT_EQ(*options.image_path, *options_write.image_path);
+}
+
 TEST(BaseOptionManager, ParseEmptyArguments) {
   BaseOptionManager options;
 
