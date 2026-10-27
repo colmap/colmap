@@ -274,6 +274,15 @@ def test_global_positioner_caller_owned_scales_lifetime() -> None:
     )
     problem, solver = owner.problem, owner.solver_options
     assert problem.has_parameter_block(array)
+    with pytest.raises(AttributeError, match="__delitem__"):
+        del scales[key]
+    for method in ("clear", "pop", "popitem"):
+        assert not hasattr(scales, method)
+    for i in range(1024):
+        scales[pycolmap.TrackElement(1000, i)] = 1.0
+    scales[key] = 0.5
+    assert array[0] == 0.5
+    assert problem.has_parameter_block(array)
     scales_ref = weakref.ref(scales)
     reconstruction_ref = weakref.ref(reconstruction)
     del owner, reconstruction, scales, point, element, array

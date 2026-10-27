@@ -23,7 +23,8 @@ void BindGlobalPositioner(py::module& m) {
   py::bind_map<ObservationScaleMap>(
       m,
       "ObservationScaleMap",
-      "Per-observation BATA displacement scales keyed by TrackElement.")
+      "Per-observation BATA displacement scales keyed by TrackElement. "
+      "Entries can be added and updated, but not deleted.")
       .def(
           "parameter_block",
           [](py::object self, const TrackElement& observation) {
@@ -35,8 +36,8 @@ void BindGlobalPositioner(py::module& m) {
                 {1}, {sizeof(double)}, &entry->second, self);
           },
           "observation"_a,
-          "Return a writable NumPy view sharing the observation scale. "
-          "Do not erase this entry or clear the map while the view exists.");
+          "Return a writable NumPy view sharing the observation scale.");
+  py::delattr(m.attr("ObservationScaleMap"), "__delitem__");
 
   auto PyGlobalPositionerOptions =
       py::classh<GlobalPositionerOptions>(m, "GlobalPositionerOptions")
@@ -173,9 +174,7 @@ void BindGlobalPositioner(py::module& m) {
       py::keep_alive<0, 3>(),
       "Prepare from supplied frame poses, points, and scales without "
       "initialization. Included observations require finite scales >= 1e-5. "
-      "Optimization updates the map in place; unused entries are ignored. "
-      "Do not erase referenced scale entries or clear the map while the "
-      "problem exists.");
+      "Optimization updates the map in place; unused entries are ignored.");
 
   m.def("randomize_reconstruction_positions",
         &RandomizeReconstructionPositions,
