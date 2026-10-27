@@ -37,7 +37,13 @@ void BindGlobalPositioner(py::module& m) {
           },
           "observation"_a,
           "Return a writable NumPy view sharing the observation scale.");
-  py::delattr(m.attr("ObservationScaleMap"), "__delitem__");
+  const auto PyObservationScaleMap = m.attr("ObservationScaleMap");
+  PyObservationScaleMap.attr("__delitem__") = py::cpp_function(
+      [](ObservationScaleMap&, const py::object&) {
+        throw py::type_error("ObservationScaleMap entries cannot be deleted.");
+      },
+      py::name("__delitem__"),
+      py::is_method(PyObservationScaleMap));
 
   auto PyGlobalPositionerOptions =
       py::classh<GlobalPositionerOptions>(m, "GlobalPositionerOptions")

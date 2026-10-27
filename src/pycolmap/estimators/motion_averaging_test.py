@@ -274,8 +274,11 @@ def test_global_positioner_caller_owned_scales_lifetime() -> None:
     )
     problem, solver = owner.problem, owner.solver_options
     assert problem.has_parameter_block(array)
-    with pytest.raises(AttributeError, match="__delitem__"):
+    with pytest.raises(TypeError, match="entries cannot be deleted"):
         del scales[key]
+    with pytest.raises(TypeError, match="entries cannot be deleted"):
+        pycolmap.ObservationScaleMap.__delitem__(scales, key)
+    assert scales[key] == array[0] == 0.6
     for method in ("clear", "pop", "popitem"):
         assert not hasattr(scales, method)
     for i in range(1024):
