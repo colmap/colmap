@@ -26,7 +26,14 @@ int GetNumCudaDevices() {
   int num_cuda_devices = 0;
   const cudaError_t error = cudaGetDeviceCount(&num_cuda_devices);
 #if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
-  if (error == cudaErrorNoDevice || error == cudaErrorInsufficientDriver) {
+  if (error == cudaErrorInsufficientDriver) {
+    // Preserve the zero-device result for callers that can fall back to CPU,
+    // but do not discard the reason why GPU initialization failed.
+    LOG(WARNING) << "Cannot enumerate GPU devices: "
+                 << GetCudaErrorMessage(error);
+    return 0;
+  }
+  if (error == cudaErrorNoDevice) {
     return 0;
   }
 #endif

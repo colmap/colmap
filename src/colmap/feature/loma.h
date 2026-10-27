@@ -46,6 +46,17 @@ struct LomaExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
     const FeatureExtractionOptions& options);
 
+// Named functions instead of lambdas for default member initializers: MSVC
+// can give lambdas from different translation units the same name.
+inline BruteForceONNXMatchingOptions DefaultLomaBruteForceMatchingOptions() {
+  BruteForceONNXMatchingOptions options;
+  options.min_cossim = 0.85;
+  options.max_ratio = 1.0;
+  options.cross_check = true;
+  options.model_path = kDefaultBruteForceONNXMatcherUri;
+  return options;
+}
+
 struct LomaMatchingOptions {
   // Per-variant fp32 and bf16 model paths.
   struct Variant {
@@ -68,14 +79,8 @@ struct LomaMatchingOptions {
 
   // Brute-force matching options (reuses the generic ONNX matcher, which
   // is descriptor-dimension agnostic).
-  BruteForceONNXMatchingOptions brute_force = []() {
-    BruteForceONNXMatchingOptions options;
-    options.min_cossim = 0.85;
-    options.max_ratio = 1.0;
-    options.cross_check = true;
-    options.model_path = kDefaultBruteForceONNXMatcherUri;
-    return options;
-  }();
+  BruteForceONNXMatchingOptions brute_force =
+      DefaultLomaBruteForceMatchingOptions();
 
   bool Check() const;
 };
