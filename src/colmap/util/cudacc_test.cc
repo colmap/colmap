@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -20,13 +21,14 @@ TEST(CudaSafeCall, InsufficientDriver) {
     FAIL() << "Expected a runtime error";
   } catch (const std::invalid_argument& error) {
     const std::string message = error.what();
-    EXPECT_NE(message.find("probe.cc:42"), std::string::npos);
-    EXPECT_NE(message.find("error " + std::to_string(static_cast<int>(
-                                          cudaErrorInsufficientDriver))),
-              std::string::npos);
-    EXPECT_NE(message.find("driver"), std::string::npos);
-    EXPECT_NE(message.find("COLMAP build"), std::string::npos);
-    EXPECT_EQ(message.find("(null)"), std::string::npos);
+    EXPECT_THAT(message, testing::HasSubstr("probe.cc:42"));
+    EXPECT_THAT(
+        message,
+        testing::HasSubstr("error " + std::to_string(static_cast<int>(
+                                          cudaErrorInsufficientDriver))));
+    EXPECT_THAT(message, testing::HasSubstr("driver"));
+    EXPECT_THAT(message, testing::HasSubstr("COLMAP build"));
+    EXPECT_THAT(message, testing::Not(testing::HasSubstr("(null)")));
   }
 }
 
@@ -36,10 +38,11 @@ TEST(CudaSafeCall, UnknownErrorPreservesCode) {
     FAIL() << "Expected a runtime error";
   } catch (const std::invalid_argument& error) {
     const std::string message = error.what();
-    EXPECT_NE(message.find("123456"), std::string::npos);
-    EXPECT_NE(message.find("probe.cc:7"), std::string::npos);
-    EXPECT_EQ(message.find("(null)"), std::string::npos);
-    EXPECT_EQ(message.find("Update the NVIDIA driver"), std::string::npos);
+    EXPECT_THAT(message, testing::HasSubstr("123456"));
+    EXPECT_THAT(message, testing::HasSubstr("probe.cc:7"));
+    EXPECT_THAT(message, testing::Not(testing::HasSubstr("(null)")));
+    EXPECT_THAT(message,
+                testing::Not(testing::HasSubstr("Update the NVIDIA driver")));
   }
 }
 
