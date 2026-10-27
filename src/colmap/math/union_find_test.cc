@@ -144,7 +144,7 @@ TEST(UnionFind, Compress) {
 }
 
 TEST(UnionFind, LargeNumberOfElements) {
-  constexpr int kNumElements = 1000;
+  constexpr int kNumElements = 100000;
   UnionFind<int> uf;
   uf.Reserve(kNumElements);
   // Union many elements

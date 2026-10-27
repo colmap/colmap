@@ -26,11 +26,10 @@ class UnionFind {
       parent_.emplace_hint(parent_it, x, x);
       return x;
     }
-    // Path compression.
-    if (parent_it->second != x) {
-      parent_it->second = Find(parent_it->second);
+    if (parent_it->second == x) {
+      return x;
     }
-    return parent_it->second;
+    return CompressPath(parent_it);
   }
 
   // Find the root of x only if x already exists in the structure, otherwise
@@ -64,6 +63,20 @@ class UnionFind {
   const NodeHashMap<T, T, Hash>& Parents() const { return parent_; }
 
  private:
+  T CompressPath(typename NodeHashMap<T, T, Hash>::iterator parent_it) {
+    auto root_it = parent_.find(parent_it->second);
+    while (root_it->second != root_it->first) {
+      root_it = parent_.find(root_it->second);
+    }
+    // Compress the path without growing the call stack with the chain length.
+    while (parent_it->second != root_it->first) {
+      const auto next_it = parent_.find(parent_it->second);
+      parent_it->second = root_it->first;
+      parent_it = next_it;
+    }
+    return root_it->first;
+  }
+
   // Map to store the parent of each element.
   NodeHashMap<T, T, Hash> parent_;
 };
