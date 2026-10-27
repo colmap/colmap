@@ -4,9 +4,12 @@
 
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
 
 #include <algorithm>
 #include <iostream>
+#include <string>
+#include <vector>
 
 namespace colmap {
 namespace {
@@ -59,6 +62,25 @@ void SetBestCudaDevice(const int gpu_index) {
   const int selected = (gpu_index >= 0) ? gpu_index : FindBestCudaDevice();
   THROW_CHECK_LT(selected, num_cuda_devices) << "Invalid CUDA GPU selected";
   CUDA_SAFE_CALL(cudaSetDevice(selected));
+}
+
+bool CudaDeviceSupportsBf16(const std::string& gpu_index) {
+  std::vector<int> indices;
+  try {
+    indices = CSVToVector<int>(gpu_index);
+  } catch (const std::exception&) {
+    return false;
+  }
+  if (indices.size() != 1) {
+    return false;
+  }
+  cudaDeviceProp properties{};
+  if (cudaGetDeviceProperties(&properties, std::max(0, indices.front())) !=
+      cudaSuccess) {
+    return false;
+  }
+  // BF16 matrix kernels require Ampere (compute capability 8.0) or newer.
+  return properties.major >= 8;
 }
 
 }  // namespace colmap

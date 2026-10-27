@@ -4,10 +4,14 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/util/cuda.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/onnx.h"
 
 #include <cstring>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include <OpenImageIO/imagebuf.h>
 #include <OpenImageIO/imagebufalgo.h>
@@ -16,6 +20,22 @@ namespace colmap {
 namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
+
+#ifdef COLMAP_CUDA_ENABLED
+// Throws Ort::Exception when a BF16 model would run on a device without BF16
+// support, so the caller falls back to FP32. Session construction can
+// succeed on an older GPU even though the first matrix operation would fail,
+// and LoMa only falls back on construction failures -- so fail fast here.
+void ThrowIfLomaBf16Unsupported(const ONNXModel& model,
+                                const std::string& gpu_index) {
+  if (model.execution_provider() == ONNXExecutionProvider::CUDA &&
+      !CudaDeviceSupportsBf16(gpu_index)) {
+    throw Ort::Exception(
+        "LoMa BF16 requires CUDA compute capability 8.0 or newer",
+        ORT_NOT_IMPLEMENTED);
+  }
+}
+#endif
 
 // Fast bilinear resample instead of Bitmap::Rescale()'s filtered resize --
 // see LomaExtractionOptions::use_fast_resize for the speed/accuracy tradeoff.
@@ -74,6 +94,11 @@ class LomaFeatureExtractor : public FeatureExtractor {
                     options.use_gpu,
                     options.gpu_index,
                     probe_descriptor_support) {
+#ifdef COLMAP_CUDA_ENABLED
+    if (probe_descriptor_support) {
+      ThrowIfLomaBf16Unsupported(descriptor_, options.gpu_index);
+    }
+#endif
     THROW_CHECK(options.Check());
 
     // Detector: image [1, 3, H, W], num_keypoints [1] (int64, runtime input --
@@ -266,6 +291,11 @@ class LomaFeatureMatcher : public FeatureMatcher {
                options.use_gpu,
                options.gpu_index,
                probe_model_support) {
+#ifdef COLMAP_CUDA_ENABLED
+    if (probe_model_support) {
+      ThrowIfLomaBf16Unsupported(model_, options.gpu_index);
+    }
+#endif
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 4);
     THROW_CHECK_GE(model_.output_shapes().size(), 2);

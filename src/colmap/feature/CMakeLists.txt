@@ -58,6 +58,11 @@ if(ONNX_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_onnx_util)
 endif()
 
+if(CUDA_ENABLED OR HIP_ENABLED)
+    # loma.cc calls CudaDeviceSupportsBf16 from colmap_util_cuda.
+    target_link_libraries(colmap_feature PRIVATE colmap_util_cuda)
+endif()
+
 if(ONNX_ENABLED)
     COLMAP_ADD_TEST(
         NAME aliked_test
