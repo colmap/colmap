@@ -267,3 +267,11 @@ if(HIP_ENABLED)
             hip::host
     )
 endif()
+
+if(CUDA_ENABLED OR HIP_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME cudacc_test
+        SRCS cudacc_test.cc
+        LINK_LIBS colmap_util_cuda
+    )
+endif()
