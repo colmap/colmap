@@ -150,8 +150,8 @@ void BindGlobalPositioner(py::module& m) {
           },
           "frame_id"_a,
           "Return a writable NumPy array sharing the frame-center parameter "
-          "block in world coordinates, or None if inactive. The array keeps "
-          "the positioner alive.")
+          "block in world coordinates, or None if unavailable. The array "
+          "keeps the positioner alive.")
       .def("finalize", &GlobalPositioner::Finalize, "summary"_a);
 
   m.def(

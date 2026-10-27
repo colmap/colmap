@@ -15,6 +15,7 @@
 #include <map>
 #include <utility>
 
+#include <ceres/normal_prior.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -88,6 +89,24 @@ Reconstruction CreateGlobalPositioningTestReconstruction(int num_cameras = 1) {
   options.num_points3D = 30;
   SynthesizeDataset(options, &reconstruction);
   return reconstruction;
+}
+
+TEST(GlobalPositioning, InvalidOptionsReportReason) {
+  Reconstruction reconstruction;
+  ObservationScaleMap scales;
+  GlobalPositionerOptions invalid_weight, invalid_stddev;
+  invalid_weight.uncalibrated_observation_weight = -1;
+  invalid_stddev.experimental_observation_stddev = -1;
+  for (const auto& [name, options] :
+       {std::make_pair("uncalibrated_observation_weight", invalid_weight),
+        std::make_pair("experimental_observation_stddev", invalid_stddev)}) {
+    try {
+      GlobalPositioner::CreateDefault(options, reconstruction, scales);
+      FAIL() << "Invalid options were accepted";
+    } catch (const std::invalid_argument& error) {
+      EXPECT_NE(std::string(error.what()).find(name), std::string::npos);
+    }
+  }
 }
 
 TEST(GlobalPositioning, Nominal) {
@@ -407,12 +426,68 @@ TEST(GlobalPositioning, UnknownSensorOffsetInitialization) {
   const Eigen::Vector3d expected(RandomUniformReal(-1.0, 1.0),
                                  RandomUniformReal(-1.0, 1.0),
                                  RandomUniformReal(-1.0, 1.0));
-  ASSERT_TRUE(RunGlobalPositioning(options, PoseGraph(), reconstruction));
-  EXPECT_LE(
-      (reconstruction.Rig(rig_id).SensorFromRig(sensor_id).TgtOriginInSrc() -
-       expected)
-          .norm(),
-      1e-14);
+  const Reconstruction original = reconstruction;
+  for (const bool compose : {false, true}) {
+    reconstruction = original;
+    if (compose) {
+      RandomizeReconstructionPositions(options, PoseGraph(), reconstruction);
+      auto scales = GenerateObservationScales(reconstruction);
+      auto prepared_options = options;
+      prepared_options.random_seed = -1;
+      auto positioner = GlobalPositioner::CreateDefault(
+          prepared_options, reconstruction, scales);
+      ASSERT_TRUE(positioner->Solve().IsSolutionUsable());
+    } else {
+      ASSERT_TRUE(RunGlobalPositioning(options, PoseGraph(), reconstruction));
+    }
+    EXPECT_LE(
+        (reconstruction.Rig(rig_id).SensorFromRig(sensor_id).TgtOriginInSrc() -
+         expected)
+            .norm(),
+        1e-14);
+  }
+}
+
+TEST(GlobalPositioning, CustomFrameConstraint) {
+  for (const bool optimize_positions : {false, true}) {
+    Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+    const Reconstruction original = reconstruction;
+    auto scales = GenerateObservationScales(reconstruction);
+    GlobalPositionerOptions options;
+    options.use_gpu = false;
+    options.optimize_positions = optimize_positions;
+    options.min_num_view_per_track = reconstruction.NumImages() + 1;
+    auto positioner =
+        GlobalPositioner::CreateDefault(options, reconstruction, scales);
+    const frame_t frame_id = reconstruction.Frames().begin()->first;
+    double* center = positioner->FrameCenterParameterBlock(frame_id);
+    ASSERT_NE(center, nullptr);
+    EXPECT_EQ(positioner->Problem().NumParameterBlocks(),
+              reconstruction.NumFrames());
+    ASSERT_TRUE(positioner->Solve().IsSolutionUsable());
+    EXPECT_THAT(reconstruction, ReconstructionEq(original));
+    EXPECT_EQ(positioner->Problem().IsParameterBlockConstant(center),
+              !optimize_positions);
+    const Eigen::Vector3d initial = Eigen::Map<Eigen::Vector3d>(center);
+    const Eigen::Vector3d target = initial + Eigen::Vector3d(1, 2, 3);
+    positioner->Problem().AddResidualBlock(
+        new ceres::NormalPrior(Eigen::Matrix3d::Identity(), target),
+        nullptr,
+        center);
+    EXPECT_TRUE(
+        positioner->SolverOptions().linear_solver_ordering->IsMember(center));
+    ASSERT_TRUE(positioner->Solve().IsSolutionUsable());
+    EXPECT_LT((reconstruction.Frame(frame_id).RigFromWorld().TgtOriginInSrc() -
+               (optimize_positions ? target : initial))
+                  .norm(),
+              1e-6);
+    for (const auto& [other_id, frame] : reconstruction.Frames()) {
+      if (other_id == frame_id) continue;
+      EXPECT_NE(positioner->FrameCenterParameterBlock(other_id), nullptr);
+      EXPECT_EQ(frame.RigFromWorld().translation(),
+                original.Frame(other_id).RigFromWorld().translation());
+    }
+  }
 }
 
 TEST(GlobalPositioning, RunnerInitializesOnlyOwnedState) {

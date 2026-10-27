@@ -198,12 +198,15 @@ def test_global_positioner_frame_center_parameter_block() -> None:
     reconstruction = pycolmap.synthesize_dataset(dataset_options)
     options = pycolmap.GlobalPositionerOptions()
     options.use_gpu = False
+    options.min_num_view_per_track = reconstruction.num_images() + 1
+    frame_id, unposed_id = list(reconstruction.frames)[:2]
+    reconstruction.frames[unposed_id].reset_pose()
     owner = pycolmap.create_default_global_positioner(
         options,
         reconstruction,
         pycolmap.generate_observation_scales(reconstruction),
     )
-    frame_id = next(iter(reconstruction.frames))
+    assert owner.frame_center_parameter_block(unposed_id) is None
     center = owner.frame_center_parameter_block(frame_id)
     assert center.shape == (3,)
     assert center.base is owner
@@ -215,7 +218,7 @@ def test_global_positioner_frame_center_parameter_block() -> None:
         owner.frame_center_parameter_block(max(reconstruction.frames) + 1)
         is None
     )
-    del owner
+    del owner, reconstruction
     pytest.importorskip("pyceres")
     assert center.base.problem.has_parameter_block(center)
 

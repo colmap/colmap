@@ -71,18 +71,13 @@ class DefaultGlobalPositioner final : public GlobalPositioner {
 
 }  // namespace
 
-bool GlobalPositionerOptions::Check() const {
-  CHECK_OPTION(std::isfinite(uncalibrated_observation_weight));
-  CHECK_OPTION_GT(uncalibrated_observation_weight, 0.0);
-  if (experimental_observation_stddev.has_value()) {
-    CHECK_OPTION_GT(*experimental_observation_stddev, 0.0);
-  }
-  return true;
-}
-
 GlobalPositioner::GlobalPositioner(const GlobalPositionerOptions& options)
     : options_(options) {
-  THROW_CHECK(options_.Check());
+  THROW_CHECK(std::isfinite(options_.uncalibrated_observation_weight));
+  THROW_CHECK_GT(options_.uncalibrated_observation_weight, 0.0);
+  if (options_.experimental_observation_stddev.has_value()) {
+    THROW_CHECK_GT(*options_.experimental_observation_stddev, 0.0);
+  }
   if (options_.random_seed >= 0) {
     SetPRNGSeed(static_cast<unsigned>(options_.random_seed));
   }
@@ -118,6 +113,13 @@ void GlobalPositioner::Prepare(
 
   // Setup the problem.
   SetupProblem(std::move(loss_function));
+  for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+    if (!frame.HasPose()) continue;
+    auto& center =
+        frame_centers_.emplace(frame_id, frame.RigFromWorld().TgtOriginInSrc())
+            .first->second;
+    problem_->AddParameterBlock(center.data(), 3);
+  }
 
   // Add the point to camera constraints to the problem.
   AddPointToCameraConstraints(reconstruction);
@@ -217,8 +219,6 @@ void GlobalPositioner::AddPoint3DToProblem(point3D_t point3D_id,
     THROW_CHECK(std::isfinite(scale) && scale >= 1e-5)
         << "observation scale must be finite and at least 1e-5: "
         << observation;
-    frame_centers_.try_emplace(
-        image.FrameId(), image.FramePtr()->RigFromWorld().TgtOriginInSrc());
 
     // For calibrated and uncalibrated cameras, use different loss
     // functions
@@ -433,6 +433,7 @@ void GlobalPositioner::ConvertBackResults(Reconstruction& reconstruction) {
   // Convert optimized frame centers back to rig_from_world translations.
   for (const auto& [frame_id, center] : frame_centers_) {
     Rigid3d& rig_from_world = reconstruction.Frame(frame_id).RigFromWorld();
+    if (center == rig_from_world.TgtOriginInSrc()) continue;
     rig_from_world.translation() = rig_from_world.rotation() * -center;
   }
 
@@ -643,7 +644,6 @@ bool RunGlobalPositioning(const GlobalPositionerOptions& options,
   ObservationScaleMap local_scales;
   auto positioner_options = options;
   if (observation_scales == nullptr) {
-    THROW_CHECK(options.Check());
     RandomizeReconstructionPositions(options, pose_graph, reconstruction);
     local_scales = GenerateObservationScales(
         reconstruction, options.initialize_scales_from_geometry);
