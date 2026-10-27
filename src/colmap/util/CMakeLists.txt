@@ -208,7 +208,9 @@ if(ONNX_ENABLED)
             onnxruntime::onnxruntime
     )
     if(TESTS_ENABLED AND CUDA_ENABLED)
-        target_link_libraries(colmap_util_onnx_test PRIVATE colmap_util_cuda)
+        # NOTE: plain signature to match COLMAP_ADD_TEST() above; mixing
+        # keyword and plain signatures for one target is a CMake error.
+        target_link_libraries(colmap_util_onnx_test colmap_util_cuda)
     endif()
 endif()
 COLMAP_ADD_TEST(
@@ -268,5 +270,15 @@ if(HIP_ENABLED)
         PUBLIC_LINK_LIBS
             colmap_util
             hip::host
+    )
+endif()
+
+if(CUDA_ENABLED OR HIP_ENABLED)
+    # Placed after both colmap_util_cuda definitions above, which this
+    # test links against.
+    COLMAP_ADD_TEST(
+        NAME cuda_test
+        SRCS cuda_test.cc
+        LINK_LIBS colmap_util_cuda
     )
 endif()

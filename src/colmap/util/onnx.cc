@@ -295,6 +295,12 @@ void ONNXModel::CheckCudaCapabilityProbeAssignments() const {
       // ORT deliberately places shape/index manipulation on CPU. Reject
       // arithmetic fallback (in particular unsupported BF16 matrix kernels),
       // while permitting this small set of data-movement/metadata operators.
+      // The assignment info reports operator types only, not input dtypes or
+      // shapes, so this check cannot prove an allowlisted Gather/Concat/Slice
+      // only moves index data rather than feature tensors -- it only bounds
+      // the fallback to operators ORT uses for shape/index bookkeeping in
+      // the LoMa BF16 graphs. Log allowed CPU nodes so a future ORT
+      // partitioning change is diagnosable from the probe output.
       const bool shape_or_index =
           (domain.empty() || domain == "ai.onnx") &&
           (op == "Shape" || op == "Size" || op == "Gather" || op == "Squeeze" ||
@@ -305,6 +311,8 @@ void ONNXModel::CheckCudaCapabilityProbeAssignments() const {
             node.GetName() + "' (" + domain + ":" + op + ")";
         throw Ort::Exception(message.c_str(), ORT_NOT_IMPLEMENTED);
       }
+      VLOG(2) << "CUDA capability probe allows CPU node '" << node.GetName()
+              << "' (" << domain << ":" << op << ")";
     }
   }
   if (!has_cuda_nodes) {

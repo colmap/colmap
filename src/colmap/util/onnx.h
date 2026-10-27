@@ -70,7 +70,8 @@ class ONNXModel {
  public:
   // A capability probe propagates initialization failures without logging an
   // error. CUDA probes permit CPU shape/index operators but require CUDA work
-  // and reject CPU arithmetic fallback. Other accelerators and ONNX Runtime
+  // and reject CPU arithmetic fallback. The probe inspects assigned operator
+  // types only, not input dtypes. Other accelerators and ONNX Runtime
   // versions before 1.24 require the complete graph on the selected provider.
   ONNXModel(std::string model_path,
             int num_threads,

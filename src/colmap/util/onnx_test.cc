@@ -197,7 +197,9 @@ TEST(CreateONNXScalarTensorTest, Nominal) {
 #if defined(COLMAP_CUDA_ENABLED) && ORT_API_VERSION >= 24
 
 std::filesystem::path WriteMixedProbeModel() {
-  // Dynamic MatMul plus CPU Shape; identity weights make inference exact.
+  // ONNX IR v8: float input X [N, 2] -> MatMul with identity initializer
+  // W [2, 2] -> float output Y [N, 2]; Shape(X) -> int64 output S [2].
+  // The identity weights make inference exact for any batch size.
   constexpr char kModel[] =
       "\x08\x08\x3a\xa7\x01\x0a\x1d\x0a\x01\x58\x0a\x01"
       "\x57\x12\x01\x59\x1a\x0a\x67\x70\x75\x5f\x6d\x61"
@@ -220,7 +222,9 @@ std::filesystem::path WriteMixedProbeModel() {
 }
 
 std::filesystem::path WriteCpuStringModel() {
-  // CPU-only string computation, not shape/index bookkeeping.
+  // ONNX IR v8: string input X [1] -> StringNormalizer (locale "C") -> string
+  // output Y [N]. String computation has no CUDA kernel, so the probe must
+  // reject it as CPU compute rather than shape/index bookkeeping.
   constexpr char kModel[] =
       "\x08\x08\x3a\x6b\x0a\x34\x0a\x01\x58\x12\x01\x59"
       "\x1a\x0a\x63\x70\x75\x5f\x73\x74\x72\x69\x6e\x67"
