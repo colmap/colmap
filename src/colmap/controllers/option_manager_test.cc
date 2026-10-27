@@ -145,6 +145,7 @@ TEST(OptionManager, MapperSolverThresholds) {
       "--Mapper.ba_max_num_images_direct_dense_gpu_solver=23",
       "--Mapper.ba_max_num_images_direct_sparse_gpu_solver=1001"};
   std::vector<char*> argv;
+  argv.reserve(args.size());
   for (auto& arg : args) {
     argv.push_back(arg.data());
   }
