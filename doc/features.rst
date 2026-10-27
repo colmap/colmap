@@ -90,7 +90,7 @@ To select a feature matcher type via the command-line::
     $ colmap exhaustive_matcher \
         --database_path $DATASET_PATH/database.db \
         --FeatureMatching.type ALIKED_BRUTEFORCE \
-        --AlikedMatching.min_cossim 0.85
+        --AlikedMatching.brute_force_min_cossim 0.85
 
 For SIFT matching (the default)::
 
