@@ -118,6 +118,8 @@ struct IncrementalPipelineOptions {
 
   // Image-count thresholds for automatic Ceres solver selection in both local
   // and global bundle adjustment. These do not affect the Caspar backend.
+  // The defaults mirror CeresBundleAdjustmentOptions; the
+  // DefaultSolverThresholds test guards against drift.
   int ba_min_num_images_gpu_solver = 50;
   int ba_max_num_images_direct_dense_cpu_solver = 50;
   int ba_max_num_images_direct_sparse_cpu_solver = 1000;

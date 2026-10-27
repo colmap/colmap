@@ -315,6 +315,11 @@ bool IncrementalPipelineOptions::Check() const {
   CHECK_OPTION_GE(ba_local_max_refinement_change, 0);
   CHECK_OPTION_GE(ba_global_max_refinements, 0);
   CHECK_OPTION_GE(ba_global_max_refinement_change, 0);
+  CHECK_OPTION_GE(ba_min_num_images_gpu_solver, 0);
+  CHECK_OPTION_GE(ba_max_num_images_direct_dense_cpu_solver, 0);
+  CHECK_OPTION_GE(ba_max_num_images_direct_sparse_cpu_solver, 0);
+  CHECK_OPTION_GE(ba_max_num_images_direct_dense_gpu_solver, 0);
+  CHECK_OPTION_GE(ba_max_num_images_direct_sparse_gpu_solver, 0);
   CHECK_OPTION_LT(ba_max_num_images_direct_dense_cpu_solver,
                   ba_max_num_images_direct_sparse_cpu_solver);
   CHECK_OPTION_LT(ba_max_num_images_direct_dense_gpu_solver,
