@@ -24,7 +24,9 @@ void BindTwoViewPoseCovarianceEstimator(py::module& m) {
                                                "TwoViewPoseCovarianceOptions")
           .def(py::init<>())
           .def_readwrite("point2D_stddev_px",
-                         &TwoViewPoseCovarianceOptions::point2D_stddev_px)
+                         &TwoViewPoseCovarianceOptions::point2D_stddev_px,
+                         "Standard deviation of the 2D image point "
+                         "observations in pixels.")
           .def_readwrite(
               "max_rotation_sigma_deg",
               &TwoViewPoseCovarianceOptions::max_rotation_sigma_deg,
