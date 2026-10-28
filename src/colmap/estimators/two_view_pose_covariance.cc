@@ -317,9 +317,6 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   const auto image_points = ExtractImagePoints(database_cache, image_ids);
   const auto correspondence_graph = database_cache.CorrespondenceGraph();
 
-  const double max_sigma = DegToRad(options.max_rotation_sigma_deg);
-  const double max_variance = max_sigma * max_sigma;
-  std::atomic<size_t> num_capped(0);
   std::atomic<size_t> num_failed(0);
   ThreadPool thread_pool(GetEffectiveNumThreads(options.num_threads));
   std::vector<std::shared_future<void>> futures;
@@ -337,10 +334,6 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
                                          options);
       if (!edge->cam2_from_cam1_rotation_cov.has_value()) {
         num_failed.fetch_add(1, std::memory_order_relaxed);
-      } else if (Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
-                     *edge->cam2_from_cam1_rotation_cov, Eigen::EigenvaluesOnly)
-                     .eigenvalues()(2) >= (1 - 1e-6) * max_variance) {
-        num_capped.fetch_add(1, std::memory_order_relaxed);
       }
     }));
   }
@@ -349,10 +342,8 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   }
 
   LOG(INFO) << StringPrintf(
-      "Estimated %zu two-view rotation covariances (%zu capped, %zu failed) "
-      "in %.3fs",
+      "Estimated %zu two-view rotation covariances (%zu failed) in %.3fs",
       edges.size(),
-      num_capped.load(),
       num_failed.load(),
       timer.ElapsedSeconds());
 }
