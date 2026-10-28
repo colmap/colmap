@@ -81,9 +81,6 @@ class CeresRotationAverager {
       const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov = std::nullopt);
 
  private:
-  void InitializeRotations(const RotationEstimatorOptions& options,
-                           const PoseGraph& pose_graph,
-                           const FlatHashSet<image_t>& image_ids);
   void SetupParameterBlocks(const RotationEstimatorOptions& options,
                             const FlatHashSet<image_t>& image_ids);
 
@@ -93,6 +90,21 @@ class CeresRotationAverager {
       losses_;
   std::unique_ptr<ceres::Problem> problem_;
 };
+
+namespace internal {
+
+// Checks the inputs of Ceres rotation averaging and prepares the sensor
+// rotations of the given images, before any rotation is initialized. With
+// COVARIANCE reweighting, every valid edge must have a rotation covariance.
+// Sensor rotations that are not refined must be finite, and the non-finite
+// ones that are refined are reset. Throws std::invalid_argument, without
+// modifying the reconstruction, if a check fails.
+void PrepareCeresRotationAveraging(const RotationEstimatorOptions& options,
+                                   const PoseGraph& pose_graph,
+                                   const FlatHashSet<image_t>& image_ids,
+                                   Reconstruction& reconstruction);
+
+}  // namespace internal
 
 // Calibrated sensor rotations are fixed by default and can be made variable
 // through Problem(). MST initialization requires sensor rotations for all rigs

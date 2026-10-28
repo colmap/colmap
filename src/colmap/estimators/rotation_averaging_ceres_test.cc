@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -457,6 +458,60 @@ TEST(CeresRotationAverager, MissingSensorRotation) {
             Eigen::Quaterniond::Identity().coeffs());
   ASSERT_TRUE(averager->Solve().IsSolutionUsable());
   ExpectRelativeRotations(reconstruction, graph, 1e-7);
+}
+
+TEST(RotationEstimator, CeresChecksInputsBeforeInitialization) {
+  // The estimator initializes the rotations before it creates the averager, so
+  // it must check the inputs first, with the same messages, and throw without
+  // modifying the reconstruction.
+  RotationEstimatorOptions options;
+  options.backend = RotationAveragingBackend::CERES;
+
+  {
+    Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
+    PoseGraph graph;
+    graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
+        Eigen::Matrix3d::Identity();
+    graph.AddEdge(2, 3, Edge(ZRotation(0.2)));
+    const Reconstruction before = reconstruction;
+    options.reweighting = RotationAveragingReweighting::COVARIANCE;
+    RotationEstimator estimator(options);
+    try {
+      estimator.EstimateRotations(graph, {}, {1, 2, 3}, reconstruction);
+      ADD_FAILURE() << "Expected std::invalid_argument";
+    } catch (const std::invalid_argument& error) {
+      EXPECT_THAT(error.what(),
+                  testing::HasSubstr("EstimatePoseGraphRotationCovariances"));
+    }
+    EXPECT_EQ(reconstruction.Frames(), before.Frames());
+  }
+
+  {
+    // A sensor with a finite translation counts as calibrated, so its
+    // non-finite rotation is rejected instead of being refined.
+    Reconstruction reconstruction = MakeRigReconstruction();
+    const PoseGraph graph = MakePoseGraph(reconstruction);
+    const Image& image = reconstruction.Image(RigImages(reconstruction)[0][1]);
+    image.FramePtr()
+        ->RigPtr()
+        ->SensorFromRig(image.CameraPtr()->SensorId())
+        .rotation()
+        .coeffs()
+        .setConstant(std::numeric_limits<double>::quiet_NaN());
+    FlatHashSet<image_t> image_ids;
+    for (const auto& [image_id, _] : reconstruction.Images()) {
+      image_ids.insert(image_id);
+    }
+    const Reconstruction before = reconstruction;
+    options.reweighting = RotationAveragingReweighting::UNIFORM;
+    options.refine_sensor_from_rig = true;
+    RotationEstimator estimator(options);
+    EXPECT_THROW(
+        estimator.EstimateRotations(graph, {}, image_ids, reconstruction),
+        std::invalid_argument);
+    EXPECT_EQ(reconstruction.Frames(), before.Frames());
+    EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
+  }
 }
 
 TEST(RotationEstimatorOptions, DeepCopiesCeresOptions) {
