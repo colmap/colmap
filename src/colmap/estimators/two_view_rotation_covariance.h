@@ -15,7 +15,7 @@
 
 namespace colmap {
 
-struct TwoViewPoseCovarianceOptions {
+struct TwoViewRotationCovarianceOptions {
   // Standard deviation of the 2D image point observations in pixels.
   double point2D_stddev_px = 1.0;
 
@@ -31,23 +31,24 @@ struct TwoViewPoseCovarianceOptions {
 // pairs) evaluated at `geometry.cam2_from_cam1` over `geometry.inlier_matches`.
 // Returns nullopt if the relative pose is missing, has too few valid inliers,
 // or if the eigendecomposition of its information fails.
-std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
+std::optional<Eigen::Matrix3d> EstimateTwoViewRotationCovariance(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
     const TwoViewGeometry& geometry,
-    const TwoViewPoseCovarianceOptions& options =
-        TwoViewPoseCovarianceOptions());
+    const TwoViewRotationCovarianceOptions& options =
+        TwoViewRotationCovarianceOptions());
 
 // Populate `edge.cam2_from_cam1_rotation_cov` in parallel, with `num_threads`
 // threads (-1 = auto), for all valid edges in `pose_graph` that do not already
 // have a rotation covariance set. Edges whose rotation covariance cannot be
 // estimated are left unset.
-void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
-                                  PoseGraph& pose_graph,
-                                  const TwoViewPoseCovarianceOptions& options =
-                                      TwoViewPoseCovarianceOptions(),
-                                  int num_threads = -1);
+void EstimatePoseGraphRotationCovariances(
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph,
+    const TwoViewRotationCovarianceOptions& options =
+        TwoViewRotationCovarianceOptions(),
+    int num_threads = -1);
 
 }  // namespace colmap

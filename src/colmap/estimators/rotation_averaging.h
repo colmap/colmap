@@ -30,10 +30,10 @@ class DatabaseCache;
 //     RotationEstimatorOptions::covariance_sigma_floor_deg. Every valid edge
 //     must have a covariance, which the global mapper and the rotation
 //     averaging pipeline estimate from the two-view correspondences (see
-//     MaybeEstimatePoseGraphCovariances). Only supported by the CERES backend,
-//     which then uses CeresRotationAveragerOptions::covariance_loss_scale. It
-//     is ignored when the CERES backend falls back to L1_IRLS for gravity
-//     priors.
+//     MaybeEstimatePoseGraphRotationCovariances). Only supported by the CERES
+//     backend, which then uses
+//     CeresRotationAveragerOptions::covariance_loss_scale. It is ignored when
+//     the CERES backend falls back to L1_IRLS for gravity priors.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(
     RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT, COVARIANCE);
 
@@ -118,7 +118,7 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
 
   // With COVARIANCE reweighting, standard deviation (in pixels) of the 2D image
   // point observations from which the relative rotation covariances are
-  // estimated (see TwoViewPoseCovarianceOptions::point2D_stddev_px).
+  // estimated (see TwoViewRotationCovarianceOptions::point2D_stddev_px).
   double covariance_point2D_stddev_px = 1.0;
 };
 
@@ -219,8 +219,9 @@ void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
 // priors), estimates the rotation covariances of the valid pose graph edges
 // that do not have one yet from their two-view correspondences, and
 // invalidates the edges whose covariance cannot be estimated. No-op otherwise.
-void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
-                                       const DatabaseCache& database_cache,
-                                       PoseGraph& pose_graph);
+void MaybeEstimatePoseGraphRotationCovariances(
+    const RotationEstimatorOptions& options,
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph);
 
 }  // namespace colmap

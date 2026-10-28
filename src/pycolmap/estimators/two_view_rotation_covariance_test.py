@@ -35,10 +35,10 @@ def _synthetic_two_view_geometry(
     return camera, points1, points2, geometry
 
 
-def test_estimate_two_view_pose_covariance() -> None:
+def test_estimate_two_view_rotation_covariance() -> None:
     camera, points1, points2, geometry = _synthetic_two_view_geometry()
-    options = pycolmap.TwoViewPoseCovarianceOptions()
-    cov = pycolmap.estimate_two_view_pose_covariance(
+    options = pycolmap.TwoViewRotationCovarianceOptions()
+    cov = pycolmap.estimate_two_view_rotation_covariance(
         camera, points1, camera, points2, geometry, options
     )
     assert cov is not None
@@ -49,14 +49,14 @@ def test_estimate_two_view_pose_covariance() -> None:
     # Without a relative pose, no covariance can be estimated.
     geometry.cam2_from_cam1 = None
     assert (
-        pycolmap.estimate_two_view_pose_covariance(
+        pycolmap.estimate_two_view_rotation_covariance(
             camera, points1, camera, points2, geometry
         )
         is None
     )
 
 
-def test_estimate_pose_graph_covariances() -> None:
+def test_estimate_pose_graph_rotation_covariances() -> None:
     dataset_options = pycolmap.SyntheticDatasetOptions()
     dataset_options.num_rigs = 1
     dataset_options.num_cameras_per_rig = 1
@@ -76,7 +76,9 @@ def test_estimate_pose_graph_covariances() -> None:
     assert pose_graph.num_edges > 0
     for edge in pose_graph.edges.values():
         assert edge.cam2_from_cam1_rotation_cov is None
-    pycolmap.estimate_pose_graph_covariances(database_cache, pose_graph)
+    pycolmap.estimate_pose_graph_rotation_covariances(
+        database_cache, pose_graph
+    )
     for edge in pose_graph.edges.values():
         assert edge.cam2_from_cam1_rotation_cov is not None
         assert np.all(np.linalg.eigvalsh(edge.cam2_from_cam1_rotation_cov) > 0)

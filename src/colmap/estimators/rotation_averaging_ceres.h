@@ -54,7 +54,7 @@ struct CeresRotationAveragerOptions {
 // reweighting, covariance_sigma_floor_deg, skip_initialization, and
 // refine_sensor_from_rig. With COVARIANCE reweighting, every valid edge must
 // have a positive-definite cam2_from_cam1_rotation_cov (see
-// EstimatePoseGraphCovariances), to which the isotropic floor
+// EstimatePoseGraphRotationCovariances), to which the isotropic floor
 // covariance_sigma_floor_deg is added.
 class CeresRotationAverager {
  public:

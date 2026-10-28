@@ -4,7 +4,7 @@
 
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
-#include "colmap/estimators/two_view_pose_covariance.h"
+#include "colmap/estimators/two_view_rotation_covariance.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
@@ -899,18 +899,19 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
   return true;
 }
 
-void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
-                                       const DatabaseCache& database_cache,
-                                       PoseGraph& pose_graph) {
+void MaybeEstimatePoseGraphRotationCovariances(
+    const RotationEstimatorOptions& options,
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph) {
   if (options.reweighting != RotationAveragingReweighting::COVARIANCE ||
       options.backend != RotationAveragingBackend::CERES ||
       UseGravity(options, database_cache.PosePriors())) {
     return;
   }
-  TwoViewPoseCovarianceOptions cov_options;
+  TwoViewRotationCovarianceOptions cov_options;
   cov_options.point2D_stddev_px = options.covariance_point2D_stddev_px;
   // Estimate the covariances with as many threads as the solver uses.
-  EstimatePoseGraphCovariances(
+  EstimatePoseGraphRotationCovariances(
       database_cache,
       pose_graph,
       cov_options,
