@@ -74,12 +74,10 @@ image_t ComputeMaximumPoseGraphSpanningTree(
   const double floor_sigma = DegToRad(covariance_sigma_floor_deg);
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
-  std::vector<float> rot_cov_weights;
-  std::vector<bool> is_prior;
+  std::vector<size_t> prior_indices;
+  float max_weight = 0;
   edges.reserve(pose_graph.NumEdges());
   weights.reserve(pose_graph.NumEdges());
-  rot_cov_weights.reserve(pose_graph.NumEdges());
-  is_prior.reserve(pose_graph.NumEdges());
 
   // A rejected measurement does not invalidate its rig calibration.
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
@@ -91,43 +89,34 @@ image_t ComputeMaximumPoseGraphSpanningTree(
       continue;
     }
     edges.emplace_back(it1->second, it2->second);
-    weights.push_back(static_cast<float>(edge.num_matches));
-    if (use_rotation_covariance) {
-      if (edge.cam2_from_cam1_rotation_cov.has_value()) {
-        // The trace (with the isotropic floor) is the expected squared angular
-        // error in radians.
-        rot_cov_weights.push_back(static_cast<float>(
-            1.0 / std::max(edge.cam2_from_cam1_rotation_cov->trace() +
-                               3 * floor_sigma * floor_sigma,
-                           1e-12)));
-      } else {
-        // Prior edges are re-weighted below and need no covariance.
-        THROW_CHECK(edge.prior) << "Missing rotation covariance of edge ("
-                                << image_id1 << ", " << image_id2 << ")";
-        rot_cov_weights.push_back(0);
-      }
+    if (edge.prior) {
+      // Re-weighted below, so it needs no covariance.
+      weights.push_back(0);
+      prior_indices.push_back(weights.size() - 1);
+      continue;
     }
-    is_prior.push_back(edge.prior);
-  }
-
-  if (use_rotation_covariance) {
-    weights = std::move(rot_cov_weights);
+    if (use_rotation_covariance) {
+      THROW_CHECK(edge.cam2_from_cam1_rotation_cov.has_value())
+          << "Missing rotation covariance of edge (" << image_id1 << ", "
+          << image_id2 << ")";
+      // The trace (with the isotropic floor) is the expected squared angular
+      // error in radians.
+      weights.push_back(static_cast<float>(
+          1.0 / std::max(edge.cam2_from_cam1_rotation_cov->trace() +
+                             3 * floor_sigma * floor_sigma,
+                         1e-12)));
+    } else {
+      weights.push_back(static_cast<float>(edge.num_matches));
+    }
+    max_weight = std::max(max_weight, weights.back());
   }
 
   // Fixed rig calibration takes precedence over measured relative rotations.
-  float max_weight = 0;
-  for (size_t i = 0; i < weights.size(); ++i) {
-    if (!is_prior[i]) {
-      max_weight = std::max(max_weight, weights[i]);
-    }
-  }
   // Covariance weights can be large enough for max_weight + 1 to round to
   // max_weight in single precision.
   const float prior_weight = std::max(max_weight + 1, 2 * max_weight);
-  for (size_t i = 0; i < weights.size(); ++i) {
-    if (is_prior[i]) {
-      weights[i] = prior_weight;
-    }
+  for (const size_t i : prior_indices) {
+    weights[i] = prior_weight;
   }
 
   // Compute spanning tree using generic algorithm.
