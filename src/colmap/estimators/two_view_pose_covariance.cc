@@ -159,13 +159,8 @@ std::optional<Eigen::Matrix3d> RotationCovarianceFromInformation(
         eigenvalue * max_variance > 1.0 ? 1.0 / eigenvalue : max_variance;
   }
 
-  // Clamp the anisotropy of the covariance to avoid near-singular whitening.
-  constexpr double kMaxConditionNumber = 1e4;
-  variances = variances.cwiseMax(variances.maxCoeff() / kMaxConditionNumber);
-
-  const Eigen::Matrix3d cov = eig.eigenvectors() * variances.asDiagonal() *
-                              eig.eigenvectors().transpose();
-  return 0.5 * (cov + cov.transpose());
+  return eig.eigenvectors() * variances.asDiagonal() *
+         eig.eigenvectors().transpose();
 }
 
 }  // namespace
