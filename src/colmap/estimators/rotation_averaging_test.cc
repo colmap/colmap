@@ -208,6 +208,71 @@ TEST(RotationAveraging, InitializeFrameConnectedRig) {
   }
 }
 
+TEST(RotationAveraging, InitializeFromMaximumSpanningTreeWithCovariance) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 3;
+  options.num_points3D = 0;
+  Reconstruction truth;
+  SynthesizeDataset(options, &truth);
+  FlatHashSet<image_t> image_ids;
+  for (const auto& [image_id, _] : truth.Images()) {
+    image_ids.insert(image_id);
+  }
+  const auto relative_pose = [&](image_t image_id1, image_t image_id2) {
+    return truth.Image(image_id2).CamFromWorld() *
+           Inverse(truth.Image(image_id1).CamFromWorld());
+  };
+
+  // The wrong (1, 3) edge has the most matches but the least certain rotation.
+  PoseGraph pose_graph;
+  const auto add_edge = [&](image_t image_id1,
+                            image_t image_id2,
+                            const Rigid3d& cam2_from_cam1,
+                            int num_matches,
+                            double sigma) {
+    PoseGraph::Edge& edge = pose_graph.AddEdge(
+        image_id1, image_id2, PoseGraph::Edge(cam2_from_cam1));
+    edge.num_matches = num_matches;
+    edge.cam2_from_cam1_rotation_cov =
+        sigma * sigma * Eigen::Matrix3d::Identity();
+  };
+  add_edge(1, 2, relative_pose(1, 2), /*num_matches=*/10, /*sigma=*/1e-3);
+  add_edge(2, 3, relative_pose(2, 3), /*num_matches=*/10, /*sigma=*/1e-3);
+  add_edge(1, 3, Rigid3d(), /*num_matches=*/1000, /*sigma=*/1.0);
+  ASSERT_GT(relative_pose(1, 3).rotation().angularDistance(
+                Eigen::Quaterniond::Identity()),
+            DegToRad(1.0));
+
+  // Without use_rotation_covariance, the covariances are ignored.
+  Reconstruction reconstruction = truth;
+  InitializeFromMaximumSpanningTree(
+      pose_graph, image_ids, reconstruction, /*refine_sensor_from_rig=*/true);
+  EXPECT_LT((reconstruction.Image(3).CamFromWorld() *
+             Inverse(reconstruction.Image(1).CamFromWorld()))
+                .rotation()
+                .angularDistance(Eigen::Quaterniond::Identity()),
+            1e-8);
+
+  reconstruction = truth;
+  InitializeFromMaximumSpanningTree(pose_graph,
+                                    image_ids,
+                                    reconstruction,
+                                    /*refine_sensor_from_rig=*/true,
+                                    /*use_rotation_covariance=*/true);
+  ExpectEqualRotations(truth, reconstruction, 1e-8);
+
+  // Every measured edge then requires a covariance.
+  pose_graph.UpdateEdge(1, 3, PoseGraph::Edge(Rigid3d()));
+  EXPECT_ANY_THROW(
+      InitializeFromMaximumSpanningTree(pose_graph,
+                                        image_ids,
+                                        reconstruction,
+                                        /*refine_sensor_from_rig=*/true,
+                                        /*use_rotation_covariance=*/true));
+}
+
 TEST(RotationAveraging, WithoutNoise) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
