@@ -14,10 +14,7 @@ def scene() -> tuple[pycolmap.DatabaseCache, pycolmap.PoseGraph]:
     dataset_options.num_points3D = 50
     dataset_options.two_view_geometry_has_relative_pose = True
     with pycolmap.Database.open(":memory:") as database:
-        reconstruction = pycolmap.synthesize_dataset(dataset_options, database)
-        noise_options = pycolmap.SyntheticNoiseOptions()
-        noise_options.point2D_stddev = 0.5
-        pycolmap.synthesize_noise(noise_options, reconstruction, database)
+        pycolmap.synthesize_dataset(dataset_options, database)
         database_cache = pycolmap.DatabaseCache.create(
             database, pycolmap.DatabaseCacheOptions()
         )
