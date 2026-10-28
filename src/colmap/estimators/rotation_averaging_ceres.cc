@@ -147,7 +147,13 @@ void CeresRotationAverager::InitializeRotations(
   }
   if (!options.skip_initialization) {
     InitializeFromMaximumSpanningTree(
-        pose_graph, image_ids, reconstruction_, options.refine_sensor_from_rig);
+        pose_graph,
+        image_ids,
+        reconstruction_,
+        options.refine_sensor_from_rig,
+        /*use_rotation_covariance=*/options.reweighting ==
+            RotationAveragingReweighting::COVARIANCE,
+        options.covariance_sigma_floor_deg);
   }
 }
 

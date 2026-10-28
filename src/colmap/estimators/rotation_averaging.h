@@ -156,14 +156,19 @@ class RotationEstimator {
   const RotationEstimatorOptions options_;
 };
 
-// Initializes rotations from maximum spanning tree.
-// For calibrated multi-camera rigs, add their connections with
+// Initializes rotations from maximum spanning tree, which prefers the edges
+// with the most inlier matches or, if use_rotation_covariance, the most certain
+// relative rotations, whose covariance (with the isotropic floor
+// covariance_sigma_floor_deg) every measured edge must then have. For
+// calibrated multi-camera rigs, add their connections with
 // PoseGraph::AddRigEdges before initialization.
 void InitializeFromMaximumSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction,
-    bool refine_sensor_from_rig);
+    bool refine_sensor_from_rig,
+    bool use_rotation_covariance = false,
+    double covariance_sigma_floor_deg = 0.0);
 
 // Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
