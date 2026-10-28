@@ -580,11 +580,7 @@ bool RotationEstimator::SolveRotationAveraging(
     }
     // L1_IRLS ignores COVARIANCE reweighting (equivalent to UNIFORM).
     LOG(WARNING) << "Gravity priors are not supported by the CERES rotation "
-                    "averaging backend, falling back to L1_IRLS"
-                 << (options_.reweighting ==
-                             RotationAveragingReweighting::COVARIANCE
-                         ? " without COVARIANCE reweighting"
-                         : "");
+                    "averaging backend, falling back to L1_IRLS";
   } else if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
     LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
                         "L1_IRLS rotation averaging backend";
