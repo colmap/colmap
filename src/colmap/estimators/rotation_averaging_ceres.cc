@@ -251,17 +251,20 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   if (loss != nullptr) {
     losses_.try_emplace(loss, loss_function);
   }
+  // Whitens the residual with the covariance of the relative rotation, if any.
+  const auto maybe_whiten = [&](ceres::CostFunction* cost_function) {
+    return cam2_from_cam1_cov.has_value()
+               ? new DynamicCovarianceWeightedCostFunction<3>(
+                     *cam2_from_cam1_cov, cost_function)
+               : cost_function;
+  };
   if (sensor1_from_rig_rot_ptr == nullptr &&
       sensor2_from_rig_rot_ptr == nullptr && !same_frame) {
-    ceres::CostFunction* cost_function =
-        RelativeRotationCostFunctor::Create(cam2_from_cam1);
-    if (cam2_from_cam1_cov.has_value()) {
-      cost_function =
-          CreateCovarianceWeightedCostFunction<RelativeRotationCostFunctor>(
-              *cam2_from_cam1_cov, cost_function);
-    }
     problem_->AddResidualBlock(
-        cost_function, loss, rig1_from_world_rot_ptr, rig2_from_world_rot_ptr);
+        maybe_whiten(RelativeRotationCostFunctor::Create(cam2_from_cam1)),
+        loss,
+        rig1_from_world_rot_ptr,
+        rig2_from_world_rot_ptr);
     return;
   }
   std::vector<double*> parameter_blocks;
@@ -278,7 +281,7 @@ void CeresRotationAverager::AddRelativeRotationResidual(
           parameter_blocks.push_back(sensor_from_rig_rot_ptr);
         return index;
       };
-  auto* dynamic_cost_function =
+  auto* cost_function =
       new ceres::DynamicAutoDiffCostFunction<RelativeRotationCostFunctor, 8>(
           new RelativeRotationCostFunctor{
               cam2_from_cam1,
@@ -286,14 +289,10 @@ void CeresRotationAverager::AddRelativeRotationResidual(
               get_sensor_index_in_parameters(sensor2_from_rig_rot_ptr),
               same_frame});
   for (size_t i = 0; i < parameter_blocks.size(); ++i)
-    dynamic_cost_function->AddParameterBlock(4);
-  dynamic_cost_function->SetNumResiduals(3);
-  ceres::CostFunction* cost_function = dynamic_cost_function;
-  if (cam2_from_cam1_cov.has_value()) {
-    cost_function = new DynamicCovarianceWeightedCostFunction<3>(
-        *cam2_from_cam1_cov, cost_function);
-  }
-  problem_->AddResidualBlock(cost_function, loss, parameter_blocks);
+    cost_function->AddParameterBlock(4);
+  cost_function->SetNumResiduals(3);
+  problem_->AddResidualBlock(
+      maybe_whiten(cost_function), loss, parameter_blocks);
 }
 
 std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
