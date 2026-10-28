@@ -52,6 +52,7 @@ def test_estimate_two_view_rotation_covariance(
     cov = pycolmap.estimate_two_view_rotation_covariance(
         *args, geometry, pycolmap.TwoViewRotationCovarianceOptions()
     )
+    assert cov is not None
     assert cov.shape == (3, 3)
 
     geometry.cam2_from_cam1 = None
