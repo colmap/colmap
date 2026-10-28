@@ -1,7 +1,8 @@
 name: PyCOLMAP
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Adding any label other than "full-ci" must not cancel an in-progress run.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'full-ci' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
@@ -11,13 +12,16 @@ on:
       - main
       - release/*
   pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened, labeled ]
   release:
     types: [ published, edited ]
 
 jobs:
+  # The Linux wheel always builds, as the docs job depends on it. The remaining
+  # wheels are built by the build-gated job, which reuses this job's name, env,
+  # and steps through YAML anchors.
   build:
-    name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
+    name: &build-name ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     permissions:
       contents: read
@@ -26,11 +30,8 @@ jobs:
       matrix:
         config: [
           {os: ubuntu-24.04, cudaEnabled: false, ccacheMaxSize: 800M},
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0, cudaEnabled: false, ccacheMaxSize: 350M},
-          {os: windows-2025-vs2026, cudaEnabled: false, ccacheMaxSize: 1000M},
-          {os: ubuntu-24.04, cudaEnabled: true, ccacheMaxSize: 850M},
         ]
-    env:
+    env: &build-env
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
       CCACHE_DIR: ${{ github.workspace }}/compiler-cache/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -51,7 +52,7 @@ jobs:
       # reach main, and cp312, the oldest version supported by the pinned Sphinx
       # used in the docs job, which reuses this wheel.
       PULL_REQUEST_CIBW_BUILD: cp3{10,12}-{macosx,manylinux,win}*
-    steps:
+    steps: &build-steps
       - name: Free disk space
         if: runner.os == 'Linux' && matrix.config.cudaEnabled
         uses: jlumbroso/free-disk-space@v2.0.0
@@ -283,9 +284,31 @@ jobs:
           cache-hit: ${{ steps.cache-compiler.outputs.cache-hit }}
           ccache-dir: ${{ env.COMPILER_CACHE_DIR }}/ccache
 
+  build-gated:
+    name: *build-name
+    # Pull requests only run this job once a maintainer adds the "full-ci"
+    # label. Until then, its required status checks remain pending.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'full-ci') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'full-ci'))
+    runs-on: ${{ matrix.config.os }}
+    permissions:
+      contents: read
+      actions: write
+    strategy:
+      matrix:
+        config: [
+          {os: macos-14, arch: arm64, deploymentTarget: 14.0, cudaEnabled: false, ccacheMaxSize: 350M},
+          {os: windows-2025-vs2026, cudaEnabled: false, ccacheMaxSize: 1000M},
+          {os: ubuntu-24.04, cudaEnabled: true, ccacheMaxSize: 850M},
+        ]
+    env: *build-env
+    steps: *build-steps
+
   pypi-publish:
     name: Publish wheels to PyPI
-    needs: build
+    needs: [build, build-gated]
     runs-on: ubuntu-latest
     environment:
       name: pypi
