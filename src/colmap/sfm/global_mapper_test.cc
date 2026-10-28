@@ -218,9 +218,9 @@ TEST(GlobalMapper, WithGivenPoseGraph) {
   global_mapper.BeginReconstruction(reconstruction, pose_graph);
   ASSERT_TRUE(global_mapper.Solve(GlobalMapperOptions()));
 
-  // The isolated image is not registered (and thus removed).
-  EXPECT_FALSE(reconstruction->ExistsImage(kIsolatedImageId) &&
-               reconstruction->Image(kIsolatedImageId).HasPose());
+  // The isolated image is not registered, and thus removed by the final
+  // retriangulation, which tears down the reconstruction.
+  EXPECT_FALSE(reconstruction->ExistsImage(kIsolatedImageId));
   EXPECT_EQ(reconstruction->NumRegImages(),
             gt_reconstruction.NumRegImages() - 1);
 }
