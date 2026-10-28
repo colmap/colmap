@@ -178,6 +178,40 @@ ExtractMatchedImagePoints(const std::vector<Eigen::Vector2d>& points1,
   return std::make_pair(std::move(matched_points1), std::move(matched_points2));
 }
 
+}  // namespace
+
+std::pair<std::vector<CamRayWithJac>, std::vector<CamRayWithJac>>
+ExtractMatchedCamRaysWithJac(const Camera& camera1,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const Camera& camera2,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             const FeatureMatches& matches,
+                             bool skip_invalid) {
+  std::vector<CamRayWithJac> matched_rays1;
+  std::vector<CamRayWithJac> matched_rays2;
+  matched_rays1.reserve(matches.size());
+  matched_rays2.reserve(matches.size());
+  for (size_t i = 0; i < matches.size(); ++i) {
+    const point2D_t idx1 = matches[i].point2D_idx1;
+    const point2D_t idx2 = matches[i].point2D_idx2;
+    THROW_CHECK_LT(idx1, points1.size());
+    THROW_CHECK_LT(idx2, points2.size());
+    const std::optional<CamRayWithJac> ray1 =
+        camera1.CamRayFromImgWithJac(points1[idx1]);
+    const std::optional<CamRayWithJac> ray2 =
+        camera2.CamRayFromImgWithJac(points2[idx2]);
+    if (skip_invalid && (!ray1.has_value() || !ray2.has_value() ||
+                         ray1->ray.isZero() || ray2->ray.isZero())) {
+      continue;
+    }
+    matched_rays1.push_back(ray1.value_or(CamRayWithJac::Zero()));
+    matched_rays2.push_back(ray2.value_or(CamRayWithJac::Zero()));
+  }
+  return std::make_pair(std::move(matched_rays1), std::move(matched_rays2));
+}
+
+namespace {
+
 // Mark the geometry as degenerate unless there are enough matches to estimate
 // a model. Returns false (with the config set) when estimation must be
 // skipped.
@@ -616,34 +650,6 @@ TwoViewGeometry EstimateSphericalTwoViewGeometry(
 }
 
 }  // namespace
-
-std::pair<std::vector<CamRayWithJac>, std::vector<CamRayWithJac>>
-ExtractMatchedCamRaysWithJac(const Camera& camera1,
-                             const std::vector<Eigen::Vector2d>& points1,
-                             const Camera& camera2,
-                             const std::vector<Eigen::Vector2d>& points2,
-                             const FeatureMatches& matches,
-                             bool skip_invalid) {
-  std::vector<CamRayWithJac> matched_rays1;
-  std::vector<CamRayWithJac> matched_rays2;
-  matched_rays1.reserve(matches.size());
-  matched_rays2.reserve(matches.size());
-  for (const FeatureMatch& match : matches) {
-    THROW_CHECK_LT(match.point2D_idx1, points1.size());
-    THROW_CHECK_LT(match.point2D_idx2, points2.size());
-    const std::optional<CamRayWithJac> ray1 =
-        camera1.CamRayFromImgWithJac(points1[match.point2D_idx1]);
-    const std::optional<CamRayWithJac> ray2 =
-        camera2.CamRayFromImgWithJac(points2[match.point2D_idx2]);
-    if (skip_invalid && (!ray1.has_value() || !ray2.has_value() ||
-                         ray1->ray.isZero() || ray2->ray.isZero())) {
-      continue;
-    }
-    matched_rays1.push_back(ray1.value_or(CamRayWithJac::Zero()));
-    matched_rays2.push_back(ray2.value_or(CamRayWithJac::Zero()));
-  }
-  return std::make_pair(std::move(matched_rays1), std::move(matched_rays2));
-}
 
 bool TwoViewGeometryOptions::Check() const {
   CHECK_OPTION_GE(min_num_inliers, 0);
