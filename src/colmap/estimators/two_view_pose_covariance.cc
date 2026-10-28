@@ -257,7 +257,8 @@ std::optional<Eigen::Matrix3d> EstimateEdgeRotationCovariance(
 
 void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
                                   PoseGraph& pose_graph,
-                                  const TwoViewPoseCovarianceOptions& options) {
+                                  const TwoViewPoseCovarianceOptions& options,
+                                  int num_threads) {
   Timer timer;
   timer.Start();
 
@@ -286,7 +287,7 @@ void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
   const auto correspondence_graph = database_cache.CorrespondenceGraph();
 
   std::atomic<size_t> num_failed(0);
-  ThreadPool thread_pool(GetEffectiveNumThreads(options.num_threads));
+  ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
   std::vector<std::shared_future<void>> futures;
   futures.reserve(edges.size());
   for (const auto& pair_id_and_edge : edges) {
