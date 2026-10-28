@@ -55,6 +55,10 @@ CeresRotationAverager::CeresRotationAverager(
                      : DegToRad(ceres_options.loss_function_scale);
   std::shared_ptr<ceres::LossFunction> loss(CreateCeresLossFunction(
       ceres_options.loss_function_type, loss_function_scale));
+  // Isotropic floor added in quadrature to the relative rotation covariances.
+  const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
+  const Eigen::Matrix3d floor_cov =
+      floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
   FlatHashSet<image_t> image_ids;
   int max_num_matches = 0;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
@@ -107,7 +111,9 @@ CeresRotationAverager::CeresRotationAverager(
         image_id2,
         edge.cam2_from_cam1.rotation(),
         loss,
-        use_covariance ? edge.cam2_from_cam1_rotation_cov : std::nullopt);
+        use_covariance ? std::optional<Eigen::Matrix3d>(
+                             *edge.cam2_from_cam1_rotation_cov + floor_cov)
+                       : std::nullopt);
   }
 }
 

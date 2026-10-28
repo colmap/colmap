@@ -438,11 +438,6 @@ TEST(RotationAveraging, CovarianceReweighting) {
   ExpectEqualRotations(data.gt_reconstruction,
                        reconstruction,
                        /*max_rotation_error_deg=*/3);
-  // The covariances of the input pose graph are not regularized in place.
-  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-    EXPECT_EQ(*edge.cam2_from_cam1_rotation_cov,
-              *data.pose_graph.Edges().at(pair_id).cam2_from_cam1_rotation_cov);
-  }
 
   // The L1-IRLS backend does not support covariance reweighting.
   options.backend = RotationAveragingBackend::L1_IRLS;

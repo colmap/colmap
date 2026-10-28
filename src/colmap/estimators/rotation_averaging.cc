@@ -305,20 +305,6 @@ std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
   return std::nullopt;
 }
 
-// Adds the isotropic floor to the relative rotation covariances. Edges without
-// a covariance are rejected by CeresRotationAverager.
-void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
-                                   PoseGraph& pose_graph) {
-  const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
-  const Eigen::Matrix3d floor_cov =
-      floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
-  for (auto& [pair_id, edge] : pose_graph.Edges()) {
-    if (edge.valid && edge.cam2_from_cam1_rotation_cov.has_value()) {
-      *edge.cam2_from_cam1_rotation_cov += floor_cov;
-    }
-  }
-}
-
 }  // namespace
 
 RotationEstimatorBackendOptions::RotationEstimatorBackendOptions()
@@ -639,14 +625,8 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
     Reconstruction& reconstruction) {
   THROW_CHECK_NOTNULL(options_.ceres);
 
-  std::optional<PoseGraph> filtered_pose_graph =
+  const std::optional<PoseGraph> filtered_pose_graph =
       MaybeFilterPoseGraphToActiveImages(pose_graph, active_image_ids);
-  if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
-    if (!filtered_pose_graph.has_value()) {
-      filtered_pose_graph = pose_graph;
-    }
-    RegularizeRotationCovariances(options_, *filtered_pose_graph);
-  }
   const PoseGraph& active_pose_graph =
       filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
 
