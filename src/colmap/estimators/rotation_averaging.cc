@@ -4,9 +4,11 @@
 
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
+#include "colmap/estimators/two_view_pose_covariance.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 
@@ -917,6 +919,33 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
   }
 
   return true;
+}
+
+void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
+                                       const DatabaseCache& database_cache,
+                                       PoseGraph& pose_graph) {
+  if (options.reweighting != RotationAveragingReweighting::COVARIANCE ||
+      options.backend != RotationAveragingBackend::CERES ||
+      UseGravity(options, database_cache.PosePriors())) {
+    return;
+  }
+  TwoViewPoseCovarianceOptions cov_options;
+  cov_options.num_threads = options.num_threads;
+  EstimatePoseGraphCovariances(database_cache, pose_graph, cov_options);
+
+  // Edges whose covariance cannot be estimated lack enough valid
+  // correspondences to be trusted.
+  size_t num_invalidated = 0;
+  for (auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (edge.valid && !edge.cam2_from_cam1_rotation_cov.has_value()) {
+      edge.valid = false;
+      ++num_invalidated;
+    }
+  }
+  if (num_invalidated > 0) {
+    LOG(INFO) << "Invalidated " << num_invalidated
+              << " pose graph edges without rotation covariance";
+  }
 }
 
 }  // namespace colmap

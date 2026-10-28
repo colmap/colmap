@@ -11,6 +11,7 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/testing.h"
 
 #include <map>
 #include <utility>
@@ -788,6 +789,58 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
       const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
       EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
           << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+    }
+  }
+}
+
+TEST(MaybeEstimatePoseGraphCovariances, Nominal) {
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  const auto database_cache =
+      DatabaseCache::Create(*database, DatabaseCache::Options());
+
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache->CorrespondenceGraph());
+  ASSERT_EQ(pose_graph.NumEdges(), 3);
+  // The covariance of an edge without correspondences cannot be estimated.
+  constexpr image_t kUnknownImageId1 = 100;
+  constexpr image_t kUnknownImageId2 = 101;
+  pose_graph.AddEdge(kUnknownImageId1, kUnknownImageId2, PoseGraph::Edge());
+  const image_pair_t unknown_pair_id =
+      ImagePairToPairId(kUnknownImageId1, kUnknownImageId2);
+
+  // No-op without CERES covariance-weighted rotation averaging.
+  RotationEstimatorOptions options;
+  options.backend = RotationAveragingBackend::CERES;
+  options.reweighting = RotationAveragingReweighting::UNIFORM;
+  PoseGraph uniform_pose_graph = pose_graph;
+  MaybeEstimatePoseGraphCovariances(
+      options, *database_cache, uniform_pose_graph);
+  for (const auto& [pair_id, edge] : uniform_pose_graph.Edges()) {
+    EXPECT_TRUE(edge.valid);
+    EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+  }
+
+  // Edges without covariance are invalidated.
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  MaybeEstimatePoseGraphCovariances(options, *database_cache, pose_graph);
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (pair_id == unknown_pair_id) {
+      EXPECT_FALSE(edge.valid);
+      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+    } else {
+      EXPECT_TRUE(edge.valid);
+      EXPECT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
     }
   }
 }
