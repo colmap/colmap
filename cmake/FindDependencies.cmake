@@ -580,7 +580,7 @@ if(ONNX_ENABLED)
         endif()
 
         set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include CACHE PATH "ONNX Runtime include directory hints")
-        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_BINARY_DIR}/lib CACHE PATH "ONNX Runtime library directory hints")
+        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_LIB_DIR} CACHE PATH "ONNX Runtime library directory hints")
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
 
         install(DIRECTORY "${onnxruntime_BINARY_DIR}/include/" TYPE INCLUDE)

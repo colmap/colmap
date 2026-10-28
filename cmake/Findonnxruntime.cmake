@@ -66,6 +66,8 @@ else()
             PATHS ${_onnxruntime_library_paths})
     endif()
 
+    unset(_onnxruntime_library_paths)
+
     if(onnxruntime_INCLUDE_DIRS AND onnxruntime_LIBRARIES)
         if(onnxruntime_PROVIDERS_SHARED_LIBRARY)
             list(APPEND onnxruntime_LIBRARIES ${onnxruntime_PROVIDERS_SHARED_LIBRARY})
