@@ -47,8 +47,10 @@ bool AllSensorsFromRigKnown(const NodeHashMap<rig_t, Rig>& rigs) {
   return all_known;
 }
 
-// Compute maximum spanning tree of the pose graph weighted by inlier count.
-// Returns the root image_id and populates the parents map.
+// Compute maximum spanning tree of the pose graph weighted by rotation
+// certainty (if covariances are present on all measured edges) or inlier
+// count, with rig calibration edges taking precedence. Returns the root
+// image_id and populates the parents map.
 image_t ComputeMaximumPoseGraphSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& image_ids,
@@ -64,13 +66,18 @@ image_t ComputeMaximumPoseGraphSpanningTree(
     idx_to_image_id.push_back(image_id);
   }
 
-  // Build edges and weights from view graph.
+  // Build edges and weights from view graph. If all measured edges have a
+  // rotation covariance, prefer the most certain relative rotations, otherwise
+  // those with the most inlier matches.
   std::vector<std::pair<int, int>> edges;
   std::vector<float> weights;
-  std::vector<size_t> prior_indices;
-  float max_weight = 0;
+  std::vector<float> rot_cov_weights;
+  std::vector<bool> is_prior;
+  bool all_measured_have_rot_cov = true;
   edges.reserve(pose_graph.NumEdges());
   weights.reserve(pose_graph.NumEdges());
+  rot_cov_weights.reserve(pose_graph.NumEdges());
+  is_prior.reserve(pose_graph.NumEdges());
 
   // A rejected measurement does not invalidate its rig calibration.
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
@@ -83,16 +90,36 @@ image_t ComputeMaximumPoseGraphSpanningTree(
     }
     edges.emplace_back(it1->second, it2->second);
     weights.push_back(static_cast<float>(edge.num_matches));
-    if (edge.prior) {
-      prior_indices.push_back(weights.size() - 1);
+    if (edge.cam2_from_cam1_rotation_cov.has_value()) {
+      // The trace is the expected squared angular error in radians.
+      rot_cov_weights.push_back(static_cast<float>(
+          1.0 / std::max(edge.cam2_from_cam1_rotation_cov->trace(), 1e-12)));
     } else {
-      max_weight = std::max(max_weight, weights.back());
+      rot_cov_weights.push_back(0);
+      // Prior edges are re-weighted below and need no covariance.
+      all_measured_have_rot_cov &= edge.prior;
     }
+    is_prior.push_back(edge.prior);
+  }
+
+  if (!edges.empty() && all_measured_have_rot_cov) {
+    weights = std::move(rot_cov_weights);
   }
 
   // Fixed rig calibration takes precedence over measured relative rotations.
-  for (const size_t i : prior_indices) {
-    weights[i] = max_weight + 1;
+  float max_weight = 0;
+  for (size_t i = 0; i < weights.size(); ++i) {
+    if (!is_prior[i]) {
+      max_weight = std::max(max_weight, weights[i]);
+    }
+  }
+  // Covariance weights can be large enough for max_weight + 1 to round to
+  // max_weight in single precision.
+  const float prior_weight = std::max(max_weight + 1, 2 * max_weight);
+  for (size_t i = 0; i < weights.size(); ++i) {
+    if (is_prior[i]) {
+      weights[i] = prior_weight;
+    }
   }
 
   // Compute spanning tree using generic algorithm.
@@ -274,6 +301,29 @@ std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
     }
   }
   return std::nullopt;
+}
+
+// Adds the isotropic floor to the relative rotation covariances, which every
+// valid edge must have.
+void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
+                                   PoseGraph& pose_graph) {
+  const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
+  const Eigen::Matrix3d floor_cov =
+      floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
+  for (auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (!edge.valid) {
+      continue;
+    }
+    if (!edge.cam2_from_cam1_rotation_cov.has_value()) {
+      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+      LOG(FATAL_THROW) << "COVARIANCE reweighting requires a rotation "
+                          "covariance for every valid edge, but edge ("
+                       << image_id1 << ", " << image_id2
+                       << ") has none. Call EstimatePoseGraphCovariances "
+                          "first.";
+    }
+    *edge.cam2_from_cam1_rotation_cov += floor_cov;
+  }
 }
 
 }  // namespace
@@ -554,8 +604,16 @@ bool RotationEstimator::SolveRotationAveraging(
       return SolveRotationAveragingWithCeres(
           pose_graph, active_image_ids, reconstruction);
     }
+    // L1_IRLS ignores COVARIANCE reweighting (equivalent to UNIFORM).
     LOG(WARNING) << "Gravity priors are not supported by the CERES rotation "
-                    "averaging backend, falling back to L1_IRLS";
+                    "averaging backend, falling back to L1_IRLS"
+                 << (options_.reweighting ==
+                             RotationAveragingReweighting::COVARIANCE
+                         ? " without COVARIANCE reweighting"
+                         : "");
+  } else if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
+    LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
+                        "L1_IRLS rotation averaging backend";
   }
 
   // Initialize rotations from maximum spanning tree. Note that without
@@ -588,8 +646,14 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
     Reconstruction& reconstruction) {
   THROW_CHECK_NOTNULL(options_.ceres);
 
-  const std::optional<PoseGraph> filtered_pose_graph =
+  std::optional<PoseGraph> filtered_pose_graph =
       MaybeFilterPoseGraphToActiveImages(pose_graph, active_image_ids);
+  if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
+    if (!filtered_pose_graph.has_value()) {
+      filtered_pose_graph = pose_graph;
+    }
+    RegularizeRotationCovariances(options_, *filtered_pose_graph);
+  }
   const PoseGraph& active_pose_graph =
       filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
 
@@ -611,6 +675,13 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
     warm_start_options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
     warm_start_options.ceres->solver_options.max_num_iterations =
         options.ceres->max_num_warm_start_iterations;
+    if (options.reweighting == RotationAveragingReweighting::COVARIANCE) {
+      // Warm-start on angular residuals: with whitening, confidently wrong
+      // relative rotations (e.g., from symmetric structures) dominate the
+      // early iterations. The MST initialization inside this warm-start still
+      // weights edges by their rotation covariance.
+      warm_start_options.reweighting = RotationAveragingReweighting::UNIFORM;
+    }
     if (!solve(warm_start_options)) {
       return false;
     }
