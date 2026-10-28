@@ -13,8 +13,16 @@ namespace colmap {
 
 // Angular error in radians between two camera rotations and a relative
 // rotation, expressed in the frame of sensor 1. Parameter blocks are unit
-// quaternions in Eigen (x, y, z, w) order.
+// quaternions in Eigen (x, y, z, w) order. The residual follows the right
+// perturbation convention, i.e., it is the rotation vector r such that
+// hat_sensor2_from_sensor1 = sensor2_from_sensor1_prior * Exp(r), so a
+// covariance of the relative rotation prior must be expressed in the frame of
+// sensor 1.
 struct RelativeRotationCostFunctor {
+  // Shape of the non-rig cost with two rotation blocks.
+  static constexpr int kNumResiduals = 3;
+  using kParameterDims = std::integer_sequence<int, 4, 4>;
+
   template <typename T>
   bool operator()(const T* const sensor1_from_world_rotation,
                   const T* const sensor2_from_world_rotation,

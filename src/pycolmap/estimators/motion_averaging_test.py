@@ -22,6 +22,7 @@ def test_rotation_averaging_reweighting_enum() -> None:
     } == {
         "UNIFORM": 0,
         "INLIER_MATCH_COUNT": 1,
+        "COVARIANCE": 2,
     }
 
 
@@ -43,6 +44,8 @@ def test_rotation_estimator_options_default_init() -> None:
     assert isinstance(options.l1_irls, pycolmap.L1IrlsRotationAveragerOptions)
     assert isinstance(options.ceres, pycolmap.CeresRotationAveragerOptions)
     assert options.ceres.loss_function_type == pycolmap.LossFunctionType.CAUCHY
+    assert options.ceres.covariance_loss_scale == 3.0
+    assert options.covariance_sigma_floor_deg == 0.02
 
 
 def test_rotation_estimator_options_reweighting_readwrite() -> None:
@@ -56,10 +59,16 @@ def test_rotation_estimator_options_reweighting_readwrite() -> None:
     )
     options.reweighting = "UNIFORM"  # type: ignore[assignment]
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+    options.reweighting = "COVARIANCE"  # type: ignore[assignment]
+    assert (
+        options.reweighting == pycolmap.RotationAveragingReweighting.COVARIANCE
+    )
     options.backend = "CERES"  # type: ignore[assignment]
     assert options.backend == pycolmap.RotationAveragingBackend.CERES
     options.ceres.loss_function_type = "HUBER"  # type: ignore[assignment]
     assert options.ceres.loss_function_type == pycolmap.LossFunctionType.HUBER
+    options.covariance_sigma_floor_deg = 0.1
+    assert options.covariance_sigma_floor_deg == 0.1
 
 
 def test_rotation_estimator_options_l1_irls_readwrite() -> None:
@@ -79,8 +88,10 @@ def test_rotation_estimator_options_ceres_readwrite() -> None:
     assert options.ceres.max_num_warm_start_iterations == 5
     options.ceres.loss_function_scale = 0.1
     options.ceres.max_num_warm_start_iterations = 0
+    options.ceres.covariance_loss_scale = 2.5
     assert options.ceres.loss_function_scale == 0.1
     assert options.ceres.max_num_warm_start_iterations == 0
+    assert options.ceres.covariance_loss_scale == 2.5
 
 
 def test_gravity_refiner_options_default_init() -> None:
