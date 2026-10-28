@@ -20,8 +20,8 @@ class PoseGraph;
 class Reconstruction;
 
 // Ceres-specific rotation averaging options. Solver-agnostic options (e.g.,
-// reweighting, skip_initialization, refine_sensor_from_rig) are in
-// RotationEstimatorOptions.
+// reweighting, covariance_sigma_floor_deg, skip_initialization,
+// refine_sensor_from_rig) are in RotationEstimatorOptions.
 struct CeresRotationAveragerOptions {
   // Robust loss function applied to the relative-rotation residuals.
   CeresLossFunctionType loss_function_type = CeresLossFunctionType::CAUCHY;
@@ -51,10 +51,11 @@ struct CeresRotationAveragerOptions {
 // outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
 // gravity/pose priors, outlier filtering, or frame deregistration. Uses the
 // Ceres-specific options in options.ceres and the solver-agnostic options
-// reweighting, skip_initialization, and refine_sensor_from_rig. With COVARIANCE
-// reweighting, every valid edge must already have a positive-definite
-// cam2_from_cam1_rotation_cov; RotationEstimator is responsible for ensuring
-// this condition.
+// reweighting, covariance_sigma_floor_deg, skip_initialization, and
+// refine_sensor_from_rig. With COVARIANCE reweighting, every valid edge must
+// have a positive-definite cam2_from_cam1_rotation_cov (see
+// EstimatePoseGraphCovariances), to which the isotropic floor
+// covariance_sigma_floor_deg is added.
 class CeresRotationAverager {
  public:
   CeresRotationAverager(const RotationEstimatorOptions& options,

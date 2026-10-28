@@ -8,6 +8,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
+#include <cmath>
 #include <limits>
 #include <map>
 #include <memory>
@@ -505,6 +506,11 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
   options.skip_initialization = true;
   options.refine_sensor_from_rig = false;
   options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
+  // The residuals are whitened with the covariance plus the isotropic floor.
+  options.covariance_sigma_floor_deg = 0.5;
+  const Eigen::Matrix3d floored_cov =
+      cov + std::pow(DegToRad(options.covariance_sigma_floor_deg), 2) *
+                Eigen::Matrix3d::Identity();
 
   // Trivial frames use the fixed-size cost function.
   {
@@ -527,7 +533,7 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
     auto whitened =
         CreateDefaultCeresRotationAverager(options, graph, reconstruction);
     EXPECT_NEAR(EvaluateCost(*whitened),
-                0.5 * residual.dot(cov.ldlt().solve(residual)),
+                0.5 * residual.dot(floored_cov.ldlt().solve(residual)),
                 1e-9);
   }
 
@@ -551,7 +557,7 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
     auto whitened =
         CreateDefaultCeresRotationAverager(options, graph, reconstruction);
     EXPECT_NEAR(EvaluateCost(*whitened),
-                0.5 * residual.dot(cov.ldlt().solve(residual)),
+                0.5 * residual.dot(floored_cov.ldlt().solve(residual)),
                 1e-9);
   }
 }
