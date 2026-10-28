@@ -5,6 +5,7 @@
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/estimators/solvers/utils.h"
 #include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
@@ -119,9 +120,8 @@ Eigen::Quaterniond RefineRotationOnlyMLE(
           B2;
       const Eigen::Matrix2d W = C.inverse();
       const Eigen::Vector2d e = B2.transpose() * (R * x1);
-      Eigen::Matrix3d x1_skew;
-      x1_skew << 0, -x1.z(), x1.y(), x1.z(), 0, -x1.x(), -x1.y(), x1.x(), 0;
-      const Eigen::Matrix<double, 2, 3> J = -B2.transpose() * R * x1_skew;
+      const Eigen::Matrix<double, 2, 3> J =
+          -B2.transpose() * R * CrossProductMatrix(x1);
       H += J.transpose() * W * J;
       g += J.transpose() * W * e;
     }

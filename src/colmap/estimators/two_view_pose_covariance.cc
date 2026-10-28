@@ -4,7 +4,9 @@
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/correspondence_graph.h"
 #include "colmap/util/hash_containers.h"
@@ -30,52 +32,23 @@ namespace {
 // considered numerically zero.
 constexpr double kMinRelativeEigenvalue = 1e-12;
 
-// Camera rays, with their Jacobians w.r.t. the image points, of the inlier
-// correspondences.
-struct InlierCamRaysWithJac {
-  std::vector<CamRayWithJac> rays1;
-  std::vector<CamRayWithJac> rays2;
-};
-
-InlierCamRaysWithJac ExtractInlierCamRaysWithJac(
-    const Camera& camera1,
-    const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2,
-    const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches) {
-  InlierCamRaysWithJac rays;
-  rays.rays1.reserve(matches.size());
-  rays.rays2.reserve(matches.size());
-  for (const FeatureMatch& match : matches) {
-    THROW_CHECK_LT(match.point2D_idx1, points1.size());
-    THROW_CHECK_LT(match.point2D_idx2, points2.size());
-    const auto ray1 = camera1.CamRayFromImgWithJac(points1[match.point2D_idx1]);
-    const auto ray2 = camera2.CamRayFromImgWithJac(points2[match.point2D_idx2]);
-    if (ray1.has_value() && ray2.has_value() && !ray1->ray.isZero() &&
-        !ray2->ray.isZero()) {
-      rays.rays1.push_back(*ray1);
-      rays.rays2.push_back(*ray2);
-    }
-  }
-  return rays;
-}
-
 // Information matrix of the relative rotation under a pure-rotation
 // (zero-baseline) model, in which each correspondence constrains the 2D
 // tangent plane orthogonal to ray2 via c_i = B2^T (R21 * ray1).
 std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
-    const InlierCamRaysWithJac& rays,
+    const std::vector<CamRayWithJac>& rays1,
+    const std::vector<CamRayWithJac>& rays2,
     const Eigen::Quaterniond& cam2_from_cam1_rotation,
     double point2D_stddev_px) {
   const Eigen::Matrix3d R21 = cam2_from_cam1_rotation.toRotationMatrix();
   Eigen::Matrix3d unscaled_information = Eigen::Matrix3d::Zero();
   size_t num_valid = 0;
 
-  for (size_t i = 0; i < rays.rays1.size(); ++i) {
-    const Eigen::Vector3d& x1 = rays.rays1[i].ray;
-    const Eigen::Matrix3x2d& J1 = rays.rays1[i].jacobian;
-    const Eigen::Vector3d& x2 = rays.rays2[i].ray;
-    const Eigen::Matrix3x2d& J2 = rays.rays2[i].jacobian;
+  for (size_t i = 0; i < rays1.size(); ++i) {
+    const Eigen::Vector3d& x1 = rays1[i].ray;
+    const Eigen::Matrix3x2d& J1 = rays1[i].jacobian;
+    const Eigen::Vector3d& x2 = rays2[i].ray;
+    const Eigen::Matrix3x2d& J2 = rays2[i].jacobian;
 
     Eigen::Matrix<double, 3, 2, Eigen::RowMajor> B2;
     SphereManifold<3>().PlusJacobian(x2.data(), B2.data());
@@ -92,9 +65,8 @@ std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
     }
 
     // d(R21 * Exp(delta) * x1)/d(delta) = -R21 * [x1]_x.
-    Eigen::Matrix3d x1_skew;
-    x1_skew << 0.0, -x1.z(), x1.y(), x1.z(), 0.0, -x1.x(), -x1.y(), x1.x(), 0.0;
-    const Eigen::Matrix<double, 2, 3> J_c = -B2.transpose() * R21 * x1_skew;
+    const Eigen::Matrix<double, 2, 3> J_c =
+        -B2.transpose() * R21 * CrossProductMatrix(x1);
     const Eigen::Matrix<double, 2, 3> J_R_i = llt.matrixL().solve(J_c);
 
     unscaled_information.noalias() += J_R_i.transpose() * J_R_i;
@@ -111,7 +83,8 @@ std::optional<Eigen::Matrix3d> EstimatePanoramicRotationInformation(
 // w.r.t. the right perturbation of the rotation and the perturbation of the
 // translation direction on the tangent space of S^2.
 Eigen::Matrix<double, 5, 5> EstimateRelativePoseInformation(
-    const InlierCamRaysWithJac& rays,
+    const std::vector<CamRayWithJac>& rays1,
+    const std::vector<CamRayWithJac>& rays2,
     const Rigid3d& cam2_from_cam1,
     double point2D_stddev_px) {
   using RelativePoseManifold =
@@ -119,8 +92,8 @@ Eigen::Matrix<double, 5, 5> EstimateRelativePoseInformation(
 
   const RelPoseParams params = RelPoseParamsFromRigid3d(cam2_from_cam1);
 
-  const size_t num_inliers = rays.rays1.size();
-  const TinyTangentSampsonErrorCostFunctor cost_fn(rays.rays1, rays.rays2);
+  const size_t num_inliers = rays1.size();
+  const TinyTangentSampsonErrorCostFunctor cost_fn(rays1, rays2);
   Eigen::VectorXd residuals(num_inliers);
   Eigen::Matrix<double, Eigen::Dynamic, 7, Eigen::ColMajor> J_amb(num_inliers,
                                                                   7);
@@ -210,17 +183,18 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
   const Rigid3d& cam2_from_cam1 = *geometry.cam2_from_cam1;
 
   // Use the intrinsics estimated with the two-view geometry, if any.
-  const InlierCamRaysWithJac rays = ExtractInlierCamRaysWithJac(
+  const auto [rays1, rays2] = ExtractMatchedCamRaysWithJac(
       geometry.camera1.has_value() ? *geometry.camera1 : camera1,
       points1,
       geometry.camera2.has_value() ? *geometry.camera2 : camera2,
       points2,
-      geometry.inlier_matches);
+      geometry.inlier_matches,
+      /*skip_invalid=*/true);
 
   const bool is_panoramic =
       geometry.config == TwoViewGeometry::ConfigurationType::PANORAMIC ||
       cam2_from_cam1.translation().squaredNorm() < 1e-12;
-  const size_t num_inliers = rays.rays1.size();
+  const size_t num_inliers = rays1.size();
   if (num_inliers < (is_panoramic ? 3 : 5)) {
     return std::nullopt;
   }
@@ -228,11 +202,11 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
   std::optional<Eigen::Matrix3d> rotation_information;
   if (is_panoramic) {
     rotation_information = EstimatePanoramicRotationInformation(
-        rays, cam2_from_cam1.rotation(), options.point2D_stddev_px);
+        rays1, rays2, cam2_from_cam1.rotation(), options.point2D_stddev_px);
   } else {
     rotation_information =
         MarginalizeTranslationDirection(EstimateRelativePoseInformation(
-            rays, cam2_from_cam1, options.point2D_stddev_px));
+            rays1, rays2, cam2_from_cam1, options.point2D_stddev_px));
   }
   if (!rotation_information.has_value()) {
     return std::nullopt;

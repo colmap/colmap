@@ -246,6 +246,17 @@ bool DetectWatermarkMatches(const Camera& camera1,
                             const std::vector<char>& inlier_mask,
                             const TwoViewGeometryOptions& options);
 
+// Unprojects the matched image points to camera rays with their Jacobians
+// w.r.t. the image points. Rays that fail to unproject are zero-filled or, if
+// skip_invalid, the matches with a failed or zero ray are dropped.
+std::pair<std::vector<CamRayWithJac>, std::vector<CamRayWithJac>>
+ExtractMatchedCamRaysWithJac(const Camera& camera1,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const Camera& camera2,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             const FeatureMatches& matches,
+                             bool skip_invalid = false);
+
 // Remove matches that are caused by static content that has the same
 // position in both images.
 void FilterStationaryMatches(double max_error,
