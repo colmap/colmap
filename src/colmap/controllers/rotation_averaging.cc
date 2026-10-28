@@ -41,7 +41,6 @@ void RotationAveragingPipeline::Run() {
   RotationAveragingPipelineOptions options = options_;
   options.rotation_estimation.ceres->solver_options.num_threads =
       options.num_threads;
-  options.rotation_estimation.num_threads = options.num_threads;
   options.rotation_estimation.random_seed = options.random_seed;
   options.gravity_refiner.solver_options.num_threads = options.num_threads;
 
