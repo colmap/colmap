@@ -23,8 +23,6 @@ void BindTwoViewPoseCovarianceEstimator(py::module& m) {
       py::classh<TwoViewPoseCovarianceOptions>(m,
                                                "TwoViewPoseCovarianceOptions")
           .def(py::init<>())
-          .def_readwrite("num_threads",
-                         &TwoViewPoseCovarianceOptions::num_threads)
           .def_readwrite("point2D_stddev_px",
                          &TwoViewPoseCovarianceOptions::point2D_stddev_px)
           .def_readwrite(
@@ -56,7 +54,9 @@ void BindTwoViewPoseCovarianceEstimator(py::module& m) {
         py::arg_v("options",
                   TwoViewPoseCovarianceOptions(),
                   "TwoViewPoseCovarianceOptions()"),
+        "num_threads"_a = -1,
         "Populate the rotation covariance of all valid pose graph edges that "
-        "do not have one yet, from their inlier correspondences.",
+        "do not have one yet, from their inlier correspondences, with "
+        "num_threads threads (-1 for auto).",
         py::call_guard<py::gil_scoped_release>());
 }

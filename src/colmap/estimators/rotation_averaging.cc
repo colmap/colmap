@@ -907,11 +907,12 @@ void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
       UseGravity(options, database_cache.PosePriors())) {
     return;
   }
-  TwoViewPoseCovarianceOptions cov_options;
   // Estimate the covariances with as many threads as the solver uses.
-  cov_options.num_threads =
-      THROW_CHECK_NOTNULL(options.ceres)->solver_options.num_threads;
-  EstimatePoseGraphCovariances(database_cache, pose_graph, cov_options);
+  EstimatePoseGraphCovariances(
+      database_cache,
+      pose_graph,
+      TwoViewPoseCovarianceOptions(),
+      THROW_CHECK_NOTNULL(options.ceres)->solver_options.num_threads);
 
   // Edges whose covariance cannot be estimated lack enough valid
   // correspondences to be trusted.

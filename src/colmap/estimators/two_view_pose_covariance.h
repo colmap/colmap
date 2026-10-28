@@ -16,10 +16,6 @@
 namespace colmap {
 
 struct TwoViewPoseCovarianceOptions {
-  // Number of threads for parallel pose graph covariance estimation (-1 =
-  // auto).
-  int num_threads = -1;
-
   // Standard deviation of the 2D image point observations in pixels.
   double point2D_stddev_px = 1.0;
 
@@ -33,7 +29,8 @@ struct TwoViewPoseCovarianceOptions {
 // tangent frame (corresponding to right perturbation R21 * Exp(delta_theta))
 // from the tangent Sampson Jacobian (or 2D tangent ray alignment for panoramic
 // pairs) evaluated at `geometry.cam2_from_cam1` over `geometry.inlier_matches`.
-// Returns nullopt if the relative pose is missing or has too few valid inliers.
+// Returns nullopt if the relative pose is missing, has too few valid inliers,
+// or if the eigendecomposition of its information fails.
 std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
@@ -43,12 +40,14 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
     const TwoViewPoseCovarianceOptions& options =
         TwoViewPoseCovarianceOptions());
 
-// Populate `edge.cam2_from_cam1_rotation_cov` in parallel for all valid edges
-// in `pose_graph` that do not already have a rotation covariance set. Edges
-// whose rotation covariance cannot be estimated are left unset.
+// Populate `edge.cam2_from_cam1_rotation_cov` in parallel, with `num_threads`
+// threads (-1 = auto), for all valid edges in `pose_graph` that do not already
+// have a rotation covariance set. Edges whose rotation covariance cannot be
+// estimated are left unset.
 void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
                                   PoseGraph& pose_graph,
                                   const TwoViewPoseCovarianceOptions& options =
-                                      TwoViewPoseCovarianceOptions());
+                                      TwoViewPoseCovarianceOptions(),
+                                  int num_threads = -1);
 
 }  // namespace colmap
