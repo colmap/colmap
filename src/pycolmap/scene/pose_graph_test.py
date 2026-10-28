@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+
 import pycolmap
 
 
@@ -33,6 +35,16 @@ def test_pose_graph_edge_valid_readwrite() -> None:
     assert edge.valid is True
     edge.valid = False
     assert edge.valid is False
+
+
+def test_pose_graph_edge_rotation_cov_readwrite() -> None:
+    edge = pycolmap.PoseGraphEdge()
+    assert edge.cam2_from_cam1_rotation_cov is None
+    cov = np.arange(9, dtype=float).reshape(3, 3)
+    edge.cam2_from_cam1_rotation_cov = cov
+    np.testing.assert_array_equal(edge.cam2_from_cam1_rotation_cov, cov)
+    edge.cam2_from_cam1_rotation_cov = None
+    assert edge.cam2_from_cam1_rotation_cov is None
 
 
 def test_pose_graph_edge_invert() -> None:
