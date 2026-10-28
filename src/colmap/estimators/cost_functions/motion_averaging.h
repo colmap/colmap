@@ -19,10 +19,6 @@ namespace colmap {
 // covariance of the relative rotation prior must be expressed in the frame of
 // sensor 1.
 struct RelativeRotationCostFunctor {
-  // Shape of the non-rig cost with two rotation blocks.
-  static constexpr int kNumResiduals = 3;
-  using kParameterDims = std::integer_sequence<int, 4, 4>;
-
   template <typename T>
   bool operator()(const T* const sensor1_from_world_rotation,
                   const T* const sensor2_from_world_rotation,
