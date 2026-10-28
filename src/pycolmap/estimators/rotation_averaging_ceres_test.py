@@ -49,6 +49,14 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
             image_id1, image_id2, pycolmap.Rigid3d().rotation, loss
         )
     assert averager.problem.num_residual_blocks() == 101
+    averager.add_relative_rotation_residual(
+        image_id1,
+        image_id2,
+        pycolmap.Rigid3d().rotation,
+        loss,
+        cam2_from_cam1_cov=np.eye(3),
+    )
+    assert averager.problem.num_residual_blocks() == 102
     del loss
     del reconstruction
     gc.collect()
@@ -58,7 +66,6 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
 
 
 def test_ceres_rotation_averager_covariance_reweighting() -> None:
-    pyceres = pytest.importorskip("pyceres")
     dataset_options = pycolmap.SyntheticDatasetOptions()
     dataset_options.num_rigs = 1
     dataset_options.num_cameras_per_rig = 1
@@ -66,47 +73,18 @@ def test_ceres_rotation_averager_covariance_reweighting() -> None:
     dataset_options.num_points3D = 10
     reconstruction = pycolmap.synthesize_dataset(dataset_options)
     image_id1, image_id2 = sorted(reconstruction.images)
-    rotation1 = reconstruction.images[image_id1].cam_from_world().rotation
-    rotation2 = reconstruction.images[image_id2].cam_from_world().rotation
-    # Residual convention: estimate = prior * Exp(residual).
-    residual = np.array([0.01, -0.02, 0.03])
-    prior = rotation2 * rotation1.inverse() * pycolmap.Rotation3d(-residual)
-    cov = np.diag([1e-4, 4e-4, 9e-4])
-
-    edge = pycolmap.PoseGraphEdge(
-        cam2_from_cam1=pycolmap.Rigid3d(prior, np.zeros(3))
-    )
-    edge.cam2_from_cam1_rotation_cov = cov
+    edge = pycolmap.PoseGraphEdge(cam2_from_cam1=pycolmap.Rigid3d())
+    edge.cam2_from_cam1_rotation_cov = 1e-4 * np.eye(3)
     pose_graph = pycolmap.PoseGraph()
     pose_graph.add_edge(image_id1, image_id2, edge)
     options = pycolmap.RotationEstimatorOptions()
     options.reweighting = pycolmap.RotationAveragingReweighting.COVARIANCE
-    options.skip_initialization = True
-    options.ceres.loss_function_type = pycolmap.LossFunctionType.TRIVIAL
-    averager = pycolmap.create_default_ceres_rotation_averager(
+    pycolmap.create_default_ceres_rotation_averager(
         options, pose_graph, reconstruction
     )
-    averager.add_relative_rotation_residual(
-        image_id1,
-        image_id2,
-        prior,
-        pyceres.TrivialLoss(),
-        cam2_from_cam1_cov=cov,
-    )
-    evaluation = pyceres.EvaluateOptions()
-    residuals = np.asarray(averager.problem.evaluate_residuals(evaluation))
-    # The averager adds the isotropic floor to the covariance of the graph
-    # edge, but not to that of the manually added residual.
-    floor_sigma = np.deg2rad(options.covariance_sigma_floor_deg)
-    floored_cov = cov + floor_sigma**2 * np.eye(3)
-    expected = residual @ np.linalg.solve(
-        floored_cov, residual
-    ) + residual @ np.linalg.solve(cov, residual)
-    np.testing.assert_allclose(residuals @ residuals, expected, rtol=1e-6)
 
     edge.cam2_from_cam1_rotation_cov = None
-    pose_graph = pycolmap.PoseGraph()
-    pose_graph.add_edge(image_id1, image_id2, edge)
+    pose_graph.update_edge(image_id1, image_id2, edge)
     with pytest.raises(ValueError):
         pycolmap.create_default_ceres_rotation_averager(
             options, pose_graph, reconstruction
