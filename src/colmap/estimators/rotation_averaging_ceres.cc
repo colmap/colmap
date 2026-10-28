@@ -136,8 +136,7 @@ CeresRotationAverager::CeresRotationAverager(
         image_components.front(),
         reconstruction,
         options.refine_sensor_from_rig,
-        /*use_rotation_covariance=*/use_covariance,
-        options.covariance_sigma_floor_deg);
+        /*use_rotation_covariance=*/use_covariance);
   }
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
