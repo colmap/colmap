@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cmath>
 
 #include <Eigen/Cholesky>
 #include <Eigen/Eigenvalues>
