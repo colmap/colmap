@@ -28,6 +28,53 @@ double* MaybeGetSensorRotationBlock(const Image& image) {
 
 }  // namespace
 
+namespace internal {
+
+void PrepareCeresRotationAveraging(const RotationEstimatorOptions& options,
+                                   const PoseGraph& pose_graph,
+                                   const FlatHashSet<image_t>& image_ids,
+                                   Reconstruction& reconstruction) {
+  if (options.reweighting == RotationAveragingReweighting::COVARIANCE) {
+    for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+      if (!edge.cam2_from_cam1_rotation_cov.has_value()) {
+        const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+        throw std::invalid_argument(StringPrintf(
+            "COVARIANCE reweighting requires a rotation covariance for every "
+            "valid edge, but edge (%u, %u) has none. Call "
+            "EstimatePoseGraphRotationCovariances first.",
+            image_id1,
+            image_id2));
+      }
+    }
+  }
+  // Validate fixed sensors before replacing invalid initial rotations.
+  for (const image_t image_id : image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    if (image.IsRefInFrame()) continue;
+    const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
+        image.CameraPtr()->SensorId());
+    const bool refine_sensor =
+        options.refine_sensor_from_rig &&
+        (!pose.has_value() || pose->translation().hasNaN());
+    if (!refine_sensor &&
+        (!pose.has_value() || !pose->rotation().coeffs().allFinite())) {
+      throw std::invalid_argument(
+          "rotation averaging requires finite sensor rotations");
+    }
+  }
+  for (const image_t image_id : image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    if (image.IsRefInFrame()) continue;
+    auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
+        image.CameraPtr()->SensorId());
+    if (pose.has_value() && !pose->rotation().coeffs().allFinite()) {
+      pose.reset();
+    }
+  }
+}
+
+}  // namespace internal
+
 CeresRotationAveragerOptions::CeresRotationAveragerOptions() {
   solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   solver_options.max_num_iterations = 100;
@@ -70,14 +117,6 @@ CeresRotationAverager::CeresRotationAverager(
     image_ids.insert(image_id1);
     image_ids.insert(image_id2);
     max_num_matches = std::max(max_num_matches, edge.num_matches);
-    if (use_covariance && !edge.cam2_from_cam1_rotation_cov.has_value()) {
-      throw std::invalid_argument(StringPrintf(
-          "COVARIANCE reweighting requires a rotation covariance for every "
-          "valid edge, but edge (%u, %u) has none. Call "
-          "EstimatePoseGraphRotationCovariances first.",
-          image_id1,
-          image_id2));
-    }
   }
   if (image_ids.empty()) {
     throw std::invalid_argument("Ceres rotation averaging requires edges");
@@ -89,7 +128,17 @@ CeresRotationAverager::CeresRotationAverager(
         "Ceres rotation averaging requires a connected pose graph");
   }
 
-  InitializeRotations(options, pose_graph, image_components.front());
+  internal::PrepareCeresRotationAveraging(
+      options, pose_graph, image_components.front(), reconstruction);
+  if (!options.skip_initialization) {
+    InitializeFromMaximumSpanningTree(
+        pose_graph,
+        image_components.front(),
+        reconstruction,
+        options.refine_sensor_from_rig,
+        /*use_rotation_covariance=*/use_covariance,
+        options.covariance_sigma_floor_deg);
+  }
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
@@ -114,46 +163,6 @@ CeresRotationAverager::CeresRotationAverager(
         use_covariance ? std::optional<Eigen::Matrix3d>(
                              *edge.cam2_from_cam1_rotation_cov + floor_cov)
                        : std::nullopt);
-  }
-}
-
-void CeresRotationAverager::InitializeRotations(
-    const RotationEstimatorOptions& options,
-    const PoseGraph& pose_graph,
-    const FlatHashSet<image_t>& image_ids) {
-  // Validate fixed sensors before replacing invalid initial rotations.
-  for (const image_t image_id : image_ids) {
-    const auto& image = reconstruction_.Image(image_id);
-    if (image.IsRefInFrame()) continue;
-    const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
-        image.CameraPtr()->SensorId());
-    const bool refine_sensor =
-        options.refine_sensor_from_rig &&
-        (!pose.has_value() || pose->translation().hasNaN());
-    if (!refine_sensor &&
-        (!pose.has_value() || !pose->rotation().coeffs().allFinite())) {
-      throw std::invalid_argument(
-          "rotation averaging requires finite sensor rotations");
-    }
-  }
-  for (const image_t image_id : image_ids) {
-    const auto& image = reconstruction_.Image(image_id);
-    if (image.IsRefInFrame()) continue;
-    auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
-        image.CameraPtr()->SensorId());
-    if (pose.has_value() && !pose->rotation().coeffs().allFinite()) {
-      pose.reset();
-    }
-  }
-  if (!options.skip_initialization) {
-    InitializeFromMaximumSpanningTree(
-        pose_graph,
-        image_ids,
-        reconstruction_,
-        options.refine_sensor_from_rig,
-        /*use_rotation_covariance=*/options.reweighting ==
-            RotationAveragingReweighting::COVARIANCE,
-        options.covariance_sigma_floor_deg);
   }
 }
 
