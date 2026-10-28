@@ -76,8 +76,8 @@ class GlobalPipeline : public BaseController {
   // Run the full global SfM pipeline on the given database cache and return
   // the resulting reconstruction, or nullopt if mapping fails. The in-progress
   // reconstruction is added to the manager so callbacks can render it. The
-  // caller decides whether to keep it. If null, the pose graph is loaded from
-  // the database cache.
+  // caller decides whether to keep it. If pose_graph is null, the pose graph
+  // is loaded from the database cache.
   std::optional<std::shared_ptr<Reconstruction>> ReconstructSingleComponent(
       const std::shared_ptr<const DatabaseCache>& database_cache,
       const GlobalMapperOptions& mapper_options,
