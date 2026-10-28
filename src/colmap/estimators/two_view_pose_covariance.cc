@@ -213,10 +213,10 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
 
 namespace {
 
-NodeHashMap<image_t, std::vector<Eigen::Vector2d>> ExtractImagePoints(
+FlatHashMap<image_t, std::vector<Eigen::Vector2d>> ExtractImagePoints(
     const DatabaseCache& database_cache,
     const FlatHashSet<image_t>& image_ids) {
-  NodeHashMap<image_t, std::vector<Eigen::Vector2d>> image_points;
+  FlatHashMap<image_t, std::vector<Eigen::Vector2d>> image_points;
   image_points.reserve(image_ids.size());
   for (const image_t image_id : image_ids) {
     const Image& image = database_cache.Image(image_id);
@@ -235,7 +235,7 @@ NodeHashMap<image_t, std::vector<Eigen::Vector2d>> ExtractImagePoints(
 std::optional<Eigen::Matrix3d> EstimateEdgeRotationCovariance(
     const DatabaseCache& database_cache,
     const CorrespondenceGraph& correspondence_graph,
-    const NodeHashMap<image_t, std::vector<Eigen::Vector2d>>& image_points,
+    const FlatHashMap<image_t, std::vector<Eigen::Vector2d>>& image_points,
     image_pair_t pair_id,
     const Rigid3d& cam2_from_cam1,
     const TwoViewPoseCovarianceOptions& options) {
