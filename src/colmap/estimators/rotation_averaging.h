@@ -18,6 +18,8 @@
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace colmap {
 
+class DatabaseCache;
+
 // Reweighting scheme applied to the relative-rotation constraints.
 //   UNIFORM: all constraints are weighted equally.
 //   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
@@ -204,5 +206,13 @@ bool RunRotationAveragingOnComponent(
 void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
                                    const Reconstruction& reconstruction,
                                    double max_angle_deg);
+
+// With CERES rotation averaging and COVARIANCE reweighting (without gravity
+// priors), estimates the rotation covariances of the valid pose graph edges
+// that do not have one yet from their two-view correspondences, and
+// invalidates the edges whose covariance cannot be estimated. No-op otherwise.
+void MaybeEstimatePoseGraphCovariances(const RotationEstimatorOptions& options,
+                                       const DatabaseCache& database_cache,
+                                       PoseGraph& pose_graph);
 
 }  // namespace colmap

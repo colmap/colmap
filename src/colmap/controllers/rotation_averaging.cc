@@ -8,7 +8,6 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/scene/pose_graph.h"
-#include "colmap/sfm/global_mapper.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
