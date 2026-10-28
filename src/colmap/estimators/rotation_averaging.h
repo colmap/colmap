@@ -113,10 +113,6 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
   // pairs with many correspondences from dominating.
   double covariance_sigma_floor_deg = 0.02;
-
-  // With COVARIANCE reweighting, number of threads for estimating the relative
-  // rotation covariances (-1 = auto-select).
-  int num_threads = -1;
 };
 
 // High-level interface for rotation averaging.
