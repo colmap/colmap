@@ -33,24 +33,31 @@ struct AlikedExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateAlikedFeatureExtractor(
     const FeatureExtractionOptions& options);
 
+// Named functions instead of lambdas for default member initializers: MSVC
+// can give lambdas from different translation units the same name.
+inline BruteForceONNXMatchingOptions DefaultAlikedBruteForceMatchingOptions() {
+  BruteForceONNXMatchingOptions options;
+  options.min_cossim = 0.85;
+  options.max_ratio = 1.0;
+  options.cross_check = true;
+  options.model_path = kDefaultBruteForceONNXMatcherUri;
+  return options;
+}
+inline LightGlueONNXMatchingOptions DefaultAlikedLightGlueMatchingOptions() {
+  LightGlueONNXMatchingOptions options;
+  options.min_score = 0.1;
+  options.model_path = kDefaultAlikedLightGlueFeatureMatcherUri;
+  return options;
+}
+
 struct AlikedMatchingOptions {
   // Brute-force matching options.
-  BruteForceONNXMatchingOptions brute_force = []() {
-    BruteForceONNXMatchingOptions options;
-    options.min_cossim = 0.85;
-    options.max_ratio = 1.0;
-    options.cross_check = true;
-    options.model_path = kDefaultBruteForceONNXMatcherUri;
-    return options;
-  }();
+  BruteForceONNXMatchingOptions brute_force =
+      DefaultAlikedBruteForceMatchingOptions();
 
   // LightGlue matching options.
-  LightGlueONNXMatchingOptions lightglue = []() {
-    LightGlueONNXMatchingOptions options;
-    options.min_score = 0.1;
-    options.model_path = kDefaultAlikedLightGlueFeatureMatcherUri;
-    return options;
-  }();
+  LightGlueONNXMatchingOptions lightglue =
+      DefaultAlikedLightGlueMatchingOptions();
 
   bool Check() const;
 };

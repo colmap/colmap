@@ -82,6 +82,15 @@ struct SiftExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const FeatureExtractionOptions& options);
 
+// Named functions instead of lambdas for default member initializers: MSVC
+// can give lambdas from different translation units the same name.
+inline LightGlueONNXMatchingOptions DefaultSiftLightGlueMatchingOptions() {
+  LightGlueONNXMatchingOptions options;
+  options.min_score = 0.1;
+  options.model_path = kDefaultSiftLightGlueFeatureMatcherUri;
+  return options;
+}
+
 struct SiftMatchingOptions {
   // Maximum distance ratio between first and second best match.
   double max_ratio = 0.8;
@@ -100,12 +109,8 @@ struct SiftMatchingOptions {
       cpu_descriptor_index_cache = nullptr;
 
   // LightGlue matching options.
-  LightGlueONNXMatchingOptions lightglue = []() {
-    LightGlueONNXMatchingOptions options;
-    options.min_score = 0.1;
-    options.model_path = kDefaultSiftLightGlueFeatureMatcherUri;
-    return options;
-  }();
+  LightGlueONNXMatchingOptions lightglue =
+      DefaultSiftLightGlueMatchingOptions();
 
   bool Check() const;
 };

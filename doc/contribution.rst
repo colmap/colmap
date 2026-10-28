@@ -45,3 +45,13 @@ Continuous integration always runs the test suite with ``COLMAP_TEST_HEAVY``
 set, so heavy tests are covered there. When adding a test whose runtime is
 dominated by model loading or inference, prefer a fast default path and gate
 the expensive variant behind this variable.
+
+Continuous Integration
+----------------------
+
+Pull requests automatically run the Ubuntu, macOS, and Docker builds, the
+Linux pycolmap wheel, and the documentation build. The slower Windows builds
+and the remaining pycolmap wheels (macOS, Windows, and CUDA) only run once a
+maintainer adds the ``full-ci`` label. The label stays on the pull request, so
+later pushes run these jobs again. They are required for merging and show as
+pending until the label is added.

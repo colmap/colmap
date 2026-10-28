@@ -606,7 +606,7 @@ The following describes practical ways to reduce bundle adjustment runtime.
 
   Limit the number of correspondences so that BA solves a smaller problem:
 
-  - Reduce features by decreasing ``--SiftExtraction.max_image_size`` and/or
+  - Reduce features by decreasing ``--FeatureExtraction.max_image_size`` and/or
     ``--SiftExtraction.max_num_features``.
   - Reduce matching pairs (and avoid ``exhaustive_matcher`` when possible) by
     decreasing ``--SequentialMatching.overlap``,
