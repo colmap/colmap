@@ -36,14 +36,13 @@ def test_estimate_two_view_rotation_covariance(
     scene: tuple[pycolmap.DatabaseCache, pycolmap.PoseGraph],
 ) -> None:
     database_cache, pose_graph = scene
-    pair_id, edge = next(iter(pose_graph.edges.items()))
+    pair_id = next(iter(pose_graph.edges))
     image_id1, image_id2 = pycolmap.pair_id_to_image_pair(pair_id)
     image1 = database_cache.image(image_id1)
     image2 = database_cache.image(image_id2)
     geometry = database_cache.correspondence_graph.extract_two_view_geometry(
         image_id1, image_id2, extract_inlier_matches=True
     )
-    geometry.cam2_from_cam1 = edge.cam2_from_cam1
     args = (
         database_cache.camera(image1.camera_id),
         [point.xy for point in image1.points2D],
