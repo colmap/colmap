@@ -175,8 +175,6 @@ std::vector<std::filesystem::path> GetDirList(
   return dir_list;
 }
 
-namespace {
-
 std::optional<std::string> GetEnvSafe(const char* key) {
 #ifdef _MSC_VER
   size_t size = 0;
@@ -208,8 +206,6 @@ std::optional<std::string> GetEnvSafe(const char* key) {
   return std::nullopt;
 #endif
 }
-
-}  // namespace
 
 std::optional<std::filesystem::path> HomeDir() {
 #ifdef _MSC_VER
