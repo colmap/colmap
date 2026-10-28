@@ -245,6 +245,8 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
   }
 
  private:
+  // Declared first, such that the wrapped cost function is owned, and thus
+  // released, if computing the square root information throws.
   const std::unique_ptr<ceres::CostFunction> cost_;
   const CovMat left_sqrt_info_;
 };
