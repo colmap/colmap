@@ -95,8 +95,14 @@ def test_ceres_rotation_averager_covariance_reweighting() -> None:
     )
     evaluation = pyceres.EvaluateOptions()
     residuals = np.asarray(averager.problem.evaluate_residuals(evaluation))
-    expected = residual @ np.linalg.solve(cov, residual)
-    np.testing.assert_allclose(residuals @ residuals, 2 * expected, rtol=1e-6)
+    # The averager adds the isotropic floor to the covariance of the graph
+    # edge, but not to that of the manually added residual.
+    floor_sigma = np.deg2rad(options.covariance_sigma_floor_deg)
+    floored_cov = cov + floor_sigma**2 * np.eye(3)
+    expected = residual @ np.linalg.solve(
+        floored_cov, residual
+    ) + residual @ np.linalg.solve(cov, residual)
+    np.testing.assert_allclose(residuals @ residuals, expected, rtol=1e-6)
 
     edge.cam2_from_cam1_rotation_cov = None
     pose_graph = pycolmap.PoseGraph()
