@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/estimators/two_view_pose_covariance.h"
+#include "colmap/estimators/two_view_rotation_covariance.h"
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 #include "colmap/estimators/cost_functions/tiny_sampson_error.h"
@@ -164,13 +164,13 @@ std::optional<Eigen::Matrix3d> RotationCovarianceFromInformation(
 
 }  // namespace
 
-std::optional<Eigen::Matrix3d> EstimateTwoViewPoseCovariance(
+std::optional<Eigen::Matrix3d> EstimateTwoViewRotationCovariance(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,
     const std::vector<Eigen::Vector2d>& points2,
     const TwoViewGeometry& geometry,
-    const TwoViewPoseCovarianceOptions& options) {
+    const TwoViewRotationCovarianceOptions& options) {
   if (!geometry.cam2_from_cam1.has_value()) {
     return std::nullopt;
   }
@@ -237,14 +237,14 @@ std::optional<Eigen::Matrix3d> EstimateEdgeRotationCovariance(
     const FlatHashMap<image_t, std::vector<Eigen::Vector2d>>& image_points,
     image_pair_t pair_id,
     const Rigid3d& cam2_from_cam1,
-    const TwoViewPoseCovarianceOptions& options) {
+    const TwoViewRotationCovarianceOptions& options) {
   const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
   TwoViewGeometry two_view_geometry =
       correspondence_graph.ExtractTwoViewGeometry(
           image_id1, image_id2, /*extract_inlier_matches=*/true);
   two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
 
-  return EstimateTwoViewPoseCovariance(
+  return EstimateTwoViewRotationCovariance(
       database_cache.Camera(database_cache.Image(image_id1).CameraId()),
       image_points.at(image_id1),
       database_cache.Camera(database_cache.Image(image_id2).CameraId()),
@@ -255,10 +255,11 @@ std::optional<Eigen::Matrix3d> EstimateEdgeRotationCovariance(
 
 }  // namespace
 
-void EstimatePoseGraphCovariances(const DatabaseCache& database_cache,
-                                  PoseGraph& pose_graph,
-                                  const TwoViewPoseCovarianceOptions& options,
-                                  int num_threads) {
+void EstimatePoseGraphRotationCovariances(
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph,
+    const TwoViewRotationCovarianceOptions& options,
+    int num_threads) {
   Timer timer;
   timer.Start();
 

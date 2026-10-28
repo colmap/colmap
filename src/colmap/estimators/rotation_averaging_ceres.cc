@@ -74,7 +74,7 @@ CeresRotationAverager::CeresRotationAverager(
       throw std::invalid_argument(StringPrintf(
           "COVARIANCE reweighting requires a rotation covariance for every "
           "valid edge, but edge (%u, %u) has none. Call "
-          "EstimatePoseGraphCovariances first.",
+          "EstimatePoseGraphRotationCovariances first.",
           image_id1,
           image_id2));
     }

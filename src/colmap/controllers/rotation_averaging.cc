@@ -56,7 +56,7 @@ void RotationAveragingPipeline::Run() {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }
-  MaybeEstimatePoseGraphCovariances(
+  MaybeEstimatePoseGraphRotationCovariances(
       options.rotation_estimation, *database_cache_, pose_graph);
 
   // Get a mutable copy of pose priors.

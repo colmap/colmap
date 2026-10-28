@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/estimators/two_view_pose_covariance.h"
+#include "colmap/estimators/two_view_rotation_covariance.h"
 
 #include "colmap/estimators/solvers/essential_matrix.h"
 #include "colmap/estimators/solvers/utils.h"
@@ -26,7 +26,7 @@
 namespace colmap {
 namespace {
 
-struct TwoViewPoseCovarianceTestData {
+struct TwoViewRotationCovarianceTestData {
   Camera camera1;
   Camera camera2;
   std::vector<Eigen::Vector2d> points1;
@@ -35,7 +35,7 @@ struct TwoViewPoseCovarianceTestData {
 };
 
 // Noise-free calibrated two-view geometry with ground-truth relative pose.
-TwoViewPoseCovarianceTestData CreateTwoViewPoseCovarianceTestData() {
+TwoViewRotationCovarianceTestData CreateTwoViewRotationCovarianceTestData() {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 2;
@@ -48,7 +48,7 @@ TwoViewPoseCovarianceTestData CreateTwoViewPoseCovarianceTestData() {
   const Image& image1 = reconstruction.Image(1);
   const Image& image2 = reconstruction.Image(2);
 
-  TwoViewPoseCovarianceTestData data;
+  TwoViewRotationCovarianceTestData data;
   data.camera1 = reconstruction.Camera(image1.CameraId());
   data.camera2 = reconstruction.Camera(image2.CameraId());
   data.geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
@@ -78,7 +78,7 @@ TwoViewPoseCovarianceTestData CreateTwoViewPoseCovarianceTestData() {
   return data;
 }
 
-struct TwoViewPoseCovarianceTestCase {
+struct TwoViewRotationCovarianceTestCase {
   std::string name;
   // Relative rotation angle and baseline (scene depth is in [4, 8]). A zero
   // baseline denotes a pure rotation.
@@ -90,8 +90,8 @@ struct TwoViewPoseCovarianceTestCase {
   bool one_sided = false;
 };
 
-class ParameterizedTwoViewPoseCovarianceTests
-    : public ::testing::TestWithParam<TwoViewPoseCovarianceTestCase> {};
+class ParameterizedTwoViewRotationCovarianceTests
+    : public ::testing::TestWithParam<TwoViewRotationCovarianceTestCase> {};
 
 // Maximum-likelihood rotation-only estimate from noisy bearings via
 // Gauss-Newton on the whitened tangent-plane residuals of the second bearing.
@@ -138,8 +138,8 @@ Eigen::Quaterniond RefineRotationOnlyMLE(
 // Checks that the estimated rotation covariance is calibrated, i.e., that the
 // normalized estimation error squared (NEES) of the maximum-likelihood rotation
 // follows a chi-squared distribution with 3 degrees of freedom.
-TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
-  const TwoViewPoseCovarianceTestCase& test_case = GetParam();
+TEST_P(ParameterizedTwoViewRotationCovarianceTests, MonteCarloCalibration) {
+  const TwoViewRotationCovarianceTestCase& test_case = GetParam();
   SetPRNGSeed(0);
 
   Camera camera = Camera::CreateFromModelId(
@@ -186,7 +186,7 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
     geometry.inlier_matches.emplace_back(i, i);
   }
 
-  TwoViewPoseCovarianceOptions options;
+  TwoViewRotationCovarianceOptions options;
   options.point2D_stddev_px = kPoint2DStddev;
 
   std::vector<double> nees;
@@ -226,8 +226,9 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
     }
     geometry.cam2_from_cam1 = estimated_cam2_from_cam1;
 
-    const std::optional<Eigen::Matrix3d> cov = EstimateTwoViewPoseCovariance(
-        camera, points1, camera, points2, geometry, options);
+    const std::optional<Eigen::Matrix3d> cov =
+        EstimateTwoViewRotationCovariance(
+            camera, points1, camera, points2, geometry, options);
     ASSERT_TRUE(cov.has_value());
 
     // Right perturbation: estimated = true * Exp(delta).
@@ -257,45 +258,44 @@ TEST_P(ParameterizedTwoViewPoseCovarianceTests, MonteCarloCalibration) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    TwoViewPoseCovarianceTests,
-    ParameterizedTwoViewPoseCovarianceTests,
+    TwoViewRotationCovarianceTests,
+    ParameterizedTwoViewRotationCovarianceTests,
     ::testing::Values(
-        TwoViewPoseCovarianceTestCase{"WideBaseline"},
+        TwoViewRotationCovarianceTestCase{"WideBaseline"},
         // ~16px median parallax. Below ~10px, the translation direction is
         // so uncertain that the first-order approximation becomes
         // overconfident for the rotation (heavier NEES tail).
-        TwoViewPoseCovarianceTestCase{
+        TwoViewRotationCovarianceTestCase{
             "NarrowBaseline", 5.0, Eigen::Vector3d(0.2, 0.04, 0)},
-        TwoViewPoseCovarianceTestCase{
+        TwoViewRotationCovarianceTestCase{
             "ForwardMotion", 5.0, Eigen::Vector3d(0.05, 0, -1)},
-        TwoViewPoseCovarianceTestCase{
+        TwoViewRotationCovarianceTestCase{
             "Planar", 10.0, Eigen::Vector3d(1, 0, 0), /*planar=*/true},
-        TwoViewPoseCovarianceTestCase{"OneSided",
-                                      10.0,
-                                      Eigen::Vector3d(1, 0, 0),
-                                      /*planar=*/false,
-                                      /*one_sided=*/true},
-        TwoViewPoseCovarianceTestCase{
+        TwoViewRotationCovarianceTestCase{"OneSided",
+                                          10.0,
+                                          Eigen::Vector3d(1, 0, 0),
+                                          /*planar=*/false,
+                                          /*one_sided=*/true},
+        TwoViewRotationCovarianceTestCase{
             "PureRotation", 10.0, Eigen::Vector3d::Zero()}),
-    [](const ::testing::TestParamInfo<TwoViewPoseCovarianceTestCase>& info) {
-      return info.param.name;
-    });
+    [](const ::testing::TestParamInfo<TwoViewRotationCovarianceTestCase>&
+           info) { return info.param.name; });
 
-TEST(EstimateTwoViewPoseCovariance, Nominal) {
+TEST(EstimateTwoViewRotationCovariance, Nominal) {
   SetPRNGSeed(0);
-  const TwoViewPoseCovarianceTestData data =
-      CreateTwoViewPoseCovarianceTestData();
+  const TwoViewRotationCovarianceTestData data =
+      CreateTwoViewRotationCovarianceTestData();
   const TwoViewGeometry& geometry = data.geometry;
   ASSERT_TRUE(geometry.cam2_from_cam1.has_value());
 
-  TwoViewPoseCovarianceOptions options;
+  TwoViewRotationCovarianceOptions options;
   const std::optional<Eigen::Matrix3d> cov =
-      EstimateTwoViewPoseCovariance(data.camera1,
-                                    data.points1,
-                                    data.camera2,
-                                    data.points2,
-                                    geometry,
-                                    options);
+      EstimateTwoViewRotationCovariance(data.camera1,
+                                        data.points1,
+                                        data.camera2,
+                                        data.points2,
+                                        geometry,
+                                        options);
   ASSERT_TRUE(cov.has_value());
   EXPECT_TRUE(cov->isApprox(cov->transpose()));
   EXPECT_GT(cov->ldlt().vectorD().minCoeff(), 0);
@@ -307,12 +307,12 @@ TEST(EstimateTwoViewPoseCovariance, Nominal) {
   const double max_variance = std::pow(DegToRad(max_sigma_deg), 2);
   options.max_rotation_sigma_deg = max_sigma_deg;
   const std::optional<Eigen::Matrix3d> capped_cov =
-      EstimateTwoViewPoseCovariance(data.camera1,
-                                    data.points1,
-                                    data.camera2,
-                                    data.points2,
-                                    geometry,
-                                    options);
+      EstimateTwoViewRotationCovariance(data.camera1,
+                                        data.points1,
+                                        data.camera2,
+                                        data.points2,
+                                        geometry,
+                                        options);
   ASSERT_TRUE(capped_cov.has_value());
   const Eigen::Vector3d capped_eigvals =
       Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(*capped_cov).eigenvalues();
@@ -320,7 +320,7 @@ TEST(EstimateTwoViewPoseCovariance, Nominal) {
   EXPECT_GT(capped_eigvals(0), 0);
 }
 
-TEST(EstimateTwoViewPoseCovariance, UnconstrainedAxisIsCapped) {
+TEST(EstimateTwoViewRotationCovariance, UnconstrainedAxisIsCapped) {
   // A pure rotation observed through a single viewing ray does not constrain
   // the rotation about that ray.
   const Camera camera = Camera::CreateFromModelId(
@@ -337,8 +337,8 @@ TEST(EstimateTwoViewPoseCovariance, UnconstrainedAxisIsCapped) {
     geometry.inlier_matches.emplace_back(i, i);
   }
 
-  TwoViewPoseCovarianceOptions options;
-  const std::optional<Eigen::Matrix3d> cov = EstimateTwoViewPoseCovariance(
+  TwoViewRotationCovarianceOptions options;
+  const std::optional<Eigen::Matrix3d> cov = EstimateTwoViewRotationCovariance(
       camera, points, camera, points, geometry, options);
   ASSERT_TRUE(cov.has_value());
   const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(*cov);
@@ -349,30 +349,30 @@ TEST(EstimateTwoViewPoseCovariance, UnconstrainedAxisIsCapped) {
   EXPECT_GT(eig.eigenvalues()(0), 0);
 }
 
-TEST(EstimateTwoViewPoseCovariance, MissingPoseOrTooFewInliers) {
-  const TwoViewPoseCovarianceTestData data =
-      CreateTwoViewPoseCovarianceTestData();
+TEST(EstimateTwoViewRotationCovariance, MissingPoseOrTooFewInliers) {
+  const TwoViewRotationCovarianceTestData data =
+      CreateTwoViewRotationCovarianceTestData();
   TwoViewGeometry geometry = data.geometry;
   geometry.cam2_from_cam1.reset();
   EXPECT_FALSE(
-      EstimateTwoViewPoseCovariance(
+      EstimateTwoViewRotationCovariance(
           data.camera1, data.points1, data.camera2, data.points2, geometry)
           .has_value());
   geometry = data.geometry;
   geometry.inlier_matches.resize(4);
   EXPECT_FALSE(
-      EstimateTwoViewPoseCovariance(
+      EstimateTwoViewRotationCovariance(
           data.camera1, data.points1, data.camera2, data.points2, geometry)
           .has_value());
   geometry.config = TwoViewGeometry::PANORAMIC;
   geometry.inlier_matches.resize(2);
   EXPECT_FALSE(
-      EstimateTwoViewPoseCovariance(
+      EstimateTwoViewRotationCovariance(
           data.camera1, data.points1, data.camera2, data.points2, geometry)
           .has_value());
 }
 
-TEST(EstimatePoseGraphCovariances, Nominal) {
+TEST(EstimatePoseGraphRotationCovariances, Nominal) {
   const auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
   Reconstruction reconstruction;
@@ -400,11 +400,11 @@ TEST(EstimatePoseGraphCovariances, Nominal) {
 
   // Poorly constrained rotations are capped to the maximum sigma.
   PoseGraph capped_pose_graph = pose_graph;
-  TwoViewPoseCovarianceOptions options;
+  TwoViewRotationCovarianceOptions options;
   options.max_rotation_sigma_deg = 1e-6;
   const double max_variance =
       std::pow(DegToRad(options.max_rotation_sigma_deg), 2);
-  EstimatePoseGraphCovariances(*cache, capped_pose_graph, options);
+  EstimatePoseGraphRotationCovariances(*cache, capped_pose_graph, options);
   for (const auto& [pair_id, edge] : capped_pose_graph.Edges()) {
     ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
     if (pair_id == preset_pair_id) {
@@ -417,8 +417,8 @@ TEST(EstimatePoseGraphCovariances, Nominal) {
     EXPECT_NEAR(eigvals(2), max_variance, 1e-6 * max_variance);
   }
 
-  options = TwoViewPoseCovarianceOptions();
-  EstimatePoseGraphCovariances(*cache, pose_graph, options);
+  options = TwoViewRotationCovarianceOptions();
+  EstimatePoseGraphRotationCovariances(*cache, pose_graph, options);
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
     ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
     if (pair_id == preset_pair_id) {
