@@ -134,3 +134,9 @@ COLMAP_ADD_TEST(
     SRCS global_positioning_test.cc
     LINK_LIBS colmap_estimators
 )
+
+COLMAP_ADD_TEST(
+    NAME observation_depth_test
+    SRCS observation_depth_test.cc
+    LINK_LIBS colmap_estimators
+)
