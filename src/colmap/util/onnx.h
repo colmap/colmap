@@ -71,11 +71,16 @@ class ONNXModel {
   // A capability probe propagates initialization failures without logging an
   // error. When a non-CPU provider is selected, it also requires that provider
   // to support the complete graph instead of falling back to CPU.
+  //
+  // disabled_optimizers lists ONNX Runtime graph optimizers to disable (see
+  // onnxruntime/core/optimizer/graph_transformer_utils.cc), e.g., when a
+  // fusion is slower for a given model and execution provider.
   ONNXModel(std::string model_path,
             int num_threads,
             bool use_gpu,
             const std::string& gpu_index,
-            bool is_capability_probe = false);
+            bool is_capability_probe = false,
+            std::vector<std::string> disabled_optimizers = {});
 
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
@@ -111,6 +116,7 @@ class ONNXModel {
   // CPU-only fallback.
   void ConfigureSessionOptions(int num_threads);
 
+  std::vector<std::string> disabled_optimizers_;
   Ort::Env env_;
   Ort::AllocatorWithDefaultOptions allocator_;
   Ort::SessionOptions session_options_;

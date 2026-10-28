@@ -129,6 +129,18 @@ class DenseFeatureCache {
   FlatHashMap<image_t, std::list<Elem>::iterator> map_;
 };
 
+// ONNX Runtime's MatMulAddFusion turns each Linear layer (MatMul + bias Add)
+// into a Gemm. Its CUDA kernel broadcasts the bias into the output with an
+// extra rank-1 GEMM that runs on a slow non-tensor-core cuBLAS kernel (162
+// times per pair). A separate, fused broadcast Add is faster: about 1.3 ms of
+// GPU time per pair with the float16 matcher.
+std::vector<std::string> MatcherDisabledOptimizers(bool use_gpu) {
+  if (SelectONNXExecutionProvider(use_gpu) == ONNXExecutionProvider::CUDA) {
+    return {"MatMulAddFusion"};
+  }
+  return {};
+}
+
 class FlexGlueFeatureMatcher : public FeatureMatcher {
  public:
   FlexGlueFeatureMatcher(const FeatureMatchingOptions& options,
@@ -141,7 +153,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         matcher_(matcher_model_path,
                  options.num_threads,
                  options.use_gpu,
-                 options.gpu_index),
+                 options.gpu_index,
+                 /*is_capability_probe=*/false,
+                 MatcherDisabledOptimizers(options.use_gpu)),
         dense_cache_(options_.feature_cache_size) {
     THROW_CHECK(options.Check());
 

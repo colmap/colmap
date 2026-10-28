@@ -10,6 +10,7 @@
 #include <iterator>
 #include <mutex>
 #include <sstream>
+#include <utility>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -24,6 +25,8 @@ namespace colmap {
 
 namespace {
 constexpr char kDisableCpuEpFallback[] = "session.disable_cpu_ep_fallback";
+constexpr char kDisableSpecifiedOptimizers[] =
+    "optimization.disable_specified_optimizers";
 
 [[noreturn]] void RethrowONNXException() {
   try {
@@ -121,7 +124,9 @@ ONNXModel::ONNXModel(std::string model_path,
                      int num_threads,
                      bool use_gpu,
                      const std::string& gpu_index,
-                     bool is_capability_probe) {
+                     bool is_capability_probe,
+                     std::vector<std::string> disabled_optimizers)
+    : disabled_optimizers_(std::move(disabled_optimizers)) {
   {
     static std::mutex download_mutex;
     const std::lock_guard<std::mutex> lock(download_mutex);
@@ -157,6 +162,14 @@ void ONNXModel::ConfigureSessionOptions(int num_threads) {
   session_options_.SetGraphOptimizationLevel(
       GraphOptimizationLevel::ORT_ENABLE_ALL);
   session_options_.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);
+  if (!disabled_optimizers_.empty()) {
+    std::string disabled;
+    for (const std::string& name : disabled_optimizers_) {
+      disabled += (disabled.empty() ? "" : ",") + name;
+    }
+    session_options_.AddConfigEntry(kDisableSpecifiedOptimizers,
+                                    disabled.c_str());
+  }
 }
 
 void ONNXModel::InitializeSession(const std::string& model_path,
