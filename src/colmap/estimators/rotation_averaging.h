@@ -115,6 +115,11 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
   // pairs with many correspondences from dominating.
   double covariance_sigma_floor_deg = 0.02;
+
+  // With COVARIANCE reweighting, standard deviation (in pixels) of the 2D image
+  // point observations from which the relative rotation covariances are
+  // estimated (see TwoViewPoseCovarianceOptions::point2D_stddev_px).
+  double covariance_point2D_stddev_px = 1.0;
 };
 
 // High-level interface for rotation averaging.

@@ -893,6 +893,7 @@ TEST(MaybeEstimatePoseGraphCovariances, Nominal) {
 
   // Edges without covariance are invalidated.
   options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  PoseGraph noisy_pose_graph = pose_graph;
   MaybeEstimatePoseGraphCovariances(options, *database_cache, pose_graph);
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
     if (pair_id == unknown_pair_id) {
@@ -902,6 +903,18 @@ TEST(MaybeEstimatePoseGraphCovariances, Nominal) {
       EXPECT_TRUE(edge.valid);
       EXPECT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
     }
+  }
+
+  // The covariances scale with the variance of the observation noise.
+  options.covariance_point2D_stddev_px *= 2;
+  MaybeEstimatePoseGraphCovariances(options, *database_cache, noisy_pose_graph);
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    ASSERT_TRUE(
+        noisy_pose_graph.Edges().at(pair_id).cam2_from_cam1_rotation_cov);
+    EXPECT_TRUE(noisy_pose_graph.Edges()
+                    .at(pair_id)
+                    .cam2_from_cam1_rotation_cov->isApprox(
+                        4 * *edge.cam2_from_cam1_rotation_cov));
   }
 }
 

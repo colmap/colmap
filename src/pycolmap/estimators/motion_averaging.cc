@@ -313,7 +313,13 @@ void BindRotationEstimator(py::module& m) {
               &RotationEstimatorOptions::covariance_sigma_floor_deg,
               "Isotropic standard deviation (degrees) added in quadrature to "
               "the estimated relative rotation covariances with COVARIANCE "
-              "reweighting.");
+              "reweighting.")
+          .def_readwrite(
+              "covariance_point2D_stddev_px",
+              &RotationEstimatorOptions::covariance_point2D_stddev_px,
+              "Standard deviation (pixels) of the 2D image point observations "
+              "from which the relative rotation covariances are estimated "
+              "with COVARIANCE reweighting.");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(
