@@ -305,26 +305,17 @@ std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
   return std::nullopt;
 }
 
-// Adds the isotropic floor to the relative rotation covariances, which every
-// valid edge must have.
+// Adds the isotropic floor to the relative rotation covariances. Edges without
+// a covariance are rejected by CeresRotationAverager.
 void RegularizeRotationCovariances(const RotationEstimatorOptions& options,
                                    PoseGraph& pose_graph) {
   const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
   const Eigen::Matrix3d floor_cov =
       floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
   for (auto& [pair_id, edge] : pose_graph.Edges()) {
-    if (!edge.valid) {
-      continue;
+    if (edge.valid && edge.cam2_from_cam1_rotation_cov.has_value()) {
+      *edge.cam2_from_cam1_rotation_cov += floor_cov;
     }
-    if (!edge.cam2_from_cam1_rotation_cov.has_value()) {
-      const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-      LOG(FATAL_THROW) << "COVARIANCE reweighting requires a rotation "
-                          "covariance for every valid edge, but edge ("
-                       << image_id1 << ", " << image_id2
-                       << ") has none. Call EstimatePoseGraphCovariances "
-                          "first.";
-    }
-    *edge.cam2_from_cam1_rotation_cov += floor_cov;
   }
 }
 

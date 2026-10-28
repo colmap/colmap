@@ -7,6 +7,7 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
 #include "colmap/util/threading.h"
 
 #include <algorithm>
@@ -66,9 +67,12 @@ CeresRotationAverager::CeresRotationAverager(
     image_ids.insert(image_id2);
     max_num_matches = std::max(max_num_matches, edge.num_matches);
     if (use_covariance && !edge.cam2_from_cam1_rotation_cov.has_value()) {
-      throw std::invalid_argument(
+      throw std::invalid_argument(StringPrintf(
           "COVARIANCE reweighting requires a rotation covariance for every "
-          "edge");
+          "valid edge, but edge (%u, %u) has none. Call "
+          "EstimatePoseGraphCovariances first.",
+          image_id1,
+          image_id2));
     }
   }
   if (image_ids.empty()) {
