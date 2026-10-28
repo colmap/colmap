@@ -31,7 +31,9 @@ class DatabaseCache;
 //     must have a covariance, which the global mapper and the rotation
 //     averaging pipeline estimate from the two-view correspondences (see
 //     MaybeEstimatePoseGraphCovariances). Only supported by the CERES backend,
-//     which then uses CeresRotationAveragerOptions::covariance_loss_scale.
+//     which then uses CeresRotationAveragerOptions::covariance_loss_scale. It
+//     is ignored when the CERES backend falls back to L1_IRLS for gravity
+//     priors.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(
     RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT, COVARIANCE);
 
