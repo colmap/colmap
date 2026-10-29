@@ -2,10 +2,7 @@
 
 #pragma once
 
-#include "colmap/feature/types.h"
 #include "colmap/scene/camera.h"
-#include "colmap/scene/database_cache.h"
-#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/two_view_geometry.h"
 
 #include <optional>
@@ -14,6 +11,9 @@
 #include <Eigen/Core>
 
 namespace colmap {
+
+class DatabaseCache;
+class PoseGraph;
 
 struct TwoViewRotationCovarianceOptions {
   // Standard deviation of the 2D image point observations in pixels.
