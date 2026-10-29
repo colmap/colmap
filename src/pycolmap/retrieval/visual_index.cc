@@ -144,8 +144,7 @@ void BindVisualIndex(py::module& m) {
   PyVisualIndex.def(py::init<>())
       .def_static("create", py::overload_cast<>(&VisualIndex::Create))
       .def_static("create", py::overload_cast<int>(&VisualIndex::Create))
-      .def_static("create",
-                  py::overload_cast<int, int>(&VisualIndex::Create))
+      .def_static("create", py::overload_cast<int, int>(&VisualIndex::Create))
       .def("add",
            static_cast<void (VisualIndex::*)(
                const typename VisualIndex::IndexOptions&,
