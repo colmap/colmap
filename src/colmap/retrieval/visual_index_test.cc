@@ -330,9 +330,9 @@ TEST(VisualIndex, Print) {
 }
 
 TEST(VisualIndex, CreateWithDescriptorDimension) {
-  for (const auto [desc_dim, embedding_dim] : {std::make_pair(32, 16),
-                                               std::make_pair(128, 64),
-                                               std::make_pair(256, 64)}) {
+  for (const auto& [desc_dim, embedding_dim] : {std::make_pair(32, 16),
+                                                std::make_pair(128, 64),
+                                                std::make_pair(256, 64)}) {
     const auto visual_index = VisualIndex::Create(desc_dim);
     EXPECT_EQ(visual_index->DescDim(), desc_dim);
     EXPECT_EQ(visual_index->EmbeddingDim(), embedding_dim);
