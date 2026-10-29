@@ -141,12 +141,12 @@ std::optional<std::shared_ptr<Reconstruction>>
 GlobalPipeline::ReconstructSingleComponent(
     const std::shared_ptr<const DatabaseCache>& database_cache,
     const GlobalMapperOptions& mapper_options,
-    std::shared_ptr<PoseGraph> pose_graph) {
+    const PoseGraph* pose_graph) {
   auto reconstruction =
       reconstruction_manager_->Get(reconstruction_manager_->Add());
 
   GlobalMapper global_mapper(database_cache);
-  global_mapper.BeginReconstruction(reconstruction, std::move(pose_graph));
+  global_mapper.BeginReconstruction(reconstruction, pose_graph);
 
   Timer run_timer;
   run_timer.Start();
@@ -308,17 +308,9 @@ GlobalPipeline::ReconstructionStats GlobalPipeline::ReconstructMultiComponents(
     // Reuse the edges of the full pose graph, e.g., with their estimated
     // rotation covariances, between the images of the component cache, which
     // also includes all other images of their frames.
-    FlatHashSet<image_t> component_image_ids;
-    component_image_ids.reserve(component_cache->NumImages());
-    for (const auto& [image_id, _] : component_cache->Images()) {
-      component_image_ids.insert(image_id);
-    }
-    auto component_pose_graph =
-        std::make_shared<PoseGraph>(pose_graph.Subgraph(component_image_ids));
-
     const std::optional<std::shared_ptr<Reconstruction>> reconstruction =
         ReconstructSingleComponent(
-            component_cache, mapper_options, std::move(component_pose_graph));
+            component_cache, mapper_options, &pose_graph);
     if (!reconstruction.has_value()) {
       reconstruction_manager_->Delete(reconstruction_manager_->Size() - 1);
       ++stats.num_failed;

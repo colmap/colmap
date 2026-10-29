@@ -114,12 +114,18 @@ GlobalMapper::GlobalMapper(std::shared_ptr<const DatabaseCache> database_cache)
 
 void GlobalMapper::BeginReconstruction(
     const std::shared_ptr<class Reconstruction>& reconstruction,
-    std::shared_ptr<class PoseGraph> pose_graph) {
+    const class PoseGraph* pose_graph) {
   THROW_CHECK_NOTNULL(reconstruction);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   if (pose_graph != nullptr) {
-    pose_graph_ = std::move(pose_graph);
+    FlatHashSet<image_t> image_ids;
+    image_ids.reserve(database_cache_->NumImages());
+    for (const auto& [image_id, _] : database_cache_->Images()) {
+      image_ids.insert(image_id);
+    }
+    pose_graph_ =
+        std::make_shared<class PoseGraph>(pose_graph->Subgraph(image_ids));
   } else {
     pose_graph_ = std::make_shared<class PoseGraph>();
     pose_graph_->Load(*database_cache_->CorrespondenceGraph());

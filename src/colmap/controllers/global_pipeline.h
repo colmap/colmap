@@ -81,7 +81,7 @@ class GlobalPipeline : public BaseController {
   std::optional<std::shared_ptr<Reconstruction>> ReconstructSingleComponent(
       const std::shared_ptr<const DatabaseCache>& database_cache,
       const GlobalMapperOptions& mapper_options,
-      std::shared_ptr<PoseGraph> pose_graph = nullptr);
+      const PoseGraph* pose_graph = nullptr);
 
   // Partition the input view graph once using rotation averaging and
   // reconstruct each resulting component at most once.
