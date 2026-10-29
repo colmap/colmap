@@ -15,39 +15,25 @@ namespace config = boost::program_options;
 namespace colmap {
 namespace {
 
-bool ParseConfigFile(const std::filesystem::path& path,
+void ParseConfigFile(const std::filesystem::path& path,
                      const config::options_description& desc,
-                     const bool allow_unregistered,
+                     bool allow_unregistered,
                      config::variables_map* vmap) {
-  if (!ExistsFile(path)) {
-    LOG(ERROR) << "Configuration file does not exist.";
-    return false;
-  }
+  THROW_CHECK_FILE_EXISTS(path);
+  std::ifstream file(path);
+  THROW_CHECK_FILE_OPEN(file, path);
 
-  try {
-    std::ifstream file(path);
-    THROW_CHECK_FILE_OPEN(file, path);
+  const config::parsed_options parsed_options =
+      config::parse_config_file(file, desc, allow_unregistered);
+  config::store(parsed_options, *vmap);
 
-    const config::parsed_options parsed_options =
-        config::parse_config_file(file, desc, allow_unregistered);
-    config::store(parsed_options, *vmap);
-
-    if (allow_unregistered) {
-      for (const auto& option : parsed_options.options) {
-        if (option.unregistered) {
-          LOG(WARNING) << "Unrecognized option key: " << option.string_key;
-        }
+  if (allow_unregistered) {
+    for (const auto& option : parsed_options.options) {
+      if (option.unregistered) {
+        LOG(WARNING) << "Unrecognized option key: " << option.string_key;
       }
     }
-  } catch (std::exception& e) {
-    LOG(ERROR) << "Failed to parse options " << e.what() << ".";
-    return false;
-  } catch (...) {
-    LOG(ERROR) << "Failed to parse options for unknown reason.";
-    return false;
   }
-
-  return true;
 }
 
 }  // namespace
@@ -250,11 +236,10 @@ void BaseOptionManager::AddAllOptions() {
 }
 
 bool BaseOptionManager::Parse(const int argc, char** argv) {
+  config::variables_map vmap;
+
   try {
-    const config::parsed_options parsed_command_line =
-        config::parse_command_line(argc, argv, *desc_);
-    config::variables_map vmap;
-    config::store(parsed_command_line, vmap);
+    config::store(config::parse_command_line(argc, argv, *desc_), vmap);
 
     if (vmap.count("help")) {
       PrintHelp();
@@ -264,20 +249,15 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
 
     if (vmap.count("project_path")) {
       *project_path = vmap["project_path"].as<std::string>();
-      if (!ParseConfigFile(
-              *project_path, *desc_, /*allow_unregistered=*/true, &vmap)) {
-        return false;
-      }
-      vmap.notify();
-    } else {
-      vmap.notify();
+      ParseConfigFile(
+          *project_path, *desc_, /*allow_unregistered=*/true, &vmap);
     }
 
+    vmap.notify();
     ApplyEnumConversions();
     ApplyLogFlags();
     PostParse();
-
-  } catch (std::exception& exc) {
+  } catch (const std::exception& exc) {
     LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
     return false;
   } catch (...) {
@@ -296,15 +276,13 @@ bool BaseOptionManager::Parse(const int argc, char** argv) {
 bool BaseOptionManager::Read(const std::filesystem::path& path,
                              bool allow_unregistered) {
   config::variables_map vmap;
-  if (!ParseConfigFile(path, *desc_, allow_unregistered, &vmap)) {
-    return false;
-  }
 
   try {
+    ParseConfigFile(path, *desc_, allow_unregistered, &vmap);
     vmap.notify();
     ApplyEnumConversions();
-  } catch (std::exception& e) {
-    LOG(ERROR) << "Failed to parse options " << e.what() << ".";
+  } catch (const std::exception& e) {
+    LOG(ERROR) << "Failed to parse options - " << e.what() << ".";
     return false;
   } catch (...) {
     LOG(ERROR) << "Failed to parse options for unknown reason.";

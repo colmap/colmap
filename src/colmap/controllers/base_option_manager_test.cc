@@ -263,72 +263,64 @@ TEST(BaseOptionManager, ParseWithProjectPath) {
   const auto config_path = test_dir / "config.ini";
   CreateDirIfNotExists(test_dir / "images");
 
-  // Create and write a config file
-  BaseOptionManager options_write;
-  options_write.AddDatabaseOptions();
-  options_write.AddImageOptions();
+  auto make_options = [](int* int_opt, TestEnumType* enum_opt) {
+    BaseOptionManager opts;
+    opts.AddDatabaseOptions();
+    opts.AddImageOptions();
+    opts.AddDefaultOption("int_option", int_opt);
+    opts.AddDefaultEnumOption(
+        "enum_option", enum_opt, TestEnumTypeToString, TestEnumTypeFromString);
+    return opts;
+  };
+  auto parse_args = [](BaseOptionManager& opts, std::vector<std::string> args) {
+    std::vector<char*> argv;
+    argv.reserve(args.size());
+    for (auto& arg : args) {
+      argv.push_back(arg.data());
+    }
+    return opts.Parse(argv.size(), argv.data());
+  };
 
+  int int_write = 42;
+  TestEnumType enum_write = TestEnumType::VALUE_B;
+  BaseOptionManager options_write = make_options(&int_write, &enum_write);
   *options_write.database_path = test_dir / "database.db";
   *options_write.image_path = test_dir / "images";
   options_write.Write(config_path);
 
-  // Parse using project_path
-  BaseOptionManager options;
-  options.AddDatabaseOptions();
-  options.AddImageOptions();
-
-  const std::vector<std::string> args = {
-      "colmap",
-      "--project_path",
-      config_path.string(),
-  };
-
-  std::vector<char*> argv;
-  argv.reserve(args.size());
-  for (auto& arg : args) {
-    argv.push_back(const_cast<char*>(arg.c_str()));
-  }
-
-  EXPECT_TRUE(options.Parse(argv.size(), argv.data()));
-
-  // Verify values were loaded from config file
+  // Parse using project_path alone.
+  int int_read = 0;
+  TestEnumType enum_read = TestEnumType::VALUE_A;
+  BaseOptionManager options = make_options(&int_read, &enum_read);
+  ASSERT_TRUE(
+      parse_args(options, {"colmap", "--project_path", config_path.string()}));
   EXPECT_EQ(*options.database_path, *options_write.database_path);
   EXPECT_EQ(*options.image_path, *options_write.image_path);
-}
+  EXPECT_EQ(int_read, 42);
+  EXPECT_EQ(enum_read, TestEnumType::VALUE_B);
 
-TEST(BaseOptionManager, CommandLineOptionsOverrideProjectFile) {
-  const auto test_dir = CreateTestDir();
-  const auto config_path = test_dir / "config.ini";
-  CreateDirIfNotExists(test_dir / "images");
-
-  BaseOptionManager options_write;
-  options_write.AddDatabaseOptions();
-  options_write.AddImageOptions();
-  *options_write.database_path = test_dir / "config.db";
-  *options_write.image_path = test_dir / "images";
+  // Command-line flags override project-file values (including overriding an
+  // invalid project-file path and resetting an option to its C++ default).
+  *options_write.database_path = test_dir / "missing_dir" / "config.db";
   options_write.Write(config_path);
 
-  BaseOptionManager options;
-  options.AddDatabaseOptions();
-  options.AddImageOptions();
-  const auto command_line_database_path = test_dir / "command_line.db";
-  const std::vector<std::string> args = {
-      "colmap",
-      "--project_path",
-      config_path.string(),
-      "--database_path",
-      command_line_database_path.string(),
-  };
-
-  std::vector<char*> argv;
-  argv.reserve(args.size());
-  for (const auto& arg : args) {
-    argv.push_back(const_cast<char*>(arg.c_str()));
-  }
-
-  ASSERT_TRUE(options.Parse(argv.size(), argv.data()));
-  EXPECT_EQ(*options.database_path, command_line_database_path);
-  EXPECT_EQ(*options.image_path, *options_write.image_path);
+  int int_override = 0;
+  TestEnumType enum_override = TestEnumType::VALUE_A;
+  BaseOptionManager options_override =
+      make_options(&int_override, &enum_override);
+  const auto cli_database_path = test_dir / "command_line.db";
+  ASSERT_TRUE(parse_args(options_override,
+                         {"colmap",
+                          "--project_path",
+                          config_path.string(),
+                          "--database_path",
+                          cli_database_path.string(),
+                          "--enum_option",
+                          "VALUE_A"}));
+  EXPECT_EQ(*options_override.database_path, cli_database_path);
+  EXPECT_EQ(*options_override.image_path, *options_write.image_path);
+  EXPECT_EQ(int_override, 42);
+  EXPECT_EQ(enum_override, TestEnumType::VALUE_A);
 }
 
 TEST(BaseOptionManager, ParseEmptyArguments) {
