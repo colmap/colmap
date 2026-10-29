@@ -68,4 +68,14 @@ void SetBestCudaDevice(const int gpu_index) {
   CUDA_SAFE_CALL(cudaSetDevice(selected));
 }
 
+bool CudaDeviceSupportsBf16(const int gpu_index) {
+  cudaDeviceProp properties;
+  if (cudaGetDeviceProperties(&properties, gpu_index) != cudaSuccess) {
+    // Reset the error so that later CUDA_CHECK() calls do not report it.
+    cudaGetLastError();
+    return false;
+  }
+  return properties.major >= 8;
+}
+
 }  // namespace colmap

@@ -23,8 +23,6 @@ namespace colmap {
 #ifdef COLMAP_ONNX_ENABLED
 
 namespace {
-constexpr char kDisableCpuEpFallback[] = "session.disable_cpu_ep_fallback";
-
 [[noreturn]] void RethrowONNXException() {
   try {
     std::rethrow_exception(std::current_exception());
@@ -166,12 +164,6 @@ void ONNXModel::InitializeSession(const std::string& model_path,
                                   bool is_capability_probe) {
   ConfigureSessionOptions(num_threads);
   execution_provider_ = SelectONNXExecutionProvider(use_gpu);
-
-  if (is_capability_probe &&
-      execution_provider_ != ONNXExecutionProvider::CPU) {
-    // Fail if any node would fall back to CPU.
-    session_options_.AddConfigEntry(kDisableCpuEpFallback, "1");
-  }
 
 #ifdef COLMAP_CUDA_ENABLED
   if (execution_provider_ == ONNXExecutionProvider::CUDA) {

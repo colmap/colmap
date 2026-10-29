@@ -4,8 +4,14 @@
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/onnx.h"
 
+#ifdef COLMAP_CUDA_ENABLED
+#include "colmap/util/cuda.h"
+#endif
+
+#include <algorithm>
 #include <cstring>
 #include <memory>
 
@@ -16,6 +22,30 @@ namespace colmap {
 namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
+
+// Whether to load the bf16 models instead of the fp32 models. They are only
+// faster on CUDA GPUs with native bf16 support. On older GPUs, creating the
+// session may succeed while inference fails, which the fp32 fallback on
+// initialization failures does not catch, so check the device up front.
+bool UseLomaBf16(bool use_bf16, bool use_gpu, const std::string& gpu_index) {
+  if (!use_bf16 ||
+      SelectONNXExecutionProvider(use_gpu) != ONNXExecutionProvider::CUDA) {
+    return false;
+  }
+#ifdef COLMAP_CUDA_ENABLED
+  const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
+  // ONNXModel rejects multiple GPUs and runs on device 0 for a negative index.
+  if (gpu_indices.size() != 1) {
+    return false;
+  }
+  if (CudaDeviceSupportsBf16(std::max(0, gpu_indices[0]))) {
+    return true;
+  }
+  LOG(WARNING) << "The bf16 LoMa models require a CUDA GPU with compute "
+                  "capability 8.0 or newer; falling back to fp32";
+#endif
+  return false;
+}
 
 // Fast bilinear resample instead of Bitmap::Rescale()'s filtered resize --
 // see LomaExtractionOptions::use_fast_resize for the speed/accuracy tradeoff.
@@ -405,7 +435,8 @@ std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
 #ifdef COLMAP_ONNX_ENABLED
   switch (options.type) {
     case FeatureExtractorType::LOMA_B: {
-      if (options.loma->use_bf16) {
+      if (UseLomaBf16(
+              options.loma->use_bf16, options.use_gpu, options.gpu_index)) {
         try {
           return std::make_unique<LomaFeatureExtractor>(
               options,
@@ -443,7 +474,7 @@ std::unique_ptr<FeatureMatcher> CreateLomaVariantMatcher(
     const FeatureMatchingOptions& options,
     const LomaMatchingOptions::Variant& variant,
     FeatureExtractorType expected_extractor_type) {
-  if (options.loma->use_bf16) {
+  if (UseLomaBf16(options.loma->use_bf16, options.use_gpu, options.gpu_index)) {
     try {
       return std::make_unique<LomaFeatureMatcher>(options,
                                                   variant.model_path_bf16,

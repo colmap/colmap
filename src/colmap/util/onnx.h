@@ -69,8 +69,9 @@ void ThrowCheckONNXElementType(std::string_view name,
 class ONNXModel {
  public:
   // A capability probe propagates initialization failures without logging an
-  // error. When a non-CPU provider is selected, it also requires that provider
-  // to support the complete graph instead of falling back to CPU.
+  // error, so that the caller can fall back to another model. Like any other
+  // session, it lets ONNX Runtime run some nodes (e.g., small shape
+  // computations) on the CPU.
   ONNXModel(std::string model_path,
             int num_threads,
             bool use_gpu,
