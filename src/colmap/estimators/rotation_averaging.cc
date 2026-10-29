@@ -13,6 +13,7 @@
 #include "colmap/util/threading.h"
 
 #include <algorithm>
+#include <cmath>
 #include <queue>
 
 namespace colmap {
@@ -97,9 +98,11 @@ image_t ComputeMaximumPoseGraphSpanningTree(
       THROW_CHECK(edge.cam2_from_cam1_rotation_cov.has_value())
           << "Missing rotation covariance of edge (" << image_id1 << ", "
           << image_id2 << ")";
-      // The trace is the expected squared angular error in radians.
-      weights.push_back(static_cast<float>(
-          1.0 / std::max(edge.cam2_from_cam1_rotation_cov->trace(), 1e-12)));
+      // The trace is the expected squared angular error in radians. Only the
+      // order of the weights matters, which its negative logarithm keeps
+      // within single precision.
+      weights.push_back(static_cast<float>(-std::log(
+          std::max(edge.cam2_from_cam1_rotation_cov->trace(), 1e-12))));
     } else {
       weights.push_back(static_cast<float>(edge.num_matches));
     }
@@ -107,11 +110,8 @@ image_t ComputeMaximumPoseGraphSpanningTree(
   }
 
   // Fixed rig calibration takes precedence over measured relative rotations.
-  // Covariance weights can be large enough for max_weight + 1 to round to
-  // max_weight in single precision.
-  const float prior_weight = std::max(max_weight + 1, 2 * max_weight);
   for (const size_t i : prior_indices) {
-    weights[i] = prior_weight;
+    weights[i] = max_weight + 1;
   }
 
   // Compute spanning tree using generic algorithm.
