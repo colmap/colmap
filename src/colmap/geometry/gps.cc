@@ -62,7 +62,8 @@ struct UTMParams {
   static double ZoneToCentralMeridian(int zone) { return 6 * zone - 183; }
 
   static int MeridianToZone(double meridian) {
-    return static_cast<int>(std::floor((meridian + 180) / 6)) + 1;
+    // Clamp: +180 degrees is valid input but the formula yields zone 61.
+    return std::min(static_cast<int>(std::floor((meridian + 180) / 6)) + 1, 60);
   }
 };
 }  // namespace
@@ -330,7 +331,12 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
         UTMParams::ZoneToCentralMeridian(zone) +
         RadToDeg(std::atan(std::sinh(eta_prime) / std::cos(xi_prime)));
 
-    lat_lon_alt.emplace_back(lat, lon, ena[2]);
+    // Preserve the antimeridian's sign when projection rounding crosses it.
+    const double bounded_lon =
+        std::abs(lon) <= 180.0 + 360.0 * std::numeric_limits<double>::epsilon()
+            ? std::clamp(lon, -180.0, 180.0)
+            : std::remainder(lon, 360.0);
+    lat_lon_alt.emplace_back(lat, bounded_lon, ena[2]);
   }
 
   return lat_lon_alt;

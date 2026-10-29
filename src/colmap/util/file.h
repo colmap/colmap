@@ -109,6 +109,10 @@ std::vector<std::filesystem::path> GetRecursiveFileList(
 std::vector<std::filesystem::path> GetDirList(
     const std::filesystem::path& path);
 
+// Gets the value of an environment variable, or null if it is not set.
+// Portable replacement for std::getenv, which is deprecated by MSVC.
+std::optional<std::string> GetEnvSafe(const char* key);
+
 // Gets current user's home directory from environment variables.
 // Returns null if it cannot be resolved.
 std::optional<std::filesystem::path> HomeDir();

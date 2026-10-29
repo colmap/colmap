@@ -606,7 +606,7 @@ The following describes practical ways to reduce bundle adjustment runtime.
 
   Limit the number of correspondences so that BA solves a smaller problem:
 
-  - Reduce features by decreasing ``--SiftExtraction.max_image_size`` and/or
+  - Reduce features by decreasing ``--FeatureExtraction.max_image_size`` and/or
     ``--SiftExtraction.max_num_features``.
   - Reduce matching pairs (and avoid ``exhaustive_matcher`` when possible) by
     decreasing ``--SequentialMatching.overlap``,
@@ -627,6 +627,17 @@ The following describes practical ways to reduce bundle adjustment runtime.
   - Select between the direct dense, direct sparse, and iterative sparse GPU solvers
     using ``--BundleAdjustmentCeres.max_num_images_direct_dense_gpu_solver`` and
     ``--BundleAdjustmentCeres.max_num_images_direct_sparse_gpu_solver``
+
+  These ``BundleAdjustmentCeres`` options apply to the standalone
+  ``bundle_adjuster``. For incremental reconstruction with ``mapper``, use
+  ``--Mapper.ba_min_num_images_gpu_solver`` and
+  ``--Mapper.ba_max_num_images_direct_{dense,sparse}_{cpu,gpu}_solver`` instead
+  (expand the braces to select one option). They apply to both local and global
+  Ceres bundle adjustment; Caspar is unaffected. For example,
+  ``--Mapper.ba_use_gpu 1 --Mapper.ba_max_num_images_direct_sparse_gpu_solver 2000``
+  changes the sparse GPU solver threshold while retaining the other defaults.
+  In PyCOLMAP, set the corresponding ``ba_*`` fields on
+  ``IncrementalPipelineOptions`` before calling ``incremental_mapping``.
 
   .. Attention:: COLMAP's official CUDA-enabled binaries are not distributed with
      ceres[cuda] until Ceres 2.3 is officially released. To use the GPU solvers you

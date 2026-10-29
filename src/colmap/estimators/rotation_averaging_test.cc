@@ -143,6 +143,69 @@ void RunAndVerifyRotationAveraging(const Reconstruction& gt_reconstruction,
   }
 }
 
+TEST(RotationAveraging, InitializeFrameConnectedRig) {
+  for (const int num_cameras : {2, 3}) {
+    SCOPED_TRACE(num_cameras);
+    SyntheticDatasetOptions options;
+    options.num_rigs = 1;
+    options.num_cameras_per_rig = num_cameras;
+    options.num_frames_per_rig = 3;
+    options.num_points3D = 0;
+    options.sensor_from_rig_rotation_stddev = 20.;
+    Reconstruction truth;
+    SynthesizeDataset(options, &truth);
+    Reconstruction reconstruction = truth;
+    FlatHashSet<image_t> image_ids;
+    for (const auto& [image_id, image] : reconstruction.Images()) {
+      image_ids.insert(image_id);
+      reconstruction.Frame(image.FrameId()).ResetPose();
+    }
+    PoseGraph pose_graph;
+    const auto add_edge = [&](image_t image_id1, image_t image_id2) {
+      pose_graph
+          .AddEdge(
+              image_id1,
+              image_id2,
+              PoseGraph::Edge(truth.Image(image_id2).CamFromWorld() *
+                              Inverse(truth.Image(image_id1).CamFromWorld())))
+          .num_matches = 100;
+    };
+    // The chain only connects if cameras in the same frame are linked.
+    for (image_t frame_id = 1; frame_id < 3; ++frame_id) {
+      add_edge((frame_id - 1) * num_cameras + 1, frame_id * num_cameras + 2);
+    }
+    if (num_cameras == 3) {
+      // An unknown sensor must not disable the known pair's connectivity.
+      reconstruction.Rig(1).ResetSensorFromRig(sensor_t(SensorType::CAMERA, 3));
+      for (image_t frame_id = 1; frame_id <= 3; ++frame_id) {
+        add_edge((frame_id - 1) * num_cameras + 1, frame_id * num_cameras);
+      }
+    }
+
+    // A conflicting measured rotation must not override the rig calibration.
+    pose_graph.AddEdge(1, 2, PoseGraph::Edge(Rigid3d())).num_matches = 1000;
+    pose_graph.AddEdge(2, num_cameras + 1, PoseGraph::Edge(Rigid3d()))
+        .num_matches = 1;
+    pose_graph.AddRigEdges(reconstruction, image_ids);
+    EXPECT_TRUE(pose_graph.GetEdge(1, 2).prior);
+    EXPECT_EQ(pose_graph.GetEdge(1, 2).num_matches, 1000);
+    EXPECT_FALSE(pose_graph.GetEdge(1, num_cameras + 2).prior);
+    FilterEdgesByRelativeRotation(pose_graph, truth, 1.0);
+    EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 2)));
+    pose_graph.AddRigEdges(reconstruction, image_ids);
+    EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 2)));
+    InitializeFromMaximumSpanningTree(
+        pose_graph, image_ids, reconstruction, /*refine_sensor_from_rig=*/true);
+
+    for (const image_t image_id : image_ids) {
+      ASSERT_TRUE(reconstruction.Image(image_id).HasPose());
+    }
+    ExpectEqualRotations(truth, reconstruction, 1e-8);
+    RunAndVerifyRotationAveraging(
+        truth, reconstruction, pose_graph, {}, {false}, 1e-2);
+  }
+}
+
 TEST(RotationAveraging, WithoutNoise) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;

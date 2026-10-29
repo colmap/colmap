@@ -179,7 +179,9 @@ struct SkewedPinholeCameraModel
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
                                          const T max_extra_param) {
     const T mean_focal_length = (params[0] + params[1]) / T(2);
-    return std::abs(params[4]) > max_extra_param * std::abs(mean_focal_length);
+    // Negated bound check, so that NaN values read as bogus.
+    return !(std::abs(params[4]) <=
+             max_extra_param * std::abs(mean_focal_length));
   }
 
   // The skew scales with the image width, like the horizontal focal length.

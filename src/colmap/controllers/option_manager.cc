@@ -807,6 +807,16 @@ void OptionManager::AddMapperOptions() {
                    &mapper->ba_local_max_refinement_change);
   AddDefaultOption("Mapper.ba_use_gpu", &mapper->ba_use_gpu);
   AddDefaultOption("Mapper.ba_gpu_index", &mapper->ba_gpu_index);
+  AddDefaultOption("Mapper.ba_min_num_images_gpu_solver",
+                   &mapper->ba_min_num_images_gpu_solver);
+  AddDefaultOption("Mapper.ba_max_num_images_direct_dense_cpu_solver",
+                   &mapper->ba_max_num_images_direct_dense_cpu_solver);
+  AddDefaultOption("Mapper.ba_max_num_images_direct_sparse_cpu_solver",
+                   &mapper->ba_max_num_images_direct_sparse_cpu_solver);
+  AddDefaultOption("Mapper.ba_max_num_images_direct_dense_gpu_solver",
+                   &mapper->ba_max_num_images_direct_dense_gpu_solver);
+  AddDefaultOption("Mapper.ba_max_num_images_direct_sparse_gpu_solver",
+                   &mapper->ba_max_num_images_direct_sparse_gpu_solver);
   AddDefaultEnumOption("Mapper.ba_local_backend",
                        &mapper->ba_local_backend,
                        BundleAdjustmentBackendToString,

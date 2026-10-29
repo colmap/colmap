@@ -68,6 +68,7 @@ class GPSTransform {
 
   // Convert UTM to ellipsoidal (lat/lon/alt) coordinates.
   // Requires the zone number and hemisphere (true for north, false for south).
+  // The returned longitude is normalized to the [-180, 180] range.
   std::vector<Eigen::Vector3d> UTMToEllipsoid(
       const std::vector<Eigen::Vector3d>& xyz_in_utm,
       int zone,

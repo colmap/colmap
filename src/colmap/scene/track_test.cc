@@ -2,6 +2,8 @@
 
 #include "colmap/scene/track.h"
 
+#include "colmap/util/hash_containers.h"
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -21,6 +23,17 @@ TEST(TrackElement, Equals) {
   EXPECT_NE(track_el, other);
   other.image_id = 1;
   EXPECT_EQ(track_el, other);
+}
+
+TEST(TrackElement, HashMapLookup) {
+  FlatHashMap<TrackElement, int> observations;
+  observations.emplace(TrackElement(1, 2), 10);
+  observations.emplace(TrackElement(1, 3), 20);
+  observations.emplace(TrackElement(2, 2), 30);
+  EXPECT_EQ(observations.size(), 3);
+  EXPECT_EQ(observations.at(TrackElement(1, 2)), 10);
+  EXPECT_EQ(observations.at(TrackElement(1, 3)), 20);
+  EXPECT_EQ(observations.at(TrackElement(2, 2)), 30);
 }
 
 TEST(TrackElement, Print) {

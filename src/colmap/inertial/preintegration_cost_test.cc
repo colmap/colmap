@@ -402,6 +402,110 @@ TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
   }
 }
 
+TEST(AnalyticalVisualCentricImuPreintegrationCostFunction,
+     AnalyticalVersusAutoDiffWithMetricImuFromCam) {
+  const int N = 15;
+  const double dt = 0.005;
+  TrajectoryGT gt;
+  PreintegratedImuData data =
+      MakeConstantData(Eigen::Vector3d(1.0, -0.5, 9.81),
+                       Eigen::Vector3d(0.05, 0.1, -0.03),
+                       N,
+                       dt,
+                       &gt);
+
+  const double scale = 2.5;
+  const Eigen::Quaterniond q_IC(
+      Eigen::AngleAxisd(0.1, Eigen::Vector3d(0.3, -0.5, 0.8).normalized()));
+  const Eigen::Vector3d t_IC_metric(0.02, -0.01, 0.03);
+  const Eigen::Quaterniond q_CI = q_IC.conjugate();
+  const Eigen::Vector3d t_CI_metric = -(q_CI * t_IC_metric);
+
+  // Camera poses in SfM units, consistent with the metric IMU trajectory:
+  // p_W = scale * c_W + R_WC * t_CI_metric.
+  auto cam_from_world = [&](const Rigid3d& body_from_world) {
+    const Eigen::Quaterniond q_CW = q_CI * body_from_world.rotation();
+    const Eigen::Vector3d p_W = -(body_from_world.rotation().conjugate() *
+                                  body_from_world.translation());
+    const Eigen::Vector3d c_W = (p_W - q_CW.conjugate() * t_CI_metric) / scale;
+    return Rigid3d(q_CW, -(q_CW * c_W));
+  };
+
+  for (const bool metric : {false, true}) {
+    SCOPED_TRACE(metric ? "metric" : "sfm_units");
+    auto analytical_cost =
+        std::make_unique<AnalyticalVisualCentricImuPreintegrationCostFunction>(
+            &data, /*imu_from_cam_is_metric=*/metric);
+    std::unique_ptr<ceres::CostFunction> autodiff_cost(
+        VisualCentricImuPreintegrationCostFunctor::Create(
+            &data, /*imu_from_cam_is_metric=*/metric));
+
+    // In SfM units, the extrinsics translation is the metric one divided by
+    // the scale.
+    double log_scale[1] = {std::log(scale)};
+    double gravity_direction[3] = {0, 0, -1};
+    double imu_from_cam[7];
+    const Eigen::Vector3d t_IC = metric ? t_IC_metric : t_IC_metric / scale;
+    PackRigid3d(Rigid3d(q_IC, t_IC), imu_from_cam);
+    double i_from_world[7], j_from_world[7];
+    double imu_state_i[9], imu_state_j[9];
+    PackRigid3d(cam_from_world(gt.body_from_world_i), i_from_world);
+    PackRigid3d(cam_from_world(gt.body_from_world_j), j_from_world);
+    Eigen::Vector3d v_i = gt.v_i / scale;
+    PackImuState(
+        v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+    PackImuState(gt.v_j / scale,
+                 Eigen::Vector3d::Zero(),
+                 Eigen::Vector3d::Zero(),
+                 imu_state_j);
+
+    std::vector<double*> params = {log_scale,
+                                   gravity_direction,
+                                   imu_from_cam,
+                                   i_from_world,
+                                   imu_state_i,
+                                   j_from_world,
+                                   imu_state_j};
+
+    double r1[15], r2[15];
+    EXPECT_TRUE(analytical_cost->Evaluate(params.data(), r1, nullptr));
+    EXPECT_TRUE(autodiff_cost->Evaluate(params.data(), r2, nullptr));
+    for (int i = 0; i < 15; ++i) {
+      EXPECT_NEAR(r1[i], 0.0, 1e-8) << "residual[" << i << "]";
+      EXPECT_NEAR(r1[i], r2[i], 1e-10) << "residual[" << i << "]";
+    }
+
+    // Perturb v_i so residuals are nonzero (tests more Jacobian paths).
+    v_i += Eigen::Vector3d(0.01, -0.02, 0.005);
+    PackImuState(
+        v_i, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), imu_state_i);
+
+    const int block_sizes[7] = {1, 3, 7, 7, 9, 7, 9};
+    std::vector<std::vector<double>> aj(7), adj(7);
+    std::vector<double*> aj_ptrs(7), adj_ptrs(7);
+    for (int b = 0; b < 7; ++b) {
+      aj[b].resize(15 * block_sizes[b], 0.0);
+      adj[b].resize(15 * block_sizes[b], 0.0);
+      aj_ptrs[b] = aj[b].data();
+      adj_ptrs[b] = adj[b].data();
+    }
+
+    EXPECT_TRUE(analytical_cost->Evaluate(params.data(), r1, aj_ptrs.data()));
+    EXPECT_TRUE(autodiff_cost->Evaluate(params.data(), r2, adj_ptrs.data()));
+    for (int i = 0; i < 15; ++i) {
+      EXPECT_NEAR(r1[i], r2[i], 1e-10) << "residual[" << i << "]";
+    }
+
+    constexpr double kJacTol = 1e-8;
+    for (int b = 0; b < 7; ++b) {
+      for (int i = 0; i < 15 * block_sizes[b]; ++i) {
+        EXPECT_NEAR(aj[b][i], adj[b][i], kJacTol)
+            << "block=" << b << " element=" << i;
+      }
+    }
+  }
+}
+
 class PhysicsConsistencyTest
     : public ::testing::TestWithParam<ImuIntegrationMethod> {};
 
