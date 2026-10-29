@@ -5,6 +5,8 @@
 #include "colmap/util/cancellation.h"
 #include "colmap/util/logging.h"
 
+#include <utility>
+
 namespace colmap {
 
 Thread::Thread()
@@ -22,7 +24,10 @@ Thread::Thread()
 void Thread::Start() {
   std::unique_lock<std::mutex> lock(mutex_);
   THROW_CHECK(!started_ || finished_);
-  Wait();
+  if (thread_.joinable()) {
+    thread_.join();
+  }
+  error_ = nullptr;
   timer_.Restart();
   thread_ = std::thread(&Thread::RunFunc, this);
   started_ = true;
@@ -58,6 +63,9 @@ void Thread::Resume() {
 void Thread::Wait() {
   if (thread_.joinable()) {
     thread_.join();
+  }
+  if (error_) {
+    std::rethrow_exception(std::exchange(error_, nullptr));
   }
 }
 
@@ -146,7 +154,26 @@ bool Thread::CheckValidSetup() {
 
 void Thread::RunFunc() {
   Callback(STARTED_CALLBACK);
-  Run();
+  try {
+    Run();
+  } catch (...) {
+    // Rethrown by Wait in the calling thread, instead of terminating.
+    try {
+      throw;
+    } catch (const std::exception& e) {
+      LOG(ERROR) << "Thread failed: " << e.what();
+    } catch (...) {
+      LOG(ERROR) << "Thread failed with an unknown exception.";
+    }
+    std::unique_lock<std::mutex> lock(mutex_);
+    error_ = std::current_exception();
+    // Unblock CheckValidSetup if the thread failed before signaling its setup.
+    if (!setup_) {
+      setup_ = true;
+      setup_valid_ = false;
+      setup_condition_.notify_all();
+    }
+  }
   {
     std::unique_lock<std::mutex> lock(mutex_);
     finished_ = true;

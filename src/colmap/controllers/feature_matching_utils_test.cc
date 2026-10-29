@@ -272,6 +272,43 @@ TEST(FeatureMatcherController, MatchMultiplePairs) {
   EXPECT_EQ(data.database->ReadTwoViewGeometries().size(), 6);
 }
 
+TEST(FeatureMatcherController, MatchPropagatesMatcherErrors) {
+  auto data = CreateTestData(4);
+  data.database->ClearMatches();
+  data.database->ClearTwoViewGeometries();
+
+  // Descriptors of an unexpected dimension make the SIFT matcher throw for all
+  // pairs with the first image.
+  std::vector<FeatureDescriptors> descriptors;
+  descriptors.reserve(data.image_ids.size());
+  for (const image_t image_id : data.image_ids) {
+    descriptors.push_back(data.database->ReadDescriptors(image_id));
+  }
+  descriptors[0].data =
+      FeatureDescriptorsData::Zero(descriptors[0].data.rows(), 64);
+  data.database->ClearDescriptors();
+  for (size_t i = 0; i < data.image_ids.size(); ++i) {
+    data.database->WriteDescriptors(data.image_ids[i], descriptors[i]);
+  }
+  data.cache = std::make_shared<FeatureMatcherCache>(100, data.database);
+
+  FeatureMatchingOptions matching_options = DefaultMatchingOptions();
+  TwoViewGeometryOptions geometry_options;
+  FeatureMatcherController controller(
+      matching_options, geometry_options, data.cache);
+  ASSERT_TRUE(controller.Setup());
+
+  // The error is rethrown on the calling thread instead of terminating.
+  EXPECT_ANY_THROW(controller.Match(AllPairs(data.image_ids)));
+  EXPECT_FALSE(
+      data.database->ExistsMatches(data.image_ids[0], data.image_ids[1]));
+
+  // The controller remains usable for pairs without the broken image.
+  controller.Match({{data.image_ids[1], data.image_ids[2]}});
+  EXPECT_TRUE(
+      data.database->ExistsMatches(data.image_ids[1], data.image_ids[2]));
+}
+
 TEST(FeatureMatcherController, MatchSkipGeometricVerification) {
   auto data = CreateTestData(3);
   data.database->ClearMatches();

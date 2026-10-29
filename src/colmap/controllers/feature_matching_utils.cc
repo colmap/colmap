@@ -82,52 +82,58 @@ void FeatureMatcherWorker::Run() {
     if (input_job.IsValid()) {
       auto& data = input_job.Data();
 
-      if (!cache_->ExistsDescriptors(data.image_id1) ||
+      if (data.error || !cache_->ExistsDescriptors(data.image_id1) ||
           !cache_->ExistsDescriptors(data.image_id2)) {
         THROW_CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
-      const auto& camera1 =
-          cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
-      const auto& camera2 =
-          cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
+      // Propagate errors (e.g., an unreadable image) to the controller
+      // instead of terminating the process from this thread.
+      try {
+        const auto& camera1 =
+            cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
+        const auto& camera2 =
+            cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
 
-      if (matching_options_.guided_matching) {
-        matcher->MatchGuided(
-            geometry_options_.ransac_options.max_error,
-            {
-                data.image_id1,
-                &camera1,
-                cache_->GetKeypoints(data.image_id1),
-                cache_->GetDescriptors(data.image_id1),
-                cache_->FindImagePosePriorOrNull(data.image_id1),
-            },
-            {
-                data.image_id2,
-                &camera2,
-                cache_->GetKeypoints(data.image_id2),
-                cache_->GetDescriptors(data.image_id2),
-                cache_->FindImagePosePriorOrNull(data.image_id2),
-            },
-            &data.two_view_geometry);
-      } else {
-        matcher->Match(
-            {
-                data.image_id1,
-                &camera1,
-                cache_->GetKeypoints(data.image_id1),
-                cache_->GetDescriptors(data.image_id1),
-                cache_->FindImagePosePriorOrNull(data.image_id1),
-            },
-            {
-                data.image_id2,
-                &camera2,
-                cache_->GetKeypoints(data.image_id2),
-                cache_->GetDescriptors(data.image_id2),
-                cache_->FindImagePosePriorOrNull(data.image_id2),
-            },
-            &data.matches);
+        if (matching_options_.guided_matching) {
+          matcher->MatchGuided(
+              geometry_options_.ransac_options.max_error,
+              {
+                  data.image_id1,
+                  &camera1,
+                  cache_->GetKeypoints(data.image_id1),
+                  cache_->GetDescriptors(data.image_id1),
+                  cache_->FindImagePosePriorOrNull(data.image_id1),
+              },
+              {
+                  data.image_id2,
+                  &camera2,
+                  cache_->GetKeypoints(data.image_id2),
+                  cache_->GetDescriptors(data.image_id2),
+                  cache_->FindImagePosePriorOrNull(data.image_id2),
+              },
+              &data.two_view_geometry);
+        } else {
+          matcher->Match(
+              {
+                  data.image_id1,
+                  &camera1,
+                  cache_->GetKeypoints(data.image_id1),
+                  cache_->GetDescriptors(data.image_id1),
+                  cache_->FindImagePosePriorOrNull(data.image_id1),
+              },
+              {
+                  data.image_id2,
+                  &camera2,
+                  cache_->GetKeypoints(data.image_id2),
+                  cache_->GetDescriptors(data.image_id2),
+                  cache_->FindImagePosePriorOrNull(data.image_id2),
+              },
+              &data.matches);
+        }
+      } catch (...) {
+        data.error = std::current_exception();
       }
 
       THROW_CHECK(output_queue_->Push(std::move(data)));
@@ -165,6 +171,11 @@ class VerifierWorker : public Thread {
       auto input_job = input_queue_->Pop();
       if (input_job.IsValid()) {
         auto& data = input_job.Data();
+
+        if (data.error) {
+          THROW_CHECK(output_queue_->Push(std::move(data)));
+          continue;
+        }
 
         // Early abort pairs with too few matches to avoid data lookup,
         // labeling them DEGENERATE so the rejection is stored downstream.
@@ -501,10 +512,22 @@ void FeatureMatcherController::Match(
   // Write results to database
   //////////////////////////////////////////////////////////////////////////////
 
+  std::exception_ptr error;
   for (size_t i = 0; i < num_outputs; ++i) {
     auto output_job = output_queue_.Pop();
     THROW_CHECK(output_job.IsValid());
     auto& output = output_job.Data();
+
+    if (output.error) {
+      if (!error) {
+        // Abort: drop the queued pairs, which then never produce an output,
+        // and only wait for the pairs that are already being processed.
+        error = output.error;
+        num_outputs -= matcher_queue_.Clear() + verifier_queue_.Clear() +
+                       guided_matcher_queue_.Clear();
+      }
+      continue;
+    }
 
     if (output.matches.size() <
         static_cast<size_t>(geometry_options_.min_num_inliers)) {
@@ -521,6 +544,10 @@ void FeatureMatcherController::Match(
   }
 
   THROW_CHECK_EQ(output_queue_.Size(), 0);
+
+  if (error) {
+    std::rethrow_exception(error);
+  }
 }
 
 GeometricVerifierController::GeometricVerifierController(
