@@ -10,9 +10,10 @@ namespace colmap {
 namespace {
 
 TEST(CudaDeviceSupportsBf16, InvalidDevice) {
+  const int num_devices = GetNumCudaDevices();
   EXPECT_FALSE(CudaDeviceSupportsBf16(-1));
-  EXPECT_FALSE(CudaDeviceSupportsBf16(GetNumCudaDevices()));
-  if (GetNumCudaDevices() == 0) {
+  EXPECT_FALSE(CudaDeviceSupportsBf16(num_devices));
+  if (num_devices == 0) {
     // Without a device, the initialization error is sticky.
     GTEST_SKIP() << "No CUDA device available";
   }

@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -58,7 +59,7 @@ TEST(SelectONNXCudaDeviceTest, Nominal) {
   EXPECT_EQ(SelectONNXCudaDevice("0"), 0);
   EXPECT_EQ(SelectONNXCudaDevice("2"), 2);
   EXPECT_EQ(SelectONNXCudaDevice("-1"), 0);
-  EXPECT_THROW(SelectONNXCudaDevice("0,1"), std::exception);
+  EXPECT_THROW(SelectONNXCudaDevice("0,1"), std::invalid_argument);
 }
 
 TEST(ONNXModelTest, MetadataAndInference) {
