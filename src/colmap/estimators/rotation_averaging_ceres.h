@@ -94,15 +94,17 @@ class CeresRotationAverager {
 namespace internal {
 
 // Checks the inputs of Ceres rotation averaging and prepares the sensor
-// rotations of the given images, before any rotation is initialized. With
+// rotations, before any rotation is initialized. The valid edges must
+// reference known images and form a single connected component. With
 // COVARIANCE reweighting, every valid edge must have a rotation covariance.
 // Sensor rotations that are not refined must be finite, and the non-finite
 // ones that are refined are reset. Throws std::invalid_argument, without
-// modifying the reconstruction, if a check fails.
-void PrepareCeresRotationAveraging(const RotationEstimatorOptions& options,
-                                   const PoseGraph& pose_graph,
-                                   const FlatHashSet<image_t>& image_ids,
-                                   Reconstruction& reconstruction);
+// modifying the reconstruction, if a check fails. Returns the image ids of the
+// connected component.
+FlatHashSet<image_t> PrepareCeresRotationAveraging(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction);
 
 }  // namespace internal
 
