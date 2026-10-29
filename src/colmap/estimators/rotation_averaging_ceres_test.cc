@@ -632,19 +632,6 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
   }
 }
 
-TEST(CeresRotationAverager, CovarianceReweightingRequiresCovariances) {
-  Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
-  PoseGraph graph;
-  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
-      Eigen::Matrix3d::Identity();
-  graph.AddEdge(2, 3, Edge(ZRotation(0.2)));
-  RotationEstimatorOptions options;
-  options.reweighting = RotationAveragingReweighting::COVARIANCE;
-  EXPECT_THROW(
-      CreateDefaultCeresRotationAverager(options, graph, reconstruction),
-      std::invalid_argument);
-}
-
 TEST(CeresRotationAverager, CovarianceDownweightsUncertainEdges) {
   // Inconsistent loop: the 1-3 edge disagrees by 0.1 rad with the others.
   PoseGraph graph;

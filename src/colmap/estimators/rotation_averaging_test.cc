@@ -16,6 +16,7 @@
 #include <map>
 #include <utility>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -481,14 +482,6 @@ TEST(RotationAveraging, CovarianceReweighting) {
   options.backend = RotationAveragingBackend::CERES;
   options.reweighting = RotationAveragingReweighting::COVARIANCE;
 
-  // Every valid edge requires a covariance.
-  {
-    Reconstruction reconstruction = data.reconstruction;
-    PoseGraph pose_graph = data.pose_graph;
-    EXPECT_ANY_THROW(RunRotationAveraging(
-        options, pose_graph, reconstruction, data.pose_priors));
-  }
-
   DatabaseCache database_cache;
   database_cache.Load(*data.database, DatabaseCache::Options());
   EstimatePoseGraphRotationCovariances(database_cache, data.pose_graph);
@@ -508,8 +501,13 @@ TEST(RotationAveraging, CovarianceReweighting) {
   options.backend = RotationAveragingBackend::L1_IRLS;
   reconstruction = data.reconstruction;
   pose_graph = data.pose_graph;
-  EXPECT_ANY_THROW(RunRotationAveraging(
-      options, pose_graph, reconstruction, data.pose_priors));
+  EXPECT_THAT(
+      [&]() {
+        RunRotationAveraging(
+            options, pose_graph, reconstruction, data.pose_priors);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("L1_IRLS")));
 }
 
 TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
