@@ -238,6 +238,9 @@ std::optional<Eigen::Matrix3d> EstimateEdgeRotationCovariance(
     const Rigid3d& cam2_from_cam1,
     const TwoViewRotationCovarianceOptions& options) {
   const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+  if (correspondence_graph.NumMatchesBetweenImages(image_id1, image_id2) == 0) {
+    return std::nullopt;
+  }
   TwoViewGeometry two_view_geometry =
       correspondence_graph.ExtractTwoViewGeometry(
           image_id1, image_id2, /*extract_inlier_matches=*/true);
