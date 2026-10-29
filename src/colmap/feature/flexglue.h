@@ -58,8 +58,9 @@ struct FlexGlueMatchingOptions {
   // min_covisibility = 0.
   double early_stop_decay = 0.5;
 
-  // Maximum number of images whose dense features are cached in memory.
-  // Each entry takes ~4MB with the default model.
+  // Maximum number of images whose dense features are cached in memory, on the
+  // GPU if the models run on a CUDA GPU, which avoids copying them to the GPU
+  // for every pair. Each entry takes ~4MB with the default model.
   int feature_cache_size = 128;
 
   // Dense image descriptor: image [1, 3, S, S] -> features [1, C, S/8, S/8].
