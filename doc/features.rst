@@ -212,11 +212,11 @@ default models with the default ``early_stop_decay 0.5`` and
 although they would pass ``min_covisibility`` after the last layer.
 
 The dense features of the most recently used images are cached in memory
-(``--FlexGlueMatching.feature_cache_size``, ~4MB per image). On CUDA GPUs with
-compute capability 7.0 or newer, a variant of the matcher whose
-transformer layers run in float16 is used by default
-(``--FlexGlueMatching.use_fp16``), which is faster than the float32 matcher
-with practically identical matches; the float32 matcher is used on the CPU, on
+(``--FlexGlueMatching.feature_cache_size``, ~4MB per image), on the GPU if the
+models run on a CUDA GPU. On CUDA GPUs with compute capability 7.0 or newer, a
+variant of the matcher whose transformer layers run in float16 is used by
+default (``--FlexGlueMatching.use_fp16``), which is faster than the float32
+matcher with practically identical matches; the float32 matcher is used on the CPU, on
 older GPUs, or if the float16 variant fails to initialize. On the CPU, a
 single matching thread runs the models with ``--FeatureMatching.num_threads``
 threads, rather than one copy of the models per thread. The
