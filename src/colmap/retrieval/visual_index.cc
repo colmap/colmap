@@ -644,9 +644,7 @@ class FaissVisualIndex : public VisualIndex {
 
 }  // namespace
 
-std::unique_ptr<VisualIndex> VisualIndex::Create() {
-  return Create(128, 64);
-}
+std::unique_ptr<VisualIndex> VisualIndex::Create() { return Create(128, 64); }
 
 std::unique_ptr<VisualIndex> VisualIndex::Create(int desc_dim) {
   if (desc_dim == 32) {
