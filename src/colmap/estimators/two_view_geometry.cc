@@ -194,14 +194,11 @@ ExtractMatchedCamRaysWithJac(const Camera& camera1,
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
-    THROW_CHECK_LT(idx1, points1.size());
-    THROW_CHECK_LT(idx2, points2.size());
     const std::optional<CamRayWithJac> ray1 =
         camera1.CamRayFromImgWithJac(points1[idx1]);
     const std::optional<CamRayWithJac> ray2 =
         camera2.CamRayFromImgWithJac(points2[idx2]);
-    if (skip_invalid && (!ray1.has_value() || !ray2.has_value() ||
-                         ray1->ray.isZero() || ray2->ray.isZero())) {
+    if (skip_invalid && (!ray1.has_value() || !ray2.has_value())) {
       continue;
     }
     matched_rays1.push_back(ray1.value_or(CamRayWithJac::Zero()));

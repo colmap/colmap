@@ -248,7 +248,7 @@ bool DetectWatermarkMatches(const Camera& camera1,
 
 // Unprojects the matched image points to camera rays with their Jacobians
 // w.r.t. the image points. Rays that fail to unproject are zero-filled or, if
-// skip_invalid, the matches with a failed or zero ray are dropped.
+// skip_invalid, the matches with a failed ray are dropped.
 std::pair<std::vector<CamRayWithJac>, std::vector<CamRayWithJac>>
 ExtractMatchedCamRaysWithJac(const Camera& camera1,
                              const std::vector<Eigen::Vector2d>& points1,
