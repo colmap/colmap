@@ -192,6 +192,12 @@ void BindFeatureMatching(py::module& m) {
                          &FlexGlueMatchingOptions::min_covisibility,
                          "Reject all matches of a pair whose covisibility "
                          "score is below this value (0 disables it).")
+          .def_readwrite(
+              "early_stop_decay",
+              &FlexGlueMatchingOptions::early_stop_decay,
+              "Early stopping of non-covisible pairs: reject the pair after "
+              "layer k if its covisibility score is below min_covisibility * "
+              "(1 - early_stop_decay)^(9 - k). 1 disables it.")
           .def_readwrite("feature_cache_size",
                          &FlexGlueMatchingOptions::feature_cache_size,
                          "Maximum number of images whose dense features are "

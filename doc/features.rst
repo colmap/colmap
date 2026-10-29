@@ -196,6 +196,15 @@ correspondences. Example usage::
         --FeatureMatching.type FLEXGLUE \
         --FlexGlueMatching.image_path $DATASET_PATH/images
 
+With ``min_covisibility > 0``, the default models also stop early on pairs that
+are confidently not covisible: after layers 2, 4, 6, and 8 of the 9 transformer
+layers, a pair is rejected without running the remaining layers if its
+covisibility score is below ``min_covisibility * (1 - early_stop_decay)^(9 -
+layer)``. With the default ``--FlexGlueMatching.early_stop_decay 0.5``, this
+skips most of the computation of about 35% of the exhaustive pairs of ETH3D and
+practically never rejects a pair that would pass ``min_covisibility`` (0.2% of
+them); lower values stop earlier, and 1 disables early stopping.
+
 The dense features of the most recently used images are cached in memory
 (``--FlexGlueMatching.feature_cache_size``, ~4MB per image), on the GPU if the
 models run on a CUDA GPU. On CUDA GPUs, a

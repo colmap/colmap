@@ -452,6 +452,8 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->flexglue->max_distance_px);
   AddDefaultOption("FlexGlueMatching.min_covisibility",
                    &feature_matching->flexglue->min_covisibility);
+  AddDefaultOption("FlexGlueMatching.early_stop_decay",
+                   &feature_matching->flexglue->early_stop_decay);
   AddDefaultOption("FlexGlueMatching.feature_cache_size",
                    &feature_matching->flexglue->feature_cache_size);
   AddDefaultOption("FlexGlueMatching.descriptor_model_path",

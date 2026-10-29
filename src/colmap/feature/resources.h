@@ -111,14 +111,14 @@ inline const std::string kDefaultFlexGlueDescriptorUri =
     "93fab8a4ccde1b7331640915357d96cff0929ea87134872f37f7b0150d9914ff";
 inline const std::string kDefaultFlexGlueMatcherUri =
     "https://github.com/cvg/FlexGlue/releases/download/v0.1/"
-    "flexglue_matcher.onnx;"
-    "flexglue_matcher.onnx;"
-    "a0baf84f00b32fc613206511a464fc3e71f4321e9d34df3a83362bd7d2a73012";
+    "flexglue_matcher_early_stop.onnx;"
+    "flexglue_matcher_early_stop.onnx;"
+    "c86714cd8ffac70c17ee48c346270497e21846831336e12d307390591aa12ea7";
 inline const std::string kDefaultFlexGlueMatcherFp16Uri =
     "https://github.com/cvg/FlexGlue/releases/download/v0.1/"
-    "flexglue_matcher_fp16.onnx;"
-    "flexglue_matcher_fp16.onnx;"
-    "f81cb68f27367171728c2c51ea5b60acab348520bc12154d4a3befa79f2dfe11";
+    "flexglue_matcher_early_stop_fp16.onnx;"
+    "flexglue_matcher_early_stop_fp16.onnx;"
+    "01286e692e6396cdfe6eaf5944d3af60752f5043275b338a6419a97efa339e20";
 #else
 inline const std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
 inline const std::string kDefaultAlikedN32FeatureExtractorUri = "";

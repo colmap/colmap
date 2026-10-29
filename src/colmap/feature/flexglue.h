@@ -48,6 +48,15 @@ struct FlexGlueMatchingOptions {
   // rejection. A value of 0 disables the pair rejection.
   double min_covisibility = 0.5;
 
+  // Early stopping of non-covisible pairs: after each checked layer k (2, 4, 6,
+  // 8 for the default models), the pair is rejected without running the
+  // remaining layers if its covisibility score is below
+  // min_covisibility * (1 - early_stop_decay)^(9 - k). Lower values stop
+  // earlier and save more time, but may reject pairs that would pass
+  // min_covisibility after the last layer. 1 disables early stopping, as does
+  // min_covisibility = 0.
+  double early_stop_decay = 0.5;
+
   // Maximum number of images whose dense features are cached in memory, on the
   // GPU if the models run on a CUDA GPU, which avoids copying them to the GPU
   // for every pair. Each entry takes ~4MB with the default model.

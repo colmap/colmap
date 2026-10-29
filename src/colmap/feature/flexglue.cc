@@ -193,7 +193,8 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
                                                            "image_size1",
                                                            "filter_threshold",
                                                            "max_distance_px",
-                                                           "min_covisibility"};
+                                                           "min_covisibility",
+                                                           "early_stop_decay"};
     THROW_CHECK_EQ(matcher_->input_names().size(), expected_inputs.size());
     for (size_t i = 0; i < matcher_->input_names().size(); ++i) {
       const std::string_view name = matcher_->input_names()[i];
@@ -253,6 +254,7 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
                                 ? static_cast<float>(options_.max_distance_px)
                                 : std::numeric_limits<float>::infinity();
     float min_covisibility = static_cast<float>(options_.min_covisibility);
+    float early_stop_decay = static_cast<float>(options_.early_stop_decay);
 
     std::vector<Ort::Value> inputs;
     inputs.reserve(matcher_->input_names().size());
@@ -278,6 +280,8 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         inputs.push_back(CreateONNXScalarTensor(max_distance_px));
       } else if (name == "min_covisibility") {
         inputs.push_back(CreateONNXScalarTensor(min_covisibility));
+      } else if (name == "early_stop_decay") {
+        inputs.push_back(CreateONNXScalarTensor(early_stop_decay));
       } else {
         LOG(FATAL_THROW) << "Unexpected FlexGlue matcher input: " << name;
       }
@@ -412,6 +416,7 @@ bool FlexGlueMatchingOptions::Check() const {
   CHECK_OPTION(ExistsDir(image_path));
   CHECK_OPTION_IN(filter_threshold, 0, 1);
   CHECK_OPTION_IN(min_covisibility, 0, 1);
+  CHECK_OPTION_IN(early_stop_decay, 0, 1);
   CHECK_OPTION_GT(feature_cache_size, 0);
   return true;
 }

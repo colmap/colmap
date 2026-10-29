@@ -143,6 +143,9 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   options_widget_->AddOptionDouble(
       &options_->feature_matching->flexglue->min_covisibility,
       "flexglue.min_covisibility");
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->flexglue->early_stop_decay,
+      "flexglue.early_stop_decay");
 #endif
 
   options_widget_->AddSpacer();

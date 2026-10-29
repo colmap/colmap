@@ -156,6 +156,10 @@ TEST(FlexGlueMatchingOptions, Check) {
   EXPECT_FALSE(options.Check());
   options.min_covisibility = 0.8;
   EXPECT_TRUE(options.Check());
+  options.early_stop_decay = 1.5;
+  EXPECT_FALSE(options.Check());
+  options.early_stop_decay = 0.5;
+  EXPECT_TRUE(options.Check());
   options.filter_threshold = -0.1;
   EXPECT_FALSE(options.Check());
   options.filter_threshold = 0.1;
@@ -200,6 +204,28 @@ TEST_F(FlexGlueTest, HeavyMinCovisibilityRejectsAllMatches) {
   std::unique_ptr<FeatureMatcher> matcher =
       CreateFlexGlueFeatureMatcher(options);
   EXPECT_TRUE(Match(matcher.get(), keypoints1, keypoints2).empty());
+}
+
+TEST_F(FlexGlueTest, HeavyEarlyStopping) {
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  if (std::getenv("COLMAP_TEST_HEAVY") == nullptr) {
+    GTEST_SKIP() << "Set COLMAP_TEST_HEAVY=1 to run tests that load another "
+                    "FlexGlue matcher.";
+  }
+  FeatureKeypoints keypoints1;
+  FeatureKeypoints keypoints2;
+  CreateKeypoints(&keypoints1, &keypoints2);
+  // Early stopping (default early_stop_decay = 0.5) must not reject this
+  // clearly covisible pair, i.e., give the same matches as without it. That it
+  // stops on non-covisible pairs exactly as FlexGlue does is checked by
+  // onnx/check.py in the FlexGlue repository.
+  FeatureMatchingOptions options = *options_;
+  options.flexglue->early_stop_decay = 1.0;
+  std::unique_ptr<FeatureMatcher> matcher =
+      CreateFlexGlueFeatureMatcher(options);
+  const FeatureMatches matches = Match(matcher.get(), keypoints1, keypoints2);
+  EXPECT_FALSE(matches.empty());
+  EXPECT_EQ(Match(matcher_.get(), keypoints1, keypoints2), matches);
 }
 
 TEST_F(FlexGlueTest, EmptyKeypoints) {
