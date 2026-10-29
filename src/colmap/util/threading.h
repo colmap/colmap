@@ -83,6 +83,8 @@ class Thread {
   virtual void Stop();
   virtual void Pause();
   virtual void Resume();
+  // Wait for the thread to finish. If the main run function threw an
+  // exception, it is rethrown here, in the calling thread, once.
   virtual void Wait();
 
   // Check the state of the thread.
@@ -132,10 +134,12 @@ class Thread {
   void SignalInvalidSetup();
 
  private:
-  // Wrapper around the main run function to set the finished flag.
+  // Wrapper around the main run function to set the finished flag and to
+  // capture exceptions, which Wait rethrows.
   void RunFunc();
 
   std::thread thread_;
+  std::exception_ptr error_;
   std::mutex mutex_;
   std::condition_variable pause_condition_;
   std::condition_variable setup_condition_;
@@ -315,8 +319,9 @@ class JobQueue {
   // Stop the queue and return from all push/pop calls with false.
   void Stop();
 
-  // Clear all pushed and not popped jobs from the queue.
-  void Clear();
+  // Clear all pushed and not popped jobs from the queue. Returns the number of
+  // cleared jobs.
+  size_t Clear();
 
  private:
   size_t max_num_jobs_;
@@ -435,10 +440,14 @@ void JobQueue<T>::Stop() {
 }
 
 template <typename T>
-void JobQueue<T>::Clear() {
+size_t JobQueue<T>::Clear() {
   std::unique_lock<std::mutex> lock(mutex_);
+  const size_t num_cleared = jobs_.size();
   std::queue<T> empty_jobs;
   std::swap(jobs_, empty_jobs);
+  pop_condition_.notify_all();
+  empty_condition_.notify_all();
+  return num_cleared;
 }
 
 }  // namespace colmap

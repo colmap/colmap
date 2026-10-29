@@ -4,6 +4,8 @@
 
 #include "colmap/util/logging.h"
 
+#include <stdexcept>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -82,6 +84,24 @@ TEST(Thread, Wait) {
   EXPECT_FALSE(thread.IsPaused());
   EXPECT_FALSE(thread.IsRunning());
   EXPECT_TRUE(thread.IsFinished());
+}
+
+TEST(Thread, WaitRethrowsException) {
+  class TestThread : public Thread {
+   public:
+    void Run() override { throw std::runtime_error("Error"); }
+  };
+
+  TestThread thread;
+  thread.Start();
+  EXPECT_THROW(thread.Wait(), std::runtime_error);
+  EXPECT_TRUE(thread.IsFinished());
+  // The exception is only rethrown once.
+  EXPECT_NO_THROW(thread.Wait());
+  // A thread that fails before signaling its setup does not block the caller.
+  thread.Start();
+  EXPECT_FALSE(thread.CheckValidSetup());
+  EXPECT_THROW(thread.Wait(), std::runtime_error);
 }
 
 TEST(Thread, Pause) {

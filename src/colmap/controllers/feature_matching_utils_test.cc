@@ -3,12 +3,16 @@
 #include "colmap/controllers/feature_matching_utils.h"
 
 #include "colmap/controllers/matcher_cache.h"
+#include "colmap/feature/aliked.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/testing.h"
 
+#include <functional>
 #include <random>
+#include <string>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -39,6 +43,16 @@ TestData CreateTestData(int num_images) {
   data.cache = std::make_shared<FeatureMatcherCache>(100, data.database);
   data.image_ids = data.cache->GetImageIds();
   return data;
+}
+
+// Message of the exception thrown by the function, or empty if none.
+std::string ThrownMessage(const std::function<void()>& func) {
+  try {
+    func();
+  } catch (const std::exception& e) {
+    return e.what();
+  }
+  return "";
 }
 
 FeatureMatchingOptions DefaultMatchingOptions() {
@@ -272,6 +286,68 @@ TEST(FeatureMatcherController, MatchMultiplePairs) {
   EXPECT_EQ(data.database->ReadTwoViewGeometries().size(), 6);
 }
 
+TEST(FeatureMatcherController, MatchPropagatesMatcherErrors) {
+  auto data = CreateTestData(4);
+  data.database->ClearMatches();
+  data.database->ClearTwoViewGeometries();
+
+  // Descriptors of an unexpected dimension make the SIFT matcher throw for all
+  // pairs with the first image.
+  std::vector<FeatureDescriptors> descriptors;
+  descriptors.reserve(data.image_ids.size());
+  for (const image_t image_id : data.image_ids) {
+    descriptors.push_back(data.database->ReadDescriptors(image_id));
+  }
+  descriptors[0].data =
+      FeatureDescriptorsData::Zero(descriptors[0].data.rows(), 64);
+  data.database->ClearDescriptors();
+  for (size_t i = 0; i < data.image_ids.size(); ++i) {
+    data.database->WriteDescriptors(data.image_ids[i], descriptors[i]);
+  }
+  data.cache = std::make_shared<FeatureMatcherCache>(100, data.database);
+
+  FeatureMatchingOptions matching_options = DefaultMatchingOptions();
+  TwoViewGeometryOptions geometry_options;
+  FeatureMatcherController controller(
+      matching_options, geometry_options, data.cache);
+  ASSERT_TRUE(controller.Setup());
+
+  // The error is rethrown on the calling thread instead of terminating.
+  EXPECT_THAT(
+      ThrownMessage([&]() { controller.Match(AllPairs(data.image_ids)); }),
+      testing::HasSubstr("kSiftDescriptorDim"));
+  EXPECT_FALSE(
+      data.database->ExistsMatches(data.image_ids[0], data.image_ids[1]));
+
+  // The controller remains usable for pairs without the broken image.
+  controller.Match({{data.image_ids[1], data.image_ids[2]}});
+  EXPECT_TRUE(
+      data.database->ExistsMatches(data.image_ids[1], data.image_ids[2]));
+}
+
+TEST(FeatureMatcherController, SetupPropagatesMatcherCreationErrors) {
+  auto data = CreateTestData(2);
+  FeatureMatchingOptions matching_options(FeatureMatcherType::ALIKED_LIGHTGLUE);
+  matching_options.use_gpu = false;
+  matching_options.num_threads = 1;
+  matching_options.aliked->lightglue.model_path =
+      (data.test_dir / "missing_model.onnx").string();
+  TwoViewGeometryOptions geometry_options;
+  {
+    FeatureMatcherController controller(
+        matching_options, geometry_options, data.cache);
+    // The worker fails to create the matcher. Setup rethrows its error, and
+    // the controller then destructs without terminating.
+#ifdef COLMAP_ONNX_ENABLED
+    const std::string expected_message = "missing_model.onnx";
+#else
+    const std::string expected_message = "requires ONNX support";
+#endif
+    EXPECT_THAT(ThrownMessage([&]() { controller.Setup(); }),
+                testing::HasSubstr(expected_message));
+  }
+}
+
 TEST(FeatureMatcherController, MatchSkipGeometricVerification) {
   auto data = CreateTestData(3);
   data.database->ClearMatches();
@@ -419,6 +495,42 @@ TEST(GeometricVerifierController, VerifyWithExistingMatches) {
 
   // All 6 pairs should now have TVGs
   EXPECT_EQ(data.database->ReadTwoViewGeometries().size(), 6);
+}
+
+TEST(GeometricVerifierController, VerifyPropagatesErrors) {
+  auto data = CreateTestData(3);
+  const auto pairs = AllPairs(data.image_ids);
+  MatchPairsWithoutVerification(data, pairs);
+
+  // Keypoints in an unsupported format make reading them throw for all pairs
+  // with the first image.
+  std::vector<FeatureKeypointsBlob> keypoints;
+  keypoints.reserve(data.image_ids.size());
+  for (const image_t image_id : data.image_ids) {
+    keypoints.push_back(data.database->ReadKeypointsBlob(image_id));
+  }
+  keypoints[0] = FeatureKeypointsBlob::Zero(keypoints[0].rows(), 3);
+  data.database->ClearKeypoints();
+  for (size_t i = 0; i < data.image_ids.size(); ++i) {
+    data.database->WriteKeypoints(data.image_ids[i], keypoints[i]);
+  }
+  data.cache = std::make_shared<FeatureMatcherCache>(100, data.database);
+
+  GeometricVerifierOptions verifier_options;
+  verifier_options.num_threads = 1;
+  TwoViewGeometryOptions geometry_options;
+  GeometricVerifierController controller(
+      verifier_options, geometry_options, data.cache);
+  ASSERT_TRUE(controller.Setup());
+
+  // The error is rethrown instead of the verifier thread exiting and the
+  // controller waiting forever for its output. The other pairs are verified.
+  EXPECT_THAT(ThrownMessage([&]() { controller.Verify(pairs); }),
+              testing::HasSubstr("Keypoint format not supported"));
+  EXPECT_FALSE(data.database->ExistsTwoViewGeometry(data.image_ids[0],
+                                                    data.image_ids[1]));
+  EXPECT_TRUE(data.database->ExistsTwoViewGeometry(data.image_ids[1],
+                                                   data.image_ids[2]));
 }
 
 TEST(GeometricVerifierController, VerifyClearsDegenerateGeometry) {
