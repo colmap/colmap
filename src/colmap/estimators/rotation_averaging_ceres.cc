@@ -30,23 +30,39 @@ double* MaybeGetSensorRotationBlock(const Image& image) {
 
 namespace internal {
 
-void PrepareCeresRotationAveraging(const RotationEstimatorOptions& options,
-                                   const PoseGraph& pose_graph,
-                                   const FlatHashSet<image_t>& image_ids,
-                                   Reconstruction& reconstruction) {
-  if (options.reweighting == RotationAveragingReweighting::COVARIANCE) {
-    for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-      if (!edge.cam2_from_cam1_rotation_cov.has_value()) {
-        const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-        throw std::invalid_argument(StringPrintf(
-            "COVARIANCE reweighting requires a rotation covariance for every "
-            "valid edge, but edge (%u, %u) has none. Call "
-            "EstimatePoseGraphRotationCovariances first.",
-            image_id1,
-            image_id2));
-      }
+FlatHashSet<image_t> PrepareCeresRotationAveraging(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction) {
+  bool has_edges = false;
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!reconstruction.ExistsImage(image_id1) ||
+        !reconstruction.ExistsImage(image_id2)) {
+      throw std::invalid_argument("rotation edge references unknown image");
     }
+    if (options.reweighting == RotationAveragingReweighting::COVARIANCE &&
+        !edge.cam2_from_cam1_rotation_cov.has_value()) {
+      throw std::invalid_argument(StringPrintf(
+          "COVARIANCE reweighting requires a rotation covariance for every "
+          "valid edge, but edge (%u, %u) has none. Call "
+          "EstimatePoseGraphRotationCovariances first.",
+          image_id1,
+          image_id2));
+    }
+    has_edges = true;
   }
+  if (!has_edges) {
+    throw std::invalid_argument("Ceres rotation averaging requires edges");
+  }
+  std::vector<FlatHashSet<image_t>> image_components =
+      pose_graph.ConnectedImageIdsForFrameComponents(
+          reconstruction, /*filter_unregistered=*/false);
+  if (image_components.size() != 1) {
+    throw std::invalid_argument(
+        "Ceres rotation averaging requires a connected pose graph");
+  }
+  FlatHashSet<image_t> image_ids = std::move(image_components.front());
   // Validate fixed sensors before replacing invalid initial rotations.
   for (const image_t image_id : image_ids) {
     const auto& image = reconstruction.Image(image_id);
@@ -71,6 +87,7 @@ void PrepareCeresRotationAveraging(const RotationEstimatorOptions& options,
       pose.reset();
     }
   }
+  return image_ids;
 }
 
 }  // namespace internal
@@ -106,37 +123,24 @@ CeresRotationAverager::CeresRotationAverager(
   const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
   const Eigen::Matrix3d floor_cov =
       floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
+  const FlatHashSet<image_t> component_image_ids =
+      internal::PrepareCeresRotationAveraging(
+          options, pose_graph, reconstruction);
+  if (!options.skip_initialization) {
+    InitializeFromMaximumSpanningTree(
+        pose_graph,
+        component_image_ids,
+        reconstruction,
+        options.refine_sensor_from_rig,
+        /*use_rotation_covariance=*/use_covariance);
+  }
   FlatHashSet<image_t> image_ids;
   int max_num_matches = 0;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (!reconstruction.ExistsImage(image_id1) ||
-        !reconstruction.ExistsImage(image_id2)) {
-      throw std::invalid_argument("rotation edge references unknown image");
-    }
     image_ids.insert(image_id1);
     image_ids.insert(image_id2);
     max_num_matches = std::max(max_num_matches, edge.num_matches);
-  }
-  if (image_ids.empty()) {
-    throw std::invalid_argument("Ceres rotation averaging requires edges");
-  }
-  const auto image_components = pose_graph.ConnectedImageIdsForFrameComponents(
-      reconstruction, /*filter_unregistered=*/false);
-  if (image_components.size() != 1) {
-    throw std::invalid_argument(
-        "Ceres rotation averaging requires a connected pose graph");
-  }
-
-  internal::PrepareCeresRotationAveraging(
-      options, pose_graph, image_components.front(), reconstruction);
-  if (!options.skip_initialization) {
-    InitializeFromMaximumSpanningTree(
-        pose_graph,
-        image_components.front(),
-        reconstruction,
-        options.refine_sensor_from_rig,
-        /*use_rotation_covariance=*/use_covariance);
   }
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;

@@ -631,14 +631,15 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
   RotationEstimatorOptions options = options_;
   // Check the inputs before the initialization below modifies the
   // reconstruction. The averagers created by solve() check them again.
-  internal::PrepareCeresRotationAveraging(
-      options, active_pose_graph, active_image_ids, reconstruction);
+  const FlatHashSet<image_t> image_ids =
+      internal::PrepareCeresRotationAveraging(
+          options, active_pose_graph, reconstruction);
   // Initialize once before both solves, since the warm-start overrides the
   // reweighting, which determines how the maximum spanning tree weights edges.
   if (!options.skip_initialization) {
     InitializeFromMaximumSpanningTree(
         active_pose_graph,
-        active_image_ids,
+        image_ids,
         reconstruction,
         options.refine_sensor_from_rig,
         /*use_rotation_covariance=*/options.reweighting ==

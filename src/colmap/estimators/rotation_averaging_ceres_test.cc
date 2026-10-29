@@ -512,6 +512,21 @@ TEST(RotationEstimator, CeresChecksInputsBeforeInitialization) {
     EXPECT_EQ(reconstruction.Frames(), before.Frames());
     EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
   }
+
+  {
+    // The averager requires a connected pose graph.
+    Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3, 4});
+    PoseGraph graph;
+    graph.AddEdge(1, 2, Edge(ZRotation(0.1)));
+    graph.AddEdge(3, 4, Edge(ZRotation(0.2)));
+    const Reconstruction before = reconstruction;
+    options.refine_sensor_from_rig = false;
+    RotationEstimator estimator(options);
+    EXPECT_THROW(
+        estimator.EstimateRotations(graph, {}, {1, 2, 3, 4}, reconstruction),
+        std::invalid_argument);
+    EXPECT_EQ(reconstruction.Frames(), before.Frames());
+  }
 }
 
 TEST(RotationEstimatorOptions, DeepCopiesCeresOptions) {
