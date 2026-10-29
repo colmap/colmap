@@ -266,12 +266,16 @@ TEST(RotationAveraging, InitializeFromMaximumSpanningTreeWithCovariance) {
 
   // Every measured edge then requires a covariance.
   pose_graph.UpdateEdge(1, 3, PoseGraph::Edge(Rigid3d()));
-  EXPECT_ANY_THROW(
-      InitializeFromMaximumSpanningTree(pose_graph,
-                                        image_ids,
-                                        reconstruction,
-                                        /*refine_sensor_from_rig=*/true,
-                                        /*use_rotation_covariance=*/true));
+  EXPECT_THAT(
+      [&]() {
+        InitializeFromMaximumSpanningTree(pose_graph,
+                                          image_ids,
+                                          reconstruction,
+                                          /*refine_sensor_from_rig=*/true,
+                                          /*use_rotation_covariance=*/true);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("Missing rotation covariance")));
 }
 
 TEST(RotationAveraging, WithoutNoise) {
