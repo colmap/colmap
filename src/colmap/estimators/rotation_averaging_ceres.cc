@@ -120,7 +120,7 @@ CeresRotationAverager::CeresRotationAverager(
   std::shared_ptr<ceres::LossFunction> loss(CreateCeresLossFunction(
       ceres_options.loss_function_type, loss_function_scale));
   // Isotropic floor added in quadrature to the relative rotation covariances.
-  const double floor_sigma = DegToRad(options.covariance_sigma_floor_deg);
+  const double floor_sigma = DegToRad(ceres_options.covariance_sigma_floor_deg);
   const Eigen::Matrix3d floor_cov =
       floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
   const FlatHashSet<image_t> component_image_ids =

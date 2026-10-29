@@ -20,8 +20,8 @@ class PoseGraph;
 class Reconstruction;
 
 // Ceres-specific rotation averaging options. Solver-agnostic options (e.g.,
-// reweighting, covariance_sigma_floor_deg, skip_initialization,
-// refine_sensor_from_rig) are in RotationEstimatorOptions.
+// reweighting, skip_initialization, refine_sensor_from_rig) are in
+// RotationEstimatorOptions.
 struct CeresRotationAveragerOptions {
   // Robust loss function applied to the relative-rotation residuals.
   CeresLossFunctionType loss_function_type = CeresLossFunctionType::CAUCHY;
@@ -31,6 +31,12 @@ struct CeresRotationAveragerOptions {
   // Loss function scale with COVARIANCE reweighting, in standard deviations
   // of the whitened (unitless) residuals. Replaces loss_function_scale.
   double covariance_loss_scale = 3.0;
+
+  // With COVARIANCE reweighting, isotropic standard deviation (in degrees)
+  // added in quadrature to the estimated relative rotation covariances. It
+  // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
+  // pairs with many correspondences from dominating.
+  double covariance_sigma_floor_deg = 0.02;
 
   // Number of solver iterations of a Huber-loss warm-start (with the same
   // loss_function_scale) run by RotationEstimator before the main solve. The
@@ -51,11 +57,10 @@ struct CeresRotationAveragerOptions {
 // outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
 // gravity/pose priors, outlier filtering, or frame deregistration. Uses the
 // Ceres-specific options in options.ceres and the solver-agnostic options
-// reweighting, covariance_sigma_floor_deg, skip_initialization, and
-// refine_sensor_from_rig. With COVARIANCE reweighting, every valid edge must
-// have a positive-definite cam2_from_cam1_rotation_cov (see
-// EstimatePoseGraphRotationCovariances), to which the isotropic floor
-// covariance_sigma_floor_deg is added.
+// reweighting, skip_initialization, and refine_sensor_from_rig. With COVARIANCE
+// reweighting, every valid edge must have a positive-definite
+// cam2_from_cam1_rotation_cov (see EstimatePoseGraphRotationCovariances), to
+// which the isotropic floor covariance_sigma_floor_deg is added.
 class CeresRotationAverager {
  public:
   CeresRotationAverager(const RotationEstimatorOptions& options,

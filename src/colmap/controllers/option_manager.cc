@@ -987,6 +987,9 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_ceres_covariance_loss_scale",
       &global_mapper->mapper.rotation_averaging.ceres->covariance_loss_scale);
+  AddDefaultOption("GlobalMapper.ra_ceres_covariance_sigma_floor_deg",
+                   &global_mapper->mapper.rotation_averaging.ceres
+                        ->covariance_sigma_floor_deg);
   AddDefaultOption("GlobalMapper.ra_ceres_max_num_warm_start_iterations",
                    &global_mapper->mapper.rotation_averaging.ceres
                         ->max_num_warm_start_iterations);
@@ -1005,9 +1008,6 @@ void OptionManager::AddGlobalMapperOptions() {
                        RotationAveragingReweightingToString,
                        RotationAveragingReweightingFromString,
                        EnumHelpText(RotationAveragingReweightingStrings()));
-  AddDefaultOption(
-      "GlobalMapper.ra_covariance_sigma_floor_deg",
-      &global_mapper->mapper.rotation_averaging.covariance_sigma_floor_deg);
 
   // Threshold options.
   AddDefaultOption("GlobalMapper.max_angular_reproj_error_deg",
