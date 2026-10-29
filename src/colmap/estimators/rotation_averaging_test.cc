@@ -864,6 +864,9 @@ TEST(MaybeEstimatePoseGraphRotationCovariances, Nominal) {
   synthetic_dataset_options.num_frames_per_rig = 3;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  // Only the image pairs (1, 2) and (2, 3) have matches.
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::CHAINED;
   SynthesizeDataset(
       synthetic_dataset_options, &gt_reconstruction, database.get());
   const auto database_cache =
@@ -871,13 +874,10 @@ TEST(MaybeEstimatePoseGraphRotationCovariances, Nominal) {
 
   PoseGraph pose_graph;
   pose_graph.Load(*database_cache->CorrespondenceGraph());
-  ASSERT_EQ(pose_graph.NumEdges(), 3);
+  ASSERT_EQ(pose_graph.NumEdges(), 2);
   // The covariance of an edge without correspondences cannot be estimated.
-  constexpr image_t kUnknownImageId1 = 100;
-  constexpr image_t kUnknownImageId2 = 101;
-  pose_graph.AddEdge(kUnknownImageId1, kUnknownImageId2, PoseGraph::Edge());
-  const image_pair_t unknown_pair_id =
-      ImagePairToPairId(kUnknownImageId1, kUnknownImageId2);
+  pose_graph.AddEdge(1, 3, PoseGraph::Edge());
+  const image_pair_t unmatched_pair_id = ImagePairToPairId(1, 3);
 
   // No-op without CERES covariance-weighted rotation averaging.
   RotationEstimatorOptions options;
@@ -897,7 +897,7 @@ TEST(MaybeEstimatePoseGraphRotationCovariances, Nominal) {
   MaybeEstimatePoseGraphRotationCovariances(
       options, *database_cache, pose_graph);
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
-    if (pair_id == unknown_pair_id) {
+    if (pair_id == unmatched_pair_id) {
       EXPECT_FALSE(edge.valid);
       EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
     } else {
