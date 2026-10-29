@@ -203,19 +203,22 @@ TEST(GlobalMapper, WithGivenPoseGraph) {
 
   // The mapper uses the given pose graph instead of loading it from the
   // database: an image without valid edges is not reconstructed.
-  auto pose_graph = std::make_shared<PoseGraph>();
-  pose_graph->Load(*database_cache->CorrespondenceGraph());
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache->CorrespondenceGraph());
   constexpr image_t kIsolatedImageId = 1;
-  for (const auto& [pair_id, edge] : pose_graph->Edges()) {
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (image_id1 == kIsolatedImageId || image_id2 == kIsolatedImageId) {
-      pose_graph->SetInvalidEdge(pair_id);
+      pose_graph.SetInvalidEdge(pair_id);
     }
   }
+  // Edges to images outside the database cache are dropped.
+  constexpr image_t kUnknownImageId = 100;
+  pose_graph.AddEdge(2, kUnknownImageId, PoseGraph::Edge(Rigid3d()));
 
   auto reconstruction = std::make_shared<Reconstruction>();
   GlobalMapper global_mapper(database_cache);
-  global_mapper.BeginReconstruction(reconstruction, pose_graph);
+  global_mapper.BeginReconstruction(reconstruction, &pose_graph);
   ASSERT_TRUE(global_mapper.Solve(GlobalMapperOptions()));
 
   // The isolated image is not registered, and thus removed by the final
