@@ -33,6 +33,12 @@ void BindCeresRotationAveragerOptions(py::module& m) {
               "Loss function scale with COVARIANCE reweighting, in standard "
               "deviations of the whitened residuals.")
           .def_readwrite(
+              "covariance_sigma_floor_deg",
+              &CeresRotationAveragerOptions::covariance_sigma_floor_deg,
+              "Isotropic standard deviation (degrees) added in quadrature to "
+              "the estimated relative rotation covariances with COVARIANCE "
+              "reweighting.")
+          .def_readwrite(
               "max_num_warm_start_iterations",
               &CeresRotationAveragerOptions::max_num_warm_start_iterations,
               "Number of solver iterations of a Huber-loss warm-start (with "

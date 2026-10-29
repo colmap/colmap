@@ -307,13 +307,7 @@ void BindRotationEstimator(py::module& m) {
                          &RotationEstimatorOptions::reweighting,
                          "Reweighting scheme for relative-rotation "
                          "constraints: UNIFORM, INLIER_MATCH_COUNT, or "
-                         "COVARIANCE.")
-          .def_readwrite(
-              "covariance_sigma_floor_deg",
-              &RotationEstimatorOptions::covariance_sigma_floor_deg,
-              "Isotropic standard deviation (degrees) added in quadrature to "
-              "the estimated relative rotation covariances with COVARIANCE "
-              "reweighting.");
+                         "COVARIANCE.");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(

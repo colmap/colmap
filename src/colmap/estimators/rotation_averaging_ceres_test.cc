@@ -577,9 +577,9 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
   options.refine_sensor_from_rig = false;
   options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
   // The residuals are whitened with the covariance plus the isotropic floor.
-  options.covariance_sigma_floor_deg = 0.5;
+  options.ceres->covariance_sigma_floor_deg = 0.5;
   const Eigen::Matrix3d floored_cov =
-      cov + std::pow(DegToRad(options.covariance_sigma_floor_deg), 2) *
+      cov + std::pow(DegToRad(options.ceres->covariance_sigma_floor_deg), 2) *
                 Eigen::Matrix3d::Identity();
 
   // Trivial frames use the fixed-size cost function.

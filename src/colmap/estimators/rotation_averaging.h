@@ -27,8 +27,8 @@ class DatabaseCache;
 //     edge, normalized to (0, 1].
 //   COVARIANCE: whiten each constraint with the covariance of its relative
 //     rotation (PoseGraph::Edge::cam2_from_cam1_rotation_cov), regularized with
-//     RotationEstimatorOptions::covariance_sigma_floor_deg. Every valid edge
-//     must have a covariance, which the global mapper and the rotation
+//     CeresRotationAveragerOptions::covariance_sigma_floor_deg. Every valid
+//     edge must have a covariance, which the global mapper and the rotation
 //     averaging pipeline estimate from the two-view correspondences (see
 //     MaybeEstimatePoseGraphRotationCovariances). Only supported by the CERES
 //     backend, which then uses
@@ -109,12 +109,6 @@ struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // (consistent) system yields an identical solution regardless of reweighting.
   RotationAveragingReweighting reweighting =
       RotationAveragingReweighting::UNIFORM;
-
-  // With COVARIANCE reweighting, isotropic standard deviation (in degrees)
-  // added in quadrature to the estimated relative rotation covariances. It
-  // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
-  // pairs with many correspondences from dominating.
-  double covariance_sigma_floor_deg = 0.02;
 };
 
 // High-level interface for rotation averaging.
