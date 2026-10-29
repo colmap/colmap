@@ -8,6 +8,8 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/correspondence_graph.h"
+#include "colmap/scene/database_cache.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/string.h"
