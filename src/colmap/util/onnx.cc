@@ -6,6 +6,7 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
+#include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <mutex>
@@ -74,6 +75,12 @@ ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu) {
 #endif
 }
 
+int SelectONNXCudaDevice(const std::string& gpu_index) {
+  const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
+  THROW_CHECK_EQ(gpu_indices.size(), 1) << "ONNX model can only run on one GPU";
+  return std::max(0, gpu_indices[0]);
+}
+
 std::string FormatONNXTensorShape(const std::vector<int64_t>& shape) {
   std::ostringstream oss;
   oss << "[";
@@ -118,8 +125,7 @@ void ThrowCheckONNXElementType(const std::string_view name,
 ONNXModel::ONNXModel(std::string model_path,
                      int num_threads,
                      bool use_gpu,
-                     const std::string& gpu_index,
-                     bool is_capability_probe) {
+                     const std::string& gpu_index) {
   {
     static std::mutex download_mutex;
     const std::lock_guard<std::mutex> lock(download_mutex);
@@ -129,12 +135,8 @@ ONNXModel::ONNXModel(std::string model_path,
   const int num_eff_threads = GetEffectiveNumThreads(num_threads);
 
   try {
-    InitializeSession(
-        model_path, num_eff_threads, use_gpu, gpu_index, is_capability_probe);
+    InitializeSession(model_path, num_eff_threads, use_gpu, gpu_index);
   } catch (...) {
-    if (is_capability_probe) {
-      throw;
-    }
     RethrowONNXException();
   }
 }
@@ -160,20 +162,14 @@ void ONNXModel::ConfigureSessionOptions(int num_threads) {
 void ONNXModel::InitializeSession(const std::string& model_path,
                                   int num_threads,
                                   bool use_gpu,
-                                  const std::string& gpu_index,
-                                  bool is_capability_probe) {
+                                  const std::string& gpu_index) {
   ConfigureSessionOptions(num_threads);
   execution_provider_ = SelectONNXExecutionProvider(use_gpu);
 
 #ifdef COLMAP_CUDA_ENABLED
   if (execution_provider_ == ONNXExecutionProvider::CUDA) {
-    const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
-    THROW_CHECK_EQ(gpu_indices.size(), 1)
-        << "ONNX model can only run on one GPU";
     OrtCUDAProviderOptions cuda_options{};
-    if (gpu_indices[0] >= 0) {
-      cuda_options.device_id = gpu_indices[0];
-    }
+    cuda_options.device_id = SelectONNXCudaDevice(gpu_index);
     session_options_.AppendExecutionProvider_CUDA(cuda_options);
   }
 #endif
@@ -211,7 +207,7 @@ void ONNXModel::InitializeSession(const std::string& model_path,
     session_ =
         std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
   } catch (const Ort::Exception& e) {
-    if (!use_coreml || is_capability_probe) {
+    if (!use_coreml) {
       throw;
     }
     // Some models cannot be compiled by CoreML (e.g. unsupported dynamic
