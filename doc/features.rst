@@ -197,7 +197,8 @@ correspondences. Example usage::
         --FlexGlueMatching.image_path $DATASET_PATH/images
 
 The dense features of the most recently used images are cached in memory
-(``--FlexGlueMatching.feature_cache_size``, ~4MB per image). On CUDA GPUs, a
+(``--FlexGlueMatching.feature_cache_size``, ~4MB per image), on the GPU if the
+models run on a CUDA GPU. On CUDA GPUs, a
 variant of the matcher whose transformer layers run in float16 is used by
 default (``--FlexGlueMatching.use_fp16``), which is about twice as fast as the
 float32 matcher with practically identical matches; the float32 matcher is used on the

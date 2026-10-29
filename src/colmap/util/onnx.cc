@@ -281,6 +281,26 @@ std::vector<Ort::Value> ONNXModel::Run(
   }
 }
 
+std::vector<Ort::Value> ONNXModel::Run(
+    const std::vector<Ort::Value>& input_tensors,
+    const Ort::MemoryInfo& output_memory_info) const {
+  try {
+    THROW_CHECK_EQ(input_tensors.size(), input_names_.size());
+    Ort::IoBinding binding(*session_);
+    for (size_t i = 0; i < input_tensors.size(); ++i) {
+      binding.BindInput(input_names_[i], input_tensors[i]);
+    }
+    for (const char* name : output_names_) {
+      binding.BindOutput(name, output_memory_info);
+    }
+    session_->Run(Ort::RunOptions(), binding);
+    binding.SynchronizeOutputs();
+    return binding.GetOutputValues();
+  } catch (...) {
+    RethrowONNXException();
+  }
+}
+
 #endif  // COLMAP_ONNX_ENABLED
 
 }  // namespace colmap
