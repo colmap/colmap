@@ -17,7 +17,7 @@ import subprocess
 import sys
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -108,6 +108,8 @@ class SceneInfo:
     image_name_to_component: dict[str, int] = dataclasses.field(
         default_factory=dict
     )
+    # Input images with unavailable GT poses, excluded from evaluation.
+    images_without_gt: set[str] = dataclasses.field(default_factory=set)
 
 
 @dataclasses.dataclass(kw_only=True)
@@ -1309,6 +1311,7 @@ def compute_scene_errors(
             sub_models=sub_models,
             image_name_to_component=image_name_to_component,
             min_proj_center_dist=position_accuracy_gt,
+            images_without_gt=scene_info.images_without_gt,
         )
     elif args.error_type.startswith("absolute"):
         return compute_grouped_abs_errors(
@@ -1325,6 +1328,7 @@ def compute_grouped_rel_errors(
     sub_models: list[pycolmap.Reconstruction],
     image_name_to_component: dict[str, int],
     min_proj_center_dist: float,
+    images_without_gt: Collection[str] = (),
 ) -> npt.NDArray[np.floating]:
     """Set-based relative pose errors over the graph of image pairs.
 
@@ -1334,7 +1338,8 @@ def compute_grouped_rel_errors(
     relative pose error; for pairs in the symmetric difference (grouped in only
     one of the two, i.e. wrong merges / registered outliers or failed /
     fragmented registrations) we assign the maximum error of 180 degrees. The
-    returned error array covers all pairs in A u B.
+    returned error array covers all pairs in A u B, excluding images listed
+    in images_without_gt.
 
     A and B are materialized as flat collections and scored in a single pass.
     A is a multiset (tgt_from_src_est_edges): an image may appear in several
@@ -1355,6 +1360,7 @@ def compute_grouped_rel_errors(
         cam_from_world = {
             image.name: image.cam_from_world()
             for image in sub_model.images.values()
+            if image.name not in images_without_gt
         }
         for src_name, tgt_name in itertools.permutations(cam_from_world, 2):
             tgt_from_src_est = (
