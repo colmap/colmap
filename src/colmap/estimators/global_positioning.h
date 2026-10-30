@@ -16,6 +16,10 @@
 
 namespace colmap {
 
+// Per-observation BATA displacement scales keyed by TrackElement.
+// Each observation must occur only once across the reconstruction's tracks.
+using ObservationScaleMap = NodeHashMap<TrackElement, double>;
+
 struct GlobalPositionerOptions {
   // Whether to initialize the camera and track positions randomly.
   bool generate_random_positions = true;
@@ -41,7 +45,7 @@ struct GlobalPositionerOptions {
   int min_num_view_per_track = 3;
 
   // PRNG seed for random initialization.
-  // If -1 (default), uses non-deterministic random_device seeding.
+  // If -1 (default), continues the current thread-local random sequence.
   // If >= 0, uses deterministic seeding with the given value.
   int random_seed = -1;
 
@@ -81,11 +85,15 @@ class GlobalPositioner {
  public:
   virtual ~GlobalPositioner() = default;
 
-  // The reconstruction must outlive the returned positioner.
+  // Build from supplied frame poses, points, and scales without initialization.
+  // All posed frames have center blocks, including those without observations.
+  // Scales update in place; included observations require finite values >=
+  // 1e-5. Unused entries are ignored. Reconstruction and scales must outlive
+  // the positioner and its problem; active scale entries must remain valid.
   static std::unique_ptr<GlobalPositioner> CreateDefault(
       const GlobalPositionerOptions& options,
-      const PoseGraph& pose_graph,
       Reconstruction& reconstruction,
+      ObservationScaleMap& observation_scales,
       std::shared_ptr<ceres::LossFunction> loss_function = nullptr);
 
   // Solve the prepared problem and publish its results.
@@ -95,7 +103,7 @@ class GlobalPositioner {
   const ceres::Solver::Options& SolverOptions() const;
   // Returns the temporary frame-center block used by the prepared problem,
   // allowing additional residuals to constrain the same variable. Returns
-  // nullptr if the frame is not active.
+  // nullptr if no frame-center block is available.
   double* FrameCenterParameterBlock(frame_t frame_id);
   bool Finalize(const ceres::Solver::Summary& summary);
   // Extends an existing ordering after adding parameter blocks.
@@ -108,15 +116,11 @@ class GlobalPositioner {
   explicit GlobalPositioner(const GlobalPositionerOptions& options);
 
   // Construct the problem without solving it.
-  void Prepare(const PoseGraph& pose_graph,
-               Reconstruction& reconstruction,
+  void Prepare(Reconstruction& reconstruction,
+               ObservationScaleMap& observation_scales,
                std::shared_ptr<ceres::LossFunction> loss_function);
 
   void SetupProblem(std::shared_ptr<ceres::LossFunction> loss_function);
-
-  // Initialize all cameras to be random.
-  void InitializeRandomPositions(const PoseGraph& pose_graph,
-                                 Reconstruction& reconstruction);
 
   // Add tracks to the problem
   void AddPointToCameraConstraints(Reconstruction& reconstruction);
@@ -137,10 +141,6 @@ class GlobalPositioner {
 
   GlobalPositionerOptions options_;
 
- private:
-  std::vector<double> scales_;
-
- protected:
   // Loss functions for reweighted terms.
   std::shared_ptr<ceres::LossFunction> loss_function_;
   std::shared_ptr<ceres::LossFunction> loss_function_ptcam_uncalibrated_;
@@ -157,12 +157,33 @@ class GlobalPositioner {
 
   // Retained for Finalize().
   Reconstruction* reconstruction_ = nullptr;
+  ObservationScaleMap* observation_scales_ = nullptr;
   std::unique_ptr<ceres::Problem> problem_;
 };
 
+// Randomize rig-frame centers and 3D points according to options; keep
+// rotations. Frames come from pose_graph or posed observations in tracks
+// meeting min_num_view_per_track; points must meet the same track threshold.
+// To continue the same random sequence in GlobalPositioner::CreateDefault,
+// pass it options with random_seed = -1.
+void RandomizeReconstructionPositions(const GlobalPositionerOptions& options,
+                                      const PoseGraph& pose_graph,
+                                      Reconstruction& reconstruction);
+
+// Generate ones or geometry-based scales without modifying reconstruction.
+// Geometric initialization skips observations without usable poses or rays.
+// It examines all tracks, including those below GP's minimum track length;
+// feature indices in posed images must be valid.
+// Scales must cover all observations used by the global positioner.
+ObservationScaleMap GenerateObservationScales(
+    const Reconstruction& reconstruction, bool from_geometry = false);
+
 // Solve global positioning using point-to-camera constraints.
+// Omitted scales trigger initialization according to options; supplied scales
+// preserve caller initialization and are optimized in place.
 bool RunGlobalPositioning(const GlobalPositionerOptions& options,
                           const PoseGraph& pose_graph,
-                          Reconstruction& reconstruction);
+                          Reconstruction& reconstruction,
+                          ObservationScaleMap* observation_scales = nullptr);
 
 }  // namespace colmap
