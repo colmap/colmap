@@ -47,7 +47,9 @@ struct FeatureKeypoint {
                                              float orientation,
                                              float shear);
 
-  // Rescale the feature location and shape size by the given scale factor.
+  // Rescale the feature location and shape size by the given scale factors.
+  // The affine shape transforms as diag(scale_x, scale_y) * A, i.e. its
+  // rows are scaled, since A maps patch coordinates to image coordinates.
   void Rescale(float scale);
   void Rescale(float scale_x, float scale_y);
 

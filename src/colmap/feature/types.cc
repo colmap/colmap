@@ -59,8 +59,8 @@ void FeatureKeypoint::Rescale(const float scale_x, const float scale_y) {
   x *= scale_x;
   y *= scale_y;
   a11 *= scale_x;
-  a12 *= scale_y;
-  a21 *= scale_x;
+  a12 *= scale_x;
+  a21 *= scale_y;
   a22 *= scale_y;
 }
 
