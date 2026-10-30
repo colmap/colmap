@@ -119,9 +119,13 @@ class GlobalMapper {
   explicit GlobalMapper(std::shared_ptr<const DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction. This will initialize the
-  // reconstruction and view graph from the database.
+  // reconstruction from the database and the pose graph from the database or,
+  // if pose_graph is given, from its subgraph between the images of the
+  // database cache. The latter lets callers provide precomputed edge data, such
+  // as rotation covariances.
   void BeginReconstruction(
-      const std::shared_ptr<Reconstruction>& reconstruction);
+      const std::shared_ptr<Reconstruction>& reconstruction,
+      const class PoseGraph* pose_graph = nullptr);
 
   // Run the global SfM pipeline. The optional `on_progress` callback is invoked
   // after global positioning, after each bundle-adjustment iteration, and after

@@ -171,3 +171,17 @@ def test_pose_graph_add_rig_edges() -> None:
     assert edge.prior is True
     assert edge.valid is False
     assert edge.num_matches == 0
+
+
+def test_pose_graph_subgraph() -> None:
+    pose_graph = pycolmap.PoseGraph()
+    edge = pycolmap.PoseGraphEdge()
+    edge.num_matches = 42
+    pose_graph.add_edge(1, 2, edge)
+    pose_graph.add_edge(1, 3, pycolmap.PoseGraphEdge())
+    pose_graph.add_edge(2, 3, pycolmap.PoseGraphEdge())
+    subgraph = pose_graph.subgraph({1, 2})
+    assert subgraph.num_edges == 1
+    assert subgraph.has_edge(1, 2)
+    assert subgraph.get_edge(1, 2).num_matches == 42
+    assert pose_graph.num_edges == 3
