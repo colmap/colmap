@@ -3,6 +3,7 @@
 #include "colmap/feature/types.h"
 
 #include "colmap/math/math.h"
+#include "colmap/util/eigen_matchers.h"
 
 #include <gtest/gtest.h>
 
@@ -197,7 +198,7 @@ TEST(FeatureKeypoint, RescaleImageCoordinates) {
           FeatureKeypoint::FromShapeParameters(10, 20, 2, 3, orientation, 0.2f);
       Eigen::Matrix2f shape;
       shape << keypoint.a11, keypoint.a12, keypoint.a21, keypoint.a22;
-      const Eigen::Vector2f point(0.25f, 0.5f);
+      const Eigen::Vector2f point(2.0f, 2.0f);
       // A frame maps patch coordinates into image coordinates before resizing.
       const Eigen::Vector2f expected =
           scale.asDiagonal() * (shape * point + Eigen::Vector2f(10, 20));
@@ -205,7 +206,7 @@ TEST(FeatureKeypoint, RescaleImageCoordinates) {
       shape << keypoint.a11, keypoint.a12, keypoint.a21, keypoint.a22;
       const Eigen::Vector2f actual =
           shape * point + Eigen::Vector2f(keypoint.x, keypoint.y);
-      EXPECT_LT((actual - expected).norm(), 1e-5f);
+      EXPECT_THAT(actual, EigenMatrixNear(expected, 1e-6));
     }
   }
 }
