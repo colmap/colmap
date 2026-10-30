@@ -588,8 +588,8 @@ double Bitmap::Thumbnail(const int max_image_size, RescaleFilter filter) {
   // Fit the down-sampled version exactly into the max dimensions.
   const double scale =
       static_cast<double>(max_image_size) / std::max(width_, height_);
-  Rescale(static_cast<int>(std::round(width_ * scale)),
-          static_cast<int>(std::round(height_ * scale)),
+  Rescale(std::max(1, static_cast<int>(std::round(width_ * scale))),
+          std::max(1, static_cast<int>(std::round(height_ * scale))),
           filter);
   return scale;
 }

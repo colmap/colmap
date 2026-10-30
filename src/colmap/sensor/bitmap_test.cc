@@ -503,6 +503,26 @@ TEST(Bitmap, ThumbnailNoOp) {
   EXPECT_EQ(equal.Height(), 80);
 }
 
+TEST(Bitmap, ThumbnailKeepsThinImagesNonempty) {
+  for (const bool as_rgb : {false, true}) {
+    for (const Bitmap::RescaleFilter filter :
+         {Bitmap::RescaleFilter::kBilinear, Bitmap::RescaleFilter::kBox}) {
+      for (const bool portrait : {false, true}) {
+        Bitmap bitmap(portrait ? 1 : 100, portrait ? 100 : 1, as_rgb);
+        bitmap.Fill(BitmapColor<uint8_t>(73, 73, 73));
+        EXPECT_DOUBLE_EQ(bitmap.Thumbnail(10, filter), 0.1);
+        EXPECT_EQ(bitmap.Width(), portrait ? 1 : 10);
+        EXPECT_EQ(bitmap.Height(), portrait ? 10 : 1);
+        EXPECT_EQ(bitmap.Channels(), as_rgb ? 3 : 1);
+        EXPECT_FALSE(bitmap.IsEmpty());
+        ASSERT_TRUE(bitmap.GetPixel(0, 0).has_value());
+        EXPECT_EQ(bitmap.GetPixel(0, 0)->r, 73);
+        EXPECT_DOUBLE_EQ(bitmap.Thumbnail(10, filter), 1.0);
+      }
+    }
+  }
+}
+
 TEST(Bitmap, Rot90) {
   Bitmap bitmap(10, 5, /*as_rgb=*/false);
   bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(255));
