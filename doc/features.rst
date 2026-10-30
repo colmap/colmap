@@ -165,7 +165,8 @@ started. To use a different model, specify its path using
 URL, COLMAP will automatically download and cache it. Extraction and
 matching also support an opt-in ``use_bf16`` mode
 (``--LomaExtraction.use_bf16`` / ``--LomaMatching.use_bf16``) for faster
-inference.
+inference on CUDA GPUs with compute capability 8.0 (Ampere) or newer. On other
+devices, the fp32 models are used.
 
 
 Iterative Runs

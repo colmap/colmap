@@ -7,9 +7,9 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <stdexcept>
 #include <vector>
 
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -40,29 +40,6 @@ Ort::Value MakeTensor(std::vector<T>* data, const std::vector<int64_t>& shape) {
   return CreateONNXTensor(*data, shape);
 }
 
-class ErrorLogSink : public google::LogSink {
- public:
-  ErrorLogSink() { google::AddLogSink(this); }
-  ~ErrorLogSink() override { google::RemoveLogSink(this); }
-
-  void send(google::LogSeverity severity,
-            const char*,
-            const char*,
-            int,
-            const struct ::tm*,
-            const char*,
-            size_t) override {
-    if (severity >= google::GLOG_ERROR) {
-      ++num_error_logs_;
-    }
-  }
-
-  size_t NumErrorLogs() const { return num_error_logs_; }
-
- private:
-  size_t num_error_logs_ = 0;
-};
-
 TEST(ONNXExecutionProviderTest, Selection) {
   EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/false),
             ONNXExecutionProvider::CPU);
@@ -76,6 +53,13 @@ TEST(ONNXExecutionProviderTest, Selection) {
   EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/true),
             ONNXExecutionProvider::CPU);
 #endif
+}
+
+TEST(SelectONNXCudaDeviceTest, Nominal) {
+  EXPECT_EQ(SelectONNXCudaDevice("0"), 0);
+  EXPECT_EQ(SelectONNXCudaDevice("2"), 2);
+  EXPECT_EQ(SelectONNXCudaDevice("-1"), 0);
+  EXPECT_THROW(SelectONNXCudaDevice("0,1"), std::invalid_argument);
 }
 
 TEST(ONNXModelTest, MetadataAndInference) {
@@ -144,19 +128,18 @@ TEST(ONNXModelTest, InvalidInputTypeRethrows) {
   EXPECT_THROW(model.Run(inputs), Ort::Exception);
 }
 
-TEST(ONNXModelTest, CapabilityProbeRethrowsWithoutErrorLog) {
+TEST(ONNXModelTest, InvalidModelThrowsOrtException) {
+  // LoMa falls back to fp32 when initializing the bf16 models throws an
+  // Ort::Exception.
   const std::filesystem::path model_path = CreateTestDir() / "invalid.onnx";
   constexpr char kInvalidModel[] = "not an ONNX model";
   WriteBinaryBlob(model_path, {kInvalidModel, sizeof(kInvalidModel)});
 
-  ErrorLogSink log_sink;
   EXPECT_THROW(ONNXModel(model_path.string(),
                          /*num_threads=*/1,
                          /*use_gpu=*/false,
-                         /*gpu_index=*/"-1",
-                         /*is_capability_probe=*/true),
+                         /*gpu_index=*/"-1"),
                Ort::Exception);
-  EXPECT_EQ(log_sink.NumErrorLogs(), 0);
 }
 
 TEST(CreateONNXTensorTest, FloatVector) {

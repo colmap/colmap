@@ -56,6 +56,9 @@ endif()
 
 if(ONNX_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_onnx_util)
+    if(CUDA_ENABLED)
+        target_link_libraries(colmap_feature PRIVATE colmap_util_cuda)
+    endif()
 endif()
 
 if(ONNX_ENABLED)

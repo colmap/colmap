@@ -68,4 +68,21 @@ void SetBestCudaDevice(const int gpu_index) {
   CUDA_SAFE_CALL(cudaSetDevice(selected));
 }
 
+bool CudaDeviceSupportsBf16(const int gpu_index) {
+#ifdef COLMAP_HIP_ENABLED
+  // The major version of HIP devices is the GFX version, not a compute
+  // capability.
+  return false;
+#else
+  cudaDeviceProp properties;
+  if (cudaGetDeviceProperties(&properties, gpu_index) != cudaSuccess) {
+    // Reset the error for an invalid device so that later CUDA_CHECK() calls
+    // do not report it. Initialization errors (e.g., no device) are sticky.
+    cudaGetLastError();
+    return false;
+  }
+  return properties.major >= 8;
+#endif
+}
+
 }  // namespace colmap
