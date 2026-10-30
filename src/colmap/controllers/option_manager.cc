@@ -1366,6 +1366,7 @@ bool OptionManager::Read(const std::filesystem::path& path,
   if (!BaseOptionManager::Read(path, allow_unregistered)) {
     return false;
   }
+  SetDefaultFlexGlueImagePath();
   return Check();
 }
 
@@ -1389,8 +1390,10 @@ void OptionManager::PostParse() {
       mapper->constant_cameras.insert(std::stoi(line));
     }
   }
-  // FlexGlue reads the image pixels during matching. Default to the global
-  // image path (e.g., from a project file), if it was not set explicitly.
+  SetDefaultFlexGlueImagePath();
+}
+
+void OptionManager::SetDefaultFlexGlueImagePath() {
   if (feature_matching && feature_matching->flexglue &&
       feature_matching->flexglue->image_path.empty() && image_path &&
       !image_path->empty()) {

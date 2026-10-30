@@ -10,6 +10,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <string>
 
@@ -164,8 +165,24 @@ TEST(FlexGlueMatchingOptions, Check) {
   options.filter_threshold = -0.1;
   EXPECT_FALSE(options.Check());
   options.filter_threshold = 0.1;
+  options.max_distance_px = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_FALSE(options.Check());
+  // Non-positive values disable the distance check.
+  options.max_distance_px = 0;
+  EXPECT_TRUE(options.Check());
+  options.max_distance_px = 3;
   options.feature_cache_size = 0;
   EXPECT_FALSE(options.Check());
+  options.feature_cache_size = 128;
+  options.descriptor_model_path.clear();
+  EXPECT_FALSE(options.Check());
+  options.descriptor_model_path = kDefaultFlexGlueDescriptorUri;
+  options.matcher_model_path.clear();
+  EXPECT_FALSE(options.Check());
+  options.matcher_model_path = kDefaultFlexGlueMatcherUri;
+  // Without the float16 matcher, the float32 matcher is used.
+  options.matcher_model_path_fp16.clear();
+  EXPECT_TRUE(options.Check());
 }
 
 TEST_F(FlexGlueTest, MatchTranslatedImages) {
@@ -201,7 +218,9 @@ TEST_F(FlexGlueTest, HeavyMinCovisibilityRejectsAllMatches) {
   CreateKeypoints(&keypoints1, &keypoints2);
   FeatureMatchingOptions options = *options_;
   // The covisibility score is a probability in [0, 1), so no pair passes.
+  // Disable early stopping, so that only the final pair rejection applies.
   options.flexglue->min_covisibility = 1.0;
+  options.flexglue->early_stop_decay = 1.0;
   std::unique_ptr<FeatureMatcher> matcher =
       CreateFlexGlueFeatureMatcher(options);
   EXPECT_TRUE(Match(matcher.get(), keypoints1, keypoints2).empty());
