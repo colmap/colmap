@@ -122,14 +122,14 @@ class FlexGlueTest : public ::testing::Test {
         /*image_id=*/1,
         &camera,
         std::make_shared<FeatureKeypoints>(keypoints1),
-        std::make_shared<FeatureDescriptors>(),
+        /*descriptors=*/nullptr,
         /*pose_prior=*/nullptr,
         /*name=*/"image1.png"};
     const FeatureMatcher::Image image2{
         /*image_id=*/2,
         &camera,
         std::make_shared<FeatureKeypoints>(keypoints2),
-        std::make_shared<FeatureDescriptors>(),
+        /*descriptors=*/nullptr,
         /*pose_prior=*/nullptr,
         /*name=*/"image2.png"};
     FeatureMatches matches;
@@ -183,6 +183,21 @@ TEST(FlexGlueMatchingOptions, Check) {
   // Without the float16 matcher, the float32 matcher is used.
   options.matcher_model_path_fp16.clear();
   EXPECT_TRUE(options.Check());
+}
+
+TEST(FlexGlueMatchingOptions, FeatureMatchingOptions) {
+  FeatureMatchingOptions options(FeatureMatcherType::FLEXGLUE);
+  options.flexglue->image_path = CreateTestDir().string();
+  EXPECT_TRUE(options.Check());
+  // FlexGlue only uses the keypoints, and the matching workers then neither
+  // require nor load descriptors.
+  EXPECT_FALSE(options.UsesDescriptors());
+  EXPECT_TRUE(FeatureMatchingOptions(FeatureMatcherType::SIFT_BRUTEFORCE)
+                  .UsesDescriptors());
+  // Guided matching is not supported, which is rejected before loading the
+  // models.
+  options.guided_matching = true;
+  EXPECT_FALSE(options.Check());
 }
 
 TEST_F(FlexGlueTest, MatchTranslatedImages) {
@@ -266,14 +281,14 @@ TEST_F(FlexGlueTest, MissingImageThrows) {
       /*image_id=*/1,
       &camera,
       std::make_shared<FeatureKeypoints>(keypoints1),
-      std::make_shared<FeatureDescriptors>(),
+      /*descriptors=*/nullptr,
       /*pose_prior=*/nullptr,
       /*name=*/"does_not_exist.png"};
   const FeatureMatcher::Image image2{
       /*image_id=*/2,
       &camera,
       std::make_shared<FeatureKeypoints>(keypoints2),
-      std::make_shared<FeatureDescriptors>(),
+      /*descriptors=*/nullptr,
       /*pose_prior=*/nullptr,
       /*name=*/"image2.png"};
   FeatureMatches matches;

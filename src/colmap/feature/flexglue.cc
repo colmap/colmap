@@ -100,7 +100,8 @@ struct DenseFeatures {
 // Whether to load the matcher with float16 transformer layers instead of the
 // float32 matcher. This is decided up front, as for the bf16 LoMa models: the
 // float16 matcher only runs with the CUDA execution provider, on GPUs with
-// tensor cores (compute capability 7.0 or newer). On older GPUs, float16
+// compute capability 7.0 or newer (Volta and later, which have fast float16
+// arithmetic, with or without tensor cores). On older GPUs, float16
 // arithmetic is slow or emulated (e.g., at 1/64 of the float32 rate on most
 // Pascal GPUs), and a session that initializes may still fail at inference,
 // which the fallback on initialization failures would not catch.
@@ -114,7 +115,7 @@ bool UseFlexGlueFp16(const FeatureMatchingOptions& options) {
   }
 #ifdef COLMAP_CUDA_ENABLED
   const int device = SelectONNXCudaDevice(options.gpu_index);
-  if (CudaDeviceHasTensorCores(device)) {
+  if (CudaDeviceHasComputeCapability(device, /*major=*/7)) {
     return true;
   }
   LOG(WARNING) << "The fp16 FlexGlue matcher requires a CUDA GPU with compute "
@@ -227,6 +228,8 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
       }
     }
     THROW_CHECK_GE(matches0_idx_, 0) << "Missing FlexGlue output: matches0";
+    THROW_CHECK_GE(covisibility_score_idx_, 0)
+        << "Missing FlexGlue output: covisibility_score";
   }
 
   void Match(const Image& image1,
@@ -303,11 +306,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_EQ(matches0_shape[1], num_keypoints1);
     const int64_t* matches0 = outputs[matches0_idx_].GetTensorData<int64_t>();
 
-    if (covisibility_score_idx_ >= 0 && VLOG_IS_ON(2)) {
-      VLOG(2) << "FlexGlue covisibility score for images " << image1.name
-              << " and " << image2.name << ": "
-              << outputs[covisibility_score_idx_].GetTensorData<float>()[0];
-    }
+    VLOG(2) << "FlexGlue covisibility score for images " << image1.name
+            << " and " << image2.name << ": "
+            << outputs[covisibility_score_idx_].GetTensorData<float>()[0];
 
     // The model already applies the confidence, distance, mutual nearest
     // neighbor and pair checks, so every non-negative entry is a valid match.

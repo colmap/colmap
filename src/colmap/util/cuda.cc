@@ -68,7 +68,7 @@ void SetBestCudaDevice(const int gpu_index) {
   CUDA_SAFE_CALL(cudaSetDevice(selected));
 }
 
-bool CudaDeviceSupportsBf16(const int gpu_index) {
+bool CudaDeviceHasComputeCapability(const int gpu_index, const int major) {
 #ifdef COLMAP_HIP_ENABLED
   // The major version of HIP devices is the GFX version, not a compute
   // capability.
@@ -81,22 +81,7 @@ bool CudaDeviceSupportsBf16(const int gpu_index) {
     cudaGetLastError();
     return false;
   }
-  return properties.major >= 8;
-#endif
-}
-
-bool CudaDeviceHasTensorCores(const int gpu_index) {
-#ifdef COLMAP_HIP_ENABLED
-  return false;
-#else
-  cudaDeviceProp properties;
-  if (cudaGetDeviceProperties(&properties, gpu_index) != cudaSuccess) {
-    // Reset the error for an invalid device so that later CUDA_CHECK() calls
-    // do not report it. Initialization errors (e.g., no device) are sticky.
-    cudaGetLastError();
-    return false;
-  }
-  return properties.major >= 7;
+  return properties.major >= major;
 #endif
 }
 

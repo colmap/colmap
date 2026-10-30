@@ -9,10 +9,10 @@
 namespace colmap {
 namespace {
 
-TEST(CudaDeviceSupportsBf16, InvalidDevice) {
+TEST(CudaDeviceHasComputeCapability, InvalidDevice) {
   const int num_devices = GetNumCudaDevices();
-  EXPECT_FALSE(CudaDeviceSupportsBf16(-1));
-  EXPECT_FALSE(CudaDeviceSupportsBf16(num_devices));
+  EXPECT_FALSE(CudaDeviceHasComputeCapability(-1, /*major=*/0));
+  EXPECT_FALSE(CudaDeviceHasComputeCapability(num_devices, /*major=*/0));
   if (num_devices == 0) {
     // Without a device, the initialization error is sticky.
     GTEST_SKIP() << "No CUDA device available";
@@ -21,21 +21,16 @@ TEST(CudaDeviceSupportsBf16, InvalidDevice) {
   EXPECT_EQ(cudaGetLastError(), cudaSuccess);
 }
 
-TEST(CudaDeviceHasTensorCores, InvalidDevice) {
+TEST(CudaDeviceHasComputeCapability, ValidDevice) {
   const int num_devices = GetNumCudaDevices();
-  EXPECT_FALSE(CudaDeviceHasTensorCores(-1));
-  EXPECT_FALSE(CudaDeviceHasTensorCores(num_devices));
   if (num_devices == 0) {
-    // Without a device, the initialization error is sticky.
     GTEST_SKIP() << "No CUDA device available";
   }
-  // The failed queries must not leave an error for later CUDA_CHECK() calls.
-  EXPECT_EQ(cudaGetLastError(), cudaSuccess);
-  // A device with bf16 support (8.0 or newer) also has tensor cores.
-  for (int device = 0; device < num_devices; ++device) {
-    if (CudaDeviceSupportsBf16(device)) {
-      EXPECT_TRUE(CudaDeviceHasTensorCores(device));
-    }
+  EXPECT_TRUE(CudaDeviceHasComputeCapability(0, /*major=*/0));
+  EXPECT_FALSE(CudaDeviceHasComputeCapability(0, /*major=*/100));
+  // A device with compute capability 8.x also has 7.x.
+  if (CudaDeviceHasComputeCapability(0, /*major=*/8)) {
+    EXPECT_TRUE(CudaDeviceHasComputeCapability(0, /*major=*/7));
   }
 }
 

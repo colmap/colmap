@@ -28,7 +28,8 @@ namespace colmap {
 struct FlexGlueMatchingOptions {
   // Root folder of the images (required). The images are read from this
   // folder during matching, as FlexGlue computes dense features from the image
-  // pixels. Matching fails if an image cannot be read.
+  // pixels. Matching fails if an image cannot be read. The matcher commands
+  // have no global image path, so this must also be set in their project files.
   std::string image_path;
 
   // Minimum match confidence, i.e., the geometric mean of the confidences of
@@ -69,13 +70,14 @@ struct FlexGlueMatchingOptions {
 
   // Variant of the matcher whose transformer layers run in float16, used
   // instead of matcher_model_path when use_fp16 is set and the matcher runs on
-  // a CUDA GPU with tensor cores. Faster, with practically identical matches.
+  // a CUDA GPU with compute capability 7.0 or newer. Faster, with practically
+  // identical matches.
   // May be empty, in which case the float32 matcher is used.
   std::string matcher_model_path_fp16 = kDefaultFlexGlueMatcherFp16Uri;
 
-  // Whether to use the float16 matcher on CUDA GPUs with tensor cores (compute
-  // capability 7.0 or newer). Falls back to the float32 matcher on other GPUs
-  // or if the float16 matcher cannot be initialized. Ignored on the CPU.
+  // Whether to use the float16 matcher on CUDA GPUs with compute capability 7.0
+  // or newer. Falls back to the float32 matcher on other GPUs or if the float16
+  // matcher cannot be initialized. Ignored on the CPU.
   bool use_fp16 = true;
 
   bool Check() const;
