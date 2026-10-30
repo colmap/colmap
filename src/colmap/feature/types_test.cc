@@ -189,7 +189,7 @@ TEST(FeatureKeypoints, Nominal) {
 
 TEST(FeatureKeypoint, RescaleImageCoordinates) {
   for (const float orientation : {0.0f, 0.5f, 1.5f}) {
-    for (const Eigen::Vector2f scale :
+    for (const Eigen::Vector2f& scale :
          {Eigen::Vector2f(2, 3),
           Eigen::Vector2f(0.5f, 2),
           Eigen::Vector2f(4031.0f / 2048, 3023.0f / 1536)}) {
