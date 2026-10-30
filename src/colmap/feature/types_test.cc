@@ -174,17 +174,40 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_EQ(keypoint.x, 2.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
   EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
-  EXPECT_NEAR(keypoint.a12, -2.12132025f, 1e-6);
-  EXPECT_NEAR(keypoint.a21, 4.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, -4.2426405f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 2.0f, 1e-6);
   EXPECT_NEAR(keypoint.a22, -2.12132025f, 1e-6);
-  EXPECT_NEAR(keypoint.ComputeScale(), 3.5f, 1e-6);
-  EXPECT_NEAR(keypoint.ComputeScaleX() - 2, 2.0f, 1e-6);
-  EXPECT_NEAR(keypoint.ComputeScaleY(), 3.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), (2.0f + std::sqrt(22.5f)) / 2, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), std::sqrt(22.5f), 1e-6);
   EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
-  EXPECT_NEAR(keypoint.ComputeShear(), M_PI / 4, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), std::atan(0.5f), 1e-6);
 
   EXPECT_EQ(keypoint, keypoint);
   EXPECT_NE(keypoint, FeatureKeypoint(1, 2, 1, 0));
+}
+
+TEST(FeatureKeypoint, RescaleImageCoordinates) {
+  for (const float orientation : {0.0f, 0.5f, 1.5f}) {
+    for (const Eigen::Vector2f scale :
+         {Eigen::Vector2f(2, 3),
+          Eigen::Vector2f(0.5f, 2),
+          Eigen::Vector2f(4031.0f / 2048, 3023.0f / 1536)}) {
+      auto keypoint =
+          FeatureKeypoint::FromShapeParameters(10, 20, 2, 3, orientation, 0.2f);
+      Eigen::Matrix2f shape;
+      shape << keypoint.a11, keypoint.a12, keypoint.a21, keypoint.a22;
+      const Eigen::Vector2f point(0.25f, 0.5f);
+      // A frame maps patch coordinates into image coordinates before resizing.
+      const Eigen::Vector2f expected =
+          scale.asDiagonal() * (shape * point + Eigen::Vector2f(10, 20));
+      keypoint.Rescale(scale.x(), scale.y());
+      shape << keypoint.a11, keypoint.a12, keypoint.a21, keypoint.a22;
+      const Eigen::Vector2f actual =
+          shape * point + Eigen::Vector2f(keypoint.x, keypoint.y);
+      EXPECT_LT((actual - expected).norm(), 1e-5f);
+    }
+  }
 }
 
 TEST(FeatureKeypoint, Rot90) {
