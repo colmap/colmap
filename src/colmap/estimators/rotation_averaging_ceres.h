@@ -9,7 +9,9 @@
 #include "colmap/util/types.h"
 
 #include <memory>
+#include <optional>
 
+#include <Eigen/Core>
 #include <ceres/ceres.h>
 
 namespace colmap {
@@ -26,11 +28,24 @@ struct CeresRotationAveragerOptions {
   // Loss function scale in degrees.
   double loss_function_scale = 0.5;
 
+  // Loss function scale with COVARIANCE reweighting, in standard deviations
+  // of the whitened (unitless) residuals. Replaces loss_function_scale.
+  double covariance_loss_scale = 3.0;
+
+  // With COVARIANCE reweighting, isotropic standard deviation (in degrees)
+  // added in quadrature to the estimated relative rotation covariances. It
+  // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
+  // pairs with many correspondences from dominating.
+  double covariance_sigma_floor_deg = 0.02;
+
   // Number of solver iterations of a Huber-loss warm-start (with the same
   // loss_function_scale) run by RotationEstimator before the main solve. The
   // linear tails of the Huber loss widen the basin of convergence from the
   // maximum spanning tree initialization, which narrow redescending losses
-  // can otherwise get trapped in. Set to 0 to disable.
+  // can otherwise get trapped in. With COVARIANCE reweighting, the warm-start
+  // still operates on angular residuals with UNIFORM reweighting, as
+  // confidently wrong relative rotations (e.g., from symmetric structures)
+  // would otherwise dominate the early iterations. Set to 0 to disable.
   int max_num_warm_start_iterations = 5;
 
   ceres::Solver::Options solver_options;
@@ -42,7 +57,10 @@ struct CeresRotationAveragerOptions {
 // outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
 // gravity/pose priors, outlier filtering, or frame deregistration. Uses the
 // Ceres-specific options in options.ceres and the solver-agnostic options
-// reweighting, skip_initialization, and refine_sensor_from_rig.
+// reweighting, skip_initialization, and refine_sensor_from_rig. With COVARIANCE
+// reweighting, every valid edge must have a positive-definite
+// cam2_from_cam1_rotation_cov (see EstimatePoseGraphRotationCovariances), to
+// which the isotropic floor covariance_sigma_floor_deg is added.
 class CeresRotationAverager {
  public:
   CeresRotationAverager(const RotationEstimatorOptions& options,
@@ -57,16 +75,17 @@ class CeresRotationAverager {
   ceres::Problem& Problem();
   const ceres::Problem& Problem() const;
   // Frame and sensor rotations for both images must be configured in Problem().
+  // If given, the residual is whitened with the covariance of the relative
+  // rotation, expressed in the frame of camera 1 (right perturbation, see
+  // RelativeRotationCostFunctor).
   void AddRelativeRotationResidual(
       image_t image_id1,
       image_t image_id2,
       const Eigen::Quaterniond& cam2_from_cam1,
-      const std::shared_ptr<ceres::LossFunction>& loss_function);
+      const std::shared_ptr<ceres::LossFunction>& loss_function,
+      const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov = std::nullopt);
 
  private:
-  void InitializeRotations(const RotationEstimatorOptions& options,
-                           const PoseGraph& pose_graph,
-                           const FlatHashSet<image_t>& image_ids);
   void SetupParameterBlocks(const RotationEstimatorOptions& options,
                             const FlatHashSet<image_t>& image_ids);
 
@@ -76,6 +95,23 @@ class CeresRotationAverager {
       losses_;
   std::unique_ptr<ceres::Problem> problem_;
 };
+
+namespace internal {
+
+// Checks the inputs of Ceres rotation averaging and prepares the sensor
+// rotations, before any rotation is initialized. The valid edges must
+// reference known images and form a single connected component. With
+// COVARIANCE reweighting, every valid edge must have a rotation covariance.
+// Sensor rotations that are not refined must be finite, and the non-finite
+// ones that are refined are reset. Throws std::invalid_argument, without
+// modifying the reconstruction, if a check fails. Returns the image ids of the
+// connected component.
+FlatHashSet<image_t> PrepareCeresRotationAveraging(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction);
+
+}  // namespace internal
 
 // Calibrated sensor rotations are fixed by default and can be made variable
 // through Problem(). MST initialization requires sensor rotations for all rigs

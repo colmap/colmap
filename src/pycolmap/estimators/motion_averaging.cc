@@ -209,7 +209,8 @@ void BindRotationEstimator(py::module& m) {
       py::enum_<RotationAveragingReweighting>(m, "RotationAveragingReweighting")
           .value("UNIFORM", RotationAveragingReweighting::UNIFORM)
           .value("INLIER_MATCH_COUNT",
-                 RotationAveragingReweighting::INLIER_MATCH_COUNT);
+                 RotationAveragingReweighting::INLIER_MATCH_COUNT)
+          .value("COVARIANCE", RotationAveragingReweighting::COVARIANCE);
   AddStringToEnumConstructor(PyRotationAveragingReweighting);
 
   auto PyRotationAveragingBackend =
@@ -305,8 +306,8 @@ void BindRotationEstimator(py::module& m) {
           .def_readwrite("reweighting",
                          &RotationEstimatorOptions::reweighting,
                          "Reweighting scheme for relative-rotation "
-                         "constraints: UNIFORM or "
-                         "INLIER_MATCH_COUNT.");
+                         "constraints: UNIFORM, INLIER_MATCH_COUNT, or "
+                         "COVARIANCE.");
   MakeDataclass(PyRotationEstimatorOptions);
 
   m.def(

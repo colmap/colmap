@@ -3,6 +3,7 @@
 #include "colmap/estimators/rotation_averaging.h"
 
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
+#include "colmap/estimators/two_view_rotation_covariance.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
@@ -10,10 +11,12 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
+#include "colmap/util/testing.h"
 
 #include <map>
 #include <utility>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -206,6 +209,75 @@ TEST(RotationAveraging, InitializeFrameConnectedRig) {
   }
 }
 
+TEST(RotationAveraging, InitializeFromMaximumSpanningTreeWithCovariance) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 3;
+  options.num_points3D = 0;
+  Reconstruction truth;
+  SynthesizeDataset(options, &truth);
+  FlatHashSet<image_t> image_ids;
+  for (const auto& [image_id, _] : truth.Images()) {
+    image_ids.insert(image_id);
+  }
+  const auto relative_pose = [&](image_t image_id1, image_t image_id2) {
+    return truth.Image(image_id2).CamFromWorld() *
+           Inverse(truth.Image(image_id1).CamFromWorld());
+  };
+
+  // The wrong (1, 3) edge has the most matches but the least certain rotation.
+  PoseGraph pose_graph;
+  const auto add_edge = [&](image_t image_id1,
+                            image_t image_id2,
+                            const Rigid3d& cam2_from_cam1,
+                            int num_matches,
+                            double sigma) {
+    PoseGraph::Edge& edge = pose_graph.AddEdge(
+        image_id1, image_id2, PoseGraph::Edge(cam2_from_cam1));
+    edge.num_matches = num_matches;
+    edge.cam2_from_cam1_rotation_cov =
+        sigma * sigma * Eigen::Matrix3d::Identity();
+  };
+  add_edge(1, 2, relative_pose(1, 2), /*num_matches=*/10, /*sigma=*/1e-3);
+  add_edge(2, 3, relative_pose(2, 3), /*num_matches=*/10, /*sigma=*/1e-3);
+  add_edge(1, 3, Rigid3d(), /*num_matches=*/1000, /*sigma=*/1.0);
+  ASSERT_GT(relative_pose(1, 3).rotation().angularDistance(
+                Eigen::Quaterniond::Identity()),
+            DegToRad(1.0));
+
+  // Without use_rotation_covariance, the covariances are ignored.
+  Reconstruction reconstruction = truth;
+  InitializeFromMaximumSpanningTree(
+      pose_graph, image_ids, reconstruction, /*refine_sensor_from_rig=*/true);
+  EXPECT_LT((reconstruction.Image(3).CamFromWorld() *
+             Inverse(reconstruction.Image(1).CamFromWorld()))
+                .rotation()
+                .angularDistance(Eigen::Quaterniond::Identity()),
+            1e-8);
+
+  reconstruction = truth;
+  InitializeFromMaximumSpanningTree(pose_graph,
+                                    image_ids,
+                                    reconstruction,
+                                    /*refine_sensor_from_rig=*/true,
+                                    /*use_rotation_covariance=*/true);
+  ExpectEqualRotations(truth, reconstruction, 1e-8);
+
+  // Every measured edge then requires a covariance.
+  pose_graph.UpdateEdge(1, 3, PoseGraph::Edge(Rigid3d()));
+  EXPECT_THAT(
+      [&]() {
+        InitializeFromMaximumSpanningTree(pose_graph,
+                                          image_ids,
+                                          reconstruction,
+                                          /*refine_sensor_from_rig=*/true,
+                                          /*use_rotation_covariance=*/true);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("Missing rotation covariance")));
+}
+
 TEST(RotationAveraging, WithoutNoise) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -394,6 +466,52 @@ TEST(RotationAveraging, WithNoiseAndOutliers) {
                                 data.pose_priors,
                                 {true, false},
                                 /*max_rotation_error_deg=*/3);
+}
+
+TEST(RotationAveraging, CovarianceReweighting) {
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 2;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 7;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.inlier_match_ratio = 0.6;
+  synthetic_dataset_options.prior_gravity = false;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 1;
+  auto data =
+      CreateTestData(synthetic_dataset_options, &synthetic_noise_options);
+
+  RotationEstimatorOptions options = CreateRATestOptions();
+  options.backend = RotationAveragingBackend::CERES;
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+
+  DatabaseCache database_cache;
+  database_cache.Load(*data.database, DatabaseCache::Options());
+  EstimatePoseGraphRotationCovariances(database_cache, data.pose_graph);
+  for (const auto& [pair_id, edge] : data.pose_graph.ValidEdges()) {
+    ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
+  }
+
+  Reconstruction reconstruction = data.reconstruction;
+  PoseGraph pose_graph = data.pose_graph;
+  ASSERT_TRUE(RunRotationAveraging(
+      options, pose_graph, reconstruction, data.pose_priors));
+  ExpectEqualRotations(data.gt_reconstruction,
+                       reconstruction,
+                       /*max_rotation_error_deg=*/3);
+
+  // The L1-IRLS backend does not support covariance reweighting.
+  options.backend = RotationAveragingBackend::L1_IRLS;
+  reconstruction = data.reconstruction;
+  pose_graph = data.pose_graph;
+  EXPECT_THAT(
+      [&]() {
+        RunRotationAveraging(
+            options, pose_graph, reconstruction, data.pose_priors);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("L1_IRLS")));
 }
 
 TEST(RotationAveraging, WithNoiseAndOutliersWithNonTrivialKnownRigs) {
@@ -733,6 +851,59 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
       const auto& sensor_from_rig_before = snapshot.at({rig_id, sensor_id});
       EXPECT_EQ(*sensor_from_rig_after, sensor_from_rig_before)
           << "rig_id=" << rig_id << ", sensor_id=" << sensor_id.id;
+    }
+  }
+}
+
+TEST(MaybeEstimatePoseGraphRotationCovariances, Nominal) {
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  // Only the image pairs (1, 2) and (2, 3) have matches.
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::CHAINED;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  const auto database_cache =
+      DatabaseCache::Create(*database, DatabaseCache::Options());
+
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache->CorrespondenceGraph());
+  ASSERT_EQ(pose_graph.NumEdges(), 2);
+  // The covariance of an edge without correspondences cannot be estimated.
+  pose_graph.AddEdge(1, 3, PoseGraph::Edge());
+  const image_pair_t unmatched_pair_id = ImagePairToPairId(1, 3);
+
+  // No-op without CERES covariance-weighted rotation averaging.
+  RotationEstimatorOptions options;
+  options.backend = RotationAveragingBackend::CERES;
+  options.reweighting = RotationAveragingReweighting::UNIFORM;
+  PoseGraph uniform_pose_graph = pose_graph;
+  MaybeEstimatePoseGraphRotationCovariances(
+      options, *database_cache, uniform_pose_graph);
+  for (const auto& [pair_id, edge] : uniform_pose_graph.Edges()) {
+    EXPECT_TRUE(edge.valid);
+    EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+  }
+
+  // Edges without covariance are invalidated.
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  MaybeEstimatePoseGraphRotationCovariances(
+      options, *database_cache, pose_graph);
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (pair_id == unmatched_pair_id) {
+      EXPECT_FALSE(edge.valid);
+      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+    } else {
+      EXPECT_TRUE(edge.valid);
+      EXPECT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
     }
   }
 }
