@@ -219,6 +219,11 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
                                   ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64);
       } else if (name == "covisibility_score") {
         covisibility_score_idx_ = static_cast<int>(i);
+        ThrowCheckONNXNode(
+            name, "covisibility_score", matcher_->output_shapes()[i], {1});
+        ThrowCheckONNXElementType(name,
+                                  matcher_->output_element_types()[i],
+                                  ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
       }
     }
     THROW_CHECK_GE(matches0_idx_, 0) << "Missing FlexGlue output: matches0";
@@ -404,7 +409,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
 
   // Dense features keyed by image name. Unlike ImageFeatureCache, it retains
   // many images, since pairs of exhaustive or retrieval-based matching revisit
-  // the same images far apart in time.
+  // the same images far apart in time. Neither the cache nor its entries
+  // (see ImageSize) are thread-safe, so a matcher must not run concurrent
+  // Match() calls (see CreateFlexGlueFeatureMatcher).
   LRUCache<std::string, DenseFeatures> dense_cache_;
 };
 
@@ -416,9 +423,12 @@ bool FlexGlueMatchingOptions::Check() const {
   CHECK_OPTION(!image_path.empty());
   CHECK_OPTION(ExistsDir(image_path));
   CHECK_OPTION_IN(filter_threshold, 0, 1);
+  CHECK_OPTION(!std::isnan(max_distance_px));
   CHECK_OPTION_IN(min_covisibility, 0, 1);
   CHECK_OPTION_IN(early_stop_decay, 0, 1);
   CHECK_OPTION_GT(feature_cache_size, 0);
+  CHECK_OPTION(!descriptor_model_path.empty());
+  CHECK_OPTION(!matcher_model_path.empty());
   return true;
 }
 

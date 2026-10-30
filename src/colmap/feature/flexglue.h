@@ -69,7 +69,8 @@ struct FlexGlueMatchingOptions {
 
   // Variant of the matcher whose transformer layers run in float16, used
   // instead of matcher_model_path when use_fp16 is set and the matcher runs on
-  // a CUDA GPU. About 2.5x faster with practically identical matches.
+  // a CUDA GPU with tensor cores. Faster, with practically identical matches.
+  // May be empty, in which case the float32 matcher is used.
   std::string matcher_model_path_fp16 = kDefaultFlexGlueMatcherFp16Uri;
 
   // Whether to use the float16 matcher on CUDA GPUs with tensor cores (compute
@@ -80,6 +81,9 @@ struct FlexGlueMatchingOptions {
   bool Check() const;
 };
 
+// The returned matcher caches the dense features of recently matched images
+// and is not thread-safe: Match() must not be called concurrently on the same
+// instance. The matching controllers use one matcher per worker thread.
 std::unique_ptr<FeatureMatcher> CreateFlexGlueFeatureMatcher(
     const FeatureMatchingOptions& options);
 
