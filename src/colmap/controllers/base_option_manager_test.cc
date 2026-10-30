@@ -323,6 +323,66 @@ TEST(BaseOptionManager, ParseWithProjectPath) {
   EXPECT_EQ(enum_override, TestEnumType::VALUE_A);
 }
 
+TEST(BaseOptionManager, ParseWithProjectPathSplitOptions) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  CreateDirIfNotExists(test_dir / "images");
+
+  // The project file provides only image_path. The required database_path
+  // is supplied on the command line instead, and int_option appears only
+  // on the command line. Both must be applied by the single merged parse.
+  std::ofstream file(config_path);
+  file << "image_path=" << (test_dir / "images").string() << "\n";
+  file.close();
+
+  int int_option = 0;
+  BaseOptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddDefaultOption("int_option", &int_option);
+
+  const auto cli_database_path = test_dir / "command_line.db";
+  std::vector<std::string> args = {
+      "colmap",
+      "--project_path",
+      config_path.string(),
+      "--database_path",
+      cli_database_path.string(),
+      "--int_option",
+      "7",
+  };
+
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(arg.data());
+  }
+
+  ASSERT_TRUE(options.Parse(argv.size(), argv.data()));
+  EXPECT_EQ(*options.database_path, cli_database_path);
+  EXPECT_EQ(*options.image_path, test_dir / "images");
+  EXPECT_EQ(int_option, 7);
+}
+
+TEST(BaseOptionManager, ParseWithMissingProjectPathFails) {
+  const auto test_dir = CreateTestDir();
+
+  BaseOptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+
+  const std::vector<std::string> args = {
+      "colmap", "--project_path", (test_dir / "missing.ini").string()};
+
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(const_cast<char*>(arg.c_str()));
+  }
+
+  EXPECT_FALSE(options.Parse(argv.size(), argv.data()));
+}
+
 TEST(BaseOptionManager, ParseEmptyArguments) {
   BaseOptionManager options;
 
