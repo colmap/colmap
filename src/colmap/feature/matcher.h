@@ -80,6 +80,10 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   // Whether the selected matcher requires OpenGL.
   bool RequiresOpenGL() const;
 
+  // Whether the selected matcher uses the descriptors. FlexGlue only uses the
+  // keypoints, so it also matches images without descriptors.
+  bool UsesDescriptors() const;
+
   bool Check() const;
 };
 

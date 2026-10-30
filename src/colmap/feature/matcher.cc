@@ -48,6 +48,10 @@ FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
     : FeatureMatchingTypeOptions(), type(type) {}
 
+bool FeatureMatchingOptions::UsesDescriptors() const {
+  return type != FeatureMatcherType::FLEXGLUE;
+}
+
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE: {
@@ -99,6 +103,8 @@ bool FeatureMatchingOptions::Check() const {
     case FeatureMatcherType::LOMA_G:
       return THROW_CHECK_NOTNULL(loma)->Check();
     case FeatureMatcherType::FLEXGLUE:
+      // Not supported by FlexGlue. Fail before loading the models.
+      CHECK_OPTION(!guided_matching);
       return THROW_CHECK_NOTNULL(flexglue)->Check();
     default:
       LOG(ERROR) << "Unknown feature matcher type: " << type;

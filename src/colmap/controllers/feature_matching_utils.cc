@@ -99,10 +99,21 @@ void FeatureMatcherWorker::Run() {
 
 void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
                                      FeatureMatcherData& data) {
-  if (!cache_->ExistsDescriptors(data.image_id1) ||
-      !cache_->ExistsDescriptors(data.image_id2)) {
+  // Matchers that only use the keypoints (FlexGlue) do not require
+  // descriptors, which are then neither checked nor loaded.
+  const bool uses_descriptors = matching_options_.UsesDescriptors();
+  if (uses_descriptors) {
+    if (!cache_->ExistsDescriptors(data.image_id1) ||
+        !cache_->ExistsDescriptors(data.image_id2)) {
+      return;
+    }
+  } else if (!cache_->ExistsKeypoints(data.image_id1) ||
+             !cache_->ExistsKeypoints(data.image_id2)) {
     return;
   }
+  const auto descriptors = [this, uses_descriptors](image_t image_id) {
+    return uses_descriptors ? cache_->GetDescriptors(image_id) : nullptr;
+  };
 
   const auto& camera1 =
       cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
@@ -115,7 +126,7 @@ void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
                             data.image_id1,
                             &camera1,
                             cache_->GetKeypoints(data.image_id1),
-                            cache_->GetDescriptors(data.image_id1),
+                            descriptors(data.image_id1),
                             cache_->FindImagePosePriorOrNull(data.image_id1),
                             cache_->GetImage(data.image_id1).Name(),
                         },
@@ -123,7 +134,7 @@ void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
                             data.image_id2,
                             &camera2,
                             cache_->GetKeypoints(data.image_id2),
-                            cache_->GetDescriptors(data.image_id2),
+                            descriptors(data.image_id2),
                             cache_->FindImagePosePriorOrNull(data.image_id2),
                             cache_->GetImage(data.image_id2).Name(),
                         },
@@ -134,7 +145,7 @@ void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
             data.image_id1,
             &camera1,
             cache_->GetKeypoints(data.image_id1),
-            cache_->GetDescriptors(data.image_id1),
+            descriptors(data.image_id1),
             cache_->FindImagePosePriorOrNull(data.image_id1),
             cache_->GetImage(data.image_id1).Name(),
         },
@@ -142,7 +153,7 @@ void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
             data.image_id2,
             &camera2,
             cache_->GetKeypoints(data.image_id2),
-            cache_->GetDescriptors(data.image_id2),
+            descriptors(data.image_id2),
             cache_->FindImagePosePriorOrNull(data.image_id2),
             cache_->GetImage(data.image_id2).Name(),
         },

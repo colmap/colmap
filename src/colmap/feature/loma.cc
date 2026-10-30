@@ -32,7 +32,7 @@ bool UseLomaBf16(bool use_bf16, bool use_gpu, const std::string& gpu_index) {
   }
 #ifdef COLMAP_CUDA_ENABLED
   const int device = SelectONNXCudaDevice(gpu_index);
-  if (CudaDeviceSupportsBf16(device)) {
+  if (CudaDeviceHasComputeCapability(device, /*major=*/8)) {
     return true;
   }
   LOG(WARNING) << "The bf16 LoMa models require a CUDA GPU with compute "

@@ -87,13 +87,16 @@ The following feature matcher types are available:
 
 - ``FLEXGLUE``: Neural network matcher operating on dense image features
   (FlexGlue). It works with the keypoints of any feature extractor and ignores
-  the descriptors. Since FlexGlue computes dense features from the image
-  pixels, the images are read during matching from
-  ``--FlexGlueMatching.image_path`` (required). FlexGlue also predicts whether two images
-  are covisible at all, and ``--FlexGlueMatching.min_covisibility`` (default
-  0.5, 0 disables it) rejects all matches of pairs with a lower covisibility
-  score, which suppresses look-alike pairs of repeated structures. Requires ONNX support to be enabled
-  at build time; a GPU is strongly recommended.
+  the descriptors, which are not required. Since FlexGlue computes dense
+  features from the image pixels, the images are read during matching from
+  ``--FlexGlueMatching.image_path`` (required). The matcher commands have no
+  global ``--image_path``, so ``FlexGlueMatching.image_path`` must also be set
+  in project files. FlexGlue also predicts whether two images are covisible at
+  all, and ``--FlexGlueMatching.min_covisibility`` (default 0.5, 0 disables it)
+  rejects all matches of pairs with a lower covisibility score, which suppresses
+  look-alike pairs of repeated structures. Guided matching is not supported.
+  Requires ONNX support to be enabled at build time; a GPU is strongly
+  recommended.
 
 To select a feature matcher type via the command-line::
 
@@ -210,7 +213,7 @@ although they would pass ``min_covisibility`` after the last layer.
 
 The dense features of the most recently used images are cached in memory
 (``--FlexGlueMatching.feature_cache_size``, ~4MB per image). On CUDA GPUs with
-tensor cores (compute capability 7.0 or newer), a variant of the matcher whose
+compute capability 7.0 or newer, a variant of the matcher whose
 transformer layers run in float16 is used by default
 (``--FlexGlueMatching.use_fp16``), which is faster than the float32 matcher
 with practically identical matches; the float32 matcher is used on the CPU, on
@@ -223,7 +226,9 @@ FlexGlue. The models are downloaded automatically, and custom models can
 be specified with ``--FlexGlueMatching.descriptor_model_path``,
 ``--FlexGlueMatching.matcher_model_path``, and
 ``--FlexGlueMatching.matcher_model_path_fp16``. The models are exported with
-``onnx/export.py`` from https://github.com/cvg/FlexGlue.
+``onnx/export.py`` from https://github.com/cvg/FlexGlue. Custom matchers must
+be exported with early stopping, e.g., ``--early_stop_layers 2,4,6,8``, since
+the matcher requires the ``early_stop_decay`` input.
 
 
 Iterative Runs
