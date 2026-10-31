@@ -58,21 +58,13 @@ SpanningTree ComputeSpanningTreeInternal(
     return tree;
   }
 
-  // For maximum spanning tree, we negate weights and find minimum.
-  float max_weight = 0;
-  if (maximize) {
-    for (const float w : weights) {
-      max_weight = std::max(max_weight, w);
-    }
-  }
-
   // Build boost graph.
   BoostGraph graph(num_nodes);
   auto weight_map = boost::get(boost::edge_weight, graph);
 
   for (size_t i = 0; i < edges.size(); ++i) {
     const auto& edge = edges[i];
-    const float weight = maximize ? (max_weight - weights[i]) : weights[i];
+    const float weight = maximize ? -weights[i] : weights[i];
     auto [e, inserted] = boost::add_edge(edge.first, edge.second, graph);
     if (inserted) {
       weight_map[e] = weight;
