@@ -21,6 +21,14 @@ struct CeresBundleAdjustmentOptions {
   // Multiplier applied to the loss function output.
   double loss_function_weight = 1.0;
 
+  // Loss function for prior position residuals.
+  CeresLossFunctionType prior_position_loss_function_type =
+      CeresLossFunctionType::TRIVIAL;
+
+  // Threshold on the whitened residual for the robust position prior loss
+  // (sqrt of chi-square 95% quantile for 3 DOF = 2.795).
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
+
   // Whether to use Ceres' CUDA linear algebra library, if available.
   bool use_gpu = false;
   std::string gpu_index = "-1";
@@ -71,7 +79,8 @@ struct CeresBundleAdjustmentSummary : public BundleAdjustmentSummary {
       ceres::Solver::Summary ceres_summary);
 };
 
-// Ceres-specific pose prior bundle adjustment options.
+// Deprecated: configure prior_position_loss_function_type and
+// prior_position_loss_scale on CeresBundleAdjustmentOptions instead.
 struct CeresPosePriorBundleAdjustmentOptions {
   // Loss function for prior position loss.
   CeresLossFunctionType prior_position_loss_function_type =
@@ -88,14 +97,20 @@ class CeresBundleAdjuster : public BundleAdjuster {
  public:
   using BundleAdjuster::BundleAdjuster;
 
+  // Note: when metric priors are active, `Solve()` restores `reconstruction` to
+  // metric coordinates while residual blocks inside `Problem()` remain
+  // parameterized in the internal normalized coordinate frame.
   virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
 };
 
 std::unique_ptr<CeresBundleAdjuster> CreateDefaultCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    Reconstruction& reconstruction);
+    Reconstruction& reconstruction,
+    const BundleAdjustmentPriors& priors = {});
 
+// Deprecated: use CreateDefaultCeresBundleAdjuster with
+// options.pose_prior.use_position and BundleAdjustmentPriors instead.
 std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const PosePriorBundleAdjustmentOptions& prior_options,

@@ -137,6 +137,15 @@ struct IncrementalPipelineOptions {
   // Whether to use priors on the camera positions.
   bool use_prior_position = false;
 
+  // Per-axis fallback position standard deviation [m] (East, North, Up for ENU
+  // / GPS priors) used when a PosePrior lacks a finite covariance matrix, or
+  // unconditionally when prior_position_overwrite_covariance is true.
+  Eigen::Vector3d prior_position_stddev = Eigen::Vector3d::Ones();
+
+  // Whether to ignore per-prior covariances and overwrite them in memory with
+  // diag(prior_position_stddev^2). Does not mutate the database.
+  bool prior_position_overwrite_covariance = false;
+
   // Whether to use a robust loss on prior camera positions.
   bool use_robust_loss_on_prior_position = false;
 

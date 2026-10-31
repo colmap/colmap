@@ -280,18 +280,38 @@ BundleAdjustmentBackendOptions& BundleAdjustmentBackendOptions::operator=(
   return *this;
 }
 
+bool BundleAdjustmentPosePriorOptions::Check() const {
+  CHECK_OPTION(position_stddev.allFinite());
+  CHECK_OPTION_GT(position_stddev.x(), 0);
+  CHECK_OPTION_GT(position_stddev.y(), 0);
+  CHECK_OPTION_GT(position_stddev.z(), 0);
+  return true;
+}
+
+bool BundleAdjustmentOptions::ConstrainMetricScale() const {
+  return pose_prior.use_position;
+}
+
 bool BundleAdjustmentOptions::Check() const {
+  CHECK_OPTION(pose_prior.Check());
   return THROW_CHECK_NOTNULL(ceres)->Check();
 }
 
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    Reconstruction& reconstruction) {
+    Reconstruction& reconstruction,
+    const BundleAdjustmentPriors& priors) {
   switch (options.backend) {
     case BundleAdjustmentBackend::CERES:
-      return CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+      return CreateDefaultCeresBundleAdjuster(
+          options, config, reconstruction, priors);
     case BundleAdjustmentBackend::CASPAR:
+#ifdef CASPAR_ENABLED
+      if (options.pose_prior.use_position) {
+        LOG(FATAL_THROW) << "Caspar BA backend does not support priors";
+      }
+#endif
       return CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
@@ -303,25 +323,26 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
 // PosePriorBundleAdjustmentOptions
 ////////////////////////////////////////////////////////////////////////////////
 
-PosePriorBundleAdjustmentBackendOptions::
-    PosePriorBundleAdjustmentBackendOptions()
+PosePriorBundleAdjustmentOptions::PosePriorBundleAdjustmentOptions()
     : ceres(std::make_shared<CeresPosePriorBundleAdjustmentOptions>()) {}
 
-PosePriorBundleAdjustmentBackendOptions::
-    PosePriorBundleAdjustmentBackendOptions(
-        const PosePriorBundleAdjustmentBackendOptions& other) {
+PosePriorBundleAdjustmentOptions::PosePriorBundleAdjustmentOptions(
+    const PosePriorBundleAdjustmentOptions& other)
+    : prior_position_fallback_stddev(other.prior_position_fallback_stddev),
+      alignment_ransac_options(other.alignment_ransac_options) {
   if (other.ceres) {
     ceres =
         std::make_shared<CeresPosePriorBundleAdjustmentOptions>(*other.ceres);
   }
 }
 
-PosePriorBundleAdjustmentBackendOptions&
-PosePriorBundleAdjustmentBackendOptions::operator=(
-    const PosePriorBundleAdjustmentBackendOptions& other) {
+PosePriorBundleAdjustmentOptions& PosePriorBundleAdjustmentOptions::operator=(
+    const PosePriorBundleAdjustmentOptions& other) {
   if (this == &other) {
     return *this;
   }
+  prior_position_fallback_stddev = other.prior_position_fallback_stddev;
+  alignment_ransac_options = other.alignment_ransac_options;
   if (other.ceres) {
     ceres =
         std::make_shared<CeresPosePriorBundleAdjustmentOptions>(*other.ceres);
@@ -350,14 +371,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
                                                 std::move(pose_priors),
                                                 reconstruction);
     case BundleAdjustmentBackend::CASPAR:
-#ifdef CASPAR_ENABLED
-      LOG(FATAL_THROW) << "Caspar BA backend does not support pose priors";
-#else
-      LOG(FATAL_THROW)
-          << "Caspar BA backend selected but COLMAP was built without "
-             "CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON to use it";
-#endif
-      return nullptr;
+      LOG(FATAL_THROW) << "Caspar BA backend does not support priors";
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
                    << static_cast<int>(options.backend);

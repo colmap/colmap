@@ -163,8 +163,8 @@ Reconstruction with pose priors (GPS)
 
 If your images have GPS information in their EXIF metadata, COLMAP
 automatically extracts and stores it as pose priors in the database during
-feature extraction. These priors can then be used during reconstruction with
-the ``pose_prior_mapper``::
+feature extraction. These priors can then be used during incremental
+reconstruction by enabling ``--Mapper.use_prior_position 1`` in ``mapper``::
 
     colmap feature_extractor \
         --database_path $PROJECT_PATH/database.db \
@@ -173,16 +173,30 @@ the ``pose_prior_mapper``::
     colmap exhaustive_matcher \
         --database_path $PROJECT_PATH/database.db
 
-    colmap pose_prior_mapper \
+    colmap mapper \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images \
-        --output_path $PROJECT_PATH/sparse
+        --output_path $PROJECT_PATH/sparse \
+        --Mapper.use_prior_position 1
 
-The ``pose_prior_mapper`` is essentially the incremental mapper with prior
-position constraints enabled. You can override the priors covariance (uncertainty)
-using ``--overwrite_priors_covariance``.  The new covariance will be built based 
-on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
-``--prior_position_std_z`` (default: 1.0 meter each).
+You can override the prior covariances (uncertainties) stored in the database
+in memory without modifying the database using
+``--Mapper.prior_position_overwrite_covariance 1`` together with
+``--Mapper.prior_position_stddev_x``, ``--Mapper.prior_position_stddev_y``, and
+``--Mapper.prior_position_stddev_z`` (also used as the fallback standard
+deviation when no covariance is stored in the database; default: 1.0 meter
+each). The standalone ``pose_prior_mapper`` command is retained as a deprecated
+alias for ``mapper --Mapper.use_prior_position 1``.
+
+You can also run standalone bundle adjustment with position priors on an
+existing reconstruction by passing ``--database_path`` and
+``--BundleAdjustment.use_prior_position 1``::
+
+    colmap bundle_adjuster \
+        --input_path $PROJECT_PATH/sparse/0 \
+        --output_path $PROJECT_PATH/sparse/0 \
+        --database_path $PROJECT_PATH/database.db \
+        --BundleAdjustment.use_prior_position 1
 
 For geo-registration of an already reconstructed model (without using priors
 during mapping), see the `Geo-registration`_ section.

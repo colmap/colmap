@@ -73,7 +73,14 @@ TEST(BundleAdjustmentOptions, Copy) {
   options.refine_focal_length = false;
   options.refine_principal_point = true;
   options.min_track_length = 5;
+  options.pose_prior.use_position = true;
+  options.pose_prior.position_stddev = Eigen::Vector3d(1.5, 2.5, 3.5);
+  options.pose_prior.overwrite_position_covariance = true;
+  options.pose_prior.position_alignment_ransac.max_error = 4.5;
   options.ceres->solver_options.max_num_iterations = 42;
+  options.ceres->prior_position_loss_function_type =
+      CeresLossFunctionType::CAUCHY;
+  options.ceres->prior_position_loss_scale = 1.25;
 
   BundleAdjustmentOptions copy = options;
 
@@ -81,10 +88,38 @@ TEST(BundleAdjustmentOptions, Copy) {
   EXPECT_EQ(copy.refine_focal_length, false);
   EXPECT_EQ(copy.refine_principal_point, true);
   EXPECT_EQ(copy.min_track_length, 5);
+  EXPECT_TRUE(copy.pose_prior.use_position);
+  EXPECT_TRUE(copy.ConstrainMetricScale());
+  EXPECT_EQ(copy.pose_prior.position_stddev, Eigen::Vector3d(1.5, 2.5, 3.5));
+  EXPECT_TRUE(copy.pose_prior.overwrite_position_covariance);
+  EXPECT_EQ(copy.pose_prior.position_alignment_ransac.max_error, 4.5);
   EXPECT_EQ(copy.ceres->solver_options.max_num_iterations, 42);
+  EXPECT_EQ(copy.ceres->prior_position_loss_function_type,
+            CeresLossFunctionType::CAUCHY);
+  EXPECT_EQ(copy.ceres->prior_position_loss_scale, 1.25);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.ceres.get(), copy.ceres.get());
+}
+
+TEST(BundleAdjustmentOptions, PriorCheck) {
+  BundleAdjustmentOptions options;
+  EXPECT_FALSE(options.ConstrainMetricScale());
+  EXPECT_TRUE(options.Check());
+
+  options.pose_prior.position_stddev = Eigen::Vector3d(0.0, 1.0, 1.0);
+  EXPECT_FALSE(options.pose_prior.Check());
+  EXPECT_FALSE(options.Check());
+
+  options.pose_prior.position_stddev =
+      Eigen::Vector3d(1.0, std::numeric_limits<double>::quiet_NaN(), 1.0);
+  EXPECT_FALSE(options.pose_prior.Check());
+  EXPECT_FALSE(options.Check());
+
+  options.pose_prior.position_stddev = Eigen::Vector3d::Ones();
+  EXPECT_TRUE(options.pose_prior.Check());
+  options.ceres->prior_position_loss_scale = 0.0;
+  EXPECT_FALSE(options.Check());
 }
 
 TEST(PosePriorBundleAdjustmentOptions, Copy) {
@@ -102,6 +137,9 @@ TEST(PosePriorBundleAdjustmentOptions, Copy) {
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.ceres.get(), copy.ceres.get());
+
+  const PosePriorBundleAdjustmentBackendOptions backend_alias = options;
+  EXPECT_EQ(backend_alias.ceres->prior_position_loss_scale, 0.42);
 }
 
 TEST(BundleAdjustmentSummary, IsSolutionUsable) {
@@ -864,13 +902,14 @@ TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
+  options.pose_prior.use_position = true;
+  options.pose_prior.position_alignment_ransac.random_seed = 0;
 
-  PosePriorBundleAdjustmentOptions prior_options;
-  prior_options.alignment_ransac_options.random_seed = 0;
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = std::move(pose_priors);
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreatePosePriorBundleAdjuster(
-          options, prior_options, config, pose_priors, reconstruction);
+      CreateDefaultBundleAdjuster(options, config, reconstruction, priors);
 
   // Test abstract interface accessors
   EXPECT_EQ(bundle_adjuster->Options().backend, GetParam());
@@ -892,6 +931,16 @@ TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
 INSTANTIATE_TEST_SUITE_P(PosePriorBundleAdjusterBackends,
                          PosePriorBundleAdjusterBackendTest,
                          ::testing::Values(BundleAdjustmentBackend::CERES));
+
+TEST(DefaultBundleAdjuster, CasparBackendRejectsPriors) {
+  Reconstruction reconstruction;
+  BundleAdjustmentConfig config;
+  BundleAdjustmentOptions options;
+  options.backend = BundleAdjustmentBackend::CASPAR;
+  options.pose_prior.use_position = true;
+  EXPECT_ANY_THROW(
+      CreateDefaultBundleAdjuster(options, config, reconstruction));
+}
 
 }  // namespace
 }  // namespace colmap

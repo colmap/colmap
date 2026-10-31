@@ -154,5 +154,32 @@ TEST(PosePrior, ConvertPosePriorsToENU) {
                   testing::HasSubstr("Inconsistent coordinate systems")));
 }
 
+TEST(PosePrior, SetPosePriorPositionCovariances) {
+  PosePrior without_cov;
+  PosePrior with_cov;
+  with_cov.position_covariance = 9.0 * Eigen::Matrix3d::Identity();
+
+  const Eigen::Vector3d stddev(1.0, 2.0, 3.0);
+  const Eigen::Matrix3d expected_cov =
+      Eigen::Vector3d(1.0, 4.0, 9.0).asDiagonal();
+
+  std::vector<PosePrior> priors = {without_cov, with_cov};
+  SetPosePriorPositionCovariances(stddev, /*overwrite=*/false, priors);
+  EXPECT_EQ(priors[0].position_covariance, expected_cov);
+  EXPECT_EQ(priors[1].position_covariance, with_cov.position_covariance);
+
+  SetPosePriorPositionCovariances(stddev, /*overwrite=*/true, priors);
+  EXPECT_EQ(priors[0].position_covariance, expected_cov);
+  EXPECT_EQ(priors[1].position_covariance, expected_cov);
+
+  EXPECT_THAT(
+      [&]() {
+        SetPosePriorPositionCovariances(
+            Eigen::Vector3d(0.0, 1.0, 1.0), /*overwrite=*/false, priors);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("prior_position_stddev")));
+}
+
 }  // namespace
 }  // namespace colmap

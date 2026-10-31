@@ -66,4 +66,10 @@ int ComputeRot90FromGravity(const Eigen::Vector3d& gravity);
 // coordinate systems.
 void ConvertPosePriorsToENU(std::vector<PosePrior>& pose_priors);
 
+// Populate missing pose prior position covariances (or overwrite all of them
+// when `overwrite` is true) with diag(stddev^2).
+void SetPosePriorPositionCovariances(const Eigen::Vector3d& stddev,
+                                     bool overwrite,
+                                     std::vector<PosePrior>& pose_priors);
+
 }  // namespace colmap

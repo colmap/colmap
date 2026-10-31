@@ -2,6 +2,7 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
+#include "colmap/geometry/gps.h"
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -1053,7 +1054,7 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
             307);
 }
 
-TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
+TEST(DefaultBundleAdjuster, PosePriorAlignmentRobustToOutliers) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1074,20 +1075,22 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   synthetic_noise_options.prior_position_stddev = 0.05;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
   // Add 2 outlier priors with very large covariance
-  pose_priors.at(0).position += Eigen::Vector3d::Constant(10);
-  pose_priors.at(0).position_covariance = Eigen::Matrix3d::Identity() * 1e6;
-  pose_priors.at(1).position += Eigen::Vector3d::Constant(1);
-  pose_priors.at(1).position_covariance = Eigen::Matrix3d::Identity() * 1e2;
-
-  PosePriorBundleAdjustmentOptions prior_ba_options;
-  prior_ba_options.alignment_ransac_options.random_seed = 0;
-  prior_ba_options.alignment_ransac_options.max_error = 0.0;
+  priors.pose_priors.at(0).position += Eigen::Vector3d::Constant(10);
+  priors.pose_priors.at(0).position_covariance =
+      Eigen::Matrix3d::Identity() * 1e6;
+  priors.pose_priors.at(1).position += Eigen::Vector3d::Constant(1);
+  priors.pose_priors.at(1).position_covariance =
+      Eigen::Matrix3d::Identity() * 1e2;
 
   BundleAdjustmentOptions ba_options;
-  BundleAdjustmentConfig ba_config;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  ba_options.pose_prior.position_alignment_ransac.max_error = 0.0;
 
+  BundleAdjustmentConfig ba_config;
   for (const frame_t frame_id : reconstruction.RegFrameIds()) {
     const Frame& frame = reconstruction.Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
@@ -1095,8 +1098,8 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
     }
   }
 
-  auto adjuster = CreatePosePriorBundleAdjuster(
-      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto adjuster = CreateDefaultBundleAdjuster(
+      ba_options, ba_config, reconstruction, priors);
   auto summary = adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
@@ -1108,7 +1111,7 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
-TEST(PosePriorBundleAdjuster, InsufficientPriorsUseTwoCameraGauge) {
+TEST(DefaultBundleAdjuster, PosePriorInsufficientPriorsUseTwoCameraGauge) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1125,21 +1128,20 @@ TEST(PosePriorBundleAdjuster, InsufficientPriorsUseTwoCameraGauge) {
     config.AddImage(image_id);
   }
 
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  pose_priors.resize(2);
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  priors.pose_priors.resize(2);
   auto adjuster =
-      CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
-                                    PosePriorBundleAdjustmentOptions(),
-                                    config,
-                                    std::move(pose_priors),
-                                    reconstruction);
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
 
   EXPECT_EQ(adjuster->Config().FixedGauge(),
             BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
 }
 
-TEST(PosePriorBundleAdjuster, MissingPositionCov) {
+TEST(DefaultBundleAdjuster, PosePriorMissingPositionCov) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1153,19 +1155,19 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
 
   Reconstruction reconstruction = gt_reconstruction;
 
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  for (PosePrior& pose_prior : pose_priors) {
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& pose_prior : priors.pose_priors) {
     EXPECT_FALSE(pose_prior.HasPositionCov());
   }
 
-  PosePriorBundleAdjustmentOptions prior_ba_options;
-  prior_ba_options.alignment_ransac_options.random_seed = 0;
-  prior_ba_options.ceres->prior_position_loss_function_type =
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  ba_options.ceres->prior_position_loss_function_type =
       CeresLossFunctionType::CAUCHY;
 
-  BundleAdjustmentOptions ba_options;
   BundleAdjustmentConfig ba_config;
-
   for (const frame_t frame_id : reconstruction.RegFrameIds()) {
     const Frame& frame = reconstruction.Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
@@ -1173,8 +1175,8 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
     }
   }
 
-  auto adjuster = CreatePosePriorBundleAdjuster(
-      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto adjuster = CreateDefaultBundleAdjuster(
+      ba_options, ba_config, reconstruction, priors);
   auto summary = adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
@@ -1186,7 +1188,7 @@ TEST(PosePriorBundleAdjuster, MissingPositionCov) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
-TEST(PosePriorBundleAdjuster, ConstantSensorFromRigWithMissingPositionCov) {
+TEST(DefaultBundleAdjuster, PosePriorConstantSensorFromRigWithMissingCov) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1198,24 +1200,22 @@ TEST(PosePriorBundleAdjuster, ConstantSensorFromRigWithMissingPositionCov) {
   auto database = Database::Open(database_path);
   SynthesizeDataset(synthetic_options, &reconstruction, database.get());
 
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  for (const PosePrior& pose_prior : pose_priors) {
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  for (const PosePrior& pose_prior : priors.pose_priors) {
     EXPECT_FALSE(pose_prior.HasPositionCov());
   }
 
   BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
   ba_options.refine_sensor_from_rig = false;
   BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reconstruction.RegImageIds()) {
     ba_config.AddImage(image_id);
   }
 
-  auto adjuster =
-      CreatePosePriorBundleAdjuster(ba_options,
-                                    PosePriorBundleAdjustmentOptions(),
-                                    ba_config,
-                                    std::move(pose_priors),
-                                    reconstruction);
+  auto adjuster = CreateDefaultCeresBundleAdjuster(
+      ba_options, ba_config, reconstruction, priors);
   ceres::Problem& problem = GetCeresProblem(*adjuster);
 
   for (auto& [_, rig] : reconstruction.Rigs()) {
@@ -1228,7 +1228,7 @@ TEST(PosePriorBundleAdjuster, ConstantSensorFromRigWithMissingPositionCov) {
   }
 }
 
-TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
+TEST(DefaultBundleAdjuster, PosePriorOptimizationRobustToOutliers) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1249,21 +1249,23 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
   synthetic_noise_options.prior_position_stddev = 0.05;
   SynthesizeNoise(synthetic_noise_options, &reconstruction);
 
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
   // Add 2 confident but wrong priors.
-  pose_priors[0].position_covariance = Eigen::Matrix3d::Identity() * 0.01;
-  pose_priors[0].position += Eigen::Vector3d::Constant(10);
-  pose_priors[1].position_covariance = Eigen::Matrix3d::Identity() * 1.01;
-  pose_priors[1].position += Eigen::Vector3d::Constant(10);
-
-  PosePriorBundleAdjustmentOptions prior_ba_options;
-  prior_ba_options.alignment_ransac_options.random_seed = 0;
-  prior_ba_options.ceres->prior_position_loss_function_type =
-      CeresLossFunctionType::CAUCHY;
+  priors.pose_priors[0].position_covariance =
+      Eigen::Matrix3d::Identity() * 0.01;
+  priors.pose_priors[0].position += Eigen::Vector3d::Constant(10);
+  priors.pose_priors[1].position_covariance =
+      Eigen::Matrix3d::Identity() * 1.01;
+  priors.pose_priors[1].position += Eigen::Vector3d::Constant(10);
 
   BundleAdjustmentOptions ba_options;
-  BundleAdjustmentConfig ba_config;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  ba_options.ceres->prior_position_loss_function_type =
+      CeresLossFunctionType::CAUCHY;
 
+  BundleAdjustmentConfig ba_config;
   for (const frame_t frame_id : reconstruction.RegFrameIds()) {
     const Frame& frame = reconstruction.Frame(frame_id);
     for (const data_t& data_id : frame.ImageIds()) {
@@ -1271,8 +1273,8 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
     }
   }
 
-  auto adjuster = CreatePosePriorBundleAdjuster(
-      ba_options, prior_ba_options, ba_config, pose_priors, reconstruction);
+  auto adjuster = CreateDefaultBundleAdjuster(
+      ba_options, ba_config, reconstruction, priors);
   auto summary = adjuster->Solve();
   ASSERT_TRUE(summary->IsSolutionUsable());
 
@@ -1284,7 +1286,7 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
-TEST(PosePriorBundleAdjuster, UnobservedImagePriorsExcludedFromAlignment) {
+TEST(DefaultBundleAdjuster, PosePriorUnobservedImagePriorsExcluded) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1316,19 +1318,19 @@ TEST(PosePriorBundleAdjuster, UnobservedImagePriorsExcludedFromAlignment) {
     config.AddImage(image_id);
   }
 
-  PosePriorBundleAdjustmentOptions prior_options;
-  prior_options.alignment_ransac_options.random_seed = 0;
-  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
-                                                prior_options,
-                                                config,
-                                                database->ReadAllPosePriors(),
-                                                reconstruction);
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  auto adjuster =
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
   EXPECT_EQ(adjuster->Config().FixedGauge(),
             BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
 }
 
-TEST(PosePriorBundleAdjuster, ConstantFramePosePreserved) {
+TEST(DefaultBundleAdjuster, PosePriorConstantFramePosePreserved) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1355,8 +1357,9 @@ TEST(PosePriorBundleAdjuster, ConstantFramePosePreserved) {
 
   // Perturb position priors within covariance so global RANSAC Sim3d alignment
   // would have shifted the constant frame if alignment were not skipped.
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  for (PosePrior& prior : pose_priors) {
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : priors.pose_priors) {
     prior.position += Eigen::Vector3d(0.02, -0.01, 0.03);
     prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
   }
@@ -1367,13 +1370,11 @@ TEST(PosePriorBundleAdjuster, ConstantFramePosePreserved) {
   }
   config.SetConstantRigFromWorldPose(constant_frame_id);
 
-  PosePriorBundleAdjustmentOptions prior_options;
-  prior_options.alignment_ransac_options.random_seed = 0;
-  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
-                                                prior_options,
-                                                config,
-                                                std::move(pose_priors),
-                                                reconstruction);
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  auto adjuster =
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
   EXPECT_EQ(adjuster->Config().FixedGauge(),
             BundleAdjustmentGauge::UNSPECIFIED);
   ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
@@ -1391,7 +1392,7 @@ TEST(PosePriorBundleAdjuster, ConstantFramePosePreserved) {
                                  /*align=*/false));
 }
 
-TEST(PosePriorBundleAdjuster, UnalignedConstantFrameSkipsPriors) {
+TEST(DefaultBundleAdjuster, PosePriorUnalignedConstantFrameSkipsPriors) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1408,8 +1409,9 @@ TEST(PosePriorBundleAdjuster, UnalignedConstantFrameSkipsPriors) {
       2.5,
       Eigen::Quaterniond(Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ())),
       Eigen::Vector3d(100.0, -50.0, 20.0));
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  for (PosePrior& prior : pose_priors) {
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : priors.pose_priors) {
     prior.position = prior_from_world * prior.position;
     prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
   }
@@ -1440,13 +1442,11 @@ TEST(PosePriorBundleAdjuster, UnalignedConstantFrameSkipsPriors) {
   config.SetConstantRigFromWorldPose(reg_frame_ids[0]);
   config.SetConstantRigFromWorldPose(reg_frame_ids[1]);
 
-  PosePriorBundleAdjustmentOptions prior_options;
-  prior_options.alignment_ransac_options.random_seed = 0;
-  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
-                                                prior_options,
-                                                config,
-                                                std::move(pose_priors),
-                                                reconstruction);
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  auto adjuster =
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
   EXPECT_EQ(adjuster->Config().FixedGauge(),
             BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
   ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
@@ -1466,7 +1466,7 @@ TEST(PosePriorBundleAdjuster, UnalignedConstantFrameSkipsPriors) {
                                  /*align=*/false));
 }
 
-TEST(PosePriorBundleAdjuster, LargeExtentMetricSceneConditioning) {
+TEST(DefaultBundleAdjuster, PosePriorLargeExtentMetricSceneConditioning) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
@@ -1494,14 +1494,10 @@ TEST(PosePriorBundleAdjuster, LargeExtentMetricSceneConditioning) {
   SynthesizeNoise(noise_options, &reconstruction);
 
   gt_reconstruction.Transform(metric_from_synth);
-  reconstruction.Transform(metric_from_synth);
-  std::vector<PosePrior> pose_priors;
-  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
-    const Image& image = gt_reconstruction.Image(image_id);
-    PosePrior& prior = pose_priors.emplace_back();
-    prior.corr_data_id = image.DataId();
-    prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-    prior.position = image.ProjectionCenter();
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : priors.pose_priors) {
+    prior.position = metric_from_synth * prior.position;
     prior.position_covariance =
         (kMetricScale * kMetricScale * 1e-4) * Eigen::Matrix3d::Identity();
   }
@@ -1512,18 +1508,15 @@ TEST(PosePriorBundleAdjuster, LargeExtentMetricSceneConditioning) {
   }
 
   BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
   ba_options.refine_focal_length = false;
   ba_options.refine_extra_params = false;
   // Matches IncrementalPipelineOptions::LocalBundleAdjustment(), which assumes
   // normalized scene scale.
   ba_options.ceres->solver_options.gradient_tolerance = 10.0;
-  PosePriorBundleAdjustmentOptions prior_options;
-  prior_options.alignment_ransac_options.random_seed = 0;
-  auto adjuster = CreatePosePriorBundleAdjuster(ba_options,
-                                                prior_options,
-                                                config,
-                                                std::move(pose_priors),
-                                                reconstruction);
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  auto adjuster =
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
   ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
 
   for (const auto& [point3D_id, gt_point3D] : gt_reconstruction.Points3D()) {
@@ -1537,6 +1530,293 @@ TEST(PosePriorBundleAdjuster, LargeExtentMetricSceneConditioning) {
                                  /*max_scale_error=*/1e-2,
                                  /*num_obs_tolerance=*/0.02,
                                  /*align=*/false));
+}
+
+TEST(DefaultBundleAdjuster, PosePriorOverwriteCovarianceAndAnisotropicStddev) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  // Shift ground-truth along Z while providing noisy Z priors and accurate XY
+  // priors. Overwriting the bogus database covariances with anisotropic stddev
+  // (tight XY, loose Z) should align XY tightly without mutating `priors`.
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  const Eigen::Matrix3d bogus_cov = 1e8 * Eigen::Matrix3d::Identity();
+  for (size_t i = 0; i < priors.pose_priors.size(); ++i) {
+    priors.pose_priors[i].position.z() += (i % 2 == 0 ? 5.0 : -5.0);
+    priors.pose_priors[i].position_covariance = bogus_cov;
+  }
+  const std::vector<PosePrior> orig_priors = priors.pose_priors;
+
+  Reconstruction reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.3;
+  noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.overwrite_position_covariance = true;
+  ba_options.pose_prior.position_stddev = Eigen::Vector3d(0.02, 0.02, 100.0);
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+
+  auto adjuster =
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  EXPECT_EQ(priors.pose_priors, orig_priors);
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    const Eigen::Vector3d gt_center =
+        gt_reconstruction.Image(image_id).ProjectionCenter();
+    const Eigen::Vector3d est_center =
+        reconstruction.Image(image_id).ProjectionCenter();
+    EXPECT_LT((gt_center.head<2>() - est_center.head<2>()).norm(), 0.05);
+  }
+}
+
+TEST(DefaultBundleAdjuster, PosePriorWGS84ConvertedToENU) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  std::vector<PosePrior> cartesian_priors = database->ReadAllPosePriors();
+  ASSERT_FALSE(cartesian_priors.empty());
+  const Eigen::Vector3d origin_shift = -cartesian_priors[0].position;
+  gt_reconstruction.Transform(
+      Sim3d(1.0, Eigen::Quaterniond::Identity(), origin_shift));
+
+  std::vector<Eigen::Vector3d> enu_positions;
+  enu_positions.reserve(cartesian_priors.size());
+  for (PosePrior& prior : cartesian_priors) {
+    prior.position += origin_shift;
+    enu_positions.push_back(prior.position);
+  }
+
+  constexpr double kRefLat = 47.3769;
+  constexpr double kRefLon = 8.5417;
+  constexpr double kRefAlt = 408.0;
+  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
+  const std::vector<Eigen::Vector3d> wgs84_positions =
+      gps_transform.ENUToEllipsoid(enu_positions, kRefLat, kRefLon, kRefAlt);
+
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = cartesian_priors;
+  for (size_t i = 0; i < priors.pose_priors.size(); ++i) {
+    priors.pose_priors[i].position = wgs84_positions[i];
+    priors.pose_priors[i].coordinate_system =
+        PosePrior::CoordinateSystem::WGS84;
+    priors.pose_priors[i].position_covariance =
+        1e-2 * Eigen::Matrix3d::Identity();
+  }
+
+  Reconstruction reconstruction = gt_reconstruction;
+  // Perturb input reconstruction into an arbitrary unaligned frame.
+  reconstruction.Transform(Sim3d(
+      0.25,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.6, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(-10.0, 20.0, 5.0)));
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+  auto adjuster =
+      CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+}
+
+TEST(DefaultBundleAdjuster, DeprecatedPosePriorBundleAdjusterShim) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.3;
+  noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                database->ReadAllPosePriors(),
+                                                reconstruction);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  Reconstruction ceres_reconstruction = gt_reconstruction;
+  SynthesizeNoise(noise_options, &ceres_reconstruction);
+  auto ceres_adjuster =
+      CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                         prior_options,
+                                         config,
+                                         database->ReadAllPosePriors(),
+                                         ceres_reconstruction);
+  ASSERT_TRUE(ceres_adjuster->Solve()->IsSolutionUsable());
+}
+
+TEST(DefaultBundleAdjuster,
+     MetricNormalizationRestoresOnDestructionExceptionAndRepeatSolve) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  // Scale ground-truth metric scene away from unit extent so leaving the
+  // reconstruction normalized would fail non-aligned metric comparisons.
+  const Sim3d metric_from_synth(50.0,
+                                Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(100.0, -200.0, 30.0));
+  gt_reconstruction.Transform(metric_from_synth);
+
+  BundleAdjustmentPriors priors;
+  priors.pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : priors.pose_priors) {
+    prior.position = metric_from_synth * prior.position;
+    prior.position_covariance =
+        (metric_from_synth.scale() * metric_from_synth.scale() * 1e-4) *
+        Eigen::Matrix3d::Identity();
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.pose_prior.use_position = true;
+  ba_options.refine_focal_length = false;
+  ba_options.refine_extra_params = false;
+  ba_options.pose_prior.position_alignment_ransac.random_seed = 0;
+
+  // (a) Destroying the adjuster without calling Solve() restores the aligned
+  // metric frame rather than leaving the reconstruction normalized.
+  {
+    Reconstruction unsolved_reconstruction = gt_reconstruction;
+    unsolved_reconstruction.Transform(
+        Sim3d(0.2, Eigen::Quaterniond::Identity(), Eigen::Vector3d(-5, 3, 1)));
+    {
+      auto adjuster = CreateDefaultBundleAdjuster(
+          ba_options, config, unsolved_reconstruction, priors);
+      ASSERT_NE(adjuster, nullptr);
+    }
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(unsolved_reconstruction,
+                                   /*max_rotation_error_deg=*/1e-3,
+                                   /*max_proj_center_error=*/1e-3,
+                                   /*max_scale_error=*/1e-4,
+                                   /*num_obs_tolerance=*/0.0,
+                                   /*align=*/false));
+  }
+
+  // (b) An exception thrown during construction after normalization restores
+  // the reconstruction to the metric frame before propagating.
+  {
+    Reconstruction throwing_reconstruction = gt_reconstruction;
+    BundleAdjustmentPriors bad_priors = priors;
+    bad_priors.pose_priors.back().position_covariance =
+        -Eigen::Matrix3d::Identity();
+    EXPECT_THAT(
+        [&]() {
+          CreateDefaultBundleAdjuster(
+              ba_options, config, throwing_reconstruction, bad_priors);
+        },
+        testing::ThrowsMessage<std::invalid_argument>(
+            testing::HasSubstr("Covariance matrix is not positive definite")));
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(throwing_reconstruction,
+                                   /*max_rotation_error_deg=*/1e-3,
+                                   /*max_proj_center_error=*/1e-3,
+                                   /*max_scale_error=*/1e-4,
+                                   /*num_obs_tolerance=*/0.0,
+                                   /*align=*/false));
+  }
+
+  // (c) Calling Solve() multiple times re-normalizes and restores cleanly
+  // without drifting out of the metric frame.
+  {
+    Reconstruction reconstruction = gt_reconstruction;
+    SyntheticNoiseOptions noise_options;
+    noise_options.point3D_stddev = 0.005 * metric_from_synth.scale();
+    noise_options.rig_from_world_rotation_stddev = 0.3;
+    noise_options.rig_from_world_translation_stddev =
+        0.005 * metric_from_synth.scale();
+    SynthesizeNoise(noise_options, &reconstruction);
+    reconstruction.Transform(Sim3d(
+        0.2,
+        Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+        Eigen::Vector3d(-10.0, 20.0, 5.0)));
+
+    auto adjuster =
+        CreateDefaultBundleAdjuster(ba_options, config, reconstruction, priors);
+    ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+    const Reconstruction after_first_solve = reconstruction;
+
+    ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+    EXPECT_THAT(after_first_solve,
+                ReconstructionNear(reconstruction,
+                                   /*max_rotation_error_deg=*/1e-3,
+                                   /*max_proj_center_error=*/1e-3,
+                                   /*max_scale_error=*/1e-4,
+                                   /*num_obs_tolerance=*/0.0,
+                                   /*align=*/false));
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(reconstruction,
+                                   /*max_rotation_error_deg=*/1e-2,
+                                   /*max_proj_center_error=*/1e-2,
+                                   /*max_scale_error=*/1e-4,
+                                   /*num_obs_tolerance=*/0.0,
+                                   /*align=*/false));
+  }
 }
 
 }  // namespace

@@ -702,11 +702,41 @@ TEST(IncrementalPipelineOptions, DefaultPriorPositionLossScale) {
   const IncrementalPipelineOptions options;
   EXPECT_DOUBLE_EQ(options.prior_position_loss_scale,
                    std::sqrt(kChiSquare95ThreeDof));
-  EXPECT_DOUBLE_EQ(options.Mapper().prior_position_loss_scale,
+  EXPECT_DOUBLE_EQ(
+      options.GlobalBundleAdjustment().ceres->prior_position_loss_scale,
+      std::sqrt(kChiSquare95ThreeDof));
+  EXPECT_DOUBLE_EQ(CeresBundleAdjustmentOptions().prior_position_loss_scale,
                    std::sqrt(kChiSquare95ThreeDof));
   EXPECT_DOUBLE_EQ(
       CeresPosePriorBundleAdjustmentOptions().prior_position_loss_scale,
       std::sqrt(kChiSquare95ThreeDof));
+}
+
+TEST(IncrementalPipelineOptions, PriorOptionsForwardedToGlobalBA) {
+  IncrementalPipelineOptions options;
+  options.use_prior_position = true;
+  options.prior_position_stddev = Eigen::Vector3d(0.5, 1.5, 2.5);
+  options.prior_position_overwrite_covariance = true;
+  options.use_robust_loss_on_prior_position = true;
+  options.prior_position_loss_scale = 3.5;
+  options.random_seed = 17;
+  EXPECT_TRUE(options.Check());
+
+  const BundleAdjustmentOptions global_ba = options.GlobalBundleAdjustment();
+  EXPECT_TRUE(global_ba.pose_prior.use_position);
+  EXPECT_EQ(global_ba.pose_prior.position_stddev,
+            Eigen::Vector3d(0.5, 1.5, 2.5));
+  EXPECT_TRUE(global_ba.pose_prior.overwrite_position_covariance);
+  EXPECT_EQ(global_ba.pose_prior.position_alignment_ransac.random_seed, 17);
+  EXPECT_EQ(global_ba.ceres->prior_position_loss_function_type,
+            CeresLossFunctionType::CAUCHY);
+  EXPECT_DOUBLE_EQ(global_ba.ceres->prior_position_loss_scale, 3.5);
+
+  const BundleAdjustmentOptions local_ba = options.LocalBundleAdjustment();
+  EXPECT_FALSE(local_ba.pose_prior.use_position);
+
+  options.ba_global_backend = BundleAdjustmentBackend::CASPAR;
+  EXPECT_FALSE(options.Check());
 }
 
 TEST(IncrementalPipelineOptions, DefaultSolverThresholds) {
