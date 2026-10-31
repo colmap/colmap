@@ -299,7 +299,7 @@ jobs:
     strategy:
       matrix:
         config: [
-          {os: macos-14, arch: arm64, deploymentTarget: 14.0, cudaEnabled: false, ccacheMaxSize: 350M},
+          {os: macos-15, arch: arm64, deploymentTarget: 15.0, cudaEnabled: false, ccacheMaxSize: 350M},
           {os: windows-2025-vs2026, cudaEnabled: false, ccacheMaxSize: 1000M},
           {os: ubuntu-24.04, cudaEnabled: true, ccacheMaxSize: 850M},
         ]
