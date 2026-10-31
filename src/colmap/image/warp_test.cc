@@ -517,5 +517,102 @@ TEST(Warp, DownsampleImage) {
   EXPECT_NEAR(downsampled[3], 12.2318935, 1e-3);
 }
 
+TEST(Warp, CameraModelsMatchPerPixelProjection) {
+  const Bitmap source_image = GenerateRandomBitmap(37, 29, /*as_rgb=*/true);
+
+  Camera opencv_src =
+      Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 25.0, 37, 29);
+  opencv_src.params.at(opencv_src.ExtraParamsIdxs()[0]) = -0.15;
+  Camera pinhole_tgt =
+      Camera::CreateFromModelId(2, CameraModelId::kPinhole, 18.3, 31, 23);
+  pinhole_tgt.SetFocalLengthY(19.1);
+  pinhole_tgt.SetPrincipalPointX(14.0);
+
+  // Outer rays fail SimpleDivision::ImgFromCam (negative discriminant).
+  Camera division_src = Camera::CreateFromModelId(
+      1, CameraModelId::kSimpleDivision, 20.0, 37, 29);
+  division_src.params.at(division_src.ExtraParamsIdxs()[0]) = 0.5;
+  Camera fov_tgt =
+      Camera::CreateFromModelId(2, CameraModelId::kFOV, 12.0, 31, 23);
+  fov_tgt.params.at(fov_tgt.ExtraParamsIdxs()[0]) = 0.8;
+
+  // Back-hemisphere pixels fail Equirectangular::CamFromImg.
+  Camera radial_src =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 22.0, 37, 29);
+  radial_src.params.at(radial_src.ExtraParamsIdxs()[0]) = 0.1;
+  const Camera equirect_tgt = Camera::CreateFromModelId(
+      2, CameraModelId::kEquirectangular, 1.0, 31, 23);
+
+  Eigen::Matrix3d H;
+  // Column x = 10 hits warped.z() == 0 under direct warping.
+  H << 1.0, 0.05, 1.5, -0.05, 1.0, -0.75, -1.0 / 10.5, 0.0, 1.0;
+
+  const auto warp_reference = [&](const WarpImageOptions::Interpolation interp,
+                                  const Eigen::Matrix3d* homography,
+                                  const Camera& src_cam,
+                                  const Camera& tgt_cam) {
+    Bitmap expected(tgt_cam.width, tgt_cam.height, source_image.IsRGB());
+    for (int y = 0; y < expected.Height(); ++y) {
+      for (int x = 0; x < expected.Width(); ++x) {
+        Eigen::Vector2d img_pt(x + 0.5, y + 0.5);
+        if (homography != nullptr) {
+          const Eigen::Vector3d warped = *homography * img_pt.homogeneous();
+          if (warped.z() == 0) {
+            continue;
+          }
+          img_pt = warped.hnormalized();
+        }
+        const auto cam_pt = tgt_cam.CamFromImg(img_pt);
+        const auto src_pt =
+            cam_pt ? src_cam.ImgFromCam(cam_pt->homogeneous()) : std::nullopt;
+        if (!src_pt) {
+          continue;
+        }
+        if (interp == WarpImageOptions::Interpolation::kNearestNeighbor) {
+          if (const auto c = source_image.InterpolateNearestNeighbor(
+                  src_pt->x() - 0.5, src_pt->y() - 0.5)) {
+            expected.SetPixel(x, y, *c);
+          }
+        } else if (const auto c = source_image.InterpolateBilinear(
+                       src_pt->x() - 0.5, src_pt->y() - 0.5)) {
+          expected.SetPixel(x, y, c->Cast<uint8_t>());
+        }
+      }
+    }
+    return expected;
+  };
+
+  for (const auto& [src_cam, tgt_cam] :
+       std::vector<std::pair<Camera, Camera>>{{opencv_src, pinhole_tgt},
+                                              {division_src, fov_tgt},
+                                              {radial_src, equirect_tgt}}) {
+    bool saw_nonzero = false;
+    bool saw_zero = false;
+    for (const auto interpolation :
+         {WarpImageOptions::Interpolation::kNearestNeighbor,
+          WarpImageOptions::Interpolation::kBilinear}) {
+      WarpImageOptions options;
+      options.interpolation = interpolation;
+
+      Bitmap actual;
+      WarpImageBetweenCameras(options, src_cam, tgt_cam, source_image, &actual);
+      CheckBitmapsExactlyEqual(
+          actual, warp_reference(interpolation, nullptr, src_cam, tgt_cam));
+
+      Bitmap actual_H;
+      WarpImageWithHomographyBetweenCameras(
+          options, H, src_cam, tgt_cam, source_image, &actual_H);
+      CheckBitmapsExactlyEqual(
+          actual_H, warp_reference(interpolation, &H, src_cam, tgt_cam));
+      for (const uint8_t v : actual_H.RowMajorData()) {
+        saw_nonzero |= (v != 0);
+        saw_zero |= (v == 0);
+      }
+    }
+    EXPECT_TRUE(saw_nonzero);
+    EXPECT_TRUE(saw_zero);
+  }
+}
+
 }  // namespace
 }  // namespace colmap
