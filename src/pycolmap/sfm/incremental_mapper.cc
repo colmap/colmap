@@ -7,6 +7,7 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <pybind11/eigen.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -198,6 +199,17 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("use_prior_position",
                      &Opts::use_prior_position,
                      "Whether to use priors on the camera positions.")
+      .def_readwrite(
+          "prior_position_stddev",
+          &Opts::prior_position_stddev,
+          "Per-axis fallback position standard deviation [m] used when a "
+          "PosePrior lacks a finite covariance, or unconditionally when "
+          "prior_position_overwrite_covariance is True.")
+      .def_readwrite(
+          "prior_position_overwrite_covariance",
+          &Opts::prior_position_overwrite_covariance,
+          "Whether to ignore per-prior covariances and overwrite them in "
+          "memory with diag(prior_position_stddev^2).")
       .def_readwrite("use_robust_loss_on_prior_position",
                      &Opts::use_robust_loss_on_prior_position,
                      "Whether to use a robust loss on prior camera positions.")

@@ -58,6 +58,54 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
   AddOptionBool(&options->bundle_adjustment->refine_points3D,
                 "refine_points3D");
 
+  AddSection("Priors");
+  AddOptionBool(&options->bundle_adjustment->use_prior_position,
+                "use_prior_position");
+  AddOptionBool(
+      &options->bundle_adjustment->prior_position_overwrite_covariance,
+      "prior_position_overwrite_covariance");
+  AddOptionDouble(&options->bundle_adjustment->prior_position_stddev.x(),
+                  "prior_position_stddev_x [m]",
+                  1e-6,
+                  1e7,
+                  0.01,
+                  3);
+  AddOptionDouble(&options->bundle_adjustment->prior_position_stddev.y(),
+                  "prior_position_stddev_y [m]",
+                  1e-6,
+                  1e7,
+                  0.01,
+                  3);
+  AddOptionDouble(&options->bundle_adjustment->prior_position_stddev.z(),
+                  "prior_position_stddev_z [m]",
+                  1e-6,
+                  1e7,
+                  0.01,
+                  3);
+  {
+    auto* loss_combo = new QComboBox(this);
+    loss_combo->addItem("TRIVIAL");
+    loss_combo->addItem("SOFT_L1");
+    loss_combo->addItem("CAUCHY");
+    loss_combo->addItem("HUBER");
+    loss_combo->setCurrentIndex(static_cast<int>(
+        options->bundle_adjustment->ceres->prior_position_loss_function_type));
+    connect(
+        loss_combo,
+        QOverload<int>::of(&QComboBox::currentIndexChanged),
+        [options](int idx) {
+          options->bundle_adjustment->ceres->prior_position_loss_function_type =
+              static_cast<CeresLossFunctionType>(idx);
+        });
+    AddWidgetRow("prior_position_loss_function", loss_combo);
+  }
+  AddOptionDouble(&options->bundle_adjustment->ceres->prior_position_loss_scale,
+                  "prior_position_loss_scale",
+                  1e-6,
+                  1e7,
+                  0.01,
+                  3);
+
 #ifdef CASPAR_ENABLED
   AddSection("Bundle Adjustment Backend");
   auto* backend_combo = new QComboBox(this);
@@ -127,9 +175,11 @@ void BundleAdjustmentWidget::Run() {
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
+  if (!options_->bundle_adjustment->ConstrainMetricScale()) {
+    // Normalize scene for numerical stability and
+    // to avoid large scale changes in viewer.
+    reconstruction_->Normalize();
+  }
 
   thread_control_widget_->StartThread(
       "Bundle adjusting...", true, std::move(thread));

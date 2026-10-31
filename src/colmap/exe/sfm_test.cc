@@ -208,5 +208,114 @@ TEST(IncrementalMapper, DiscardsInterruptBeforeInitialPair) {
   EXPECT_FALSE(ExistsDir(output_path / "0"));
 }
 
+TEST(BundleAdjusterExe, WithDatabasePositionPriors) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  auto database = Database::Open(database_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+  database.reset();
+
+  Reconstruction unaligned = gt_reconstruction;
+  unaligned.Transform(Sim3d(
+      0.3,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(5.0, -3.0, 2.0)));
+  const auto input_path = test_path / "input";
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(input_path);
+  CreateDirIfNotExists(output_path);
+  unaligned.Write(input_path);
+
+  std::vector<std::string> args = {
+      "bundle_adjuster",
+      "--input_path=" + input_path.string(),
+      "--output_path=" + output_path.string(),
+      "--database_path=" + database_path.string(),
+      "--BundleAdjustment.use_prior_position=1",
+      "--BundleAdjustment.prior_position_overwrite_covariance=1",
+      "--BundleAdjustment.prior_position_stddev_x=0.05",
+      "--BundleAdjustment.prior_position_stddev_y=0.05",
+      "--BundleAdjustment.prior_position_stddev_z=0.05",
+  };
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (std::string& arg : args) {
+    argv.push_back(arg.data());
+  }
+  ASSERT_EQ(RunBundleAdjuster(argv.size(), argv.data()), EXIT_SUCCESS);
+
+  Reconstruction refined;
+  refined.Read(output_path);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(refined,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+}
+
+TEST(PosePriorMapperExe, DeprecatedShimPreservesDatabaseCovariances) {
+  const auto test_path = CreateTestDir();
+  const auto database_path = test_path / "database.db";
+  const auto image_path = test_path / "images";
+  const auto output_path = test_path / "output";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+  const std::vector<PosePrior> orig_priors = database->ReadAllPosePriors();
+  database.reset();
+
+  std::vector<std::string> args = {
+      "pose_prior_mapper",
+      "--database_path=" + database_path.string(),
+      "--image_path=" + image_path.string(),
+      "--output_path=" + output_path.string(),
+      "--Mapper.extract_colors=0",
+      "--Mapper.min_model_size=3",
+      "--Mapper.num_threads=1",
+      "--overwrite_priors_covariance=1",
+      "--prior_position_std_x=0.1",
+      "--prior_position_std_y=0.1",
+      "--prior_position_std_z=0.1",
+      "--use_robust_loss_on_prior_position=1",
+  };
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (std::string& arg : args) {
+    argv.push_back(arg.data());
+  }
+  ASSERT_EQ(RunPosePriorMapper(argv.size(), argv.data()), EXIT_SUCCESS);
+
+  auto check_db = Database::Open(database_path);
+  EXPECT_EQ(check_db->ReadAllPosePriors(), orig_priors);
+  Reconstruction mapped;
+  mapped.Read(output_path / "0");
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(mapped,
+                                 /*max_rotation_error_deg=*/0.2,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.05,
+                                 /*align=*/false));
+}
+
 }  // namespace
 }  // namespace colmap

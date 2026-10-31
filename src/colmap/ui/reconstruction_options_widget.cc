@@ -215,10 +215,34 @@ class IncrementalMapperPriorsOptionsWidget : public OptionsWidget {
   IncrementalMapperPriorsOptionsWidget(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     AddOptionBool(&options->mapper->use_prior_position, "use_prior_position");
+    AddOptionBool(&options->mapper->prior_position_overwrite_covariance,
+                  "prior_position_overwrite_covariance");
+    AddOptionDouble(&options->mapper->prior_position_stddev.x(),
+                    "prior_position_stddev_x [m]",
+                    1e-6,
+                    1e7,
+                    0.01,
+                    3);
+    AddOptionDouble(&options->mapper->prior_position_stddev.y(),
+                    "prior_position_stddev_y [m]",
+                    1e-6,
+                    1e7,
+                    0.01,
+                    3);
+    AddOptionDouble(&options->mapper->prior_position_stddev.z(),
+                    "prior_position_stddev_z [m]",
+                    1e-6,
+                    1e7,
+                    0.01,
+                    3);
     AddOptionBool(&options->mapper->use_robust_loss_on_prior_position,
                   "use_robust_loss_on_prior_position");
     AddOptionDouble(&options->mapper->prior_position_loss_scale,
-                    "prior_position_loss_scale");
+                    "prior_position_loss_scale",
+                    1e-6,
+                    1e7,
+                    0.01,
+                    3);
   }
 };
 

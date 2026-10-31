@@ -32,19 +32,6 @@ void SeedEstimatedInitialCameras(Reconstruction& reconstruction,
   }
 }
 
-size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
-                               const BundleAdjustmentConfig& ba_config) {
-  size_t num_registered_pose_priors = 0;
-  for (const PosePrior& pose_prior : pose_priors) {
-    if (pose_prior.HasPosition() &&
-        pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
-        ba_config.HasImage(pose_prior.corr_data_id.id)) {
-      ++num_registered_pose_priors;
-    }
-  }
-  return num_registered_pose_priors;
-}
-
 }  // namespace
 
 bool IncrementalMapper::Options::Check() const {
@@ -101,6 +88,7 @@ void IncrementalMapper::BeginReconstruction(
   filtered_frames_.clear();
   reg_stats_.num_reg_trials.clear();
   reg_stats_.num_structure_less_reg_trials.clear();
+  ba_priors_.pose_priors = database_cache_->PosePriors();
 }
 
 void IncrementalMapper::EndReconstruction(const bool discard) {
@@ -118,6 +106,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 
   triangulator_.reset();
   obs_manager_.reset();
+  ba_priors_ = {};
   reconstruction_->TearDown();
   reconstruction_ = nullptr;
 }
@@ -1160,36 +1149,20 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  const bool use_prior_position =
-      options.use_prior_position &&
-      NumRegisteredPosePriors(database_cache_->PosePriors(), ba_config) >= 3;
-
-  std::unique_ptr<BundleAdjuster> bundle_adjuster;
-  if (!use_prior_position) {
-    // Fixing the gauge with two cameras leads to a more stable optimization
-    // with fewer steps as compared to fixing three points.
-    // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
-    // as initial experiments show that it is even faster.
-
-    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-    bundle_adjuster = CreateDefaultBundleAdjuster(
-        custom_ba_options, ba_config, *reconstruction_);
-  } else {
-    PosePriorBundleAdjustmentOptions prior_options;
-    if (options.use_robust_loss_on_prior_position) {
-      prior_options.ceres->prior_position_loss_function_type =
-          CeresLossFunctionType::CAUCHY;
-    }
-    prior_options.ceres->prior_position_loss_scale =
-        options.prior_position_loss_scale;
-    prior_options.alignment_ransac_options.random_seed = options.random_seed;
-    bundle_adjuster =
-        CreatePosePriorBundleAdjuster(custom_ba_options,
-                                      prior_options,
-                                      ba_config,
-                                      database_cache_->PosePriors(),
-                                      *reconstruction_);
+  if (custom_ba_options.prior_position_alignment_ransac_options.random_seed ==
+      -1) {
+    custom_ba_options.prior_position_alignment_ransac_options.random_seed =
+        options.random_seed;
   }
+
+  // Fixing the gauge with two cameras leads to a more stable optimization
+  // with fewer steps as compared to fixing three points. When sufficient
+  // position priors are active, CreateDefaultBundleAdjuster overrides this.
+  // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
+  // as initial experiments show that it is even faster.
+  ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
+      custom_ba_options, ba_config, *reconstruction_, ba_priors_);
 
   // Optimize the redundant 3D points with all other parameters fixed.
   if (!is_small_reconstruction && options.ba_global_ignore_redundant_points3D) {
@@ -1288,7 +1261,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
     if (ba_options.check_if_stopped && ba_options.check_if_stopped()) {
       break;
     }
-    if (normalize_reconstruction && !options.use_prior_position) {
+    if (normalize_reconstruction && !ba_options.ConstrainMetricScale()) {
       // Normalize scene for numerical stability and
       // to avoid large scale changes in the viewer.
       reconstruction_->Normalize();
