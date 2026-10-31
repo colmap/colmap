@@ -63,6 +63,12 @@ COLMAP_ADD_TEST(
 )
 
 COLMAP_ADD_TEST(
+    NAME model_test
+    SRCS model_test.cc
+    LINK_LIBS colmap_exe
+)
+
+COLMAP_ADD_TEST(
     NAME sfm_test
     SRCS sfm_test.cc
     LINK_LIBS colmap_exe
