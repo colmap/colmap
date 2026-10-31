@@ -3,12 +3,15 @@
 #pragma once
 
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/hash_containers.h"
+
+#include <cmath>
 
 namespace colmap {
 
@@ -123,8 +126,8 @@ class IncrementalMapper {
     bool use_robust_loss_on_prior_position = false;
 
     // Threshold on the residual for the robust loss
-    // (chi2 for 3DOF at 95% = 7.815)
-    double prior_position_loss_scale = 7.815;
+    // (sqrt of chi2 for 3DOF at 95% = 2.795).
+    double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
     // Number of threads.
     int num_threads = -1;
