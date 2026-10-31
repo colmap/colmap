@@ -204,7 +204,7 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("prior_position_loss_scale",
                      &Opts::prior_position_loss_scale,
                      "Threshold on the residual for the robust position prior "
-                     "loss (chi2 for 3DOF at 95% = 7.815).")
+                     "loss (sqrt of chi2 for 3DOF at 95% = 2.796).")
       .def_readwrite("snapshot_path",
                      &Opts::snapshot_path,
                      "Path to a folder in which reconstruction snapshots will "
