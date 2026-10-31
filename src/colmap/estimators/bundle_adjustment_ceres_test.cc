@@ -235,6 +235,75 @@ TEST(DefaultBundleAdjuster, ThreeViewSpherical) {
   }
 }
 
+TEST(DefaultBundleAdjuster, TwoCamsFromWorldGaugeWithRotatedSecondFrame) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  // Place frame 1 at c_1 = (0, 0, -5) and frame 2 at c_2 = (1, 0, -5) rolled
+  // 90 deg around +Z (portrait vs. landscape), looking at points near the
+  // origin. The baseline in frame 1 is (1, 0, 0) (X), whereas in frame 2 it is
+  // t_2w + R_2w * c_1 = (0, -1, 0) (Y); fixing t_2w.x() leaves scale free.
+  gt_reconstruction.Frame(1).SetRigFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0.0, 0.0, 5.0)));
+  gt_reconstruction.Frame(2).SetRigFromWorld(
+      Rigid3d(Eigen::Quaterniond(
+                  Eigen::AngleAxisd(M_PI / 2.0, Eigen::Vector3d::UnitZ())),
+              Eigen::Vector3d(0.0, -1.0, 5.0)));
+  gt_reconstruction.Frame(3).SetRigFromWorld(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0.5, 0.5, 5.0)));
+
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    Image& image = gt_reconstruction.Image(image_id);
+    for (Point2D& point2D : image.Points2D()) {
+      point2D.xy =
+          image.ProjectPoint(gt_reconstruction.Point3D(point2D.point3D_id).xyz)
+              .value();
+    }
+  }
+
+  Reconstruction reconstruction = gt_reconstruction;
+  // Perturb t_2w.x() (orthogonal to the true baseline in frame 2) while keeping
+  // t_2w.y() = -1 at ground-truth scale, and perturb frame 3 and 3D points.
+  reconstruction.Frame(2).RigFromWorld().translation().x() = 0.05;
+  reconstruction.Frame(3).RigFromWorld().translation() +=
+      Eigen::Vector3d(0.05, -0.03, 0.02);
+  for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
+    reconstruction.Point3D(point3D_id).xyz +=
+        Eigen::Vector3d(0.02, -0.01, 0.03);
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+
+  BundleAdjustmentOptions options;
+  options.refine_focal_length = false;
+  options.refine_extra_params = false;
+  const auto summary =
+      CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
+          ->Solve();
+  ASSERT_TRUE(summary->IsSolutionUsable());
+
+  EXPECT_NEAR(reconstruction.Frame(2).RigFromWorld().translation().y(),
+              -1.0,
+              kConstantPoseVarEps);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/1e-2,
+                                 /*max_proj_center_error=*/1e-3,
+                                 /*max_scale_error=*/1e-3,
+                                 /*num_obs_tolerance=*/0.0,
+                                 /*align=*/false));
+}
+
 TEST(DefaultBundleAdjuster, TwoViewRig) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
