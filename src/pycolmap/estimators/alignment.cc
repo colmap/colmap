@@ -3,6 +3,7 @@
 #include "colmap/estimators/alignment.h"
 
 #include "colmap/exe/model.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
@@ -115,6 +116,24 @@ void BindAlignmentEstimator(py::module& m) {
       "tgt_locations"_a,
       "min_common_images"_a,
       "ransac_options"_a);
+
+  m.def(
+      "align_reconstruction_to_pose_priors",
+      [](const Reconstruction& src_reconstruction,
+         const std::vector<PosePrior>& tgt_pose_priors,
+         const RANSACOptions& ransac_options) -> py::typing::Optional<Sim3d> {
+        Sim3d tgt_from_src;
+        if (!AlignReconstructionToPosePriors(src_reconstruction,
+                                             tgt_pose_priors,
+                                             ransac_options,
+                                             &tgt_from_src)) {
+          return py::none();
+        }
+        return py::cast(tgt_from_src);
+      },
+      "src_reconstruction"_a,
+      "tgt_pose_priors"_a,
+      py::arg_v("ransac_options", RANSACOptions(), "RANSACOptions()"));
 
   m.def(
       "compare_reconstructions",

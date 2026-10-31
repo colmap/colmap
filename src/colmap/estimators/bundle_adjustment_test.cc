@@ -14,6 +14,7 @@
 #include "colmap/util/cuda.h"
 #endif
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -73,7 +74,14 @@ TEST(BundleAdjustmentOptions, Copy) {
   options.refine_focal_length = false;
   options.refine_principal_point = true;
   options.min_track_length = 5;
+  options.pose_prior.use_position = true;
+  options.pose_prior.position_stddev = Eigen::Vector3d(1.5, 2.5, 3.5);
+  options.pose_prior.overwrite_position_covariance = true;
+  options.pose_prior.position_alignment_ransac.max_error = 4.5;
   options.ceres->solver_options.max_num_iterations = 42;
+  options.ceres->prior_position_loss_function_type =
+      CeresLossFunctionType::CAUCHY;
+  options.ceres->prior_position_loss_scale = 1.25;
 
   BundleAdjustmentOptions copy = options;
 
@@ -81,10 +89,38 @@ TEST(BundleAdjustmentOptions, Copy) {
   EXPECT_EQ(copy.refine_focal_length, false);
   EXPECT_EQ(copy.refine_principal_point, true);
   EXPECT_EQ(copy.min_track_length, 5);
+  EXPECT_TRUE(copy.pose_prior.use_position);
+  EXPECT_TRUE(copy.ConstrainMetricScale());
+  EXPECT_EQ(copy.pose_prior.position_stddev, Eigen::Vector3d(1.5, 2.5, 3.5));
+  EXPECT_TRUE(copy.pose_prior.overwrite_position_covariance);
+  EXPECT_EQ(copy.pose_prior.position_alignment_ransac.max_error, 4.5);
   EXPECT_EQ(copy.ceres->solver_options.max_num_iterations, 42);
+  EXPECT_EQ(copy.ceres->prior_position_loss_function_type,
+            CeresLossFunctionType::CAUCHY);
+  EXPECT_EQ(copy.ceres->prior_position_loss_scale, 1.25);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.ceres.get(), copy.ceres.get());
+}
+
+TEST(BundleAdjustmentOptions, PriorCheck) {
+  BundleAdjustmentOptions options;
+  EXPECT_FALSE(options.ConstrainMetricScale());
+  EXPECT_TRUE(options.Check());
+
+  options.pose_prior.position_stddev = Eigen::Vector3d(0.0, 1.0, 1.0);
+  EXPECT_FALSE(options.pose_prior.Check());
+  EXPECT_FALSE(options.Check());
+
+  options.pose_prior.position_stddev =
+      Eigen::Vector3d(1.0, std::numeric_limits<double>::quiet_NaN(), 1.0);
+  EXPECT_FALSE(options.pose_prior.Check());
+  EXPECT_FALSE(options.Check());
+
+  options.pose_prior.position_stddev = Eigen::Vector3d::Ones();
+  EXPECT_TRUE(options.pose_prior.Check());
+  options.ceres->prior_position_loss_scale = 0.0;
+  EXPECT_FALSE(options.Check());
 }
 
 TEST(PosePriorBundleAdjustmentOptions, Copy) {
@@ -824,74 +860,17 @@ INSTANTIATE_TEST_SUITE_P(BundleAdjusterBackends,
                          BundleAdjusterBackendTest,
                          ::testing::ValuesIn(BundleAdjustmentBackends()));
 
-// Parameterized test for generic PosePriorBundleAdjuster interface across
-// backends.
-class PosePriorBundleAdjusterBackendTest
-    : public ::testing::TestWithParam<BundleAdjustmentBackend> {};
-
-TEST_P(PosePriorBundleAdjusterBackendTest, Nominal) {
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 7;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.prior_position = true;
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-
-  Reconstruction reconstruction = gt_reconstruction;
-
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 0.5;
-  synthetic_noise_options.point3D_stddev = 0.1;
-  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
-  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
-  synthetic_noise_options.prior_position_stddev = 0.05;
-  SynthesizeNoise(synthetic_noise_options, &reconstruction);
-
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-
+TEST(DefaultBundleAdjuster, CasparBackendRejectsPriors) {
+  Reconstruction reconstruction;
   BundleAdjustmentConfig config;
-  for (const frame_t frame_id : reconstruction.RegFrameIds()) {
-    const Frame& frame = reconstruction.Frame(frame_id);
-    for (const data_t& data_id : frame.ImageIds()) {
-      config.AddImage(data_id.id);
-    }
-  }
-
   BundleAdjustmentOptions options;
-  options.backend = GetParam();
-
-  PosePriorBundleAdjustmentOptions prior_options;
-  prior_options.alignment_ransac_options.random_seed = 0;
-
-  std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreatePosePriorBundleAdjuster(
-          options, prior_options, config, pose_priors, reconstruction);
-
-  // Test abstract interface accessors
-  EXPECT_EQ(bundle_adjuster->Options().backend, GetParam());
-  EXPECT_EQ(bundle_adjuster->Config().NumImages(), 7);
-
-  // Solve and verify through abstract interface
-  const auto summary = bundle_adjuster->Solve();
-  EXPECT_TRUE(summary->IsSolutionUsable());
-  EXPECT_GT(summary->num_residuals, 0);
-
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(reconstruction,
-                                 /*max_rotation_error_deg=*/0.1,
-                                 /*max_proj_center_error=*/0.1,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.02));
+  options.backend = BundleAdjustmentBackend::CASPAR;
+  options.pose_prior.use_position = true;
+  EXPECT_THAT(
+      [&]() { CreateDefaultBundleAdjuster(options, config, reconstruction); },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("does not support priors")));
 }
-
-INSTANTIATE_TEST_SUITE_P(PosePriorBundleAdjusterBackends,
-                         PosePriorBundleAdjusterBackendTest,
-                         ::testing::Values(BundleAdjustmentBackend::CERES));
 
 }  // namespace
 }  // namespace colmap

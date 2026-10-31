@@ -211,10 +211,7 @@ bool AlignReconstructionToLocations(
 }
 
 double ComputePosePriorAlignmentMaxError(
-    const std::vector<PosePrior>& pose_priors,
-    const double max_error,
-    const double prior_position_fallback_stddev) {
-  THROW_CHECK_GT(prior_position_fallback_stddev, 0.0);
+    const std::vector<PosePrior>& pose_priors, const double max_error) {
   if (max_error > 0.0) {
     return max_error;
   }
@@ -231,8 +228,7 @@ double ComputePosePriorAlignmentMaxError(
   }
   if (rms_vars.empty()) {
     LOG(WARNING) << "No pose priors with valid covariance found.";
-    rms_vars.push_back(prior_position_fallback_stddev *
-                       prior_position_fallback_stddev);
+    rms_vars.push_back(1.0);
   }
 
   // Scale the median RMS variance by the 95% chi-square quantile for 3 DOF.
@@ -243,10 +239,7 @@ bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
     RANSACOptions ransac_options,
-    const double prior_position_fallback_stddev,
     Sim3d* tgt_from_src) {
-  THROW_CHECK_GT(prior_position_fallback_stddev, 0.0);
-
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
   std::vector<PosePrior> matched_priors;
@@ -281,7 +274,7 @@ bool AlignReconstructionToPosePriors(
   }
 
   ransac_options.max_error = ComputePosePriorAlignmentMaxError(
-      matched_priors, ransac_options.max_error, prior_position_fallback_stddev);
+      matched_priors, ransac_options.max_error);
 
   VLOG(2) << "Robustly aligning reconstruction with max_error="
           << ransac_options.max_error;

@@ -147,6 +147,7 @@ void BaseOptionManager::ResetImpl(bool reset_logging) {
   options_double_.clear();
   options_string_.clear();
   options_path_.clear();
+  enum_options_.clear();
 
   added_option_groups_.clear();
 }
