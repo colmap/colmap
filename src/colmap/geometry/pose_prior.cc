@@ -2,6 +2,7 @@
 
 #include "colmap/geometry/pose_prior.h"
 
+#include "colmap/geometry/gps.h"
 #include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
@@ -86,6 +87,44 @@ int ComputeRot90FromGravity(const Eigen::Vector3d& gravity) {
     rot90_ccw += 4;
   }
   return rot90_ccw;
+}
+
+void ConvertPosePriorsToENU(std::vector<PosePrior>& pose_priors) {
+  std::optional<PosePrior::CoordinateSystem> coordinate_system;
+  std::vector<PosePrior*> gps_priors;
+  std::vector<Eigen::Vector3d> gps_positions;
+  for (PosePrior& pose_prior : pose_priors) {
+    if (!pose_prior.HasPosition()) {
+      continue;
+    }
+    if (!coordinate_system.has_value()) {
+      coordinate_system = pose_prior.coordinate_system;
+    } else {
+      THROW_CHECK(*coordinate_system == pose_prior.coordinate_system)
+          << "Inconsistent coordinate systems defined in pose priors";
+    }
+    if (pose_prior.coordinate_system == PosePrior::CoordinateSystem::WGS84) {
+      gps_priors.push_back(&pose_prior);
+      gps_positions.push_back(pose_prior.position);
+    }
+  }
+
+  if (gps_priors.empty()) {
+    return;
+  }
+
+  const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
+  const std::vector<Eigen::Vector3d> enu_positions =
+      gps_transform.EllipsoidToENU(gps_positions,
+                                   gps_positions[0].x(),
+                                   gps_positions[0].y(),
+                                   gps_positions[0].z());
+  auto enu_it = enu_positions.begin();
+  for (PosePrior* pose_prior : gps_priors) {
+    pose_prior->position = *enu_it;
+    pose_prior->coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    ++enu_it;
+  }
 }
 
 }  // namespace colmap

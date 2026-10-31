@@ -2,7 +2,7 @@
 
 #include "colmap/scene/database_cache.h"
 
-#include "colmap/geometry/gps.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
@@ -257,7 +257,7 @@ void DatabaseCache::Load(const Database& database, const Options& options) {
   pose_priors_ = database.ReadAllPosePriors();
 
   if (options.convert_pose_priors_to_enu) {
-    ConvertPosePriorsToENU();
+    ConvertPosePriorsToENU(pose_priors_);
   }
 
   LOG(INFO) << StringPrintf(
@@ -393,7 +393,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::CreateFromCache(
   // Copy pose priors.
   cache->pose_priors_ = database_cache.PosePriors();
   if (options.convert_pose_priors_to_enu) {
-    cache->ConvertPosePriorsToENU();
+    ConvertPosePriorsToENU(cache->pose_priors_);
   }
 
   // Build filtered correspondence graph with all images from connected frames.
@@ -471,44 +471,6 @@ const class Image* DatabaseCache::FindImageWithName(
     }
   }
   return nullptr;
-}
-
-void DatabaseCache::ConvertPosePriorsToENU() {
-  bool prior_is_gps = true;
-
-  std::vector<Eigen::Vector3d> gps_prior_positions;
-  std::set<PosePrior::CoordinateSystem> coordinate_systems;
-  for (const auto& pose_prior : pose_priors_) {
-    coordinate_systems.insert(pose_prior.coordinate_system);
-    if (pose_prior.coordinate_system != PosePrior::CoordinateSystem::WGS84) {
-      prior_is_gps = false;
-    } else {
-      gps_prior_positions.push_back(pose_prior.position);
-    }
-  }
-
-  THROW_CHECK_LE(coordinate_systems.size(), 1)
-      << "Inconsistent coordinate systems defined in pose priors";
-
-  // If GPS priors are available, convert them to Cartesian ENU coordinates.
-  if (prior_is_gps && !gps_prior_positions.empty()) {
-    // GPS reference to be used for EllipsoidToENU conversion.
-    const double ref_lat = gps_prior_positions[0][0];
-    const double ref_lon = gps_prior_positions[0][1];
-    const double ref_alt = gps_prior_positions[0][2];
-
-    const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
-    const std::vector<Eigen::Vector3d> v_xyz_prior =
-        gps_transform.EllipsoidToENU(
-            gps_prior_positions, ref_lat, ref_lon, ref_alt);
-
-    auto xyz_prior_it = v_xyz_prior.begin();
-    for (auto& pose_prior : pose_priors_) {
-      pose_prior.position = *xyz_prior_it;
-      pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
-      ++xyz_prior_it;
-    }
-  }
 }
 
 }  // namespace colmap

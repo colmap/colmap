@@ -101,8 +101,6 @@ class DatabaseCache {
   const class Image* FindImageWithName(const std::string& name) const;
 
  private:
-  void ConvertPosePriorsToENU();
-
   NodeHashMap<rig_t, class Rig> rigs_;
   NodeHashMap<camera_t, struct Camera> cameras_;
   NodeHashMap<frame_t, class Frame> frames_;
