@@ -5,6 +5,7 @@
 #include "colmap/math/random.h"
 
 #include <algorithm>
+#include <stdexcept>
 #include <tuple>
 
 #include <gtest/gtest.h>
@@ -157,6 +158,21 @@ TEST(Warp, DirectWarpMinScale) {
                                            target_camera,
                                            source_image,
                                            &default_image));
+
+  target_camera.params = {1.0};
+  EXPECT_THROW(WarpImageBetweenCameras(WarpImageOptions(),
+                                       source_camera,
+                                       target_camera,
+                                       source_image,
+                                       &default_image),
+               std::invalid_argument);
+  EXPECT_THROW(WarpImageBetweenCameras(WarpImageOptions(),
+                                       target_camera,
+                                       source_camera,
+                                       Bitmap(95, 49, true),
+                                       &default_image),
+               std::invalid_argument);
+  EXPECT_EQ(default_image.Width(), 95);
 }
 
 TEST(Warp, Interpolation) {
@@ -535,8 +551,9 @@ TEST(Warp, CameraModelsMatchPerPixelProjection) {
   pinhole_tgt.SetPrincipalPointX(14.0);
 
   Eigen::Matrix3d H;
-  // Column x = 10 hits warped.z() == 0.
-  H << 1.0, 0.05, 1.5, -0.05, 1.0, -0.75, -1.0 / 10.5, 0.0, 1.0;
+  // Exact dyadic rationals so column x = 10 hits warped.z() == 0 with or
+  // without FMA contraction (-0.125 * 10.5 + 1.3125 == 0).
+  H << 1.0, 0.05, 1.5, -0.05, 1.0, -0.75, -0.125, 0.0, 1.3125;
 
   const auto warp_reference = [&](const Eigen::Matrix3d* homography,
                                   const Camera& src_cam,
@@ -577,25 +594,26 @@ TEST(Warp, CameraModelsMatchPerPixelProjection) {
            {make_cam(CameraModelId::kSimpleRadial, 37, 29, 0.1),
             make_cam(CameraModelId::kEquirectangular, 31, 23),
             true}}) {
-    Bitmap actual;
-    WarpImageBetweenCameras(
-        WarpImageOptions(), src_cam, tgt_cam, source_image, &actual);
-    CheckBitmapsExactlyEqual(actual, warp_reference(nullptr, src_cam, tgt_cam));
-    const auto& data = actual.RowMajorData();
-    const size_t zeros = std::count(data.begin(), data.end(), uint8_t{0});
-    EXPECT_LT(zeros, data.size());
-    if (expect_partial) {
-      EXPECT_GT(zeros, 0);
+    for (const Eigen::Matrix3d* homography :
+         {static_cast<Eigen::Matrix3d*>(nullptr), &H}) {
+      Bitmap actual;
+      if (homography == nullptr) {
+        WarpImageBetweenCameras(
+            WarpImageOptions(), src_cam, tgt_cam, source_image, &actual);
+      } else {
+        WarpImageWithHomographyBetweenCameras(
+            WarpImageOptions(), H, src_cam, tgt_cam, source_image, &actual);
+        EXPECT_EQ(actual.GetPixel(10, 11), BitmapColor<uint8_t>(0));
+      }
+      CheckBitmapsExactlyEqual(actual,
+                               warp_reference(homography, src_cam, tgt_cam));
+      const auto& data = actual.RowMajorData();
+      const size_t zeros = std::count(data.begin(), data.end(), uint8_t{0});
+      EXPECT_LT(zeros, data.size());
+      if (expect_partial || homography != nullptr) {
+        EXPECT_GT(zeros, 0);
+      }
     }
-
-    Bitmap actual_H;
-    WarpImageWithHomographyBetweenCameras(
-        WarpImageOptions(), H, src_cam, tgt_cam, source_image, &actual_H);
-    CheckBitmapsExactlyEqual(actual_H, warp_reference(&H, src_cam, tgt_cam));
-    const auto& data_H = actual_H.RowMajorData();
-    const size_t zeros_H = std::count(data_H.begin(), data_H.end(), uint8_t{0});
-    EXPECT_LT(zeros_H, data_H.size());
-    EXPECT_GT(zeros_H, 0);
   }
 }
 

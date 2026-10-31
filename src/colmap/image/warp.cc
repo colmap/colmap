@@ -77,7 +77,6 @@ void CamFromImgRow(const Camera& camera,
   switch (camera.model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
   case CameraModel::model_id:                                            \
-    THROW_CHECK_EQ(camera.params.size(), CameraModel::num_params);       \
     if (img_points == nullptr) {                                         \
       for (int x = 0; x < width; ++x) {                                  \
         valid[x] = CameraModel::CamFromImg(                              \
@@ -111,19 +110,18 @@ void ImgFromCamRow(const Camera& camera,
                    Eigen::Vector2d* img_points) {
   const double* params = camera.params.data();
   switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                             \
-  case CameraModel::model_id:                                      \
-    THROW_CHECK_EQ(camera.params.size(), CameraModel::num_params); \
-    for (int x = 0; x < width; ++x) {                              \
-      if (valid[x]) {                                              \
-        valid[x] = CameraModel::ImgFromCam(params,                 \
-                                           cam_points[x].x(),      \
-                                           cam_points[x].y(),      \
-                                           1.0,                    \
-                                           &img_points[x].x(),     \
-                                           &img_points[x].y());    \
-      }                                                            \
-    }                                                              \
+#define CAMERA_MODEL_CASE(CameraModel)                          \
+  case CameraModel::model_id:                                   \
+    for (int x = 0; x < width; ++x) {                           \
+      if (valid[x]) {                                           \
+        valid[x] = CameraModel::ImgFromCam(params,              \
+                                           cam_points[x].x(),   \
+                                           cam_points[x].y(),   \
+                                           1.0,                 \
+                                           &img_points[x].x(),  \
+                                           &img_points[x].y()); \
+      }                                                         \
+    }                                                           \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -142,6 +140,10 @@ void WarpBetweenCamerasImpl(const WarpImageOptions& options,
   THROW_CHECK_EQ(source_camera.width, source_image.Width());
   THROW_CHECK_EQ(source_camera.height, source_image.Height());
   THROW_CHECK_NOTNULL(target_image);
+  THROW_CHECK_EQ(source_camera.params.size(),
+                 CameraModelNumParams(source_camera.model_id));
+  THROW_CHECK_EQ(target_camera.params.size(),
+                 CameraModelNumParams(target_camera.model_id));
 
   const bool warp_directly =
       ShouldWarpDirectly(source_camera, target_camera, options);
@@ -174,14 +176,13 @@ void WarpBetweenCamerasImpl(const WarpImageOptions& options,
   std::vector<Eigen::Vector2d> img_points(width);
   std::vector<Eigen::Vector2d> cam_points(width);
   std::vector<uint8_t> valid(width);
-  Eigen::Vector3d image_point(0, 0, 1);
   for (int y = 0; y < height; ++y) {
     // Camera models assume that the upper left pixel center is (0.5, 0.5).
-    image_point.y() = y + 0.5;
+    const double y_center = y + 0.5;
     if (H != nullptr) {
       for (int x = 0; x < width; ++x) {
-        image_point.x() = x + 0.5;
-        const Eigen::Vector3d warped_point = warp_H * image_point;
+        const Eigen::Vector3d warped_point =
+            warp_H * Eigen::Vector3d(x + 0.5, y_center, 1.0);
         valid[x] = warped_point.z() != 0;
         if (valid[x]) {
           img_points[x] = warped_point.hnormalized();
@@ -189,7 +190,7 @@ void WarpBetweenCamerasImpl(const WarpImageOptions& options,
       }
     }
     CamFromImgRow(warp_target_camera,
-                  image_point.y(),
+                  y_center,
                   width,
                   H != nullptr ? img_points.data() : nullptr,
                   valid.data(),
