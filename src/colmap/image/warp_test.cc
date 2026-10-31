@@ -518,4 +518,66 @@ TEST(Warp, DownsampleImage) {
 }
 
 }  // namespace
+TEST(Warp, PinholeTargetMatchesGenericProjection) {
+  for (const auto model : {CameraModelId::kSimpleRadial,
+                           CameraModelId::kOpenCV,
+                           CameraModelId::kFOV}) {
+    Camera source_camera = Camera::CreateFromModelId(1, model, 25, 37, 29);
+    if (model == CameraModelId::kSimpleRadial)
+      source_camera.params.back() = 0.15;
+    if (model == CameraModelId::kOpenCV) source_camera.params[4] = 0.05;
+    for (const bool rgb : {false, true}) {
+      const Bitmap source = GenerateRandomBitmap(37, 29, rgb);
+      for (const double offset : {0.0, 0.5, -10.0})
+        for (const double min_scale : {0.0, 1.0}) {
+          Camera target = Camera::CreateFromModelId(
+              2, CameraModelId::kPinhole, 18.3, 31, 23);
+          target.params[1] = 19.1;
+          target.params[2] += offset;
+          target.params[3] -= offset;
+          for (const auto interpolation :
+               {WarpImageOptions::Interpolation::kNearestNeighbor,
+                WarpImageOptions::Interpolation::kBilinear}) {
+            WarpImageOptions options;
+            options.interpolation = interpolation;
+            options.direct_warp_min_scale = min_scale;
+            Bitmap actual;
+            WarpImageBetweenCameras(
+                options, source_camera, target, source, &actual);
+            Camera reference_target = target;
+            if (min_scale > 0)
+              reference_target.Rescale(source_camera.width,
+                                       source_camera.height);
+            Bitmap expected(
+                reference_target.width, reference_target.height, rgb);
+            for (int y = 0; y < expected.Height(); ++y) {
+              for (int x = 0; x < expected.Width(); ++x) {
+                const auto ray =
+                    reference_target.CamFromImg({x + 0.5, y + 0.5});
+                ASSERT_TRUE(ray);
+                const auto point = source_camera.ImgFromCam(ray->homogeneous());
+                BitmapColor<uint8_t> color(0);
+                if (point) {
+                  if (interpolation ==
+                      WarpImageOptions::Interpolation::kNearestNeighbor) {
+                    color = source
+                                .InterpolateNearestNeighbor(point->x() - 0.5,
+                                                            point->y() - 0.5)
+                                .value_or(color);
+                  } else {
+                    const auto sampled = source.InterpolateBilinear(
+                        point->x() - 0.5, point->y() - 0.5);
+                    if (sampled) color = sampled->Cast<uint8_t>();
+                  }
+                }
+                expected.SetPixel(x, y, color);
+              }
+            }
+            if (min_scale > 0) expected.Rescale(target.width, target.height);
+            CheckBitmapsExactlyEqual(actual, expected);
+          }
+        }
+    }
+  }
+}
 }  // namespace colmap
