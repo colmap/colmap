@@ -156,6 +156,25 @@ TEST(ClusterReconstructionFrames, WellConnectedReconstruction) {
   }
 }
 
+TEST(ClusterReconstructionFrames, CountsRigFrameCovisibilityOnce) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 5;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  ReconstructionClusteringOptions options;
+  options.min_num_reg_frames = 2;
+  const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+
+  ASSERT_EQ(cluster_ids.size(), 2);
+  EXPECT_EQ(cluster_ids.at(1), -1);
+  EXPECT_EQ(cluster_ids.at(2), -1);
+}
+
 TEST(ClusterReconstructionFrames, WeaklyConnectedReconstruction) {
   // Create a reconstruction with very few 3D points (10 total).
   // With so few shared observations, the covisibility between frames is weak
