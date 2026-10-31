@@ -10,8 +10,52 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/Eigenvalues>
+
 namespace colmap {
 namespace {
+
+// Checks whether the RANSAC inlier subset spans at least 2 dimensions (i.e., is
+// not degenerate to a point or a 1D line), which is required to constrain all
+// 7 DOFs of a 3D similarity transform.
+bool HasNonCollinearInliers(const std::vector<Eigen::Vector3d>& points,
+                            const std::vector<char>& inlier_mask) {
+  THROW_CHECK_EQ(points.size(), inlier_mask.size());
+  Eigen::Vector3d centroid = Eigen::Vector3d::Zero();
+  size_t num_inliers = 0;
+  for (size_t i = 0; i < points.size(); ++i) {
+    if (inlier_mask[i]) {
+      centroid += points[i];
+      ++num_inliers;
+    }
+  }
+  if (num_inliers < 3) {
+    return false;
+  }
+  centroid /= static_cast<double>(num_inliers);
+
+  Eigen::Matrix3d scatter = Eigen::Matrix3d::Zero();
+  for (size_t i = 0; i < points.size(); ++i) {
+    if (inlier_mask[i]) {
+      const Eigen::Vector3d centered = points[i] - centroid;
+      scatter.noalias() += centered * centered.transpose();
+    }
+  }
+
+  const Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eig(
+      scatter, Eigen::EigenvaluesOnly);
+  if (eig.info() != Eigen::Success) {
+    return false;
+  }
+  const Eigen::Vector3d& evals = eig.eigenvalues();
+  constexpr double kMinCentroidEps =
+      100.0 * std::numeric_limits<double>::epsilon();
+  const double min_scatter = static_cast<double>(num_inliers) *
+                             kMinCentroidEps * kMinCentroidEps *
+                             std::max(1.0, centroid.squaredNorm());
+  constexpr double kMinAspectRatioSq = 1e-6;  // s_2 / s_1 > 1e-3.
+  return evals(2) > min_scatter && evals(1) > kMinAspectRatioSq * evals(2);
+}
 
 struct ReconstructionAlignmentEstimator {
   static const int kMinNumSamples = 3;
@@ -225,12 +269,13 @@ bool AlignReconstructionToPosePriors(
   tgt.reserve(tgt_pose_priors.size());
   rms_vars.reserve(tgt_pose_priors.size());
 
-  NodeHashMap<image_t, PosePrior> tgt_image_to_pose_prior;
+  FlatHashMap<image_t, const PosePrior*> tgt_image_to_pose_prior;
+  tgt_image_to_pose_prior.reserve(tgt_pose_priors.size());
   for (const auto& pose_prior : tgt_pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
         pose_prior.HasPosition()) {
       THROW_CHECK(tgt_image_to_pose_prior
-                      .emplace(pose_prior.corr_data_id.id, pose_prior)
+                      .emplace(pose_prior.corr_data_id.id, &pose_prior)
                       .second)
           << "Duplicate pose prior for image " << pose_prior.corr_data_id.id;
     }
@@ -241,8 +286,8 @@ bool AlignReconstructionToPosePriors(
     if (pose_prior_it != tgt_image_to_pose_prior.end()) {
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
-      tgt.push_back(pose_prior_it->second.position);
-      const double trace = pose_prior_it->second.position_covariance.trace();
+      tgt.push_back(pose_prior_it->second->position);
+      const double trace = pose_prior_it->second->position_covariance.trace();
       if (trace > 0.0) {
         rms_vars.push_back(trace / 3.0);
       }
@@ -268,7 +313,21 @@ bool AlignReconstructionToPosePriors(
 
   VLOG(2) << "Robustly aligning reconstruction with max_error="
           << ransac_options.max_error;
-  return EstimateSim3dRobust(src, tgt, ransac_options, *tgt_from_src).success;
+  Sim3d tgt_from_src_;
+  const auto report =
+      EstimateSim3dRobust(src, tgt, ransac_options, tgt_from_src_);
+  if (!report.success) {
+    return false;
+  }
+  if (!HasNonCollinearInliers(src, report.inlier_mask) ||
+      !HasNonCollinearInliers(tgt, report.inlier_mask)) {
+    LOG(WARNING) << "Degenerate (collinear) pose priors for 7-DOF alignment";
+    return false;
+  }
+  if (tgt_from_src != nullptr) {
+    *tgt_from_src = tgt_from_src_;
+  }
+  return true;
 }
 
 bool AlignReconstructionsViaReprojections(

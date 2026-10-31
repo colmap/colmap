@@ -512,7 +512,9 @@ IncrementalPipeline::Status IncrementalPipeline::InitializeReconstruction(
   if (CheckIfStopped() || CheckReachedMaxRuntime()) {
     return Status::INTERRUPTED;
   }
-  reconstruction.Normalize();
+  if (!options_->use_prior_position) {
+    reconstruction.Normalize();
+  }
   mapper.FilterPoints(mapper_options);
   mapper.FilterFrames(mapper_options);
 
