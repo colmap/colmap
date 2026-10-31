@@ -8,6 +8,7 @@
 #include "thirdparty/VLFeat/imopv.h"
 
 #include <algorithm>
+#include <vector>
 
 #include <Eigen/Geometry>
 
@@ -83,15 +84,33 @@ void WarpImageBetweenCamerasImpl(const WarpImageOptions& options,
                                                         : source_camera.height),
                          source_image.IsRGB());
 
+  // Pinhole unprojection is separable. Keep the division order used by
+  // CamFromImg so nearest-neighbor sampling keeps the same pixel boundaries.
+  const bool pinhole_target =
+      warp_target_camera.model_id == PinholeCameraModel::model_id;
+  std::vector<double> normalized_x;
+  if (pinhole_target) {
+    normalized_x.resize(target_image->Width());
+    for (int x = 0; x < target_image->Width(); ++x) {
+      normalized_x[x] = ((x + 0.5) - warp_target_camera.params[2]) /
+                        warp_target_camera.params[0];
+    }
+  }
   Eigen::Vector2d image_point;
   for (int y = 0; y < target_image->Height(); ++y) {
     image_point.y() = y + 0.5;
+    const double normalized_y =
+        pinhole_target ? (image_point.y() - warp_target_camera.params[3]) /
+                             warp_target_camera.params[1]
+                       : 0;
     for (int x = 0; x < target_image->Width(); ++x) {
       image_point.x() = x + 0.5;
 
       // Camera models assume that the upper left pixel center is (0.5, 0.5).
       const std::optional<Eigen::Vector2d> cam_point =
-          warp_target_camera.CamFromImg(image_point);
+          pinhole_target ? std::make_optional(
+                               Eigen::Vector2d(normalized_x[x], normalized_y))
+                         : warp_target_camera.CamFromImg(image_point);
       if (!cam_point) {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
         continue;
