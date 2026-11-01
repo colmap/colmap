@@ -11,6 +11,7 @@ option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(HIP_ENABLED "Whether to enable AMD GPU support via HIP/ROCm" OFF)
+option(METAL_ENABLED "Whether to enable Metal (macOS only), if available" ON)
 
 if(CUDA_ENABLED AND HIP_ENABLED)
     message(FATAL_ERROR "CUDA and HIP cannot be enabled at the same time")
@@ -21,6 +22,11 @@ endif()
 # CPU-only builds continue to work on older CMake versions.
 if(HIP_ENABLED)
     cmake_minimum_required(VERSION 3.21)
+endif()
+
+# enable_language(OBJCXX) requires CMake 3.16+. Same reasoning as for HIP.
+if(METAL_ENABLED AND CMAKE_HOST_APPLE)
+    cmake_minimum_required(VERSION 3.16)
 endif()
 option(ONNX_ENABLED "Whether to enable ONNX, if available" ON)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
