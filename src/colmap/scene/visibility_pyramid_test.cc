@@ -2,6 +2,8 @@
 
 #include "colmap/scene/visibility_pyramid.h"
 
+#include <algorithm>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -57,6 +59,24 @@ TEST(VisibilityPyramid, Score) {
     pyramid.SetPoint(0, 2);
     EXPECT_EQ(pyramid.Score(),
               2 * scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
+  }
+}
+
+TEST(VisibilityPyramid, ClampOutsideImage) {
+  const std::vector<Eigen::Vector2d> points = {
+      {-42, 200}, {320, -45}, {-42, -45}, {682, 200}, {320, 525}};
+  for (const auto& point : points) {
+    const double x = std::clamp(point.x(), 0.0, 640.0);
+    const double y = std::clamp(point.y(), 0.0, 480.0);
+    VisibilityPyramid pyramid(6, 640, 480);
+    pyramid.SetPoint(x, y);
+    const size_t score = pyramid.Score();
+    pyramid.SetPoint(point.x(), point.y());
+    EXPECT_EQ(pyramid.Score(), score) << point.transpose();
+    pyramid.ResetPoint(point.x(), point.y());
+    EXPECT_EQ(pyramid.Score(), score);
+    pyramid.ResetPoint(x, y);
+    EXPECT_EQ(pyramid.Score(), 0);
   }
 }
 
