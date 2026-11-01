@@ -24,7 +24,9 @@ unset(onnxruntime_FOUND)
 unset(onnxruntime_INCLUDE_DIRS)
 unset(onnxruntime_LIBRARIES)
 
-find_package(onnxruntime CONFIG QUIET PATHS ${onnxruntime_CONFIG_DIR_HINTS})
+# Computed hints (including the fetched runtime) take precedence over system
+# installations, while explicit CMake package/prefix overrides remain honored.
+find_package(onnxruntime CONFIG QUIET HINTS ${onnxruntime_CONFIG_DIR_HINTS})
 if(TARGET onnxruntime::onnxruntime)
     set(onnxruntime_FOUND TRUE)
     message(STATUS "Found onnxruntime")
@@ -33,14 +35,15 @@ else()
     find_path(onnxruntime_INCLUDE_DIRS
         NAMES
         onnxruntime/onnxruntime_cxx_api.h
-        PATHS
+        HINTS
         ${onnxruntime_INCLUDE_DIR_HINTS}
+        PATHS
         /usr/include
         /usr/local/include
         /sw/include
         /opt/include
         /opt/local/include)
-    list(APPEND onnxruntime_LIBRARY_DIR_HINTS
+    set(_onnxruntime_library_paths
         /usr/lib64
         /usr/lib
         /usr/local/lib64
@@ -50,15 +53,20 @@ else()
         /opt/local/lib)
     find_library(onnxruntime_LIBRARIES
         NAMES onnxruntime libonnxruntime
-        PATHS ${onnxruntime_LIBRARY_DIR_HINTS})
+        HINTS ${onnxruntime_LIBRARY_DIR_HINTS}
+        PATHS ${_onnxruntime_library_paths})
     find_library(onnxruntime_PROVIDERS_SHARED_LIBRARY
         NAMES onnxruntime_providers_shared libonnxruntime_providers_shared
-        PATHS ${onnxruntime_LIBRARY_DIR_HINTS})
+        HINTS ${onnxruntime_LIBRARY_DIR_HINTS}
+        PATHS ${_onnxruntime_library_paths})
     if(CUDA_ENABLED)
         find_library(onnxruntime_PROVIDERS_CUDA_LIBRARY
             NAMES onnxruntime_providers_cuda libonnxruntime_providers_cuda
-            PATHS ${onnxruntime_LIBRARY_DIR_HINTS})
+            HINTS ${onnxruntime_LIBRARY_DIR_HINTS}
+            PATHS ${_onnxruntime_library_paths})
     endif()
+
+    unset(_onnxruntime_library_paths)
 
     if(onnxruntime_INCLUDE_DIRS AND onnxruntime_LIBRARIES)
         if(onnxruntime_PROVIDERS_SHARED_LIBRARY)
