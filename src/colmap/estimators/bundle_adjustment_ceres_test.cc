@@ -3,6 +3,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -1289,6 +1290,211 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+}
+
+TEST(PosePriorBundleAdjuster, CollinearPriorsFallbackToTwoCameraGauge) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 4;
+  synthetic_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_options, &reconstruction);
+
+  std::vector<PosePrior> pose_priors;
+  int idx = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    PosePrior& prior = pose_priors.emplace_back();
+    prior.pose_prior_id = pose_priors.size();
+    prior.corr_data_id = reconstruction.Image(image_id).DataId();
+    prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    prior.position =
+        Eigen::Vector3d(10.0 * idx, (idx % 2 == 0 ? 1.0 : -1.0) * 1e-4, 0.0);
+    prior.position_covariance = Eigen::Matrix3d::Identity();
+    ++idx;
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  prior_options.alignment_ransac_options.max_error = 50.0;
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                std::move(pose_priors),
+                                                reconstruction);
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
+}
+
+TEST(PosePriorBundleAdjuster, UnobservedImagePriorsExcludedFromAlignment) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 4;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  // Strip all 3D point observations from two of the four images so only two
+  // parameterized images remain in the BA problem.
+  int stripped = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    if (stripped == 2) {
+      break;
+    }
+    Image& image = reconstruction.Image(image_id);
+    for (point2D_t i = 0; i < image.NumPoints2D(); ++i) {
+      if (image.Point2D(i).HasPoint3D()) {
+        reconstruction.DeleteObservation(image_id, i);
+      }
+    }
+    ++stripped;
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                database->ReadAllPosePriors(),
+                                                reconstruction);
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
+}
+
+TEST(PosePriorBundleAdjuster, ConstantFramePosePreserved) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+  const frame_t constant_frame_id = reconstruction.RegFrameIds().front();
+  const Rigid3d orig_constant_rig_from_world =
+      reconstruction.Frame(constant_frame_id).RigFromWorld();
+
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.5;
+  noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+  reconstruction.Frame(constant_frame_id)
+      .SetRigFromWorld(orig_constant_rig_from_world);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  // Perturb position priors so a global RANSAC Sim3d alignment would have
+  // shifted the constant frame if alignment were not skipped.
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : pose_priors) {
+    prior.position += Eigen::Vector3d(0.02, -0.01, 0.03);
+    prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.SetConstantRigFromWorldPose(constant_frame_id);
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                std::move(pose_priors),
+                                                reconstruction);
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::UNSPECIFIED);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  const image_t constant_image_id =
+      reconstruction.Frame(constant_frame_id).ImageIds().begin()->id;
+  CheckConstantCamFromWorld(reconstruction.Image(constant_image_id),
+                            orig_reconstruction.Image(constant_image_id));
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.2,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+}
+
+TEST(PosePriorBundleAdjuster, LargeExtentMetricSceneConditioning) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  // Scale ground-truth metric scene to a 10 km extent with a large UTM-like
+  // offset while keeping the input SfM reconstruction at arbitrary unit scale.
+  constexpr double kMetricScale = 5000.0;
+  const Sim3d metric_from_synth(
+      kMetricScale,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(500000.0, 4000000.0, 300.0));
+
+  Reconstruction reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.5;
+  noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+
+  gt_reconstruction.Transform(metric_from_synth);
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : pose_priors) {
+    prior.position = metric_from_synth * prior.position;
+    prior.position_covariance =
+        (kMetricScale * kMetricScale * 1e-4) * Eigen::Matrix3d::Identity();
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                std::move(pose_priors),
+                                                reconstruction);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1 * kMetricScale,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
 }
 
 }  // namespace

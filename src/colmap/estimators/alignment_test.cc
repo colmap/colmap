@@ -140,6 +140,68 @@ TEST(Alignment, AlignReconstructionToPosePriorsWithAutomaticMaxError) {
                                       /*prior_position_fallback_stddev=*/1.0,
                                       &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
+  EXPECT_TRUE(
+      AlignReconstructionToPosePriors(src_reconstruction,
+                                      tgt_pose_priors,
+                                      ransac_options,
+                                      /*prior_position_fallback_stddev=*/1.0,
+                                      /*tgt_from_src=*/nullptr));
+}
+
+TEST(Alignment, AlignReconstructionToPosePriorsRejectsCollinear) {
+  Reconstruction src_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 20;
+  SynthesizeDataset(synthetic_options, &src_reconstruction);
+
+  // Place all cameras on a straight line along X with tiny lateral jitter, so
+  // roll around the trajectory axis is unobservable.
+  std::vector<PosePrior> tgt_pose_priors;
+  int idx = 0;
+  for (const image_t image_id : src_reconstruction.RegImageIds()) {
+    Image& image = src_reconstruction.Image(image_id);
+    const Eigen::Vector3d center(
+        10.0 * idx, (idx % 2 == 0 ? 1.0 : -1.0) * 1e-4, 0.0);
+    image.FramePtr()->SetRigFromWorld(
+        Rigid3d(Eigen::Quaterniond::Identity(), -center));
+
+    PosePrior& pose_prior = tgt_pose_priors.emplace_back();
+    pose_prior.pose_prior_id = tgt_pose_priors.size();
+    pose_prior.corr_data_id = image.DataId();
+    pose_prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    pose_prior.position = 2.0 * center + Eigen::Vector3d(100.0, -50.0, 20.0);
+    pose_prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
+    ++idx;
+  }
+
+  RANSACOptions ransac_options;
+  ransac_options.random_seed = 0;
+  ransac_options.max_error = 0.5;
+  Sim3d tgt_from_src;
+  EXPECT_FALSE(
+      AlignReconstructionToPosePriors(src_reconstruction,
+                                      tgt_pose_priors,
+                                      ransac_options,
+                                      /*prior_position_fallback_stddev=*/1.0,
+                                      &tgt_from_src));
+
+  // Make one correspondence a gross off-line outlier in both src and tgt so
+  // the full point set spans 3D, while the 5 RANSAC inliers remain collinear.
+  const image_t last_image_id = src_reconstruction.RegImageIds().back();
+  src_reconstruction.Image(last_image_id)
+      .FramePtr()
+      ->SetRigFromWorld(Rigid3d(Eigen::Quaterniond::Identity(),
+                                -Eigen::Vector3d(20.0, 30.0, 15.0)));
+  tgt_pose_priors.back().position = Eigen::Vector3d(-500.0, 800.0, -300.0);
+  EXPECT_FALSE(
+      AlignReconstructionToPosePriors(src_reconstruction,
+                                      tgt_pose_priors,
+                                      ransac_options,
+                                      /*prior_position_fallback_stddev=*/1.0,
+                                      &tgt_from_src));
 }
 
 TEST(Alignment, AlignReconstructionsViaReprojections) {

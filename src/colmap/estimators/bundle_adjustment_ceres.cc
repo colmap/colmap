@@ -878,6 +878,37 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
   FlatHashMap<point3D_t, size_t> point3D_num_observations_;
 };
 
+bool HasValidPointObservation(const Image& image,
+                              const Reconstruction& reconstruction,
+                              const BundleAdjustmentConfig& config,
+                              int min_track_length) {
+  for (const Point2D& point2D : image.Points2D()) {
+    if (!point2D.HasPoint3D() || config.IsIgnoredPoint(point2D.point3D_id)) {
+      continue;
+    }
+    const Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
+    THROW_CHECK_GT(point3D.track.Length(), 1);
+    if (min_track_length > 0 &&
+        static_cast<int>(point3D.track.Length()) < min_track_length) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+bool HasVariableCameraPose(const Image& image,
+                           const BundleAdjustmentOptions& options,
+                           const BundleAdjustmentConfig& config) {
+  const bool constant_sensor_from_rig =
+      image.IsRefInFrame() || !options.refine_sensor_from_rig ||
+      config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
+  const bool constant_rig_from_world =
+      !options.refine_rig_from_world ||
+      config.HasConstantRigFromWorldPose(image.FrameId());
+  return !constant_sensor_from_rig || !constant_rig_from_world;
+}
+
 class PosePriorBundleAdjuster : public CeresBundleAdjuster {
  public:
   PosePriorBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -893,29 +924,63 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
     THROW_CHECK(prior_options_.Check());
 
-    // Filter irrelevant pose priors.
+    // Filter irrelevant pose priors up front so alignment and residual
+    // construction operate on the exact set of parameterized variable cameras.
     pose_priors_.erase(
-        std::remove_if(pose_priors_.begin(),
-                       pose_priors_.end(),
-                       [this](const auto& pose_prior) {
-                         return !pose_prior.HasPosition() ||
-                                pose_prior.corr_data_id.sensor_id.type !=
-                                    SensorType::CAMERA ||
-                                !config_.HasImage(pose_prior.corr_data_id.id);
-                       }),
+        std::remove_if(
+            pose_priors_.begin(),
+            pose_priors_.end(),
+            [this](const PosePrior& pose_prior) {
+              if (!pose_prior.HasPosition() ||
+                  pose_prior.corr_data_id.sensor_id.type !=
+                      SensorType::CAMERA ||
+                  !config_.HasImage(pose_prior.corr_data_id.id)) {
+                return true;
+              }
+              const Image& image =
+                  reconstruction_.Image(pose_prior.corr_data_id.id);
+              return !HasValidPointObservation(image,
+                                               reconstruction_,
+                                               config_,
+                                               options_.min_track_length) ||
+                     !HasVariableCameraPose(image, options_, config_);
+            }),
         pose_priors_.end());
 
-    const bool use_prior_position =
-        pose_priors_.size() >= 3 && AlignReconstruction();
-
-    // Fix 7-DOFs of the BA problem if the pose priors cannot constrain them.
-    if (use_prior_position) {
-      // Normalize the reconstruction to avoid any numerical instability but
-      // do not transform priors as they will be transformed when added to
-      // ceres::Problem.
-      normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
+    const bool world_frame_anchored =
+        !options_.refine_rig_from_world ||
+        config_.NumConstantRigFromWorldPoses() > 0 ||
+        config_.NumConstantPoints() > 0;
+    bool use_prior_position = false;
+    if (world_frame_anchored) {
+      // Do not overwrite caller-anchored constant poses/points via Sim3d
+      // alignment; assume the reconstruction is already in the prior frame.
+      const bool has_anchored_7dof =
+          !options_.refine_rig_from_world ||
+          config_.NumConstantRigFromWorldPoses() >= 1 ||
+          config_.NumConstantPoints() + pose_priors_.size() >= 3;
+      use_prior_position = !pose_priors_.empty() && has_anchored_7dof;
+      if (use_prior_position) {
+        config_.FixGauge(BundleAdjustmentGauge::UNSPECIFIED);
+      } else if (config_.FixedGauge() == BundleAdjustmentGauge::UNSPECIFIED) {
+        config_.FixGauge(config_.NumConstantPoints() > 0 &&
+                                 config_.NumConstantRigFromWorldPoses() == 0
+                             ? BundleAdjustmentGauge::THREE_POINTS
+                             : BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+      }
     } else {
-      config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+      use_prior_position = pose_priors_.size() >= 3 && AlignReconstruction();
+      config_.FixGauge(use_prior_position
+                           ? BundleAdjustmentGauge::UNSPECIFIED
+                           : BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+    }
+
+    if (use_prior_position) {
+      // Normalize both center and scale to keep Ceres well-conditioned across
+      // arbitrary metric scene extents; priors and their covariances are
+      // transformed into the normalized frame when added to ceres::Problem.
+      normalized_from_metric_ =
+          reconstruction_.Normalize(/*fixed_scale=*/false);
     }
 
     // WARNING: Do not move this above the reconstruction normalization.
@@ -927,16 +992,12 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           prior_options_.ceres->prior_position_loss_function_type,
           prior_options_.ceres->prior_position_loss_scale);
 
-      // Only consider parameterized images for pose priors. Notice that some
-      // images may be configured to be included in the BA problem but have no
-      // reprojection constraints, etc.
-      const std::set<image_t>& parameterized_image_ids =
-          default_bundle_adjuster_->ParameterizedImageIds();
       for (const auto& pose_prior : pose_priors_) {
-        if (parameterized_image_ids.count(pose_prior.corr_data_id.id) > 0) {
-          AddImagePosePriorToProblem(
-              pose_prior.corr_data_id.id, pose_prior, reconstruction);
-        }
+        DCHECK_GT(default_bundle_adjuster_->ParameterizedImageIds().count(
+                      pose_prior.corr_data_id.id),
+                  0);
+        AddImagePosePriorToProblem(
+            pose_prior.corr_data_id.id, pose_prior, reconstruction);
       }
     }
   }
@@ -945,13 +1006,18 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     std::shared_ptr<ceres::Problem> problem =
         default_bundle_adjuster_->Problem();
     if (problem->NumResiduals() == 0) {
+      if (normalized_from_metric_.has_value()) {
+        reconstruction_.Transform(Inverse(*normalized_from_metric_));
+      }
       return std::make_shared<BundleAdjustmentSummary>();
     }
 
     ceres::Solver::Summary ceres_summary =
         SolveWithGpuFallback(options_, config_, problem.get());
 
-    reconstruction_.Transform(Inverse(normalized_from_metric_));
+    if (normalized_from_metric_.has_value()) {
+      reconstruction_.Transform(Inverse(*normalized_from_metric_));
+    }
 
     if (options_.print_summary || VLOG_IS_ON(1)) {
       PrintSolverSummary(ceres_summary, "Pose Prior Bundle adjustment report");
@@ -1017,12 +1083,13 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   template <typename CostFunctor>
   ceres::CostFunction* CreatePositionPriorCostFunction(
       const PosePrior& pose_prior) const {
+    const Sim3d& normalized_from_metric = normalized_from_metric_.value();
     const Eigen::Vector3d normalized_position =
-        normalized_from_metric_ * pose_prior.position;
+        normalized_from_metric * pose_prior.position;
     if (pose_prior.HasPositionCov()) {
       const Eigen::Matrix3d normalized_from_metric_scaled_rotation =
-          normalized_from_metric_.scale() *
-          normalized_from_metric_.rotation().toRotationMatrix();
+          normalized_from_metric.scale() *
+          normalized_from_metric.rotation().toRotationMatrix();
       return CovarianceWeightedCostFunctor<CostFunctor>::Create(
           normalized_from_metric_scaled_rotation *
               pose_prior.position_covariance *
@@ -1030,7 +1097,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           normalized_position);
     }
     return ScaleWeightedCostFunctor<CostFunctor>::Create(
-        normalized_from_metric_.scale() *
+        normalized_from_metric.scale() *
             prior_options_.prior_position_fallback_stddev,
         normalized_position);
   }
@@ -1073,7 +1140,7 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   std::unique_ptr<DefaultBundleAdjuster> default_bundle_adjuster_;
   std::unique_ptr<ceres::LossFunction> prior_loss_function_;
 
-  Sim3d normalized_from_metric_;
+  std::optional<Sim3d> normalized_from_metric_;
 };
 
 }  // namespace
