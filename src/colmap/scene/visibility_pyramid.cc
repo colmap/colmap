@@ -2,7 +2,6 @@
 
 #include "colmap/scene/visibility_pyramid.h"
 
-#include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
 #include <algorithm>
