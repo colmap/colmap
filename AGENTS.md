@@ -79,7 +79,7 @@ COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo (M
 | GlobalMapper | sfm/global_mapper.h | Global SfM (rotation averaging + global positioning) |
 | IncrementalTriangulator | sfm/incremental_triangulator.h | Point creation, track merging/completion |
 | ObservationManager | sfm/observation_manager.h | Per-image visibility stats, filtering |
-| PatchMatch | mvs/patch_match.h | CPU wrapper for CUDA PatchMatch stereo |
+| PatchMatch | mvs/patch_match.h | CPU wrapper for CUDA / Metal PatchMatch stereo |
 | PatchMatchController | mvs/patch_match.h | Orchestrates multi-GPU depth estimation |
 | StereoFusion | mvs/fusion.h | Fuses depth maps into 3D point cloud |
 | AutomaticReconstructionController | controllers/automatic_reconstruction.h | End-to-end pipeline (extract, match, SfM, MVS) |
@@ -213,6 +213,7 @@ scripts/format/python.sh
 | Library | Role | Gate |
 |---------|------|------|
 | CUDA | GPU PatchMatch, SiftGPU, Ceres GPU BA | CUDA_ENABLED |
+| Metal | GPU PatchMatch on macOS | METAL_ENABLED |
 | ONNX Runtime | ALIKED, LightGlue neural features | ONNX_ENABLED |
 | Qt5/6 | GUI | GUI_ENABLED |
 | OpenGL/GLEW | 3D visualization, SiftGPU | OPENGL_ENABLED |
