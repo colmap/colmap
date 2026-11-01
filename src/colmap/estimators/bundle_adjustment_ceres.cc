@@ -321,12 +321,12 @@ void FixGaugeWithTwoCamsFromWorld(
     } else if (image1 != nullptr && image1->FrameId() != image.FrameId() &&
                IsParameterizedConstSensor(image) &&
                problem.HasParameterBlock(rig_from_world.params.data())) {
-      // Check if one of the baseline dimensions is large enough and
-      // choose it as the fixed coordinate. If there is no such pair of
-      // frames, then the scale is not constrained well.
+      // Express the baseline in frame2's coordinate system, since we fix one
+      // coordinate of frame2_from_world.translation() to constrain scale:
+      // d/ds(t_2w)|_{s=1} = t_2w - R_2w * c_1 = (T_2w * T_1w^-1).translation().
       const Eigen::Vector3d baseline =
-          (image1->FramePtr()->RigFromWorld() *
-           Inverse(image.FramePtr()->RigFromWorld()))
+          (image.FramePtr()->RigFromWorld() *
+           Inverse(image1->FramePtr()->RigFromWorld()))
               .translation();
       Eigen::Index max_coeff_idx = 0;
       if (baseline.cwiseAbs().maxCoeff(&max_coeff_idx) > 1e-9) {
