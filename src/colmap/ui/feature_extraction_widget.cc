@@ -269,14 +269,12 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
 
   camera_model_cb_ = new QComboBox(this);
 
-#define CAMERA_MODEL_CASE(CameraModel)                                     \
-  camera_model_cb_->addItem(                                               \
-      QString::fromStdString(CameraModelIdToName(CameraModel::model_id))); \
-  camera_model_ids_.push_back(static_cast<int>(CameraModel::model_id));
-
-  CAMERA_MODEL_CASES
-
-#undef CAMERA_MODEL_CASE
+  ForEachCameraModel([&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    camera_model_cb_->addItem(
+        QString::fromStdString(CameraModelIdToName(CameraModel::model_id)));
+    camera_model_ids_.push_back(static_cast<int>(CameraModel::model_id));
+  });
 
   camera_params_exif_rb_ = new QRadioButton(tr("Parameters from EXIF"), this);
   camera_params_exif_rb_->setChecked(true);

@@ -342,25 +342,25 @@ FittedCamera FitCameraFromRays(CameraModelId model_id,
     return result;
   }
 
-  bool refined = false;
-  switch (model_id) {
-#define CAMERA_MODEL_CASE(Model)                              \
-  case Model::model_id:                                       \
-    refined = RefineCameraParams<Model>(sampled_img_points,   \
-                                        sampled_cam_rays,     \
-                                        options,              \
-                                        prior_focal_lengths,  \
-                                        &params,              \
-                                        &result.initial_cost, \
-                                        &result.final_cost);  \
-    break;
-    PERSPECTIVE_CAMERA_MODEL_CASES
-#undef CAMERA_MODEL_CASE
-    default:
-      LOG(ERROR) << "Unsupported camera model for refinement: "
-                 << CameraModelIdToName(model_id);
-      return result;
+  // CameraModelIsPerspective throws for unknown ids, so check existence
+  // first to preserve the previous default case (log and return).
+  if (!ExistsCameraModelWithId(model_id) ||
+      !CameraModelIsPerspective(model_id)) {
+    LOG(ERROR) << "Unsupported camera model for refinement: "
+               << CameraModelIdToName(model_id);
+    return result;
   }
+
+  const bool refined = VisitPerspectiveCameraModel(model_id, [&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    return RefineCameraParams<CameraModel>(sampled_img_points,
+                                           sampled_cam_rays,
+                                           options,
+                                           prior_focal_lengths,
+                                           &params,
+                                           &result.initial_cost,
+                                           &result.final_cost);
+  });
 
   result.params = params;
   result.success = refined;
