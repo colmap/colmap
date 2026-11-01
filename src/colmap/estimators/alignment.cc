@@ -210,6 +210,35 @@ bool AlignReconstructionToLocations(
   return true;
 }
 
+double ComputePosePriorAlignmentMaxError(
+    const std::vector<PosePrior>& pose_priors,
+    const double max_error,
+    const double prior_position_fallback_stddev) {
+  THROW_CHECK_GT(prior_position_fallback_stddev, 0.0);
+  if (max_error > 0.0) {
+    return max_error;
+  }
+
+  std::vector<double> rms_vars;
+  rms_vars.reserve(pose_priors.size());
+  for (const PosePrior& pose_prior : pose_priors) {
+    if (pose_prior.HasPositionCov()) {
+      const double trace = pose_prior.position_covariance.trace();
+      if (trace > 0.0) {
+        rms_vars.push_back(trace / 3.0);
+      }
+    }
+  }
+  if (rms_vars.empty()) {
+    LOG(WARNING) << "No pose priors with valid covariance found.";
+    rms_vars.push_back(prior_position_fallback_stddev *
+                       prior_position_fallback_stddev);
+  }
+
+  // Scale the median RMS variance by the 95% chi-square quantile for 3 DOF.
+  return std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
+}
+
 bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
@@ -220,10 +249,10 @@ bool AlignReconstructionToPosePriors(
 
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
-  std::vector<double> rms_vars;
+  std::vector<PosePrior> matched_priors;
   src.reserve(tgt_pose_priors.size());
   tgt.reserve(tgt_pose_priors.size());
-  rms_vars.reserve(tgt_pose_priors.size());
+  matched_priors.reserve(tgt_pose_priors.size());
 
   NodeHashMap<image_t, PosePrior> tgt_image_to_pose_prior;
   for (const auto& pose_prior : tgt_pose_priors) {
@@ -242,10 +271,7 @@ bool AlignReconstructionToPosePriors(
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
-      const double trace = pose_prior_it->second.position_covariance.trace();
-      if (trace > 0.0) {
-        rms_vars.push_back(trace / 3.0);
-      }
+      matched_priors.push_back(pose_prior_it->second);
     }
   }
 
@@ -254,17 +280,8 @@ bool AlignReconstructionToPosePriors(
     return false;
   }
 
-  if (ransac_options.max_error <= 0) {
-    if (rms_vars.empty()) {
-      LOG(WARNING) << "No pose priors with valid covariance found.";
-      rms_vars.push_back(prior_position_fallback_stddev *
-                         prior_position_fallback_stddev);
-    }
-
-    // Scale the median RMS variance by the 95% chi-square quantile for 3 DOF.
-    ransac_options.max_error =
-        std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
-  }
+  ransac_options.max_error = ComputePosePriorAlignmentMaxError(
+      matched_priors, ransac_options.max_error, prior_position_fallback_stddev);
 
   VLOG(2) << "Robustly aligning reconstruction with max_error="
           << ransac_options.max_error;

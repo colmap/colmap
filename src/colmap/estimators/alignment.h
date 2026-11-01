@@ -20,6 +20,14 @@ bool AlignReconstructionToLocations(
     const RANSACOptions& ransac_options,
     Sim3d* tgt_from_src);
 
+// Derive the inlier distance threshold for pose-prior alignment from max_error
+// if positive, otherwise from the 95% 3-DOF chi-square quantile of the median
+// prior position covariance (falling back to prior_position_fallback_stddev).
+double ComputePosePriorAlignmentMaxError(
+    const std::vector<PosePrior>& pose_priors,
+    double max_error,
+    double prior_position_fallback_stddev = 1.0);
+
 // Robustly align reconstruction to given pose priors. If max_error is not set
 // in the RANSAC options, derive it from the median position covariance.
 bool AlignReconstructionToPosePriors(
