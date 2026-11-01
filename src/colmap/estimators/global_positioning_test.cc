@@ -3,6 +3,7 @@
 #include "colmap/estimators/global_positioning.h"
 
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/math/random.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction_matchers.h"
@@ -14,6 +15,7 @@
 #include <map>
 #include <utility>
 
+#include <ceres/normal_prior.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -78,15 +80,33 @@ double ObservationWeightedCost(const GlobalPositionerOptions& options,
   return expected_cost;
 }
 
-Reconstruction CreateGlobalPositioningTestReconstruction() {
+Reconstruction CreateGlobalPositioningTestReconstruction(int num_cameras = 1) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.num_rigs = 1;
-  options.num_cameras_per_rig = 1;
+  options.num_cameras_per_rig = num_cameras;
   options.num_frames_per_rig = 4;
   options.num_points3D = 30;
   SynthesizeDataset(options, &reconstruction);
   return reconstruction;
+}
+
+TEST(GlobalPositioning, InvalidOptionsReportReason) {
+  Reconstruction reconstruction;
+  ObservationScaleMap scales;
+  GlobalPositionerOptions invalid_weight, invalid_stddev;
+  invalid_weight.uncalibrated_observation_weight = -1;
+  invalid_stddev.experimental_observation_stddev = -1;
+  for (const auto& [name, options] :
+       {std::make_pair("uncalibrated_observation_weight", invalid_weight),
+        std::make_pair("experimental_observation_stddev", invalid_stddev)}) {
+    try {
+      GlobalPositioner::CreateDefault(options, reconstruction, scales);
+      FAIL() << "Invalid options were accepted";
+    } catch (const std::invalid_argument& error) {
+      EXPECT_NE(std::string(error.what()).find(name), std::string::npos);
+    }
+  }
 }
 
 TEST(GlobalPositioning, Nominal) {
@@ -141,8 +161,10 @@ TEST(GlobalPositioning, ComposableProblem) {
   options.use_gpu = false;
   options.random_seed = 42;
   auto loss = std::make_shared<ceres::CauchyLoss>(0.1);
+  auto positioner_scales = GenerateObservationScales(
+      reconstruction, options.initialize_scales_from_geometry);
   auto positioner = GlobalPositioner::CreateDefault(
-      options, PoseGraph(), reconstruction, loss);
+      options, reconstruction, positioner_scales, loss);
   loss.reset();
 
   const frame_t frame_id = reconstruction.Images().begin()->second.FrameId();
@@ -219,8 +241,10 @@ TEST(GlobalPositioning, ComposableProblem) {
   EXPECT_TRUE(positioner->Finalize(summary));
 
   options.use_parameter_block_ordering = false;
-  auto unordered =
-      GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+  auto unordered_scales = GenerateObservationScales(
+      reconstruction, options.initialize_scales_from_geometry);
+  auto unordered = GlobalPositioner::CreateDefault(
+      options, reconstruction, unordered_scales);
   EXPECT_EQ(unordered->SolverOptions().linear_solver_ordering, nullptr);
   EXPECT_TRUE(unordered->Solve().IsSolutionUsable());
 }
@@ -244,10 +268,12 @@ TEST(GlobalPositioning, ObservationUncertainty) {
     options.experimental_observation_stddev = stddev;
     const double expected_cost =
         ObservationWeightedCost(options, reconstruction);
+    auto positioner_scales = GenerateObservationScales(
+        reconstruction, options.initialize_scales_from_geometry);
     auto positioner =
         GlobalPositioner::CreateDefault(options,
-                                        PoseGraph(),
                                         reconstruction,
+                                        positioner_scales,
                                         std::make_shared<ceres::TrivialLoss>());
     double cost = 0.0;
     ASSERT_TRUE(positioner->Problem().Evaluate(
@@ -257,8 +283,9 @@ TEST(GlobalPositioning, ObservationUncertainty) {
   }
   for (const double stddev : {0.0, -1.0}) {
     options.experimental_observation_stddev = stddev;
-    EXPECT_ANY_THROW(
-        GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction));
+    auto invalid_scales = GenerateObservationScales(reconstruction);
+    EXPECT_ANY_THROW(GlobalPositioner::CreateDefault(
+        options, reconstruction, invalid_scales));
   }
 
   // Force radial variance underflow after successful ray unprojection.
@@ -266,8 +293,10 @@ TEST(GlobalPositioning, ObservationUncertainty) {
     reconstruction.Camera(camera_id).SetFocalLength(1e100);
   }
   options.experimental_observation_stddev = 1.0;
-  auto positioner =
-      GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+  auto positioner_scales = GenerateObservationScales(
+      reconstruction, options.initialize_scales_from_geometry);
+  auto positioner = GlobalPositioner::CreateDefault(
+      options, reconstruction, positioner_scales);
   EXPECT_EQ(positioner->Problem().NumResidualBlocks(), 0);
 }
 
@@ -281,10 +310,12 @@ TEST(GlobalPositioning, UncalibratedObservationWeight) {
     GlobalPositionerOptions options;
     options.use_gpu = false;
     options.uncalibrated_observation_weight = 0.2;
+    auto positioner_scales = GenerateObservationScales(
+        reconstruction, options.initialize_scales_from_geometry);
     auto positioner =
         GlobalPositioner::CreateDefault(options,
-                                        PoseGraph(),
                                         reconstruction,
+                                        positioner_scales,
                                         std::make_shared<ceres::TrivialLoss>());
     std::vector<ceres::ResidualBlockId> residuals;
     positioner->Problem().GetResidualBlocks(&residuals);
@@ -306,8 +337,10 @@ TEST(GlobalPositioning, ObservationScaleGauge) {
       options.use_gpu = false;
       options.optimize_scales = optimize;
       options.fix_first_scale = fix_gauge;
-      auto positioner =
-          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      auto positioner_scales = GenerateObservationScales(
+          reconstruction, options.initialize_scales_from_geometry);
+      auto positioner = GlobalPositioner::CreateDefault(
+          options, reconstruction, positioner_scales);
       auto& problem = positioner->Problem();
       std::vector<double*> blocks;
       problem.GetParameterBlocks(&blocks);
@@ -336,8 +369,10 @@ TEST(GlobalPositioning, ScaleInitialization) {
       options.generate_random_points = false;
       options.optimize_points = optimize_points;
       options.initialize_scales_from_geometry = from_geometry;
-      auto positioner =
-          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+      auto positioner_scales = GenerateObservationScales(
+          reconstruction, options.initialize_scales_from_geometry);
+      auto positioner = GlobalPositioner::CreateDefault(
+          options, reconstruction, positioner_scales);
       std::vector<ceres::ResidualBlockId> residuals;
       positioner->Problem().GetResidualBlocks(&residuals);
       ASSERT_FALSE(residuals.empty());
@@ -351,6 +386,232 @@ TEST(GlobalPositioning, ScaleInitialization) {
                                   .norm();
       EXPECT_NEAR(*blocks[2], from_geometry ? 1.0 / distance : 1.0, 1e-12);
     }
+  }
+}
+
+TEST(GlobalPositioning, PreparationPreservesSuppliedState) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+  const Reconstruction before = reconstruction;
+  auto scales = GenerateObservationScales(reconstruction);
+  for (auto& [observation, scale] : scales) scale = 0.25;
+  const auto supplied = scales;
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  options.initialize_scales_from_geometry = true;
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, reconstruction, scales);
+  EXPECT_THAT(reconstruction, ReconstructionEq(before));
+  EXPECT_EQ(scales, supplied);
+}
+
+TEST(GlobalPositioning, UnknownSensorOffsetInitialization) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction(2);
+  const rig_t rig_id = reconstruction.Rigs().begin()->first;
+  const sensor_t sensor_id =
+      reconstruction.Rig(rig_id).NonRefSensors().begin()->first;
+  reconstruction.Rig(rig_id).SensorFromRig(sensor_id).translation().setConstant(
+      std::numeric_limits<double>::quiet_NaN());
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  options.random_seed = 42;
+  options.solver_options.max_num_iterations = 0;
+  // Frame/point initialization must not restart the random sequence for
+  // offsets.
+  SetPRNGSeed(42);
+  for (size_t i = 0;
+       i < 3 * (reconstruction.NumFrames() + reconstruction.NumPoints3D());
+       ++i) {
+    RandomUniformReal(-1.0, 1.0);
+  }
+  const Eigen::Vector3d expected(RandomUniformReal(-1.0, 1.0),
+                                 RandomUniformReal(-1.0, 1.0),
+                                 RandomUniformReal(-1.0, 1.0));
+  const Reconstruction original = reconstruction;
+  for (const bool compose : {false, true}) {
+    reconstruction = original;
+    if (compose) {
+      RandomizeReconstructionPositions(options, PoseGraph(), reconstruction);
+      auto scales = GenerateObservationScales(reconstruction);
+      auto prepared_options = options;
+      prepared_options.random_seed = -1;
+      auto positioner = GlobalPositioner::CreateDefault(
+          prepared_options, reconstruction, scales);
+      ASSERT_TRUE(positioner->Solve().IsSolutionUsable());
+    } else {
+      ASSERT_TRUE(RunGlobalPositioning(options, PoseGraph(), reconstruction));
+    }
+    EXPECT_LE(
+        (reconstruction.Rig(rig_id).SensorFromRig(sensor_id).TgtOriginInSrc() -
+         expected)
+            .norm(),
+        1e-14);
+  }
+}
+
+TEST(GlobalPositioning, CustomFrameConstraint) {
+  for (const bool optimize_positions : {false, true}) {
+    Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+    const Reconstruction original = reconstruction;
+    auto scales = GenerateObservationScales(reconstruction);
+    GlobalPositionerOptions options;
+    options.use_gpu = false;
+    options.optimize_positions = optimize_positions;
+    options.min_num_view_per_track = reconstruction.NumImages() + 1;
+    auto positioner =
+        GlobalPositioner::CreateDefault(options, reconstruction, scales);
+    const frame_t frame_id = reconstruction.Frames().begin()->first;
+    double* center = positioner->FrameCenterParameterBlock(frame_id);
+    ASSERT_NE(center, nullptr);
+    EXPECT_EQ(positioner->Problem().NumParameterBlocks(),
+              reconstruction.NumFrames());
+    ASSERT_TRUE(positioner->Solve().IsSolutionUsable());
+    EXPECT_THAT(reconstruction, ReconstructionEq(original));
+    EXPECT_EQ(positioner->Problem().IsParameterBlockConstant(center),
+              !optimize_positions);
+    const Eigen::Vector3d initial = Eigen::Map<Eigen::Vector3d>(center);
+    const Eigen::Vector3d target = initial + Eigen::Vector3d(1, 2, 3);
+    positioner->Problem().AddResidualBlock(
+        new ceres::NormalPrior(Eigen::Matrix3d::Identity(), target),
+        nullptr,
+        center);
+    EXPECT_TRUE(
+        positioner->SolverOptions().linear_solver_ordering->IsMember(center));
+    ASSERT_TRUE(positioner->Solve().IsSolutionUsable());
+    EXPECT_LT((reconstruction.Frame(frame_id).RigFromWorld().TgtOriginInSrc() -
+               (optimize_positions ? target : initial))
+                  .norm(),
+              1e-6);
+    for (const auto& [other_id, frame] : reconstruction.Frames()) {
+      if (other_id == frame_id) continue;
+      EXPECT_NE(positioner->FrameCenterParameterBlock(other_id), nullptr);
+      EXPECT_EQ(frame.RigFromWorld().translation(),
+                original.Frame(other_id).RigFromWorld().translation());
+    }
+  }
+}
+
+TEST(GlobalPositioning, RunnerInitializesOnlyOwnedState) {
+  const Reconstruction original = CreateGlobalPositioningTestReconstruction();
+  for (const bool supplied : {false, true}) {
+    Reconstruction reconstruction = original;
+    GlobalPositionerOptions options;
+    options.use_gpu = false;
+    options.random_seed = 42;
+    options.solver_options.max_num_iterations = 0;
+    auto scales = GenerateObservationScales(reconstruction);
+    for (auto& [observation, scale] : scales) scale = 0.25;
+    const auto initial_scales = scales;
+    ASSERT_TRUE(RunGlobalPositioning(
+        options, PoseGraph(), reconstruction, supplied ? &scales : nullptr));
+    EXPECT_EQ(scales, initial_scales);
+    for (const auto& [frame_id, frame] : reconstruction.Frames()) {
+      const double change =
+          (frame.RigFromWorld().translation() -
+           original.Frame(frame_id).RigFromWorld().translation())
+              .norm();
+      if (supplied)
+        EXPECT_LE(change, 1e-12);
+      else
+        EXPECT_GT(change, 1e-3);
+    }
+    for (const auto& [point_id, point] : reconstruction.Points3D()) {
+      EXPECT_EQ(point.xyz == original.Point3D(point_id).xyz, supplied);
+    }
+  }
+}
+
+TEST(GlobalPositioning, CallerOwnedObservationScales) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction(2);
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  options.optimize_positions = false;
+  options.optimize_points = false;
+  options.fix_first_scale = false;
+  options.refine_sensor_from_rig = false;
+  options.experimental_observation_stddev = 2.0;
+  auto scales = GenerateObservationScales(reconstruction);
+  const auto& point = reconstruction.Points3D().begin()->second;
+  const auto observation = point.track.Element(0);
+  const double expected =
+      1.0 / (point.xyz -
+             reconstruction.Image(observation.image_id).ProjectionCenter())
+                .norm();
+  double* scale = &scales.at(observation);
+  *scale = 1.2 * expected;
+  const TrackElement unused(kInvalidImageId, kInvalidPoint2DIdx);
+  scales.emplace(unused, 3.0);
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, reconstruction, scales);
+  auto& problem = positioner->Problem();
+  EXPECT_DOUBLE_EQ(*scale, 1.2 * expected);
+  ASSERT_TRUE(problem.HasParameterBlock(scale));
+  EXPECT_EQ(positioner->SolverOptions().linear_solver_ordering->GroupId(scale),
+            0);
+  EXPECT_FALSE(problem.HasParameterBlock(&scales.at(unused)));
+  EXPECT_EQ(positioner->SolverOptions().linear_solver_ordering->GroupId(
+                &scales.at(unused)),
+            -1);
+  scales.reserve(10000);
+  EXPECT_EQ(&scales.at(observation), scale);
+  ASSERT_TRUE(positioner->Solve().IsSolutionUsable());
+  EXPECT_NEAR(*scale, expected, 1e-8);
+  EXPECT_DOUBLE_EQ(scales.at(unused), 3.0);
+}
+
+TEST(GlobalPositioning, CallerOwnedObservationScaleValidation) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+  const TrackElement observation =
+      reconstruction.Points3D().begin()->second.track.Element(0);
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  auto scales = GenerateObservationScales(reconstruction);
+  for (const double value : {0.5e-5,
+                             0.0,
+                             -1.0,
+                             std::numeric_limits<double>::infinity(),
+                             std::numeric_limits<double>::quiet_NaN()}) {
+    scales.at(observation) = value;
+    EXPECT_THROW(
+        GlobalPositioner::CreateDefault(options, reconstruction, scales),
+        std::invalid_argument);
+  }
+  scales.erase(observation);
+  EXPECT_THROW(GlobalPositioner::CreateDefault(options, reconstruction, scales),
+               std::invalid_argument);
+  scales.emplace(observation, 1e-5);
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, reconstruction, scales);
+  EXPECT_DOUBLE_EQ(scales.at(observation), 1e-5);
+  EXPECT_DOUBLE_EQ(
+      positioner->Problem().GetParameterLowerBound(&scales.at(observation), 0),
+      1e-5);
+  options.min_num_view_per_track = reconstruction.NumImages() + 1;
+  ObservationScaleMap empty;
+  auto filtered =
+      GlobalPositioner::CreateDefault(options, reconstruction, empty);
+  EXPECT_EQ(filtered->Problem().NumResidualBlocks(), 0);
+}
+
+TEST(GlobalPositioning, FirstScaleFollowsAdmittedObservationOrder) {
+  Reconstruction reconstruction = CreateGlobalPositioningTestReconstruction();
+  const auto& point = reconstruction.Points3D().begin()->second;
+  const auto invalid = point.track.Element(0);
+  reconstruction.Image(invalid.image_id)
+      .Point2D(invalid.point2D_idx)
+      .xy.setConstant(std::numeric_limits<double>::quiet_NaN());
+  const auto expected = point.track.Element(1);
+  auto scales = GenerateObservationScales(reconstruction);
+  scales.emplace(TrackElement(kInvalidImageId, 0), 1.0);
+  GlobalPositionerOptions options;
+  options.use_gpu = false;
+  auto positioner =
+      GlobalPositioner::CreateDefault(options, reconstruction, scales);
+  auto& problem = positioner->Problem();
+  ASSERT_TRUE(problem.HasParameterBlock(&scales.at(expected)));
+  for (auto& [observation, scale] : scales) {
+    if (!problem.HasParameterBlock(&scale)) continue;
+    EXPECT_EQ(problem.IsParameterBlockConstant(&scale),
+              observation == expected);
   }
 }
 
@@ -389,8 +650,9 @@ TEST(GlobalPositioning, ScaleInitializationUsesCameraCenter) {
       options.generate_random_points = false;
       options.initialize_scales_from_geometry = true;
       if (weighted) options.experimental_observation_stddev = 1.0;
+      auto scales = GenerateObservationScales(reconstruction, true);
       auto positioner =
-          GlobalPositioner::CreateDefault(options, PoseGraph(), reconstruction);
+          GlobalPositioner::CreateDefault(options, reconstruction, scales);
       auto& problem = positioner->Problem();
       ASSERT_GT(problem.NumResidualBlocks(), 0);
       ceres::Problem::EvaluateOptions evaluate_options;

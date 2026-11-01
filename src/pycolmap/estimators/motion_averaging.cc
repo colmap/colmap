@@ -13,11 +13,38 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+PYBIND11_MAKE_OPAQUE(colmap::ObservationScaleMap);
+
 using namespace colmap;
 using namespace pybind11::literals;
 namespace py = pybind11;
 
 void BindGlobalPositioner(py::module& m) {
+  py::bind_map<ObservationScaleMap>(
+      m,
+      "ObservationScaleMap",
+      "Per-observation BATA displacement scales keyed by TrackElement. "
+      "Entries can be added and updated, but not deleted.")
+      .def(
+          "parameter_block",
+          [](py::object self, const TrackElement& observation) {
+            auto& scales = self.cast<ObservationScaleMap&>();
+            const auto entry = scales.find(observation);
+            if (entry == scales.end())
+              throw py::key_error("unknown observation");
+            return py::array_t<double>(
+                {1}, {sizeof(double)}, &entry->second, self);
+          },
+          "observation"_a,
+          "Return a writable NumPy view sharing the observation scale.");
+  const auto PyObservationScaleMap = m.attr("ObservationScaleMap");
+  PyObservationScaleMap.attr("__delitem__") = py::cpp_function(
+      [](ObservationScaleMap&, const py::object&) {
+        throw py::type_error("ObservationScaleMap entries cannot be deleted.");
+      },
+      py::name("__delitem__"),
+      py::is_method(PyObservationScaleMap));
+
   auto PyGlobalPositionerOptions =
       py::classh<GlobalPositionerOptions>(m, "GlobalPositionerOptions")
           .def(py::init<>())
@@ -123,46 +150,73 @@ void BindGlobalPositioner(py::module& m) {
           },
           "frame_id"_a,
           "Return a writable NumPy array sharing the frame-center parameter "
-          "block in world coordinates, or None if inactive. The array keeps "
-          "the positioner alive.")
+          "block in world coordinates, or None if unavailable. The array "
+          "keeps the positioner alive.")
       .def("finalize", &GlobalPositioner::Finalize, "summary"_a);
 
   m.def(
       "create_default_global_positioner",
       [](const GlobalPositionerOptions& options,
-         const PoseGraph& pose_graph,
          Reconstruction& reconstruction,
+         const py::object& observation_scales,
          const py::object& loss_function) {
+        if (!py::isinstance<ObservationScaleMap>(observation_scales)) {
+          throw py::type_error(
+              "observation_scales must be an ObservationScaleMap");
+        }
         return GlobalPositioner::CreateDefault(
             options,
-            pose_graph,
             reconstruction,
+            observation_scales.cast<ObservationScaleMap&>(),
             loss_function.is_none()
                 ? nullptr
                 : loss_function.cast<std::shared_ptr<ceres::LossFunction>>());
       },
       "options"_a,
-      "pose_graph"_a,
       "reconstruction"_a,
+      "observation_scales"_a,
       "loss_function"_a = py::none(),
+      py::keep_alive<0, 2>(),
       py::keep_alive<0, 3>(),
-      "Prepare global positioning without solving.");
+      "Prepare from supplied frame poses, points, and scales without "
+      "initialization. Included observations require finite scales >= 1e-5. "
+      "Optimization updates the map in place; unused entries are ignored.");
+
+  m.def("randomize_reconstruction_positions",
+        &RandomizeReconstructionPositions,
+        "options"_a,
+        "pose_graph"_a,
+        "reconstruction"_a,
+        "Randomize frame centers constrained by the pose graph or qualifying "
+        "tracks, and points in qualifying tracks, according to options. "
+        "Preserve rotations.");
+  m.def("generate_observation_scales",
+        &GenerateObservationScales,
+        "reconstruction"_a,
+        "from_geometry"_a = false,
+        "Generate ones or current-geometry scales without modifying the "
+        "reconstruction. Geometric generation skips unusable observations.");
 
   m.def(
       "run_global_positioning",
       [](const GlobalPositionerOptions& options,
          const PoseGraph& pose_graph,
-         Reconstruction& reconstruction) {
+         Reconstruction& reconstruction,
+         ObservationScaleMap* observation_scales) {
         py::gil_scoped_release release;
-        bool success =
-            RunGlobalPositioning(options, pose_graph, reconstruction);
+        bool success = RunGlobalPositioning(
+            options, pose_graph, reconstruction, observation_scales);
         return success;
       },
       "options"_a,
       "pose_graph"_a,
       "reconstruction"_a,
+      "observation_scales"_a = py::none(),
       "Solve global positioning using point-to-camera constraints. Returns "
-      "True if optimization succeeded.");
+      "True if optimization succeeded. Without a supplied map, initialize "
+      "positions and scales according to options; otherwise skip "
+      "initialization "
+      "and optimize the supplied values in place.");
 }
 
 void BindGravityRefiner(py::module& m) {
