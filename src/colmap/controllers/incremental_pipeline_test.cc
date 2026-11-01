@@ -698,6 +698,17 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
               ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
+TEST(IncrementalPipelineOptions, DefaultPriorPositionLossScale) {
+  const IncrementalPipelineOptions options;
+  EXPECT_DOUBLE_EQ(options.prior_position_loss_scale,
+                   std::sqrt(kChiSquare95ThreeDof));
+  EXPECT_DOUBLE_EQ(options.Mapper().prior_position_loss_scale,
+                   std::sqrt(kChiSquare95ThreeDof));
+  EXPECT_DOUBLE_EQ(
+      CeresPosePriorBundleAdjustmentOptions().prior_position_loss_scale,
+      std::sqrt(kChiSquare95ThreeDof));
+}
+
 TEST(IncrementalPipelineOptions, DefaultSolverThresholds) {
   const IncrementalPipelineOptions options;
   const CeresBundleAdjustmentOptions defaults;
