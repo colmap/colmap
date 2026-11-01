@@ -457,5 +457,43 @@ TEST(DatabaseCache, CreateFromCacheSkipsUndefinedGeometries) {
             0);
 }
 
+TEST(DatabaseCache, ConvertMixedGravityAndGPSPosePriorsToENU) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  const Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, SimplePinholeCameraModel::model_id, 1, 1, 1);
+  const camera_t camera_id = database->WriteCamera(camera);
+
+  Image image1;
+  image1.SetName("image1");
+  image1.SetCameraId(camera_id);
+  const image_t image_id1 = database->WriteImage(image1);
+  Image image2;
+  image2.SetName("image2");
+  image2.SetCameraId(camera_id);
+  const image_t image_id2 = database->WriteImage(image2);
+
+  PosePrior gravity_prior;
+  gravity_prior.corr_data_id = data_t(camera.SensorId(), image_id1);
+  gravity_prior.gravity = Eigen::Vector3d(0, 1, 0);
+  database->WritePosePrior(gravity_prior);
+
+  PosePrior gps_prior;
+  gps_prior.corr_data_id = data_t(camera.SensorId(), image_id2);
+  gps_prior.position = Eigen::Vector3d(47.3769, 8.5417, 408.0);
+  gps_prior.coordinate_system = PosePrior::CoordinateSystem::WGS84;
+  database->WritePosePrior(gps_prior);
+
+  DatabaseCache::Options options;
+  options.load_all_images = true;
+  options.convert_pose_priors_to_enu = true;
+  const auto cache = DatabaseCache::Create(*database, options);
+  ASSERT_EQ(cache->PosePriors().size(), 2);
+  EXPECT_FALSE(cache->PosePriors()[0].HasPosition());
+  EXPECT_EQ(cache->PosePriors()[0].gravity, gravity_prior.gravity);
+  EXPECT_EQ(cache->PosePriors()[1].coordinate_system,
+            PosePrior::CoordinateSystem::CARTESIAN);
+  EXPECT_EQ(cache->PosePriors()[1].position, Eigen::Vector3d::Zero());
+}
+
 }  // namespace
 }  // namespace colmap
