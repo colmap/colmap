@@ -542,6 +542,9 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    # Child processes run inside each scene's workspace, not the caller's cwd.
+    args.data_path = args.data_path.resolve()
+    args.run_path = args.run_path.resolve()
     if args.num_seeds is not None:
         if args.num_seeds <= 0:
             parser.error("--num_seeds must be > 0")
