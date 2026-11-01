@@ -1466,5 +1466,78 @@ TEST(PosePriorBundleAdjuster, UnalignedConstantFrameSkipsPriors) {
                                  /*align=*/false));
 }
 
+TEST(PosePriorBundleAdjuster, LargeExtentMetricSceneConditioning) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 6;
+  synthetic_options.num_points3D = 80;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  // Scale ground-truth metric scene to a large extent where position/point
+  // Jacobians (~f / Z << 1) fall into Ceres's Jacobi-scaling floor
+  // d_i = 1 / (1 + ||J_i||) ~ 1, shrinking gradients by 1 / kMetricScale and
+  // causing mapper's gradient_tolerance = 1.0 to stop before refining points.
+  constexpr double kMetricScale = 1e6;
+  const Sim3d metric_from_synth(
+      kMetricScale,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.4, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(500000.0, 4000000.0, 300.0));
+
+  Reconstruction reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+
+  gt_reconstruction.Transform(metric_from_synth);
+  reconstruction.Transform(metric_from_synth);
+  std::vector<PosePrior> pose_priors;
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    const Image& image = gt_reconstruction.Image(image_id);
+    PosePrior& prior = pose_priors.emplace_back();
+    prior.corr_data_id = image.DataId();
+    prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
+    prior.position = image.ProjectionCenter();
+    prior.position_covariance =
+        (kMetricScale * kMetricScale * 1e-4) * Eigen::Matrix3d::Identity();
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  BundleAdjustmentOptions ba_options;
+  ba_options.refine_focal_length = false;
+  ba_options.refine_extra_params = false;
+  // Matches IncrementalPipelineOptions::LocalBundleAdjustment(), which assumes
+  // normalized scene scale.
+  ba_options.ceres->solver_options.gradient_tolerance = 10.0;
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(ba_options,
+                                                prior_options,
+                                                config,
+                                                std::move(pose_priors),
+                                                reconstruction);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  for (const auto& [point3D_id, gt_point3D] : gt_reconstruction.Points3D()) {
+    EXPECT_LT((reconstruction.Point3D(point3D_id).xyz - gt_point3D.xyz).norm(),
+              1e-2 * kMetricScale);
+  }
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/1e-2 * kMetricScale,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+}
+
 }  // namespace
 }  // namespace colmap

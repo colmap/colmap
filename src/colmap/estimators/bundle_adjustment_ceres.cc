@@ -987,10 +987,11 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                                         : fallback_gauge);
 
     if (use_prior_position) {
-      // Normalize the reconstruction to avoid any numerical instability but
-      // do not transform priors as they will be transformed when added to
-      // ceres::Problem.
-      normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
+      // Normalize both center and scale to keep Ceres well-conditioned across
+      // arbitrary metric scene extents; priors and their covariances are
+      // transformed into the normalized frame when added to ceres::Problem.
+      normalized_from_metric_ =
+          reconstruction_.Normalize(/*fixed_scale=*/false);
     }
 
     // WARNING: Do not move this above the reconstruction normalization.
