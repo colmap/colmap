@@ -1006,6 +1006,12 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_ceres_loss_function_scale",
       &global_mapper->mapper.rotation_averaging.ceres->loss_function_scale);
+  AddDefaultOption(
+      "GlobalMapper.ra_ceres_covariance_loss_scale",
+      &global_mapper->mapper.rotation_averaging.ceres->covariance_loss_scale);
+  AddDefaultOption("GlobalMapper.ra_ceres_covariance_sigma_floor_deg",
+                   &global_mapper->mapper.rotation_averaging.ceres
+                        ->covariance_sigma_floor_deg);
   AddDefaultOption("GlobalMapper.ra_ceres_max_num_warm_start_iterations",
                    &global_mapper->mapper.rotation_averaging.ceres
                         ->max_num_warm_start_iterations);

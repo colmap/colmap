@@ -18,15 +18,24 @@
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace colmap {
 
+class DatabaseCache;
+
 // Reweighting scheme applied to the relative-rotation constraints.
 //   UNIFORM: all constraints are weighted equally.
 //   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
 //     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
 //     edge, normalized to (0, 1].
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingReweighting,
-                                0,
-                                UNIFORM,
-                                INLIER_MATCH_COUNT);
+//   COVARIANCE: whiten each constraint with the covariance of its relative
+//     rotation (PoseGraph::Edge::cam2_from_cam1_rotation_cov), regularized with
+//     CeresRotationAveragerOptions::covariance_sigma_floor_deg. Every valid
+//     edge must have a covariance, which the global mapper and the rotation
+//     averaging pipeline estimate from the two-view correspondences (see
+//     MaybeEstimatePoseGraphRotationCovariances). Only supported by the CERES
+//     backend, which then uses
+//     CeresRotationAveragerOptions::covariance_loss_scale. It is ignored when
+//     the CERES backend falls back to L1_IRLS for gravity priors.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT, COVARIANCE);
 
 // Solver backend for rotation averaging.
 //   L1_IRLS: L1 regression (ADMM) followed by IRLS using CHOLMOD.
@@ -143,14 +152,17 @@ class RotationEstimator {
   const RotationEstimatorOptions options_;
 };
 
-// Initializes rotations from maximum spanning tree.
-// For calibrated multi-camera rigs, add their connections with
+// Initializes rotations from maximum spanning tree, which prefers the edges
+// with the most inlier matches or, if use_rotation_covariance, the most certain
+// relative rotations, whose covariance every measured edge must then have. For
+// calibrated multi-camera rigs, add their connections with
 // PoseGraph::AddRigEdges before initialization.
 void InitializeFromMaximumSpanningTree(
     const PoseGraph& pose_graph,
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction,
-    bool refine_sensor_from_rig);
+    bool refine_sensor_from_rig,
+    bool use_rotation_covariance = false);
 
 // Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
@@ -189,5 +201,14 @@ bool RunRotationAveragingOnComponent(
 void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
                                    const Reconstruction& reconstruction,
                                    double max_angle_deg);
+
+// With CERES rotation averaging and COVARIANCE reweighting (without gravity
+// priors), estimates the rotation covariances of the valid pose graph edges
+// that do not have one yet from their two-view correspondences, and
+// invalidates the edges whose covariance cannot be estimated. No-op otherwise.
+void MaybeEstimatePoseGraphRotationCovariances(
+    const RotationEstimatorOptions& options,
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph);
 
 }  // namespace colmap
