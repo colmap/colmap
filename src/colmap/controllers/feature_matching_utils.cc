@@ -99,10 +99,21 @@ void FeatureMatcherWorker::Run() {
 
 void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
                                      FeatureMatcherData& data) {
-  if (!cache_->ExistsDescriptors(data.image_id1) ||
-      !cache_->ExistsDescriptors(data.image_id2)) {
+  // Matchers that only use the keypoints (FlexGlue) do not require
+  // descriptors, which are then neither checked nor loaded.
+  const bool uses_descriptors = matching_options_.UsesDescriptors();
+  if (uses_descriptors) {
+    if (!cache_->ExistsDescriptors(data.image_id1) ||
+        !cache_->ExistsDescriptors(data.image_id2)) {
+      return;
+    }
+  } else if (!cache_->ExistsKeypoints(data.image_id1) ||
+             !cache_->ExistsKeypoints(data.image_id2)) {
     return;
   }
+  const auto descriptors = [this, uses_descriptors](image_t image_id) {
+    return uses_descriptors ? cache_->GetDescriptors(image_id) : nullptr;
+  };
 
   const auto& camera1 =
       cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
@@ -115,15 +126,17 @@ void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
                             data.image_id1,
                             &camera1,
                             cache_->GetKeypoints(data.image_id1),
-                            cache_->GetDescriptors(data.image_id1),
+                            descriptors(data.image_id1),
                             cache_->FindImagePosePriorOrNull(data.image_id1),
+                            cache_->GetImage(data.image_id1).Name(),
                         },
                         {
                             data.image_id2,
                             &camera2,
                             cache_->GetKeypoints(data.image_id2),
-                            cache_->GetDescriptors(data.image_id2),
+                            descriptors(data.image_id2),
                             cache_->FindImagePosePriorOrNull(data.image_id2),
+                            cache_->GetImage(data.image_id2).Name(),
                         },
                         &data.two_view_geometry);
   } else {
@@ -132,15 +145,17 @@ void FeatureMatcherWorker::MatchPair(FeatureMatcher& matcher,
             data.image_id1,
             &camera1,
             cache_->GetKeypoints(data.image_id1),
-            cache_->GetDescriptors(data.image_id1),
+            descriptors(data.image_id1),
             cache_->FindImagePosePriorOrNull(data.image_id1),
+            cache_->GetImage(data.image_id1).Name(),
         },
         {
             data.image_id2,
             &camera2,
             cache_->GetKeypoints(data.image_id2),
-            cache_->GetDescriptors(data.image_id2),
+            descriptors(data.image_id2),
             cache_->FindImagePosePriorOrNull(data.image_id2),
+            cache_->GetImage(data.image_id2).Name(),
         },
         &data.matches);
   }
@@ -318,12 +333,18 @@ FeatureMatcherController::FeatureMatcherController(
     }
   } else {
     auto worker_matching_options = matching_options_;
-    // Prevent nested threading.
-    worker_matching_options.num_threads = 1;
     // The first matching is always without guided matching.
     worker_matching_options.guided_matching = false;
-    matchers_.reserve(num_threads);
-    for (int i = 0; i < num_threads; ++i) {
+    // FlexGlue loads large models and caches dense features per matcher, so a
+    // single worker runs them with all threads instead of one copy per thread.
+    int num_workers = 1;
+    if (matching_options_.type != FeatureMatcherType::FLEXGLUE) {
+      // Prevent nested threading.
+      worker_matching_options.num_threads = 1;
+      num_workers = num_threads;
+    }
+    matchers_.reserve(num_workers);
+    for (int i = 0; i < num_workers; ++i) {
       matchers_.emplace_back(
           std::make_unique<FeatureMatcherWorker>(worker_matching_options,
                                                  geometry_options_,

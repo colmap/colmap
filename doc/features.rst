@@ -85,6 +85,19 @@ The following feature matcher types are available:
 - ``LOMA_B128``: Dedicated matcher for the lightweight 128-dim ``LOMA_B128``
   descriptor. Requires ONNX support to be enabled at build time.
 
+- ``FLEXGLUE``: Neural network matcher operating on dense image features
+  (FlexGlue). It works with the keypoints of any feature extractor and ignores
+  the descriptors, which are not required. Since FlexGlue computes dense
+  features from the image pixels, the images are read during matching from
+  ``--FlexGlueMatching.image_path`` (required). The matcher commands have no
+  global ``--image_path``, so ``FlexGlueMatching.image_path`` must also be set
+  in project files. FlexGlue also predicts whether two images are covisible at
+  all, and ``--FlexGlueMatching.min_covisibility`` (default 0.5, 0 disables it)
+  rejects all matches of pairs with a lower covisibility score, which suppresses
+  look-alike pairs of repeated structures. Guided matching is not supported.
+  Requires ONNX support to be enabled at build time; a GPU is strongly
+  recommended.
+
 To select a feature matcher type via the command-line::
 
     $ colmap exhaustive_matcher \
@@ -115,6 +128,9 @@ The feature extractor and matcher types should be compatible:
   ``LOMA_L``, or ``LOMA_G`` matching.
 - Use ``LOMA_B128`` extraction with ``LOMA_BRUTEFORCE`` or ``LOMA_B128``
   matching.
+
+- ``FLEXGLUE`` matching works with any extraction type, as it only uses the
+  keypoint locations.
 
 Mixing incompatible types (e.g., SIFT features with ALIKED matcher, or
 ``LOMA_B128`` features with the ``LOMA_B`` matcher) will result in a runtime
@@ -167,6 +183,52 @@ matching also support an opt-in ``use_bf16`` mode
 (``--LomaExtraction.use_bf16`` / ``--LomaMatching.use_bf16``) for faster
 inference on CUDA GPUs with compute capability 8.0 (Ampere) or newer. On other
 devices, the fp32 models are used.
+
+
+FlexGlue
+--------
+
+FlexGlue encodes each image into a dense stride-8 feature map with a
+DINOv3-ConvNeXt backbone (at a fixed 512x512 resolution), refines the feature
+maps of both images jointly with a transformer, and predicts the
+correspondence of every keypoint in the other image. Keypoints are then matched
+by mutual nearest neighbors between the keypoints and the predicted
+correspondences. Example usage::
+
+    $ colmap exhaustive_matcher \
+        --database_path $DATASET_PATH/database.db \
+        --FeatureMatching.type FLEXGLUE \
+        --FlexGlueMatching.image_path $DATASET_PATH/images
+
+With ``min_covisibility > 0``, the default models also stop early on pairs that
+are confidently not covisible: after layers 2, 4, 6, and 8 of the 9 transformer
+layers, a pair is rejected without running the remaining layers if its
+covisibility score is below ``min_covisibility * (1 - early_stop_decay)^(9 -
+layer)``. Lower values of ``--FlexGlueMatching.early_stop_decay`` stop earlier,
+and 1 disables early stopping. On the 22569 exhaustive pairs of ETH3D DSLR, the
+default models with the default ``early_stop_decay 0.5`` and
+``min_covisibility 0.5`` stop early on 35% of the pairs, and only 6 of the
+10288 pairs that are covisible according to the ground truth are rejected early
+although they would pass ``min_covisibility`` after the last layer.
+
+The dense features of the most recently used images are cached in memory
+(``--FlexGlueMatching.feature_cache_size``, ~4MB per image). On CUDA GPUs with
+compute capability 7.0 or newer, a variant of the matcher whose
+transformer layers run in float16 is used by default
+(``--FlexGlueMatching.use_fp16``), which is faster than the float32 matcher
+with practically identical matches; the float32 matcher is used on the CPU, on
+older GPUs, or if the float16 variant fails to initialize. On the CPU, a
+single matching thread runs the models with ``--FeatureMatching.num_threads``
+threads, rather than one copy of the models per thread. The
+``automatic_reconstructor`` provides the ``--feature flexglue`` preset, which
+extracts the same DaD keypoints as the LoMa presets and matches them with
+FlexGlue. The models are downloaded automatically, and custom models can
+be specified with ``--FlexGlueMatching.descriptor_model_path``,
+``--FlexGlueMatching.matcher_model_path``, and
+``--FlexGlueMatching.matcher_model_path_fp16``. The models are exported with
+``onnx/export.py`` from https://github.com/cvg/FlexGlue. Custom matchers must
+be exported with early stopping, e.g., ``--early_stop_layers 2,4,6,8``, since
+the matcher requires the ``early_stop_decay`` input.
 
 
 Iterative Runs

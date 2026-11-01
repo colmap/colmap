@@ -4,10 +4,13 @@
 
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
+
+#include <fstream>
 
 #include <gtest/gtest.h>
 
@@ -194,6 +197,30 @@ TEST(OptionManager, ReRead) {
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
   EXPECT_EQ(options_read.feature_extraction->max_image_size, 2048);
 }
+
+#ifdef COLMAP_ONNX_ENABLED
+TEST(OptionManager, ReadDefaultsFlexGlueImagePath) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  CreateDirIfNotExists(test_dir / "images");
+
+  // A project file that selects FlexGlue with only the global image path.
+  {
+    std::ofstream file(config_path);
+    file << "database_path=" << (test_dir / "database.db").string() << "\n"
+         << "image_path=" << (test_dir / "images").string() << "\n"
+         << "[FeatureMatching]\n"
+         << "type=FLEXGLUE\n";
+  }
+
+  OptionManager options_read;
+  options_read.AddAllOptions();
+  ASSERT_TRUE(options_read.Read(config_path));
+  EXPECT_EQ(options_read.feature_matching->type, FeatureMatcherType::FLEXGLUE);
+  EXPECT_EQ(options_read.feature_matching->flexglue->image_path,
+            (test_dir / "images").string());
+}
+#endif
 
 TEST(OptionManager, ReadNonExistentFile) {
   OptionManager options;

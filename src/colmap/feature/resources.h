@@ -104,6 +104,21 @@ inline const std::string kDefaultLomaGMatcherBf16Uri =
     "loma_matcher_G_bf16.onnx;"
     "loma_matcher_G_bf16.onnx;"
     "2d21420e1e0e3bcd085cd9a7d33be1f990e820d6b13ffbbddc73d9d04713b6c6";
+inline const std::string kDefaultFlexGlueDescriptorUri =
+    "https://github.com/cvg/FlexGlue/releases/download/v0.1/"
+    "flexglue_descriptor.onnx;"
+    "flexglue_descriptor.onnx;"
+    "93fab8a4ccde1b7331640915357d96cff0929ea87134872f37f7b0150d9914ff";
+inline const std::string kDefaultFlexGlueMatcherUri =
+    "https://github.com/cvg/FlexGlue/releases/download/v0.1/"
+    "flexglue_matcher_early_stop.onnx;"
+    "flexglue_matcher_early_stop.onnx;"
+    "c86714cd8ffac70c17ee48c346270497e21846831336e12d307390591aa12ea7";
+inline const std::string kDefaultFlexGlueMatcherFp16Uri =
+    "https://github.com/cvg/FlexGlue/releases/download/v0.1/"
+    "flexglue_matcher_early_stop_fp16.onnx;"
+    "flexglue_matcher_early_stop_fp16.onnx;"
+    "01286e692e6396cdfe6eaf5944d3af60752f5043275b338a6419a97efa339e20";
 #else
 inline const std::string kDefaultAlikedN16RotFeatureExtractorUri = "";
 inline const std::string kDefaultAlikedN32FeatureExtractorUri = "";
@@ -124,6 +139,9 @@ inline const std::string kDefaultLomaLMatcherUri = "";
 inline const std::string kDefaultLomaLMatcherBf16Uri = "";
 inline const std::string kDefaultLomaGMatcherUri = "";
 inline const std::string kDefaultLomaGMatcherBf16Uri = "";
+inline const std::string kDefaultFlexGlueDescriptorUri = "";
+inline const std::string kDefaultFlexGlueMatcherUri = "";
+inline const std::string kDefaultFlexGlueMatcherFp16Uri = "";
 #endif
 
 }  // namespace colmap
