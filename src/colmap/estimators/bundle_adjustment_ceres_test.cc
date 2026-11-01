@@ -3,6 +3,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -1165,6 +1166,63 @@ TEST(CeresPosePriorBundleAdjustmentOptions, CheckGemanMcClure) {
     options.prior_position_loss_scale = bad_scale;
     EXPECT_FALSE(options.Check());
   }
+}
+
+TEST(PosePriorBundleAdjuster, UnobservedImagePriorsExcludedFromAlignment) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 4;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  // Strip all 3D point observations from two of the four images so only two
+  // parameterized images remain in the BA problem.
+  const std::vector<image_t> image_ids = reconstruction.RegImageIds();
+  for (int i = 0; i < 2; ++i) {
+    Image& image = reconstruction.Image(image_ids[i]);
+    for (point2D_t j = 0; j < image.NumPoints2D(); ++j) {
+      if (image.Point2D(j).HasPoint3D()) {
+        reconstruction.DeleteObservation(image_ids[i], j);
+      }
+    }
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  Reconstruction plain_reconstruction = reconstruction;
+  auto plain_adjuster = CreateDefaultCeresBundleAdjuster(
+      BundleAdjustmentOptions(), config, plain_reconstruction);
+  const int expected_num_residuals =
+      plain_adjuster->Problem()->NumResidualBlocks();
+
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  const Sim3d shifted_from_orig(
+      3.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d(10.0, 20.0, 30.0));
+  for (PosePrior& prior : pose_priors) {
+    prior.position = shifted_from_orig * prior.position;
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  const Reconstruction orig_reconstruction = reconstruction;
+  auto adjuster = CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                                     prior_options,
+                                                     config,
+                                                     std::move(pose_priors),
+                                                     reconstruction);
+  EXPECT_EQ(adjuster->Problem()->NumResidualBlocks(), expected_num_residuals);
+  EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
+  EXPECT_LT((reconstruction.Image(image_ids[2]).ProjectionCenter() -
+             orig_reconstruction.Image(image_ids[2]).ProjectionCenter())
+                .norm(),
+            1.0);
 }
 
 }  // namespace
