@@ -120,6 +120,10 @@ class PoseGraph {
   void InvalidatePairsOutsideActiveImageIds(
       const FlatHashSet<image_t>& active_image_ids);
 
+  // Returns the subgraph of the edges between images in the given set, with
+  // all their data and validity.
+  PoseGraph Subgraph(const FlatHashSet<image_t>& image_ids) const;
+
  private:
   // Map from pair ID to edge data. The pair ID is computed from the
   // two image IDs using ImagePairToPairId, with the smaller ID first.
