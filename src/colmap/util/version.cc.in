@@ -42,6 +42,8 @@ std::string GetBuildInfo() {
   const char* gpu_info = "with CUDA";
 #elif defined(COLMAP_HIP_ENABLED)
   const char* gpu_info = "with HIP";
+#elif defined(COLMAP_METAL_ENABLED)
+  const char* gpu_info = "with Metal";
 #else
   const char* gpu_info = "without GPU support";
 #endif

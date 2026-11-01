@@ -713,12 +713,6 @@ else()
     message(STATUS "Disabling MVS support")
 endif()
 
-# Patch match stereo needs a GPU backend, which is distinct from CUDA being
-# available (e.g., CUDA is also used for SIFT and bundle adjustment).
-if(MVS_ENABLED AND (CUDA_ENABLED OR HIP_ENABLED))
-    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_PATCH_MATCH_ENABLED)
-endif()
-
 # Metal is only used to run patch match stereo (MVS) on Apple GPUs. The
 # shaders are compiled at runtime, so no Metal toolchain is needed to build.
 if(METAL_ENABLED AND MVS_ENABLED AND APPLE AND NOT CUDA_ENABLED AND NOT HIP_ENABLED)
@@ -741,6 +735,12 @@ if(METAL_ENABLED AND MVS_ENABLED AND APPLE AND NOT CUDA_ENABLED AND NOT HIP_ENAB
 else()
     message(STATUS "Disabling Metal support")
     set(METAL_ENABLED OFF)
+endif()
+
+# Patch match stereo needs a GPU backend, which is distinct from CUDA being
+# available (e.g., CUDA is also used for SIFT and bundle adjustment).
+if(MVS_ENABLED AND (CUDA_ENABLED OR HIP_ENABLED OR METAL_ENABLED))
+    list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_PATCH_MATCH_ENABLED)
 endif()
 
 if(OPENGL_ENABLED)

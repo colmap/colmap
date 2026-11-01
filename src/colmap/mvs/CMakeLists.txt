@@ -310,12 +310,13 @@ if(METAL_ENABLED)
     COLMAP_ADD_LIBRARY(
         NAME colmap_mvs_metal
         SRCS
+            patch_match.h patch_match.cc
             patch_match_metal.h patch_match_metal.mm
             patch_match_metal.metal
         PUBLIC_LINK_LIBS
             colmap_mvs
-            ${METAL_FRAMEWORK}
-            ${FOUNDATION_FRAMEWORK}
+            "-framework Metal"
+            "-framework Foundation"
     )
     target_include_directories(colmap_mvs_metal
         PRIVATE ${COLMAP_METAL_GENERATED_DIR})

@@ -360,10 +360,11 @@ void DenseReconstructionWidget::Stereo() {
                         tr("Dense stereo reconstruction requires the MVS "
                            "module, which is not available in this build."));
 #else
-  QMessageBox::critical(this,
-                        "",
-                        tr("Dense stereo reconstruction requires CUDA or HIP, "
-                           "neither of which is available on your system."));
+  QMessageBox::critical(
+      this,
+      "",
+      tr("Dense stereo reconstruction requires CUDA, HIP, or "
+         "Metal, none of which is available on your system."));
 #endif
 }
 

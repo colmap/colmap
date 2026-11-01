@@ -460,6 +460,9 @@ if(CUDA_ENABLED OR HIP_ENABLED)
         list(APPEND COLMAP_EXPORT_LIBS colmap_mvs_cuda)
     endif()
 endif()
+if(METAL_ENABLED AND MVS_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS colmap_mvs_metal)
+endif()
 if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_sift_gpu
