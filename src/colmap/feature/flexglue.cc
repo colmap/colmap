@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -88,14 +89,26 @@ std::vector<float> ResizeBilinearToCHW(const Bitmap& bitmap,
 
 // Dense features of an image, as output by the descriptor model.
 struct DenseFeatures {
-  std::vector<float> data;
-  std::vector<int64_t> shape;
+  // Owned by ONNX Runtime, in host or GPU memory.
+  Ort::Value value{nullptr};
   // Size of the image file.
   int width = 0;
   int height = 0;
   // Whether the image size was compared with the camera size.
   bool checked_camera_size = false;
 };
+
+// Non-owning tensor referencing the memory of the given tensor.
+Ort::Value TensorView(const Ort::Value& value) {
+  const Ort::TensorTypeAndShapeInfo info = value.GetTensorTypeAndShapeInfo();
+  const std::vector<int64_t> shape = info.GetShape();
+  return Ort::Value::CreateTensor(value.GetTensorMemoryInfo(),
+                                  const_cast<void*>(value.GetTensorRawData()),
+                                  info.GetElementCount() * sizeof(float),
+                                  shape.data(),
+                                  shape.size(),
+                                  info.GetElementType());
+}
 
 // Whether to load the matcher with float16 transformer layers instead of the
 // float32 matcher. This is decided up front, as for the bf16 LoMa models: the
@@ -186,6 +199,17 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
                               descriptor_.output_element_types()[0],
                               ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
+    // Keep the dense features on the GPU, where the matcher reads them, which
+    // avoids copying both feature maps to the GPU for every pair. The GPU
+    // memory is bounded by feature_cache_size.
+    if (matcher_->execution_provider() == ONNXExecutionProvider::CUDA &&
+        descriptor_.execution_provider() == ONNXExecutionProvider::CUDA) {
+      feature_memory_info_.emplace("Cuda",
+                                   OrtArenaAllocator,
+                                   SelectONNXCudaDevice(options.gpu_index),
+                                   OrtMemTypeDefault);
+    }
+
     // Matcher: inputs are matched by name, see Match().
     const std::vector<std::string_view> expected_inputs = {"features0",
                                                            "features1",
@@ -270,9 +294,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
     for (const char* name_cstr : matcher_->input_names()) {
       const std::string_view name(name_cstr);
       if (name == "features0") {
-        inputs.push_back(CreateONNXTensor(dense1->data, dense1->shape));
+        inputs.push_back(TensorView(dense1->value));
       } else if (name == "features1") {
-        inputs.push_back(CreateONNXTensor(dense2->data, dense2->shape));
+        inputs.push_back(TensorView(dense2->value));
       } else if (name == "kpts0") {
         inputs.push_back(CreateONNXTensor(kpts1, kpts1_shape));
       } else if (name == "kpts1") {
@@ -389,14 +413,12 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         1, 3, descriptor_height_, descriptor_width_};
     std::vector<Ort::Value> inputs;
     inputs.push_back(CreateONNXTensor(input, input_shape));
-    const std::vector<Ort::Value> outputs = descriptor_.Run(inputs);
+    std::vector<Ort::Value> outputs =
+        feature_memory_info_ ? descriptor_.Run(inputs, *feature_memory_info_)
+                             : descriptor_.Run(inputs);
     THROW_CHECK_EQ(outputs.size(), 1);
-
-    const auto info = outputs[0].GetTensorTypeAndShapeInfo();
-    dense->shape = info.GetShape();
-    THROW_CHECK_EQ(dense->shape.size(), 4);
-    const float* features = outputs[0].GetTensorData<float>();
-    dense->data.assign(features, features + info.GetElementCount());
+    THROW_CHECK_EQ(outputs[0].GetTensorTypeAndShapeInfo().GetShape().size(), 4);
+    dense->value = std::move(outputs[0]);
     return dense;
   }
 
@@ -408,6 +430,8 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
   int matches0_idx_ = -1;
   int covisibility_score_idx_ = -1;
 
+  // Memory of the cached dense features, if not host memory.
+  std::optional<Ort::MemoryInfo> feature_memory_info_;
   // Dense features keyed by image name. Unlike ImageFeatureCache, it retains
   // many images, since pairs of exhaustive or retrieval-based matching revisit
   // the same images far apart in time. Neither the cache nor its entries

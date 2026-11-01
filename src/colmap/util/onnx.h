@@ -81,6 +81,12 @@ class ONNXModel {
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
 
+  // Same as above, but the outputs are allocated in the given memory, e.g., on
+  // the GPU or in page-locked host memory, so that they can be passed to
+  // another model without copies.
+  std::vector<Ort::Value> Run(const std::vector<Ort::Value>& input_tensors,
+                              const Ort::MemoryInfo& output_memory_info) const;
+
   const std::vector<std::vector<int64_t>>& input_shapes() const {
     return input_shapes_;
   }

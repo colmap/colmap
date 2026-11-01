@@ -201,7 +201,8 @@ void BindFeatureMatching(py::module& m) {
           .def_readwrite("feature_cache_size",
                          &FlexGlueMatchingOptions::feature_cache_size,
                          "Maximum number of images whose dense features are "
-                         "cached in memory.")
+                         "cached in memory, on the GPU if the models run on "
+                         "a CUDA GPU (~4MB per image).")
           .def_readwrite("descriptor_model_path",
                          &FlexGlueMatchingOptions::descriptor_model_path,
                          "Path to the ONNX model of the dense descriptor.")
