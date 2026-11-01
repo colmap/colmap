@@ -455,7 +455,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
-#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+#if defined(COLMAP_PATCH_MATCH_ENABLED)
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
@@ -467,7 +467,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
     LOG(WARNING)
         << "Skipping patch match stereo because no GPU backend is available";
     return;
-#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
+#endif  // COLMAP_PATCH_MATCH_ENABLED
 
     if (IsStopped()) {
       return;

@@ -9,7 +9,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 
-#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+#if defined(COLMAP_PATCH_MATCH_ENABLED)
 #include "colmap/mvs/patch_match.h"
 #endif
 
@@ -32,7 +32,7 @@ void PatchMatchStereo(
     const mvs::PatchMatchOptions& options,
     const std::filesystem::path& config_path,
     const std::shared_ptr<CancellationToken>& cancellation_token) {
-#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+#if defined(COLMAP_PATCH_MATCH_ENABLED)
   StringToLower(&workspace_format);
   THROW_CHECK(workspace_format == "colmap" || workspace_format == "pmvs")
       << "Invalid `workspace_format` " << workspace_format
