@@ -165,6 +165,7 @@ void WarpBetweenCamerasImpl(const WarpImageOptions& options,
   } else if (!warp_directly) {
     warp_target_camera.Rescale(source_camera.width, source_camera.height);
   }
+  // Bitmap zero-initializes its buffer, so pixels skipped below remain black.
   *target_image = Bitmap(static_cast<int>(warp_directly ? target_camera.width
                                                         : source_camera.width),
                          static_cast<int>(warp_directly ? target_camera.height

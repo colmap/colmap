@@ -555,28 +555,57 @@ TEST(Warp, CameraModelsMatchPerPixelProjection) {
   // without FMA contraction (-0.125 * 10.5 + 1.3125 == 0).
   H << 1.0, 0.05, 1.5, -0.05, 1.0, -0.75, -0.125, 0.0, 1.3125;
 
-  const auto warp_reference = [&](const Eigen::Matrix3d* homography,
+  const auto warp_reference = [&](const WarpImageOptions& options,
+                                  const Eigen::Matrix3d* homography,
                                   const Camera& src_cam,
                                   const Camera& tgt_cam) {
-    Bitmap expected(tgt_cam.width, tgt_cam.height, source_image.IsRGB());
+    const bool direct = options.direct_warp_min_scale == 0.0;
+    Camera warp_tgt = tgt_cam;
+    Eigen::Matrix3d warp_H;
+    if (homography != nullptr) {
+      warp_H = *homography;
+      if (!direct) {
+        warp_H *= Eigen::Vector3d(
+                      static_cast<double>(tgt_cam.width) / src_cam.width,
+                      static_cast<double>(tgt_cam.height) / src_cam.height,
+                      1.0)
+                      .asDiagonal();
+      }
+    } else if (!direct) {
+      warp_tgt.Rescale(src_cam.width, src_cam.height);
+    }
+    Bitmap expected(direct ? tgt_cam.width : src_cam.width,
+                    direct ? tgt_cam.height : src_cam.height,
+                    source_image.IsRGB());
     for (int y = 0; y < expected.Height(); ++y) {
       for (int x = 0; x < expected.Width(); ++x) {
         Eigen::Vector3d img_pt(x + 0.5, y + 0.5, 1.0);
         if (homography != nullptr) {
-          img_pt = *homography * img_pt;
+          img_pt = warp_H * img_pt;
           if (img_pt.z() == 0) {
             continue;
           }
         }
-        const auto cam_pt = tgt_cam.CamFromImg(img_pt.hnormalized());
+        const auto cam_pt = warp_tgt.CamFromImg(img_pt.hnormalized());
         const auto src_pt =
             cam_pt ? src_cam.ImgFromCam(cam_pt->homogeneous()) : std::nullopt;
-        if (const auto c = src_pt ? source_image.InterpolateBilinear(
-                                        src_pt->x() - 0.5, src_pt->y() - 0.5)
-                                  : std::nullopt) {
+        if (!src_pt) {
+          continue;
+        }
+        const double sx = src_pt->x() - 0.5;
+        const double sy = src_pt->y() - 0.5;
+        if (options.interpolation ==
+            WarpImageOptions::Interpolation::kNearestNeighbor) {
+          if (const auto c = source_image.InterpolateNearestNeighbor(sx, sy)) {
+            expected.SetPixel(x, y, *c);
+          }
+        } else if (const auto c = source_image.InterpolateBilinear(sx, sy)) {
           expected.SetPixel(x, y, c->Cast<uint8_t>());
         }
       }
+    }
+    if (!direct) {
+      expected.Rescale(tgt_cam.width, tgt_cam.height);
     }
     return expected;
   };
@@ -594,24 +623,35 @@ TEST(Warp, CameraModelsMatchPerPixelProjection) {
            {make_cam(CameraModelId::kSimpleRadial, 37, 29, 0.1),
             make_cam(CameraModelId::kEquirectangular, 31, 23),
             true}}) {
-    for (const Eigen::Matrix3d* homography :
-         {static_cast<Eigen::Matrix3d*>(nullptr), &H}) {
-      Bitmap actual;
-      if (homography == nullptr) {
-        WarpImageBetweenCameras(
-            WarpImageOptions(), src_cam, tgt_cam, source_image, &actual);
-      } else {
-        WarpImageWithHomographyBetweenCameras(
-            WarpImageOptions(), H, src_cam, tgt_cam, source_image, &actual);
-        EXPECT_EQ(actual.GetPixel(10, 11), BitmapColor<uint8_t>(0));
-      }
-      CheckBitmapsExactlyEqual(actual,
-                               warp_reference(homography, src_cam, tgt_cam));
-      const auto& data = actual.RowMajorData();
-      const size_t zeros = std::count(data.begin(), data.end(), uint8_t{0});
-      EXPECT_LT(zeros, data.size());
-      if (expect_partial || homography != nullptr) {
-        EXPECT_GT(zeros, 0);
+    for (const auto interpolation :
+         {WarpImageOptions::Interpolation::kNearestNeighbor,
+          WarpImageOptions::Interpolation::kBilinear}) {
+      for (const double min_scale : {0.0, 1.0}) {
+        WarpImageOptions options;
+        options.interpolation = interpolation;
+        options.direct_warp_min_scale = min_scale;
+        for (const Eigen::Matrix3d* homography :
+             {static_cast<Eigen::Matrix3d*>(nullptr), &H}) {
+          Bitmap actual;
+          if (homography == nullptr) {
+            WarpImageBetweenCameras(
+                options, src_cam, tgt_cam, source_image, &actual);
+          } else {
+            WarpImageWithHomographyBetweenCameras(
+                options, H, src_cam, tgt_cam, source_image, &actual);
+            if (min_scale == 0.0) {
+              EXPECT_EQ(actual.GetPixel(10, 11), BitmapColor<uint8_t>(0));
+            }
+          }
+          CheckBitmapsExactlyEqual(
+              actual, warp_reference(options, homography, src_cam, tgt_cam));
+          const auto& data = actual.RowMajorData();
+          const size_t zeros = std::count(data.begin(), data.end(), uint8_t{0});
+          EXPECT_LT(zeros, data.size());
+          if (expect_partial || homography != nullptr) {
+            EXPECT_GT(zeros, 0);
+          }
+        }
       }
     }
   }
