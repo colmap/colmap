@@ -2,16 +2,21 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 
-#include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/scene/database.h"
 #include "colmap/sfm/observation_manager.h"
+#include "colmap/util/file.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/timer.h"
 
 namespace colmap {
+
 BundleAdjustmentController::BundleAdjustmentController(
     const OptionManager& options,
-    std::shared_ptr<Reconstruction> reconstruction)
-    : options_(options), reconstruction_(std::move(reconstruction)) {}
+    std::shared_ptr<Reconstruction> reconstruction,
+    std::optional<BundleAdjustmentPriors> priors)
+    : options_(options),
+      reconstruction_(std::move(reconstruction)),
+      priors_(std::move(priors)) {}
 
 void BundleAdjustmentController::Run() {
   THROW_CHECK_NOTNULL(reconstruction_);
@@ -28,11 +33,24 @@ void BundleAdjustmentController::Run() {
     return;
   }
 
-  // Avoid degeneracies in bundle adjustment.
-  ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();
-
   BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
   ba_options.check_if_stopped = [this]() { return CheckIfStopped(); };
+
+  BundleAdjustmentPriors priors;
+  if (priors_.has_value()) {
+    priors = *priors_;
+  } else if (ba_options.RequiresPriors()) {
+    THROW_CHECK(options_.database_path != nullptr &&
+                !options_.database_path->empty())
+        << "database_path must be specified when bundle adjustment priors are "
+           "enabled.";
+    THROW_CHECK_FILE_EXISTS(*options_.database_path);
+    const auto database = Database::Open(*options_.database_path);
+    priors.pose_priors = database->ReadAllPosePriors();
+  }
+
+  // Avoid degeneracies in bundle adjustment.
+  ObservationManager(*reconstruction_).FilterObservationsWithNegativeDepth();
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
@@ -46,8 +64,8 @@ void BundleAdjustmentController::Run() {
   ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   // Run bundle adjustment.
-  std::unique_ptr<BundleAdjuster> bundle_adjuster =
-      CreateDefaultBundleAdjuster(ba_options, ba_config, *reconstruction_);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = CreateDefaultBundleAdjuster(
+      ba_options, ba_config, *reconstruction_, priors);
   bundle_adjuster->Solve();
   reconstruction_->UpdatePoint3DErrors();
 

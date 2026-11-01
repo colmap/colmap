@@ -119,16 +119,6 @@ class IncrementalMapper {
     // of refine_focal_length, refine_principal_point, and refine_extra_params.
     FlatHashSet<camera_t> constant_cameras;
 
-    // Whether to use prior camera positions
-    bool use_prior_position = false;
-
-    // Whether to use a robust loss on prior locations
-    bool use_robust_loss_on_prior_position = false;
-
-    // Threshold on the residual for the robust loss
-    // (sqrt of chi2 for 3DOF at 95% = 2.796).
-    double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
-
     // Number of threads.
     int num_threads = -1;
 
@@ -362,6 +352,9 @@ class IncrementalMapper {
   // This frame list will be non-empty, if the reconstruction is continued from
   // an existing reconstruction.
   FlatHashSet<frame_t> existing_frame_ids_;
+
+  // Scene priors cached from database_cache_ for the active reconstruction.
+  BundleAdjustmentPriors ba_priors_;
 };
 
 }  // namespace colmap

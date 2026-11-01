@@ -219,6 +219,14 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("loss_function_weight",
                          &CeresBAOpts::loss_function_weight,
                          "Multiplier applied to the loss function output.")
+          .def_readwrite("prior_position_loss_function_type",
+                         &CeresBAOpts::prior_position_loss_function_type,
+                         "Loss function for prior position residuals.")
+          .def_readwrite(
+              "prior_position_loss_scale",
+              &CeresBAOpts::prior_position_loss_scale,
+              "Threshold on the whitened residual for the robust position "
+              "prior loss (sqrt of chi2 for 3DOF at 95% = 2.796).")
           .def_readwrite("use_gpu",
                          &CeresBAOpts::use_gpu,
                          "Whether to use Ceres' CUDA linear algebra library, "
@@ -344,6 +352,26 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("min_track_length",
                          &BAOpts::min_track_length,
                          "Minimum track length for a 3D point.")
+          .def_readwrite("use_prior_position",
+                         &BAOpts::use_prior_position,
+                         "Whether to use position priors on camera projection "
+                         "centers.")
+          .def_readwrite(
+              "prior_position_stddev",
+              &BAOpts::prior_position_stddev,
+              "Per-axis fallback position standard deviation [m] used when a "
+              "PosePrior lacks a finite covariance, or unconditionally when "
+              "prior_position_overwrite_covariance is True.")
+          .def_readwrite(
+              "prior_position_overwrite_covariance",
+              &BAOpts::prior_position_overwrite_covariance,
+              "Whether to ignore per-prior covariances and overwrite them in "
+              "memory with diag(prior_position_stddev^2).")
+          .def_readwrite(
+              "prior_position_alignment_ransac_options",
+              &BAOpts::prior_position_alignment_ransac_options,
+              "Sim3 RANSAC options when aligning an unanchored reconstruction "
+              "to position priors.")
           .def_readwrite("print_summary",
                          &BAOpts::print_summary,
                          "Whether to print a final summary.")
@@ -356,15 +384,39 @@ void BindBundleAdjuster(py::module& m) {
           .def_readwrite("caspar",
                          &BAOpts::caspar,
                          "Caspar-specific bundle adjustment options.")
+          .def("requires_priors", &BAOpts::RequiresPriors)
+          .def("constrain_metric_scale", &BAOpts::ConstrainMetricScale)
           .def("check", &BAOpts::Check);
   MakeDataclass(PyBundleAdjustmentOptions);
 
-  // Ceres-specific pose prior bundle adjustment options
+  auto PyBundleAdjustmentPriors =
+      py::classh<BundleAdjustmentPriors>(m, "BundleAdjustmentPriors")
+          .def(py::init<>())
+          .def_readwrite("pose_priors",
+                         &BundleAdjustmentPriors::pose_priors,
+                         "Pose priors on sensors.");
+  MakeDataclass(PyBundleAdjustmentPriors);
+
+  auto warn_deprecated = [](const char* message) {
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, message, 1) == -1) {
+      throw py::error_already_set();
+    }
+  };
+
+  // Deprecated Ceres-specific pose prior bundle adjustment options
   using CeresPosePriorBAOpts = CeresPosePriorBundleAdjustmentOptions;
+  auto warn_ceres_pose_prior_opts = std::make_shared<bool>(false);
   auto PyCeresPosePriorBundleAdjustmentOptions =
       py::classh<CeresPosePriorBAOpts>(m,
                                        "CeresPosePriorBundleAdjustmentOptions")
-          .def(py::init<>())
+          .def(py::init([warn_ceres_pose_prior_opts, warn_deprecated]() {
+            if (*warn_ceres_pose_prior_opts) {
+              warn_deprecated(
+                  "CeresPosePriorBundleAdjustmentOptions is deprecated; use "
+                  "CeresBundleAdjustmentOptions instead.");
+            }
+            return CeresPosePriorBAOpts();
+          }))
           .def_readwrite(
               "prior_position_loss_function_type",
               &CeresPosePriorBAOpts::prior_position_loss_function_type,
@@ -375,12 +427,21 @@ void BindBundleAdjuster(py::module& m) {
                          "of chi2 for 3DOF at 95% = 2.796).")
           .def("check", &CeresPosePriorBAOpts::Check);
   MakeDataclass(PyCeresPosePriorBundleAdjustmentOptions);
+  *warn_ceres_pose_prior_opts = true;
 
-  // Solver-agnostic pose prior bundle adjustment options
+  // Deprecated solver-agnostic pose prior bundle adjustment options
   using PosePriorBAOpts = PosePriorBundleAdjustmentOptions;
+  auto warn_pose_prior_opts = std::make_shared<bool>(false);
   auto PyPosePriorBundleAdjustmentOptions =
       py::classh<PosePriorBAOpts>(m, "PosePriorBundleAdjustmentOptions")
-          .def(py::init<>())
+          .def(py::init([warn_pose_prior_opts, warn_deprecated]() {
+            if (*warn_pose_prior_opts) {
+              warn_deprecated(
+                  "PosePriorBundleAdjustmentOptions is deprecated; use "
+                  "BundleAdjustmentOptions instead.");
+            }
+            return PosePriorBAOpts();
+          }))
           .def_readwrite(
               "prior_position_fallback_stddev",
               &PosePriorBAOpts::prior_position_fallback_stddev,
@@ -393,6 +454,7 @@ void BindBundleAdjuster(py::module& m) {
                          "Ceres-specific pose prior bundle adjustment options.")
           .def("check", &PosePriorBAOpts::Check);
   MakeDataclass(PyPosePriorBundleAdjustmentOptions);
+  *warn_pose_prior_opts = true;
 
   py::classh<BundleAdjuster, PyBundleAdjuster>(m, "BundleAdjuster")
       .def(py::init([](const BundleAdjustmentOptions& options,
@@ -415,31 +477,69 @@ void BindBundleAdjuster(py::module& m) {
            "config"_a)
       .def_property_readonly("problem", &CeresBundleAdjuster::Problem);
 
-  m.def("create_default_bundle_adjuster",
-        CreateDefaultBundleAdjuster,
-        "options"_a,
-        "config"_a,
-        "reconstruction"_a);
+  m.def(
+      "create_default_bundle_adjuster",
+      CreateDefaultBundleAdjuster,
+      "options"_a,
+      "config"_a,
+      "reconstruction"_a,
+      py::arg_v("priors", BundleAdjustmentPriors(), "BundleAdjustmentPriors()"),
+      py::keep_alive<0, 3>());
 
-  m.def("create_default_ceres_bundle_adjuster",
-        CreateDefaultCeresBundleAdjuster,
-        "options"_a,
-        "config"_a,
-        "reconstruction"_a);
+  m.def(
+      "create_default_ceres_bundle_adjuster",
+      CreateDefaultCeresBundleAdjuster,
+      "options"_a,
+      "config"_a,
+      "reconstruction"_a,
+      py::arg_v("priors", BundleAdjustmentPriors(), "BundleAdjustmentPriors()"),
+      py::keep_alive<0, 3>());
 
-  m.def("create_pose_prior_bundle_adjuster",
-        CreatePosePriorBundleAdjuster,
-        "options"_a,
-        "prior_options"_a,
-        "config"_a,
-        "pose_priors"_a,
-        "reconstruction"_a);
+  m.def(
+      "create_pose_prior_bundle_adjuster",
+      [warn_deprecated](const BundleAdjustmentOptions& options,
+                        const PosePriorBundleAdjustmentOptions& prior_options,
+                        const BundleAdjustmentConfig& config,
+                        std::vector<PosePrior> pose_priors,
+                        Reconstruction& reconstruction) {
+        warn_deprecated(
+            "create_pose_prior_bundle_adjuster is deprecated; use "
+            "create_default_bundle_adjuster with options.use_prior_position "
+            "and BundleAdjustmentPriors instead.");
+        return CreatePosePriorBundleAdjuster(options,
+                                             prior_options,
+                                             config,
+                                             std::move(pose_priors),
+                                             reconstruction);
+      },
+      "options"_a,
+      "prior_options"_a,
+      "config"_a,
+      "pose_priors"_a,
+      "reconstruction"_a,
+      py::keep_alive<0, 5>());
 
-  m.def("create_pose_prior_ceres_bundle_adjuster",
-        CreatePosePriorCeresBundleAdjuster,
-        "options"_a,
-        "prior_options"_a,
-        "config"_a,
-        "pose_priors"_a,
-        "reconstruction"_a);
+  m.def(
+      "create_pose_prior_ceres_bundle_adjuster",
+      [warn_deprecated](const BundleAdjustmentOptions& options,
+                        const PosePriorBundleAdjustmentOptions& prior_options,
+                        const BundleAdjustmentConfig& config,
+                        std::vector<PosePrior> pose_priors,
+                        Reconstruction& reconstruction) {
+        warn_deprecated(
+            "create_pose_prior_ceres_bundle_adjuster is deprecated; use "
+            "create_default_ceres_bundle_adjuster with "
+            "options.use_prior_position and BundleAdjustmentPriors instead.");
+        return CreatePosePriorCeresBundleAdjuster(options,
+                                                  prior_options,
+                                                  config,
+                                                  std::move(pose_priors),
+                                                  reconstruction);
+      },
+      "options"_a,
+      "prior_options"_a,
+      "config"_a,
+      "pose_priors"_a,
+      "reconstruction"_a,
+      py::keep_alive<0, 5>());
 }

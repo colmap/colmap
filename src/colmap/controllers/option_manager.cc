@@ -619,6 +619,16 @@ void OptionManager::AddBundleAdjustmentOptions() {
                    &bundle_adjustment->constant_rig_from_world_rotation);
   AddDefaultOption("BundleAdjustment.min_track_length",
                    &bundle_adjustment->min_track_length);
+  AddDefaultOption("BundleAdjustment.use_prior_position",
+                   &bundle_adjustment->use_prior_position);
+  AddDefaultOption("BundleAdjustment.prior_position_stddev_x",
+                   &bundle_adjustment->prior_position_stddev.x());
+  AddDefaultOption("BundleAdjustment.prior_position_stddev_y",
+                   &bundle_adjustment->prior_position_stddev.y());
+  AddDefaultOption("BundleAdjustment.prior_position_stddev_z",
+                   &bundle_adjustment->prior_position_stddev.z());
+  AddDefaultOption("BundleAdjustment.prior_position_overwrite_covariance",
+                   &bundle_adjustment->prior_position_overwrite_covariance);
   AddDefaultEnumOption("BundleAdjustment.backend",
                        &bundle_adjustment->backend,
                        BundleAdjustmentBackendToString,
@@ -626,6 +636,14 @@ void OptionManager::AddBundleAdjustmentOptions() {
                        EnumHelpText(BundleAdjustmentBackendStrings()));
 
   // Ceres-specific options
+  AddDefaultEnumOption(
+      "BundleAdjustmentCeres.prior_position_loss_function_type",
+      &bundle_adjustment->ceres->prior_position_loss_function_type,
+      CeresLossFunctionTypeToString,
+      CeresLossFunctionTypeFromString,
+      EnumHelpText(CeresLossFunctionTypeStrings()));
+  AddDefaultOption("BundleAdjustmentCeres.prior_position_loss_scale",
+                   &bundle_adjustment->ceres->prior_position_loss_scale);
   AddDefaultOption(
       "BundleAdjustmentCeres.max_num_iterations",
       &bundle_adjustment->ceres->solver_options.max_num_iterations);
@@ -780,6 +798,19 @@ void OptionManager::AddMapperOptions() {
   AddDefaultOption("Mapper.snapshot_frames_freq",
                    &mapper->snapshot_frames_freq);
   AddDefaultOption("Mapper.fix_existing_frames", &mapper->fix_existing_frames);
+  AddDefaultOption("Mapper.use_prior_position", &mapper->use_prior_position);
+  AddDefaultOption("Mapper.prior_position_stddev_x",
+                   &mapper->prior_position_stddev.x());
+  AddDefaultOption("Mapper.prior_position_stddev_y",
+                   &mapper->prior_position_stddev.y());
+  AddDefaultOption("Mapper.prior_position_stddev_z",
+                   &mapper->prior_position_stddev.z());
+  AddDefaultOption("Mapper.prior_position_overwrite_covariance",
+                   &mapper->prior_position_overwrite_covariance);
+  AddDefaultOption("Mapper.use_robust_loss_on_prior_position",
+                   &mapper->use_robust_loss_on_prior_position);
+  AddDefaultOption("Mapper.prior_position_loss_scale",
+                   &mapper->prior_position_loss_scale);
 
   // IncrementalMapper.
   AddDefaultOption("Mapper.init_min_num_inliers",
