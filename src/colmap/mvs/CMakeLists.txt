@@ -290,3 +290,38 @@ if(HIP_ENABLED)
     )
     set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
 endif()
+
+# Metal support for MVS (patch_match_stereo on Apple GPUs).
+#
+# The shaders in patch_match_metal.metal are embedded as a string and compiled
+# at runtime. This avoids a dependency on the Metal toolchain, which is not
+# part of the default Xcode installation and not available in conda builds.
+if(METAL_ENABLED)
+    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/patch_match_metal.metal
+         COLMAP_METAL_SHADER_SOURCE)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+                 ${CMAKE_CURRENT_SOURCE_DIR}/patch_match_metal.metal)
+    set(COLMAP_METAL_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/patch_match_metal_source.h.in
+        ${COLMAP_METAL_GENERATED_DIR}/colmap/mvs/patch_match_metal_source.h
+        @ONLY)
+
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_mvs_metal
+        SRCS
+            patch_match_metal.h patch_match_metal.mm
+            patch_match_metal.metal
+        PUBLIC_LINK_LIBS
+            colmap_mvs
+            ${METAL_FRAMEWORK}
+            ${FOUNDATION_FRAMEWORK}
+    )
+    target_include_directories(colmap_mvs_metal
+        PRIVATE ${COLMAP_METAL_GENERATED_DIR})
+    target_compile_options(colmap_mvs_metal
+        PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+    # The shader source is only embedded, not compiled by the build system.
+    set_source_files_properties(patch_match_metal.metal
+        PROPERTIES HEADER_FILE_ONLY TRUE)
+endif()
