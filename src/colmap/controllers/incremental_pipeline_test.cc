@@ -489,6 +489,82 @@ TEST(IncrementalPipeline, PriorBasedSfMWithoutNoise) {
                                  /*align=*/false));
 }
 
+TEST(IncrementalPipeline,
+     ContinueUnalignedReconstructionWithFixedFramesAndPriors) {
+  const auto database_path = CreateTestDir() / "database.db";
+
+  auto database = Database::Open(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 6;
+  synthetic_dataset_options.num_points3D = 80;
+  synthetic_dataset_options.prior_position = true;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+
+  const std::vector<frame_t> frame_ids = gt_reconstruction.RegFrameIds();
+  ASSERT_EQ(frame_ids.size(), 6);
+  const image_t shifted_image_id =
+      gt_reconstruction.Frame(frame_ids.back()).ImageIds().begin()->id;
+  const Eigen::Vector3d kPriorShift(0.01, 0.0, 0.0);
+  Eigen::Vector3d shifted_prior_position = Eigen::Vector3d::Zero();
+
+  // Give one unregistered frame a slightly shifted, high-confidence prior so
+  // the test distinguishes active prior BA during continuation from a purely
+  // post-hoc Sim3d alignment at the end of the pipeline.
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  database->ClearPosePriors();
+  for (PosePrior& prior : pose_priors) {
+    if (prior.corr_data_id.id == shifted_image_id) {
+      prior.position += kPriorShift;
+      prior.position_covariance = 1e-12 * Eigen::Matrix3d::Identity();
+      shifted_prior_position = prior.position;
+    } else {
+      prior.position_covariance = 1e-6 * Eigen::Matrix3d::Identity();
+    }
+    database->WritePosePrior(prior);
+  }
+
+  // Start from an existing partial reconstruction in an arbitrary non-metric
+  // coordinate frame with two unregistered frames.
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  Reconstruction& initial_reconstruction =
+      *reconstruction_manager->Get(reconstruction_manager->Add());
+  initial_reconstruction = gt_reconstruction;
+  initial_reconstruction.DeRegisterFrame(frame_ids[4]);
+  initial_reconstruction.DeRegisterFrame(frame_ids[5]);
+  initial_reconstruction.Transform(Sim3d(
+      2.5,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(100.0, -50.0, 20.0)));
+
+  auto mapper_options = std::make_shared<IncrementalPipelineOptions>();
+  mapper_options->fix_existing_frames = true;
+  mapper_options->use_prior_position = true;
+  mapper_options->ba_global_frames_freq = 1;
+  mapper_options->random_seed = 0;
+
+  IncrementalPipeline mapper(mapper_options, database, reconstruction_manager);
+  mapper.Run();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  const Reconstruction& reconstruction = *reconstruction_manager->Get(0);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 6);
+  EXPECT_LT((reconstruction.Image(shifted_image_id).ProjectionCenter() -
+             shifted_prior_position)
+                .norm(),
+            1e-3);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.5,
+                                 /*max_proj_center_error=*/2e-2,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.05,
+                                 /*align=*/false));
+}
+
 TEST(IncrementalPipeline, PriorBasedSfMWithoutNoiseAndWithNonTrivialFrames) {
   const auto database_path = CreateTestDir() / "database.db";
 

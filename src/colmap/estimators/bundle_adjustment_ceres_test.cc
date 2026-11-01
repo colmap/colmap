@@ -1225,5 +1225,393 @@ TEST(PosePriorBundleAdjuster, UnobservedImagePriorsExcludedFromAlignment) {
             1.0);
 }
 
+TEST(PosePriorBundleAdjuster, ConstantFramePosePreserved) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 7;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  const std::vector<frame_t> reg_frame_ids = gt_reconstruction.RegFrameIds();
+  ASSERT_GE(reg_frame_ids.size(), 7);
+  std::vector<point3D_t> constant_point_ids;
+  for (const auto& [point3D_id, _] : gt_reconstruction.Points3D()) {
+    constant_point_ids.push_back(point3D_id);
+    if (constant_point_ids.size() == 5) {
+      break;
+    }
+  }
+  ASSERT_EQ(constant_point_ids.size(), 5);
+
+  const Sim3d kAlignedShift(
+      1.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d(0.02, -0.01, 0.03));
+  struct TestCase {
+    const char* name;
+    Sim3d prior_from_world;
+    size_t num_priors;
+    std::vector<size_t> constant_frame_indices;
+    size_t num_constant_points;
+    bool expected_priors_used;
+    double max_rotation_error_deg;
+    double max_proj_center_error;
+    bool refine_points3D = true;
+    bool noisy_fallback_priors = false;
+    bool two_coincident_priors = false;
+    bool constant_rotation = false;
+    bool omit_first_frame_from_config = false;
+  };
+  const std::vector<TestCase> cases = {
+      // Aligned within covariance: >= 3 priors, < 3 priors, and 1 constant
+      // point + 2 priors all keep priors active without moving anchors.
+      {"aligned_5_priors_const_frame",
+       kAlignedShift,
+       5,
+       {0},
+       0,
+       true,
+       0.5,
+       0.08},
+      {"aligned_2_priors_const_frame", Sim3d(), 2, {0}, 0, true, 0.5, 0.08},
+      {"aligned_2_priors_1_const_point", Sim3d(), 2, {}, 1, true, 0.5, 0.08},
+      // Fallback covariance (sigma = 1 m -> max_error = 2.80 m) with noisy
+      // priors where < 50% (3/7 = 43%) are inliers, matching
+      // EstimateSim3dRobust's 3-sample floor rather than requiring >= 50%.
+      {"aligned_fallback_cov_sub_median_inliers",
+       kAlignedShift,
+       7,
+       {0, 1},
+       0,
+       true,
+       0.5,
+       0.1,
+       /*refine_points3D=*/true,
+       /*noisy_fallback_priors=*/true},
+      // Aligned with refine_points3D = false and 1 prior keeps priors active.
+      {"aligned_1_prior_unrefined_points3D",
+       kAlignedShift,
+       1,
+       {},
+       0,
+       true,
+       0.5,
+       0.08,
+       /*refine_points3D=*/false},
+      // Unaligned scale + rotation + translation mismatch skips priors.
+      {"unaligned_sim3_const_frames",
+       Sim3d(
+           2.5,
+           Eigen::Quaterniond(Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ())),
+           Eigen::Vector3d(100.0, -50.0, 20.0)),
+       5,
+       {0, 2},
+       0,
+       false,
+       0.1,
+       0.05},
+      // Unaligned unit-scale rotation + translation mismatch (no scale error).
+      {"unaligned_rigid_const_frames",
+       Sim3d(
+           1.0,
+           Eigen::Quaterniond(Eigen::AngleAxisd(0.3, Eigen::Vector3d::UnitY())),
+           Eigen::Vector3d(10.0, -5.0, 2.0)),
+       5,
+       {0, 2},
+       0,
+       false,
+       0.1,
+       0.05},
+      // Unaligned with 5 priors where 2 of 5 coincide (< min(3, 5) inliers)
+      // must still reject the priors.
+      {"unaligned_two_coincident_priors",
+       Sim3d(1.0,
+             Eigen::Quaterniond::Identity(),
+             Eigen::Vector3d(10.0, 0.0, 0.0)),
+       5,
+       {0, 2},
+       0,
+       false,
+       0.1,
+       0.05,
+       /*refine_points3D=*/true,
+       /*noisy_fallback_priors=*/false,
+       /*two_coincident_priors=*/true},
+      // Unaligned with < 3 priors (1 constant + 1 variable) and pure shift.
+      {"unaligned_2_priors_const_frames",
+       Sim3d(1.0,
+             Eigen::Quaterniond::Identity(),
+             Eigen::Vector3d(10.0, 0.0, 0.0)),
+       2,
+       {0, 2},
+       0,
+       false,
+       0.1,
+       0.05},
+      // Unaligned anchored by constant 3D points skips priors without moving
+      // constant points.
+      {"unaligned_const_points",
+       Sim3d(1.0,
+             Eigen::Quaterniond::Identity(),
+             Eigen::Vector3d(10.0, 0.0, 0.0)),
+       5,
+       {},
+       5,
+       false,
+       0.1,
+       0.05},
+      // Unaligned with refine_points3D = false preserves reference 3D points
+      // without Sim3d-moving them.
+      {"unaligned_unrefined_points3D",
+       Sim3d(
+           2.5,
+           Eigen::Quaterniond(Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ())),
+           Eigen::Vector3d(100.0, -50.0, 20.0)),
+       5,
+       {},
+       0,
+       false,
+       0.1,
+       0.05,
+       /*refine_points3D=*/false},
+      // Constant frame rotations anchor world orientation: aligned priors
+      // refine translations while unaligned rotation priors are skipped.
+      {"aligned_const_rotation",
+       kAlignedShift,
+       5,
+       {},
+       0,
+       true,
+       0.01,
+       0.08,
+       /*refine_points3D=*/true,
+       /*noisy_fallback_priors=*/false,
+       /*two_coincident_priors=*/false,
+       /*constant_rotation=*/true},
+      {"unaligned_const_rotation",
+       Sim3d(
+           1.0,
+           Eigen::Quaterniond(Eigen::AngleAxisd(0.3, Eigen::Vector3d::UnitZ())),
+           Eigen::Vector3d(10.0, -5.0, 2.0)),
+       5,
+       {},
+       0,
+       false,
+       0.01,
+       0.05,
+       /*refine_points3D=*/true,
+       /*noisy_fallback_priors=*/false,
+       /*two_coincident_priors=*/false,
+       /*constant_rotation=*/true},
+      // Subset BA (an omitted registered frame outside config) anchors the
+      // world frame: aligned priors are used while unaligned priors are skipped
+      // without Sim3d-transforming omitted frames or shared 3D points.
+      {"aligned_subset_ba_omitted_frame",
+       kAlignedShift,
+       5,
+       {},
+       0,
+       true,
+       0.5,
+       0.08,
+       /*refine_points3D=*/true,
+       /*noisy_fallback_priors=*/false,
+       /*two_coincident_priors=*/false,
+       /*constant_rotation=*/false,
+       /*omit_first_frame_from_config=*/true},
+      {"unaligned_subset_ba_omitted_frame",
+       Sim3d(
+           2.5,
+           Eigen::Quaterniond(Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ())),
+           Eigen::Vector3d(100.0, -50.0, 20.0)),
+       5,
+       {},
+       0,
+       false,
+       0.1,
+       0.05,
+       /*refine_points3D=*/true,
+       /*noisy_fallback_priors=*/false,
+       /*two_coincident_priors=*/false,
+       /*constant_rotation=*/false,
+       /*omit_first_frame_from_config=*/true},
+  };
+
+  for (const TestCase& tc : cases) {
+    SCOPED_TRACE(tc.name);
+    Reconstruction reconstruction = gt_reconstruction;
+    SyntheticNoiseOptions noise_options;
+    noise_options.point3D_stddev = tc.refine_points3D ? 0.05 : 0.0;
+    noise_options.rig_from_world_rotation_stddev =
+        tc.constant_rotation ? 0.0 : 0.5;
+    noise_options.rig_from_world_translation_stddev = 0.05;
+    SynthesizeNoise(noise_options, &reconstruction);
+
+    BundleAdjustmentConfig config;
+    for (const image_t image_id : reconstruction.RegImageIds()) {
+      config.AddImage(image_id);
+    }
+    if (tc.omit_first_frame_from_config) {
+      reconstruction.Frame(reg_frame_ids[0])
+          .SetRigFromWorld(
+              gt_reconstruction.Frame(reg_frame_ids[0]).RigFromWorld());
+      for (const data_t& data_id :
+           reconstruction.Frame(reg_frame_ids[0]).ImageIds()) {
+        config.RemoveImage(data_id.id);
+        for (const Point2D& point2D :
+             reconstruction.Image(data_id.id).Points2D()) {
+          if (point2D.HasPoint3D()) {
+            reconstruction.Point3D(point2D.point3D_id).xyz =
+                gt_reconstruction.Point3D(point2D.point3D_id).xyz;
+          }
+        }
+      }
+    }
+    for (const size_t idx : tc.constant_frame_indices) {
+      reconstruction.Frame(reg_frame_ids[idx])
+          .SetRigFromWorld(
+              gt_reconstruction.Frame(reg_frame_ids[idx]).RigFromWorld());
+      config.SetConstantRigFromWorldPose(reg_frame_ids[idx]);
+    }
+    for (size_t i = 0; i < tc.num_constant_points; ++i) {
+      const point3D_t point3D_id = constant_point_ids[i];
+      reconstruction.Point3D(point3D_id).xyz =
+          gt_reconstruction.Point3D(point3D_id).xyz;
+      config.AddConstantPoint(point3D_id);
+    }
+    const Reconstruction orig_reconstruction = reconstruction;
+
+    std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+    pose_priors.resize(tc.num_priors);
+    for (size_t i = 0; i < pose_priors.size(); ++i) {
+      PosePrior& prior = pose_priors[i];
+      prior.position = tc.prior_from_world * prior.position;
+      if (tc.two_coincident_priors && (i == 1 || i == 3)) {
+        prior.position =
+            reconstruction.Image(prior.corr_data_id.id).ProjectionCenter();
+      }
+      if (tc.noisy_fallback_priors) {
+        prior.position_covariance =
+            Eigen::Matrix3d::Constant(std::numeric_limits<double>::quiet_NaN());
+        // Perturb 4 of 7 priors beyond sqrt(chi2_95_3dof) * 1.0 = 2.80 m
+        // (simulating ~2 m per-axis GPS noise) so 3/7 (43%) are inliers.
+        if (i >= 3) {
+          const double sign = (i % 2 == 0) ? 1.0 : -1.0;
+          prior.position += sign * Eigen::Vector3d(2.0, -2.0, 1.5);
+        }
+      } else {
+        prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
+      }
+    }
+
+    BundleAdjustmentOptions ba_options;
+    ba_options.refine_points3D = tc.refine_points3D;
+    ba_options.constant_rig_from_world_rotation = tc.constant_rotation;
+    Reconstruction plain_reconstruction = reconstruction;
+    const int plain_num_residuals =
+        CreateDefaultCeresBundleAdjuster(
+            ba_options, config, plain_reconstruction)
+            ->Problem()
+            ->NumResidualBlocks();
+
+    PosePriorBundleAdjustmentOptions prior_options;
+    if (tc.noisy_fallback_priors) {
+      prior_options.ceres->prior_position_loss_function_type =
+          CeresLossFunctionType::CAUCHY;
+    }
+    auto adjuster = CreatePosePriorCeresBundleAdjuster(ba_options,
+                                                       prior_options,
+                                                       config,
+                                                       std::move(pose_priors),
+                                                       reconstruction);
+    if (tc.expected_priors_used) {
+      EXPECT_GT(adjuster->Problem()->NumResidualBlocks(), plain_num_residuals);
+    } else {
+      EXPECT_EQ(adjuster->Problem()->NumResidualBlocks(), plain_num_residuals);
+    }
+    ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+    if (tc.constant_rotation) {
+      for (const frame_t frame_id : reg_frame_ids) {
+        EXPECT_LT(reconstruction.Frame(frame_id)
+                      .RigFromWorld()
+                      .rotation()
+                      .angularDistance(orig_reconstruction.Frame(frame_id)
+                                           .RigFromWorld()
+                                           .rotation()),
+                  kConstantPoseVarEps);
+      }
+    }
+    if (tc.omit_first_frame_from_config) {
+      const image_t omitted_image_id =
+          reconstruction.Frame(reg_frame_ids[0]).ImageIds().begin()->id;
+      CheckConstantCamFromWorld(reconstruction.Image(omitted_image_id),
+                                orig_reconstruction.Image(omitted_image_id));
+      if (!tc.expected_priors_used) {
+        EXPECT_EQ(
+            reconstruction.Frame(reg_frame_ids[0]).RigFromWorld().params,
+            orig_reconstruction.Frame(reg_frame_ids[0]).RigFromWorld().params);
+      }
+    }
+    for (const size_t idx : tc.constant_frame_indices) {
+      const image_t image_id =
+          reconstruction.Frame(reg_frame_ids[idx]).ImageIds().begin()->id;
+      CheckConstantCamFromWorld(reconstruction.Image(image_id),
+                                orig_reconstruction.Image(image_id));
+    }
+    auto check_constant_point = [&](const point3D_t point3D_id) {
+      if (tc.expected_priors_used) {
+        EXPECT_LT((reconstruction.Point3D(point3D_id).xyz -
+                   orig_reconstruction.Point3D(point3D_id).xyz)
+                      .norm(),
+                  kConstantPoseVarEps);
+      } else {
+        EXPECT_EQ(reconstruction.Point3D(point3D_id).xyz,
+                  orig_reconstruction.Point3D(point3D_id).xyz);
+      }
+    };
+    if (!tc.refine_points3D) {
+      for (const auto& [point3D_id, _] : orig_reconstruction.Points3D()) {
+        check_constant_point(point3D_id);
+      }
+    } else {
+      for (size_t i = 0; i < tc.num_constant_points; ++i) {
+        check_constant_point(constant_point_ids[i]);
+      }
+    }
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(reconstruction,
+                                   tc.max_rotation_error_deg,
+                                   tc.max_proj_center_error,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.02,
+                                   /*align=*/false));
+  }
+
+  // Duplicate camera priors must be rejected even on the anchored path that
+  // bypasses AlignReconstructionToPosePriors.
+  BundleAdjustmentConfig anchored_config;
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    anchored_config.AddImage(image_id);
+  }
+  anchored_config.SetConstantRigFromWorldPose(reg_frame_ids[0]);
+  std::vector<PosePrior> dup_priors = database->ReadAllPosePriors();
+  ASSERT_GE(dup_priors.size(), 2);
+  dup_priors.push_back(dup_priors.back());
+  EXPECT_THAT(
+      [&]() {
+        Reconstruction rec = gt_reconstruction;
+        CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                           PosePriorBundleAdjustmentOptions(),
+                                           anchored_config,
+                                           dup_priors,
+                                           rec);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("Duplicate pose prior")));
+}
+
 }  // namespace
 }  // namespace colmap
