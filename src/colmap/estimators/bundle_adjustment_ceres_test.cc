@@ -3,6 +3,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 
 #include "colmap/geometry/rigid3_matchers.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
@@ -1281,6 +1282,50 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+}
+
+TEST(PosePriorBundleAdjuster, UnobservedImagePriorsExcludedFromAlignment) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 4;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  // Strip all 3D point observations from two of the four images so only two
+  // parameterized images remain in the BA problem.
+  int stripped = 0;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    if (stripped == 2) {
+      break;
+    }
+    Image& image = reconstruction.Image(image_id);
+    for (point2D_t i = 0; i < image.NumPoints2D(); ++i) {
+      if (image.Point2D(i).HasPoint3D()) {
+        reconstruction.DeleteObservation(image_id, i);
+      }
+    }
+    ++stripped;
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                database->ReadAllPosePriors(),
+                                                reconstruction);
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
 }
 
 }  // namespace
