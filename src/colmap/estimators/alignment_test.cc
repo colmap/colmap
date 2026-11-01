@@ -191,6 +191,66 @@ TEST(Alignment, AlignReconstructionsViaPoints) {
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
+TEST(Alignment, AlignReconstructionsViaPointsPartialOverlap) {
+  const Reconstruction src_reconstruction =
+      GenerateReconstructionForAlignment();
+  for (const bool tear_down : {false, true}) {
+    SCOPED_TRACE(tear_down);
+    Reconstruction tgt_reconstruction = src_reconstruction;
+    const Sim3d gt_tgt_from_src = TestSim3d();
+    tgt_reconstruction.Transform(gt_tgt_from_src);
+    RemoveRigFrames(tgt_reconstruction, 1);
+    if (tear_down) {
+      tgt_reconstruction.TearDown();
+      ASSERT_LT(tgt_reconstruction.NumImages(), src_reconstruction.NumImages());
+    }
+    ASSERT_TRUE(tgt_reconstruction.IsValid());
+
+    Sim3d tgt_from_src;
+    ASSERT_TRUE(AlignReconstructionsViaPoints(src_reconstruction,
+                                              tgt_reconstruction,
+                                              /*min_common_observations=*/3,
+                                              /*max_error=*/0.01,
+                                              /*min_inlier_ratio=*/0.9,
+                                              &tgt_from_src));
+    ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
+    EXPECT_FALSE(AlignReconstructionsViaPoints(
+        src_reconstruction,
+        tgt_reconstruction,
+        /*min_common_observations=*/tgt_reconstruction.NumRegImages() + 1,
+        /*max_error=*/0.01,
+        /*min_inlier_ratio=*/0.9,
+        &tgt_from_src));
+    Sim3d src_from_tgt;
+    ASSERT_TRUE(AlignReconstructionsViaPoints(tgt_reconstruction,
+                                              src_reconstruction,
+                                              /*min_common_observations=*/3,
+                                              /*max_error=*/0.01,
+                                              /*min_inlier_ratio=*/0.9,
+                                              &src_from_tgt));
+    ExpectEqualSim3d(Inverse(gt_tgt_from_src), src_from_tgt);
+  }
+}
+
+TEST(Alignment, AlignReconstructionsViaPointsNoOverlap) {
+  Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
+  Reconstruction tgt_reconstruction = src_reconstruction;
+  RemoveRigFrames(src_reconstruction, 1);
+  RemoveRigFrames(tgt_reconstruction, 2);
+  src_reconstruction.TearDown();
+  tgt_reconstruction.TearDown();
+  ASSERT_TRUE(src_reconstruction.IsValid());
+  ASSERT_TRUE(tgt_reconstruction.IsValid());
+
+  Sim3d tgt_from_src;
+  EXPECT_FALSE(AlignReconstructionsViaPoints(src_reconstruction,
+                                             tgt_reconstruction,
+                                             /*min_common_observations=*/3,
+                                             /*max_error=*/0.01,
+                                             /*min_inlier_ratio=*/0.9,
+                                             &tgt_from_src));
+}
+
 TEST(Alignment, AlignReconstructionsViaPointsMinCommonObservations) {
   for (const size_t track_length : {2, 3, 4}) {
     SCOPED_TRACE(track_length);
