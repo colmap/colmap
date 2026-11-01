@@ -66,8 +66,8 @@ TEST(VisibilityPyramid, ClampOutsideImage) {
   const std::vector<Eigen::Vector2d> points = {
       {-42, 200}, {320, -45}, {-42, -45}, {682, 200}, {320, 525}};
   for (const auto& point : points) {
-    const double x = std::clamp(point.x(), 0.0, 640.0);
-    const double y = std::clamp(point.y(), 0.0, 480.0);
+    const double x = std::clamp(point.x(), 0.0, 639.0);
+    const double y = std::clamp(point.y(), 0.0, 479.0);
     VisibilityPyramid pyramid(6, 640, 480);
     pyramid.SetPoint(x, y);
     const size_t score = pyramid.Score();
