@@ -379,10 +379,11 @@ void CameraTab::itemChanged(QTableWidgetItem* item) {
 
 void CameraTab::Add() {
   QStringList camera_models;
-#define CAMERA_MODEL_CASE(CameraModel) \
-  << QString::fromStdString(CameraModelIdToName(CameraModel::model_id))
-  camera_models CAMERA_MODEL_CASES;
-#undef CAMERA_MODEL_CASE
+  ForEachCameraModel([&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    camera_models << QString::fromStdString(
+        CameraModelIdToName(CameraModel::model_id));
+  });
 
   bool ok;
   const QString camera_model = QInputDialog::getItem(
@@ -419,10 +420,11 @@ void CameraTab::SetModel() {
   }
 
   QStringList camera_models;
-#define CAMERA_MODEL_CASE(CameraModel) \
-  << QString::fromStdString(CameraModelIdToName(CameraModel::model_id))
-  camera_models CAMERA_MODEL_CASES;
-#undef CAMERA_MODEL_CASE
+  ForEachCameraModel([&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    camera_models << QString::fromStdString(
+        CameraModelIdToName(CameraModel::model_id));
+  });
 
   bool ok;
   const QString camera_model = QInputDialog::getItem(
