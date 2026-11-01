@@ -325,4 +325,10 @@ if(METAL_ENABLED)
     # The shader source is only embedded, not compiled by the build system.
     set_source_files_properties(patch_match_metal.metal
         PROPERTIES HEADER_FILE_ONLY TRUE)
+
+    COLMAP_ADD_TEST(
+        NAME patch_match_metal_test
+        SRCS patch_match_metal_test.cc
+        LINK_LIBS colmap_mvs_metal
+    )
 endif()
