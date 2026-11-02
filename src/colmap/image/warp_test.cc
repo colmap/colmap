@@ -4,6 +4,10 @@
 
 #include "colmap/math/random.h"
 
+#include <algorithm>
+#include <stdexcept>
+#include <tuple>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -154,6 +158,21 @@ TEST(Warp, DirectWarpMinScale) {
                                            target_camera,
                                            source_image,
                                            &default_image));
+
+  target_camera.params = {1.0};
+  EXPECT_THROW(WarpImageBetweenCameras(WarpImageOptions(),
+                                       source_camera,
+                                       target_camera,
+                                       source_image,
+                                       &default_image),
+               std::invalid_argument);
+  EXPECT_THROW(WarpImageBetweenCameras(WarpImageOptions(),
+                                       target_camera,
+                                       source_camera,
+                                       Bitmap(95, 49, true),
+                                       &default_image),
+               std::invalid_argument);
+  EXPECT_EQ(default_image.Width(), 95);
 }
 
 TEST(Warp, Interpolation) {
@@ -515,6 +534,127 @@ TEST(Warp, DownsampleImage) {
   EXPECT_NEAR(downsampled[1], 4.66086388, 1e-3);
   EXPECT_NEAR(downsampled[2], 10.3391361, 1e-3);
   EXPECT_NEAR(downsampled[3], 12.2318935, 1e-3);
+}
+
+TEST(Warp, CameraModelsMatchPerPixelProjection) {
+  const Bitmap source_image = GenerateRandomBitmap(37, 29, /*as_rgb=*/true);
+  const auto make_cam =
+      [](CameraModelId model, size_t w, size_t h, double extra = 0.0) {
+        Camera cam = Camera::CreateFromModelId(1, model, 20.0, w, h);
+        if (!cam.ExtraParamsIdxs().empty()) {
+          cam.params.at(cam.ExtraParamsIdxs()[0]) = extra;
+        }
+        return cam;
+      };
+  Camera pinhole_tgt = make_cam(CameraModelId::kPinhole, 31, 23);
+  pinhole_tgt.SetFocalLengthY(19.1);
+  pinhole_tgt.SetPrincipalPointX(14.0);
+
+  Eigen::Matrix3d H;
+  // Exact dyadic rationals so column x = 10 hits warped.z() == 0 with or
+  // without FMA contraction (-0.125 * 10.5 + 1.3125 == 0).
+  H << 1.0, 0.05, 1.5, -0.05, 1.0, -0.75, -0.125, 0.0, 1.3125;
+
+  const auto warp_reference = [&](const WarpImageOptions& options,
+                                  const Eigen::Matrix3d* homography,
+                                  const Camera& src_cam,
+                                  const Camera& tgt_cam) {
+    const bool direct = options.direct_warp_min_scale == 0.0;
+    Camera warp_tgt = tgt_cam;
+    Eigen::Matrix3d warp_H;
+    if (homography != nullptr) {
+      warp_H = *homography;
+      if (!direct) {
+        warp_H *= Eigen::Vector3d(
+                      static_cast<double>(tgt_cam.width) / src_cam.width,
+                      static_cast<double>(tgt_cam.height) / src_cam.height,
+                      1.0)
+                      .asDiagonal();
+      }
+    } else if (!direct) {
+      warp_tgt.Rescale(src_cam.width, src_cam.height);
+    }
+    Bitmap expected(direct ? tgt_cam.width : src_cam.width,
+                    direct ? tgt_cam.height : src_cam.height,
+                    source_image.IsRGB());
+    for (int y = 0; y < expected.Height(); ++y) {
+      for (int x = 0; x < expected.Width(); ++x) {
+        Eigen::Vector3d img_pt(x + 0.5, y + 0.5, 1.0);
+        if (homography != nullptr) {
+          img_pt = warp_H * img_pt;
+          if (img_pt.z() == 0) {
+            continue;
+          }
+        }
+        const auto cam_pt = warp_tgt.CamFromImg(img_pt.hnormalized());
+        const auto src_pt =
+            cam_pt ? src_cam.ImgFromCam(cam_pt->homogeneous()) : std::nullopt;
+        if (!src_pt) {
+          continue;
+        }
+        const double sx = src_pt->x() - 0.5;
+        const double sy = src_pt->y() - 0.5;
+        if (options.interpolation ==
+            WarpImageOptions::Interpolation::kNearestNeighbor) {
+          if (const auto c = source_image.InterpolateNearestNeighbor(sx, sy)) {
+            expected.SetPixel(x, y, *c);
+          }
+        } else if (const auto c = source_image.InterpolateBilinear(sx, sy)) {
+          expected.SetPixel(x, y, c->Cast<uint8_t>());
+        }
+      }
+    }
+    if (!direct) {
+      expected.Rescale(tgt_cam.width, tgt_cam.height);
+    }
+    return expected;
+  };
+
+  // SimpleDivision fails ImgFromCam on wide rays; Equirectangular fails
+  // CamFromImg on back-hemisphere pixels.
+  for (const auto& [src_cam, tgt_cam, expect_partial] :
+       std::vector<std::tuple<Camera, Camera, bool>>{
+           {make_cam(CameraModelId::kOpenCV, 37, 29, -0.15),
+            pinhole_tgt,
+            false},
+           {make_cam(CameraModelId::kSimpleDivision, 37, 29, 0.5),
+            make_cam(CameraModelId::kFOV, 31, 23, 0.8),
+            true},
+           {make_cam(CameraModelId::kSimpleRadial, 37, 29, 0.1),
+            make_cam(CameraModelId::kEquirectangular, 31, 23),
+            true}}) {
+    for (const auto interpolation :
+         {WarpImageOptions::Interpolation::kNearestNeighbor,
+          WarpImageOptions::Interpolation::kBilinear}) {
+      for (const double min_scale : {0.0, 1.0}) {
+        WarpImageOptions options;
+        options.interpolation = interpolation;
+        options.direct_warp_min_scale = min_scale;
+        for (const Eigen::Matrix3d* homography :
+             {static_cast<Eigen::Matrix3d*>(nullptr), &H}) {
+          Bitmap actual;
+          if (homography == nullptr) {
+            WarpImageBetweenCameras(
+                options, src_cam, tgt_cam, source_image, &actual);
+          } else {
+            WarpImageWithHomographyBetweenCameras(
+                options, H, src_cam, tgt_cam, source_image, &actual);
+            if (min_scale == 0.0) {
+              EXPECT_EQ(actual.GetPixel(10, 11), BitmapColor<uint8_t>(0));
+            }
+          }
+          CheckBitmapsExactlyEqual(
+              actual, warp_reference(options, homography, src_cam, tgt_cam));
+          const auto& data = actual.RowMajorData();
+          const size_t zeros = std::count(data.begin(), data.end(), uint8_t{0});
+          EXPECT_LT(zeros, data.size());
+          if (expect_partial || homography != nullptr) {
+            EXPECT_GT(zeros, 0);
+          }
+        }
+      }
+    }
+  }
 }
 
 }  // namespace
