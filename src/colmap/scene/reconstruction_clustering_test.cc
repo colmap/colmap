@@ -426,9 +426,6 @@ TEST(ClusterReconstructionFrames, MultipleDisjointClusters) {
 TEST(ClusterReconstructionFrames, RigOneMajorConnectedComponent) {
   // Create a reconstruction with 10 frames from a rig with 3 cameras each.
   // Test that clustering correctly handles multi-camera rigs.
-  // Note: With multi-camera rigs, covisibility between frames is stronger
-  // because 3D points are often visible from multiple cameras in the same
-  // frame.
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -461,7 +458,6 @@ TEST(ClusterReconstructionFrames, RigOneMajorConnectedComponent) {
   }
 
   // Use keep_ratio=0.0 to completely disconnect clusters.
-  // With multi-camera rigs, weak connections are harder to break.
   PartitionFramesIntoClusters(reconstruction, frame_to_cluster, 0.0);
 
   EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
