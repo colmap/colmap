@@ -168,11 +168,20 @@ TEST(ClusterReconstructionFrames, CountsRigFrameCovisibilityOnce) {
 
   ReconstructionClusteringOptions options;
   options.min_num_reg_frames = 2;
-  const auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
 
+  options.min_edge_weight_threshold = 6.0;
+  auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
   ASSERT_EQ(cluster_ids.size(), 2);
-  EXPECT_EQ(cluster_ids.at(1), -1);
-  EXPECT_EQ(cluster_ids.at(2), -1);
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    EXPECT_EQ(cluster_id, -1);
+  }
+
+  options.min_edge_weight_threshold = 5.0;
+  cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+  ASSERT_EQ(cluster_ids.size(), 2);
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    EXPECT_EQ(cluster_id, 0);
+  }
 }
 
 TEST(ClusterReconstructionFrames, WeaklyConnectedReconstruction) {
