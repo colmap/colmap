@@ -430,7 +430,8 @@ TEST(GlobalPositioning, UnknownSensorOffsetInitialization) {
   for (const bool compose : {false, true}) {
     reconstruction = original;
     if (compose) {
-      RandomizeReconstructionPositions(options, PoseGraph(), reconstruction);
+      RandomizeFrameCentersAndPointPositions(
+          options, PoseGraph(), reconstruction);
       auto scales = GenerateObservationScales(reconstruction);
       auto prepared_options = options;
       prepared_options.random_seed = -1;

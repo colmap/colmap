@@ -530,9 +530,10 @@ std::unique_ptr<GlobalPositioner> GlobalPositioner::CreateDefault(
       options, reconstruction, observation_scales, std::move(loss_function));
 }
 
-void RandomizeReconstructionPositions(const GlobalPositionerOptions& options,
-                                      const PoseGraph& pose_graph,
-                                      Reconstruction& reconstruction) {
+void RandomizeFrameCentersAndPointPositions(
+    const GlobalPositionerOptions& options,
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction) {
   if (options.random_seed >= 0) {
     SetPRNGSeed(static_cast<unsigned>(options.random_seed));
   }
@@ -644,7 +645,7 @@ bool RunGlobalPositioning(const GlobalPositionerOptions& options,
   ObservationScaleMap local_scales;
   auto positioner_options = options;
   if (observation_scales == nullptr) {
-    RandomizeReconstructionPositions(options, pose_graph, reconstruction);
+    RandomizeFrameCentersAndPointPositions(options, pose_graph, reconstruction);
     local_scales = GenerateObservationScales(
         reconstruction, options.initialize_scales_from_geometry);
     observation_scales = &local_scales;

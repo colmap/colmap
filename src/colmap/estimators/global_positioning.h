@@ -166,9 +166,10 @@ class GlobalPositioner {
 // meeting min_num_view_per_track; points must meet the same track threshold.
 // To continue the same random sequence in GlobalPositioner::CreateDefault,
 // pass it options with random_seed = -1.
-void RandomizeReconstructionPositions(const GlobalPositionerOptions& options,
-                                      const PoseGraph& pose_graph,
-                                      Reconstruction& reconstruction);
+void RandomizeFrameCentersAndPointPositions(
+    const GlobalPositionerOptions& options,
+    const PoseGraph& pose_graph,
+    Reconstruction& reconstruction);
 
 // Generate ones or geometry-based scales without modifying reconstruction.
 // Geometric initialization skips observations without usable poses or rays.

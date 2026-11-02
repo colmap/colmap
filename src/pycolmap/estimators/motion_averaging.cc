@@ -182,8 +182,8 @@ void BindGlobalPositioner(py::module& m) {
       "initialization. Included observations require finite scales >= 1e-5. "
       "Optimization updates the map in place; unused entries are ignored.");
 
-  m.def("randomize_reconstruction_positions",
-        &RandomizeReconstructionPositions,
+  m.def("randomize_frame_centers_and_point_positions",
+        &RandomizeFrameCentersAndPointPositions,
         "options"_a,
         "pose_graph"_a,
         "reconstruction"_a,
