@@ -13,6 +13,8 @@
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/exe/gui.h"
+#include "colmap/math/math.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/observation_manager.h"
 #include "colmap/util/cancellation.h"
@@ -36,6 +38,49 @@ ExtractExistingImages(const Reconstruction& reconstruction) {
         reconstruction.Image(image_id).ProjectionCenter());
   }
   return {std::move(fixed_image_ids), std::move(orig_fixed_image_positions)};
+}
+
+Eigen::Matrix3d PosePriorCovarianceFromStds(const double std_x,
+                                            const double std_y,
+                                            const double std_z) {
+  return Eigen::Vector3d(std_x, std_y, std_z).cwiseAbs2().asDiagonal();
+}
+
+// Prints the distance between the registered images and their prior positions.
+// The pose prior bundle adjuster needs at least 3 usable priors, otherwise it
+// falls back to a plain bundle adjustment and the errors are not meaningful.
+void PrintPosePriorPositionErrors(const Reconstruction& reconstruction,
+                                  const std::vector<PosePrior>& pose_priors) {
+  constexpr size_t kMinNumPosePriors = 3;
+
+  std::vector<double> errors2;
+  errors2.reserve(pose_priors.size());
+  for (const PosePrior& pose_prior : pose_priors) {
+    if (!pose_prior.HasPosition() ||
+        pose_prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+        !reconstruction.ExistsImage(pose_prior.corr_data_id.id)) {
+      continue;
+    }
+    const Image& image = reconstruction.Image(pose_prior.corr_data_id.id);
+    if (!image.HasPose()) {
+      continue;
+    }
+    errors2.push_back(
+        (image.ProjectionCenter() - pose_prior.position).squaredNorm());
+  }
+
+  if (errors2.size() < kMinNumPosePriors) {
+    LOG(WARNING) << "Only " << errors2.size() << " registered images have a "
+                 << "pose prior position (at least " << kMinNumPosePriors
+                 << " are required). Ran a standard bundle adjustment without "
+                 << "using the pose priors.";
+    return;
+  }
+
+  LOG(INFO) << "Error w.r.t. prior positions (" << errors2.size()
+            << " images):\n"
+            << "  - rmse:   " << std::sqrt(Mean(errors2)) << '\n'
+            << "  - median: " << std::sqrt(Median(errors2));
 }
 
 void UpdateDatabasePosePriorsCovariance(
@@ -512,18 +557,21 @@ int RunPosePriorMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  if (!ExistsFile(*options.database_path)) {
+    LOG(ERROR) << "`database_path` is not a file.";
+    return EXIT_FAILURE;
+  }
+
   if (!ExistsDir(output_path)) {
     LOG(ERROR) << "`output_path` is not a directory.";
     return EXIT_FAILURE;
   }
 
   if (overwrite_priors_covariance) {
-    const Eigen::Matrix3d covariance =
-        Eigen::Vector3d(
-            prior_position_std_x, prior_position_std_y, prior_position_std_z)
-            .cwiseAbs2()
-            .asDiagonal();
-    UpdateDatabasePosePriorsCovariance(*options.database_path, covariance);
+    UpdateDatabasePosePriorsCovariance(
+        *options.database_path,
+        PosePriorCovarianceFromStds(
+            prior_position_std_x, prior_position_std_y, prior_position_std_z));
   }
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -549,6 +597,115 @@ int RunPosePriorMapper(int argc, char** argv) {
       options.Write(reconstruction_path / "project.ini");
     }
   }
+
+  return EXIT_SUCCESS;
+}
+
+int RunPosePriorBundleAdjuster(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  bool overwrite_priors_covariance = false;
+  double prior_position_std_x = 1.;
+  double prior_position_std_y = 1.;
+  double prior_position_std_z = 1.;
+  bool use_robust_loss_on_prior_position = false;
+  double prior_position_loss_scale = 7.815;
+  int random_seed = -1;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddBundleAdjustmentOptions();
+
+  options.AddDefaultOption(
+      "overwrite_priors_covariance",
+      &overwrite_priors_covariance,
+      "Priors covariance read from database. If true, overwrite the priors "
+      "covariance using the following prior_position_std_... options");
+  options.AddDefaultOption("prior_position_std_x", &prior_position_std_x);
+  options.AddDefaultOption("prior_position_std_y", &prior_position_std_y);
+  options.AddDefaultOption("prior_position_std_z", &prior_position_std_z);
+  options.AddDefaultOption("use_robust_loss_on_prior_position",
+                           &use_robust_loss_on_prior_position);
+  options.AddDefaultOption("prior_position_loss_scale",
+                           &prior_position_loss_scale);
+  options.AddDefaultOption("random_seed", &random_seed);
+
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsFile(*options.database_path)) {
+    LOG(ERROR) << "`database_path` is not a file";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (prior_position_loss_scale <= 0.) {
+    LOG(ERROR) << "`prior_position_loss_scale` must be positive";
+    return EXIT_FAILURE;
+  }
+
+  if (overwrite_priors_covariance) {
+    UpdateDatabasePosePriorsCovariance(
+        *options.database_path,
+        PosePriorCovarianceFromStds(
+            prior_position_std_x, prior_position_std_y, prior_position_std_z));
+  }
+
+  // Load the priors through the database cache to get them converted to ENU
+  // coordinates, as done by the incremental mapper. Trade-off: Create() also
+  // loads all keypoints, two-view geometries, and the correspondence graph,
+  // which is unnecessary here and costs time and memory on large databases.
+  // The alternative is to add the priors from ReadAllPosePriors() to an empty
+  // DatabaseCache and call ConvertPosePriorsToENU(), which is much cheaper but
+  // requires making that currently private method public.
+  DatabaseCache::Options database_cache_options;
+  database_cache_options.convert_pose_priors_to_enu = true;
+  const std::vector<PosePrior> pose_priors =
+      DatabaseCache::Create(*Database::Open(*options.database_path),
+                            database_cache_options)
+          ->PosePriors();
+  if (pose_priors.empty()) {
+    LOG(ERROR) << "No pose priors found in the database";
+    return EXIT_FAILURE;
+  }
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  if (use_robust_loss_on_prior_position) {
+    // The loss function type is hard-coded to Cauchy, as done in the
+    // incremental mapper. Could be user-specified based on an option.
+    prior_options.ceres->prior_position_loss_function_type =
+        CeresLossFunctionType::CAUCHY;
+  }
+  prior_options.ceres->prior_position_loss_scale = prior_position_loss_scale;
+  prior_options.alignment_ransac_options.random_seed = random_seed;
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  BundleAdjustmentController ba_controller(
+      options,
+      reconstruction,
+      std::make_unique<BundleAdjustmentController::PosePriorConfig>(
+          BundleAdjustmentController::PosePriorConfig{
+              pose_priors, std::move(prior_options)}));
+  ba_controller.Run();
+
+  PrintPosePriorPositionErrors(*reconstruction, pose_priors);
+
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }

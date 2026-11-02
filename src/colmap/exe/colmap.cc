@@ -158,6 +158,9 @@ int main(int argc, char** argv) {
   commands.emplace_back("point_triangulator",
                         &colmap::RunPointTriangulator,
                         kSupportsGracefulShutdown);
+  commands.emplace_back("pose_prior_bundle_adjuster",
+                        &colmap::RunPosePriorBundleAdjuster,
+                        kSupportsGracefulShutdown);
   commands.emplace_back("pose_prior_mapper",
                         &colmap::RunPosePriorMapper,
                         kSupportsGracefulShutdown);

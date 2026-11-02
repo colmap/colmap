@@ -184,6 +184,14 @@ using ``--overwrite_priors_covariance``.  The new covariance will be built based
 on the values of ``--prior_position_std_x``, ``--prior_position_std_y``, and
 ``--prior_position_std_z`` (default: 1.0 meter each).
 
+To refine an existing reconstruction with the same prior position constraints,
+use the ``pose_prior_bundle_adjuster``::
+
+    colmap pose_prior_bundle_adjuster \
+        --database_path $PROJECT_PATH/database.db \
+        --input_path $PROJECT_PATH/sparse/0 \
+        --output_path $PROJECT_PATH/sparse/0_refined
+
 For geo-registration of an already reconstructed model (without using priors
 during mapping), see the `Geo-registration`_ section.
 
