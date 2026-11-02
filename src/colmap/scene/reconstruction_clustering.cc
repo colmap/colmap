@@ -101,22 +101,20 @@ NodeHashMap<frame_t, int> ClusterReconstructionFrames(
     nodes.insert(frame_id);
   }
 
+  std::vector<frame_t> point_frame_ids;
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     if (point3D.track.Length() <= 2) continue;
 
-    std::vector<frame_t> point_frame_ids;
+    point_frame_ids.clear();
     point_frame_ids.reserve(point3D.track.Length());
-    FlatHashSet<frame_t> point_frame_id_set;
-
-    for (size_t i = 0; i < point3D.track.Length(); i++) {
-      const image_t image_id1 = point3D.track.Element(i).image_id;
-      const frame_t frame_id1 = reconstruction.Image(image_id1).FrameId();
-
-      if (point_frame_id_set.insert(frame_id1).second) {
-        point_frame_ids.push_back(frame_id1);
-        nodes.insert(frame_id1);
-      }
+    for (const auto& track_el : point3D.track.Elements()) {
+      point_frame_ids.push_back(
+          reconstruction.Image(track_el.image_id).FrameId());
     }
+    std::sort(point_frame_ids.begin(), point_frame_ids.end());
+    point_frame_ids.erase(
+        std::unique(point_frame_ids.begin(), point_frame_ids.end()),
+        point_frame_ids.end());
 
     // Count each frame pair at most once per 3D point. A track may contain
     // multiple images from the same frame when the reconstruction uses a rig.
