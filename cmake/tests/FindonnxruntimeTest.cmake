@@ -10,8 +10,10 @@ endif()
 get_filename_component(MODULE_DIR "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
 foreach(mode config fallback)
-    foreach(selection hints system missing_hints explicit hints_lib64)
-        if(mode STREQUAL "config" AND selection STREQUAL "hints_lib64")
+    foreach(selection hints system missing_hints explicit hints_lib64
+            partial_hints)
+        if(mode STREQUAL "config" AND
+                (selection STREQUAL "hints_lib64" OR selection STREQUAL "partial_hints"))
             continue()
         endif()
         foreach(cuda_enabled ON OFF)
@@ -57,6 +59,12 @@ foreach(prefix system hinted explicit)
     file(MAKE_DIRECTORY "${root}/include/onnxruntime" "${root}/${library_dir}")
     file(WRITE "${root}/include/onnxruntime/onnxruntime_cxx_api.h" "")
     foreach(lib onnxruntime onnxruntime_providers_shared onnxruntime_providers_cuda)
+        # With partial hints, the hinted installation ships only the core
+        # library; the provider libraries exist only in the system prefix.
+        if(SELECTION STREQUAL "partial_hints" AND prefix STREQUAL "hinted"
+                AND NOT lib STREQUAL "onnxruntime")
+            continue()
+        endif()
         # Discovery-only fixtures for Unix and Windows; no linker is invoked.
         file(WRITE "${root}/${library_dir}/lib${lib}.so" "")
         file(WRITE "${root}/${library_dir}/lib${lib}.dylib" "")
@@ -72,7 +80,7 @@ endforeach()
 
 set(expected system)
 if(SELECTION STREQUAL "hints" OR SELECTION STREQUAL "explicit"
-        OR SELECTION STREQUAL "hints_lib64")
+        OR SELECTION STREQUAL "hints_lib64" OR SELECTION STREQUAL "partial_hints")
     set(hint "${CMAKE_CURRENT_BINARY_DIR}/hinted")
     set(expected hinted)
 elseif(SELECTION STREQUAL "missing_hints")
@@ -105,6 +113,10 @@ else()
     set(expected_library_count 2)
     if(CUDA_ENABLED)
         set(expected_library_count 3)
+    endif()
+    if(SELECTION STREQUAL "partial_hints")
+        # The providers must not be mixed in from the system prefix.
+        set(expected_library_count 1)
     endif()
     if(NOT library_count EQUAL expected_library_count)
         message(FATAL_ERROR "Expected ${expected_library_count} libraries, got ${library_count}")

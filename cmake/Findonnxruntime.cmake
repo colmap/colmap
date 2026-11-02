@@ -55,15 +55,36 @@ else()
         NAMES onnxruntime libonnxruntime
         HINTS ${onnxruntime_LIBRARY_DIR_HINTS}
         PATHS ${_onnxruntime_library_paths})
-    find_library(onnxruntime_PROVIDERS_SHARED_LIBRARY
-        NAMES onnxruntime_providers_shared libonnxruntime_providers_shared
-        HINTS ${onnxruntime_LIBRARY_DIR_HINTS}
-        PATHS ${_onnxruntime_library_paths})
-    if(CUDA_ENABLED)
-        find_library(onnxruntime_PROVIDERS_CUDA_LIBRARY
-            NAMES onnxruntime_providers_cuda libonnxruntime_providers_cuda
+    if(onnxruntime_LIBRARIES AND onnxruntime_LIBRARY_DIR_HINTS)
+        # Provider libraries must come from the same installation as the
+        # core library. When library hints are set, search only the core
+        # library's directory instead of falling back to other installations.
+        get_filename_component(_onnxruntime_core_dir
+            "${onnxruntime_LIBRARIES}" DIRECTORY)
+        unset(onnxruntime_PROVIDERS_SHARED_LIBRARY CACHE)
+        find_library(onnxruntime_PROVIDERS_SHARED_LIBRARY
+            NAMES onnxruntime_providers_shared libonnxruntime_providers_shared
+            PATHS ${_onnxruntime_core_dir}
+            NO_DEFAULT_PATH)
+        if(CUDA_ENABLED)
+            unset(onnxruntime_PROVIDERS_CUDA_LIBRARY CACHE)
+            find_library(onnxruntime_PROVIDERS_CUDA_LIBRARY
+                NAMES onnxruntime_providers_cuda libonnxruntime_providers_cuda
+                PATHS ${_onnxruntime_core_dir}
+                NO_DEFAULT_PATH)
+        endif()
+        unset(_onnxruntime_core_dir)
+    else()
+        find_library(onnxruntime_PROVIDERS_SHARED_LIBRARY
+            NAMES onnxruntime_providers_shared libonnxruntime_providers_shared
             HINTS ${onnxruntime_LIBRARY_DIR_HINTS}
             PATHS ${_onnxruntime_library_paths})
+        if(CUDA_ENABLED)
+            find_library(onnxruntime_PROVIDERS_CUDA_LIBRARY
+                NAMES onnxruntime_providers_cuda libonnxruntime_providers_cuda
+                HINTS ${onnxruntime_LIBRARY_DIR_HINTS}
+                PATHS ${_onnxruntime_library_paths})
+        endif()
     endif()
 
     unset(_onnxruntime_library_paths)
