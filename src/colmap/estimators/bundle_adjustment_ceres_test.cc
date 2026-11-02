@@ -1328,5 +1328,143 @@ TEST(PosePriorBundleAdjuster, UnobservedImagePriorsExcludedFromAlignment) {
   EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
 }
 
+TEST(PosePriorBundleAdjuster, ConstantFramePosePreserved) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction reconstruction = gt_reconstruction;
+  const frame_t constant_frame_id = reconstruction.RegFrameIds().front();
+  const Rigid3d orig_constant_rig_from_world =
+      reconstruction.Frame(constant_frame_id).RigFromWorld();
+
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.5;
+  noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+  reconstruction.Frame(constant_frame_id)
+      .SetRigFromWorld(orig_constant_rig_from_world);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  // Perturb position priors within covariance so global RANSAC Sim3d alignment
+  // would have shifted the constant frame if alignment were not skipped.
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : pose_priors) {
+    prior.position += Eigen::Vector3d(0.02, -0.01, 0.03);
+    prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.SetConstantRigFromWorldPose(constant_frame_id);
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                std::move(pose_priors),
+                                                reconstruction);
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::UNSPECIFIED);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  const image_t constant_image_id =
+      reconstruction.Frame(constant_frame_id).ImageIds().begin()->id;
+  CheckConstantCamFromWorld(reconstruction.Image(constant_image_id),
+                            orig_reconstruction.Image(constant_image_id));
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.2,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+}
+
+TEST(PosePriorBundleAdjuster, UnalignedConstantFrameSkipsPriors) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 1;
+  synthetic_options.num_cameras_per_rig = 1;
+  synthetic_options.num_frames_per_rig = 5;
+  synthetic_options.num_points3D = 60;
+  synthetic_options.prior_position = true;
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  // Offset the priors by a non-trivial Sim3d (simulating e.g. continuing an
+  // unaligned SfM model with fix_existing_frames=true and GPS priors).
+  const Sim3d prior_from_world(
+      2.5,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitZ())),
+      Eigen::Vector3d(100.0, -50.0, 20.0));
+  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : pose_priors) {
+    prior.position = prior_from_world * prior.position;
+    prior.position_covariance = 1e-2 * Eigen::Matrix3d::Identity();
+  }
+
+  // Fix two existing frames so scale and rigid pose are anchored in the input
+  // frame, and add noise to the remaining variable frames and 3D points.
+  Reconstruction reconstruction = gt_reconstruction;
+  const std::vector<frame_t> reg_frame_ids = reconstruction.RegFrameIds();
+  ASSERT_GE(reg_frame_ids.size(), 5);
+  const Rigid3d orig_frame0 =
+      reconstruction.Frame(reg_frame_ids[0]).RigFromWorld();
+  const Rigid3d orig_frame1 =
+      reconstruction.Frame(reg_frame_ids[1]).RigFromWorld();
+
+  SyntheticNoiseOptions noise_options;
+  noise_options.point3D_stddev = 0.05;
+  noise_options.rig_from_world_rotation_stddev = 0.5;
+  noise_options.rig_from_world_translation_stddev = 0.05;
+  SynthesizeNoise(noise_options, &reconstruction);
+  reconstruction.Frame(reg_frame_ids[0]).SetRigFromWorld(orig_frame0);
+  reconstruction.Frame(reg_frame_ids[1]).SetRigFromWorld(orig_frame1);
+  const Reconstruction orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+  config.SetConstantRigFromWorldPose(reg_frame_ids[0]);
+  config.SetConstantRigFromWorldPose(reg_frame_ids[1]);
+
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = 0;
+  auto adjuster = CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
+                                                prior_options,
+                                                config,
+                                                std::move(pose_priors),
+                                                reconstruction);
+  EXPECT_EQ(adjuster->Config().FixedGauge(),
+            BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+
+  for (const size_t idx : {0, 1}) {
+    const image_t image_id =
+        reconstruction.Frame(reg_frame_ids[idx]).ImageIds().begin()->id;
+    CheckConstantCamFromWorld(reconstruction.Image(image_id),
+                              orig_reconstruction.Image(image_id));
+  }
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.05,
+                                 /*max_scale_error=*/1e-2,
+                                 /*num_obs_tolerance=*/0.02,
+                                 /*align=*/false));
+}
+
 }  // namespace
 }  // namespace colmap
