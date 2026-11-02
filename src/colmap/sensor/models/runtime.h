@@ -534,18 +534,21 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCam(
     const std::vector<double>& params,
     const Eigen::Vector3d& uvw,
     const bool check_cheirality) {
-  Eigen::Vector2d xy;
-  const bool projected = VisitCameraModelOrThrow(model_id, [&](auto tag) {
-    using CameraModel = typename decltype(tag)::type;
-    return CameraModel::ImgFromCam(params.data(),
-                                   uvw.x(),
-                                   uvw.y(),
-                                   uvw.z(),
-                                   &xy.x(),
-                                   &xy.y(),
-                                   check_cheirality);
-  });
-  return projected ? std::optional<Eigen::Vector2d>(xy) : std::nullopt;
+  return VisitCameraModelOrThrow(
+      model_id, [&](auto tag) -> std::optional<Eigen::Vector2d> {
+        using CameraModel = typename decltype(tag)::type;
+        Eigen::Vector2d xy;
+        if (CameraModel::ImgFromCam(params.data(),
+                                    uvw.x(),
+                                    uvw.y(),
+                                    uvw.z(),
+                                    &xy.x(),
+                                    &xy.y(),
+                                    check_cheirality)) {
+          return xy;
+        }
+        return std::nullopt;
+      });
 }
 
 std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
@@ -554,35 +557,38 @@ std::optional<Eigen::Vector2d> CameraModelImgFromCamWithJac(
     const Eigen::Vector3d& uvw,
     Eigen::Matrix2x3d* J_uvw,
     const bool check_cheirality) {
-  Eigen::Vector2d xy;
   // 2x3 row-major Jacobian. Zero-init so a kernel that skips an entry can't
   // leak an uninitialized read through the Map below.
   double J_uvw_data[6] = {};
   double* J_uvw_ptr = (J_uvw == nullptr) ? nullptr : J_uvw_data;
-  const bool projected = VisitCameraModelOrThrow(model_id, [&](auto tag) {
-    using CameraModel = typename decltype(tag)::type;
-    static_assert(
-        CameraModel::has_img_from_cam_with_jac,
-        "Camera model does not provide an analytic ImgFromCamWithJac, "
-        "which this dispatch requires. Implement it in models/jacobian.h.");
-    return CameraModel::ImgFromCamWithJac(params.data(),
-                                          uvw.x(),
-                                          uvw.y(),
-                                          uvw.z(),
-                                          &xy.x(),
-                                          &xy.y(),
-                                          /*J_params=*/nullptr,
-                                          J_uvw_ptr,
-                                          check_cheirality);
-  });
-  if (projected) {
+  std::optional<Eigen::Vector2d> result = VisitCameraModelOrThrow(
+      model_id, [&](auto tag) -> std::optional<Eigen::Vector2d> {
+        using CameraModel = typename decltype(tag)::type;
+        static_assert(
+            CameraModel::has_img_from_cam_with_jac,
+            "Camera model does not provide an analytic ImgFromCamWithJac, "
+            "which this dispatch requires. Implement it in models/jacobian.h.");
+        Eigen::Vector2d xy;
+        if (CameraModel::ImgFromCamWithJac(params.data(),
+                                           uvw.x(),
+                                           uvw.y(),
+                                           uvw.z(),
+                                           &xy.x(),
+                                           &xy.y(),
+                                           /*J_params=*/nullptr,
+                                           J_uvw_ptr,
+                                           check_cheirality)) {
+          return xy;
+        }
+        return std::nullopt;
+      });
+  if (result) {
     if (J_uvw != nullptr) {
       *J_uvw = Eigen::Map<const Eigen::Matrix<double, 2, 3, Eigen::RowMajor>>(
           J_uvw_data);
     }
-    return xy;
   }
-  return std::nullopt;
+  return result;
 }
 
 std::optional<Eigen::Matrix3x2d> CamRayFromImgJac(
@@ -611,13 +617,16 @@ std::optional<Eigen::Vector2d> CameraModelCamFromImg(
     const CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector2d& xy) {
-  Eigen::Vector2d uv;
-  const bool unprojected = VisitCameraModelOrThrow(model_id, [&](auto tag) {
-    using CameraModel = typename decltype(tag)::type;
-    return CameraModel::CamFromImg(
-        params.data(), xy.x(), xy.y(), &uv.x(), &uv.y());
-  });
-  return unprojected ? std::optional<Eigen::Vector2d>(uv) : std::nullopt;
+  return VisitCameraModelOrThrow(
+      model_id, [&](auto tag) -> std::optional<Eigen::Vector2d> {
+        using CameraModel = typename decltype(tag)::type;
+        Eigen::Vector2d uv;
+        if (CameraModel::CamFromImg(
+                params.data(), xy.x(), xy.y(), &uv.x(), &uv.y())) {
+          return uv;
+        }
+        return std::nullopt;
+      });
 }
 
 // Unproject a pixel to a unit bearing vector in camera coordinates.
@@ -633,13 +642,16 @@ std::optional<Eigen::Vector3d> CameraModelCamRayFromImg(
     const CameraModelId model_id,
     const std::vector<double>& params,
     const Eigen::Vector2d& xy) {
-  Eigen::Vector3d ray;
-  const bool unprojected = VisitCameraModelOrThrow(model_id, [&](auto tag) {
-    using CameraModel = typename decltype(tag)::type;
-    return CameraModel::CamRayFromImg(
-        params.data(), xy.x(), xy.y(), &ray.x(), &ray.y(), &ray.z());
-  });
-  return unprojected ? std::optional<Eigen::Vector3d>(ray) : std::nullopt;
+  return VisitCameraModelOrThrow(
+      model_id, [&](auto tag) -> std::optional<Eigen::Vector3d> {
+        using CameraModel = typename decltype(tag)::type;
+        Eigen::Vector3d ray;
+        if (CameraModel::CamRayFromImg(
+                params.data(), xy.x(), xy.y(), &ray.x(), &ray.y(), &ray.z())) {
+          return ray;
+        }
+        return std::nullopt;
+      });
 }
 
 double CameraModelCamFromImgThreshold(const CameraModelId model_id,
