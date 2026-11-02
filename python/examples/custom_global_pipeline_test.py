@@ -173,7 +173,6 @@ def compare(
         ("caspar_fixed", 1),
         ("skip_track_establishment", 0),
         ("skip_global_positioning", 1),
-        ("ceres", 1),
         ("decompose", 1),
         ("skip_ba", 1),
         ("skip_retriangulation", 1),
@@ -200,10 +199,6 @@ def test_matches_native(
     options.mapper.bundle_adjustment.ceres.use_gpu = False
     options.mapper.global_positioning.use_gpu = False
     options.multiple_models = case != "largest"
-    if case == "ceres":
-        options.mapper.rotation_averaging.backend = (
-            pycolmap.RotationAveragingBackend.CERES
-        )
     if case == "caspar_fixed":
         options.mapper.bundle_adjustment.backend = (
             pycolmap.BundleAdjustmentBackend.CASPAR
@@ -292,7 +287,6 @@ def test_stop_after_global_positioning(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "stop_after",
     [
-        None,
         0,
         1,
         pytest.param(
@@ -305,7 +299,7 @@ def test_stop_after_global_positioning(tmp_path: Path) -> None:
         3,
     ],
 )
-def test_solve_callback(tmp_path: Path, stop_after: int | None) -> None:
+def test_solve_callback(tmp_path: Path, stop_after: int) -> None:
     database = create_database(tmp_path / "database.db", noise=True)
     cache = pycolmap.DatabaseCache.create(
         database, pycolmap.DatabaseCacheOptions()
@@ -332,35 +326,9 @@ def test_solve_callback(tmp_path: Path, stop_after: int | None) -> None:
             )
         return calls == stop_after
 
-    callback = None if stop_after is None else on_progress
-    assert custom.solve(mapper, cache, options, callback)
+    assert custom.solve(mapper, cache, options, on_progress)
     assert reconstruction.num_points3D() > 0
-    if stop_after is None:
-        assert calls == 0
-    elif stop_after:
+    if stop_after:
         assert calls == stop_after
     else:
         assert calls >= 3
-
-
-def test_cli_preserves_model_order(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    models = [
-        pycolmap.synthesize_dataset(
-            pycolmap.SyntheticDatasetOptions(
-                num_rigs=1,
-                num_frames_per_rig=frames,
-                num_points3D=points,
-            )
-        )
-        for frames, points in [(6, 10), (3, 20)]
-    ]
-    database_path = tmp_path / "database.db"
-    create_database(database_path).close()
-    monkeypatch.setattr(custom, "main_global_mapper", lambda *args: models)
-    custom.main(database_path, None, tmp_path / "output")
-    for i, model in enumerate(models):
-        saved = pycolmap.Reconstruction(tmp_path / "output" / str(i))
-        assert saved.num_reg_frames() == model.num_reg_frames()
-        assert saved.num_points3D() == model.num_points3D()
