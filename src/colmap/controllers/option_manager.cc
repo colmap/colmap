@@ -20,6 +20,7 @@
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #if defined(COLMAP_MVS_ENABLED)
@@ -442,6 +443,27 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->loma->brute_force.cross_check);
   AddDefaultOption("LomaMatching.brute_force_model_path",
                    &feature_matching->loma->brute_force.model_path);
+
+  AddDefaultOption("FlexGlueMatching.image_path",
+                   &feature_matching->flexglue->image_path);
+  AddDefaultOption("FlexGlueMatching.filter_threshold",
+                   &feature_matching->flexglue->filter_threshold);
+  AddDefaultOption("FlexGlueMatching.max_distance_px",
+                   &feature_matching->flexglue->max_distance_px);
+  AddDefaultOption("FlexGlueMatching.min_covisibility",
+                   &feature_matching->flexglue->min_covisibility);
+  AddDefaultOption("FlexGlueMatching.early_stop_decay",
+                   &feature_matching->flexglue->early_stop_decay);
+  AddDefaultOption("FlexGlueMatching.feature_cache_size",
+                   &feature_matching->flexglue->feature_cache_size);
+  AddDefaultOption("FlexGlueMatching.descriptor_model_path",
+                   &feature_matching->flexglue->descriptor_model_path);
+  AddDefaultOption("FlexGlueMatching.matcher_model_path",
+                   &feature_matching->flexglue->matcher_model_path);
+  AddDefaultOption("FlexGlueMatching.matcher_model_path_fp16",
+                   &feature_matching->flexglue->matcher_model_path_fp16);
+  AddDefaultOption("FlexGlueMatching.use_fp16",
+                   &feature_matching->flexglue->use_fp16);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
@@ -1344,6 +1366,7 @@ bool OptionManager::Read(const std::filesystem::path& path,
   if (!BaseOptionManager::Read(path, allow_unregistered)) {
     return false;
   }
+  SetDefaultFlexGlueImagePath();
   return Check();
 }
 
@@ -1366,6 +1389,15 @@ void OptionManager::PostParse() {
          ReadTextFileLines(mapper_constant_camera_list_path_)) {
       mapper->constant_cameras.insert(std::stoi(line));
     }
+  }
+  SetDefaultFlexGlueImagePath();
+}
+
+void OptionManager::SetDefaultFlexGlueImagePath() {
+  if (feature_matching && feature_matching->flexglue &&
+      feature_matching->flexglue->image_path.empty() && image_path &&
+      !image_path->empty()) {
+    feature_matching->flexglue->image_path = image_path->string();
   }
 }
 

@@ -10,12 +10,14 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace colmap {
 
 struct SiftMatchingOptions;
 struct AlikedMatchingOptions;
 struct LomaMatchingOptions;
+struct FlexGlueMatchingOptions;
 
 struct FeatureMatchingTypeOptions {
   explicit FeatureMatchingTypeOptions();
@@ -23,6 +25,7 @@ struct FeatureMatchingTypeOptions {
   std::shared_ptr<SiftMatchingOptions> sift;
   std::shared_ptr<AlikedMatchingOptions> aliked;
   std::shared_ptr<LomaMatchingOptions> loma;
+  std::shared_ptr<FlexGlueMatchingOptions> flexglue;
 
   FeatureMatchingTypeOptions(const FeatureMatchingTypeOptions& other);
   FeatureMatchingTypeOptions& operator=(
@@ -77,6 +80,10 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   // Whether the selected matcher requires OpenGL.
   bool RequiresOpenGL() const;
 
+  // Whether the selected matcher uses the descriptors. FlexGlue only uses the
+  // keypoints, so it also matches images without descriptors.
+  bool UsesDescriptors() const;
+
   bool Check() const;
 };
 
@@ -92,6 +99,9 @@ class FeatureMatcher {
     std::shared_ptr<const FeatureKeypoints> keypoints;
     std::shared_ptr<const FeatureDescriptors> descriptors;
     const PosePrior* pose_prior = nullptr;
+    // Name of the image relative to the image root folder. Only required by
+    // matchers that operate on the image pixels (e.g., FlexGlue).
+    std::string_view name;
   };
 
   static std::unique_ptr<FeatureMatcher> Create(

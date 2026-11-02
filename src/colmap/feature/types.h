@@ -32,7 +32,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType,
                                 LOMA_B128,
                                 LOMA_R,
                                 LOMA_L,
-                                LOMA_G);
+                                LOMA_G,
+                                FLEXGLUE);
 
 struct FeatureKeypoint {
   FeatureKeypoint();

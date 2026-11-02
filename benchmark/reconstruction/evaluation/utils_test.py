@@ -755,15 +755,16 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_images * (num_images - 1)
         np.testing.assert_allclose(errors, 0.0, atol=1e-5)
 
-    def test_transformed_reconstruction(self) -> None:
+    @pytest.mark.parametrize("scale", [1e-200, 1e-12, 1.0, 1e200])
+    def test_transformed_reconstruction(self, scale: float) -> None:
         gt_reconstruction = create_test_reconstruction()
         reconstruction = create_test_reconstruction()
         # A global similarity transform leaves relative poses unchanged.
         reconstruction.transform(
             pycolmap.Sim3d(
-                1.0,
+                scale,
                 pycolmap.Rotation3d(np.array([0, 1, 0, 0])),
-                np.array([1, 2, 3]),
+                scale * np.array([1.0, 2.0, 3.0]),
             )
         )
 

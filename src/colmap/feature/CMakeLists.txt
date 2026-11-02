@@ -22,6 +22,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         aliked.h aliked.cc
         extractor.h extractor.cc
+        flexglue.h flexglue.cc
         index.h index.cc
         lightglue.h lightglue.cc
         loma.h loma.cc
@@ -81,6 +82,14 @@ if(ONNX_ENABLED)
         SRCS lightglue_test.cc
         LINK_LIBS
             colmap_feature
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
+        NAME flexglue_test
+        SRCS flexglue_test.cc
+        LINK_LIBS
+            colmap_feature
+            colmap_sensor
             onnxruntime::onnxruntime
     )
     COLMAP_ADD_TEST(

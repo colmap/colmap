@@ -97,6 +97,31 @@ TEST(ONNXModelTest, MetadataAndInference) {
   EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
 }
 
+TEST(ONNXModelTest, RunWithOutputMemoryInfo) {
+  ONNXModel model(WriteIdentityModel().string(),
+                  /*num_threads=*/1,
+                  /*use_gpu=*/false,
+                  /*gpu_index=*/"-1");
+
+  std::vector<float> input_data{1.25f, -2.5f};
+  const std::vector<int64_t> input_shape{1, 2};
+  std::vector<Ort::Value> inputs;
+  inputs.push_back(MakeTensor(&input_data, input_shape));
+  // The outputs are allocated in the given memory through an I/O binding, as
+  // FlexGlue does on the GPU. Host memory gives the same values as Run.
+  const std::vector<Ort::Value> outputs = model.Run(
+      inputs, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
+
+  ASSERT_EQ(outputs.size(), 1);
+  EXPECT_EQ(outputs[0].GetTensorTypeAndShapeInfo().GetShape(), input_shape);
+  const float* output_data = outputs[0].GetTensorData<float>();
+  EXPECT_FLOAT_EQ(output_data[0], input_data[0]);
+  EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
+  // The output owns its memory, independently of the input.
+  input_data[0] = 0.f;
+  EXPECT_FLOAT_EQ(output_data[0], 1.25f);
+}
+
 TEST(ThrowCheckONNXElementTypeTest, AcceptsMatchingType) {
   EXPECT_NO_THROW(
       ThrowCheckONNXElementType("image",
