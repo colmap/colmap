@@ -116,3 +116,9 @@ def test_visual_index_create() -> None:
     assert index is not None
     assert index.num_visual_words() == 0
     assert index.num_images() == 0
+
+
+def test_visual_index_create_with_descriptor_dimension() -> None:
+    for desc_dim in (32, 128, 256):
+        index = pycolmap.VisualIndex.create(desc_dim)
+        assert index.desc_dim() == desc_dim

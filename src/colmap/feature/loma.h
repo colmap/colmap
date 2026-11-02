@@ -19,8 +19,8 @@ struct LomaExtractionOptions {
   // min_score = 0.0.
   double min_score = 0.0;
 
-  // Prefer bf16 for LOMA_B when supported; otherwise use fp32. No-op for
-  // LOMA_B128.
+  // Use bf16 for LOMA_B on CUDA GPUs with compute capability 8.0 or newer;
+  // otherwise use fp32. No-op for LOMA_B128.
   bool use_bf16 = false;
 
   // Use a fast bilinear resample instead of the filtered resize for the
@@ -67,7 +67,8 @@ struct LomaMatchingOptions {
   // Matching filter, matches LG
   double min_score = 0.1;
 
-  // Prefer bf16 when supported; otherwise use fp32.
+  // Use bf16 on CUDA GPUs with compute capability 8.0 or newer; otherwise use
+  // fp32.
   bool use_bf16 = false;
 
   // One entry per FeatureMatcherType::LOMA_* dedicated-matcher variant.

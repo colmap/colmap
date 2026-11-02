@@ -154,9 +154,9 @@ void BindFeatureExtraction(py::module& m) {
                          "Minimum score threshold for keypoint detection.")
           .def_readwrite("use_bf16",
                          &LomaExtractionOptions::use_bf16,
-                         "Whether to use the bf16 descriptor variant when "
-                         "supported by the selected ONNX execution provider "
-                         "(only affects LOMA_B; falls back to fp32 otherwise).")
+                         "Whether to use the bf16 descriptor variant on CUDA "
+                         "GPUs with compute capability 8.0 or newer (only "
+                         "affects LOMA_B; falls back to fp32 otherwise).")
           .def_readwrite("use_fast_resize",
                          &LomaExtractionOptions::use_fast_resize,
                          "Whether to downsize each image to the "

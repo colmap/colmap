@@ -92,7 +92,9 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption(
-      "feature", &feature, "{sift, aliked, loma, loma128}");
+      "feature", &feature, "{sift, aliked, loma, loma128, flexglue}");
+  options.AddDefaultOption("max_num_features",
+                           &reconstruction_options.max_num_features);
   options.AddDefaultOption(
       "mapper", &mapper, "{incremental, hierarchical, global}");
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");

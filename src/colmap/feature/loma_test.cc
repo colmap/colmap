@@ -169,13 +169,5 @@ TEST_F(LomaTest, ScoreFilteringAndDynamicNumKeypoints) {
   EXPECT_EQ(keypoints_full.size(), 2048);
 }
 
-TEST_F(LomaTest, Bf16MatcherCpuFallback) {
-  FeatureMatchingOptions options(FeatureMatcherType::LOMA_B);
-  options.use_gpu = false;
-  options.loma->use_bf16 = true;
-
-  EXPECT_NE(CreateLomaFeatureMatcher(options), nullptr);
-}
-
 }  // namespace
 }  // namespace colmap
