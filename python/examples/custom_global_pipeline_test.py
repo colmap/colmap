@@ -289,7 +289,22 @@ def test_stop_after_global_positioning(tmp_path: Path) -> None:
     assert models[0].num_points3D() > 0
 
 
-@pytest.mark.parametrize("stop_after", [None, 0, 1, 2, 3])
+@pytest.mark.parametrize(
+    "stop_after",
+    [
+        None,
+        0,
+        1,
+        pytest.param(
+            2,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="Solve ignores stop during BA",
+            ),
+        ),
+        3,
+    ],
+)
 def test_solve_callback(tmp_path: Path, stop_after: int | None) -> None:
     database = create_database(tmp_path / "database.db", noise=True)
     cache = pycolmap.DatabaseCache.create(
@@ -323,8 +338,7 @@ def test_solve_callback(tmp_path: Path, stop_after: int | None) -> None:
     if stop_after is None:
         assert calls == 0
     elif stop_after:
-        # A stop during BA exits its loop; retriangulation still reports.
-        assert calls == (3 if stop_after == 2 else stop_after)
+        assert calls == stop_after
     else:
         assert calls >= 3
 
