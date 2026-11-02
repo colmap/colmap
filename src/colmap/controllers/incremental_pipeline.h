@@ -116,6 +116,16 @@ struct IncrementalPipelineOptions {
   // GPU device index for bundle adjustment (-1 = auto-select).
   std::string ba_gpu_index = "-1";
 
+  // Image-count thresholds for automatic Ceres solver selection in both local
+  // and global bundle adjustment. These do not affect the Caspar backend.
+  // The defaults mirror CeresBundleAdjustmentOptions; the
+  // DefaultSolverThresholds test guards against drift.
+  int ba_min_num_images_gpu_solver = 50;
+  int ba_max_num_images_direct_dense_cpu_solver = 50;
+  int ba_max_num_images_direct_sparse_cpu_solver = 1000;
+  int ba_max_num_images_direct_dense_gpu_solver = 200;
+  int ba_max_num_images_direct_sparse_gpu_solver = 4000;
+
   // Bundle adjustment solver backend for local bundle adjustment.
   BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
 

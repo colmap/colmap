@@ -330,7 +330,9 @@ the available options, e.g.::
 
 
 The available options can either be provided directly from the command-line or
-through a ``.ini`` file provided to ``--project_path``.
+through a ``.ini`` file provided to ``--project_path``. When an option is
+specified in both places, the command-line value takes precedence, and options
+may be split across the two sources.
 
 
 Commands
@@ -345,10 +347,12 @@ available as ``colmap [command]``:
 - ``automatic_reconstructor``: Automatically reconstruct sparse and dense model
   for a set of input images. Key options include ``--quality`` (LOW, MEDIUM,
   HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
-  for different capture scenarios, ``--feature`` (SIFT, ALIKED, LOMA, LOMA128)
-  to select the feature extraction algorithm, ``--mapper`` (INCREMENTAL,
-  HIERARCHICAL, GLOBAL) to choose the SfM pipeline, and ``--mesher`` (POISSON,
-  DELAUNAY, ADVANCING_FRONT) to select the surface reconstruction method.
+  for different capture scenarios, ``--feature`` (SIFT, ALIKED, LOMA, LOMA128,
+  FLEXGLUE) to select the feature extraction and matching algorithm,
+  ``--max_num_features`` to override the maximum number of features per image,
+  ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL) to choose the SfM pipeline,
+  and ``--mesher`` (POISSON, DELAUNAY, ADVANCING_FRONT) to select the surface
+  reconstruction method.
   ``--single_view_calibration`` enables learned single-view calibration
   after feature extraction (ignored if explicit ``--camera_params`` are given);
   ``--SingleViewCalibration.*`` tunes the calibration backend.

@@ -12,7 +12,12 @@ ThreadControlWidget::ThreadControlWidget(QWidget* parent)
   connect(destructor_, &QAction::triggered, this, [this]() {
     if (thread_) {
       thread_->Stop();
-      thread_->Wait();
+      try {
+        thread_->Wait();
+      } catch (const std::exception& e) {
+        // Exceptions thrown by the thread are rethrown by Wait.
+        QMessageBox::critical(this, "", QString::fromStdString(e.what()));
+      }
       thread_.reset();
     }
     if (progress_bar_ != nullptr) {

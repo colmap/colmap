@@ -7,6 +7,30 @@
 
 namespace colmap {
 
+std::string GetCudaErrorMessage(const cudaError_t error) {
+  const char* description = cudaGetErrorString(error);
+  std::string message =
+      StringPrintf("%s (error %d)",
+                   description != nullptr && description[0] != '\0'
+                       ? description
+                       : "Unknown GPU runtime error",
+                   static_cast<int>(error));
+  if (error == cudaErrorInsufficientDriver) {
+#if defined(COLMAP_HIP_ENABLED)
+    message +=
+        ". The GPU driver is missing or insufficient for this HIP "
+        "runtime. Install a compatible AMD driver or use a compatible "
+        "COLMAP build.";
+#else
+    message +=
+        ". The NVIDIA driver is missing or insufficient for this CUDA "
+        "runtime. Update the NVIDIA driver or use a COLMAP build "
+        "compatible with the installed driver.";
+#endif
+  }
+  return message;
+}
+
 CudaTimer::CudaTimer() {
   CUDA_SAFE_CALL(cudaEventCreate(&start_));
   CUDA_SAFE_CALL(cudaEventCreate(&stop_));
@@ -33,15 +57,17 @@ void CudaSafeCall(const cudaError_t error,
     LOG(FATAL_THROW) << StringPrintf("CUDA error at %s:%i - %s",
                                      file.c_str(),
                                      line,
-                                     cudaGetErrorString(error));
+                                     GetCudaErrorMessage(error).c_str());
   }
 }
 
 void CudaCheck(const char* file, const int line) {
   const cudaError_t error = cudaGetLastError();
   while (error != cudaSuccess) {
-    LOG(FATAL_THROW) << StringPrintf(
-        "CUDA error at %s:%i - %s", file, line, cudaGetErrorString(error));
+    LOG(FATAL_THROW) << StringPrintf("CUDA error at %s:%i - %s",
+                                     file,
+                                     line,
+                                     GetCudaErrorMessage(error).c_str());
   }
 }
 
@@ -53,7 +79,7 @@ void CudaSyncAndCheck(const char* file, const int line) {
         << StringPrintf("CUDA error at %s:%i - %s",
                         file,
                         line,
-                        cudaGetErrorString(error))
+                        GetCudaErrorMessage(error).c_str())
         << "\nThis error is likely caused by the graphics card timeout "
            "detection mechanism of your operating system. Please refer "
            "to the FAQ in the documentation on how to solve this "

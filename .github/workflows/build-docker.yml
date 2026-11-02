@@ -6,7 +6,7 @@ on:
       - main
       - release/*
   pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened ]
   release:
     types: [ published, edited ]
 
