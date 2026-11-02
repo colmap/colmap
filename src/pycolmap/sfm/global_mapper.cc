@@ -113,8 +113,14 @@ void BindGlobalMapper(py::module& m) {
            "reconstruction"_a,
            "Prepare the mapper for a new reconstruction. This will initialize "
            "the reconstruction and view graph from the database.")
-      .def_property_readonly("reconstruction", &GlobalMapper::Reconstruction)
-      .def_property_readonly("pose_graph", &GlobalMapper::PoseGraph)
+      .def_property_readonly(
+          "reconstruction",
+          &GlobalMapper::Reconstruction,
+          "Current reconstruction, or None before begin_reconstruction.")
+      .def_property_readonly(
+          "pose_graph",
+          &GlobalMapper::PoseGraph,
+          "Current pose graph, or None before begin_reconstruction.")
       .def("rotation_averaging",
            &GlobalMapper::RotationAveraging,
            "options"_a,
