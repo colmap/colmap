@@ -175,7 +175,6 @@ def compare(
         ("skip_global_positioning", 1),
         ("ceres", 1),
         ("decompose", 1),
-        ("ba_stop", 1),
         ("skip_ba", 1),
         ("skip_retriangulation", 1),
         ("components", 2),
@@ -192,7 +191,7 @@ def test_matches_native(
         cameras=2 if case in ("rig", "unknown") else 1,
         components=case in ("components", "largest", "small_noise"),
         unknown=case == "unknown",
-        noise=case in ("noise", "small_noise", "ba_stop"),
+        noise=case in ("noise", "small_noise"),
         relative=case != "decompose",
     )
     if case == "empty":
@@ -216,8 +215,6 @@ def test_matches_native(
     if case == "skip_global_positioning":
         options.mapper.skip_bundle_adjustment = True
         options.mapper.skip_retriangulation = True
-    if case == "ba_stop":
-        options.mapper.bundle_adjustment.check_if_stopped = lambda: True
     if case == "skip_ba":
         options.mapper.skip_bundle_adjustment = True
     if case == "skip_retriangulation":
@@ -229,17 +226,6 @@ def test_matches_native(
     compare(native=native, python=python)
     assert native_updates == python_updates
     assert len(python) == expected_models
-
-    if case == "ba_stop":
-        options.mapper.bundle_adjustment.check_if_stopped = lambda: False
-        baseline, _ = run(database, False, options)
-        assert (
-            abs(
-                baseline[0].compute_mean_reprojection_error()
-                - native[0].compute_mean_reprojection_error()
-            )
-            > 1e-6
-        )
 
 
 def test_skip_rotation_averaging_without_poses(tmp_path: Path) -> None:

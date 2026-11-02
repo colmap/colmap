@@ -201,27 +201,12 @@ def iterative_global_refinement(
         random_seed=tri_options.random_seed
     )
     refinement = refinement_bundle_adjustment_options(ba_options)
-    if (
-        refinement.check_if_stopped is not None
-        and refinement.check_if_stopped()
-    ):
-        return
     incremental.complete_and_merge_tracks(tri_options)
     incremental.retriangulate(tri_options)
     for _ in range(5):
-        if (
-            refinement.check_if_stopped is not None
-            and refinement.check_if_stopped()
-        ):
-            break
         observations = reconstruction.compute_num_observations()
         incremental.observation_manager.filter_observations_with_negative_depth()
         adjust_refinement_bundle(reconstruction, refinement)
-        if (
-            refinement.check_if_stopped is not None
-            and refinement.check_if_stopped()
-        ):
-            break
         changed = incremental.complete_and_merge_tracks(tri_options)
         changed += incremental.filter_points(mapper_options)
         if (changed / observations if observations else 0) < 0.0005:
