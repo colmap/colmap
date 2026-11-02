@@ -6,8 +6,8 @@ description: >-
   readability, memory/binding safety, performance, and test quality, while
   shrinking bloat, reusing existing helpers, and localizing changes. Use for
   "review this", "code review", "review the last commit", "review my PR", "can
-  this diff be smaller", "is this over-engineered", or /colmap-review. Don't use
-  when asked to implement changes or run benchmarks directly.
+  this diff be smaller", or "is this over-engineered". Don't use when asked to
+  implement changes or run benchmarks directly.
 ---
 
 Review a COLMAP change like a core maintainer who will own every added line for
@@ -22,7 +22,8 @@ no code.
 ## 1. Understand first
 
 - **Scope the target:** Review what the user names: uncommitted or staged
-  changes, a commit/branch (`git diff`), a GitHub PR (`gh pr view` /
+  changes (`git diff` / `git diff --cached`), a commit (`git show <rev>`), a
+  branch (`git diff <base>...<head>`), a GitHub PR (`gh pr view` /
   `gh pr diff`), or specific files. Nothing named: review uncommitted and staged
   changes, or `HEAD` (`git show`) if the worktree is clean.
 - **Audit the diff footprint:** Inspect `git diff --stat` up front. Ask why each
@@ -81,20 +82,27 @@ no code.
    - **Solvers, residuals & degeneracies:** Division by zero or `.normalized()`
      on zero/degenerate vectors producing `NaN`; `LLT`/`LDLT` without
      positive-definiteness checks (`LDLT::info() == Success` allows indefinite
-     or singular matrices); scale-dependent rank/conditioning thresholds;
-     degenerate configurations (collinear points, pure rotation / central rigs
-     with unobservable scale — including on the final RANSAC inlier subset, not
-     only all inputs); solver outputs written back without checking convergence
-     or `allFinite()`; small-angle / gimbal singularities. In RANSAC or pose
-     scoring, ensure behind-camera or failed projections are penalized rather
-     than counted as zero error; in Ceres cost functors, avoid returning `false`
-     on single outlier observations when a step should not abort.
-   - **Frames, manifolds & determinism:** Missing Ceres manifolds
-     (`EigenQuaternionManifold`, `SphereManifold`); wrong `target_from_source`
-     (`cam_from_world`, `rig_from_world`, `sensor_from_rig`) composition,
-     inverse conjugation, or left- vs. right-perturbation Jacobians; `Rig`
-     invariants (`IsRefSensor` identity pose vs. optional `sensor_from_rig` on
-     non-reference sensors); nondeterminism from iterating
+     or singular matrices, and dense `LDLT::isPositive()` only checks
+     positive-semidefiniteness — require `LLT` or check `vectorD() > threshold`
+     when strict positive-definiteness is needed); scale-dependent
+     rank/conditioning thresholds; degenerate configurations (collinear points,
+     pure rotation / central rigs with unobservable scale — including on the
+     final RANSAC inlier subset, not only all inputs); solver outputs written
+     back without checking convergence or `allFinite()`; small-angle / gimbal
+     singularities. In RANSAC or pose scoring, ensure behind-camera or failed
+     projections are penalized rather than counted as zero error; in Ceres cost
+     functors, avoid returning `false` on single outlier observations when a
+     step should not abort.
+   - **Frames, manifolds & determinism:** Missing manifolds or bypassing
+     COLMAP's Ceres wrappers (`SetManifold` with
+     `CreateEigenQuaternionManifold()` / `CreateSphereManifold<N>()` /
+     `CreateProductManifold(...)` in `src/colmap/estimators/cost_functions/manifold.h`,
+     or `TinySolver`'s `EigenQuaternionManifold` / `SphereManifold<N>` in
+     `src/colmap/estimators/cost_functions/tiny_manifold.h`); wrong
+     `target_from_source` (`cam_from_world`, `rig_from_world`, `sensor_from_rig`)
+     composition, inverse conjugation, or left- vs. right-perturbation
+     Jacobians; `Rig` invariants (`IsRefSensor` identity pose vs. optional
+     `sensor_from_rig` on non-reference sensors); nondeterminism from iterating
      `FlatHashMap`/`FlatHashSet` when order affects tie-breaking, gauge fixing,
      or serialized output, or from unseeded/reseeded PRNGs.
 
@@ -154,9 +162,11 @@ no code.
      iterator-erase loops), `NodeHashMap`/`NodeHashSet` when pointer/reference
      stability across mutations is needed, never `std::unordered_map/set`, and
      `std::map/set` only when sorted order is required; strong IDs (`camera_t`,
-     `image_t`, `frame_t`, `rig_t`, `sensor_t`, `point2D_t`, `point3D_t`);
+     `imu_t`, `image_t`, `image_pair_t`, `frame_t`, `rig_t`, `point2D_t`,
+     `point3D_t`, `sensor_t`, `data_t`, `pose_prior_t`, `timestamp_t`);
      `target_from_source` and `x_in_y` naming; output pointer/ref params last;
-     strict `const` on locals and immutable members; `//` comments (not `///`);
+     strict `const` on locals and immutable members; follow the file's existing
+     comment style (`//` by default, exempting `///` member docs);
      `// SPDX-License-Identifier: BSD-3-Clause` on new files.
 
 ## 3. Check before you report
@@ -166,14 +176,15 @@ no code.
   undergo pure rotation, normalizing the zero baseline vector feeds `NaN` into
   Ceres"). Every modularity, readability, or diff-size finding needs a verified
   simplification ("extract the 40-line ray-angle filter into a helper and reuse
-  `CalculateTriangulationAngle` from `geometry/triangulation.h`, scoping locals
-  tightly and saving ~25 lines"). No case, no finding.
+  `CalculateTriangulationAngle` from `src/colmap/geometry/triangulation.h`,
+  scoping locals tightly and saving ~25 lines"). No case, no finding.
 - **Verify against the repo:** Re-read the lines, callers, and any COLMAP helper
   or matcher you suggest reusing to confirm exact signatures, visibility, and
   module-layer rules. When a `build/` directory or Python environment is
   available and a subtle numerical, SQLite, or formatting question arises,
-  verify with a quick read-only check (targeted `ctest` or scratch calculation)
-  — never modify or leave untracked files in the workspace.
+  verify with a quick check (targeted `ctest` when `build/` already reflects the
+  code under review, or a one-liner / scratch file under `/tmp`) — never modify
+  tracked files or leave untracked files in the repo worktree.
 - **Smallest, cleanest fix wins:** Prefer fixes that reuse existing COLMAP
   primitives, split long functions into small well-scoped helpers, delete dead
   or duplicate code, and touch fewer files. Never propose new classes, layers,
@@ -186,8 +197,8 @@ no code.
 ## 4. Output
 
 Use direct, concise technical English: short sentences, exact COLMAP symbol
-names, and `path/to/file.cc:L10-20` references. Do not explain standard C++,
-Eigen, Ceres, or SfM concepts.
+names, and repo-relative `src/colmap/...:L10-20` references. Do not explain
+standard C++, Eigen, Ceres, or SfM concepts.
 
 Start with `What this change does:` in two or three sentences, including the
 diff footprint (`+A/-D` across `F` files) and whether the overall approach is
@@ -204,9 +215,11 @@ across all groups so the user can say "fix 1 and 4":
   CI/format breaks.
 - **Nit:** Small local simplifications, `const`/scoping/naming/comment cleanups.
 
-Every finding has all four parts, each one or two short sentences:
+Every finding has all four parts, each one or two short sentences (illustrative
+examples on a hypothetical diff; real findings must include `:L<start>-<end>`
+line ranges verified against the code under review):
 
-1. **Non-reference rig sensors composed in reversed order** (`src/colmap/sfm/incremental_mapper.cc:L412-420`)
+1. **Non-reference rig sensors composed in reversed order** (`src/colmap/sfm/incremental_mapper.cc`)
    - **What this is:** Computes `cam_from_world` for each image in a
      multi-sensor frame before triangulation.
    - **Problem:** Multiplies `frame.RigFromWorld() * rig.SensorFromRig(sensor_id)`
@@ -215,23 +228,23 @@ Every finding has all four parts, each one or two short sentences:
      existing tests and corrupts poses for every non-reference camera.
    - **Fix:** Use `image.CamFromWorld()` (or `frame.SensorFromWorld(sensor_id)`)
      and add a non-identity `sensor_from_rig` case to
-     `incremental_mapper_test.cc`.
+     `src/colmap/sfm/incremental_mapper_test.cc`.
    - **If we skip it:** Multi-camera rig triangulation uses wrong camera poses
      whenever a non-reference sensor has non-identity extrinsics.
 
-2. **Monolithic candidate loop re-implements ray-angle filtering inline** (`src/colmap/sfm/incremental_triangulator.cc:L210-295`)
+2. **Monolithic candidate loop re-implements ray-angle filtering inline** (`src/colmap/sfm/incremental_triangulator.cc`)
    - **What this is:** A 90-line block inside `Create` that gathers track
      observations, computes camera centers and ray angles, and filters
      candidates using mutable accumulators declared at function top.
    - **Problem:** Wide variable scopes make the control flow hard to read
      without comments, and the 25-line `acos`/dot-product block duplicates
-     `CalculateTriangulationAngle` from `colmap/geometry/triangulation.h`.
+     `CalculateTriangulationAngle` from `src/colmap/geometry/triangulation.h`.
    - **Fix:** Extract candidate filtering into a short anonymous-namespace
      helper (e.g., `HasSufficientTriangulationAngle`) with `const`-scoped locals
      that calls `image.ProjectionCenter()` and `CalculateTriangulationAngle`
      (~-30 lines).
    - **If we skip it:** `Create` becomes harder to read and audit, and ray-angle
-     clamping diverges from `geometry/triangulation.cc`.
+     clamping diverges from `src/colmap/geometry/triangulation.cc`.
 
 End with:
 - `Diff reduction: ~-<N> lines possible (<1-line summary of biggest deletions/unifications>).`
