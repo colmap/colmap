@@ -248,7 +248,7 @@ def test_replaceable_builders(
     options.mapper.bundle_adjustment.ceres.use_gpu = False
     options.mapper.global_positioning.use_gpu = False
     gp_builder = custom.build_global_positioner
-    ba_builder = custom.build_bundle_adjuster
+    ba_solver = custom.custom_bundle_adjustment.solve_bundle_adjustment
     calls = {"gp": 0, "ba": 0, "refinement": 0}
 
     def gp(
@@ -260,17 +260,19 @@ def test_replaceable_builders(
         return gp_builder(options, pose_graph, reconstruction)
 
     def ba(
+        reconstruction: pycolmap.Reconstruction,
         options: pycolmap.BundleAdjustmentOptions,
         config: pycolmap.BundleAdjustmentConfig,
-        reconstruction: pycolmap.Reconstruction,
-    ) -> pycolmap.BundleAdjuster:
+    ) -> pycolmap.BundleAdjustmentSummary:
         calls["ba"] += 1
         if not options.refine_rig_from_world:
             calls["refinement"] += 1
-        return ba_builder(options, config, reconstruction)
+        return ba_solver(reconstruction, options, config)
 
     monkeypatch.setattr(custom, "build_global_positioner", gp)
-    monkeypatch.setattr(custom, "build_bundle_adjuster", ba)
+    monkeypatch.setattr(
+        custom.custom_bundle_adjustment, "solve_bundle_adjustment", ba
+    )
     result, _ = run(database, True, options)
     assert len(result) == 1
     assert calls["gp"] == 1

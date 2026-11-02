@@ -9,6 +9,8 @@ import copy
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
+import custom_bundle_adjustment
+
 import pycolmap
 from pycolmap import logging
 
@@ -23,16 +25,6 @@ def build_global_positioner(
     )
 
 
-def build_bundle_adjuster(
-    options: pycolmap.BundleAdjustmentOptions,
-    config: pycolmap.BundleAdjustmentConfig,
-    reconstruction: pycolmap.Reconstruction,
-) -> pycolmap.BundleAdjuster:
-    return pycolmap.create_default_bundle_adjuster(
-        options, config, reconstruction
-    )
-
-
 def run_bundle_adjustment(
     options: pycolmap.BundleAdjustmentOptions,
     reconstruction: pycolmap.Reconstruction,
@@ -44,11 +36,9 @@ def run_bundle_adjustment(
         if image.has_pose:
             config.add_image(image_id)
     config.fix_gauge(pycolmap.BundleAdjustmentGauge.TWO_CAMS_FROM_WORLD)
-    return (
-        build_bundle_adjuster(options, config, reconstruction)
-        .solve()
-        .is_solution_usable()
-    )
+    return custom_bundle_adjustment.solve_bundle_adjustment(
+        reconstruction, options, config
+    ).is_solution_usable()
 
 
 def refinement_bundle_adjustment_options(
@@ -172,48 +162,6 @@ def iterative_bundle_adjustment(
     return True
 
 
-def adjust_refinement_bundle(
-    reconstruction: pycolmap.Reconstruction,
-    refinement: pycolmap.BundleAdjustmentOptions,
-) -> None:
-    if reconstruction.num_reg_images() < 2:
-        return
-    custom_ba_options = copy.deepcopy(refinement)
-    # Use stricter convergence criteria for first registered images.
-    if reconstruction.num_reg_frames() < 10 and custom_ba_options.ceres:
-        solver = custom_ba_options.ceres.solver_options
-        solver.function_tolerance /= 10
-        solver.gradient_tolerance /= 10
-        solver.parameter_tolerance /= 10
-        solver.max_num_iterations *= 2
-        solver.max_linear_solver_iterations = 200
-    run_bundle_adjustment(custom_ba_options, reconstruction)
-
-
-def iterative_global_refinement(
-    incremental: pycolmap.IncrementalMapper,
-    reconstruction: pycolmap.Reconstruction,
-    tri_options: pycolmap.IncrementalTriangulatorOptions,
-    ba_options: pycolmap.BundleAdjustmentOptions,
-) -> None:
-    """Mirror IncrementalMapper::IterativeGlobalRefinement with fixed poses."""
-    mapper_options = pycolmap.IncrementalMapperOptions(
-        random_seed=tri_options.random_seed
-    )
-    refinement = refinement_bundle_adjustment_options(ba_options)
-    incremental.complete_and_merge_tracks(tri_options)
-    incremental.retriangulate(tri_options)
-    for _ in range(5):
-        observations = reconstruction.compute_num_observations()
-        incremental.observation_manager.filter_observations_with_negative_depth()
-        adjust_refinement_bundle(reconstruction, refinement)
-        changed = incremental.complete_and_merge_tracks(tri_options)
-        changed += incremental.filter_points(mapper_options)
-        if (changed / observations if observations else 0) < 0.0005:
-            break
-    incremental.clear_modified_points3D()
-
-
 def iterative_retriangulate_and_refine(
     mapper: pycolmap.GlobalMapper,
     database_cache: pycolmap.DatabaseCache,
@@ -228,8 +176,17 @@ def iterative_retriangulate_and_refine(
     for image_id in reconstruction.reg_image_ids():
         incremental.triangulate_image(tri_options, image_id)
 
-    iterative_global_refinement(
-        incremental, reconstruction, tri_options, ba_options
+    mapper_options = pycolmap.IncrementalMapperOptions(
+        random_seed=tri_options.random_seed
+    )
+    custom_bundle_adjustment.iterative_global_refinement(
+        incremental,
+        5,
+        0.0005,
+        mapper_options,
+        refinement_bundle_adjustment_options(ba_options),
+        tri_options,
+        normalize_reconstruction=False,
     )
     incremental.end_reconstruction(discard=False)
 

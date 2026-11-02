@@ -44,8 +44,6 @@ def adjust_global_bundle(
     reconstruction = mapper.reconstruction
     assert reconstruction is not None
     reg_frame_ids = reconstruction.reg_frame_ids()
-    if len(reg_frame_ids) < 2:
-        logging.fatal("At least two images must be registered for global BA")
     custom_ba_options = copy.deepcopy(ba_options)
 
     # Use stricter convergence criteria for first registered images
@@ -69,6 +67,10 @@ def adjust_global_bundle(
             if data_id.sensor_id.type != pycolmap.SensorType.CAMERA:
                 continue
             ba_config.add_image(data_id.id)
+
+    if len(ba_config.images) < 2:
+        logging.warning("At least two images must be registered for global BA")
+        return False
 
     # Fix the existing images, if option specified
     if mapper_options.fix_existing_frames:
@@ -115,9 +117,7 @@ def iterative_global_refinement(
     )
     for _ in range(max_num_refinements):
         num_observations = reconstruction.compute_num_observations()
-        # mapper.adjust_global_bundle(mapper_options, ba_options)
-        if not adjust_global_bundle(mapper, mapper_options, ba_options):
-            return False
+        adjust_global_bundle(mapper, mapper_options, ba_options)
         if normalize_reconstruction:
             reconstruction.normalize()
         num_changed_observations = mapper.complete_and_merge_tracks(tri_options)
@@ -130,6 +130,7 @@ def iterative_global_refinement(
         logging.verbose(1, f"=> Changed observations: {changed:.6f}")
         if changed < max_refinement_change:
             break
+    mapper.clear_modified_points3D()
     return True
 
 
