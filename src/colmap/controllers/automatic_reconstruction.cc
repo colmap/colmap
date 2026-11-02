@@ -11,6 +11,10 @@
 #include "colmap/controllers/single_view_calibration.h"
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
+#include "colmap/feature/aliked.h"
+#include "colmap/feature/flexglue.h"
+#include "colmap/feature/loma.h"
+#include "colmap/feature/sift.h"
 #if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/advancing_front_meshing.h"
 #include "colmap/mvs/delaunay_meshing.h"
@@ -71,6 +75,14 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.feature == Feature::LOMA128) {
     option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
     option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B128;
+  } else if (options_.feature == Feature::FLEXGLUE) {
+    // FlexGlue only uses the keypoint locations. Use the same DaD keypoints as
+    // the LoMa presets, with the lightweight descriptor (unused by FlexGlue).
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
+    option_manager_.feature_matching->type = FeatureMatcherType::FLEXGLUE;
+    // FlexGlue reads the image pixels during matching.
+    option_manager_.feature_matching->flexglue->image_path =
+        options_.image_path.string();
   }
 
   // Apply quality preset (scales max_image_size relative to extractor default).
@@ -84,11 +96,22 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
+  // Must come after quality, which sets the number of SIFT features.
+  if (options_.max_num_features > 0) {
+    option_manager_.feature_extraction->sift->max_num_features =
+        options_.max_num_features;
+    option_manager_.feature_extraction->aliked->max_num_features =
+        options_.max_num_features;
+    option_manager_.feature_extraction->loma->max_num_features =
+        options_.max_num_features;
+  }
+
   // Feature-specific overrides that must come after quality.
   if (options_.feature == Feature::ALIKED ||
       options_.feature == Feature::LOMA ||
-      options_.feature == Feature::LOMA128) {
-    // Guided matching is not supported for ALIKED/LoMa
+      options_.feature == Feature::LOMA128 ||
+      options_.feature == Feature::FLEXGLUE) {
+    // Guided matching is not supported for ALIKED/LoMa/FlexGlue
     option_manager_.feature_matching->guided_matching = false;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;

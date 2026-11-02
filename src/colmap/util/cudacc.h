@@ -12,6 +12,10 @@
 
 namespace colmap {
 
+// Describe a runtime error, including its numeric code and driver guidance.
+// Always returns a message, even if the runtime provides no description.
+std::string GetCudaErrorMessage(cudaError_t error);
+
 class CudaTimer {
  public:
   CudaTimer();

@@ -3,6 +3,7 @@
 #include "colmap/feature/matcher.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
@@ -22,13 +23,15 @@ void ThrowUnknownFeatureMatcherType(FeatureMatcherType type) {
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
     : sift(std::make_shared<SiftMatchingOptions>()),
       aliked(std::make_shared<AlikedMatchingOptions>()),
-      loma(std::make_shared<LomaMatchingOptions>()) {}
+      loma(std::make_shared<LomaMatchingOptions>()),
+      flexglue(std::make_shared<FlexGlueMatchingOptions>()) {}
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
     const FeatureMatchingTypeOptions& other)
     : sift(CloneSharedPtr(other.sift)),
       aliked(CloneSharedPtr(other.aliked)),
-      loma(CloneSharedPtr(other.loma)) {}
+      loma(CloneSharedPtr(other.loma)),
+      flexglue(CloneSharedPtr(other.flexglue)) {}
 
 FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
     const FeatureMatchingTypeOptions& other) {
@@ -38,11 +41,16 @@ FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
   sift = CloneSharedPtr(other.sift);
   aliked = CloneSharedPtr(other.aliked);
   loma = CloneSharedPtr(other.loma);
+  flexglue = CloneSharedPtr(other.flexglue);
   return *this;
 }
 
 FeatureMatchingOptions::FeatureMatchingOptions(FeatureMatcherType type)
     : FeatureMatchingTypeOptions(), type(type) {}
+
+bool FeatureMatchingOptions::UsesDescriptors() const {
+  return type != FeatureMatcherType::FLEXGLUE;
+}
 
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
@@ -62,6 +70,7 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
     case FeatureMatcherType::LOMA_R:
     case FeatureMatcherType::LOMA_L:
     case FeatureMatcherType::LOMA_G:
+    case FeatureMatcherType::FLEXGLUE:
       return false;
     default:
       ThrowUnknownFeatureMatcherType(type);
@@ -93,6 +102,10 @@ bool FeatureMatchingOptions::Check() const {
     case FeatureMatcherType::LOMA_L:
     case FeatureMatcherType::LOMA_G:
       return THROW_CHECK_NOTNULL(loma)->Check();
+    case FeatureMatcherType::FLEXGLUE:
+      // Not supported by FlexGlue. Fail before loading the models.
+      CHECK_OPTION(!guided_matching);
+      return THROW_CHECK_NOTNULL(flexglue)->Check();
     default:
       LOG(ERROR) << "Unknown feature matcher type: " << type;
       return false;
@@ -116,6 +129,8 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     case FeatureMatcherType::LOMA_L:
     case FeatureMatcherType::LOMA_G:
       return CreateLomaFeatureMatcher(options);
+    case FeatureMatcherType::FLEXGLUE:
+      return CreateFlexGlueFeatureMatcher(options);
     default:
       ThrowUnknownFeatureMatcherType(options.type);
   }

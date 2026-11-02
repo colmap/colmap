@@ -2,6 +2,10 @@
 
 #include "colmap/math/spanning_tree.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -57,6 +61,23 @@ TEST(SpanningTree, DisconnectedGraph) {
   EXPECT_EQ(tree2.parents[1], -1);
   EXPECT_EQ(tree2.parents[2], 2);
   EXPECT_EQ(tree2.parents[3], 2);
+}
+
+TEST(SpanningTree, MaximumPreservesWeightOrdering) {
+  const std::array<std::pair<int, int>, 3> edges = {{{0, 1}, {0, 2}, {1, 2}}};
+  const std::array<float, 3> weights = {1.0f, 0.1f, std::nextafter(0.1f, 1.0f)};
+  std::array<int, 3> order = {0, 1, 2};
+  do {
+    std::vector<std::pair<int, int>> ordered_edges;
+    std::vector<float> ordered_weights;
+    for (const int i : order) {
+      ordered_edges.push_back(edges[i]);
+      ordered_weights.push_back(weights[i]);
+    }
+    const SpanningTree tree =
+        ComputeMaximumSpanningTree(3, ordered_edges, ordered_weights);
+    EXPECT_EQ(tree.parents, (std::vector<int>{0, 0, 1}));
+  } while (std::next_permutation(order.begin(), order.end()));
 }
 
 TEST(SpanningTree, EmptyGraph) {

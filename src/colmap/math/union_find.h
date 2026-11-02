@@ -26,11 +26,17 @@ class UnionFind {
       parent_.emplace_hint(parent_it, x, x);
       return x;
     }
-    // Path compression.
-    if (parent_it->second != x) {
-      parent_it->second = Find(parent_it->second);
+    auto root_it = parent_it;
+    while (root_it->second != root_it->first) {
+      root_it = parent_.find(root_it->second);
     }
-    return parent_it->second;
+    // Path compression.
+    while (parent_it->second != root_it->first) {
+      const auto next_it = parent_.find(parent_it->second);
+      parent_it->second = root_it->first;
+      parent_it = next_it;
+    }
+    return root_it->first;
   }
 
   // Find the root of x only if x already exists in the structure, otherwise

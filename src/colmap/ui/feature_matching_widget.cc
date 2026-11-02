@@ -3,6 +3,7 @@
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #ifdef COLMAP_ONNX_ENABLED
 #include "colmap/feature/aliked.h"
@@ -106,6 +107,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   add_matcher_type(FeatureMatcherType::LOMA_R);
   add_matcher_type(FeatureMatcherType::LOMA_L);
   add_matcher_type(FeatureMatcherType::LOMA_G);
+  add_matcher_type(FeatureMatcherType::FLEXGLUE);
 #endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 
@@ -134,6 +136,17 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->feature_matching->sift->max_distance, "sift.max_distance");
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
                                  "sift.cross_check");
+#ifdef COLMAP_ONNX_ENABLED
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->flexglue->filter_threshold,
+      "flexglue.filter_threshold");
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->flexglue->min_covisibility,
+      "flexglue.min_covisibility");
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->flexglue->early_stop_decay,
+      "flexglue.early_stop_decay");
+#endif
 
   options_widget_->AddSpacer();
   options_widget_->AddSection("Geometric verification");
@@ -196,6 +209,10 @@ void FeatureMatchingTab::WriteOptions() {
   options_widget_->WriteOptions();
   options_->feature_matching->type =
       matcher_types_[matcher_type_cb_->currentIndex()];
+  // FlexGlue reads the image pixels during matching. The GUI has no field for
+  // this option, so always use the image path of the current project.
+  options_->feature_matching->flexglue->image_path =
+      options_->image_path->string();
 }
 
 void FeatureMatchingTab::RunMatcher(std::unique_ptr<Thread> matcher) {

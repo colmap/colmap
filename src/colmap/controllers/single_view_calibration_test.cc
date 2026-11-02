@@ -5,14 +5,15 @@
 #include "colmap/calibration/anycalib.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/database.h"
+#include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
 #include <algorithm>
 #include <atomic>
-#include <cstdlib>
 #include <filesystem>
 #include <future>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -437,9 +438,9 @@ TEST(SingleViewCalibrationControllerTest, StopWhileCalibrating) {
 // single_view_calibration_test. Uses random-noise images, which are not
 // expected to calibrate; the test checks graceful handling end to end.
 TEST(SingleViewCalibrationControllerTest, IntegrationTestWithModel) {
-  // NOLINTNEXTLINE(concurrency-mt-unsafe)
-  const char* model_path = std::getenv("COLMAP_ANYCALIB_MODEL_PATH");
-  if (model_path == nullptr) {
+  const std::optional<std::string> model_path =
+      GetEnvSafe("COLMAP_ANYCALIB_MODEL_PATH");
+  if (!model_path.has_value()) {
     GTEST_SKIP() << "Set COLMAP_ANYCALIB_MODEL_PATH to run this test";
   }
 
@@ -478,7 +479,7 @@ TEST(SingleViewCalibrationControllerTest, IntegrationTestWithModel) {
   SingleViewCalibrationOptions options;
   options.num_threads = 1;
   options.use_gpu = false;
-  options.anycalib->model_path = model_path;
+  options.anycalib->model_path = *model_path;
   Bitmap selected_bitmap;
   ASSERT_TRUE(selected_bitmap.Read(test_dir / "image0.png", /*as_rgb=*/true));
   Camera expected_camera;

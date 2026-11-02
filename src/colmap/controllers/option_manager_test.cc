@@ -4,10 +4,13 @@
 
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/patch_match_options.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
+
+#include <fstream>
 
 #include <gtest/gtest.h>
 
@@ -134,6 +137,42 @@ TEST(OptionManager, WriteAndRead) {
             options_write.mapper->min_num_matches);
 }
 
+TEST(OptionManager, MapperSolverThresholds) {
+  OptionManager options;
+  options.AddMapperOptions();
+  std::vector<std::string> args = {
+      "colmap",
+      "--Mapper.ba_min_num_images_gpu_solver=7",
+      "--Mapper.ba_max_num_images_direct_dense_cpu_solver=11",
+      "--Mapper.ba_max_num_images_direct_sparse_cpu_solver=101",
+      "--Mapper.ba_max_num_images_direct_dense_gpu_solver=23",
+      "--Mapper.ba_max_num_images_direct_sparse_gpu_solver=1001"};
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(arg.data());
+  }
+  ASSERT_TRUE(options.Parse(argv.size(), argv.data()));
+  EXPECT_EQ(options.mapper->ba_min_num_images_gpu_solver, 7);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_dense_cpu_solver, 11);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_sparse_cpu_solver, 101);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_dense_gpu_solver, 23);
+  EXPECT_EQ(options.mapper->ba_max_num_images_direct_sparse_gpu_solver, 1001);
+
+  const auto config_path = CreateTestDir() / "mapper.ini";
+  options.Write(config_path);
+  OptionManager options_read;
+  options_read.AddMapperOptions();
+  ASSERT_TRUE(options_read.Read(config_path));
+  EXPECT_EQ(options_read.mapper->ba_min_num_images_gpu_solver, 7);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_dense_cpu_solver, 11);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_sparse_cpu_solver,
+            101);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_dense_gpu_solver, 23);
+  EXPECT_EQ(options_read.mapper->ba_max_num_images_direct_sparse_gpu_solver,
+            1001);
+}
+
 TEST(OptionManager, ReRead) {
   const auto test_dir = CreateTestDir();
   const auto config_path = test_dir / "config.ini";
@@ -158,6 +197,30 @@ TEST(OptionManager, ReRead) {
   EXPECT_EQ(*options_read.image_path, *options_write.image_path);
   EXPECT_EQ(options_read.feature_extraction->max_image_size, 2048);
 }
+
+#ifdef COLMAP_ONNX_ENABLED
+TEST(OptionManager, ReadDefaultsFlexGlueImagePath) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "config.ini";
+  CreateDirIfNotExists(test_dir / "images");
+
+  // A project file that selects FlexGlue with only the global image path.
+  {
+    std::ofstream file(config_path);
+    file << "database_path=" << (test_dir / "database.db").string() << "\n"
+         << "image_path=" << (test_dir / "images").string() << "\n"
+         << "[FeatureMatching]\n"
+         << "type=FLEXGLUE\n";
+  }
+
+  OptionManager options_read;
+  options_read.AddAllOptions();
+  ASSERT_TRUE(options_read.Read(config_path));
+  EXPECT_EQ(options_read.feature_matching->type, FeatureMatcherType::FLEXGLUE);
+  EXPECT_EQ(options_read.feature_matching->flexglue->image_path,
+            (test_dir / "images").string());
+}
+#endif
 
 TEST(OptionManager, ReadNonExistentFile) {
   OptionManager options;
