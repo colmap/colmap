@@ -137,6 +137,8 @@ def process_dataset(args: argparse.Namespace, dataset_name: str) -> None:
             str(args.num_threads),
             "--quality",
             args.quality,
+            "--feature",
+            args.feature,
             "--camera_model",
             "PINHOLE",
             "--camera_params",
@@ -183,6 +185,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
     parser.add_argument("--num_threads", type=int, default=-1)
     parser.add_argument("--quality", default="medium")
+    parser.add_argument("--feature", default="sift")
     parser.add_argument("--max_rotation_error", type=float, default=1.0)
     parser.add_argument("--max_proj_center_error", type=float, default=0.1)
     return parser.parse_args()
