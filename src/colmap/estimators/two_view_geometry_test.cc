@@ -1857,5 +1857,56 @@ TEST(MaybeDecomposeRelativePoses, MissingMatrixFromOldDatabase) {
   EXPECT_TRUE(geometry_after.cam2_from_cam1.has_value());
 }
 
+TEST(ExtractMatchedCamRaysWithJac, Nominal) {
+  const Camera camera1 =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100.0, 200, 200);
+  Camera camera2 =
+      Camera::CreateFromModelId(2, CameraModelId::kOpenCV, 100.0, 100, 200);
+  camera2.params[4] = -0.5;
+  camera2.params[5] = 0.5;
+  camera2.params[6] = -0.5;
+
+  const std::vector<Eigen::Vector2d> points1 = {{80.0, 120.0}, {110.0, 90.0}};
+  // The principal point unprojects cleanly, whereas (50, 150) fails iterative
+  // undistortion.
+  const std::vector<Eigen::Vector2d> points2 = {{50.0, 100.0}, {50.0, 150.0}};
+  ASSERT_TRUE(camera2.CamRayFromImgWithJac(points2[0]).has_value());
+  ASSERT_FALSE(camera2.CamRayFromImgWithJac(points2[1]).has_value());
+  const FeatureMatches matches = {{1, 0}, {0, 1}};
+
+  const CamRayWithJac expected_ray1_match0 =
+      *camera1.CamRayFromImgWithJac(points1[1]);
+  const CamRayWithJac expected_ray2_match0 =
+      *camera2.CamRayFromImgWithJac(points2[0]);
+  const CamRayWithJac expected_ray1_match1 =
+      *camera1.CamRayFromImgWithJac(points1[0]);
+
+  {
+    const auto [rays1, rays2] = ExtractMatchedCamRaysWithJac(
+        camera1, points1, camera2, points2, matches);
+    ASSERT_EQ(rays1.size(), 2);
+    ASSERT_EQ(rays2.size(), 2);
+    EXPECT_EQ(rays1[0].ray, expected_ray1_match0.ray);
+    EXPECT_EQ(rays1[0].jacobian, expected_ray1_match0.jacobian);
+    EXPECT_EQ(rays2[0].ray, expected_ray2_match0.ray);
+    EXPECT_EQ(rays2[0].jacobian, expected_ray2_match0.jacobian);
+    EXPECT_EQ(rays1[1].ray, expected_ray1_match1.ray);
+    EXPECT_EQ(rays1[1].jacobian, expected_ray1_match1.jacobian);
+    EXPECT_TRUE(rays2[1].ray.isZero());
+    EXPECT_TRUE(rays2[1].jacobian.isZero());
+  }
+
+  {
+    const auto [rays1, rays2] = ExtractMatchedCamRaysWithJac(
+        camera1, points1, camera2, points2, matches, /*skip_invalid=*/true);
+    ASSERT_EQ(rays1.size(), 1);
+    ASSERT_EQ(rays2.size(), 1);
+    EXPECT_EQ(rays1[0].ray, expected_ray1_match0.ray);
+    EXPECT_EQ(rays1[0].jacobian, expected_ray1_match0.jacobian);
+    EXPECT_EQ(rays2[0].ray, expected_ray2_match0.ray);
+    EXPECT_EQ(rays2[0].jacobian, expected_ray2_match0.jacobian);
+  }
+}
+
 }  // namespace
 }  // namespace colmap
