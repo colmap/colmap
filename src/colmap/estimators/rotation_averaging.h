@@ -18,6 +18,8 @@
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace colmap {
 
+class DatabaseCache;
+
 // Reweighting scheme applied to the relative-rotation constraints.
 //   UNIFORM: all constraints are weighted equally.
 //   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
@@ -26,9 +28,12 @@ namespace colmap {
 //   COVARIANCE: whiten each constraint with the covariance of its relative
 //     rotation (PoseGraph::Edge::cam2_from_cam1_rotation_cov), regularized with
 //     CeresRotationAveragerOptions::covariance_sigma_floor_deg. Every valid
-//     edge must have a covariance. Only supported by the CERES backend, which
-//     then uses CeresRotationAveragerOptions::covariance_loss_scale. It is
-//     ignored when the CERES backend falls back to L1_IRLS for gravity priors.
+//     edge must have a covariance, which the global mapper and the rotation
+//     averaging pipeline estimate from the two-view correspondences (see
+//     MaybeEstimatePoseGraphRotationCovariances). Only supported by the CERES
+//     backend, which then uses
+//     CeresRotationAveragerOptions::covariance_loss_scale. It is ignored when
+//     the CERES backend falls back to L1_IRLS for gravity priors.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(
     RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT, COVARIANCE);
 
@@ -196,5 +201,15 @@ bool RunRotationAveragingOnComponent(
 void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
                                    const Reconstruction& reconstruction,
                                    double max_angle_deg);
+
+// With COVARIANCE reweighting, estimates the rotation covariances of the valid
+// pose graph edges that do not have one yet from their two-view
+// correspondences, and invalidates the edges whose covariance cannot be
+// estimated. Throws if the backend is not CERES, warns and skips when falling
+// back to L1_IRLS for gravity priors, and is a no-op for other reweightings.
+void MaybeEstimatePoseGraphRotationCovariances(
+    const RotationEstimatorOptions& options,
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph);
 
 }  // namespace colmap
