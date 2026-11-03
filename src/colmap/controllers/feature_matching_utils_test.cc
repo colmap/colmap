@@ -4,8 +4,12 @@
 
 #include "colmap/controllers/matcher_cache.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/flexglue.h"
+#include "colmap/feature/sift.h"
+#include "colmap/feature/utils.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
 
 #include <functional>
@@ -333,18 +337,139 @@ TEST(FeatureMatcherController, SetupPropagatesMatcherCreationErrors) {
   matching_options.aliked->lightglue.model_path =
       (data.test_dir / "missing_model.onnx").string();
   TwoViewGeometryOptions geometry_options;
+#ifdef COLMAP_ONNX_ENABLED
+  const std::string expected_message = "missing_model.onnx";
+#else
+  const std::string expected_message = "requires ONNX support";
+#endif
   {
     FeatureMatcherController controller(
         matching_options, geometry_options, data.cache);
     // The worker fails to create the matcher. Setup rethrows its error, and
     // the controller then destructs without terminating.
-#ifdef COLMAP_ONNX_ENABLED
-    const std::string expected_message = "missing_model.onnx";
-#else
-    const std::string expected_message = "requires ONNX support";
-#endif
     EXPECT_THAT(ThrownMessage([&]() { controller.Setup(); }),
                 testing::HasSubstr(expected_message));
+  }
+
+  // Also test SharedFeatureMatcher error propagation across multiple sibling
+  // workers: only the creator worker rethrows on Wait(), while sibling workers
+  // signal invalid setup and join without throwing.
+  {
+    JobQueue<FeatureMatcherData> input_queue;
+    JobQueue<FeatureMatcherData> output_queue;
+    auto shared_matcher = std::make_shared<SharedFeatureMatcher>();
+    std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+    workers.reserve(3);
+    for (int w = 0; w < 3; ++w) {
+      workers.push_back(
+          std::make_unique<FeatureMatcherWorker>(matching_options,
+                                                 geometry_options,
+                                                 data.cache,
+                                                 &input_queue,
+                                                 &output_queue,
+                                                 shared_matcher,
+                                                 /*is_shared_creator=*/w == 0));
+    }
+    for (auto& worker : workers) {
+      worker->Start();
+    }
+    EXPECT_FALSE(workers[0]->CheckValidSetup());
+    EXPECT_THAT(ThrownMessage([&]() { workers[0]->Wait(); }),
+                testing::HasSubstr(expected_message));
+    for (size_t w = 1; w < workers.size(); ++w) {
+      EXPECT_FALSE(workers[w]->CheckValidSetup());
+      EXPECT_NO_THROW(workers[w]->Wait());
+    }
+  }
+
+#ifdef COLMAP_CUDA_ENABLED
+  if (GetNumCudaDevices() > 0) {
+    FeatureMatchingOptions flexglue_options(FeatureMatcherType::FLEXGLUE);
+    flexglue_options.use_gpu = true;
+    flexglue_options.gpu_index = "0";
+    flexglue_options.num_threads = 2;
+    flexglue_options.flexglue->image_path = data.test_dir.string();
+    flexglue_options.flexglue->num_workers_per_gpu = 3;
+    flexglue_options.flexglue->descriptor_model_path =
+        (data.test_dir / "missing_model.onnx").string();
+    FeatureMatcherController controller(
+        flexglue_options, geometry_options, data.cache);
+    EXPECT_THAT(ThrownMessage([&]() { controller.Setup(); }),
+                testing::HasSubstr(expected_message));
+  }
+#endif
+}
+
+TEST(FeatureMatcherController, SharedFeatureMatcherWorkersMatchPairs) {
+  auto data = CreateTestData(4);
+  data.database->ClearMatches();
+  data.database->ClearTwoViewGeometries();
+  std::vector<FeatureDescriptors> normalized_descriptors;
+  normalized_descriptors.reserve(data.image_ids.size());
+  for (const image_t image_id : data.image_ids) {
+    FeatureDescriptors desc = data.database->ReadDescriptors(image_id);
+    FeatureDescriptorsFloatData float_desc = desc.ToFloat().data;
+    L2NormalizeFeatureDescriptors(&float_desc);
+    desc.data = FeatureDescriptorsToUnsignedByte(float_desc);
+    normalized_descriptors.push_back(std::move(desc));
+  }
+  data.database->ClearDescriptors();
+  for (size_t i = 0; i < data.image_ids.size(); ++i) {
+    data.database->WriteDescriptors(data.image_ids[i],
+                                    normalized_descriptors[i]);
+  }
+  data.cache = std::make_shared<FeatureMatcherCache>(100, data.database);
+
+  FeatureMatchingOptions matching_options = DefaultMatchingOptions();
+  matching_options.skip_geometric_verification = true;
+  // Brute-force SIFT avoids SiftCPUFeatureMatcher's non-thread-safe index
+  // cache so the shared matcher is safe across concurrent workers.
+  matching_options.sift->cpu_brute_force_matcher = true;
+  TwoViewGeometryOptions geometry_options;
+  JobQueue<FeatureMatcherData> input_queue;
+  JobQueue<FeatureMatcherData> output_queue;
+  auto shared_matcher = std::make_shared<SharedFeatureMatcher>();
+
+  std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+  workers.reserve(3);
+  for (int w = 0; w < 3; ++w) {
+    workers.push_back(
+        std::make_unique<FeatureMatcherWorker>(matching_options,
+                                               geometry_options,
+                                               data.cache,
+                                               &input_queue,
+                                               &output_queue,
+                                               shared_matcher,
+                                               /*is_shared_creator=*/w == 0));
+    workers.back()->Start();
+  }
+  for (auto& worker : workers) {
+    ASSERT_TRUE(worker->CheckValidSetup());
+  }
+
+  const auto pairs = AllPairs(data.image_ids);
+  for (const auto& [id1, id2] : pairs) {
+    FeatureMatcherData job;
+    job.image_id1 = id1;
+    job.image_id2 = id2;
+    ASSERT_TRUE(input_queue.Push(std::move(job)));
+  }
+
+  for (size_t i = 0; i < pairs.size(); ++i) {
+    auto out = output_queue.Pop();
+    ASSERT_TRUE(out.IsValid());
+    EXPECT_EQ(out.Data().error, nullptr);
+    EXPECT_FALSE(out.Data().matches.empty());
+  }
+
+  input_queue.Wait();
+  for (auto& worker : workers) {
+    worker->Stop();
+  }
+  input_queue.Stop();
+  output_queue.Stop();
+  for (auto& worker : workers) {
+    worker->Wait();
   }
 }
 
