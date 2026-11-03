@@ -279,8 +279,7 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
     // Rescale the keypoints from the original image frame to the resized
     // descriptor input frame (512x512 by default) and pass that size to the
     // matcher, so that mutual nearest-neighbor search and max_distance_px
-    // operate in the descriptor input frame (see cvg/FlexGlue#16). This gives
-    // identical results with models exported before and after cvg/FlexGlue#16.
+    // operate in the descriptor input frame.
     std::array<float, 2> descriptor_size = {
         static_cast<float>(descriptor_width_),
         static_cast<float>(descriptor_height_)};
