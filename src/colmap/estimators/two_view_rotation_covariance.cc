@@ -189,6 +189,15 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewRotationCovariance(
     const TwoViewGeometry& geometry,
     const TwoViewRotationCovarianceOptions& options) {
   THROW_CHECK(options.Check());
+  // Only single-model geometries with a relative pose carry a meaningful
+  // rotation covariance. This is the same set of configurations for which
+  // MaybeDecomposeRelativePoses skips relative-pose decomposition.
+  if (geometry.config == TwoViewGeometry::ConfigurationType::UNDEFINED ||
+      geometry.config == TwoViewGeometry::ConfigurationType::DEGENERATE ||
+      geometry.config == TwoViewGeometry::ConfigurationType::WATERMARK ||
+      geometry.config == TwoViewGeometry::ConfigurationType::MULTIPLE) {
+    return std::nullopt;
+  }
   if (!geometry.cam2_from_cam1.has_value()) {
     return std::nullopt;
   }

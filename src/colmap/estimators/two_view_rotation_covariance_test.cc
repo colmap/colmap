@@ -413,6 +413,20 @@ TEST(EstimateTwoViewRotationCovariance, UnconstrainedAxisIsCapped) {
 TEST(EstimateTwoViewRotationCovariance, MissingPoseOrTooFewInliers) {
   const TwoViewRotationCovarianceTestData data =
       CreateTwoViewRotationCovarianceTestData();
+  for (const auto invalid_config :
+       {TwoViewGeometry::ConfigurationType::UNDEFINED,
+        TwoViewGeometry::ConfigurationType::DEGENERATE,
+        TwoViewGeometry::ConfigurationType::WATERMARK,
+        TwoViewGeometry::ConfigurationType::MULTIPLE}) {
+    TwoViewGeometry invalid_geometry = data.geometry;
+    invalid_geometry.config = invalid_config;
+    EXPECT_FALSE(EstimateTwoViewRotationCovariance(data.camera1,
+                                                   data.points1,
+                                                   data.camera2,
+                                                   data.points2,
+                                                   invalid_geometry)
+                     .has_value());
+  }
   TwoViewGeometry geometry = data.geometry;
   geometry.cam2_from_cam1.reset();
   EXPECT_FALSE(
@@ -451,9 +465,20 @@ TEST(EstimatePoseGraphRotationCovariances, Nominal) {
   synthetic_noise_options.point2D_stddev = 0.5;
   SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
 
+  // Pair (2, 4) has multi-model correspondences in the database (without a
+  // decomposed pose), so even if a caller adds a pose-graph edge with a pose,
+  // its covariance must not be estimated from those correspondences.
+  TwoViewGeometry multiple_geometry;
+  multiple_geometry.config = TwoViewGeometry::ConfigurationType::MULTIPLE;
+  for (int i = 0; i < 10; ++i) {
+    multiple_geometry.inlier_matches.emplace_back(i, i);
+  }
+  database->WriteTwoViewGeometry(2, 4, multiple_geometry);
+
   auto cache = DatabaseCache::Create(*database, DatabaseCache::Options());
   ASSERT_TRUE(cache->ExistsImage(1) && cache->ExistsImage(4));
   ASSERT_EQ(cache->CorrespondenceGraph()->NumMatchesBetweenImages(1, 4), 0);
+  ASSERT_EQ(cache->CorrespondenceGraph()->NumMatchesBetweenImages(2, 4), 10);
 
   PoseGraph pose_graph;
   pose_graph.Load(*cache->CorrespondenceGraph());
@@ -464,10 +489,15 @@ TEST(EstimatePoseGraphRotationCovariances, Nominal) {
   const Eigen::Matrix3f preset_cov = 2.0f * Eigen::Matrix3f::Identity();
   pose_graph.Edges().begin()->second.cam2_from_cam1_rotation_cov = preset_cov;
 
-  // Unestimable edges (e.g., without correspondences) stay valid without a
-  // covariance.
+  // Unestimable edges (without correspondences or with non-single-model
+  // configurations) stay valid without a covariance.
   const image_pair_t unmatched_pair_id = ImagePairToPairId(1, 4);
+  const image_pair_t multiple_pair_id = ImagePairToPairId(2, 4);
   pose_graph.AddEdge(1, 4, PoseGraph::Edge());
+  pose_graph.AddEdge(2,
+                     4,
+                     PoseGraph::Edge(Rigid3d(Eigen::Quaterniond::Identity(),
+                                             Eigen::Vector3d::UnitX())));
 
   // Poorly constrained rotations are capped to the maximum sigma.
   PoseGraph capped_pose_graph = pose_graph;
@@ -477,7 +507,7 @@ TEST(EstimatePoseGraphRotationCovariances, Nominal) {
       std::pow(DegToRad(options.max_rotation_sigma_deg), 2);
   EstimatePoseGraphRotationCovariances(*cache, capped_pose_graph, options);
   for (const auto& [pair_id, edge] : capped_pose_graph.Edges()) {
-    if (pair_id == unmatched_pair_id) {
+    if (pair_id == unmatched_pair_id || pair_id == multiple_pair_id) {
       EXPECT_TRUE(edge.valid);
       EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
       continue;
@@ -496,7 +526,7 @@ TEST(EstimatePoseGraphRotationCovariances, Nominal) {
   options = TwoViewRotationCovarianceOptions();
   EstimatePoseGraphRotationCovariances(*cache, pose_graph, options);
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
-    if (pair_id == unmatched_pair_id) {
+    if (pair_id == unmatched_pair_id || pair_id == multiple_pair_id) {
       EXPECT_TRUE(edge.valid);
       EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
       continue;

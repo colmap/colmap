@@ -31,8 +31,9 @@ struct TwoViewRotationCovarianceOptions {
 // tangent frame (corresponding to right perturbation R21 * Exp(delta_theta))
 // from the tangent Sampson Jacobian (or 2D tangent ray alignment for panoramic
 // pairs) evaluated at `geometry.cam2_from_cam1` over `geometry.inlier_matches`.
-// Returns nullopt if the relative pose is missing, has too few valid inliers,
-// or if the eigendecomposition of its information fails.
+// Returns nullopt if the configuration is invalid, the relative pose is
+// missing, has too few valid inliers, or if the eigendecomposition of its
+// information fails.
 std::optional<Eigen::Matrix3d> EstimateTwoViewRotationCovariance(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
