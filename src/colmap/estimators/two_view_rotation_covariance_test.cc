@@ -13,12 +13,12 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
-#include "colmap/util/testing.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
@@ -434,8 +434,7 @@ TEST(EstimateTwoViewRotationCovariance, MissingPoseOrTooFewInliers) {
 }
 
 TEST(EstimatePoseGraphRotationCovariances, Nominal) {
-  const auto database_path = CreateTestDir() / "database.db";
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -444,20 +443,31 @@ TEST(EstimatePoseGraphRotationCovariances, Nominal) {
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.camera_has_prior_focal_length = true;
   synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  // Only the consecutive pairs (1, 2), (2, 3), and (3, 4) have matches.
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::CHAINED;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
   SyntheticNoiseOptions synthetic_noise_options;
   synthetic_noise_options.point2D_stddev = 0.5;
   SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
 
   auto cache = DatabaseCache::Create(*database, DatabaseCache::Options());
+  ASSERT_TRUE(cache->ExistsImage(1) && cache->ExistsImage(4));
+  ASSERT_EQ(cache->CorrespondenceGraph()->NumMatchesBetweenImages(1, 4), 0);
+
   PoseGraph pose_graph;
   pose_graph.Load(*cache->CorrespondenceGraph());
-  ASSERT_EQ(pose_graph.NumEdges(), 6);
+  ASSERT_EQ(pose_graph.NumEdges(), 3);
 
   // Pre-populated covariances are preserved.
   const image_pair_t preset_pair_id = pose_graph.Edges().begin()->first;
   const Eigen::Matrix3f preset_cov = 2.0f * Eigen::Matrix3f::Identity();
   pose_graph.Edges().begin()->second.cam2_from_cam1_rotation_cov = preset_cov;
+
+  // Unestimable edges (e.g., without correspondences) stay valid without a
+  // covariance.
+  const image_pair_t unmatched_pair_id = ImagePairToPairId(1, 4);
+  pose_graph.AddEdge(1, 4, PoseGraph::Edge());
 
   // Poorly constrained rotations are capped to the maximum sigma.
   PoseGraph capped_pose_graph = pose_graph;
@@ -467,6 +477,11 @@ TEST(EstimatePoseGraphRotationCovariances, Nominal) {
       std::pow(DegToRad(options.max_rotation_sigma_deg), 2);
   EstimatePoseGraphRotationCovariances(*cache, capped_pose_graph, options);
   for (const auto& [pair_id, edge] : capped_pose_graph.Edges()) {
+    if (pair_id == unmatched_pair_id) {
+      EXPECT_TRUE(edge.valid);
+      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+      continue;
+    }
     ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
     if (pair_id == preset_pair_id) {
       continue;
@@ -481,6 +496,11 @@ TEST(EstimatePoseGraphRotationCovariances, Nominal) {
   options = TwoViewRotationCovarianceOptions();
   EstimatePoseGraphRotationCovariances(*cache, pose_graph, options);
   for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (pair_id == unmatched_pair_id) {
+      EXPECT_TRUE(edge.valid);
+      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+      continue;
+    }
     ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
     if (pair_id == preset_pair_id) {
       EXPECT_EQ(*edge.cam2_from_cam1_rotation_cov, preset_cov);
