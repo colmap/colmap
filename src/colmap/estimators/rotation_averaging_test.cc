@@ -11,7 +11,6 @@
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
-#include "colmap/util/testing.h"
 
 #include <map>
 #include <utility>
@@ -856,9 +855,7 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
 }
 
 TEST(MaybeEstimatePoseGraphRotationCovariances, Nominal) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
