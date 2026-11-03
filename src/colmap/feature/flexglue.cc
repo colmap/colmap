@@ -310,10 +310,7 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         inputs.push_back(CreateONNXTensor(kpts1, kpts1_shape));
       } else if (name == "kpts1") {
         inputs.push_back(CreateONNXTensor(kpts2, kpts2_shape));
-      } else if (name == "image_size0") {
-        inputs.push_back(
-            CreateONNXTensor(descriptor_size.data(), 2, image_size_shape));
-      } else if (name == "image_size1") {
+      } else if (name == "image_size0" || name == "image_size1") {
         inputs.push_back(
             CreateONNXTensor(descriptor_size.data(), 2, image_size_shape));
       } else if (name == "filter_threshold") {
