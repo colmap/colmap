@@ -99,6 +99,9 @@ norecursedirs = [
     "build",
     "python/build",
 ]
+markers = [
+    "siftgpu_flaky: exercises upstream SiftGPU's nondeterministic detector (colmap#1197); deselect with -m 'not siftgpu_flaky'",
+]
 
 [tool.mypy]
 check_untyped_defs = true

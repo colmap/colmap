@@ -40,6 +40,7 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   // When max_image_size is explicitly set, use that value.
   options.max_image_size = 2000;
   for (const auto& type : {FeatureExtractorType::SIFT,
+                           FeatureExtractorType::CUSIFT,
                            FeatureExtractorType::ALIKED_N16ROT,
                            FeatureExtractorType::ALIKED_N32,
                            FeatureExtractorType::LOMA_B,
@@ -52,6 +53,8 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   options.max_image_size = -1;
   options.type = FeatureExtractorType::SIFT;
   EXPECT_EQ(options.EffMaxImageSize(), 3200);
+  options.type = FeatureExtractorType::CUSIFT;
+  EXPECT_EQ(options.EffMaxImageSize(), 3200);
   options.type = FeatureExtractorType::ALIKED_N16ROT;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
   options.type = FeatureExtractorType::ALIKED_N32;
@@ -63,6 +66,8 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
 
   options.max_image_size = 0;
   options.type = FeatureExtractorType::SIFT;
+  EXPECT_EQ(options.EffMaxImageSize(), 3200);
+  options.type = FeatureExtractorType::CUSIFT;
   EXPECT_EQ(options.EffMaxImageSize(), 3200);
   options.type = FeatureExtractorType::ALIKED_N16ROT;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
@@ -147,6 +152,7 @@ TEST(FeatureExtractionOptions, RequiresRGB) {
 
   const std::vector<std::pair<FeatureExtractorType, bool>> kTestCases = {
       {FeatureExtractorType::SIFT, false},
+      {FeatureExtractorType::CUSIFT, false},
       {FeatureExtractorType::ALIKED_N16ROT, true},
       {FeatureExtractorType::ALIKED_N32, true},
       {FeatureExtractorType::LOMA_B, true},
@@ -176,6 +182,12 @@ TEST(FeatureExtractionOptions, CheckAndRequiresOpenGLWithNoGpu) {
     EXPECT_TRUE(options.Check());
     EXPECT_FALSE(options.RequiresOpenGL());
   }
+
+  // CUSIFT has no CPU implementation, so it is the one type that must reject
+  // use_gpu = false instead of falling back.
+  options.type = FeatureExtractorType::CUSIFT;
+  EXPECT_FALSE(options.Check());
+  EXPECT_FALSE(options.RequiresOpenGL());
 }
 
 }  // namespace

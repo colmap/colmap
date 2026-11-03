@@ -21,6 +21,8 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         aliked.h aliked.cc
+        cusift.h cusift.cc
+        cusift_matcher.h cusift_matcher.cc
         extractor.h extractor.cc
         flexglue.h flexglue.cc
         index.h index.cc
@@ -43,6 +45,13 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         faiss
 )
+
+if(CUDA_ENABLED)
+    # Only colmap_cusift. cusift.cc deliberately makes no CUDA API calls of its
+    # own (device selection lives behind cusift::InitDevice), so colmap_feature
+    # does not link the CUDA runtime directly.
+    target_link_libraries(colmap_feature PRIVATE colmap_cusift)
+endif()
 
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
@@ -98,6 +107,18 @@ if(ONNX_ENABLED)
         LINK_LIBS
             colmap_feature
             onnxruntime::onnxruntime
+    )
+endif()
+if(CUDA_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME cusift_test
+        SRCS cusift_test.cc
+        LINK_LIBS colmap_feature
+    )
+    COLMAP_ADD_TEST(
+        NAME cusift_matcher_test
+        SRCS cusift_matcher_test.cc
+        LINK_LIBS colmap_feature
     )
 endif()
 COLMAP_ADD_TEST(
