@@ -33,6 +33,7 @@
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 
 #include <functional>

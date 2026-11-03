@@ -2324,6 +2324,11 @@ __device__ float vl_fast_sqrt_f_cuda(float x)
   return (x < 1e-8f) ? 0.0f : x * vl_fast_resqrt_f_cuda(x);
 }
 
+// M_PI is not portable: MSVC only defines it under _USE_MATH_DEFINES, and that
+// cannot be set here because cudaSiftH.cu includes <cmath> before this file.
+// Same value as M_PI, so the float results below are unchanged.
+constexpr double kCusiftPi = 3.14159265358979323846;
+
 __device__ float vl_fast_atan2_f_cuda(float y, float x)
 {
   const float c3 = 0.1821f;
@@ -2332,10 +2337,10 @@ __device__ float vl_fast_atan2_f_cuda(float y, float x)
   float angle, r;
   if (x >= 0.0f) {
     r = (x - abs_y) / (x + abs_y);
-    angle = (float)(M_PI / 4.0);
+    angle = (float)(kCusiftPi / 4.0);
   } else {
     r = (x + abs_y) / (abs_y - x);
-    angle = (float)(3.0 * M_PI / 4.0);
+    angle = (float)(3.0 * kCusiftPi / 4.0);
   }
   angle += (c3*r*r - c1) * r;
   return (y < 0.0f) ? -angle : angle;
