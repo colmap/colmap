@@ -1,6 +1,7 @@
 # AGENTS.md — COLMAP Guide
 
 If an optional `AGENTS.override.md` exists alongside this file, read it and follow it; its instructions take precedence over this file.
+When asked to review code, commits, branches, or pull requests, read and follow `.agents/skills/colmap-review/SKILL.md`.
 
 ## Project Overview
 
@@ -23,6 +24,7 @@ COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo (M
 | docker/ | Dockerfile + build/run scripts |
 | scripts/format/ | c++.sh (clang-format), python.sh (ruff) |
 | benchmark/ | Reconstruction + runtime benchmarks |
+| .agents/skills/ | Agent skills (e.g., colmap-review/SKILL.md for code review) |
 | .github/workflows/ | CI: Ubuntu, macOS, Windows, Docker, pycolmap |
 | vcpkg.json | vcpkg manifest (Windows/macOS deps) |
 | pyproject.toml | Python build config (scikit-build-core, cibuildwheel) |
@@ -163,7 +165,7 @@ pytest                             # All Python tests (config in pyproject.toml)
 ### Index and Identifier Types (util/types.h)
 
 - Generic indexes: int, size_t
-- Special identifiers: camera_t, image_t, image_pair_t, frame_t, rig_t, point2D_t, point3D_t, sensor_t, data_t, pose_prior_t
+- Special identifiers: camera_t, imu_t, image_t, image_pair_t, frame_t, rig_t, point2D_t, point3D_t, sensor_t, data_t, pose_prior_t, timestamp_t
 
 ### Hash containers (util/hash_containers.h)
 
