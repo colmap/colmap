@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <filesystem>
 #include <limits>
@@ -95,7 +96,7 @@ struct DenseFeatures {
   int width = 0;
   int height = 0;
   // Whether the image size was compared with the camera size.
-  bool checked_camera_size = false;
+  std::atomic<bool> checked_camera_size{false};
 };
 
 // Non-owning tensor referencing the memory of the given tensor.
@@ -390,8 +391,8 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
       return {static_cast<float>(dense.width),
               static_cast<float>(dense.height)};
     }
-    if (!dense.checked_camera_size) {
-      dense.checked_camera_size = true;
+    if (!dense.checked_camera_size.load(std::memory_order_relaxed) &&
+        !dense.checked_camera_size.exchange(true, std::memory_order_relaxed)) {
       const double camera_aspect =
           static_cast<double>(image.camera->width) / image.camera->height;
       const double image_aspect =
@@ -447,10 +448,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
   std::optional<Ort::MemoryInfo> feature_memory_info_;
   // Dense features keyed by image name. Unlike ImageFeatureCache, it retains
   // many images, since pairs of exhaustive or retrieval-based matching revisit
-  // the same images far apart in time. Neither the cache nor its entries
-  // (see ImageSize) are thread-safe, so a matcher must not run concurrent
-  // Match() calls (see CreateFlexGlueFeatureMatcher).
-  LRUCache<std::string, DenseFeatures> dense_cache_;
+  // the same images far apart in time. ThreadSafeLRUCache also deduplicates
+  // concurrent loads when multiple workers request the same uncached image.
+  ThreadSafeLRUCache<std::string, DenseFeatures> dense_cache_;
 };
 
 #endif
@@ -467,6 +467,7 @@ bool FlexGlueMatchingOptions::Check() const {
   CHECK_OPTION_GT(feature_cache_size, 0);
   CHECK_OPTION(!descriptor_model_path.empty());
   CHECK_OPTION(!matcher_model_path.empty());
+  CHECK_OPTION_GT(num_workers_per_gpu, 0);
   return true;
 }
 
