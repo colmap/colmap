@@ -37,12 +37,20 @@ FlatHashSet<image_t> PrepareCeresRotationAveraging(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
     Reconstruction& reconstruction) {
+  const CeresRotationAveragerOptions& ceres_options =
+      *THROW_CHECK_NOTNULL(options.ceres);
   const bool use_covariance =
       options.reweighting == RotationAveragingReweighting::COVARIANCE;
+  const double loss_function_scale =
+      use_covariance ? ceres_options.covariance_loss_scale
+                     : DegToRad(ceres_options.loss_function_scale);
+  if (!IsValidCeresLossFunction(ceres_options.loss_function_type,
+                                loss_function_scale)) {
+    throw std::invalid_argument("invalid Ceres loss configuration");
+  }
   Eigen::Matrix3d floor_cov = Eigen::Matrix3d::Zero();
   if (use_covariance) {
-    const double floor_sigma_deg =
-        THROW_CHECK_NOTNULL(options.ceres)->covariance_sigma_floor_deg;
+    const double floor_sigma_deg = ceres_options.covariance_sigma_floor_deg;
     if (!std::isfinite(floor_sigma_deg) || floor_sigma_deg < 0.0) {
       throw std::invalid_argument(
           "covariance_sigma_floor_deg must be finite and non-negative");

@@ -2,6 +2,7 @@
 
 #include "colmap/estimators/rotation_averaging.h"
 
+#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/geometry/pose.h"
@@ -13,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <queue>
+#include <stdexcept>
 
 namespace colmap {
 namespace {
@@ -629,6 +631,11 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
   RotationEstimatorOptions options = options_;
   // Check the inputs before the initialization below modifies the
   // reconstruction. The averagers created by solve() check them again.
+  if (options.ceres->max_num_warm_start_iterations > 0 &&
+      !IsValidCeresLossFunction(CeresLossFunctionType::HUBER,
+                                DegToRad(options.ceres->loss_function_scale))) {
+    throw std::invalid_argument("invalid Ceres loss configuration");
+  }
   const FlatHashSet<image_t> image_ids =
       internal::PrepareCeresRotationAveraging(
           options, active_pose_graph, reconstruction);

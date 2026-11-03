@@ -544,6 +544,74 @@ TEST(RotationEstimator, CeresChecksInputsBeforeInitialization) {
         std::invalid_argument);
     EXPECT_EQ(reconstruction.Frames(), before.Frames());
   }
+
+  {
+    // Invalid loss scales (for either the main solve or the warm-start) must
+    // be rejected before sensor reset, spanning-tree initialization, or
+    // warm-start frame registration.
+    Reconstruction reconstruction = MakeRigReconstruction();
+    PoseGraph graph = MakePoseGraph(reconstruction);
+    for (auto& [_, edge] : graph.Edges()) {
+      edge.cam2_from_cam1_rotation_cov = Eigen::Matrix3f::Identity();
+    }
+    reconstruction.DeRegisterFrame(reconstruction.Frames().begin()->first);
+    const Image& non_ref_image =
+        reconstruction.Image(RigImages(reconstruction)[0][1]);
+    Rigid3d& non_ref_pose = non_ref_image.FramePtr()->RigPtr()->SensorFromRig(
+        non_ref_image.CameraPtr()->SensorId());
+    non_ref_pose.rotation().coeffs().setConstant(
+        std::numeric_limits<double>::quiet_NaN());
+    non_ref_pose.translation().setConstant(
+        std::numeric_limits<double>::quiet_NaN());
+    FlatHashSet<image_t> image_ids;
+    for (const auto& [image_id, _] : reconstruction.Images()) {
+      image_ids.insert(image_id);
+    }
+    const Reconstruction before = reconstruction;
+
+    const auto expect_rejected_unchanged =
+        [&](const RotationEstimatorOptions& bad_options) {
+          RotationEstimator estimator(bad_options);
+          EXPECT_THAT(
+              [&]() {
+                estimator.EstimateRotations(
+                    graph, {}, image_ids, reconstruction);
+              },
+              testing::ThrowsMessage<std::invalid_argument>(
+                  testing::HasSubstr("invalid Ceres loss configuration")));
+          EXPECT_EQ(reconstruction.Frames(), before.Frames());
+          EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
+          EXPECT_TRUE(
+              non_ref_image.FramePtr()
+                  ->RigPtr()
+                  ->MaybeSensorFromRig(non_ref_image.CameraPtr()->SensorId())
+                  .has_value());
+        };
+
+    for (const double bad_scale :
+         {-1.0, std::numeric_limits<double>::quiet_NaN()}) {
+      RotationEstimatorOptions uniform_options = options;
+      uniform_options.reweighting = RotationAveragingReweighting::UNIFORM;
+      uniform_options.refine_sensor_from_rig = true;
+      uniform_options.ceres->max_num_warm_start_iterations = 0;
+      uniform_options.ceres->loss_function_scale = bad_scale;
+      expect_rejected_unchanged(uniform_options);
+
+      RotationEstimatorOptions cov_options = options;
+      cov_options.reweighting = RotationAveragingReweighting::COVARIANCE;
+      cov_options.refine_sensor_from_rig = true;
+      cov_options.ceres->max_num_warm_start_iterations = 5;
+      cov_options.ceres->covariance_loss_scale = bad_scale;
+      expect_rejected_unchanged(cov_options);
+
+      RotationEstimatorOptions warm_start_options = options;
+      warm_start_options.reweighting = RotationAveragingReweighting::COVARIANCE;
+      warm_start_options.refine_sensor_from_rig = true;
+      warm_start_options.ceres->max_num_warm_start_iterations = 5;
+      warm_start_options.ceres->loss_function_scale = bad_scale;
+      expect_rejected_unchanged(warm_start_options);
+    }
+  }
 }
 
 TEST(RotationEstimatorOptions, DeepCopiesCeresOptions) {
