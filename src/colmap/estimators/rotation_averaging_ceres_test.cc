@@ -8,12 +8,14 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
+#include <cmath>
 #include <limits>
 #include <map>
 #include <memory>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -458,6 +460,92 @@ TEST(CeresRotationAverager, MissingSensorRotation) {
   ExpectRelativeRotations(reconstruction, graph, 1e-7);
 }
 
+TEST(RotationEstimator, CeresChecksInputsBeforeInitialization) {
+  // The estimator initializes the rotations before it creates the averager, so
+  // it must check the inputs first, with the same messages, and throw without
+  // modifying the reconstruction.
+  RotationEstimatorOptions options;
+  options.backend = RotationAveragingBackend::CERES;
+
+  {
+    Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
+    PoseGraph graph;
+    graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
+        Eigen::Matrix3f::Identity();
+    graph.AddEdge(2, 3, Edge(ZRotation(0.2)));
+    const Reconstruction before = reconstruction;
+    options.reweighting = RotationAveragingReweighting::COVARIANCE;
+    RotationEstimator estimator(options);
+    try {
+      estimator.EstimateRotations(graph, {}, {1, 2, 3}, reconstruction);
+      ADD_FAILURE() << "Expected std::invalid_argument";
+    } catch (const std::invalid_argument& error) {
+      EXPECT_THAT(error.what(),
+                  testing::HasSubstr("EstimatePoseGraphRotationCovariances"));
+    }
+    EXPECT_EQ(reconstruction.Frames(), before.Frames());
+
+    for (const Eigen::Matrix3f& bad_cov :
+         {Eigen::Matrix3f(Eigen::Matrix3f::Constant(
+              std::numeric_limits<float>::quiet_NaN())),
+          Eigen::Matrix3f(Eigen::Vector3f(-1.0f, 1.0f, 1.0f)
+                              .asDiagonal()
+                              .toDenseMatrix())}) {
+      graph.Edges().at(ImagePairToPairId(2, 3)).cam2_from_cam1_rotation_cov =
+          bad_cov;
+      EXPECT_THAT(
+          [&]() {
+            estimator.EstimateRotations(graph, {}, {1, 2, 3}, reconstruction);
+          },
+          testing::ThrowsMessage<std::invalid_argument>(
+              testing::HasSubstr("not finite and positive definite")));
+      EXPECT_EQ(reconstruction.Frames(), before.Frames());
+    }
+  }
+
+  {
+    // A sensor with a finite translation counts as calibrated, so its
+    // non-finite rotation is rejected instead of being refined.
+    Reconstruction reconstruction = MakeRigReconstruction();
+    const PoseGraph graph = MakePoseGraph(reconstruction);
+    const Image& image = reconstruction.Image(RigImages(reconstruction)[0][1]);
+    image.FramePtr()
+        ->RigPtr()
+        ->SensorFromRig(image.CameraPtr()->SensorId())
+        .rotation()
+        .coeffs()
+        .setConstant(std::numeric_limits<double>::quiet_NaN());
+    FlatHashSet<image_t> image_ids;
+    for (const auto& [image_id, _] : reconstruction.Images()) {
+      image_ids.insert(image_id);
+    }
+    const Reconstruction before = reconstruction;
+    options.reweighting = RotationAveragingReweighting::UNIFORM;
+    options.refine_sensor_from_rig = true;
+    RotationEstimator estimator(options);
+    EXPECT_THROW(
+        estimator.EstimateRotations(graph, {}, image_ids, reconstruction),
+        std::invalid_argument);
+    EXPECT_EQ(reconstruction.Frames(), before.Frames());
+    EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
+  }
+
+  {
+    // The averager requires a connected pose graph.
+    Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3, 4});
+    PoseGraph graph;
+    graph.AddEdge(1, 2, Edge(ZRotation(0.1)));
+    graph.AddEdge(3, 4, Edge(ZRotation(0.2)));
+    const Reconstruction before = reconstruction;
+    options.refine_sensor_from_rig = false;
+    RotationEstimator estimator(options);
+    EXPECT_THROW(
+        estimator.EstimateRotations(graph, {}, {1, 2, 3, 4}, reconstruction),
+        std::invalid_argument);
+    EXPECT_EQ(reconstruction.Frames(), before.Frames());
+  }
+}
+
 TEST(RotationEstimatorOptions, DeepCopiesCeresOptions) {
   RotationEstimatorOptions options;
   ASSERT_NE(options.ceres, nullptr);
@@ -499,12 +587,18 @@ double EvaluateCost(CeresRotationAverager& averager) {
   return cost;
 }
 
-TEST(CeresRotationAverager, WhitensAddedRelativeRotationResidual) {
-  const Eigen::Matrix3d cov = AnisotropicCovariance();
+TEST(CeresRotationAverager, CovarianceWhitening) {
+  const Eigen::Matrix3f cov = AnisotropicCovariance().cast<float>();
   RotationEstimatorOptions options;
   options.skip_initialization = true;
   options.refine_sensor_from_rig = false;
   options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
+  // The residuals are whitened with the covariance plus the isotropic floor.
+  options.ceres->covariance_sigma_floor_deg = 0.5;
+  const Eigen::Matrix3d floored_cov =
+      cov.cast<double>() +
+      std::pow(DegToRad(options.ceres->covariance_sigma_floor_deg), 2) *
+          Eigen::Matrix3d::Identity();
 
   // Trivial frames use the fixed-size cost function.
   {
@@ -514,17 +608,20 @@ TEST(CeresRotationAverager, WhitensAddedRelativeRotationResidual) {
         Eigen::Quaterniond(Eigen::AngleAxisd(0.05, Eigen::Vector3d::UnitX()));
     const Eigen::Quaterniond prior = ZRotation(0.2);
     PoseGraph graph;
-    graph.AddEdge(1, 2, Edge(prior));
+    graph.AddEdge(1, 2, Edge(prior)).cam2_from_cam1_rotation_cov = cov;
     const Eigen::Vector3d residual =
         RelativeRotationResidual(prior, RelativeRotation(reconstruction, 1, 2));
 
-    auto averager =
+    options.reweighting = RotationAveragingReweighting::UNIFORM;
+    auto uniform =
         CreateDefaultCeresRotationAverager(options, graph, reconstruction);
-    const double unwhitened = 0.5 * residual.squaredNorm();
-    EXPECT_NEAR(EvaluateCost(*averager), unwhitened, 1e-12);
-    averager->AddRelativeRotationResidual(1, 2, prior, nullptr, cov);
-    EXPECT_NEAR(EvaluateCost(*averager),
-                unwhitened + 0.5 * residual.dot(cov.ldlt().solve(residual)),
+    EXPECT_NEAR(EvaluateCost(*uniform), 0.5 * residual.squaredNorm(), 1e-12);
+
+    options.reweighting = RotationAveragingReweighting::COVARIANCE;
+    auto whitened =
+        CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+    EXPECT_NEAR(EvaluateCost(*whitened),
+                0.5 * residual.dot(floored_cov.ldlt().solve(residual)),
                 1e-9);
   }
 
@@ -540,19 +637,67 @@ TEST(CeresRotationAverager, WhitensAddedRelativeRotationResidual) {
         Eigen::Quaterniond(Eigen::AngleAxisd(0.03, Eigen::Vector3d::UnitY())) *
         estimate;
     PoseGraph graph;
-    graph.AddEdge(image_id1, image_id2, Edge(prior));
+    graph.AddEdge(image_id1, image_id2, Edge(prior))
+        .cam2_from_cam1_rotation_cov = cov;
     const Eigen::Vector3d residual = RelativeRotationResidual(prior, estimate);
 
-    auto averager =
+    options.reweighting = RotationAveragingReweighting::COVARIANCE;
+    auto whitened =
         CreateDefaultCeresRotationAverager(options, graph, reconstruction);
-    const double unwhitened = 0.5 * residual.squaredNorm();
-    EXPECT_NEAR(EvaluateCost(*averager), unwhitened, 1e-12);
-    averager->AddRelativeRotationResidual(
-        image_id1, image_id2, prior, nullptr, cov);
-    EXPECT_NEAR(EvaluateCost(*averager),
-                unwhitened + 0.5 * residual.dot(cov.ldlt().solve(residual)),
+    EXPECT_NEAR(EvaluateCost(*whitened),
+                0.5 * residual.dot(floored_cov.ldlt().solve(residual)),
                 1e-9);
   }
+}
+
+TEST(CeresRotationAverager, CovarianceDownweightsUncertainEdges) {
+  // Inconsistent loop: the 1-3 edge disagrees by 0.1 rad with the others.
+  PoseGraph graph;
+  graph.AddEdge(1, 2, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
+      Eigen::Matrix3f::Identity() * 1e-6f;
+  graph.AddEdge(2, 3, Edge(ZRotation(0.2))).cam2_from_cam1_rotation_cov =
+      Eigen::Matrix3f::Identity() * 1e-6f;
+  graph.AddEdge(1, 3, Edge(ZRotation(0.5))).cam2_from_cam1_rotation_cov =
+      Eigen::Matrix3f::Identity() * 1e-2f;
+  RotationEstimatorOptions options;
+  options.ceres->loss_function_type = CeresLossFunctionType::TRIVIAL;
+  for (const auto reweighting : {RotationAveragingReweighting::UNIFORM,
+                                 RotationAveragingReweighting::COVARIANCE}) {
+    Reconstruction reconstruction = MakeTrivialReconstruction({1, 2, 3});
+    options.reweighting = reweighting;
+    auto averager =
+        CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+    ASSERT_TRUE(averager->Solve().IsSolutionUsable());
+    const double error12 =
+        RelativeRotation(reconstruction, 1, 2).angularDistance(ZRotation(0.2));
+    const double error13 =
+        RelativeRotation(reconstruction, 1, 3).angularDistance(ZRotation(0.5));
+    if (reweighting == RotationAveragingReweighting::UNIFORM) {
+      // The inconsistency is spread evenly over the three edges.
+      EXPECT_NEAR(error12, 0.1 / 3, 1e-4);
+      EXPECT_NEAR(error13, 0.1 / 3, 1e-4);
+    } else {
+      // The uncertain edge absorbs the inconsistency.
+      EXPECT_LT(error12, 1e-4);
+      EXPECT_NEAR(error13, 0.1, 1e-4);
+    }
+  }
+}
+
+TEST(CeresRotationAverager, CovarianceReweightingWithRigs) {
+  const Reconstruction truth = MakeRigReconstruction(2);
+  PoseGraph graph = MakePoseGraph(truth);
+  for (auto& [pair_id, edge] : graph.Edges()) {
+    edge.cam2_from_cam1_rotation_cov = AnisotropicCovariance().cast<float>();
+  }
+  Reconstruction reconstruction = truth;
+  RotationEstimatorOptions options;
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  options.ceres->covariance_loss_scale = 2.0;
+  auto averager =
+      CreateDefaultCeresRotationAverager(options, graph, reconstruction);
+  ASSERT_TRUE(averager->Solve().IsSolutionUsable());
+  ExpectRelativeRotations(reconstruction, graph, 1e-7);
 }
 
 }  // namespace

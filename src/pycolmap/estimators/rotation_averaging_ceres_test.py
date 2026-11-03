@@ -63,3 +63,29 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
     summary = averager.solve()
     assert summary.IsSolutionUsable()
     assert summary.num_threads_given == 2
+
+
+def test_ceres_rotation_averager_covariance_reweighting() -> None:
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 2
+    dataset_options.num_points3D = 10
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    image_id1, image_id2 = sorted(reconstruction.images)
+    edge = pycolmap.PoseGraphEdge(cam2_from_cam1=pycolmap.Rigid3d())
+    edge.cam2_from_cam1_rotation_cov = 1e-4 * np.eye(3)
+    pose_graph = pycolmap.PoseGraph()
+    pose_graph.add_edge(image_id1, image_id2, edge)
+    options = pycolmap.RotationEstimatorOptions()
+    options.reweighting = pycolmap.RotationAveragingReweighting.COVARIANCE
+    pycolmap.create_default_ceres_rotation_averager(
+        options, pose_graph, reconstruction
+    )
+
+    edge.cam2_from_cam1_rotation_cov = None
+    pose_graph.update_edge(image_id1, image_id2, edge)
+    with pytest.raises(ValueError):
+        pycolmap.create_default_ceres_rotation_averager(
+            options, pose_graph, reconstruction
+        )
