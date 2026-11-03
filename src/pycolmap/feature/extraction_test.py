@@ -246,13 +246,11 @@ GPU_EXTRACTOR_TYPES = [
 ]
 
 # Same list, but the SIFT-GPU parameter is marked, for the tests that assert the
-# >= 12 keypoint floor on the synthetic square. Upstream SiftGPU's detector is
-# not content-deterministic: measured over 12 fresh processes it returned 24
-# keypoints 9 times and 8, 16 and 20 once each -- four different descriptor sets
-# for one input. Below 12 the floor fails, so those tests flake ~1 run in 10
-# through no fault of cusift, which returned a bit-identical set of 22 in all 12
-# (upstream colmap#1197, open since 2021; upstream CI excludes feature/sift_test
-# on every CUDA config for the same reason).
+# >= 12 keypoint floor on the synthetic square. SiftGPU has been reported to
+# return different keypoints for the same image across runs (colmap#1197); on
+# setups where that happens, a run can fall below the floor through no fault of
+# cusift. cusift's own run-to-run determinism is tested directly in
+# cusift_determinism_test.py and in the C++ feature/cusift_determinism_test.
 #
 # Marked rather than removed so the SIFT path keeps its coverage by default, and
 # rather than applied to GPU_EXTRACTOR_TYPES wholesale so the three tests that

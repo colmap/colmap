@@ -120,6 +120,11 @@ if(CUDA_ENABLED)
         SRCS cusift_matcher_test.cc
         LINK_LIBS colmap_feature
     )
+    COLMAP_ADD_TEST(
+        NAME cusift_determinism_test
+        SRCS cusift_determinism_test.cc
+        LINK_LIBS colmap_feature
+    )
 endif()
 COLMAP_ADD_TEST(
     NAME extractor_test
