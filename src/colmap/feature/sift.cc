@@ -1624,9 +1624,19 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
   THROW_CHECK_NOTNULL(options.sift);
-  if (options.type == FeatureMatcherType::SIFT_LIGHTGLUE) {
+  // Reaching this factory with UNDEFINED (=auto) means the caller has already
+  // committed to the SIFT family: either FeatureMatcher::Create resolved to a
+  // SIFT type and dispatched here, or -- since sift.h is public API -- a
+  // caller invoked this factory directly with default-constructed options.
+  // Brute force is the SIFT-family default, i.e. what `type` itself defaulted
+  // to before auto-selection existed, so this keeps direct use unchanged.
+  const FeatureMatcherType type =
+      (options.type == FeatureMatcherType::UNDEFINED)
+          ? FeatureMatcherType::SIFT_BRUTEFORCE
+          : options.type;
+  if (type == FeatureMatcherType::SIFT_LIGHTGLUE) {
     return CreateLightGlueONNXFeatureMatcher(options, options.sift->lightglue);
-  } else if (options.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
+  } else if (type == FeatureMatcherType::SIFT_BRUTEFORCE) {
     if (options.use_gpu) {
 #ifdef COLMAP_GPU_ENABLED
       LOG(INFO) << "Creating SIFT GPU feature matcher";
@@ -1640,7 +1650,7 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     }
   } else {
     LOG(FATAL_THROW) << "Unknown SIFT feature matcher type: "
-                     << FeatureMatcherTypeToString(options.type);
+                     << FeatureMatcherTypeToString(type);
   }
   return nullptr;
 }

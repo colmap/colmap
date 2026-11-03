@@ -21,6 +21,7 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/flexglue.h"
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #if defined(COLMAP_MVS_ENABLED)
@@ -464,6 +465,18 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->flexglue->matcher_model_path_fp16);
   AddDefaultOption("FlexGlueMatching.use_fp16",
                    &feature_matching->flexglue->use_fp16);
+  AddDefaultOption("CusiftMatching.max_ratio",
+                   &feature_matching->cusift->max_ratio);
+  AddDefaultOption("CusiftMatching.max_distance",
+                   &feature_matching->cusift->max_distance);
+  AddDefaultOption("CusiftMatching.cross_check",
+                   &feature_matching->cusift->cross_check);
+  AddDefaultOption("CusiftMatching.cross_check_reverse_ratio",
+                   &feature_matching->cusift->cross_check_reverse_ratio);
+  AddDefaultEnumOption("CusiftMatching.distance_type",
+                       &feature_matching->cusift->distance_type,
+                       CusiftDistanceTypeToString,
+                       CusiftDistanceTypeFromString);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {

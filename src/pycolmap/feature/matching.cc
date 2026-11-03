@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
@@ -84,7 +85,8 @@ void BindFeatureMatching(py::module& m) {
       .value("LOMA_R", FeatureMatcherType::LOMA_R)
       .value("LOMA_L", FeatureMatcherType::LOMA_L)
       .value("LOMA_G", FeatureMatcherType::LOMA_G)
-      .value("FLEXGLUE", FeatureMatcherType::FLEXGLUE);
+      .value("FLEXGLUE", FeatureMatcherType::FLEXGLUE)
+      .value("CUSIFT_GEMM", FeatureMatcherType::CUSIFT_GEMM);
 
 #ifdef COLMAP_ONNX_ENABLED
   auto PyBruteForceONNXMatchingOptions =
@@ -245,10 +247,52 @@ void BindFeatureMatching(py::module& m) {
           .def("check", &SiftMatchingOptions::Check);
   MakeDataclass(PySiftMatchingOptions);
 
+  auto PyCusiftDistanceType =
+      py::enum_<CusiftDistanceType>(m, "CusiftDistanceType")
+          .value("L2", CusiftDistanceType::L2)
+          .value("ANGULAR", CusiftDistanceType::ANGULAR);
+  AddStringToEnumConstructor(PyCusiftDistanceType);
+
+  auto PyCusiftMatchingOptions =
+      py::classh<CusiftMatchingOptions>(m, "CusiftMatchingOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "max_ratio",
+              &CusiftMatchingOptions::max_ratio,
+              "Maximum distance ratio between first and second best match. "
+              "Same convention as SiftMatchingOptions.max_ratio.")
+          .def_readwrite(
+              "max_distance",
+              &CusiftMatchingOptions::max_distance,
+              "Maximum unit-vector L2 distance to the best match. Same "
+              "convention as SiftMatchingOptions.max_distance, equivalent up "
+              "to quantization of COLMAP's fixed 512-descriptor-norm "
+              "convention.")
+          .def_readwrite("cross_check",
+                         &CusiftMatchingOptions::cross_check,
+                         "Whether to enable cross checking in matching.")
+          .def_readwrite(
+              "cross_check_reverse_ratio",
+              &CusiftMatchingOptions::cross_check_reverse_ratio,
+              "When cross_check is enabled, whether the ratio test is also "
+              "applied in the reverse direction, as both of COLMAP's other "
+              "SIFT matchers do. Disabling it requires only mutual-best "
+              "agreement: weaker at rejecting non-overlapping image pairs.")
+          .def_readwrite(
+              "distance_type",
+              &CusiftMatchingOptions::distance_type,
+              "Metric space for the ratio test and max_distance: L2 (COLMAP's "
+              "CPU/VLFeat convention, the default) or ANGULAR (SiftGPU's). "
+              "Note this changes the units of max_distance.")
+          .def("check", &CusiftMatchingOptions::Check);
+  MakeDataclass(PyCusiftMatchingOptions);
+
   auto PyFeatureMatchingOptions =
       py::classh<FeatureMatchingOptions>(m, "FeatureMatchingOptions")
+          // UNDEFINED = auto (prefers cusift on GPU) -- see the equivalent
+          // note in pycolmap/feature/extraction.cc.
           .def(py::init<FeatureMatcherType>(),
-               "type"_a = FeatureMatcherType::SIFT_BRUTEFORCE)
+               "type"_a = FeatureMatcherType::UNDEFINED)
           .def_readwrite("type", &FeatureMatchingOptions::type)
           .def_readwrite("num_threads", &FeatureMatchingOptions::num_threads)
           .def_readwrite("use_gpu", &FeatureMatchingOptions::use_gpu)
@@ -285,6 +329,7 @@ void BindFeatureMatching(py::module& m) {
               "Whether to skip matching images within the same frame. This is "
               "useful for the case of non-overlapping cameras in a rig.")
           .def_readwrite("sift", &FeatureMatchingOptions::sift)
+          .def_readwrite("cusift", &FeatureMatchingOptions::cusift)
           .def("check", &FeatureMatchingOptions::Check);
 #ifdef COLMAP_ONNX_ENABLED
   PyFeatureMatchingOptions.def_readwrite("aliked",

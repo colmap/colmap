@@ -449,6 +449,8 @@ endif()
 if(CUDA_ENABLED OR HIP_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
+         # Third-party.
+         colmap_cusift
     )
     if(MVS_ENABLED)
         list(APPEND COLMAP_EXPORT_LIBS colmap_mvs_cuda)

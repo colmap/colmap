@@ -30,9 +30,15 @@ struct FeatureExtractionTypeOptions {
 
 struct FeatureExtractionOptions : public FeatureExtractionTypeOptions {
   explicit FeatureExtractionOptions(
-      FeatureExtractorType type = FeatureExtractorType::SIFT);
+      FeatureExtractorType type = FeatureExtractorType::UNDEFINED);
 
-  FeatureExtractorType type = FeatureExtractorType::SIFT;
+  // UNDEFINED means AUTO, not "unset": it defers the choice to ResolvedType(),
+  // which prefers cusift on GPU. Any other value is an explicit request and is
+  // always honored. The distinction is the whole point of defaulting to
+  // UNDEFINED rather than to SIFT -- with SIFT as the default there is no way
+  // to tell "the user asked for SIFT" from "the user said nothing", so an
+  // explicit --FeatureExtraction.type SIFT could not be respected.
+  FeatureExtractorType type = FeatureExtractorType::UNDEFINED;
 
   // Maximum image size, otherwise image will be down-scaled.
   // If max_image_size is non-positive, the appropriate size is selected
@@ -52,6 +58,18 @@ struct FeatureExtractionOptions : public FeatureExtractionTypeOptions {
   // Index of the GPU used for feature extraction. For multi-GPU extraction,
   // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
   std::string gpu_index = "-1";
+
+  // The extractor actually used, resolving UNDEFINED (=auto) to a concrete
+  // type. Every decision inside COLMAP switches on this rather than on `type`,
+  // so auto never leaks past this point.
+  //
+  // Auto resolves to CUSIFT when the GPU is in play, and to SIFT otherwise.
+  // The fallbacks are not preferences but hard requirements: cusift is CUDA
+  // only (no CPU path), and CusiftFeatureExtractor THROW_CHECKs on the three
+  // covariant SIFT options below, which it does not implement. Silently
+  // auto-selecting it there would turn a working CPU covariant configuration
+  // into a crash, so auto declines it and leaves SIFT in place.
+  FeatureExtractorType ResolvedType() const;
 
   // Whether the selected extractor requires RGB (or grayscale) images.
   bool RequiresRGB() const;
