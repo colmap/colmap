@@ -2,12 +2,14 @@
 
 #pragma once
 
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/hash_containers.h"
 
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -139,8 +141,8 @@ struct IncrementalPipelineOptions {
   bool use_robust_loss_on_prior_position = false;
 
   // Threshold on the residual for the robust position prior loss
-  // (chi2 for 3DOF at 95% = 7.815).
-  double prior_position_loss_scale = 7.815;
+  // (sqrt of chi2 for 3DOF at 95% = 2.795).
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
