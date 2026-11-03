@@ -5,10 +5,6 @@
 #include <cstdio>
 #include <iostream>
 
-#ifdef WIN32
-#include <intrin.h>
-#endif
-
 #define safeCall(err)       __safeCall(err, __FILE__, __LINE__)
 #define safeThreadSync()    __safeThreadSync(__FILE__, __LINE__)
 #define checkMsg(msg)       __checkMsg(msg, __FILE__, __LINE__)
@@ -112,32 +108,6 @@ public:
     cudaEventSynchronize(stop); 
     float time;
     cudaEventElapsedTime(&time, start, stop);
-    return time;
-  }
-};
-
-class TimerCPU
-{
-  static const int bits = 10;
-public:
-  long long beg_clock;
-  float freq;
-  TimerCPU(float freq_) : freq(freq_) {   // freq = clock frequency in MHz
-    beg_clock = getTSC(bits);
-  }
-  long long getTSC(int bits) {
-#ifdef WIN32
-    return __rdtsc()/(1LL<<bits);
-#else
-    unsigned int low, high;
-    __asm__(".byte 0x0f, 0x31" :"=a" (low), "=d" (high));
-    return ((long long)high<<(32-bits)) | ((long long)low>>bits);
-#endif
-  }
-  float read() {
-    long long end_clock = getTSC(bits);
-    long long Kcycles = end_clock - beg_clock;
-    float time = (float)(1<<bits)*Kcycles/freq/1e3f;
     return time;
   }
 };
