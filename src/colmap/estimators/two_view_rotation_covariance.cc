@@ -7,9 +7,18 @@
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
+#include "colmap/scene/correspondence_graph.h"
+#include "colmap/scene/database_cache.h"
+#include "colmap/scene/pose_graph.h"
+#include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
+#include "colmap/util/string.h"
+#include "colmap/util/threading.h"
+#include "colmap/util/timer.h"
+#include "colmap/util/types.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 
 #include <Eigen/Cholesky>
@@ -217,6 +226,118 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewRotationCovariance(
 
   return RotationCovarianceFromInformation(*rotation_information,
                                            options.max_rotation_sigma_deg);
+}
+
+namespace {
+
+FlatHashMap<image_t, std::vector<Eigen::Vector2d>> ExtractImagePoints(
+    const DatabaseCache& database_cache,
+    const FlatHashSet<image_t>& image_ids) {
+  FlatHashMap<image_t, std::vector<Eigen::Vector2d>> image_points;
+  image_points.reserve(image_ids.size());
+  for (const image_t image_id : image_ids) {
+    const Image& image = database_cache.Image(image_id);
+    std::vector<Eigen::Vector2d> points;
+    points.reserve(image.NumPoints2D());
+    for (const Point2D& point : image.Points2D()) {
+      points.push_back(point.xy);
+    }
+    image_points.emplace(image_id, std::move(points));
+  }
+  return image_points;
+}
+
+// Estimates the rotation covariance of a pose graph edge, evaluated at its
+// relative pose rather than at the one stored in the correspondence graph.
+std::optional<Eigen::Matrix3f> EstimateEdgeRotationCovariance(
+    const DatabaseCache& database_cache,
+    const CorrespondenceGraph& correspondence_graph,
+    const FlatHashMap<image_t, std::vector<Eigen::Vector2d>>& image_points,
+    image_pair_t pair_id,
+    const Rigid3d& cam2_from_cam1,
+    const TwoViewRotationCovarianceOptions& options) {
+  const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+  if (correspondence_graph.NumMatchesBetweenImages(image_id1, image_id2) == 0) {
+    return std::nullopt;
+  }
+  TwoViewGeometry two_view_geometry =
+      correspondence_graph.ExtractTwoViewGeometry(
+          image_id1, image_id2, /*extract_inlier_matches=*/true);
+  two_view_geometry.cam2_from_cam1 = cam2_from_cam1;
+
+  const std::optional<Eigen::Matrix3d> cov = EstimateTwoViewRotationCovariance(
+      database_cache.Camera(database_cache.Image(image_id1).CameraId()),
+      image_points.at(image_id1),
+      database_cache.Camera(database_cache.Image(image_id2).CameraId()),
+      image_points.at(image_id2),
+      two_view_geometry,
+      options);
+  if (!cov.has_value()) {
+    return std::nullopt;
+  }
+  return cov->cast<float>();
+}
+
+}  // namespace
+
+void EstimatePoseGraphRotationCovariances(
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph,
+    const TwoViewRotationCovarianceOptions& options,
+    int num_threads) {
+  THROW_CHECK(options.Check());
+  Timer timer;
+  timer.Start();
+
+  std::vector<std::pair<image_pair_t, PoseGraph::Edge*>> edges;
+  edges.reserve(pose_graph.NumEdges());
+  FlatHashSet<image_t> image_ids;
+  for (auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (!edge.valid || edge.cam2_from_cam1_rotation_cov.has_value()) {
+      continue;
+    }
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!database_cache.ExistsImage(image_id1) ||
+        !database_cache.ExistsImage(image_id2)) {
+      continue;
+    }
+    image_ids.insert(image_id1);
+    image_ids.insert(image_id2);
+    edges.emplace_back(pair_id, &edge);
+  }
+
+  if (edges.empty()) {
+    return;
+  }
+
+  const auto image_points = ExtractImagePoints(database_cache, image_ids);
+  const auto correspondence_graph = database_cache.CorrespondenceGraph();
+
+  std::atomic<size_t> num_failed(0);
+  ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
+  for (const auto& pair_id_and_edge : edges) {
+    const image_pair_t pair_id = pair_id_and_edge.first;
+    PoseGraph::Edge* edge = pair_id_and_edge.second;
+    thread_pool.AddTask([&, pair_id, edge]() {
+      edge->cam2_from_cam1_rotation_cov =
+          EstimateEdgeRotationCovariance(database_cache,
+                                         *correspondence_graph,
+                                         image_points,
+                                         pair_id,
+                                         edge->cam2_from_cam1,
+                                         options);
+      if (!edge->cam2_from_cam1_rotation_cov.has_value()) {
+        num_failed.fetch_add(1, std::memory_order_relaxed);
+      }
+    });
+  }
+  thread_pool.Wait();
+
+  LOG(INFO) << StringPrintf(
+      "Estimated %zu two-view rotation covariances (%zu failed) in %.3fs",
+      edges.size(),
+      num_failed.load(),
+      timer.ElapsedSeconds());
 }
 
 }  // namespace colmap

@@ -63,3 +63,16 @@ def test_estimate_two_view_rotation_covariance(
     assert (
         pycolmap.estimate_two_view_rotation_covariance(*args, geometry) is None
     )
+
+
+def test_estimate_pose_graph_rotation_covariances(
+    scene: tuple[pycolmap.DatabaseCache, pycolmap.PoseGraph],
+) -> None:
+    database_cache, pose_graph = scene
+    for edge in pose_graph.edges.values():
+        assert edge.cam2_from_cam1_rotation_cov is None
+    pycolmap.estimate_pose_graph_rotation_covariances(
+        database_cache, pose_graph, num_threads=1
+    )
+    for edge in pose_graph.edges.values():
+        assert edge.cam2_from_cam1_rotation_cov is not None

@@ -12,6 +12,9 @@
 
 namespace colmap {
 
+class DatabaseCache;
+class PoseGraph;
+
 struct TwoViewRotationCovarianceOptions {
   // Standard deviation of the 2D image point observations in pixels.
   double point2D_stddev_px = 1.0;
@@ -38,5 +41,16 @@ std::optional<Eigen::Matrix3d> EstimateTwoViewRotationCovariance(
     const TwoViewGeometry& geometry,
     const TwoViewRotationCovarianceOptions& options =
         TwoViewRotationCovarianceOptions());
+
+// Populate `edge.cam2_from_cam1_rotation_cov` in parallel, with `num_threads`
+// threads (-1 = auto), for all valid edges in `pose_graph` that do not already
+// have a rotation covariance set. Edges whose rotation covariance cannot be
+// estimated are left unset.
+void EstimatePoseGraphRotationCovariances(
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph,
+    const TwoViewRotationCovarianceOptions& options =
+        TwoViewRotationCovarianceOptions(),
+    int num_threads = -1);
 
 }  // namespace colmap

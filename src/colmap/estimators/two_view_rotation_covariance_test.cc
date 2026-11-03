@@ -8,6 +8,9 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -16,7 +19,6 @@
 #include <cmath>
 #include <limits>
 
-#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
@@ -302,6 +304,10 @@ TEST(TwoViewRotationCovarianceOptions, Check) {
   EXPECT_THROW(EstimateTwoViewRotationCovariance(
                    camera, {}, camera, {}, geometry, options),
                std::invalid_argument);
+  DatabaseCache cache;
+  PoseGraph pose_graph;
+  EXPECT_THROW(EstimatePoseGraphRotationCovariances(cache, pose_graph, options),
+               std::invalid_argument);
 }
 
 TEST(EstimateTwoViewRotationCovariance, Nominal) {
@@ -372,8 +378,8 @@ TEST(EstimateTwoViewRotationCovariance, UnconstrainedAxisIsCapped) {
   EXPECT_GT(eig.eigenvalues()(0), 0);
 
   // Even when the constrained axes are very certain along an oblique ray, the
-  // relative variance floor keeps the covariance positive-definite in single
-  // precision.
+  // relative variance floor keeps the single-precision edge covariance
+  // positive-definite across inversions.
   const Camera telephoto_camera = Camera::CreateFromModelId(
       /*camera_id=*/1,
       SimplePinholeCameraModel::model_id,
@@ -390,8 +396,18 @@ TEST(EstimateTwoViewRotationCovariance, UnconstrainedAxisIsCapped) {
                                         geometry,
                                         options);
   ASSERT_TRUE(extreme_cov.has_value());
-  EXPECT_EQ(Eigen::LLT<Eigen::Matrix3f>(extreme_cov->cast<float>()).info(),
-            Eigen::Success);
+  PoseGraph::Edge edge(
+      Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                  0.7, Eigen::Vector3d(1.0, 2.0, 3.0).normalized())),
+              Eigen::Vector3d::Zero()));
+  edge.cam2_from_cam1_rotation_cov = extreme_cov->cast<float>();
+  EXPECT_EQ(
+      Eigen::LLT<Eigen::Matrix3f>(*edge.cam2_from_cam1_rotation_cov).info(),
+      Eigen::Success);
+  edge.Invert();
+  EXPECT_EQ(
+      Eigen::LLT<Eigen::Matrix3f>(*edge.cam2_from_cam1_rotation_cov).info(),
+      Eigen::Success);
 }
 
 TEST(EstimateTwoViewRotationCovariance, MissingPoseOrTooFewInliers) {
@@ -415,6 +431,71 @@ TEST(EstimateTwoViewRotationCovariance, MissingPoseOrTooFewInliers) {
       EstimateTwoViewRotationCovariance(
           data.camera1, data.points1, data.camera2, data.points2, geometry)
           .has_value());
+}
+
+TEST(EstimatePoseGraphRotationCovariances, Nominal) {
+  const auto database_path = CreateTestDir() / "database.db";
+  auto database = Database::Open(database_path);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.camera_has_prior_focal_length = true;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction, database.get());
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction, database.get());
+
+  auto cache = DatabaseCache::Create(*database, DatabaseCache::Options());
+  PoseGraph pose_graph;
+  pose_graph.Load(*cache->CorrespondenceGraph());
+  ASSERT_EQ(pose_graph.NumEdges(), 6);
+
+  // Pre-populated covariances are preserved.
+  const image_pair_t preset_pair_id = pose_graph.Edges().begin()->first;
+  const Eigen::Matrix3f preset_cov = 2.0f * Eigen::Matrix3f::Identity();
+  pose_graph.Edges().begin()->second.cam2_from_cam1_rotation_cov = preset_cov;
+
+  // Poorly constrained rotations are capped to the maximum sigma.
+  PoseGraph capped_pose_graph = pose_graph;
+  TwoViewRotationCovarianceOptions options;
+  options.max_rotation_sigma_deg = 1e-6;
+  const double max_variance =
+      std::pow(DegToRad(options.max_rotation_sigma_deg), 2);
+  EstimatePoseGraphRotationCovariances(*cache, capped_pose_graph, options);
+  for (const auto& [pair_id, edge] : capped_pose_graph.Edges()) {
+    ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
+    if (pair_id == preset_pair_id) {
+      continue;
+    }
+    const Eigen::Vector3d eigvals =
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
+            edge.cam2_from_cam1_rotation_cov->cast<double>())
+            .eigenvalues();
+    EXPECT_NEAR(eigvals(2), max_variance, 1e-5 * max_variance);
+  }
+
+  options = TwoViewRotationCovarianceOptions();
+  EstimatePoseGraphRotationCovariances(*cache, pose_graph, options);
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    ASSERT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
+    if (pair_id == preset_pair_id) {
+      EXPECT_EQ(*edge.cam2_from_cam1_rotation_cov, preset_cov);
+      continue;
+    }
+    EXPECT_EQ(*edge.cam2_from_cam1_rotation_cov,
+              edge.cam2_from_cam1_rotation_cov->transpose());
+    const Eigen::Vector3d eigvals =
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d>(
+            edge.cam2_from_cam1_rotation_cov->cast<double>())
+            .eigenvalues();
+    EXPECT_GT(eigvals(0), 0);
+    // Well-constrained synthetic pairs are certain to below a degree.
+    EXPECT_LT(eigvals(2), DegToRad(1.0) * DegToRad(1.0));
+  }
 }
 
 }  // namespace
