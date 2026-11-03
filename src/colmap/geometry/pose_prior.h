@@ -8,6 +8,7 @@
 
 #include <optional>
 #include <ostream>
+#include <vector>
 
 #include <Eigen/Core>
 
@@ -58,5 +59,11 @@ std::optional<Eigen::Vector3d> GravityFromExifOrientation(int orientation);
 // Returns the number of 90 deg counter-clockwise rotations needed to make the
 // sensor upright.
 int ComputeRot90FromGravity(const Eigen::Vector3d& gravity);
+
+// Convert WGS84 pose prior positions in-place to Cartesian ENU coordinates
+// anchored at the first finite WGS84 position. Priors without a finite position
+// (e.g., gravity-only priors) are skipped. Throws if finite-position priors mix
+// coordinate systems.
+void ConvertPosePriorsToENU(std::vector<PosePrior>& pose_priors);
 
 }  // namespace colmap
