@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import copy
+
 import pycolmap
 
 
@@ -159,3 +161,12 @@ def test_pose_graph_add_rig_edges() -> None:
     assert edge.prior is True
     assert edge.valid is False
     assert edge.num_matches == 0
+
+
+def test_pose_graph_copy() -> None:
+    graph = pycolmap.PoseGraph()
+    graph.add_edge(1, 2, pycolmap.PoseGraphEdge(num_matches=12))
+    for copied in (copy.copy(graph), copy.deepcopy(graph)):
+        assert copied.get_edge(1, 2).num_matches == 12
+        copied.delete_edge(1, 2)
+        assert graph.has_edge(1, 2)
