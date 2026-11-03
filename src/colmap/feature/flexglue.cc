@@ -274,10 +274,20 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         dense_cache_.Get(std::string(image1.name));
     const std::shared_ptr<DenseFeatures> dense2 =
         dense_cache_.Get(std::string(image2.name));
-    std::array<float, 2> image_size1 = ImageSize(image1, *dense1);
-    std::array<float, 2> image_size2 = ImageSize(image2, *dense2);
-    std::vector<float> kpts1 = KeypointsToTensorData(*image1.keypoints);
-    std::vector<float> kpts2 = KeypointsToTensorData(*image2.keypoints);
+    const std::array<float, 2> image_size1 = ImageSize(image1, *dense1);
+    const std::array<float, 2> image_size2 = ImageSize(image2, *dense2);
+    // Rescale the keypoints from the original image frame to the resized
+    // descriptor input frame (512x512 by default) and pass that size to the
+    // matcher, so that mutual nearest-neighbor search and max_distance_px
+    // operate in the descriptor input frame (see cvg/FlexGlue#16). This gives
+    // identical results with models exported before and after cvg/FlexGlue#16.
+    std::array<float, 2> descriptor_size = {
+        static_cast<float>(descriptor_width_),
+        static_cast<float>(descriptor_height_)};
+    std::vector<float> kpts1 =
+        KeypointsToTensorData(*image1.keypoints, image_size1, descriptor_size);
+    std::vector<float> kpts2 =
+        KeypointsToTensorData(*image2.keypoints, image_size2, descriptor_size);
 
     const std::vector<int64_t> kpts1_shape = {1, num_keypoints1, 2};
     const std::vector<int64_t> kpts2_shape = {1, num_keypoints2, 2};
@@ -303,10 +313,10 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         inputs.push_back(CreateONNXTensor(kpts2, kpts2_shape));
       } else if (name == "image_size0") {
         inputs.push_back(
-            CreateONNXTensor(image_size1.data(), 2, image_size_shape));
+            CreateONNXTensor(descriptor_size.data(), 2, image_size_shape));
       } else if (name == "image_size1") {
         inputs.push_back(
-            CreateONNXTensor(image_size2.data(), 2, image_size_shape));
+            CreateONNXTensor(descriptor_size.data(), 2, image_size_shape));
       } else if (name == "filter_threshold") {
         inputs.push_back(CreateONNXScalarTensor(filter_threshold));
       } else if (name == "max_distance_px") {
@@ -356,13 +366,20 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
 
  private:
   // COLMAP and FlexGlue both place the origin at the upper left image corner,
-  // i.e., the center of the upper left pixel is at (0.5, 0.5).
+  // i.e., the center of the upper left pixel is at (0.5, 0.5), which scales
+  // linearly with the image dimensions when squashing to target_size.
   static std::vector<float> KeypointsToTensorData(
-      const FeatureKeypoints& keypoints) {
+      const FeatureKeypoints& keypoints,
+      const std::array<float, 2>& image_size,
+      const std::array<float, 2>& target_size) {
+    THROW_CHECK_GT(image_size[0], 0);
+    THROW_CHECK_GT(image_size[1], 0);
+    const float scale_x = target_size[0] / image_size[0];
+    const float scale_y = target_size[1] / image_size[1];
     std::vector<float> data(2 * keypoints.size());
     for (size_t i = 0; i < keypoints.size(); ++i) {
-      data[2 * i + 0] = keypoints[i].x;
-      data[2 * i + 1] = keypoints[i].y;
+      data[2 * i + 0] = keypoints[i].x * scale_x;
+      data[2 * i + 1] = keypoints[i].y * scale_y;
     }
     return data;
   }

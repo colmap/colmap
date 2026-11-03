@@ -220,6 +220,36 @@ TEST_F(FlexGlueTest, MatchTranslatedImages) {
   // Matching the same pair again reuses the cached dense features and must
   // give identical results.
   EXPECT_EQ(Match(matcher_.get(), keypoints1, keypoints2), matches);
+
+  // Mutual nearest-neighbor distances and max_distance_px operate in the
+  // resized descriptor input frame, so anisotropically rescaling an image's
+  // camera dimensions and keypoints must leave the matches unchanged.
+  FeatureKeypoints rescaled_keypoints2;
+  rescaled_keypoints2.reserve(keypoints2.size());
+  for (const FeatureKeypoint& kp : keypoints2) {
+    rescaled_keypoints2.emplace_back(4.f * kp.x, 2.f * kp.y);
+  }
+  const Camera camera1 = Camera::CreateFromModelId(
+      1, CameraModelId::kPinhole, 500, kWidth, kHeight);
+  const Camera camera2 = Camera::CreateFromModelId(
+      2, CameraModelId::kPinhole, 1500, 4 * kWidth, 2 * kHeight);
+  const FeatureMatcher::Image image1{
+      /*image_id=*/1,
+      &camera1,
+      std::make_shared<FeatureKeypoints>(keypoints1),
+      /*descriptors=*/nullptr,
+      /*pose_prior=*/nullptr,
+      /*name=*/"image1.png"};
+  const FeatureMatcher::Image image2{
+      /*image_id=*/2,
+      &camera2,
+      std::make_shared<FeatureKeypoints>(rescaled_keypoints2),
+      /*descriptors=*/nullptr,
+      /*pose_prior=*/nullptr,
+      /*name=*/"image2.png"};
+  FeatureMatches rescaled_matches;
+  matcher_->Match(image1, image2, &rescaled_matches);
+  EXPECT_EQ(rescaled_matches, matches);
 }
 
 TEST_F(FlexGlueTest, HeavyMinCovisibilityRejectsAllMatches) {
