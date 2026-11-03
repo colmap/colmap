@@ -53,8 +53,11 @@ void BindCeresRotationAverager(py::module& m) {
            "image_id2"_a,
            "cam2_from_cam1"_a,
            "loss"_a,
+           "cam2_from_cam1_cov"_a = py::none(),
            "Add a relative-rotation residual between images whose frame and "
-           "sensor rotations are configured in the problem.")
+           "sensor rotations are configured in the problem. If given, the "
+           "residual is whitened with the 3x3 covariance of the relative "
+           "rotation, expressed in the frame of camera 1.")
       .def_property_readonly(
           "problem",
           py::overload_cast<>(&CeresRotationAverager::Problem),

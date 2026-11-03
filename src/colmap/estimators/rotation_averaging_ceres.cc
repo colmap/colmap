@@ -192,7 +192,8 @@ void CeresRotationAverager::AddRelativeRotationResidual(
     const image_t image_id1,
     const image_t image_id2,
     const Eigen::Quaterniond& cam2_from_cam1,
-    const std::shared_ptr<ceres::LossFunction>& loss_function) {
+    const std::shared_ptr<ceres::LossFunction>& loss_function,
+    const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov) {
   const Image& image1 = reconstruction_.Image(image_id1);
   const Image& image2 = reconstruction_.Image(image_id2);
   Frame& frame1 = *image1.FramePtr();
@@ -219,10 +220,17 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   if (loss != nullptr) {
     losses_.try_emplace(loss, loss_function);
   }
+  // Whitens the residual with the covariance of the relative rotation, if any.
+  const auto maybe_whiten = [&](ceres::CostFunction* cost_function) {
+    return cam2_from_cam1_cov.has_value()
+               ? new DynamicCovarianceWeightedCostFunction<3>(
+                     *cam2_from_cam1_cov, cost_function)
+               : cost_function;
+  };
   if (sensor1_from_rig_rot_ptr == nullptr &&
       sensor2_from_rig_rot_ptr == nullptr && !same_frame) {
     problem_->AddResidualBlock(
-        RelativeRotationCostFunctor::Create(cam2_from_cam1),
+        maybe_whiten(RelativeRotationCostFunctor::Create(cam2_from_cam1)),
         loss,
         rig1_from_world_rot_ptr,
         rig2_from_world_rot_ptr);
@@ -252,7 +260,8 @@ void CeresRotationAverager::AddRelativeRotationResidual(
   for (size_t i = 0; i < parameter_blocks.size(); ++i)
     cost_function->AddParameterBlock(4);
   cost_function->SetNumResiduals(3);
-  problem_->AddResidualBlock(cost_function, loss, parameter_blocks);
+  problem_->AddResidualBlock(
+      maybe_whiten(cost_function), loss, parameter_blocks);
 }
 
 std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
