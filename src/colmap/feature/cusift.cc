@@ -35,6 +35,9 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
+#include <algorithm>
+#include <cmath>
+
 #ifdef COLMAP_CUDA_ENABLED
 #include <array>
 #include <vector>
@@ -134,18 +137,20 @@ class CusiftFeatureExtractor : public FeatureExtractor {
     sigma_.clear();
     orientation_.clear();
     descriptors_.clear();
-    ExtractSiftFullVLFeat(image,
-                          options_.sift->num_octaves,
-                          static_cast<float>(options_.sift->peak_threshold),
-                          static_cast<float>(options_.sift->edge_threshold),
-                          options_.sift->max_num_orientations,
-                          options_.sift->first_octave,
-                          options_.sift->max_num_features,
-                          x_,
-                          y_,
-                          sigma_,
-                          orientation_,
-                          descriptors_);
+    ExtractSiftFullVLFeat(
+        image,
+        CusiftNumOctaves(
+            bitmap.Width(), bitmap.Height(), options_.sift->first_octave),
+        static_cast<float>(options_.sift->peak_threshold),
+        static_cast<float>(options_.sift->edge_threshold),
+        options_.sift->max_num_orientations,
+        options_.sift->first_octave,
+        options_.sift->max_num_features,
+        x_,
+        y_,
+        sigma_,
+        orientation_,
+        descriptors_);
 
     const size_t num_features = x_.size();
 
@@ -219,6 +224,20 @@ class CusiftFeatureExtractor : public FeatureExtractor {
 #endif  // COLMAP_CUDA_ENABLED
 
 }  // namespace
+
+int CusiftNumOctaves(const int width,
+                     const int height,
+                     const int first_octave) {
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  // SiftGPU upsamples by 2^-first_octave (or downsamples by 2^first_octave)
+  // before counting, so each step of first_octave shifts the count by one.
+  const int min_side = std::min(width, height);
+  const int num_octaves =
+      static_cast<int>(std::floor(std::log2(static_cast<double>(min_side)))) -
+      first_octave - 3;
+  return std::max(num_octaves, 1);
+}
 
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
     const FeatureExtractionOptions& options) {

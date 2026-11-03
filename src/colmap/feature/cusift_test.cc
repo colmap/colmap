@@ -74,6 +74,23 @@ FeatureExtractionOptions CreateCusiftOptions() {
   return options;
 }
 
+TEST(CusiftNumOctaves, FollowsSiftGpu) {
+  // SiftGPU's rule (PyramidCU::ResizePyramid): floor(log2(min side)) - 3,
+  // counted after first_octave's resampling, and at least 1.
+  // 1080p at first_octave -1: upsampled min side 2160 -> 11 - 3 = 8.
+  EXPECT_EQ(CusiftNumOctaves(1920, 1080, -1), 8);
+  // 4K 8:7 frames after max_image_size 3200: 3200 x 2800, upsampled 5600 -> 9.
+  EXPECT_EQ(CusiftNumOctaves(3200, 2800, -1), 9);
+  // first_octave 0 counts on the image as given: one octave fewer.
+  EXPECT_EQ(CusiftNumOctaves(1920, 1080, 0), 7);
+  // Only the shorter side matters.
+  EXPECT_EQ(CusiftNumOctaves(1080, 1920, -1), 8);
+  // Exactly at a power of two, and tiny images clamp to one octave.
+  EXPECT_EQ(CusiftNumOctaves(256, 256, -1), 6);
+  EXPECT_EQ(CusiftNumOctaves(8, 8, 0), 1);
+  EXPECT_EQ(CusiftNumOctaves(1, 1, -1), 1);
+}
+
 #if defined(COLMAP_CUDA_ENABLED)
 
 TEST(CusiftExtractionOptions, RequiresGpu) {
@@ -135,6 +152,10 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatCpuBackend) {
 
   FeatureExtractionOptions vlfeat_options(FeatureExtractorType::SIFT);
   vlfeat_options.use_gpu = false;
+  // cusift picks its octave count like SiftGPU (CusiftNumOctaves); give the
+  // CPU backend the same count so both build the same pyramid.
+  vlfeat_options.sift->num_octaves = CusiftNumOctaves(
+      bitmap.Width(), bitmap.Height(), vlfeat_options.sift->first_octave);
   FeatureKeypoints vlfeat_keypoints;
   FeatureDescriptors vlfeat_descriptors;
   ASSERT_TRUE(CreateSiftFeatureExtractor(vlfeat_options)

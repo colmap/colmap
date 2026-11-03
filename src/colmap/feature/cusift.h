@@ -50,6 +50,16 @@ namespace colmap {
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
     const FeatureExtractionOptions& options);
 
+// Number of octaves cusift builds for a width x height image. It follows
+// SiftGPU as COLMAP runs it, not SiftExtractionOptions::num_octaves: COLMAP
+// passes no octave count to SiftGPU, so SiftGPU builds every octave down to an
+// 8-16 pixel image, floor(log2(min(width, height))) - 3 counted on the image
+// after first_octave's upsampling (PyramidCU::ResizePyramid), and at least 1.
+// Matching it keeps the large-scale features that SiftGPU relies on in blurred
+// images, where fine-scale features vanish. COLMAP's CPU (VLFeat) SIFT does use
+// num_octaves, so at its default of 4 it stops at a smaller maximum scale.
+int CusiftNumOctaves(int width, int height, int first_octave);
+
 // Result of describing externally supplied keypoints; see
 // ExtractCusiftDescriptorsForKeypoints below.
 struct CusiftDescriptorOnlyResult {
