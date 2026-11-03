@@ -289,10 +289,8 @@ void BindFeatureMatching(py::module& m) {
 
   auto PyFeatureMatchingOptions =
       py::classh<FeatureMatchingOptions>(m, "FeatureMatchingOptions")
-          // UNDEFINED = auto (prefers cusift on GPU) -- see the equivalent
-          // note in pycolmap/feature/extraction.cc.
           .def(py::init<FeatureMatcherType>(),
-               "type"_a = FeatureMatcherType::UNDEFINED)
+               "type"_a = FeatureMatcherType::SIFT_BRUTEFORCE)
           .def_readwrite("type", &FeatureMatchingOptions::type)
           .def_readwrite("num_threads", &FeatureMatchingOptions::num_threads)
           .def_readwrite("use_gpu", &FeatureMatchingOptions::use_gpu)

@@ -39,11 +39,9 @@ struct FeatureMatchingTypeOptions {
 
 struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   explicit FeatureMatchingOptions(
-      FeatureMatcherType type = FeatureMatcherType::UNDEFINED);
+      FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE);
 
-  // UNDEFINED means AUTO -- see the equivalent comment on
-  // FeatureExtractionOptions::type. Resolved by ResolvedType() below.
-  FeatureMatcherType type = FeatureMatcherType::UNDEFINED;
+  FeatureMatcherType type = FeatureMatcherType::SIFT_BRUTEFORCE;
 
   // Number of threads for feature matching and geometric verification.
   int num_threads = -1;
@@ -80,16 +78,6 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   // Whether to skip matching images within the same frame.
   // This is useful for the case of non-overlapping cameras in a rig.
   bool skip_image_pairs_in_same_frame = false;
-
-  // The matcher actually used, resolving UNDEFINED (=auto) to a concrete type.
-  //
-  // Auto resolves to CUSIFT_GEMM on GPU, else SIFT_BRUTEFORCE. As with the
-  // extractor the fallbacks are hard requirements, not taste: cusift is CUDA
-  // only, and CusiftFeatureMatcher THROW_CHECKs on guided_matching, which it
-  // does not implement (cusift_matcher.cc). Descriptors are interoperable
-  // either way -- cusift tags its output FeatureExtractorType::SIFT -- so the
-  // extractor and matcher resolve independently without a mismatch.
-  FeatureMatcherType ResolvedType() const;
 
   // Whether the selected matcher requires OpenGL.
   bool RequiresOpenGL() const;

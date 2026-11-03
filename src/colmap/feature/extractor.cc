@@ -44,28 +44,8 @@ FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
 FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
     : FeatureExtractionTypeOptions(), type(type) {}
 
-FeatureExtractorType FeatureExtractionOptions::ResolvedType() const {
-  // An explicit request always wins, including an explicit SIFT.
-  if (type != FeatureExtractorType::UNDEFINED) {
-    return type;
-  }
-  // cusift is CUDA only and has no CPU implementation to fall back on.
-  if (!use_gpu) {
-    return FeatureExtractorType::SIFT;
-  }
-  // CusiftFeatureExtractor THROW_CHECKs on all three of these (cusift.cc), so
-  // auto-selecting it here would convert a valid covariant configuration into
-  // a hard failure. Leave those on SIFT; an explicit CUSIFT still throws,
-  // which is the correct answer to an impossible explicit request.
-  if (sift && (sift->estimate_affine_shape || sift->domain_size_pooling ||
-               sift->force_covariant_extractor)) {
-    return FeatureExtractorType::SIFT;
-  }
-  return FeatureExtractorType::CUSIFT;
-}
-
 bool FeatureExtractionOptions::RequiresRGB() const {
-  switch (ResolvedType()) {
+  switch (type) {
     case FeatureExtractorType::SIFT:
     case FeatureExtractorType::CUSIFT:
       return false;
@@ -81,7 +61,7 @@ bool FeatureExtractionOptions::RequiresRGB() const {
 }
 
 bool FeatureExtractionOptions::RequiresOpenGL() const {
-  switch (ResolvedType()) {
+  switch (type) {
     case FeatureExtractorType::SIFT: {
       // Sync with logic in CreateSiftFeatureExtractor().
       if (sift->estimate_affine_shape || sift->domain_size_pooling ||
@@ -112,7 +92,7 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
   if (max_image_size > 0) {
     return max_image_size;
   } else {
-    switch (ResolvedType()) {
+    switch (type) {
       case FeatureExtractorType::SIFT:
       case FeatureExtractorType::CUSIFT:
         return 3200;
@@ -138,7 +118,7 @@ bool FeatureExtractionOptions::Check() const {
     return false;
 #endif
   }
-  switch (ResolvedType()) {
+  switch (type) {
     case FeatureExtractorType::SIFT:
       return THROW_CHECK_NOTNULL(sift)->Check();
     case FeatureExtractorType::CUSIFT:
@@ -166,26 +146,19 @@ bool FeatureExtractionOptions::Check() const {
 
 std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
     const FeatureExtractionOptions& options) {
-  // Resolve auto into a concrete type ONCE, here, and pass the resolved copy
-  // downstream. The Create* implementations re-read options.type themselves
-  // (e.g. aliked.cc dispatches N16ROT vs N32 on it), so handing them the
-  // original UNDEFINED would surface as an unknown-type throw deep inside a
-  // backend rather than as a decision made at the front door.
-  FeatureExtractionOptions resolved_options = options;
-  resolved_options.type = options.ResolvedType();
-  switch (resolved_options.type) {
+  switch (options.type) {
     case FeatureExtractorType::SIFT:
-      return CreateSiftFeatureExtractor(resolved_options);
+      return CreateSiftFeatureExtractor(options);
     case FeatureExtractorType::CUSIFT:
-      return CreateCusiftFeatureExtractor(resolved_options);
+      return CreateCusiftFeatureExtractor(options);
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
-      return CreateAlikedFeatureExtractor(resolved_options);
+      return CreateAlikedFeatureExtractor(options);
     case FeatureExtractorType::LOMA_B:
     case FeatureExtractorType::LOMA_B128:
-      return CreateLomaFeatureExtractor(resolved_options);
+      return CreateLomaFeatureExtractor(options);
     default:
-      ThrowUnknownFeatureExtractorType(resolved_options.type);
+      ThrowUnknownFeatureExtractorType(options.type);
   }
   return nullptr;
 }
