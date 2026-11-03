@@ -3,8 +3,8 @@
 #include "colmap/feature/matcher.h"
 
 #include "colmap/feature/aliked.h"
-#include "colmap/feature/flexglue.h"
 #include "colmap/feature/cusift_matcher.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
