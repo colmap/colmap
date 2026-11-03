@@ -683,7 +683,14 @@ TEST(CeresRotationAverager, CovarianceWhitening) {
     options.reweighting = RotationAveragingReweighting::UNIFORM;
     auto uniform =
         CreateDefaultCeresRotationAverager(options, graph, reconstruction);
-    EXPECT_NEAR(EvaluateCost(*uniform), 0.5 * residual.squaredNorm(), 1e-12);
+    const double unwhitened = 0.5 * residual.squaredNorm();
+    EXPECT_NEAR(EvaluateCost(*uniform), unwhitened, 1e-12);
+    uniform->AddRelativeRotationResidual(
+        1, 2, prior, nullptr, cov.cast<double>());
+    EXPECT_NEAR(EvaluateCost(*uniform),
+                unwhitened + 0.5 * residual.dot(cov.cast<double>().ldlt().solve(
+                                       residual)),
+                1e-9);
 
     options.reweighting = RotationAveragingReweighting::COVARIANCE;
     auto whitened =
