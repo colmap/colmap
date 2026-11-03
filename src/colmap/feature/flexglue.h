@@ -38,9 +38,8 @@ struct FlexGlueMatchingOptions {
 
   // Maximum distance between a keypoint and the predicted correspondence of its
   // mutual nearest neighbor, averaged over both matching directions, in pixels
-  // at the descriptor resolution (512x512 by default): in the original images,
-  // the threshold is scaled by the long image side / 512, averaged over both
-  // images. Non-positive values disable the check.
+  // of the resized descriptor input (512x512 by default). Non-positive values
+  // disable the check.
   double max_distance_px = 3.0;
 
   // Reject all matches of a pair whose covisibility score is below this value,
