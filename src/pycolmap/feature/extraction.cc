@@ -188,12 +188,8 @@ void BindFeatureExtraction(py::module& m) {
 
   auto PyFeatureExtractionOptions =
       py::classh<FeatureExtractionOptions>(m, "FeatureExtractionOptions")
-          // UNDEFINED = auto (prefers cusift on GPU), matching the C++
-          // default. This binding is the path production actually takes, so
-          // pinning SIFT here would silently defeat the auto-selection for
-          // every pycolmap caller while the CLI got it.
           .def(py::init<FeatureExtractorType>(),
-               "type"_a = FeatureExtractorType::UNDEFINED)
+               "type"_a = FeatureExtractorType::SIFT)
           .def_readwrite("type", &FeatureExtractionOptions::type)
           .def_readwrite(
               "max_image_size",

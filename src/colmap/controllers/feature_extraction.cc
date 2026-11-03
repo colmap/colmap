@@ -375,7 +375,7 @@ class FeatureExtractorController : public Thread {
     // supported with domain_size_pooling or estimate_affine_shape, which
     // require CPU-based covariant SIFT.
     auto worker_extraction_options = extraction_options_;
-    if (extraction_options_.ResolvedType() == FeatureExtractorType::SIFT &&
+    if (extraction_options_.type == FeatureExtractorType::SIFT &&
         (extraction_options_.sift->domain_size_pooling ||
          extraction_options_.sift->estimate_affine_shape)) {
       worker_extraction_options.use_gpu = false;
@@ -410,7 +410,7 @@ class FeatureExtractorController : public Thread {
     } else {
       const static FeatureExtractionOptions kDefaultExtractionOptions;
       if (extraction_options_.num_threads == -1 &&
-          extraction_options_.ResolvedType() == FeatureExtractorType::SIFT &&
+          extraction_options_.type == FeatureExtractorType::SIFT &&
           extraction_options_.max_image_size ==
               kDefaultExtractionOptions.max_image_size &&
           extraction_options_.sift->first_octave ==
@@ -426,7 +426,7 @@ class FeatureExtractorController : public Thread {
       }
 
       int num_extractors = 0;
-      switch (extraction_options_.ResolvedType()) {
+      switch (extraction_options_.type) {
         case FeatureExtractorType::SIFT:
           // Prevent nested threading, as we multi-thread at the controller
           // level as SIFT extraction doesn't require much RAM per extractor.
@@ -447,7 +447,7 @@ class FeatureExtractorController : public Thread {
         default:
           LOG(FATAL_THROW) << "Unknown feature extractor type: "
                            << FeatureExtractorTypeToString(
-                                  extraction_options_.ResolvedType());
+                                  extraction_options_.type);
       }
 
       THROW_CHECK_GT(num_extractors, 0);
@@ -460,13 +460,10 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-    // Resolved, so the progress log names the extractor that actually ran
-    // (e.g. CUSIFT) instead of the UNDEFINED auto sentinel.
-    writer_ = std::make_unique<FeatureWriterThread>(
-        extraction_options_.ResolvedType(),
-        image_reader_.NumImages(),
-        database_.get(),
-        writer_queue_.get());
+    writer_ = std::make_unique<FeatureWriterThread>(extraction_options_.type,
+                                                    image_reader_.NumImages(),
+                                                    database_.get(),
+                                                    writer_queue_.get());
   }
 
  private:

@@ -56,26 +56,8 @@ bool FeatureMatchingOptions::UsesDescriptors() const {
   return type != FeatureMatcherType::FLEXGLUE;
 }
 
-FeatureMatcherType FeatureMatchingOptions::ResolvedType() const {
-  // An explicit request always wins, including an explicit SIFT_BRUTEFORCE.
-  if (type != FeatureMatcherType::UNDEFINED) {
-    return type;
-  }
-  // cusift is CUDA only and has no CPU implementation to fall back on.
-  if (!use_gpu) {
-    return FeatureMatcherType::SIFT_BRUTEFORCE;
-  }
-  // CusiftFeatureMatcher THROW_CHECKs on guided_matching and its MatchGuided()
-  // is an unconditional throw (cusift_matcher.cc), so auto must not select it
-  // for a guided run. An explicit CUSIFT_GEMM still throws there, as before.
-  if (guided_matching) {
-    return FeatureMatcherType::SIFT_BRUTEFORCE;
-  }
-  return FeatureMatcherType::CUSIFT_GEMM;
-}
-
 bool FeatureMatchingOptions::RequiresOpenGL() const {
-  switch (ResolvedType()) {
+  switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE: {
 #if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
       return false;
@@ -111,7 +93,7 @@ bool FeatureMatchingOptions::Check() const {
 #endif
   }
   CHECK_OPTION_GE(max_num_matches, 0);
-  switch (ResolvedType()) {
+  switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE:
     case FeatureMatcherType::SIFT_LIGHTGLUE:
       return THROW_CHECK_NOTNULL(sift)->Check();
@@ -148,32 +130,26 @@ bool FeatureMatchingOptions::Check() const {
 
 std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
     const FeatureMatchingOptions& options) {
-  // Resolve auto once, here -- see the matching comment in
-  // FeatureExtractor::Create. CreateSiftFeatureMatcher in particular branches
-  // on options.type again to split LIGHTGLUE from BRUTEFORCE and throws on
-  // anything else, so it must not receive UNDEFINED.
-  FeatureMatchingOptions resolved_options = options;
-  resolved_options.type = options.ResolvedType();
-  switch (resolved_options.type) {
+  switch (options.type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE:
     case FeatureMatcherType::SIFT_LIGHTGLUE:
-      return CreateSiftFeatureMatcher(resolved_options);
+      return CreateSiftFeatureMatcher(options);
     case FeatureMatcherType::ALIKED_BRUTEFORCE:
     case FeatureMatcherType::ALIKED_LIGHTGLUE:
-      return CreateAlikedFeatureMatcher(resolved_options);
+      return CreateAlikedFeatureMatcher(options);
     case FeatureMatcherType::LOMA_BRUTEFORCE:
     case FeatureMatcherType::LOMA_B:
     case FeatureMatcherType::LOMA_B128:
     case FeatureMatcherType::LOMA_R:
     case FeatureMatcherType::LOMA_L:
     case FeatureMatcherType::LOMA_G:
-      return CreateLomaFeatureMatcher(resolved_options);
+      return CreateLomaFeatureMatcher(options);
     case FeatureMatcherType::FLEXGLUE:
-      return CreateFlexGlueFeatureMatcher(resolved_options);
+      return CreateFlexGlueFeatureMatcher(options);
     case FeatureMatcherType::CUSIFT_GEMM:
-      return CreateCusiftFeatureMatcher(resolved_options);
+      return CreateCusiftFeatureMatcher(options);
     default:
-      ThrowUnknownFeatureMatcherType(resolved_options.type);
+      ThrowUnknownFeatureMatcherType(options.type);
   }
   return nullptr;
 }
