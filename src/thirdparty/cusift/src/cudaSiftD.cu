@@ -2417,19 +2417,37 @@ __global__ void ComputeGradientPlaneKernel(const float *d_Level, int width, int 
 // arrays are already per-octave batches; callers that used the counter protocol
 // pass their own count. Output angles are radians in VLFeat's convention (NOT
 // degrees) and count is 0-4, exactly as before -- only the container changed.
+// Deterministic histogram accumulation. Many threads add into the same
+// histogram bin, and float addition is not associative, so float atomicAdd
+// gives results that depend on thread scheduling and change from run to run.
+// Every contribution here is non-negative, so accumulate in 64-bit fixed
+// point (units of 2^-32) instead: integer addition gives the same total in any
+// order. Scaling by 2^32 only shifts the float exponent, so the conversion is
+// exact for any contribution >= 2^-8, and the totals stay far below the
+// 2^32 range limit.
+__device__ __forceinline__ unsigned long long HistToFixed(float v)
+{
+  return __float2ull_rn(v * 4294967296.0f);
+}
+
+__device__ __forceinline__ float HistFromFixed(unsigned long long v)
+{
+  return __ull2float_rn(v) * (1.0f / 4294967296.0f);
+}
+
 __global__ void ComputeOrientationsVLFeat(
     const float * __restrict__ d_GradMag, const float * __restrict__ d_GradAng,
     int width, int pitch, int height, int levelStrideElems,
     const VLFeatKp * __restrict__ d_kps, VLFeatOri * __restrict__ d_out, int numKps)
 {
-  __shared__ float hist[36];
+  __shared__ unsigned long long hist[36];
   __shared__ float histSmooth[36];
   const int tid = threadIdx.x;
   const int nthreads = blockDim.x;
   const float twoPi = 6.283185307179586f;
 
   for (int bx = blockIdx.x; bx < numKps; bx += gridDim.x) {
-    for (int i = tid; i < 36; i += nthreads) hist[i] = 0.0f;
+    for (int i = tid; i < 36; i += nthreads) hist[i] = 0ull;
     __syncthreads();
 
     float x = d_kps[bx].x;
@@ -2475,15 +2493,15 @@ __global__ void ComputeOrientationsVLFeat(
       float rbin = fbin - (float)bin - 0.5f;
       int bin0 = ((bin % 36) + 36) % 36;
       int bin1 = ((bin + 1) % 36 + 36) % 36;
-      atomicAdd(hist + bin0, (1.0f - rbin) * mod * wgt);
-      atomicAdd(hist + bin1, rbin * mod * wgt);
+      atomicAdd(hist + bin0, HistToFixed((1.0f - rbin) * mod * wgt));
+      atomicAdd(hist + bin1, HistToFixed(rbin * mod * wgt));
     }
     __syncthreads();
 
     // 6-pass 3-tap box smoothing + peak detection: sequential, single thread
     // (36 elements x 6 passes is trivial next to the accumulation above).
     if (tid == 0) {
-      for (int i = 0; i < 36; i++) histSmooth[i] = hist[i];
+      for (int i = 0; i < 36; i++) histSmooth[i] = HistFromFixed(hist[i]);
       for (int iter = 0; iter < 6; iter++) {
         float prev = histSmooth[35];
         float first = histSmooth[0];
@@ -2540,14 +2558,14 @@ __global__ void ExtractSiftDescriptorsVLFeat(
     VLFeatKp * __restrict__ d_kps, float * __restrict__ d_desc, int numKps,
     float subsampling, float magnif)
 {
-  __shared__ float buffer[VLDESC_NBP*VLDESC_NBP*VLDESC_NBO];  // 128
+  __shared__ unsigned long long buffer[VLDESC_NBP*VLDESC_NBP*VLDESC_NBO];  // 128
   __shared__ float partial[256];
   const int tid = threadIdx.x;
   const int nthreads = blockDim.x;
   const float twoPi = 6.283185307179586f;
 
   for (int bx = blockIdx.x; bx < numKps; bx += gridDim.x) {
-    for (int i = tid; i < 128; i += nthreads) buffer[i] = 0.0f;
+    for (int i = tid; i < 128; i += nthreads) buffer[i] = 0ull;
     __syncthreads();
 
     float x = d_kps[bx].x;
@@ -2622,7 +2640,7 @@ __global__ void ExtractSiftDescriptorsVLFeat(
               int bt_ubc = (VLDESC_NBO - bt_) % VLDESC_NBO;
               int arrIdx = (by_ + VLDESC_NBP/2)*(VLDESC_NBO*VLDESC_NBP)
                          + (bx_ + VLDESC_NBP/2)*VLDESC_NBO + bt_ubc;
-              atomicAdd(buffer + arrIdx, weight);
+              atomicAdd(buffer + arrIdx, HistToFixed(weight));
             }
           }
         }
@@ -2631,7 +2649,7 @@ __global__ void ExtractSiftDescriptorsVLFeat(
     __syncthreads();
 
     // Normalize: L2 -> clamp(0.2) -> L2 (same scheme as cusift's existing kernel).
-    float val = (tid < 128) ? buffer[tid] : 0.0f;
+    float val = (tid < 128) ? HistFromFixed(buffer[tid]) : 0.0f;
     partial[tid] = (tid < 128) ? val*val : 0.0f;
     __syncthreads();
     for (int s = nthreads/2; s > 0; s >>= 1) { if (tid<s) partial[tid] += partial[tid+s]; __syncthreads(); }

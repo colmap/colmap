@@ -984,6 +984,26 @@ static void PackKps(const SiftPoint *src, int n, VLFeatKp *dst, bool oriInDegree
   }
 }
 
+// Candidates and refined keypoints are appended on the GPU through atomic
+// counters, so their order depends on thread scheduling and changes from run
+// to run. Sort each octave's keypoints into a fixed order: by integer location
+// (level, row, column), the order VLFeat's own raster scan produces, with the
+// refined values as a tie-break for the rare candidates that converge to the
+// same location. Every later stage processes keypoints in this order, which
+// makes the extractor's output order reproducible.
+static void SortOctaveKeypoints(std::vector<DetectedKeypoint> &kps, size_t begin)
+{
+  std::sort(kps.begin() + begin, kps.end(),
+            [](const DetectedKeypoint &a, const DetectedKeypoint &b) {
+              if (a.is != b.is) return a.is < b.is;
+              if (a.iy != b.iy) return a.iy < b.iy;
+              if (a.ix != b.ix) return a.ix < b.ix;
+              if (a.s != b.s) return a.s < b.s;
+              if (a.y != b.y) return a.y < b.y;
+              return a.x < b.x;
+            });
+}
+
 // Full detection pipeline for one octave: DoG cube (GPU) -> coarse extrema
 // scan (GPU) -> serial Newton refinement + edge test (CPU, per-candidate,
 // matching VLFeat's own CPU-serial design -- see FindDogExtremaKernel's
@@ -993,6 +1013,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
                                std::vector<DetectedKeypoint> &out,
                                const char *debugDumpPrefix = nullptr)
 {
+  const size_t outBegin = out.size();
   const int s_min = -1, s_max = numScales + 1;
   int w = oct.width, h = oct.height, p = oct.pitch;
   int nDogLevels = oct.nLevels - 1;
@@ -1107,6 +1128,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
       kp.sigma = sigma0 * std::pow(sigmak, kp.s);
       out.push_back(kp);
     }
+    SortOctaveKeypoints(out, outBegin);
     return;
   }
 
@@ -1145,6 +1167,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
   double __ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - __t0).count();
   std::fprintf(stderr, "octave %d: %u coarse candidates, refine = %.3f ms\n", vo, candCount, __ms);
 #endif
+  SortOctaveKeypoints(out, outBegin);
   if (dbgCoarse) std::fclose(dbgCoarse);
   if (dbgRefine) std::fclose(dbgRefine);
 }
