@@ -922,50 +922,50 @@ static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img0
 // frame: 3840*2160*5 floats = 166 MB) and is then reused for every later octave
 // and every later image. thread_local so a multi-threaded COLMAP extractor gets
 // one buffer per worker rather than a silently shared one.
+//
+// Every thread_local holder below frees its memory in its destructor, which runs
+// when the owning extraction thread exits: COLMAP starts new extraction threads
+// for every extraction run, so without it each run leaked these buffers. Errors
+// are ignored there, because at process exit the CUDA runtime may already be
+// shutting down and a failed free cannot be acted on.
+struct PinnedStagingBuffer {
+  float *buf = nullptr;
+  size_t cap = 0;
+  PinnedStagingBuffer() = default;
+  PinnedStagingBuffer(const PinnedStagingBuffer &) = delete;
+  PinnedStagingBuffer &operator=(const PinnedStagingBuffer &) = delete;
+  ~PinnedStagingBuffer() { if (buf) cudaFreeHost(buf); }
+};
+
 static float *PinnedStaging(size_t floats)
 {
-  static thread_local float *buf = nullptr;
-  static thread_local size_t cap = 0;
-  if (floats > cap) {
-    if (buf) safeCall(cudaFreeHost(buf));
-    safeCall(cudaMallocHost((void **)&buf, floats * sizeof(float)));
-    cap = floats;
+  static thread_local PinnedStagingBuffer s;
+  if (floats > s.cap) {
+    if (s.buf) safeCall(cudaFreeHost(s.buf));
+    safeCall(cudaMallocHost((void **)&s.buf, floats * sizeof(float)));
+    s.cap = floats;
   }
-  return buf;
-}
-
-// Tier 1.1, the "two SiftData slabs at max capacity" item: the
-// integrated pipeline used to InitSiftData/FreeSiftData once per octave per pass
-// (8 allocate/free cycles per image) with a pageable `malloc` host side, so every
-// SiftPoint transfer -- 576 B per keypoint, two transfers per pass per octave --
-// ran at roughly half PCIe rate on top of the allocation churn. Two grow-only
-// slabs (slot 0 = orientation pass, slot 1 = descriptor pass) with PINNED host
-// memory, reused across octaves and images. thread_local for the same reason as
-// PinnedStaging.
-static SiftData &SiftScratch(int slot, int n)
-{
-  static thread_local SiftData scratch[2] = {};
-  SiftData &d = scratch[slot];
-  if (n > d.maxPts) {
-    if (d.h_data) safeCall(cudaFreeHost(d.h_data));
-    if (d.d_data) safeCall(cusiftFree(d.d_data));
-    safeCall(cudaMallocHost((void **)&d.h_data, (size_t)n * sizeof(SiftPoint)));
-    safeCall(cudaMallocAsync((void **)&d.d_data, (size_t)n * sizeof(SiftPoint), 0));
-    d.maxPts = n;
-  }
-  d.numPts = n;
-  return d;
+  return s.buf;
 }
 
 // Packed scratch for the VLFeat pipeline's kernel I/O (see VLFeatKp in
-// cudaSift.h). Same grow-only, pinned-host, thread_local pattern as SiftScratch,
-// which it replaces on the hot path: 20 B/row for keypoints and 512 B/row for
-// descriptors, instead of 576 B/row of SiftPoint moved twice per octave.
+// cudaSift.h): grow-only, with pinned host memory, reused across octaves and
+// images, thread_local for the same reason as PinnedStaging. 20 B/row for
+// keypoints and 512 B/row for descriptors, instead of 576 B/row of SiftPoint
+// moved twice per octave.
 struct PackedScratch {
   VLFeatKp *h_kps = nullptr, *d_kps = nullptr;
   VLFeatOri *h_ori = nullptr, *d_ori = nullptr;
   float *h_desc = nullptr, *d_desc = nullptr;
   int cap = 0;
+  PackedScratch() = default;
+  PackedScratch(const PackedScratch &) = delete;
+  PackedScratch &operator=(const PackedScratch &) = delete;
+  ~PackedScratch() {
+    if (h_kps) { cudaFreeHost(h_kps); cusiftFree(d_kps); }
+    if (h_ori) { cudaFreeHost(h_ori); cusiftFree(d_ori); }
+    if (h_desc) { cudaFreeHost(h_desc); cusiftFree(d_desc); }
+  }
 };
 
 static PackedScratch &Packed(int n, bool wantDesc)
