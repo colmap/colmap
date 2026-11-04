@@ -14,6 +14,7 @@
 #include <functional>
 #include <string>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -389,11 +390,16 @@ TEST(GpuExtractorParitySiftGpu, ExtractFeatures) {
 }
 
 TEST_P(CusiftUnsupportedOptionTest, Throws) {
+  // Create binds the device before checking options, so without a GPU it
+  // would throw for the wrong reason.
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   FeatureExtractionOptions options = CreateCusiftOptions();
   GetParam().apply(*options.sift);
   // Rejected loudly. A silent no-op would produce a database that looks fine
   // and reconstructs worse.
-  EXPECT_THROW(CreateCusiftFeatureExtractor(options), std::exception);
+  EXPECT_THAT([&]() { CreateCusiftFeatureExtractor(options); },
+              testing::ThrowsMessage<std::invalid_argument>(testing::HasSubstr(
+                  "invalid options for the cusift extractor")));
 }
 
 #else

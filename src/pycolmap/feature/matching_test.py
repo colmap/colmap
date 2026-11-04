@@ -4,8 +4,10 @@ import pytest
 
 import pycolmap
 
+# has_cuda is a build flag; also require a device so GPU-less machines skip.
 requires_cusift = pytest.mark.skipif(
-    not pycolmap.has_cuda, reason="cusift requires CUDA"
+    not pycolmap.has_cuda or pycolmap.get_num_cuda_devices() == 0,
+    reason="cusift requires a CUDA device",
 )
 
 
