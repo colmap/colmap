@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
+
 // COLMAP-added shim (not upstream cusift) -- see ../README.md.
 
 #include "cusift_device.h"

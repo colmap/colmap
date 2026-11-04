@@ -1,4 +1,7 @@
-// matcher_gemm.cu — GEMM-class matcher (SiftMatchGPU speed class). MIT.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
+
+// matcher_gemm.cu — GEMM-class matcher (SiftMatchGPU speed class).
 //
 // sim = D1 (n1x128) * D2^T (128xn2) via cuBLAS SGEMM, tiled over n2 to bound
 // memory. After each tile, two lightweight kernels update running

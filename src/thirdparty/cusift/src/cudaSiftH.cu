@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2017 Mårten Björkman (CudaSift; see ../LICENSE.CudaSift)
+// Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
+
 //********************************************************//
 // CUDA SIFT extractor by Mårten Björkman aka Celebrandil //
 //********************************************************//  

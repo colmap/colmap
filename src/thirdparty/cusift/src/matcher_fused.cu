@@ -1,4 +1,8 @@
-// matcher_fused.cu - fused single-pass bidirectional matcher. MIT.
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2017 Mårten Björkman (CudaSift; see ../LICENSE.CudaSift)
+// Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
+
+// matcher_fused.cu - fused single-pass bidirectional matcher.
 //
 // WHY THIS EXISTS. The GEMM matcher in matcher_gemm.cu is bit-exact but
 // bandwidth-bound: cuBLAS writes the similarity tile to global memory,
