@@ -152,7 +152,10 @@ jobs:
             wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
             echo "4c3e15bae65754a5095e9a80edb395077371bee3b9e3333c95259deb4f2d5aa0  ${ctcache_commit_id}.zip" | sha256sum --check
             unzip "${ctcache_commit_id}.zip"
-            mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
+            # The clang-tidy wrapper runs src/ctcache/clang_tidy_cache.py
+            # relative to itself, so src/ must be installed alongside it.
+            mv ctcache-${ctcache_commit_id}/clang-tidy* \
+              ctcache-${ctcache_commit_id}/src "$COMPILER_CACHE_DIR/bin"
           fi
           "$COMPILER_CACHE_DIR/bin/ccache" --zero-stats
 
