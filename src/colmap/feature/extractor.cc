@@ -77,9 +77,7 @@ bool FeatureExtractionOptions::RequiresOpenGL() const {
       return use_gpu;
 #endif
     }
-    case FeatureExtractorType::CUSIFT:
-      // CUDA only, no OpenGL path.
-      return false;
+    case FeatureExtractorType::CUSIFT:  // CUDA only, no OpenGL path.
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
     case FeatureExtractorType::LOMA_B:
