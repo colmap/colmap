@@ -95,7 +95,7 @@ struct CusiftDescriptorOnlyResult {
 // is taken as VLFeat-convention radians via
 // FeatureKeypoint::ComputeOrientation. To describe SiftGPU-sourced keypoints,
 // negate their stored orientation before calling, because COLMAP stores SiftGPU
-// theta mirrored (sift.cc:716-719).
+// theta mirrored (SiftGPUFeatureExtractor in sift.cc).
 //
 // Note that the pyramid level each descriptor samples from is re-derived from
 // sigma, which is cusift's own decision and may differ from the source

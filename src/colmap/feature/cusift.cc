@@ -158,9 +158,9 @@ class CusiftFeatureExtractor : public FeatureExtractor {
     // backend, and is deliberately NOT negated to SiftGPU's sign. COLMAP's two
     // SIFT backends disagree here -- the VLFeat CPU path stores VLFeat theta
     // while SiftGPU's raw mirrored theta is written uncorrected
-    // (sift.cc:716-719) -- and cusift follows the VLFeat reference it is gated
-    // against. Consumers of stored orientation (LightGlue via
-    // onnx_matchers.cc:596, vocab-tree geometry via retrieval/visual_index.cc)
+    // (SiftGPUFeatureExtractor in sift.cc) -- and cusift follows the VLFeat
+    // reference it is tested against. Consumers of stored orientation
+    // (LightGlue, vocab-tree geometry via retrieval/visual_index.cc)
     // therefore see VLFeat convention from cusift, as they do from the CPU
     // backend. Do not "fix" this to match SiftGPU.
     keypoints->resize(num_features);

@@ -264,10 +264,10 @@ void BindFeatureMatching(py::module& m) {
           .def_readwrite(
               "max_distance",
               &CusiftMatchingOptions::max_distance,
-              "Maximum unit-vector L2 distance to the best match. Same "
-              "convention as SiftMatchingOptions.max_distance, equivalent up "
-              "to quantization of COLMAP's fixed 512-descriptor-norm "
-              "convention.")
+              "Maximum distance to the best match, in the units of "
+              "distance_type: radians under ANGULAR (the default, as "
+              "SiftMatchingOptions.max_distance), unit-vector L2 distance "
+              "under L2.")
           .def_readwrite("cross_check",
                          &CusiftMatchingOptions::cross_check,
                          "Whether to enable cross checking in matching.")
@@ -281,9 +281,10 @@ void BindFeatureMatching(py::module& m) {
           .def_readwrite(
               "distance_type",
               &CusiftMatchingOptions::distance_type,
-              "Metric space for the ratio test and max_distance: L2 (COLMAP's "
-              "CPU/VLFeat convention, the default) or ANGULAR (SiftGPU's). "
-              "Note this changes the units of max_distance.")
+              "Metric space for the ratio test and max_distance: ANGULAR (the "
+              "default; COLMAP's brute-force matcher and SiftGPU) or L2 "
+              "(COLMAP's index-based matcher and VLFeat). Note this changes "
+              "the units of max_distance.")
           .def("check", &CusiftMatchingOptions::Check);
   MakeDataclass(PyCusiftMatchingOptions);
 
