@@ -120,6 +120,9 @@ bool FeatureMatchingOptions::Check() const {
                       "setting the feature matcher type to SIFT_BRUTEFORCE.";
         return false;
       }
+      // Not implemented by the GEMM matcher. Fail here rather than in the
+      // constructor, which the guided pass runs on a worker thread.
+      CHECK_OPTION(!guided_matching);
       return THROW_CHECK_NOTNULL(cusift)->Check();
     default:
       LOG(ERROR) << "Unknown feature matcher type: " << type;

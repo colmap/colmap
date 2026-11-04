@@ -133,7 +133,8 @@ bool FeatureExtractionOptions::Check() const {
         return false;
       }
       return THROW_CHECK_NOTNULL(sift)->Check() &&
-             THROW_CHECK_NOTNULL(cusift)->Check();
+             THROW_CHECK_NOTNULL(cusift)->Check() &&
+             CheckCusiftSiftOptions(*sift);
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return THROW_CHECK_NOTNULL(aliked)->Check();

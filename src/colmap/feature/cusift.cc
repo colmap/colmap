@@ -55,10 +55,10 @@ namespace {
 
 #ifdef COLMAP_CUDA_ENABLED
 constexpr int kSiftDescriptorDim = 128;
+#endif  // COLMAP_CUDA_ENABLED
 
 // cusift's compile-time levels-per-octave (NUM_SCALES in cudaSiftD.h).
 constexpr int kCusiftOctaveResolution = 3;
-#endif  // COLMAP_CUDA_ENABLED
 
 #ifdef COLMAP_CUDA_ENABLED
 
@@ -66,29 +66,12 @@ class CusiftFeatureExtractor : public FeatureExtractor {
  public:
   explicit CusiftFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options) {
-    THROW_CHECK(options_.Check());
-
-    // Options cusift cannot serve are rejected loudly. A silent no-op would
-    // produce a database that looks fine and reconstructs worse. Precedent:
-    // the SIFT GPU path does the same for the options it cannot serve.
-    THROW_CHECK(!options_.sift->estimate_affine_shape)
-        << "cusift does not implement affine shape estimation";
-    THROW_CHECK(!options_.sift->domain_size_pooling)
-        << "cusift does not implement domain-size pooling";
-    THROW_CHECK(!options_.sift->upright)
-        << "cusift does not implement upright features";
-    THROW_CHECK(!options_.sift->darkness_adaptivity)
-        << "cusift does not implement darkness adaptivity";
-    THROW_CHECK(!options_.sift->force_covariant_extractor)
-        << "cusift is not a covariant extractor";
-    // VLFeat's o_min. cusift implements the 2x-upsampled extra octave (-1),
-    // which is COLMAP's default, and the plain first octave (0); nothing else.
-    THROW_CHECK(options_.sift->first_octave == 0 ||
-                options_.sift->first_octave == -1)
-        << "cusift supports first_octave 0 or -1, got "
-        << options_.sift->first_octave;
-    THROW_CHECK_EQ(options_.sift->octave_resolution, kCusiftOctaveResolution)
-        << "cusift's levels-per-octave is a compile-time constant";
+    // Includes CheckCusiftSiftOptions: the options cusift cannot serve are
+    // rejected loudly, since a silent no-op would produce a database that
+    // looks fine and reconstructs worse.
+    THROW_CHECK(options_.Check())
+        << "invalid options for the cusift extractor; the reason is logged "
+           "above";
   }
 
   static std::unique_ptr<FeatureExtractor> Create(
@@ -251,6 +234,41 @@ int CusiftEffectiveNumOctaves(const CusiftExtractionOptions& options,
 
 bool CusiftExtractionOptions::Check() const {
   CHECK_OPTION(num_octaves == -1 || num_octaves >= 1);
+  return true;
+}
+
+bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift) {
+  const auto reject = [](const char* reason) {
+    LOG(ERROR) << "cusift " << reason;
+    return false;
+  };
+  if (sift.estimate_affine_shape) {
+    return reject("does not implement affine shape estimation");
+  }
+  if (sift.domain_size_pooling) {
+    return reject("does not implement domain-size pooling");
+  }
+  if (sift.upright) {
+    return reject("does not implement upright features");
+  }
+  if (sift.darkness_adaptivity) {
+    return reject("does not implement darkness adaptivity");
+  }
+  if (sift.force_covariant_extractor) {
+    return reject("is not a covariant extractor");
+  }
+  // VLFeat's o_min. cusift implements the 2x-upsampled extra octave (-1),
+  // which is COLMAP's default, and the plain first octave (0); nothing else.
+  if (sift.first_octave != 0 && sift.first_octave != -1) {
+    LOG(ERROR) << "cusift supports first_octave 0 or -1, got "
+               << sift.first_octave;
+    return false;
+  }
+  if (sift.octave_resolution != kCusiftOctaveResolution) {
+    LOG(ERROR) << "cusift's levels per octave are fixed at "
+               << kCusiftOctaveResolution << ", got " << sift.octave_resolution;
+    return false;
+  }
   return true;
 }
 

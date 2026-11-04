@@ -70,7 +70,8 @@ class CusiftFeatureMatcher : public FeatureMatcher {
  public:
   explicit CusiftFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options) {
-    THROW_CHECK_NOTNULL(options_.cusift)->Check();
+    THROW_CHECK(THROW_CHECK_NOTNULL(options_.cusift)->Check())
+        << "invalid CusiftMatchingOptions; the reason is logged above";
     THROW_CHECK(!options_.guided_matching)
         << "cusift GEMM matcher does not implement guided matching in this "
            "phase; use SIFT_BRUTEFORCE or SIFT_LIGHTGLUE for guided "

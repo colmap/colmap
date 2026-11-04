@@ -46,6 +46,14 @@ struct CusiftExtractionOptions {
   bool Check() const;
 };
 
+// Whether cusift can serve these SIFT options. cusift implements none of
+// affine shape estimation, domain-size pooling, upright features, darkness
+// adaptivity or the covariant extractor; it supports first_octave 0 or -1 and
+// a fixed octave_resolution of 3. Logs the reason and returns false otherwise.
+// FeatureExtractionOptions::Check() calls it for FeatureExtractorType::CUSIFT,
+// so bad options are reported before any extraction thread starts.
+bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift);
+
 // Create a cusift feature extractor: a CUDA SIFT extractor that replicates
 // COLMAP's own VLFeat CPU backend rather than SiftGPU, so it can serve as a
 // commercially-usable replacement for SiftGPU's non-commercial license.
