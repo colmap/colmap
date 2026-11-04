@@ -398,6 +398,7 @@ CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
   (void)keypoints;
   (void)options;
   LOG(FATAL_THROW) << "cusift descriptor extraction requires CUDA support";
+  return {};
 #endif  // COLMAP_CUDA_ENABLED
 }
 
