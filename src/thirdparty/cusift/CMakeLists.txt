@@ -26,26 +26,19 @@ COLMAP_ADD_LIBRARY(
 target_include_directories(colmap_cusift PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>")
 
-# Pinned per-target rather than inheriting COLMAP's project-wide
-# CMAKE_CUDA_ARCHITECTURES, which defaults to `native`. Two reasons:
-#
-#   1. `-arch=native` emits SASS for the build machine's GPU and NO PTX, so the
-#      result runs only on that exact architecture -- a COLMAP built on an Ada
-#      card dies with "no kernel image is available for execution on the device"
-#      on Ampere, and a container image inherits whatever card built it. A plain
-#      "86;89" list expands to arch=compute_NN,code=[compute_NN,sm_NN], i.e.
-#      cubins for both plus PTX that JITs forward to newer cards.
-#   2. cusift's deliverable is measured VLFeat parity, and --use_fast_math is
-#      part of that numerics contract. Machine-dependent
-#      codegen would make those numbers unreproducible across boxes.
-#
-# Mirrors upstream cusift's own pinned list; keep the two in sync. Note PTX only
-# JITs forward, so building for a pre-Ampere GPU needs an explicit override,
-# e.g. -DCOLMAP_CUSIFT_CUDA_ARCHITECTURES="75-virtual;86-real;89-real".
-set(COLMAP_CUSIFT_CUDA_ARCHITECTURES "86;89" CACHE STRING
-    "CUDA architectures for the vendored cusift extractor")
-set_target_properties(colmap_cusift PROPERTIES
-    CUDA_ARCHITECTURES "${COLMAP_CUSIFT_CUDA_ARCHITECTURES}")
+# By default cusift builds for COLMAP's project-wide CMAKE_CUDA_ARCHITECTURES,
+# like every other CUDA target, so -DCMAKE_CUDA_ARCHITECTURES=... and the
+# toolkit's supported range apply to it too (a fixed "86;89" list broke CUDA
+# toolkits older than 11.8, which cannot target sm_89). The kernels use no
+# architecture-specific intrinsics. Set COLMAP_CUSIFT_CUDA_ARCHITECTURES to
+# build cusift for a different list than the rest of COLMAP, e.g. "86;89" for
+# sm_86/sm_89 machine code plus PTX that JIT-compiles forward to newer GPUs.
+set(COLMAP_CUSIFT_CUDA_ARCHITECTURES "" CACHE STRING
+    "CUDA architectures for the vendored cusift library (empty: use CMAKE_CUDA_ARCHITECTURES)")
+if(COLMAP_CUSIFT_CUDA_ARCHITECTURES)
+    set_target_properties(colmap_cusift PROPERTIES
+        CUDA_ARCHITECTURES "${COLMAP_CUSIFT_CUDA_ARCHITECTURES}")
+endif()
 
 # --use_fast_math is part of cusift's numerics contract, not an optimization
 # choice: vl_fast_atan2_f/vl_fast_sqrt_f are replicated in CUDA and every
