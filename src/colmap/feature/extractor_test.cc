@@ -3,6 +3,7 @@
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 
@@ -19,6 +20,7 @@ TEST(FeatureExtractionOptions, Copy) {
   options.sift->max_num_features += 100;
   options.aliked->max_num_features += 100;
   options.loma->max_num_features += 100;
+  options.cusift->num_octaves = 5;
 
   FeatureExtractionOptions copy = options;
 
@@ -27,11 +29,13 @@ TEST(FeatureExtractionOptions, Copy) {
   EXPECT_EQ(copy.sift->max_num_features, options.sift->max_num_features);
   EXPECT_EQ(copy.aliked->max_num_features, options.aliked->max_num_features);
   EXPECT_EQ(copy.loma->max_num_features, options.loma->max_num_features);
+  EXPECT_EQ(copy.cusift->num_octaves, 5);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.sift.get(), copy.sift.get());
   EXPECT_NE(options.aliked.get(), copy.aliked.get());
   EXPECT_NE(options.loma.get(), copy.loma.get());
+  EXPECT_NE(options.cusift.get(), copy.cusift.get());
 }
 
 TEST(FeatureExtractionOptions, EffMaxImageSize) {

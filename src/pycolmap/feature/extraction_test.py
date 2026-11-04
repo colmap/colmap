@@ -147,6 +147,19 @@ def test_cusift_options_use_sift_block():
     assert options.eff_max_image_size() == 3200
 
 
+def test_cusift_num_octaves_defaults_to_auto():
+    options = pycolmap.FeatureExtractionOptions(
+        type=pycolmap.FeatureExtractorType.CUSIFT
+    )
+    # -1 picks the octave count like SiftGPU; a positive value is used as is.
+    assert options.cusift.num_octaves == -1
+    assert options.cusift.check() is True
+    options.cusift.num_octaves = 4
+    assert options.cusift.num_octaves == 4
+    options.cusift.num_octaves = 0
+    assert options.cusift.check() is False
+
+
 def test_cusift_options_check_requires_gpu():
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT

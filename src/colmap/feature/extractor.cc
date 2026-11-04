@@ -22,13 +22,15 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
     : sift(std::make_shared<SiftExtractionOptions>()),
       aliked(std::make_shared<AlikedExtractionOptions>()),
-      loma(std::make_shared<LomaExtractionOptions>()) {}
+      loma(std::make_shared<LomaExtractionOptions>()),
+      cusift(std::make_shared<CusiftExtractionOptions>()) {}
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
     const FeatureExtractionTypeOptions& other)
     : sift(CloneSharedPtr(other.sift)),
       aliked(CloneSharedPtr(other.aliked)),
-      loma(CloneSharedPtr(other.loma)) {}
+      loma(CloneSharedPtr(other.loma)),
+      cusift(CloneSharedPtr(other.cusift)) {}
 
 FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
     const FeatureExtractionTypeOptions& other) {
@@ -38,6 +40,7 @@ FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
   sift = CloneSharedPtr(other.sift);
   aliked = CloneSharedPtr(other.aliked);
   loma = CloneSharedPtr(other.loma);
+  cusift = CloneSharedPtr(other.cusift);
   return *this;
 }
 
@@ -131,7 +134,8 @@ bool FeatureExtractionOptions::Check() const {
                       "setting the feature extractor type to SIFT.";
         return false;
       }
-      return THROW_CHECK_NOTNULL(sift)->Check();
+      return THROW_CHECK_NOTNULL(sift)->Check() &&
+             THROW_CHECK_NOTNULL(cusift)->Check();
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return THROW_CHECK_NOTNULL(aliked)->Check();

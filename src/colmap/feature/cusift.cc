@@ -139,8 +139,10 @@ class CusiftFeatureExtractor : public FeatureExtractor {
     descriptors_.clear();
     ExtractSiftFullVLFeat(
         image,
-        CusiftNumOctaves(
-            bitmap.Width(), bitmap.Height(), options_.sift->first_octave),
+        CusiftEffectiveNumOctaves(*THROW_CHECK_NOTNULL(options_.cusift),
+                                  bitmap.Width(),
+                                  bitmap.Height(),
+                                  options_.sift->first_octave),
         static_cast<float>(options_.sift->peak_threshold),
         static_cast<float>(options_.sift->edge_threshold),
         options_.sift->max_num_orientations,
@@ -237,6 +239,20 @@ int CusiftNumOctaves(const int width,
       static_cast<int>(std::floor(std::log2(static_cast<double>(min_side)))) -
       first_octave - 3;
   return std::max(num_octaves, 1);
+}
+
+int CusiftEffectiveNumOctaves(const CusiftExtractionOptions& options,
+                              const int width,
+                              const int height,
+                              const int first_octave) {
+  return options.num_octaves > 0
+             ? options.num_octaves
+             : CusiftNumOctaves(width, height, first_octave);
+}
+
+bool CusiftExtractionOptions::Check() const {
+  CHECK_OPTION(num_octaves == -1 || num_octaves >= 1);
+  return true;
 }
 
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
