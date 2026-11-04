@@ -125,6 +125,11 @@ if(CUDA_ENABLED)
         SRCS cusift_determinism_test.cc
         LINK_LIBS colmap_feature colmap_util_cuda
     )
+    COLMAP_ADD_TEST(
+        NAME cusift_memory_test
+        SRCS cusift_memory_test.cc
+        LINK_LIBS colmap_feature colmap_cusift colmap_util_cuda
+    )
 endif()
 COLMAP_ADD_TEST(
     NAME extractor_test
