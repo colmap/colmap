@@ -558,6 +558,9 @@ if(ONNX_ENABLED)
             file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/cmake)
             file(REMOVE_RECURSE ${onnxruntime_LIB_DIR}/pkgconfig)
         endif()
+        # The Windows package ships no CMake configs, so discovery there falls
+        # back to the include and library hints below.
+        set(_onnx_config_dir_hints "")
         if(NOT IS_WINDOWS)
             set(ONNX_DATA_DIR ${onnxruntime_BINARY_DIR}/share/onnxruntime)
             if(NOT EXISTS ${ONNX_DATA_DIR})
@@ -576,11 +579,19 @@ if(ONNX_ENABLED)
                     endforeach()
                 endif()
             endif()
-            set(onnxruntime_CONFIG_DIR_HINTS ${ONNX_DATA_DIR}/cmake CACHE PATH "ONNX Runtime config directory hints")
+            set(_onnx_config_dir_hints ${ONNX_DATA_DIR}/cmake)
         endif()
 
-        set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include CACHE PATH "ONNX Runtime include directory hints")
-        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_LIB_DIR} CACHE PATH "ONNX Runtime library directory hints")
+        # The hints are computed from the runtime downloaded above and must
+        # win over stale cache entries left by a previous configuration (for
+        # example one with FETCH_ONNX=OFF, which leaves them empty). Explicit
+        # package/prefix overrides still outrank HINTS in CMake's
+        # find_package search order; a stale onnxruntime_DIR cache entry must
+        # be cleared separately, see Findonnxruntime.cmake.
+        set(onnxruntime_CONFIG_DIR_HINTS "${_onnx_config_dir_hints}" CACHE PATH "ONNX Runtime config directory hints" FORCE)
+        unset(_onnx_config_dir_hints)
+        set(onnxruntime_INCLUDE_DIR_HINTS ${onnxruntime_BINARY_DIR}/include CACHE PATH "ONNX Runtime include directory hints" FORCE)
+        set(onnxruntime_LIBRARY_DIR_HINTS ${onnxruntime_LIB_DIR} CACHE PATH "ONNX Runtime library directory hints" FORCE)
         find_package(onnxruntime ${COLMAP_FIND_TYPE})
 
         install(DIRECTORY "${onnxruntime_BINARY_DIR}/include/" TYPE INCLUDE)
