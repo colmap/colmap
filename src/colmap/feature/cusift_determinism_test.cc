@@ -13,12 +13,15 @@
 #include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/matcher.h"
+#include "colmap/feature/sift.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cuda.h"
 
 #include <algorithm>
+#include <future>
 #include <memory>
 #include <random>
+#include <thread>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -155,6 +158,45 @@ TEST(CusiftDeterminism, ExtractionWithReusedExtractor) {
     Extract(*extractor, other);
     ExpectIdentical(reference, Extract(*extractor, bitmap));
   }
+}
+
+TEST(CusiftDeterminism, ExtractionUnaffectedByOtherThreadsOnTheSameGpu) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // The blur weights live in one constant bank per GPU. A thread on the same
+  // GPU that uses different settings (here first_octave -1 vs 0, which give
+  // different blur sigmas) must not overwrite the weights another thread's
+  // later images use. Thread A extracts, waits while thread B extracts with
+  // the other setting, then extracts the same image again.
+  const Bitmap bitmap = CreateTexturedImage(640, 480);
+  FeatureExtractionOptions options_a = CreateCusiftOptions();
+  options_a.sift->first_octave = 0;
+  FeatureExtractionOptions options_b = CreateCusiftOptions();
+  options_b.sift->first_octave = -1;
+
+  std::promise<void> a_extracted_once;
+  std::promise<void> b_done;
+  Features before;
+  Features after;
+  std::thread thread_a([&]() {
+    auto extractor =
+        THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_a));
+    before = Extract(*extractor, bitmap);
+    a_extracted_once.set_value();
+    b_done.get_future().wait();
+    after = Extract(*extractor, bitmap);
+  });
+  a_extracted_once.get_future().wait();
+  std::thread thread_b([&]() {
+    auto extractor =
+        THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_b));
+    Extract(*extractor, bitmap);
+  });
+  thread_b.join();
+  b_done.set_value();
+  thread_a.join();
+
+  ASSERT_GE(before.keypoints.size(), 200);
+  ExpectIdentical(before, after);
 }
 
 class CusiftMatchingDeterminism : public ::testing::Test {
