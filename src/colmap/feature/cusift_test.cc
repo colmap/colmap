@@ -110,6 +110,53 @@ TEST(CusiftExtractionOptions, NumOctavesDefaultsToAutoAndCanBeSet) {
   EXPECT_FALSE(options.Check());
 }
 
+struct CusiftUnsupportedOptionParams {
+  std::string name;
+  std::function<void(SiftExtractionOptions&)> apply;
+};
+
+class CusiftUnsupportedOptionTest
+    : public ::testing::TestWithParam<CusiftUnsupportedOptionParams> {};
+
+TEST_P(CusiftUnsupportedOptionTest, FailsOptionsCheck) {
+  FeatureExtractionOptions options = CreateCusiftOptions();
+  // Not options.Check(): without a GPU backend that is false for any use_gpu.
+  EXPECT_TRUE(CheckCusiftSiftOptions(*options.sift));
+  GetParam().apply(*options.sift);
+  // Reported as a bad option before any extraction thread starts, not only
+  // when the extractor is constructed (on a worker thread, in the
+  // controllers).
+  EXPECT_FALSE(CheckCusiftSiftOptions(*options.sift));
+  EXPECT_FALSE(options.Check());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    CusiftUnsupportedOption,
+    CusiftUnsupportedOptionTest,
+    ::testing::Values(
+        CusiftUnsupportedOptionParams{
+            "EstimateAffineShape",
+            [](SiftExtractionOptions& o) { o.estimate_affine_shape = true; }},
+        CusiftUnsupportedOptionParams{
+            "DomainSizePooling",
+            [](SiftExtractionOptions& o) { o.domain_size_pooling = true; }},
+        CusiftUnsupportedOptionParams{
+            "Upright", [](SiftExtractionOptions& o) { o.upright = true; }},
+        CusiftUnsupportedOptionParams{
+            "DarknessAdaptivity",
+            [](SiftExtractionOptions& o) { o.darkness_adaptivity = true; }},
+        CusiftUnsupportedOptionParams{"ForceCovariantExtractor",
+                                      [](SiftExtractionOptions& o) {
+                                        o.force_covariant_extractor = true;
+                                      }},
+        CusiftUnsupportedOptionParams{
+            "FirstOctave",
+            [](SiftExtractionOptions& o) { o.first_octave = -2; }},
+        CusiftUnsupportedOptionParams{
+            "OctaveResolution",
+            [](SiftExtractionOptions& o) { o.octave_resolution = 4; }}),
+    [](const auto& info) { return info.param.name; });
+
 #if defined(COLMAP_CUDA_ENABLED)
 
 TEST(CusiftExtractionOptions, RequiresGpu) {
@@ -341,14 +388,6 @@ TEST(GpuExtractorParitySiftGpu, ExtractFeatures) {
   ExpectGpuExtractorParity(FeatureExtractorType::SIFT);
 }
 
-struct CusiftUnsupportedOptionParams {
-  std::string name;
-  std::function<void(SiftExtractionOptions&)> apply;
-};
-
-class CusiftUnsupportedOptionTest
-    : public ::testing::TestWithParam<CusiftUnsupportedOptionParams> {};
-
 TEST_P(CusiftUnsupportedOptionTest, Throws) {
   FeatureExtractionOptions options = CreateCusiftOptions();
   GetParam().apply(*options.sift);
@@ -356,33 +395,6 @@ TEST_P(CusiftUnsupportedOptionTest, Throws) {
   // and reconstructs worse.
   EXPECT_THROW(CreateCusiftFeatureExtractor(options), std::exception);
 }
-
-INSTANTIATE_TEST_SUITE_P(
-    CusiftUnsupportedOption,
-    CusiftUnsupportedOptionTest,
-    ::testing::Values(
-        CusiftUnsupportedOptionParams{
-            "EstimateAffineShape",
-            [](SiftExtractionOptions& o) { o.estimate_affine_shape = true; }},
-        CusiftUnsupportedOptionParams{
-            "DomainSizePooling",
-            [](SiftExtractionOptions& o) { o.domain_size_pooling = true; }},
-        CusiftUnsupportedOptionParams{
-            "Upright", [](SiftExtractionOptions& o) { o.upright = true; }},
-        CusiftUnsupportedOptionParams{
-            "DarknessAdaptivity",
-            [](SiftExtractionOptions& o) { o.darkness_adaptivity = true; }},
-        CusiftUnsupportedOptionParams{"ForceCovariantExtractor",
-                                      [](SiftExtractionOptions& o) {
-                                        o.force_covariant_extractor = true;
-                                      }},
-        CusiftUnsupportedOptionParams{
-            "FirstOctave",
-            [](SiftExtractionOptions& o) { o.first_octave = -2; }},
-        CusiftUnsupportedOptionParams{
-            "OctaveResolution",
-            [](SiftExtractionOptions& o) { o.octave_resolution = 4; }}),
-    [](const auto& info) { return info.param.name; });
 
 #else
 

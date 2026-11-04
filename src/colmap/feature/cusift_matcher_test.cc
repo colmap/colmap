@@ -204,6 +204,21 @@ TEST(CusiftFeatureMatcher, RequiresGpu) {
 TEST(CusiftFeatureMatcher, RejectsGuidedMatching) {
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   options.guided_matching = true;
+  // Rejected as a bad option, before the guided pass constructs the matcher on
+  // a worker thread.
+  EXPECT_FALSE(options.Check());
+  EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
+}
+
+TEST(CusiftFeatureMatcher, ConstructorRejectsInvalidCusiftOptions) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // Callers that skip FeatureMatchingOptions::Check(), such as a direct
+  // Create, must still be stopped by the constructor.
+  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+  options.cusift->max_ratio = 0.0;
+  EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
+  options = CreateCusiftMatchingOptions();
+  options.cusift->max_distance = -1.0;
   EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
 }
 
