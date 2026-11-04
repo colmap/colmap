@@ -49,6 +49,14 @@ def test_ceres_rotation_averager_adds_residual_and_solves() -> None:
             image_id1, image_id2, pycolmap.Rigid3d().rotation, loss
         )
     assert averager.problem.num_residual_blocks() == 101
+    averager.add_relative_rotation_residual(
+        image_id1,
+        image_id2,
+        pycolmap.Rigid3d().rotation,
+        loss,
+        cam2_from_cam1_cov=np.eye(3),
+    )
+    assert averager.problem.num_residual_blocks() == 102
     del loss
     del reconstruction
     gc.collect()

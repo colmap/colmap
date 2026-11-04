@@ -9,7 +9,9 @@
 #include "colmap/util/types.h"
 
 #include <memory>
+#include <optional>
 
+#include <Eigen/Core>
 #include <ceres/ceres.h>
 
 namespace colmap {
@@ -57,11 +59,15 @@ class CeresRotationAverager {
   ceres::Problem& Problem();
   const ceres::Problem& Problem() const;
   // Frame and sensor rotations for both images must be configured in Problem().
+  // If given, the residual is whitened with the covariance of the relative
+  // rotation, expressed in the frame of camera 1 (right perturbation, see
+  // RelativeRotationCostFunctor).
   void AddRelativeRotationResidual(
       image_t image_id1,
       image_t image_id2,
       const Eigen::Quaterniond& cam2_from_cam1,
-      const std::shared_ptr<ceres::LossFunction>& loss_function);
+      const std::shared_ptr<ceres::LossFunction>& loss_function,
+      const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov = std::nullopt);
 
  private:
   void InitializeRotations(const RotationEstimatorOptions& options,
