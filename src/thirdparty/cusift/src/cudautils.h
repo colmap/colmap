@@ -8,35 +8,45 @@
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 
 #define safeCall(err)       __safeCall(err, __FILE__, __LINE__)
 #define safeThreadSync()    __safeThreadSync(__FILE__, __LINE__)
 #define checkMsg(msg)       __checkMsg(msg, __FILE__, __LINE__)
 
+// CUDA errors are reported as exceptions, never by ending the process: COLMAP
+// propagates exceptions from worker threads to the caller (pycolmap, the GUI,
+// the CLI), which decides what to do. Out-of-memory in particular is
+// recoverable.
+[[noreturn]] inline void __throwCudaError(const char *what, cudaError_t err,
+                                          const char *file, const int line)
+{
+  throw std::runtime_error(std::string("cusift: ") + what + ": " +
+                           cudaGetErrorString(err) + " (" + file + ":" +
+                           std::to_string(line) + ")");
+}
+
 inline void __safeCall(cudaError err, const char *file, const int line)
 {
   if (cudaSuccess != err) {
-    fprintf(stderr, "safeCall() Runtime API error in file <%s>, line %i : %s.\n", file, line, cudaGetErrorString(err));
-    exit(-1);
+    // A failed call also sets the thread's last error; clear it, or the next
+    // checkMsg would report this already-thrown failure again.
+    (void)cudaGetLastError();
+    __throwCudaError("CUDA runtime API error", err, file, line);
   }
 }
 
 inline void __safeThreadSync(const char *file, const int line)
 {
   cudaError err = cudaDeviceSynchronize();
-  if (cudaSuccess != err) {
-    fprintf(stderr, "threadSynchronize() Driver API error in file '%s' in line %i : %s.\n", file, line, cudaGetErrorString(err));
-    exit(-1);
-  }
+  if (cudaSuccess != err) __throwCudaError("device synchronization failed", err, file, line);
 }
 
 inline void __checkMsg(const char *errorMessage, const char *file, const int line)
 {
   cudaError_t err = cudaGetLastError();
-  if (cudaSuccess != err) {
-    fprintf(stderr, "checkMsg() CUDA error: %s in file <%s>, line %i : %s.\n", errorMessage, file, line, cudaGetErrorString(err));
-    exit(-1);
-  }
+  if (cudaSuccess != err) __throwCudaError(errorMessage, err, file, line);
 }
 
 // Every buffer in the VLFeat path is allocated per image and freed at the end

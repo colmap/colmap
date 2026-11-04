@@ -108,9 +108,9 @@ static int GaussKernelSlot(float sigma, int radius)
 
   int n = 2 * radius + 1;
   if (used + n > GAUSS_BANK_FLOATS) {
-    std::fprintf(stderr, "GaussKernelSlot: constant bank exhausted (%d slots, %d floats)\n",
-                 (int)slots.size(), used);
-    std::abort();
+    throw std::runtime_error(
+        "cusift: Gaussian kernel bank exhausted (" + std::to_string(slots.size()) +
+        " slots, " + std::to_string(used) + " floats)");
   }
   std::vector<float> kernel(n);
   float sum = 0.0f;
@@ -254,9 +254,7 @@ static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel 
   // gradMag/gradAng were allocated with the identical (w, h*nLevels) request,
   // so cudaMallocPitch is expected to return the same pitch deterministically.
   if (oct.gradMag.pitch != p || oct.gradAng.pitch != p) {
-    std::fprintf(stderr, "BuildVLFeatOctave: unexpected pitch mismatch (%d vs %d/%d)\n",
-                p, oct.gradMag.pitch, oct.gradAng.pitch);
-    std::abort();
+    throw std::runtime_error("cusift: unexpected pitch mismatch in BuildVLFeatOctave");
   }
   oct.width = w; oct.height = h; oct.pitch = p; oct.nLevels = nLevels;
 
@@ -318,7 +316,9 @@ static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img0
   oct.gradMag.Allocate(w, h * nLevels, iAlignUp(w, 128), false, NULL);
   oct.gradAng.Allocate(w, h * nLevels, iAlignUp(w, 128), false, NULL);
   int p = oct.gauss.pitch;
-  if (oct.gradMag.pitch != p || oct.gradAng.pitch != p) { std::abort(); }
+  if (oct.gradMag.pitch != p || oct.gradAng.pitch != p) {
+    throw std::runtime_error("cusift: unexpected pitch mismatch in BuildUpsampledOctaveMinus1");
+  }
   oct.width = w; oct.height = h; oct.pitch = p; oct.nLevels = nLevels;
 
   CudaImage img2x;
@@ -538,8 +538,8 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
   // doubles the keypoint count vs o_min=0, so it is required for parity with
   // a default-configured COLMAP.
   if (firstOctave != 0 && firstOctave != -1) {
-    std::fprintf(stderr, "ExtractSiftFullVLFeat: firstOctave must be 0 or -1 (got %d)\n", firstOctave);
-    std::abort();
+    throw std::invalid_argument("cusift: firstOctave must be 0 or -1, got " +
+                                std::to_string(firstOctave));
   }
   CudaImage img01;
   img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
