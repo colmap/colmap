@@ -216,8 +216,8 @@ def test_cusift_matches_vlfeat_cpu_feature_count():
     kp_vlfeat, _ = extract(
         pycolmap.FeatureExtractorType.SIFT, pycolmap.Device.cpu
     )
-    # cusift is a VLFeat replica; HANDOVER.md §1 measures counts 0.016% apart on
-    # real imagery. Allow 1% here, which still fails loudly on a real
+    # cusift is a VLFeat replica; counts measured on real imagery differ by
+    # ~0.01%. Allow 1% here, which still fails loudly on a real
     # regression while tolerating noise-image edge cases.
     assert abs(len(kp_cusift) - len(kp_vlfeat)) <= 0.01 * len(kp_vlfeat)
 

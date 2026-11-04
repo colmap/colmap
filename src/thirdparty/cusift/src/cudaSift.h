@@ -34,10 +34,10 @@ typedef struct {
 #endif
 } SiftData;
 
-// Packed kernel I/O for the VLFeat pipeline (docs/PERFORMANCE.md "packed kernel I/O
-// struct"). `SiftPoint` is 576 B and the VLFeat kernels touch six of its fields;
-// moving whole SiftPoints in and out of every octave pass cost ~9 ms/image in
-// pure struct traffic. These are what the kernels actually read and write:
+// Packed kernel I/O for the VLFeat pipeline. `SiftPoint` is 576 B and the
+// VLFeat kernels touch six of its fields; moving whole SiftPoints in and out of
+// every octave pass cost ~9 ms/image in pure struct traffic. These are what the
+// kernels actually read and write:
 //   orientation: reads x, y, sigma, level      -> writes VLFeatOri
 //   descriptor:  reads x, y, sigma, ori, level -> writes 128 floats, rescales x/y/sigma
 // The public SiftData/SiftPoint API below is UNCHANGED -- the harness entry
@@ -82,7 +82,7 @@ void DumpPyramidDebug(CudaImage &img, int numOctaves, int dumpOctave, const char
 // refinement + edge test, both on GPU; the refinement body is one
 // __host__ __device__ function whose CPU instantiation still serves
 // --debug-dump-prefix and is bit-identical to the GPU one -- see cudaSiftD.cu's
-// RefineOneKeypoint and docs/perf_tier1_rtx4060.md).
+// RefineOneKeypoint).
 struct DetectedKeypoint {
   int o, is, ix, iy;
   float x, y, sigma, s;

@@ -35,7 +35,7 @@ inline void __checkMsg(const char *errorMessage, const char *file, const int lin
   }
 }
 
-// docs/PERFORMANCE.md Tier 1.1 (interim form): every buffer in the VLFeat path is
+// Tier 1.1 (interim form): every buffer in the VLFeat path is
 // allocated per image and freed at the end of it (~64 cudaMalloc/cudaFree and
 // ~1 GB of churn per 1920x1080 frame), and cudaMalloc/cudaFree are both
 // device-synchronizing. Routing those through the device's default stream-

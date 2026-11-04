@@ -1,5 +1,5 @@
 # cusift - commercially-clean GPU SIFT (MIT + third-party notices, see README.md).
-# Vendored from exovision-research/cusift: the extraction path (cudaImage/
+# Vendored from the standalone cusift library: the extraction path (cudaImage/
 # cudaSift*) plus the GEMM matcher (matcher.h/matcher_gemm.cu), wired into
 # COLMAP as FeatureExtractorType::CUSIFT and FeatureMatcherType::CUSIFT_GEMM
 # respectively. The brute-force warp matcher (matcher.cu) is NOT vendored: no
@@ -36,7 +36,7 @@ target_include_directories(colmap_cusift PUBLIC
 #      "86;89" list expands to arch=compute_NN,code=[compute_NN,sm_NN], i.e.
 #      cubins for both plus PTX that JITs forward to newer cards.
 #   2. cusift's deliverable is measured VLFeat parity, and --use_fast_math is
-#      part of that numerics contract (docs/HANDOVER.md §5). Machine-dependent
+#      part of that numerics contract. Machine-dependent
 #      codegen would make those numbers unreproducible across boxes.
 #
 # Mirrors upstream cusift's own pinned list; keep the two in sync. Note PTX only
@@ -49,7 +49,7 @@ set_target_properties(colmap_cusift PROPERTIES
 
 # --use_fast_math is part of cusift's numerics contract, not an optimization
 # choice: vl_fast_atan2_f/vl_fast_sqrt_f are replicated in CUDA and every
-# VLFeat-parity gate was validated under it (docs/HANDOVER.md §5). Dropping it
+# VLFeat-parity measurement was made under it. Dropping it
 # measurably *reduces* parity with COLMAP's own VLFeat backend.
 # Never substitute a global -fmad=false; cudaSiftD.cu scopes FMA contraction off
 # for RefineOneKeypoint alone via `#pragma nv_fmad off`.

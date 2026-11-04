@@ -282,7 +282,8 @@ TEST(CusiftFeatureMatcher, ReverseRatioIsStricter) {
   // ever remove matches that mutual-best-only would keep, never add any. On
   // synthetic near-orthogonal descriptors the two usually agree, so this
   // asserts the invariant (subset) rather than a strict inequality, which only
-  // shows up on real repetitive structure -- quantified in the DB-level gate.
+  // shows up on real repetitive structure (see
+  // src/thirdparty/cusift/README.md).
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   FeatureDescriptors d1 = CreateRandomFeatureDescriptors(64);
@@ -736,12 +737,10 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
 }
 
 TEST(CusiftMatcherParity, MatchAgreementSmokeCheck) {
-  // Lightweight smoke check on a small synthetic set: the real acceptance
-  // gate (Jaccard >= 0.995 against SIFT_BRUTEFORCE on a real image pair,
-  // library's own honest bar, not 1.0) runs as a separate DB-level gate on
-  // real scan data, not as this unit test -- per-pair Jaccard is noisy on
-  // small match counts (see the integration plan's min-match-count-floor
-  // note), so this only checks that the two matchers agree on the trivial
+  // Lightweight smoke check on a small synthetic set. Match-set agreement on
+  // real images is measured outside the unit tests (see
+  // src/thirdparty/cusift/README.md): per-pair Jaccard is noisy on small match
+  // counts, so this only checks that the two matchers agree on the trivial
   // reversed-descriptor case, not a statistically meaningful Jaccard bound.
   FeatureDescriptors desc1 = CreateRandomFeatureDescriptors(10);
   FeatureDescriptors desc2 = CreateReversedDescriptors(desc1);
