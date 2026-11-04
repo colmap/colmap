@@ -70,6 +70,19 @@ void ExpectReversedMatches(const FeatureMatches& matches) {
   EXPECT_EQ(matches[1].point2D_idx2, 0);
 }
 
+const Camera& TestCamera() {
+  static const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  return camera;
+}
+
+FeatureMatcher::Image MakeImage(image_t id, const FeatureDescriptors& desc) {
+  return FeatureMatcher::Image{id,
+                               &TestCamera(),
+                               /*keypoints=*/nullptr,
+                               std::make_shared<FeatureDescriptors>(desc)};
+}
+
 #if defined(COLMAP_CUDA_ENABLED)
 
 TEST(CusiftMatchingOptions, Check) {
@@ -99,19 +112,9 @@ TEST_P(CusiftCrossCheckModeTest, SelfMatchIdentity) {
   options.cusift->cross_check_reverse_ratio = GetParam();
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
 
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   FeatureDescriptors desc = CreateRandomFeatureDescriptors(16);
-  const FeatureMatcher::Image image1 = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc)};
-  const FeatureMatcher::Image image2 = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc)};
+  const FeatureMatcher::Image image1 = MakeImage(1, desc);
+  const FeatureMatcher::Image image2 = MakeImage(2, desc);
 
   FeatureMatches matches;
   matcher->Match(image1, image2, &matches);
@@ -128,26 +131,16 @@ TEST_P(CusiftCrossCheckModeTest, EmptyAndReversedInputs) {
   options.cusift->cross_check_reverse_ratio = GetParam();
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
 
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const FeatureMatcher::Image image0 = {
-      /*image_id=*/0,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
-  const FeatureMatcher::Image image1 = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
-  const FeatureMatcher::Image image2 = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(
-          CreateReversedDescriptors(*image1.descriptors))};
+  const FeatureMatcher::Image image0 = MakeImage(0, CreateEmptyDescriptors());
+  const FeatureMatcher::Image image1 =
+      MakeImage(1, CreateRandomFeatureDescriptors(2));
+  const FeatureMatcher::Image image2 =
+      MakeImage(2, CreateReversedDescriptors(*image1.descriptors));
 
   FeatureMatches matches;
+  matcher->Match(image1, image2, &matches);
+  ExpectReversedMatches(matches);
+  // Again, through the thread-local context's buffer-reuse path.
   matcher->Match(image1, image2, &matches);
   ExpectReversedMatches(matches);
 
@@ -201,124 +194,21 @@ TEST(CusiftFeatureMatcher, ConstructorRejectsInvalidCusiftOptions) {
   EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
 }
 
-TEST(CusiftFeatureMatcher, Nominal) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
-
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const FeatureMatcher::Image image0 = {
-      /*image_id=*/0,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(CreateEmptyDescriptors())};
-  const FeatureMatcher::Image image1 = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2))};
-  const FeatureMatcher::Image image2 = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(
-          CreateReversedDescriptors(*image1.descriptors))};
-
-  FeatureMatches matches;
-
-  matcher->Match(image1, image2, &matches);
-  ExpectReversedMatches(matches);
-
-  // Same query descriptors again -- exercises the thread_local
-  // GemmMatcherContext's grow-only buffer reuse path, not just first-call
-  // allocation.
-  matcher->Match(image1, image2, &matches);
-  ExpectReversedMatches(matches);
-
-  matcher->Match(image0, image2, &matches);
-  EXPECT_EQ(matches.size(), 0);
-  matcher->Match(image1, image0, &matches);
-  EXPECT_EQ(matches.size(), 0);
-  matcher->Match(image0, image0, &matches);
-  EXPECT_EQ(matches.size(), 0);
-}
-
 TEST(CusiftFeatureMatcher, TypeMismatch) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
 
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-
   FeatureDescriptors sift_desc = CreateRandomFeatureDescriptors(2);
   FeatureDescriptors undefined_desc = CreateRandomFeatureDescriptors(2);
   undefined_desc.type = FeatureExtractorType::UNDEFINED;
 
-  const FeatureMatcher::Image image_sift = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(sift_desc)};
-  const FeatureMatcher::Image image_undefined = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(undefined_desc)};
+  const FeatureMatcher::Image image_sift = MakeImage(1, sift_desc);
+  const FeatureMatcher::Image image_undefined = MakeImage(2, undefined_desc);
 
   FeatureMatches matches;
   EXPECT_THROW(matcher->Match(image_sift, image_undefined, &matches),
                std::exception);
-}
-
-// Retained alongside ReverseRatioRejectsAmbiguousReverseDirection, which is
-// strictly stronger. This one asserts only the subset invariant and passes
-// vacuously when the two modes agree, so it is not sufficient on its own --
-// but tests are additive: a weak invariant is still an invariant.
-TEST(CusiftFeatureMatcher, ReverseRatioIsStricter) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // The defining behavioural difference: the bidirectional ratio test can only
-  // ever remove matches that mutual-best-only would keep, never add any. On
-  // synthetic near-orthogonal descriptors the two usually agree, so this
-  // asserts the invariant (subset) rather than a strict inequality, which only
-  // shows up on real repetitive structure.
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  FeatureDescriptors d1 = CreateRandomFeatureDescriptors(64);
-  FeatureDescriptors d2 = CreateReversedDescriptors(d1);
-  const FeatureMatcher::Image image1 = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(d1)};
-  const FeatureMatcher::Image image2 = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(d2)};
-
-  auto run = [&](bool reverse_ratio) {
-    FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-    options.cusift->cross_check_reverse_ratio = reverse_ratio;
-    auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
-    FeatureMatches matches;
-    matcher->Match(image1, image2, &matches);
-    std::set<std::pair<point2D_t, point2D_t>> out;
-    for (const auto& m : matches) {
-      out.emplace(m.point2D_idx1, m.point2D_idx2);
-    }
-    return out;
-  };
-
-  const auto strict = run(/*reverse_ratio=*/true);
-  const auto loose = run(/*reverse_ratio=*/false);
-  EXPECT_LE(strict.size(), loose.size());
-  for (const auto& m : strict) {
-    EXPECT_TRUE(loose.count(m) > 0)
-        << "bidirectional test kept a match mutual-best-only rejected, which "
-           "should be impossible";
-  }
 }
 
 TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
@@ -330,18 +220,8 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
   // uint8 quantization perturbs the exact distance slightly (see
   // cusift_matcher.h's quantization caveat).
   FeatureDescriptors desc = CreateRandomFeatureDescriptors(1);
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const FeatureMatcher::Image image_self = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc)};
-  const FeatureMatcher::Image image_copy = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc)};
+  const FeatureMatcher::Image image_self = MakeImage(1, desc);
+  const FeatureMatcher::Image image_copy = MakeImage(2, desc);
 
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   options.cusift->cross_check = false;
@@ -356,6 +236,22 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
   ASSERT_EQ(matches.size(), 1);
   EXPECT_EQ(matches[0].point2D_idx1, 0);
   EXPECT_EQ(matches[0].point2D_idx2, 0);
+
+  // A descriptor with disjoint support is ~pi/2 away and must be rejected,
+  // or max_distance is not applied at all.
+  FeatureDescriptorsFloatData other = FeatureDescriptorsFloatData::Zero(1, 128);
+  for (int d = 0; d < 128; ++d) {
+    if (desc.data(0, d) == 0) other(0, d) = 1.0f;
+  }
+  other.row(0) /= other.row(0).norm();
+  const FeatureMatcher::Image image_far =
+      MakeImage(3,
+                FeatureDescriptors(FeatureExtractorType::SIFT,
+                                   FeatureDescriptorsToUnsignedByte(other)));
+  options.cusift->max_distance = 0.7;
+  auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
+  matcher->Match(image_self, image_far, &matches);
+  EXPECT_EQ(matches.size(), 0);
 }
 
 TEST(CusiftFeatureMatcher, MaxNumMatchesTruncatesByIndexOrder) {
@@ -364,18 +260,8 @@ TEST(CusiftFeatureMatcher, MaxNumMatchesTruncatesByIndexOrder) {
   constexpr int kMaxNumMatches = 5;
 
   FeatureDescriptors desc = CreateRandomFeatureDescriptors(kNumFeatures);
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const FeatureMatcher::Image image1 = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc)};
-  const FeatureMatcher::Image image2 = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc)};
+  const FeatureMatcher::Image image1 = MakeImage(1, desc);
+  const FeatureMatcher::Image image2 = MakeImage(2, desc);
 
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   options.cusift->cross_check = false;
@@ -426,15 +312,6 @@ FeatureDescriptors CreateDescriptorsWithVaryingNorms(const size_t num_features,
                             FeatureDescriptorsToUnsignedByte(f));
 }
 
-FeatureMatcher::Image MakeImage(image_t id,
-                                const Camera& camera,
-                                const FeatureDescriptors& desc) {
-  return FeatureMatcher::Image{id,
-                               &camera,
-                               /*keypoints=*/nullptr,
-                               std::make_shared<FeatureDescriptors>(desc)};
-}
-
 std::set<std::pair<point2D_t, point2D_t>> MatchToSet(
     FeatureMatcher& matcher,
     const FeatureMatcher::Image& a,
@@ -474,10 +351,8 @@ TEST(CusiftFeatureMatcher, ReverseRatioRejectsAmbiguousReverseDirection) {
   const FeatureDescriptors d2(FeatureExtractorType::SIFT,
                               FeatureDescriptorsToUnsignedByte(g));
 
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const auto img1 = MakeImage(1, camera, d1);
-  const auto img2 = MakeImage(2, camera, d2);
+  const auto img1 = MakeImage(1, d1);
+  const auto img2 = MakeImage(2, d2);
 
   auto run = [&](bool reverse_ratio) {
     FeatureMatchingOptions options = CreateCusiftMatchingOptions();
@@ -540,60 +415,26 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakPrefersLowerRowIndex) {
   d2data.row(0) = d1.data.row(kTieLow);
   const FeatureDescriptors d2(FeatureExtractorType::SIFT, d2data);
 
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const auto img1 = MakeImage(1, camera, d1);
-  const auto img2 = MakeImage(2, camera, d2);
+  const auto img1 = MakeImage(1, d1);
+  const auto img2 = MakeImage(2, d2);
 
-  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  options.cusift->cross_check = true;
-  options.cusift->cross_check_reverse_ratio = false;
-  auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
-
-  FeatureMatches matches;
-  matcher->Match(img1, img2, &matches);
-
-  ASSERT_EQ(matches.size(), 1)
-      << "expected exactly one surviving cross-checked "
-         "match for the single image-2 descriptor";
-  EXPECT_EQ(matches[0].point2D_idx1, static_cast<point2D_t>(kTieLow))
-      << "column tie must resolve to the LOWER row index (" << kTieLow
-      << "), not the one that happens to land on a lower thread (" << kTieHigh
-      << ")";
-  EXPECT_EQ(matches[0].point2D_idx2, 0);
-}
-
-// Same tie, opposite key space: the key changes the compared VALUE but must not
-// change the tie rule.
-TEST(CusiftFeatureMatcher, ColumnTieBreakIsKeyModeIndependent) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  constexpr int kN1 = 320;
-  constexpr int kTieLow = 45;
-  constexpr int kTieHigh = 300;
-
-  FeatureDescriptors d1 = CreateRandomFeatureDescriptors(kN1);
-  d1.data.row(kTieHigh) = d1.data.row(kTieLow);
-  FeatureDescriptorsData d2data(1, 128);
-  d2data.row(0) = d1.data.row(kTieLow);
-  const FeatureDescriptors d2(FeatureExtractorType::SIFT, d2data);
-
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const auto img1 = MakeImage(1, camera, d1);
-  const auto img2 = MakeImage(2, camera, d2);
-
+  // The key changes the compared VALUE between distance types but must not
+  // change the tie rule.
   for (const auto dt : {CusiftDistanceType::ANGULAR, CusiftDistanceType::L2}) {
     FeatureMatchingOptions options = CreateCusiftMatchingOptions();
     options.cusift->distance_type = dt;
     options.cusift->cross_check = true;
     options.cusift->cross_check_reverse_ratio = false;
     auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
+
     FeatureMatches matches;
     matcher->Match(img1, img2, &matches);
     ASSERT_EQ(matches.size(), 1) << "distance_type=" << static_cast<int>(dt);
     EXPECT_EQ(matches[0].point2D_idx1, static_cast<point2D_t>(kTieLow))
-        << "tie rule must not depend on the key space; distance_type="
-        << static_cast<int>(dt);
+        << "column tie must resolve to the LOWER row index (" << kTieLow
+        << "), not the one that happens to land on a lower thread (" << kTieHigh
+        << "); distance_type=" << static_cast<int>(dt);
+    EXPECT_EQ(matches[0].point2D_idx2, 0);
   }
 }
 
@@ -610,8 +451,6 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakIsKeyModeIndependent) {
 // no tolerance to tune.
 TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
 
   size_t total_reference_matches = 0;
   for (int seed = 1; seed <= 12; ++seed) {
@@ -629,8 +468,8 @@ TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
       }
       const FeatureDescriptors db(FeatureExtractorType::SIFT,
                                   f.cast<uint8_t>());
-      const auto img1 = MakeImage(1, camera, da);
-      const auto img2 = MakeImage(2, camera, db);
+      const auto img1 = MakeImage(1, da);
+      const auto img2 = MakeImage(2, db);
 
       FeatureMatchingOptions cu = CreateCusiftMatchingOptions();
       auto cu_matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cu));
@@ -664,13 +503,11 @@ TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
 // invisible to positive-pair tests by construction.
 TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   // Independently generated sets: nothing should legitimately correspond.
   const FeatureDescriptors da = CreateDescriptorsWithVaryingNorms(150, 21);
   const FeatureDescriptors db = CreateDescriptorsWithVaryingNorms(150, 99);
-  const auto img1 = MakeImage(1, camera, da);
-  const auto img2 = MakeImage(2, camera, db);
+  const auto img1 = MakeImage(1, da);
+  const auto img2 = MakeImage(2, db);
 
   FeatureMatchingOptions cu = CreateCusiftMatchingOptions();
   auto cu_matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cu));
@@ -692,8 +529,6 @@ TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
 // applied to the ratio/cross-check semantics rather than only to max_distance.
 TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
 
   FeatureDescriptorsFloatData q = FeatureDescriptorsFloatData::Zero(1, 128);
   for (int d = 0; d < 12; ++d) q(0, d) = 1.0f;
@@ -715,8 +550,8 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
                               FeatureDescriptorsToUnsignedByte(q));
   const FeatureDescriptors dc(FeatureExtractorType::SIFT,
                               FeatureDescriptorsToUnsignedByte(c));
-  const auto img1 = MakeImage(1, camera, dq);
-  const auto img2 = MakeImage(2, camera, dc);
+  const auto img1 = MakeImage(1, dq);
+  const auto img2 = MakeImage(2, dc);
 
   FeatureMatchingOptions cu = CreateCusiftMatchingOptions();
   cu.cusift->max_ratio = 0.99;  // keep the ratio test from masking the choice
@@ -727,69 +562,10 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
   ref.sift->max_ratio = 0.99;
   auto ref_matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(ref));
 
-  EXPECT_EQ(MatchToSet(*cu_matcher, img1, img2),
-            MatchToSet(*ref_matcher, img1, img2))
+  const auto want = MatchToSet(*ref_matcher, img1, img2);
+  ASSERT_EQ(want.size(), 1);
+  EXPECT_EQ(MatchToSet(*cu_matcher, img1, img2), want)
       << "the winning candidate changed under non-canonical descriptor norms";
-}
-
-TEST(CusiftMatcherParity, MatchAgreementSmokeCheck) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // Checks that the two matchers agree on the reversed-descriptor case.
-  FeatureDescriptors desc1 = CreateRandomFeatureDescriptors(10);
-  FeatureDescriptors desc2 = CreateReversedDescriptors(desc1);
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
-  const FeatureMatcher::Image image1 = {
-      /*image_id=*/1,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc1)};
-  const FeatureMatcher::Image image2 = {
-      /*image_id=*/2,
-      /*camera=*/&camera,
-      /*keypoints=*/nullptr,
-      std::make_shared<FeatureDescriptors>(desc2)};
-
-  FeatureMatchingOptions cusift_options = CreateCusiftMatchingOptions();
-  auto cusift_matcher =
-      THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cusift_options));
-  FeatureMatches cusift_matches;
-  cusift_matcher->Match(image1, image2, &cusift_matches);
-
-  FeatureMatchingOptions sift_options(FeatureMatcherType::SIFT_BRUTEFORCE);
-  sift_options.use_gpu = false;
-  sift_options.sift->cpu_brute_force_matcher = true;
-  auto sift_matcher =
-      THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(sift_options));
-  FeatureMatches sift_matches;
-  sift_matcher->Match(image1, image2, &sift_matches);
-
-  auto ToPairSet = [](const FeatureMatches& matches) {
-    std::set<std::pair<point2D_t, point2D_t>> pairs;
-    for (const auto& m : matches) {
-      pairs.emplace(m.point2D_idx1, m.point2D_idx2);
-    }
-    return pairs;
-  };
-  const auto cusift_pairs = ToPairSet(cusift_matches);
-  const auto sift_pairs = ToPairSet(sift_matches);
-
-  std::vector<std::pair<point2D_t, point2D_t>> intersection;
-  std::set_intersection(cusift_pairs.begin(),
-                        cusift_pairs.end(),
-                        sift_pairs.begin(),
-                        sift_pairs.end(),
-                        std::back_inserter(intersection));
-  std::vector<std::pair<point2D_t, point2D_t>> union_set;
-  std::set_union(cusift_pairs.begin(),
-                 cusift_pairs.end(),
-                 sift_pairs.begin(),
-                 sift_pairs.end(),
-                 std::back_inserter(union_set));
-  ASSERT_FALSE(union_set.empty());
-  const double jaccard =
-      static_cast<double>(intersection.size()) / union_set.size();
-  EXPECT_GE(jaccard, 0.995);
 }
 
 #else  // !defined(COLMAP_CUDA_ENABLED)

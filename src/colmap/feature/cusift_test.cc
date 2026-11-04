@@ -151,11 +151,16 @@ TEST(CusiftExtractionOptions, TypeProperties) {
       FeatureExtractionOptions(FeatureExtractorType::SIFT).EffMaxImageSize());
 }
 
+// Holds cusift to the assertions sift_test.cc's ExtractSiftFeaturesGPU applies
+// to SiftGPU, through the generic FeatureExtractor factory.
 TEST(CusiftFeatureExtractor, Nominal) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Bitmap bitmap = CreateImageWithSquare(256);
 
-  auto extractor = CreateCusiftFeatureExtractor(CreateCusiftOptions());
+  const FeatureExtractionOptions options = CreateCusiftOptions();
+  ASSERT_TRUE(options.Check());
+  ASSERT_FALSE(options.RequiresOpenGL());
+  auto extractor = FeatureExtractor::Create(options);
   ASSERT_NE(extractor, nullptr);
 
   FeatureKeypoints keypoints;
@@ -173,6 +178,12 @@ TEST(CusiftFeatureExtractor, Nominal) {
   for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
     EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
   }
+
+  // Keypoints only.
+  FeatureKeypoints keypoints_only;
+  EXPECT_TRUE(
+      extractor->Extract(bitmap, &keypoints_only, /*descriptors=*/nullptr));
+  EXPECT_EQ(keypoints_only.size(), keypoints.size());
 }
 
 TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
@@ -193,15 +204,6 @@ TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
     return scale;
   };
   EXPECT_LT(max_scale(1), max_scale(-1));
-}
-
-TEST(CusiftFeatureExtractor, ExtractWithoutDescriptors) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  const Bitmap bitmap = CreateImageWithSquare(256);
-  auto extractor = CreateCusiftFeatureExtractor(CreateCusiftOptions());
-  FeatureKeypoints keypoints;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, /*descriptors=*/nullptr));
-  EXPECT_GE(keypoints.size(), 12);
 }
 
 // cusift must agree with COLMAP's own CPU (VLFeat) backend, not SiftGPU, when
@@ -306,40 +308,6 @@ TEST(CusiftFeatureExtractor, DescriptorsMatchableBySiftMatcher) {
   for (const FeatureMatch& match : matches) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
   }
-}
-
-// Holds cusift to the assertions sift_test.cc's ExtractSiftFeaturesGPU applies
-// to SiftGPU (>= 12 keypoints on the synthetic square, valid keypoint geometry,
-// 512-norm uint8 descriptors tagged SIFT).
-void ExpectGpuExtractorParity(FeatureExtractorType type) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
-
-  FeatureExtractionOptions options(type);
-  options.use_gpu = true;
-  ASSERT_TRUE(options.Check());
-  ASSERT_FALSE(options.RequiresOpenGL());
-
-  auto extractor = FeatureExtractor::Create(options);
-  ASSERT_NE(extractor, nullptr);
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  EXPECT_TRUE(extractor->Extract(bitmap, &keypoints, &descriptors));
-
-  EXPECT_GE(keypoints.size(), 12);
-  ValidateKeypoints(keypoints, bitmap);
-  EXPECT_GE(descriptors.data.rows(), 12);
-  EXPECT_EQ(descriptors.data.rows(), keypoints.size());
-  EXPECT_EQ(descriptors.data.cols(), 128);
-  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
-  }
-}
-
-TEST(GpuExtractorParityCusift, ExtractFeatures) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  ExpectGpuExtractorParity(FeatureExtractorType::CUSIFT);
 }
 
 TEST_P(CusiftUnsupportedOptionTest, Throws) {
