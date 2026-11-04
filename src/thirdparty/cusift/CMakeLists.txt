@@ -1,9 +1,6 @@
-# cusift - commercially-clean GPU SIFT (MIT + third-party notices, see README.md).
-# Vendored from the standalone cusift library: the extraction path (cudaImage/
-# cudaSift*) plus the GEMM matcher (matcher.h/matcher_gemm.cu), wired into
-# COLMAP as FeatureExtractorType::CUSIFT and FeatureMatcherType::CUSIFT_GEMM
-# respectively. The brute-force warp matcher (matcher.cu) is NOT vendored: no
-# COLMAP backend targets it, so importing it would just be unused build cost.
+# cusift: CUDA SIFT extractor (cudaImage/cudaSift*) and GEMM matcher
+# (matcher.h/matcher_gemm.cu), used by FeatureExtractorType::CUSIFT and
+# FeatureMatcherType::CUSIFT_GEMM. MIT plus third-party notices; see LICENSE.
 
 # Note: cudaSiftD.cu is deliberately NOT a source file. cudaSiftH.cu #includes
 # it, so listing it here would compile every kernel twice and fail to link.
@@ -14,10 +11,10 @@ COLMAP_ADD_LIBRARY(
         src/cudaImage.h src/cudaImage.cu
         src/cudaSift.h
         src/cudaSiftD.h
-        src/cudaSiftH.h src/cudaSiftH.cu
+        src/cudaSiftH.cu
         src/cudautils.h
         src/cusift_device.h src/cusift_device.cu
-        src/matcher.h src/matcher_gemm.cu src/matcher_fused.cu
+        src/matcher.h src/matcher_gemm.cu
     PRIVATE_LINK_LIBS
         CUDA::cudart
         CUDA::cublas
@@ -28,8 +25,7 @@ target_include_directories(colmap_cusift PUBLIC
 
 # By default cusift builds for COLMAP's project-wide CMAKE_CUDA_ARCHITECTURES,
 # like every other CUDA target, so -DCMAKE_CUDA_ARCHITECTURES=... and the
-# toolkit's supported range apply to it too (a fixed "86;89" list broke CUDA
-# toolkits older than 11.8, which cannot target sm_89). The kernels use no
+# toolkit's supported range apply to it too. The kernels use no
 # architecture-specific intrinsics. Set COLMAP_CUSIFT_CUDA_ARCHITECTURES to
 # build cusift for a different list than the rest of COLMAP, e.g. "86;89" for
 # sm_86/sm_89 machine code plus PTX that JIT-compiles forward to newer GPUs.

@@ -39,14 +39,12 @@ inline void __checkMsg(const char *errorMessage, const char *file, const int lin
   }
 }
 
-// Tier 1.1 (interim form): every buffer in the VLFeat path is
-// allocated per image and freed at the end of it (~64 cudaMalloc/cudaFree and
-// ~1 GB of churn per 1920x1080 frame), and cudaMalloc/cudaFree are both
-// device-synchronizing. Routing those through a stream-ordered memory pool
-// with an unbounded release threshold makes every allocation after the first
-// image a pool hit: no driver call, no sync, memory stays resident. No
-// numerics change -- same sizes, same pitches (see cusiftMallocPitch), same
-// kernels.
+// Every buffer in the VLFeat path is allocated per image and freed at the end
+// of it, and cudaMalloc/cudaFree are both device-synchronizing. Routing those
+// through a stream-ordered memory pool with an unbounded release threshold
+// makes every allocation after the first image a pool hit: no driver call, no
+// sync, memory stays resident. Sizes and pitches are unchanged (see
+// cusiftMallocPitch).
 //
 // The pool is cusift's own, one per device (cusift_device.cu), not the
 // device's default pool: the unbounded release threshold must not change how
@@ -83,25 +81,6 @@ inline cudaError_t cusiftMallocPitch(float **ptr, int *pitchFloats, int width, i
 
 inline cudaError_t cusiftFree(void *ptr) { return cudaFreeAsync(ptr, 0); }
 
-inline bool deviceInit(int dev)
-{
-  int deviceCount;
-  safeCall(cudaGetDeviceCount(&deviceCount));
-  if (deviceCount == 0) {
-    fprintf(stderr, "CUDA error: no devices supporting CUDA.\n");
-    return false;
-  }
-  if (dev < 0) dev = 0;						
-  if (dev > deviceCount-1) dev = deviceCount - 1;
-  cudaDeviceProp deviceProp;
-  safeCall(cudaGetDeviceProperties(&deviceProp, dev));
-  if (deviceProp.major < 1) {
-    fprintf(stderr, "error: device does not support CUDA.\n");
-    return false;					
-  }
-  safeCall(cudaSetDevice(dev));
-  return true;
-}
 
 class TimerGPU {
 public:
@@ -125,32 +104,8 @@ public:
   }
 };
 
-template <class T>
-__device__ __inline__ T ShiftDown(T var, unsigned int delta, int width = 32) {
-#if (CUDART_VERSION >= 9000)
-  return __shfl_down_sync(0xffffffff, var, delta, width);
-#else
-  return __shfl_down(var, delta, width);
-#endif
-}
 
-template <class T>
-__device__ __inline__ T ShiftUp(T var, unsigned int delta, int width = 32) {
-#if (CUDART_VERSION >= 9000)
-  return __shfl_up_sync(0xffffffff, var, delta, width);
-#else
-  return __shfl_up(var, delta, width);
-#endif
-}
 
-template <class T>
-__device__ __inline__ T Shuffle(T var, unsigned int lane, int width = 32) {
-#if (CUDART_VERSION >= 9000)
-  return __shfl_sync(0xffffffff, var, lane, width);
-#else
-  return __shfl(var, lane, width);
-#endif
-}
 
 
 #endif

@@ -14,7 +14,6 @@
 #include <algorithm>
 #include <array>
 #include <vector>
-#include <chrono>
 #include <map>
 #include <mutex>
 #include <string>
@@ -23,571 +22,33 @@
 #include "cudaImage.h"
 #include "cudaSift.h"
 #include "cudaSiftD.h"
-#include "cudaSiftH.h"
 
 #include "cudaSiftD.cu"
 
-// Stage-attribution timers for performance work. Enabled
-// by setting CUSIFT_TIMING=1; off, they compile to a getenv-cached bool test.
-// ncu is the better tool but needs GPU-counter permissions, and nsys' CUDA
-// tracing does not capture under WSL2 -- this covers the "which stage owns the
-// milliseconds" question without either. Each scope synchronizes on entry and
-// exit, so the numbers attribute correctly but do not sum to the pipelined
-// wall time.
-namespace {
 
-class StageTimer {
- public:
-  static bool Enabled() {
-    static const bool e = std::getenv("CUSIFT_TIMING") != nullptr;
-    return e;
-  }
-  explicit StageTimer(const char *name) : name_(name) {
-    if (!Enabled()) return;
-    safeCall(cudaDeviceSynchronize());
-    t0_ = std::chrono::steady_clock::now();
-  }
-  ~StageTimer() {
-    if (!Enabled()) return;
-    safeCall(cudaDeviceSynchronize());
-    Acc()[name_] += std::chrono::duration<double, std::milli>(
-        std::chrono::steady_clock::now() - t0_).count();
-  }
-  static void Report(const char *tag) {
-    if (!Enabled()) return;
-    std::vector<std::pair<std::string, double>> v(Acc().begin(), Acc().end());
-    std::sort(v.begin(), v.end(),
-              [](const auto &a, const auto &b) { return a.second > b.second; });
-    double tot = 0;
-    for (const auto &kv : v) tot += kv.second;
-    std::fprintf(stderr, "[cusift timing] %s: %.2f ms attributed\n", tag, tot);
-    for (const auto &kv : v)
-      std::fprintf(stderr, "  %-22s %8.2f ms  %5.1f%%\n", kv.first.c_str(),
-                   kv.second, 100.0 * kv.second / tot);
-    Acc().clear();
-  }
 
- private:
-  static std::map<std::string, double> &Acc() {
-    static std::map<std::string, double> acc;
-    return acc;
-  }
-  const char *name_;
-  std::chrono::steady_clock::time_point t0_;
-};
 
-}  // namespace
 
-void InitCuda(int devNum)
-{
-  int nDevices;
-  cudaGetDeviceCount(&nDevices);
-  if (!nDevices) {
-    std::cerr << "No CUDA devices available" << std::endl;
-    return;
-  }
-  devNum = std::min(nDevices-1, devNum);
-  deviceInit(devNum);
-  cusiftInitMemPool();
-  cudaDeviceProp prop;
-  cudaGetDeviceProperties(&prop, devNum);
-  printf("Device Number: %d\n", devNum);
-  printf("  Device name: %s\n", prop.name);
-  printf("  Compute Capability: %d.%d\n", prop.major, prop.minor);
-  printf("  Total Global Memory: %zu MB\n", prop.totalGlobalMem / (1024 * 1024));
-  printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
-  printf("  L2 Cache Size: %d KB\n", prop.l2CacheSize / 1024);
-  printf("  Max Threads per Block: %d\n", prop.maxThreadsPerBlock);
-  printf("  Multiprocessor Count: %d\n\n", prop.multiProcessorCount);
-}
 
-float *AllocSiftTempMemory(int width, int height, int numOctaves, bool scaleUp)
-{
-  TimerGPU timer(0);
-  const int nd = NUM_SCALES + 3;
-  int w = width*(scaleUp ? 2 : 1); 
-  int h = height*(scaleUp ? 2 : 1);
-  int p = iAlignUp(w, 128);
-  int size = h*p;                 // image sizes
-  int sizeTmp = nd*h*p;           // laplace buffer sizes
-  for (int i=0;i<numOctaves;i++) {
-    w /= 2;
-    h /= 2;
-    int p = iAlignUp(w, 128);
-    size += h*p;
-    sizeTmp += nd*h*p; 
-  }
-  float *memoryTmp = NULL; 
-  size_t pitch;
-  size += sizeTmp;
-  safeCall(cudaMallocPitch((void **)&memoryTmp, &pitch, (size_t)4096, (size+4095)/4096*sizeof(float)));
-#ifdef VERBOSE
-  printf("Allocated memory size: %d bytes\n", size);
-  printf("Memory allocation time =      %.2f ms\n\n", timer.read());
-#endif
-  return memoryTmp;
-}
 
-void FreeSiftTempMemory(float *memoryTmp)
-{
-  if (memoryTmp)
-    safeCall(cudaFree(memoryTmp));
-}
 
-void ExtractSift(SiftData &siftData, CudaImage &img, int numOctaves, double initBlur, float thresh, float lowestScale, bool scaleUp, float *tempMemory) 
-{
-  TimerGPU timer(0);
-  unsigned int *d_PointCounterAddr;
-  safeCall(cudaGetSymbolAddress((void**)&d_PointCounterAddr, d_PointCounter));
-  safeCall(cudaMemset(d_PointCounterAddr, 0, (8*2+1)*sizeof(int)));
-  safeCall(cudaMemcpyToSymbol(d_MaxNumPoints, &siftData.maxPts, sizeof(int)));
 
-  const int nd = NUM_SCALES + 3;
-  int w = img.width*(scaleUp ? 2 : 1);
-  int h = img.height*(scaleUp ? 2 : 1);
-  int p = iAlignUp(w, 128);
-  int width = w, height = h;
-  int size = h*p;                 // image sizes
-  int sizeTmp = nd*h*p;           // laplace buffer sizes
-  for (int i=0;i<numOctaves;i++) {
-    w /= 2;
-    h /= 2;
-    int p = iAlignUp(w, 128);
-    size += h*p;
-    sizeTmp += nd*h*p; 
-  }
-  float *memoryTmp = tempMemory; 
-  size += sizeTmp;
-  if (!tempMemory) {
-    size_t pitch;
-    safeCall(cudaMallocPitch((void **)&memoryTmp, &pitch, (size_t)4096, (size+4095)/4096*sizeof(float)));
-#ifdef VERBOSE
-    printf("Allocated memory size: %d bytes\n", size);
-    printf("Memory allocation time =      %.2f ms\n\n", timer.read());
-#endif
-  }
-  float *memorySub = memoryTmp + sizeTmp;
 
-  CudaImage lowImg;
-  lowImg.Allocate(width, height, iAlignUp(width, 128), false, memorySub);
-  if (!scaleUp) {
-    float kernel[8*12*16];
-    PrepareLaplaceKernels(numOctaves, 0.0f, kernel);
-    safeCall(cudaMemcpyToSymbolAsync(d_LaplaceKernel, kernel, 8*12*16*sizeof(float)));
-    LowPass(lowImg, img, max(initBlur, 0.001f));
-    TimerGPU timer1(0);
-    ExtractSiftLoop(siftData, lowImg, numOctaves, 0.0f, thresh, lowestScale, 1.0f, memoryTmp, memorySub + height*iAlignUp(width, 128));
-    safeCall(cudaMemcpy(&siftData.numPts, &d_PointCounterAddr[2*numOctaves], sizeof(int), cudaMemcpyDeviceToHost)); 
-    siftData.numPts = (siftData.numPts<siftData.maxPts ? siftData.numPts : siftData.maxPts);
-    printf("SIFT extraction time =        %.2f ms %d\n", timer1.read(), siftData.numPts);
-  } else {
-    CudaImage upImg;
-    upImg.Allocate(width, height, iAlignUp(width, 128), false, memoryTmp);
-    TimerGPU timer1(0); 
-    ScaleUp(upImg, img);
-    LowPass(lowImg, upImg, max(initBlur, 0.001f));
-    float kernel[8*12*16];
-    PrepareLaplaceKernels(numOctaves, 0.0f, kernel);
-    safeCall(cudaMemcpyToSymbolAsync(d_LaplaceKernel, kernel, 8*12*16*sizeof(float)));
-    ExtractSiftLoop(siftData, lowImg, numOctaves, 0.0f, thresh, lowestScale*2.0f, 1.0f, memoryTmp, memorySub + height*iAlignUp(width, 128));
-    safeCall(cudaMemcpy(&siftData.numPts, &d_PointCounterAddr[2*numOctaves], sizeof(int), cudaMemcpyDeviceToHost)); 
-    siftData.numPts = (siftData.numPts<siftData.maxPts ? siftData.numPts : siftData.maxPts);
-    RescalePositions(siftData, 0.5f);
-    printf("SIFT extraction time =        %.2f ms\n", timer1.read());
-  } 
-  
-  if (!tempMemory)
-    safeCall(cudaFree(memoryTmp));
-#ifdef MANAGEDMEM
-  safeCall(cudaDeviceSynchronize());
-#else
-  if (siftData.h_data)
-    safeCall(cudaMemcpy(siftData.h_data, siftData.d_data, sizeof(SiftPoint)*siftData.numPts, cudaMemcpyDeviceToHost));
-#endif
-  double totTime = timer.read();
-  printf("Incl prefiltering & memcpy =  %.2f ms %d\n\n", totTime, siftData.numPts);
-}
+   
 
-int ExtractSiftLoop(SiftData &siftData, CudaImage &img, int numOctaves, double initBlur, float thresh, float lowestScale, float subsampling, float *memoryTmp, float *memorySub) 
-{
-#ifdef VERBOSE
-  TimerGPU timer(0);
-#endif
-  int w = img.width;
-  int h = img.height;
-  if (numOctaves>1) {
-    CudaImage subImg;
-    int p = iAlignUp(w/2, 128);
-    subImg.Allocate(w/2, h/2, p, false, memorySub); 
-    ScaleDown(subImg, img, 0.5f);
-    float totInitBlur = (float)sqrt(initBlur*initBlur + 0.5f*0.5f) / 2.0f;
-    ExtractSiftLoop(siftData, subImg, numOctaves-1, totInitBlur, thresh, lowestScale, subsampling*2.0f, memoryTmp, memorySub + (h/2)*p);
-  }
-  ExtractSiftOctave(siftData, img, numOctaves, thresh, lowestScale, subsampling, memoryTmp);
-#ifdef VERBOSE
-  double totTime = timer.read();
-  printf("ExtractSift time total =      %.2f ms %d\n\n", totTime, numOctaves);
-#endif
-  return 0;
-}
 
-void ExtractSiftOctave(SiftData &siftData, CudaImage &img, int octave, float thresh, float lowestScale, float subsampling, float *memoryTmp)
-{
-  const int nd = NUM_SCALES + 3;
-#ifdef VERBOSE
-  unsigned int *d_PointCounterAddr;
-  safeCall(cudaGetSymbolAddress((void**)&d_PointCounterAddr, d_PointCounter));
-  unsigned int fstPts, totPts;
-  safeCall(cudaMemcpy(&fstPts, &d_PointCounterAddr[2*octave-1], sizeof(int), cudaMemcpyDeviceToHost)); 
-  TimerGPU timer0;
-#endif
-  CudaImage diffImg[nd];
-  int w = img.width; 
-  int h = img.height;
-  int p = iAlignUp(w, 128);
-  for (int i=0;i<nd-1;i++) 
-    diffImg[i].Allocate(w, h, p, false, memoryTmp + i*p*h); 
 
-  // Specify texture
-  struct cudaResourceDesc resDesc;
-  memset(&resDesc, 0, sizeof(resDesc));
-  resDesc.resType = cudaResourceTypePitch2D;
-  resDesc.res.pitch2D.devPtr = img.d_data;
-  resDesc.res.pitch2D.width = img.width;
-  resDesc.res.pitch2D.height = img.height;
-  resDesc.res.pitch2D.pitchInBytes = img.pitch*sizeof(float);  
-  resDesc.res.pitch2D.desc = cudaCreateChannelDesc<float>();
-  // Specify texture object parameters
-  struct cudaTextureDesc texDesc;
-  memset(&texDesc, 0, sizeof(texDesc));
-  texDesc.addressMode[0]   = cudaAddressModeClamp;
-  texDesc.addressMode[1]   = cudaAddressModeClamp;
-  texDesc.filterMode       = cudaFilterModeLinear;
-  texDesc.readMode         = cudaReadModeElementType;
-  texDesc.normalizedCoords = 0;
-  // Create texture object
-  cudaTextureObject_t texObj = 0;
-  cudaCreateTextureObject(&texObj, &resDesc, &texDesc, NULL);
 
-#ifdef VERBOSE
-  TimerGPU timer1;
-#endif
-  float baseBlur = pow(2.0f, -1.0f/NUM_SCALES);
-  float diffScale = pow(2.0f, 1.0f/NUM_SCALES);
-  LaplaceMulti(texObj, img, diffImg, octave); 
-  FindPointsMulti(diffImg, siftData, thresh, 10.0f, 1.0f/NUM_SCALES, lowestScale/subsampling, subsampling, octave);
-#ifdef VERBOSE
-  double gpuTimeDoG = timer1.read();
-  TimerGPU timer4;
-#endif
-  ComputeOrientations(texObj, img, siftData, octave); 
-  ExtractSiftDescriptors(texObj, siftData, subsampling, octave); 
-  //OrientAndExtract(texObj, siftData, subsampling, octave); 
-  
-  safeCall(cudaDestroyTextureObject(texObj));
-#ifdef VERBOSE
-  double gpuTimeSift = timer4.read();
-  double totTime = timer0.read();
-  printf("GPU time : %.2f ms + %.2f ms + %.2f ms = %.2f ms\n", totTime-gpuTimeDoG-gpuTimeSift, gpuTimeDoG, gpuTimeSift, totTime);
-  safeCall(cudaMemcpy(&totPts, &d_PointCounterAddr[2*octave+1], sizeof(int), cudaMemcpyDeviceToHost));
-  totPts = (totPts<siftData.maxPts ? totPts : siftData.maxPts);
-  if (totPts>0) 
-    printf("           %.2f ms / DoG,  %.4f ms / Sift,  #Sift = %d\n", gpuTimeDoG/NUM_SCALES, gpuTimeSift/(totPts-fstPts), totPts-fstPts); 
-#endif
-}
 
-void InitSiftData(SiftData &data, int num, bool host, bool dev)
-{
-  data.numPts = 0;
-  data.maxPts = num;
-  int sz = sizeof(SiftPoint)*num;
-#ifdef MANAGEDMEM
-  safeCall(cudaMallocManaged((void **)&data.m_data, sz));
-#else
-  data.h_data = NULL;
-  if (host)
-    data.h_data = (SiftPoint *)malloc(sz);
-  data.d_data = NULL;
-  if (dev)
-    safeCall(cusiftMallocAsync((void **)&data.d_data, sz));
-#endif
-}
 
-void FreeSiftData(SiftData &data)
-{
-#ifdef MANAGEDMEM
-  safeCall(cudaFree(data.m_data));
-#else
-  if (data.d_data!=NULL)
-    safeCall(cusiftFree(data.d_data));
-  data.d_data = NULL;
-  if (data.h_data!=NULL)
-    free(data.h_data);
-#endif
-  data.numPts = 0;
-  data.maxPts = 0;
-}
-
-void PrintSiftData(SiftData &data)
-{
-#ifdef MANAGEDMEM
-  SiftPoint *h_data = data.m_data;
-#else
-  SiftPoint *h_data = data.h_data;
-  if (data.h_data==NULL) {
-    h_data = (SiftPoint *)malloc(sizeof(SiftPoint)*data.maxPts);
-    safeCall(cudaMemcpy(h_data, data.d_data, sizeof(SiftPoint)*data.numPts, cudaMemcpyDeviceToHost));
-    data.h_data = h_data;
-  }
-#endif
-  for (int i=0;i<data.numPts;i++) {
-    printf("xpos         = %.2f\n", h_data[i].xpos);
-    printf("ypos         = %.2f\n", h_data[i].ypos);
-    printf("scale        = %.2f\n", h_data[i].scale);
-    printf("sharpness    = %.2f\n", h_data[i].sharpness);
-    printf("edgeness     = %.2f\n", h_data[i].edgeness);
-    printf("orientation  = %.2f\n", h_data[i].orientation);
-    printf("score        = %.2f\n", h_data[i].score);
-    float *siftData = (float*)&h_data[i].data;
-    for (int j=0;j<8;j++) {
-      if (j==0) 
-	printf("data = ");
-      else 
-	printf("       ");
-      for (int k=0;k<16;k++)
-	if (siftData[j+8*k]<0.05)
-	  printf(" .   ");
-	else
-	  printf("%.2f ", siftData[j+8*k]);
-      printf("\n");
-    }
-  }
-  printf("Number of available points: %d\n", data.numPts);
-  printf("Number of allocated points: %d\n", data.maxPts);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Host side master functions
-///////////////////////////////////////////////////////////////////////////////
-
-double ScaleDown(CudaImage &res, CudaImage &src, float variance)
-{
-  static float oldVariance = -1.0f;
-  if (res.d_data==NULL || src.d_data==NULL) {
-    printf("ScaleDown: missing data\n");
-    return 0.0;
-  }
-  if (oldVariance!=variance) {
-    float h_Kernel[5];
-    float kernelSum = 0.0f;
-    for (int j=0;j<5;j++) {
-      h_Kernel[j] = (float)expf(-(double)(j-2)*(j-2)/2.0/variance);      
-      kernelSum += h_Kernel[j];
-    }
-    for (int j=0;j<5;j++)
-      h_Kernel[j] /= kernelSum;  
-    safeCall(cudaMemcpyToSymbol(d_ScaleDownKernel, h_Kernel, 5*sizeof(float)));
-    oldVariance = variance;
-  }
-#if 0
-  dim3 blocks(iDivUp(src.width, SCALEDOWN_W), iDivUp(src.height, SCALEDOWN_H));
-  dim3 threads(SCALEDOWN_W + 4, SCALEDOWN_H + 4);
-  ScaleDownDenseShift<<<blocks, threads>>>(res.d_data, src.d_data, src.width, src.pitch, src.height, res.pitch);
-#else
-  dim3 blocks(iDivUp(src.width, SCALEDOWN_W), iDivUp(src.height, SCALEDOWN_H));
-  dim3 threads(SCALEDOWN_W + 4);
-  ScaleDown<<<blocks, threads>>>(res.d_data, src.d_data, src.width, src.pitch, src.height, res.pitch);
-#endif
-  checkMsg("ScaleDown() execution failed\n");
-  return 0.0;
-}
-
-double ScaleUp(CudaImage &res, CudaImage &src)
-{
-  if (res.d_data==NULL || src.d_data==NULL) {
-    printf("ScaleUp: missing data\n");
-    return 0.0;
-  }
-  dim3 blocks(iDivUp(res.width, SCALEUP_W), iDivUp(res.height, SCALEUP_H));
-  dim3 threads(SCALEUP_W/2, SCALEUP_H/2);
-  ScaleUp<<<blocks, threads>>>(res.d_data, src.d_data, src.width, src.pitch, src.height, res.pitch); 
-  checkMsg("ScaleUp() execution failed\n");
-  return 0.0;
-}   
-
-double ComputeOrientations(cudaTextureObject_t texObj, CudaImage &src, SiftData &siftData, int octave)
-{
-  dim3 blocks(512); 
-#ifdef MANAGEDMEM
-  ComputeOrientationsCONST<<<blocks, threads>>>(texObj, siftData.m_data, octave);
-#else
-#if 1
-  dim3 threads(11*11);
-  ComputeOrientationsCONST<<<blocks, threads>>>(texObj, siftData.d_data, octave);
-#else
-  dim3 threads(256); 
-  ComputeOrientationsCONSTNew<<<blocks, threads>>>(src.d_data, src.width, src.pitch, src.height, siftData.d_data, octave);
-#endif
-#endif
-  checkMsg("ComputeOrientations() execution failed\n");
-  return 0.0;
-}
-
-double ExtractSiftDescriptors(cudaTextureObject_t texObj, SiftData &siftData, float subsampling, int octave)
-{
-  dim3 blocks(512); 
-  dim3 threads(16, 8);
-#ifdef MANAGEDMEM
-  ExtractSiftDescriptorsCONST<<<blocks, threads>>>(texObj, siftData.m_data, subsampling, octave);
-#else
-  ExtractSiftDescriptorsCONSTNew<<<blocks, threads>>>(texObj, siftData.d_data, subsampling, octave);
-#endif
-  checkMsg("ExtractSiftDescriptors() execution failed\n");
-  return 0.0; 
-}
-
-double OrientAndExtract(cudaTextureObject_t texObj, SiftData &siftData, float subsampling, int octave)
-{
-  dim3 blocks(256); 
-  dim3 threads(128);
-#ifdef MANAGEDMEM
-  OrientAndExtractCONST<<<blocks, threads>>>(texObj, siftData.m_data, subsampling, octave);
-#else
-  OrientAndExtractCONST<<<blocks, threads>>>(texObj, siftData.d_data, subsampling, octave);
-#endif
-  checkMsg("OrientAndExtract() execution failed\n");
-  return 0.0;
-}
-
-double RescalePositions(SiftData &siftData, float scale)
-{
-  dim3 blocks(iDivUp(siftData.numPts, 64));
-  dim3 threads(64);
-  RescalePositions<<<blocks, threads>>>(siftData.d_data, siftData.numPts, scale);
-  checkMsg("RescapePositions() execution failed\n");
-  return 0.0; 
-}
-
-double LowPass(CudaImage &res, CudaImage &src, float scale)
-{
-  float kernel[2*LOWPASS_R+1];
-  static float oldScale = -1.0f;
-  if (scale!=oldScale) {
-    float kernelSum = 0.0f;
-    float ivar2 = 1.0f/(2.0f*scale*scale);
-    for (int j=-LOWPASS_R;j<=LOWPASS_R;j++) {
-      kernel[j+LOWPASS_R] = (float)expf(-(double)j*j*ivar2);
-      kernelSum += kernel[j+LOWPASS_R]; 
-    }
-    for (int j=-LOWPASS_R;j<=LOWPASS_R;j++) 
-      kernel[j+LOWPASS_R] /= kernelSum;  
-    safeCall(cudaMemcpyToSymbol(d_LowPassKernel, kernel, (2*LOWPASS_R+1)*sizeof(float)));
-    oldScale = scale;
-  }  
-  int width = res.width;
-  int pitch = res.pitch;
-  int height = res.height;
-  dim3 blocks(iDivUp(width, LOWPASS_W), iDivUp(height, LOWPASS_H));
-#if 1
-  dim3 threads(LOWPASS_W+2*LOWPASS_R, 4); 
-  LowPassBlock<<<blocks, threads>>>(src.d_data, res.d_data, width, pitch, height);
-#else
-  dim3 threads(LOWPASS_W+2*LOWPASS_R, LOWPASS_H);
-  LowPass<<<blocks, threads>>>(src.d_data, res.d_data, width, pitch, height);
-#endif
-  checkMsg("LowPass() execution failed\n");
-  return 0.0; 
-}
-
-//==================== Multi-scale functions ===================//
-
-void PrepareLaplaceKernels(int numOctaves, float initBlur, float *kernel)
-{
-  if (numOctaves>1) {
-    float totInitBlur = (float)sqrt(initBlur*initBlur + 0.5f*0.5f) / 2.0f;
-    PrepareLaplaceKernels(numOctaves-1, totInitBlur, kernel);
-  }
-  float scale = pow(2.0f, -1.0f/NUM_SCALES);
-  float diffScale = pow(2.0f, 1.0f/NUM_SCALES);
-  for (int i=0;i<NUM_SCALES+3;i++) {
-    float kernelSum = 0.0f;
-    float var = scale*scale - initBlur*initBlur;
-    for (int j=0;j<=LAPLACE_R;j++) {
-      kernel[numOctaves*12*16 + 16*i + j] = (float)expf(-(double)j*j/2.0/var);
-      kernelSum += (j==0 ? 1 : 2)*kernel[numOctaves*12*16 + 16*i + j]; 
-    }
-    for (int j=0;j<=LAPLACE_R;j++)
-      kernel[numOctaves*12*16 + 16*i + j] /= kernelSum;
-    scale *= diffScale;
-  }
-}
  
-double LaplaceMulti(cudaTextureObject_t texObj, CudaImage &baseImage, CudaImage *results, int octave) 
-{
-  int width = results[0].width;
-  int pitch = results[0].pitch;
-  int height = results[0].height;
-#if 1
-  dim3 threads(LAPLACE_W+2*LAPLACE_R);
-  dim3 blocks(iDivUp(width, LAPLACE_W), height);
-  LaplaceMultiMem<<<blocks, threads>>>(baseImage.d_data, results[0].d_data, width, pitch, height, octave);
-#endif
-#if 0
-  dim3 threads(LAPLACE_W+2*LAPLACE_R, LAPLACE_S);
-  dim3 blocks(iDivUp(width, LAPLACE_W), iDivUp(height, LAPLACE_H));
-  LaplaceMultiMemTest<<<blocks, threads>>>(baseImage.d_data, results[0].d_data, width, pitch, height, octave);
-#endif
-#if 0
-  dim3 threads(LAPLACE_W+2*LAPLACE_R, LAPLACE_S);
-  dim3 blocks(iDivUp(width, LAPLACE_W), height);
-  LaplaceMultiMemOld<<<blocks, threads>>>(baseImage.d_data, results[0].d_data, width, pitch, height, octave);
-#endif
-#if 0
-  dim3 threads(LAPLACE_W+2*LAPLACE_R, LAPLACE_S);
-  dim3 blocks(iDivUp(width, LAPLACE_W), height);
-  LaplaceMultiTex<<<blocks, threads>>>(texObj, results[0].d_data, width, pitch, height, octave);
-#endif
-  checkMsg("LaplaceMulti() execution failed\n");
-  return 0.0; 
-}
 
-double FindPointsMulti(CudaImage *sources, SiftData &siftData, float thresh, float edgeLimit, float factor, float lowestScale, float subsampling, int octave)
-{
-  if (sources->d_data==NULL) {
-    printf("FindPointsMulti: missing data\n");
-    return 0.0;
-  }
-  int w = sources->width;
-  int p = sources->pitch;
-  int h = sources->height;
-#if 0
-  dim3 blocks(iDivUp(w, MINMAX_W)*NUM_SCALES, iDivUp(h, MINMAX_H));
-  dim3 threads(MINMAX_W + 2, MINMAX_H);
-  FindPointsMultiTest<<<blocks, threads>>>(sources->d_data, siftData.d_data, w, p, h, subsampling, lowestScale, thresh, factor, edgeLimit, octave); 
-#endif
-#if 1
-  dim3 blocks(iDivUp(w, MINMAX_W)*NUM_SCALES, iDivUp(h, MINMAX_H));
-  dim3 threads(MINMAX_W + 2); 
-#ifdef MANAGEDMEM
-  FindPointsMulti<<<blocks, threads>>>(sources->d_data, siftData.m_data, w, p, h, subsampling, lowestScale, thresh, factor, edgeLimit, octave); 
-#else
-  FindPointsMultiNew<<<blocks, threads>>>(sources->d_data, siftData.d_data, w, p, h, subsampling, lowestScale, thresh, factor, edgeLimit, octave);
-#endif
-#endif
-  checkMsg("FindPointsMulti() execution failed\n");
-  return 0.0;
-}
 
-//======= Part 2b': VLFeat-schedule pyramid + descriptor (clean-room from ====//
+//======= VLFeat-schedule pyramid + descriptor (clean-room from          ====//
 //======= colmap/src/thirdparty/VLFeat/sift.c, BSD; not SiftGPU)          ====//
-// Replaces the original Part 2a per-octave-texture harness. Builds an
-// INDEPENDENT scale-space pyramid (not grafted onto cusift's existing octave
-// images, whose accumulated blur is in CudaSift's own internal bookkeeping
-// convention) referenced to VLFeat's own absolute-sigma schedule, so that
-// octave/level assignment for externally supplied keypoints is exact by
-// construction rather than cross-referenced against a different convention.
-// This merges the original Part 2b (descriptor rewrite) and Part 2e (scale
-// convention) -- the scale convention comes out native here, not fitted.
+// Builds a scale-space pyramid referenced to VLFeat's own absolute-sigma
+// schedule (not CudaSift's internal blur bookkeeping), so octave/level
+// assignment follows VLFeat exactly.
 //
 // Formulas verified directly against colmap/src/thirdparty/VLFeat/sift.c:
 //   vl_sift_new (874-935):                sigman=0.5, sigma0=1.6*sigmak,
@@ -603,19 +64,13 @@ double FindPointsMulti(CudaImage *sources, SiftData &siftData, float thresh, flo
 //                                          ScaleDown, which bakes one in)
 //   update_gradient (1447-1484):          central differences, one-sided at
 //                                          borders, angle wrapped to [0,2pi)
-//   vl_sift_keypoint_init (2161-2190):    sigma -> (octave, level) inversion;
-//                                          replicated exactly here, since an
-//                                          off-by-one here silently misreads
-//                                          the wrong pyramid level
 
-// Replaces reused-LowPass calls in BuildVLFeatOctave -- see cudaSiftD.cu's
-// GaussianBlurHorizontalKernel/GaussianBlurVerticalKernel comment for why
-// cusift's own LowPass (fixed radius=4) was silently under-blurring the
-// VLFeat sigma schedule.
-// Tier 1.3: memoized slot in the constant kernel bank for `sigma`. Keyed on the
-// exact float bit pattern, so a hit reuses weights that are bit-identical to
-// what the old per-blur upload would have produced; a miss computes them with
-// the same expressions and appends. ~8 distinct sigmas per process, so all
+// Gaussian blur with a radius adapted to sigma -- see cudaSiftD.cu's
+// GaussianBlurHorizontalKernel/GaussianBlurVerticalKernel comment for why a
+// fixed radius-4 blur under-blurs the VLFeat sigma schedule.
+// Memoized slot in the constant kernel bank for `sigma`. Keyed on the
+// exact float bit pattern, so a hit reuses bit-identical weights; a miss
+// computes them and appends. ~8 distinct sigmas per process, so all
 // misses happen on the first image and every later blur is upload-free.
 //
 // One slot table per device, shared by every thread on it and guarded by a
@@ -720,9 +175,8 @@ static void Upsample2x(CudaImage &dst, CudaImage &src)
 }
 
 // Debug-only: poison a gradient level slice with signaling NaN -- see
-// FillPlaneKernel's comment. Also serves as a live test of the Tier 2.3 index
-// invariant: if a Debug build still passes the accuracy gate with every skipped
-// plane poisoned, nothing reads them.
+// FillPlaneKernel's comment. If a Debug build still passes the accuracy tests
+// with every skipped plane poisoned, nothing reads them.
 static void PoisonGradientLevel(CudaImage &combined, int levelIdx, int w, int h, int p)
 {
   uint32_t snanBits = 0x7FA00000u;   // signaling NaN
@@ -751,8 +205,8 @@ struct VLFeatOctaveBuffers {
   int width, height, pitch;
   int nLevels;
   CudaImage gauss;    // nLevels slices, self-allocated as one block below
-  CudaImage gradMag;  // see the Tier 3.1 note on ComputeGradientPlaneKernel for
-  CudaImage gradAng;  // why these are NOT interleaved into one float2 plane
+  CudaImage gradMag;  // see ComputeGradientPlaneKernel for why these are
+  CudaImage gradAng;  // NOT interleaved into one float2 plane
 };
 
 // Non-owning per-level view into a combined (nLevels-stacked) buffer -- slice
@@ -764,24 +218,19 @@ static CudaImage LevelView(CudaImage &combined, int levelIdx, int w, int h, int 
   return v;
 }
 
-// Tier 2.3 (the unconditional half): gradient planes are computed
-// only for the level indices a consumer can actually address. Keypoint levels are
-// `is` in [0, numScales-1] and every consumer indexes gradients as `is - s_min`
-// (see AssignOctaveLevel, which clamps to exactly that, and the integrated
-// pipeline's `empty[0] = is + 1`), so indices 1..numScales are the whole reachable
-// set: the s_min and the two top levels exist in the Gaussian pyramid for DoG
+// Gradient planes are computed only for the level indices a consumer can
+// actually address. Keypoint levels are `is` in [0, numScales-1] and every
+// consumer indexes gradients as `is - s_min` (VLFeatKp::level), so indices
+// 1..numScales are the whole reachable set: the s_min and the two top levels exist in the Gaussian pyramid for DoG
 // purposes but can never host a keypoint. That is 3 of 6 planes for
 // numScales=3 -- half the gradient bandwidth of the pyramid stage, and at octave
-// -1 those are 33 MB planes. Detection-only callers do not read gradients at all.
-// `allGradients` restores the full set for DumpPyramidDebug, which compares every
-// plane against vlfeat_dump's ground truth.
+// -1 those are 33 MB planes.
 //
 // The skipped planes are left UNINITIALIZED rather than zeroed (zeroing would
 // spend the bandwidth this saves); the index invariant above is what keeps them
 // unreachable.
 static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel /*NULL for octave 0*/,
-                              CudaImage *img01 /*only used for octave 0*/, int numScales,
-                              bool allGradients = false)
+                              CudaImage *img01 /*only used for octave 0*/, int numScales)
 {
   const int s_min = -1, s_max = numScales + 1;
   const int nLevels = s_max - s_min + 1;  // = numScales+3
@@ -831,8 +280,8 @@ static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel 
     float sd = dsigma0 * std::pow(sigmak, (float)s);
     AdaptiveGaussianBlur(cur, prev, std::max(sd, 0.001f));
   }
-  const int gradLo = allGradients ? 0 : 1;                    // see Tier 2.3 note
-  const int gradHi = allGradients ? nLevels - 1 : numScales;
+  const int gradLo = 1;          // see the note above BuildVLFeatOctave
+  const int gradHi = numScales;
   for (int i = gradLo; i <= gradHi; i++) {
     CudaImage lvl = LevelView(oct.gauss, i, w, h, p);
     CudaImage gm = LevelView(oct.gradMag, i, w, h, p);
@@ -843,9 +292,8 @@ static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel 
   // Debug builds, or an opt-in Release build used to TEST the invariant:
   //   cmake -B build-poison -DCMAKE_BUILD_TYPE=Release \
   //         -DCMAKE_CUDA_FLAGS=-DCUSIFT_POISON_SKIPPED_GRADIENTS
-  // keeps --use_fast_math (so descriptors stay comparable to the gate baseline)
-  // while poisoning every skipped plane. If the accuracy gate still passes,
-  // nothing reads them.
+  // keeps --use_fast_math while poisoning every skipped plane. If the accuracy
+  // tests still pass, nothing reads them.
   for (int i = 0; i < nLevels; i++) {
     if (i >= gradLo && i <= gradHi) continue;
     PoisonGradientLevel(oct.gradMag, i, w, h, p);
@@ -857,8 +305,7 @@ static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel 
 // Test-only: build octave -1 (VLFeat's real o_min=-1 default, sift.c:1017-1029)
 // by 2x-upsampling img01 then blurring with sb=sigman*2^(-o_min)=1.0 (NOT the
 // o_min=0 base blur's sb=0.5 -- verified sift.c:1046, sb = sigman*pow(2,-o_min)).
-static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img01, int numScales,
-                                       bool allGradients = false)
+static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img01, int numScales)
 {
   const int s_min = -1, s_max = numScales + 1;
   const int nLevels = s_max - s_min + 1;
@@ -889,8 +336,8 @@ static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img0
     float sd = dsigma0 * std::pow(sigmak, (float)s);
     AdaptiveGaussianBlur(cur, prev, std::max(sd, 0.001f));
   }
-  const int gradLo = allGradients ? 0 : 1;                    // see Tier 2.3 note
-  const int gradHi = allGradients ? nLevels - 1 : numScales;
+  const int gradLo = 1;          // see the note above BuildVLFeatOctave
+  const int gradHi = numScales;
   for (int i = gradLo; i <= gradHi; i++) {
     CudaImage lvl = LevelView(oct.gauss, i, w, h, p);
     CudaImage gm = LevelView(oct.gradMag, i, w, h, p);
@@ -901,9 +348,8 @@ static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img0
   // Debug builds, or an opt-in Release build used to TEST the invariant:
   //   cmake -B build-poison -DCMAKE_BUILD_TYPE=Release \
   //         -DCMAKE_CUDA_FLAGS=-DCUSIFT_POISON_SKIPPED_GRADIENTS
-  // keeps --use_fast_math (so descriptors stay comparable to the gate baseline)
-  // while poisoning every skipped plane. If the accuracy gate still passes,
-  // nothing reads them.
+  // keeps --use_fast_math while poisoning every skipped plane. If the accuracy
+  // tests still pass, nothing reads them.
   for (int i = 0; i < nLevels; i++) {
     if (i >= gradLo && i <= gradHi) continue;
     PoisonGradientLevel(oct.gradMag, i, w, h, p);
@@ -912,7 +358,7 @@ static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img0
 #endif
 }
 
-// Part 2d: detection. DetectedKeypoint (declared in cudaSift.h) mirrors
+// Detection. DetectedKeypoint (declared in cudaSift.h) mirrors
 // VlSiftKeypoint's own fields exactly (o, is = coarse detection level, ix/iy
 // = coarse pixel, x/y/sigma = refined absolute-pixel-unit position/scale,
 // s = continuous refined level). `is` is carried as-is from the coarse scan
@@ -921,42 +367,15 @@ static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img0
 // available as a first-class field for orientation/descriptor, never
 // re-derived from sigma.
 
-// Tier 1.2: persistent pinned host staging for the per-octave DoG download.
-// Grows monotonically to the largest octave's cube (octave -1 of a 1920x1080
-// frame: 3840*2160*5 floats = 166 MB) and is then reused for every later octave
-// and every later image. thread_local so a multi-threaded COLMAP extractor gets
-// one buffer per worker rather than a silently shared one.
-//
 // Every thread_local holder below frees its memory in its destructor, which runs
 // when the owning extraction thread exits: COLMAP starts new extraction threads
 // for every extraction run, so without it each run leaked these buffers. Errors
 // are ignored there, because at process exit the CUDA runtime may already be
 // shutting down and a failed free cannot be acted on.
-struct PinnedStagingBuffer {
-  float *buf = nullptr;
-  size_t cap = 0;
-  PinnedStagingBuffer() = default;
-  PinnedStagingBuffer(const PinnedStagingBuffer &) = delete;
-  PinnedStagingBuffer &operator=(const PinnedStagingBuffer &) = delete;
-  ~PinnedStagingBuffer() { if (buf) cudaFreeHost(buf); }
-};
-
-static float *PinnedStaging(size_t floats)
-{
-  static thread_local PinnedStagingBuffer s;
-  if (floats > s.cap) {
-    if (s.buf) safeCall(cudaFreeHost(s.buf));
-    safeCall(cudaMallocHost((void **)&s.buf, floats * sizeof(float)));
-    s.cap = floats;
-  }
-  return s.buf;
-}
-
 // Packed scratch for the VLFeat pipeline's kernel I/O (see VLFeatKp in
 // cudaSift.h): grow-only, with pinned host memory, reused across octaves and
-// images, thread_local for the same reason as PinnedStaging. 20 B/row for
-// keypoints and 512 B/row for descriptors, instead of 576 B/row of SiftPoint
-// moved twice per octave.
+// images, thread_local so each extraction thread has its own. 20 B/row for
+// keypoints and 512 B/row for descriptors.
 struct PackedScratch {
   VLFeatKp *h_kps = nullptr, *d_kps = nullptr;
   VLFeatOri *h_ori = nullptr, *d_ori = nullptr;
@@ -991,19 +410,6 @@ static PackedScratch &Packed(int n, bool wantDesc)
   return p;
 }
 
-// Harness boundary (see VLFeatKp in cudaSift.h): the public SiftData-based
-// entry points keep their SiftPoint ABI and convert here. Cost is a 20 B/row
-// pack, negligible next to the 576 B/row transfers it replaces.
-static void PackKps(const SiftPoint *src, int n, VLFeatKp *dst, bool oriInDegrees)
-{
-  for (int i = 0; i < n; i++) {
-    dst[i].x = src[i].xpos;
-    dst[i].y = src[i].ypos;
-    dst[i].sigma = src[i].scale;
-    dst[i].ori = oriInDegrees ? src[i].orientation * 0.017453292519943295f : 0.0f;
-    dst[i].level = (int)(src[i].empty[0] + 0.5f);
-  }
-}
 
 // Candidates and refined keypoints are appended on the GPU through atomic
 // counters, so their order depends on thread scheduling and changes from run
@@ -1031,8 +437,7 @@ static void SortOctaveKeypoints(std::vector<DetectedKeypoint> &kps, size_t begin
 // comment for why this split, not the refinement, runs on the GPU).
 static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
                                float peakThresh, float edgeThresh, int numScales,
-                               std::vector<DetectedKeypoint> &out,
-                               const char *debugDumpPrefix = nullptr)
+                               std::vector<DetectedKeypoint> &out)
 {
   const size_t outBegin = out.size();
   const int s_min = -1, s_max = numScales + 1;
@@ -1043,7 +448,6 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
   dogCombined.Allocate(w, h*nDogLevels, iAlignUp(w, 128), false, NULL);
   int dp = dogCombined.pitch;
   {
-  StageTimer __t("detect.dog");
   for (int i = 0; i < nDogLevels; i++) {
     CudaImage a = LevelView(oct.gauss, i, w, h, p);
     CudaImage b = LevelView(oct.gauss, i+1, w, h, p);
@@ -1054,24 +458,6 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
     checkMsg("ComputeDogPlaneKernel() execution failed\n");
   }
   }
-  // Only the debug path still refines on the CPU (Tier 2.1-B), and only it
-  // needs the DoG cube on the host: a TIGHTLY PACKED (pitch==width) copy, since
-  // the host instantiation of RefineOneKeypoint indexes a flat
-  // width*height*nDogLevels array. Staged through a persistent PINNED buffer
-  // (Tier 1.2) rather than a fresh std::vector. In the production path this
-  // ~221 MB/image transfer does not happen at all.
-  const bool cpuRefine = (debugDumpPrefix != nullptr);
-  float *dogHost = nullptr;
-  if (cpuRefine) {
-    dogHost = PinnedStaging((size_t)w*h*nDogLevels);
-    StageTimer __t("detect.dog_d2h");
-    for (int i = 0; i < nDogLevels; i++) {
-      safeCall(cudaMemcpy2D(dogHost + (size_t)i*w*h, w*sizeof(float),
-          dogCombined.d_data + (size_t)i*h*dp, dp*sizeof(float),
-          w*sizeof(float), h, cudaMemcpyDeviceToHost));
-    }
-  }
-
   const int maxCandidates = 200000;
   int *d_CandX, *d_CandY, *d_CandS; unsigned int *d_CandCount;
   safeCall(cusiftMallocAsync(&d_CandX, maxCandidates*sizeof(int)));
@@ -1081,9 +467,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
   safeCall(cudaMemset(d_CandCount, 0, sizeof(unsigned int)));
 
   unsigned int candCount = 0;
-  std::vector<int> hCandX, hCandY, hCandS;
   {
-  StageTimer __t("detect.extrema");
   dim3 threads(16, 16, 1);
   dim3 blocks(iDivUp(w-2, 16), iDivUp(h-2, 16), std::max(nDogLevels-2, 1));
   FindDogExtremaKernel<<<blocks, threads>>>(dogCombined.d_data, w, dp, h, nDogLevels,
@@ -1092,38 +476,16 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
 
   safeCall(cudaMemcpy(&candCount, d_CandCount, sizeof(unsigned int), cudaMemcpyDeviceToHost));
   candCount = std::min(candCount, (unsigned int)maxCandidates);
-  if (cpuRefine && candCount > 0) {
-    hCandX.resize(candCount); hCandY.resize(candCount); hCandS.resize(candCount);
-    safeCall(cudaMemcpy(hCandX.data(), d_CandX, candCount*sizeof(int), cudaMemcpyDeviceToHost));
-    safeCall(cudaMemcpy(hCandY.data(), d_CandY, candCount*sizeof(int), cudaMemcpyDeviceToHost));
-    safeCall(cudaMemcpy(hCandS.data(), d_CandS, candCount*sizeof(int), cudaMemcpyDeviceToHost));
-  }
-  }
-
-  FILE *dbgCoarse = nullptr, *dbgRefine = nullptr, *dbgDog = nullptr;
-  if (debugDumpPrefix) {
-    char path[1024];
-    snprintf(path, sizeof(path), "%s_o%d_coarse.txt", debugDumpPrefix, vo);
-    dbgCoarse = std::fopen(path, "w");
-    std::fprintf(dbgCoarse, "ix iy is\n");
-    snprintf(path, sizeof(path), "%s_o%d_refine.txt", debugDumpPrefix, vo);
-    dbgRefine = std::fopen(path, "w");
-    std::fprintf(dbgRefine, "ix iy is accepted x y sigma s\n");
-    snprintf(path, sizeof(path), "%s_o%d_dog.f32", debugDumpPrefix, vo);
-    dbgDog = std::fopen(path, "wb");
-    std::fwrite(dogHost, sizeof(float), (size_t)w*h*nDogLevels, dbgDog);
-    std::fclose(dbgDog);
   }
 
   const float sigmak = std::pow(2.0f, 1.0f/numScales);
   const float sigma0 = 1.6f*sigmak;
 
-  if (!cpuRefine) {
-    // Tier 2.1-B production path: refine every candidate on the GPU, straight
-    // out of the pitched DoG buffer, and bring back only the survivors.
+  {
+    // Refine every candidate on the GPU, straight out of the pitched DoG
+    // buffer, and bring back only the survivors.
     std::vector<DetectedKeypoint> accepted;
     if (candCount > 0) {
-      StageTimer __t("detect.refine_gpu");
       DetectedKeypoint *d_Kp = nullptr; unsigned int *d_KpCount = nullptr;
       safeCall(cusiftMallocAsync(&d_Kp, (size_t)candCount*sizeof(DetectedKeypoint)));
       safeCall(cusiftMallocAsync(&d_KpCount, sizeof(unsigned int)));
@@ -1150,192 +512,18 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
       out.push_back(kp);
     }
     SortOctaveKeypoints(out, outBegin);
-    return;
-  }
-
-  safeCall(cusiftFree(d_CandX)); safeCall(cusiftFree(d_CandY));
-  safeCall(cusiftFree(d_CandS)); safeCall(cusiftFree(d_CandCount));
-#ifdef CUSIFT_TIME_REFINE
-  auto __t0 = std::chrono::steady_clock::now();
-#endif
-  StageTimer __tr("detect.refine_cpu");
-  for (unsigned int c = 0; c < candCount; c++) {
-    if (dbgCoarse) std::fprintf(dbgCoarse, "%d %d %d\n", hCandX[c], hCandY[c], hCandS[c]);
-    DetectedKeypoint kp;
-    bool accepted = RefineOneKeypoint(dogHost, w, h, w, w*h, nDogLevels, s_min, s_max,
-                                      hCandX[c], hCandY[c], hCandS[c],
-                                      peakThresh, edgeThresh, kp);
-    if (dbgRefine) {
-      if (accepted) {
-        std::fprintf(dbgRefine, "%d %d %d 1 %.6f %.6f %.6f %.6f\n",
-                     hCandX[c], hCandY[c], hCandS[c], kp.x, kp.y,
-                     sigma0*std::pow(sigmak, kp.s), kp.s);
-      } else {
-        std::fprintf(dbgRefine, "%d %d %d 0 0 0 0 0\n", hCandX[c], hCandY[c], hCandS[c]);
-      }
-    }
-    if (!accepted) continue;
-    kp.o = vo;
-    // x, y, sigma stay in this octave's own LOCAL (native) pixel units here
-    // -- xper scaling to absolute image coordinates is the CALLER's job
-    // (DetectKeypointsVLFeat for standalone use; the integrated
-    // detect+orient+descriptor pipeline needs local units directly, since
-    // that's what the gradient buffers/kernels are indexed in).
-    kp.sigma = sigma0 * std::pow(sigmak, kp.s);
-    out.push_back(kp);
-  }
-#ifdef CUSIFT_TIME_REFINE
-  double __ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - __t0).count();
-  std::fprintf(stderr, "octave %d: %u coarse candidates, refine = %.3f ms\n", vo, candCount, __ms);
-#endif
-  SortOctaveKeypoints(out, outBegin);
-  if (dbgCoarse) std::fclose(dbgCoarse);
-  if (dbgRefine) std::fclose(dbgRefine);
-}
-
-// Full multi-octave VLFeat-faithful detection, from octave o_min=0.
-// Deduplicates nothing -- exact-duplicate rows (a ~0.06%
-// Newton-convergence artifact) are expected and
-// left as-is, matching real ref_cpu's own behavior.
-void DetectKeypointsVLFeat(CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
-                           std::vector<DetectedKeypoint> &out, const char *debugDumpPrefix)
-{
-  const int numScales = NUM_SCALES;
-  CudaImage img01;
-  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
-  {
-    StageTimer __t("img_scale");
-    dim3 threads(16, 16);
-    dim3 blocks(iDivUp(img.width, 16), iDivUp(img.height, 16));
-    ScaleImageKernel<<<blocks, threads>>>(img01.d_data, img.d_data,
-        img.width, img01.pitch, img.pitch, img.height, 1.0f/255.0f);
-    checkMsg("ScaleImageKernel() execution failed\n");
-  }
-
-  out.clear();
-  std::vector<VLFeatOctaveBuffers> octaves(numOctaves);
-  CudaImage prevTopLevel;
-  for (int vo = 0; vo < numOctaves; vo++) {
-    if (vo == 0) {
-      BuildVLFeatOctave(octaves[vo], nullptr, &img01, numScales);
-    } else {
-      VLFeatOctaveBuffers &prev = octaves[vo-1];
-      prevTopLevel = LevelView(prev.gauss, numScales, prev.width, prev.height, prev.pitch);
-      BuildVLFeatOctave(octaves[vo], &prevTopLevel, nullptr, numScales);
-    }
-    float xper = std::pow(2.0f, (float)vo);
-    size_t before = out.size();
-    DetectOctaveVLFeat(octaves[vo], vo, peakThresh, edgeThresh, numScales, out,
-                       debugDumpPrefix);
-    // DetectOctaveVLFeat returns LOCAL (per-octave) coordinates; scale this
-    // octave's newly-added entries to absolute image coordinates here, at
-    // the standalone-detection API boundary (the integrated pipeline below
-    // scales at ITS OWN output boundary instead, using local coords for the
-    // orientation/descriptor kernels in between).
-    for (size_t i = before; i < out.size(); i++) {
-      out[i].x *= xper; out[i].y *= xper; out[i].sigma *= xper;
-    }
   }
 }
 
-// Part 2d integration: full detect -> orient pipeline. `is`/x/y/sigma are
-// carried natively from detection straight into orientation -- each
-// octave's keypoints go directly from RefineOneKeypoint's own LOCAL
-// coordinates into ComputeOrientationsVLFeat using that SAME octave's own
-// gradient buffers, still resident from the pyramid build. There is no
-// AssignOctaveLevel sigma->level inversion anywhere in this path -- that
-// inversion was a property of the external-candidate-injection harness
-// (Parts 2a-2c), not of cusift's own kernels, and is structurally absent
-// here since detection and orientation share the same in-memory state.
-// outAngles in RADIANS (VLFeat convention), outKps.x/y/sigma in ABSOLUTE
-// image coordinates (VLFeat's own frame, no +0.5 -- that convention is
-// applied only at the file/DB output boundary, same rule as detection).
-void DetectAndOrientVLFeat(CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
-                          std::vector<DetectedKeypoint> &outKps,
-                          std::vector<std::array<float, 4>> &outAngles,
-                          std::vector<int> &outCounts)
-{
-  const int numScales = NUM_SCALES;
-  CudaImage img01;
-  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
-  {
-    dim3 threads(16, 16);
-    dim3 blocks(iDivUp(img.width, 16), iDivUp(img.height, 16));
-    ScaleImageKernel<<<blocks, threads>>>(img01.d_data, img.d_data,
-        img.width, img01.pitch, img.pitch, img.height, 1.0f/255.0f);
-    checkMsg("ScaleImageKernel() execution failed\n");
-  }
 
-  outKps.clear(); outAngles.clear(); outCounts.clear();
-  std::vector<VLFeatOctaveBuffers> octaves(numOctaves);
-  CudaImage prevTopLevel;
-  for (int vo = 0; vo < numOctaves; vo++) {
-    if (vo == 0) {
-      BuildVLFeatOctave(octaves[vo], nullptr, &img01, numScales);
-    } else {
-      VLFeatOctaveBuffers &prev = octaves[vo-1];
-      prevTopLevel = LevelView(prev.gauss, numScales, prev.width, prev.height, prev.pitch);
-      BuildVLFeatOctave(octaves[vo], &prevTopLevel, nullptr, numScales);
-    }
-    float xper = std::pow(2.0f, (float)vo);
-    VLFeatOctaveBuffers &oct = octaves[vo];
 
-    std::vector<DetectedKeypoint> localKps;  // still in LOCAL (per-octave) coords
-    DetectOctaveVLFeat(oct, vo, peakThresh, edgeThresh, numScales, localKps, nullptr);
-    int n = (int)localKps.size();
-    if (n == 0) continue;
-
-    SiftData siftData;
-    InitSiftData(siftData, n, true, true);
-    siftData.numPts = n;
-    for (int i = 0; i < n; i++) {
-      SiftPoint &p = siftData.h_data[i];
-      memset(&p, 0, sizeof(SiftPoint));
-      p.xpos = localKps[i].x;
-      p.ypos = localKps[i].y;
-      p.scale = localKps[i].sigma;
-      // ComputeOrientationsVLFeat indexes its gradient buffer with `level`
-      // as an ARRAY INDEX (offset by -s_min), not the raw VLFeat level
-      // value -- matches AssignOctaveLevel's own `levelIdx = is - s_min`
-      // convention used by the external-injection path. localKps[i].is is
-      // the true level value (range [0, numScales-1]); s_min is always -1.
-      p.empty[0] = (float)(localKps[i].is - (-1));
-    }
-    PackedScratch &pk = Packed(n, false);
-    PackKps(siftData.h_data, n, pk.h_kps, false);
-    safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*n, cudaMemcpyHostToDevice));
-
-    int levelStride = oct.height * oct.pitch;
-    dim3 blocks(512), threads(256);
-    ComputeOrientationsVLFeat<<<blocks, threads>>>(
-        oct.gradMag.d_data, oct.gradAng.d_data,
-        oct.width, oct.pitch, oct.height, levelStride,
-        pk.d_kps, pk.d_ori, n);
-    checkMsg("ComputeOrientationsVLFeat() execution failed\n");
-
-    safeCall(cudaMemcpy(pk.h_ori, pk.d_ori, sizeof(VLFeatOri)*n, cudaMemcpyDeviceToHost));
-    for (int i = 0; i < n; i++) {
-      DetectedKeypoint kp = localKps[i];
-      kp.o = vo;
-      kp.x *= xper; kp.y *= xper; kp.sigma *= xper;
-      outKps.push_back(kp);
-      const VLFeatOri &p = pk.h_ori[i];
-      outAngles.push_back({p.angles[0], p.angles[1], p.angles[2], p.angles[3]});
-      outCounts.push_back(p.count);
-    }
-    FreeSiftData(siftData);
-  }
-}
-
-// Full Part 2d/2b'/2c integration: detect -> orient -> descriptor, one pass
-// per octave, is/x/y/sigma threaded natively throughout (same rationale as
-// DetectAndOrientVLFeat). Each keypoint is expanded into up to
+// Full pipeline: detect -> orient -> descriptor, one pass per octave, with
+// is/x/y/sigma threaded natively throughout. Each keypoint is expanded into up to
 // `maxNumOrientations` rows (COLMAP default 2), one per surviving angle -- mirrors COLMAP's own
 // `SiftCPUFeatureExtractor::Extract` orientation-expansion loop
 // (sift.cc:210-286), not something invented here. Output x/y/sigma are
 // ABSOLUTE image coordinates, orientation in RADIANS (VLFeat convention),
-// descriptor already UBC-ordered + L2/clamp/L2-normalized (same kernel as
-// the already-gate-verified Part 2b' descriptor path). No +0.5 applied --
+// descriptor already UBC-ordered + L2/clamp/L2-normalized. No +0.5 applied --
 // that's the output/DB-boundary's job, same rule as detection.
 void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
                            int maxNumOrientations, int firstOctave, int maxNumFeatures,
@@ -1347,9 +535,8 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
   // firstOctave (VLFeat's o_min) must be 0 or -1. COLMAP's shipping default
   // is -1 (SiftExtractionOptions::first_octave, sift.h:46), i.e. the image is
   // 2x-upsampled and an extra finer octave -1 is scanned -- which roughly
-  // DOUBLES the keypoint count vs o_min=0 (measured: 10517 vs 5764 rows on
-  // one 1920x1080 GoPro frame). Supporting it is therefore required for
-  // count/coverage parity with a default-configured COLMAP, not optional.
+  // doubles the keypoint count vs o_min=0, so it is required for parity with
+  // a default-configured COLMAP.
   if (firstOctave != 0 && firstOctave != -1) {
     std::fprintf(stderr, "ExtractSiftFullVLFeat: firstOctave must be 0 or -1 (got %d)\n", firstOctave);
     std::abort();
@@ -1379,7 +566,6 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
   for (int oi = 0; oi < numOctaves; oi++) {
     int vo = firstOctave + oi;   // TRUE VLFeat octave index (may be -1)
     {
-      StageTimer __t("pyramid");
       if (oi == 0) {
         if (vo == -1) BuildUpsampledOctaveMinus1(octaves[oi], img01, numScales);
         else          BuildVLFeatOctave(octaves[oi], nullptr, &img01, numScales);
@@ -1395,15 +581,13 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
     VLFeatOctaveBuffers &oct = octaves[oi];
 
     std::vector<DetectedKeypoint> localKps;
-    DetectOctaveVLFeat(oct, vo, peakThresh, edgeThresh, numScales, localKps, nullptr);
+    DetectOctaveVLFeat(oct, vo, peakThresh, edgeThresh, numScales, localKps);
     int n = (int)localKps.size();
     if (n == 0) continue;
 
-    // Orientation pass. Packed I/O: 20 B/row in, 20 B/row out (was 576 B both
-    // ways as SiftPoint), and no d_PointCounter/d_MaxNumPoints symbol writes --
-    // the kernel takes an explicit count now.
+    // Orientation pass. Packed I/O: 20 B/row in, 20 B/row out, with an
+    // explicit keypoint count.
     PackedScratch &pk = Packed(n, false);
-    StageTimer *__ts = new StageTimer("ori_setup");
     for (int i = 0; i < n; i++) {
       pk.h_kps[i].x = localKps[i].x;
       pk.h_kps[i].y = localKps[i].y;
@@ -1412,11 +596,9 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       pk.h_kps[i].level = localKps[i].is - (-1);
     }
     safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*n, cudaMemcpyHostToDevice));
-    delete __ts;
 
     int levelStride = oct.height * oct.pitch;
     {
-      StageTimer __t("orient");
       dim3 blocks(512), threads(256);
       ComputeOrientationsVLFeat<<<blocks, threads>>>(
           oct.gradMag.d_data, oct.gradAng.d_data,
@@ -1425,17 +607,12 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       checkMsg("ComputeOrientationsVLFeat() execution failed\n");
     }
     {
-      StageTimer __t("ori_d2h");
       safeCall(cudaMemcpy(pk.h_ori, pk.d_ori, sizeof(VLFeatOri)*n, cudaMemcpyDeviceToHost));
     }
 
-    StageTimer __tx("expand_cpu");
     // Expand: one descriptor-kernel input row per surviving angle, capped at
     // maxNumOrientations, matching COLMAP's own per-DOG-level expansion.
-    // Rows are VLFeatKp (20 B) reserved up front -- this loop used to build and
-    // copy 576 B SiftPoints and was ~22% of extraction time on its own.
-    // Angles stay in RADIANS end to end now; the deg round-trip existed only
-    // because SiftPoint.orientation was the kernel's degree-convention field.
+    // Rows are VLFeatKp (20 B), reserved up front; angles stay in RADIANS.
     std::vector<VLFeatKp> &expanded = pendingRows[oi];
     std::vector<int> &expandedLevel = pendingLevel[oi];
     expanded.reserve((size_t)n * maxNumOrientations);
@@ -1495,15 +672,12 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       if (keepLevel[oi][pendingLevel[oi][i]]) m++;
     if (m == 0) continue;
 
-    StageTimer *__ts = new StageTimer("desc_setup");
     PackedScratch &pk = Packed(m, true);
     for (size_t i = 0, k = 0; i < pendingRows[oi].size(); i++)
       if (keepLevel[oi][pendingLevel[oi][i]]) pk.h_kps[k++] = pendingRows[oi][i];
     safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*m, cudaMemcpyHostToDevice));
-    delete __ts;
 
     {
-      StageTimer __t("descriptor");
       // ExtractSiftDescriptorsVLFeat indexes threads via a FLAT 1D
       // threadIdx.x (tid/nthreads=blockDim.x) -- a 2D block here would give
       // 8 redundant physical threads per distinct tid, each atomicAdd-ing
@@ -1518,11 +692,9 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       checkMsg("ExtractSiftDescriptorsVLFeat() execution failed\n");
     }
     {
-      StageTimer __t("desc_d2h");
       safeCall(cudaMemcpy(pk.h_kps, pk.d_kps, sizeof(VLFeatKp)*m, cudaMemcpyDeviceToHost));
       safeCall(cudaMemcpy(pk.h_desc, pk.d_desc, sizeof(float)*128*m, cudaMemcpyDeviceToHost));
     }
-    StageTimer __to("output_copy");
     for (int i = 0; i < m; i++) {
       outX.push_back(pk.h_kps[i].x);
       outY.push_back(pk.h_kps[i].y);
@@ -1533,496 +705,10 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       outDescriptors.push_back(desc);
     }
   }
-  StageTimer::Report("ExtractSiftFullVLFeat");
 }
 
-// Debug-only: build the VLFeat pyramid up through octave `dumpOctave` and
-// write its Gaussian levels + gradient buffers to raw float32 files,
-// matching vlfeat_dump.c's layout, for direct ground-truth comparison
-// (diagnosing whether cusift's own CUDA-computed pyramid matches VLFeat's
-// real internal state as closely as the from-scratch Python reconstruction
-// does -- these are NOT guaranteed identical just because both were checked
-// against ground truth separately).
-void DumpPyramidDebug(CudaImage &img, int numOctaves, int dumpOctave, const char *prefix)
-{
-  const int numScales = NUM_SCALES;
-  CudaImage img01;
-  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
-  {
-    dim3 threads(16, 16);
-    dim3 blocks(iDivUp(img.width, 16), iDivUp(img.height, 16));
-    ScaleImageKernel<<<blocks, threads>>>(img01.d_data, img.d_data,
-        img.width, img01.pitch, img.pitch, img.height, 1.0f / 255.0f);
-    checkMsg("ScaleImageKernel() execution failed\n");
-  }
 
-  std::vector<VLFeatOctaveBuffers> octaves(dumpOctave + 1);
-  CudaImage prevTopLevel;
-  for (int vo = 0; vo <= dumpOctave; vo++) {
-    // allGradients=true: this dump is compared plane-for-plane against
-    // vlfeat_dump's ground truth, including the levels no keypoint can use.
-    if (vo == 0) {
-      BuildVLFeatOctave(octaves[vo], nullptr, &img01, numScales, true);
-    } else {
-      VLFeatOctaveBuffers &prev = octaves[vo - 1];
-      prevTopLevel = LevelView(prev.gauss, numScales, prev.width, prev.height, prev.pitch);
-      BuildVLFeatOctave(octaves[vo], &prevTopLevel, nullptr, numScales, true);
-    }
-  }
 
-  VLFeatOctaveBuffers &oct = octaves[dumpOctave];
-  const int s_min = -1;
-  int W = oct.width, H = oct.height;
-  std::vector<float> hostBuf((size_t)W * H);
-  std::vector<float> hostBufGrad((size_t)W * H * 2);
-  for (int i = 0; i < oct.nLevels; i++) {
-    int s = s_min + i;
-    CudaImage lvl = LevelView(oct.gauss, i, W, H, oct.pitch);
-    // pitch may exceed W; copy row-by-row to a tightly-packed W*H buffer.
-    safeCall(cudaMemcpy2D(hostBuf.data(), W * sizeof(float), lvl.d_data,
-        oct.pitch * sizeof(float), W * sizeof(float), H, cudaMemcpyDeviceToHost));
-    char path[1024];
-    snprintf(path, sizeof(path), "%s_o%d_s%d_gauss.f32", prefix, dumpOctave, s);
-    FILE *f = fopen(path, "wb");
-    fwrite(hostBuf.data(), sizeof(float), (size_t)W * H, f);
-    fclose(f);
-  }
-  for (int i = 0; i < oct.nLevels; i++) {
-    int s = s_min + i;
-    CudaImage gm = LevelView(oct.gradMag, i, W, H, oct.pitch);
-    CudaImage ga = LevelView(oct.gradAng, i, W, H, oct.pitch);
-    std::vector<float> mag((size_t)W * H), ang((size_t)W * H);
-    safeCall(cudaMemcpy2D(mag.data(), W * sizeof(float), gm.d_data,
-        oct.pitch * sizeof(float), W * sizeof(float), H, cudaMemcpyDeviceToHost));
-    safeCall(cudaMemcpy2D(ang.data(), W * sizeof(float), ga.d_data,
-        oct.pitch * sizeof(float), W * sizeof(float), H, cudaMemcpyDeviceToHost));
-    for (size_t k = 0; k < (size_t)W * H; k++) {
-      hostBufGrad[2*k] = mag[k];
-      hostBufGrad[2*k+1] = ang[k];
-    }
-    char path[1024];
-    snprintf(path, sizeof(path), "%s_o%d_s%d_grad.f32", prefix, dumpOctave, s);
-    FILE *f = fopen(path, "wb");
-    fwrite(hostBufGrad.data(), sizeof(float), (size_t)W * H * 2, f);
-    fclose(f);
-  }
-  fprintf(stderr, "DumpPyramidDebug: octave %d (W=%d H=%d) written to %s_o%d_s*.f32\n",
-          dumpOctave, W, H, prefix, dumpOctave);
-}
 
-// Exact replica of vl_sift_keypoint_init's sigma -> (octave, level) inversion
-// (sift.c:2161-2190). absSigma is in absolute (full original image) pixel
-// units, matching what's stored in a VLFeat-derived .sift file's scale field.
-// Returns vlfeatOctave (0 = full resolution, increasing = coarser) and
-// levelIdx (slice index into a VLFeatOctaveBuffers' combined buffers, i.e.
-// already offset by -s_min so it's directly usable as an array index).
-static void AssignOctaveLevel(float absSigma, int numOctaves, int numScales,
-                              int &vlfeatOctave, int &levelIdx)
-{
-  const int s_min = -1, s_max = numScales + 1;
-  const float sigmak = std::pow(2.0f, 1.0f / numScales);
-  const float sigma0 = 1.6f * sigmak;
-  double phi = std::log2(((double)absSigma + 1e-10) / sigma0);
-  int o = (int)std::floor(phi - ((double)s_min + 0.5) / numScales);
-  o = std::min(o, numOctaves - 1);
-  o = std::max(o, 0);
-  double s = numScales * (phi - o);
-  int is = (int)(s + 0.5);
-  is = std::min(is, s_max - 2);
-  is = std::max(is, s_min + 1);
-  vlfeatOctave = o;
-  levelIdx = is - s_min;
-}
 
-// Runs ONLY descriptor extraction on externally supplied keypoints, skipping
-// detection (DoG/extrema-finding) and orientation (both still TODO in Parts
-// 2c/2d) entirely -- isolates descriptor-kernel correctness so it can be
-// validated independently. Non-upsampled operating point only.
-//
-// Input:  siftData.h_data[0..numPts) must have xpos/ypos/scale = ABSOLUTE
-//         image-pixel values (scale = VLFeat sigma convention), orientation
-//         = DEGREES (SiftPoint convention).
-// Output: same array, same order; data[128] filled with the descriptor.
-//         xpos/ypos/scale round-trip to their input values.
-void ExtractSiftDescriptorsOnly(SiftData &siftData, CudaImage &img, int numOctaves, double initBlur)
-{
-  (void)initBlur;  // superseded by VLFeat's own sigman=0.5 base-blur handling
-  int n = siftData.numPts;
-  const int numScales = NUM_SCALES;
-
-  // 1. Normalize [0,255] input to [0,1] -- COLMAP does the same before
-  //    calling VLFeat (sift.cc:186-188); VLFeat's sigma0/peak-threshold
-  //    constants assume this range.
-  CudaImage img01;
-  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
-  {
-    dim3 threads(16, 16);
-    dim3 blocks(iDivUp(img.width, 16), iDivUp(img.height, 16));
-    ScaleImageKernel<<<blocks, threads>>>(img01.d_data, img.d_data,
-        img.width, img01.pitch, img.pitch, img.height, 1.0f / 255.0f);
-    checkMsg("ScaleImageKernel() execution failed\n");
-  }
-
-  // 2. Assign each point to a VLFeat octave + level via the exact inversion
-  //    formula (not a guessed/derived one -- an off-by-one here silently
-  //    reads gradients from the wrong pyramid level).
-  std::vector<int> vlOctaveOf(n), levelIdxOf(n);
-  std::vector<int> cusiftOctaveOf(n);
-  std::vector<float> ssOf(n);
-  for (int i = 0; i < n; i++) {
-    float absScale = std::max(siftData.h_data[i].scale, 1e-6f);
-    // COLMAP delta: AssignOctaveLevel CLAMPS the octave to >= 0. That was safe
-    // under this function's original contract (its caller generated the
-    // keypoints), but externally supplied keypoints can legitimately belong to
-    // VLFeat octave -1, and clamping them describes them from the wrong pyramid
-    // level -- a silently wrong descriptor. This function is documented
-    // "non-upsampled operating point only", so make that contract loud at the
-    // boundary rather than trusting every caller to pre-filter.
-    {
-      const float sigmak = std::pow(2.0f, 1.0f / numScales);
-      const float sigma0 = 1.6f * sigmak;
-      const double phi = std::log2(((double)absScale + 1e-10) / sigma0);
-      const int trueOctave = (int)std::floor(phi - (-1.0 + 0.5) / numScales);
-      if (trueOctave < 0) {
-        std::fprintf(stderr,
-                     "ExtractSiftDescriptorsOnly: keypoint %d (sigma %.6f) maps "
-                     "to VLFeat octave %d; this path builds octaves 0..%d only "
-                     "and must not clamp. Filter octave<0 keypoints first.\n",
-                     i, absScale, trueOctave, numOctaves - 1);
-        std::abort();
-      }
-    }
-    int vo, li;
-    AssignOctaveLevel(absScale, numOctaves, numScales, vo, li);
-    vlOctaveOf[i] = vo;
-    levelIdxOf[i] = li;
-    cusiftOctaveOf[i] = numOctaves - vo;   // cusift's d_PointCounter convention
-    ssOf[i] = std::pow(2.0f, (float)vo);   // VLFeat's xper = 2^o
-  }
-
-  // 3. Stable sort by ascending cusift-octave (coarsest first, matching the
-  //    contiguous per-octave layout FindPointsMulti would have produced).
-  std::vector<int> order(n);
-  for (int i = 0; i < n; i++) order[i] = i;
-  std::stable_sort(order.begin(), order.end(),
-                    [&](int a, int b) { return cusiftOctaveOf[a] < cusiftOctaveOf[b]; });
-
-  std::vector<SiftPoint> reordered(n);
-  std::vector<int> srcOfPos(n);
-  std::vector<int> perOctave(numOctaves + 1, 0);
-  for (int i = 0; i < n; i++) {
-    int src = order[i];
-    SiftPoint p = siftData.h_data[src];
-    float ss = ssOf[src];
-    p.xpos /= ss;
-    p.ypos /= ss;
-    p.scale /= ss;
-    p.subsampling = ss;
-    p.empty[0] = (float)levelIdxOf[src];  // repurposed to carry the assigned level
-    reordered[i] = p;
-    srcOfPos[i] = src;
-    perOctave[cusiftOctaveOf[src]]++;
-  }
-  std::copy(reordered.begin(), reordered.end(), siftData.h_data);
-
-  // Boundary pack: the harness ABI stays SiftPoint, the kernel takes VLFeatKp.
-  // Orientation arrives here in DEGREES (SiftPoint convention) and is converted.
-  // The per-octave slices that used to be communicated through d_PointCounter
-  // are now explicit (pointer + count) per launch.
-  PackedScratch &pk = Packed(n, true);
-  PackKps(siftData.h_data, n, pk.h_kps, true);
-  safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp) * n, cudaMemcpyHostToDevice));
-  std::vector<int> sliceStart(numOctaves + 1, 0), sliceCount(numOctaves + 1, 0);
-  {
-    int cum = 0;
-    for (int o = 1; o <= numOctaves; o++) {
-      sliceStart[o] = cum;
-      sliceCount[o] = perOctave[o];
-      cum += perOctave[o];
-    }
-  }
-
-  // 4. Build the VLFeat pyramid octave by octave (each depends on the
-  //    previous), then run the VLFeat-parity descriptor kernel on each
-  //    octave's point range against that octave's gradient buffers.
-  std::vector<VLFeatOctaveBuffers> octaves(numOctaves);
-  CudaImage prevTopLevel;  // must outlive the BuildVLFeatOctave call using it
-  for (int vo = 0; vo < numOctaves; vo++) {
-    if (vo == 0) {
-      BuildVLFeatOctave(octaves[vo], nullptr, &img01, numScales);
-    } else {
-      VLFeatOctaveBuffers &prev = octaves[vo - 1];
-      prevTopLevel = LevelView(prev.gauss, numScales, prev.width, prev.height, prev.pitch);
-      BuildVLFeatOctave(octaves[vo], &prevTopLevel, nullptr, numScales);
-    }
-  }
-
-  dim3 blocks(512), threads(256);
-  for (int vo = 0; vo < numOctaves; vo++) {
-    int cusiftOctave = numOctaves - vo;
-    float ss = std::pow(2.0f, (float)vo);
-    int levelStride = octaves[vo].height * octaves[vo].pitch;
-    int first = sliceStart[cusiftOctave], cnt = sliceCount[cusiftOctave];
-    if (cnt <= 0) continue;
-    ExtractSiftDescriptorsVLFeat<<<blocks, threads>>>(
-        octaves[vo].gradMag.d_data, octaves[vo].gradAng.d_data,
-        octaves[vo].width, octaves[vo].pitch, octaves[vo].height, levelStride,
-        pk.d_kps + first, pk.d_desc + (size_t)first * 128, cnt, ss, 3.0f /*magnif*/);
-    checkMsg("ExtractSiftDescriptorsVLFeat() execution failed\n");
-  }
-
-  // 5. Read back (unpacking into the SiftPoint ABI) and undo the sort so output
-  //    order matches input order.
-  safeCall(cudaMemcpy(pk.h_kps, pk.d_kps, sizeof(VLFeatKp) * n, cudaMemcpyDeviceToHost));
-  safeCall(cudaMemcpy(pk.h_desc, pk.d_desc, sizeof(float) * 128 * n, cudaMemcpyDeviceToHost));
-  for (int i = 0; i < n; i++) {
-    siftData.h_data[i].xpos = pk.h_kps[i].x;
-    siftData.h_data[i].ypos = pk.h_kps[i].y;
-    siftData.h_data[i].scale = pk.h_kps[i].sigma;
-    std::copy(pk.h_desc + (size_t)i * 128, pk.h_desc + (size_t)i * 128 + 128,
-              siftData.h_data[i].data);
-  }
-  std::vector<SiftPoint> restored(n);
-  for (int i = 0; i < n; i++)
-    restored[srcOfPos[i]] = siftData.h_data[i];
-  std::copy(restored.begin(), restored.end(), siftData.h_data);
-}
-
-// Part 2c: computes VLFeat-parity orientation(s) for externally supplied
-// (x,y,scale)-only candidates -- mirrors ExtractSiftDescriptorsOnly's pyramid
-// setup exactly (kept as a separate function rather than refactored to share
-// code, so as not to risk regressing the already-gate-verified descriptor
-// path). Up to 4 angles per candidate (VLFeat's own cap); outAngles/outCount
-// indexed by ORIGINAL candidate order (0..n-1), angles in RADIANS (VLFeat's
-// own convention, not yet converted to degrees).
-void ComputeOrientationsOnly(SiftData &siftData, CudaImage &img, int numOctaves,
-                             std::vector<std::array<float, 4>> &outAngles,
-                             std::vector<int> &outCount)
-{
-  int n = siftData.numPts;
-  const int numScales = NUM_SCALES;
-
-  CudaImage img01;
-  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
-  {
-    dim3 threads(16, 16);
-    dim3 blocks(iDivUp(img.width, 16), iDivUp(img.height, 16));
-    ScaleImageKernel<<<blocks, threads>>>(img01.d_data, img.d_data,
-        img.width, img01.pitch, img.pitch, img.height, 1.0f / 255.0f);
-    checkMsg("ScaleImageKernel() execution failed\n");
-  }
-
-  std::vector<int> vlOctaveOf(n), levelIdxOf(n);
-  std::vector<int> cusiftOctaveOf(n);
-  std::vector<float> ssOf(n);
-  for (int i = 0; i < n; i++) {
-    float absScale = std::max(siftData.h_data[i].scale, 1e-6f);
-    int vo, li;
-    AssignOctaveLevel(absScale, numOctaves, numScales, vo, li);
-    vlOctaveOf[i] = vo;
-    levelIdxOf[i] = li;
-    cusiftOctaveOf[i] = numOctaves - vo;
-    ssOf[i] = std::pow(2.0f, (float)vo);
-  }
-
-  std::vector<int> order(n);
-  for (int i = 0; i < n; i++) order[i] = i;
-  std::stable_sort(order.begin(), order.end(),
-                    [&](int a, int b) { return cusiftOctaveOf[a] < cusiftOctaveOf[b]; });
-
-  std::vector<SiftPoint> reordered(n);
-  std::vector<int> srcOfPos(n);
-  std::vector<int> perOctave(numOctaves + 1, 0);
-  for (int i = 0; i < n; i++) {
-    int src = order[i];
-    SiftPoint p = siftData.h_data[src];
-    float ss = ssOf[src];
-    p.xpos /= ss;
-    p.ypos /= ss;
-    p.scale /= ss;
-    p.subsampling = ss;
-    p.empty[0] = (float)levelIdxOf[src];
-    reordered[i] = p;
-    srcOfPos[i] = src;
-    perOctave[cusiftOctaveOf[src]]++;
-  }
-  std::copy(reordered.begin(), reordered.end(), siftData.h_data);
-
-  safeCall(cudaMemcpy(siftData.d_data, siftData.h_data, sizeof(SiftPoint) * n, cudaMemcpyHostToDevice));
-  unsigned int counters[8 * 2 + 1];
-  memset(counters, 0, sizeof(counters));
-  int cum = 0;
-  for (int o = 1; o <= numOctaves; o++) {
-    counters[2 * o - 1] = cum;
-    cum += perOctave[o];
-    counters[2 * o + 1] = cum;
-  }
-  // Boundary pack (harness ABI stays SiftPoint); per-octave slices explicit.
-  PackedScratch &pk = Packed(n, false);
-  PackKps(siftData.h_data, n, pk.h_kps, false);
-  safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp) * n, cudaMemcpyHostToDevice));
-  std::vector<int> sliceStart(numOctaves + 2, 0), sliceCount(numOctaves + 2, 0);
-  for (int o = 1; o <= numOctaves; o++) {
-    sliceStart[o] = (int)counters[2 * o - 1];
-    sliceCount[o] = (int)counters[2 * o + 1] - (int)counters[2 * o - 1];
-  }
-
-  std::vector<VLFeatOctaveBuffers> octaves(numOctaves);
-  CudaImage prevTopLevel;
-  for (int vo = 0; vo < numOctaves; vo++) {
-    if (vo == 0) {
-      BuildVLFeatOctave(octaves[vo], nullptr, &img01, numScales);
-    } else {
-      VLFeatOctaveBuffers &prev = octaves[vo - 1];
-      prevTopLevel = LevelView(prev.gauss, numScales, prev.width, prev.height, prev.pitch);
-      BuildVLFeatOctave(octaves[vo], &prevTopLevel, nullptr, numScales);
-    }
-  }
-
-  dim3 blocks(512), threads(256);
-  for (int vo = 0; vo < numOctaves; vo++) {
-    int cusiftOctave = numOctaves - vo;
-    int levelStride = octaves[vo].height * octaves[vo].pitch;
-    int first = sliceStart[cusiftOctave], cnt = sliceCount[cusiftOctave];
-    if (cnt <= 0) continue;
-    ComputeOrientationsVLFeat<<<blocks, threads>>>(
-        octaves[vo].gradMag.d_data, octaves[vo].gradAng.d_data,
-        octaves[vo].width, octaves[vo].pitch, octaves[vo].height, levelStride,
-        pk.d_kps + first, pk.d_ori + first, cnt);
-    checkMsg("ComputeOrientationsVLFeat() execution failed\n");
-  }
-
-  safeCall(cudaMemcpy(pk.h_ori, pk.d_ori, sizeof(VLFeatOri) * n, cudaMemcpyDeviceToHost));
-  outAngles.assign(n, std::array<float, 4>{0, 0, 0, 0});
-  outCount.assign(n, 0);
-  for (int i = 0; i < n; i++) {
-    int src = srcOfPos[i];
-    const VLFeatOri &p = pk.h_ori[i];
-    outAngles[src] = {p.angles[0], p.angles[1], p.angles[2], p.angles[3]};
-    outCount[src] = p.count;
-  }
-}
-
-// Test-only variant of ComputeOrientationsOnly: builds an extra upsampled
-// "octave -1" first (matching COLMAP's real production default,
-// first_octave=-1 -- checked directly, colmap_ref.py's own comment says
-// "leave sift at COLMAP production defaults" and pycolmap's default is
-// first_octave=-1, NOT the o_min=0 this harness has assumed throughout
-// Parts 2b'/2c). Octave 0 (and all coarser octaves) are then built by
-// DECIMATING octave -1's top level, not by blurring the original image
-// directly -- these are NOT numerically identical (upsample->blur->decimate
-// is not a lossless round-trip), even though real ref_cpu happens to have
-// zero keypoints with sigma<1.6 (i.e. octave -1 itself never contributes a
-// keypoint on this dataset) -- so this exists purely to test whether octave
-// 0's resulting pixel-content difference (measured ~0.09% RMS vs the o_min=0
-// pyramid) explains any of the residual Gate 1/2 gap. NOT wired into any
-// production path; AssignOctaveLevel's o>=0 clamp is intentionally left
-// unchanged since no real candidate in this dataset needs o=-1 itself.
-void ComputeOrientationsOnlyOm1(SiftData &siftData, CudaImage &img, int numOctaves,
-                                std::vector<std::array<float, 4>> &outAngles,
-                                std::vector<int> &outCount)
-{
-  int n = siftData.numPts;
-  const int numScales = NUM_SCALES;
-
-  CudaImage img01;
-  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
-  {
-    dim3 threads(16, 16);
-    dim3 blocks(iDivUp(img.width, 16), iDivUp(img.height, 16));
-    ScaleImageKernel<<<blocks, threads>>>(img01.d_data, img.d_data,
-        img.width, img01.pitch, img.pitch, img.height, 1.0f / 255.0f);
-    checkMsg("ScaleImageKernel() execution failed\n");
-  }
-
-  std::vector<int> vlOctaveOf(n), levelIdxOf(n);
-  std::vector<int> cusiftOctaveOf(n);
-  std::vector<float> ssOf(n);
-  for (int i = 0; i < n; i++) {
-    float absScale = std::max(siftData.h_data[i].scale, 1e-6f);
-    int vo, li;
-    AssignOctaveLevel(absScale, numOctaves, numScales, vo, li);
-    vlOctaveOf[i] = vo;
-    levelIdxOf[i] = li;
-    cusiftOctaveOf[i] = numOctaves - vo;
-    ssOf[i] = std::pow(2.0f, (float)vo);
-  }
-
-  std::vector<int> order(n);
-  for (int i = 0; i < n; i++) order[i] = i;
-  std::stable_sort(order.begin(), order.end(),
-                    [&](int a, int b) { return cusiftOctaveOf[a] < cusiftOctaveOf[b]; });
-
-  std::vector<SiftPoint> reordered(n);
-  std::vector<int> srcOfPos(n);
-  std::vector<int> perOctave(numOctaves + 1, 0);
-  for (int i = 0; i < n; i++) {
-    int src = order[i];
-    SiftPoint p = siftData.h_data[src];
-    float ss = ssOf[src];
-    p.xpos /= ss;
-    p.ypos /= ss;
-    p.scale /= ss;
-    p.subsampling = ss;
-    p.empty[0] = (float)levelIdxOf[src];
-    reordered[i] = p;
-    srcOfPos[i] = src;
-    perOctave[cusiftOctaveOf[src]]++;
-  }
-  std::copy(reordered.begin(), reordered.end(), siftData.h_data);
-
-  safeCall(cudaMemcpy(siftData.d_data, siftData.h_data, sizeof(SiftPoint) * n, cudaMemcpyHostToDevice));
-  unsigned int counters[8 * 2 + 1];
-  memset(counters, 0, sizeof(counters));
-  int cum = 0;
-  for (int o = 1; o <= numOctaves; o++) {
-    counters[2 * o - 1] = cum;
-    cum += perOctave[o];
-    counters[2 * o + 1] = cum;
-  }
-  // Boundary pack (harness ABI stays SiftPoint); per-octave slices explicit.
-  PackedScratch &pk = Packed(n, false);
-  PackKps(siftData.h_data, n, pk.h_kps, false);
-  safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp) * n, cudaMemcpyHostToDevice));
-  std::vector<int> sliceStart(numOctaves + 2, 0), sliceCount(numOctaves + 2, 0);
-  for (int o = 1; o <= numOctaves; o++) {
-    sliceStart[o] = (int)counters[2 * o - 1];
-    sliceCount[o] = (int)counters[2 * o + 1] - (int)counters[2 * o - 1];
-  }
-
-  // Build octave -1 (upsampled) as buffer slot 0, then octaves 0..numOctaves-1
-  // as slots 1..numOctaves, each decimated from the previous slot's top level.
-  std::vector<VLFeatOctaveBuffers> octaves(numOctaves + 1);
-  BuildUpsampledOctaveMinus1(octaves[0], img01, numScales);
-  CudaImage prevTopLevel;
-  for (int vo = 0; vo < numOctaves; vo++) {
-    VLFeatOctaveBuffers &prev = octaves[vo];
-    prevTopLevel = LevelView(prev.gauss, numScales, prev.width, prev.height, prev.pitch);
-    BuildVLFeatOctave(octaves[vo + 1], &prevTopLevel, nullptr, numScales);
-  }
-
-  dim3 blocks(512), threads(256);
-  for (int vo = 0; vo < numOctaves; vo++) {
-    int cusiftOctave = numOctaves - vo;
-    VLFeatOctaveBuffers &buf = octaves[vo + 1];  // shifted: vo=0 (real octave 0) lives in slot 1
-    int levelStride = buf.height * buf.pitch;
-    int first = sliceStart[cusiftOctave], cnt = sliceCount[cusiftOctave];
-    if (cnt <= 0) continue;
-    ComputeOrientationsVLFeat<<<blocks, threads>>>(
-        buf.gradMag.d_data, buf.gradAng.d_data,
-        buf.width, buf.pitch, buf.height, levelStride,
-        pk.d_kps + first, pk.d_ori + first, cnt);
-    checkMsg("ComputeOrientationsVLFeat() execution failed\n");
-  }
-
-  safeCall(cudaMemcpy(pk.h_ori, pk.d_ori, sizeof(VLFeatOri) * n, cudaMemcpyDeviceToHost));
-  outAngles.assign(n, std::array<float, 4>{0, 0, 0, 0});
-  outCount.assign(n, 0);
-  for (int i = 0; i < n; i++) {
-    int src = srcOfPos[i];
-    const VLFeatOri &p = pk.h_ori[i];
-    outAngles[src] = {p.angles[0], p.angles[1], p.angles[2], p.angles[3]};
-    outCount[src] = p.count;
-  }
-}
 
