@@ -19,7 +19,7 @@ TEST(FeatureMatchingOptions, Copy) {
   options.max_num_matches += 100;
   options.sift->max_ratio *= 0.1;
   options.aliked->brute_force.min_cossim *= 0.1;
-  options.cusift->max_ratio *= 0.1;
+  options.cusift->cross_check_reverse_ratio = false;
 
   FeatureMatchingOptions copy = options;
 
@@ -28,7 +28,8 @@ TEST(FeatureMatchingOptions, Copy) {
   EXPECT_EQ(copy.sift->max_ratio, options.sift->max_ratio);
   EXPECT_EQ(copy.aliked->brute_force.min_cossim,
             options.aliked->brute_force.min_cossim);
-  EXPECT_EQ(copy.cusift->max_ratio, options.cusift->max_ratio);
+  EXPECT_EQ(copy.cusift->cross_check_reverse_ratio,
+            options.cusift->cross_check_reverse_ratio);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.sift.get(), copy.sift.get());
@@ -41,7 +42,7 @@ TEST(FeatureMatchingOptions, CopyAssignment) {
   options.max_num_matches += 100;
   options.sift->max_ratio *= 0.1;
   options.aliked->brute_force.min_cossim *= 0.1;
-  options.cusift->max_ratio *= 0.1;
+  options.cusift->cross_check_reverse_ratio = false;
 
   FeatureMatchingOptions assigned;
   assigned = options;
@@ -51,7 +52,8 @@ TEST(FeatureMatchingOptions, CopyAssignment) {
   EXPECT_EQ(assigned.sift->max_ratio, options.sift->max_ratio);
   EXPECT_EQ(assigned.aliked->brute_force.min_cossim,
             options.aliked->brute_force.min_cossim);
-  EXPECT_EQ(assigned.cusift->max_ratio, options.cusift->max_ratio);
+  EXPECT_EQ(assigned.cusift->cross_check_reverse_ratio,
+            options.cusift->cross_check_reverse_ratio);
 
   // Verify deep copy (different pointer instances).
   EXPECT_NE(options.sift.get(), assigned.sift.get());

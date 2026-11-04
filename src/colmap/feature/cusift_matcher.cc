@@ -2,6 +2,7 @@
 
 #include "colmap/feature/cusift_matcher.h"
 
+#include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
@@ -43,8 +44,9 @@ class CusiftFeatureMatcher : public FeatureMatcher {
  public:
   explicit CusiftFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options) {
-    THROW_CHECK(THROW_CHECK_NOTNULL(options_.cusift)->Check())
-        << "invalid CusiftMatchingOptions; the reason is logged above";
+    THROW_CHECK(THROW_CHECK_NOTNULL(options_.sift)->Check() &&
+                THROW_CHECK_NOTNULL(options_.cusift)->Check())
+        << "invalid SIFT/cusift matching options; the reason is logged above";
     THROW_CHECK(!options_.guided_matching)
         << "cusift GEMM matcher does not implement guided matching; use "
            "SIFT_BRUTEFORCE or SIFT_LIGHTGLUE for guided matching, or disable "
@@ -96,15 +98,15 @@ class CusiftFeatureMatcher : public FeatureMatcher {
         n1,
         image2.descriptors->data.data(),
         n2,
-        static_cast<float>(options_.cusift->max_ratio),
-        options_.cusift->cross_check,
+        static_cast<float>(options_.sift->max_ratio),
+        options_.sift->cross_check,
         raw_matches,
         options_.cusift->cross_check_reverse_ratio,
         angular ? kGemmDistanceAngular : kGemmDistanceL2,
         // ANGULAR wants radians; L2 wants descriptor-scale distance, so lift
         // the unit-vector threshold onto COLMAP's 512 scale.
-        static_cast<float>(angular ? options_.cusift->max_distance
-                                   : 512.0 * options_.cusift->max_distance),
+        static_cast<float>(angular ? options_.sift->max_distance
+                                   : 512.0 * options_.sift->max_distance),
         static_cast<float>(kSqSiftDescriptorNorm));
 
     // max_num_matches post-filter: replicate SiftMatchGPU's cap-binds rule
@@ -139,11 +141,7 @@ class CusiftFeatureMatcher : public FeatureMatcher {
 
 }  // namespace
 
-bool CusiftMatchingOptions::Check() const {
-  CHECK_OPTION_GT(max_ratio, 0.0);
-  CHECK_OPTION_GT(max_distance, 0.0);
-  return true;
-}
+bool CusiftMatchingOptions::Check() const { return true; }
 
 std::unique_ptr<FeatureMatcher> CreateCusiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
