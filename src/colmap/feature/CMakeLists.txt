@@ -113,17 +113,17 @@ if(CUDA_ENABLED)
     COLMAP_ADD_TEST(
         NAME cusift_test
         SRCS cusift_test.cc
-        LINK_LIBS colmap_feature
+        LINK_LIBS colmap_feature colmap_util_cuda
     )
     COLMAP_ADD_TEST(
         NAME cusift_matcher_test
         SRCS cusift_matcher_test.cc
-        LINK_LIBS colmap_feature
+        LINK_LIBS colmap_feature colmap_util_cuda
     )
     COLMAP_ADD_TEST(
         NAME cusift_determinism_test
         SRCS cusift_determinism_test.cc
-        LINK_LIBS colmap_feature
+        LINK_LIBS colmap_feature colmap_util_cuda
     )
 endif()
 COLMAP_ADD_TEST(
