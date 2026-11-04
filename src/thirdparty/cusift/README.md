@@ -175,16 +175,24 @@ Vendored from the standalone cusift library: the extraction path
 command-line tools and benchmarks are not vendored. Changes made for COLMAP,
 to preserve on any re-sync:
 
-1. `GaussKernelSlot`'s constant-bank bookkeeping in `src/cudaSiftH.cu` is
-   `thread_local`, not `static`. COLMAP runs one extraction thread per GPU, and
-   `d_AdaptiveGaussKernel` is a per-device `__constant__` symbol, so a
-   process-wide map would be racy and wrong across devices.
+1. `GaussKernelSlot`'s constant-bank bookkeeping in `src/cudaSiftH.cu` is one
+   table per device, shared by all threads on it and guarded by a mutex.
+   `d_AdaptiveGaussKernel` is a per-device `__constant__` symbol, so a single
+   process-wide table is wrong across devices, and a per-thread one lets two
+   threads on the same device overwrite each other's blur weights when their
+   settings differ.
+   Memory: cusift allocates from its own stream-ordered pool per device
+   (`cusiftMemPool`, `src/cusift_device.cu`) rather than the device's default
+   pool, whose settings stay untouched; `cusift::ReleaseUnusedMemory()`, called
+   when an extractor is destroyed, returns the pool's unused memory to the
+   driver; and the `thread_local` scratch holders and the matcher's cuBLAS
+   context free their memory when their thread exits.
 2. `CMakeLists.txt` is COLMAP's. It keeps `--use_fast_math`, which is part of
    the VLFeat-parity numerics (see the comment there), and links
    `CUDA::cudart` and `CUDA::cublas` `PRIVATE`.
 3. `src/cusift_device.{h,cu}` are COLMAP additions. They let
-   `colmap/feature/cusift.cc` select a device and initialise the memory pool
-   without including `<cuda_runtime.h>`, so `colmap_feature` gains no CUDA
+   `colmap/feature/cusift.cc` select a device, initialise and release the
+   memory pool, and read its usage, without including `<cuda_runtime.h>`, so `colmap_feature` gains no CUDA
    dependency of its own. `InitDevice(-1)` mirrors `colmap::SetBestCudaDevice`'s
    preference order (highest compute capability, then most multiprocessors);
    keep the two in sync.
