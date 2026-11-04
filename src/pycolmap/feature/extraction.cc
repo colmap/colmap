@@ -299,6 +299,11 @@ void BindFeatureExtraction(py::module& m) {
                     "isolation path cannot describe and which are rejected "
                     "rather than clamped onto the wrong pyramid level.")
       .def_readonly(
+          "num_rejected_octave_above_pyramid",
+          &CusiftDescriptorOnlyResult::num_rejected_octave_above_pyramid,
+          "Keypoints at or above the top octave of cusift's pyramid for this "
+          "image, rejected rather than clamped onto the top octave.")
+      .def_readonly(
           "num_rejected_degenerate",
           &CusiftDescriptorOnlyResult::num_rejected_degenerate,
           "Keypoints whose descriptor window fell outside the image.");
