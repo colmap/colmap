@@ -186,6 +186,18 @@ void BindFeatureExtraction(py::module& m) {
   MakeDataclass(PyLomaExtractionOptions);
 #endif
 
+  auto PyCusiftExtractionOptions =
+      py::classh<CusiftExtractionOptions>(m, "CusiftExtractionOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "num_octaves",
+              &CusiftExtractionOptions::num_octaves,
+              "Number of octaves to build. -1 (default) picks it like "
+              "SiftGPU: floor(log2(min image side)) - 3, after first_octave's "
+              "upsampling. A positive value builds exactly that many.")
+          .def("check", &CusiftExtractionOptions::Check);
+  MakeDataclass(PyCusiftExtractionOptions);
+
   auto PyFeatureExtractionOptions =
       py::classh<FeatureExtractionOptions>(m, "FeatureExtractionOptions")
           .def(py::init<FeatureExtractorType>(),
@@ -208,7 +220,7 @@ void BindFeatureExtraction(py::module& m) {
                          "multi-GPU matching, you should separate multiple "
                          "GPU indices by comma, e.g., '0,1,2,3'.")
           .def_readwrite("sift", &FeatureExtractionOptions::sift)
-
+          .def_readwrite("cusift", &FeatureExtractionOptions::cusift)
           .def("requires_rgb", &FeatureExtractionOptions::RequiresRGB)
           .def("requires_opengl", &FeatureExtractionOptions::RequiresOpenGL)
           .def("eff_max_image_size", &FeatureExtractionOptions::EffMaxImageSize)

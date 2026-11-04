@@ -36,6 +36,7 @@
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 
+#include <algorithm>
 #include <functional>
 #include <string>
 
@@ -91,6 +92,23 @@ TEST(CusiftNumOctaves, FollowsSiftGpu) {
   EXPECT_EQ(CusiftNumOctaves(1, 1, -1), 1);
 }
 
+TEST(CusiftExtractionOptions, NumOctavesDefaultsToAutoAndCanBeSet) {
+  CusiftExtractionOptions options;
+  EXPECT_EQ(options.num_octaves, -1);
+  EXPECT_TRUE(options.Check());
+  // Auto: SiftGPU's rule.
+  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 1920, 1080, -1), 8);
+  // A user-defined count is used as is.
+  options.num_octaves = 4;
+  EXPECT_TRUE(options.Check());
+  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 1920, 1080, -1), 4);
+  // Anything else is rejected rather than silently treated as auto.
+  options.num_octaves = 0;
+  EXPECT_FALSE(options.Check());
+  options.num_octaves = -2;
+  EXPECT_FALSE(options.Check());
+}
+
 #if defined(COLMAP_CUDA_ENABLED)
 
 TEST(CusiftExtractionOptions, RequiresGpu) {
@@ -134,6 +152,25 @@ TEST(CusiftFeatureExtractor, Nominal) {
   }
 }
 
+TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
+  // The square spans 64 px, so its blob responds at a large scale that only
+  // the coarser octaves reach. One octave stops well below it.
+  const Bitmap bitmap = CreateImageWithSquare(256);
+  const auto max_scale = [&bitmap](int num_octaves) {
+    FeatureExtractionOptions options = CreateCusiftOptions();
+    options.cusift->num_octaves = num_octaves;
+    FeatureKeypoints keypoints;
+    THROW_CHECK(CreateCusiftFeatureExtractor(options)->Extract(
+        bitmap, &keypoints, /*descriptors=*/nullptr));
+    float scale = 0;
+    for (const FeatureKeypoint& kp : keypoints) {
+      scale = std::max(scale, kp.ComputeScale());
+    }
+    return scale;
+  };
+  EXPECT_LT(max_scale(1), max_scale(-1));
+}
+
 TEST(CusiftFeatureExtractor, ExtractWithoutDescriptors) {
   const Bitmap bitmap = CreateImageWithSquare(256);
   auto extractor = CreateCusiftFeatureExtractor(CreateCusiftOptions());
@@ -142,29 +179,25 @@ TEST(CusiftFeatureExtractor, ExtractWithoutDescriptors) {
   EXPECT_GE(keypoints.size(), 12);
 }
 
-TEST(CusiftFeatureExtractor, MatchesVLFeatCpuBackend) {
+// cusift must agree with COLMAP's own CPU (VLFeat) backend, not SiftGPU, when
+// both build the same pyramid.
+void ExpectMatchesVLFeat(const FeatureExtractionOptions& cusift_options,
+                         const FeatureExtractionOptions& vlfeat_options) {
   const Bitmap bitmap = CreateImageWithSquare(256);
 
   FeatureKeypoints cusift_keypoints;
   FeatureDescriptors cusift_descriptors;
-  ASSERT_TRUE(CreateCusiftFeatureExtractor(CreateCusiftOptions())
+  ASSERT_TRUE(CreateCusiftFeatureExtractor(cusift_options)
                   ->Extract(bitmap, &cusift_keypoints, &cusift_descriptors));
 
-  FeatureExtractionOptions vlfeat_options(FeatureExtractorType::SIFT);
-  vlfeat_options.use_gpu = false;
-  // cusift picks its octave count like SiftGPU (CusiftNumOctaves); give the
-  // CPU backend the same count so both build the same pyramid.
-  vlfeat_options.sift->num_octaves = CusiftNumOctaves(
-      bitmap.Width(), bitmap.Height(), vlfeat_options.sift->first_octave);
   FeatureKeypoints vlfeat_keypoints;
   FeatureDescriptors vlfeat_descriptors;
   ASSERT_TRUE(CreateSiftFeatureExtractor(vlfeat_options)
                   ->Extract(bitmap, &vlfeat_keypoints, &vlfeat_descriptors));
 
-  // cusift is a VLFeat replica, so it is COLMAP's own CPU backend - not
-  // SiftGPU - that it must agree with. On this synthetic image the two produce
-  // the same keypoints; the tolerance covers the benign Newton-convergence
-  // duplicates documented upstream, not a genuine detector difference.
+  // On this synthetic image the two produce the same keypoints; the tolerance
+  // covers the benign Newton-convergence duplicates documented upstream, not a
+  // genuine detector difference.
   ASSERT_NEAR(static_cast<double>(cusift_keypoints.size()),
               static_cast<double>(vlfeat_keypoints.size()),
               0.02 * vlfeat_keypoints.size() + 1);
@@ -183,6 +216,30 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatCpuBackend) {
     }
   }
   EXPECT_GE(num_colocated, 0.98 * cusift_keypoints.size());
+}
+
+FeatureExtractionOptions CreateVLFeatOptions() {
+  FeatureExtractionOptions options(FeatureExtractorType::SIFT);
+  options.use_gpu = false;
+  return options;
+}
+
+TEST(CusiftFeatureExtractor, MatchesVLFeatAtVLFeatDefaults) {
+  // VLFeat untouched (num_octaves 4 by default); cusift is told the same count
+  // through its override, so the comparison runs at VLFeat's own settings.
+  const FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
+  FeatureExtractionOptions cusift_options = CreateCusiftOptions();
+  cusift_options.cusift->num_octaves = vlfeat_options.sift->num_octaves;
+  ExpectMatchesVLFeat(cusift_options, vlfeat_options);
+}
+
+TEST(CusiftFeatureExtractor, MatchesVLFeatWithAutoOctaves) {
+  // cusift at its default (SiftGPU's automatic octave count); VLFeat is given
+  // the same count so both build the same pyramid.
+  FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
+  vlfeat_options.sift->num_octaves =
+      CusiftNumOctaves(256, 256, vlfeat_options.sift->first_octave);
+  ExpectMatchesVLFeat(CreateCusiftOptions(), vlfeat_options);
 }
 
 // Closes the drop-in loop inside ctest: descriptors produced by CUSIFT are fed

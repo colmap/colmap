@@ -20,6 +20,7 @@
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
@@ -340,6 +341,9 @@ void OptionManager::AddFeatureExtractionOptions() {
                    &feature_extraction->aliked->n16rot_model_path);
   AddDefaultOption("AlikedExtraction.n32_model_path",
                    &feature_extraction->aliked->n32_model_path);
+
+  AddDefaultOption("CusiftExtraction.num_octaves",
+                   &feature_extraction->cusift->num_octaves);
 
   AddDefaultOption("LomaExtraction.max_num_features",
                    &feature_extraction->loma->max_num_features);

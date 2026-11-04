@@ -35,6 +35,17 @@
 
 namespace colmap {
 
+struct CusiftExtractionOptions {
+  // Number of octaves to build. -1 (the default) picks it like SiftGPU, which
+  // is what COLMAP's GPU SIFT does today (see CusiftNumOctaves); a positive
+  // value builds exactly that many. Note that this is separate from
+  // SiftExtractionOptions::num_octaves, which only the CPU (VLFeat) backend
+  // uses and whose default of 4 stops at a much smaller maximum scale.
+  int num_octaves = -1;
+
+  bool Check() const;
+};
+
 // Create a cusift feature extractor: a CUDA SIFT extractor that replicates
 // COLMAP's own VLFeat CPU backend rather than SiftGPU, so it can serve as a
 // commercially-usable replacement for SiftGPU's non-commercial license.
@@ -59,6 +70,13 @@ std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
 // images, where fine-scale features vanish. COLMAP's CPU (VLFeat) SIFT does use
 // num_octaves, so at its default of 4 it stops at a smaller maximum scale.
 int CusiftNumOctaves(int width, int height, int first_octave);
+
+// The octave count cusift uses: options.num_octaves if positive, else
+// CusiftNumOctaves(width, height, first_octave).
+int CusiftEffectiveNumOctaves(const CusiftExtractionOptions& options,
+                              int width,
+                              int height,
+                              int first_octave);
 
 // Result of describing externally supplied keypoints; see
 // ExtractCusiftDescriptorsForKeypoints below.
