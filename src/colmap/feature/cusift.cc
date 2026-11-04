@@ -40,6 +40,7 @@
 
 #ifdef COLMAP_CUDA_ENABLED
 #include <array>
+#include <string>
 #include <vector>
 
 // Deliberately no <cuda_runtime.h> and no cudautils.h here. Every CUDA type and
@@ -62,6 +63,59 @@ constexpr int kCusiftOctaveResolution = 3;
 
 #ifdef COLMAP_CUDA_ENABLED
 
+// Binds the calling thread to the single GPU named by `gpu_index`
+// (cudaSetDevice is per-thread, so each extraction thread does this for
+// itself) and initializes cusift's memory pool on it.
+void BindCusiftDevice(const std::string& gpu_index) {
+  const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
+  THROW_CHECK_EQ(gpu_indices.size(), 1) << "cusift can only run on one GPU";
+  THROW_CHECK(cusift::InitDevice(gpu_indices[0]))
+      << "cusift found no usable CUDA device";
+}
+
+// Uploads a grey bitmap as the [0, 255] float image cusift's kernels take.
+// cusift scales by 1/255 in its first kernel, where COLMAP's VLFeat path
+// divides by 255 on the host. Same uint8 source bytes either way, which is
+// what the grayscale parity gate covers; the multiply-vs-divide rounding is
+// inside the measured parity envelope, because every cusift-vs-VLFeat gate was
+// run through this same kernel. `host_buffer` backs the image's host side and
+// must outlive `image`.
+void UploadGreyBitmap(const Bitmap& bitmap,
+                      std::vector<float>* host_buffer,
+                      CudaImage* image) {
+  THROW_CHECK(bitmap.IsGrey());
+  const std::vector<uint8_t>& data_uint8 = bitmap.RowMajorData();
+  host_buffer->resize(data_uint8.size());
+  std::transform(data_uint8.begin(),
+                 data_uint8.end(),
+                 host_buffer->begin(),
+                 [](const uint8_t v) { return static_cast<float>(v); });
+  image->Allocate(bitmap.Width(),
+                  bitmap.Height(),
+                  iAlignUp(bitmap.Width(), 128),
+                  /*withHost=*/false,
+                  /*devMem=*/nullptr,
+                  /*hostMem=*/host_buffer->data());
+  image->Download();
+}
+
+// COLMAP's own normalization and uint8 quantization, deliberately: cusift
+// hands back exactly what vl_sift_calc_keypoint_descriptor does, so this is
+// the same final step the VLFeat CPU path applies. Shared by the extractor and
+// the descriptor-isolation path, so both write the same representation.
+FeatureDescriptorsData NormalizeAndQuantize(
+    const SiftExtractionOptions::Normalization normalization,
+    FeatureDescriptorsFloatData* descriptors_float) {
+  if (normalization == SiftExtractionOptions::Normalization::L2) {
+    L2NormalizeFeatureDescriptors(descriptors_float);
+  } else if (normalization == SiftExtractionOptions::Normalization::L1_ROOT) {
+    L1RootNormalizeFeatureDescriptors(descriptors_float);
+  } else {
+    LOG(FATAL_THROW) << "Normalization type not supported";
+  }
+  return FeatureDescriptorsToUnsignedByte(*descriptors_float);
+}
+
 class CusiftFeatureExtractor : public FeatureExtractor {
  public:
   explicit CusiftFeatureExtractor(const FeatureExtractionOptions& options)
@@ -76,40 +130,18 @@ class CusiftFeatureExtractor : public FeatureExtractor {
 
   static std::unique_ptr<FeatureExtractor> Create(
       const FeatureExtractionOptions& options) {
-    const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
-    THROW_CHECK_EQ(gpu_indices.size(), 1) << "cusift can only run on one GPU";
-    // Binds this thread to its GPU (cudaSetDevice is per-thread, so each
-    // extraction thread does this for itself) and initializes the memory pool.
-    THROW_CHECK(cusift::InitDevice(gpu_indices[0]))
-        << "cusift found no usable CUDA device";
+    BindCusiftDevice(options.gpu_index);
     return std::make_unique<CusiftFeatureExtractor>(options);
   }
 
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
-    THROW_CHECK(bitmap.IsGrey());
     THROW_CHECK_NOTNULL(keypoints);
 
-    // cusift takes [0, 255] floats and scales by 1/255 in its first kernel,
-    // where COLMAP's VLFeat path divides by 255 on the host. Same uint8 source
-    // bytes either way, which is what the grayscale parity gate covers; the
-    // multiply-vs-divide rounding is inside the measured parity envelope,
-    // because every cusift-vs-VLFeat gate was run through this same kernel.
-    const std::vector<uint8_t>& data_uint8 = bitmap.RowMajorData();
-    std::vector<float> data_float(data_uint8.size());
-    for (size_t i = 0; i < data_uint8.size(); ++i) {
-      data_float[i] = static_cast<float>(data_uint8[i]);
-    }
-
+    std::vector<float> host_buffer;
     CudaImage image;
-    image.Allocate(bitmap.Width(),
-                   bitmap.Height(),
-                   iAlignUp(bitmap.Width(), 128),
-                   /*withHost=*/false,
-                   /*devMem=*/nullptr,
-                   /*hostMem=*/data_float.data());
-    image.Download();
+    UploadGreyBitmap(bitmap, &host_buffer, &image);
 
     // Absolute image coordinates, sigma in image units, orientation in radians
     // in VLFeat's convention, descriptors L2 -> clip 0.2 -> L2 normalized and
@@ -167,23 +199,11 @@ class CusiftFeatureExtractor : public FeatureExtractor {
             descriptors_[i].data(), kSiftDescriptorDim);
       }
 
-      // COLMAP's own normalization, deliberately: cusift hands back exactly
-      // what vl_sift_calc_keypoint_descriptor does, so this is the same
-      // final step the VLFeat CPU path applies.
-      if (options_.sift->normalization ==
-          SiftExtractionOptions::Normalization::L2) {
-        L2NormalizeFeatureDescriptors(&descriptors_float);
-      } else if (options_.sift->normalization ==
-                 SiftExtractionOptions::Normalization::L1_ROOT) {
-        L1RootNormalizeFeatureDescriptors(&descriptors_float);
-      } else {
-        LOG(FATAL_THROW) << "Normalization type not supported";
-      }
-
       // No TransformVLFeatToUBCFeatureDescriptors call: cusift's descriptor
       // kernel writes the UBC order natively. Adding the permutation here
       // would silently scramble every descriptor.
-      descriptors->data = FeatureDescriptorsToUnsignedByte(descriptors_float);
+      descriptors->data = NormalizeAndQuantize(options_.sift->normalization,
+                                               &descriptors_float);
       // These are SIFT descriptors in COLMAP's usual layout, so they are
       // tagged as such. That is the whole point: the existing SIFT matchers,
       // index, and databases consume them with no changes, and cusift and
@@ -311,10 +331,7 @@ CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
   THROW_CHECK(bitmap.IsGrey());
   THROW_CHECK_NOTNULL(options.sift);
   THROW_CHECK_EQ(options.sift->octave_resolution, kCusiftOctaveResolution);
-  const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
-  THROW_CHECK_EQ(gpu_indices.size(), 1);
-  THROW_CHECK(cusift::InitDevice(gpu_indices[0]))
-      << "cusift found no usable CUDA device";
+  BindCusiftDevice(options.gpu_index);
 
   CusiftDescriptorOnlyResult result;
   if (keypoints.empty()) {
@@ -349,19 +366,9 @@ CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
     return result;
   }
 
-  const std::vector<uint8_t>& data_uint8 = bitmap.RowMajorData();
-  std::vector<float> data_float(data_uint8.size());
-  for (size_t i = 0; i < data_uint8.size(); ++i) {
-    data_float[i] = static_cast<float>(data_uint8[i]);
-  }
+  std::vector<float> host_buffer;
   CudaImage image;
-  image.Allocate(bitmap.Width(),
-                 bitmap.Height(),
-                 iAlignUp(bitmap.Width(), 128),
-                 /*withHost=*/false,
-                 /*devMem=*/nullptr,
-                 /*hostMem=*/data_float.data());
-  image.Download();
+  UploadGreyBitmap(bitmap, &host_buffer, &image);
 
   SiftData sift_data;
   InitSiftData(sift_data, static_cast<int>(accepted.size()), true, true);
@@ -410,15 +417,8 @@ CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
   // Same normalization and quantization the extractor applies, so the rows meet
   // a reference database's rows in the same representation. Anything else would
   // measure RootSIFT-vs-L2 or float-vs-quantized instead of the kernel.
-  if (options.sift->normalization == SiftExtractionOptions::Normalization::L2) {
-    L2NormalizeFeatureDescriptors(&desc_float);
-  } else if (options.sift->normalization ==
-             SiftExtractionOptions::Normalization::L1_ROOT) {
-    L1RootNormalizeFeatureDescriptors(&desc_float);
-  } else {
-    LOG(FATAL_THROW) << "Normalization type not supported";
-  }
-  result.descriptors.data = FeatureDescriptorsToUnsignedByte(desc_float);
+  result.descriptors.data =
+      NormalizeAndQuantize(options.sift->normalization, &desc_float);
   result.descriptors.type = FeatureExtractorType::SIFT;
   return result;
 #else
