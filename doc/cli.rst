@@ -348,7 +348,7 @@ available as ``colmap [command]``:
   for a set of input images. Key options include ``--quality`` (LOW, MEDIUM,
   HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
   for different capture scenarios, ``--feature`` (SIFT, ALIKED, LOMA, LOMA128,
-  FLEXGLUE) to select the feature extraction and matching algorithm,
+  FLEXGLUE, CUSIFT) to select the feature extraction and matching algorithm,
   ``--max_num_features`` to override the maximum number of features per image,
   ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL) to choose the SfM pipeline,
   and ``--mesher`` (POISSON, DELAUNAY, ADVANCING_FRONT) to select the surface
