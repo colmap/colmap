@@ -98,6 +98,13 @@ TEST_P(ParameterizedFeatureDescriptorIndexTests, Nominal) {
   ASSERT_EQ(indices.cols(), index_descriptors.data.rows());
   ASSERT_EQ(distances.rows(), query_descriptors.data.rows());
   ASSERT_EQ(distances.cols(), index_descriptors.data.rows());
+
+  FeatureDescriptorsFloat empty_queries;
+  empty_queries.type = params.extractor_type;
+  empty_queries.data.resize(0, query_descriptors.data.cols());
+  index->Search(/*num_neighbors=*/2, empty_queries, indices, distances);
+  EXPECT_EQ(indices.size(), 0);
+  EXPECT_EQ(distances.size(), 0);
 }
 
 TEST(FeatureDescriptorIndexTests, TypeMismatch) {
