@@ -322,13 +322,24 @@ CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
     return result;
   }
 
-  // Reject octave -1 up front: the isolation path is non-upsampled only.
+  // The isolation path is non-upsampled only (first octave 0), with as many
+  // octaves as the extractor would build for this image. Keypoints outside
+  // [0, num_octaves) are rejected up front: AssignOctaveLevel would clamp them
+  // onto the nearest pyramid level and describe them at the wrong scale.
+  const int num_octaves =
+      CusiftEffectiveNumOctaves(*THROW_CHECK_NOTNULL(options.cusift),
+                                bitmap.Width(),
+                                bitmap.Height(),
+                                /*first_octave=*/0);
   std::vector<size_t> accepted;
   accepted.reserve(keypoints.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
-    if (TrueVLFeatOctave(keypoints[i].ComputeScale(),
-                         options.sift->octave_resolution) < 0) {
+    const int octave = TrueVLFeatOctave(keypoints[i].ComputeScale(),
+                                        options.sift->octave_resolution);
+    if (octave < 0) {
       ++result.num_rejected_octave_minus1;
+    } else if (octave >= num_octaves) {
+      ++result.num_rejected_octave_above_pyramid;
     } else {
       accepted.push_back(i);
     }
@@ -367,8 +378,7 @@ CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
     p.orientation = static_cast<float>(RadToDeg(kp.ComputeOrientation()));
   }
 
-  ExtractSiftDescriptorsOnly(
-      sift_data, image, options.sift->num_octaves, /*initBlur=*/1.0);
+  ExtractSiftDescriptorsOnly(sift_data, image, num_octaves, /*initBlur=*/1.0);
 
   // A descriptor window that fell outside the image comes back all-zero.
   // Detect that rather than guessing a support radius, and drop it so it cannot

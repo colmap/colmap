@@ -201,6 +201,33 @@ TEST(CusiftFeatureExtractor, Nominal) {
   }
 }
 
+TEST(CusiftDescriptorsForKeypoints, RejectsKeypointsOutsideThePyramid) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  const Bitmap bitmap = CreateImageWithSquare(256);
+  const FeatureExtractionOptions options = CreateCusiftOptions();
+  // The isolation pyramid starts at octave 0 and has
+  // CusiftEffectiveNumOctaves(256 x 256, first_octave 0) = 5 octaves. With
+  // sigma0 = 1.6 * 2^(1/3), sigma 1 is in VLFeat octave -1, sigma 4 in octave
+  // 1 and sigma 80 in octave 5, one above the top. Before the fix, the
+  // pyramid used SiftExtractionOptions::num_octaves (4) and sigma 80 was
+  // clamped onto octave 3 and described at the wrong scale.
+  ASSERT_EQ(CusiftEffectiveNumOctaves(*options.cusift, 256, 256, 0), 5);
+  const FeatureKeypoints keypoints = {FeatureKeypoint(128, 128, 1.0f, 0.0f),
+                                      FeatureKeypoint(128, 128, 4.0f, 0.0f),
+                                      FeatureKeypoint(128, 128, 80.0f, 0.0f)};
+
+  const CusiftDescriptorOnlyResult result =
+      ExtractCusiftDescriptorsForKeypoints(bitmap, keypoints, options);
+
+  EXPECT_EQ(result.num_rejected_octave_minus1, 1);
+  EXPECT_EQ(result.num_rejected_octave_above_pyramid, 1);
+  EXPECT_EQ(result.num_rejected_degenerate, 0);
+  EXPECT_EQ(result.keypoint_indices, std::vector<size_t>{1});
+  ASSERT_EQ(result.descriptors.data.rows(), 1);
+  EXPECT_EQ(result.descriptors.data.cols(), 128);
+  EXPECT_EQ(result.descriptors.type, FeatureExtractorType::SIFT);
+}
+
 TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // The square spans 64 px, so its blob responds at a large scale that only

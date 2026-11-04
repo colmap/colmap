@@ -101,6 +101,10 @@ struct CusiftDescriptorOnlyResult {
   // rejected instead. At COLMAP's default first_octave = -1 this is a large
   // fraction of a real image's features.
   size_t num_rejected_octave_minus1 = 0;
+  // Keypoints whose sigma places them at or above the top octave of the
+  // pyramid cusift builds for this image (CusiftEffectiveNumOctaves with
+  // first_octave 0). Rejected rather than clamped onto the top octave.
+  size_t num_rejected_octave_above_pyramid = 0;
   // Keypoints whose descriptor window fell outside the image, detected as a
   // zero-norm descriptor rather than guessed from a support radius. Rejected
   // so they cannot zero-fill into a caller's statistics.
