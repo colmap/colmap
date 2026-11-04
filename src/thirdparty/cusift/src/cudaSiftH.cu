@@ -12,6 +12,7 @@
 #include <vector>
 #include <chrono>
 #include <map>
+#include <mutex>
 #include <string>
 #include "cudautils.h"
 
@@ -613,18 +614,34 @@ double FindPointsMulti(CudaImage *sources, SiftData &siftData, float thresh, flo
 // the same expressions and appends. ~8 distinct sigmas per process, so all
 // misses happen on the first image and every later blur is upload-free.
 //
-// thread_local, not a plain static:
-// COLMAP creates one extraction thread per GPU index, so a process-wide bank
-// map is racy AND wrong across devices -- d_AdaptiveGaussKernel is a per-device
-// __constant__ symbol, so a "hit" recorded by a thread on device 0 would hand a
-// thread on device 1 an offset it never uploaded to. Per-thread bookkeeping is
-// correct for both: each thread uploads to the device it is bound to. Two
-// threads on the same device duplicate ~27 floats per distinct sigma in a
-// 4096-float bank, which is free.
+// One slot table per device, shared by every thread on it and guarded by a
+// mutex. d_AdaptiveGaussKernel is a per-device __constant__ symbol, so the
+// table must be per device (a slot recorded on device 0 was never uploaded to
+// device 1) and must not be per thread: two threads on one device would each
+// start at offset 0 and overwrite each other's weights whenever their sigma
+// sequences differ, e.g. with different first_octave settings.
+//
+// A slot is recorded only after its upload has been issued, under the lock, so
+// a thread can never be handed an offset whose weights are not on their way.
+// The upload and every blur kernel run on the legacy default stream, which is
+// shared by all host threads on a device, so the kernels that read a slot are
+// ordered after the upload that wrote it.
+struct GaussKernelBank {
+  std::vector<std::pair<uint32_t, int>> slots;   // (sigma bits, offset)
+  int used = 0;
+};
+
 static int GaussKernelSlot(float sigma, int radius)
 {
-  static thread_local std::vector<std::pair<uint32_t, int>> slots;   // (sigma bits, offset)
-  static thread_local int used = 0;
+  int dev = 0;
+  safeCall(cudaGetDevice(&dev));
+  static std::mutex mutex;
+  static std::map<int, GaussKernelBank> banks;
+  std::lock_guard<std::mutex> lock(mutex);
+  GaussKernelBank &bank = banks[dev];
+  std::vector<std::pair<uint32_t, int>> &slots = bank.slots;
+  int &used = bank.used;
+
   uint32_t key;
   std::memcpy(&key, &sigma, sizeof(key));
   for (const auto &s : slots)
