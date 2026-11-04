@@ -203,12 +203,9 @@ to preserve on any re-sync:
 
 ## CUDA architectures
 
-`CMakeLists.txt` sets `CUDA_ARCHITECTURES` on `colmap_cusift` instead of
-inheriting COLMAP's default of `native`. `-arch=native` emits machine code for
-the build machine's GPU and no PTX, so the library would run only on that
-architecture. The pinned default `86;89` gives `sm_86` and `sm_89` machine code
-plus PTX that JIT-compiles forward to newer GPUs, and keeps codegen the same
-across build machines, which matters because `--use_fast_math` is part of the
-numerics. Override with `-DCOLMAP_CUSIFT_CUDA_ARCHITECTURES=...`; PTX only
-compiles forward, so pre-Ampere targets need an explicit lower virtual
-architecture.
+`colmap_cusift` builds for COLMAP's `CMAKE_CUDA_ARCHITECTURES` (default
+`native`), like the other CUDA targets. To build cusift for a different list,
+set `-DCOLMAP_CUSIFT_CUDA_ARCHITECTURES=...`, e.g. `86;89` for `sm_86` and
+`sm_89` machine code plus PTX that JIT-compiles forward to newer GPUs. Note
+that `native` emits machine code for the build machine's GPU only, so a
+redistributable build should name its architectures explicitly.
