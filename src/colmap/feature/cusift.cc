@@ -169,8 +169,7 @@ class CusiftFeatureExtractor : public FeatureExtractor {
     // against. Consumers of stored orientation (LightGlue via
     // onnx_matchers.cc:596, vocab-tree geometry via retrieval/visual_index.cc)
     // therefore see VLFeat convention from cusift, as they do from the CPU
-    // backend. Do not "fix" this to match SiftGPU: see COLMAP_INTEGRATION.md
-    // §4.
+    // backend. Do not "fix" this to match SiftGPU.
     keypoints->resize(num_features);
     for (size_t i = 0; i < num_features; ++i) {
       (*keypoints)[i] = FeatureKeypoint(

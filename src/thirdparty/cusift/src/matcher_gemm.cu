@@ -212,7 +212,7 @@ __global__ void InitTop2(int n, float* best, float* second, int* idx,
   }
 }
 
-// docs/PERFORMANCE.md Tier 1.1, matcher half: the per-pair `cublasCreate` (ms-scale
+// Tier 1.1, matcher half: the per-pair `cublasCreate` (ms-scale
 // on its own) and 8 `cudaMalloc`/`cudaFree` (device-synchronizing) were most of
 // the gap between the warm kernel time and what a pair loop actually costs.
 // Everything is hoisted into one grow-only context, created on first use and

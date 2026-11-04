@@ -22,7 +22,7 @@
 
 #include "cudaSiftD.cu"
 
-// Stage-attribution timers for the performance work (docs/PERFORMANCE.md). Enabled
+// Stage-attribution timers for performance work. Enabled
 // by setting CUSIFT_TIMING=1; off, they compile to a getenv-cached bool test.
 // ncu is the better tool but needs GPU-counter permissions, and nsys' CUDA
 // tracing does not capture under WSL2 -- this covers the "which stage owns the
@@ -613,7 +613,7 @@ double FindPointsMulti(CudaImage *sources, SiftData &siftData, float thresh, flo
 // the same expressions and appends. ~8 distinct sigmas per process, so all
 // misses happen on the first image and every later blur is upload-free.
 //
-// thread_local, not a plain static (docs/COLMAP_INTEGRATION.md §6 open item 2):
+// thread_local, not a plain static:
 // COLMAP creates one extraction thread per GPU index, so a process-wide bank
 // map is racy AND wrong across devices -- d_AdaptiveGaussKernel is a per-device
 // __constant__ symbol, so a "hit" recorded by a thread on device 0 would hand a
@@ -743,7 +743,7 @@ static CudaImage LevelView(CudaImage &combined, int levelIdx, int w, int h, int 
   return v;
 }
 
-// docs/PERFORMANCE.md Tier 2.3 (the unconditional half): gradient planes are computed
+// Tier 2.3 (the unconditional half): gradient planes are computed
 // only for the level indices a consumer can actually address. Keypoint levels are
 // `is` in [0, numScales-1] and every consumer indexes gradients as `is - s_min`
 // (see AssignOctaveLevel, which clamps to exactly that, and the integrated
@@ -898,7 +898,7 @@ static void BuildUpsampledOctaveMinus1(VLFeatOctaveBuffers &oct, CudaImage &img0
 // through refinement (VLFeat never changes it during Newton iteration, only
 // x/y can relocate -- verified directly against sift.c:1267-1427) so it's
 // available as a first-class field for orientation/descriptor, never
-// re-derived from sigma (the harness limitation found earlier this session).
+// re-derived from sigma.
 
 // Tier 1.2: persistent pinned host staging for the per-octave DoG download.
 // Grows monotonically to the largest octave's cube (octave -1 of a 1920x1080
@@ -917,7 +917,7 @@ static float *PinnedStaging(size_t floats)
   return buf;
 }
 
-// docs/PERFORMANCE.md Tier 1.1, the "two SiftData slabs at max capacity" item: the
+// Tier 1.1, the "two SiftData slabs at max capacity" item: the
 // integrated pipeline used to InitSiftData/FreeSiftData once per octave per pass
 // (8 allocate/free cycles per image) with a pageable `malloc` host side, so every
 // SiftPoint transfer -- 576 B per keypoint, two transfers per pass per octave --
@@ -1172,11 +1172,9 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
   if (dbgRefine) std::fclose(dbgRefine);
 }
 
-// Full multi-octave VLFeat-faithful detection. o_min=0 (matches this
-// session's harness convention throughout -- the o_min=-1 hypothesis was
-// tested directly and found not to explain the residual Gate 1/2 gap, see
-// plan). Deduplicates nothing -- exact-duplicate rows (the ~0.06%
-// Newton-convergence artifact found earlier this session) are expected and
+// Full multi-octave VLFeat-faithful detection, from octave o_min=0.
+// Deduplicates nothing -- exact-duplicate rows (a ~0.06%
+// Newton-convergence artifact) are expected and
 // left as-is, matching real ref_cpu's own behavior.
 void DetectKeypointsVLFeat(CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
                            std::vector<DetectedKeypoint> &out, const char *debugDumpPrefix)
@@ -1311,9 +1309,7 @@ void DetectAndOrientVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
 // Full Part 2d/2b'/2c integration: detect -> orient -> descriptor, one pass
 // per octave, is/x/y/sigma threaded natively throughout (same rationale as
 // DetectAndOrientVLFeat). Each keypoint is expanded into up to
-// `maxNumOrientations` rows (COLMAP default 2, matching this session's
-// established `max_num_orientations` finding on real multi-orientation
-// rate), one per surviving angle -- mirrors COLMAP's own
+// `maxNumOrientations` rows (COLMAP default 2), one per surviving angle -- mirrors COLMAP's own
 // `SiftCPUFeatureExtractor::Extract` orientation-expansion loop
 // (sift.cc:210-286), not something invented here. Output x/y/sigma are
 // ABSOLUTE image coordinates, orientation in RADIANS (VLFeat convention),

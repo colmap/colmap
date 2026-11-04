@@ -196,7 +196,8 @@ void ExpectMatchesVLFeat(const FeatureExtractionOptions& cusift_options,
                   ->Extract(bitmap, &vlfeat_keypoints, &vlfeat_descriptors));
 
   // On this synthetic image the two produce the same keypoints; the tolerance
-  // covers the benign Newton-convergence duplicates documented upstream, not a
+  // covers the benign Newton-convergence duplicates described in
+  // src/thirdparty/cusift/README.md, not a
   // genuine detector difference.
   ASSERT_NEAR(static_cast<double>(cusift_keypoints.size()),
               static_cast<double>(vlfeat_keypoints.size()),

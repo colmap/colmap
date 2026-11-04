@@ -2059,7 +2059,7 @@ __global__ void PureDecimate2xKernel(float *d_Result, float *d_Data,
 // when |b[0]| or |b[1]| > 0.6, final threshold+edge test on the refined
 // position.
 //
-// docs/PERFORMANCE.md Tier 2.1-B: ONE implementation, compiled for both host and
+// Tier 2.1-B: ONE implementation, compiled for both host and
 // device. The device instantiation (RefineKeypointsKernel below) is the
 // production path -- it removes the ~221 MB/image DoG download that existed
 // only to feed this function on the CPU, plus the serial CPU pass itself
@@ -2199,8 +2199,8 @@ __global__ void RefineKeypointsKernel(const float *dog, int width, int height,
 // per-level increment needs sigma~3+, i.e. radius~13+, both far beyond the
 // fixed radius-4 support LowPass provides). Both passes take EXPLICIT
 // separate src/dst pitches -- no same-pitch assumption between independently
-// allocated buffers, learned the hard way earlier this session.
-// docs/PERFORMANCE.md Tier 1.3: the sigma schedule is image-independent and only
+// allocated buffers.
+// Tier 1.3: the sigma schedule is image-independent and only
 // ~8 distinct sigmas ever occur (two base blurs + the per-level increments,
 // which repeat identically in every octave), so weights live in a BANK of
 // kernels uploaded once per process instead of one synchronous
@@ -2374,7 +2374,7 @@ __global__ void FillPlaneKernel(float *d_Data, int width, int pitch, int height,
 // same bytes per useful sample, and the interleaved rows are twice as long,
 // which costs 2D-window locality in the orientation/descriptor access pattern.
 // Do not re-try it without a profile showing these kernels are
-// transaction-limited. See docs/perf_tier1_rtx4060.md.
+// transaction-limited.
 __global__ void ComputeGradientPlaneKernel(const float *d_Level, int width, int pitch, int height,
                                            float *d_GradMag, float *d_GradAng)
 {
