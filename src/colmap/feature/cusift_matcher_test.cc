@@ -86,12 +86,15 @@ FeatureMatcher::Image MakeImage(image_t id, const FeatureDescriptors& desc) {
 #if defined(COLMAP_CUDA_ENABLED)
 
 TEST(CusiftMatchingOptions, Check) {
-  CusiftMatchingOptions options;
+  EXPECT_TRUE(CusiftMatchingOptions().Check());
+  // The ratio and distance thresholds come from the SIFT options, and are
+  // checked for CUSIFT_GEMM too.
+  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   EXPECT_TRUE(options.Check());
-  options.max_ratio = -1;
+  options.sift->max_ratio = -1;
   EXPECT_FALSE(options.Check());
-  options.max_ratio = 0.8;
-  options.max_distance = -1;
+  options = CreateCusiftMatchingOptions();
+  options.sift->max_distance = -1;
   EXPECT_FALSE(options.Check());
 }
 
@@ -182,15 +185,15 @@ TEST(CusiftFeatureMatcher, RejectsGuidedMatching) {
                   testing::HasSubstr("guided matching")));
 }
 
-TEST(CusiftFeatureMatcher, ConstructorRejectsInvalidCusiftOptions) {
+TEST(CusiftFeatureMatcher, ConstructorRejectsInvalidOptions) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // Callers that skip FeatureMatchingOptions::Check(), such as a direct
   // Create, must still be stopped by the constructor.
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  options.cusift->max_ratio = 0.0;
+  options.sift->max_ratio = 0.0;
   EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
   options = CreateCusiftMatchingOptions();
-  options.cusift->max_distance = -1.0;
+  options.sift->max_distance = -1.0;
   EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
 }
 
@@ -224,13 +227,13 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
   const FeatureMatcher::Image image_copy = MakeImage(2, desc);
 
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  options.cusift->cross_check = false;
-  options.cusift->max_ratio = 1.0;  // effectively disable the ratio test
+  options.sift->cross_check = false;
+  options.sift->max_ratio = 1.0;  // effectively disable the ratio test
 
   FeatureMatches matches;
 
   // Distance ~0 must survive a small max_distance.
-  options.cusift->max_distance = 0.01;
+  options.sift->max_distance = 0.01;
   auto matcher_tight = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
   matcher_tight->Match(image_self, image_copy, &matches);
   ASSERT_EQ(matches.size(), 1);
@@ -248,7 +251,7 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
       MakeImage(3,
                 FeatureDescriptors(FeatureExtractorType::SIFT,
                                    FeatureDescriptorsToUnsignedByte(other)));
-  options.cusift->max_distance = 0.7;
+  options.sift->max_distance = 0.7;
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
   matcher->Match(image_self, image_far, &matches);
   EXPECT_EQ(matches.size(), 0);
@@ -264,8 +267,8 @@ TEST(CusiftFeatureMatcher, MaxNumMatchesTruncatesByIndexOrder) {
   const FeatureMatcher::Image image2 = MakeImage(2, desc);
 
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  options.cusift->cross_check = false;
-  options.cusift->max_ratio = 1.0;  // every row self-matches trivially
+  options.sift->cross_check = false;
+  options.sift->max_ratio = 1.0;  // every row self-matches trivially
   options.max_num_matches = kMaxNumMatches;
 
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
@@ -423,7 +426,7 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakPrefersLowerRowIndex) {
   for (const auto dt : {CusiftDistanceType::ANGULAR, CusiftDistanceType::L2}) {
     FeatureMatchingOptions options = CreateCusiftMatchingOptions();
     options.cusift->distance_type = dt;
-    options.cusift->cross_check = true;
+    options.sift->cross_check = true;
     options.cusift->cross_check_reverse_ratio = false;
     auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
 
@@ -478,9 +481,9 @@ TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
       ref.use_gpu = false;
       ref.sift->cpu_brute_force_matcher =
           true;  // EXACT, not the faiss IVF path
-      ref.sift->max_ratio = cu.cusift->max_ratio;
-      ref.sift->max_distance = cu.cusift->max_distance;
-      ref.sift->cross_check = cu.cusift->cross_check;
+      ref.sift->max_ratio = cu.sift->max_ratio;
+      ref.sift->max_distance = cu.sift->max_distance;
+      ref.sift->cross_check = cu.sift->cross_check;
       auto ref_matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(ref));
 
       const auto got = MatchToSet(*cu_matcher, img1, img2);
@@ -554,7 +557,7 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
   const auto img2 = MakeImage(2, dc);
 
   FeatureMatchingOptions cu = CreateCusiftMatchingOptions();
-  cu.cusift->max_ratio = 0.99;  // keep the ratio test from masking the choice
+  cu.sift->max_ratio = 0.99;  // keep the ratio test from masking the choice
   auto cu_matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cu));
   FeatureMatchingOptions ref(FeatureMatcherType::SIFT_BRUTEFORCE);
   ref.use_gpu = false;

@@ -265,34 +265,20 @@ void BindFeatureMatching(py::module& m) {
       py::classh<CusiftMatchingOptions>(m, "CusiftMatchingOptions")
           .def(py::init<>())
           .def_readwrite(
-              "max_ratio",
-              &CusiftMatchingOptions::max_ratio,
-              "Maximum distance ratio between first and second best match. "
-              "Same convention as SiftMatchingOptions.max_ratio.")
-          .def_readwrite(
-              "max_distance",
-              &CusiftMatchingOptions::max_distance,
-              "Maximum distance to the best match, in the units of "
-              "distance_type: radians under ANGULAR (the default, as "
-              "SiftMatchingOptions.max_distance), unit-vector L2 distance "
-              "under L2.")
-          .def_readwrite("cross_check",
-                         &CusiftMatchingOptions::cross_check,
-                         "Whether to enable cross checking in matching.")
-          .def_readwrite(
               "cross_check_reverse_ratio",
               &CusiftMatchingOptions::cross_check_reverse_ratio,
-              "When cross_check is enabled, whether the ratio test is also "
+              "When sift.cross_check is enabled, whether the ratio test is "
+              "also "
               "applied in the reverse direction, as both of COLMAP's other "
               "SIFT matchers do. Disabling it requires only mutual-best "
               "agreement: weaker at rejecting non-overlapping image pairs.")
           .def_readwrite(
               "distance_type",
               &CusiftMatchingOptions::distance_type,
-              "Metric space for the ratio test and max_distance: ANGULAR (the "
-              "default; COLMAP's brute-force matcher and SiftGPU) or L2 "
-              "(COLMAP's index-based matcher and VLFeat). Note this changes "
-              "the units of max_distance.")
+              "Metric space for the ratio test and sift.max_distance: ANGULAR "
+              "(the default; radians, as COLMAP's brute-force matcher and "
+              "SiftGPU) or L2 (unit-vector distance, as COLMAP's index-based "
+              "matcher and VLFeat).")
           .def("check", &CusiftMatchingOptions::Check);
   MakeDataclass(PyCusiftMatchingOptions);
 

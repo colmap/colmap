@@ -30,32 +30,18 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(CusiftDistanceType,
                                 // src/thirdparty/cusift/src/matcher.h).
                                 ANGULAR);
 
-// Matching options for FeatureMatcherType::CUSIFT_GEMM. A separate struct
-// from SiftMatchingOptions -- even though the numerics below are provably
-// equivalent -- to match the codebase's own precedent (AlikedMatchingOptions
-// vs SiftMatchingOptions, aliked.h) of never letting the same field name mean
-// something subtly different depending on FeatureMatching.type.
+// Matching options for FeatureMatcherType::CUSIFT_GEMM that SIFT matching has
+// no equivalent for. The ratio test, distance threshold and cross-check come
+// from FeatureMatchingOptions::sift (max_ratio, max_distance, cross_check),
+// with the same meaning as for SIFT_BRUTEFORCE: max_distance is in radians
+// under ANGULAR, as on SIFT's brute-force CPU path, and unit-vector L2 distance
+// under L2, as on its index-based path.
 struct CusiftMatchingOptions {
-  // Maximum distance ratio between first and second best match. Same
-  // convention as SiftMatchingOptions::max_ratio: cusift's GEMM matcher
-  // squares this internally and compares against squared unit-vector
-  // distances, algebraically identical to COLMAP's own ratio test once both
-  // sides are expressed in that space (see cusift_matcher.cc).
-  double max_ratio = 0.8;
-
-  // Maximum distance to the best match, in the units distance_type implies:
-  // radians under ANGULAR (identical to SiftMatchingOptions::max_distance,
-  // which SiftGPU also treats as radians), unit-vector L2 distance under L2.
-  double max_distance = 0.7;
-
-  // Whether to enable cross-checking (mutual nearest neighbor).
-  bool cross_check = true;
-
-  // When cross_check is enabled, whether the ratio test is ALSO applied in the
-  // reverse direction, which is what both of COLMAP's existing SIFT matchers
-  // do -- the CPU path runs FindBestMatchesOneWayIndex once per direction
-  // before intersecting (sift.cc, FindBestMatchesIndex), and SiftGPU passes
-  // distmax/ratiomax into GetColMatch as well as GetRowMatch
+  // When sift.cross_check is enabled, whether the ratio test is ALSO applied in
+  // the reverse direction, which is what both of COLMAP's existing SIFT
+  // matchers do -- the CPU path runs FindBestMatchesOneWayIndex once per
+  // direction before intersecting (sift.cc, FindBestMatchesIndex), and SiftGPU
+  // passes distmax/ratiomax into GetColMatch as well as GetRowMatch
   // (SiftGPU/ProgramCU.cu). Leave enabled for behavioural parity with the
   // matcher this one replaces.
   //

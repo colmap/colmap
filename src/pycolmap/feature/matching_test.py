@@ -37,12 +37,6 @@ def test_cusift_matching_options_field_readwrite() -> None:
     )
     options.cross_check_reverse_ratio = False
     assert options.cross_check_reverse_ratio is False
-    options.max_ratio = 0.75
-    assert options.max_ratio == 0.75
-    options.max_distance = 0.6
-    assert options.max_distance == 0.6
-    options.cross_check = False
-    assert options.cross_check is False
 
 
 def test_cusift_distance_type_enum_and_default() -> None:
@@ -59,8 +53,8 @@ def test_cusift_distance_type_enum_and_default() -> None:
 def test_feature_matching_options_exposes_cusift_block() -> None:
     options = pycolmap.FeatureMatchingOptions()
     assert options.cusift is not None
-    options.cusift.max_ratio = 0.7
-    assert options.cusift.max_ratio == 0.7
+    options.cusift.cross_check_reverse_ratio = False
+    assert options.cusift.cross_check_reverse_ratio is False
 
 
 def test_feature_matching_options_default_init() -> None:

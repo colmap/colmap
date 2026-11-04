@@ -123,7 +123,8 @@ bool FeatureMatchingOptions::Check() const {
       // Not implemented by the GEMM matcher. Fail here rather than in the
       // constructor, which the guided pass runs on a worker thread.
       CHECK_OPTION(!guided_matching);
-      return THROW_CHECK_NOTNULL(cusift)->Check();
+      return THROW_CHECK_NOTNULL(sift)->Check() &&
+             THROW_CHECK_NOTNULL(cusift)->Check();
     default:
       LOG(ERROR) << "Unknown feature matcher type: " << type;
       return false;

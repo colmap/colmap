@@ -473,12 +473,6 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->flexglue->num_workers_per_gpu);
   AddDefaultOption("FlexGlueMatching.num_inferences_per_gpu",
                    &feature_matching->flexglue->num_inferences_per_gpu);
-  AddDefaultOption("CusiftMatching.max_ratio",
-                   &feature_matching->cusift->max_ratio);
-  AddDefaultOption("CusiftMatching.max_distance",
-                   &feature_matching->cusift->max_distance);
-  AddDefaultOption("CusiftMatching.cross_check",
-                   &feature_matching->cusift->cross_check);
   AddDefaultOption("CusiftMatching.cross_check_reverse_ratio",
                    &feature_matching->cusift->cross_check_reverse_ratio);
   AddDefaultEnumOption("CusiftMatching.distance_type",
