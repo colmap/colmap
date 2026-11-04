@@ -235,6 +235,25 @@ struct GemmMatcherContext {
   int *dIdx = nullptr, *dIdx2 = nullptr, *dColIdx = nullptr;
   int cap1 = 0, cap2 = 0, capTile = 0;
 
+  GemmMatcherContext() = default;
+  GemmMatcherContext(const GemmMatcherContext&) = delete;
+  GemmMatcherContext& operator=(const GemmMatcherContext&) = delete;
+
+  // Runs when the owning matcher thread exits; COLMAP starts new matcher
+  // threads for every matching run, so without it each run leaked the cuBLAS
+  // handle and the device buffers. Errors are ignored: at process exit the
+  // CUDA runtime may already be shutting down, and there is nothing to do
+  // about a failed free at that point.
+  ~GemmMatcherContext() {
+    Release(&d1); Release(&d2); Release(&dSim);
+    Release(&dBest); Release(&dSecond); Release(&dColBest);
+    Release(&dColSecond); Release(&d1Sq); Release(&d2Sq);
+    Release(&d1U8); Release(&d2U8);
+    Release(&dColPartBest); Release(&dColPartSecond); Release(&dColPartIdx);
+    Release(&dIdx); Release(&dIdx2); Release(&dColIdx);
+    if (blas) { cublasDestroy(blas); blas = nullptr; }
+  }
+
   void Reserve(int n1, int n2, int tile) {
     if (!blas) cublasCreate(&blas);
     if (n1 > cap1) {

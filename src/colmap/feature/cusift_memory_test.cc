@@ -27,24 +27,33 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-// cusift's memory pool:
+// cusift's memory handling, in three parts:
+// - It keeps GPU buffers, pinned host buffers and a cuBLAS handle in
+//   thread_local holders, and COLMAP starts new extraction and matching
+//   threads for every run, so what a thread allocated must be released when it
+//   exits rather than accumulate run after run.
 // - It allocates from its own stream-ordered memory pool, so the device's
 //   default pool, which other code in the process may use, keeps its settings.
 // - Destroying an extractor returns the pool memory it no longer uses to the
 //   driver, so GPU stages that run after extraction can have it.
 
 #include "colmap/feature/cusift.h"
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/camera.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <thread>
+#include <vector>
 
 #include "cusift_device.h"
 #include <cuda_runtime.h>
@@ -53,11 +62,19 @@
 namespace colmap {
 namespace {
 
+constexpr int kNumThreads = 5;
 constexpr int64_t kMiB = 1024 * 1024;
 
 void RunOnFreshThread(const std::function<void()>& fn) {
   std::thread thread(fn);
   thread.join();
+}
+
+// Bytes currently allocated from cusift's memory pool. Its extraction scratch
+// is allocated there, so a holder that is never freed keeps this count up
+// after its thread exits.
+int64_t CusiftPoolUsedBytes() {
+  return static_cast<int64_t>(cusift::GetMemoryPoolUsage().used);
 }
 
 cudaMemPool_t DefaultPool() {
@@ -72,6 +89,34 @@ uint64_t GetPoolAttribute(cudaMemPool_t pool, cudaMemPoolAttr attribute) {
   uint64_t value = 0;
   THROW_CHECK_EQ(cudaMemPoolGetAttribute(pool, attribute, &value), cudaSuccess);
   return value;
+}
+
+int64_t FreeDeviceBytes() {
+  size_t free_bytes = 0;
+  size_t total_bytes = 0;
+  THROW_CHECK_EQ(cudaMemGetInfo(&free_bytes, &total_bytes), cudaSuccess);
+  return static_cast<int64_t>(free_bytes);
+}
+
+// Runs `fn` once to warm up (CUDA context, memory pool, cuBLAS library state),
+// then kNumThreads more times, each on a fresh thread, and returns the median
+// growth of `measure_used` per thread. A leak shows up as the size of one
+// thread's buffers on every thread; noise from other processes on a shared
+// GPU does not, so the median separates the two.
+int64_t MedianGrowthPerThread(const std::function<void()>& fn,
+                              const std::function<int64_t()>& measure_used) {
+  RunOnFreshThread(fn);
+  std::vector<int64_t> growth;
+  for (int i = 0; i < kNumThreads; ++i) {
+    const int64_t before = measure_used();
+    RunOnFreshThread(fn);
+    growth.push_back(measure_used() - before);
+  }
+  LOG(INFO) << "Per-thread growth (MiB):";
+  for (const int64_t g : growth) LOG(INFO) << "  " << g / kMiB;
+  std::nth_element(
+      growth.begin(), growth.begin() + kNumThreads / 2, growth.end());
+  return growth[kNumThreads / 2];
 }
 
 Bitmap CreateNoiseImage(const int width, const int height) {
@@ -100,6 +145,29 @@ void ExtractOnce(const FeatureExtractionOptions& options,
   FeatureDescriptors descriptors;
   THROW_CHECK(extractor->Extract(bitmap, &keypoints, &descriptors));
   THROW_CHECK_GT(keypoints.size(), 0);
+}
+
+FeatureDescriptors CreateRandomDescriptors(const int num_features) {
+  SetPRNGSeed(1);
+  FeatureDescriptorsData data(num_features, 128);
+  for (int i = 0; i < num_features; ++i) {
+    for (int j = 0; j < 128; ++j) {
+      data(i, j) = static_cast<uint8_t>(RandomUniformInteger<int>(0, 60));
+    }
+  }
+  return FeatureDescriptors(FeatureExtractorType::SIFT, std::move(data));
+}
+
+TEST(CusiftMemory, ExtractorThreadReleasesScratchMemory) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // A noise image yields thousands of keypoints, so the per-thread keypoint
+  // and descriptor scratch is several MiB of pool memory.
+  const Bitmap bitmap = CreateNoiseImage(2048, 2048);
+  const FeatureExtractionOptions options = CreateLargeExtractionOptions();
+
+  const int64_t growth = MedianGrowthPerThread(
+      [&]() { ExtractOnce(options, bitmap); }, CusiftPoolUsedBytes);
+  EXPECT_LT(growth, kMiB);
 }
 
 TEST(CusiftMemoryPool, LeavesTheDefaultPoolUntouched) {
@@ -159,6 +227,39 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
   // exits). Measured on an RTX 5090: 1664 MiB reserved while alive, 64 MiB
   // after, 6 MiB of it in use.
   EXPECT_LT(reserved_after, reserved_while_alive / 4);
+}
+
+TEST(CusiftMemory, MatcherThreadReleasesDeviceMemory) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // 8,192 descriptors per side: the similarity tile and the per-side buffers
+  // come to well over 64 MiB of device memory per matcher thread.
+  constexpr int kNumFeatures = 8192;
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  const FeatureMatcher::Image image1 = {
+      /*image_id=*/1,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(
+          CreateRandomDescriptors(kNumFeatures))};
+  const FeatureMatcher::Image image2 = {
+      /*image_id=*/2,
+      /*camera=*/&camera,
+      /*keypoints=*/nullptr,
+      std::make_shared<FeatureDescriptors>(
+          CreateRandomDescriptors(kNumFeatures))};
+  FeatureMatchingOptions options(FeatureMatcherType::CUSIFT_GEMM);
+  options.use_gpu = true;
+  options.max_num_matches = kNumFeatures;
+
+  const int64_t growth = MedianGrowthPerThread(
+      [&]() {
+        auto matcher = THROW_CHECK_NOTNULL(FeatureMatcher::Create(options));
+        FeatureMatches matches;
+        matcher->Match(image1, image2, &matches);
+      },
+      []() { return -FreeDeviceBytes(); });
+  EXPECT_LT(growth, 32 * kMiB);
 }
 
 }  // namespace
