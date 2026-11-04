@@ -27,19 +27,19 @@ def test_sift_matching_options_check() -> None:
     assert result is True
 
 
-def test_cusift_matching_options_default_init():
+def test_cusift_matching_options_default_init() -> None:
     options = pycolmap.CusiftMatchingOptions()
     assert options is not None
 
 
-def test_cusift_matching_options_check():
+def test_cusift_matching_options_check() -> None:
     options = pycolmap.CusiftMatchingOptions()
     result = options.check()
     assert isinstance(result, bool)
     assert result is True
 
 
-def test_cusift_matching_options_field_readwrite():
+def test_cusift_matching_options_field_readwrite() -> None:
     # The two cusift-specific axes. Both were added with the bidirectional
     # cross-check work and neither had a Python test, so the bindings could have
     # silently failed to expose them.
@@ -57,7 +57,7 @@ def test_cusift_matching_options_field_readwrite():
     assert options.cross_check is False
 
 
-def test_cusift_distance_type_enum_and_default():
+def test_cusift_distance_type_enum_and_default() -> None:
     assert pycolmap.CusiftDistanceType.L2 is not None
     assert pycolmap.CusiftDistanceType.ANGULAR is not None
     options = pycolmap.CusiftMatchingOptions()
@@ -68,14 +68,14 @@ def test_cusift_distance_type_enum_and_default():
     assert options.distance_type == pycolmap.CusiftDistanceType.L2
 
 
-def test_feature_matching_options_exposes_cusift_block():
+def test_feature_matching_options_exposes_cusift_block() -> None:
     options = pycolmap.FeatureMatchingOptions()
     assert options.cusift is not None
     options.cusift.max_ratio = 0.7
     assert options.cusift.max_ratio == 0.7
 
 
-def test_cusift_matcher_requires_gpu():
+def test_cusift_matcher_requires_gpu() -> None:
     # cusift has no CPU implementation, so this must be rejected as a bad option
     # rather than surfacing later as an unknown-matcher-type error.
     options = pycolmap.FeatureMatchingOptions(
@@ -147,7 +147,7 @@ def test_feature_matcher_create() -> None:
 
 
 @requires_cusift
-def test_cusift_feature_matcher_create():
+def test_cusift_feature_matcher_create() -> None:
     options = pycolmap.FeatureMatchingOptions(
         type=pycolmap.FeatureMatcherType.CUSIFT_GEMM
     )

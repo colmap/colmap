@@ -122,7 +122,7 @@ requires_cusift = pytest.mark.skipif(
 )
 
 
-def test_cusift_extractor_type_enum():
+def test_cusift_extractor_type_enum() -> None:
     assert pycolmap.FeatureExtractorType.CUSIFT is not None
     # SIFT must keep its integer identity: descriptor types are persisted in
     # COLMAP databases. CUSIFT's ordinal is deliberately not pinned -- cusift
@@ -136,7 +136,7 @@ def test_cusift_extractor_type_enum():
     )
 
 
-def test_cusift_options_use_sift_block():
+def test_cusift_options_use_sift_block() -> None:
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT
     )
@@ -147,7 +147,7 @@ def test_cusift_options_use_sift_block():
     assert options.eff_max_image_size() == 3200
 
 
-def test_cusift_num_octaves_defaults_to_auto():
+def test_cusift_num_octaves_defaults_to_auto() -> None:
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT
     )
@@ -160,7 +160,7 @@ def test_cusift_num_octaves_defaults_to_auto():
     assert options.cusift.check() is False
 
 
-def test_cusift_options_check_requires_gpu():
+def test_cusift_options_check_requires_gpu() -> None:
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT
     )
@@ -169,7 +169,7 @@ def test_cusift_options_check_requires_gpu():
 
 
 @requires_cusift
-def test_cusift_extractor_create():
+def test_cusift_extractor_create() -> None:
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT
     )
@@ -180,7 +180,7 @@ def test_cusift_extractor_create():
 
 
 @requires_cusift
-def test_cusift_extract_from_uint8_array():
+def test_cusift_extract_from_uint8_array() -> None:
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT
     )
@@ -199,11 +199,13 @@ def test_cusift_extract_from_uint8_array():
 
 
 @requires_cusift
-def test_cusift_matches_vlfeat_cpu_feature_count():
+def test_cusift_matches_vlfeat_cpu_feature_count() -> None:
     rng = np.random.default_rng(1)
     image = rng.integers(0, 256, size=(480, 640), dtype=np.uint8)
 
-    def extract(feature_type, device):
+    def extract(
+        feature_type: pycolmap.FeatureExtractorType, device: pycolmap.Device
+    ) -> tuple[pycolmap.FeatureKeypoints, pycolmap.FeatureDescriptors]:
         options = pycolmap.FeatureExtractionOptions(type=feature_type)
         extractor = pycolmap.FeatureExtractor.create(
             options=options, device=device
@@ -234,7 +236,7 @@ def test_cusift_matches_vlfeat_cpu_feature_count():
         ("octave_resolution", 4),
     ],
 )
-def test_cusift_rejects_unsupported_options(attr, value):
+def test_cusift_rejects_unsupported_options(attr: str, value: object) -> None:
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT
     )
@@ -277,14 +279,16 @@ GPU_EXTRACTOR_TYPES_KEYPOINT_FLOOR = [
 ]
 
 
-def _gpu_options(feature_type):
+def _gpu_options(
+    feature_type: pycolmap.FeatureExtractorType,
+) -> pycolmap.FeatureExtractionOptions:
     options = pycolmap.FeatureExtractionOptions(type=feature_type)
     options.use_gpu = True
     options.gpu_index = "0"
     return options
 
 
-def _synthetic_square(size=256):
+def _synthetic_square(size: int = 256) -> np.ndarray:
     """Same synthetic image the C++ feature tests use.
 
     NOT usable for MATCHER tests: the centred square has 4-fold symmetry, so
@@ -299,7 +303,7 @@ def _synthetic_square(size=256):
     return image
 
 
-def _synthetic_texture(size=512):
+def _synthetic_texture(size: int = 512) -> np.ndarray:
     """Asymmetric, distinctive texture for MATCHING tests.
 
     _synthetic_square is deliberately left alone (five other tests depend on
@@ -327,7 +331,9 @@ def _synthetic_texture(size=512):
 
 @requires_cusift
 @pytest.mark.parametrize("feature_type", GPU_EXTRACTOR_TYPES, ids=str)
-def test_gpu_extractor_create(feature_type):
+def test_gpu_extractor_create(
+    feature_type: pycolmap.FeatureExtractorType,
+) -> None:
     options = _gpu_options(feature_type)
     assert options.check() is True
     assert options.requires_opengl() is False
@@ -341,7 +347,9 @@ def test_gpu_extractor_create(feature_type):
 @pytest.mark.parametrize(
     "feature_type", GPU_EXTRACTOR_TYPES_KEYPOINT_FLOOR, ids=str
 )
-def test_gpu_extract_from_uint8_array(feature_type):
+def test_gpu_extract_from_uint8_array(
+    feature_type: pycolmap.FeatureExtractorType,
+) -> None:
     extractor = pycolmap.FeatureExtractor.create(
         options=_gpu_options(feature_type), device=pycolmap.Device.cuda
     )
@@ -361,7 +369,9 @@ def test_gpu_extract_from_uint8_array(feature_type):
 @pytest.mark.parametrize(
     "feature_type", GPU_EXTRACTOR_TYPES_KEYPOINT_FLOOR, ids=str
 )
-def test_gpu_extract_from_float32_array(feature_type):
+def test_gpu_extract_from_float32_array(
+    feature_type: pycolmap.FeatureExtractorType,
+) -> None:
     extractor = pycolmap.FeatureExtractor.create(
         options=_gpu_options(feature_type), device=pycolmap.Device.cuda
     )
@@ -373,7 +383,9 @@ def test_gpu_extract_from_float32_array(feature_type):
 
 @requires_cusift
 @pytest.mark.parametrize("feature_type", GPU_EXTRACTOR_TYPES, ids=str)
-def test_gpu_keypoints_matrix_roundtrip(feature_type):
+def test_gpu_keypoints_matrix_roundtrip(
+    feature_type: pycolmap.FeatureExtractorType,
+) -> None:
     extractor = pycolmap.FeatureExtractor.create(
         options=_gpu_options(feature_type), device=pycolmap.Device.cuda
     )
@@ -390,7 +402,9 @@ def test_gpu_keypoints_matrix_roundtrip(feature_type):
 @requires_cusift
 @pytest.mark.parametrize("feature_type", GPU_EXTRACTOR_TYPES, ids=str)
 @pytest.mark.parametrize("device", ["cuda", "cpu"], ids=str)
-def test_gpu_descriptors_matchable_by_sift_matcher(feature_type, device):
+def test_gpu_descriptors_matchable_by_sift_matcher(
+    feature_type: pycolmap.FeatureExtractorType, device: str
+) -> None:
     """Either backend's descriptors go straight into SIFT_BRUTEFORCE."""
     extractor = pycolmap.FeatureExtractor.create(
         options=_gpu_options(feature_type), device=pycolmap.Device.cuda
@@ -420,7 +434,7 @@ def test_gpu_descriptors_matchable_by_sift_matcher(feature_type, device):
 
 
 @requires_cusift
-def test_cusift_and_siftgpu_cross_match():
+def test_cusift_and_siftgpu_cross_match() -> None:
     """CUSIFT features matched against SIFT-GPU features of the SAME image.
 
     This is the drop-in property: correct matches are the spatial identity map,
@@ -430,7 +444,11 @@ def test_cusift_and_siftgpu_cross_match():
     # matched even against itself at default settings.
     image = _synthetic_texture(512)
 
-    def extract(feature_type):
+    def extract(
+        feature_type: pycolmap.FeatureExtractorType,
+    ) -> tuple[
+        pycolmap.FeatureKeypoints, pycolmap.FeatureDescriptors, np.ndarray
+    ]:
         extractor = pycolmap.FeatureExtractor.create(
             options=_gpu_options(feature_type), device=pycolmap.Device.cuda
         )
