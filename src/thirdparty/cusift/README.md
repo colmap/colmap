@@ -159,13 +159,17 @@ offset after alignment, not per-image error.
 
 ## Licensing
 
-**MIT plus third-party notices**, not plain MIT:
+cusift is MIT (`LICENSE`, Copyright (c) 2026 Yonatan Simson), with two
+third-party notices that must ship with any redistribution:
 
 - `LICENSE.CudaSift`: CudaSift (Mårten Björkman, MIT): CUDA scaffolding,
-  memory and pyramid plumbing.
-- `LICENSE.VLFeat`: VLFeat (BSD): the reference algorithm, and
+  memory and pyramid plumbing (`cudaImage*`, `cudaSift*`, `cudautils.h`,
+  `matcher_fused.cu`).
+- `LICENSE.VLFeat`: VLFeat (BSD-2-Clause): the reference algorithm, and
   `vl_fast_atan2_f` / `vl_fast_sqrt_f` / `vl_fast_resqrt_f` replicated verbatim
-  in CUDA. This notice must ship with any redistribution.
+  in CUDA (`cudaSiftD.cu`).
+
+Each file's SPDX line and copyright lines name the notices that apply to it.
 
 ## Provenance and local changes
 

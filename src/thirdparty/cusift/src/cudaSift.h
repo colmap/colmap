@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2017 Mårten Björkman (CudaSift; see ../LICENSE.CudaSift)
+// Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
+
 #ifndef CUDASIFT_H
 #define CUDASIFT_H
 

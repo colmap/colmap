@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: MIT AND BSD-2-Clause
+// Copyright (c) 2017 Mårten Björkman (CudaSift; see ../LICENSE.CudaSift)
+// Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
+// Portions from VLFeat (BSD-2-Clause; see ../LICENSE.VLFeat)
+
 //********************************************************//
 // CUDA SIFT extractor by Marten Bjorkman aka Celebrandil //
 //********************************************************//  
