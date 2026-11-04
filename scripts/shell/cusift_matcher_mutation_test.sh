@@ -23,8 +23,14 @@
 # it by hand after touching the matcher's decision logic.
 set -uo pipefail
 
-BUILD_DIR="${1:-$HOME/work/colmap/build_fresh_verify}"
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+# The build tree must be configured from THIS checkout, or the script mutates
+# one tree's sources and rebuilds another's.
+BUILD_DIR="$(cd -- "${1:-$REPO_ROOT/build}" && pwd)" ||
+    { echo "build directory ${1:-$REPO_ROOT/build} does not exist" >&2; exit 1; }
+if ! grep -qxF "CMAKE_HOME_DIRECTORY:INTERNAL=$REPO_ROOT" "$BUILD_DIR/CMakeCache.txt" 2>/dev/null; then
+    echo "$BUILD_DIR is not a build tree of $REPO_ROOT" >&2; exit 1
+fi
 WRAPPER="$REPO_ROOT/src/colmap/feature/cusift_matcher.cc"
 KERNEL="$REPO_ROOT/src/thirdparty/cusift/src/matcher_gemm.cu"
 
@@ -78,7 +84,7 @@ run_mutation() {
 # were different tests silently deleted six of them, and the suite stayed green
 # with fewer tests. Pin the count. Raising it must be a deliberate edit, and the
 # annoyance of having to edit it IS the alarm.
-EXPECTED_TEST_CASES=20
+EXPECTED_TEST_CASES=21
 
 echo "=== structural guard: test-case count ==="
 actual=$(cd "$BUILD_DIR" && "$TEST_BIN" --gtest_list_tests 2>/dev/null |
@@ -133,14 +139,14 @@ run_mutation "ranking switched to normalized distance (bug 2)" \
 # BUG 3: max_num_matches truncation re-sorted by score instead of preserving
 # ascending image1-index order, which is SiftMatchGPU's cap-binds rule.
 python3 - "$WRAPPER" <<'PY'
-import sys, pathlib
+import re, sys, pathlib
 p = pathlib.Path(sys.argv[1]); s = p.read_text()
-s = s.replace("""    if (raw_matches.size() >
-        static_cast<size_t>(options_.max_num_matches)) {""",
-"""    std::sort(raw_matches.begin(), raw_matches.end(),
-              [](const ::Match& a, const ::Match& b) { return a.dist2 < b.dist2; });
-    if (raw_matches.size() >
-        static_cast<size_t>(options_.max_num_matches)) {""")
+# Whitespace-tolerant: clang-format may wrap the condition onto one or two lines.
+s = re.sub(r"(\n(\s*)if \(raw_matches\.size\(\) >\s*"
+           r"static_cast<size_t>\(options_\.max_num_matches\)\) \{)",
+           r"\n\2std::sort(raw_matches.begin(), raw_matches.end(),"
+           r" [](const ::Match& a, const ::Match& b) { return a.dist2 < b.dist2; });\1",
+           s, count=1)
 p.write_text(s)
 PY
 run_mutation "max_num_matches truncation re-sorted by score (bug 3)" \
