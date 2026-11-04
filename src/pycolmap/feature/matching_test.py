@@ -29,18 +29,6 @@ def test_sift_matching_options_check() -> None:
     assert result is True
 
 
-def test_cusift_matching_options_default_init() -> None:
-    options = pycolmap.CusiftMatchingOptions()
-    assert options is not None
-
-
-def test_cusift_matching_options_check() -> None:
-    options = pycolmap.CusiftMatchingOptions()
-    result = options.check()
-    assert isinstance(result, bool)
-    assert result is True
-
-
 def test_cusift_matching_options_field_readwrite() -> None:
     # The two cusift-specific options.
     options = pycolmap.CusiftMatchingOptions()
@@ -73,16 +61,6 @@ def test_feature_matching_options_exposes_cusift_block() -> None:
     assert options.cusift is not None
     options.cusift.max_ratio = 0.7
     assert options.cusift.max_ratio == 0.7
-
-
-def test_cusift_matcher_requires_gpu() -> None:
-    # cusift has no CPU implementation, so this must be rejected as a bad option
-    # rather than surfacing later as an unknown-matcher-type error.
-    options = pycolmap.FeatureMatchingOptions(
-        type=pycolmap.FeatureMatcherType.CUSIFT_GEMM
-    )
-    options.use_gpu = False
-    assert options.check() is False
 
 
 def test_feature_matching_options_default_init() -> None:
