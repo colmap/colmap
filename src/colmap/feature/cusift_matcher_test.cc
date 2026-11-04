@@ -13,6 +13,7 @@
 #include <numeric>
 #include <set>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -180,7 +181,12 @@ TEST(CusiftFeatureMatcher, RejectsGuidedMatching) {
   // Rejected as a bad option, before the guided pass constructs the matcher on
   // a worker thread.
   EXPECT_FALSE(options.Check());
-  EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
+  // Create binds the device before the constructor checks options, so without
+  // a GPU it would throw for the wrong reason.
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  EXPECT_THAT([&]() { CreateCusiftFeatureMatcher(options); },
+              testing::ThrowsMessage<std::invalid_argument>(
+                  testing::HasSubstr("guided matching")));
 }
 
 TEST(CusiftFeatureMatcher, ConstructorRejectsInvalidCusiftOptions) {

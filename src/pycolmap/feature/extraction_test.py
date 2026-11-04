@@ -117,8 +117,10 @@ def test_feature_extractor_create() -> None:
 # descriptors as SIFT, so there is no separate options class to bind and the
 # generic FeatureExtractor API is the whole Python surface.
 
+# has_cuda is a build flag; also require a device so GPU-less machines skip.
 requires_cusift = pytest.mark.skipif(
-    not pycolmap.has_cuda, reason="cusift requires CUDA"
+    not pycolmap.has_cuda or pycolmap.get_num_cuda_devices() == 0,
+    reason="cusift requires a CUDA device",
 )
 
 
@@ -244,7 +246,9 @@ def test_cusift_rejects_unsupported_options(attr: str, value: object) -> None:
     # Rejected loudly rather than silently ignored: a no-op would produce a
     # database that looks fine and reconstructs worse. Match on the message so
     # an unrelated failure cannot make this pass.
-    with pytest.raises(Exception, match="cusift"):
+    with pytest.raises(
+        Exception, match="invalid options for the cusift extractor"
+    ):
         pycolmap.FeatureExtractor.create(
             options=options, device=pycolmap.Device.cuda
         )
