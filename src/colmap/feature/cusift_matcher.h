@@ -19,10 +19,10 @@ namespace colmap {
 // L2, radians under ANGULAR.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(CusiftDistanceType,
                                 0,
-                                // Ratio of unit-vector L2 distances -- what
-                                // COLMAP's CPU SIFT matcher and VLFeat's
-                                // vl_ubcmatch do. Cheapest on GPU: the GEMM
-                                // already produced the cosine.
+                                // Ratio of unit-vector L2 distances, the
+                                // convention of COLMAP's index-based CPU SIFT
+                                // matcher and VLFeat's vl_ubcmatch. Cheapest
+                                // on GPU: the GEMM already produced the cosine.
                                 L2,
                                 // Ratio of angles via acos -- behaviourally
                                 // what SiftGPU does (its behaviour only; see
@@ -78,30 +78,18 @@ struct CusiftMatchingOptions {
   bool Check() const;
 };
 
-// Create a cusift GEMM-based feature matcher: a CUDA cuBLAS SGEMM matcher
-// that is a drop-in alternative to SiftGPUFeatureMatcher, operating on the
-// same FeatureExtractorType::SIFT descriptors (uint8, UBC layout) that every
-// other SIFT matcher consumes.
+// Create a cusift GEMM feature matcher: a CUDA (cuBLAS SGEMM) alternative to
+// SiftGPUFeatureMatcher for FeatureExtractorType::SIFT descriptors (uint8, UBC
+// layout).
 //
-// Functional parity notes (see src/thirdparty/cusift/README.md for the
-// numeric derivation and gate numbers):
-//  - max_ratio and cross_check map directly onto the vendored
-//    MatchDescriptorsGemm's ratio/mutual parameters once descriptors are
-//    L2-normalized to true unit vectors -- no conversion needed beyond that
-//    normalization, which is the same one onnx_matchers.cc already applies
-//    for LightGlue matching (ToFloat() + L2NormalizeFeatureDescriptors).
-//  - max_distance has no upstream equivalent; enforced here as a wrapper
-//    post-filter on the per-match squared unit-distance the vendored
-//    function already returns (Match::dist2).
-//  - max_num_matches (FeatureMatchingOptions::max_num_matches) has no
-//    upstream equivalent either; enforced here as a wrapper truncation that
-//    replicates SiftMatchGPU's own cap-binds selection rule -- ascending
-//    image1 keypoint-index order, first-encountered wins, NOT a
-//    distance-sorted top-K (see SiftMatchCU::GetBestMatch,
-//    src/thirdparty/SiftGPU/SiftMatchCU.cpp).
-//  - guided_matching is rejected loudly (THROW_CHECK) -- not implemented in
-//    this phase; a real epipolar-windowed candidate filter is a separate,
-//    later workstream.
+//  - Candidates are ranked on the raw inner product of the uint8 descriptors,
+//    scaled by COLMAP's fixed 512^2 descriptor norm rather than per-row norms,
+//    as COLMAP's brute-force SIFT matcher and SiftGPU do.
+//  - max_ratio, max_distance and cross_check are applied in the kernel, in the
+//    space distance_type selects.
+//  - max_num_matches keeps the first matches in ascending image1 keypoint
+//    order, as SiftGPU does (SiftMatchCU::GetBestMatch), not the best-scoring.
+//  - guided_matching is not supported and is rejected.
 //
 // Requires CUDA and a GPU; returns nullptr if COLMAP was built without CUDA.
 std::unique_ptr<FeatureMatcher> CreateCusiftFeatureMatcher(

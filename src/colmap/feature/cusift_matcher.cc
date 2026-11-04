@@ -46,9 +46,9 @@ class CusiftFeatureMatcher : public FeatureMatcher {
     THROW_CHECK(THROW_CHECK_NOTNULL(options_.cusift)->Check())
         << "invalid CusiftMatchingOptions; the reason is logged above";
     THROW_CHECK(!options_.guided_matching)
-        << "cusift GEMM matcher does not implement guided matching in this "
-           "phase; use SIFT_BRUTEFORCE or SIFT_LIGHTGLUE for guided "
-           "matching, or disable guided_matching.";
+        << "cusift GEMM matcher does not implement guided matching; use "
+           "SIFT_BRUTEFORCE or SIFT_LIGHTGLUE for guided matching, or disable "
+           "guided_matching.";
   }
 
   static std::unique_ptr<FeatureMatcher> Create(
@@ -127,8 +127,8 @@ class CusiftFeatureMatcher : public FeatureMatcher {
                    const Image& /*image1*/,
                    const Image& /*image2*/,
                    TwoViewGeometry* /*two_view_geometry*/) override {
-    THROW_CHECK(false) << "cusift GEMM matcher does not implement guided "
-                          "matching in this phase.";
+    THROW_CHECK(false)
+        << "cusift GEMM matcher does not implement guided matching.";
   }
 
  private:
