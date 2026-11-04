@@ -25,6 +25,45 @@ FeatureMatchingOptions CreateCusiftMatchingOptions() {
   return options;
 }
 
+TEST(CusiftMatchingOptions, Check) {
+  EXPECT_TRUE(CusiftMatchingOptions().Check());
+}
+
+TEST(CusiftMatchingOptions, ReverseRatioDefaultsOnForParity) {
+  // Default must be the SiftGPU/COLMAP-CPU-equivalent bidirectional test:
+  // the weaker mutual-best-only mode is opt-in, never the default.
+  const CusiftMatchingOptions options;
+  EXPECT_TRUE(options.cross_check_reverse_ratio);
+}
+
+// Option checks with use_gpu = true: without any GPU backend compiled in
+// (COLMAP_GPU_ENABLED), FeatureExtractionOptions/FeatureMatchingOptions::Check
+// rejects every use_gpu = true before reaching cusift's own checks.
+#if defined(COLMAP_GPU_ENABLED)
+TEST(CusiftMatchingOptions, ChecksSiftThresholds) {
+  // The ratio and distance thresholds come from the SIFT options, and are
+  // checked for CUSIFT_GEMM too.
+  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+  EXPECT_TRUE(options.Check());
+  options.sift->max_ratio = -1;
+  EXPECT_FALSE(options.Check());
+  options = CreateCusiftMatchingOptions();
+  options.sift->max_distance = -1;
+  EXPECT_FALSE(options.Check());
+}
+
+TEST(CusiftFeatureMatcher, RequiresGpu) {
+  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+  EXPECT_TRUE(options.Check());
+  // cusift has no CPU implementation, so this must be rejected as a bad
+  // option rather than surfacing later as an unknown-matcher-type error.
+  options.use_gpu = false;
+  EXPECT_FALSE(options.Check());
+}
+#endif  // COLMAP_GPU_ENABLED
+
+#if defined(COLMAP_CUDA_ENABLED)
+
 // Helper to create empty descriptors for testing. Mirrors
 // sift_test.cc's CreateEmptyDescriptors -- duplicated rather than shared,
 // same as cusift_test.cc does not share helpers with extractor_test.cc.
@@ -83,30 +122,9 @@ FeatureMatcher::Image MakeImage(image_t id, const FeatureDescriptors& desc) {
                                std::make_shared<FeatureDescriptors>(desc)};
 }
 
-#if defined(COLMAP_CUDA_ENABLED)
-
-TEST(CusiftMatchingOptions, Check) {
-  EXPECT_TRUE(CusiftMatchingOptions().Check());
-  // The ratio and distance thresholds come from the SIFT options, and are
-  // checked for CUSIFT_GEMM too.
-  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  EXPECT_TRUE(options.Check());
-  options.sift->max_ratio = -1;
-  EXPECT_FALSE(options.Check());
-  options = CreateCusiftMatchingOptions();
-  options.sift->max_distance = -1;
-  EXPECT_FALSE(options.Check());
-}
-
-TEST(CusiftMatchingOptions, ReverseRatioDefaultsOnForParity) {
-  // Default must be the SiftGPU/COLMAP-CPU-equivalent bidirectional test:
-  // the weaker mutual-best-only mode is opt-in, never the default.
-  const CusiftMatchingOptions options;
-  EXPECT_TRUE(options.cross_check_reverse_ratio);
-}
-
 // Both cross-check modes run the same assertions where behaviour must agree;
-// where they differ is asserted explicitly in ReverseRatioIsStricter below.
+// where they differ is asserted in
+// ReverseRatioRejectsAmbiguousReverseDirection.
 class CusiftCrossCheckModeTest : public ::testing::TestWithParam<bool> {};
 
 TEST_P(CusiftCrossCheckModeTest, SelfMatchIdentity) {
@@ -161,15 +179,6 @@ INSTANTIATE_TEST_SUITE_P(CusiftCrossCheckMode,
                          [](const auto& info) {
                            return info.param ? "ReverseRatio" : "MutualOnly";
                          });
-
-TEST(CusiftFeatureMatcher, RequiresGpu) {
-  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  EXPECT_TRUE(options.Check());
-  // cusift has no CPU implementation, so this must be rejected as a bad
-  // option rather than surfacing later as an unknown-matcher-type error.
-  options.use_gpu = false;
-  EXPECT_FALSE(options.Check());
-}
 
 TEST(CusiftFeatureMatcher, RejectsGuidedMatching) {
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
