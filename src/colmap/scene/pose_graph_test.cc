@@ -433,5 +433,31 @@ TEST(PoseGraph, InvalidatePairsOutsideActiveImageIds) {
   EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(2, 3)));
 }
 
+TEST(PoseGraph, InvertEdgeCovariance) {
+  PoseGraph::Edge edge;
+  const Eigen::Quaterniond q21 =
+      Eigen::AngleAxisd(0.4, Eigen::Vector3d(1.0, -2.0, 3.0).normalized()) *
+      Eigen::Quaterniond::Identity();
+  edge.cam2_from_cam1 = Rigid3d(q21, Eigen::Vector3d(0.5, -0.2, 0.8));
+  Eigen::Matrix3f cov;
+  cov << 2.0f, 0.3f, -0.1f, 0.3f, 1.5f, 0.2f, -0.1f, 0.2f, 0.8f;
+  edge.cam2_from_cam1_rotation_cov = cov;
+
+  const Eigen::Matrix3d R21 = q21.toRotationMatrix();
+  const Eigen::Matrix3f expected_inv_cov =
+      (R21 * cov.cast<double>() * R21.transpose()).cast<float>();
+
+  PoseGraph pose_graph;
+  pose_graph.AddEdge(2, 1, edge);
+  const PoseGraph::Edge stored = pose_graph.GetEdge(1, 2);
+  ASSERT_TRUE(stored.cam2_from_cam1_rotation_cov.has_value());
+  EXPECT_TRUE(
+      stored.cam2_from_cam1_rotation_cov->isApprox(expected_inv_cov, 1e-6f));
+
+  const PoseGraph::Edge round_trip = pose_graph.GetEdge(2, 1);
+  ASSERT_TRUE(round_trip.cam2_from_cam1_rotation_cov.has_value());
+  EXPECT_TRUE(round_trip.cam2_from_cam1_rotation_cov->isApprox(cov, 1e-6f));
+}
+
 }  // namespace
 }  // namespace colmap

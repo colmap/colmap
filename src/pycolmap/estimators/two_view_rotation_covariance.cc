@@ -3,6 +3,8 @@
 #include "colmap/estimators/two_view_rotation_covariance.h"
 
 #include "colmap/scene/camera.h"
+#include "colmap/scene/database_cache.h"
+#include "colmap/scene/pose_graph.h"
 #include "colmap/scene/two_view_geometry.h"
 
 #include "pycolmap/helpers.h"
@@ -48,4 +50,17 @@ void BindTwoViewRotationCovarianceEstimator(py::module& m) {
       "Estimate the covariance of the relative rotation of a two-view geometry "
       "from its inlier correspondences.",
       py::call_guard<py::gil_scoped_release>());
+
+  m.def("estimate_pose_graph_rotation_covariances",
+        &EstimatePoseGraphRotationCovariances,
+        "database_cache"_a,
+        "pose_graph"_a,
+        py::arg_v("options",
+                  TwoViewRotationCovarianceOptions(),
+                  "TwoViewRotationCovarianceOptions()"),
+        "num_threads"_a = -1,
+        "Populate the rotation covariance of all valid pose graph edges that "
+        "do not have one yet, from their inlier correspondences, with "
+        "num_threads threads (-1 for auto).",
+        py::call_guard<py::gil_scoped_release>());
 }
