@@ -128,6 +128,11 @@ class CusiftFeatureExtractor : public FeatureExtractor {
            "above";
   }
 
+  // Returns the memory cusift's pool holds but no longer uses to the driver,
+  // so GPU stages that run after extraction can have it. Runs on the thread
+  // that extracted, which is bound to the extractor's GPU.
+  ~CusiftFeatureExtractor() override { cusift::ReleaseUnusedMemory(); }
+
   static std::unique_ptr<FeatureExtractor> Create(
       const FeatureExtractionOptions& options) {
     BindCusiftDevice(options.gpu_index);

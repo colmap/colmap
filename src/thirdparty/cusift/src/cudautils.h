@@ -38,21 +38,30 @@ inline void __checkMsg(const char *errorMessage, const char *file, const int lin
 // Tier 1.1 (interim form): every buffer in the VLFeat path is
 // allocated per image and freed at the end of it (~64 cudaMalloc/cudaFree and
 // ~1 GB of churn per 1920x1080 frame), and cudaMalloc/cudaFree are both
-// device-synchronizing. Routing those through the device's default stream-
-// ordered memory pool with an unbounded release threshold makes every
-// allocation after the first image a pool hit: no driver call, no sync, memory
-// stays resident. No numerics change -- same sizes, same pitches (see
-// cusiftMallocPitch), same kernels.
+// device-synchronizing. Routing those through a stream-ordered memory pool
+// with an unbounded release threshold makes every allocation after the first
+// image a pool hit: no driver call, no sync, memory stays resident. No
+// numerics change -- same sizes, same pitches (see cusiftMallocPitch), same
+// kernels.
 //
-// Called once per process, idempotent; safe to call before any allocation.
-inline void cusiftInitMemPool()
+// The pool is cusift's own, one per device (cusift_device.cu), not the
+// device's default pool: the unbounded release threshold must not change how
+// other cudaMallocAsync users in the process get their memory back.
+// cusift::ReleaseUnusedMemory() hands what cusift no longer uses back to the
+// driver. Falls back to the default pool, with its settings untouched, on a
+// device that cannot create one.
+cudaMemPool_t cusiftMemPool();
+
+// Creates the current device's pool if needed. Idempotent; safe to call
+// before any allocation.
+inline void cusiftInitMemPool() { (void)cusiftMemPool(); }
+
+// Stream-ordered allocation from cusift's pool on the legacy default stream,
+// which is where the whole pipeline runs. Free with cusiftFree.
+template <typename T>
+inline cudaError_t cusiftMallocAsync(T **ptr, size_t bytes)
 {
-  int dev = 0;
-  if (cudaGetDevice(&dev) != cudaSuccess) return;
-  cudaMemPool_t pool = nullptr;
-  if (cudaDeviceGetDefaultMemPool(&pool, dev) != cudaSuccess) return;
-  uint64_t threshold = UINT64_MAX;   // never release back to the driver
-  cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReleaseThreshold, &threshold);
+  return cudaMallocFromPoolAsync((void **)ptr, bytes, cusiftMemPool(), 0);
 }
 
 // Pool-backed replacement for cudaMallocPitch. `pitchFloats` is computed, not
@@ -65,7 +74,7 @@ inline cudaError_t cusiftMallocPitch(float **ptr, int *pitchFloats, int width, i
 {
   int p = (width % 128) ? (width - width % 128 + 128) : width;
   *pitchFloats = p;
-  return cudaMallocAsync((void **)ptr, (size_t)p * height * sizeof(float), 0);
+  return cusiftMallocAsync((void **)ptr, (size_t)p * height * sizeof(float));
 }
 
 inline cudaError_t cusiftFree(void *ptr) { return cudaFreeAsync(ptr, 0); }

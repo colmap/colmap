@@ -305,7 +305,7 @@ void InitSiftData(SiftData &data, int num, bool host, bool dev)
     data.h_data = (SiftPoint *)malloc(sz);
   data.d_data = NULL;
   if (dev)
-    safeCall(cudaMallocAsync((void **)&data.d_data, sz, 0));
+    safeCall(cusiftMallocAsync((void **)&data.d_data, sz));
 #endif
 }
 
@@ -976,11 +976,11 @@ static PackedScratch &Packed(int n, bool wantDesc)
     if (p.h_ori) { safeCall(cudaFreeHost(p.h_ori)); safeCall(cusiftFree(p.d_ori)); }
     if (p.h_desc) { safeCall(cudaFreeHost(p.h_desc)); safeCall(cusiftFree(p.d_desc)); }
     safeCall(cudaMallocHost((void **)&p.h_kps, (size_t)n * sizeof(VLFeatKp)));
-    safeCall(cudaMallocAsync((void **)&p.d_kps, (size_t)n * sizeof(VLFeatKp), 0));
+    safeCall(cusiftMallocAsync((void **)&p.d_kps, (size_t)n * sizeof(VLFeatKp)));
     safeCall(cudaMallocHost((void **)&p.h_ori, (size_t)n * sizeof(VLFeatOri)));
-    safeCall(cudaMallocAsync((void **)&p.d_ori, (size_t)n * sizeof(VLFeatOri), 0));
+    safeCall(cusiftMallocAsync((void **)&p.d_ori, (size_t)n * sizeof(VLFeatOri)));
     safeCall(cudaMallocHost((void **)&p.h_desc, (size_t)n * 128 * sizeof(float)));
-    safeCall(cudaMallocAsync((void **)&p.d_desc, (size_t)n * 128 * sizeof(float), 0));
+    safeCall(cusiftMallocAsync((void **)&p.d_desc, (size_t)n * 128 * sizeof(float)));
     p.cap = n;
   }
   (void)wantDesc;
@@ -1070,10 +1070,10 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
 
   const int maxCandidates = 200000;
   int *d_CandX, *d_CandY, *d_CandS; unsigned int *d_CandCount;
-  safeCall(cudaMallocAsync(&d_CandX, maxCandidates*sizeof(int), 0));
-  safeCall(cudaMallocAsync(&d_CandY, maxCandidates*sizeof(int), 0));
-  safeCall(cudaMallocAsync(&d_CandS, maxCandidates*sizeof(int), 0));
-  safeCall(cudaMallocAsync(&d_CandCount, sizeof(unsigned int), 0));
+  safeCall(cusiftMallocAsync(&d_CandX, maxCandidates*sizeof(int)));
+  safeCall(cusiftMallocAsync(&d_CandY, maxCandidates*sizeof(int)));
+  safeCall(cusiftMallocAsync(&d_CandS, maxCandidates*sizeof(int)));
+  safeCall(cusiftMallocAsync(&d_CandCount, sizeof(unsigned int)));
   safeCall(cudaMemset(d_CandCount, 0, sizeof(unsigned int)));
 
   unsigned int candCount = 0;
@@ -1121,8 +1121,8 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
     if (candCount > 0) {
       StageTimer __t("detect.refine_gpu");
       DetectedKeypoint *d_Kp = nullptr; unsigned int *d_KpCount = nullptr;
-      safeCall(cudaMallocAsync(&d_Kp, (size_t)candCount*sizeof(DetectedKeypoint), 0));
-      safeCall(cudaMallocAsync(&d_KpCount, sizeof(unsigned int), 0));
+      safeCall(cusiftMallocAsync(&d_Kp, (size_t)candCount*sizeof(DetectedKeypoint)));
+      safeCall(cusiftMallocAsync(&d_KpCount, sizeof(unsigned int)));
       safeCall(cudaMemset(d_KpCount, 0, sizeof(unsigned int)));
       int threadsR = 128, blocksR = iDivUp((int)candCount, threadsR);
       RefineKeypointsKernel<<<blocksR, threadsR>>>(dogCombined.d_data, w, h, dp, h*dp,
