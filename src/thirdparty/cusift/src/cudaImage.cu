@@ -43,8 +43,9 @@ CudaImage::CudaImage() :
 
 CudaImage::~CudaImage()
 {
+  // Destructors must not throw; a failed free cannot be acted on here.
   if (d_internalAlloc && d_data!=NULL)
-    safeCall(cusiftFree(d_data));
+    (void)cusiftFree(d_data);
   d_data = NULL;
   if (h_internalAlloc && h_data!=NULL) 
     free(h_data);

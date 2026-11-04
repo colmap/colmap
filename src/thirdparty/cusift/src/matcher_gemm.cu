@@ -15,6 +15,20 @@
 #include <cuda_runtime.h>
 #include <cstdio>
 #include <cfloat>
+#include <stdexcept>
+#include <string>
+
+#include "cudautils.h"  // safeCall / checkMsg: throw on CUDA errors
+
+namespace {
+void CheckCublas(cublasStatus_t status, const char* what) {
+  if (status != CUBLAS_STATUS_SUCCESS) {
+    throw std::runtime_error(std::string("cusift: ") + what +
+                             " failed (cuBLAS status " +
+                             std::to_string(static_cast<int>(status)) + ")");
+  }
+}
+}  // namespace
 
 // Widens uint8 descriptors to float in place on the device. The uint8 buffer is
 // the actual upload target (4x less PCIe traffic than float32) and is retained
@@ -239,33 +253,38 @@ struct GemmMatcherContext {
   }
 
   void Reserve(int n1, int n2, int tile) {
-    if (!blas) cublasCreate(&blas);
+    // A capacity is updated only after all of its buffers were allocated, so
+    // a failed allocation (which throws) never leaves a buffer smaller than
+    // its recorded capacity; the next call retries.
+    if (!blas) CheckCublas(cublasCreate(&blas), "cublasCreate");
     if (n1 > cap1) {
       Release(&d1); Release(&dBest); Release(&dSecond); Release(&dIdx);
       Release(&dIdx2); Release(&d1Sq); Release(&d1U8);
-      cap1 = n1;
-      cudaMalloc(&d1U8, (size_t)cap1 * 128 * sizeof(unsigned char));
-      cudaMalloc(&d1, (size_t)cap1 * 128 * sizeof(float));
-      cudaMalloc(&dBest, (size_t)cap1 * sizeof(float));
-      cudaMalloc(&dSecond, (size_t)cap1 * sizeof(float));
-      cudaMalloc(&dIdx, (size_t)cap1 * sizeof(int));
-      cudaMalloc(&dIdx2, (size_t)cap1 * sizeof(int));
-      cudaMalloc(&d1Sq, (size_t)cap1 * sizeof(float));
       Release(&dSim);   // dSim is cap1 x capTile -- both bounds matter
+      cap1 = 0;
+      safeCall(cudaMalloc(&d1U8, (size_t)n1 * 128 * sizeof(unsigned char)));
+      safeCall(cudaMalloc(&d1, (size_t)n1 * 128 * sizeof(float)));
+      safeCall(cudaMalloc(&dBest, (size_t)n1 * sizeof(float)));
+      safeCall(cudaMalloc(&dSecond, (size_t)n1 * sizeof(float)));
+      safeCall(cudaMalloc(&dIdx, (size_t)n1 * sizeof(int)));
+      safeCall(cudaMalloc(&dIdx2, (size_t)n1 * sizeof(int)));
+      safeCall(cudaMalloc(&d1Sq, (size_t)n1 * sizeof(float)));
+      cap1 = n1;
     }
     if (n2 > cap2) {
       Release(&d2); Release(&dColBest); Release(&dColSecond);
       Release(&dColIdx); Release(&d2Sq); Release(&d2U8);
+      cap2 = 0;
+      safeCall(cudaMalloc(&d2U8, (size_t)n2 * 128 * sizeof(unsigned char)));
+      safeCall(cudaMalloc(&d2, (size_t)n2 * 128 * sizeof(float)));
+      safeCall(cudaMalloc(&d2Sq, (size_t)n2 * sizeof(float)));
+      safeCall(cudaMalloc(&dColBest, (size_t)n2 * sizeof(float)));
+      safeCall(cudaMalloc(&dColSecond, (size_t)n2 * sizeof(float)));
+      safeCall(cudaMalloc(&dColIdx, (size_t)n2 * sizeof(int)));
       cap2 = n2;
-      cudaMalloc(&d2U8, (size_t)cap2 * 128 * sizeof(unsigned char));
-      cudaMalloc(&d2, (size_t)cap2 * 128 * sizeof(float));
-      cudaMalloc(&d2Sq, (size_t)cap2 * sizeof(float));
-      cudaMalloc(&dColBest, (size_t)cap2 * sizeof(float));
-      cudaMalloc(&dColSecond, (size_t)cap2 * sizeof(float));
-      cudaMalloc(&dColIdx, (size_t)cap2 * sizeof(int));
     }
     if (tile > capTile) { Release(&dSim); capTile = tile; }
-    if (!dSim) cudaMalloc(&dSim, (size_t)cap1 * capTile * sizeof(float));
+    if (!dSim) safeCall(cudaMalloc(&dSim, (size_t)cap1 * capTile * sizeof(float)));
   }
 
   template <typename T>
@@ -300,13 +319,23 @@ float MatchUploaded(int n1, int n2, float ratio, bool mutual,
   cublasHandle_t hb = ctx.blas;
   const float one = 1.f, zero = 0.f;
 
-  cudaEvent_t t0, t1; cudaEventCreate(&t0); cudaEventCreate(&t1);
-  cudaEventRecord(t0);
+  // Destroys the timing events on every exit path, including a throw.
+  struct Events {
+    cudaEvent_t t0 = nullptr, t1 = nullptr;
+    ~Events() {
+      if (t0) cudaEventDestroy(t0);
+      if (t1) cudaEventDestroy(t1);
+    }
+  } ev;
+  safeCall(cudaEventCreate(&ev.t0));
+  safeCall(cudaEventCreate(&ev.t1));
+  safeCall(cudaEventRecord(ev.t0));
   InitTop2<<<(n1 + 255) / 256, 256>>>(n1, dBest, dSecond, dIdx, dIdx2);
   // Squared norms drive the distance-ranked reduction key (see RowTop2Update).
   // O(n*128) and computed once per call, negligible beside the GEMM.
   SqNorms<<<(n1 + 255) / 256, 256>>>(d1, n1, 128, d1Sq);
   SqNorms<<<(n2 + 255) / 256, 256>>>(d2, n2, 128, d2Sq);
+  checkMsg("InitTop2/SqNorms launch failed");
 
   for (int off = 0; off < n2; off += TILE) {
     int tw = (n2 - off < TILE) ? (n2 - off) : TILE;
@@ -315,8 +344,10 @@ float MatchUploaded(int n1, int n2, float ratio, bool mutual,
     //   C = A^T * B with A = D2tile (128 x tw CM == row-major tw x 128),
     //   B = D1 (128 x n1 CM == row-major n1 x 128)
     // then simCM(t, q) laid out col-major == row-major sim[q][t]. 
-    cublasSgemm(hb, CUBLAS_OP_T, CUBLAS_OP_N, tw, n1, 128, &one,
-                d2 + (size_t)off * 128, 128, d1, 128, &zero, dSim, tw);
+    CheckCublas(cublasSgemm(hb, CUBLAS_OP_T, CUBLAS_OP_N, tw, n1, 128, &one,
+                            d2 + (size_t)off * 128, 128, d1, 128, &zero, dSim,
+                            tw),
+                "cublasSgemm");
     RowTop2Update<<<256, 256>>>(dSim, n1, tw, off,
                                 angular_mode ? nullptr : d2Sq, dBest, dSecond,
                                 dIdx, dIdx2);
@@ -327,28 +358,30 @@ float MatchUploaded(int n1, int n2, float ratio, bool mutual,
     if (mutual)
       ColTop2<<<tw, 256>>>(dSim, n1, tw, angular_mode ? nullptr : d1Sq,
                            dColBest + off, dColSecond + off, dColIdx + off);
+    checkMsg("RowTop2Update/ColTop2 launch failed");
   }
-  cudaEventRecord(t1); cudaEventSynchronize(t1);
-  float ms = 0; cudaEventElapsedTime(&ms, t0, t1);
-  cudaEventDestroy(t0); cudaEventDestroy(t1);
+  safeCall(cudaEventRecord(ev.t1));
+  safeCall(cudaEventSynchronize(ev.t1));
+  float ms = 0;
+  safeCall(cudaEventElapsedTime(&ms, ev.t0, ev.t1));
 
   std::vector<float> hB(n1), hS(n1), h1Sq(n1), h2Sq(n2);
   std::vector<int> hIdx(n1), hIdx2(n1), hColIdx(mutual ? n2 : 0);
   std::vector<float> hColB(mutual && reverseRatio ? n2 : 0);
   std::vector<float> hColS(mutual && reverseRatio ? n2 : 0);
-  cudaMemcpy(hB.data(), dBest, n1 * sizeof(float), cudaMemcpyDeviceToHost);
-  cudaMemcpy(hS.data(), dSecond, n1 * sizeof(float), cudaMemcpyDeviceToHost);
-  cudaMemcpy(hIdx.data(), dIdx, n1 * sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(hIdx2.data(), dIdx2, n1 * sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(h1Sq.data(), d1Sq, n1 * sizeof(float), cudaMemcpyDeviceToHost);
-  cudaMemcpy(h2Sq.data(), d2Sq, n2 * sizeof(float), cudaMemcpyDeviceToHost);
+  safeCall(cudaMemcpy(hB.data(), dBest, n1 * sizeof(float), cudaMemcpyDeviceToHost));
+  safeCall(cudaMemcpy(hS.data(), dSecond, n1 * sizeof(float), cudaMemcpyDeviceToHost));
+  safeCall(cudaMemcpy(hIdx.data(), dIdx, n1 * sizeof(int), cudaMemcpyDeviceToHost));
+  safeCall(cudaMemcpy(hIdx2.data(), dIdx2, n1 * sizeof(int), cudaMemcpyDeviceToHost));
+  safeCall(cudaMemcpy(h1Sq.data(), d1Sq, n1 * sizeof(float), cudaMemcpyDeviceToHost));
+  safeCall(cudaMemcpy(h2Sq.data(), d2Sq, n2 * sizeof(float), cudaMemcpyDeviceToHost));
   if (mutual) {
-    cudaMemcpy(hColIdx.data(), dColIdx, n2 * sizeof(int), cudaMemcpyDeviceToHost);
+    safeCall(cudaMemcpy(hColIdx.data(), dColIdx, n2 * sizeof(int), cudaMemcpyDeviceToHost));
     if (reverseRatio) {
-      cudaMemcpy(hColB.data(), dColBest, n2 * sizeof(float),
-                 cudaMemcpyDeviceToHost);
-      cudaMemcpy(hColS.data(), dColSecond, n2 * sizeof(float),
-                 cudaMemcpyDeviceToHost);
+      safeCall(cudaMemcpy(hColB.data(), dColBest, n2 * sizeof(float),
+                 cudaMemcpyDeviceToHost));
+      safeCall(cudaMemcpy(hColS.data(), dColSecond, n2 * sizeof(float),
+                 cudaMemcpyDeviceToHost));
     }
   }
 
@@ -431,10 +464,11 @@ float MatchDescriptorsGemmU8(const unsigned char* h_desc1, int n1,
   ctx.Reserve(n1, n2, 512);
   // 128 B per descriptor instead of 512 B. The widening then happens on the
   // device, where it is memory-bound noise beside the GEMM.
-  cudaMemcpy(ctx.d1U8, h_desc1, (size_t)n1 * 128, cudaMemcpyHostToDevice);
-  cudaMemcpy(ctx.d2U8, h_desc2, (size_t)n2 * 128, cudaMemcpyHostToDevice);
+  safeCall(cudaMemcpy(ctx.d1U8, h_desc1, (size_t)n1 * 128, cudaMemcpyHostToDevice));
+  safeCall(cudaMemcpy(ctx.d2U8, h_desc2, (size_t)n2 * 128, cudaMemcpyHostToDevice));
   WidenU8<<<256, 256>>>(ctx.d1U8, n1, 128, ctx.d1);
   WidenU8<<<256, 256>>>(ctx.d2U8, n2, 128, ctx.d2);
+  checkMsg("WidenU8 launch failed");
   return MatchUploaded(n1, n2, ratio, mutual, out, reverseRatio, distanceType,
                        maxDistance, sqDescriptorNorm);
 }
