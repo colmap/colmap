@@ -67,7 +67,7 @@ def _run_in_fresh_process() -> str:
 
 
 @requires_cusift
-def test_cusift_extraction_identical_across_processes():
+def test_cusift_extraction_identical_across_processes() -> None:
     outputs = [_run_in_fresh_process() for _ in range(NUM_PROCESSES)]
     num_keypoints = int(outputs[0].split()[0])
     # Guard against a vacuous pass on an image with almost no features.
