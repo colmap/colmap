@@ -449,12 +449,14 @@ endif()
 if(CUDA_ENABLED OR HIP_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
-         # Third-party.
-         colmap_cusift
     )
     if(MVS_ENABLED)
         list(APPEND COLMAP_EXPORT_LIBS colmap_mvs_cuda)
     endif()
+endif()
+if(CUDA_ENABLED)
+    # Third-party; CUDA only (not built for HIP).
+    list(APPEND COLMAP_EXPORT_LIBS colmap_cusift)
 endif()
 if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
