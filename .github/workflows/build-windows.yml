@@ -119,7 +119,8 @@ jobs:
           # nvptxcompiler, and thrust (Thrust/CUB headers, on Windows the
           # subpackage is "thrust", not "cccl"). We avoid a full install to
           # skip the large math/Nsight subpackages COLMAP does not use.
-          sub-packages: '["nvcc", "crt", "nvvm", "nvptxcompiler", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
+          # cublas/cublas_dev: cusift's GEMM matcher links CUDA::cublas.
+          sub-packages: '["nvcc", "crt", "nvvm", "nvptxcompiler", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev", "cublas", "cublas_dev"]'
           method: 'network'
 
       - name: Setup vcpkg
@@ -224,6 +225,8 @@ jobs:
           if ($${{ matrix.config.cudaEnabled }}) {
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cudart64_*.dll" install/bin
               cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/curand64_*.dll" install/bin
+              cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cublas64_*.dll" install/bin
+              cp "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin/cublasLt64_*.dll" install/bin
           }
           Remove-Item -Recurse -Force -ErrorAction SilentlyContinue install/include,install/lib,install/share
 
