@@ -9,9 +9,11 @@
 #include "colmap/util/testing.h"
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include <Eigen/Geometry>
 #include <gmock/gmock.h>
@@ -1468,6 +1470,117 @@ TEST(Database, RejectsNegativeCameraDimensions) {
 
   auto database = Database::Open(database_path);
   EXPECT_THROW(database->ReadCamera(camera_id), std::invalid_argument);
+}
+
+std::vector<CameraModelId> RegisteredCameraModelIds() {
+  return {
+#define CAMERA_MODEL_CASE(CameraModel) CameraModel::model_id,
+      CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+  };
+}
+
+TEST(Database, CameraParameterBytesMatchRegisteredModels) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  for (const CameraModelId model_id : RegisteredCameraModelIds()) {
+    SCOPED_TRACE(CameraModelIdToName(model_id));
+    Camera camera =
+        Camera::CreateFromModelId(kInvalidCameraId, model_id, 100.0, 640, 480);
+    camera.source = CameraSource::USER;
+    camera.camera_id = database->WriteCamera(camera);
+    ASSERT_EQ(camera.params.size(), CameraModelNumParams(model_id));
+    EXPECT_EQ(database->ReadCamera(camera.camera_id), camera);
+    EXPECT_EQ(database->ReadCamera(camera.camera_id, CameraSource::USER),
+              camera);
+    EXPECT_EQ(
+        database->ReadAllCameraSources(camera.camera_id).at(CameraSource::USER),
+        camera);
+  }
+  EXPECT_EQ(database->ReadAllCameras().size(),
+            RegisteredCameraModelIds().size());
+}
+
+// Qualify malformed rows only against production with the exact-byte guard.
+TEST(Database, RejectsCameraParameterByteCountAndReusesStatements) {
+  const auto database_path = CreateTestDir() / "camera_parameter_bytes.db";
+  for (const CameraModelId model_id : RegisteredCameraModelIds()) {
+    SCOPED_TRACE(CameraModelIdToName(model_id));
+    Camera camera = Camera::CreateFromModelId(1, model_id, 100.0, 640, 480);
+    camera.source = CameraSource::USER;
+    Camera guess = camera;
+    guess.source = CameraSource::GUESS;
+    Camera other = camera;
+    other.camera_id = 2;
+    constexpr int kDoubleBytes = sizeof(double);
+    const int expected_bytes =
+        static_cast<int>(CameraModelNumParams(model_id)) * kDoubleBytes;
+    ASSERT_GT(expected_bytes, 0);
+    std::vector<int> invalid_sizes = {
+        0, expected_bytes - 1, expected_bytes + kDoubleBytes};
+    for (int extra = 1; extra < kDoubleBytes; ++extra) {
+      invalid_sizes.push_back(expected_bytes + extra);
+    }
+    for (const int num_bytes : invalid_sizes) {
+      SCOPED_TRACE(num_bytes);
+      {
+        auto database = OpenSqliteDatabase(database_path);
+        database->ClearCameras();
+        database->WriteCamera(camera, /*use_camera_id=*/true);
+        database->UpdateCamera(guess);
+        database->WriteCamera(other, /*use_camera_id=*/true);
+        database->Close();
+      }
+      {
+        sqlite3* raw_database = nullptr;
+        const int open_result =
+            sqlite3_open(database_path.string().c_str(), &raw_database);
+        const std::unique_ptr<sqlite3, decltype(&sqlite3_close)> connection(
+            raw_database, sqlite3_close);
+        ASSERT_EQ(open_result, SQLITE_OK);
+        sqlite3_stmt* raw_statement = nullptr;
+        const int prepare_result =
+            sqlite3_prepare_v2(connection.get(),
+                               "UPDATE cameras SET params=zeroblob(?) "
+                               "WHERE camera_id=1 AND source=?;",
+                               -1,
+                               &raw_statement,
+                               nullptr);
+        const std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)>
+            statement(raw_statement, sqlite3_finalize);
+        ASSERT_EQ(prepare_result, SQLITE_OK);
+        ASSERT_EQ(sqlite3_bind_int(statement.get(), 1, num_bytes), SQLITE_OK);
+        ASSERT_EQ(
+            sqlite3_bind_int64(statement.get(),
+                               2,
+                               static_cast<sqlite3_int64>(CameraSource::USER)),
+            SQLITE_OK);
+        ASSERT_EQ(sqlite3_step(statement.get()), SQLITE_DONE);
+        ASSERT_EQ(sqlite3_changes(connection.get()), 1);
+      }
+      auto database = OpenSqliteDatabase(database_path);
+      EXPECT_THROW(database->ReadCamera(1), std::invalid_argument);
+      EXPECT_EQ(database->ReadCamera(2), other);
+      EXPECT_THROW(database->ReadCamera(1, CameraSource::USER),
+                   std::invalid_argument);
+      EXPECT_EQ(database->ReadCamera(1, CameraSource::GUESS), guess);
+      EXPECT_THROW(database->ReadAllCameras(), std::invalid_argument);
+      EXPECT_THROW(database->ReadAllCameras(CameraSource::USER),
+                   std::invalid_argument);
+      EXPECT_EQ(database->ReadAllCameras(CameraSource::GUESS),
+                std::vector<Camera>{guess});
+      EXPECT_THROW(database->ReadAllCameraSources(1), std::invalid_argument);
+      EXPECT_THROW(database->ReadAllCameraSources(), std::invalid_argument);
+      database->UpdateCamera(camera);
+      EXPECT_EQ(database->ReadCamera(1), camera);
+      EXPECT_EQ(database->ReadCamera(1, CameraSource::USER), camera);
+      EXPECT_EQ(database->ReadAllCameras().size(), 2);
+      EXPECT_EQ(database->ReadAllCameras(CameraSource::USER).size(), 2);
+      EXPECT_EQ(database->ReadAllCameraSources(1).at(CameraSource::USER),
+                camera);
+      EXPECT_EQ(database->ReadAllCameraSources().at(1).at(CameraSource::USER),
+                camera);
+    }
+  }
 }
 
 }  // namespace
