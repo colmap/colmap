@@ -175,33 +175,6 @@ TEST(CusiftFeatureExtractor, Nominal) {
   }
 }
 
-TEST(CusiftDescriptorsForKeypoints, RejectsKeypointsOutsideThePyramid) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  const Bitmap bitmap = CreateImageWithSquare(256);
-  const FeatureExtractionOptions options = CreateCusiftOptions();
-  // The isolation pyramid starts at octave 0 and has
-  // CusiftEffectiveNumOctaves(256 x 256, first_octave 0) = 5 octaves. With
-  // sigma0 = 1.6 * 2^(1/3), sigma 1 is in VLFeat octave -1, sigma 4 in octave
-  // 1 and sigma 80 in octave 5, one above the top. Before the fix, the
-  // pyramid used SiftExtractionOptions::num_octaves (4) and sigma 80 was
-  // clamped onto octave 3 and described at the wrong scale.
-  ASSERT_EQ(CusiftEffectiveNumOctaves(*options.cusift, 256, 256, 0), 5);
-  const FeatureKeypoints keypoints = {FeatureKeypoint(128, 128, 1.0f, 0.0f),
-                                      FeatureKeypoint(128, 128, 4.0f, 0.0f),
-                                      FeatureKeypoint(128, 128, 80.0f, 0.0f)};
-
-  const CusiftDescriptorOnlyResult result =
-      ExtractCusiftDescriptorsForKeypoints(bitmap, keypoints, options);
-
-  EXPECT_EQ(result.num_rejected_octave_minus1, 1);
-  EXPECT_EQ(result.num_rejected_octave_above_pyramid, 1);
-  EXPECT_EQ(result.num_rejected_degenerate, 0);
-  EXPECT_EQ(result.keypoint_indices, std::vector<size_t>{1});
-  ASSERT_EQ(result.descriptors.data.rows(), 1);
-  EXPECT_EQ(result.descriptors.data.cols(), 128);
-  EXPECT_EQ(result.descriptors.type, FeatureExtractorType::SIFT);
-}
-
 TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // The square spans 64 px, so its blob responds at a large scale that only
@@ -248,9 +221,9 @@ void ExpectMatchesVLFeat(const FeatureExtractionOptions& cusift_options,
                   ->Extract(bitmap, &vlfeat_keypoints, &vlfeat_descriptors));
 
   // On this synthetic image the two produce the same keypoints; the tolerance
-  // covers the benign Newton-convergence duplicates described in
-  // src/thirdparty/cusift/README.md, not a
-  // genuine detector difference.
+  // covers VLFeat's Newton refinement occasionally converging two candidates
+  // onto the same point (neither implementation removes those duplicates),
+  // not a genuine detector difference.
   ASSERT_NEAR(static_cast<double>(cusift_keypoints.size()),
               static_cast<double>(vlfeat_keypoints.size()),
               0.02 * vlfeat_keypoints.size() + 1);
@@ -335,21 +308,9 @@ TEST(CusiftFeatureExtractor, DescriptorsMatchableBySiftMatcher) {
   }
 }
 
-// Parity body: holds a GPU extractor backend to exactly the assertions
-// sift_test.cc's ExtractSiftFeaturesGPU applies to SiftGPU (>= 12 keypoints on
-// the synthetic square, valid keypoint geometry, 512-norm uint8 descriptors
-// tagged SIFT). In a CUDA build neither backend needs an OpenGL context, so
-// both can be created through FeatureExtractor::Create without sift_test.cc's
-// Qt harness.
-//
-// Deliberately NOT a TEST_P over {CUSIFT, SIFT}. SiftGPU's detector is
-// nondeterministic on this input -- it drops a whole scale-level of corner
-// responses in roughly 1 run in 5, yielding 8 keypoints instead of >= 12
-// (upstream colmap#1197, open since 2021; upstream CI excludes
-// feature/sift_test on every CUDA config for this reason). Sharing one
-// parameterized suite let that flake fail THIS file, making cusift's own
-// coverage unrunnable as a gate. Separate tests keep the failure attributable
-// and let a --gtest_filter drop only the SiftGPU case.
+// Holds cusift to the assertions sift_test.cc's ExtractSiftFeaturesGPU applies
+// to SiftGPU (>= 12 keypoints on the synthetic square, valid keypoint geometry,
+// 512-norm uint8 descriptors tagged SIFT).
 void ExpectGpuExtractorParity(FeatureExtractorType type) {
   const Bitmap bitmap = CreateImageWithSquare(256);
 
@@ -379,14 +340,6 @@ void ExpectGpuExtractorParity(FeatureExtractorType type) {
 TEST(GpuExtractorParityCusift, ExtractFeatures) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   ExpectGpuExtractorParity(FeatureExtractorType::CUSIFT);
-}
-
-// Upstream SiftGPU, held to the same bar for comparison. Flaky through no fault
-// of cusift -- see the note above before treating a failure here as a
-// regression in this fork.
-TEST(GpuExtractorParitySiftGpu, ExtractFeatures) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  ExpectGpuExtractorParity(FeatureExtractorType::SIFT);
 }
 
 TEST_P(CusiftUnsupportedOptionTest, Throws) {

@@ -85,8 +85,6 @@ int64_t MedianGrowthPerThread(const std::function<void()>& fn,
     RunOnFreshThread(fn);
     growth.push_back(measure_used() - before);
   }
-  LOG(INFO) << "Per-thread growth (MiB):";
-  for (const int64_t g : growth) LOG(INFO) << "  " << g / kMiB;
   std::nth_element(
       growth.begin(), growth.begin() + kNumThreads / 2, growth.end());
   return growth[kNumThreads / 2];
@@ -175,7 +173,6 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
   const Bitmap bitmap = CreateNoiseImage(2048, 2048);
   int64_t reserved_while_alive = 0;
   int64_t reserved_after = 0;
-  int64_t used_after = 0;
   RunOnFreshThread([&]() {
     auto extractor = THROW_CHECK_NOTNULL(
         FeatureExtractor::Create(CreateLargeExtractionOptions()));
@@ -185,20 +182,15 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
     reserved_while_alive =
         static_cast<int64_t>(cusift::GetMemoryPoolUsage().reserved);
     extractor.reset();
-    const cusift::MemoryPoolUsage usage = cusift::GetMemoryPoolUsage();
-    reserved_after = static_cast<int64_t>(usage.reserved);
-    used_after = static_cast<int64_t>(usage.used);
+    reserved_after =
+        static_cast<int64_t>(cusift::GetMemoryPoolUsage().reserved);
   });
-  LOG(INFO) << "cusift pool reserved (MiB): " << reserved_while_alive / kMiB
-            << " while the extractor is alive, " << reserved_after / kMiB
-            << " after (" << used_after / kMiB << " still in use)";
   // The pyramid of a 2048 x 2048 image at first_octave -1 is hundreds of MiB,
   // all kept for reuse while the extractor lives...
   EXPECT_GT(reserved_while_alive, 128 * kMiB);
   // ...and handed back to the driver once it is destroyed, apart from the
   // pool segment that still holds the thread's scratch (freed when the thread
-  // exits). Measured on an RTX 5090: 1664 MiB reserved while alive, 64 MiB
-  // after, 6 MiB of it in use.
+  // exits).
   EXPECT_LT(reserved_after, reserved_while_alive / 4);
 }
 

@@ -286,47 +286,4 @@ void BindFeatureExtraction(py::module& m) {
           "Extract features from a float32 numpy array with values in "
           "[0, 1] and shape (H, W) or (H, W, 3). Returns "
           "(FeatureKeypoints, FeatureDescriptors).");
-
-#ifdef COLMAP_CUDA_ENABLED
-  py::classh<CusiftDescriptorOnlyResult>(m, "CusiftDescriptorOnlyResult")
-      .def_readonly("descriptors", &CusiftDescriptorOnlyResult::descriptors)
-      .def_readonly("keypoint_indices",
-                    &CusiftDescriptorOnlyResult::keypoint_indices,
-                    "Index into the input keypoints for each descriptor row.")
-      .def_readonly("num_rejected_octave_minus1",
-                    &CusiftDescriptorOnlyResult::num_rejected_octave_minus1,
-                    "Keypoints in VLFeat octave -1, which the non-upsampled "
-                    "isolation path cannot describe and which are rejected "
-                    "rather than clamped onto the wrong pyramid level.")
-      .def_readonly(
-          "num_rejected_octave_above_pyramid",
-          &CusiftDescriptorOnlyResult::num_rejected_octave_above_pyramid,
-          "Keypoints at or above the top octave of cusift's pyramid for this "
-          "image, rejected rather than clamped onto the top octave.")
-      .def_readonly(
-          "num_rejected_degenerate",
-          &CusiftDescriptorOnlyResult::num_rejected_degenerate,
-          "Keypoints whose descriptor window fell outside the image.");
-
-  m.def(
-      "extract_cusift_descriptors_for_keypoints",
-      [](py::array_t<uint8_t, py::array::c_style> image,
-         const Eigen::Ref<const FeatureKeypointsMatrix>& keypoints,
-         std::optional<FeatureExtractionOptions> options) {
-        if (!options) {
-          options = FeatureExtractionOptions(FeatureExtractorType::CUSIFT);
-          options->use_gpu = true;
-        }
-        const Bitmap bitmap = BitmapFromArray(image);
-        return ExtractCusiftDescriptorsForKeypoints(
-            bitmap, KeypointsFromMatrix(keypoints), *options);
-      },
-      "image"_a,
-      "keypoints"_a,
-      "options"_a = std::nullopt,
-      "Compute cusift descriptors for caller-supplied keypoints (Nx4 matrix of "
-      "x, y, scale, orientation), skipping detection and orientation. Isolates "
-      "descriptor fidelity. Orientation is VLFeat-convention radians; negate "
-      "SiftGPU-sourced orientations before calling.");
-#endif  // COLMAP_CUDA_ENABLED
 }

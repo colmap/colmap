@@ -4,7 +4,6 @@
 
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
-#include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
@@ -48,10 +47,8 @@ void BindCusiftDevice(const std::string& gpu_index) {
 
 // Uploads a grey bitmap as the [0, 255] float image cusift's kernels take.
 // cusift scales by 1/255 in its first kernel, where COLMAP's VLFeat path
-// divides by 255 on the host. Same uint8 source bytes either way, which is
-// what the grayscale parity gate covers; the multiply-vs-divide rounding is
-// inside the measured parity envelope, because every cusift-vs-VLFeat gate was
-// run through this same kernel. `host_buffer` backs the image's host side and
+// divides by 255 on the host; the two can differ in the last bit, which the
+// VLFeat parity tests tolerate. `host_buffer` backs the image's host side and
 // must outlive `image`.
 void UploadGreyBitmap(const Bitmap& bitmap,
                       std::vector<float>* host_buffer,
@@ -278,133 +275,6 @@ std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
 #else
   LOG(ERROR) << "cusift feature extraction requires CUDA support";
   return nullptr;
-#endif  // COLMAP_CUDA_ENABLED
-}
-
-#ifdef COLMAP_CUDA_ENABLED
-namespace {
-
-// Unclamped replica of the sigma -> octave inversion inside cusift's
-// AssignOctaveLevel (itself a replica of vl_sift_keypoint_init, sift.c:2161).
-// cusift clamps the result to >= 0; we need the true value in order to reject
-// octave -1 rather than let it be clamped onto the wrong pyramid level.
-int TrueVLFeatOctave(const float abs_sigma, const int octave_resolution) {
-  const float sigmak = std::pow(2.0f, 1.0f / octave_resolution);
-  const float sigma0 = 1.6f * sigmak;
-  const double phi =
-      std::log2((static_cast<double>(abs_sigma) + 1e-10) / sigma0);
-  constexpr int kSMin = -1;
-  return static_cast<int>(
-      std::floor(phi - (static_cast<double>(kSMin) + 0.5) / octave_resolution));
-}
-
-}  // namespace
-#endif  // COLMAP_CUDA_ENABLED
-
-CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
-    const Bitmap& bitmap,
-    const FeatureKeypoints& keypoints,
-    const FeatureExtractionOptions& options) {
-#ifdef COLMAP_CUDA_ENABLED
-  THROW_CHECK(bitmap.IsGrey());
-  THROW_CHECK_NOTNULL(options.sift);
-  THROW_CHECK_EQ(options.sift->octave_resolution, kCusiftOctaveResolution);
-  BindCusiftDevice(options.gpu_index);
-
-  CusiftDescriptorOnlyResult result;
-  if (keypoints.empty()) {
-    result.descriptors.type = FeatureExtractorType::SIFT;
-    return result;
-  }
-
-  // The isolation path is non-upsampled only (first octave 0), with as many
-  // octaves as the extractor would build for this image. Keypoints outside
-  // [0, num_octaves) are rejected up front: AssignOctaveLevel would clamp them
-  // onto the nearest pyramid level and describe them at the wrong scale.
-  const int num_octaves =
-      CusiftEffectiveNumOctaves(*THROW_CHECK_NOTNULL(options.cusift),
-                                bitmap.Width(),
-                                bitmap.Height(),
-                                /*first_octave=*/0);
-  std::vector<size_t> accepted;
-  accepted.reserve(keypoints.size());
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    const int octave = TrueVLFeatOctave(keypoints[i].ComputeScale(),
-                                        options.sift->octave_resolution);
-    if (octave < 0) {
-      ++result.num_rejected_octave_minus1;
-    } else if (octave >= num_octaves) {
-      ++result.num_rejected_octave_above_pyramid;
-    } else {
-      accepted.push_back(i);
-    }
-  }
-  if (accepted.empty()) {
-    result.descriptors.type = FeatureExtractorType::SIFT;
-    return result;
-  }
-
-  std::vector<float> host_buffer;
-  CudaImage image;
-  UploadGreyBitmap(bitmap, &host_buffer, &image);
-
-  SiftData sift_data;
-  InitSiftData(sift_data, static_cast<int>(accepted.size()), true, true);
-  sift_data.numPts = static_cast<int>(accepted.size());
-  for (size_t k = 0; k < accepted.size(); ++k) {
-    const FeatureKeypoint& kp = keypoints[accepted[k]];
-    SiftPoint& p = sift_data.h_data[k];
-    // Undo COLMAP's +0.5 pixel-centre offset: the kernel domain is VLFeat's
-    // frame, which is where the extractor applies the offset on the way out.
-    p.xpos = kp.x - 0.5f;
-    p.ypos = kp.y - 0.5f;
-    p.scale = kp.ComputeScale();
-    // SiftPoint carries orientation in DEGREES; ComputeOrientation is radians.
-    p.orientation = static_cast<float>(RadToDeg(kp.ComputeOrientation()));
-  }
-
-  ExtractSiftDescriptorsOnly(sift_data, image, num_octaves, /*initBlur=*/1.0);
-
-  // A descriptor window that fell outside the image comes back all-zero.
-  // Detect that rather than guessing a support radius, and drop it so it cannot
-  // zero-fill the caller's statistics.
-  std::vector<size_t> kept;
-  kept.reserve(accepted.size());
-  for (size_t k = 0; k < accepted.size(); ++k) {
-    const float* d = sift_data.h_data[k].data;
-    double norm = 0.0;
-    for (int j = 0; j < kSiftDescriptorDim; ++j) {
-      norm += static_cast<double>(d[j]) * d[j];
-    }
-    if (norm > 1e-12) {
-      kept.push_back(k);
-    } else {
-      ++result.num_rejected_degenerate;
-    }
-  }
-
-  FeatureDescriptorsFloatData desc_float(kept.size(), kSiftDescriptorDim);
-  result.keypoint_indices.resize(kept.size());
-  for (size_t r = 0; r < kept.size(); ++r) {
-    result.keypoint_indices[r] = accepted[kept[r]];
-    desc_float.row(r) = Eigen::Map<const Eigen::RowVectorXf>(
-        sift_data.h_data[kept[r]].data, kSiftDescriptorDim);
-  }
-  FreeSiftData(sift_data);
-
-  // Same normalization and quantization the extractor applies, so the rows meet
-  // a reference database's rows in the same representation. Anything else would
-  // measure RootSIFT-vs-L2 or float-vs-quantized instead of the kernel.
-  result.descriptors.data =
-      NormalizeAndQuantize(options.sift->normalization, &desc_float);
-  result.descriptors.type = FeatureExtractorType::SIFT;
-  return result;
-#else
-  (void)bitmap;
-  (void)keypoints;
-  (void)options;
-  LOG(FATAL_THROW) << "cusift descriptor extraction requires CUDA support";
-  return {};
 #endif  // COLMAP_CUDA_ENABLED
 }
 

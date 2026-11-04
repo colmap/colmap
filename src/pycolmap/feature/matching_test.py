@@ -42,9 +42,7 @@ def test_cusift_matching_options_check() -> None:
 
 
 def test_cusift_matching_options_field_readwrite() -> None:
-    # The two cusift-specific axes. Both were added with the bidirectional
-    # cross-check work and neither had a Python test, so the bindings could have
-    # silently failed to expose them.
+    # The two cusift-specific options.
     options = pycolmap.CusiftMatchingOptions()
     assert options.cross_check_reverse_ratio is True, (
         "must default to the SiftGPU/COLMAP-CPU-equivalent bidirectional test"
