@@ -5,6 +5,7 @@
 #include "colmap/feature/extractor.h"
 
 #include <memory>
+#include <string>
 
 namespace colmap {
 
@@ -41,6 +42,13 @@ bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift);
 // Requires CUDA and a GPU; returns nullptr if COLMAP was built without CUDA.
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
     const FeatureExtractionOptions& options);
+
+// Binds the calling thread to the single GPU named by `gpu_index` (-1 picks
+// the best device, as colmap::SetBestCudaDevice does) and initialises cusift's
+// memory pool on it. cudaSetDevice is per-thread, so every extraction and
+// matching thread calls this for itself. Throws if COLMAP was built without
+// CUDA, no device is available, or `gpu_index` names more than one GPU.
+void BindCusiftDevice(const std::string& gpu_index);
 
 // Number of octaves cusift builds for a width x height image. It follows
 // SiftGPU as COLMAP runs it, not SiftExtractionOptions::num_octaves: COLMAP

@@ -145,12 +145,11 @@ kernels; the matcher (`matcher.h`, `matcher_gemm.cu`) and the device shim
 3. `CMakeLists.txt` keeps `--use_fast_math`, which is part of the VLFeat-parity
    numerics (see the comment there), and links `CUDA::cudart` and
    `CUDA::cublas` `PRIVATE`.
-4. `src/cusift_device.{h,cu}` let `colmap/feature/cusift.cc` select a device,
-   initialise and release the memory pool, and read its usage, without
-   including `<cuda_runtime.h>`, so `colmap_feature` gains no CUDA dependency
-   of its own. `InitDevice(-1)` mirrors `colmap::SetBestCudaDevice`'s
-   preference order (highest compute capability, then most multiprocessors);
-   keep the two in sync.
+4. `src/cusift_device.{h,cu}` let `colmap/feature/cusift.cc` initialise and
+   release the memory pool and read its usage without including
+   `<cuda_runtime.h>`. Device selection is COLMAP's own
+   (`colmap::SetBestCudaDevice`), so `gpu_index = -1` picks the same device as
+   the rest of COLMAP.
 
 ## CUDA architectures
 
