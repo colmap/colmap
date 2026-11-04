@@ -282,8 +282,7 @@ TEST(CusiftFeatureMatcher, ReverseRatioIsStricter) {
   // ever remove matches that mutual-best-only would keep, never add any. On
   // synthetic near-orthogonal descriptors the two usually agree, so this
   // asserts the invariant (subset) rather than a strict inequality, which only
-  // shows up on real repetitive structure (see
-  // src/thirdparty/cusift/README.md).
+  // shows up on real repetitive structure.
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   FeatureDescriptors d1 = CreateRandomFeatureDescriptors(64);
@@ -449,7 +448,7 @@ std::set<std::pair<point2D_t, point2D_t>> MatchToSet(
 
 TEST(CusiftFeatureMatcher, ReverseRatioRejectsAmbiguousReverseDirection) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // THE case the old subset-only assertion could not see. Two near-duplicate
+  // Two near-duplicate
   // descriptors in image1 and one descriptor in image2 close to both:
   //   forward  - each image1 row has a single candidate, so no runner-up exists
   //              and the ratio test cannot reject it;
@@ -509,12 +508,12 @@ TEST(CusiftFeatureMatcher, ReverseRatioRejectsAmbiguousReverseDirection) {
 // against i for equality, so which of two tied rows wins decides which pair
 // survives.
 //
-// The fixture must also DISCRIMINATE the old rule from the new one. ColTop2
-// block-strides rows over 256 threads, so the old code resolved ties to the
-// lowest threadIdx.x == lowest (r % 256), not the lowest r. Rows 0 and 1 would
-// map to threads 0 and 1 and both rules would agree -- a useless fixture. Rows
-// 45 and 300 map to threads 45 and 44, so the old rule picks row 300 while the
-// canonical rule picks row 45.
+// The fixture must distinguish the lowest row index from the lowest thread
+// index: ColTop2 block-strides rows over 256 threads, so a reduction that
+// resolved ties by threadIdx.x would pick the lowest (r % 256). Rows 0 and 1
+// map to threads 0 and 1, where both rules agree. Rows 45 and 300 map to
+// threads 45 and 44, so a thread-order rule picks row 300 while the canonical
+// rule picks row 45.
 //
 // reverse_ratio is disabled here on purpose: two tied candidates make the
 // column's own best == second, which its ratio test would reject, removing the
@@ -523,7 +522,7 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakPrefersLowerRowIndex) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   constexpr int kN1 = 320;       // > 300 so row 300 exists
   constexpr int kTieLow = 45;    // -> thread 45
-  constexpr int kTieHigh = 300;  // -> thread 44, so the OLD rule would win here
+  constexpr int kTieHigh = 300;  // -> thread 44, wins under a thread-order rule
   static_assert(
       kTieHigh % 256 < kTieLow % 256,
       "fixture must discriminate: the higher row must map to a lower "
@@ -598,16 +597,14 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakIsKeyModeIndependent) {
   }
 }
 
-// Differential fuzz against COLMAP's EXACT reference matcher. This is the test
-// that would have caught the normalization bug: it uses descriptors with
-// NON-UNIFORM norms, where ranking by raw inner product and ranking by
+// Differential fuzz against COLMAP's EXACT reference matcher, on descriptors
+// with NON-UNIFORM norms, where ranking by raw inner product and ranking by
 // normalized distance disagree.
 //
 // The reference is deliberately `cpu_brute_force_matcher = true`. The default
 // CPU path builds a faiss IVF index and probes 8 of ~400 cells, i.e. it is
 // APPROXIMATE despite `SIFT_BRUTEFORCE` in the enum name, and it also applies a
-// different distance convention -- comparing against it silently validates the
-// wrong thing (measured: 0.9757 agreement with the exact matcher).
+// different distance convention, so it is not a bit-exact reference.
 //
 // Bit-exactness is the ideal property to fuzz: the assertion is equality, with
 // no tolerance to tune.
@@ -623,10 +620,8 @@ TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
       // db must contain genuine correspondences, or both matchers return the
       // empty set and the equality assertion passes vacuously. Independent
       // random sparse descriptors are near-orthogonal and produce almost no
-      // matches -- which is exactly how an earlier version of this test managed
-      // to survive a mutation that broke the ranking key. Perturbed copies of
-      // da give real matches AND keep the near-tie population that makes the
-      // test sensitive.
+      // matches. Perturbed copies of da give real matches AND keep the near-tie
+      // population that makes the test sensitive.
       FeatureDescriptorsFloatData f = da.ToFloat().data;
       for (Eigen::Index r = 0; r < f.rows(); ++r) {
         const int dim = static_cast<int>((r * 37 + seed) % 128);
@@ -666,9 +661,7 @@ TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
 // NEGATIVE CONTROL. Every other test here matches RELATED content, so they
 // exercise only the acceptance path. The ratio test and cross-check exist to
 // SUPPRESS matches between unrelated content, and a regression there is
-// invisible to positive-pair tests by construction: the missing reverse-ratio
-// test inflated spurious matches 2.8x on non-overlapping real imagery while
-// every unit test still passed.
+// invisible to positive-pair tests by construction.
 TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Camera camera = Camera::CreateFromModelId(
@@ -688,15 +681,10 @@ TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
 
   const auto got = MatchToSet(*cu_matcher, img1, img2);
   const auto want = MatchToSet(*ref_matcher, img1, img2);
-  // Exact agreement is the spec. The looser "within 1.2x of the reference
-  // count" form is what to fall back on if a future backend is only
-  // approximately equivalent -- it still catches a 2.8x inflation.
   EXPECT_EQ(got, want);
-  EXPECT_LE(got.size(), static_cast<size_t>(1.2 * want.size()) + 1)
-      << "spurious matches on unrelated content inflated beyond the reference";
 }
 
-// Bug 2, surgically. Descriptors whose norms deliberately miss COLMAP's nominal
+// Descriptors whose norms deliberately miss COLMAP's nominal
 // 512 (here ~400 and ~600), placed so that ranking by RAW inner product and
 // ranking by NORMALIZED distance choose different winners. Under per-row
 // normalization the decision flips; under the reference's fixed-512 convention
@@ -746,11 +734,7 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
 
 TEST(CusiftMatcherParity, MatchAgreementSmokeCheck) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // Lightweight smoke check on a small synthetic set. Match-set agreement on
-  // real images is measured outside the unit tests (see
-  // src/thirdparty/cusift/README.md): per-pair Jaccard is noisy on small match
-  // counts, so this only checks that the two matchers agree on the trivial
-  // reversed-descriptor case, not a statistically meaningful Jaccard bound.
+  // Checks that the two matchers agree on the reversed-descriptor case.
   FeatureDescriptors desc1 = CreateRandomFeatureDescriptors(10);
   FeatureDescriptors desc2 = CreateReversedDescriptors(desc1);
   const Camera camera = Camera::CreateFromModelId(

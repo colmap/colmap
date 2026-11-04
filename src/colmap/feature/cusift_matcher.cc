@@ -20,7 +20,7 @@
 // would resolve to that one first (quoted-include lookup checks the
 // including file's own directory before the include path) rather than the
 // vendored src/thirdparty/cusift/src/matcher.h.
-#include <matcher.h>  // vendored: ::Match{i,j,dist2}, ::MatchDescriptorsGemm
+#include <matcher.h>  // vendored: ::Match{i,j,dist2}, ::MatchDescriptorsGemmU8
 #endif                // COLMAP_CUDA_ENABLED
 
 namespace colmap {
@@ -36,8 +36,8 @@ namespace {
 // Deliberately NOT L2-normalized. COLMAP's reference matcher ranks candidates
 // on the RAW inner product and converts with a FIXED 512^2 constant rather than
 // per-row norms (sift.cc, FindBestMatchesOneWayBruteForce); SiftGPU does the
-// same. Normalizing per row re-ranks near-ties and broke bit-exactness
-// (measured: Jaccard 0.9898 instead of 1.0000) before this was corrected.
+// same. Normalizing per row would re-rank near-ties and lose bit-exactness
+// with that reference.
 
 class CusiftFeatureMatcher : public FeatureMatcher {
  public:

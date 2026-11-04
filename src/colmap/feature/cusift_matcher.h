@@ -59,20 +59,16 @@ struct CusiftMatchingOptions {
   // (SiftGPU/ProgramCU.cu). Leave enabled for behavioural parity with the
   // matcher this one replaces.
   //
-  // Disabling it requires only mutual-best-index agreement: the original
-  // upstream cusift behaviour, and measurably weaker at rejecting matches
-  // between images that do not overlap (see src/thirdparty/cusift/README.md
-  // for the measured comparison). Retained as an option so the difference is
-  // testable, not because it is a recommended operating point.
+  // Disabling it requires only mutual-best-index agreement, which is weaker at
+  // rejecting matches between images that do not overlap.
   bool cross_check_reverse_ratio = true;
 
   // Metric space for the ratio test and max_distance -- see CusiftDistanceType.
   // Defaults to ANGULAR because that is what COLMAP's EXACT reference matcher
   // does: FindBestMatchesOneWayBruteForce (sift.cc) ranks on the raw inner
   // product and thresholds acos(dot / 512^2), and SiftGPU does the same. L2
-  // instead reproduces COLMAP's other, inconsistent convention -- the
-  // faiss/index CPU path -- which was measured at only 0.976 Jaccard against
-  // the exact reference. See src/thirdparty/cusift/README.md.
+  // instead follows COLMAP's index-based CPU matcher, whose results differ
+  // slightly from that exact reference.
   CusiftDistanceType distance_type = CusiftDistanceType::ANGULAR;
 
   bool Check() const;

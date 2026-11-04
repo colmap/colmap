@@ -220,9 +220,8 @@ def test_cusift_matches_vlfeat_cpu_feature_count() -> None:
     kp_vlfeat, _ = extract(
         pycolmap.FeatureExtractorType.SIFT, pycolmap.Device.cpu
     )
-    # cusift is a VLFeat replica; counts measured on real imagery differ by
-    # ~0.01%. Allow 1% here, which still fails loudly on a real
-    # regression while tolerating noise-image edge cases.
+    # cusift replicates VLFeat, so keypoint counts should agree closely; allow
+    # 1% for noise-image edge cases.
     assert abs(len(kp_cusift) - len(kp_vlfeat)) <= 0.01 * len(kp_vlfeat)
 
 
@@ -254,33 +253,9 @@ def test_cusift_rejects_unsupported_options(attr: str, value: object) -> None:
         )
 
 
-# --------------------------------------------------- GPU backend parity
-# Every GPU extraction assertion is run against BOTH backends from one body, so
-# CUSIFT is held to exactly what SIFT-GPU is held to. Parametrized rather than
-# duplicated so the two can never drift apart.
+# --------------------------------------------------- GPU extraction
 
-GPU_EXTRACTOR_TYPES = [
-    pycolmap.FeatureExtractorType.SIFT,
-    pycolmap.FeatureExtractorType.CUSIFT,
-]
-
-# Same list, but the SIFT-GPU parameter is marked, for the tests that assert the
-# >= 12 keypoint floor on the synthetic square. SiftGPU has been reported to
-# return different keypoints for the same image across runs (colmap#1197); on
-# setups where that happens, a run can fall below the floor through no fault of
-# cusift. cusift's own run-to-run determinism is tested directly in
-# cusift_determinism_test.py and in the C++ feature/cusift_determinism_test.
-#
-# Marked rather than removed so the SIFT path keeps its coverage by default, and
-# rather than applied to GPU_EXTRACTOR_TYPES wholesale so the three tests that
-# do NOT assert the floor keep testing both backends unconditionally.
-# Deselect with: pytest -m 'not siftgpu_flaky'
-GPU_EXTRACTOR_TYPES_KEYPOINT_FLOOR = [
-    pytest.param(
-        pycolmap.FeatureExtractorType.SIFT, marks=pytest.mark.siftgpu_flaky
-    ),
-    pycolmap.FeatureExtractorType.CUSIFT,
-]
+GPU_EXTRACTOR_TYPES = [pycolmap.FeatureExtractorType.CUSIFT]
 
 
 def _gpu_options(
@@ -297,9 +272,7 @@ def _synthetic_square(size: int = 256) -> np.ndarray:
 
     NOT usable for MATCHER tests: the centred square has 4-fold symmetry, so
     every corner descriptor's second-best is as close as its best and Lowe's
-    ratio test annihilates all of them. Measured: SIFT-GPU matched against
-    itself, byte-identical descriptors, returns 0 matches here at the default
-    max_ratio=0.8 with cross-checking. Use _synthetic_texture for matching.
+    ratio test rejects all of them. Use _synthetic_texture for matching.
     """
     image = np.zeros((size, size), dtype=np.uint8)
     lo, hi = size // 2 - size // 8, size // 2 + size // 8
@@ -309,14 +282,6 @@ def _synthetic_square(size: int = 256) -> np.ndarray:
 
 def _synthetic_texture(size: int = 512) -> np.ndarray:
     """Asymmetric, distinctive texture for MATCHING tests.
-
-    _synthetic_square is deliberately left alone (five other tests depend on
-    it), but it is unusable for matching: a centred square has 4-fold symmetry,
-    so every corner descriptor has three near-identical twins and Lowe's ratio
-    test correctly rejects them all. Measured on that fixture, SIFT-GPU matched
-    against ITSELF -- byte-identical descriptors -- returned 0 matches at the
-    default max_ratio=0.8 with cross-checking, which is the fixture failing, not
-    the matcher.
 
     This pattern places blobs of varying size and intensity at irregular
     positions from a fixed seed, so each neighbourhood is locally unique and the
@@ -348,9 +313,7 @@ def test_gpu_extractor_create(
 
 
 @requires_cusift
-@pytest.mark.parametrize(
-    "feature_type", GPU_EXTRACTOR_TYPES_KEYPOINT_FLOOR, ids=str
-)
+@pytest.mark.parametrize("feature_type", GPU_EXTRACTOR_TYPES, ids=str)
 def test_gpu_extract_from_uint8_array(
     feature_type: pycolmap.FeatureExtractorType,
 ) -> None:
@@ -363,16 +326,14 @@ def test_gpu_extract_from_uint8_array(
     assert len(keypoints) >= 12
     assert descriptors.data.shape == (len(keypoints), 128)
     assert descriptors.data.dtype == np.uint8
-    # Both backends emit plain SIFT descriptors.
+    # cusift emits plain SIFT descriptors.
     assert descriptors.type == pycolmap.FeatureExtractorType.SIFT
     norms = np.linalg.norm(descriptors.data.astype(np.float64), axis=1)
     assert np.all(np.abs(norms - 512) < 1)
 
 
 @requires_cusift
-@pytest.mark.parametrize(
-    "feature_type", GPU_EXTRACTOR_TYPES_KEYPOINT_FLOOR, ids=str
-)
+@pytest.mark.parametrize("feature_type", GPU_EXTRACTOR_TYPES, ids=str)
 def test_gpu_extract_from_float32_array(
     feature_type: pycolmap.FeatureExtractorType,
 ) -> None:
@@ -409,7 +370,7 @@ def test_gpu_keypoints_matrix_roundtrip(
 def test_gpu_descriptors_matchable_by_sift_matcher(
     feature_type: pycolmap.FeatureExtractorType, device: str
 ) -> None:
-    """Either backend's descriptors go straight into SIFT_BRUTEFORCE."""
+    """cusift descriptors go straight into SIFT_BRUTEFORCE."""
     extractor = pycolmap.FeatureExtractor.create(
         options=_gpu_options(feature_type), device=pycolmap.Device.cuda
     )

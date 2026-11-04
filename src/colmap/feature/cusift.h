@@ -9,9 +9,9 @@
 namespace colmap {
 
 struct CusiftExtractionOptions {
-  // Number of octaves to build. -1 (the default) picks it like SiftGPU, which
-  // is what COLMAP's GPU SIFT does today (see CusiftNumOctaves); a positive
-  // value builds exactly that many. Note that this is separate from
+  // Number of octaves to build. -1 (the default) picks it as COLMAP's SiftGPU
+  // backend does (see CusiftNumOctaves); a positive value builds exactly that
+  // many. Note that this is separate from
   // SiftExtractionOptions::num_octaves, which only the CPU (VLFeat) backend
   // uses and whose default of 4 stops at a much smaller maximum scale.
   int num_octaves = -1;
@@ -28,8 +28,8 @@ struct CusiftExtractionOptions {
 bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift);
 
 // Create a cusift feature extractor: a CUDA SIFT extractor that replicates
-// COLMAP's own VLFeat CPU backend rather than SiftGPU, so it can serve as a
-// commercially-usable replacement for SiftGPU's non-commercial license.
+// COLMAP's VLFeat CPU backend. Unlike SiftGPU it is MIT-licensed (see
+// src/thirdparty/cusift/LICENSE).
 //
 // It is configured entirely by SiftExtractionOptions (options.sift) and emits
 // descriptors tagged FeatureExtractorType::SIFT, because the features it
@@ -58,53 +58,5 @@ int CusiftEffectiveNumOctaves(const CusiftExtractionOptions& options,
                               int width,
                               int height,
                               int first_octave);
-
-// Result of describing externally supplied keypoints; see
-// ExtractCusiftDescriptorsForKeypoints below.
-struct CusiftDescriptorOnlyResult {
-  // One row per ACCEPTED keypoint, normalized and quantized exactly as the
-  // extractor would have done, and tagged FeatureExtractorType::SIFT.
-  FeatureDescriptors descriptors;
-  // Index into the input keypoints for each row of `descriptors`, so callers
-  // can align against their own reference rows. Ascending.
-  std::vector<size_t> keypoint_indices;
-  // Keypoints whose sigma places them in VLFeat octave -1. The underlying
-  // isolation path is non-upsampled only and would silently clamp them to
-  // octave 0, describing them from the wrong pyramid level, so they are
-  // rejected instead. At COLMAP's default first_octave = -1 this is a large
-  // fraction of a real image's features.
-  size_t num_rejected_octave_minus1 = 0;
-  // Keypoints whose sigma places them at or above the top octave of the
-  // pyramid cusift builds for this image (CusiftEffectiveNumOctaves with
-  // first_octave 0). Rejected rather than clamped onto the top octave.
-  size_t num_rejected_octave_above_pyramid = 0;
-  // Keypoints whose descriptor window fell outside the image, detected as a
-  // zero-norm descriptor rather than guessed from a support radius. Rejected
-  // so they cannot zero-fill into a caller's statistics.
-  size_t num_rejected_degenerate = 0;
-};
-
-// Computes cusift descriptors for keypoints supplied by the caller, skipping
-// detection and orientation entirely. This isolates descriptor-kernel fidelity:
-// feed one extractor's (x, y, scale, orientation) and compare the descriptors
-// it produces against another extractor's for the same features, with detection
-// differences removed as a variable.
-//
-// Keypoint x/y are interpreted in COLMAP's stored convention (pixel centre at
-// 0.5) and converted to the kernel's VLFeat frame internally, and orientation
-// is taken as VLFeat-convention radians via
-// FeatureKeypoint::ComputeOrientation. To describe SiftGPU-sourced keypoints,
-// negate their stored orientation before calling, because COLMAP stores SiftGPU
-// theta mirrored (SiftGPUFeatureExtractor in sift.cc).
-//
-// Note that the pyramid level each descriptor samples from is re-derived from
-// sigma, which is cusift's own decision and may differ from the source
-// extractor's at scale boundaries. That is part of what is being measured, but
-// residual disagreement should be checked against level-boundary proximity
-// before being attributed to the descriptor kernel.
-CusiftDescriptorOnlyResult ExtractCusiftDescriptorsForKeypoints(
-    const Bitmap& bitmap,
-    const FeatureKeypoints& keypoints,
-    const FeatureExtractionOptions& options);
 
 }  // namespace colmap

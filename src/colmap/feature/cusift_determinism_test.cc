@@ -3,9 +3,8 @@
 // Determinism of the cusift extractor and matcher: the same input must give
 // bit-identical output on every call, from fresh and from reused instances.
 //
-// This is a property SiftGPU does not have. Its detector returns different
-// keypoint sets for the same image from run to run (colmap#1197), which is why
-// its parity case is marked siftgpu_flaky in the pycolmap tests. Cross-process
+// SiftGPU does not have this property: its detector can return different
+// keypoint sets for the same image from run to run (colmap#1197). Cross-process
 // repetition, the case colmap#1197 reports, is covered by
 // src/pycolmap/feature/cusift_determinism_test.py.
 
