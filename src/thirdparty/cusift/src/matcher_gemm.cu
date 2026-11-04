@@ -6,22 +6,10 @@
 // sim = D1 (n1x128) * D2^T (128xn2) via cuBLAS SGEMM, tiled over n2 to bound
 // memory. After each tile, two lightweight kernels update running
 // best/second-best per query row (for matching) and best per target column
-// (for the mutual cross-check). FP32 SGEMM at n=10k, k=128 is ~26 GFLOP:
-// sub-millisecond on Ada — the tile reductions dominate, not the GEMM.
+// (for the mutual cross-check). The tile reductions dominate the cost, not the
+// GEMM.
 #include "matcher.h"
 
-// Implemented in matcher_fused.cu. Shares this file's context buffers and
-// epilogue so that only the PRODUCER differs between the two backends --
-// which is what makes fused-vs-GEMM a meaningful bit-exactness oracle.
-float MatchDescriptorsFusedRaw(const float* d1, int n1, const float* d2,
-                               int n2, const float* d1Sq, const float* d2Sq,
-                               bool useL2Key, float* rowBest,
-                               float* rowSecond, int* rowIdx, int* rowIdx2,
-                               float* colBest, float* colSecond,
-                               int* colIdx, float* colPartBest,
-                               float* colPartSecond, int* colPartIdx,
-                               bool wantColumns);
-int MatchDescriptorsFusedRowBlock();
 
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
@@ -50,8 +38,8 @@ int MatchDescriptorsFusedRowBlock();
 //      cost of a heavyweight new dependency for one kernel.
 // Decide it by measurement, not by appeal: if the SGEMM is not a meaningful
 // share of per-pair time on the target GPU, option 1's epilogue complexity buys
-// little. The bit-exactness gate (Jaccard 1.0000 against COLMAP's brute-force
-// reference) makes that experiment cheap to judge.
+// little. The bit-exactness tests against COLMAP's brute-force reference make
+// that experiment cheap to judge.
 __global__ void WidenU8(const unsigned char* __restrict__ src, int n, int dim,
                         float* __restrict__ dst) {
   const size_t total = (size_t)n * dim;
@@ -85,7 +73,7 @@ __global__ void SqNorms(const float* __restrict__ d, int n, int dim,
 //   key = 2 q.c - ||c||^2
 // which is what this kernel reduces on. Reducing on q.c instead silently
 // prefers longer candidates and disagrees with an exact brute-force matcher on
-// a thin band of near-ties (measured: ~1% of matches on real GoPro imagery).
+// a thin band of near-ties.
 // The caller recovers the distance as ||q||^2 - key.
 //
 // Note this is exact in fp32 for COLMAP-scale descriptors: with ||d||^2 ~ 2^18
@@ -142,7 +130,7 @@ __global__ void RowTop2Update(const float* __restrict__ sim, int n1, int tw,
 // Column-wise: best AND second-best query for each target column in the tile.
 // One block per column; block-stride rows; shared-mem reduction.
 //
-// Second-best is tracked (not just the best, as an earlier revision did) because
+// Second-best is tracked (not just the best) because
 // the cross-check has to apply the ratio test in the REVERSE direction too, not
 // merely confirm mutual-best. Both of COLMAP's own matchers behave that way:
 // its CPU path runs FindBestMatchesOneWayIndex once per direction before
@@ -183,9 +171,8 @@ __global__ void ColTop2(const float* __restrict__ sim, int n1, int tw,
   __syncthreads();
   // Standard top-2 merge: the winner's best survives, and the second is the
   // larger of (loser's best, both seconds). With the canonical comparison the
-  // result no longer depends on which thread happened to scan which rows --
-  // previously this resolved ties to the lowest threadIdx.x, i.e. the lowest
-  // r % blockDim.x rather than the lowest r.
+  // result does not depend on which thread happened to scan which rows: ties
+  // go to the lowest row index, not the lowest threadIdx.x.
   for (int off = blockDim.x / 2; off > 0; off >>= 1) {
     if (threadIdx.x < off) {
       const float ob = sb[threadIdx.x + off], os = ss[threadIdx.x + off];
@@ -215,10 +202,9 @@ __global__ void InitTop2(int n, float* best, float* second, int* idx,
   }
 }
 
-// Tier 1.1, matcher half: the per-pair `cublasCreate` (ms-scale
-// on its own) and 8 `cudaMalloc`/`cudaFree` (device-synchronizing) were most of
-// the gap between the warm kernel time and what a pair loop actually costs.
-// Everything is hoisted into one grow-only context, created on first use and
+// A per-pair `cublasCreate` and device-synchronizing `cudaMalloc`/`cudaFree`
+// would dominate the cost of a pair loop, so everything is hoisted into one
+// grow-only context, created on first use and
 // reused for every later pair. Buffers only ever grow, so a batch settles after
 // its largest pair. thread_local: one context (and one cuBLAS handle) per
 // matching worker, since cuBLAS handles are not safe to share across threads.
@@ -231,10 +217,6 @@ struct GemmMatcherContext {
   float *dColSecond = nullptr;
   float *d1Sq = nullptr, *d2Sq = nullptr;
   unsigned char *d1U8 = nullptr, *d2U8 = nullptr;
-  // Fused-path per-block column partials, sized cap2 * ceil(cap1/BM).
-  float *dColPartBest = nullptr, *dColPartSecond = nullptr;
-  int *dColPartIdx = nullptr;
-  int capPartBlocks = 0;
   int *dIdx = nullptr, *dIdx2 = nullptr, *dColIdx = nullptr;
   int cap1 = 0, cap2 = 0, capTile = 0;
 
@@ -252,7 +234,6 @@ struct GemmMatcherContext {
     Release(&dBest); Release(&dSecond); Release(&dColBest);
     Release(&dColSecond); Release(&d1Sq); Release(&d2Sq);
     Release(&d1U8); Release(&d2U8);
-    Release(&dColPartBest); Release(&dColPartSecond); Release(&dColPartIdx);
     Release(&dIdx); Release(&dIdx2); Release(&dColIdx);
     if (blas) { cublasDestroy(blas); blas = nullptr; }
   }
@@ -283,21 +264,6 @@ struct GemmMatcherContext {
       cudaMalloc(&dColSecond, (size_t)cap2 * sizeof(float));
       cudaMalloc(&dColIdx, (size_t)cap2 * sizeof(int));
     }
-    // Column partials depend on BOTH bounds, so resize when either grows.
-    const int wantBlocks =
-        (cap1 + MatchDescriptorsFusedRowBlock() - 1) /
-        MatchDescriptorsFusedRowBlock();
-    if (wantBlocks > capPartBlocks || !dColPartBest) {
-      Release(&dColPartBest); Release(&dColPartSecond);
-      Release(&dColPartIdx);
-      capPartBlocks = wantBlocks;
-    }
-    if (!dColPartBest) {
-      const size_t np = (size_t)cap2 * capPartBlocks;
-      cudaMalloc(&dColPartBest, np * sizeof(float));
-      cudaMalloc(&dColPartSecond, np * sizeof(float));
-      cudaMalloc(&dColPartIdx, np * sizeof(int));
-    }
     if (tile > capTile) { Release(&dSim); capTile = tile; }
     if (!dSim) cudaMalloc(&dSim, (size_t)cap1 * capTile * sizeof(float));
   }
@@ -317,12 +283,11 @@ GemmMatcherContext& MatcherCtx() {
 
 namespace {
 
-// Everything after the upload. Both entry points funnel through here so the
-// float and uint8 paths cannot drift in their matching semantics.
+// Everything after the upload.
 float MatchUploaded(int n1, int n2, float ratio, bool mutual,
                     std::vector<Match>& out, bool reverseRatio,
                     int distanceType, float maxDistance,
-                    float sqDescriptorNorm, bool fused) {
+                    float sqDescriptorNorm) {
   const bool angular_mode = (distanceType == kGemmDistanceAngular);
   const int TILE = 512;
   GemmMatcherContext& ctx = MatcherCtx();
@@ -343,14 +308,6 @@ float MatchUploaded(int n1, int n2, float ratio, bool mutual,
   SqNorms<<<(n1 + 255) / 256, 256>>>(d1, n1, 128, d1Sq);
   SqNorms<<<(n2 + 255) / 256, 256>>>(d2, n2, 128, d2Sq);
 
-  if (fused) {
-    // Same squared norms, same key selection, same output arrays -- only the
-    // producer differs. The similarity matrix is never materialised.
-    MatchDescriptorsFusedRaw(d1, n1, d2, n2, d1Sq, d2Sq, !angular_mode,
-                             dBest, dSecond, dIdx, dIdx2, dColBest,
-                             dColSecond, dColIdx, ctx.dColPartBest,
-                             ctx.dColPartSecond, ctx.dColPartIdx, mutual);
-  } else
   for (int off = 0; off < n2; off += TILE) {
     int tw = (n2 - off < TILE) ? (n2 - off) : TILE;
     // Row-major view: sim[q][t] = dot(D1[q], D2[off+t]).
@@ -453,7 +410,7 @@ float MatchUploaded(int n1, int n2, float ratio, bool mutual,
   }
 
   // Nothing is freed here: the context owns the buffers and the handle for the
-  // life of the thread (Tier 1.1). A batch of pairs settles on the largest pair.
+  // life of the thread. A batch of pairs settles on the largest pair.
   return ms;
 }
 
@@ -465,27 +422,11 @@ void ReserveGemmMatcher(int maxNumDescriptors) {
   }
 }
 
-float MatchDescriptorsGemm(const float* h_desc1, int n1, const float* h_desc2,
-                           int n2, float ratio, bool mutual,
-                           std::vector<Match>& out, bool reverseRatio,
-                           int distanceType, float maxDistance,
-                           float sqDescriptorNorm) {
-  GemmMatcherContext& ctx = MatcherCtx();
-  ctx.Reserve(n1, n2, 512);
-  cudaMemcpy(ctx.d1, h_desc1, (size_t)n1 * 128 * sizeof(float),
-             cudaMemcpyHostToDevice);
-  cudaMemcpy(ctx.d2, h_desc2, (size_t)n2 * 128 * sizeof(float),
-             cudaMemcpyHostToDevice);
-  return MatchUploaded(n1, n2, ratio, mutual, out, reverseRatio, distanceType,
-                       maxDistance, sqDescriptorNorm, /*fused=*/false);
-}
-
 float MatchDescriptorsGemmU8(const unsigned char* h_desc1, int n1,
                              const unsigned char* h_desc2, int n2, float ratio,
                              bool mutual, std::vector<Match>& out,
                              bool reverseRatio, int distanceType,
-                             float maxDistance, float sqDescriptorNorm,
-                             bool fused) {
+                             float maxDistance, float sqDescriptorNorm) {
   GemmMatcherContext& ctx = MatcherCtx();
   ctx.Reserve(n1, n2, 512);
   // 128 B per descriptor instead of 512 B. The widening then happens on the
@@ -495,5 +436,5 @@ float MatchDescriptorsGemmU8(const unsigned char* h_desc1, int n1,
   WidenU8<<<256, 256>>>(ctx.d1U8, n1, 128, ctx.d1);
   WidenU8<<<256, 256>>>(ctx.d2U8, n2, 128, ctx.d2);
   return MatchUploaded(n1, n2, ratio, mutual, out, reverseRatio, distanceType,
-                       maxDistance, sqDescriptorNorm, fused);
+                       maxDistance, sqDescriptorNorm);
 }
