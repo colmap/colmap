@@ -7,6 +7,10 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
+#ifdef COLMAP_CUDA_ENABLED
+#include "colmap/util/cuda.h"
+#endif
+
 #include <algorithm>
 #include <cmath>
 
@@ -15,9 +19,8 @@
 #include <string>
 #include <vector>
 
-// Deliberately no <cuda_runtime.h> and no cudautils.h here. Every CUDA type and
-// CUDA API reference stays inside colmap_cusift (see cusift_device.h), so
-// colmap_feature does not acquire a CUDA runtime dependency of its own.
+// No <cuda_runtime.h> or cudautils.h here: every CUDA type stays inside
+// colmap_cusift (see cusift_device.h); device selection is COLMAP's.
 #include "cudaImage.h"
 #include "cudaSift.h"
 #include "cusift_device.h"
@@ -34,16 +37,6 @@ constexpr int kSiftDescriptorDim = 128;
 constexpr int kCusiftOctaveResolution = 3;
 
 #ifdef COLMAP_CUDA_ENABLED
-
-// Binds the calling thread to the single GPU named by `gpu_index`
-// (cudaSetDevice is per-thread, so each extraction thread does this for
-// itself) and initializes cusift's memory pool on it.
-void BindCusiftDevice(const std::string& gpu_index) {
-  const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
-  THROW_CHECK_EQ(gpu_indices.size(), 1) << "cusift can only run on one GPU";
-  THROW_CHECK(cusift::InitDevice(gpu_indices[0]))
-      << "cusift found no usable CUDA device";
-}
 
 // Uploads a grey bitmap as the [0, 255] float image cusift's kernels take.
 // cusift scales by 1/255 in its first kernel, where COLMAP's VLFeat path
@@ -265,6 +258,18 @@ bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift) {
     return false;
   }
   return true;
+}
+
+void BindCusiftDevice(const std::string& gpu_index) {
+#ifdef COLMAP_CUDA_ENABLED
+  const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
+  THROW_CHECK_EQ(gpu_indices.size(), 1) << "cusift can only run on one GPU";
+  SetBestCudaDevice(gpu_indices[0]);
+  cusift::InitMemoryPool();
+#else
+  (void)gpu_index;
+  LOG(FATAL_THROW) << "cusift requires CUDA support";
+#endif  // COLMAP_CUDA_ENABLED
 }
 
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(

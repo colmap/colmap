@@ -47,10 +47,8 @@ COLMAP_ADD_LIBRARY(
 )
 
 if(CUDA_ENABLED)
-    # Only colmap_cusift. cusift.cc deliberately makes no CUDA API calls of its
-    # own (device selection lives behind cusift::InitDevice), so colmap_feature
-    # does not link the CUDA runtime directly.
-    target_link_libraries(colmap_feature PRIVATE colmap_cusift)
+    # colmap_util_cuda for device selection (SetBestCudaDevice).
+    target_link_libraries(colmap_feature PRIVATE colmap_cusift colmap_util_cuda)
 endif()
 
 if(GPU_ENABLED)

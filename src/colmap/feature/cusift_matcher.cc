@@ -2,6 +2,7 @@
 
 #include "colmap/feature/cusift_matcher.h"
 
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/logging.h"
@@ -55,11 +56,7 @@ class CusiftFeatureMatcher : public FeatureMatcher {
 
   static std::unique_ptr<FeatureMatcher> Create(
       const FeatureMatchingOptions& options) {
-    const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
-    THROW_CHECK_EQ(gpu_indices.size(), 1)
-        << "cusift matcher can only run on one GPU";
-    THROW_CHECK(cusift::InitDevice(gpu_indices[0]))
-        << "cusift found no usable CUDA device";
+    BindCusiftDevice(options.gpu_index);
     // Size the device buffers once, on this worker's thread, before any pair is
     // matched. FeatureMatcherWorker has already clamped max_num_matches to the
     // cache's largest keypoint count (feature_matching_utils.cc), so it is
