@@ -35,6 +35,7 @@
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/cuda.h"
 
 #include <algorithm>
 #include <functional>
@@ -130,6 +131,7 @@ TEST(CusiftExtractionOptions, TypeProperties) {
 }
 
 TEST(CusiftFeatureExtractor, Nominal) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Bitmap bitmap = CreateImageWithSquare(256);
 
   auto extractor = CreateCusiftFeatureExtractor(CreateCusiftOptions());
@@ -153,6 +155,7 @@ TEST(CusiftFeatureExtractor, Nominal) {
 }
 
 TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // The square spans 64 px, so its blob responds at a large scale that only
   // the coarser octaves reach. One octave stops well below it.
   const Bitmap bitmap = CreateImageWithSquare(256);
@@ -172,6 +175,7 @@ TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
 }
 
 TEST(CusiftFeatureExtractor, ExtractWithoutDescriptors) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Bitmap bitmap = CreateImageWithSquare(256);
   auto extractor = CreateCusiftFeatureExtractor(CreateCusiftOptions());
   FeatureKeypoints keypoints;
@@ -226,6 +230,7 @@ FeatureExtractionOptions CreateVLFeatOptions() {
 }
 
 TEST(CusiftFeatureExtractor, MatchesVLFeatAtVLFeatDefaults) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // VLFeat untouched (num_octaves 4 by default); cusift is told the same count
   // through its override, so the comparison runs at VLFeat's own settings.
   const FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
@@ -235,6 +240,7 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatAtVLFeatDefaults) {
 }
 
 TEST(CusiftFeatureExtractor, MatchesVLFeatWithAutoOctaves) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // cusift at its default (SiftGPU's automatic octave count); VLFeat is given
   // the same count so both build the same pyramid.
   FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
@@ -248,6 +254,7 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatWithAutoOctaves) {
 // tagging them FeatureExtractorType::SIFT buys, and it is the property that
 // makes cusift a SiftGPU replacement rather than a separate feature type.
 TEST(CusiftFeatureExtractor, DescriptorsMatchableBySiftMatcher) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Bitmap bitmap = CreateImageWithSquare(256);
   auto keypoints = std::make_shared<FeatureKeypoints>();
   auto descriptors = std::make_shared<FeatureDescriptors>();
@@ -322,6 +329,7 @@ void ExpectGpuExtractorParity(FeatureExtractorType type) {
 }
 
 TEST(GpuExtractorParityCusift, ExtractFeatures) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   ExpectGpuExtractorParity(FeatureExtractorType::CUSIFT);
 }
 
@@ -329,6 +337,7 @@ TEST(GpuExtractorParityCusift, ExtractFeatures) {
 // of cusift -- see the note above before treating a failure here as a
 // regression in this fork.
 TEST(GpuExtractorParitySiftGpu, ExtractFeatures) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   ExpectGpuExtractorParity(FeatureExtractorType::SIFT);
 }
 

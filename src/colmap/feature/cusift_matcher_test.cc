@@ -34,6 +34,7 @@
 #include "colmap/feature/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/cuda.h"
 
 #include <algorithm>
 #include <numeric>
@@ -119,6 +120,7 @@ TEST(CusiftMatchingOptions, ReverseRatioDefaultsOnForParity) {
 class CusiftCrossCheckModeTest : public ::testing::TestWithParam<bool> {};
 
 TEST_P(CusiftCrossCheckModeTest, SelfMatchIdentity) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   options.cusift->cross_check_reverse_ratio = GetParam();
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
@@ -147,6 +149,7 @@ TEST_P(CusiftCrossCheckModeTest, SelfMatchIdentity) {
 }
 
 TEST_P(CusiftCrossCheckModeTest, EmptyAndReversedInputs) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   options.cusift->cross_check_reverse_ratio = GetParam();
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
@@ -205,6 +208,7 @@ TEST(CusiftFeatureMatcher, RejectsGuidedMatching) {
 }
 
 TEST(CusiftFeatureMatcher, Nominal) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
 
@@ -247,6 +251,7 @@ TEST(CusiftFeatureMatcher, Nominal) {
 }
 
 TEST(CusiftFeatureMatcher, TypeMismatch) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
 
@@ -278,6 +283,7 @@ TEST(CusiftFeatureMatcher, TypeMismatch) {
 // vacuously when the two modes agree, so it is not sufficient on its own --
 // but tests are additive: a weak invariant is still an invariant.
 TEST(CusiftFeatureMatcher, ReverseRatioIsStricter) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // The defining behavioural difference: the bidirectional ratio test can only
   // ever remove matches that mutual-best-only would keep, never add any. On
   // synthetic near-orthogonal descriptors the two usually agree, so this
@@ -323,6 +329,7 @@ TEST(CusiftFeatureMatcher, ReverseRatioIsStricter) {
 }
 
 TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // Two descriptors with disjoint support sets (no shared dims) are far
   // apart in unit-vector L2 space (distance close to sqrt(2) ~= 1.414 for
   // orthogonal unit vectors); two copies of the *same* descriptor are at
@@ -359,6 +366,7 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
 }
 
 TEST(CusiftFeatureMatcher, MaxNumMatchesTruncatesByIndexOrder) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   constexpr size_t kNumFeatures = 20;
   constexpr int kMaxNumMatches = 5;
 
@@ -446,6 +454,7 @@ std::set<std::pair<point2D_t, point2D_t>> MatchToSet(
 }
 
 TEST(CusiftFeatureMatcher, ReverseRatioRejectsAmbiguousReverseDirection) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // THE case the old subset-only assertion could not see. Two near-duplicate
   // descriptors in image1 and one descriptor in image2 close to both:
   //   forward  - each image1 row has a single candidate, so no runner-up exists
@@ -517,6 +526,7 @@ TEST(CusiftFeatureMatcher, ReverseRatioRejectsAmbiguousReverseDirection) {
 // column's own best == second, which its ratio test would reject, removing the
 // very match this test needs to observe.
 TEST(CusiftFeatureMatcher, ColumnTieBreakPrefersLowerRowIndex) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   constexpr int kN1 = 320;       // > 300 so row 300 exists
   constexpr int kTieLow = 45;    // -> thread 45
   constexpr int kTieHigh = 300;  // -> thread 44, so the OLD rule would win here
@@ -563,6 +573,7 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakPrefersLowerRowIndex) {
 // Same tie, opposite key space: the key changes the compared VALUE but must not
 // change the tie rule.
 TEST(CusiftFeatureMatcher, ColumnTieBreakIsKeyModeIndependent) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   constexpr int kN1 = 320;
   constexpr int kTieLow = 45;
   constexpr int kTieHigh = 300;
@@ -607,6 +618,7 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakIsKeyModeIndependent) {
 // Bit-exactness is the ideal property to fuzz: the assertion is equality, with
 // no tolerance to tune.
 TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
 
@@ -664,6 +676,7 @@ TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
 // test inflated spurious matches 2.8x on non-overlapping real imagery while
 // every unit test still passed.
 TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
   // Independently generated sets: nothing should legitimately correspond.
@@ -696,6 +709,7 @@ TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
 // it does not. Same boundary-test discipline as MaxDistanceFiltersCorrectly,
 // applied to the ratio/cross-check semantics rather than only to max_distance.
 TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
 
@@ -737,6 +751,7 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
 }
 
 TEST(CusiftMatcherParity, MatchAgreementSmokeCheck) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // Lightweight smoke check on a small synthetic set. Match-set agreement on
   // real images is measured outside the unit tests (see
   // src/thirdparty/cusift/README.md): per-pair Jaccard is noisy on small match

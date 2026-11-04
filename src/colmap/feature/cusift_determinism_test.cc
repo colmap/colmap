@@ -14,6 +14,7 @@
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/sensor/bitmap.h"
+#include "colmap/util/cuda.h"
 
 #include <algorithm>
 #include <memory>
@@ -117,6 +118,7 @@ FeatureMatches Match(FeatureMatcher& matcher,
 #if defined(COLMAP_CUDA_ENABLED)
 
 TEST(CusiftDeterminism, ExtractionWithFreshExtractors) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Bitmap bitmap = CreateTexturedImage(640, 480);
 
   auto reference_extractor =
@@ -136,6 +138,7 @@ TEST(CusiftDeterminism, ExtractionWithFreshExtractors) {
 }
 
 TEST(CusiftDeterminism, ExtractionWithReusedExtractor) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // cusift keeps grow-only device and pinned host buffers across calls.
   // Interleaving a different, larger image checks that no state from one call
   // leaks into the next.
@@ -157,6 +160,7 @@ TEST(CusiftDeterminism, ExtractionWithReusedExtractor) {
 class CusiftMatchingDeterminism : public ::testing::Test {
  protected:
   void SetUp() override {
+    if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
     auto extractor = CreateCusiftFeatureExtractor(CreateCusiftOptions());
     ASSERT_NE(extractor, nullptr);
     features1_ = Extract(*extractor, CreateTexturedImage(640, 480));

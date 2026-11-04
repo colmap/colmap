@@ -5,6 +5,7 @@
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -100,6 +101,7 @@ TEST(AutomaticReconstructionController, CusiftSetupNeedsNoGpu) {
 
 #if defined(COLMAP_CUDA_ENABLED)
 TEST(AutomaticReconstructionController, CusiftHighQuality) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // The high quality preset enables covariant SIFT and guided matching, which
   // cusift rejects; the controller must turn them off for cusift, so this
   // reconstructs instead of throwing.
