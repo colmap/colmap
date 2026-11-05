@@ -16,7 +16,7 @@
 //   descriptor:  reads x, y, sigma, ori, level -> writes 128 floats, rescales x/y/sigma
 struct VLFeatKp {
   float x, y, sigma, ori;  // ori in RADIANS (the kernel's own convention)
-  int level;               // gradient-plane index, = is - s_min
+  int level;               // gradient-plane index, = is
 };
 
 struct VLFeatOri {         // orientation-kernel output

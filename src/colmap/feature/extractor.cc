@@ -128,10 +128,7 @@ bool FeatureExtractionOptions::Check() const {
                     "needs CUDA >= 11.2).";
       return false;
 #endif
-      // cusift has no CPU implementation, so this is a hard requirement rather
-      // than a fallback. Checked here so the failure is reported as a bad
-      // option rather than surfacing later as an unknown-extractor error in
-      // the CPU branch of the extraction controller.
+      // No CPU implementation to fall back to.
       if (!use_gpu) {
         LOG(ERROR) << "cusift feature extraction requires GPU. Consider "
                       "setting the feature extractor type to SIFT.";

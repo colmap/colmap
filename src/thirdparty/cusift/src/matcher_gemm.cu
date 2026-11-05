@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
 
-// matcher_gemm.cu — GEMM-class matcher (SiftMatchGPU speed class).
+// matcher_gemm.cu — brute-force matcher built on one cuBLAS SGEMM per tile.
 //
 // sim = D1 (n1x128) * D2^T (128xn2) via cuBLAS SGEMM, tiled over n2 to bound
 // memory. After each tile, two lightweight kernels update running
 // best/second-best per query row (for matching) and best per target column
 // (for the mutual cross-check). The tile reductions dominate the cost, not the
 // GEMM.
-#include "matcher.h"
+#include "matcher_gemm.h"
 
 
 #include <cublas_v2.h>
@@ -127,7 +127,7 @@ __global__ void RowTop2Update(const float* __restrict__ sim, int n1, int tw,
     for (int t = 0; t < tw; t++) {
       // colSqNorm == nullptr selects raw-inner-product ranking, which is what
       // COLMAP's exact brute-force reference and SiftGPU both do. Non-null
-      // selects distance ranking (COLMAP's faiss/index path). See matcher.h.
+      // selects distance ranking (COLMAP's faiss/index path). See matcher_gemm.h.
       const float v = colSqNorm ? (2.0f * row[t] - colSqNorm[tileOff + t])
                                 : row[t];
       const int t_glob = tileOff + t;
@@ -156,7 +156,7 @@ __global__ void RowTop2Update(const float* __restrict__ sim, int n1, int tw,
 //
 // The reduction below is an independent implementation -- a standard top-2
 // merge -- written from the behavioural requirement, not ported from either
-// reference. See the LICENSING note in matcher.h.
+// reference.
 //
 // Each column lives in exactly one tile, so a column's top-2 is complete within
 // its own tile -- no cross-tile merge is needed here (unlike the row direction).
@@ -233,6 +233,7 @@ struct GemmMatcherContext {
   unsigned char *d1U8 = nullptr, *d2U8 = nullptr;
   int *dIdx = nullptr, *dIdx2 = nullptr, *dColIdx = nullptr;
   int cap1 = 0, cap2 = 0, capTile = 0;
+  int device = -1;  // where the handle and buffers live
 
   GemmMatcherContext() = default;
   GemmMatcherContext(const GemmMatcherContext&) = delete;
@@ -243,13 +244,16 @@ struct GemmMatcherContext {
   // handle and the device buffers. Errors are ignored: at process exit the
   // CUDA runtime may already be shutting down, and there is nothing to do
   // about a failed free at that point.
-  ~GemmMatcherContext() {
+  ~GemmMatcherContext() { ReleaseAll(); }
+
+  void ReleaseAll() {
     Release(&d1); Release(&d2); Release(&dSim);
     Release(&dBest); Release(&dSecond); Release(&dColBest);
     Release(&dColSecond); Release(&d1Sq); Release(&d2Sq);
     Release(&d1U8); Release(&d2U8);
     Release(&dIdx); Release(&dIdx2); Release(&dColIdx);
     if (blas) { cublasDestroy(blas); blas = nullptr; }
+    cap1 = cap2 = capTile = 0;
   }
 
   void Reserve(int n1, int n2, int tile) {
@@ -293,8 +297,18 @@ struct GemmMatcherContext {
   }
 };
 
+// The calling thread's context, on its current device: a context left on
+// another device by an earlier matcher on this thread is released there.
 GemmMatcherContext& MatcherCtx() {
   static thread_local GemmMatcherContext ctx;
+  const int device = cusiftCurrentDevice();
+  if (ctx.device != device) {
+    if (ctx.device >= 0) {
+      ScopedCudaDevice previous(ctx.device);
+      ctx.ReleaseAll();
+    }
+    ctx.device = device;
+  }
   return ctx;
 }
 

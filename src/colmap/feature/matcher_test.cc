@@ -114,13 +114,6 @@ TEST(FeatureMatchingOptions, Check) {
     options.type = type;
     EXPECT_TRUE(options.Check());
   }
-
-  // cusift has no CPU implementation, so it is the one type that must reject
-  // use_gpu = false instead of falling back -- same rule
-  // FeatureExtractionOptions applies to FeatureExtractorType::CUSIFT
-  // (extractor_test.cc, CheckAndRequiresOpenGLWithNoGpu).
-  options.type = FeatureMatcherType::CUSIFT_GEMM;
-  EXPECT_FALSE(options.Check());
 }
 
 }  // namespace

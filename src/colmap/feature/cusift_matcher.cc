@@ -12,34 +12,20 @@
 #include <cmath>
 
 #ifdef COLMAP_CUSIFT_ENABLED
-// Deliberately no <cuda_runtime.h> and no cudautils.h here, same rule as
-// cusift.cc: every CUDA type and API reference stays inside colmap_cusift
-// (see cusift_device.h), so colmap_feature acquires no CUDA runtime
-// dependency of its own.
+// No CUDA headers: colmap_feature takes no CUDA runtime dependency.
 #include "cusift_device.h"
-// Angle brackets deliberately: this directory (src/colmap/feature/) also has
-// its own matcher.h (colmap's FeatureMatcher interface), and a quoted include
-// would resolve to that one first (quoted-include lookup checks the
-// including file's own directory before the include path) rather than the
-// vendored src/thirdparty/cusift/src/matcher.h.
-#include <matcher.h>  // vendored: ::Match{i,j,dist2}, ::MatchDescriptorsGemmU8
-#endif                // COLMAP_CUSIFT_ENABLED
+#include "matcher_gemm.h"
+#endif  // COLMAP_CUSIFT_ENABLED
 
 namespace colmap {
 namespace {
 
 #ifdef COLMAP_CUSIFT_ENABLED
 
-// No host-side descriptor conversion at all: COLMAP stores SIFT descriptors as
-// row-major uint8, which is exactly what MatchDescriptorsGemmU8 uploads. That
-// keeps the transfer at 128 B/descriptor and moves the widening onto the
-// device.
-//
-// Deliberately NOT L2-normalized. COLMAP's reference matcher ranks candidates
-// on the RAW inner product and converts with a FIXED 512^2 constant rather than
-// per-row norms (sift.cc, FindBestMatchesOneWayBruteForce); SiftGPU does the
-// same. Normalizing per row would re-rank near-ties and lose bit-exactness
-// with that reference.
+// Uploads COLMAP's row-major uint8 descriptors as they are, without per-row
+// normalization: the reference (FindBestMatchesOneWayBruteForce) ranks on the
+// raw inner product with a fixed 512^2 norm, and normalizing would re-rank
+// near-ties.
 
 class CusiftFeatureMatcher : public FeatureMatcher {
  public:
@@ -53,12 +39,9 @@ class CusiftFeatureMatcher : public FeatureMatcher {
   static std::unique_ptr<FeatureMatcher> Create(
       const FeatureMatchingOptions& options) {
     BindCusiftDevice(options.gpu_index);
-    // Size the device buffers once, on this worker's thread, before any pair is
-    // matched. FeatureMatcherWorker has already clamped max_num_matches to the
-    // cache's largest keypoint count (feature_matching_utils.cc), so it is
-    // exactly the per-side upper bound. Without this the buffers grow on demand
-    // and each growth calls cudaFree, which synchronises the whole device and
-    // stalls whatever else COLMAP has queued.
+    // Size the device buffers once: the worker has clamped max_num_matches to
+    // the largest keypoint count (feature_matching_utils.cc), and growing them
+    // later calls cudaFree, which synchronises the whole device.
     ReserveGemmMatcher(options.max_num_matches);
     return std::make_unique<CusiftFeatureMatcher>(options);
   }
@@ -103,11 +86,8 @@ class CusiftFeatureMatcher : public FeatureMatcher {
         static_cast<float>(options_.sift->max_distance),
         static_cast<float>(kSqSiftDescriptorNorm));
 
-    // max_num_matches post-filter: replicate SiftMatchGPU's cap-binds rule
-    // (SiftMatchCU::GetBestMatch) -- ascending image1-index order, first-N
-    // survive, NOT a score-sorted top-K. MatchDescriptorsGemm's row loop
-    // already produces raw_matches in ascending `i` order (matcher_gemm.cu),
-    // so this is a straight truncation, not a re-sort.
+    // Keep the first max_num_matches in image1 order, as SiftGPU does
+    // (SiftMatchCU::GetBestMatch); raw_matches is already in that order.
     if (raw_matches.size() > static_cast<size_t>(options_.max_num_matches)) {
       raw_matches.resize(static_cast<size_t>(options_.max_num_matches));
     }

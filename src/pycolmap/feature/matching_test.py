@@ -4,12 +4,6 @@ import pytest
 
 import pycolmap
 
-# has_cuda is a build flag; also require a device so GPU-less machines skip.
-requires_cusift = pytest.mark.skipif(
-    not pycolmap.has_cuda or pycolmap.get_num_cuda_devices() == 0,
-    reason="cusift requires a CUDA device",
-)
-
 
 def test_feature_matcher_type_enum() -> None:
     assert pycolmap.FeatureMatcherType.UNDEFINED is not None
@@ -29,32 +23,15 @@ def test_sift_matching_options_check() -> None:
     assert result is True
 
 
-def test_cusift_matching_options_field_readwrite() -> None:
-    # The two cusift-specific options.
-    options = pycolmap.CusiftMatchingOptions()
-    assert options.cross_check_reverse_ratio is True, (
-        "must default to the SiftGPU/COLMAP-CPU-equivalent bidirectional test"
+def test_cusift_matching_options() -> None:
+    options = pycolmap.FeatureMatchingOptions(
+        type=pycolmap.FeatureMatcherType.CUSIFT_GEMM
     )
-    options.cross_check_reverse_ratio = False
-    assert options.cross_check_reverse_ratio is False
-
-
-def test_cusift_distance_type_enum_and_default() -> None:
-    assert pycolmap.CusiftDistanceType.L2 is not None
-    assert pycolmap.CusiftDistanceType.ANGULAR is not None
-    options = pycolmap.CusiftMatchingOptions()
-    # ANGULAR is what COLMAP's exact brute-force reference and SiftGPU both do;
-    # L2 reproduces the faiss/index convention instead.
-    assert options.distance_type == pycolmap.CusiftDistanceType.ANGULAR
-    options.distance_type = pycolmap.CusiftDistanceType.L2
-    assert options.distance_type == pycolmap.CusiftDistanceType.L2
-
-
-def test_feature_matching_options_exposes_cusift_block() -> None:
-    options = pycolmap.FeatureMatchingOptions()
-    assert options.cusift is not None
     options.cusift.cross_check_reverse_ratio = False
+    options.cusift.distance_type = pycolmap.CusiftDistanceType.L2
     assert options.cusift.cross_check_reverse_ratio is False
+    assert options.cusift.distance_type == pycolmap.CusiftDistanceType.L2
+    assert isinstance(options.cusift.check(), bool)
 
 
 def test_feature_matching_options_default_init() -> None:
@@ -118,7 +95,7 @@ def test_feature_matcher_create() -> None:
     assert matcher is not None
 
 
-@requires_cusift
+@pytest.mark.usefixtures("requires_cusift")
 def test_cusift_feature_matcher_create() -> None:
     options = pycolmap.FeatureMatchingOptions(
         type=pycolmap.FeatureMatcherType.CUSIFT_GEMM

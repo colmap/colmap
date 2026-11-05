@@ -61,9 +61,8 @@
 
 // Pure 2x decimation (no anti-alias blur) -- matches VLFeat's
 // copy_and_downsample exactly (sift.c:836-851): dst(y,x) = src(2y,2x).
-// NOT the same as cusift's own ScaleDown, which bakes in a 5-tap Gaussian
-// blur; VLFeat's octave transition assumes a blur-free decimation because
-// the correct blur is already accounted for by the per-level sigma schedule.
+// VLFeat's octave transition assumes a blur-free decimation because the
+// correct blur is already accounted for by the per-level sigma schedule.
 __global__ void PureDecimate2xKernel(float *d_Result, float *d_Data,
                                      int dstWidth, int dstPitch, int dstHeight,
                                      int srcPitch)
@@ -82,13 +81,6 @@ __global__ void PureDecimate2xKernel(float *d_Result, float *d_Data,
 // Runs on the device (RefineKeypointsKernel below), straight out of the
 // pitched DoG buffer. `yo`/`so` are explicit row/plane strides (yo=pitch,
 // so=height*pitch).
-//
-// nv_fmad off is defensive: nvcc may contract a*b+c into a fused FMA, which
-// rounds differently from VLFeat's separate multiply and add, and every
-// accept/reject decision below is a threshold comparison on the result of this
-// arithmetic. Scoped to this function; the fp32 kernels' fast-math/FMA behavior
-// is untouched (and --use_fast_math does not affect fp64 anyway).
-#pragma nv_fmad off
 __device__ static bool RefineOneKeypoint(const float *dog,
                               int width, int height, int yo, int so,
                               int nDogLevels, int s_min, int s_max,
@@ -173,8 +165,6 @@ __device__ static bool RefineOneKeypoint(const float *dog,
   return true;
 }
 
-#pragma nv_fmad on
-
 // One thread per coarse candidate. Accepted keypoints are appended with an
 // atomic counter, so only the survivors cross PCIe. The append order is
 // nondeterministic; DetectOctaveVLFeat sorts each octave's keypoints afterwards
@@ -197,14 +187,9 @@ __global__ void RefineKeypointsKernel(const float *dog, int width, int height,
 }
 
 // Adaptive-radius separable Gaussian blur -- VLFeat truncates its smoothing
-// kernels at radius=ceil(4*sigma) (not cusift's own LowPass, which hardcodes
-// LOWPASS_R=4 regardless of sigma -- confirmed by direct inspection to
-// under-blur essentially every level the VLFeat schedule needs: e.g. the
-// octave-0 pre-blur alone needs sigma~1.5, i.e. radius~6-7, and the largest
-// per-level increment needs sigma~3+, i.e. radius~13+, both far beyond the
-// fixed radius-4 support LowPass provides). Both passes take EXPLICIT
-// separate src/dst pitches -- no same-pitch assumption between independently
-// allocated buffers.
+// kernels at radius=ceil(4*sigma), so the radius follows sigma (up to ~13 for
+// the largest per-level increment). Both passes take EXPLICIT separate src/dst
+// pitches -- no same-pitch assumption between independently allocated buffers.
 // The sigma schedule is image-independent and only
 // ~8 distinct sigmas ever occur (two base blurs + the per-level increments,
 // which repeat identically in every octave), so weights live in a BANK of
@@ -347,25 +332,6 @@ __device__ float vl_fast_atan2_f_cuda(float y, float x)
   }
   angle += (c3*r*r - c1) * r;
   return (y < 0.0f) ? -angle : angle;
-}
-
-// Debug-build guard: the gradient planes that are deliberately not
-// computed (level indices outside 1..numScales) are filled with SIGNALING NaN
-// instead of being left as whatever the allocator handed back. Garbage fails
-// quietly -- if a future consumer breaks the `is - s_min` invariant (someone
-// widens the level range) it would read plausible-looking floats and produce subtly
-// wrong descriptors. NaN propagates through the orientation histogram and the
-// descriptor normalization, so the accuracy tests fail immediately and visibly
-// instead. The GPU does not raise FP exceptions on signaling NaN.
-//
-// Debug builds only (guarded by NDEBUG at the call site), so release builds keep
-// the bandwidth that skipping those planes saves.
-__global__ void FillPlaneKernel(float *d_Data, int width, int pitch, int height, float value)
-{
-  int x = blockIdx.x*blockDim.x + threadIdx.x;
-  int y = blockIdx.y*blockDim.y + threadIdx.y;
-  if (x>=width || y>=height) return;
-  d_Data[y*pitch+x] = value;
 }
 
 // Gradient magnitude and angle go to two separate planes. An interleaved float2
@@ -631,7 +597,7 @@ __global__ void ExtractSiftDescriptorsVLFeat(
     }
     __syncthreads();
 
-    // Normalize: L2 -> clamp(0.2) -> L2 (same scheme as cusift's existing kernel).
+    // Normalize: L2 -> clamp(0.2) -> L2, as VLFeat does.
     float val = (tid < 128) ? HistFromFixed(buffer[tid]) : 0.0f;
     partial[tid] = (tid < 128) ? val*val : 0.0f;
     __syncthreads();
@@ -678,14 +644,10 @@ __global__ void ComputeDogPlaneKernel(const float *d_GaussA, const float *d_Gaus
 // s-plane-index in [1, nDogLevels-2]) -- same border margin as VLFeat.
 // Candidates are appended (ix, iy, s) to a flat output buffer via an atomic
 // counter; s here is the TRUE VLFeat level value (dogPlaneIdx - 1, since
-// s_min=-1 and dogPlaneIdx = s - s_min). Refinement (iterative Newton,
-// relocation, edge test) is intentionally NOT done on the GPU -- it has a
-// small, highly data-dependent iteration count and can relocate to a
-// neighboring pixel, which is a poor fit for a parallel kernel; VLFeat
-// itself runs this step serially on the CPU. Candidates are cheap (typically
-// a few thousand per octave with peak_thresh=0), so the coarse scan (the
-// only genuinely parallel-friendly part) runs on the GPU and refinement runs
-// on the host in cudaSiftH.cu's DetectKeypointsVLFeat.
+// s_min=-1 and dogPlaneIdx = s - s_min). Refinement (Newton, relocation,
+// edge test) runs afterwards in RefineKeypointsKernel, one thread per
+// candidate. Every extremum is counted, even past maxCandidates, so the
+// caller can detect an overflow and rescan.
 __global__ void FindDogExtremaKernel(const float *d_Dog, int width, int pitch, int height,
                                      int nDogLevels, float peakThresh,
                                      int *d_CandX, int *d_CandY, int *d_CandS,

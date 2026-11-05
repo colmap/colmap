@@ -13,14 +13,6 @@ import sys
 
 import pytest
 
-import pycolmap
-
-# has_cuda is a build flag; also require a device so GPU-less machines skip.
-requires_cusift = pytest.mark.skipif(
-    not pycolmap.has_cuda or pycolmap.get_num_cuda_devices() == 0,
-    reason="cusift requires a CUDA device",
-)
-
 NUM_PROCESSES = 4
 
 # Runs in a fresh interpreter. Extracts features from a fixed synthetic image
@@ -68,7 +60,7 @@ def _run_in_fresh_process() -> str:
     return result.stdout.strip().splitlines()[-1]
 
 
-@requires_cusift
+@pytest.mark.usefixtures("requires_cusift")
 def test_cusift_extraction_identical_across_processes() -> None:
     outputs = [_run_in_fresh_process() for _ in range(NUM_PROCESSES)]
     num_keypoints = int(outputs[0].split()[0])

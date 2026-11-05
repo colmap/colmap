@@ -131,18 +131,30 @@ FeatureDescriptors CreateRandomDescriptors(const int num_features) {
 
 TEST(CusiftMemory, ExtractorThreadReleasesScratchMemory) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // Measure on the device the work runs on (both pick it with gpu_index -1).
+  BindCusiftDevice("-1");
   // A noise image yields thousands of keypoints, so the per-thread keypoint
   // and descriptor scratch is several MiB of pool memory.
   const Bitmap bitmap = CreateNoiseImage(2048, 2048);
   const FeatureExtractionOptions options = CreateLargeExtractionOptions();
 
+  // Positive control: the scratch the test expects back is in the pool.
+  int64_t min_used_while_alive = INT64_MAX;
   const int64_t growth = MedianGrowthPerThread(
-      [&]() { ExtractOnce(options, bitmap); }, CusiftPoolUsedBytes);
+      [&]() {
+        ExtractOnce(options, bitmap);
+        min_used_while_alive =
+            std::min(min_used_while_alive, CusiftPoolUsedBytes());
+      },
+      CusiftPoolUsedBytes);
+  EXPECT_GT(min_used_while_alive, kMiB);
   EXPECT_LT(growth, kMiB);
 }
 
 TEST(CusiftMemoryPool, LeavesTheDefaultPoolUntouched) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // Measure on the device the work runs on (both pick it with gpu_index -1).
+  BindCusiftDevice("-1");
   const Bitmap bitmap = CreateNoiseImage(2048, 2048);
   RunOnFreshThread([&]() {
     // Binds this thread to the GPU, so DefaultPool() names the pool cusift
@@ -170,6 +182,8 @@ TEST(CusiftMemoryPool, LeavesTheDefaultPoolUntouched) {
 
 TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // Measure on the device the work runs on (both pick it with gpu_index -1).
+  BindCusiftDevice("-1");
   const Bitmap bitmap = CreateNoiseImage(2048, 2048);
   int64_t reserved_while_alive = 0;
   int64_t reserved_after = 0;
@@ -196,6 +210,8 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
 
 TEST(CusiftMemory, MatcherThreadReleasesDeviceMemory) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // Measure on the device the work runs on (both pick it with gpu_index -1).
+  BindCusiftDevice("-1");
   // 8,192 descriptors per side: the similarity tile and the per-side buffers
   // come to well over 64 MiB of device memory per matcher thread.
   constexpr int kNumFeatures = 8192;

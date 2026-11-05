@@ -91,6 +91,51 @@ inline cudaError_t cusiftMallocPitch(float **ptr, int *pitchFloats, int width, i
 
 inline cudaError_t cusiftFree(void *ptr) { return cudaFreeAsync(ptr, 0); }
 
+// The calling thread's current device.
+inline int cusiftCurrentDevice() {
+  int device = 0;
+  safeCall(cudaGetDevice(&device));
+  return device;
+}
+
+// Makes `device` current for the lifetime of the object, then restores the
+// previous one. For freeing a per-thread holder's buffers on the device they
+// were allocated on after the thread has moved to another.
+class ScopedCudaDevice {
+ public:
+  explicit ScopedCudaDevice(int device) : previous_(cusiftCurrentDevice()) {
+    safeCall(cudaSetDevice(device));
+  }
+  ~ScopedCudaDevice() { cudaSetDevice(previous_); }
+  ScopedCudaDevice(const ScopedCudaDevice &) = delete;
+  ScopedCudaDevice &operator=(const ScopedCudaDevice &) = delete;
+
+ private:
+  const int previous_;
+};
+
+// Owns one allocation from cusift's pool, so a throw between allocation and
+// use cannot leak it.
+template <typename T>
+class PoolBuffer {
+ public:
+  PoolBuffer() = default;
+  PoolBuffer(const PoolBuffer &) = delete;
+  PoolBuffer &operator=(const PoolBuffer &) = delete;
+  ~PoolBuffer() { if (ptr_) cusiftFree(ptr_); }
+  // Replaces the allocation with one of `count` elements.
+  void Reset(size_t count) {
+    T *const old = ptr_;
+    ptr_ = nullptr;
+    if (old) safeCall(cusiftFree(old));
+    safeCall(cusiftMallocAsync(&ptr_, count * sizeof(T)));
+  }
+  T *get() const { return ptr_; }
+
+ private:
+  T *ptr_ = nullptr;
+};
+
 
 class TimerGPU {
 public:

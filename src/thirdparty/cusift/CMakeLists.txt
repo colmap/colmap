@@ -1,5 +1,5 @@
 # cusift: CUDA SIFT extractor (cudaImage/cudaSift*) and GEMM matcher
-# (matcher.h/matcher_gemm.cu), used by FeatureExtractorType::CUSIFT and
+# (matcher_gemm.{h,cu}), used by FeatureExtractorType::CUSIFT and
 # FeatureMatcherType::CUSIFT_GEMM. MIT plus third-party notices; see LICENSE.
 
 # Note: cudaSiftD.cu is deliberately NOT a source file. cudaSiftH.cu #includes
@@ -14,7 +14,7 @@ COLMAP_ADD_LIBRARY(
         src/cudaSiftH.cu
         src/cudautils.h
         src/cusift_device.h src/cusift_device.cu
-        src/matcher.h src/matcher_gemm.cu
+        src/matcher_gemm.h src/matcher_gemm.cu
     PRIVATE_LINK_LIBS
         CUDA::cudart
         CUDA::cublas
@@ -30,8 +30,6 @@ target_include_directories(colmap_cusift PUBLIC
 # choice: vl_fast_atan2_f/vl_fast_sqrt_f are replicated in CUDA and every
 # VLFeat-parity measurement was made under it. Dropping it
 # measurably *reduces* parity with COLMAP's own VLFeat backend.
-# Never substitute a global -fmad=false; cudaSiftD.cu scopes FMA contraction off
-# for RefineOneKeypoint alone via `#pragma nv_fmad off`.
 target_compile_options(colmap_cusift PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math>
     # Matches the blanket -w/W0 this directory applies to thirdparty C/C++.
