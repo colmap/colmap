@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <random>
 #include <string>
 
 #include <gmock/gmock.h>
@@ -27,6 +28,28 @@ Bitmap CreateImageWithSquare(const int size) {
   for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
     for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
       bitmap.SetPixel(r, c, BitmapColor<uint8_t>(255));
+    }
+  }
+  return bitmap;
+}
+
+Bitmap CreateTexturedImage(const int width, const int height) {
+  Bitmap bitmap(width, height, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(40));
+  std::mt19937 rng(42);
+  std::uniform_int_distribution<int> pos_x(0, width - 1);
+  std::uniform_int_distribution<int> pos_y(0, height - 1);
+  std::uniform_int_distribution<int> side(4, 28);
+  std::uniform_int_distribution<int> value(70, 255);
+  for (int k = 0; k < 150; ++k) {
+    const int x0 = pos_x(rng);
+    const int y0 = pos_y(rng);
+    const int s = side(rng);
+    const BitmapColor<uint8_t> color(static_cast<uint8_t>(value(rng)));
+    for (int y = y0; y < std::min(y0 + s, height); ++y) {
+      for (int x = x0; x < std::min(x0 + s, width); ++x) {
+        bitmap.SetPixel(x, y, color);
+      }
     }
   }
   return bitmap;
@@ -218,7 +241,7 @@ TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
 // both build the same pyramid.
 void ExpectMatchesVLFeat(const FeatureExtractionOptions& cusift_options,
                          const FeatureExtractionOptions& vlfeat_options) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
+  const Bitmap bitmap = CreateTexturedImage(256, 256);
 
   FeatureKeypoints cusift_keypoints;
   FeatureDescriptors cusift_descriptors;
@@ -238,20 +261,45 @@ void ExpectMatchesVLFeat(const FeatureExtractionOptions& cusift_options,
               static_cast<double>(vlfeat_keypoints.size()),
               0.02 * vlfeat_keypoints.size() + 1);
 
+  ASSERT_GE(vlfeat_keypoints.size(), 100);
+
   // Every cusift keypoint should have a VLFeat keypoint within a pixel, at the
-  // same scale and orientation. A failure here means a convention drifted: the
-  // +0.5 pixel origin, the orientation sign, or the descriptor layout.
-  size_t num_colocated = 0;
-  for (const FeatureKeypoint& ours : cusift_keypoints) {
-    for (const FeatureKeypoint& ref : vlfeat_keypoints) {
-      if (std::abs(ours.x - ref.x) < 1.0f && std::abs(ours.y - ref.y) < 1.0f &&
-          std::abs(ours.ComputeScale() - ref.ComputeScale()) < 0.1f) {
-        ++num_colocated;
-        break;
+  // same scale, with the same orientation and descriptor. Positions can carry
+  // several orientations, so pair with the closest orientation. A failure
+  // means a convention drifted: the +0.5 pixel origin, the orientation sign,
+  // or the descriptor layout. Measured agreement is far tighter (98th
+  // percentile: 2e-4 rad, 0.003 descriptor distance).
+  size_t num_agreeing = 0;
+  for (size_t i = 0; i < cusift_keypoints.size(); ++i) {
+    const FeatureKeypoint& ours = cusift_keypoints[i];
+    double best_orientation_error = M_PI;
+    size_t best_j = vlfeat_keypoints.size();
+    for (size_t j = 0; j < vlfeat_keypoints.size(); ++j) {
+      const FeatureKeypoint& ref = vlfeat_keypoints[j];
+      if (std::abs(ours.x - ref.x) >= 1.0f ||
+          std::abs(ours.y - ref.y) >= 1.0f ||
+          std::abs(ours.ComputeScale() - ref.ComputeScale()) >= 0.1f) {
+        continue;
+      }
+      const double diff =
+          std::abs(ours.ComputeOrientation() - ref.ComputeOrientation());
+      const double error = std::min(diff, 2 * M_PI - diff);
+      if (error < best_orientation_error) {
+        best_orientation_error = error;
+        best_j = j;
       }
     }
+    if (best_j == vlfeat_keypoints.size()) continue;
+    const float descriptor_distance =
+        (cusift_descriptors.data.row(i).cast<float>() -
+         vlfeat_descriptors.data.row(best_j).cast<float>())
+            .norm() /
+        512.0f;
+    if (best_orientation_error < 0.01 && descriptor_distance < 0.02f) {
+      ++num_agreeing;
+    }
   }
-  EXPECT_GE(num_colocated, 0.98 * cusift_keypoints.size());
+  EXPECT_GE(num_agreeing, 0.98 * cusift_keypoints.size());
 }
 
 FeatureExtractionOptions CreateVLFeatOptions() {

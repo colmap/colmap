@@ -71,6 +71,9 @@ class CusiftFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(image2.descriptors);
     THROW_CHECK_EQ(image1.descriptors->type, FeatureExtractorType::SIFT);
     THROW_CHECK_EQ(image2.descriptors->type, FeatureExtractorType::SIFT);
+    // The upload reads 128 bytes per row.
+    THROW_CHECK_EQ(image1.descriptors->data.cols(), 128);
+    THROW_CHECK_EQ(image2.descriptors->data.cols(), 128);
 
     matches->clear();
     const int n1 = static_cast<int>(image1.descriptors->data.rows());
@@ -96,10 +99,8 @@ class CusiftFeatureMatcher : public FeatureMatcher {
         raw_matches,
         options_.cusift->cross_check_reverse_ratio,
         angular ? kGemmDistanceAngular : kGemmDistanceL2,
-        // ANGULAR wants radians; L2 wants descriptor-scale distance, so lift
-        // the unit-vector threshold onto COLMAP's 512 scale.
-        static_cast<float>(angular ? options_.sift->max_distance
-                                   : 512.0 * options_.sift->max_distance),
+        // Radians under ANGULAR, unit-vector distance under L2, as in sift.cc.
+        static_cast<float>(options_.sift->max_distance),
         static_cast<float>(kSqSiftDescriptorNorm));
 
     // max_num_matches post-filter: replicate SiftMatchGPU's cap-binds rule

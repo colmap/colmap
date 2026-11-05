@@ -10,6 +10,7 @@
 #include "colmap/util/cuda.h"
 
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <set>
 
@@ -227,50 +228,59 @@ TEST(CusiftFeatureMatcher, TypeMismatch) {
 
   FeatureMatches matches;
   EXPECT_THROW(matcher->Match(image_sift, image_undefined, &matches),
-               std::exception);
+               std::invalid_argument);
+
+  // SIFT-typed but 64 wide: rejected before the upload reads 128 bytes a row.
+  const FeatureMatcher::Image image_narrow =
+      MakeImage(3,
+                FeatureDescriptors(FeatureExtractorType::SIFT,
+                                   FeatureDescriptorsData::Zero(2, 64)));
+  EXPECT_THROW(matcher->Match(image_sift, image_narrow, &matches),
+               std::invalid_argument);
+  EXPECT_THROW(matcher->Match(image_narrow, image_sift, &matches),
+               std::invalid_argument);
 }
 
 TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // Two descriptors with disjoint support sets (no shared dims) are far
-  // apart in unit-vector L2 space (distance close to sqrt(2) ~= 1.414 for
-  // orthogonal unit vectors); two copies of the *same* descriptor are at
-  // distance 0. Use that gap rather than a hand-derived exact value, since
-  // uint8 quantization perturbs the exact distance slightly (see
-  // cusift_matcher.h's quantization caveat).
-  FeatureDescriptors desc = CreateRandomFeatureDescriptors(1);
-  const FeatureMatcher::Image image_self = MakeImage(1, desc);
-  const FeatureMatcher::Image image_copy = MakeImage(2, desc);
+  // Two descriptors sharing 8 of their 10 support dimensions: about 0.64 apart
+  // both in radians and in unit-vector L2, so one pair tests both units.
+  FeatureDescriptorsFloatData data = FeatureDescriptorsFloatData::Zero(2, 128);
+  for (int d = 0; d < 10; ++d) data(0, d) = 1.0f;
+  for (int d = 2; d < 12; ++d) data(1, d) = 1.0f;
+  L2NormalizeFeatureDescriptors(&data);
+  const FeatureDescriptorsData bytes = FeatureDescriptorsToUnsignedByte(data);
+  const Eigen::VectorXf a = bytes.row(0).cast<float>();
+  const Eigen::VectorXf b = bytes.row(1).cast<float>();
+  const FeatureMatcher::Image image1 = MakeImage(
+      1, FeatureDescriptors(FeatureExtractorType::SIFT, bytes.row(0)));
+  const FeatureMatcher::Image image2 = MakeImage(
+      2, FeatureDescriptors(FeatureExtractorType::SIFT, bytes.row(1)));
 
-  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  options.sift->cross_check = false;
-  options.sift->max_ratio = 1.0;  // effectively disable the ratio test
-
-  FeatureMatches matches;
-
-  // Distance ~0 must survive a small max_distance.
-  options.sift->max_distance = 0.01;
-  auto matcher_tight = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
-  matcher_tight->Match(image_self, image_copy, &matches);
-  ASSERT_EQ(matches.size(), 1);
-  EXPECT_EQ(matches[0].point2D_idx1, 0);
-  EXPECT_EQ(matches[0].point2D_idx2, 0);
-
-  // A descriptor with disjoint support is ~pi/2 away and must be rejected,
-  // or max_distance is not applied at all.
-  FeatureDescriptorsFloatData other = FeatureDescriptorsFloatData::Zero(1, 128);
-  for (int d = 0; d < 128; ++d) {
-    if (desc.data(0, d) == 0) other(0, d) = 1.0f;
+  for (const auto distance_type :
+       {CusiftDistanceType::ANGULAR, CusiftDistanceType::L2}) {
+    // The pair's distance in the units max_distance has in this mode, from
+    // the quantized descriptors and the fixed norm of 512, as sift.cc does.
+    constexpr float kNorm = 512.0f;
+    const double distance =
+        distance_type == CusiftDistanceType::ANGULAR
+            ? std::acos(std::min(a.dot(b) / (kNorm * kNorm), 1.0f))
+            : (a - b).norm() / kNorm;
+    ASSERT_GT(distance, 0.3);
+    FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+    options.cusift->distance_type = distance_type;
+    options.sift->cross_check = false;
+    options.sift->max_ratio = 1.0;  // a single candidate has no runner-up
+    for (const double factor : {1.05, 0.95}) {
+      options.sift->max_distance = factor * distance;
+      auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
+      FeatureMatches matches;
+      matcher->Match(image1, image2, &matches);
+      EXPECT_EQ(matches.size(), factor > 1 ? 1 : 0)
+          << "distance_type=" << distance_type << " distance=" << distance
+          << " max_distance=" << options.sift->max_distance;
+    }
   }
-  other.row(0) /= other.row(0).norm();
-  const FeatureMatcher::Image image_far =
-      MakeImage(3,
-                FeatureDescriptors(FeatureExtractorType::SIFT,
-                                   FeatureDescriptorsToUnsignedByte(other)));
-  options.sift->max_distance = 0.7;
-  auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
-  matcher->Match(image_self, image_far, &matches);
-  EXPECT_EQ(matches.size(), 0);
 }
 
 TEST(CusiftFeatureMatcher, MaxNumMatchesTruncatesByIndexOrder) {

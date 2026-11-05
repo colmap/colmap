@@ -49,8 +49,8 @@ enum GemmDistanceType { kGemmDistanceL2 = 0, kGemmDistanceAngular = 1 };
 // `out[k].dist2` is the squared L2 distance in the INPUT descriptors' own scale
 // (so ~512^2-scaled for COLMAP descriptors), regardless of distanceType.
 // maxDistance is the absolute threshold on the best match, in the units the
-// chosen distanceType implies: RADIANS under kAngular, and descriptor-scale
-// distance under kL2 (the same units the input descriptors are in).
+// chosen distanceType implies: RADIANS under kAngular, and unit-vector L2
+// distance under kL2 (the kernel scales it by sqDescriptorNorm).
 // sqDescriptorNorm is the squared norm the descriptors are nominally scaled to;
 // kAngular divides the raw inner product by it to form the pseudo-cosine, which
 // is how both of COLMAP's references do it (a FIXED constant, not per-row
