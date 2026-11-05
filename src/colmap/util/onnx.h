@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include <condition_variable>
+#include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -69,14 +72,58 @@ void ThrowCheckONNXElementType(std::string_view name,
                                ONNXTensorElementDataType type,
                                ONNXTensorElementDataType expected_type);
 
+// Counting semaphore that bounds the number of concurrent ONNX model
+// inferences (e.g., on a shared GPU) across a larger pool of worker threads,
+// assigning each active caller a distinct slot in [0, max_concurrent).
+class ONNXInferenceLimiter {
+ public:
+  class Permit {
+   public:
+    Permit() = default;
+    Permit(Permit&& other) noexcept;
+    Permit& operator=(Permit&& other) noexcept;
+    Permit(const Permit&) = delete;
+    Permit& operator=(const Permit&) = delete;
+    ~Permit();
+
+    void Release();
+    int slot() const { return slot_; }
+
+   private:
+    friend class ONNXInferenceLimiter;
+    Permit(ONNXInferenceLimiter* limiter, int slot);
+
+    ONNXInferenceLimiter* limiter_ = nullptr;
+    int slot_ = 0;
+  };
+
+  explicit ONNXInferenceLimiter(int max_concurrent);
+
+  Permit Acquire();
+
+  int MaxConcurrent() const { return max_concurrent_; }
+  int ActiveCount() const;
+
+ private:
+  void ReleaseSlot(int slot);
+
+  const int max_concurrent_;
+  mutable std::mutex mutex_;
+  std::condition_variable cv_;
+  int active_ = 0;
+  std::vector<uint8_t> slot_in_use_;
+};
+
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {
  public:
-  ONNXModel(std::string model_path,
+  ONNXModel(const std::string& model_path,
             int num_threads,
             bool use_gpu,
-            const std::string& gpu_index);
+            const std::string& gpu_index,
+            std::shared_ptr<ONNXInferenceLimiter> inference_limiter = nullptr,
+            bool allow_session_replicas = true);
 
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
@@ -117,10 +164,26 @@ class ONNXModel {
   // CPU-only fallback.
   void ConfigureSessionOptions(int num_threads);
 
+  std::unique_ptr<Ort::Session> CreateCudaReplicaSession() const;
+  Ort::Session& GetOrCreateSession(int slot) const;
+
+  template <typename RunFn>
+  std::vector<Ort::Value> RunWithLimiter(RunFn&& run_fn) const;
+
+  std::string model_path_;
+  int num_eff_threads_ = 1;
+#ifdef COLMAP_CUDA_ENABLED
+  int cuda_device_id_ = 0;
+#endif
+  bool allow_session_replicas_ = true;
+  std::shared_ptr<ONNXInferenceLimiter> inference_limiter_;
   Ort::Env env_;
   Ort::AllocatorWithDefaultOptions allocator_;
   Ort::SessionOptions session_options_;
-  std::unique_ptr<Ort::Session> session_;
+  std::unique_ptr<Ort::Session> primary_session_;
+  mutable std::mutex replica_sessions_mutex_;
+  mutable std::vector<std::unique_ptr<Ort::Session>> replica_sessions_;
+  mutable std::mutex single_session_mutex_;
   ONNXExecutionProvider execution_provider_ = ONNXExecutionProvider::CPU;
   std::vector<std::vector<int64_t>> input_shapes_;
   std::vector<Ort::AllocatedStringPtr> input_name_strs_;
