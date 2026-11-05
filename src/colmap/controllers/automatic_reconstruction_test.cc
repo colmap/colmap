@@ -78,7 +78,6 @@ TEST(AutomaticReconstructionController, CusiftSetupNeedsNoGpu) {
   options.workspace_path = test_dir;
   options.image_path = test_dir;
   options.feature = AutomaticReconstructionController::Feature::CUSIFT;
-  options.quality = AutomaticReconstructionController::Quality::HIGH;
   EXPECT_NO_THROW(AutomaticReconstructionController(
       options, std::make_shared<ReconstructionManager>()));
 }

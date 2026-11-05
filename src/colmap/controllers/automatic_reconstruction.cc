@@ -113,24 +113,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   if (options_.feature == Feature::ALIKED ||
       options_.feature == Feature::LOMA ||
       options_.feature == Feature::LOMA128 ||
-      options_.feature == Feature::FLEXGLUE) {
-    // Guided matching is not supported for ALIKED/LoMa/FlexGlue
+      options_.feature == Feature::FLEXGLUE ||
+      options_.feature == Feature::CUSIFT) {
+    // Guided matching is not supported for ALIKED/LoMa/FlexGlue/cusift
     option_manager_.feature_matching->guided_matching = false;
   }
   if (options_.feature == Feature::CUSIFT) {
-    // The high and extreme quality presets enable covariant SIFT and guided
-    // matching, which cusift does not implement (it rejects them rather than
-    // ignoring them). Turn them off, so cusift runs at the preset's image size
-    // and feature budget without them.
-    auto& sift = *option_manager_.feature_extraction->sift;
-    if (sift.estimate_affine_shape || sift.domain_size_pooling ||
-        option_manager_.feature_matching->guided_matching) {
-      LOG(INFO) << "cusift: disabling affine shape estimation, domain-size "
-                   "pooling and guided matching, which it does not support";
-    }
-    sift.estimate_affine_shape = false;
-    sift.domain_size_pooling = false;
-    option_manager_.feature_matching->guided_matching = false;
+    // The high and extreme quality presets enable covariant SIFT, which cusift
+    // rejects rather than ignores.
+    option_manager_.feature_extraction->sift->estimate_affine_shape = false;
+    option_manager_.feature_extraction->sift->domain_size_pooling = false;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;
