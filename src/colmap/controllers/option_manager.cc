@@ -466,6 +466,8 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->flexglue->use_fp16);
   AddDefaultOption("FlexGlueMatching.num_workers_per_gpu",
                    &feature_matching->flexglue->num_workers_per_gpu);
+  AddDefaultOption("FlexGlueMatching.num_inferences_per_gpu",
+                   &feature_matching->flexglue->num_inferences_per_gpu);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
