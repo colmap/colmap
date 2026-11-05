@@ -7,14 +7,14 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 #include "colmap/util/cuda.h"
 #endif
 
 #include <algorithm>
 #include <cmath>
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 #include <array>
 #include <string>
 #include <vector>
@@ -24,19 +24,19 @@
 #include "cudaImage.h"
 #include "cudaSift.h"
 #include "cusift_device.h"
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 namespace colmap {
 namespace {
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 constexpr int kSiftDescriptorDim = 128;
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 // cusift's compile-time levels-per-octave (NUM_SCALES in cudaSiftD.h).
 constexpr int kCusiftOctaveResolution = 3;
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 
 // Uploads a grey bitmap as the [0, 255] float image cusift's kernels take.
 // cusift scales by 1/255 in its first kernel, where COLMAP's VLFeat path
@@ -193,7 +193,7 @@ class CusiftFeatureExtractor : public FeatureExtractor {
   std::vector<std::array<float, kSiftDescriptorDim>> descriptors_;
 };
 
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 }  // namespace
 
@@ -261,26 +261,28 @@ bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift) {
 }
 
 void BindCusiftDevice(const std::string& gpu_index) {
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
   const std::vector<int> gpu_indices = CSVToVector<int>(gpu_index);
   THROW_CHECK_EQ(gpu_indices.size(), 1) << "cusift can only run on one GPU";
   SetBestCudaDevice(gpu_indices[0]);
   cusift::InitMemoryPool();
 #else
   (void)gpu_index;
-  LOG(FATAL_THROW) << "cusift requires CUDA support";
-#endif  // COLMAP_CUDA_ENABLED
+  LOG(FATAL_THROW) << "COLMAP was built without cusift (CUSIFT_ENABLED, which "
+                      "needs CUDA >= 11.2)";
+#endif  // COLMAP_CUSIFT_ENABLED
 }
 
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
     const FeatureExtractionOptions& options) {
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
   LOG(INFO) << "Creating cusift GPU feature extractor";
   return CusiftFeatureExtractor::Create(options);
 #else
-  LOG(ERROR) << "cusift feature extraction requires CUDA support";
+  LOG(ERROR) << "COLMAP was built without cusift (CUSIFT_ENABLED, which needs "
+                "CUDA >= 11.2)";
   return nullptr;
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 }
 
 }  // namespace colmap

@@ -98,7 +98,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
     matcher_types_.push_back(type);
   };
   add_matcher_type(FeatureMatcherType::SIFT_BRUTEFORCE);
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
   add_matcher_type(FeatureMatcherType::CUSIFT_GEMM);
 #endif
 #ifdef COLMAP_ONNX_ENABLED
@@ -140,7 +140,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->feature_matching->sift->max_distance, "sift.max_distance");
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
                                  "sift.cross_check");
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
   options_widget_->AddOptionBool(
       &options_->feature_matching->cusift->cross_check_reverse_ratio,
       "cusift.cross_check_reverse_ratio");

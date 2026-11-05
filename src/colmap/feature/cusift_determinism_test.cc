@@ -117,7 +117,7 @@ FeatureMatches Match(FeatureMatcher& matcher,
   return matches;
 }
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUSIFT_ENABLED)
 
 TEST(CusiftDeterminism, ExtractionWithFreshExtractors) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
@@ -253,7 +253,7 @@ TEST_F(CusiftMatchingDeterminism, ReusedMatcher) {
   }
 }
 
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 }  // namespace
 }  // namespace colmap

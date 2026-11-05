@@ -41,7 +41,7 @@ class SIFTExtractionWidget : public ExtractionWidget {
   void Run() override;
 };
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 class CusiftExtractionWidget : public ExtractionWidget {
  public:
   CusiftExtractionWidget(QWidget* parent, OptionManager* options);
@@ -157,7 +157,7 @@ void SIFTExtractionWidget::Run() {
   RunExtraction();
 }
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 CusiftExtractionWidget::CusiftExtractionWidget(QWidget* parent,
                                                OptionManager* options)
     : ExtractionWidget(parent, options) {
@@ -287,7 +287,7 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
 
   AddTab(new SIFTExtractionWidget(this, options), "SIFT");
   AddTab(new ImportFeaturesWidget(this, options), "SIFT (Import)");
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
   AddTab(new CusiftExtractionWidget(this, options), "cusift");
 #endif
 

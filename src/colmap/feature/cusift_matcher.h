@@ -73,7 +73,8 @@ struct CusiftMatchingOptions {
 //    order, as SiftGPU does (SiftMatchCU::GetBestMatch), not the best-scoring.
 //  - guided_matching is not supported and is rejected.
 //
-// Requires CUDA and a GPU; returns nullptr if COLMAP was built without CUDA.
+// Requires a CUDA GPU; returns nullptr if COLMAP was built without cusift
+// (CUSIFT_ENABLED, which needs CUDA >= 11.2).
 std::unique_ptr<FeatureMatcher> CreateCusiftFeatureMatcher(
     const FeatureMatchingOptions& options);
 

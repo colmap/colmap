@@ -112,6 +112,11 @@ bool FeatureMatchingOptions::Check() const {
       CHECK_OPTION(!guided_matching);
       return THROW_CHECK_NOTNULL(flexglue)->Check();
     case FeatureMatcherType::CUSIFT_GEMM:
+#if !defined(COLMAP_CUSIFT_ENABLED)
+      LOG(ERROR) << "COLMAP was built without cusift (CUSIFT_ENABLED, which "
+                    "needs CUDA >= 11.2).";
+      return false;
+#endif
       // cusift has no CPU implementation, so this is a hard requirement
       // rather than a fallback -- same rule FeatureExtractionOptions applies
       // to FeatureExtractorType::CUSIFT (extractor.cc).

@@ -151,6 +151,13 @@ kernels; the matcher (`matcher.h`, `matcher_gemm.cu`) and the device shim
    (`colmap::SetBestCudaDevice`), so `gpu_index = -1` picks the same device as
    the rest of COLMAP.
 
+## Build
+
+cusift is built with COLMAP's CUDA support when `CUSIFT_ENABLED` is on (the
+default). It needs CUDA >= 11.2 for its stream-ordered memory pool and
+CMake >= 3.17 for `CUDA::cublas`; with an older toolkit or CMake it is disabled
+at configure time, and the rest of COLMAP builds as before.
+
 ## CUDA architectures
 
 `colmap_cusift` builds for COLMAP's `CMAKE_CUDA_ARCHITECTURES` (default

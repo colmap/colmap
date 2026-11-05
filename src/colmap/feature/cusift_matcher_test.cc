@@ -36,10 +36,9 @@ TEST(CusiftMatchingOptions, ReverseRatioDefaultsOnForParity) {
   EXPECT_TRUE(options.cross_check_reverse_ratio);
 }
 
-// Option checks with use_gpu = true: without any GPU backend compiled in
-// (COLMAP_GPU_ENABLED), FeatureExtractionOptions/FeatureMatchingOptions::Check
-// rejects every use_gpu = true before reaching cusift's own checks.
-#if defined(COLMAP_GPU_ENABLED)
+// Options pass Check() only in a build with cusift; without it, Check() rejects
+// the cusift types before reaching cusift's own checks.
+#if defined(COLMAP_CUSIFT_ENABLED)
 TEST(CusiftMatchingOptions, ChecksSiftThresholds) {
   // The ratio and distance thresholds come from the SIFT options, and are
   // checked for CUSIFT_GEMM too.
@@ -60,9 +59,9 @@ TEST(CusiftFeatureMatcher, RequiresGpu) {
   options.use_gpu = false;
   EXPECT_FALSE(options.Check());
 }
-#endif  // COLMAP_GPU_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUSIFT_ENABLED)
 
 // Helper to create empty descriptors for testing. Mirrors
 // sift_test.cc's CreateEmptyDescriptors -- duplicated rather than shared,
@@ -580,13 +579,17 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
       << "the winning candidate changed under non-canonical descriptor norms";
 }
 
-#else  // !defined(COLMAP_CUDA_ENABLED)
+#else  // !defined(COLMAP_CUSIFT_ENABLED)
 
-TEST(CusiftFeatureMatcher, ReturnsNullWithoutCuda) {
+TEST(CusiftMatchingOptions, CheckFailsWithoutCusift) {
+  EXPECT_FALSE(CreateCusiftMatchingOptions().Check());
+}
+
+TEST(CusiftFeatureMatcher, ReturnsNullWithoutCusift) {
   EXPECT_EQ(CreateCusiftFeatureMatcher(CreateCusiftMatchingOptions()), nullptr);
 }
 
-#endif  // defined(COLMAP_CUDA_ENABLED)
+#endif  // defined(COLMAP_CUSIFT_ENABLED)
 
 }  // namespace
 }  // namespace colmap
