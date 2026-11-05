@@ -67,8 +67,8 @@ order of addition.
 `darkness_adaptivity` and `force_covariant_extractor`. The `high` and
 `extreme` presets of `automatic_reconstructor` turn on affine shape, DSP and
 guided matching, so with `--feature cusift` the reconstructor switches those
-off and logs that it did. Only `low` and `medium` therefore run identical
-settings for `--feature sift` and `--feature cusift`.
+off. Only `low` and `medium` therefore run identical settings for
+`--feature sift` and `--feature cusift`.
 
 ## Matcher
 
@@ -156,13 +156,5 @@ kernels; the matcher (`matcher.h`, `matcher_gemm.cu`) and the device shim
 cusift is built with COLMAP's CUDA support when `CUSIFT_ENABLED` is on (the
 default). It needs CUDA >= 11.2 for its stream-ordered memory pool and
 CMake >= 3.17 for `CUDA::cublas`; with an older toolkit or CMake it is disabled
-at configure time, and the rest of COLMAP builds as before.
-
-## CUDA architectures
-
-`colmap_cusift` builds for COLMAP's `CMAKE_CUDA_ARCHITECTURES` (default
-`native`), like the other CUDA targets. To build cusift for a different list,
-set `-DCOLMAP_CUSIFT_CUDA_ARCHITECTURES=...`, e.g. `86;89` for `sm_86` and
-`sm_89` machine code plus PTX that JIT-compiles forward to newer GPUs. Note
-that `native` emits machine code for the build machine's GPU only, so a
-redistributable build should name its architectures explicitly.
+at configure time, and the rest of COLMAP builds as before. It builds for
+COLMAP's `CMAKE_CUDA_ARCHITECTURES`, like the other CUDA targets.

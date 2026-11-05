@@ -23,18 +23,8 @@ COLMAP_ADD_LIBRARY(
 target_include_directories(colmap_cusift PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>")
 
-# By default cusift builds for COLMAP's project-wide CMAKE_CUDA_ARCHITECTURES,
-# like every other CUDA target, so -DCMAKE_CUDA_ARCHITECTURES=... and the
-# toolkit's supported range apply to it too. The kernels use no
-# architecture-specific intrinsics. Set COLMAP_CUSIFT_CUDA_ARCHITECTURES to
-# build cusift for a different list than the rest of COLMAP, e.g. "86;89" for
-# sm_86/sm_89 machine code plus PTX that JIT-compiles forward to newer GPUs.
-set(COLMAP_CUSIFT_CUDA_ARCHITECTURES "" CACHE STRING
-    "CUDA architectures for the vendored cusift library (empty: use CMAKE_CUDA_ARCHITECTURES)")
-if(COLMAP_CUSIFT_CUDA_ARCHITECTURES)
-    set_target_properties(colmap_cusift PROPERTIES
-        CUDA_ARCHITECTURES "${COLMAP_CUSIFT_CUDA_ARCHITECTURES}")
-endif()
+# cusift builds for COLMAP's CMAKE_CUDA_ARCHITECTURES, like every other CUDA
+# target; the kernels use no architecture-specific intrinsics.
 
 # --use_fast_math is part of cusift's numerics contract, not an optimization
 # choice: vl_fast_atan2_f/vl_fast_sqrt_f are replicated in CUDA and every

@@ -185,12 +185,20 @@ TEST(CusiftFeatureMatcher, RejectsGuidedMatching) {
   // Rejected as a bad option, before the guided pass constructs the matcher on
   // a worker thread.
   EXPECT_FALSE(options.Check());
-  // Create binds the device before the constructor checks options, so without
-  // a GPU it would throw for the wrong reason.
+  // A caller that skips Check() fails at the guided pass itself.
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  EXPECT_THAT([&]() { CreateCusiftFeatureMatcher(options); },
-              testing::ThrowsMessage<std::invalid_argument>(
-                  testing::HasSubstr("guided matching")));
+  auto matcher = CreateCusiftFeatureMatcher(options);
+  ASSERT_NE(matcher, nullptr);
+  TwoViewGeometry two_view_geometry;
+  EXPECT_THAT(
+      [&]() {
+        matcher->MatchGuided(/*max_error=*/4.0,
+                             FeatureMatcher::Image{},
+                             FeatureMatcher::Image{},
+                             &two_view_geometry);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("Guided matching not supported")));
 }
 
 TEST(CusiftFeatureMatcher, ConstructorRejectsInvalidOptions) {
