@@ -29,8 +29,8 @@ The following feature extractor types are available:
 
 - ``CUSIFT``: A CUDA reimplementation of the ``SIFT`` CPU (VLFeat) extractor,
   configured by the ``SiftExtraction`` options. Its descriptors are ordinary
-  ``SIFT`` descriptors. Requires CUDA support to be enabled at build time and a
-  CUDA GPU; see `cusift`_ below.
+  ``SIFT`` descriptors. Requires a build with CUDA >= 11.2 (``-DCUSIFT_ENABLED``,
+  on by default) and a CUDA GPU; see `cusift`_ below.
 
 To select a feature extractor type via the command-line::
 
@@ -94,7 +94,7 @@ The following feature matcher types are available:
   GPUs, using cuBLAS. Returns the same matches as ``SIFT_BRUTEFORCE`` with
   ``--SiftMatching.cpu_brute_force_matcher 1`` and uses the ``SiftMatching``
   ratio, distance and cross-check options. Guided matching is not supported.
-  Requires CUDA support to be enabled at build time and a CUDA GPU.
+  Requires a build with CUDA >= 11.2 (``-DCUSIFT_ENABLED``) and a CUDA GPU.
 
 - ``FLEXGLUE``: Neural network matcher operating on dense image features
   (FlexGlue). It works with the keypoints of any feature extractor and ignores
@@ -226,8 +226,10 @@ Unsupported SIFT options (affine shape estimation, domain-size pooling,
 upright features, darkness adaptivity, the covariant extractor) are rejected
 with an error. The ``automatic_reconstructor`` provides the ``--feature
 cusift`` preset; with ``--quality high`` or ``extreme`` it turns off the
-options cusift does not support. cusift is MIT-licensed; see
-``src/thirdparty/cusift``.
+options cusift does not support. cusift is built when CUDA >= 11.2 and
+CMake >= 3.17 are available, unless ``-DCUSIFT_ENABLED=OFF``; with an older
+toolkit it is disabled at configure time and the rest of COLMAP builds as
+before. cusift is MIT-licensed; see ``src/thirdparty/cusift``.
 
 
 FlexGlue

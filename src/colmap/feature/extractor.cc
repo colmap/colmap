@@ -123,6 +123,11 @@ bool FeatureExtractionOptions::Check() const {
     case FeatureExtractorType::SIFT:
       return THROW_CHECK_NOTNULL(sift)->Check();
     case FeatureExtractorType::CUSIFT:
+#if !defined(COLMAP_CUSIFT_ENABLED)
+      LOG(ERROR) << "COLMAP was built without cusift (CUSIFT_ENABLED, which "
+                    "needs CUDA >= 11.2).";
+      return false;
+#endif
       // cusift has no CPU implementation, so this is a hard requirement rather
       // than a fallback. Checked here so the failure is reported as a bad
       // option rather than surfacing later as an unknown-extractor error in

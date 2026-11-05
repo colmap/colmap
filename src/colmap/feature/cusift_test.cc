@@ -20,7 +20,7 @@
 namespace colmap {
 namespace {
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUSIFT_ENABLED)
 Bitmap CreateImageWithSquare(const int size) {
   Bitmap bitmap(size, size, false);
   bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
@@ -44,7 +44,7 @@ void ValidateKeypoints(const FeatureKeypoints& keypoints,
     EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
   }
 }
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 FeatureExtractionOptions CreateCusiftOptions() {
   FeatureExtractionOptions options(FeatureExtractorType::CUSIFT);
@@ -103,7 +103,7 @@ TEST_P(CusiftUnsupportedOptionTest, FailsOptionsCheck) {
   // when the extractor is constructed (on a worker thread, in the
   // controllers).
   EXPECT_FALSE(CheckCusiftSiftOptions(*options.sift));
-#if defined(COLMAP_GPU_ENABLED)
+#if defined(COLMAP_CUSIFT_ENABLED)
   EXPECT_FALSE(options.Check());
 #endif
 }
@@ -135,10 +135,9 @@ INSTANTIATE_TEST_SUITE_P(
             [](SiftExtractionOptions& o) { o.octave_resolution = 4; }}),
     [](const auto& info) { return info.param.name; });
 
-// Option checks with use_gpu = true: without any GPU backend compiled in
-// (COLMAP_GPU_ENABLED), FeatureExtractionOptions/FeatureMatchingOptions::Check
-// rejects every use_gpu = true before reaching cusift's own checks.
-#if defined(COLMAP_GPU_ENABLED)
+// Options pass Check() only in a build with cusift; without it, Check() rejects
+// the cusift types before reaching cusift's own checks.
+#if defined(COLMAP_CUSIFT_ENABLED)
 TEST(CusiftExtractionOptions, RequiresGpu) {
   FeatureExtractionOptions options = CreateCusiftOptions();
   EXPECT_TRUE(options.Check());
@@ -147,7 +146,7 @@ TEST(CusiftExtractionOptions, RequiresGpu) {
   options.use_gpu = false;
   EXPECT_FALSE(options.Check());
 }
-#endif  // COLMAP_GPU_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 TEST(CusiftExtractionOptions, TypeProperties) {
   const FeatureExtractionOptions options = CreateCusiftOptions();
@@ -158,7 +157,7 @@ TEST(CusiftExtractionOptions, TypeProperties) {
       FeatureExtractionOptions(FeatureExtractorType::SIFT).EffMaxImageSize());
 }
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUSIFT_ENABLED)
 
 // Holds cusift to the assertions sift_test.cc's ExtractSiftFeaturesGPU applies
 // to SiftGPU, through the generic FeatureExtractor factory.
@@ -334,11 +333,15 @@ TEST_P(CusiftUnsupportedOptionTest, Throws) {
 
 #else
 
-TEST(CusiftFeatureExtractor, ReturnsNullWithoutCuda) {
+TEST(CusiftExtractionOptions, CheckFailsWithoutCusift) {
+  EXPECT_FALSE(CreateCusiftOptions().Check());
+}
+
+TEST(CusiftFeatureExtractor, ReturnsNullWithoutCusift) {
   EXPECT_EQ(CreateCusiftFeatureExtractor(CreateCusiftOptions()), nullptr);
 }
 
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 }  // namespace
 }  // namespace colmap

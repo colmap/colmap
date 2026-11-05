@@ -39,7 +39,8 @@ bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift);
 // it cannot serve are rejected loudly rather than silently ignored - see
 // src/thirdparty/cusift/README.md and the option checks in cusift.cc.
 //
-// Requires CUDA and a GPU; returns nullptr if COLMAP was built without CUDA.
+// Requires a CUDA GPU; returns nullptr if COLMAP was built without cusift
+// (CUSIFT_ENABLED, which needs CUDA >= 11.2).
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
     const FeatureExtractionOptions& options);
 
@@ -47,7 +48,7 @@ std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
 // the best device, as colmap::SetBestCudaDevice does) and initialises cusift's
 // memory pool on it. cudaSetDevice is per-thread, so every extraction and
 // matching thread calls this for itself. Throws if COLMAP was built without
-// CUDA, no device is available, or `gpu_index` names more than one GPU.
+// cusift, no device is available, or `gpu_index` names more than one GPU.
 void BindCusiftDevice(const std::string& gpu_index);
 
 // Number of octaves cusift builds for a width x height image. It follows

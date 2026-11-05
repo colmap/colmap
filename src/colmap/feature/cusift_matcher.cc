@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <cmath>
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 // Deliberately no <cuda_runtime.h> and no cudautils.h here, same rule as
 // cusift.cc: every CUDA type and API reference stays inside colmap_cusift
 // (see cusift_device.h), so colmap_feature acquires no CUDA runtime
@@ -23,12 +23,12 @@
 // including file's own directory before the include path) rather than the
 // vendored src/thirdparty/cusift/src/matcher.h.
 #include <matcher.h>  // vendored: ::Match{i,j,dist2}, ::MatchDescriptorsGemmU8
-#endif                // COLMAP_CUDA_ENABLED
+#endif                // COLMAP_CUSIFT_ENABLED
 
 namespace colmap {
 namespace {
 
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
 
 // No host-side descriptor conversion at all: COLMAP stores SIFT descriptors as
 // row-major uint8, which is exactly what MatchDescriptorsGemmU8 uploads. That
@@ -134,7 +134,7 @@ class CusiftFeatureMatcher : public FeatureMatcher {
   const FeatureMatchingOptions options_;
 };
 
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 
 }  // namespace
 
@@ -142,13 +142,14 @@ bool CusiftMatchingOptions::Check() const { return true; }
 
 std::unique_ptr<FeatureMatcher> CreateCusiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
-#ifdef COLMAP_CUDA_ENABLED
+#ifdef COLMAP_CUSIFT_ENABLED
   LOG(INFO) << "Creating cusift GEMM feature matcher";
   return CusiftFeatureMatcher::Create(options);
 #else
-  LOG(ERROR) << "cusift feature matching requires CUDA support";
+  LOG(ERROR) << "COLMAP was built without cusift (CUSIFT_ENABLED, which needs "
+                "CUDA >= 11.2)";
   return nullptr;
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUSIFT_ENABLED
 }
 
 }  // namespace colmap
