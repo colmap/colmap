@@ -384,10 +384,30 @@ struct PackedScratch {
   PackedScratch() = default;
   PackedScratch(const PackedScratch &) = delete;
   PackedScratch &operator=(const PackedScratch &) = delete;
-  ~PackedScratch() {
-    if (h_kps) { cudaFreeHost(h_kps); cusiftFree(d_kps); }
-    if (h_ori) { cudaFreeHost(h_ori); cusiftFree(d_ori); }
-    if (h_desc) { cudaFreeHost(h_desc); cusiftFree(d_desc); }
+  ~PackedScratch() { Release(/*check=*/false); }
+  // Frees every buffer and nulls it, so a throw while regrowing leaves an
+  // empty scratch (cap 0) rather than freed pointers behind an old cap.
+  void Release(bool check) {
+    cap = 0;
+    FreeHost(&h_kps, check); FreeDevice(&d_kps, check);
+    FreeHost(&h_ori, check); FreeDevice(&d_ori, check);
+    FreeHost(&h_desc, check); FreeDevice(&d_desc, check);
+  }
+
+ private:
+  template <typename T> static void FreeHost(T **p, bool check) {
+    T *const old = *p;
+    *p = nullptr;
+    if (!old) return;
+    const cudaError_t err = cudaFreeHost(old);
+    if (check) safeCall(err);
+  }
+  template <typename T> static void FreeDevice(T **p, bool check) {
+    T *const old = *p;
+    *p = nullptr;
+    if (!old) return;
+    const cudaError_t err = cusiftFree(old);
+    if (check) safeCall(err);
   }
 };
 
@@ -395,9 +415,7 @@ static PackedScratch &Packed(int n, bool wantDesc)
 {
   static thread_local PackedScratch p;
   if (n > p.cap) {
-    if (p.h_kps) { safeCall(cudaFreeHost(p.h_kps)); safeCall(cusiftFree(p.d_kps)); }
-    if (p.h_ori) { safeCall(cudaFreeHost(p.h_ori)); safeCall(cusiftFree(p.d_ori)); }
-    if (p.h_desc) { safeCall(cudaFreeHost(p.h_desc)); safeCall(cusiftFree(p.d_desc)); }
+    p.Release(/*check=*/true);
     safeCall(cudaMallocHost((void **)&p.h_kps, (size_t)n * sizeof(VLFeatKp)));
     safeCall(cusiftMallocAsync((void **)&p.d_kps, (size_t)n * sizeof(VLFeatKp)));
     safeCall(cudaMallocHost((void **)&p.h_ori, (size_t)n * sizeof(VLFeatOri)));
