@@ -56,7 +56,6 @@ void UploadGreyBitmap(const Bitmap& bitmap,
   image->Allocate(bitmap.Width(),
                   bitmap.Height(),
                   iAlignUp(bitmap.Width(), 128),
-                  /*withHost=*/false,
                   /*devMem=*/nullptr,
                   /*hostMem=*/host_buffer->data());
   image->Download();

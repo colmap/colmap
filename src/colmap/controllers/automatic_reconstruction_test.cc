@@ -70,9 +70,10 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
                       AutomaticReconstructionController::Mapper::HIERARCHICAL));
 
-TEST(AutomaticReconstructionController, CusiftSetupNeedsNoGpu) {
-  // Construction resolves the vocabulary tree for the feature type; cusift
-  // writes SIFT descriptors and must get the SIFT tree rather than throw.
+TEST(AutomaticReconstructionController, ConstructsWithCusift) {
+  // The constructor resolves the vocabulary tree for the feature type, which
+  // throws for a type without one; cusift writes SIFT descriptors and gets the
+  // SIFT tree. Needs no GPU.
   const auto test_dir = CreateTestDir();
   AutomaticReconstructionController::Options options;
   options.workspace_path = test_dir;

@@ -20,7 +20,6 @@
 #include <future>
 #include <memory>
 #include <random>
-#include <thread>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -172,27 +171,46 @@ TEST(CusiftDeterminism, ExtractionUnaffectedByOtherThreadsOnTheSameGpu) {
   FeatureExtractionOptions options_b = CreateCusiftOptions();
   options_b.sift->first_octave = -1;
 
+  // std::async hands a worker's exception to get(), so a failure is reported
+  // by the test instead of terminating the binary; each path below also
+  // releases the other worker, so a failure cannot leave one waiting.
   std::promise<void> a_extracted_once;
   std::promise<void> b_done;
+  std::future<void> a_ready = a_extracted_once.get_future();
+  std::shared_future<void> b_finished = b_done.get_future().share();
   Features before;
   Features after;
-  std::thread thread_a([&]() {
-    auto extractor =
-        THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_a));
-    before = Extract(*extractor, bitmap);
-    a_extracted_once.set_value();
-    b_done.get_future().wait();
-    after = Extract(*extractor, bitmap);
+  std::future<void> thread_a = std::async(std::launch::async, [&]() {
+    try {
+      auto extractor =
+          THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_a));
+      before = Extract(*extractor, bitmap);
+      a_extracted_once.set_value();
+      b_finished.wait();
+      after = Extract(*extractor, bitmap);
+    } catch (...) {
+      try {
+        a_extracted_once.set_exception(std::current_exception());
+      } catch (const std::future_error&) {
+        // Already signalled; get() on thread_a reports the error.
+      }
+      throw;
+    }
   });
-  a_extracted_once.get_future().wait();
-  std::thread thread_b([&]() {
+  a_ready.get();
+  std::future<void> thread_b = std::async(std::launch::async, [&]() {
     auto extractor =
         THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_b));
     Extract(*extractor, bitmap);
   });
-  thread_b.join();
+  try {
+    thread_b.get();
+  } catch (...) {
+    b_done.set_value();
+    throw;
+  }
   b_done.set_value();
-  thread_a.join();
+  thread_a.get();
 
   ASSERT_GE(before.keypoints.size(), 200);
   ExpectIdentical(before, after);

@@ -9,7 +9,6 @@
 #include <array>
 #include <vector>
 
-
 // Packed kernel I/O for the VLFeat pipeline: only the fields the kernels read
 // and write.
 //   orientation: reads x, y, sigma, level      -> writes VLFeatOri

@@ -4,12 +4,9 @@
 
 #include "colmap/feature/cusift.h"
 #include "colmap/feature/sift.h"
-#include "colmap/feature/utils.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
-#include <algorithm>
-#include <cmath>
+#include <vector>
 
 #ifdef COLMAP_CUSIFT_ENABLED
 // No CUDA headers: colmap_feature takes no CUDA runtime dependency.
@@ -31,9 +28,9 @@ class CusiftFeatureMatcher : public FeatureMatcher {
  public:
   explicit CusiftFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(options) {
-    THROW_CHECK(THROW_CHECK_NOTNULL(options_.sift)->Check() &&
-                THROW_CHECK_NOTNULL(options_.cusift)->Check())
-        << "invalid SIFT/cusift matching options; the reason is logged above";
+    // Includes use_gpu and guided_matching, for callers that skip Check().
+    THROW_CHECK(options_.Check())
+        << "invalid options for the cusift matcher; the reason is logged above";
   }
 
   static std::unique_ptr<FeatureMatcher> Create(

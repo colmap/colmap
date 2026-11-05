@@ -92,8 +92,8 @@ The following feature matcher types are available:
 
 - ``CUSIFT_GEMM``: Exact brute-force matching of SIFT descriptors on CUDA
   GPUs, using cuBLAS. Returns the same matches as ``SIFT_BRUTEFORCE`` with
-  ``--SiftMatching.cpu_brute_force_matcher 1`` and uses the ``SiftMatching``
-  ratio, distance and cross-check options. Guided matching is not supported.
+  ``--FeatureMatching.use_gpu 0 --SiftMatching.cpu_brute_force_matcher 1`` and
+  uses the ``SiftMatching`` ratio, distance and cross-check options. Guided matching is not supported.
   Requires a build with CUDA >= 11.2 (``-DCUSIFT_ENABLED``) and a CUDA GPU.
 
 - ``FLEXGLUE``: Neural network matcher operating on dense image features

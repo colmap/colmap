@@ -10,7 +10,6 @@
 // GEMM.
 #include "matcher_gemm.h"
 
-
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cstdio>
@@ -34,26 +33,8 @@ void CheckCublas(cublasStatus_t status, const char* what) {
 // the actual upload target (4x less PCIe traffic than float32) and is retained
 // deliberately: row-major, 128 contiguous bytes per descriptor, so lda = 128.
 //
-// ON AN INTEGER GEMM FOLLOW-UP. Tempting, because the reference ranks on integer
-// dot products anyway, so int32 accumulation is what the fp32 path is imitating
-// rather than an approximation of it. But cuBLAS has NO unsigned 8-bit GEMM:
-// CUDA_R_8I is SIGNED, and these descriptors reach 255. So it is not a
-// mechanical swap. The options, none free:
-//   1. Upload d-128 as int8 and correct exactly:
-//        a.b = (a-128).(b-128) + 128*sum(a) + 128*sum(b) - 128^3
-//      For ranking within one query row the row terms are constant and drop
-//      out, leaving a per-column term -- the same shape as the colSqNorm key
-//      this file already plumbs -- but the REPORTED distance still needs the
-//      full correction, and both sums must be precomputed per descriptor set.
-//   2. A hand-rolled __dp4a kernel (it does have an unsigned form). Exact, but
-//      that means writing our own GEMM, which is precisely what this design
-//      avoided by delegating to cuBLAS.
-//   3. CUTLASS, which supports uint8 operands natively -- exact and fast, at the
-//      cost of a heavyweight new dependency for one kernel.
-// Decide it by measurement, not by appeal: if the SGEMM is not a meaningful
-// share of per-pair time on the target GPU, option 1's epilogue complexity buys
-// little. The bit-exactness tests against COLMAP's brute-force reference make
-// that experiment cheap to judge.
+// (An integer GEMM would need a signed-int8 correction or a custom kernel:
+// cuBLAS has no unsigned 8-bit GEMM and descriptor values reach 255.)
 __global__ void WidenU8(const unsigned char* __restrict__ src, int n, int dim,
                         float* __restrict__ dst) {
   const size_t total = (size_t)n * dim;
@@ -79,7 +60,8 @@ __global__ void SqNorms(const float* __restrict__ d, int n, int dim,
 // Row-wise: for each query row, scan a (n1 x tw) tile and merge into running
 // (best, second, idx). One thread per query, grid-stride.
 //
-// REDUCTION KEY. Ranking by the raw inner product only agrees with ranking by
+// REDUCTION KEY (L2 mode; ANGULAR ranks on the raw inner product, as the
+// reference does). Ranking by the raw inner product only agrees with ranking by
 // distance when every candidate has the same norm. COLMAP's descriptors sit
 // NEAR its 512 convention but not exactly on it, and
 //   ||q - c||^2 = ||q||^2 + ||c||^2 - 2 q.c
@@ -92,23 +74,11 @@ __global__ void SqNorms(const float* __restrict__ d, int n, int dim,
 //
 // Note this is exact in fp32 for COLMAP-scale descriptors: with ||d||^2 ~ 2^18
 // every intermediate stays below 2^24, so no mantissa bits are lost.
+//
 // CANONICAL TIE-BREAK: strictly better key, or an equal key at a LOWER index.
-//
-// Plain `v > b` makes the winner depend on the order candidates happen to be
-// visited, which is only well-defined for a sequential ascending scan. The row
-// reduction below does scan ascending, so it already resolves ties to the lowest
-// index -- but by accident of decomposition, not by rule. The column reduction
-// does NOT: it block-strides rows and merges in a shared tree, so it resolves to
-// the lowest threadIdx.x, i.e. the lowest r % blockDim.x rather than the lowest
-// r. That is invisible on data where exact key ties do not occur, which is why it
-// has never shown up, but `hColIdx[j]` is compared for equality against `i` in
-// the epilogue, so a tie there does change which pairs survive the cross-check.
-//
-// Making the rule explicit is a prerequisite for any parallel re-decomposition
-// (e.g. a fused kernel's two-level reduction, where partials merge in no
-// particular order): the answer must be a property of the data, not of the
-// thread layout. Keys are integer-valued in [0, 262144] here, so exact ties are
-// reachable and will eventually occur on some dataset.
+// The column reduction merges in a shared-memory tree, so without this rule a
+// tie would resolve by thread layout; keys are integers in [0, 262144], so
+// exact ties do occur, and the cross-check compares column winners exactly.
 __device__ __forceinline__ bool CanonicallyBetter(float v, int i, float b,
                                                   int bi) {
   return v > b || (v == b && (bi < 0 || i < bi));
