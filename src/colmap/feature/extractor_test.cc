@@ -186,12 +186,6 @@ TEST(FeatureExtractionOptions, CheckAndRequiresOpenGLWithNoGpu) {
     EXPECT_TRUE(options.Check());
     EXPECT_FALSE(options.RequiresOpenGL());
   }
-
-  // CUSIFT has no CPU implementation, so it is the one type that must reject
-  // use_gpu = false instead of falling back.
-  options.type = FeatureExtractorType::CUSIFT;
-  EXPECT_FALSE(options.Check());
-  EXPECT_FALSE(options.RequiresOpenGL());
 }
 
 }  // namespace

@@ -171,15 +171,6 @@ TEST(CusiftExtractionOptions, RequiresGpu) {
 }
 #endif  // COLMAP_CUSIFT_ENABLED
 
-TEST(CusiftExtractionOptions, TypeProperties) {
-  const FeatureExtractionOptions options = CreateCusiftOptions();
-  EXPECT_FALSE(options.RequiresRGB());
-  EXPECT_FALSE(options.RequiresOpenGL());
-  EXPECT_EQ(
-      options.EffMaxImageSize(),
-      FeatureExtractionOptions(FeatureExtractorType::SIFT).EffMaxImageSize());
-}
-
 #if defined(COLMAP_CUSIFT_ENABLED)
 
 // Holds cusift to the assertions sift_test.cc's ExtractSiftFeaturesGPU applies

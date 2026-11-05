@@ -12,21 +12,15 @@ struct Match { int i, j; float dist2; };
 // between the spaces. Only the RATIO test genuinely differs, because a ratio of
 // angles is not a ratio of distances.
 //
-//   kL2      - ratio of unit-vector L2 distances. What COLMAP's CPU matcher
-//              does (sift.cc, FindBestMatchesOneWayIndex) and what VLFeat's
-//              vl_ubcmatch does. Cheapest: d^2 = 2-2*cos is one FMA on the
-//              value the GEMM already produced.
-//   kAngular - ratio of angles, via acos. Behaviourally what SiftGPU does. Costs
-//              a transcendental, but only in the O(n) reduction epilogue, never
-//              in the O(n1*n2) inner loop.
+//   kL2      - ratio of L2 distances, ranked on |d1|^2 + |d2|^2 - 2 d1.d2.
+//              What COLMAP's index-based matcher does (sift.cc,
+//              FindBestMatchesOneWayIndex).
+//   kAngular - ratio of angles acos(d1.d2 / sqDescriptorNorm), from the raw
+//              inner product and a fixed norm, as COLMAP's brute-force matcher
+//              and SiftGPU do. The acos runs only in the O(n) epilogue.
 //
-// LICENSING: kAngular replicates SiftGPU's observable BEHAVIOUR only; no
-// SiftGPU code is copied or adapted here. This implementation works from true
-// normalised cosines produced by cuBLAS (SiftGPU instead scales raw integer dot
-// products by a hardcoded reciprocal), clamps both ends of the domain, and
-// evaluates the test in a host-side epilogue over separately-reduced top-2
-// arrays. The shared element is the mathematical idea -- compare a ratio of
-// angles, and test both directions -- not any expression of it.
+// No SiftGPU code is copied or adapted here; kAngular reproduces its
+// observable behaviour.
 //
 // NOTE this also changes the UNITS of any max-distance threshold applied by the
 // caller: radians under kAngular, unit-vector L2 distance under kL2.

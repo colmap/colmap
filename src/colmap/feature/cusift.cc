@@ -62,10 +62,8 @@ void UploadGreyBitmap(const Bitmap& bitmap,
   image->Download();
 }
 
-// COLMAP's own normalization and uint8 quantization, deliberately: cusift
-// hands back exactly what vl_sift_calc_keypoint_descriptor does, so this is
-// the same final step the VLFeat CPU path applies. Shared by the extractor and
-// the descriptor-isolation path, so both write the same representation.
+// The VLFeat CPU path's final step: cusift returns what
+// vl_sift_calc_keypoint_descriptor does.
 FeatureDescriptorsData NormalizeAndQuantize(
     const SiftExtractionOptions::Normalization normalization,
     FeatureDescriptorsFloatData* descriptors_float) {
@@ -83,9 +81,7 @@ class CusiftFeatureExtractor : public FeatureExtractor {
  public:
   explicit CusiftFeatureExtractor(const FeatureExtractionOptions& options)
       : options_(options) {
-    // Includes CheckCusiftSiftOptions: the options cusift cannot serve are
-    // rejected loudly, since a silent no-op would produce a database that
-    // looks fine and reconstructs worse.
+    // Includes CheckCusiftSiftOptions.
     THROW_CHECK(options_.Check())
         << "invalid options for the cusift extractor; the reason is logged "
            "above";
@@ -111,10 +107,8 @@ class CusiftFeatureExtractor : public FeatureExtractor {
     CudaImage image;
     UploadGreyBitmap(bitmap, &host_buffer, &image);
 
-    // Absolute image coordinates, sigma in image units, orientation in radians
-    // in VLFeat's convention, descriptors L2 -> clip 0.2 -> L2 normalized and
-    // already in UBC layout. No +0.5 applied, and no VLFeat-to-UBC permutation
-    // to undo - see the conventions notes below.
+    // Absolute coordinates without the +0.5 offset, orientation in VLFeat's
+    // convention, descriptors normalized and in UBC layout.
     x_.clear();
     y_.clear();
     sigma_.clear();
@@ -139,20 +133,9 @@ class CusiftFeatureExtractor : public FeatureExtractor {
 
     const size_t num_features = x_.size();
 
-    // The +0.5 pixel-centre offset is applied here and only here: cusift's
-    // kernels work in VLFeat's pixel frame throughout, and this is the single
-    // boundary where features leave it for COLMAP. Matches the VLFeat CPU
-    // backend, which adds it at the same point.
-    //
-    // Orientation is stored in VLFeat-convention radians, also matching that
-    // backend, and is deliberately NOT negated to SiftGPU's sign. COLMAP's two
-    // SIFT backends disagree here -- the VLFeat CPU path stores VLFeat theta
-    // while SiftGPU's raw mirrored theta is written uncorrected
-    // (SiftGPUFeatureExtractor in sift.cc) -- and cusift follows the VLFeat
-    // reference it is tested against. Consumers of stored orientation
-    // (LightGlue, vocab-tree geometry via retrieval/visual_index.cc)
-    // therefore see VLFeat convention from cusift, as they do from the CPU
-    // backend. Do not "fix" this to match SiftGPU.
+    // +0.5 pixel-centre offset and VLFeat-convention orientation, as the
+    // VLFeat CPU backend stores them. SiftGPU stores a mirrored orientation
+    // (SiftGPUFeatureExtractor); cusift deliberately follows VLFeat.
     keypoints->resize(num_features);
     for (size_t i = 0; i < num_features; ++i) {
       (*keypoints)[i] = FeatureKeypoint(
@@ -167,15 +150,9 @@ class CusiftFeatureExtractor : public FeatureExtractor {
             descriptors_[i].data(), kSiftDescriptorDim);
       }
 
-      // No TransformVLFeatToUBCFeatureDescriptors call: cusift's descriptor
-      // kernel writes the UBC order natively. Adding the permutation here
-      // would silently scramble every descriptor.
+      // Already in UBC order: no TransformVLFeatToUBCFeatureDescriptors.
       descriptors->data = NormalizeAndQuantize(options_.sift->normalization,
                                                &descriptors_float);
-      // These are SIFT descriptors in COLMAP's usual layout, so they are
-      // tagged as such. That is the whole point: the existing SIFT matchers,
-      // index, and databases consume them with no changes, and cusift and
-      // SiftGPU features remain interoperable.
       descriptors->type = FeatureExtractorType::SIFT;
     }
 

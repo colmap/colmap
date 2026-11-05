@@ -127,7 +127,7 @@ Each file's SPDX line and copyright lines name the notices that apply to it.
 The CUDA scaffolding (`cudaImage*`, `cudautils.h`, the structure of
 `cudaSift*`) comes from CudaSift (https://github.com/Celebrandil/CudaSift).
 Detection, orientation and description were rewritten as VLFeat-parity
-kernels; the matcher (`matcher.h`, `matcher_gemm.cu`) and the device shim
+kernels; the matcher (`matcher_gemm.{h,cu}`) and the device shim
 (`cusift_device.{h,cu}`) are new. Notes for anyone changing the code:
 
 1. `GaussKernelSlot`'s constant-bank bookkeeping in `src/cudaSiftH.cu` is one

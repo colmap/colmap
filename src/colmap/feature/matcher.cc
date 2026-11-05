@@ -117,16 +117,13 @@ bool FeatureMatchingOptions::Check() const {
                     "needs CUDA >= 11.2).";
       return false;
 #endif
-      // cusift has no CPU implementation, so this is a hard requirement
-      // rather than a fallback -- same rule FeatureExtractionOptions applies
-      // to FeatureExtractorType::CUSIFT (extractor.cc).
+      // No CPU implementation to fall back to.
       if (!use_gpu) {
         LOG(ERROR) << "cusift feature matching requires GPU. Consider "
                       "setting the feature matcher type to SIFT_BRUTEFORCE.";
         return false;
       }
-      // Not implemented by the GEMM matcher. Fail here rather than in the
-      // constructor, which the guided pass runs on a worker thread.
+      // Not supported by CUSIFT_GEMM.
       CHECK_OPTION(!guided_matching);
       return THROW_CHECK_NOTNULL(sift)->Check() &&
              THROW_CHECK_NOTNULL(cusift)->Check();

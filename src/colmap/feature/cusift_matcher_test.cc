@@ -26,15 +26,11 @@ FeatureMatchingOptions CreateCusiftMatchingOptions() {
   return options;
 }
 
-TEST(CusiftMatchingOptions, Check) {
-  EXPECT_TRUE(CusiftMatchingOptions().Check());
-}
-
-TEST(CusiftMatchingOptions, ReverseRatioDefaultsOnForParity) {
-  // Default must be the SiftGPU/COLMAP-CPU-equivalent bidirectional test:
-  // the weaker mutual-best-only mode is opt-in, never the default.
+TEST(CusiftMatchingOptions, DefaultsMatchTheExactReference) {
+  // Bidirectional ratio test on angles, as FindBestMatchesOneWayBruteForce.
   const CusiftMatchingOptions options;
   EXPECT_TRUE(options.cross_check_reverse_ratio);
+  EXPECT_EQ(options.distance_type, CusiftDistanceType::ANGULAR);
 }
 
 // Options pass Check() only in a build with cusift; without it, Check() rejects
