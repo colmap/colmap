@@ -244,15 +244,10 @@ static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel,
 // available as a first-class field for orientation/descriptor, never
 // re-derived from sigma.
 
-// Every thread_local holder below frees its memory in its destructor, which runs
-// when the owning extraction thread exits: COLMAP starts new extraction threads
-// for every extraction run, so without it each run leaked these buffers. Errors
-// are ignored there, because at process exit the CUDA runtime may already be
-// shutting down and a failed free cannot be acted on.
 // Packed scratch for the VLFeat pipeline's kernel I/O (see VLFeatKp in
 // cudaSift.h): grow-only, with pinned host memory, reused across octaves and
-// images, thread_local so each extraction thread has its own. 20 B/row for
-// keypoints and 512 B/row for descriptors.
+// images; owned through SiftScratch. 20 B/row for keypoints and 512 B/row for
+// descriptors.
 struct PackedScratch {
   VLFeatKp *h_kps = nullptr, *d_kps = nullptr;
   VLFeatOri *h_ori = nullptr, *d_ori = nullptr;
@@ -262,7 +257,11 @@ struct PackedScratch {
   PackedScratch() = default;
   PackedScratch(const PackedScratch &) = delete;
   PackedScratch &operator=(const PackedScratch &) = delete;
-  ~PackedScratch() { Release(/*check=*/false); }
+  // Errors are ignored: this runs from destructors.
+  ~PackedScratch() {
+    ScopedCudaDeviceNoThrow scoped(device);
+    Release(/*check=*/false);
+  }
   // Frees every buffer and nulls it, so a throw while regrowing leaves an
   // empty scratch (cap 0) rather than freed pointers behind an old cap.
   void Release(bool check) {
@@ -289,9 +288,19 @@ struct PackedScratch {
   }
 };
 
-static PackedScratch &Packed(int n)
+SiftScratch::SiftScratch() : packed_(new PackedScratch) {}
+
+SiftScratch::~SiftScratch() = default;
+
+void SiftScratch::Release()
 {
-  static thread_local PackedScratch p;
+  ScopedCudaDeviceNoThrow scoped(packed_->device);
+  packed_->Release(/*check=*/false);
+}
+
+PackedScratch &SiftScratch::Get(int n)
+{
+  PackedScratch &p = *packed_;
   const int device = cusiftCurrentDevice();
   if (p.device != device) {
     if (p.cap > 0) {
@@ -429,7 +438,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
 // ABSOLUTE image coordinates, orientation in RADIANS (VLFeat convention),
 // descriptor already UBC-ordered + L2/clamp/L2-normalized. No +0.5 applied --
 // that's the output/DB-boundary's job, same rule as detection.
-void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
+void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
                            int maxNumOrientations, int firstOctave, int maxNumFeatures,
                            std::vector<float> &outX, std::vector<float> &outY,
                            std::vector<float> &outSigma, std::vector<float> &outOrientation,
@@ -496,7 +505,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
 
     // Orientation pass. Packed I/O: 20 B/row in, 20 B/row out, with an
     // explicit keypoint count.
-    PackedScratch &pk = Packed(n);
+    PackedScratch &pk = scratch.Get(n);
     for (int i = 0; i < n; i++) {
       pk.h_kps[i].x = localKps[i].x;
       pk.h_kps[i].y = localKps[i].y;
@@ -581,7 +590,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       if (keepLevel[oi][pendingLevel[oi][i]]) m++;
     if (m == 0) continue;
 
-    PackedScratch &pk = Packed(m);
+    PackedScratch &pk = scratch.Get(m);
     for (size_t i = 0, k = 0; i < pendingRows[oi].size(); i++)
       if (keepLevel[oi][pendingLevel[oi][i]]) pk.h_kps[k++] = pendingRows[oi][i];
     safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*m, cudaMemcpyHostToDevice));

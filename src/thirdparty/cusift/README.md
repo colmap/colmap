@@ -142,8 +142,10 @@ kernels; the matcher (`matcher_gemm.{h,cu}`) and the device shim
    (`cusiftMemPool`, `src/cusift_device.cu`) rather than the device's default
    pool, whose settings stay untouched; `cusift::ReleaseUnusedMemory()`, called
    when an extractor is destroyed, returns the pool's unused memory to the
-   driver; and the `thread_local` scratch holders and the matcher's cuBLAS
-   context free their memory when their thread exits.
+   driver; and each extractor's scratch (`SiftScratch`) and each matcher's
+   buffers and cuBLAS handle (`GemmMatcher`) are freed when it is destroyed.
+   They are not `thread_local`: on Windows every CUDA call made from a
+   thread-exit destructor fails, so memory freed there leaked.
 3. `CMakeLists.txt` keeps `--use_fast_math`, which is part of the VLFeat-parity
    numerics (see the comment there), and links `CUDA::cudart` and
    `CUDA::cublas` `PRIVATE`.

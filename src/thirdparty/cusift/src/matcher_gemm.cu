@@ -190,10 +190,8 @@ __global__ void InitTop2(int n, float* best, float* second, int* idx,
 // would dominate the cost of a pair loop, so everything is hoisted into one
 // grow-only context, created on first use and
 // reused for every later pair. Buffers only ever grow, so a batch settles after
-// its largest pair. thread_local: one context (and one cuBLAS handle) per
-// matching worker, since cuBLAS handles are not safe to share across threads.
-namespace {
-
+// its largest pair. Owned by one GemmMatcher: one cuBLAS handle per matcher,
+// since cuBLAS handles are not safe to share across threads.
 struct GemmMatcherContext {
   cublasHandle_t blas = nullptr;
   float *d1 = nullptr, *d2 = nullptr, *dSim = nullptr;
@@ -209,12 +207,12 @@ struct GemmMatcherContext {
   GemmMatcherContext(const GemmMatcherContext&) = delete;
   GemmMatcherContext& operator=(const GemmMatcherContext&) = delete;
 
-  // Runs when the owning matcher thread exits; COLMAP starts new matcher
-  // threads for every matching run, so without it each run leaked the cuBLAS
-  // handle and the device buffers. Errors are ignored: at process exit the
-  // CUDA runtime may already be shutting down, and there is nothing to do
-  // about a failed free at that point.
-  ~GemmMatcherContext() { ReleaseAll(); }
+  // Runs when the owning GemmMatcher is destroyed. Errors are ignored: there
+  // is nothing to do about a failed free in a destructor.
+  ~GemmMatcherContext() {
+    ScopedCudaDeviceNoThrow scoped(device);
+    ReleaseAll();
+  }
 
   void ReleaseAll() {
     Release(&d1); Release(&d2); Release(&dSim);
@@ -267,33 +265,15 @@ struct GemmMatcherContext {
   }
 };
 
-// The calling thread's context, on its current device: a context left on
-// another device by an earlier matcher on this thread is released there.
-GemmMatcherContext& MatcherCtx() {
-  static thread_local GemmMatcherContext ctx;
-  const int device = cusiftCurrentDevice();
-  if (ctx.device != device) {
-    if (ctx.device >= 0) {
-      ScopedCudaDevice previous(ctx.device);
-      ctx.ReleaseAll();
-    }
-    ctx.device = device;
-  }
-  return ctx;
-}
-
-}  // namespace
-
 namespace {
 
 // Everything after the upload.
-float MatchUploaded(int n1, int n2, float ratio, bool mutual,
-                    std::vector<Match>& out, bool reverseRatio,
+float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
+                    bool mutual, std::vector<Match>& out, bool reverseRatio,
                     int distanceType, float maxDistance,
                     float sqDescriptorNorm) {
   const bool angular_mode = (distanceType == kGemmDistanceAngular);
   const int TILE = 512;
-  GemmMatcherContext& ctx = MatcherCtx();
   float *d1 = ctx.d1, *d2 = ctx.d2, *dSim = ctx.dSim;
   float *dBest = ctx.dBest, *dSecond = ctx.dSecond, *dColBest = ctx.dColBest;
   float *dColSecond = ctx.dColSecond;
@@ -427,24 +407,43 @@ float MatchUploaded(int n1, int n2, float ratio, bool mutual,
   }
 
   // Nothing is freed here: the context owns the buffers and the handle for the
-  // life of the thread. A batch of pairs settles on the largest pair.
+  // life of the matcher. A batch of pairs settles on the largest pair.
   return ms;
 }
 
 }  // namespace
 
-void ReserveGemmMatcher(int maxNumDescriptors) {
+GemmMatcher::GemmMatcher() : ctx_(new GemmMatcherContext) {}
+
+GemmMatcher::~GemmMatcher() = default;
+
+// The context on the calling thread's current device: one left on another
+// device by an earlier call is released there first.
+GemmMatcherContext& GemmMatcher::Context() {
+  GemmMatcherContext& ctx = *ctx_;
+  const int device = cusiftCurrentDevice();
+  if (ctx.device != device) {
+    if (ctx.device >= 0) {
+      ScopedCudaDevice previous(ctx.device);
+      ctx.ReleaseAll();
+    }
+    ctx.device = device;
+  }
+  return ctx;
+}
+
+void GemmMatcher::Reserve(int maxNumDescriptors) {
   if (maxNumDescriptors > 0) {
-    MatcherCtx().Reserve(maxNumDescriptors, maxNumDescriptors, 512);
+    Context().Reserve(maxNumDescriptors, maxNumDescriptors, 512);
   }
 }
 
-float MatchDescriptorsGemmU8(const unsigned char* h_desc1, int n1,
+float GemmMatcher::MatchPair(const unsigned char* h_desc1, int n1,
                              const unsigned char* h_desc2, int n2, float ratio,
                              bool mutual, std::vector<Match>& out,
                              bool reverseRatio, int distanceType,
                              float maxDistance, float sqDescriptorNorm) {
-  GemmMatcherContext& ctx = MatcherCtx();
+  GemmMatcherContext& ctx = Context();
   ctx.Reserve(n1, n2, 512);
   // 128 B per descriptor instead of 512 B. The widening then happens on the
   // device, where it is memory-bound noise beside the GEMM.
@@ -453,6 +452,6 @@ float MatchDescriptorsGemmU8(const unsigned char* h_desc1, int n1,
   WidenU8<<<256, 256>>>(ctx.d1U8, n1, 128, ctx.d1);
   WidenU8<<<256, 256>>>(ctx.d2U8, n2, 128, ctx.d2);
   checkMsg("WidenU8 launch failed");
-  return MatchUploaded(n1, n2, ratio, mutual, out, reverseRatio, distanceType,
-                       maxDistance, sqDescriptorNorm);
+  return MatchUploaded(ctx, n1, n2, ratio, mutual, out, reverseRatio,
+                       distanceType, maxDistance, sqDescriptorNorm);
 }

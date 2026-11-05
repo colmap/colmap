@@ -36,11 +36,12 @@ class CusiftFeatureMatcher : public FeatureMatcher {
   static std::unique_ptr<FeatureMatcher> Create(
       const FeatureMatchingOptions& options) {
     BindCusiftDevice(options.gpu_index);
+    auto matcher = std::make_unique<CusiftFeatureMatcher>(options);
     // Size the device buffers once: the worker has clamped max_num_matches to
     // the largest keypoint count (feature_matching_utils.cc), and growing them
     // later calls cudaFree, which synchronises the whole device.
-    ReserveGemmMatcher(options.max_num_matches);
-    return std::make_unique<CusiftFeatureMatcher>(options);
+    matcher->gemm_.Reserve(options.max_num_matches);
+    return matcher;
   }
 
   void Match(const Image& image1,
@@ -69,7 +70,7 @@ class CusiftFeatureMatcher : public FeatureMatcher {
     constexpr double kSqSiftDescriptorNorm = 512.0 * 512.0;
 
     std::vector<::Match> raw_matches;
-    MatchDescriptorsGemmU8(
+    gemm_.MatchPair(
         image1.descriptors->data.data(),
         n1,
         image2.descriptors->data.data(),
@@ -105,6 +106,8 @@ class CusiftFeatureMatcher : public FeatureMatcher {
 
  private:
   const FeatureMatchingOptions options_;
+  // cuBLAS handle and device buffers, freed when the matcher is destroyed.
+  GemmMatcher gemm_;
 };
 
 #endif  // COLMAP_CUSIFT_ENABLED

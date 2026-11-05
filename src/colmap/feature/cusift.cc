@@ -86,10 +86,14 @@ class CusiftFeatureExtractor : public FeatureExtractor {
            "above";
   }
 
-  // Returns the memory cusift's pool holds but no longer uses to the driver,
-  // so GPU stages that run after extraction can have it. Runs on the thread
-  // that extracted, which is bound to the extractor's GPU.
-  ~CusiftFeatureExtractor() override { cusift::ReleaseUnusedMemory(); }
+  // Frees the scratch, then returns the memory cusift's pool holds but no
+  // longer uses to the driver, so GPU stages that run after extraction can
+  // have it. COLMAP destroys the extractor on the thread that extracted,
+  // which is bound to the extractor's GPU.
+  ~CusiftFeatureExtractor() override {
+    scratch_.Release();
+    cusift::ReleaseUnusedMemory();
+  }
 
   static std::unique_ptr<FeatureExtractor> Create(
       const FeatureExtractionOptions& options) {
@@ -114,6 +118,7 @@ class CusiftFeatureExtractor : public FeatureExtractor {
     orientation_.clear();
     descriptors_.clear();
     ExtractSiftFullVLFeat(
+        scratch_,
         image,
         CusiftEffectiveNumOctaves(*THROW_CHECK_NOTNULL(options_.cusift),
                                   bitmap.Width(),
@@ -160,6 +165,8 @@ class CusiftFeatureExtractor : public FeatureExtractor {
 
  private:
   const FeatureExtractionOptions options_;
+  // Kernel I/O buffers reused across images; freed in the destructor.
+  SiftScratch scratch_;
 
   // Reused across images to avoid reallocating per call.
   std::vector<float> x_;
