@@ -180,12 +180,15 @@ TEST(CusiftFeatureMatcher, RejectsGuidedMatching) {
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   options.guided_matching = true;
   // Rejected as a bad option, before the guided pass constructs the matcher on
-  // a worker thread.
+  // a worker thread, and again by the constructor for callers that skip it.
   EXPECT_FALSE(options.Check());
-  // A caller that skips Check() fails at the guided pass itself.
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  auto matcher = CreateCusiftFeatureMatcher(options);
-  ASSERT_NE(matcher, nullptr);
+  EXPECT_THAT([&]() { CreateCusiftFeatureMatcher(options); },
+              testing::ThrowsMessage<std::invalid_argument>(
+                  testing::HasSubstr("invalid options for the cusift")));
+  // And a matcher created for unguided matching refuses a guided pass.
+  options.guided_matching = false;
+  auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
   TwoViewGeometry two_view_geometry;
   EXPECT_THAT(
       [&]() {
@@ -202,12 +205,20 @@ TEST(CusiftFeatureMatcher, ConstructorRejectsInvalidOptions) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // Callers that skip FeatureMatchingOptions::Check(), such as a direct
   // Create, must still be stopped by the constructor.
+  const auto expect_rejected = [](const FeatureMatchingOptions& options) {
+    EXPECT_THAT([&]() { CreateCusiftFeatureMatcher(options); },
+                testing::ThrowsMessage<std::invalid_argument>(
+                    testing::HasSubstr("invalid options for the cusift")));
+  };
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   options.sift->max_ratio = 0.0;
-  EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
+  expect_rejected(options);
   options = CreateCusiftMatchingOptions();
   options.sift->max_distance = -1.0;
-  EXPECT_THROW(CreateCusiftFeatureMatcher(options), std::exception);
+  expect_rejected(options);
+  options = CreateCusiftMatchingOptions();
+  options.use_gpu = false;
+  expect_rejected(options);
 }
 
 TEST(CusiftFeatureMatcher, TypeMismatch) {

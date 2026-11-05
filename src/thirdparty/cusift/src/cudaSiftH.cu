@@ -10,7 +10,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
-#include <iostream>
 #include <algorithm>
 #include <array>
 #include <vector>
@@ -24,25 +23,6 @@
 #include "cudaSiftD.h"
 
 #include "cudaSiftD.cu"
-
-
-
-
-
-
-
-
-
-
-   
-
-
-
-
-
-
- 
-
 
 //======= VLFeat-schedule pyramid + descriptor (clean-room from          ====//
 //======= colmap/src/thirdparty/VLFeat/sift.c, BSD; not SiftGPU)          ====//
@@ -132,7 +112,7 @@ static void AdaptiveGaussianBlur(CudaImage &dst, CudaImage &src, float sigma)
   int kOffset = GaussKernelSlot(sigma, radius);
 
   CudaImage tmp;
-  tmp.Allocate(src.width, src.height, iAlignUp(src.width, 128), false, NULL);
+  tmp.Allocate(src.width, src.height, iAlignUp(src.width, 128));
   dim3 threads(16, 16);
   dim3 blocks(iDivUp(src.width, 16), iDivUp(src.height, 16));
   GaussianBlurHorizontalKernel<<<blocks, threads>>>(tmp.d_data, src.d_data,
@@ -157,7 +137,7 @@ static void Decimate2x(CudaImage &dst, CudaImage &src)
 static void Upsample2x(CudaImage &dst, CudaImage &src)
 {
   CudaImage tmp;
-  tmp.Allocate(2*src.width, src.height, iAlignUp(2*src.width, 128), false, NULL);
+  tmp.Allocate(2*src.width, src.height, iAlignUp(2*src.width, 128));
   dim3 threadsH(16, 16);
   dim3 blocksH(iDivUp(2*src.width, 16), iDivUp(src.height, 16));
   Upsample2xHorizontalKernel<<<blocksH, threadsH>>>(tmp.d_data, src.d_data,
@@ -197,7 +177,7 @@ struct VLFeatOctaveBuffers {
 static CudaImage LevelView(CudaImage &combined, int levelIdx, int w, int h, int p)
 {
   CudaImage v;
-  v.Allocate(w, h, p, false, combined.d_data + (size_t)levelIdx * h * p);
+  v.Allocate(w, h, p, combined.d_data + (size_t)levelIdx * h * p);
   return v;
 }
 
@@ -220,9 +200,9 @@ static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel,
   if (prevTopLevel) { w = prevTopLevel->width / 2; h = prevTopLevel->height / 2; }
   else              { w = base->width;             h = base->height; }
 
-  oct.gauss.Allocate(w, h * nLevels, iAlignUp(w, 128), false, NULL);
-  oct.gradMag.Allocate(w, h * numScales, iAlignUp(w, 128), false, NULL);
-  oct.gradAng.Allocate(w, h * numScales, iAlignUp(w, 128), false, NULL);
+  oct.gauss.Allocate(w, h * nLevels, iAlignUp(w, 128));
+  oct.gradMag.Allocate(w, h * numScales, iAlignUp(w, 128));
+  oct.gradAng.Allocate(w, h * numScales, iAlignUp(w, 128));
   int p = oct.gauss.pitch;
   // The pitch depends only on the width, so all three agree; slice
   // addressing below relies on it.
@@ -309,7 +289,7 @@ struct PackedScratch {
   }
 };
 
-static PackedScratch &Packed(int n, bool wantDesc)
+static PackedScratch &Packed(int n)
 {
   static thread_local PackedScratch p;
   const int device = cusiftCurrentDevice();
@@ -330,10 +310,8 @@ static PackedScratch &Packed(int n, bool wantDesc)
     safeCall(cusiftMallocAsync((void **)&p.d_desc, (size_t)n * 128 * sizeof(float)));
     p.cap = n;
   }
-  (void)wantDesc;
   return p;
 }
-
 
 // Candidates and refined keypoints are appended on the GPU through atomic
 // counters, so their order depends on thread scheduling and changes from run
@@ -368,7 +346,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
   int nDogLevels = oct.nLevels - 1;
 
   CudaImage dogCombined;
-  dogCombined.Allocate(w, h*nDogLevels, iAlignUp(w, 128), false, NULL);
+  dogCombined.Allocate(w, h*nDogLevels, iAlignUp(w, 128));
   int dp = dogCombined.pitch;
   {
   for (int i = 0; i < nDogLevels; i++) {
@@ -420,7 +398,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
       d_KpCount.Reset(1);
       safeCall(cudaMemset(d_KpCount.get(), 0, sizeof(unsigned int)));
       int threadsR = 128, blocksR = iDivUp((int)candCount, threadsR);
-      RefineKeypointsKernel<<<blocksR, threadsR>>>(dogCombined.d_data, w, h, dp, h*dp,
+      RefineKeypointsKernel<<<blocksR, threadsR>>>(dogCombined.d_data, w, h, dp, (size_t)h*dp,
           nDogLevels, s_min, s_max, d_CandX.get(), d_CandY.get(), d_CandS.get(),
           candCount, peakThresh, edgeThresh, d_Kp.get(), d_KpCount.get());
       checkMsg("RefineKeypointsKernel() execution failed\n");
@@ -442,8 +420,6 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
     SortOctaveKeypoints(out, outBegin);
   }
 }
-
-
 
 // Full pipeline: detect -> orient -> descriptor, one pass per octave, with
 // is/x/y/sigma threaded natively throughout. Each keypoint is expanded into up to
@@ -470,7 +446,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
                                 std::to_string(firstOctave));
   }
   CudaImage img01;
-  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128), false, NULL);
+  img01.Allocate(img.width, img.height, iAlignUp(img.width, 128));
   {
     dim3 threads(16, 16);
     dim3 blocks(iDivUp(img.width, 16), iDivUp(img.height, 16));
@@ -497,7 +473,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       if (oi == 0 && vo == -1) {
         CudaImage img2x;
         img2x.Allocate(2 * img01.width, 2 * img01.height,
-                       iAlignUp(2 * img01.width, 128), false, NULL);
+                       iAlignUp(2 * img01.width, 128));
         Upsample2x(img2x, img01);
         BuildVLFeatOctave(octaves[oi], nullptr, &img2x, 1.0f, numScales);
       } else if (oi == 0) {
@@ -520,7 +496,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
 
     // Orientation pass. Packed I/O: 20 B/row in, 20 B/row out, with an
     // explicit keypoint count.
-    PackedScratch &pk = Packed(n, false);
+    PackedScratch &pk = Packed(n);
     for (int i = 0; i < n; i++) {
       pk.h_kps[i].x = localKps[i].x;
       pk.h_kps[i].y = localKps[i].y;
@@ -530,7 +506,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
     }
     safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*n, cudaMemcpyHostToDevice));
 
-    int levelStride = oct.height * oct.pitch;
+    const size_t levelStride = (size_t)oct.height * oct.pitch;
     {
       dim3 blocks(512), threads(256);
       ComputeOrientationsVLFeat<<<blocks, threads>>>(
@@ -596,7 +572,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
     if (pendingRows[oi].empty()) continue;
     VLFeatOctaveBuffers &oct = octaves[oi];
     float xper = pendingXper[oi];
-    int levelStride = oct.height * oct.pitch;
+    const size_t levelStride = (size_t)oct.height * oct.pitch;
     // Count first, then copy the surviving rows straight into the descriptor
     // input buffer -- an intermediate `expanded` vector here was a second full
     // copy of the same data.
@@ -605,7 +581,7 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
       if (keepLevel[oi][pendingLevel[oi][i]]) m++;
     if (m == 0) continue;
 
-    PackedScratch &pk = Packed(m, true);
+    PackedScratch &pk = Packed(m);
     for (size_t i = 0, k = 0; i < pendingRows[oi].size(); i++)
       if (keepLevel[oi][pendingLevel[oi][i]]) pk.h_kps[k++] = pendingRows[oi][i];
     safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*m, cudaMemcpyHostToDevice));
@@ -639,9 +615,4 @@ void ExtractSiftFullVLFeat(CudaImage &img, int numOctaves, float peakThresh, flo
     }
   }
 }
-
-
-
-
-
 

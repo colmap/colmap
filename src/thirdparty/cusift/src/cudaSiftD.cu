@@ -15,47 +15,6 @@
 // Kernel configuration
 ///////////////////////////////////////////////////////////////////////////////
 
-
-
-
-
-
-
-       
- 
-
- 
-
-
-
-
-
-
-
- 
-
- 
-
- 
-
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //======= VLFeat-schedule pyramid kernels (clean-room from            =======//
 //======= colmap/src/thirdparty/VLFeat/sift.c, BSD; not SiftGPU)     =======//
 
@@ -82,7 +41,7 @@ __global__ void PureDecimate2xKernel(float *d_Result, float *d_Data,
 // pitched DoG buffer. `yo`/`so` are explicit row/plane strides (yo=pitch,
 // so=height*pitch).
 __device__ static bool RefineOneKeypoint(const float *dog,
-                              int width, int height, int yo, int so,
+                              int width, int height, int yo, size_t so,
                               int nDogLevels, int s_min, int s_max,
                               int ix0, int iy0, int is0,
                               double peakThresh, double edgeThresh,
@@ -170,7 +129,7 @@ __device__ static bool RefineOneKeypoint(const float *dog,
 // nondeterministic; DetectOctaveVLFeat sorts each octave's keypoints afterwards
 // (SortOctaveKeypoints).
 __global__ void RefineKeypointsKernel(const float *dog, int width, int height,
-                                      int yo, int so, int nDogLevels,
+                                      int yo, size_t so, int nDogLevels,
                                       int s_min, int s_max,
                                       const int *candX, const int *candY, const int *candS,
                                       unsigned int candCount,
@@ -394,7 +353,7 @@ __device__ __forceinline__ float HistFromFixed(unsigned long long v)
 
 __global__ void ComputeOrientationsVLFeat(
     const float * __restrict__ d_GradMag, const float * __restrict__ d_GradAng,
-    int width, int pitch, int height, int levelStrideElems,
+    int width, int pitch, int height, size_t levelStrideElems,
     const VLFeatKp * __restrict__ d_kps, VLFeatOri * __restrict__ d_out, int numKps)
 {
   __shared__ unsigned long long hist[36];
@@ -506,7 +465,7 @@ __global__ void ComputeOrientationsVLFeat(
 __global__ void ExtractSiftDescriptorsVLFeat(
     const float * __restrict__ d_GradMag,   // octave-combined, level-stacked planes
     const float * __restrict__ d_GradAng,
-    int width, int pitch, int height, int levelStrideElems,
+    int width, int pitch, int height, size_t levelStrideElems,
     VLFeatKp * __restrict__ d_kps, float * __restrict__ d_desc, int numKps,
     float subsampling, float magnif)
 {
@@ -658,8 +617,10 @@ __global__ void FindDogExtremaKernel(const float *d_Dog, int width, int pitch, i
   int sIdx = blockIdx.z + 1;  // dog-plane index, interior range [1, nDogLevels-2]
   if (x >= width-1 || y >= height-1 || sIdx >= nDogLevels-1) return;
 
-  int so = pitch*height;  // s-stride (plane stride) in the DoG cube
-  const float *pt = d_Dog + sIdx*so + y*pitch + x;
+  // Plane stride, in size_t: a plane of an upsampled large image can exceed
+  // the int range once multiplied by the plane index.
+  const size_t so = (size_t)pitch*height;
+  const float *pt = d_Dog + sIdx*so + (size_t)y*pitch + x;
   float v = *pt;
   float th = 0.8f*peakThresh;
 
@@ -674,7 +635,7 @@ __global__ void FindDogExtremaKernel(const float *d_Dog, int width, int pitch, i
   const int dss[26] = {-1,0,1,-1,0,1,-1,0,1,-1,0,1,-1,1,-1,0,1,-1,0,1,-1,0,1,-1,0,1};
   #pragma unroll
   for (int k = 0; k < 26; k++) {
-    float nv = *(pt + dxs[k] + dys[k]*pitch + dss[k]*so);
+    float nv = *(pt + dxs[k] + dys[k]*pitch + dss[k]*(ptrdiff_t)so);
     if (isMax && v <= nv) { isMax = false; }
     if (isMin && v >= nv) { isMin = false; }
   }

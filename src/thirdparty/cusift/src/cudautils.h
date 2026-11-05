@@ -7,12 +7,10 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 
 #define safeCall(err)       __safeCall(err, __FILE__, __LINE__)
-#define safeThreadSync()    __safeThreadSync(__FILE__, __LINE__)
 #define checkMsg(msg)       __checkMsg(msg, __FILE__, __LINE__)
 
 // CUDA errors are reported as exceptions, never by ending the process: COLMAP
@@ -35,12 +33,6 @@ inline void __safeCall(cudaError err, const char *file, const int line)
     (void)cudaGetLastError();
     __throwCudaError("CUDA runtime API error", err, file, line);
   }
-}
-
-inline void __safeThreadSync(const char *file, const int line)
-{
-  cudaError err = cudaDeviceSynchronize();
-  if (cudaSuccess != err) __throwCudaError("device synchronization failed", err, file, line);
 }
 
 inline void __checkMsg(const char *errorMessage, const char *file, const int line)
@@ -135,33 +127,6 @@ class PoolBuffer {
  private:
   T *ptr_ = nullptr;
 };
-
-
-class TimerGPU {
-public:
-  cudaEvent_t start, stop; 
-  cudaStream_t stream;
-  TimerGPU(cudaStream_t stream_ = 0) : stream(stream_) {
-    cudaEventCreate(&start); 
-    cudaEventCreate(&stop); 
-    cudaEventRecord(start, stream); 
-  }
-  ~TimerGPU() {
-    cudaEventDestroy(start); 
-    cudaEventDestroy(stop);  
-  }
-  float read() {
-    cudaEventRecord(stop, stream); 
-    cudaEventSynchronize(stop); 
-    float time;
-    cudaEventElapsedTime(&time, start, stop);
-    return time;
-  }
-};
-
-
-
-
 
 #endif
 

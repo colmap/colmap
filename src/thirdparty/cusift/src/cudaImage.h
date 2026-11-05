@@ -9,6 +9,9 @@
 #ifndef CUDAIMAGE_H
 #define CUDAIMAGE_H
 
+// A pitched float image on the device. Owns its device buffer when Allocate
+// allocated it, otherwise it is a view of `devMem`; `h_data` is never owned.
+// Move-only, so an owning image cannot be freed twice.
 class CudaImage {
 public:
   int width, height;
@@ -16,12 +19,16 @@ public:
   float *h_data;
   float *d_data;
   bool d_internalAlloc;
-  bool h_internalAlloc;
 public:
   CudaImage();
   ~CudaImage();
-  void Allocate(int width, int height, int pitch, bool withHost, float *devMem = NULL, float *hostMem = NULL);
-  double Download();
+  CudaImage(const CudaImage &) = delete;
+  CudaImage &operator=(const CudaImage &) = delete;
+  CudaImage(CudaImage &&other) noexcept;
+  CudaImage &operator=(CudaImage &&other) noexcept;
+  void Allocate(int width, int height, int pitch, float *devMem = NULL, float *hostMem = NULL);
+  // Copies h_data to the device.
+  void Download();
 };
 
 int iDivUp(int a, int b);

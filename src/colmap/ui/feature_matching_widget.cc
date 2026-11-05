@@ -3,7 +3,6 @@
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
-#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #ifdef COLMAP_ONNX_ENABLED
@@ -140,11 +139,6 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->feature_matching->sift->max_distance, "sift.max_distance");
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
                                  "sift.cross_check");
-#ifdef COLMAP_CUSIFT_ENABLED
-  options_widget_->AddOptionBool(
-      &options_->feature_matching->cusift->cross_check_reverse_ratio,
-      "cusift.cross_check_reverse_ratio");
-#endif
 #ifdef COLMAP_ONNX_ENABLED
   options_widget_->AddOptionDouble(
       &options_->feature_matching->flexglue->filter_threshold,
