@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Yonatan Simson (see ../LICENSE)
 
 #pragma once
+#include <memory>
 #include <vector>
 
 struct Match { int i, j; float dist2; };
@@ -26,8 +27,43 @@ struct Match { int i, j; float dist2; };
 // caller: radians under kAngular, unit-vector L2 distance under kL2.
 enum GemmDistanceType { kGemmDistanceL2 = 0, kGemmDistanceAngular = 1 };
 
+struct GemmMatcherContext;
+
 // GEMM-class matcher (cuBLAS SGEMM + tiled top-2 reductions) for uint8
-// descriptors (row-major n x 128). The host->device transfer carries 128 B per
+// descriptors (row-major n x 128). Owns a cuBLAS handle and grow-only device
+// buffers, freed when it is destroyed; use one per thread. Not thread_local:
+// on Windows every CUDA call made from a thread-exit destructor fails
+// ("initialization error"), so buffers released there leaked.
+class GemmMatcher {
+ public:
+  GemmMatcher();
+  ~GemmMatcher();
+  GemmMatcher(const GemmMatcher&) = delete;
+  GemmMatcher& operator=(const GemmMatcher&) = delete;
+
+  // Sizes the device buffers up front, for `maxNumDescriptors` per side.
+  // Optional but worth calling once when an upper bound is known: the buffers
+  // are otherwise grown on demand, and every growth does a batch of
+  // cudaFree/cudaMalloc. cudaFree synchronises the WHOLE DEVICE, so in a
+  // pipelined host (COLMAP runs verification and I/O alongside matching) that
+  // stalls unrelated queued work.
+  void Reserve(int maxNumDescriptors);
+
+  // Matches two descriptor sets (see below for the parameters).
+  float MatchPair(const unsigned char* h_desc1, int n1,
+                  const unsigned char* h_desc2, int n2,
+                  float ratio, bool mutual, std::vector<Match>& out,
+                  bool reverseRatio = true,
+                  int distanceType = kGemmDistanceAngular,
+                  float maxDistance = 3.4028235e38f,
+                  float sqDescriptorNorm = 512.0f * 512.0f);
+
+ private:
+  GemmMatcherContext& Context();
+  std::unique_ptr<GemmMatcherContext> ctx_;
+};
+
+// GemmMatcher::MatchPair: The host->device transfer carries 128 B per
 // descriptor and the widening to float runs on the device. Returns kernel time
 // in ms; matches are appended to `out`.
 //
@@ -49,18 +85,3 @@ enum GemmDistanceType { kGemmDistanceL2 = 0, kGemmDistanceAngular = 1 };
 // kAngular divides the raw inner product by it to form the pseudo-cosine, which
 // is how both of COLMAP's references do it (a FIXED constant, not per-row
 // norms). Pass 512*512 for COLMAP-scale descriptors.
-float MatchDescriptorsGemmU8(const unsigned char* h_desc1, int n1,
-                             const unsigned char* h_desc2, int n2,
-                             float ratio, bool mutual, std::vector<Match>& out,
-                             bool reverseRatio = true,
-                             int distanceType = kGemmDistanceAngular,
-                             float maxDistance = 3.4028235e38f,
-                             float sqDescriptorNorm = 512.0f * 512.0f);
-
-// Sizes the thread-local device buffers up front, for `maxNumDescriptors` per
-// side. Optional but worth calling once per matching thread when an upper bound
-// is known: the buffers are otherwise grown on demand, and every growth does a
-// batch of cudaFree/cudaMalloc. cudaFree synchronises the WHOLE DEVICE, so in a
-// pipelined host (COLMAP runs verification and I/O alongside matching) that
-// stalls unrelated queued work.
-void ReserveGemmMatcher(int maxNumDescriptors);

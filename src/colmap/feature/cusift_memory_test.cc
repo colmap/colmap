@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 // cusift's memory handling, in three parts:
-// - It keeps GPU buffers, pinned host buffers and a cuBLAS handle in
-//   thread_local holders, and COLMAP starts new extraction and matching
-//   threads for every run, so what a thread allocated must be released when it
-//   exits rather than accumulate run after run.
+// - Each extractor and matcher owns its GPU buffers, pinned host buffers and
+//   cuBLAS handle, and COLMAP creates new ones, on new threads, for every run,
+//   so what one allocated must be released when it is destroyed rather than
+//   accumulate run after run. (Not thread_local: on Windows every CUDA call
+//   made from a thread-exit destructor fails, which leaked these.)
 // - It allocates from its own stream-ordered memory pool, so the device's
 //   default pool, which other code in the process may use, keeps its settings.
 // - Destroying an extractor returns the pool memory it no longer uses to the
@@ -44,8 +45,8 @@ void RunOnFreshThread(const std::function<void()>& fn) {
 }
 
 // Bytes currently allocated from cusift's memory pool. Its extraction scratch
-// is allocated there, so a holder that is never freed keeps this count up
-// after its thread exits.
+// is allocated there, so scratch that is never freed keeps this count up
+// after its extractor is destroyed.
 int64_t CusiftPoolUsedBytes() {
   return static_cast<int64_t>(cusift::GetMemoryPoolUsage().used);
 }
@@ -133,16 +134,20 @@ TEST(CusiftMemory, ExtractorThreadReleasesScratchMemory) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // Measure on the device the work runs on (both pick it with gpu_index -1).
   BindCusiftDevice("-1");
-  // A noise image yields thousands of keypoints, so the per-thread keypoint
+  // A noise image yields thousands of keypoints, so the extractor's keypoint
   // and descriptor scratch is several MiB of pool memory.
   const Bitmap bitmap = CreateNoiseImage(2048, 2048);
   const FeatureExtractionOptions options = CreateLargeExtractionOptions();
 
-  // Positive control: the scratch the test expects back is in the pool.
+  // Positive control: while the extractor lives, the scratch the test expects
+  // back is in the pool.
   int64_t min_used_while_alive = INT64_MAX;
   const int64_t growth = MedianGrowthPerThread(
       [&]() {
-        ExtractOnce(options, bitmap);
+        auto extractor = THROW_CHECK_NOTNULL(FeatureExtractor::Create(options));
+        FeatureKeypoints keypoints;
+        FeatureDescriptors descriptors;
+        THROW_CHECK(extractor->Extract(bitmap, &keypoints, &descriptors));
         min_used_while_alive =
             std::min(min_used_while_alive, CusiftPoolUsedBytes());
       },
@@ -202,9 +207,7 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
   // The pyramid of a 2048 x 2048 image at first_octave -1 is hundreds of MiB,
   // all kept for reuse while the extractor lives...
   EXPECT_GT(reserved_while_alive, 128 * kMiB);
-  // ...and handed back to the driver once it is destroyed, apart from the
-  // pool segment that still holds the thread's scratch (freed when the thread
-  // exits).
+  // ...and handed back to the driver once it is destroyed.
   EXPECT_LT(reserved_after, reserved_while_alive / 4);
 }
 
@@ -213,7 +216,7 @@ TEST(CusiftMemory, MatcherThreadReleasesDeviceMemory) {
   // Measure on the device the work runs on (both pick it with gpu_index -1).
   BindCusiftDevice("-1");
   // 8,192 descriptors per side: the similarity tile and the per-side buffers
-  // come to well over 64 MiB of device memory per matcher thread.
+  // come to well over 64 MiB of device memory per matcher.
   constexpr int kNumFeatures = 8192;
   const Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kSimplePinhole, 100.0, 100, 200);

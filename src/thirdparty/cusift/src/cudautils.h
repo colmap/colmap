@@ -106,6 +106,24 @@ class ScopedCudaDevice {
   const int previous_;
 };
 
+// As ScopedCudaDevice, for destructors: never throws, and does nothing for
+// device -1 (nothing was allocated).
+class ScopedCudaDeviceNoThrow {
+ public:
+  explicit ScopedCudaDeviceNoThrow(int device) {
+    if (device < 0 || cudaGetDevice(&previous_) != cudaSuccess) return;
+    if (cudaSetDevice(device) != cudaSuccess) previous_ = -1;
+  }
+  ~ScopedCudaDeviceNoThrow() {
+    if (previous_ >= 0) cudaSetDevice(previous_);
+  }
+  ScopedCudaDeviceNoThrow(const ScopedCudaDeviceNoThrow &) = delete;
+  ScopedCudaDeviceNoThrow &operator=(const ScopedCudaDeviceNoThrow &) = delete;
+
+ private:
+  int previous_ = -1;
+};
+
 // Owns one allocation from cusift's pool, so a throw between allocation and
 // use cannot leak it.
 template <typename T>
