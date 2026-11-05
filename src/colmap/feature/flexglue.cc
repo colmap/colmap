@@ -2,6 +2,7 @@
 
 #include "colmap/feature/flexglue.h"
 
+#include "colmap/feature/onnx_matchers.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
 #include "colmap/util/file.h"
@@ -143,7 +144,8 @@ bool UseFlexGlueFp16(const FeatureMatchingOptions& options) {
 // The float16 matcher is loaded as a regular session, with a fallback to the
 // float32 matcher if its initialization fails.
 std::unique_ptr<ONNXModel> CreateMatcherModel(
-    const FeatureMatchingOptions& options) {
+    const FeatureMatchingOptions& options,
+    const std::shared_ptr<ONNXInferenceLimiter>& inference_limiter) {
   const FlexGlueMatchingOptions& flexglue_options = *options.flexglue;
   if (UseFlexGlueFp16(options)) {
     try {
@@ -151,7 +153,8 @@ std::unique_ptr<ONNXModel> CreateMatcherModel(
           flexglue_options.matcher_model_path_fp16,
           options.num_threads,
           options.use_gpu,
-          options.gpu_index);
+          options.gpu_index,
+          inference_limiter);
     } catch (const Ort::Exception& e) {
       LOG(WARNING) << "Failed to initialize the fp16 FlexGlue matcher ("
                    << e.what() << "); falling back to fp32";
@@ -160,18 +163,22 @@ std::unique_ptr<ONNXModel> CreateMatcherModel(
   return std::make_unique<ONNXModel>(flexglue_options.matcher_model_path,
                                      options.num_threads,
                                      options.use_gpu,
-                                     options.gpu_index);
+                                     options.gpu_index,
+                                     inference_limiter);
 }
 
 class FlexGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit FlexGlueFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(*THROW_CHECK_NOTNULL(options.flexglue)),
+        inference_limiter_(CreateONNXMatcherInferenceLimiter(options)),
         descriptor_(options_.descriptor_model_path,
                     options.num_threads,
                     options.use_gpu,
-                    options.gpu_index),
-        matcher_(CreateMatcherModel(options)),
+                    options.gpu_index,
+                    inference_limiter_,
+                    /*allow_session_replicas=*/false),
+        matcher_(CreateMatcherModel(options, inference_limiter_)),
         dense_cache_(options_.feature_cache_size,
                      [this](const std::string& name) {
                        return ComputeDenseFeatures(name);
@@ -439,6 +446,7 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
   }
 
   const FlexGlueMatchingOptions options_;
+  std::shared_ptr<ONNXInferenceLimiter> inference_limiter_;
   ONNXModel descriptor_;
   std::unique_ptr<ONNXModel> matcher_;
   int descriptor_height_ = 0;

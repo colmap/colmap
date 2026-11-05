@@ -34,5 +34,25 @@ TEST(CudaDeviceHasComputeCapability, ValidDevice) {
   }
 }
 
+TEST(GetAvailableCudaMemoryBytes, InvalidAndValidDevice) {
+  const int num_devices = GetNumCudaDevices();
+  size_t free_bytes = 0;
+  size_t total_bytes = 0;
+  EXPECT_FALSE(GetAvailableCudaMemoryBytes(-1, &free_bytes, &total_bytes));
+  EXPECT_FALSE(
+      GetAvailableCudaMemoryBytes(num_devices, &free_bytes, &total_bytes));
+  if (num_devices == 0) {
+    GTEST_SKIP() << "No CUDA device available";
+  }
+  EXPECT_EQ(cudaGetLastError(), cudaSuccess);
+  ASSERT_EQ(cudaSetDevice(0), cudaSuccess);
+  ASSERT_TRUE(GetAvailableCudaMemoryBytes(0, &free_bytes, &total_bytes));
+  EXPECT_GT(total_bytes, 0);
+  EXPECT_LE(free_bytes, total_bytes);
+  int active_device = -1;
+  ASSERT_EQ(cudaGetDevice(&active_device), cudaSuccess);
+  EXPECT_EQ(active_device, 0);
+}
+
 }  // namespace
 }  // namespace colmap

@@ -286,7 +286,8 @@ class LomaFeatureMatcher : public FeatureMatcher {
         model_(model_path,
                options.num_threads,
                options.use_gpu,
-               options.gpu_index) {
+               options.gpu_index,
+               CreateONNXMatcherInferenceLimiter(options)) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 4);
     THROW_CHECK_GE(model_.output_shapes().size(), 2);

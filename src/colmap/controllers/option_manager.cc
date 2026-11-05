@@ -377,6 +377,8 @@ void OptionManager::AddFeatureMatchingOptions() {
   AddDefaultOption("FeatureMatching.gpu_index", &feature_matching->gpu_index);
   AddDefaultOption("FeatureMatching.num_workers_per_gpu",
                    &feature_matching->num_workers_per_gpu);
+  AddDefaultOption("FeatureMatching.num_inferences_per_gpu",
+                   &feature_matching->num_inferences_per_gpu);
   AddDefaultOption("FeatureMatching.guided_matching",
                    &feature_matching->guided_matching);
   AddDefaultOption("FeatureMatching.skip_geometric_verification",

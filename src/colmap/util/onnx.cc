@@ -60,6 +60,9 @@ const char* FormatONNXElementType(ONNXTensorElementDataType type) {
   }
   return kNames[type];
 }
+
+thread_local ONNXInferenceLimiter::ThreadStats g_thread_stats;
+
 }  // namespace
 
 ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu) {
@@ -122,20 +125,229 @@ void ThrowCheckONNXElementType(const std::string_view name,
       << " != " << FormatONNXElementType(expected_type);
 }
 
-ONNXModel::ONNXModel(std::string model_path,
+bool IsONNXOutOfMemoryError(const std::string_view message) {
+  return message.find("Failed to allocate memory") != std::string_view::npos ||
+         message.find("out of memory") != std::string_view::npos ||
+         message.find("Out of memory") != std::string_view::npos ||
+         message.find("cudaErrorMemoryAllocation") != std::string_view::npos;
+}
+
+ONNXInferenceLimiter::Permit::Permit(
+    ONNXInferenceLimiter* limiter,
+    const int slot,
+    const int limit_at_acquire,
+    const int64_t wait_ns,
+    const std::chrono::steady_clock::time_point acquired_at)
+    : limiter_(limiter),
+      slot_(slot),
+      limit_at_acquire_(limit_at_acquire),
+      wait_ns_(wait_ns),
+      acquired_at_(acquired_at) {}
+
+ONNXInferenceLimiter::Permit::Permit(Permit&& other) noexcept
+    : limiter_(other.limiter_),
+      slot_(other.slot_),
+      limit_at_acquire_(other.limit_at_acquire_),
+      wait_ns_(other.wait_ns_),
+      acquired_at_(other.acquired_at_) {
+  other.limiter_ = nullptr;
+}
+
+ONNXInferenceLimiter::Permit& ONNXInferenceLimiter::Permit::operator=(
+    Permit&& other) noexcept {
+  if (this != &other) {
+    Release();
+    limiter_ = other.limiter_;
+    slot_ = other.slot_;
+    limit_at_acquire_ = other.limit_at_acquire_;
+    wait_ns_ = other.wait_ns_;
+    acquired_at_ = other.acquired_at_;
+    other.limiter_ = nullptr;
+  }
+  return *this;
+}
+
+ONNXInferenceLimiter::Permit::~Permit() { Release(); }
+
+void ONNXInferenceLimiter::Permit::Release() {
+  if (limiter_ == nullptr) {
+    return;
+  }
+  const int64_t run_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::steady_clock::now() - acquired_at_)
+                             .count();
+  ONNXInferenceLimiter* limiter = limiter_;
+  const int slot = slot_;
+  limiter_ = nullptr;
+  limiter->ReleaseSlot(slot, wait_ns_, run_ns);
+}
+
+ONNXInferenceLimiter::ONNXInferenceLimiter(const int max_concurrent)
+    : max_concurrent_(max_concurrent), slot_in_use_(max_concurrent, 0) {
+  THROW_CHECK_GE(max_concurrent_, 1);
+}
+
+ONNXInferenceLimiter::Permit ONNXInferenceLimiter::Acquire() {
+  const auto wait_start = std::chrono::steady_clock::now();
+  std::unique_lock<std::mutex> lock(mutex_);
+  cv_.wait(lock, [this]() { return active_ < max_concurrent_; });
+  ++active_;
+  peak_active_ = std::max(peak_active_, active_);
+  const int limit_at_acquire = max_concurrent_;
+  if (static_cast<int>(slot_in_use_.size()) < limit_at_acquire) {
+    slot_in_use_.resize(limit_at_acquire, 0);
+  }
+  int slot = 0;
+  while (slot < static_cast<int>(slot_in_use_.size()) &&
+         slot_in_use_[slot] != 0) {
+    ++slot;
+  }
+  if (slot >= static_cast<int>(slot_in_use_.size())) {
+    slot_in_use_.resize(slot + 1, 0);
+  }
+  slot_in_use_[slot] = 1;
+  lock.unlock();
+  const auto acquired_at = std::chrono::steady_clock::now();
+  const int64_t wait_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              acquired_at - wait_start)
+                              .count();
+  return Permit(this, slot, limit_at_acquire, wait_ns, acquired_at);
+}
+
+void ONNXInferenceLimiter::SetMaxConcurrent(const int max_concurrent) {
+  THROW_CHECK_GE(max_concurrent, 1);
+  bool increased = false;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const int clamped = std::min(max_concurrent, oom_ceiling_);
+    increased = clamped > max_concurrent_;
+    max_concurrent_ = clamped;
+  }
+  if (increased) {
+    cv_.notify_all();
+  }
+}
+
+int ONNXInferenceLimiter::MaxConcurrent() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return max_concurrent_;
+}
+
+int ONNXInferenceLimiter::ActiveCount() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return active_;
+}
+
+int ONNXInferenceLimiter::PeakActiveCount() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return peak_active_;
+}
+
+int ONNXInferenceLimiter::OomCeiling() const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  return oom_ceiling_;
+}
+
+void ONNXInferenceLimiter::OnOutOfMemory(const int limit_at_acquire) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  oom_ceiling_ = std::min(oom_ceiling_, std::max(1, limit_at_acquire - 1));
+  max_concurrent_ = std::min(max_concurrent_, oom_ceiling_);
+}
+
+ONNXInferenceLimiter::ThreadStats ONNXInferenceLimiter::ConsumeThreadStats() {
+  const ThreadStats stats = g_thread_stats;
+  g_thread_stats = ThreadStats{};
+  return stats;
+}
+
+void ONNXInferenceLimiter::ReleaseSlot(const int slot,
+                                       const int64_t wait_ns,
+                                       const int64_t run_ns) {
+  g_thread_stats.wait_ns += wait_ns;
+  g_thread_stats.run_ns += run_ns;
+  g_thread_stats.num_runs += 1;
+
+  bool should_notify = false;
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (slot >= 0 && slot < static_cast<int>(slot_in_use_.size())) {
+      slot_in_use_[slot] = 0;
+    }
+    --active_;
+    should_notify = active_ < max_concurrent_;
+  }
+  if (should_notify) {
+    cv_.notify_one();
+  }
+}
+
+namespace {
+
+#ifdef COLMAP_CUDA_ENABLED
+void AppendCudaProviderOptions(Ort::SessionOptions* session_options,
+                               const int cuda_device_id) {
+  const OrtApi& api = Ort::GetApi();
+  OrtCUDAProviderOptionsV2* cuda_options = nullptr;
+  Ort::ThrowOnError(api.CreateCUDAProviderOptions(&cuda_options));
+  struct CudaOptionsGuard {
+    const OrtApi& api;
+    OrtCUDAProviderOptionsV2* opts;
+    ~CudaOptionsGuard() { api.ReleaseCUDAProviderOptions(opts); }
+  } guard{api, cuda_options};
+
+  const std::string device_id_str = std::to_string(cuda_device_id);
+  // kSameAsRequested grows the CUDA BFC arena by the requested buffer size
+  // instead of doubling to powers of two; use_ep_level_unified_stream binds one
+  // CUDA stream + cuBLAS/cuDNN context per Ort::Session rather than allocating
+  // duplicate contexts per calling worker thread.
+  const char* keys[] = {
+      "device_id", "arena_extend_strategy", "use_ep_level_unified_stream"};
+  const char* values[] = {device_id_str.c_str(), "kSameAsRequested", "1"};
+  Ort::ThrowOnError(
+      api.UpdateCUDAProviderOptions(cuda_options, keys, values, 3));
+  session_options->AppendExecutionProvider_CUDA_V2(*cuda_options);
+}
+#endif
+
+std::unique_ptr<Ort::Session> CreateOrtSession(
+    Ort::Env& env,
+    const std::string& model_path,
+    const Ort::SessionOptions& session_options) {
+#ifdef _WIN32
+  const unsigned int code_page = GetACP();
+  const int wide_len =
+      MultiByteToWideChar(code_page, 0, model_path.c_str(), -1, nullptr, 0);
+  std::wstring model_path_wide(wide_len, L'\0');
+  MultiByteToWideChar(
+      code_page, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
+  return std::make_unique<Ort::Session>(
+      env, model_path_wide.c_str(), session_options);
+#else
+  return std::make_unique<Ort::Session>(
+      env, model_path.c_str(), session_options);
+#endif
+}
+
+}  // namespace
+
+ONNXModel::ONNXModel(const std::string& model_path,
                      int num_threads,
                      bool use_gpu,
-                     const std::string& gpu_index) {
+                     const std::string& gpu_index,
+                     std::shared_ptr<ONNXInferenceLimiter> inference_limiter,
+                     const bool allow_session_replicas)
+    : allow_session_replicas_(allow_session_replicas),
+      inference_limiter_(std::move(inference_limiter)) {
   {
     static std::mutex download_mutex;
     const std::lock_guard<std::mutex> lock(download_mutex);
-    model_path = MaybeDownloadAndCacheFile(model_path).string();
+    model_path_ = MaybeDownloadAndCacheFile(model_path).string();
   }
 
-  const int num_eff_threads = GetEffectiveNumThreads(num_threads);
+  num_eff_threads_ = GetEffectiveNumThreads(num_threads);
 
   try {
-    InitializeSession(model_path, num_eff_threads, use_gpu, gpu_index);
+    InitializeSession(model_path_, num_eff_threads_, use_gpu, gpu_index);
   } catch (...) {
     RethrowONNXException();
   }
@@ -168,9 +380,8 @@ void ONNXModel::InitializeSession(const std::string& model_path,
 
 #ifdef COLMAP_CUDA_ENABLED
   if (execution_provider_ == ONNXExecutionProvider::CUDA) {
-    OrtCUDAProviderOptions cuda_options{};
-    cuda_options.device_id = SelectONNXCudaDevice(gpu_index);
-    session_options_.AppendExecutionProvider_CUDA(cuda_options);
+    cuda_device_id_ = SelectONNXCudaDevice(gpu_index);
+    AppendCudaProviderOptions(&session_options_, cuda_device_id_);
   }
 #endif
 
@@ -192,20 +403,8 @@ void ONNXModel::InitializeSession(const std::string& model_path,
 #endif
 
   VLOG(2) << "Loading ONNX model from " << model_path;
-#ifdef _WIN32
-  const unsigned int code_page = GetACP();
-  const int wide_len =
-      MultiByteToWideChar(code_page, 0, model_path.c_str(), -1, nullptr, 0);
-  std::wstring model_path_wide(wide_len, L'\0');
-  MultiByteToWideChar(
-      code_page, 0, model_path.c_str(), -1, &model_path_wide[0], wide_len);
-  const wchar_t* model_path_cstr = model_path_wide.c_str();
-#else
-  const char* model_path_cstr = model_path.c_str();
-#endif
   try {
-    session_ =
-        std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
+    primary_session_ = CreateOrtSession(env_, model_path, session_options_);
   } catch (const Ort::Exception& e) {
     if (!use_coreml) {
       throw;
@@ -216,77 +415,163 @@ void ONNXModel::InitializeSession(const std::string& model_path,
                  << e.what() << "); falling back to CPU execution provider";
     ConfigureSessionOptions(num_threads);
     execution_provider_ = ONNXExecutionProvider::CPU;
-    session_ =
-        std::make_unique<Ort::Session>(env_, model_path_cstr, session_options_);
+    primary_session_ = CreateOrtSession(env_, model_path, session_options_);
   }
 
   VLOG(2) << "Parsing the inputs";
-  const int num_inputs = session_->GetInputCount();
+  const int num_inputs = primary_session_->GetInputCount();
   input_name_strs_.reserve(num_inputs);
   input_names_.reserve(num_inputs);
   input_shapes_.reserve(num_inputs);
   input_element_types_.reserve(num_inputs);
   for (int i = 0; i < num_inputs; ++i) {
     input_name_strs_.emplace_back(
-        session_->GetInputNameAllocated(i, allocator_));
+        primary_session_->GetInputNameAllocated(i, allocator_));
     input_names_.emplace_back(input_name_strs_[i].get());
-    input_shapes_.emplace_back(
-        session_->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-    input_element_types_.emplace_back(session_->GetInputTypeInfo(i)
+    input_shapes_.emplace_back(primary_session_->GetInputTypeInfo(i)
+                                   .GetTensorTypeAndShapeInfo()
+                                   .GetShape());
+    input_element_types_.emplace_back(primary_session_->GetInputTypeInfo(i)
                                           .GetTensorTypeAndShapeInfo()
                                           .GetElementType());
   }
 
   VLOG(2) << "Parsing the outputs";
-  const int num_outputs = session_->GetOutputCount();
+  const int num_outputs = primary_session_->GetOutputCount();
   output_name_strs_.reserve(num_outputs);
   output_names_.reserve(num_outputs);
   output_shapes_.reserve(num_outputs);
   output_element_types_.reserve(num_outputs);
   for (int i = 0; i < num_outputs; ++i) {
     output_name_strs_.emplace_back(
-        session_->GetOutputNameAllocated(i, allocator_));
+        primary_session_->GetOutputNameAllocated(i, allocator_));
     output_names_.emplace_back(output_name_strs_[i].get());
-    output_shapes_.emplace_back(
-        session_->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-    output_element_types_.emplace_back(session_->GetOutputTypeInfo(i)
+    output_shapes_.emplace_back(primary_session_->GetOutputTypeInfo(i)
+                                    .GetTensorTypeAndShapeInfo()
+                                    .GetShape());
+    output_element_types_.emplace_back(primary_session_->GetOutputTypeInfo(i)
                                            .GetTensorTypeAndShapeInfo()
                                            .GetElementType());
   }
 }
 
-std::vector<Ort::Value> ONNXModel::Run(
-    const std::vector<Ort::Value>& input_tensors) const {
+std::unique_ptr<Ort::Session> ONNXModel::CreateCudaReplicaSession() const {
+  Ort::SessionOptions opts;
+  opts.SetInterOpNumThreads(1);
+  opts.SetIntraOpNumThreads(num_eff_threads_);
+  opts.SetExecutionMode(ORT_SEQUENTIAL);
+  opts.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+  opts.SetLogSeverityLevel(ORT_LOGGING_LEVEL_FATAL);
+#ifdef COLMAP_CUDA_ENABLED
+  AppendCudaProviderOptions(&opts, cuda_device_id_);
+#endif
+  return CreateOrtSession(env_, model_path_, opts);
+}
+
+Ort::Session& ONNXModel::GetOrCreateSession(const int slot) const {
+  if (slot <= 0 || execution_provider_ != ONNXExecutionProvider::CUDA ||
+      !allow_session_replicas_) {
+    return *primary_session_;
+  }
+  const int replica_idx = slot - 1;
+  std::lock_guard<std::mutex> lock(replica_sessions_mutex_);
+  if (replica_idx < static_cast<int>(replica_sessions_.size()) &&
+      replica_sessions_[replica_idx] != nullptr) {
+    return *replica_sessions_[replica_idx];
+  }
+  if (static_cast<int>(replica_sessions_.size()) <= replica_idx) {
+    replica_sessions_.resize(replica_idx + 1);
+  }
+  replica_sessions_[replica_idx] = CreateCudaReplicaSession();
+  return *replica_sessions_[replica_idx];
+}
+
+void ONNXModel::DropReplicaSession(const int slot) const {
+  if (slot <= 0) {
+    return;
+  }
+  const int replica_idx = slot - 1;
+  std::lock_guard<std::mutex> lock(replica_sessions_mutex_);
+  if (replica_idx < static_cast<int>(replica_sessions_.size())) {
+    replica_sessions_[replica_idx].reset();
+  }
+}
+
+template <typename RunFn>
+std::vector<Ort::Value> ONNXModel::RunWithLimiter(RunFn&& run_fn) const {
   try {
-    return session_->Run(Ort::RunOptions(),
-                         input_names_.data(),
-                         input_tensors.data(),
-                         input_tensors.size(),
-                         output_names_.data(),
-                         output_names_.size());
+    ONNXInferenceLimiter::Permit permit = inference_limiter_ != nullptr
+                                              ? inference_limiter_->Acquire()
+                                              : ONNXInferenceLimiter::Permit();
+    const int limit_at_acquire = permit.limit_at_acquire();
+    const int slot = permit.slot();
+    try {
+      if (!allow_session_replicas_ && inference_limiter_ != nullptr &&
+          execution_provider_ == ONNXExecutionProvider::CUDA) {
+        std::lock_guard<std::mutex> lock(single_session_mutex_);
+        return run_fn(*primary_session_, Ort::RunOptions());
+      }
+      return run_fn(GetOrCreateSession(slot), Ort::RunOptions());
+    } catch (const Ort::Exception& e) {
+      if (execution_provider_ != ONNXExecutionProvider::CUDA ||
+          !IsONNXOutOfMemoryError(e.what())) {
+        throw;
+      }
+      if (inference_limiter_ != nullptr) {
+        inference_limiter_->OnOutOfMemory(limit_at_acquire);
+      }
+      DropReplicaSession(slot);
+      permit.Release();
+      LOG(WARNING) << "ONNX CUDA out-of-memory (" << e.what()
+                   << "); shrinking GPU memory arena and retrying";
+      ONNXInferenceLimiter::Permit retry_permit =
+          inference_limiter_ != nullptr ? inference_limiter_->Acquire()
+                                        : ONNXInferenceLimiter::Permit();
+      Ort::RunOptions shrink_options;
+      const std::string gpu_mem = "gpu:" + std::to_string(cuda_device_id_);
+      shrink_options.AddConfigEntry("memory.enable_memory_arena_shrinkage",
+                                    gpu_mem.c_str());
+      if (!allow_session_replicas_ && inference_limiter_ != nullptr) {
+        std::lock_guard<std::mutex> lock(single_session_mutex_);
+        return run_fn(*primary_session_, shrink_options);
+      }
+      return run_fn(GetOrCreateSession(retry_permit.slot()), shrink_options);
+    }
   } catch (...) {
     RethrowONNXException();
   }
 }
 
 std::vector<Ort::Value> ONNXModel::Run(
+    const std::vector<Ort::Value>& input_tensors) const {
+  return RunWithLimiter(
+      [&](Ort::Session& session, const Ort::RunOptions& run_options) {
+        return session.Run(run_options,
+                           input_names_.data(),
+                           input_tensors.data(),
+                           input_tensors.size(),
+                           output_names_.data(),
+                           output_names_.size());
+      });
+}
+
+std::vector<Ort::Value> ONNXModel::Run(
     const std::vector<Ort::Value>& input_tensors,
     const Ort::MemoryInfo& output_memory_info) const {
-  try {
-    THROW_CHECK_EQ(input_tensors.size(), input_names_.size());
-    Ort::IoBinding binding(*session_);
-    for (size_t i = 0; i < input_tensors.size(); ++i) {
-      binding.BindInput(input_names_[i], input_tensors[i]);
-    }
-    for (const char* name : output_names_) {
-      binding.BindOutput(name, output_memory_info);
-    }
-    session_->Run(Ort::RunOptions(), binding);
-    binding.SynchronizeOutputs();
-    return binding.GetOutputValues();
-  } catch (...) {
-    RethrowONNXException();
-  }
+  return RunWithLimiter(
+      [&](Ort::Session& session, const Ort::RunOptions& run_options) {
+        THROW_CHECK_EQ(input_tensors.size(), input_names_.size());
+        Ort::IoBinding binding(session);
+        for (size_t i = 0; i < input_tensors.size(); ++i) {
+          binding.BindInput(input_names_[i], input_tensors[i]);
+        }
+        for (const char* name : output_names_) {
+          binding.BindOutput(name, output_memory_info);
+        }
+        session.Run(run_options, binding);
+        binding.SynchronizeOutputs();
+        return binding.GetOutputValues();
+      });
 }
 
 #endif  // COLMAP_ONNX_ENABLED

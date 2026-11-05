@@ -85,4 +85,39 @@ bool CudaDeviceHasComputeCapability(const int gpu_index, const int major) {
 #endif
 }
 
+bool GetAvailableCudaMemoryBytes(const int gpu_index,
+                                 size_t* free_bytes,
+                                 size_t* total_bytes) {
+  int prev_device = 0;
+  const bool has_prev_device = (cudaGetDevice(&prev_device) == cudaSuccess);
+  if (!has_prev_device) {
+    cudaGetLastError();
+  }
+  if (gpu_index < 0 || cudaSetDevice(gpu_index) != cudaSuccess) {
+    cudaGetLastError();
+    return false;
+  }
+  size_t free_mem = 0;
+  size_t total_mem = 0;
+  const bool ok = (cudaMemGetInfo(&free_mem, &total_mem) == cudaSuccess);
+  if (!ok) {
+    cudaGetLastError();
+  }
+  if (has_prev_device && prev_device != gpu_index) {
+    if (cudaSetDevice(prev_device) != cudaSuccess) {
+      cudaGetLastError();
+    }
+  }
+  if (!ok) {
+    return false;
+  }
+  if (free_bytes != nullptr) {
+    *free_bytes = free_mem;
+  }
+  if (total_bytes != nullptr) {
+    *total_bytes = total_mem;
+  }
+  return true;
+}
+
 }  // namespace colmap

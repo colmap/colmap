@@ -214,5 +214,13 @@ TEST(RemoveCommandLineArgument, Nominal) {
   EXPECT_EQ(argc, 0);
 }
 
+TEST(GetAvailableMemoryBytes, Nominal) {
+  const std::optional<size_t> available = GetAvailableMemoryBytes();
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
+  ASSERT_TRUE(available.has_value());
+  EXPECT_GT(*available, 0);
+#endif
+}
+
 }  // namespace
 }  // namespace colmap

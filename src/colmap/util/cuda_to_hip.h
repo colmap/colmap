@@ -51,6 +51,7 @@ using cudaDeviceProp = hipDeviceProp_t;
 #define cudaGetDeviceProperties hipGetDeviceProperties
 
 // Memory
+#define cudaMemGetInfo hipMemGetInfo
 #define cudaMalloc hipMalloc
 #define cudaMallocPitch hipMallocPitch
 #define cudaMallocArray hipMallocArray

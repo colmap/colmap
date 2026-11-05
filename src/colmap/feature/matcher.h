@@ -62,6 +62,12 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   // support sharing an instance across workers.
   int num_workers_per_gpu = 3;
 
+  // Maximum number of concurrent ONNX model inferences per CUDA GPU across the
+  // worker threads sharing one matcher instance. Bounding this independently of
+  // num_workers_per_gpu lets multiple CPU workers overlap image decoding and
+  // preprocessing while capping peak GPU activation memory.
+  int num_inferences_per_gpu = 3;
+
   // Maximum number of matches.
   int max_num_matches = 32768;
 

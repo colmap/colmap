@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cstddef>
+
 namespace colmap {
 
 int GetNumCudaDevices();
@@ -15,5 +17,12 @@ void SetBestCudaDevice(int gpu_index);
 // (Volta, Turing). Returns false if the device cannot be queried, e.g., for an
 // invalid index or a missing driver. Always returns false for HIP builds.
 bool CudaDeviceHasComputeCapability(int gpu_index, int major);
+
+// Queries free and total memory in bytes on `gpu_index`, preserving the
+// caller's active CUDA device. Returns false (clearing any non-sticky CUDA
+// error) if the device cannot be queried.
+bool GetAvailableCudaMemoryBytes(int gpu_index,
+                                 size_t* free_bytes,
+                                 size_t* total_bytes);
 
 }  // namespace colmap

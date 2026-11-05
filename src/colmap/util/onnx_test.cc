@@ -5,9 +5,12 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -196,6 +199,78 @@ TEST(CreateONNXScalarTensorTest, Nominal) {
   Ort::Value int_tensor = CreateONNXScalarTensor(int_value);
   EXPECT_TRUE(int_tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
   EXPECT_EQ(*int_tensor.GetTensorData<int64_t>(), 7);
+}
+
+TEST(ONNXInferenceLimiterTest, BoundsConcurrencyAndTracksStats) {
+  auto limiter = std::make_shared<ONNXInferenceLimiter>(/*max_concurrent=*/2);
+  ONNXModel model(WriteIdentityModel().string(),
+                  /*num_threads=*/1,
+                  /*use_gpu=*/false,
+                  /*gpu_index=*/"-1",
+                  limiter);
+
+  std::atomic<int> in_flight{0};
+  std::atomic<int> peak_in_flight{0};
+  std::atomic<int> active_slot_mask{0};
+  std::vector<std::thread> threads;
+  threads.reserve(4);
+  for (int t = 0; t < 4; ++t) {
+    threads.emplace_back([&]() {
+      ONNXInferenceLimiter::ConsumeThreadStats();
+      for (int iter = 0; iter < 5; ++iter) {
+        auto permit = limiter->Acquire();
+        ASSERT_GE(permit.slot(), 0);
+        ASSERT_LT(permit.slot(), 2);
+        const int bit = 1 << permit.slot();
+        EXPECT_EQ(active_slot_mask.fetch_or(bit) & bit, 0);
+        const int cur = ++in_flight;
+        int prev_peak = peak_in_flight.load();
+        while (cur > prev_peak &&
+               !peak_in_flight.compare_exchange_weak(prev_peak, cur)) {
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+        --in_flight;
+        active_slot_mask.fetch_and(~bit);
+      }
+      std::vector<float> input_data{1.0f, 2.0f};
+      std::vector<Ort::Value> inputs;
+      inputs.push_back(CreateONNXTensor(input_data, {1, 2}));
+      ASSERT_EQ(model.Run(inputs).size(), 1);
+      const auto stats = ONNXInferenceLimiter::ConsumeThreadStats();
+      EXPECT_EQ(stats.num_runs, 6);
+      EXPECT_GT(stats.run_ns, 0);
+      EXPECT_EQ(ONNXInferenceLimiter::ConsumeThreadStats().num_runs, 0);
+    });
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+  EXPECT_LE(peak_in_flight.load(), 2);
+  EXPECT_GE(limiter->PeakActiveCount(), peak_in_flight.load());
+  EXPECT_LE(limiter->PeakActiveCount(), 2);
+  EXPECT_EQ(limiter->ActiveCount(), 0);
+}
+
+TEST(ONNXInferenceLimiterTest, OomBackoffLocksCeilingWithoutDoubleDecrement) {
+  ONNXInferenceLimiter limiter(/*max_concurrent=*/3);
+  EXPECT_EQ(limiter.MaxConcurrent(), 3);
+  // Concurrent OOMs observed at limit=3 both cap the ceiling at 2, not 1.
+  limiter.OnOutOfMemory(/*limit_at_acquire=*/3);
+  limiter.OnOutOfMemory(/*limit_at_acquire=*/3);
+  EXPECT_EQ(limiter.MaxConcurrent(), 2);
+  EXPECT_EQ(limiter.OomCeiling(), 2);
+  limiter.SetMaxConcurrent(3);
+  EXPECT_EQ(limiter.MaxConcurrent(), 2);
+  // Subsequent OOM at limit=2 caps at 1, and floor stays 1.
+  limiter.OnOutOfMemory(/*limit_at_acquire=*/2);
+  limiter.OnOutOfMemory(/*limit_at_acquire=*/1);
+  EXPECT_EQ(limiter.MaxConcurrent(), 1);
+  EXPECT_EQ(limiter.OomCeiling(), 1);
+
+  EXPECT_TRUE(
+      IsONNXOutOfMemoryError("Failed to allocate memory for requested buffer"));
+  EXPECT_TRUE(IsONNXOutOfMemoryError("CUDA error: cudaErrorMemoryAllocation"));
+  EXPECT_FALSE(IsONNXOutOfMemoryError("Invalid input shape"));
 }
 
 }  // namespace

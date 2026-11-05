@@ -109,6 +109,7 @@ bool FeatureMatchingOptions::Check() const {
 #endif
   }
   CHECK_OPTION_GT(num_workers_per_gpu, 0);
+  CHECK_OPTION_GT(num_inferences_per_gpu, 0);
   CHECK_OPTION_GE(max_num_matches, 0);
   switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE:

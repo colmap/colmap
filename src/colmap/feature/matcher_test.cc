@@ -116,6 +116,11 @@ TEST(FeatureMatchingOptions, Check) {
   EXPECT_FALSE(options.Check());
   options.num_workers_per_gpu = 3;
   EXPECT_TRUE(options.Check());
+
+  options.num_inferences_per_gpu = 0;
+  EXPECT_FALSE(options.Check());
+  options.num_inferences_per_gpu = 2;
+  EXPECT_TRUE(options.Check());
 }
 
 }  // namespace

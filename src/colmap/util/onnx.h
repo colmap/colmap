@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -78,14 +83,89 @@ void ThrowCheckONNXElementType(std::string_view name,
                                ONNXTensorElementDataType type,
                                ONNXTensorElementDataType expected_type);
 
+// Return whether an ONNX Runtime error message indicates a device / BFC arena
+// out-of-memory allocation failure.
+bool IsONNXOutOfMemoryError(std::string_view message);
+
+// Adjustable counting semaphore bounding concurrent ONNX Runtime session
+// executions across worker threads (and across multiple ONNXModel instances
+// belonging to the same matcher, e.g., FlexGlue's descriptor and matcher).
+// Also tracks per-thread wait and execution durations and permanently lowers
+// its concurrency ceiling if a CUDA out-of-memory error occurs.
+class ONNXInferenceLimiter {
+ public:
+  struct ThreadStats {
+    int64_t wait_ns = 0;
+    int64_t run_ns = 0;
+    int num_runs = 0;
+  };
+
+  class Permit {
+   public:
+    Permit() = default;
+    Permit(ONNXInferenceLimiter* limiter,
+           int slot,
+           int limit_at_acquire,
+           int64_t wait_ns,
+           std::chrono::steady_clock::time_point acquired_at);
+    Permit(Permit&& other) noexcept;
+    Permit& operator=(Permit&& other) noexcept;
+    Permit(const Permit&) = delete;
+    Permit& operator=(const Permit&) = delete;
+    ~Permit();
+
+    void Release();
+    int slot() const { return slot_; }
+    int limit_at_acquire() const { return limit_at_acquire_; }
+    int64_t wait_ns() const { return wait_ns_; }
+
+   private:
+    ONNXInferenceLimiter* limiter_ = nullptr;
+    int slot_ = 0;
+    int limit_at_acquire_ = 1;
+    int64_t wait_ns_ = 0;
+    std::chrono::steady_clock::time_point acquired_at_{};
+  };
+
+  explicit ONNXInferenceLimiter(int max_concurrent = 1);
+
+  Permit Acquire();
+  void SetMaxConcurrent(int max_concurrent);
+  int MaxConcurrent() const;
+  int ActiveCount() const;
+  int PeakActiveCount() const;
+  int OomCeiling() const;
+
+  // Record an out-of-memory failure for an inference acquired when the limit
+  // was `limit_at_acquire`, permanently capping MaxConcurrent() at
+  // max(1, limit_at_acquire - 1).
+  void OnOutOfMemory(int limit_at_acquire);
+
+  // Atomically read and reset the calling thread's accumulated wait/run stats.
+  static ThreadStats ConsumeThreadStats();
+
+ private:
+  void ReleaseSlot(int slot, int64_t wait_ns, int64_t run_ns);
+
+  mutable std::mutex mutex_;
+  std::condition_variable cv_;
+  int max_concurrent_ = 1;
+  int oom_ceiling_ = std::numeric_limits<int>::max();
+  int active_ = 0;
+  int peak_active_ = 0;
+  std::vector<uint8_t> slot_in_use_;
+};
+
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {
  public:
-  ONNXModel(std::string model_path,
+  ONNXModel(const std::string& model_path,
             int num_threads,
             bool use_gpu,
-            const std::string& gpu_index);
+            const std::string& gpu_index,
+            std::shared_ptr<ONNXInferenceLimiter> inference_limiter = nullptr,
+            bool allow_session_replicas = true);
 
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
@@ -120,17 +200,32 @@ class ONNXModel {
                          bool use_gpu,
                          const std::string& gpu_index);
 
+  std::unique_ptr<Ort::Session> CreateCudaReplicaSession() const;
+  Ort::Session& GetOrCreateSession(int slot) const;
+  void DropReplicaSession(int slot) const;
+
   // Apply the common, provider-independent session options (threading,
   // execution mode, graph optimization). Resets any previously appended
   // execution providers, so it can be reused to rebuild session_options_ for a
   // CPU-only fallback.
   void ConfigureSessionOptions(int num_threads);
 
-  Ort::Env env_;
+  template <typename RunFn>
+  std::vector<Ort::Value> RunWithLimiter(RunFn&& run_fn) const;
+
+  mutable Ort::Env env_;
   Ort::AllocatorWithDefaultOptions allocator_;
   Ort::SessionOptions session_options_;
-  std::unique_ptr<Ort::Session> session_;
+  std::string model_path_;
+  int num_eff_threads_ = 1;
+  bool allow_session_replicas_ = true;
+  std::unique_ptr<Ort::Session> primary_session_;
+  mutable std::mutex replica_sessions_mutex_;
+  mutable std::vector<std::unique_ptr<Ort::Session>> replica_sessions_;
+  mutable std::mutex single_session_mutex_;
   ONNXExecutionProvider execution_provider_ = ONNXExecutionProvider::CPU;
+  int cuda_device_id_ = 0;
+  std::shared_ptr<ONNXInferenceLimiter> inference_limiter_;
   std::vector<std::vector<int64_t>> input_shapes_;
   std::vector<Ort::AllocatedStringPtr> input_name_strs_;
   std::vector<char*> input_names_;

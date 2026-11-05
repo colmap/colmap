@@ -2,6 +2,7 @@
 
 #include "colmap/feature/lightglue.h"
 
+#include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/pose_prior.h"
 #include "colmap/util/onnx.h"
@@ -25,7 +26,8 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
         model_(lightglue_options.model_path,
                options.num_threads,
                options.use_gpu,
-               options.gpu_index) {
+               options.gpu_index,
+               CreateONNXMatcherInferenceLimiter(options)) {
     THROW_CHECK(options.Check());
 
     const size_t num_inputs = model_.input_shapes().size();

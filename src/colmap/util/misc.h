@@ -6,7 +6,9 @@
 #include "colmap/util/string.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -47,6 +49,10 @@ void RemoveCommandLineArgument(const std::string& arg, int* argc, char** argv);
 // Deep-copy a shared pointer, preserving null.
 template <typename T>
 std::shared_ptr<T> CloneSharedPtr(const std::shared_ptr<T>& ptr);
+
+// Return the estimated available (reclaimable + free) host physical memory in
+// bytes, or std::nullopt if the platform query is unavailable.
+std::optional<size_t> GetAvailableMemoryBytes();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

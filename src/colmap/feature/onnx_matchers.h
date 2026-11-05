@@ -4,9 +4,17 @@
 
 #include "colmap/feature/matcher.h"
 
+#include <memory>
 #include <vector>
 
 namespace colmap {
+
+class ONNXInferenceLimiter;
+
+// Create the per-matcher ONNX inference limiter for `options` (1 slot on CPU or
+// CoreML; min(num_inferences_per_gpu, num_workers_per_gpu) on CUDA GPUs).
+std::shared_ptr<ONNXInferenceLimiter> CreateONNXMatcherInferenceLimiter(
+    const FeatureMatchingOptions& options);
 
 struct BruteForceONNXMatchingOptions {
   // The minimum cosine similarity for a match to be considered valid

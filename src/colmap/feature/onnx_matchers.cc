@@ -27,7 +27,8 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
         model_(brute_force_options.model_path,
                options.num_threads,
                options.use_gpu,
-               options.gpu_index) {
+               options.gpu_index,
+               CreateONNXMatcherInferenceLimiter(options)) {
     THROW_CHECK(options.Check());
     THROW_CHECK(!supported_feature_types_.empty());
     THROW_CHECK_EQ(model_.input_shapes().size(), 5);
@@ -179,6 +180,22 @@ bool BruteForceONNXMatchingOptions::Check() const {
   CHECK_OPTION_IN(min_cossim, -1, 1);
   CHECK_OPTION_IN(max_ratio, 0, 1);
   return true;
+}
+
+std::shared_ptr<ONNXInferenceLimiter> CreateONNXMatcherInferenceLimiter(
+    const FeatureMatchingOptions& options) {
+#ifdef COLMAP_ONNX_ENABLED
+  int max_concurrent = 1;
+  if (SelectONNXExecutionProvider(options.use_gpu) ==
+      ONNXExecutionProvider::CUDA) {
+    max_concurrent = std::max(
+        1,
+        std::min(options.num_inferences_per_gpu, options.num_workers_per_gpu));
+  }
+  return std::make_shared<ONNXInferenceLimiter>(max_concurrent);
+#else
+  return nullptr;
+#endif
 }
 
 std::unique_ptr<FeatureMatcher> CreateBruteForceONNXFeatureMatcher(
