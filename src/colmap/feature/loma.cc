@@ -290,6 +290,17 @@ class LomaFeatureMatcher : public FeatureMatcher {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 4);
     THROW_CHECK_GE(model_.output_shapes().size(), 2);
+    const auto& names = model_.output_names();
+    for (size_t i = 0; i < names.size(); ++i) {
+      const std::string_view name(names[i]);
+      if (name == "m0") {
+        m0_idx_ = static_cast<int>(i);
+      } else if (name == "mscores0") {
+        mscores0_idx_ = static_cast<int>(i);
+      }
+    }
+    THROW_CHECK_GE(m0_idx_, 0);
+    THROW_CHECK_GE(mscores0_idx_, 0);
   }
 
   void Match(const Image& image1,
@@ -298,28 +309,34 @@ class LomaFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_NOTNULL(matches);
     matches->clear();
 
-    Features f1 = FeaturesFromImage(image1);
-    Features f2 = FeaturesFromImage(image2);
-    const int num_keypoints1 = static_cast<int>(f1.kpts.size() / 2);
-    const int num_keypoints2 = static_cast<int>(f2.kpts.size() / 2);
+    auto create = [this](const Image& image) {
+      return FeaturesFromImage(image);
+    };
+    const std::shared_ptr<const Features> f1 =
+        cache_.GetOrCreate(image1, create);
+    const std::shared_ptr<const Features> f2 =
+        cache_.GetOrCreate(image2, create);
+    const int num_keypoints1 = static_cast<int>(f1->kpts.size() / 2);
+    const int num_keypoints2 = static_cast<int>(f2->kpts.size() / 2);
     if (num_keypoints1 == 0 || num_keypoints2 == 0) return;
 
-    std::vector<int64_t> k0s{1, num_keypoints1, 2};
-    std::vector<int64_t> k1s{1, num_keypoints2, 2};
-    std::vector<int64_t> d0s{1, num_keypoints1, f1.desc_dim};
-    std::vector<int64_t> d1s{1, num_keypoints2, f2.desc_dim};
+    const std::vector<int64_t> k0s{1, num_keypoints1, 2};
+    const std::vector<int64_t> k1s{1, num_keypoints2, 2};
+    const std::vector<int64_t> d0s{1, num_keypoints1, f1->desc_dim};
+    const std::vector<int64_t> d1s{1, num_keypoints2, f2->desc_dim};
 
     std::vector<Ort::Value> inputs;
+    inputs.reserve(model_.input_names().size());
     for (const char* name_c : model_.input_names()) {
-      const std::string name(name_c);
+      const std::string_view name(name_c);
       if (name == "kpts0")
-        inputs.push_back(CreateONNXTensor(f1.kpts, k0s));
+        inputs.push_back(CreateONNXTensor(f1->kpts, k0s));
       else if (name == "kpts1")
-        inputs.push_back(CreateONNXTensor(f2.kpts, k1s));
+        inputs.push_back(CreateONNXTensor(f2->kpts, k1s));
       else if (name == "desc0")
-        inputs.push_back(CreateONNXTensor(f1.desc, d0s));
+        inputs.push_back(CreateONNXTensor(f1->desc, d0s));
       else if (name == "desc1")
-        inputs.push_back(CreateONNXTensor(f2.desc, d1s));
+        inputs.push_back(CreateONNXTensor(f2->desc, d1s));
       else
         LOG(FATAL_THROW) << "Unexpected LoMa matcher input: " << name;
     }
@@ -328,24 +345,14 @@ class LomaFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_GE(outputs.size(),
                    2);  // m0, m1, mscores0, mscores1 -- see ctor.
 
-    int m0_idx = -1, mscores0_idx = -1;
-    const auto& names = model_.output_names();
-    for (size_t i = 0; i < names.size(); ++i) {
-      if (std::string(names[i]) == "m0") m0_idx = static_cast<int>(i);
-      if (std::string(names[i]) == "mscores0")
-        mscores0_idx = static_cast<int>(i);
-    }
-    THROW_CHECK_GE(m0_idx, 0);
-    THROW_CHECK_GE(mscores0_idx, 0);
-
     const auto m0_shape =
-        outputs[m0_idx].GetTensorTypeAndShapeInfo().GetShape();
+        outputs[m0_idx_].GetTensorTypeAndShapeInfo().GetShape();
     THROW_CHECK_EQ(m0_shape.size(), 2);
     THROW_CHECK_EQ(m0_shape[0], 1);
     THROW_CHECK_EQ(m0_shape[1], num_keypoints1);
 
-    const int64_t* m0 = outputs[m0_idx].GetTensorData<int64_t>();
-    const float* mscores0 = outputs[mscores0_idx].GetTensorData<float>();
+    const int64_t* m0 = outputs[m0_idx_].GetTensorData<int64_t>();
+    const float* mscores0 = outputs[mscores0_idx_].GetTensorData<float>();
     const float min_score = static_cast<float>(loma_options_.min_score);
 
     for (int i = 0; i < num_keypoints1; ++i) {
@@ -408,6 +415,9 @@ class LomaFeatureMatcher : public FeatureMatcher {
   const LomaMatchingOptions loma_options_;
   const FeatureExtractorType expected_extractor_type_;
   ONNXModel model_;
+  int m0_idx_ = -1;
+  int mscores0_idx_ = -1;
+  ThreadSafeImageFeatureCache<Features> cache_;
 };
 
 #endif

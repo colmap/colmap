@@ -5,6 +5,9 @@
 #include "colmap/math/random_eigen.h"
 #include "colmap/sensor/bitmap.h"
 
+#include <atomic>
+#include <future>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -225,6 +228,41 @@ TEST(ImageFeatureCacheTest, InvalidIdAlwaysRecreates) {
   EXPECT_EQ(num_creates, 2);
   cache.GetOrCreate(invalid, create);
   EXPECT_EQ(num_creates, 3);
+}
+
+TEST(ThreadSafeImageFeatureCacheTest, CachingEvictionAndInvalidId) {
+  ThreadSafeImageFeatureCache<DummyCacheFeatures> cache(/*max_num_elems=*/2);
+  std::atomic<int> num_creates{0};
+  auto create = [&](const DummyCacheImage& image) {
+    ++num_creates;
+    return DummyCacheFeatures{static_cast<int>(image.image_id)};
+  };
+
+  const DummyCacheImage invalid;
+  const DummyCacheImage imageA{1};
+  const DummyCacheImage imageB{2};
+  const DummyCacheImage imageC{3};
+
+  const std::shared_ptr<const DummyCacheFeatures> fA =
+      cache.GetOrCreate(imageA, create);
+  const std::shared_ptr<const DummyCacheFeatures> fB =
+      cache.GetOrCreate(imageB, create);
+  EXPECT_EQ(num_creates.load(), 2);
+  EXPECT_EQ(fA->value, 1);
+  EXPECT_EQ(fB->value, 2);
+
+  // Hit returns the same shared instance; invalid IDs bypass the cache.
+  EXPECT_EQ(cache.GetOrCreate(imageA, create), fA);
+  EXPECT_EQ(num_creates.load(), 2);
+  cache.GetOrCreate(invalid, create);
+  cache.GetOrCreate(invalid, create);
+  EXPECT_EQ(num_creates.load(), 4);
+
+  // Evicting imageB via imageC keeps the previously returned shared_ptr valid.
+  cache.GetOrCreate(imageC, create);
+  EXPECT_EQ(fB->value, 2);
+  EXPECT_NE(cache.GetOrCreate(imageB, create), fB);
+  EXPECT_EQ(num_creates.load(), 6);
 }
 
 }  // namespace

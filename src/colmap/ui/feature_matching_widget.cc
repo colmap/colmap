@@ -117,6 +117,10 @@ void FeatureMatchingTab::CreateGeneralOptions() {
                                  "use_gpu");
   options_widget_->AddOptionText(&options_->feature_matching->gpu_index,
                                  "gpu_index");
+  options_widget_->AddOptionInt(
+      &options_->feature_matching->num_workers_per_gpu,
+      "num_workers_per_gpu",
+      1);
   options_widget_->AddOptionInt(&options_->feature_matching->max_num_matches,
                                 "max_num_matches");
   options_widget_->AddOptionBool(&options_->feature_matching->guided_matching,

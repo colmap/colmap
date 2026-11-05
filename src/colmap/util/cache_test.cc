@@ -619,5 +619,48 @@ TEST(MemoryConstrainedLRUCache, UpdateNumBytesConsistency) {
   EXPECT_EQ(cache.NumBytes(), 13);
 }
 
+TEST(ThreadSafeLRUCache, GetWithCustomLoader) {
+  ThreadSafeLRUCache<int, int> cache(2);
+  std::atomic<int> num_loads{0};
+
+  EXPECT_EQ(*cache.Get(1,
+                       [&](const int key) {
+                         ++num_loads;
+                         return std::make_shared<int>(key * 10);
+                       }),
+            10);
+  // Cached hit must not invoke the custom loader again.
+  EXPECT_EQ(*cache.Get(1,
+                       [&](const int) -> std::shared_ptr<int> {
+                         ADD_FAILURE() << "Unexpected reload";
+                         return nullptr;
+                       }),
+            10);
+  EXPECT_EQ(num_loads.load(), 1);
+
+  // Concurrent requests for the same cold key must deduplicate the load.
+  std::mutex mutex;
+  std::condition_variable cv;
+  bool allow_finish = false;
+  auto load_shared = [&](const int key) {
+    ++num_loads;
+    std::unique_lock<std::mutex> lock(mutex);
+    cv.wait(lock, [&]() { return allow_finish; });
+    return std::make_shared<int>(key * 100);
+  };
+  std::future<std::shared_ptr<int>> f1 = std::async(
+      std::launch::async, [&]() { return cache.Get(2, load_shared); });
+  std::future<std::shared_ptr<int>> f2 = std::async(
+      std::launch::async, [&]() { return cache.Get(2, load_shared); });
+  {
+    std::lock_guard<std::mutex> lock(mutex);
+    allow_finish = true;
+  }
+  cv.notify_all();
+  EXPECT_EQ(*f1.get(), 200);
+  EXPECT_EQ(*f2.get(), 200);
+  EXPECT_EQ(num_loads.load(), 2);
+}
+
 }  // namespace
 }  // namespace colmap

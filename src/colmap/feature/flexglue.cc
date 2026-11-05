@@ -413,16 +413,18 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         << "FlexGlue requires the image name to read the image pixels.";
     const std::filesystem::path path =
         std::filesystem::path(options_.image_path) / name;
-    Bitmap bitmap;
-    THROW_CHECK(bitmap.Read(path, /*as_rgb=*/true))
-        << "Failed to read image: " << path;
-
     auto dense = std::make_shared<DenseFeatures>();
-    dense->width = bitmap.Width();
-    dense->height = bitmap.Height();
+    std::vector<float> input;
+    {
+      Bitmap bitmap;
+      THROW_CHECK(bitmap.Read(path, /*as_rgb=*/true))
+          << "Failed to read image: " << path;
+      dense->width = bitmap.Width();
+      dense->height = bitmap.Height();
+      input =
+          ResizeBilinearToCHW(bitmap, descriptor_width_, descriptor_height_);
+    }
 
-    std::vector<float> input =
-        ResizeBilinearToCHW(bitmap, descriptor_width_, descriptor_height_);
     const std::vector<int64_t> input_shape = {
         1, 3, descriptor_height_, descriptor_width_};
     std::vector<Ort::Value> inputs;
@@ -467,7 +469,6 @@ bool FlexGlueMatchingOptions::Check() const {
   CHECK_OPTION_GT(feature_cache_size, 0);
   CHECK_OPTION(!descriptor_model_path.empty());
   CHECK_OPTION(!matcher_model_path.empty());
-  CHECK_OPTION_GT(num_workers_per_gpu, 0);
   return true;
 }
 

@@ -216,10 +216,6 @@ void BindFeatureMatching(py::module& m) {
                          "Whether to use the float16 matcher on CUDA GPUs "
                          "with compute capability 7.0 or newer (falls back to "
                          "float32 otherwise).")
-          .def_readwrite("num_workers_per_gpu",
-                         &FlexGlueMatchingOptions::num_workers_per_gpu,
-                         "Number of matching worker threads per CUDA GPU that "
-                         "share one FlexGlue matcher instance.")
           .def("check", &FlexGlueMatchingOptions::Check);
   MakeDataclass(PyFlexGlueMatchingOptions);
 #endif
@@ -262,6 +258,10 @@ void BindFeatureMatching(py::module& m) {
                          "multi-GPU matching, "
                          "you should separate multiple GPU indices by comma, "
                          "e.g., \"0,1,2,3\".")
+          .def_readwrite("num_workers_per_gpu",
+                         &FeatureMatchingOptions::num_workers_per_gpu,
+                         "Number of matching worker threads per CUDA GPU that "
+                         "share one ONNX matcher instance.")
           .def_readwrite("max_num_matches",
                          &FeatureMatchingOptions::max_num_matches,
                          "Maximum number of matches.")

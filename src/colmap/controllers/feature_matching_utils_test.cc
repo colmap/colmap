@@ -359,6 +359,7 @@ TEST(FeatureMatcherController, SetupPropagatesMatcherCreationErrors) {
     JobQueue<FeatureMatcherData> output_queue;
     auto shared_matcher = std::make_shared<SharedFeatureMatcher>();
     std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+    workers.reserve(3);
     for (int w = 0; w < 3; ++w) {
       workers.push_back(
           std::make_unique<FeatureMatcherWorker>(matching_options,
@@ -383,16 +384,15 @@ TEST(FeatureMatcherController, SetupPropagatesMatcherCreationErrors) {
 
 #ifdef COLMAP_CUDA_ENABLED
   if (GetNumCudaDevices() > 0) {
-    FeatureMatchingOptions flexglue_options(FeatureMatcherType::FLEXGLUE);
-    flexglue_options.use_gpu = true;
-    flexglue_options.gpu_index = "0";
-    flexglue_options.num_threads = 2;
-    flexglue_options.flexglue->image_path = data.test_dir.string();
-    flexglue_options.flexglue->num_workers_per_gpu = 3;
-    flexglue_options.flexglue->descriptor_model_path =
+    FeatureMatchingOptions onnx_options(FeatureMatcherType::ALIKED_LIGHTGLUE);
+    onnx_options.use_gpu = true;
+    onnx_options.gpu_index = "0";
+    onnx_options.num_threads = 2;
+    onnx_options.num_workers_per_gpu = 3;
+    onnx_options.aliked->lightglue.model_path =
         (data.test_dir / "missing_model.onnx").string();
     FeatureMatcherController controller(
-        flexglue_options, geometry_options, data.cache);
+        onnx_options, geometry_options, data.cache);
     EXPECT_THAT(ThrownMessage([&]() { controller.Setup(); }),
                 testing::HasSubstr(expected_message));
   }

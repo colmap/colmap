@@ -375,6 +375,8 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->num_threads);
   AddDefaultOption("FeatureMatching.use_gpu", &feature_matching->use_gpu);
   AddDefaultOption("FeatureMatching.gpu_index", &feature_matching->gpu_index);
+  AddDefaultOption("FeatureMatching.num_workers_per_gpu",
+                   &feature_matching->num_workers_per_gpu);
   AddDefaultOption("FeatureMatching.guided_matching",
                    &feature_matching->guided_matching);
   AddDefaultOption("FeatureMatching.skip_geometric_verification",
@@ -464,8 +466,6 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->flexglue->matcher_model_path_fp16);
   AddDefaultOption("FlexGlueMatching.use_fp16",
                    &feature_matching->flexglue->use_fp16);
-  AddDefaultOption("FlexGlueMatching.num_workers_per_gpu",
-                   &feature_matching->flexglue->num_workers_per_gpu);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {

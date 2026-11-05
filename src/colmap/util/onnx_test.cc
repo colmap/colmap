@@ -168,7 +168,7 @@ TEST(ONNXModelTest, InvalidModelThrowsOrtException) {
 }
 
 TEST(CreateONNXTensorTest, FloatVector) {
-  std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f};
+  const std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f};
   const std::vector<int64_t> shape{2, 2};
   Ort::Value tensor = CreateONNXTensor(data, shape);
   EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
@@ -179,7 +179,7 @@ TEST(CreateONNXTensorTest, FloatVector) {
 }
 
 TEST(CreateONNXTensorTest, Int64Pointer) {
-  std::vector<int64_t> data{5, 6};
+  const std::vector<int64_t> data{5, 6};
   const std::vector<int64_t> shape{1, 2};
   Ort::Value tensor = CreateONNXTensor(data.data(), data.size(), shape);
   EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
@@ -187,7 +187,7 @@ TEST(CreateONNXTensorTest, Int64Pointer) {
 }
 
 TEST(CreateONNXScalarTensorTest, Nominal) {
-  float value = 0.25f;
+  const float value = 0.25f;
   Ort::Value tensor = CreateONNXScalarTensor(value);
   EXPECT_TRUE(tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
   EXPECT_FLOAT_EQ(*tensor.GetTensorData<float>(), 0.25f);

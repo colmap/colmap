@@ -39,30 +39,39 @@ void ThrowCheckONNXNode(std::string_view name,
 // Create a CPU ONNX tensor that references the given data. The caller must
 // keep the data alive until the tensor is consumed by ONNXModel::Run().
 template <typename T>
-inline Ort::Value CreateONNXTensor(T* data,
+inline Ort::Value CreateONNXTensor(const T* data,
                                    size_t num_elements,
                                    const std::vector<int64_t>& shape) {
+  // Ort::Value::CreateTensor takes a non-const pointer even for read-only
+  // input tensors; ONNXModel::Run never mutates its input tensors.
   return Ort::Value::CreateTensor<T>(
       Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtDeviceAllocator,
                                  OrtMemType::OrtMemTypeCPU),
-      data,
+      const_cast<T*>(data),
       num_elements,
       shape.data(),
       shape.size());
 }
 
 template <typename T>
-inline Ort::Value CreateONNXTensor(std::vector<T>& data,
+inline Ort::Value CreateONNXTensor(const std::vector<T>& data,
                                    const std::vector<int64_t>& shape) {
   return CreateONNXTensor(data.data(), data.size(), shape);
 }
 
+template <typename T>
+void CreateONNXTensor(const std::vector<T>&&,
+                      const std::vector<int64_t>&) = delete;
+
 // Create a scalar (rank-0) CPU ONNX tensor.
 template <typename T>
-inline Ort::Value CreateONNXScalarTensor(T& value) {
+inline Ort::Value CreateONNXScalarTensor(const T& value) {
   static const std::vector<int64_t> kEmptyShape;
   return CreateONNXTensor(&value, 1, kEmptyShape);
 }
+
+template <typename T>
+void CreateONNXScalarTensor(const T&&) = delete;
 
 // Check that a model node has the expected element type.
 void ThrowCheckONNXElementType(std::string_view name,

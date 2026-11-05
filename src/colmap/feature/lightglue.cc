@@ -100,37 +100,39 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     auto create = [this](const Image& image) {
       return FeaturesFromImage(image);
     };
-    CachedFeatures& cached1 = cache_.GetOrCreate(image1, create);
-    CachedFeatures& cached2 = cache_.GetOrCreate(image2, create);
+    const std::shared_ptr<const CachedFeatures> cached1 =
+        cache_.GetOrCreate(image1, create);
+    const std::shared_ptr<const CachedFeatures> cached2 =
+        cache_.GetOrCreate(image2, create);
 
     // Create input tensors.
     std::vector<Ort::Value> input_tensors;
     input_tensors.reserve(has_scale_ori_ ? 10 : 6);
 
     input_tensors.emplace_back(
-        CreateONNXTensor(cached1.keypoints_data, cached1.keypoints_shape));
+        CreateONNXTensor(cached1->keypoints_data, cached1->keypoints_shape));
     input_tensors.emplace_back(
-        CreateONNXTensor(cached2.keypoints_data, cached2.keypoints_shape));
-    input_tensors.emplace_back(
-        CreateONNXTensor(cached1.descriptors_data, cached1.descriptors_shape));
-    input_tensors.emplace_back(
-        CreateONNXTensor(cached2.descriptors_data, cached2.descriptors_shape));
+        CreateONNXTensor(cached2->keypoints_data, cached2->keypoints_shape));
+    input_tensors.emplace_back(CreateONNXTensor(cached1->descriptors_data,
+                                                cached1->descriptors_shape));
+    input_tensors.emplace_back(CreateONNXTensor(cached2->descriptors_data,
+                                                cached2->descriptors_shape));
 
-    std::vector<int64_t> image_size_shape = {1, 2};
+    const std::vector<int64_t> image_size_shape = {1, 2};
     input_tensors.emplace_back(
-        CreateONNXTensor(cached1.image_size, 2, image_size_shape));
+        CreateONNXTensor(cached1->image_size, 2, image_size_shape));
     input_tensors.emplace_back(
-        CreateONNXTensor(cached2.image_size, 2, image_size_shape));
+        CreateONNXTensor(cached2->image_size, 2, image_size_shape));
 
     if (has_scale_ori_) {
       input_tensors.emplace_back(
-          CreateONNXTensor(cached1.scales_data, cached1.scales_shape));
+          CreateONNXTensor(cached1->scales_data, cached1->scales_shape));
       input_tensors.emplace_back(
-          CreateONNXTensor(cached2.scales_data, cached2.scales_shape));
-      input_tensors.emplace_back(CreateONNXTensor(cached1.orientations_data,
-                                                  cached1.orientations_shape));
-      input_tensors.emplace_back(CreateONNXTensor(cached2.orientations_data,
-                                                  cached2.orientations_shape));
+          CreateONNXTensor(cached2->scales_data, cached2->scales_shape));
+      input_tensors.emplace_back(CreateONNXTensor(cached1->orientations_data,
+                                                  cached1->orientations_shape));
+      input_tensors.emplace_back(CreateONNXTensor(cached2->orientations_data,
+                                                  cached2->orientations_shape));
     }
 
     // Run model inference.
@@ -313,7 +315,7 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
   ONNXModel model_;
   bool has_scale_ori_ = false;
 
-  ImageFeatureCache<CachedFeatures> cache_;
+  ThreadSafeImageFeatureCache<CachedFeatures> cache_;
 };
 
 #endif

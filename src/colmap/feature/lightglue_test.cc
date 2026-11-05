@@ -9,7 +9,9 @@
 #include "colmap/scene/camera.h"
 
 #include <cstring>
+#include <future>
 #include <memory>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -125,9 +127,9 @@ TEST_F(AlikedLightGlueONNXMatcherTest, SelfMatching) {
   pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
 
   const FeatureMatcher::Image image1_rotated{
-      1, &camera, keypoints, descriptors, &pose_prior};
+      7, &camera, keypoints, descriptors, &pose_prior};
   const FeatureMatcher::Image image2_rotated{
-      2, &camera, keypoints, descriptors, &pose_prior};
+      8, &camera, keypoints, descriptors, &pose_prior};
 
   matcher_low_->Match(image1_rotated, image2_rotated, &matches);
 
@@ -331,9 +333,9 @@ TEST_F(SiftLightGlueONNXMatcherTest, SelfMatching) {
   pose_prior.gravity = Eigen::Vector3d(1, 0, 0);
 
   const FeatureMatcher::Image image1_rotated{
-      1, &camera, keypoints, descriptors, &pose_prior};
+      7, &camera, keypoints, descriptors, &pose_prior};
   const FeatureMatcher::Image image2_rotated{
-      2, &camera, keypoints, descriptors, &pose_prior};
+      8, &camera, keypoints, descriptors, &pose_prior};
 
   matcher_low_->Match(image1_rotated, image2_rotated, &matches);
 
@@ -425,6 +427,38 @@ TEST_F(SiftLightGlueONNXMatcherTest, Caching) {
   for (size_t i = 0; i < matchesAB1.size(); ++i) {
     EXPECT_EQ(matchesAB1[i].point2D_idx1, matchesAB3[i].point2D_idx1);
     EXPECT_EQ(matchesAB1[i].point2D_idx2, matchesAB3[i].point2D_idx2);
+  }
+}
+
+TEST_F(SiftLightGlueONNXMatcherTest, ConcurrentMatchThreadSafety) {
+  constexpr int kNumKeypoints = 16;
+  const auto keypoints1 = CreateRandomKeypoints(kNumKeypoints);
+  const auto descriptors1 = CreateRandomDescriptors(kNumKeypoints);
+  const auto keypoints2 = CreateRandomKeypoints(kNumKeypoints);
+  const auto descriptors2 = CreateRandomDescriptors(kNumKeypoints);
+  const Camera camera = CreateCamera();
+
+  auto matcher = CreateLightGlueONNXFeatureMatcher(
+      CreateFeatureMatcherOptions(), CreateLightGlueONNXMatchingOptions());
+  const FeatureMatcher::Image ref1{1, &camera, keypoints1, descriptors1};
+  const FeatureMatcher::Image ref2{2, &camera, keypoints2, descriptors2};
+  FeatureMatches expected;
+  matcher->Match(ref1, ref2, &expected);
+
+  // Cold IDs (10, 11) force concurrent workers to deduplicate feature creation.
+  const FeatureMatcher::Image img1{10, &camera, keypoints1, descriptors1};
+  const FeatureMatcher::Image img2{11, &camera, keypoints2, descriptors2};
+  std::vector<std::future<FeatureMatches>> futures;
+  futures.reserve(4);
+  for (int t = 0; t < 4; ++t) {
+    futures.push_back(std::async(std::launch::async, [&]() {
+      FeatureMatches out;
+      matcher->Match(img1, img2, &out);
+      return out;
+    }));
+  }
+  for (auto& future : futures) {
+    EXPECT_EQ(future.get(), expected);
   }
 }
 

@@ -3,9 +3,11 @@
 #pragma once
 
 #include "colmap/feature/types.h"
+#include "colmap/util/cache.h"
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace colmap {
@@ -80,6 +82,32 @@ class ImageFeatureCache {
   };
   std::array<Entry, kCapacity> entries_;
   int most_recent_ = 0;
+};
+
+// Thread-safe LRU cache for per-image data keyed by image_id, shared across
+// concurrent matching workers. Retains enough images to cover a full matching
+// block (e.g. 50x50 exhaustive pairs = 100 images), deduplicates concurrent
+// loads of the same image, and returns shared_ptr<const T> so evicted entries
+// stay valid for in-flight inferences. Entries with invalid image_ids bypass
+// the cache.
+template <typename T>
+class ThreadSafeImageFeatureCache {
+ public:
+  explicit ThreadSafeImageFeatureCache(size_t max_num_elems = 128)
+      : cache_(max_num_elems) {}
+
+  template <typename Image, typename CreateFn>
+  std::shared_ptr<const T> GetOrCreate(const Image& image, CreateFn&& create) {
+    if (image.image_id == kInvalidImageId) {
+      return std::make_shared<T>(create(image));
+    }
+    return cache_.Get(image.image_id, [&](const image_t&) {
+      return std::make_shared<T>(create(image));
+    });
+  }
+
+ private:
+  ThreadSafeLRUCache<image_t, T> cache_;
 };
 
 }  // namespace colmap

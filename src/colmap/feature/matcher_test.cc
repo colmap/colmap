@@ -4,9 +4,11 @@
 
 #include "colmap/feature/aliked.h"
 #include "colmap/feature/extractor.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
@@ -101,7 +103,19 @@ TEST(FeatureMatchingOptions, Check) {
   for (const auto type : types) {
     options.type = type;
     EXPECT_TRUE(options.Check());
+    EXPECT_EQ(options.SupportsSharedMatcher(),
+              type != FeatureMatcherType::SIFT_BRUTEFORCE);
   }
+
+  options.type = FeatureMatcherType::FLEXGLUE;
+  options.flexglue->image_path = CreateTestDir().string();
+  EXPECT_TRUE(options.SupportsSharedMatcher());
+  EXPECT_TRUE(options.Check());
+
+  options.num_workers_per_gpu = 0;
+  EXPECT_FALSE(options.Check());
+  options.num_workers_per_gpu = 3;
+  EXPECT_TRUE(options.Check());
 }
 
 }  // namespace

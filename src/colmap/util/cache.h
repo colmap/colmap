@@ -69,6 +69,7 @@ class ThreadSafeLRUCache {
  public:
   using LoadFn = std::function<std::shared_ptr<value_t>(const key_t&)>;
 
+  explicit ThreadSafeLRUCache(size_t max_num_elems);
   ThreadSafeLRUCache(size_t max_num_elems, LoadFn load_fn);
 
   // The number of elements in the cache.
@@ -80,6 +81,11 @@ class ThreadSafeLRUCache {
 
   // Get the value of an element either from the cache or compute the new value.
   std::shared_ptr<value_t> Get(const key_t& key);
+
+  // Same as Get(key), using a per-call loader instead of load_fn_. Useful when
+  // computing the value requires call-site context not owned by the cache.
+  template <typename CustomLoadFn>
+  std::shared_ptr<value_t> Get(const key_t& key, CustomLoadFn&& load_fn);
 
   // Manually evict an element from the cache.
   // Returns true if the element was evicted.
@@ -245,6 +251,12 @@ void LRUCache<key_t, value_t>::Clear() {
 
 template <typename key_t, typename value_t>
 ThreadSafeLRUCache<key_t, value_t>::ThreadSafeLRUCache(
+    const size_t max_num_elems)
+    : cache_(max_num_elems,
+             [](const key_t&) { return std::make_shared<Entry>(); }) {}
+
+template <typename key_t, typename value_t>
+ThreadSafeLRUCache<key_t, value_t>::ThreadSafeLRUCache(
     const size_t max_num_elems, LoadFn load_fn)
     : load_fn_(std::move(load_fn)), cache_(max_num_elems, [](const key_t&) {
         return std::make_shared<Entry>();
@@ -273,6 +285,14 @@ bool ThreadSafeLRUCache<key_t, value_t>::Exists(const key_t& key) const {
 template <typename key_t, typename value_t>
 std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
     const key_t& key) {
+  THROW_CHECK_NOTNULL(load_fn_);
+  return Get(key, load_fn_);
+}
+
+template <typename key_t, typename value_t>
+template <typename CustomLoadFn>
+std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
+    const key_t& key, CustomLoadFn&& load_fn) {
   bool should_load = false;
   std::shared_ptr<Entry> entry;
   std::shared_future<std::shared_ptr<value_t>> shared_future;
@@ -292,7 +312,7 @@ std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
 
   if (should_load) {
     try {
-      entry->promise.set_value(THROW_CHECK_NOTNULL(load_fn_(key)));
+      entry->promise.set_value(THROW_CHECK_NOTNULL(load_fn(key)));
     } catch (...) {
       // Evict the failed entry if it is still cached and set the exception.
       std::unique_lock lock(cache_mutex_);

@@ -8,7 +8,9 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 
+#include <future>
 #include <memory>
+#include <vector>
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
@@ -120,6 +122,23 @@ void CheckNominalExtractionAndMatching(FeatureExtractor& extractor,
     if (match.point2D_idx1 == match.point2D_idx2) ++num_self_matches;
   }
   EXPECT_GT(num_self_matches, 0.5 * matches.size());
+
+  // Concurrent calls on the shared matcher (hitting cold cached entries 3, 4)
+  // must produce identical matches.
+  const FeatureMatcher::Image cold1{3, &camera, keypoints, descriptors};
+  const FeatureMatcher::Image cold2{4, &camera, keypoints, descriptors};
+  std::vector<std::future<FeatureMatches>> futures;
+  futures.reserve(3);
+  for (int t = 0; t < 3; ++t) {
+    futures.push_back(std::async(std::launch::async, [&]() {
+      FeatureMatches out;
+      matcher->Match(cold1, cold2, &out);
+      return out;
+    }));
+  }
+  for (auto& future : futures) {
+    EXPECT_EQ(future.get(), matches);
+  }
 }
 
 TEST_F(LomaTest, Nominal) {

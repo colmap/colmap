@@ -55,6 +55,13 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
   std::string gpu_index = "-1";
 
+  // Number of matching worker threads per CUDA GPU that share one matcher
+  // instance (for ONNX matchers). Multiple workers allow CPU preprocessing and
+  // image decoding to overlap with GPU inference without duplicating model
+  // weights or per-image caches. Ignored on the CPU or for matchers that do not
+  // support sharing an instance across workers.
+  int num_workers_per_gpu = 3;
+
   // Maximum number of matches.
   int max_num_matches = 32768;
 
@@ -83,6 +90,10 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   // Whether the selected matcher uses the descriptors. FlexGlue only uses the
   // keypoints, so it also matches images without descriptors.
   bool UsesDescriptors() const;
+
+  // Whether a single matcher instance is thread-safe and should be shared
+  // across worker threads (true for all ONNX matchers).
+  bool SupportsSharedMatcher() const;
 
   bool Check() const;
 };

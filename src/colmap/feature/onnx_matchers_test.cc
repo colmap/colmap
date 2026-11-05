@@ -7,8 +7,10 @@
 #include "colmap/feature/utils.h"
 
 #include <cstring>
+#include <future>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -364,6 +366,22 @@ TEST_F(BruteForceONNXMatcherTest, Caching) {
   EXPECT_EQ(matchesAA.size(), kNumDescriptors);
   for (const auto& match : matchesAA) {
     EXPECT_EQ(match.point2D_idx1, match.point2D_idx2);
+  }
+
+  // Concurrent Match() calls on cold image IDs deduplicate feature creation.
+  const FeatureMatcher::Image coldA{10, nullptr, keypointsA, descriptorsA};
+  const FeatureMatcher::Image coldB{11, nullptr, keypointsB, descriptorsB};
+  std::vector<std::future<FeatureMatches>> futures;
+  futures.reserve(4);
+  for (int t = 0; t < 4; ++t) {
+    futures.push_back(std::async(std::launch::async, [&]() {
+      FeatureMatches out;
+      matcher->Match(coldA, coldB, &out);
+      return out;
+    }));
+  }
+  for (auto& future : futures) {
+    EXPECT_EQ(future.get(), matchesAB1);
   }
 }
 

@@ -52,6 +52,27 @@ bool FeatureMatchingOptions::UsesDescriptors() const {
   return type != FeatureMatcherType::FLEXGLUE;
 }
 
+bool FeatureMatchingOptions::SupportsSharedMatcher() const {
+  switch (type) {
+    case FeatureMatcherType::SIFT_BRUTEFORCE:
+      return false;
+    case FeatureMatcherType::SIFT_LIGHTGLUE:
+    case FeatureMatcherType::ALIKED_BRUTEFORCE:
+    case FeatureMatcherType::ALIKED_LIGHTGLUE:
+    case FeatureMatcherType::LOMA_BRUTEFORCE:
+    case FeatureMatcherType::LOMA_B:
+    case FeatureMatcherType::LOMA_B128:
+    case FeatureMatcherType::LOMA_R:
+    case FeatureMatcherType::LOMA_L:
+    case FeatureMatcherType::LOMA_G:
+    case FeatureMatcherType::FLEXGLUE:
+      return true;
+    default:
+      ThrowUnknownFeatureMatcherType(type);
+  }
+  return false;
+}
+
 bool FeatureMatchingOptions::RequiresOpenGL() const {
   switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE: {
@@ -87,6 +108,7 @@ bool FeatureMatchingOptions::Check() const {
     return false;
 #endif
   }
+  CHECK_OPTION_GT(num_workers_per_gpu, 0);
   CHECK_OPTION_GE(max_num_matches, 0);
   switch (type) {
     case FeatureMatcherType::SIFT_BRUTEFORCE:

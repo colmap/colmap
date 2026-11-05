@@ -66,20 +66,24 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
     auto create = [this](const Image& image) {
       return FeaturesFromImage(image);
     };
-    Features& cached1 = cache_.GetOrCreate(image1, create);
-    Features& cached2 = cache_.GetOrCreate(image2, create);
+    const std::shared_ptr<const Features> cached1 =
+        cache_.GetOrCreate(image1, create);
+    const std::shared_ptr<const Features> cached2 =
+        cache_.GetOrCreate(image2, create);
 
     // Create tensors from cached data (tensors must be recreated each call
     // since they reference the underlying data and get consumed by Run()).
-    float min_cossim = static_cast<float>(brute_force_options_.min_cossim);
-    float max_ratio = static_cast<float>(brute_force_options_.max_ratio);
-    int64_t cross_check = brute_force_options_.cross_check ? 1 : 0;
+    const float min_cossim =
+        static_cast<float>(brute_force_options_.min_cossim);
+    const float max_ratio = static_cast<float>(brute_force_options_.max_ratio);
+    const int64_t cross_check = brute_force_options_.cross_check ? 1 : 0;
 
     std::vector<Ort::Value> input_tensors;
-    input_tensors.emplace_back(
-        CreateONNXTensor(cached1.descriptors_data, cached1.descriptors_shape));
-    input_tensors.emplace_back(
-        CreateONNXTensor(cached2.descriptors_data, cached2.descriptors_shape));
+    input_tensors.reserve(5);
+    input_tensors.emplace_back(CreateONNXTensor(cached1->descriptors_data,
+                                                cached1->descriptors_shape));
+    input_tensors.emplace_back(CreateONNXTensor(cached2->descriptors_data,
+                                                cached2->descriptors_shape));
     input_tensors.emplace_back(CreateONNXScalarTensor(min_cossim));
     input_tensors.emplace_back(CreateONNXScalarTensor(max_ratio));
     input_tensors.emplace_back(CreateONNXScalarTensor(cross_check));
@@ -163,8 +167,8 @@ class BruteForceONNXFeatureMatcher : public FeatureMatcher {
   const bool normalize_descriptors_;
   ONNXModel model_;
 
-  // Cached features for avoiding redundant data copies.
-  ImageFeatureCache<Features> cache_;
+  // Cached features for avoiding redundant data copies across workers.
+  ThreadSafeImageFeatureCache<Features> cache_;
 };
 
 #endif

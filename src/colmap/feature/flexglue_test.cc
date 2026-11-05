@@ -186,11 +186,6 @@ TEST(FlexGlueMatchingOptions, Check) {
   // Without the float16 matcher, the float32 matcher is used.
   options.matcher_model_path_fp16.clear();
   EXPECT_TRUE(options.Check());
-  EXPECT_EQ(options.num_workers_per_gpu, 3);
-  options.num_workers_per_gpu = 0;
-  EXPECT_FALSE(options.Check());
-  options.num_workers_per_gpu = 3;
-  EXPECT_TRUE(options.Check());
 }
 
 TEST(FlexGlueMatchingOptions, FeatureMatchingOptions) {

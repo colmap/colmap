@@ -3,7 +3,6 @@
 #include "colmap/controllers/feature_matching_utils.h"
 
 #include "colmap/estimators/two_view_geometry.h"
-#include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/cuda.h"
@@ -364,13 +363,10 @@ FeatureMatcherController::FeatureMatcherController(
     worker_matching_options.guided_matching = false;
     int num_workers_per_gpu = 1;
 #ifdef COLMAP_CUDA_ENABLED
-    if (matching_options_.type == FeatureMatcherType::FLEXGLUE) {
-      num_workers_per_gpu =
-          THROW_CHECK_NOTNULL(matching_options_.flexglue)->num_workers_per_gpu;
-      worker_matching_options.num_threads = std::max(
-          1,
-          num_threads /
-              (static_cast<int>(gpu_indices.size()) * num_workers_per_gpu));
+    if (matching_options_.SupportsSharedMatcher()) {
+      num_workers_per_gpu = matching_options_.num_workers_per_gpu;
+      // Prevent nested CPU threading inside each GPU worker.
+      worker_matching_options.num_threads = 1;
     }
 #endif
     matchers_.reserve(gpu_indices.size() * num_workers_per_gpu);
@@ -395,10 +391,11 @@ FeatureMatcherController::FeatureMatcherController(
     auto worker_matching_options = matching_options_;
     // The first matching is always without guided matching.
     worker_matching_options.guided_matching = false;
-    // FlexGlue loads large models and caches dense features per matcher, so a
-    // single worker runs them with all threads instead of one copy per thread.
+    // ONNX matchers load models and cache per-image features inside the
+    // matcher, so a single worker runs them with all threads instead of
+    // duplicating the session per thread.
     int num_workers = 1;
-    if (matching_options_.type != FeatureMatcherType::FLEXGLUE) {
+    if (!matching_options_.SupportsSharedMatcher()) {
       // Prevent nested threading.
       worker_matching_options.num_threads = 1;
       num_workers = num_threads;
