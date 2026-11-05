@@ -125,7 +125,9 @@ Each file's SPDX line and copyright lines name the notices that apply to it.
 ## Provenance
 
 The CUDA scaffolding (`cudaImage*`, `cudautils.h`, the structure of
-`cudaSift*`) comes from CudaSift (https://github.com/Celebrandil/CudaSift).
+`cudaSift*`) comes from CudaSift (https://github.com/Celebrandil/CudaSift),
+branch `AdaLovelace` at `ed5ef54c67354959e3d5fa829d30de5b278b4d62`
+(2026-03-17).
 Detection, orientation and description were rewritten as VLFeat-parity
 kernels; the matcher (`matcher_gemm.{h,cu}`) and the device shim
 (`cusift_device.{h,cu}`) are new. Notes for anyone changing the code:
