@@ -112,13 +112,23 @@ TEST(FeatureMatchingOptions, Check) {
   EXPECT_TRUE(options.SupportsSharedMatcher());
   EXPECT_TRUE(options.Check());
 
+  EXPECT_EQ(options.num_workers_per_gpu, -1);
+  EXPECT_EQ(options.num_inferences_per_gpu, -1);
   options.num_workers_per_gpu = 0;
   EXPECT_FALSE(options.Check());
+  options.num_workers_per_gpu = -2;
+  EXPECT_FALSE(options.Check());
+  options.num_workers_per_gpu = -1;
+  EXPECT_TRUE(options.Check());
   options.num_workers_per_gpu = 3;
   EXPECT_TRUE(options.Check());
 
   options.num_inferences_per_gpu = 0;
   EXPECT_FALSE(options.Check());
+  options.num_inferences_per_gpu = -2;
+  EXPECT_FALSE(options.Check());
+  options.num_inferences_per_gpu = -1;
+  EXPECT_TRUE(options.Check());
   options.num_inferences_per_gpu = 2;
   EXPECT_TRUE(options.Check());
 }

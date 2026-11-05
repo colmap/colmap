@@ -167,18 +167,18 @@ std::unique_ptr<ONNXModel> CreateMatcherModel(
                                      inference_limiter);
 }
 
-class FlexGlueFeatureMatcher : public FeatureMatcher {
+class FlexGlueFeatureMatcher : public ONNXFeatureMatcher {
  public:
   explicit FlexGlueFeatureMatcher(const FeatureMatchingOptions& options)
-      : options_(*THROW_CHECK_NOTNULL(options.flexglue)),
-        inference_limiter_(CreateONNXMatcherInferenceLimiter(options)),
+      : ONNXFeatureMatcher(options),
+        options_(*THROW_CHECK_NOTNULL(options.flexglue)),
         descriptor_(options_.descriptor_model_path,
                     options.num_threads,
                     options.use_gpu,
                     options.gpu_index,
-                    inference_limiter_,
+                    inference_limiter(),
                     /*allow_session_replicas=*/false),
-        matcher_(CreateMatcherModel(options, inference_limiter_)),
+        matcher_(CreateMatcherModel(options, inference_limiter())),
         dense_cache_(options_.feature_cache_size,
                      [this](const std::string& name) {
                        return ComputeDenseFeatures(name);
@@ -264,11 +264,10 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         << "Missing FlexGlue output: covisibility_score";
   }
 
-  void Match(const Image& image1,
-             const Image& image2,
-             FeatureMatches* matches) override {
-    THROW_CHECK_NOTNULL(matches);
-    matches->clear();
+ protected:
+  void MatchImpl(const Image& image1,
+                 const Image& image2,
+                 FeatureMatches* matches) override {
     THROW_CHECK_NOTNULL(image1.keypoints);
     THROW_CHECK_NOTNULL(image2.keypoints);
 
@@ -361,11 +360,17 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
     }
   }
 
-  void MatchGuided(double max_error,
-                   const Image& image1,
-                   const Image& image2,
-                   TwoViewGeometry* two_view_geometry) override {
-    LOG(FATAL_THROW) << "Guided matching not supported for FlexGlue.";
+  ONNXMatchScheduler::CacheVramUsage GetCacheVramUsage() const override {
+    if (!feature_memory_info_.has_value()) {
+      return {};
+    }
+    const size_t elem_bytes =
+        dense_feature_bytes_.load(std::memory_order_relaxed);
+    const size_t num_cached = dense_cache_.NumElems();
+    const size_t max_cached = dense_cache_.MaxNumElems();
+    return {
+        num_cached * elem_bytes,
+        (max_cached > num_cached ? (max_cached - num_cached) : 0) * elem_bytes};
   }
 
  private:
@@ -440,13 +445,15 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         feature_memory_info_ ? descriptor_.Run(inputs, *feature_memory_info_)
                              : descriptor_.Run(inputs);
     THROW_CHECK_EQ(outputs.size(), 1);
-    THROW_CHECK_EQ(outputs[0].GetTensorTypeAndShapeInfo().GetShape().size(), 4);
+    const auto out_info = outputs[0].GetTensorTypeAndShapeInfo();
+    THROW_CHECK_EQ(out_info.GetShape().size(), 4);
+    dense_feature_bytes_.store(out_info.GetElementCount() * sizeof(float),
+                               std::memory_order_relaxed);
     dense->value = std::move(outputs[0]);
     return dense;
   }
 
   const FlexGlueMatchingOptions options_;
-  std::shared_ptr<ONNXInferenceLimiter> inference_limiter_;
   ONNXModel descriptor_;
   std::unique_ptr<ONNXModel> matcher_;
   int descriptor_height_ = 0;
@@ -456,6 +463,7 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
 
   // Memory of the cached dense features, if not host memory.
   std::optional<Ort::MemoryInfo> feature_memory_info_;
+  std::atomic<size_t> dense_feature_bytes_{4ULL << 20};
   // Dense features keyed by image name. Unlike ImageFeatureCache, it retains
   // many images, since pairs of exhaustive or retrieval-based matching revisit
   // the same images far apart in time. ThreadSafeLRUCache also deduplicates

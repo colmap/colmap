@@ -3,6 +3,7 @@
 #include "colmap/controllers/feature_matching_utils.h"
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/util/cuda.h"
@@ -364,7 +365,8 @@ FeatureMatcherController::FeatureMatcherController(
     int num_workers_per_gpu = 1;
 #ifdef COLMAP_CUDA_ENABLED
     if (matching_options_.SupportsSharedMatcher()) {
-      num_workers_per_gpu = matching_options_.num_workers_per_gpu;
+      num_workers_per_gpu = ComputeMaxONNXWorkersPerGpu(
+          matching_options_, static_cast<int>(gpu_indices.size()));
       // Prevent nested CPU threading inside each GPU worker.
       worker_matching_options.num_threads = 1;
     }

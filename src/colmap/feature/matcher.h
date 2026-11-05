@@ -56,17 +56,16 @@ struct FeatureMatchingOptions : public FeatureMatchingTypeOptions {
   std::string gpu_index = "-1";
 
   // Number of matching worker threads per CUDA GPU that share one matcher
-  // instance (for ONNX matchers). Multiple workers allow CPU preprocessing and
-  // image decoding to overlap with GPU inference without duplicating model
-  // weights or per-image caches. Ignored on the CPU or for matchers that do not
-  // support sharing an instance across workers.
-  int num_workers_per_gpu = 3;
+  // instance (for ONNX matchers). -1 automatically adapts the active worker
+  // count online from CPU cores, available host memory, and preprocessing vs.
+  // inference timings. Ignored on the CPU or for matchers that do not support
+  // sharing an instance across workers.
+  int num_workers_per_gpu = -1;
 
   // Maximum number of concurrent ONNX model inferences per CUDA GPU across the
-  // worker threads sharing one matcher instance. Bounding this independently of
-  // num_workers_per_gpu lets multiple CPU workers overlap image decoding and
-  // preprocessing while capping peak GPU activation memory.
-  int num_inferences_per_gpu = 3;
+  // worker threads sharing one matcher instance. -1 automatically adapts this
+  // online from available GPU memory and activation usage (up to 3).
+  int num_inferences_per_gpu = -1;
 
   // Maximum number of matches.
   int max_num_matches = 32768;

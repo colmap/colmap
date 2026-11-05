@@ -261,11 +261,12 @@ void BindFeatureMatching(py::module& m) {
           .def_readwrite("num_workers_per_gpu",
                          &FeatureMatchingOptions::num_workers_per_gpu,
                          "Number of matching worker threads per CUDA GPU that "
-                         "share one ONNX matcher instance.")
+                         "share one ONNX matcher instance (-1 = automatic).")
           .def_readwrite("num_inferences_per_gpu",
                          &FeatureMatchingOptions::num_inferences_per_gpu,
                          "Maximum number of concurrent ONNX model inferences "
-                         "per CUDA GPU across shared worker threads.")
+                         "per CUDA GPU across shared worker threads (-1 = "
+                         "automatic).")
           .def_readwrite("max_num_matches",
                          &FeatureMatchingOptions::max_num_matches,
                          "Maximum number of matches.")

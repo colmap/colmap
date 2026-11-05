@@ -120,11 +120,11 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   options_widget_->AddOptionInt(
       &options_->feature_matching->num_workers_per_gpu,
       "num_workers_per_gpu",
-      1);
+      -1);
   options_widget_->AddOptionInt(
       &options_->feature_matching->num_inferences_per_gpu,
       "num_inferences_per_gpu",
-      1);
+      -1);
   options_widget_->AddOptionInt(&options_->feature_matching->max_num_matches,
                                 "max_num_matches");
   options_widget_->AddOptionBool(&options_->feature_matching->guided_matching,

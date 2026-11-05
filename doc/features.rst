@@ -218,11 +218,13 @@ variant of the matcher whose transformer layers run in float16 is used by
 default (``--FlexGlueMatching.use_fp16``), which is faster than the float32
 matcher with practically identical matches; the float32 matcher is used on the CPU, on
 older GPUs, or if the float16 variant fails to initialize. On CUDA GPUs, all
-ONNX matchers share one matcher instance and per-image feature cache across
-``--FeatureMatching.num_workers_per_gpu`` (default 3) worker threads per GPU,
-with at most ``--FeatureMatching.num_inferences_per_gpu`` (default 3) concurrent
-model inferences on the GPU so CPU image decoding and preprocessing overlap with
-GPU inference while bounding peak GPU activation memory. On the CPU, a single matching thread runs ONNX models
+ONNX matchers share one matcher instance and per-image feature cache across a
+pool of worker threads per GPU (``--FeatureMatching.num_workers_per_gpu``,
+default ``-1`` = automatic from CPU cores, available host memory, and
+preprocessing vs. inference timings) bounded by concurrent GPU model inferences
+(``--FeatureMatching.num_inferences_per_gpu``, default ``-1`` = automatic from
+available GPU memory and activation usage), so CPU image decoding and
+preprocessing overlap with GPU inference on both small and large GPUs. On the CPU, a single matching thread runs ONNX models
 with ``--FeatureMatching.num_threads`` threads, rather than one copy of the
 models per thread. The ``automatic_reconstructor`` provides the ``--feature flexglue`` preset, which
 extracts the same DaD keypoints as the LoMa presets and matches them with

@@ -16,18 +16,19 @@ namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
 
-class LightGlueONNXFeatureMatcher : public FeatureMatcher {
+class LightGlueONNXFeatureMatcher : public ONNXFeatureMatcher {
  public:
   explicit LightGlueONNXFeatureMatcher(
       const FeatureMatchingOptions& options,
       const LightGlueONNXMatchingOptions& lightglue_options)
-      : options_(options),
+      : ONNXFeatureMatcher(options),
+        options_(options),
         lightglue_options_(lightglue_options),
         model_(lightglue_options.model_path,
                options.num_threads,
                options.use_gpu,
                options.gpu_index,
-               CreateONNXMatcherInferenceLimiter(options)) {
+               inference_limiter()) {
     THROW_CHECK(options.Check());
 
     const size_t num_inputs = model_.input_shapes().size();
@@ -87,12 +88,10 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
         model_.output_names()[1], "mscores0", model_.output_shapes()[1], {-1});
   }
 
-  void Match(const Image& image1,
-             const Image& image2,
-             FeatureMatches* matches) override {
-    THROW_CHECK_NOTNULL(matches);
-    matches->clear();
-
+ protected:
+  void MatchImpl(const Image& image1,
+                 const Image& image2,
+                 FeatureMatches* matches) override {
     const int num_keypoints1 = image1.descriptors->data.rows();
     const int num_keypoints2 = image2.descriptors->data.rows();
     if (num_keypoints1 < 1 || num_keypoints2 < 1) {
@@ -181,13 +180,6 @@ class LightGlueONNXFeatureMatcher : public FeatureMatcher {
     } else {
       LOG(FATAL_THROW) << "Unexpected matches0 output type: " << matches0_type;
     }
-  }
-
-  void MatchGuided(double max_error,
-                   const Image& image1,
-                   const Image& image2,
-                   TwoViewGeometry* two_view_geometry) override {
-    LOG(FATAL_THROW) << "Guided matching not supported for LightGlue.";
   }
 
  private:

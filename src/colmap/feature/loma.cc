@@ -275,19 +275,20 @@ class LomaFeatureExtractor : public FeatureExtractor {
   int descriptor_dim_ = 0;
 };
 
-class LomaFeatureMatcher : public FeatureMatcher {
+class LomaFeatureMatcher : public ONNXFeatureMatcher {
  public:
   LomaFeatureMatcher(const FeatureMatchingOptions& options,
                      const std::string& model_path,
                      FeatureExtractorType expected_extractor_type)
-      : options_(options),
+      : ONNXFeatureMatcher(options),
+        options_(options),
         loma_options_(*options.loma),
         expected_extractor_type_(expected_extractor_type),
         model_(model_path,
                options.num_threads,
                options.use_gpu,
                options.gpu_index,
-               CreateONNXMatcherInferenceLimiter(options)) {
+               inference_limiter()) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 4);
     THROW_CHECK_GE(model_.output_shapes().size(), 2);
@@ -304,12 +305,10 @@ class LomaFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_GE(mscores0_idx_, 0);
   }
 
-  void Match(const Image& image1,
-             const Image& image2,
-             FeatureMatches* matches) override {
-    THROW_CHECK_NOTNULL(matches);
-    matches->clear();
-
+ protected:
+  void MatchImpl(const Image& image1,
+                 const Image& image2,
+                 FeatureMatches* matches) override {
     auto create = [this](const Image& image) {
       return FeaturesFromImage(image);
     };
@@ -364,13 +363,6 @@ class LomaFeatureMatcher : public FeatureMatcher {
       matches->emplace_back(static_cast<point2D_t>(i),
                             static_cast<point2D_t>(j));
     }
-  }
-
-  void MatchGuided(double max_error,
-                   const Image& image1,
-                   const Image& image2,
-                   TwoViewGeometry* two_view_geometry) override {
-    LOG(FATAL_THROW) << "Guided matching not supported for LoMa.";
   }
 
  private:

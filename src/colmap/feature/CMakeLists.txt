@@ -75,6 +75,7 @@ if(ONNX_ENABLED)
         SRCS onnx_matchers_test.cc
         LINK_LIBS
             colmap_feature
+            colmap_onnx_util
             onnxruntime::onnxruntime
     )
     COLMAP_ADD_TEST(
