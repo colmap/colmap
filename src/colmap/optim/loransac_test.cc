@@ -129,6 +129,25 @@ TEST(LORANSAC, SimilarityTransform) {
   ValidateReport(report, data);
 }
 
+TEST(LORANSAC, ReportsExecutedTrials) {
+  const auto data = GenerateTestData(10, 0);
+  for (const int num_threads : {1, 4}) {
+    for (const int max_num_trials : {0, 1, 5}) {
+      RANSACOptions options;
+      options.max_error = 10;
+      options.confidence = 1;
+      options.max_num_trials = max_num_trials;
+      options.num_threads = num_threads;
+      options.random_seed = kDefaultPRNGSeed;
+      LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
+          loransac(options);
+      const auto report = loransac.Estimate(data.src, data.tgt);
+      EXPECT_EQ(report.num_trials, max_num_trials);
+      EXPECT_EQ(report.success, max_num_trials > 0);
+    }
+  }
+}
+
 TEST(LORANSAC, ParallelSimilarityTransform) {
   const auto data = GenerateTestData();
 
