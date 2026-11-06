@@ -49,6 +49,9 @@ if(CUDA_ENABLED OR HIP_ENABLED)
         target_link_libraries(colmap_controllers PRIVATE colmap_mvs_cuda)
     endif()
 endif()
+if(ONNX_ENABLED)
+    target_link_libraries(colmap_controllers PRIVATE onnxruntime::onnxruntime)
+endif()
 
 COLMAP_ADD_TEST(
     NAME automatic_reconstruction_test
