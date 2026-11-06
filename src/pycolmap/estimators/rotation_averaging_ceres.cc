@@ -28,11 +28,25 @@ void BindCeresRotationAveragerOptions(py::module& m) {
                          &CeresRotationAveragerOptions::loss_function_scale,
                          "Loss function scale in degrees.")
           .def_readwrite(
+              "covariance_loss_scale",
+              &CeresRotationAveragerOptions::covariance_loss_scale,
+              "Loss function scale with COVARIANCE reweighting, in standard "
+              "deviations of the whitened residuals.")
+          .def_readwrite(
+              "covariance_sigma_floor_deg",
+              &CeresRotationAveragerOptions::covariance_sigma_floor_deg,
+              "Isotropic standard deviation (degrees) added in quadrature to "
+              "the estimated relative rotation covariances with COVARIANCE "
+              "reweighting.")
+          .def_readwrite(
               "max_num_warm_start_iterations",
               &CeresRotationAveragerOptions::max_num_warm_start_iterations,
-              "Number of solver iterations of a Huber-loss warm-start (with "
-              "the same loss scale) run by RotationEstimator before the main "
-              "solve. Set to 0 to disable.")
+              "Number of solver iterations of a Huber-loss warm-start (using "
+              "loss_function_scale, in degrees) run by RotationEstimator "
+              "before the main solve; with COVARIANCE reweighting, the "
+              "warm-start uses UNIFORM reweighting on unwhitened angular "
+              "residuals, whereas the main solve uses covariance_loss_scale on "
+              "whitened residuals. Set to 0 to disable.")
           .def_readwrite("solver_options",
                          &CeresRotationAveragerOptions::solver_options,
                          "Options for the Ceres solver. Using this member "

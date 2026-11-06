@@ -28,11 +28,26 @@ struct CeresRotationAveragerOptions {
   // Loss function scale in degrees.
   double loss_function_scale = 0.5;
 
-  // Number of solver iterations of a Huber-loss warm-start (with the same
-  // loss_function_scale) run by RotationEstimator before the main solve. The
-  // linear tails of the Huber loss widen the basin of convergence from the
-  // maximum spanning tree initialization, which narrow redescending losses
-  // can otherwise get trapped in. Set to 0 to disable.
+  // Loss function scale with COVARIANCE reweighting, in standard deviations
+  // of the whitened (unitless) residuals. Replaces loss_function_scale.
+  double covariance_loss_scale = 3.0;
+
+  // With COVARIANCE reweighting, isotropic standard deviation (in degrees)
+  // added in quadrature to the estimated relative rotation covariances. It
+  // accounts for unmodeled errors, e.g., in the intrinsics, and prevents
+  // pairs with many correspondences from dominating.
+  double covariance_sigma_floor_deg = 0.02;
+
+  // Number of solver iterations of a Huber-loss warm-start (using
+  // loss_function_scale, in degrees) run by RotationEstimator before the main
+  // solve. The linear tails of the Huber loss widen the basin of convergence
+  // from the maximum spanning tree initialization, which narrow redescending
+  // losses can otherwise get trapped in. With COVARIANCE reweighting, the
+  // warm-start operates on unwhitened angular residuals with UNIFORM
+  // reweighting and loss_function_scale (whereas the main solve uses
+  // covariance_loss_scale on whitened residuals), as confidently wrong
+  // relative rotations (e.g., from symmetric structures) would otherwise
+  // dominate the early iterations. Set to 0 to disable.
   int max_num_warm_start_iterations = 5;
 
   ceres::Solver::Options solver_options;
@@ -44,7 +59,10 @@ struct CeresRotationAveragerOptions {
 // outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
 // gravity/pose priors, outlier filtering, or frame deregistration. Uses the
 // Ceres-specific options in options.ceres and the solver-agnostic options
-// reweighting, skip_initialization, and refine_sensor_from_rig.
+// reweighting, skip_initialization, and refine_sensor_from_rig. With COVARIANCE
+// reweighting, every valid edge must have a positive-definite
+// cam2_from_cam1_rotation_cov (see EstimatePoseGraphRotationCovariances), to
+// which the isotropic floor covariance_sigma_floor_deg is added.
 class CeresRotationAverager {
  public:
   CeresRotationAverager(const RotationEstimatorOptions& options,
@@ -70,11 +88,40 @@ class CeresRotationAverager {
       const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov = std::nullopt);
 
  private:
-  void InitializeRotations(const RotationEstimatorOptions& options,
-                           const PoseGraph& pose_graph,
-                           const FlatHashSet<image_t>& image_ids);
+  friend class RotationEstimator;
+  struct PoseGraphInfo;
+  struct PreparedWeights;
+
+  static PoseGraphInfo CheckPoseGraph(const RotationEstimatorOptions& options,
+                                      const PoseGraph& pose_graph,
+                                      const Reconstruction& reconstruction);
+  static PreparedWeights PrepareWeights(const RotationEstimatorOptions& options,
+                                        const PoseGraph& pose_graph);
+  static void InitializeRotations(
+      const RotationEstimatorOptions& options,
+      const PoseGraph& pose_graph,
+      const FlatHashSet<image_t>& component_image_ids,
+      Reconstruction& reconstruction);
+
+  CeresRotationAverager(const RotationEstimatorOptions& options,
+                        const PoseGraph& pose_graph,
+                        const PoseGraphInfo& graph_info,
+                        PreparedWeights weights,
+                        Reconstruction& reconstruction);
+
+  void BuildProblem(const RotationEstimatorOptions& options,
+                    const PoseGraph& pose_graph,
+                    const PoseGraphInfo& graph_info,
+                    PreparedWeights weights);
   void SetupParameterBlocks(const RotationEstimatorOptions& options,
                             const FlatHashSet<image_t>& image_ids);
+  void AddRelativeRotationResidualImpl(
+      image_t image_id1,
+      image_t image_id2,
+      const Eigen::Quaterniond& cam2_from_cam1,
+      const std::shared_ptr<ceres::LossFunction>& loss_function,
+      const Eigen::Matrix3d* cam2_from_cam1_cov,
+      const Eigen::Matrix3d* left_sqrt_info);
 
   Reconstruction& reconstruction_;
   // Keep losses alive until the problem is destroyed.
