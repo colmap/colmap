@@ -22,6 +22,7 @@ struct TransitivePairingOptions;
 struct ImportedPairingOptions;
 struct ExistingMatchedPairingOptions;
 struct BundleAdjustmentOptions;
+struct BundleAdjustmentPosePriorOptions;
 struct IncrementalPipelineOptions;
 struct GlobalPipelineOptions;
 struct HierarchicalPipelineOptions;
@@ -110,6 +111,8 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<ImportedPairingOptions> imported_pairing;
 
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
+  std::shared_ptr<BundleAdjustmentPosePriorOptions>
+      bundle_adjustment_pose_prior;
   std::shared_ptr<IncrementalPipelineOptions> mapper;
   std::shared_ptr<GlobalPipelineOptions> global_mapper;
   std::shared_ptr<HierarchicalPipelineOptions> hierarchical_mapper;

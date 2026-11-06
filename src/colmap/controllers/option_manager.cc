@@ -4,6 +4,7 @@
 
 #include "colmap/calibration/anycalib.h"
 #include "colmap/calibration/single_view_calibrator.h"
+#include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/image_reader.h"
@@ -81,6 +82,8 @@ OptionManager::OptionManager(bool add_project_options)
   transitive_pairing = std::make_shared<TransitivePairingOptions>();
   imported_pairing = std::make_shared<ImportedPairingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
+  bundle_adjustment_pose_prior =
+      std::make_shared<BundleAdjustmentPosePriorOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
   hierarchical_mapper = std::make_shared<HierarchicalPipelineOptions>();
@@ -1304,6 +1307,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *transitive_pairing = TransitivePairingOptions();
   *imported_pairing = ImportedPairingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
+  *bundle_adjustment_pose_prior = BundleAdjustmentPosePriorOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
   *hierarchical_mapper = HierarchicalPipelineOptions();
@@ -1344,6 +1348,8 @@ bool OptionManager::Check() {
   if (imported_pairing) success = success && imported_pairing->Check();
 
   if (bundle_adjustment) success = success && bundle_adjustment->Check();
+  if (bundle_adjustment_pose_prior)
+    success = success && bundle_adjustment_pose_prior->Check();
   if (mapper) success = success && mapper->Check();
 
 #if defined(COLMAP_MVS_ENABLED)
