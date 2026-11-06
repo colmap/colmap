@@ -32,61 +32,22 @@ double* MaybeGetSensorRotationBlock(const Image& image) {
 
 namespace internal {
 
-FlatHashSet<image_t> PrepareCeresRotationAveraging(
-    const RotationEstimatorOptions& options,
-    const PoseGraph& pose_graph,
-    Reconstruction& reconstruction) {
-  const CeresRotationAveragerOptions& ceres_options =
-      *THROW_CHECK_NOTNULL(options.ceres);
-  const bool use_covariance =
-      options.reweighting == RotationAveragingReweighting::COVARIANCE;
-  const double loss_function_scale =
-      use_covariance ? ceres_options.covariance_loss_scale
-                     : DegToRad(ceres_options.loss_function_scale);
-  if (!IsValidCeresLossFunction(ceres_options.loss_function_type,
-                                loss_function_scale)) {
-    throw std::invalid_argument("invalid Ceres loss configuration");
-  }
-  Eigen::Matrix3d floor_cov = Eigen::Matrix3d::Zero();
-  if (use_covariance) {
-    const double floor_sigma_deg = ceres_options.covariance_sigma_floor_deg;
-    if (!std::isfinite(floor_sigma_deg) || floor_sigma_deg < 0.0) {
-      throw std::invalid_argument(
-          "covariance_sigma_floor_deg must be finite and non-negative");
-    }
-    const double floor_sigma = DegToRad(floor_sigma_deg);
-    floor_cov = floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
-  }
-  bool has_edges = false;
+CeresPoseGraphInfo CheckCeresPoseGraph(const RotationEstimatorOptions& options,
+                                       const PoseGraph& pose_graph,
+                                       const Reconstruction& reconstruction) {
+  THROW_CHECK_NOTNULL(options.ceres);
+  CeresPoseGraphInfo info;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {
       throw std::invalid_argument("rotation edge references unknown image");
     }
-    if (use_covariance) {
-      if (!edge.cam2_from_cam1_rotation_cov.has_value()) {
-        throw std::invalid_argument(StringPrintf(
-            "COVARIANCE reweighting requires a rotation covariance for every "
-            "valid edge, but edge (%u, %u) has none. Call "
-            "EstimatePoseGraphRotationCovariances first.",
-            image_id1,
-            image_id2));
-      }
-      const Eigen::Matrix3d floored_cov =
-          edge.cam2_from_cam1_rotation_cov->cast<double>() + floor_cov;
-      if (!internal::TryComputeLeftSqrtInformation<3>(floored_cov)
-               .has_value()) {
-        throw std::invalid_argument(StringPrintf(
-            "Floored rotation covariance of edge (%u, %u) is not finite and "
-            "symmetric positive definite",
-            image_id1,
-            image_id2));
-      }
-    }
-    has_edges = true;
+    info.edge_image_ids.insert(image_id1);
+    info.edge_image_ids.insert(image_id2);
+    info.max_num_matches = std::max(info.max_num_matches, edge.num_matches);
   }
-  if (!has_edges) {
+  if (info.edge_image_ids.empty()) {
     throw std::invalid_argument("Ceres rotation averaging requires edges");
   }
   std::vector<FlatHashSet<image_t>> image_components =
@@ -96,9 +57,9 @@ FlatHashSet<image_t> PrepareCeresRotationAveraging(
     throw std::invalid_argument(
         "Ceres rotation averaging requires a connected pose graph");
   }
-  FlatHashSet<image_t> image_ids = std::move(image_components.front());
+  info.component_image_ids = std::move(image_components.front());
   // Validate fixed sensors before replacing invalid initial rotations.
-  for (const image_t image_id : image_ids) {
+  for (const image_t image_id : info.component_image_ids) {
     const auto& image = reconstruction.Image(image_id);
     if (image.IsRefInFrame()) continue;
     const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
@@ -112,7 +73,69 @@ FlatHashSet<image_t> PrepareCeresRotationAveraging(
           "rotation averaging requires finite sensor rotations");
     }
   }
-  for (const image_t image_id : image_ids) {
+  return info;
+}
+
+PreparedCeresWeights PrepareCeresWeights(
+    const RotationEstimatorOptions& options, const PoseGraph& pose_graph) {
+  const CeresRotationAveragerOptions& ceres_options =
+      *THROW_CHECK_NOTNULL(options.ceres);
+  const bool use_covariance =
+      options.reweighting == RotationAveragingReweighting::COVARIANCE;
+  PreparedCeresWeights weights;
+  // The covariance loss scale is expressed in standard deviations of the
+  // whitened residuals, whereas the default loss scale is in degrees.
+  weights.loss_function_scale =
+      use_covariance ? ceres_options.covariance_loss_scale
+                     : DegToRad(ceres_options.loss_function_scale);
+  weights.loss = CreateCeresLossFunction(ceres_options.loss_function_type,
+                                         weights.loss_function_scale);
+  if (!use_covariance) {
+    return weights;
+  }
+
+  const double floor_sigma_deg = ceres_options.covariance_sigma_floor_deg;
+  if (!std::isfinite(floor_sigma_deg) || floor_sigma_deg < 0.0) {
+    throw std::invalid_argument(
+        "covariance_sigma_floor_deg must be finite and non-negative");
+  }
+  // Isotropic floor added in quadrature to the relative rotation covariances.
+  const double floor_sigma = DegToRad(floor_sigma_deg);
+  const Eigen::Matrix3d floor_cov =
+      floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
+
+  weights.edge_left_sqrt_infos.reserve(pose_graph.NumEdges());
+  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!edge.cam2_from_cam1_rotation_cov.has_value()) {
+      throw std::invalid_argument(StringPrintf(
+          "COVARIANCE reweighting requires a rotation covariance for every "
+          "valid edge, but edge (%u, %u) has none. Call "
+          "EstimatePoseGraphRotationCovariances first.",
+          image_id1,
+          image_id2));
+    }
+    const Eigen::Matrix3d floored_cov =
+        edge.cam2_from_cam1_rotation_cov->cast<double>() + floor_cov;
+    std::optional<Eigen::Matrix3d> left_sqrt_info =
+        internal::TryComputeLeftSqrtInformation<3>(floored_cov);
+    if (!left_sqrt_info.has_value()) {
+      throw std::invalid_argument(StringPrintf(
+          "Floored rotation covariance of edge (%u, %u) is not finite and "
+          "symmetric positive definite",
+          image_id1,
+          image_id2));
+    }
+    weights.edge_left_sqrt_infos.push_back(*left_sqrt_info);
+  }
+  return weights;
+}
+
+void InitializeCeresRotations(const RotationEstimatorOptions& options,
+                              const PoseGraph& pose_graph,
+                              const FlatHashSet<image_t>& component_image_ids,
+                              Reconstruction& reconstruction) {
+  for (const image_t image_id : component_image_ids) {
     const auto& image = reconstruction.Image(image_id);
     if (image.IsRefInFrame()) continue;
     auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
@@ -121,7 +144,15 @@ FlatHashSet<image_t> PrepareCeresRotationAveraging(
       pose.reset();
     }
   }
-  return image_ids;
+  if (!options.skip_initialization) {
+    InitializeFromMaximumSpanningTree(
+        pose_graph,
+        component_image_ids,
+        reconstruction,
+        options.refine_sensor_from_rig,
+        /*use_rotation_covariance=*/options.reweighting ==
+            RotationAveragingReweighting::COVARIANCE);
+  }
 }
 
 }  // namespace internal
@@ -138,6 +169,31 @@ CeresRotationAverager::CeresRotationAverager(
     Reconstruction& reconstruction)
     : solver_options(THROW_CHECK_NOTNULL(options.ceres)->solver_options),
       reconstruction_(reconstruction) {
+  const internal::CeresPoseGraphInfo graph_info =
+      internal::CheckCeresPoseGraph(options, pose_graph, reconstruction);
+  internal::PreparedCeresWeights weights =
+      internal::PrepareCeresWeights(options, pose_graph);
+  internal::InitializeCeresRotations(
+      options, pose_graph, graph_info.component_image_ids, reconstruction);
+  BuildProblem(options, pose_graph, graph_info, std::move(weights));
+}
+
+CeresRotationAverager::CeresRotationAverager(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    const internal::CeresPoseGraphInfo& graph_info,
+    internal::PreparedCeresWeights weights,
+    Reconstruction& reconstruction)
+    : solver_options(THROW_CHECK_NOTNULL(options.ceres)->solver_options),
+      reconstruction_(reconstruction) {
+  BuildProblem(options, pose_graph, graph_info, std::move(weights));
+}
+
+void CeresRotationAverager::BuildProblem(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    const internal::CeresPoseGraphInfo& graph_info,
+    internal::PreparedCeresWeights weights) {
   const CeresRotationAveragerOptions& ceres_options = *options.ceres;
   solver_options.num_threads =
       GetEffectiveNumThreads(solver_options.num_threads);
@@ -146,62 +202,35 @@ CeresRotationAverager::CeresRotationAverager(
   }
   const bool use_covariance =
       options.reweighting == RotationAveragingReweighting::COVARIANCE;
-  // The covariance loss scale is expressed in standard deviations of the
-  // whitened residuals, whereas the default loss scale is in degrees.
-  const double loss_function_scale =
-      use_covariance ? ceres_options.covariance_loss_scale
-                     : DegToRad(ceres_options.loss_function_scale);
-  std::shared_ptr<ceres::LossFunction> loss(CreateCeresLossFunction(
-      ceres_options.loss_function_type, loss_function_scale));
-  // Isotropic floor added in quadrature to the relative rotation covariances.
-  const double floor_sigma = DegToRad(ceres_options.covariance_sigma_floor_deg);
-  const Eigen::Matrix3d floor_cov =
-      floor_sigma * floor_sigma * Eigen::Matrix3d::Identity();
-  const FlatHashSet<image_t> component_image_ids =
-      internal::PrepareCeresRotationAveraging(
-          options, pose_graph, reconstruction);
-  if (!options.skip_initialization) {
-    InitializeFromMaximumSpanningTree(
-        pose_graph,
-        component_image_ids,
-        reconstruction,
-        options.refine_sensor_from_rig,
-        /*use_rotation_covariance=*/use_covariance);
-  }
-  FlatHashSet<image_t> image_ids;
-  int max_num_matches = 0;
-  for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    image_ids.insert(image_id1);
-    image_ids.insert(image_id2);
-    max_num_matches = std::max(max_num_matches, edge.num_matches);
-  }
+
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
-  SetupParameterBlocks(options, image_ids);
+  SetupParameterBlocks(options, graph_info.edge_image_ids);
 
+  std::shared_ptr<ceres::LossFunction> loss = std::move(weights.loss);
+  size_t edge_idx = 0;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
+    const Eigen::Matrix3d* left_sqrt_info =
+        use_covariance ? &weights.edge_left_sqrt_infos.at(edge_idx++) : nullptr;
     if (options.reweighting ==
             RotationAveragingReweighting::INLIER_MATCH_COUNT &&
-        max_num_matches > 0) {
+        graph_info.max_num_matches > 0) {
       if (edge.num_matches == 0) continue;
-      loss =
-          CreateCeresLossFunction(ceres_options.loss_function_type,
-                                  DegToRad(ceres_options.loss_function_scale),
-                                  double(edge.num_matches) / max_num_matches);
+      loss = CreateCeresLossFunction(
+          ceres_options.loss_function_type,
+          weights.loss_function_scale,
+          double(edge.num_matches) / graph_info.max_num_matches);
     }
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    AddRelativeRotationResidual(
-        image_id1,
-        image_id2,
-        edge.cam2_from_cam1.rotation(),
-        loss,
-        use_covariance
-            ? std::optional<Eigen::Matrix3d>(
-                  edge.cam2_from_cam1_rotation_cov->cast<double>() + floor_cov)
-            : std::nullopt);
+    AddRelativeRotationResidualImpl(image_id1,
+                                    image_id2,
+                                    edge.cam2_from_cam1.rotation(),
+                                    loss,
+                                    /*cam2_from_cam1_cov=*/nullptr,
+                                    left_sqrt_info);
   }
+  THROW_CHECK_EQ(edge_idx, weights.edge_left_sqrt_infos.size());
 }
 
 void CeresRotationAverager::SetupParameterBlocks(
@@ -272,6 +301,22 @@ void CeresRotationAverager::AddRelativeRotationResidual(
     const Eigen::Quaterniond& cam2_from_cam1,
     const std::shared_ptr<ceres::LossFunction>& loss_function,
     const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov) {
+  AddRelativeRotationResidualImpl(
+      image_id1,
+      image_id2,
+      cam2_from_cam1,
+      loss_function,
+      cam2_from_cam1_cov.has_value() ? &*cam2_from_cam1_cov : nullptr,
+      /*left_sqrt_info=*/nullptr);
+}
+
+void CeresRotationAverager::AddRelativeRotationResidualImpl(
+    const image_t image_id1,
+    const image_t image_id2,
+    const Eigen::Quaterniond& cam2_from_cam1,
+    const std::shared_ptr<ceres::LossFunction>& loss_function,
+    const Eigen::Matrix3d* cam2_from_cam1_cov,
+    const Eigen::Matrix3d* left_sqrt_info) {
   const Image& image1 = reconstruction_.Image(image_id1);
   const Image& image2 = reconstruction_.Image(image_id2);
   Frame& frame1 = *image1.FramePtr();
@@ -299,11 +344,17 @@ void CeresRotationAverager::AddRelativeRotationResidual(
     losses_.try_emplace(loss, loss_function);
   }
   // Whitens the residual with the covariance of the relative rotation, if any.
-  const auto maybe_whiten = [&](ceres::CostFunction* cost_function) {
-    return cam2_from_cam1_cov.has_value()
-               ? new DynamicCovarianceWeightedCostFunction<3>(
-                     *cam2_from_cam1_cov, cost_function)
-               : cost_function;
+  const auto maybe_whiten =
+      [&](ceres::CostFunction* cost_function) -> ceres::CostFunction* {
+    if (left_sqrt_info != nullptr) {
+      return DynamicCovarianceWeightedCostFunction<3>::FromLeftSqrtInformation(
+          *left_sqrt_info, cost_function);
+    }
+    if (cam2_from_cam1_cov != nullptr) {
+      return new DynamicCovarianceWeightedCostFunction<3>(*cam2_from_cam1_cov,
+                                                          cost_function);
+    }
+    return cost_function;
   };
   if (sensor1_from_rig_rot_ptr == nullptr &&
       sensor2_from_rig_rot_ptr == nullptr && !same_frame) {

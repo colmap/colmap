@@ -241,6 +241,12 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
     *mutable_parameter_block_sizes() = cost_->parameter_block_sizes();
   }
 
+  static DynamicCovarianceWeightedCostFunction* FromLeftSqrtInformation(
+      const CovMat& left_sqrt_info, ceres::CostFunction* cost) {
+    return new DynamicCovarianceWeightedCostFunction(
+        FromLeftSqrtInformationTag{}, left_sqrt_info, cost);
+  }
+
   bool Evaluate(double const* const* parameters,
                 double* residuals,
                 double** jacobians) const override {
@@ -266,6 +272,18 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
   }
 
  private:
+  struct FromLeftSqrtInformationTag {};
+
+  DynamicCovarianceWeightedCostFunction(FromLeftSqrtInformationTag,
+                                        const CovMat& left_sqrt_info,
+                                        ceres::CostFunction* cost)
+      : cost_(THROW_CHECK_NOTNULL(cost)), left_sqrt_info_(left_sqrt_info) {
+    THROW_CHECK(left_sqrt_info_.allFinite());
+    THROW_CHECK_EQ(cost_->num_residuals(), kNumResiduals);
+    set_num_residuals(kNumResiduals);
+    *mutable_parameter_block_sizes() = cost_->parameter_block_sizes();
+  }
+
   // Declared first, such that the wrapped cost function is owned, and thus
   // released, if computing the square root information throws.
   const std::unique_ptr<ceres::CostFunction> cost_;

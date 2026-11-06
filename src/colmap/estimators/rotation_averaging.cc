@@ -619,10 +619,15 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
   const PoseGraph& active_pose_graph =
       filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
 
-  const auto solve = [&](const RotationEstimatorOptions& options) {
-    auto averager = CreateDefaultCeresRotationAverager(
-        options, active_pose_graph, reconstruction);
-    const ceres::Solver::Summary summary = averager->Solve();
+  const auto solve = [&](const RotationEstimatorOptions& options,
+                         const internal::CeresPoseGraphInfo& graph_info,
+                         internal::PreparedCeresWeights weights) {
+    CeresRotationAverager averager(options,
+                                   active_pose_graph,
+                                   graph_info,
+                                   std::move(weights),
+                                   reconstruction);
+    const ceres::Solver::Summary summary = averager.Solve();
     if (VLOG_IS_ON(2)) {
       LOG(INFO) << summary.FullReport();
     } else {
@@ -631,46 +636,43 @@ bool RotationEstimator::SolveRotationAveragingWithCeres(
     return summary.IsSolutionUsable();
   };
 
-  RotationEstimatorOptions options = options_;
-  // Check the inputs before the initialization below modifies the
-  // reconstruction. The averagers created by solve() check them again.
-  if (options.ceres->max_num_warm_start_iterations > 0 &&
-      !IsValidCeresLossFunction(CeresLossFunctionType::HUBER,
-                                DegToRad(options.ceres->loss_function_scale))) {
-    throw std::invalid_argument("invalid Ceres loss configuration");
-  }
-  const FlatHashSet<image_t> image_ids =
-      internal::PrepareCeresRotationAveraging(
-          options, active_pose_graph, reconstruction);
-  // Initialize once before both solves, since the warm-start overrides the
-  // reweighting, which determines how the maximum spanning tree weights edges.
-  if (!options.skip_initialization) {
-    InitializeFromMaximumSpanningTree(
-        active_pose_graph,
-        image_ids,
-        reconstruction,
-        options.refine_sensor_from_rig,
-        /*use_rotation_covariance=*/options.reweighting ==
-            RotationAveragingReweighting::COVARIANCE);
-    options.skip_initialization = true;
-  }
-  if (options.ceres->max_num_warm_start_iterations > 0) {
-    RotationEstimatorOptions warm_start_options = options;
-    warm_start_options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
-    warm_start_options.ceres->solver_options.max_num_iterations =
-        options.ceres->max_num_warm_start_iterations;
-    if (options.reweighting == RotationAveragingReweighting::COVARIANCE) {
+  const internal::CeresPoseGraphInfo graph_info = internal::CheckCeresPoseGraph(
+      options_, active_pose_graph, reconstruction);
+
+  std::optional<RotationEstimatorOptions> warm_start_options;
+  std::optional<internal::PreparedCeresWeights> warm_start_weights;
+  if (options_.ceres->max_num_warm_start_iterations > 0) {
+    warm_start_options = options_;
+    warm_start_options->ceres->loss_function_type =
+        CeresLossFunctionType::HUBER;
+    warm_start_options->ceres->solver_options.max_num_iterations =
+        options_.ceres->max_num_warm_start_iterations;
+    if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
       // Warm-start on angular residuals: with whitening, confidently wrong
       // relative rotations (e.g., from symmetric structures) dominate the
       // early iterations.
-      warm_start_options.reweighting = RotationAveragingReweighting::UNIFORM;
+      warm_start_options->reweighting = RotationAveragingReweighting::UNIFORM;
     }
-    if (!solve(warm_start_options)) {
-      return false;
-    }
+    warm_start_weights =
+        internal::PrepareCeresWeights(*warm_start_options, active_pose_graph);
+  }
+  internal::PreparedCeresWeights weights =
+      internal::PrepareCeresWeights(options_, active_pose_graph);
+
+  // Initialize once after validating both stages, since the warm-start
+  // overrides the reweighting, which determines how the maximum spanning tree
+  // weights edges.
+  internal::InitializeCeresRotations(options_,
+                                     active_pose_graph,
+                                     graph_info.component_image_ids,
+                                     reconstruction);
+
+  if (warm_start_options.has_value() &&
+      !solve(*warm_start_options, graph_info, std::move(*warm_start_weights))) {
+    return false;
   }
 
-  return solve(options);
+  return solve(options_, graph_info, std::move(weights));
 }
 
 void InitializeFromMaximumSpanningTree(

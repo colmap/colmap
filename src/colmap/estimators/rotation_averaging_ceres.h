@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -53,6 +54,44 @@ struct CeresRotationAveragerOptions {
   CeresRotationAveragerOptions();
 };
 
+namespace internal {
+
+struct CeresPoseGraphInfo {
+  FlatHashSet<image_t> component_image_ids;
+  FlatHashSet<image_t> edge_image_ids;
+  int max_num_matches = 0;
+};
+
+struct PreparedCeresWeights {
+  double loss_function_scale = 0.0;
+  std::shared_ptr<ceres::LossFunction> loss;
+  // In PoseGraph::ValidEdges() iteration order; empty unless COVARIANCE.
+  std::vector<Eigen::Matrix3d> edge_left_sqrt_infos;
+};
+
+// Validates that the pose graph has edges referencing known images, forms a
+// single connected frame component, and has finite non-refined sensor
+// rotations. Throws std::invalid_argument without modifying the reconstruction.
+CeresPoseGraphInfo CheckCeresPoseGraph(const RotationEstimatorOptions& options,
+                                       const PoseGraph& pose_graph,
+                                       const Reconstruction& reconstruction);
+
+// Validates the loss configuration and, with COVARIANCE reweighting, checks
+// covariance_sigma_floor_deg and precomputes the left square-root information
+// of each valid edge's floored rotation covariance. Throws
+// std::invalid_argument on invalid options or covariances.
+PreparedCeresWeights PrepareCeresWeights(
+    const RotationEstimatorOptions& options, const PoseGraph& pose_graph);
+
+// Resets non-finite refined sensor rotations and, unless skip_initialization is
+// set, initializes frame and sensor rotations from a maximum spanning tree.
+void InitializeCeresRotations(const RotationEstimatorOptions& options,
+                              const PoseGraph& pose_graph,
+                              const FlatHashSet<image_t>& component_image_ids,
+                              Reconstruction& reconstruction);
+
+}  // namespace internal
+
 // Optimizes frame and sensor rotations in place. The reconstruction must
 // outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
 // gravity/pose priors, outlier filtering, or frame deregistration. Uses the
@@ -86,8 +125,27 @@ class CeresRotationAverager {
       const std::optional<Eigen::Matrix3d>& cam2_from_cam1_cov = std::nullopt);
 
  private:
+  friend class RotationEstimator;
+
+  CeresRotationAverager(const RotationEstimatorOptions& options,
+                        const PoseGraph& pose_graph,
+                        const internal::CeresPoseGraphInfo& graph_info,
+                        internal::PreparedCeresWeights weights,
+                        Reconstruction& reconstruction);
+
+  void BuildProblem(const RotationEstimatorOptions& options,
+                    const PoseGraph& pose_graph,
+                    const internal::CeresPoseGraphInfo& graph_info,
+                    internal::PreparedCeresWeights weights);
   void SetupParameterBlocks(const RotationEstimatorOptions& options,
                             const FlatHashSet<image_t>& image_ids);
+  void AddRelativeRotationResidualImpl(
+      image_t image_id1,
+      image_t image_id2,
+      const Eigen::Quaterniond& cam2_from_cam1,
+      const std::shared_ptr<ceres::LossFunction>& loss_function,
+      const Eigen::Matrix3d* cam2_from_cam1_cov,
+      const Eigen::Matrix3d* left_sqrt_info);
 
   Reconstruction& reconstruction_;
   // Keep losses alive until the problem is destroyed.
@@ -95,24 +153,6 @@ class CeresRotationAverager {
       losses_;
   std::unique_ptr<ceres::Problem> problem_;
 };
-
-namespace internal {
-
-// Checks the inputs of Ceres rotation averaging and prepares the sensor
-// rotations, before any rotation is initialized. The valid edges must
-// reference known images and form a single connected component. With
-// COVARIANCE reweighting, every valid edge must have a rotation covariance
-// that is finite and positive definite after adding the covariance floor.
-// Sensor rotations that are not refined must be finite, and the non-finite
-// ones that are refined are reset. Throws std::invalid_argument, without
-// modifying the reconstruction, if a check fails. Returns the image ids of the
-// connected component.
-FlatHashSet<image_t> PrepareCeresRotationAveraging(
-    const RotationEstimatorOptions& options,
-    const PoseGraph& pose_graph,
-    Reconstruction& reconstruction);
-
-}  // namespace internal
 
 // Calibrated sensor rotations are fixed by default and can be made variable
 // through Problem(). MST initialization requires sensor rotations for all rigs
