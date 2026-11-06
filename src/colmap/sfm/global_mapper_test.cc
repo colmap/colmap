@@ -3,6 +3,7 @@
 #include "colmap/sfm/global_mapper.h"
 
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
@@ -159,9 +160,7 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
 }
 
 TEST(GlobalMapper, WithGivenPoseGraph) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;

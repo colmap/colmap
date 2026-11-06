@@ -4,6 +4,7 @@
 
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
@@ -474,8 +475,7 @@ TEST(PoseGraph, Subgraph) {
 // The subgraph of a component equals the pose graph loaded from the database
 // cache of that component, which GlobalPipeline relies on.
 TEST(PoseGraph, SubgraphMatchesComponentDatabaseCache) {
-  const auto test_dir = CreateTestDir();
-  auto database = Database::Open(test_dir / "database.db");
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 2;
   synthetic_options.num_cameras_per_rig = 2;

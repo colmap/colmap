@@ -125,7 +125,7 @@ class GlobalMapper {
   // as rotation covariances.
   void BeginReconstruction(
       const std::shared_ptr<Reconstruction>& reconstruction,
-      const class PoseGraph* pose_graph = nullptr);
+      const PoseGraph* pose_graph = nullptr);
 
   // Run the global SfM pipeline. The optional `on_progress` callback is invoked
   // after global positioning, after each bundle-adjustment iteration, and after
