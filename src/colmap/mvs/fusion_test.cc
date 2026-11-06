@@ -16,6 +16,19 @@ namespace colmap {
 namespace mvs {
 namespace {
 
+TEST(StereoFusion, EmptyWorkspace) {
+  const auto temp_dir = CreateTestDir();
+  CreateDirIfNotExists(temp_dir / "sparse");
+  CreateDirIfNotExists(temp_dir / "stereo");
+  Reconstruction().Write(temp_dir / "sparse");
+  std::ofstream(temp_dir / "stereo" / "fusion.cfg").close();
+
+  StereoFusion fusion({}, temp_dir, "COLMAP", "", "geometric");
+  fusion.Run();
+  EXPECT_TRUE(fusion.GetFusedPoints().empty());
+  EXPECT_TRUE(fusion.GetFusedPointsVisibility().empty());
+}
+
 TEST(StereoFusion, Integration) {
   const auto temp_dir = CreateTestDir();
   CreateDirIfNotExists(temp_dir / "sparse");
