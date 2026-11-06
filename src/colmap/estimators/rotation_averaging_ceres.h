@@ -10,7 +10,6 @@
 
 #include <memory>
 #include <optional>
-#include <vector>
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -56,44 +55,6 @@ struct CeresRotationAveragerOptions {
   CeresRotationAveragerOptions();
 };
 
-namespace internal {
-
-struct CeresPoseGraphInfo {
-  FlatHashSet<image_t> component_image_ids;
-  FlatHashSet<image_t> edge_image_ids;
-  int max_num_matches = 0;
-};
-
-struct PreparedCeresWeights {
-  double loss_function_scale = 0.0;
-  std::shared_ptr<ceres::LossFunction> loss;
-  // In PoseGraph::ValidEdges() iteration order; empty unless COVARIANCE.
-  std::vector<Eigen::Matrix3d> edge_left_sqrt_infos;
-};
-
-// Validates that the pose graph has edges referencing known images, forms a
-// single connected frame component, and has finite non-refined sensor
-// rotations. Throws std::invalid_argument without modifying the reconstruction.
-CeresPoseGraphInfo CheckCeresPoseGraph(const RotationEstimatorOptions& options,
-                                       const PoseGraph& pose_graph,
-                                       const Reconstruction& reconstruction);
-
-// Validates the loss configuration and, with COVARIANCE reweighting, checks
-// covariance_sigma_floor_deg and precomputes the left square-root information
-// of each valid edge's floored rotation covariance. Throws
-// std::invalid_argument on invalid options or covariances.
-PreparedCeresWeights PrepareCeresWeights(
-    const RotationEstimatorOptions& options, const PoseGraph& pose_graph);
-
-// Resets non-finite refined sensor rotations and, unless skip_initialization is
-// set, initializes frame and sensor rotations from a maximum spanning tree.
-void InitializeCeresRotations(const RotationEstimatorOptions& options,
-                              const PoseGraph& pose_graph,
-                              const FlatHashSet<image_t>& component_image_ids,
-                              Reconstruction& reconstruction);
-
-}  // namespace internal
-
 // Optimizes frame and sensor rotations in place. The reconstruction must
 // outlive this object. Unlike the RunRotationAveraging() pipeline, it has no
 // gravity/pose priors, outlier filtering, or frame deregistration. Uses the
@@ -128,17 +89,30 @@ class CeresRotationAverager {
 
  private:
   friend class RotationEstimator;
+  struct PoseGraphInfo;
+  struct PreparedWeights;
+
+  static PoseGraphInfo CheckPoseGraph(const RotationEstimatorOptions& options,
+                                      const PoseGraph& pose_graph,
+                                      const Reconstruction& reconstruction);
+  static PreparedWeights PrepareWeights(const RotationEstimatorOptions& options,
+                                        const PoseGraph& pose_graph);
+  static void InitializeRotations(
+      const RotationEstimatorOptions& options,
+      const PoseGraph& pose_graph,
+      const FlatHashSet<image_t>& component_image_ids,
+      Reconstruction& reconstruction);
 
   CeresRotationAverager(const RotationEstimatorOptions& options,
                         const PoseGraph& pose_graph,
-                        const internal::CeresPoseGraphInfo& graph_info,
-                        internal::PreparedCeresWeights weights,
+                        const PoseGraphInfo& graph_info,
+                        PreparedWeights weights,
                         Reconstruction& reconstruction);
 
   void BuildProblem(const RotationEstimatorOptions& options,
                     const PoseGraph& pose_graph,
-                    const internal::CeresPoseGraphInfo& graph_info,
-                    internal::PreparedCeresWeights weights);
+                    const PoseGraphInfo& graph_info,
+                    PreparedWeights weights);
   void SetupParameterBlocks(const RotationEstimatorOptions& options,
                             const FlatHashSet<image_t>& image_ids);
   void AddRelativeRotationResidualImpl(

@@ -28,15 +28,42 @@ double* MaybeGetSensorRotationBlock(const Image& image) {
   return sensor_from_rig.rotation().coeffs().data();
 }
 
+std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
+    const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids) {
+  for (const auto& [pair_id, _] : pose_graph.ValidEdges()) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (!active_image_ids.count(image_id1) ||
+        !active_image_ids.count(image_id2)) {
+      PoseGraph filtered_pose_graph = pose_graph;
+      filtered_pose_graph.InvalidatePairsOutsideActiveImageIds(
+          active_image_ids);
+      return filtered_pose_graph;
+    }
+  }
+  return std::nullopt;
+}
+
 }  // namespace
 
-namespace internal {
+struct CeresRotationAverager::PoseGraphInfo {
+  FlatHashSet<image_t> component_image_ids;
+  FlatHashSet<image_t> edge_image_ids;
+  int max_num_matches = 0;
+};
 
-CeresPoseGraphInfo CheckCeresPoseGraph(const RotationEstimatorOptions& options,
-                                       const PoseGraph& pose_graph,
-                                       const Reconstruction& reconstruction) {
+struct CeresRotationAverager::PreparedWeights {
+  double loss_function_scale = 0.0;
+  std::shared_ptr<ceres::LossFunction> loss;
+  // In PoseGraph::ValidEdges() iteration order; empty unless COVARIANCE.
+  std::vector<Eigen::Matrix3d> edge_left_sqrt_infos;
+};
+
+CeresRotationAverager::PoseGraphInfo CeresRotationAverager::CheckPoseGraph(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    const Reconstruction& reconstruction) {
   THROW_CHECK_NOTNULL(options.ceres);
-  CeresPoseGraphInfo info;
+  PoseGraphInfo info;
   for (const auto& [pair_id, edge] : pose_graph.ValidEdges()) {
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
     if (!reconstruction.ExistsImage(image_id1) ||
@@ -76,13 +103,13 @@ CeresPoseGraphInfo CheckCeresPoseGraph(const RotationEstimatorOptions& options,
   return info;
 }
 
-PreparedCeresWeights PrepareCeresWeights(
+CeresRotationAverager::PreparedWeights CeresRotationAverager::PrepareWeights(
     const RotationEstimatorOptions& options, const PoseGraph& pose_graph) {
   const CeresRotationAveragerOptions& ceres_options =
       *THROW_CHECK_NOTNULL(options.ceres);
   const bool use_covariance =
       options.reweighting == RotationAveragingReweighting::COVARIANCE;
-  PreparedCeresWeights weights;
+  PreparedWeights weights;
   // The covariance loss scale is expressed in standard deviations of the
   // whitened residuals, whereas the default loss scale is in degrees.
   weights.loss_function_scale =
@@ -131,10 +158,11 @@ PreparedCeresWeights PrepareCeresWeights(
   return weights;
 }
 
-void InitializeCeresRotations(const RotationEstimatorOptions& options,
-                              const PoseGraph& pose_graph,
-                              const FlatHashSet<image_t>& component_image_ids,
-                              Reconstruction& reconstruction) {
+void CeresRotationAverager::InitializeRotations(
+    const RotationEstimatorOptions& options,
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& component_image_ids,
+    Reconstruction& reconstruction) {
   for (const image_t image_id : component_image_ids) {
     const auto& image = reconstruction.Image(image_id);
     if (image.IsRefInFrame()) continue;
@@ -155,8 +183,6 @@ void InitializeCeresRotations(const RotationEstimatorOptions& options,
   }
 }
 
-}  // namespace internal
-
 CeresRotationAveragerOptions::CeresRotationAveragerOptions() {
   solver_options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
   solver_options.max_num_iterations = 100;
@@ -169,11 +195,10 @@ CeresRotationAverager::CeresRotationAverager(
     Reconstruction& reconstruction)
     : solver_options(THROW_CHECK_NOTNULL(options.ceres)->solver_options),
       reconstruction_(reconstruction) {
-  const internal::CeresPoseGraphInfo graph_info =
-      internal::CheckCeresPoseGraph(options, pose_graph, reconstruction);
-  internal::PreparedCeresWeights weights =
-      internal::PrepareCeresWeights(options, pose_graph);
-  internal::InitializeCeresRotations(
+  const PoseGraphInfo graph_info =
+      CheckPoseGraph(options, pose_graph, reconstruction);
+  PreparedWeights weights = PrepareWeights(options, pose_graph);
+  InitializeRotations(
       options, pose_graph, graph_info.component_image_ids, reconstruction);
   BuildProblem(options, pose_graph, graph_info, std::move(weights));
 }
@@ -181,8 +206,8 @@ CeresRotationAverager::CeresRotationAverager(
 CeresRotationAverager::CeresRotationAverager(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
-    const internal::CeresPoseGraphInfo& graph_info,
-    internal::PreparedCeresWeights weights,
+    const PoseGraphInfo& graph_info,
+    PreparedWeights weights,
     Reconstruction& reconstruction)
     : solver_options(THROW_CHECK_NOTNULL(options.ceres)->solver_options),
       reconstruction_(reconstruction) {
@@ -192,8 +217,8 @@ CeresRotationAverager::CeresRotationAverager(
 void CeresRotationAverager::BuildProblem(
     const RotationEstimatorOptions& options,
     const PoseGraph& pose_graph,
-    const internal::CeresPoseGraphInfo& graph_info,
-    internal::PreparedCeresWeights weights) {
+    const PoseGraphInfo& graph_info,
+    PreparedWeights weights) {
   const CeresRotationAveragerOptions& ceres_options = *options.ceres;
   solver_options.num_threads =
       GetEffectiveNumThreads(solver_options.num_threads);
@@ -399,6 +424,74 @@ std::unique_ptr<CeresRotationAverager> CreateDefaultCeresRotationAverager(
     Reconstruction& reconstruction) {
   return std::make_unique<CeresRotationAverager>(
       options, pose_graph, reconstruction);
+}
+
+bool RotationEstimator::SolveRotationAveragingWithCeres(
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& active_image_ids,
+    Reconstruction& reconstruction) {
+  THROW_CHECK_NOTNULL(options_.ceres);
+
+  const std::optional<PoseGraph> filtered_pose_graph =
+      MaybeFilterPoseGraphToActiveImages(pose_graph, active_image_ids);
+  const PoseGraph& active_pose_graph =
+      filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
+
+  const auto solve = [&](const RotationEstimatorOptions& options,
+                         const CeresRotationAverager::PoseGraphInfo& graph_info,
+                         CeresRotationAverager::PreparedWeights weights) {
+    CeresRotationAverager averager(options,
+                                   active_pose_graph,
+                                   graph_info,
+                                   std::move(weights),
+                                   reconstruction);
+    const ceres::Solver::Summary summary = averager.Solve();
+    if (VLOG_IS_ON(2)) {
+      LOG(INFO) << summary.FullReport();
+    } else {
+      VLOG(1) << summary.BriefReport();
+    }
+    return summary.IsSolutionUsable();
+  };
+
+  const CeresRotationAverager::PoseGraphInfo graph_info =
+      CeresRotationAverager::CheckPoseGraph(
+          options_, active_pose_graph, reconstruction);
+
+  std::optional<RotationEstimatorOptions> warm_start_options;
+  std::optional<CeresRotationAverager::PreparedWeights> warm_start_weights;
+  if (options_.ceres->max_num_warm_start_iterations > 0) {
+    warm_start_options = options_;
+    warm_start_options->ceres->loss_function_type =
+        CeresLossFunctionType::HUBER;
+    warm_start_options->ceres->solver_options.max_num_iterations =
+        options_.ceres->max_num_warm_start_iterations;
+    if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
+      // Warm-start on angular residuals: with whitening, confidently wrong
+      // relative rotations (e.g., from symmetric structures) dominate the
+      // early iterations.
+      warm_start_options->reweighting = RotationAveragingReweighting::UNIFORM;
+    }
+    warm_start_weights = CeresRotationAverager::PrepareWeights(
+        *warm_start_options, active_pose_graph);
+  }
+  CeresRotationAverager::PreparedWeights weights =
+      CeresRotationAverager::PrepareWeights(options_, active_pose_graph);
+
+  // Initialize once after validating both stages, since the warm-start
+  // overrides the reweighting, which determines how the maximum spanning tree
+  // weights edges.
+  CeresRotationAverager::InitializeRotations(options_,
+                                             active_pose_graph,
+                                             graph_info.component_image_ids,
+                                             reconstruction);
+
+  if (warm_start_options.has_value() &&
+      !solve(*warm_start_options, graph_info, std::move(*warm_start_weights))) {
+    return false;
+  }
+
+  return solve(options_, graph_info, std::move(weights));
 }
 
 }  // namespace colmap

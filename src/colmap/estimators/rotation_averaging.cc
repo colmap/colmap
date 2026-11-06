@@ -2,7 +2,6 @@
 
 #include "colmap/estimators/rotation_averaging.h"
 
-#include "colmap/estimators/ceres_loss_function.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/geometry/pose.h"
@@ -281,21 +280,6 @@ Reconstruction CreateExpandedReconstruction(
   }
 
   return recon_expanded;
-}
-
-std::optional<PoseGraph> MaybeFilterPoseGraphToActiveImages(
-    const PoseGraph& pose_graph, const FlatHashSet<image_t>& active_image_ids) {
-  for (const auto& [pair_id, _] : pose_graph.ValidEdges()) {
-    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    if (!active_image_ids.count(image_id1) ||
-        !active_image_ids.count(image_id2)) {
-      PoseGraph filtered_pose_graph = pose_graph;
-      filtered_pose_graph.InvalidatePairsOutsideActiveImageIds(
-          active_image_ids);
-      return filtered_pose_graph;
-    }
-  }
-  return std::nullopt;
 }
 
 }  // namespace
@@ -606,73 +590,6 @@ bool RotationEstimator::SolveRotationAveraging(
 
   problem.ApplyResultsToReconstruction(reconstruction);
   return true;
-}
-
-bool RotationEstimator::SolveRotationAveragingWithCeres(
-    const PoseGraph& pose_graph,
-    const FlatHashSet<image_t>& active_image_ids,
-    Reconstruction& reconstruction) {
-  THROW_CHECK_NOTNULL(options_.ceres);
-
-  const std::optional<PoseGraph> filtered_pose_graph =
-      MaybeFilterPoseGraphToActiveImages(pose_graph, active_image_ids);
-  const PoseGraph& active_pose_graph =
-      filtered_pose_graph.has_value() ? *filtered_pose_graph : pose_graph;
-
-  const auto solve = [&](const RotationEstimatorOptions& options,
-                         const internal::CeresPoseGraphInfo& graph_info,
-                         internal::PreparedCeresWeights weights) {
-    CeresRotationAverager averager(options,
-                                   active_pose_graph,
-                                   graph_info,
-                                   std::move(weights),
-                                   reconstruction);
-    const ceres::Solver::Summary summary = averager.Solve();
-    if (VLOG_IS_ON(2)) {
-      LOG(INFO) << summary.FullReport();
-    } else {
-      VLOG(1) << summary.BriefReport();
-    }
-    return summary.IsSolutionUsable();
-  };
-
-  const internal::CeresPoseGraphInfo graph_info = internal::CheckCeresPoseGraph(
-      options_, active_pose_graph, reconstruction);
-
-  std::optional<RotationEstimatorOptions> warm_start_options;
-  std::optional<internal::PreparedCeresWeights> warm_start_weights;
-  if (options_.ceres->max_num_warm_start_iterations > 0) {
-    warm_start_options = options_;
-    warm_start_options->ceres->loss_function_type =
-        CeresLossFunctionType::HUBER;
-    warm_start_options->ceres->solver_options.max_num_iterations =
-        options_.ceres->max_num_warm_start_iterations;
-    if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
-      // Warm-start on angular residuals: with whitening, confidently wrong
-      // relative rotations (e.g., from symmetric structures) dominate the
-      // early iterations.
-      warm_start_options->reweighting = RotationAveragingReweighting::UNIFORM;
-    }
-    warm_start_weights =
-        internal::PrepareCeresWeights(*warm_start_options, active_pose_graph);
-  }
-  internal::PreparedCeresWeights weights =
-      internal::PrepareCeresWeights(options_, active_pose_graph);
-
-  // Initialize once after validating both stages, since the warm-start
-  // overrides the reweighting, which determines how the maximum spanning tree
-  // weights edges.
-  internal::InitializeCeresRotations(options_,
-                                     active_pose_graph,
-                                     graph_info.component_image_ids,
-                                     reconstruction);
-
-  if (warm_start_options.has_value() &&
-      !solve(*warm_start_options, graph_info, std::move(*warm_start_weights))) {
-    return false;
-  }
-
-  return solve(options_, graph_info, std::move(weights));
 }
 
 void InitializeFromMaximumSpanningTree(
