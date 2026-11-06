@@ -170,4 +170,15 @@ void PoseGraph::InvalidatePairsOutsideActiveImageIds(
   }
 }
 
+PoseGraph PoseGraph::Subgraph(const FlatHashSet<image_t>& image_ids) const {
+  PoseGraph subgraph;
+  for (const auto& [pair_id, edge] : edges_) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (image_ids.count(image_id1) && image_ids.count(image_id2)) {
+      subgraph.edges_.emplace(pair_id, edge);
+    }
+  }
+  return subgraph;
+}
+
 }  // namespace colmap
