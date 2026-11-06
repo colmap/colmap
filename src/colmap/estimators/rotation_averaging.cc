@@ -98,11 +98,14 @@ image_t ComputeMaximumPoseGraphSpanningTree(
       THROW_CHECK(edge.cam2_from_cam1_rotation_cov.has_value())
           << "Missing rotation covariance of edge (" << image_id1 << ", "
           << image_id2 << ")";
+      THROW_CHECK(edge.cam2_from_cam1_rotation_cov->allFinite())
+          << "Non-finite rotation covariance of edge (" << image_id1 << ", "
+          << image_id2 << ")";
       // The trace is the expected squared angular error in radians. Only the
       // order of the weights matters, which its negative logarithm keeps
       // within single precision.
-      weights.push_back(static_cast<float>(-std::log(
-          std::max<double>(edge.cam2_from_cam1_rotation_cov->trace(), 1e-12))));
+      weights.push_back(static_cast<float>(-std::log(std::max<double>(
+          edge.cam2_from_cam1_rotation_cov->cast<double>().trace(), 1e-12))));
     } else {
       weights.push_back(static_cast<float>(edge.num_matches));
     }
