@@ -246,16 +246,13 @@ def test_maybe_estimate_pose_graph_rotation_covariances() -> None:
     unmatched_pair_id = pycolmap.image_pair_to_pair_id(1, 3)
 
     options = pycolmap.RotationEstimatorOptions()
-    options.backend = pycolmap.RotationAveragingBackend.CERES
     options.reweighting = pycolmap.RotationAveragingReweighting.COVARIANCE
+    with pytest.raises(ValueError, match="L1_IRLS"):
+        pycolmap.maybe_estimate_pose_graph_rotation_covariances(
+            options, database_cache, pose_graph
+        )
 
-    reconstruction = pycolmap.Reconstruction()
-    reconstruction.load(database_cache)
-    with pytest.raises(
-        ValueError, match="MaybeEstimatePoseGraphRotationCovariances"
-    ):
-        pycolmap.run_rotation_averaging(options, pose_graph, reconstruction, [])
-
+    options.backend = pycolmap.RotationAveragingBackend.CERES
     pycolmap.maybe_estimate_pose_graph_rotation_covariances(
         options, database_cache, pose_graph
     )
@@ -265,6 +262,8 @@ def test_maybe_estimate_pose_graph_rotation_covariances() -> None:
             assert edge.valid
             assert edge.cam2_from_cam1_rotation_cov is not None
 
+    reconstruction = pycolmap.Reconstruction()
+    reconstruction.load(database_cache)
     assert pycolmap.run_rotation_averaging(
         options, pose_graph, reconstruction, []
     )

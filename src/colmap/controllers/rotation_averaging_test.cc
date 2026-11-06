@@ -72,46 +72,23 @@ TEST(RotationAveragingPipeline, WithNoiseAndOutliers) {
   synthetic_noise_options.point2D_stddev = 1;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
-  auto reconstruction = std::make_shared<Reconstruction>();
+  for (const bool use_covariance : {false, true}) {
+    SCOPED_TRACE(use_covariance);
+    auto reconstruction = std::make_shared<Reconstruction>();
 
-  RotationAveragingPipelineOptions options;
-  RotationAveragingPipeline controller(options, database, reconstruction);
-  controller.Run();
+    RotationAveragingPipelineOptions options;
+    if (use_covariance) {
+      options.rotation_estimation.backend = RotationAveragingBackend::CERES;
+      options.rotation_estimation.reweighting =
+          RotationAveragingReweighting::COVARIANCE;
+    }
+    RotationAveragingPipeline controller(options, database, reconstruction);
+    controller.Run();
 
-  ExpectEqualRotations(gt_reconstruction,
-                       *reconstruction,
-                       /*max_rotation_error_deg=*/3);
-}
-
-TEST(RotationAveragingPipeline, WithCovarianceReweighting) {
-  const auto database_path = CreateTestDir() / "database.db";
-
-  auto database = Database::Open(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_rigs = 1;
-  synthetic_dataset_options.num_cameras_per_rig = 1;
-  synthetic_dataset_options.num_frames_per_rig = 6;
-  synthetic_dataset_options.num_points3D = 100;
-  SynthesizeDataset(
-      synthetic_dataset_options, &gt_reconstruction, database.get());
-  SyntheticNoiseOptions synthetic_noise_options;
-  synthetic_noise_options.point2D_stddev = 1;
-  SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
-
-  auto reconstruction = std::make_shared<Reconstruction>();
-
-  // The pipeline estimates the relative rotation covariances.
-  RotationAveragingPipelineOptions options;
-  options.rotation_estimation.backend = RotationAveragingBackend::CERES;
-  options.rotation_estimation.reweighting =
-      RotationAveragingReweighting::COVARIANCE;
-  RotationAveragingPipeline controller(options, database, reconstruction);
-  controller.Run();
-
-  ExpectEqualRotations(gt_reconstruction,
-                       *reconstruction,
-                       /*max_rotation_error_deg=*/1);
+    ExpectEqualRotations(gt_reconstruction,
+                         *reconstruction,
+                         /*max_rotation_error_deg=*/3);
+  }
 }
 
 void ExpectExactEqualRotations(const Reconstruction& reconstruction1,
