@@ -44,6 +44,7 @@ COLMAP_ADD_LIBRARY(
         render_options.h
         render_options_widget.h render_options_widget.cc
         thread_control_widget.h thread_control_widget.cc
+        table_widget_button_rows.h
         triangle_painter.h triangle_painter.cc
         undistortion_widget.h undistortion_widget.cc
         resources.qrc
@@ -57,3 +58,9 @@ COLMAP_ADD_LIBRARY(
 if(MVS_ENABLED)
     target_link_libraries(colmap_ui PUBLIC colmap_mvs)
 endif()
+
+COLMAP_ADD_TEST(
+    NAME table_widget_button_rows_test
+    SRCS table_widget_button_rows_test.cc
+    LINK_LIBS ${COLMAP_UI_QT_LIBS}
+)
