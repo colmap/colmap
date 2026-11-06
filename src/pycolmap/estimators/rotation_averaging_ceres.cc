@@ -41,9 +41,12 @@ void BindCeresRotationAveragerOptions(py::module& m) {
           .def_readwrite(
               "max_num_warm_start_iterations",
               &CeresRotationAveragerOptions::max_num_warm_start_iterations,
-              "Number of solver iterations of a Huber-loss warm-start (with "
-              "the same loss scale) run by RotationEstimator before the main "
-              "solve. Set to 0 to disable.")
+              "Number of solver iterations of a Huber-loss warm-start (using "
+              "loss_function_scale, in degrees) run by RotationEstimator "
+              "before the main solve; with COVARIANCE reweighting, the "
+              "warm-start uses UNIFORM reweighting on unwhitened angular "
+              "residuals, whereas the main solve uses covariance_loss_scale on "
+              "whitened residuals. Set to 0 to disable.")
           .def_readwrite("solver_options",
                          &CeresRotationAveragerOptions::solver_options,
                          "Options for the Ceres solver. Using this member "

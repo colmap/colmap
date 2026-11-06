@@ -39,14 +39,16 @@ struct CeresRotationAveragerOptions {
   // pairs with many correspondences from dominating.
   double covariance_sigma_floor_deg = 0.02;
 
-  // Number of solver iterations of a Huber-loss warm-start (with the same
-  // loss_function_scale) run by RotationEstimator before the main solve. The
-  // linear tails of the Huber loss widen the basin of convergence from the
-  // maximum spanning tree initialization, which narrow redescending losses
-  // can otherwise get trapped in. With COVARIANCE reweighting, the warm-start
-  // still operates on angular residuals with UNIFORM reweighting, as
-  // confidently wrong relative rotations (e.g., from symmetric structures)
-  // would otherwise dominate the early iterations. Set to 0 to disable.
+  // Number of solver iterations of a Huber-loss warm-start (using
+  // loss_function_scale, in degrees) run by RotationEstimator before the main
+  // solve. The linear tails of the Huber loss widen the basin of convergence
+  // from the maximum spanning tree initialization, which narrow redescending
+  // losses can otherwise get trapped in. With COVARIANCE reweighting, the
+  // warm-start operates on unwhitened angular residuals with UNIFORM
+  // reweighting and loss_function_scale (whereas the main solve uses
+  // covariance_loss_scale on whitened residuals), as confidently wrong
+  // relative rotations (e.g., from symmetric structures) would otherwise
+  // dominate the early iterations. Set to 0 to disable.
   int max_num_warm_start_iterations = 5;
 
   ceres::Solver::Options solver_options;
