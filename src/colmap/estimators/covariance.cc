@@ -21,6 +21,11 @@ bool ComputeSchurComplement(bool estimate_point_covs,
                             ceres::Problem& problem,
                             FlatHashMap<point3D_t, Eigen::MatrixXd>& point_covs,
                             Eigen::SparseMatrix<double>& S) {
+  if (points.empty() && !estimate_pose_covs && !estimate_other_covs) {
+    // An empty Ceres parameter list would evaluate every parameter.
+    return true;
+  }
+
   VLOG(2) << "Evaluating the Jacobian for Schur elimination";
 
   ceres::Problem::EvaluateOptions eval_options;
@@ -293,12 +298,14 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
 
   const std::vector<internal::PointParam> points =
       internal::GetPointParams(reconstruction, problem);
-  const std::vector<internal::PoseParam>& poses =
-      options.experimental_custom_poses.empty()
-          ? internal::GetPoseParams(reconstruction, problem)
-          : options.experimental_custom_poses;
-  const std::vector<const double*> others =
-      GetOtherParams(problem, poses, points);
+  std::vector<internal::PoseParam> poses;
+  std::vector<const double*> others;
+  if (estimate_pose_covs || estimate_other_covs) {
+    poses = options.experimental_custom_poses.empty()
+                ? internal::GetPoseParams(reconstruction, problem)
+                : options.experimental_custom_poses;
+    others = GetOtherParams(problem, poses, points);
+  }
 
   int point_num_params = 0;
   int pose_num_params = 0;
@@ -345,10 +352,11 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
   }
 
   if (!estimate_pose_covs && !estimate_other_covs) {
-    return BACovariance(std::move(point_covs),
-                        /*pose_L_start_size=*/{},
-                        /*other_L_start_size=*/{},
-                        /*L_inv=*/Eigen::MatrixXd());
+    return std::optional<BACovariance>(std::in_place,
+                                       std::move(point_covs),
+                                       std::move(pose_L_start_size),
+                                       std::move(other_L_start_size),
+                                       /*L_inv=*/Eigen::MatrixXd());
   }
 
   if (!estimate_other_covs) {
@@ -365,10 +373,11 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     return std::nullopt;
   }
 
-  return BACovariance(std::move(point_covs),
-                      std::move(pose_L_start_size),
-                      std::move(other_L_start_size),
-                      std::move(L_inv));
+  return std::optional<BACovariance>(std::in_place,
+                                     std::move(point_covs),
+                                     std::move(pose_L_start_size),
+                                     std::move(other_L_start_size),
+                                     std::move(L_inv));
 }
 
 namespace internal {
