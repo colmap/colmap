@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/motion_averaging.h"
+#include "colmap/estimators/cost_functions/utils.h"
 #include "colmap/scene/pose_graph.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
@@ -15,8 +16,6 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
-
-#include <Eigen/Cholesky>
 
 namespace colmap {
 namespace {
@@ -76,12 +75,11 @@ FlatHashSet<image_t> PrepareCeresRotationAveraging(
       }
       const Eigen::Matrix3d floored_cov =
           edge.cam2_from_cam1_rotation_cov->cast<double>() + floor_cov;
-      const Eigen::Matrix3d info = floored_cov.inverse();
-      if (!floored_cov.allFinite() || !info.allFinite() ||
-          Eigen::LLT<Eigen::Matrix3d>(info).info() != Eigen::Success) {
+      if (!internal::TryComputeLeftSqrtInformation<3>(floored_cov)
+               .has_value()) {
         throw std::invalid_argument(StringPrintf(
             "Floored rotation covariance of edge (%u, %u) is not finite and "
-            "positive definite",
+            "symmetric positive definite",
             image_id1,
             image_id2));
       }

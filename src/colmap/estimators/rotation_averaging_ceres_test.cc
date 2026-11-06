@@ -485,20 +485,22 @@ TEST(RotationEstimator, CeresChecksInputsBeforeInitialization) {
     }
     EXPECT_EQ(reconstruction.Frames(), before.Frames());
 
+    Eigen::Matrix3f asymmetric_cov = Eigen::Matrix3f::Identity();
+    asymmetric_cov(0, 1) = 0.5f;
     for (const Eigen::Matrix3f& bad_cov :
          {Eigen::Matrix3f(Eigen::Matrix3f::Constant(
               std::numeric_limits<float>::quiet_NaN())),
-          Eigen::Matrix3f(Eigen::Vector3f(-1.0f, 1.0f, 1.0f)
-                              .asDiagonal()
-                              .toDenseMatrix())}) {
+          Eigen::Matrix3f(
+              Eigen::Vector3f(-1.0f, 1.0f, 1.0f).asDiagonal().toDenseMatrix()),
+          asymmetric_cov}) {
       graph.Edges().at(ImagePairToPairId(2, 3)).cam2_from_cam1_rotation_cov =
           bad_cov;
       EXPECT_THAT(
           [&]() {
             estimator.EstimateRotations(graph, {}, {1, 2, 3}, reconstruction);
           },
-          testing::ThrowsMessage<std::invalid_argument>(
-              testing::HasSubstr("not finite and positive definite")));
+          testing::ThrowsMessage<std::invalid_argument>(testing::HasSubstr(
+              "not finite and symmetric positive definite")));
       EXPECT_EQ(reconstruction.Frames(), before.Frames());
     }
   }

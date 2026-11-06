@@ -6,9 +6,12 @@
 #include "colmap/util/logging.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
+#include <Eigen/LU>
 #include <ceres/ceres.h>
 
 namespace colmap {
@@ -93,14 +96,32 @@ auto LastValueParameterPack(Args&&... args) {
 namespace internal {
 
 template <int kNumResiduals>
-Eigen::Matrix<double, kNumResiduals, kNumResiduals> ComputeLeftSqrtInformation(
+std::optional<Eigen::Matrix<double, kNumResiduals, kNumResiduals>>
+TryComputeLeftSqrtInformation(
     const Eigen::Matrix<double, kNumResiduals, kNumResiduals>& cov) {
   using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
-  const CovMat info = cov.inverse();
-  const Eigen::LLT<CovMat> llt(info);
-  THROW_CHECK(info.allFinite() && llt.info() == Eigen::Success)
-      << "Covariance matrix is not positive definite";
-  return llt.matrixL().transpose();
+  if (!cov.allFinite() || !cov.isApprox(cov.transpose(), 1e-5)) {
+    return std::nullopt;
+  }
+  const CovMat info = (0.5 * (cov + cov.transpose())).inverse();
+  if (!info.allFinite()) {
+    return std::nullopt;
+  }
+  const Eigen::LLT<CovMat> llt(0.5 * (info + info.transpose()));
+  if (llt.info() != Eigen::Success) {
+    return std::nullopt;
+  }
+  return CovMat(llt.matrixL().transpose());
+}
+
+template <int kNumResiduals>
+Eigen::Matrix<double, kNumResiduals, kNumResiduals> ComputeLeftSqrtInformation(
+    const Eigen::Matrix<double, kNumResiduals, kNumResiduals>& cov) {
+  std::optional<Eigen::Matrix<double, kNumResiduals, kNumResiduals>>
+      left_sqrt_info = TryComputeLeftSqrtInformation<kNumResiduals>(cov);
+  THROW_CHECK(left_sqrt_info.has_value())
+      << "Covariance matrix is not symmetric positive definite";
+  return *left_sqrt_info;
 }
 
 }  // namespace internal
