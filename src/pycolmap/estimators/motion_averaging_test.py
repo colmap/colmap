@@ -227,9 +227,54 @@ def test_global_positioner_frame_center_parameter_block() -> None:
     assert center.base.problem.has_parameter_block(center)
 
 
+def test_maybe_estimate_pose_graph_rotation_covariances() -> None:
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 3
+    dataset_options.num_points3D = 50
+    dataset_options.two_view_geometry_has_relative_pose = True
+    dataset_options.match_config = pycolmap.SyntheticDatasetMatchConfig.CHAINED
+    with pycolmap.Database.open(":memory:") as database:
+        pycolmap.synthesize_dataset(dataset_options, database)
+        database_cache = pycolmap.DatabaseCache.create(
+            database, pycolmap.DatabaseCacheOptions()
+        )
+    pose_graph = pycolmap.PoseGraph()
+    pose_graph.load(database_cache.correspondence_graph)
+    pose_graph.add_edge(1, 3, pycolmap.PoseGraphEdge())
+    unmatched_pair_id = pycolmap.image_pair_to_pair_id(1, 3)
+
+    options = pycolmap.RotationEstimatorOptions()
+    options.backend = pycolmap.RotationAveragingBackend.CERES
+    options.reweighting = pycolmap.RotationAveragingReweighting.COVARIANCE
+
+    reconstruction = pycolmap.Reconstruction()
+    reconstruction.load(database_cache)
+    with pytest.raises(
+        ValueError, match="MaybeEstimatePoseGraphRotationCovariances"
+    ):
+        pycolmap.run_rotation_averaging(options, pose_graph, reconstruction, [])
+
+    pycolmap.maybe_estimate_pose_graph_rotation_covariances(
+        options, database_cache, pose_graph
+    )
+    assert not pose_graph.edges[unmatched_pair_id].valid
+    for pair_id, edge in pose_graph.edges.items():
+        if pair_id != unmatched_pair_id:
+            assert edge.valid
+            assert edge.cam2_from_cam1_rotation_cov is not None
+
+    assert pycolmap.run_rotation_averaging(
+        options, pose_graph, reconstruction, []
+    )
+    assert reconstruction.num_reg_frames() == 3
+
+
 @pytest.mark.parametrize(
     "name",
     [
+        "maybe_estimate_pose_graph_rotation_covariances",
         "run_rotation_averaging",
         "run_gravity_refinement",
         "run_global_positioning",

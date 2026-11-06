@@ -178,6 +178,8 @@ bool InitializeRigRotationsFromImages(
 // For cameras with unknown cam_from_rig, first estimates their orientations
 // independently using an expanded reconstruction, then initializes the
 // cam_from_rig and runs rotation averaging on the original reconstruction.
+// With COVARIANCE reweighting, call MaybeEstimatePoseGraphRotationCovariances
+// first.
 bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           PoseGraph& pose_graph,
                           Reconstruction& reconstruction,

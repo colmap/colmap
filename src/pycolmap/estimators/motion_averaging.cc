@@ -5,6 +5,7 @@
 #include "colmap/estimators/rotation_averaging.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
+#include "colmap/scene/database_cache.h"
 
 #include "pycolmap/helpers.h"
 
@@ -310,6 +311,17 @@ void BindRotationEstimator(py::module& m) {
                          "COVARIANCE.");
   MakeDataclass(PyRotationEstimatorOptions);
 
+  m.def("maybe_estimate_pose_graph_rotation_covariances",
+        &MaybeEstimatePoseGraphRotationCovariances,
+        "options"_a,
+        "database_cache"_a,
+        "pose_graph"_a,
+        "With COVARIANCE reweighting, estimate the rotation covariances of "
+        "valid pose graph edges that do not have one yet from their two-view "
+        "correspondences, and invalidate edges whose covariance cannot be "
+        "estimated.",
+        py::call_guard<py::gil_scoped_release>());
+
   m.def(
       "run_rotation_averaging",
       [](const RotationEstimatorOptions& options,
@@ -326,6 +338,8 @@ void BindRotationEstimator(py::module& m) {
       "reconstruction"_a,
       "pose_priors"_a,
       "High-level rotation averaging solver that handles rig expansion. "
+      "With COVARIANCE reweighting, call "
+      "maybe_estimate_pose_graph_rotation_covariances first. "
       "Returns True if rotation averaging succeeded.");
 }
 
