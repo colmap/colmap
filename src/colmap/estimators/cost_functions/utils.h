@@ -263,9 +263,11 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
         }
         Eigen::Map<
             Eigen::
-                Matrix<double, kNumResiduals, Eigen::Dynamic, Eigen::RowMajor>>(
-            jacobians[i], kNumResiduals, block_sizes[i])
-            .applyOnTheLeft(left_sqrt_info_);
+                Matrix<double, kNumResiduals, Eigen::Dynamic, Eigen::RowMajor>>
+            jacobian(jacobians[i], kNumResiduals, block_sizes[i]);
+        for (int col = 0; col < block_sizes[i]; ++col) {
+          jacobian.col(col) = left_sqrt_info_ * jacobian.col(col);
+        }
       }
     }
     return true;
