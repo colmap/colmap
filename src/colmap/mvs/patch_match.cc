@@ -4,9 +4,15 @@
 
 #include "colmap/math/math.h"
 #include "colmap/mvs/consistency_graph.h"
+#if defined(COLMAP_METAL_ENABLED)
+#include "colmap/mvs/patch_match_metal.h"
+#else
 #include "colmap/mvs/patch_match_cuda.h"
+#endif
 #include "colmap/mvs/workspace.h"
+#if !defined(COLMAP_METAL_ENABLED)
 #include "colmap/util/cuda.h"
+#endif
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
@@ -19,6 +25,17 @@
 
 namespace colmap {
 namespace mvs {
+namespace {
+
+int GetNumGpuDevices() {
+#if defined(COLMAP_METAL_ENABLED)
+  return GetNumMetalDevices();
+#else
+  return GetNumCudaDevices();
+#endif
+}
+
+}  // namespace
 
 PatchMatch::PatchMatch(const PatchMatchOptions& options, const Problem& problem)
     : options_(options), problem_(problem) {}
@@ -103,27 +120,27 @@ void PatchMatch::Run() {
 
   Check();
 
-  patch_match_cuda_ = std::make_unique<PatchMatchCuda>(options_, problem_);
-  patch_match_cuda_->Run();
+  patch_match_gpu_ = std::make_unique<PatchMatchGpu>(options_, problem_);
+  patch_match_gpu_->Run();
 }
 
 DepthMap PatchMatch::GetDepthMap() const {
-  return patch_match_cuda_->GetDepthMap();
+  return patch_match_gpu_->GetDepthMap();
 }
 
 NormalMap PatchMatch::GetNormalMap() const {
-  return patch_match_cuda_->GetNormalMap();
+  return patch_match_gpu_->GetNormalMap();
 }
 
 Mat<float> PatchMatch::GetSelProbMap() const {
-  return patch_match_cuda_->GetSelProbMap();
+  return patch_match_gpu_->GetSelProbMap();
 }
 
 ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
   const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
   return ConsistencyGraph(ref_image.GetWidth(),
                           ref_image.GetHeight(),
-                          patch_match_cuda_->GetConsistentImageIdxs());
+                          patch_match_gpu_->GetConsistentImageIdxs());
 }
 
 PatchMatchController::PatchMatchController(
@@ -348,9 +365,9 @@ void PatchMatchController::ReadProblems() {
 void PatchMatchController::ReadGpuIndices() {
   gpu_indices_ = CSVToVector<int>(options_.gpu_index);
   if (gpu_indices_.size() == 1 && gpu_indices_[0] == -1) {
-    const int num_cuda_devices = GetNumCudaDevices();
-    THROW_CHECK_GT(num_cuda_devices, 0);
-    gpu_indices_.resize(num_cuda_devices);
+    const int num_gpu_devices = GetNumGpuDevices();
+    THROW_CHECK_GT(num_gpu_devices, 0);
+    gpu_indices_.resize(num_gpu_devices);
     std::iota(gpu_indices_.begin(), gpu_indices_.end(), 0);
   }
 }

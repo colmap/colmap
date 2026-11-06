@@ -310,6 +310,13 @@ link your Qt 5 installation while configuring CMake::
     brew unlink qt && brew link --force qt
     cmake ...
 
+Dense reconstruction (``patch_match_stereo``) runs on the GPU through **Metal**.
+This is enabled by default (``-DMETAL_ENABLED=ON``), requires no additional
+dependencies and no Metal toolchain, as the shaders are compiled at runtime.
+The Metal backend implements the same algorithm as the CUDA backend, but uses a
+different random number generator, so the results are statistically equivalent
+but not bit-identical. Use ``-DMETAL_ENABLED=OFF`` to build without it.
+
 Run COLMAP::
 
     colmap -h
