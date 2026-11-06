@@ -137,6 +137,9 @@ bool GlobalMapper::RotationAveraging(const RotationEstimatorOptions& options) {
   // Read pose priors from the database cache.
   const std::vector<PosePrior>& pose_priors = database_cache_->PosePriors();
 
+  MaybeEstimatePoseGraphRotationCovariances(
+      options, *database_cache_, *pose_graph_);
+
   // First pass: solve rotation averaging on all frames, then filter outlier
   // pairs by rotation error and de-register frames outside the largest
   // connected component.

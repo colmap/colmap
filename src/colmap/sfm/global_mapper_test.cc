@@ -134,19 +134,28 @@ TEST(GlobalMapper, WithNoiseAndOutliers) {
   synthetic_noise_options.point2D_stddev = 0.5;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
-  auto reconstruction = std::make_shared<Reconstruction>();
+  const auto database_cache = CreateDatabaseCache(*database);
+  for (const bool use_covariance : {false, true}) {
+    SCOPED_TRACE(use_covariance);
+    auto reconstruction = std::make_shared<Reconstruction>();
+    GlobalMapper global_mapper(database_cache);
+    global_mapper.BeginReconstruction(reconstruction);
 
-  GlobalMapper global_mapper(CreateDatabaseCache(*database));
-  global_mapper.BeginReconstruction(reconstruction);
+    GlobalMapperOptions options;
+    if (use_covariance) {
+      options.rotation_averaging.backend = RotationAveragingBackend::CERES;
+      options.rotation_averaging.reweighting =
+          RotationAveragingReweighting::COVARIANCE;
+    }
+    global_mapper.Solve(options);
 
-  global_mapper.Solve(GlobalMapperOptions());
-
-  EXPECT_THAT(gt_reconstruction,
-              ReconstructionNear(*reconstruction,
-                                 /*max_rotation_error_deg=*/1e-1,
-                                 /*max_proj_center_error=*/1e-1,
-                                 /*max_scale_error=*/std::nullopt,
-                                 /*num_obs_tolerance=*/0.02));
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(*reconstruction,
+                                   /*max_rotation_error_deg=*/1e-1,
+                                   /*max_proj_center_error=*/1e-1,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.02));
+  }
 }
 
 TEST(GlobalMapperOptions, RefineSensorFromRigPropagatesToSubOptions) {

@@ -854,5 +854,82 @@ TEST(RotationAveraging, RefineSensorFromRigFalsePreservesRig) {
   }
 }
 
+TEST(MaybeEstimatePoseGraphRotationCovariances, Nominal) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 3;
+  synthetic_dataset_options.num_points3D = 50;
+  synthetic_dataset_options.two_view_geometry_has_relative_pose = true;
+  // Only the image pairs (1, 2) and (2, 3) have matches.
+  synthetic_dataset_options.match_config =
+      SyntheticDatasetOptions::MatchConfig::CHAINED;
+  SynthesizeDataset(
+      synthetic_dataset_options, &gt_reconstruction, database.get());
+  PosePrior pose_prior;
+  pose_prior.corr_data_id = gt_reconstruction.Image(1).DataId();
+  pose_prior.gravity = Eigen::Vector3d::UnitY();
+  database->WritePosePrior(pose_prior);
+  const auto database_cache =
+      DatabaseCache::Create(*database, DatabaseCache::Options());
+
+  PoseGraph pose_graph;
+  pose_graph.Load(*database_cache->CorrespondenceGraph());
+  ASSERT_EQ(pose_graph.NumEdges(), 2);
+  // The covariance of an edge without correspondences cannot be estimated.
+  pose_graph.AddEdge(1, 3, PoseGraph::Edge());
+  const image_pair_t unmatched_pair_id = ImagePairToPairId(1, 3);
+
+  // No-op without COVARIANCE reweighting.
+  RotationEstimatorOptions options;
+  options.backend = RotationAveragingBackend::CERES;
+  options.reweighting = RotationAveragingReweighting::UNIFORM;
+  PoseGraph skipped_pose_graph = pose_graph;
+  MaybeEstimatePoseGraphRotationCovariances(
+      options, *database_cache, skipped_pose_graph);
+  for (const auto& [pair_id, edge] : skipped_pose_graph.Edges()) {
+    EXPECT_TRUE(edge.valid);
+    EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+  }
+
+  // Unsupported backend throws instead of silently skipping.
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  options.backend = RotationAveragingBackend::L1_IRLS;
+  EXPECT_THAT(
+      [&]() {
+        MaybeEstimatePoseGraphRotationCovariances(
+            options, *database_cache, skipped_pose_graph);
+      },
+      testing::ThrowsMessage<std::invalid_argument>(
+          testing::HasSubstr("L1_IRLS")));
+
+  // Falling back to L1_IRLS for gravity priors warns and skips estimation.
+  options.backend = RotationAveragingBackend::CERES;
+  options.use_gravity = true;
+  MaybeEstimatePoseGraphRotationCovariances(
+      options, *database_cache, skipped_pose_graph);
+  for (const auto& [pair_id, edge] : skipped_pose_graph.Edges()) {
+    EXPECT_TRUE(edge.valid);
+    EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+  }
+  options.use_gravity = false;
+
+  // Edges without covariance are invalidated.
+  options.reweighting = RotationAveragingReweighting::COVARIANCE;
+  MaybeEstimatePoseGraphRotationCovariances(
+      options, *database_cache, pose_graph);
+  for (const auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (pair_id == unmatched_pair_id) {
+      EXPECT_FALSE(edge.valid);
+      EXPECT_FALSE(edge.cam2_from_cam1_rotation_cov.has_value());
+    } else {
+      EXPECT_TRUE(edge.valid);
+      EXPECT_TRUE(edge.cam2_from_cam1_rotation_cov.has_value());
+    }
+  }
+}
+
 }  // namespace
 }  // namespace colmap

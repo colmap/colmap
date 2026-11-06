@@ -4,9 +4,11 @@
 
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
+#include "colmap/estimators/two_view_rotation_covariance.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 #include "colmap/math/spanning_tree.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/threading.h"
 
@@ -562,7 +564,11 @@ bool RotationEstimator::SolveRotationAveraging(
     }
     // L1_IRLS ignores COVARIANCE reweighting (equivalent to UNIFORM).
     LOG(WARNING) << "Gravity priors are not supported by the CERES rotation "
-                    "averaging backend, falling back to L1_IRLS";
+                    "averaging backend, falling back to L1_IRLS"
+                 << (options_.reweighting ==
+                             RotationAveragingReweighting::COVARIANCE
+                         ? " (COVARIANCE reweighting is ignored)"
+                         : "");
   } else if (options_.reweighting == RotationAveragingReweighting::COVARIANCE) {
     LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
                         "L1_IRLS rotation averaging backend";
@@ -818,6 +824,43 @@ bool RunRotationAveraging(const RotationEstimatorOptions& options,
   }
 
   return true;
+}
+
+void MaybeEstimatePoseGraphRotationCovariances(
+    const RotationEstimatorOptions& options,
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph) {
+  if (options.reweighting != RotationAveragingReweighting::COVARIANCE) {
+    return;
+  }
+  if (options.backend != RotationAveragingBackend::CERES) {
+    LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
+                     << options.backend << " rotation averaging backend";
+  }
+  if (UseGravity(options, database_cache.PosePriors())) {
+    LOG(WARNING) << "COVARIANCE reweighting is ignored when falling back to "
+                    "L1_IRLS for gravity priors";
+    return;
+  }
+  // Estimate the covariances with as many threads as the solver uses.
+  EstimatePoseGraphRotationCovariances(
+      database_cache,
+      pose_graph,
+      TwoViewRotationCovarianceOptions(),
+      THROW_CHECK_NOTNULL(options.ceres)->solver_options.num_threads);
+
+  // Edges whose covariance cannot be estimated lack enough valid
+  // correspondences to be trusted.
+  size_t num_invalidated = 0;
+  for (auto& [pair_id, edge] : pose_graph.Edges()) {
+    if (edge.valid && !edge.cam2_from_cam1_rotation_cov.has_value()) {
+      edge.valid = false;
+      ++num_invalidated;
+    }
+  }
+  LOG_IF(WARNING, num_invalidated > 0)
+      << "Invalidated " << num_invalidated
+      << " pose graph edges without rotation covariance";
 }
 
 }  // namespace colmap
