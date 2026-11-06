@@ -244,7 +244,8 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
   static DynamicCovarianceWeightedCostFunction* FromLeftSqrtInformation(
       const CovMat& left_sqrt_info, ceres::CostFunction* cost) {
     return new DynamicCovarianceWeightedCostFunction(
-        FromLeftSqrtInformationTag{}, left_sqrt_info, cost);
+        std::unique_ptr<ceres::CostFunction>(THROW_CHECK_NOTNULL(cost)),
+        left_sqrt_info);
   }
 
   bool Evaluate(double const* const* parameters,
@@ -274,12 +275,10 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
   }
 
  private:
-  struct FromLeftSqrtInformationTag {};
-
-  DynamicCovarianceWeightedCostFunction(FromLeftSqrtInformationTag,
-                                        const CovMat& left_sqrt_info,
-                                        ceres::CostFunction* cost)
-      : cost_(THROW_CHECK_NOTNULL(cost)), left_sqrt_info_(left_sqrt_info) {
+  DynamicCovarianceWeightedCostFunction(
+      std::unique_ptr<ceres::CostFunction> cost, const CovMat& left_sqrt_info)
+      : cost_(std::move(THROW_CHECK_NOTNULL(cost))),
+        left_sqrt_info_(left_sqrt_info) {
     THROW_CHECK(left_sqrt_info_.allFinite());
     THROW_CHECK_EQ(cost_->num_residuals(), kNumResiduals);
     set_num_residuals(kNumResiduals);
