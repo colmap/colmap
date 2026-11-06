@@ -27,12 +27,11 @@ namespace py = pybind11;
 void BindCamera(py::module& m) {
   py::enum_<CameraModelId> PyCameraModelId(m, "CameraModelId");
   PyCameraModelId.value("INVALID", CameraModelId::kInvalid);
-#define CAMERA_MODEL_CASE(CameraModel) \
-  PyCameraModelId.value(CameraModel::model_name.c_str(), CameraModel::model_id);
-
-  CAMERA_MODEL_CASES
-
-#undef CAMERA_MODEL_CASE
+  ForEachCameraModel([&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    PyCameraModelId.value(CameraModel::model_name.c_str(),
+                          CameraModel::model_id);
+  });
   AddStringToEnumConstructor(PyCameraModelId);
   py::implicitly_convertible<int, CameraModelId>();
 
