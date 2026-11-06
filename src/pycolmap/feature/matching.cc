@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
@@ -84,7 +85,8 @@ void BindFeatureMatching(py::module& m) {
       .value("LOMA_R", FeatureMatcherType::LOMA_R)
       .value("LOMA_L", FeatureMatcherType::LOMA_L)
       .value("LOMA_G", FeatureMatcherType::LOMA_G)
-      .value("FLEXGLUE", FeatureMatcherType::FLEXGLUE);
+      .value("FLEXGLUE", FeatureMatcherType::FLEXGLUE)
+      .value("CUSIFT_GEMM", FeatureMatcherType::CUSIFT_GEMM);
 
 #ifdef COLMAP_ONNX_ENABLED
   auto PyBruteForceONNXMatchingOptions =
@@ -245,6 +247,33 @@ void BindFeatureMatching(py::module& m) {
           .def("check", &SiftMatchingOptions::Check);
   MakeDataclass(PySiftMatchingOptions);
 
+  auto PyCusiftDistanceType =
+      py::enum_<CusiftDistanceType>(m, "CusiftDistanceType")
+          .value("L2", CusiftDistanceType::L2)
+          .value("ANGULAR", CusiftDistanceType::ANGULAR);
+  AddStringToEnumConstructor(PyCusiftDistanceType);
+
+  auto PyCusiftMatchingOptions =
+      py::classh<CusiftMatchingOptions>(m, "CusiftMatchingOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "cross_check_reverse_ratio",
+              &CusiftMatchingOptions::cross_check_reverse_ratio,
+              "When sift.cross_check is enabled, whether the ratio test is "
+              "also "
+              "applied in the reverse direction, as both of COLMAP's other "
+              "SIFT matchers do. Disabling it requires only mutual-best "
+              "agreement: weaker at rejecting non-overlapping image pairs.")
+          .def_readwrite(
+              "distance_type",
+              &CusiftMatchingOptions::distance_type,
+              "Metric space for the ratio test and sift.max_distance: ANGULAR "
+              "(the default; radians, as COLMAP's brute-force matcher and "
+              "SiftGPU) or L2 (unit-vector distance, as COLMAP's index-based "
+              "matcher and VLFeat).")
+          .def("check", &CusiftMatchingOptions::Check);
+  MakeDataclass(PyCusiftMatchingOptions);
+
   auto PyFeatureMatchingOptions =
       py::classh<FeatureMatchingOptions>(m, "FeatureMatchingOptions")
           .def(py::init<FeatureMatcherType>(),
@@ -285,6 +314,7 @@ void BindFeatureMatching(py::module& m) {
               "Whether to skip matching images within the same frame. This is "
               "useful for the case of non-overlapping cameras in a rig.")
           .def_readwrite("sift", &FeatureMatchingOptions::sift)
+          .def_readwrite("cusift", &FeatureMatchingOptions::cusift)
           .def("check", &FeatureMatchingOptions::Check);
 #ifdef COLMAP_ONNX_ENABLED
   PyFeatureMatchingOptions.def_readwrite("aliked",

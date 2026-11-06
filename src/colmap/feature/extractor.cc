@@ -3,6 +3,7 @@
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/misc.h"
@@ -21,13 +22,15 @@ void ThrowUnknownFeatureExtractorType(FeatureExtractorType type) {
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions()
     : sift(std::make_shared<SiftExtractionOptions>()),
       aliked(std::make_shared<AlikedExtractionOptions>()),
-      loma(std::make_shared<LomaExtractionOptions>()) {}
+      loma(std::make_shared<LomaExtractionOptions>()),
+      cusift(std::make_shared<CusiftExtractionOptions>()) {}
 
 FeatureExtractionTypeOptions::FeatureExtractionTypeOptions(
     const FeatureExtractionTypeOptions& other)
     : sift(CloneSharedPtr(other.sift)),
       aliked(CloneSharedPtr(other.aliked)),
-      loma(CloneSharedPtr(other.loma)) {}
+      loma(CloneSharedPtr(other.loma)),
+      cusift(CloneSharedPtr(other.cusift)) {}
 
 FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
     const FeatureExtractionTypeOptions& other) {
@@ -37,6 +40,7 @@ FeatureExtractionTypeOptions& FeatureExtractionTypeOptions::operator=(
   sift = CloneSharedPtr(other.sift);
   aliked = CloneSharedPtr(other.aliked);
   loma = CloneSharedPtr(other.loma);
+  cusift = CloneSharedPtr(other.cusift);
   return *this;
 }
 
@@ -46,6 +50,7 @@ FeatureExtractionOptions::FeatureExtractionOptions(FeatureExtractorType type)
 bool FeatureExtractionOptions::RequiresRGB() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
+    case FeatureExtractorType::CUSIFT:
       return false;
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
@@ -72,6 +77,7 @@ bool FeatureExtractionOptions::RequiresOpenGL() const {
       return use_gpu;
 #endif
     }
+    case FeatureExtractorType::CUSIFT:  // CUDA only, no OpenGL path.
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
     case FeatureExtractorType::LOMA_B:
@@ -89,6 +95,7 @@ int FeatureExtractionOptions::EffMaxImageSize() const {
   } else {
     switch (type) {
       case FeatureExtractorType::SIFT:
+      case FeatureExtractorType::CUSIFT:
         return 3200;
       case FeatureExtractorType::ALIKED_N16ROT:
       case FeatureExtractorType::ALIKED_N32:
@@ -115,6 +122,21 @@ bool FeatureExtractionOptions::Check() const {
   switch (type) {
     case FeatureExtractorType::SIFT:
       return THROW_CHECK_NOTNULL(sift)->Check();
+    case FeatureExtractorType::CUSIFT:
+#if !defined(COLMAP_CUSIFT_ENABLED)
+      LOG(ERROR) << "COLMAP was built without cusift (CUSIFT_ENABLED, which "
+                    "needs CUDA >= 11.2).";
+      return false;
+#endif
+      // No CPU implementation to fall back to.
+      if (!use_gpu) {
+        LOG(ERROR) << "cusift feature extraction requires GPU. Consider "
+                      "setting the feature extractor type to SIFT.";
+        return false;
+      }
+      return THROW_CHECK_NOTNULL(sift)->Check() &&
+             THROW_CHECK_NOTNULL(cusift)->Check() &&
+             CheckCusiftSiftOptions(*sift);
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return THROW_CHECK_NOTNULL(aliked)->Check();
@@ -132,6 +154,8 @@ std::unique_ptr<FeatureExtractor> FeatureExtractor::Create(
   switch (options.type) {
     case FeatureExtractorType::SIFT:
       return CreateSiftFeatureExtractor(options);
+    case FeatureExtractorType::CUSIFT:
+      return CreateCusiftFeatureExtractor(options);
     case FeatureExtractorType::ALIKED_N16ROT:
     case FeatureExtractorType::ALIKED_N32:
       return CreateAlikedFeatureExtractor(options);

@@ -39,11 +39,15 @@ def _preload_cuda_deps() -> None:
     """Preloads CUDA dependencies from pip packages on Linux."""
     if platform.system() != "Linux":
         return
-    cuda_libs = {
-        "nvidia.cuda_runtime": "libcudart.so.*[0-9]",
-        "nvidia.curand": "libcurand.so.*[0-9]",
-    }
-    for module_name, lib_glob in cuda_libs.items():
+    # (module, library) pairs in load order: libcublas depends on libcublasLt,
+    # which ships in the same package, so the dependency is loaded first.
+    cuda_libs = [
+        ("nvidia.cuda_runtime", "libcudart.so.*[0-9]"),
+        ("nvidia.curand", "libcurand.so.*[0-9]"),
+        ("nvidia.cublas", "libcublasLt.so.*[0-9]"),
+        ("nvidia.cublas", "libcublas.so.*[0-9]"),
+    ]
+    for module_name, lib_glob in cuda_libs:
         _preload_cuda_lib(module_name, lib_glob)
 
 

@@ -70,5 +70,18 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
                       AutomaticReconstructionController::Mapper::HIERARCHICAL));
 
+TEST(AutomaticReconstructionController, ConstructsWithCusift) {
+  // The constructor resolves the vocabulary tree for the feature type, which
+  // throws for a type without one; cusift writes SIFT descriptors and gets the
+  // SIFT tree. Needs no GPU.
+  const auto test_dir = CreateTestDir();
+  AutomaticReconstructionController::Options options;
+  options.workspace_path = test_dir;
+  options.image_path = test_dir;
+  options.feature = AutomaticReconstructionController::Feature::CUSIFT;
+  EXPECT_NO_THROW(AutomaticReconstructionController(
+      options, std::make_shared<ReconstructionManager>()));
+}
+
 }  // namespace
 }  // namespace colmap

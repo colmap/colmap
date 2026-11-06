@@ -11,6 +11,7 @@ option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(HIP_ENABLED "Whether to enable AMD GPU support via HIP/ROCm" OFF)
+option(CUSIFT_ENABLED "Whether to build the cusift CUDA SIFT extractor and matcher (needs CUDA >= 11.2)" ON)
 
 if(CUDA_ENABLED AND HIP_ENABLED)
     message(FATAL_ERROR "CUDA and HIP cannot be enabled at the same time")
@@ -453,6 +454,10 @@ if(CUDA_ENABLED OR HIP_ENABLED)
     if(MVS_ENABLED)
         list(APPEND COLMAP_EXPORT_LIBS colmap_mvs_cuda)
     endif()
+endif()
+if(CUSIFT_ENABLED)
+    # Third-party; CUDA only (not built for HIP).
+    list(APPEND COLMAP_EXPORT_LIBS colmap_cusift)
 endif()
 if(GPU_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS

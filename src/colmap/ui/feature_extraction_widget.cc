@@ -4,6 +4,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
@@ -39,6 +40,15 @@ class SIFTExtractionWidget : public ExtractionWidget {
 
   void Run() override;
 };
+
+#ifdef COLMAP_CUSIFT_ENABLED
+class CusiftExtractionWidget : public ExtractionWidget {
+ public:
+  CusiftExtractionWidget(QWidget* parent, OptionManager* options);
+
+  void Run() override;
+};
+#endif
 
 class ImportFeaturesWidget : public ExtractionWidget {
  public:
@@ -147,6 +157,35 @@ void SIFTExtractionWidget::Run() {
   RunExtraction();
 }
 
+#ifdef COLMAP_CUSIFT_ENABLED
+CusiftExtractionWidget::CusiftExtractionWidget(QWidget* parent,
+                                               OptionManager* options)
+    : ExtractionWidget(parent, options) {
+  AddSharedOptions();
+
+  // Only the SIFT options cusift supports; the others are rejected.
+  SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
+  AddOptionInt(&sift_options.max_num_features, "sift.max_num_features");
+  AddOptionInt(&sift_options.first_octave, "sift.first_octave", -1, 0);
+  AddOptionDouble(&sift_options.peak_threshold,
+                  "sift.peak_threshold",
+                  0.0,
+                  1e7,
+                  0.00001,
+                  5);
+  AddOptionDouble(&sift_options.edge_threshold, "sift.edge_threshold");
+  AddOptionInt(&sift_options.max_num_orientations, "sift.max_num_orientations");
+  AddOptionInt(&options->feature_extraction->cusift->num_octaves,
+               "cusift.num_octaves",
+               -1);
+}
+
+void CusiftExtractionWidget::Run() {
+  options_->feature_extraction->type = FeatureExtractorType::CUSIFT;
+  RunExtraction();
+}
+#endif
+
 ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
@@ -248,6 +287,9 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
 
   AddTab(new SIFTExtractionWidget(this, options), "SIFT");
   AddTab(new ImportFeaturesWidget(this, options), "SIFT (Import)");
+#ifdef COLMAP_CUSIFT_ENABLED
+  AddTab(new CusiftExtractionWidget(this, options), "cusift");
+#endif
 
 #ifdef COLMAP_ONNX_ENABLED
   AddTab(new AlikedExtractionWidget(this, options), "ALIKED");

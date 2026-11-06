@@ -480,6 +480,29 @@ else()
     set(CUDA_ENABLED OFF)
 endif()
 
+# cusift's memory pool (cudaMallocFromPoolAsync, cudaMemPool*) needs CUDA 11.2,
+# and its matcher links CUDA::cublas, which the legacy (CMake < 3.17) CUDA
+# module above does not define. Without either, cusift is disabled and the
+# rest of COLMAP builds as before.
+if(CUSIFT_ENABLED)
+    if(NOT CUDA_ENABLED)
+        message(STATUS "Disabling cusift (requires CUDA)")
+        set(CUSIFT_ENABLED OFF)
+    elseif(CMAKE_VERSION VERSION_LESS 3.17)
+        message(STATUS "Disabling cusift (requires CMake >= 3.17)")
+        set(CUSIFT_ENABLED OFF)
+    elseif(CUDAToolkit_VERSION VERSION_LESS "11.2")
+        message(STATUS "Disabling cusift (requires CUDA >= 11.2, found "
+                       "${CUDAToolkit_VERSION})")
+        set(CUSIFT_ENABLED OFF)
+    else()
+        message(STATUS "Enabling cusift")
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUSIFT_ENABLED)
+    endif()
+else()
+    message(STATUS "Disabling cusift")
+endif()
+
 if(ONNX_ENABLED)
     if(FETCH_ONNX)
         include(FetchContent)

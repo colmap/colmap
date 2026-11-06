@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+import pytest
+
 import pycolmap
 
 
@@ -106,3 +109,51 @@ def test_feature_extraction_options_check() -> None:
 def test_feature_extractor_create() -> None:
     extractor = pycolmap.FeatureExtractor.create(device=pycolmap.Device.cpu)
     assert extractor is not None
+
+
+# ------------------------------------------------------------------ cusift
+# Binding-level checks only; cusift's behaviour is tested in C++
+# (src/colmap/feature/cusift_test.cc).
+
+
+def test_cusift_extractor_type_enum() -> None:
+    assert pycolmap.FeatureExtractorType.CUSIFT is not None
+    # SIFT must keep its integer identity: descriptor types are persisted in
+    # COLMAP databases. CUSIFT's ordinal is deliberately not pinned -- cusift
+    # tags its descriptors FeatureExtractorType::SIFT (cusift.cc), so CUSIFT
+    # never reaches the database and is appended last, leaving the upstream
+    # values untouched whenever new extractor types land in between.
+    assert int(pycolmap.FeatureExtractorType.SIFT) == 0
+    assert (
+        pycolmap.FeatureExtractorType.CUSIFT
+        != pycolmap.FeatureExtractorType.SIFT
+    )
+
+
+def test_cusift_extraction_options() -> None:
+    options = pycolmap.FeatureExtractionOptions(
+        type=pycolmap.FeatureExtractorType.CUSIFT
+    )
+    assert isinstance(options.sift, pycolmap.SiftExtractionOptions)
+    options.cusift.num_octaves = 4
+    assert options.cusift.num_octaves == 4
+    assert isinstance(options.cusift.check(), bool)
+
+
+@pytest.mark.usefixtures("requires_cusift")
+def test_cusift_extract_from_uint8_array() -> None:
+    options = pycolmap.FeatureExtractionOptions(
+        type=pycolmap.FeatureExtractorType.CUSIFT
+    )
+    extractor = pycolmap.FeatureExtractor.create(
+        options=options, device=pycolmap.Device.cuda
+    )
+    rng = np.random.default_rng(0)
+    image = rng.integers(0, 256, size=(256, 320), dtype=np.uint8)
+    keypoints, descriptors = extractor.extract_from_uint8_array(image)
+    assert len(keypoints) > 0
+    assert descriptors.data.shape == (len(keypoints), 128)
+    assert descriptors.data.dtype == np.uint8
+    # Descriptors are plain SIFT descriptors, so the existing SIFT matchers and
+    # databases consume them unchanged.
+    assert descriptors.type == pycolmap.FeatureExtractorType.SIFT

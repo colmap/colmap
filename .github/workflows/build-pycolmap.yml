@@ -220,11 +220,11 @@ jobs:
 
           if [ "${{ matrix.config.cudaEnabled }}" = "true" ]; then
             CIBW_MANYLINUX_X86_64_IMAGE="pytorch/manylinux2_28-builder:cuda12.9"
-            CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* -w {dest_dir} {wheel}"
+            CIBW_REPAIR_WHEEL_COMMAND="auditwheel repair --exclude libcudart* --exclude libcurand* --exclude libcublas* -w {dest_dir} {wheel}"
             echo "CIBW_REPAIR_WHEEL_COMMAND=${CIBW_REPAIR_WHEEL_COMMAND}" >> "$GITHUB_ENV"
-            # Edit pyproject.toml to change package name to pycolmap-cuda12 and add CUDA Runtime native Libraries and CURAND native runtime libraries to dependencies
+            # Edit pyproject.toml to change package name to pycolmap-cuda12 and add the CUDA Runtime, CURAND and cuBLAS (cusift's GEMM matcher) native runtime libraries to dependencies
             pip install tomlkit
-            python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "cuda-toolkit[cudart,curand]>=12,<13"
+            python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "cuda-toolkit[cudart,curand,cublas]>=12,<13"
           else
             CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
           fi

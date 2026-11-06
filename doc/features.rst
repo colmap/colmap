@@ -27,6 +27,11 @@ The following feature extractor types are available:
   lightweight). Requires ONNX support to be enabled at build time
   (``-DONNX_ENABLED=ON``).
 
+- ``CUSIFT``: A CUDA reimplementation of the ``SIFT`` CPU (VLFeat) extractor,
+  configured by the ``SiftExtraction`` options. Its descriptors are ordinary
+  ``SIFT`` descriptors. Requires a build with CUDA >= 11.2 (``-DCUSIFT_ENABLED``,
+  on by default) and a CUDA GPU; see `cusift`_ below.
+
 To select a feature extractor type via the command-line::
 
     $ colmap feature_extractor \
@@ -85,6 +90,12 @@ The following feature matcher types are available:
 - ``LOMA_B128``: Dedicated matcher for the lightweight 128-dim ``LOMA_B128``
   descriptor. Requires ONNX support to be enabled at build time.
 
+- ``CUSIFT_GEMM``: Exact brute-force matching of SIFT descriptors on CUDA
+  GPUs, using cuBLAS. Returns the same matches as ``SIFT_BRUTEFORCE`` with
+  ``--FeatureMatching.use_gpu 0 --SiftMatching.cpu_brute_force_matcher 1`` and
+  uses the ``SiftMatching`` ratio, distance and cross-check options. Guided matching is not supported.
+  Requires a build with CUDA >= 11.2 (``-DCUSIFT_ENABLED``) and a CUDA GPU.
+
 - ``FLEXGLUE``: Neural network matcher operating on dense image features
   (FlexGlue). It works with the keypoints of any feature extractor and ignores
   the descriptors, which are not required. Since FlexGlue computes dense
@@ -122,7 +133,8 @@ Compatible Extractor and Matcher Types
 
 The feature extractor and matcher types should be compatible:
 
-- Use ``SIFT`` extraction with ``SIFT_BRUTEFORCE`` or ``SIFT_LIGHTGLUE`` matching.
+- Use ``SIFT`` or ``CUSIFT`` extraction with ``SIFT_BRUTEFORCE``,
+  ``SIFT_LIGHTGLUE``, or ``CUSIFT_GEMM`` matching.
 - Use ``ALIKED_*`` extraction with ``ALIKED_BRUTEFORCE`` or ``ALIKED_LIGHTGLUE`` matching.
 - Use ``LOMA_B`` extraction with ``LOMA_BRUTEFORCE``, ``LOMA_B``, ``LOMA_R``,
   ``LOMA_L``, or ``LOMA_G`` matching.
@@ -183,6 +195,41 @@ matching also support an opt-in ``use_bf16`` mode
 (``--LomaExtraction.use_bf16`` / ``--LomaMatching.use_bf16``) for faster
 inference on CUDA GPUs with compute capability 8.0 (Ampere) or newer. On other
 devices, the fp32 models are used.
+
+
+cusift
+------
+
+``CUSIFT`` extraction and ``CUSIFT_GEMM`` matching are an alternative to
+SiftGPU for SIFT on the GPU. The extractor reimplements COLMAP's VLFeat CPU
+SIFT (detection, orientation and descriptor) in CUDA, so its features follow
+the CPU backend rather than SiftGPU; the stored orientation uses VLFeat's
+convention. For a given image, options and build, extraction and matching are
+deterministic. Example usage::
+
+    $ colmap feature_extractor \
+        --database_path $DATASET_PATH/database.db \
+        --image_path $DATASET_PATH/images \
+        --FeatureExtraction.type CUSIFT
+    $ colmap exhaustive_matcher \
+        --database_path $DATASET_PATH/database.db \
+        --FeatureMatching.type CUSIFT_GEMM
+
+The two can also be used independently: ``CUSIFT`` descriptors can be matched
+by any SIFT matcher, and ``CUSIFT_GEMM`` matches descriptors from any SIFT
+extractor. ``--CusiftExtraction.num_octaves`` (default -1) picks the number of
+octaves like SiftGPU; a positive value builds exactly that many.
+``--CusiftMatching.distance_type`` selects whether the ratio test and
+``max_distance`` are evaluated on angles (``ANGULAR``, the default, as the
+brute-force matcher and SiftGPU) or unit-vector distances (``L2``).
+Unsupported SIFT options (affine shape estimation, domain-size pooling,
+upright features, darkness adaptivity, the covariant extractor) are rejected
+with an error. The ``automatic_reconstructor`` provides the ``--feature
+cusift`` preset; with ``--quality high`` or ``extreme`` it turns off the
+options cusift does not support. cusift is built when CUDA >= 11.2 and
+CMake >= 3.17 are available, unless ``-DCUSIFT_ENABLED=OFF``; with an older
+toolkit it is disabled at configure time and the rest of COLMAP builds as
+before. cusift is MIT-licensed; see ``src/thirdparty/cusift``.
 
 
 FlexGlue

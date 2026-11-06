@@ -83,6 +83,9 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     // FlexGlue reads the image pixels during matching.
     option_manager_.feature_matching->flexglue->image_path =
         options_.image_path.string();
+  } else if (options_.feature == Feature::CUSIFT) {
+    option_manager_.feature_extraction->type = FeatureExtractorType::CUSIFT;
+    option_manager_.feature_matching->type = FeatureMatcherType::CUSIFT_GEMM;
   }
 
   // Apply quality preset (scales max_image_size relative to extractor default).
@@ -110,9 +113,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   if (options_.feature == Feature::ALIKED ||
       options_.feature == Feature::LOMA ||
       options_.feature == Feature::LOMA128 ||
-      options_.feature == Feature::FLEXGLUE) {
-    // Guided matching is not supported for ALIKED/LoMa/FlexGlue
+      options_.feature == Feature::FLEXGLUE ||
+      options_.feature == Feature::CUSIFT) {
+    // Guided matching is not supported for ALIKED/LoMa/FlexGlue/cusift
     option_manager_.feature_matching->guided_matching = false;
+  }
+  if (options_.feature == Feature::CUSIFT) {
+    // The high and extreme quality presets enable covariant SIFT, which cusift
+    // rejects rather than ignores.
+    option_manager_.feature_extraction->sift->estimate_affine_shape = false;
+    option_manager_.feature_extraction->sift->domain_size_pooling = false;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;
