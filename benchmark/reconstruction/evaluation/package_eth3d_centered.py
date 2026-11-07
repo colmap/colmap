@@ -5,11 +5,10 @@
 The official undistorted ETH3D images keep the principal point of each
 distorted GT camera. Their size thus differs between GT cameras and their
 principal point is off-center by about 13 px on average. Here, the distorted
-JPEGs are instead warped to a single PINHOLE camera shared by all images of
-all scenes, with the principal point at the image center. The GT poses and 3D
-points are unchanged, and the GT 2D observations are mapped to the new camera.
-Of the EXIF metadata, only the orientation is kept: the EXIF focal length of
-the distorted images does not apply to the warped images.
+JPEGs are instead undistorted by COLMAP to a single PINHOLE camera shared by
+all images of all scenes, with the principal point at the image center. The GT
+poses and 3D points are unchanged, and the GT 2D observations are undistorted
+together with the images.
 
 Example (from benchmark/reconstruction):
   python download.py --datasets eth3d-distorted
@@ -19,14 +18,13 @@ Example (from benchmark/reconstruction):
 """
 
 import argparse
-import collections
-import concurrent.futures
 import hashlib
 import json
+import shutil
+import tempfile
 from pathlib import Path
 
 import numpy as np
-import py7zr
 
 import pycolmap
 
@@ -44,17 +42,16 @@ JPEG_QUALITY = 97
 
 SOURCE_CALIBRATION = "dslr_calibration_jpg"
 TARGET_CALIBRATION = "dslr_calibration_undistorted"
-TARGET_IMAGE_DIR = "dslr_images_undistorted"
 
 README = """\
 # eth3d-centered
 
 This package is derived from the distorted DSLR JPEG images of the ETH3D
 high-resolution multi-view benchmark for evaluating structure-from-motion in
-COLMAP. All images are warped to the same PINHOLE camera with the principal
-point at the image center and stored as quality-{quality} JPEG. Only the EXIF
-orientation is kept. The ground-truth poses and 3D points are those of the
-distorted images, and the 2D observations are mapped to the new camera.
+COLMAP. All images are undistorted to the same PINHOLE camera with the
+principal point at the image center and stored as quality-{quality} JPEG. The
+ground-truth poses and 3D points are those of the distorted images, and the 2D
+observations are undistorted together with the images.
 
 Dataset: https://www.eth3d.net/
 
@@ -69,9 +66,9 @@ dataset when publishing results based on this package:
 """
 
 
-def create_target_camera(camera_id: int = 1) -> pycolmap.Camera:
+def create_target_camera() -> pycolmap.Camera:
     return pycolmap.Camera(
-        camera_id=camera_id,
+        camera_id=1,
         model="PINHOLE",
         width=TARGET_WIDTH,
         height=TARGET_HEIGHT,
@@ -84,39 +81,12 @@ def create_target_camera(camera_id: int = 1) -> pycolmap.Camera:
     )
 
 
-def map_pixels(
-    source_camera: pycolmap.Camera,
-    target_camera: pycolmap.Camera,
-    points2D: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Maps pixels between two cameras with the same pose.
-
-    Returns the mapped pixels and whether they are inside the target image.
-    """
-    rays = source_camera.cam_from_img(points2D.reshape(-1, 2))
-    rays = np.concatenate([rays, np.ones((len(rays), 1))], axis=1)
-    mapped = target_camera.img_from_cam(rays).reshape(-1, 2)
-    valid = np.all(np.isfinite(mapped), axis=1)
-    valid[valid] &= np.all(
-        (mapped[valid] >= 0)
-        & (mapped[valid] < [target_camera.width, target_camera.height]),
-        axis=1,
-    )
-    return mapped, valid
-
-
 def check_no_blank_pixels(
-    source_camera: pycolmap.Camera,
-    target_camera: pycolmap.Camera,
-    margin: float = 2.0,
+    source_camera: pycolmap.Camera, target_camera: pycolmap.Camera
 ) -> None:
-    """Checks that the target image border maps inside the source image.
-
-    The margin keeps bilinear interpolation away from the source border.
-    """
+    """Checks that the border of the target image maps inside the source."""
     w, h = target_camera.width, target_camera.height
-    xs = np.arange(w + 1, dtype=float)
-    ys = np.arange(h + 1, dtype=float)
+    xs, ys = np.arange(w + 1.0), np.arange(h + 1.0)
     border = np.concatenate(
         [
             np.stack([xs, np.zeros_like(xs)], axis=1),
@@ -125,126 +95,78 @@ def check_no_blank_pixels(
             np.stack([np.full_like(ys, w), ys], axis=1),
         ]
     )
-    mapped, _ = map_pixels(target_camera, source_camera, border)
-    if not (
-        np.all(np.isfinite(mapped))
-        and np.all(mapped >= margin)
-        and np.all(
-            mapped
-            <= [source_camera.width - margin, source_camera.height - margin]
-        )
+    rays = target_camera.cam_from_img(border)
+    mapped = source_camera.img_from_cam(
+        np.concatenate([rays, np.ones((len(rays), 1))], axis=1)
+    )
+    # Keep a margin of one pixel for bilinear interpolation.
+    if not np.all(
+        (mapped >= 1)
+        & (mapped <= [source_camera.width - 1, source_camera.height - 1])
     ):
-        raise ValueError(
-            f"Target camera {target_camera} has blank pixels "
-            f"for source camera {source_camera}"
-        )
+        raise ValueError(f"Blank pixels for source camera {source_camera}")
 
 
-def undistort_reconstruction(
-    source: pycolmap.Reconstruction, target_camera: pycolmap.Camera
+def merge_cameras(
+    reconstruction: pycolmap.Reconstruction, camera: pycolmap.Camera
 ) -> pycolmap.Reconstruction:
-    """Maps a reconstruction to the target camera with the same poses.
-
-    Observations that fall outside of the target image are dropped, and so
-    are the 3D points that are then observed by fewer than two images.
-    """
-    target = pycolmap.Reconstruction()
-    target.add_camera_with_trivial_rig(target_camera)
-    track_elements: dict[int, list[pycolmap.TrackElement]] = (
-        collections.defaultdict(list)
-    )
-    for image_id, image in sorted(source.images.items()):
-        observations = [p for p in image.points2D if p.has_point3D()]
-        points2D = np.array([p.xy for p in observations]).reshape(-1, 2)
-        mapped, valid = map_pixels(
-            source.cameras[image.camera_id], target_camera, points2D
+    """Returns a copy of the reconstruction with all images in one camera."""
+    merged = pycolmap.Reconstruction()
+    merged.add_camera_with_trivial_rig(camera)
+    for image_id, image in reconstruction.images.items():
+        keypoints = np.array([p.xy for p in image.points2D]).reshape(-1, 2)
+        merged.add_image_with_trivial_frame(
+            pycolmap.Image(
+                name=image.name,
+                keypoints=keypoints,
+                camera_id=camera.camera_id,
+                image_id=image_id,
+            ),
+            image.cam_from_world(),
         )
-        target_image = pycolmap.Image(
-            name=f"{TARGET_IMAGE_DIR}/{Path(image.name).name}",
-            keypoints=mapped[valid],
-            camera_id=target_camera.camera_id,
-            image_id=image_id,
-        )
-        target.add_image_with_trivial_frame(
-            target_image, image.cam_from_world()
-        )
-        point3D_ids = [
-            p.point3D_id for p, v in zip(observations, valid, strict=True) if v
-        ]
-        for point2D_idx, point3D_id in enumerate(point3D_ids):
-            track_elements[point3D_id].append(
-                pycolmap.TrackElement(image_id, point2D_idx)
-            )
-    for point3D_id, elements in sorted(track_elements.items()):
-        if len(elements) < 2:
-            continue
-        point3D = source.points3D[point3D_id]
-        target.add_point3D(point3D.xyz, pycolmap.Track(elements), point3D.color)
-    return target
+    for point3D in reconstruction.points3D.values():
+        merged.add_point3D(point3D.xyz, point3D.track, point3D.color)
+    return merged
 
 
-def undistort_image(
-    source_path: Path,
-    target_path: Path,
-    source_camera: pycolmap.Camera,
+def undistort_scene(
+    input_scene_path: Path,
+    output_scene_path: Path,
     target_camera: pycolmap.Camera,
+    num_threads: int = -1,
 ) -> None:
-    source_image = pycolmap.Bitmap.read(source_path, as_rgb=True)
-    if source_image is None:
-        raise RuntimeError(f"Failed to read {source_path}")
-    if (source_image.width, source_image.height) != (
-        source_camera.width,
-        source_camera.height,
-    ):
-        raise RuntimeError(f"Unexpected image size of {source_path}")
-    target_image = pycolmap.warp_image_between_cameras(
-        pycolmap.WarpImageOptions(),
-        source_camera,
-        target_camera,
-        source_image,
-    )
-    orientation = source_image.exif_orientation()
-    if orientation is not None:
-        target_image.set_metadata("Orientation", orientation)
-    target_image.set_jpeg_quality(JPEG_QUALITY)
-    if not target_image.write(target_path):
-        raise RuntimeError(f"Failed to write {target_path}")
-
-
-def process_scene(
-    input_scene_path: Path, output_scene_path: Path, num_threads: int
-) -> None:
-    source = pycolmap.Reconstruction(input_scene_path / SOURCE_CALIBRATION)
-    target_camera = create_target_camera()
-    for camera in source.cameras.values():
+    source_path = input_scene_path / SOURCE_CALIBRATION
+    for camera in pycolmap.Reconstruction(source_path).cameras.values():
         check_no_blank_pixels(camera, target_camera)
 
-    target = undistort_reconstruction(source, target_camera)
-    calibration_path = output_scene_path / TARGET_CALIBRATION
-    calibration_path.mkdir(parents=True, exist_ok=True)
-    target.write_text(calibration_path)
-
-    image_path = output_scene_path / "images" / TARGET_IMAGE_DIR
-    image_path.mkdir(parents=True, exist_ok=True)
-    with concurrent.futures.ThreadPoolExecutor(num_threads) as executor:
-        futures = [
-            executor.submit(
-                undistort_image,
-                input_scene_path / "images" / image.name,
-                image_path / Path(image.name).name,
-                source.cameras[image.camera_id],
-                target_camera,
-            )
-            for image in source.images.values()
-        ]
-        for future in futures:
-            future.result()
+    options = pycolmap.UndistortCameraOptions()
+    options.target_camera = target_camera
+    output_scene_path.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output_scene_path) as tmp_dir:
+        pycolmap.undistort_images(
+            output_path=tmp_dir,
+            input_path=source_path,
+            image_path=input_scene_path / "images",
+            undistort_options=options,
+            jpeg_quality=JPEG_QUALITY,
+            num_threads=num_threads,
+        )
+        # The undistorter keeps one copy of the target camera per GT camera.
+        undistorted = pycolmap.Reconstruction(Path(tmp_dir) / "sparse")
+        calibration_path = output_scene_path / TARGET_CALIBRATION
+        calibration_path.mkdir(exist_ok=True)
+        merge_cameras(undistorted, target_camera).write_text(calibration_path)
+        shutil.rmtree(output_scene_path / "images", ignore_errors=True)
+        shutil.move(Path(tmp_dir) / "images", output_scene_path / "images")
 
 
 def package_scene(
     dataset_path: Path, scene: str, archive_path: Path
 ) -> tuple[str, str]:
     """Writes the archive of a scene and returns its name and SHA256."""
+    # Only required for packaging, unlike the rest of the module.
+    import py7zr
+
     archive_path.mkdir(parents=True, exist_ok=True)
     filename = f"{ARCHIVE_PREFIX}-{scene}.7z"
     readme_path = archive_path / "README.md"
@@ -284,7 +206,7 @@ def parse_args() -> argparse.Namespace:
         "update the release checksums.",
     )
     parser.add_argument("--scenes", nargs="+", default=[])
-    parser.add_argument("--num_threads", type=int, default=8)
+    parser.add_argument("--num_threads", type=int, default=-1)
     return parser.parse_args()
 
 
@@ -304,7 +226,12 @@ def main() -> None:
     )
     for scene in scenes:
         pycolmap.logging.info(f"Processing scene {scene}")
-        process_scene(input_path / scene, output_path / scene, args.num_threads)
+        undistort_scene(
+            input_path / scene,
+            output_path / scene,
+            create_target_camera(),
+            args.num_threads,
+        )
         if args.archive_path is not None:
             filename, checksum = package_scene(
                 output_path, scene, args.archive_path

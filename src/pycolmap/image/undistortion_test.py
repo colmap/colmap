@@ -129,27 +129,30 @@ def test_undistort_image() -> None:
     assert isinstance(undistorted_camera, pycolmap.Camera)
 
 
-def test_warp_image_between_cameras() -> None:
-    source_camera = pycolmap.Camera(
-        model="PINHOLE", width=64, height=48, params=[50.0, 50.0, 32.0, 24.0]
+def test_undistort_camera_options_target_camera_readwrite() -> None:
+    options = pycolmap.UndistortCameraOptions()
+    assert options.target_camera is None
+    camera = pycolmap.Camera.create_from_model_id(
+        2, pycolmap.CameraModelId.PINHOLE, 50.0, 60, 40
     )
-    # Shifting the principal point by an integer number of pixels shifts the
-    # image by the same amount.
-    target_camera = pycolmap.Camera(
-        model="PINHOLE", width=64, height=48, params=[50.0, 50.0, 34.0, 24.0]
+    options.target_camera = camera
+    assert options.target_camera == camera
+    options.target_camera = None
+    assert options.target_camera is None
+
+
+def test_undistort_image_target_camera() -> None:
+    options = pycolmap.UndistortCameraOptions()
+    options.target_camera = pycolmap.Camera.create_from_model_id(
+        2, pycolmap.CameraModelId.PINHOLE, 50.0, 60, 40
     )
-    array = np.random.randint(1, 256, (48, 64, 3), dtype=np.uint8)
-    bitmap = pycolmap.Bitmap.from_array(array)
-    options = pycolmap.WarpImageOptions()
-    options.interpolation = (
-        pycolmap.WarpImageOptions.Interpolation.NEAREST_NEIGHBOR
+    camera = pycolmap.Camera.create_from_model_id(
+        1, pycolmap.CameraModelId.SIMPLE_RADIAL, 100.0, 100, 100
     )
-    warped = pycolmap.warp_image_between_cameras(
-        options, source_camera, target_camera, bitmap
+    bitmap = pycolmap.Bitmap.from_array(np.zeros((100, 100, 3), np.uint8))
+    undistorted_bitmap, undistorted_camera = pycolmap.undistort_image(
+        options, bitmap, camera
     )
-    assert warped.width == 64
-    assert warped.height == 48
-    warped_array = warped.to_array()
-    np.testing.assert_array_equal(warped_array[:, 2:], array[:, :-2])
-    # Target pixels outside of the source image are black.
-    np.testing.assert_array_equal(warped_array[:, :2], 0)
+    assert (undistorted_bitmap.width, undistorted_bitmap.height) == (60, 40)
+    assert undistorted_camera.camera_id == 1
+    assert undistorted_camera.params.tolist() == [50.0, 50.0, 30.0, 20.0]

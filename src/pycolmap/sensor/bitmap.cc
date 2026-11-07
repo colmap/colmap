@@ -167,33 +167,6 @@ void BindBitmap(pybind11::module& m) {
           "Set compression quality when writing to JPEG in the range [1, 100]. "
           "Lower values reduce quality and file size. By default, bitmaps are "
           "written in superb (100) quality, if not otherwise specified.")
-      .def(
-          "set_metadata",
-          [](Bitmap& self, const std::string& name, int value) {
-            self.SetMetaData(name, "int", &value);
-          },
-          "name"_a,
-          "value"_a,
-          "Set an integer metadata attribute (e.g., EXIF \"Orientation\"), "
-          "which is written to the file by `write`.")
-      .def(
-          "set_metadata",
-          [](Bitmap& self, const std::string& name, float value) {
-            self.SetMetaData(name, "float", &value);
-          },
-          "name"_a,
-          "value"_a,
-          "Set a float metadata attribute, which is written to the file by "
-          "`write`.")
-      .def(
-          "set_metadata",
-          [](Bitmap& self, const std::string& name, const std::string& value) {
-            self.SetMetaData(name, value);
-          },
-          "name"_a,
-          "value"_a,
-          "Set a string metadata attribute, which is written to the file by "
-          "`write`.")
       .def("exif_orientation",
            &Bitmap::ExifOrientation,
            "Extract EXIF orientation. Returns None if not available.")

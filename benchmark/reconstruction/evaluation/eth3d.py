@@ -142,9 +142,8 @@ class DatasetETH3DCentered(_DatasetETH3D):
 
     Built by `package_eth3d_centered.py` from the distorted DSLR JPEGs. All
     images of all scenes share the same PINHOLE camera, with the principal
-    point at the image center. The JPEGs only keep the EXIF orientation, so
-    `--uncalibrated` starts from a focal-length guess of
-    1.2 * max(width, height).
+    point at the image center. The JPEGs keep the EXIF of the distorted
+    images, so `--uncalibrated` starts from the EXIF focal length.
     """
 
     dataset_name = "eth3d-centered"

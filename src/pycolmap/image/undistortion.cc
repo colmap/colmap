@@ -7,6 +7,7 @@
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -28,26 +29,6 @@ void BindUndistortion(py::module& m) {
                      &WarpImageOptions::direct_warp_min_scale);
   MakeDataclass(PyWarpImageOptions);
 
-  m.def(
-      "warp_image_between_cameras",
-      [](const WarpImageOptions& options,
-         const Camera& source_camera,
-         const Camera& target_camera,
-         const Bitmap& source_image) -> Bitmap {
-        py::gil_scoped_release release;
-        Bitmap target_image;
-        WarpImageBetweenCameras(
-            options, source_camera, target_camera, source_image, &target_image);
-        return target_image;
-      },
-      "options"_a,
-      "source_camera"_a,
-      "target_camera"_a,
-      "source_image"_a,
-      "Warp the image of the source camera to the target camera by inverse "
-      "mapping the target pixels through the target and source cameras. "
-      "Target pixels that project outside the source image are black.");
-
   auto PyUndistortCameraOptions =
       py::classh<UndistortCameraOptions>(m, "UndistortCameraOptions")
           .def(py::init<>())
@@ -62,7 +43,11 @@ void BindUndistortion(py::module& m) {
           .def_readwrite("roi_max_y", &UndistortCameraOptions::roi_max_y)
           .def_readwrite("max_cam_point_norm",
                          &UndistortCameraOptions::max_cam_point_norm)
-          .def_readwrite("warp_options", &UndistortCameraOptions::warp_options);
+          .def_readwrite("warp_options", &UndistortCameraOptions::warp_options)
+          .def_readwrite("target_camera",
+                         &UndistortCameraOptions::target_camera,
+                         "If set, all perspective cameras are undistorted to "
+                         "this pinhole camera, ignoring the other options.");
   MakeDataclass(PyUndistortCameraOptions);
 
   m.def("undistort_camera",
