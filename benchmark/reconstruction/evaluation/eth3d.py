@@ -92,6 +92,7 @@ class _DatasetETH3D(Dataset):
                     image_path=image_path,
                     sparse_gt_path=sparse_gt_path,
                     has_camera_priors=True,
+                    camera_priors_define_sharing=True,
                     colmap_extra_args=colmap_extra_args,
                 )
 

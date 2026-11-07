@@ -91,6 +91,10 @@ class SceneInfo:
     sparse_gt_path: Path
     # Whether the dataset has camera priors.
     has_camera_priors: bool
+    # Whether the camera priors also define which images share a camera.
+    # Otherwise, the sharing guessed by COLMAP during feature extraction is
+    # kept and only the camera parameters are set from the camera priors.
+    camera_priors_define_sharing: bool = False
     # Additional arguments for the COLMAP reconstruction command.
     colmap_extra_args: list[str | Path] | None
     # Reconstruction backend. The default uses automatic_reconstructor.
@@ -621,11 +625,69 @@ def set_camera_priors(
             updated_camera_ids.add(image.camera_id)
 
 
+def set_cameras_from_gt(
+    database_path: Path, camera_priors_sparse_gt: pycolmap.Reconstruction
+) -> None:
+    """Sets the cameras of all images and their sharing from GT.
+
+    Unlike set_camera_priors, which keeps the camera sharing guessed by COLMAP
+    during feature extraction, every image is assigned to a copy of its GT
+    camera. Each camera gets a trivial rig and each image a trivial frame.
+    """
+    pycolmap.logging.info("Setting prior cameras and their sharing from GT")
+
+    gt_camera_ids = {
+        image.name: image.camera_id
+        for image in camera_priors_sparse_gt.images.values()
+    }
+    with pycolmap.Database.open(str(database_path)) as database:
+        images = database.read_all_images()
+        missing = [
+            image.name for image in images if image.name not in gt_camera_ids
+        ]
+        if missing:
+            raise ValueError(f"Images do not exist in GT: {missing}")
+        pose_priors = database.read_all_pose_priors()
+
+        database.clear_frames()
+        database.clear_rigs()
+        database.clear_cameras()
+
+        camera_ids = {}
+        rig_ids = {}
+        for gt_camera_id in sorted(
+            {gt_camera_ids[image.name] for image in images}
+        ):
+            camera = copy.copy(camera_priors_sparse_gt.cameras[gt_camera_id])
+            camera.source = pycolmap.CameraSource.USER
+            camera.camera_id = database.write_camera(camera)
+            rig = pycolmap.Rig()
+            rig.add_ref_sensor(camera.sensor_id)
+            camera_ids[gt_camera_id] = camera.camera_id
+            rig_ids[camera.camera_id] = database.write_rig(rig)
+
+        data_ids = {}
+        for image in images:
+            image.camera_id = camera_ids[gt_camera_ids[image.name]]
+            frame = pycolmap.Frame()
+            frame.rig_id = rig_ids[image.camera_id]
+            frame.add_data_id(image.data_id)
+            image.frame_id = database.write_frame(frame)
+            database.update_image(image)
+            data_ids[image.image_id] = image.data_id
+
+        # Pose priors refer to their image together with its camera.
+        for pose_prior in pose_priors:
+            pose_prior.corr_data_id = data_ids[pose_prior.corr_data_id.id]
+            database.update_pose_prior(pose_prior)
+
+
 def colmap_reconstruction(
     args: argparse.Namespace,
     workspace_path: Path,
     image_path: Path,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
+    camera_priors_define_sharing: bool = False,
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
     colmap_extra_args: list[str | Path] | None = None,
     num_threads: int = 1,
@@ -725,7 +787,10 @@ def colmap_reconstruction(
     )
 
     if camera_priors_sparse_gt is not None:
-        set_camera_priors(database_path, camera_priors_sparse_gt)
+        if camera_priors_define_sharing:
+            set_cameras_from_gt(database_path, camera_priors_sparse_gt)
+        else:
+            set_camera_priors(database_path, camera_priors_sparse_gt)
 
     phase_tracker.set("matching")
     _run_with_log(
@@ -949,6 +1014,7 @@ def process_scene(
                 and scene_info.has_camera_priors
                 else None
             ),
+            camera_priors_define_sharing=scene_info.camera_priors_define_sharing,
             covisibility_sparse_gt=(
                 sparse_gt
                 if args.filter_covisibility
