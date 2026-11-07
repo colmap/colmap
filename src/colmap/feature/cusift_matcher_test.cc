@@ -13,6 +13,8 @@
 #include <cmath>
 #include <numeric>
 #include <set>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -284,7 +286,9 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
     FeatureMatchingOptions options = CreateCusiftMatchingOptions();
     options.cusift->distance_type = distance_type;
     options.sift->cross_check = false;
-    options.sift->max_ratio = 1.0;  // a single candidate has no runner-up
+    // A single candidate's runner-up counts as infinitely far (L2) or at
+    // angle pi/2 (ANGULAR); the pair's distance passes either ratio test.
+    options.sift->max_ratio = 1.0;
     for (const double factor : {1.05, 0.95}) {
       options.sift->max_distance = factor * distance;
       auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
@@ -609,6 +613,87 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
   ASSERT_EQ(want.size(), 1);
   EXPECT_EQ(MatchToSet(*cu_matcher, img1, img2), want)
       << "the winning candidate changed under non-canonical descriptor norms";
+}
+
+// Thresholds and cross-check setting, applied alike to the cusift matcher and
+// to COLMAP's exact CPU matcher.
+struct MatchingSetup {
+  double max_ratio = 0.8;
+  double max_distance = 0.7;
+  bool cross_check = true;
+};
+
+FeatureMatchingOptions CreateCusiftMatchingOptions(const MatchingSetup& setup) {
+  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+  options.sift->max_ratio = setup.max_ratio;
+  options.sift->max_distance = setup.max_distance;
+  options.sift->cross_check = setup.cross_check;
+  return options;
+}
+
+FeatureMatchingOptions CreateExactCpuMatchingOptions(
+    const MatchingSetup& setup) {
+  FeatureMatchingOptions options(FeatureMatcherType::SIFT_BRUTEFORCE);
+  options.use_gpu = false;
+  options.sift->cpu_brute_force_matcher = true;
+  options.sift->max_ratio = setup.max_ratio;
+  options.sift->max_distance = setup.max_distance;
+  options.sift->cross_check = setup.cross_check;
+  return options;
+}
+
+// One descriptor in each image leaves both ratio tests without a runner-up.
+// The reference seeds it at dot 0 (angle pi/2): a lone candidate at 1.37 rad
+// fails ratio 0.8 even inside max_distance 1.5, one at 0.45 rad passes, and a
+// candidate sharing no support (dot 0) is no candidate at all, however large
+// max_distance is.
+TEST(CusiftMatcherParity, SingleCandidateFollowsTheReference) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  FeatureDescriptorsFloatData f = FeatureDescriptorsFloatData::Zero(4, 128);
+  for (int d = 0; d < 10; ++d) f(0, d) = 1.0f;  // the query
+  for (int d = 8; d < 18; ++d) f(1, d) = 1.0f;  // shares 2 of 10: 1.37 rad
+  for (int d = 0; d < 9; ++d) f(2, d) = 1.0f;   // shares 9 of 10: 0.45 rad
+  f(2, 20) = 1.0f;
+  for (int d = 30; d < 40; ++d) f(3, d) = 1.0f;  // disjoint: dot 0
+  L2NormalizeFeatureDescriptors(&f);
+  const FeatureDescriptorsData bytes = FeatureDescriptorsToUnsignedByte(f);
+  const auto single = [&bytes](const int row) {
+    return MakeImage(
+        row + 1,
+        FeatureDescriptors(FeatureExtractorType::SIFT, bytes.row(row)));
+  };
+  struct Case {
+    int candidate;
+    size_t num_matches;
+  };
+  for (const Case& c : {Case{1, 0}, Case{2, 1}, Case{3, 0}}) {
+    for (const bool cross_check : {false, true}) {
+      for (const double max_distance : {1.5, 1.6}) {
+        const MatchingSetup setup{0.8, max_distance, cross_check};
+        auto ref_matcher = THROW_CHECK_NOTNULL(
+            CreateSiftFeatureMatcher(CreateExactCpuMatchingOptions(setup)));
+        const auto want =
+            MatchToSet(*ref_matcher, single(0), single(c.candidate));
+        ASSERT_EQ(want.size(), c.num_matches);
+        auto cu_matcher = THROW_CHECK_NOTNULL(
+            CreateCusiftFeatureMatcher(CreateCusiftMatchingOptions(setup)));
+        EXPECT_EQ(MatchToSet(*cu_matcher, single(0), single(c.candidate)), want)
+            << "candidate row " << c.candidate << " cross_check=" << cross_check
+            << " max_distance=" << max_distance;
+      }
+    }
+  }
+  // With max_ratio above 1 only the no-candidate rule rejects the disjoint
+  // candidate: its dot 0 would otherwise pass the ratio test against pi/2.
+  const MatchingSetup lenient{/*max_ratio=*/1.2,
+                              /*max_distance=*/1.6,
+                              /*cross_check=*/false};
+  auto ref_matcher = THROW_CHECK_NOTNULL(
+      CreateSiftFeatureMatcher(CreateExactCpuMatchingOptions(lenient)));
+  ASSERT_TRUE(MatchToSet(*ref_matcher, single(0), single(3)).empty());
+  auto cu_matcher = THROW_CHECK_NOTNULL(
+      CreateCusiftFeatureMatcher(CreateCusiftMatchingOptions(lenient)));
+  EXPECT_TRUE(MatchToSet(*cu_matcher, single(0), single(3)).empty());
 }
 
 #else  // !defined(COLMAP_CUSIFT_ENABLED)

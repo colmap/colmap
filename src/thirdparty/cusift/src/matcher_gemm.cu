@@ -370,13 +370,15 @@ float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
 
     float dB;  // reported squared distance, COLMAP scale
     if (angular) {
+      // The reference seeds best and second at dot 0: a best dot <= 0 is no
+      // candidate, and a missing or non-positive runner-up counts as dot 0
+      // (angle pi/2), so a lone candidate still faces the ratio test.
+      if (hB[i] <= 0.0f) continue;
       const float aB = angle_of(hB[i]);
       // Threshold on the angle, matching the reference's ordering of tests.
       if (aB > maxDistance) continue;
-      if (j2 >= 0) {
-        const float aS = angle_of(hS[i]);
-        if (aB >= ratio * aS) continue;
-      }
+      const float aS = angle_of(fmaxf(hS[i], 0.0f));
+      if (aB >= ratio * aS) continue;
       dB = h1Sq[i] + h2Sq[j] - 2.0f * hB[i];
     } else {
       dB = h1Sq[i] - hB[i];
@@ -392,8 +394,10 @@ float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
       // its own ratio test, not just mutual-best agreement (see ColTop2).
       if (reverseRatio) {
         if (angular) {
+          // Same seeding as the forward direction: a column with one row has
+          // its runner-up at dot 0, not at the -FLT_MAX initialiser.
           const float cB = angle_of(hColB[j]);
-          const float cS = angle_of(hColS[j]);
+          const float cS = angle_of(fmaxf(hColS[j], 0.0f));
           if (cB > maxDistance) continue;
           if (cB >= ratio * cS) continue;
         } else {
