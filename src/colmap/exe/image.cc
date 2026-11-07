@@ -324,6 +324,9 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption(
       "output_type", &output_type, "{COLMAP, PMVS, CMP-MVS}");
   options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddDefaultOption("mask_path",
+                           &undistorter_options.mask_path,
+                           "Input masks to undistort (COLMAP output only)");
   options.AddDefaultOption(
       "copy_policy", &copy_policy, "{COPY, SOFT_LINK, HARD_LINK}");
   options.AddDefaultOption("blank_pixels",
@@ -341,6 +344,18 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("jpeg_quality", &jpeg_quality);
   options.AddDefaultOption("num_threads", &num_threads);
   if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!undistorter_options.mask_path.empty() && output_type != "COLMAP") {
+    LOG(ERROR) << "mask_path is only supported for COLMAP output.";
+    return EXIT_FAILURE;
+  }
+
+  if (!undistorter_options.mask_path.empty() &&
+      !ExistsDir(undistorter_options.mask_path)) {
+    LOG(ERROR) << "Mask directory does not exist: "
+               << undistorter_options.mask_path;
     return EXIT_FAILURE;
   }
 
@@ -400,7 +415,12 @@ int RunImageUndistorter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  undistorter->Run();
+  try {
+    undistorter->Run();
+  } catch (const std::exception& e) {
+    LOG(ERROR) << e.what();
+    return EXIT_FAILURE;
+  }
 
   return EXIT_SUCCESS;
 }

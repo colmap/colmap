@@ -111,10 +111,13 @@ void UndistortImages(
     const UndistortCameraOptions& undistort_camera_options,
     int jpeg_quality,
     int num_threads,
-    const std::shared_ptr<CancellationToken>& cancellation_token) {
+    const std::shared_ptr<CancellationToken>& cancellation_token,
+    const std::filesystem::path& mask_path) {
   THROW_CHECK_DIR_EXISTS(image_path);
   CreateDirIfNotExists(output_path);
 
+  THROW_CHECK(mask_path.empty() || output_type == "COLMAP")
+      << "mask_path is only supported for COLMAP output.";
   if (output_type != "COLMAP") {
     LOG_IF(WARNING, !image_names.empty())
         << "Ignoring `image_names` for output type " << output_type;
@@ -134,6 +137,7 @@ void UndistortImages(
   if (output_type == "COLMAP") {
     COLMAPUndistorter::Options options;
     options.copy_type = copy_type;
+    options.mask_path = mask_path;
     if (num_patch_match_src_images > 0) {
       options.num_patch_match_src_images = num_patch_match_src_images;
     }
@@ -257,20 +261,25 @@ void BindImages(py::module& m) {
         py::arg_v("options", ImageReaderOptions(), "ImageReaderOptions()"),
         "Guess the camera parameters from the EXIF metadata");
 
-  m.def("undistort_images",
-        &UndistortImages,
-        "output_path"_a,
-        "input_path"_a,
-        "image_path"_a,
-        "image_names"_a = std::vector<std::string>(),
-        "output_type"_a = "COLMAP",
-        "copy_policy"_a = FileCopyType::COPY,
-        "num_patch_match_src_images"_a = -1,
-        py::arg_v("undistort_options",
-                  UndistortCameraOptions(),
-                  "UndistortCameraOptions()"),
-        "jpeg_quality"_a = -1,
-        "num_threads"_a = -1,
-        "cancellation_token"_a = py::none(),
-        "Undistort images");
+  m.def(
+      "undistort_images",
+      &UndistortImages,
+      "output_path"_a,
+      "input_path"_a,
+      "image_path"_a,
+      "image_names"_a = std::vector<std::string>(),
+      "output_type"_a = "COLMAP",
+      "copy_policy"_a = FileCopyType::COPY,
+      "num_patch_match_src_images"_a = -1,
+      py::arg_v("undistort_options",
+                UndistortCameraOptions(),
+                "UndistortCameraOptions()"),
+      "jpeg_quality"_a = -1,
+      "num_threads"_a = -1,
+      "cancellation_token"_a = py::none(),
+      py::kw_only(),
+      "mask_path"_a = "",
+      "Undistort images and, optionally, grayscale masks (COLMAP output only). "
+      "Masks must match each selected image and are written with nearest-"
+      "neighbor sampling to output_path/masks/<image_name>.png.");
 }
