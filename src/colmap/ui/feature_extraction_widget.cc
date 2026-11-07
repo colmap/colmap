@@ -181,6 +181,15 @@ CusiftExtractionWidget::CusiftExtractionWidget(QWidget* parent,
 }
 
 void CusiftExtractionWidget::Run() {
+  // The SIFT options are shared with the SIFT tab, which exposes options cusift
+  // rejects; report them here instead of failing in the extraction controller.
+  WriteOptions();
+  const std::string unsupported =
+      CusiftUnsupportedSiftOption(*options_->feature_extraction->sift);
+  if (!unsupported.empty()) {
+    QMessageBox::critical(this, "", QString::fromStdString(unsupported));
+    return;
+  }
   options_->feature_extraction->type = FeatureExtractorType::CUSIFT;
   RunExtraction();
 }

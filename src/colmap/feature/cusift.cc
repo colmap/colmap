@@ -6,6 +6,7 @@
 #include "colmap/feature/utils.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+#include "colmap/util/string.h"
 
 #ifdef COLMAP_CUSIFT_ENABLED
 #include "colmap/util/cuda.h"
@@ -227,45 +228,56 @@ bool CusiftExtractionOptions::Check() const {
   return true;
 }
 
-bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift) {
-  const auto reject = [](const char* reason) {
-    LOG(ERROR) << "cusift " << reason;
-    return false;
-  };
+std::string CusiftUnsupportedSiftOption(const SiftExtractionOptions& sift) {
   if (sift.estimate_affine_shape) {
-    return reject("does not implement affine shape estimation");
+    return "sift.estimate_affine_shape: cusift does not implement affine shape "
+           "estimation";
   }
   if (sift.domain_size_pooling) {
-    return reject("does not implement domain-size pooling");
+    return "sift.domain_size_pooling: cusift does not implement domain-size "
+           "pooling";
   }
   if (sift.upright) {
-    return reject("does not implement upright features");
+    return "sift.upright: cusift does not implement upright features";
   }
   if (sift.darkness_adaptivity) {
-    return reject("does not implement darkness adaptivity");
+    return "sift.darkness_adaptivity: cusift does not implement darkness "
+           "adaptivity";
   }
   if (sift.force_covariant_extractor) {
-    return reject("is not a covariant extractor");
+    return "sift.force_covariant_extractor: cusift is not a covariant "
+           "extractor";
   }
   // VLFeat's o_min. cusift implements the 2x-upsampled extra octave (-1),
   // which is COLMAP's default, and the plain first octave (0); nothing else.
   if (sift.first_octave != 0 && sift.first_octave != -1) {
-    LOG(ERROR) << "cusift supports first_octave 0 or -1, got "
-               << sift.first_octave;
-    return false;
+    return StringPrintf("sift.first_octave: cusift supports 0 or -1, got %d",
+                        sift.first_octave);
   }
   if (sift.octave_resolution != kCusiftOctaveResolution) {
-    LOG(ERROR) << "cusift's levels per octave are fixed at "
-               << kCusiftOctaveResolution << ", got " << sift.octave_resolution;
-    return false;
+    return StringPrintf(
+        "sift.octave_resolution: cusift's levels per octave are fixed at %d, "
+        "got %d",
+        kCusiftOctaveResolution,
+        sift.octave_resolution);
   }
   // cusift's octave count is CusiftExtractionOptions::num_octaves; a changed
   // SiftExtraction.num_octaves would otherwise be ignored without notice.
   const int default_num_octaves = SiftExtractionOptions().num_octaves;
   if (sift.num_octaves != default_num_octaves) {
-    LOG(ERROR) << "cusift ignores SiftExtraction.num_octaves (default "
-               << default_num_octaves << ", got " << sift.num_octaves
-               << "); set CusiftExtraction.num_octaves instead";
+    return StringPrintf(
+        "sift.num_octaves: cusift ignores it (default %d, got %d); set "
+        "cusift.num_octaves instead",
+        default_num_octaves,
+        sift.num_octaves);
+  }
+  return "";
+}
+
+bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift) {
+  const std::string unsupported = CusiftUnsupportedSiftOption(sift);
+  if (!unsupported.empty()) {
+    LOG(ERROR) << unsupported;
     return false;
   }
   return true;

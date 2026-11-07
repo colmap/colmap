@@ -120,6 +120,8 @@ TEST(CusiftExtractionOptions, NumOctavesDefaultsToAutoAndCanBeSet) {
 
 struct CusiftUnsupportedOptionParams {
   std::string name;
+  // The option as the GUI and the error message name it.
+  std::string option;
   std::function<void(SiftExtractionOptions&)> apply;
 };
 
@@ -140,33 +142,52 @@ TEST_P(CusiftUnsupportedOptionTest, FailsOptionsCheck) {
 #endif
 }
 
+TEST_P(CusiftUnsupportedOptionTest, MessageNamesTheOption) {
+  SiftExtractionOptions options;
+  EXPECT_EQ(CusiftUnsupportedSiftOption(options), "");
+  GetParam().apply(options);
+  // The GUI shows this message, so it must say which option to change.
+  EXPECT_THAT(CusiftUnsupportedSiftOption(options),
+              testing::StartsWith(GetParam().option + ": "));
+}
+
 INSTANTIATE_TEST_SUITE_P(
     CusiftUnsupportedOption,
     CusiftUnsupportedOptionTest,
     ::testing::Values(
         CusiftUnsupportedOptionParams{
             "EstimateAffineShape",
+            "sift.estimate_affine_shape",
             [](SiftExtractionOptions& o) { o.estimate_affine_shape = true; }},
         CusiftUnsupportedOptionParams{
             "DomainSizePooling",
+            "sift.domain_size_pooling",
             [](SiftExtractionOptions& o) { o.domain_size_pooling = true; }},
         CusiftUnsupportedOptionParams{
-            "Upright", [](SiftExtractionOptions& o) { o.upright = true; }},
+            "Upright",
+            "sift.upright",
+            [](SiftExtractionOptions& o) { o.upright = true; }},
         CusiftUnsupportedOptionParams{
             "DarknessAdaptivity",
+            "sift.darkness_adaptivity",
             [](SiftExtractionOptions& o) { o.darkness_adaptivity = true; }},
         CusiftUnsupportedOptionParams{"ForceCovariantExtractor",
+                                      "sift.force_covariant_extractor",
                                       [](SiftExtractionOptions& o) {
                                         o.force_covariant_extractor = true;
                                       }},
         CusiftUnsupportedOptionParams{
             "FirstOctave",
+            "sift.first_octave",
             [](SiftExtractionOptions& o) { o.first_octave = -2; }},
         CusiftUnsupportedOptionParams{
             "OctaveResolution",
+            "sift.octave_resolution",
             [](SiftExtractionOptions& o) { o.octave_resolution = 4; }},
         CusiftUnsupportedOptionParams{
-            "NumOctaves", [](SiftExtractionOptions& o) { o.num_octaves = 6; }}),
+            "NumOctaves",
+            "sift.num_octaves",
+            [](SiftExtractionOptions& o) { o.num_octaves = 6; }}),
     [](const auto& info) { return info.param.name; });
 
 // Options pass Check() only in a build with cusift; without it, Check() rejects
