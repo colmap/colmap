@@ -3,6 +3,7 @@
 """Depth-based covisibility for TartanAir equirectangular images."""
 
 from pathlib import Path
+from zipfile import BadZipFile
 
 import numpy as np
 import numpy.typing as npt
@@ -62,10 +63,14 @@ def compute_covisibility_counts(
         raise ValueError(
             "Expected one 4x4 world_from_camera matrix per depth image"
         )
-    if depth_scale <= 0:
+    if stride <= 0:
+        raise ValueError("stride must be positive")
+    if not np.isfinite(depth_scale) or depth_scale <= 0:
         raise ValueError("depth_scale must be positive")
 
     _, height, width = depths.shape
+    if len(depths) == 0:
+        return np.zeros((0, 0), dtype=np.uint32)
     rays = equirectangular_rays(width, height, stride)
     sampled_depths = (
         depths[:, ::stride, ::stride]
@@ -104,7 +109,8 @@ def compute_covisibility_counts(
                 absolute_tolerance, relative_tolerance * projected_depth
             )
             visible = (
-                (target_depth > 0)
+                (projected_depth > 0)
+                & (target_depth > 0)
                 & (target_depth <= max_depth)
                 & (np.abs(target_depth - projected_depth) <= tolerance)
             )
@@ -119,6 +125,8 @@ def covisibility_is_current(path: Path, image_names: list[str]) -> bool:
         with np.load(path) as covisibility:
             return (
                 covisibility["image_names"].tolist() == image_names
+                and covisibility["directed_overlap_counts"].shape
+                == (len(image_names), len(image_names))
                 and covisibility["sample_stride"].item() == SAMPLE_STRIDE
                 and covisibility["max_depth"].item() == MAX_DEPTH
                 and covisibility["absolute_tolerance"].item()
@@ -126,7 +134,7 @@ def covisibility_is_current(path: Path, image_names: list[str]) -> bool:
                 and covisibility["relative_tolerance"].item()
                 == RELATIVE_TOLERANCE
             )
-    except (KeyError, OSError, ValueError):
+    except (KeyError, OSError, ValueError, EOFError, BadZipFile):
         return False
 
 
