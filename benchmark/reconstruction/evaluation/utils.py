@@ -639,9 +639,10 @@ def set_cameras_from_gt(
 
     Unlike set_camera_priors, which keeps the camera sharing guessed by COLMAP
     during feature extraction, every image is assigned to a copy of its GT
-    camera. Each camera gets a trivial rig and each image a trivial frame,
-    unless rig_image_prefixes defines a rig of GT cameras (see SceneInfo),
-    whose extrinsics are then derived from the GT poses.
+    camera. The rigs and frames are then rewritten by apply_rig_config: a rig
+    of GT cameras if rig_image_prefixes is set (see SceneInfo), with its
+    extrinsics derived from the GT poses, and trivial rigs and frames
+    otherwise.
     """
     pycolmap.logging.info("Setting prior cameras and their sharing from GT")
 
@@ -658,38 +659,33 @@ def set_cameras_from_gt(
             raise ValueError(f"Images do not exist in GT: {missing}")
         pose_priors = database.read_all_pose_priors()
 
-        database.clear_frames()
-        database.clear_rigs()
         database.clear_cameras()
-
         camera_ids = {}
-        rig_ids = {}
         for gt_camera_id in sorted(
             {gt_camera_ids[image.name] for image in images}
         ):
             camera = copy.copy(camera_priors_sparse_gt.cameras[gt_camera_id])
             camera.source = pycolmap.CameraSource.USER
-            camera.camera_id = database.write_camera(camera)
-            rig = pycolmap.Rig()
-            rig.add_ref_sensor(camera.sensor_id)
-            camera_ids[gt_camera_id] = camera.camera_id
-            rig_ids[camera.camera_id] = database.write_rig(rig)
+            camera_ids[gt_camera_id] = database.write_camera(camera)
 
         data_ids = {}
         for image in images:
-            image.camera_id = camera_ids[gt_camera_ids[image.name]]
-            frame = pycolmap.Frame()
-            frame.rig_id = rig_ids[image.camera_id]
-            frame.add_data_id(image.data_id)
-            image.frame_id = database.write_frame(frame)
-            database.update_image(image)
-            data_ids[image.image_id] = image.data_id
+            # Drop the frame of the image, which no longer contains its new
+            # data ID until apply_rig_config rewrites the frames below.
+            updated_image = pycolmap.Image(
+                name=image.name,
+                camera_id=camera_ids[gt_camera_ids[image.name]],
+                image_id=image.image_id,
+            )
+            database.update_image(updated_image)
+            data_ids[image.image_id] = updated_image.data_id
 
         # Pose priors refer to their image together with its camera.
         for pose_prior in pose_priors:
             pose_prior.corr_data_id = data_ids[pose_prior.corr_data_id.id]
             database.update_pose_prior(pose_prior)
 
+        rig_configs = []
         if rig_image_prefixes:
             rig_config = pycolmap.RigConfig()
             rig_config.cameras = [
@@ -698,13 +694,16 @@ def set_cameras_from_gt(
                 )
                 for i, image_prefix in enumerate(rig_image_prefixes)
             ]
-            # This also overwrites the rigs and frames of the reconstruction,
-            # so pass a copy of the GT.
-            pycolmap.apply_rig_config(
-                [rig_config],
-                database,
-                pycolmap.Reconstruction(camera_priors_sparse_gt),
-            )
+            rig_configs.append(rig_config)
+        # The rig extrinsics are derived from the GT, whose rigs and frames are
+        # then also overwritten, so pass a copy of the GT.
+        pycolmap.apply_rig_config(
+            rig_configs,
+            database,
+            pycolmap.Reconstruction(camera_priors_sparse_gt)
+            if rig_configs
+            else None,
+        )
 
 
 def colmap_reconstruction(
