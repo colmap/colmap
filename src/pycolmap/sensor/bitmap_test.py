@@ -179,6 +179,21 @@ def test_bitmap_exif_orientation() -> None:
     assert result is None
 
 
+def test_bitmap_set_metadata_write_read(tmp_path: Path) -> None:
+    bitmap = pycolmap.Bitmap(width=32, height=24, as_rgb=True)
+    bitmap.set_metadata("Orientation", 6)
+    bitmap.set_metadata("Make", "Maker")
+    bitmap.set_metadata("Model", "Camera")
+    bitmap.set_metadata("Exif:FocalLength", 20.0)
+    assert bitmap.exif_orientation() == 6
+    filepath = tmp_path / "test.jpg"
+    assert bitmap.write(filepath)
+    loaded = pycolmap.Bitmap.read(filepath, as_rgb=True)
+    assert loaded is not None
+    assert loaded.exif_orientation() == 6
+    assert loaded.exif_camera_model() == "Maker-Camera-20.000000-32x24"
+
+
 def test_bitmap_exif_camera_model() -> None:
     bitmap = pycolmap.Bitmap(width=32, height=24, as_rgb=True)
     result = bitmap.exif_camera_model()
