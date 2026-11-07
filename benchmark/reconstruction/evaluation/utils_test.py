@@ -175,6 +175,51 @@ def test_learned_calibration_disables_gt_camera_priors(
     assert call["camera_priors_sparse_gt"] is None
 
 
+def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
+    database_path = tmp_path / "database.db"
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_rigs = 1
+    options.num_cameras_per_rig = 2
+    options.num_frames_per_rig = 3
+    options.prior_gravity = True
+    with pycolmap.Database.open(str(database_path)) as database:
+        sparse_gt = pycolmap.synthesize_dataset(options, database)
+    (gt_rig,) = sparse_gt.rigs.values()
+    (gt_sensor_id,) = gt_rig.non_ref_sensors
+
+    utils.set_cameras_from_gt(
+        database_path, sparse_gt, ["camera000001_", "camera000002_"]
+    )
+
+    with pycolmap.Database.open(str(database_path)) as database:
+        images = {image.image_id: image for image in database.read_all_images()}
+        (rig,) = database.read_all_rigs()
+        assert rig.ref_sensor_id == gt_rig.ref_sensor_id
+        sensor_from_rig = rig.sensor_from_rig(gt_sensor_id)
+        assert sensor_from_rig is not None
+        np.testing.assert_allclose(
+            sensor_from_rig.matrix(),
+            gt_rig.sensor_from_rig(gt_sensor_id).matrix(),
+            atol=1e-9,
+        )
+        frames = database.read_all_frames()
+        assert len(frames) == options.num_frames_per_rig
+        for frame in frames:
+            frame_names = {
+                images[data_id.id].name.split("_")[1]
+                for data_id in frame.data_ids
+            }
+            assert frame.num_data_ids() == 2
+            assert len(frame_names) == 1
+        for pose_prior in database.read_all_pose_priors():
+            image = images[pose_prior.corr_data_id.id]
+            assert pose_prior.corr_data_id == image.data_id
+    # The GT rig is not modified.
+    assert sparse_gt.rigs[gt_rig.rig_id].sensor_from_rig(gt_sensor_id) == (
+        gt_rig.sensor_from_rig(gt_sensor_id)
+    )
+
+
 def test_set_cameras_from_gt(tmp_path: Path) -> None:
     database_path = tmp_path / "database.db"
     options = pycolmap.SyntheticDatasetOptions()

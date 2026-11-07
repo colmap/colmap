@@ -72,10 +72,17 @@ class _DatasetETH3D(Dataset):
                 sparse_gt_path = sparse_gt_paths[0]
 
                 colmap_extra_args: list[str | Path] = []
+                rig_image_prefixes: list[str] = []
                 if category == "dslr":
                     colmap_extra_args.extend(["--data_type", "individual"])
                 elif category == "rig":
                     colmap_extra_args.extend(["--data_type", "video"])
+                    # One image folder per synchronized rig camera.
+                    rig_image_prefixes = sorted(
+                        f"{path.name}/"
+                        for path in image_path.iterdir()
+                        if path.is_dir()
+                    )
 
                 num_images = sum(
                     1
@@ -93,6 +100,7 @@ class _DatasetETH3D(Dataset):
                     sparse_gt_path=sparse_gt_path,
                     has_camera_priors=True,
                     camera_priors_define_sharing=True,
+                    rig_image_prefixes=rig_image_prefixes,
                     colmap_extra_args=colmap_extra_args,
                 )
 
