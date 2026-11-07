@@ -164,7 +164,9 @@ INSTANTIATE_TEST_SUITE_P(
             [](SiftExtractionOptions& o) { o.first_octave = -2; }},
         CusiftUnsupportedOptionParams{
             "OctaveResolution",
-            [](SiftExtractionOptions& o) { o.octave_resolution = 4; }}),
+            [](SiftExtractionOptions& o) { o.octave_resolution = 4; }},
+        CusiftUnsupportedOptionParams{
+            "NumOctaves", [](SiftExtractionOptions& o) { o.num_octaves = 6; }}),
     [](const auto& info) { return info.param.name; });
 
 // Options pass Check() only in a build with cusift; without it, Check() rejects

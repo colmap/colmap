@@ -219,7 +219,8 @@ The two can also be used independently: ``CUSIFT`` descriptors can be matched
 by any SIFT matcher, and ``CUSIFT_GEMM`` matches descriptors from any SIFT
 extractor. ``--CusiftExtraction.num_octaves`` (default -1) picks the number of
 octaves like SiftGPU; a positive value builds that many, or fewer if the
-pyramid would halve below 1 px.
+pyramid would halve below 1 px. ``--SiftExtraction.num_octaves`` applies to the
+CPU extractor only and is rejected under ``CUSIFT`` if changed from its default.
 ``--CusiftMatching.distance_type`` selects whether the ratio test and
 ``max_distance`` are evaluated on angles (``ANGULAR``, the default, as the
 brute-force matcher and SiftGPU) or unit-vector distances (``L2``).

@@ -259,6 +259,15 @@ bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift) {
                << kCusiftOctaveResolution << ", got " << sift.octave_resolution;
     return false;
   }
+  // cusift's octave count is CusiftExtractionOptions::num_octaves; a changed
+  // SiftExtraction.num_octaves would otherwise be ignored without notice.
+  const int default_num_octaves = SiftExtractionOptions().num_octaves;
+  if (sift.num_octaves != default_num_octaves) {
+    LOG(ERROR) << "cusift ignores SiftExtraction.num_octaves (default "
+               << default_num_octaves << ", got " << sift.num_octaves
+               << "); set CusiftExtraction.num_octaves instead";
+    return false;
+  }
   return true;
 }
 

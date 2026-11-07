@@ -12,8 +12,8 @@ namespace colmap {
 struct CusiftExtractionOptions {
   // Number of octaves. -1 picks it as COLMAP's SiftGPU backend does (see
   // CusiftNumOctaves); a positive value builds that many, or fewer if the
-  // pyramid would halve below 1 px. Separate from
-  // SiftExtractionOptions::num_octaves, which only the CPU backend uses.
+  // pyramid would halve below 1 px. SiftExtractionOptions::num_octaves, which
+  // the CPU backend uses, must stay at its default under cusift.
   int num_octaves = -1;
 
   bool Check() const;
@@ -21,7 +21,8 @@ struct CusiftExtractionOptions {
 
 // Whether cusift supports these SIFT options: no affine shape, domain-size
 // pooling, upright features, darkness adaptivity or covariant extractor;
-// first_octave 0 or -1; octave_resolution 3. Logs the reason if not.
+// first_octave 0 or -1; octave_resolution 3; num_octaves at its default
+// (CusiftExtractionOptions::num_octaves sets cusift's). Logs the reason if not.
 bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift);
 
 // CUDA SIFT extractor replicating COLMAP's VLFeat CPU backend, configured by
