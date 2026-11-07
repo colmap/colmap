@@ -271,9 +271,16 @@ def test_set_camera_priors_does_not_modify_gt(tmp_path: Path) -> None:
         assert camera.source == pycolmap.CameraSource.UNKNOWN
 
 
-@pytest.mark.parametrize("fix_camera_priors", [False, True])
+@pytest.mark.parametrize(
+    ("has_camera_priors", "fix_camera_priors", "expect_fixed"),
+    [(True, False, False), (True, True, True), (False, True, False)],
+)
 def test_colmap_reconstruction_fixes_camera_priors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fix_camera_priors: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    has_camera_priors: bool,
+    fix_camera_priors: bool,
+    expect_fixed: bool,
 ) -> None:
     args = argparse.Namespace(
         overwrite_database=False,
@@ -313,13 +320,15 @@ def test_colmap_reconstruction_fixes_camera_priors(
     utils.colmap_reconstruction(
         args=args,
         scene_info=scene_info,
-        camera_priors_sparse_gt=pycolmap.Reconstruction(),
+        camera_priors_sparse_gt=(
+            pycolmap.Reconstruction() if has_camera_priors else None
+        ),
     )
 
     extraction, matching, sparse = commands
     assert "--refine_intrinsics" not in extraction
     assert "--refine_intrinsics" not in matching
-    assert (sparse[-2:] == ["--refine_intrinsics", "0"]) == fix_camera_priors
+    assert (sparse[-2:] == ["--refine_intrinsics", "0"]) == expect_fixed
 
 
 def test_set_cameras_from_gt(tmp_path: Path) -> None:
