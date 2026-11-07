@@ -8,11 +8,12 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/testing.h"
 
-#include <atomic>
+#include <condition_variable>
 #include <cstdlib>
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -343,12 +344,33 @@ TEST_F(FlexGlueTest, ConcurrentMatchThreadSafety) {
   FeatureKeypoints keypoints1;
   FeatureKeypoints keypoints2;
   CreateKeypoints(&keypoints1, &keypoints2);
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kPinhole, 500, kWidth, kHeight);
+  const auto kpts1_ptr = std::make_shared<FeatureKeypoints>(keypoints1);
+  const auto kpts2_ptr = std::make_shared<FeatureKeypoints>(keypoints2);
+
   const FeatureMatches expected_matches =
       Match(matcher_.get(), keypoints1, keypoints2);
   ASSERT_FALSE(expected_matches.empty());
+  FeatureMatches expected_swapped_matches;
+  matcher_->Match(FeatureMatcher::Image{/*image_id=*/2,
+                                        &camera,
+                                        kpts2_ptr,
+                                        /*descriptors=*/nullptr,
+                                        /*pose_prior=*/nullptr,
+                                        /*name=*/"image2.png"},
+                  FeatureMatcher::Image{/*image_id=*/1,
+                                        &camera,
+                                        kpts1_ptr,
+                                        /*descriptors=*/nullptr,
+                                        /*pose_prior=*/nullptr,
+                                        /*name=*/"image1.png"},
+                  &expected_swapped_matches);
+  ASSERT_FALSE(expected_swapped_matches.empty());
 
-  // Fresh image names ensure all threads hit cold entries in ThreadSafeLRUCache
-  // simultaneously on the first iteration and warm entries on the second.
+  // Fresh image names ensure all threads hit cold entries in
+  // ThreadSafeLRUCache simultaneously in the first round; after a barrier,
+  // the second round re-matches the warm entries (in both pair orders).
   std::filesystem::copy_file(*test_dir_ / "image1.png",
                              *test_dir_ / "concurrent_image1.png",
                              std::filesystem::copy_options::overwrite_existing);
@@ -356,24 +378,31 @@ TEST_F(FlexGlueTest, ConcurrentMatchThreadSafety) {
                              *test_dir_ / "concurrent_image2.png",
                              std::filesystem::copy_options::overwrite_existing);
 
-  const Camera camera = Camera::CreateFromModelId(
-      1, CameraModelId::kPinhole, 500, kWidth, kHeight);
-  const auto kpts1_ptr = std::make_shared<FeatureKeypoints>(keypoints1);
-  const auto kpts2_ptr = std::make_shared<FeatureKeypoints>(keypoints2);
-
   constexpr int kNumThreads = 3;
-  std::atomic<int> num_ready{0};
-  std::atomic<bool> start{false};
-  std::vector<FeatureMatches> results(kNumThreads);
+  int barrier_arrived = 0;
+  int barrier_phase = 0;
+  std::mutex barrier_mutex;
+  std::condition_variable barrier_cv;
+  auto arrive_and_wait = [&]() {
+    std::unique_lock<std::mutex> lock(barrier_mutex);
+    const int phase = barrier_phase;
+    if (++barrier_arrived == kNumThreads) {
+      barrier_arrived = 0;
+      ++barrier_phase;
+      lock.unlock();
+      barrier_cv.notify_all();
+    } else {
+      barrier_cv.wait(lock, [&]() { return barrier_phase != phase; });
+    }
+  };
+
+  std::vector<FeatureMatches> cold_results(kNumThreads);
+  std::vector<FeatureMatches> warm_results(kNumThreads);
   std::vector<std::thread> threads;
   threads.reserve(kNumThreads);
 
   for (int t = 0; t < kNumThreads; ++t) {
     threads.emplace_back([&, t]() {
-      num_ready.fetch_add(1, std::memory_order_acq_rel);
-      while (!start.load(std::memory_order_acquire)) {
-        std::this_thread::yield();
-      }
       const FeatureMatcher::Image image1{/*image_id=*/1,
                                          &camera,
                                          kpts1_ptr,
@@ -386,20 +415,24 @@ TEST_F(FlexGlueTest, ConcurrentMatchThreadSafety) {
                                          /*descriptors=*/nullptr,
                                          /*pose_prior=*/nullptr,
                                          /*name=*/"concurrent_image2.png"};
-      matcher_->Match(image1, image2, &results[t]);
+      arrive_and_wait();
+      matcher_->Match(image1, image2, &cold_results[t]);
+      arrive_and_wait();
+      if (t % 2 == 0) {
+        matcher_->Match(image1, image2, &warm_results[t]);
+      } else {
+        matcher_->Match(image2, image1, &warm_results[t]);
+      }
     });
   }
-
-  while (num_ready.load(std::memory_order_acquire) < kNumThreads) {
-    std::this_thread::yield();
-  }
-  start.store(true, std::memory_order_release);
 
   for (std::thread& thread : threads) {
     thread.join();
   }
-  for (const FeatureMatches& matches : results) {
-    EXPECT_EQ(matches, expected_matches);
+  for (int t = 0; t < kNumThreads; ++t) {
+    EXPECT_EQ(cold_results[t], expected_matches);
+    EXPECT_EQ(warm_results[t],
+              t % 2 == 0 ? expected_matches : expected_swapped_matches);
   }
 }
 
