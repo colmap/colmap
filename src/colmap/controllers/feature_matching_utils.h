@@ -29,12 +29,14 @@ struct FeatureMatcherData {
 
 // Synchronizes creation of a thread-safe FeatureMatcher shared across multiple
 // FeatureMatcherWorker threads (e.g., multiple workers per GPU for FlexGlue).
-// One designated creator worker calls Create() (propagating any exception on
-// that worker alone so Setup() rethrows once), while sibling workers call
-// Wait() and receive the shared instance (or nullptr on failure).
+// One designated creator worker calls Create() (or Fail() if worker setup fails
+// beforehand, propagating any exception on that worker alone so Setup()
+// rethrows once), while sibling workers call Wait() and receive the shared
+// instance (or nullptr on failure).
 class SharedFeatureMatcher {
  public:
   std::shared_ptr<FeatureMatcher> Create(const FeatureMatchingOptions& options);
+  void Fail();
   std::shared_ptr<FeatureMatcher> Wait();
 
  private:
