@@ -263,10 +263,11 @@ class PanoProcessor:
                 )
 
                 pano_pil_image: PIL.Image.Image = pano_file
-                # Resolve palette indices and CMYK colors before
-                # interpolating pixels.
+                # Convert modes that cannot be interpolated directly.
                 mode = pano_pil_image.mode
-                if mode == "CMYK":
+                if mode == "1":
+                    pano_pil_image = pano_pil_image.convert("L")
+                elif mode == "CMYK":
                     pano_pil_image = pano_pil_image.convert("RGB")
                 elif mode in ("P", "PA"):
                     has_alpha = (
