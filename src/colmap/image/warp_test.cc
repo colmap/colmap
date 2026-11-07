@@ -502,6 +502,47 @@ TEST(Warp, ResampleImageBilinear) {
   EXPECT_EQ(resampled[3], 12.5);
 }
 
+TEST(Warp, ResampleImageBilinearAsymmetricAndBorders) {
+  for (const auto& [rows, cols, new_rows, new_cols] :
+       {std::tuple{3, 5, 7, 9},
+        std::tuple{7, 9, 3, 5},
+        std::tuple{1, 7, 5, 3},
+        std::tuple{7, 1, 3, 5},
+        std::tuple{1, 1, 3, 4},
+        std::tuple{3, 5, 3, 5},
+        std::tuple{5, 7, 1, 1}}) {
+    std::vector<float> image(rows * cols);
+    for (int i = 0; i < rows * cols; ++i) {
+      image[i] = static_cast<float>((i * 17) % 31 - 15) / 7.0f;
+    }
+    std::vector<float> result(new_rows * new_cols);
+    ResampleImageBilinear(
+        image.data(), rows, cols, new_rows, new_cols, result.data());
+    const float scale_r = static_cast<float>(rows) / new_rows;
+    const float scale_c = static_cast<float>(cols) / new_cols;
+    const auto pixel = [&image, image_rows = rows, image_cols = cols](int r,
+                                                                      int c) {
+      return r >= 0 && r < image_rows && c >= 0 && c < image_cols
+                 ? image[r * image_cols + c]
+                 : 0.0f;
+    };
+    for (int r = 0; r < new_rows; ++r) {
+      const float y = (r + 0.5f) * scale_r - 0.5f;
+      const int y0 = std::floor(y);
+      const int y1 = y0 + 1;
+      for (int c = 0; c < new_cols; ++c) {
+        const float x = (c + 0.5f) * scale_c - 0.5f;
+        const int x0 = std::floor(x);
+        const int x1 = x0 + 1;
+        const float top = (x1 - x) * pixel(y0, x0) + (x - x0) * pixel(y0, x1);
+        const float bottom =
+            (x1 - x) * pixel(y1, x0) + (x - x0) * pixel(y1, x1);
+        EXPECT_EQ(result[r * new_cols + c], (y1 - y) * top + (y - y0) * bottom);
+      }
+    }
+  }
+}
+
 TEST(Warp, SmoothImage) {
   std::vector<float> image(16);
   for (size_t i = 0; i < image.size(); ++i) {
