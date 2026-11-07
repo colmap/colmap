@@ -508,6 +508,13 @@ TEST(FeatureMatcherController, SharedFeatureMatcherWorkersMatchPairs) {
   for (auto& worker : workers) {
     worker->Wait();
   }
+
+  const auto created_matcher = shared_matcher->Wait();
+  EXPECT_NE(created_matcher, nullptr);
+  EXPECT_THAT(
+      ThrownMessage([&]() { shared_matcher->Create(matching_options); }),
+      testing::HasSubstr("!done_"));
+  EXPECT_EQ(shared_matcher->Wait(), created_matcher);
 }
 
 #if defined(COLMAP_CUDA_ENABLED) && defined(COLMAP_ONNX_ENABLED) && \
