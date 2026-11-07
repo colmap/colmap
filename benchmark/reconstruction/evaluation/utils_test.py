@@ -319,7 +319,7 @@ def test_colmap_reconstruction_fixes_camera_priors(
     extraction, matching, sparse = commands
     assert "--refine_intrinsics" not in extraction
     assert "--refine_intrinsics" not in matching
-    assert ("--refine_intrinsics" in sparse) == fix_camera_priors
+    assert (sparse[-2:] == ["--refine_intrinsics", "0"]) == fix_camera_priors
 
 
 def test_set_cameras_from_gt(tmp_path: Path) -> None:
