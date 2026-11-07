@@ -319,6 +319,35 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatWithAutoOctaves) {
   ExpectMatchesVLFeat(CreateCusiftOptions(), vlfeat_options);
 }
 
+// An octave narrower than the 3 px extrema window holds no features. VLFeat
+// scans nothing there; cusift must do the same, not launch an empty grid and
+// abort the whole extraction. A 1 px image at first_octave -1, a 2 px image or
+// side at first_octave 0 reach such octaves.
+TEST(CusiftFeatureExtractor, TinyImagesYieldNoFeaturesLikeVLFeat) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  for (const int first_octave : {-1, 0}) {
+    for (const auto& [width, height] :
+         std::vector<std::pair<int, int>>{{1, 1}, {2, 2}, {2, 64}, {64, 2}}) {
+      const Bitmap bitmap = CreateTexturedImage(width, height);
+      FeatureExtractionOptions cusift_options = CreateCusiftOptions();
+      cusift_options.sift->first_octave = first_octave;
+      FeatureKeypoints keypoints;
+      FeatureDescriptors descriptors;
+      EXPECT_TRUE(CreateCusiftFeatureExtractor(cusift_options)
+                      ->Extract(bitmap, &keypoints, &descriptors))
+          << width << "x" << height << " at first_octave " << first_octave;
+      FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
+      vlfeat_options.sift->first_octave = first_octave;
+      FeatureKeypoints vlfeat_keypoints;
+      ASSERT_TRUE(CreateSiftFeatureExtractor(vlfeat_options)
+                      ->Extract(bitmap, &vlfeat_keypoints, nullptr));
+      EXPECT_EQ(keypoints.size(), vlfeat_keypoints.size())
+          << width << "x" << height << " at first_octave " << first_octave;
+      EXPECT_EQ(descriptors.data.rows(), keypoints.size());
+    }
+  }
+}
+
 // Closes the drop-in loop inside ctest: descriptors produced by CUSIFT are fed
 // to the existing SIFT_BRUTEFORCE matcher with no conversion. This is what
 // tagging them FeatureExtractorType::SIFT buys, and it is the property that

@@ -354,6 +354,11 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
   int w = oct.width, h = oct.height, p = oct.pitch;
   int nDogLevels = oct.nLevels - 1;
 
+  // The extrema scan visits the interior [1, w-2] x [1, h-2], as VLFeat's
+  // does, so an octave narrower than 3 px holds no candidates. Return before
+  // launching the empty grid that would otherwise fail.
+  if (w < 3 || h < 3) return;
+
   CudaImage dogCombined;
   dogCombined.Allocate(w, h*nDogLevels, iAlignUp(w, 128));
   int dp = dogCombined.pitch;
@@ -383,7 +388,8 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
     d_CandS.Reset(capacity);
     safeCall(cudaMemset(d_CandCount.get(), 0, sizeof(unsigned int)));
     dim3 threads(16, 16, 1);
-    dim3 blocks(iDivUp(w-2, 16), iDivUp(h-2, 16), std::max(nDogLevels-2, 1));
+    dim3 blocks(std::max(iDivUp(w-2, 16), 1), std::max(iDivUp(h-2, 16), 1),
+                std::max(nDogLevels-2, 1));
     FindDogExtremaKernel<<<blocks, threads>>>(dogCombined.d_data, w, dp, h, nDogLevels,
         peakThresh, d_CandX.get(), d_CandY.get(), d_CandS.get(), (int)capacity,
         d_CandCount.get());
