@@ -63,6 +63,15 @@ TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
                                  /*align=*/true));
 }
 
+// TODO: Add GLOBAL mapper test. Currently excluded because the test produces
+// fewer observations than expected. The global pipeline is tested separately
+// in global_pipeline_test.cc.
+INSTANTIATE_TEST_SUITE_P(
+    AutomaticReconstructionTests,
+    ParameterizedAutomaticReconstructionTests,
+    ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
+                      AutomaticReconstructionController::Mapper::HIERARCHICAL));
+
 class ParameterizedAutomaticReconstructionIntrinsicsTests
     : public ::testing::TestWithParam<
           AutomaticReconstructionController::Mapper> {};
@@ -118,15 +127,6 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
                       AutomaticReconstructionController::Mapper::HIERARCHICAL,
                       AutomaticReconstructionController::Mapper::GLOBAL));
-
-// TODO: Add GLOBAL mapper test. Currently excluded because the test produces
-// fewer observations than expected. The global pipeline is tested separately
-// in global_pipeline_test.cc.
-INSTANTIATE_TEST_SUITE_P(
-    AutomaticReconstructionTests,
-    ParameterizedAutomaticReconstructionTests,
-    ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
-                      AutomaticReconstructionController::Mapper::HIERARCHICAL));
 
 }  // namespace
 }  // namespace colmap
