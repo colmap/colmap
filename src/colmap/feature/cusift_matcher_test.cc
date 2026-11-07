@@ -33,6 +33,13 @@ TEST(CusiftMatchingOptions, DefaultsMatchTheExactReference) {
   EXPECT_EQ(options.distance_type, CusiftDistanceType::ANGULAR);
 }
 
+TEST(CusiftMatchingOptions, RejectsUnknownDistanceType) {
+  CusiftMatchingOptions options;
+  EXPECT_TRUE(options.Check());
+  options.distance_type = static_cast<CusiftDistanceType>(7);
+  EXPECT_FALSE(options.Check());
+}
+
 // Options pass Check() only in a build with cusift; without it, Check() rejects
 // the cusift types before reaching cusift's own checks.
 #if defined(COLMAP_CUSIFT_ENABLED)

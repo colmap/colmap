@@ -123,7 +123,11 @@ class CusiftFeatureMatcher : public FeatureMatcher {
 
 }  // namespace
 
-bool CusiftMatchingOptions::Check() const { return true; }
+bool CusiftMatchingOptions::Check() const {
+  CHECK_OPTION(distance_type == CusiftDistanceType::L2 ||
+               distance_type == CusiftDistanceType::ANGULAR);
+  return true;
+}
 
 std::unique_ptr<FeatureMatcher> CreateCusiftFeatureMatcher(
     const FeatureMatchingOptions& options) {
