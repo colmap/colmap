@@ -21,6 +21,9 @@ class _DatasetETH3D(Dataset):
 
     dataset_name = ""
     calibration_glob = ""
+    # Whether all DSLR images of a scene share the same camera. COLMAP then
+    # shares their intrinsics instead of guessing the sharing from EXIF.
+    single_dslr_camera = False
 
     @property
     def position_accuracy_gt(self) -> float:
@@ -74,6 +77,8 @@ class _DatasetETH3D(Dataset):
                 colmap_extra_args: list[str | Path] = []
                 if category == "dslr":
                     colmap_extra_args.extend(["--data_type", "individual"])
+                    if self.single_dslr_camera:
+                        colmap_extra_args.extend(["--single_camera", "1"])
                 elif category == "rig":
                     colmap_extra_args.extend(["--data_type", "video"])
 
@@ -148,3 +153,4 @@ class DatasetETH3DCentered(_DatasetETH3D):
 
     dataset_name = "eth3d-centered"
     calibration_glob = "*_calibration_undistorted"
+    single_dslr_camera = True
