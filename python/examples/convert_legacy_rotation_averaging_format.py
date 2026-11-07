@@ -63,14 +63,16 @@ def read_relative_poses(file_path: Path | str) -> list[RelativePose]:
     relative_poses = []
 
     with open(file_path) as f:
-        for line in f:
+        for line_number, line in enumerate(f, start=1):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
 
             parts = line.split()
             if len(parts) < 9:
-                continue
+                raise ValueError(
+                    f"{file_path}:{line_number}: incomplete relative pose"
+                )
 
             name1, name2 = parts[0], parts[1]
             qw, qx, qy, qz = map(float, parts[2:6])
@@ -107,14 +109,16 @@ def read_gravity_priors(file_path: Path | str) -> list[GravityPrior]:
     gravity_priors = []
 
     with open(file_path) as f:
-        for line in f:
+        for line_number, line in enumerate(f, start=1):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
 
             parts = line.split()
             if len(parts) < 4:
-                continue
+                raise ValueError(
+                    f"{file_path}:{line_number}: incomplete gravity prior"
+                )
 
             name = parts[0]
             gx, gy, gz = map(float, parts[1:4])
