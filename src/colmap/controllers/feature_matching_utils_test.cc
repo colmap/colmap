@@ -382,6 +382,42 @@ TEST(FeatureMatcherController, SetupPropagatesMatcherCreationErrors) {
     }
   }
 
+  // If the creator fails in Run() before reaching SharedFeatureMatcher::Create
+  // (e.g., while reading MaxNumKeypoints from a closed database), Fail() must
+  // still unblock sibling workers waiting in SharedFeatureMatcher::Wait().
+  {
+    auto closed_db = Database::Open(data.test_dir / "closed.db");
+    closed_db->Close();
+    auto closed_cache = std::make_shared<FeatureMatcherCache>(100, closed_db);
+    JobQueue<FeatureMatcherData> input_queue;
+    JobQueue<FeatureMatcherData> output_queue;
+    auto shared_matcher = std::make_shared<SharedFeatureMatcher>();
+    FeatureMatchingOptions valid_options = DefaultMatchingOptions();
+    std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+    workers.reserve(3);
+    for (int w = 0; w < 3; ++w) {
+      workers.push_back(std::make_unique<FeatureMatcherWorker>(
+          valid_options,
+          geometry_options,
+          w == 0 ? closed_cache : data.cache,
+          &input_queue,
+          &output_queue,
+          shared_matcher,
+          /*is_shared_creator=*/w == 0));
+    }
+    for (size_t w = 1; w < workers.size(); ++w) {
+      workers[w]->Start();
+    }
+    workers[0]->Start();
+    EXPECT_FALSE(workers[0]->CheckValidSetup());
+    EXPECT_THAT(ThrownMessage([&]() { workers[0]->Wait(); }),
+                testing::HasSubstr("database"));
+    for (size_t w = 1; w < workers.size(); ++w) {
+      EXPECT_FALSE(workers[w]->CheckValidSetup());
+      EXPECT_NO_THROW(workers[w]->Wait());
+    }
+  }
+
 #ifdef COLMAP_CUDA_ENABLED
   if (GetNumCudaDevices() > 0) {
     FeatureMatchingOptions flexglue_options(FeatureMatcherType::FLEXGLUE);

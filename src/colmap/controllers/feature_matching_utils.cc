@@ -34,6 +34,15 @@ std::shared_ptr<FeatureMatcher> SharedFeatureMatcher::Create(
   return matcher;
 }
 
+void SharedFeatureMatcher::Fail() {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    matcher_ = nullptr;
+    done_ = true;
+  }
+  cv_.notify_all();
+}
+
 std::shared_ptr<FeatureMatcher> SharedFeatureMatcher::Wait() {
   std::unique_lock<std::mutex> lock(mutex_);
   cv_.wait(lock, [this]() { return done_; });
@@ -63,46 +72,53 @@ FeatureMatcherWorker::FeatureMatcherWorker(
 }
 
 void FeatureMatcherWorker::Run() {
-  if (opengl_context_ != nullptr) {
-    THROW_CHECK(opengl_context_->MakeCurrent());
-  }
+  std::shared_ptr<FeatureMatcher> matcher;
+  try {
+    if (opengl_context_ != nullptr) {
+      THROW_CHECK(opengl_context_->MakeCurrent());
+    }
 
 #if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
-  if (matching_options_.use_gpu) {
-    // Initialize the GPU device for this worker thread
-    const std::vector<int> gpu_indices =
-        CSVToVector<int>(matching_options_.gpu_index);
-    THROW_CHECK_EQ(gpu_indices.size(), 1)
-        << "Each matching worker can only use one GPU";
-    const int gpu_index = gpu_indices[0];
+    if (matching_options_.use_gpu) {
+      // Initialize the GPU device for this worker thread
+      const std::vector<int> gpu_indices =
+          CSVToVector<int>(matching_options_.gpu_index);
+      THROW_CHECK_EQ(gpu_indices.size(), 1)
+          << "Each matching worker can only use one GPU";
+      const int gpu_index = gpu_indices[0];
 
-    if (gpu_index >= 0) {
-      SetBestCudaDevice(gpu_index);
-      LOG(INFO) << "Bind FeatureMatcherWorker to GPU device " << gpu_index;
+      if (gpu_index >= 0) {
+        SetBestCudaDevice(gpu_index);
+        LOG(INFO) << "Bind FeatureMatcherWorker to GPU device " << gpu_index;
+      }
     }
-  }
 #endif
 
-  if (matching_options_.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
-    // TODO(jsch): This is a bit ugly, but currently cannot think of a better
-    // way to inject the shared descriptor index cache.
-    THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =
-        &cache_->GetFeatureDescriptorIndexCache();
-    THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
-  }
+    if (matching_options_.type == FeatureMatcherType::SIFT_BRUTEFORCE) {
+      // TODO(jsch): This is a bit ugly, but currently cannot think of a better
+      // way to inject the shared descriptor index cache.
+      THROW_CHECK_NOTNULL(matching_options_.sift)->cpu_descriptor_index_cache =
+          &cache_->GetFeatureDescriptorIndexCache();
+      THROW_CHECK_NOTNULL(matching_options_.sift->cpu_descriptor_index_cache);
+    }
 
-  // Minimize the amount of allocated GPU memory by computing the maximum number
-  // of descriptors for any image over the whole database.
-  matching_options_.max_num_matches = std::min<int>(
-      matching_options_.max_num_matches, cache_->MaxNumKeypoints());
+    // Minimize the amount of allocated GPU memory by computing the maximum
+    // number of descriptors for any image over the whole database.
+    matching_options_.max_num_matches = std::min<int>(
+        matching_options_.max_num_matches, cache_->MaxNumKeypoints());
 
-  std::shared_ptr<FeatureMatcher> matcher;
-  if (shared_matcher_ == nullptr) {
-    matcher = FeatureMatcher::Create(matching_options_);
-  } else if (is_shared_creator_) {
-    matcher = shared_matcher_->Create(matching_options_);
-  } else {
-    matcher = shared_matcher_->Wait();
+    if (shared_matcher_ == nullptr) {
+      matcher = FeatureMatcher::Create(matching_options_);
+    } else if (is_shared_creator_) {
+      matcher = shared_matcher_->Create(matching_options_);
+    } else {
+      matcher = shared_matcher_->Wait();
+    }
+  } catch (...) {
+    if (shared_matcher_ != nullptr && is_shared_creator_) {
+      shared_matcher_->Fail();
+    }
+    throw;
   }
   if (matcher == nullptr) {
     if (shared_matcher_ == nullptr || is_shared_creator_) {
