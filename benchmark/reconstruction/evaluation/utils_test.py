@@ -213,7 +213,9 @@ def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
             }
             assert frame.num_data_ids() == 2
             assert len(frame_names) == 1
-        for pose_prior in database.read_all_pose_priors():
+        pose_priors = database.read_all_pose_priors()
+        assert len(pose_priors) == len(images)
+        for pose_prior in pose_priors:
             image = images[pose_prior.corr_data_id.id]
             assert pose_prior.corr_data_id == image.data_id
         for camera in database.read_all_cameras():
