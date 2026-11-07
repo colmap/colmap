@@ -15,15 +15,11 @@ namespace colmap {
 std::shared_ptr<FeatureMatcher> SharedFeatureMatcher::Create(
     const FeatureMatchingOptions& options) {
   std::shared_ptr<FeatureMatcher> matcher;
+  std::exception_ptr error;
   try {
     matcher = FeatureMatcher::Create(options);
   } catch (...) {
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      done_ = true;
-    }
-    cv_.notify_all();
-    throw;
+    error = std::current_exception();
   }
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -31,6 +27,9 @@ std::shared_ptr<FeatureMatcher> SharedFeatureMatcher::Create(
     done_ = true;
   }
   cv_.notify_all();
+  if (error) {
+    std::rethrow_exception(error);
+  }
   return matcher;
 }
 
