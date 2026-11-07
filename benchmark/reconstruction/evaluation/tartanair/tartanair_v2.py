@@ -86,19 +86,22 @@ def select_frame_window(
             f"Trajectory has {len(poses)} poses, fewer than {num_frames}"
         )
 
+    # Overlapping windows reuse the same adjacent-frame motions.
+    adjacent_translations = np.linalg.norm(
+        np.diff(poses[:, :3], axis=0), axis=1
+    )
+    adjacent_rotations = np.array(
+        [
+            quaternion_angular_distance_deg(q1, q2)
+            for q1, q2 in zip(poses[:-1, 3:7], poses[1:, 3:7], strict=True)
+        ]
+    )
     best_score = None
     best_start = None
     for start in range(len(poses) - num_frames + 1):
         window = poses[start : start + num_frames]
-        translations = np.linalg.norm(np.diff(window[:, :3], axis=0), axis=1)
-        rotations = np.array(
-            [
-                quaternion_angular_distance_deg(q1, q2)
-                for q1, q2 in zip(
-                    window[:-1, 3:7], window[1:, 3:7], strict=True
-                )
-            ]
-        )
+        translations = adjacent_translations[start : start + num_frames - 1]
+        rotations = adjacent_rotations[start : start + num_frames - 1]
         if (
             translations.max() > max_adjacent_translation_m
             or rotations.max() > max_adjacent_rotation_deg
