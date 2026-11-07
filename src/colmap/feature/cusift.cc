@@ -36,6 +36,20 @@ constexpr int kSiftDescriptorDim = 128;
 // cusift's compile-time levels-per-octave (NUM_SCALES in cudaSiftD.h).
 constexpr int kCusiftOctaveResolution = 3;
 
+// floor(log2(min side)) of the first octave: the image is 2x-upsampled for
+// first_octave -1 and taken as is for 0, so each step of first_octave shifts
+// the count by one.
+int Log2MinSideAfterFirstOctave(const int width,
+                                const int height,
+                                const int first_octave) {
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  const int min_side = std::min(width, height);
+  return static_cast<int>(
+             std::floor(std::log2(static_cast<double>(min_side)))) -
+         first_octave;
+}
+
 #ifdef COLMAP_CUSIFT_ENABLED
 
 // Uploads a grey bitmap as the [0, 255] float image cusift's kernels take.
@@ -183,24 +197,22 @@ class CusiftFeatureExtractor : public FeatureExtractor {
 int CusiftNumOctaves(const int width,
                      const int height,
                      const int first_octave) {
-  THROW_CHECK_GT(width, 0);
-  THROW_CHECK_GT(height, 0);
-  // SiftGPU upsamples by 2^-first_octave (or downsamples by 2^first_octave)
-  // before counting, so each step of first_octave shifts the count by one.
-  const int min_side = std::min(width, height);
-  const int num_octaves =
-      static_cast<int>(std::floor(std::log2(static_cast<double>(min_side)))) -
-      first_octave - 3;
-  return std::max(num_octaves, 1);
+  return std::max(Log2MinSideAfterFirstOctave(width, height, first_octave) - 3,
+                  1);
 }
 
 int CusiftEffectiveNumOctaves(const CusiftExtractionOptions& options,
                               const int width,
                               const int height,
                               const int first_octave) {
-  return options.num_octaves > 0
-             ? options.num_octaves
-             : CusiftNumOctaves(width, height, first_octave);
+  const int num_octaves = options.num_octaves > 0
+                              ? options.num_octaves
+                              : CusiftNumOctaves(width, height, first_octave);
+  // Each octave halves the previous one, so after this many the pyramid would
+  // drop below one pixel. VLFeat's later octaves are simply empty.
+  const int max_num_octaves =
+      Log2MinSideAfterFirstOctave(width, height, first_octave) + 1;
+  return std::min(num_octaves, max_num_octaves);
 }
 
 bool CusiftExtractionOptions::Check() const {

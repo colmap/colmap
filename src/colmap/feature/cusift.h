@@ -11,8 +11,9 @@ namespace colmap {
 
 struct CusiftExtractionOptions {
   // Number of octaves. -1 picks it as COLMAP's SiftGPU backend does (see
-  // CusiftNumOctaves); a positive value builds exactly that many. Separate
-  // from SiftExtractionOptions::num_octaves, which only the CPU backend uses.
+  // CusiftNumOctaves); a positive value builds that many, or fewer if the
+  // pyramid would halve below 1 px. Separate from
+  // SiftExtractionOptions::num_octaves, which only the CPU backend uses.
   int num_octaves = -1;
 
   bool Check() const;
@@ -41,7 +42,8 @@ void BindCusiftDevice(const std::string& gpu_index);
 // least 1 (PyramidCU::ResizePyramid).
 int CusiftNumOctaves(int width, int height, int first_octave);
 
-// options.num_octaves if positive, else CusiftNumOctaves(...).
+// options.num_octaves if positive, else CusiftNumOctaves(...); either clamped
+// so that the smallest octave is at least one pixel wide and high.
 int CusiftEffectiveNumOctaves(const CusiftExtractionOptions& options,
                               int width,
                               int height,

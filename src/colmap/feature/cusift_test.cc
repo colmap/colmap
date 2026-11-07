@@ -102,6 +102,15 @@ TEST(CusiftExtractionOptions, NumOctavesDefaultsToAutoAndCanBeSet) {
   options.num_octaves = 4;
   EXPECT_TRUE(options.Check());
   EXPECT_EQ(CusiftEffectiveNumOctaves(options, 1920, 1080, -1), 4);
+  // Unless the pyramid would halve below one pixel: 64 px reaches 1 px in its
+  // seventh octave (eighth with the 2x-upsampled octave -1), and a 1 px image
+  // at first_octave -1 holds two (2 px and 1 px). VLFeat's later octaves are
+  // simply empty; cusift must not try to build them.
+  options.num_octaves = 10;
+  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 64, 64, 0), 7);
+  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 64, 64, -1), 8);
+  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 1, 1, -1), 2);
+  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 100, 1, 0), 1);
   // Anything else is rejected rather than silently treated as auto.
   options.num_octaves = 0;
   EXPECT_FALSE(options.Check());
@@ -346,6 +355,26 @@ TEST(CusiftFeatureExtractor, TinyImagesYieldNoFeaturesLikeVLFeat) {
       EXPECT_EQ(descriptors.data.rows(), keypoints.size());
     }
   }
+}
+
+TEST(CusiftFeatureExtractor, OversizedNumOctavesYieldsTheClampedPyramid) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // 64 px reaches 4 px in its fifth octave; the sixth and seventh (2 px and
+  // 1 px) hold no features and anything beyond cannot be built at all. Asking
+  // for ten must return exactly what the buildable pyramid finds.
+  const Bitmap bitmap = CreateTexturedImage(64, 64);
+  const auto extract = [&bitmap](const int num_octaves) {
+    FeatureExtractionOptions options = CreateCusiftOptions();
+    options.sift->first_octave = 0;
+    options.cusift->num_octaves = num_octaves;
+    FeatureKeypoints keypoints;
+    THROW_CHECK(CreateCusiftFeatureExtractor(options)->Extract(
+        bitmap, &keypoints, /*descriptors=*/nullptr));
+    return keypoints;
+  };
+  const FeatureKeypoints five_octaves = extract(5);
+  ASSERT_GT(five_octaves.size(), 0);
+  EXPECT_EQ(extract(10), five_octaves);
 }
 
 // Closes the drop-in loop inside ctest: descriptors produced by CUSIFT are fed
