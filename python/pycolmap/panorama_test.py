@@ -12,10 +12,36 @@ from .panorama import (
     PanoProcessor,
     PanoramaReconstructionOptions,
     PanoRenderType,
+    create_virtual_camera,
     filter_database_by_covisibility,
     get_virtual_rotations,
     run_perspective,
 )
+
+
+@pytest.mark.parametrize(
+    ("hfov_deg", "vfov_deg"), [(90.0, 60.0), (60.0, 90.0), (90.0, 90.0)]
+)
+def test_create_virtual_camera_respects_both_fields_of_view(
+    hfov_deg: float, vfov_deg: float
+) -> None:
+    camera = create_virtual_camera(
+        pano_width=1440,
+        pano_height=720,
+        hfov_deg=hfov_deg,
+        vfov_deg=vfov_deg,
+    )
+    actual_hfov = np.rad2deg(
+        2 * np.arctan(camera.width / (2 * camera.focal_length))
+    )
+    actual_vfov = np.rad2deg(
+        2 * np.arctan(camera.height / (2 * camera.focal_length))
+    )
+    assert actual_hfov == pytest.approx(hfov_deg)
+    # Rounding the output height to a whole pixel introduces a small error.
+    assert actual_vfov == pytest.approx(vfov_deg, abs=0.15)
+    if hfov_deg == vfov_deg:
+        assert camera.width == camera.height == 360
 
 
 @pytest.mark.parametrize("mode", ["P", "PA", "CMYK", "RGB", "RGBA", "L", "LA"])
