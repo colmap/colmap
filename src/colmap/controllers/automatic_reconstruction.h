@@ -58,6 +58,11 @@ class AutomaticReconstructionController : public Thread {
     // Initial camera params for all images.
     std::string camera_params;
 
+    // Whether to refine the camera intrinsics during mapping. Disable to keep
+    // known intrinsics fixed, e.g., given by `camera_params` or written to
+    // the database before mapping.
+    bool refine_intrinsics = true;
+
     // Whether to perform feature extraction.
     bool extraction = true;
 

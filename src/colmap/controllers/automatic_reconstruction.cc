@@ -151,6 +151,17 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.mapper->random_seed = options_.random_seed;
 
+  if (!options_.refine_intrinsics) {
+    option_manager_.mapper->ba_refine_focal_length = false;
+    option_manager_.mapper->ba_refine_principal_point = false;
+    option_manager_.mapper->ba_refine_extra_params = false;
+    BundleAdjustmentOptions& global_ba_options =
+        option_manager_.global_mapper->mapper.bundle_adjustment;
+    global_ba_options.refine_focal_length = false;
+    global_ba_options.refine_principal_point = false;
+    global_ba_options.refine_extra_params = false;
+  }
+
 #if defined(COLMAP_MVS_ENABLED)
   if (!options_.mask_path.empty()) {
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
