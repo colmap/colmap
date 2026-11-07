@@ -135,6 +135,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   }
 
   std::atomic<size_t> trial_counter(0);
+  size_t num_trials = 0;
   std::atomic<size_t> dyn_max_num_trials(max_num_trials);
   std::atomic<bool> abort_flag(false);
 
@@ -151,7 +152,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 // serially when num_threads == 1 via the if-clause). Without OpenMP, the
 // pragma is absent and the block runs once serially.
 #ifdef _OPENMP
-#pragma omp parallel num_threads(num_threads) if (num_threads > 1)
+#pragma omp parallel num_threads(num_threads) if (num_threads > 1) \
+    reduction(+ : num_trials)
 #endif
   {
     // Per-thread copies of mutable objects. Each thread needs its own sampler
@@ -194,6 +196,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           abort_flag.load(std::memory_order_relaxed)) {
         break;
       }
+      ++num_trials;
 
       thread_sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
@@ -337,7 +340,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     }
   }
 
-  report.num_trials = trial_counter.load();
+  report.num_trials = num_trials;
 
   if (!best_model.has_value()) {
     return report;

@@ -126,6 +126,24 @@ TEST(RANSAC, SimilarityTransform) {
   ValidateReport(report, data);
 }
 
+TEST(RANSAC, ReportsExecutedTrials) {
+  const auto data = GenerateTestData(10, 0);
+  for (const int num_threads : {1, 4}) {
+    for (const int max_num_trials : {0, 1, 5}) {
+      RANSACOptions options;
+      options.max_error = 10;
+      options.confidence = 1;
+      options.max_num_trials = max_num_trials;
+      options.num_threads = num_threads;
+      options.random_seed = kDefaultPRNGSeed;
+      RANSAC<SimilarityTransformEstimator<3>> ransac(options);
+      const auto report = ransac.Estimate(data.src, data.tgt);
+      EXPECT_EQ(report.num_trials, max_num_trials);
+      EXPECT_EQ(report.success, max_num_trials > 0);
+    }
+  }
+}
+
 TEST(RANSAC, ParallelSimilarityTransform) {
   const auto data = GenerateTestData();
 
