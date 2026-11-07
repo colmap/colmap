@@ -214,6 +214,8 @@ def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
         for pose_prior in database.read_all_pose_priors():
             image = images[pose_prior.corr_data_id.id]
             assert pose_prior.corr_data_id == image.data_id
+        for camera in database.read_all_cameras():
+            assert camera.source == pycolmap.CameraSource.USER
     # The GT rig is not modified.
     assert sparse_gt.rigs[gt_rig.rig_id].sensor_from_rig(gt_sensor_id) == (
         gt_rig.sensor_from_rig(gt_sensor_id)
