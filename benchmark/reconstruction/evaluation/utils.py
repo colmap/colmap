@@ -1818,9 +1818,12 @@ def _collect_reports(prefix: Path) -> dict[int, Path] | Path:
     for path in prefix.parent.glob(f"{glob.escape(prefix.name)}_s*.pkl"):
         seed = path.stem[len(prefix.name) + 2 :]
         if path.is_file() and seed.isascii() and seed.isdigit():
-            if int(seed) in reports:
-                raise SystemExit(f"ambiguous seed {int(seed)}: {reports[int(seed)]} and {path}")
-            reports[int(seed)] = path
+            number = int(seed)
+            if number in reports:
+                raise SystemExit(
+                    f"ambiguous seed {number}: {reports[number]} and {path}"
+                )
+            reports[number] = path
     if reports:
         return reports
     path = prefix.with_name(f"{prefix.name}.pkl")
