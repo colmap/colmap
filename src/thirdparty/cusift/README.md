@@ -80,8 +80,8 @@ COLMAP's exact CPU brute-force matcher and as SiftGPU's matcher**:
 - **The ratio test runs in both directions.** COLMAP's CPU matcher applies its
   one-way test to the distance matrix and to its transpose before intersecting
   (`sift.cc`, `FindBestMatchesBruteForce`), and SiftGPU does the same.
-- **Candidates are ranked on the raw inner product and converted with a fixed
-  512^2.** `FindBestMatchesOneWayBruteForce` thresholds `acos(dot / 512^2)`, as
+- **Under the default ANGULAR distance, candidates are ranked on the raw inner
+  product and converted with a fixed 512^2.** `FindBestMatchesOneWayBruteForce` thresholds `acos(dot / 512^2)`, as
   SiftGPU does; normalising each descriptor instead would re-rank near-ties.
 
 `FeatureMatcherType::SIFT_BRUTEFORCE` with `use_gpu = 0` is *not* an exact

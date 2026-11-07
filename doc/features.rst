@@ -221,9 +221,10 @@ extractor. ``--CusiftExtraction.num_octaves`` (default -1) picks the number of
 octaves like SiftGPU; a positive value builds that many, or fewer if the
 pyramid would halve below 1 px. ``--SiftExtraction.num_octaves`` applies to the
 CPU extractor only and is rejected under ``CUSIFT`` if changed from its default.
-``--CusiftMatching.distance_type`` selects whether the ratio test and
-``max_distance`` are evaluated on angles (``ANGULAR``, the default, as the
-brute-force matcher and SiftGPU) or unit-vector distances (``L2``).
+``--CusiftMatching.distance_type`` selects whether candidates are ranked, and
+the ratio test and ``max_distance`` evaluated, on angles (``ANGULAR``, the
+default, as the brute-force matcher and SiftGPU) or unit-vector distances
+(``L2``); the two can pick different matches when descriptor norms differ.
 Unsupported SIFT options (affine shape estimation, domain-size pooling,
 upright features, darkness adaptivity, the covariant extractor) are rejected
 with an error. The ``automatic_reconstructor`` provides the ``--feature

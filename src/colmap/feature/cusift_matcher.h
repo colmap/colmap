@@ -9,10 +9,13 @@
 
 namespace colmap {
 
-// Metric space of the ratio test and of sift.max_distance. L2: ratio of
-// unit-vector L2 distances, max_distance in unit-vector L2, as COLMAP's
-// index-based SIFT matcher. ANGULAR: ratio of angles, max_distance in radians,
-// as COLMAP's brute-force SIFT matcher and SiftGPU.
+// Metric of the matcher: it picks the winning candidate and sets the space of
+// the ratio test and of sift.max_distance. L2: ranks candidates on true
+// distance, ratio of unit-vector L2 distances, max_distance in unit-vector L2,
+// as COLMAP's index-based SIFT matcher. ANGULAR: ranks on the raw inner
+// product, ratio of angles, max_distance in radians, as COLMAP's brute-force
+// SIFT matcher and SiftGPU. The two can pick different winners when
+// descriptor norms differ.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(CusiftDistanceType, 0, L2, ANGULAR);
 
 // Options for FeatureMatcherType::CUSIFT_GEMM beyond FeatureMatchingOptions::
@@ -31,8 +34,9 @@ struct CusiftMatchingOptions {
 };
 
 // CUDA (cuBLAS SGEMM) brute-force matcher for FeatureExtractorType::SIFT
-// descriptors. Candidates are ranked on the raw inner product with COLMAP's
-// fixed 512^2 descriptor norm, as COLMAP's brute-force matcher and SiftGPU do.
+// descriptors. By default (distance_type ANGULAR), candidates are ranked on the
+// raw inner product with COLMAP's fixed 512^2 descriptor norm, as COLMAP's
+// brute-force matcher and SiftGPU do.
 // max_num_matches keeps the first matches in image1 keypoint order, as SiftGPU
 // does. Guided matching is not supported. Returns nullptr if COLMAP was built
 // without cusift (CUSIFT_ENABLED, which needs CUDA >= 11.2).

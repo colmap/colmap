@@ -7,24 +7,25 @@
 
 struct Match { int i, j; float dist2; };
 
-// Metric space in which the ratio test is evaluated. Top-2 SELECTION is
-// unaffected (cosine, unit-vector L2 and angle are monotone in one another, so
-// the argmax is identical), and a max-distance THRESHOLD converts exactly
-// between the spaces. Only the RATIO test genuinely differs, because a ratio of
-// angles is not a ratio of distances.
+// Distance used to choose and test each descriptor's best match. It changes
+// three things, not only the ratio test:
+//   - which candidate wins: kL2 ranks on the true distance,
+//     |d1|^2 + |d2|^2 - 2 d1.d2, and kAngular on the raw inner product d1.d2,
+//     so when candidate norms differ the two can pick different winners
+//     (RowTop2Update and ColTop2 rank kL2 on the mirrored key 2 d1.d2 - |c|^2,
+//     c the candidate, for that reason);
+//   - the space of the ratio test: a ratio of distances under kL2, a ratio of
+//     angles acos(d1.d2 / sqDescriptorNorm) under kAngular;
+//   - the units of maxDistance: unit-vector L2 distance under kL2, radians
+//     under kAngular.
 //
-//   kL2      - ratio of L2 distances, ranked on |d1|^2 + |d2|^2 - 2 d1.d2.
-//              What COLMAP's index-based matcher does (sift.cc,
+//   kL2      - what COLMAP's index-based matcher does (sift.cc,
 //              FindBestMatchesOneWayIndex).
-//   kAngular - ratio of angles acos(d1.d2 / sqDescriptorNorm), from the raw
-//              inner product and a fixed norm, as COLMAP's brute-force matcher
-//              and SiftGPU do. The acos runs only in the O(n) epilogue.
+//   kAngular - what COLMAP's brute-force matcher and SiftGPU do, with a fixed
+//              descriptor norm. The acos runs only in the O(n) epilogue.
 //
 // No SiftGPU code is copied or adapted here; kAngular reproduces its
 // observable behaviour.
-//
-// NOTE this also changes the UNITS of any max-distance threshold applied by the
-// caller: radians under kAngular, unit-vector L2 distance under kL2.
 enum GemmDistanceType { kGemmDistanceL2 = 0, kGemmDistanceAngular = 1 };
 
 struct GemmMatcherContext;
