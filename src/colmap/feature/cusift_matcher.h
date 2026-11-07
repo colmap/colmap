@@ -36,6 +36,11 @@ struct CusiftMatchingOptions {
 // max_num_matches keeps the first matches in image1 keypoint order, as SiftGPU
 // does. Guided matching is not supported. Returns nullptr if COLMAP was built
 // without cusift (CUSIFT_ENABLED, which needs CUDA >= 11.2).
+//
+// The matcher is bound to the GPU named by options.gpu_index, which Create
+// makes the calling thread's current device (BindCusiftDevice); Match binds
+// its calling thread to that GPU again. Use one matcher from one thread at a
+// time, as COLMAP's controllers do.
 std::unique_ptr<FeatureMatcher> CreateCusiftFeatureMatcher(
     const FeatureMatchingOptions& options);
 

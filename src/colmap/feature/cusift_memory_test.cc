@@ -12,7 +12,8 @@
 //   driver, so GPU stages that run after extraction can have it.
 // - An extractor's buffers, pool and constant bank are per device, so Extract
 //   runs on the device the extractor was created on, whatever the calling
-//   thread has current.
+//   thread has current; likewise Match for a matcher's cuBLAS handle and
+//   buffers.
 
 #include "colmap/feature/cusift.h"
 #include "colmap/feature/cusift_matcher.h"
@@ -166,6 +167,46 @@ TEST(CusiftDevice, ExtractRunsOnTheExtractorsDevice) {
     THROW_CHECK_EQ(cudaSetDevice(created_on), cudaSuccess);
     extractor.reset();
   });
+}
+
+// As ExtractRunsOnTheExtractorsDevice, for the matcher's cuBLAS handle and
+// buffers. The matcher frees them on its own device, so it may be destroyed on
+// any thread.
+TEST(CusiftDevice, MatchRunsOnTheMatchersDevice) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 100, 200);
+  // Rows with disjoint supports, each near COLMAP's descriptor norm of 512, so
+  // every row self-matches and the call does real work.
+  FeatureDescriptorsData data = FeatureDescriptorsData::Zero(12, 128);
+  for (int i = 0; i < data.rows(); ++i) {
+    data.row(i).segment(10 * i, 10).setConstant(162);
+  }
+  const auto descriptors = std::make_shared<FeatureDescriptors>(
+      FeatureExtractorType::SIFT, std::move(data));
+  const FeatureMatcher::Image image = {
+      /*image_id=*/1, &camera, /*keypoints=*/nullptr, descriptors};
+  FeatureMatchingOptions options(FeatureMatcherType::CUSIFT_GEMM);
+  options.use_gpu = true;
+
+  std::unique_ptr<FeatureMatcher> matcher;
+  int created_on = -1;
+  RunOnFreshThread([&]() {
+    matcher = THROW_CHECK_NOTNULL(FeatureMatcher::Create(options));
+    THROW_CHECK_EQ(cudaGetDevice(&created_on), cudaSuccess);
+  });
+
+  int matched_on = -1;
+  RunOnFreshThread([&]() {
+    const int other_device = (created_on + 1) % GetNumCudaDevices();
+    THROW_CHECK_EQ(cudaSetDevice(other_device), cudaSuccess);
+    FeatureMatches matches;
+    matcher->Match(image, image, &matches);
+    THROW_CHECK_GT(matches.size(), 0);
+    THROW_CHECK_EQ(cudaGetDevice(&matched_on), cudaSuccess);
+  });
+  EXPECT_EQ(matched_on, created_on);
+  matcher.reset();
 }
 
 TEST(CusiftMemory, ExtractorThreadReleasesScratchMemory) {

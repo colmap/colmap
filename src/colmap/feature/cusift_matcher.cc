@@ -6,6 +6,10 @@
 #include "colmap/feature/sift.h"
 #include "colmap/util/logging.h"
 
+#ifdef COLMAP_CUSIFT_ENABLED
+#include "colmap/util/cuda.h"
+#endif
+
 #include <vector>
 
 #ifdef COLMAP_CUSIFT_ENABLED
@@ -26,8 +30,10 @@ namespace {
 
 class CusiftFeatureMatcher : public FeatureMatcher {
  public:
-  explicit CusiftFeatureMatcher(const FeatureMatchingOptions& options)
-      : options_(options) {
+  // `device` is the GPU Create bound; Match binds its calling thread to it
+  // again (the cuBLAS handle and the device buffers live there).
+  CusiftFeatureMatcher(const FeatureMatchingOptions& options, const int device)
+      : options_(options), device_(device) {
     // Includes use_gpu and guided_matching, for callers that skip Check().
     THROW_CHECK(options_.Check())
         << "invalid options for the cusift matcher; the reason is logged above";
@@ -36,7 +42,8 @@ class CusiftFeatureMatcher : public FeatureMatcher {
   static std::unique_ptr<FeatureMatcher> Create(
       const FeatureMatchingOptions& options) {
     BindCusiftDevice(options.gpu_index);
-    auto matcher = std::make_unique<CusiftFeatureMatcher>(options);
+    auto matcher = std::make_unique<CusiftFeatureMatcher>(
+        options, cusift::CurrentDevice());
     // Size the device buffers once: the worker has clamped max_num_matches to
     // the largest keypoint count (feature_matching_utils.cc), and growing them
     // later calls cudaFree, which synchronises the whole device.
@@ -56,6 +63,7 @@ class CusiftFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_EQ(image1.descriptors->data.cols(), 128);
     THROW_CHECK_EQ(image2.descriptors->data.cols(), 128);
 
+    SetBestCudaDevice(device_);
     matches->clear();
     const int n1 = static_cast<int>(image1.descriptors->data.rows());
     const int n2 = static_cast<int>(image2.descriptors->data.rows());
@@ -106,6 +114,7 @@ class CusiftFeatureMatcher : public FeatureMatcher {
 
  private:
   const FeatureMatchingOptions options_;
+  const int device_;
   // cuBLAS handle and device buffers, freed when the matcher is destroyed.
   GemmMatcher gemm_;
 };
