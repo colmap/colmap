@@ -166,8 +166,11 @@ TEST(UndistortCamera, TargetCamera) {
   EXPECT_EQ(undistorted_camera.height, 40);
   EXPECT_EQ(undistorted_camera.params, options.target_camera->params);
 
-  // The target camera must not have distortion.
+  // The target camera must be a PINHOLE camera.
   options.target_camera = distorted_camera;
+  EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
+  options.target_camera =
+      Camera::CreateFromModelId(2, CameraModelId::kSimplePinhole, 50, 60, 40);
   EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
 }
 

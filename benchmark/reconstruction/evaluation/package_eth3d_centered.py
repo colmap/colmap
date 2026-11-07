@@ -156,7 +156,8 @@ def undistort_scene(
         calibration_path = output_scene_path / TARGET_CALIBRATION
         calibration_path.mkdir(exist_ok=True)
         merge_cameras(undistorted, target_camera).write_text(calibration_path)
-        shutil.rmtree(output_scene_path / "images", ignore_errors=True)
+        if (output_scene_path / "images").exists():
+            shutil.rmtree(output_scene_path / "images")
         shutil.move(Path(tmp_dir) / "images", output_scene_path / "images")
 
 

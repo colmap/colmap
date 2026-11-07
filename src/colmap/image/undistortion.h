@@ -46,8 +46,8 @@ struct UndistortCameraOptions {
 
   // If set, all perspective cameras are undistorted to this camera instead of
   // a camera derived from each distorted camera, e.g., to undistort images of
-  // different cameras to the same camera. It must be a pinhole camera without
-  // distortion. The other camera options are then ignored.
+  // different cameras to the same camera. It must be a PINHOLE camera. The
+  // other camera options, except for the warp options, are then ignored.
   std::optional<Camera> target_camera;
 };
 

@@ -51,7 +51,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   THROW_CHECK(camera.IsPerspective());
 
   if (options.target_camera.has_value()) {
-    THROW_CHECK(options.target_camera->IsUndistorted());
+    THROW_CHECK(options.target_camera->model_id ==
+                PinholeCameraModel::model_id);
     Camera undistorted_camera = *options.target_camera;
     undistorted_camera.camera_id = camera.camera_id;
     return undistorted_camera;
