@@ -83,10 +83,16 @@ struct FlexGlueMatchingOptions {
   // Number of matching worker threads per CUDA GPU that share one FlexGlue
   // matcher instance (including its ONNX sessions and GPU feature cache).
   // Multiple workers allow image decoding and preprocessing on the CPU to
-  // overlap with model inference on the GPU without duplicating model weights
-  // or cached features; lower this value (e.g., to 1 or 2) to reduce GPU
-  // memory usage. Ignored when not running on a CUDA GPU.
-  int num_workers_per_gpu = 3;
+  // overlap with model inference on the GPU without duplicating cached
+  // features. Ignored when not running on a CUDA GPU.
+  int num_workers_per_gpu = 4;
+
+  // Maximum number of concurrent ONNX model inferences per CUDA GPU across the
+  // shared worker threads. Setting this lower than num_workers_per_gpu (e.g.,
+  // to 1 on GPUs with limited memory) allows multiple CPU threads to decode
+  // and preprocess images in parallel while bounding peak GPU memory usage.
+  // Ignored when not running on a CUDA GPU.
+  int num_inferences_per_gpu = 2;
 
   bool Check() const;
 };
