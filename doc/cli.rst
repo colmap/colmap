@@ -375,7 +375,9 @@ available as ``colmap [command]``:
   improve match verification results.
 
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
-  performing feature extraction and matching.
+  performing feature extraction and matching. Pass
+  ``--Mapper.use_prior_position 1`` to incorporate position priors (e.g., GPS)
+  from the database.
 
 - ``global_mapper``: Sparse 3D reconstruction using the global SfM pipeline.
   Unlike the incremental ``mapper``, the global approach solves for all camera
@@ -386,7 +388,8 @@ available as ``colmap [command]``:
   camera intrinsics and estimate relative poses from the view graph, or provide
   camera calibrations manually.
 
-- ``pose_prior_mapper``: Sparse 3D reconstruction / mapping using pose priors.
+- ``pose_prior_mapper``: Deprecated alias for
+  ``mapper --Mapper.use_prior_position 1``.
 
 - ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
   using hierarchical SfM after performing feature extraction and matching.
@@ -448,10 +451,15 @@ available as ``colmap [command]``:
 
 - ``bundle_adjuster``: Run global bundle adjustment on a reconstructed scene,
   e.g., when a refinement of the intrinsics is needed or
-  after running the ``image_registrator``. The solver backend is selected via
-  ``--BundleAdjustment.backend`` (``CERES`` or ``CASPAR``). Caspar [caspar]_ is
-  an experimental GPU-accelerated backend; see :doc:`faq` for details and
-  limitations.
+  after running the ``image_registrator``. Pass ``--database_path`` (from the
+  same database the model was built from, so ``image_id`` values match) together
+  with ``--BundleAdjustment.use_prior_position 1`` to include position priors;
+  unless anchored by constant poses or 3D points, the output model is aligned
+  into the prior frame (local ENU anchored at the first WGS84 prior), so run
+  ``model_aligner`` afterwards if another target coordinate frame is needed.
+  The solver backend is selected via ``--BundleAdjustment.backend`` (``CERES``
+  or ``CASPAR``). Caspar [caspar]_ is an experimental GPU-accelerated backend;
+  see :doc:`faq` for details and limitations.
 
 - ``database_cleaner``: Clean specific or all database tables.
 

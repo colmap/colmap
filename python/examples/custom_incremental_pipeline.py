@@ -51,10 +51,52 @@ def has_unknown_sensor_from_rig(
     return False
 
 
+def try_align_reconstruction_to_pose_priors(
+    options: IncrementalPipelineOptions,
+    database_cache: pycolmap.DatabaseCache,
+    reconstruction: Reconstruction,
+) -> bool:
+    pose_prior = options.get_global_bundle_adjustment().pose_prior
+    pose_priors = pycolmap.set_pose_prior_position_covariances(
+        pose_prior.position_stddev,
+        pose_prior.overwrite_position_covariance,
+        database_cache.pose_priors,
+    )
+    metric_from_reconstruction = pycolmap.align_reconstruction_to_pose_priors(
+        reconstruction,
+        pose_priors,
+        pose_prior.position_alignment_ransac,
+    )
+    if metric_from_reconstruction is None:
+        return False
+    reconstruction.transform(metric_from_reconstruction)
+    return True
+
+
+def align_reconstruction_to_priors_or_rig_scale(
+    options: IncrementalPipelineOptions,
+    database_cache: pycolmap.DatabaseCache,
+    reconstruction: Reconstruction,
+) -> None:
+    if options.use_prior_position:
+        if try_align_reconstruction_to_pose_priors(
+            options, database_cache, reconstruction
+        ):
+            return
+        logging.warning(
+            "Final alignment w.r.t. prior positions failed; restoring the "
+            "original rig scale instead"
+        )
+    pycolmap.align_reconstruction_to_orig_rig_scales(
+        database_cache.rigs, reconstruction
+    )
+
+
 def iterative_global_refinement(
     options: IncrementalPipelineOptions,
     mapper_options: IncrementalMapperOptions,
     mapper: IncrementalMapper,
+    priors: pycolmap.BundleAdjustmentPriors | None = None,
 ) -> None:
     logging.info("Retriangulation and Global bundle adjustment")
     # The following is equivalent to mapper.iterative_global_refinement(...)
@@ -65,6 +107,7 @@ def iterative_global_refinement(
         mapper_options,
         options.get_global_bundle_adjustment(),
         options.get_triangulation(),
+        priors=priors,
     )
     mapper.filter_frames(mapper_options)
 
@@ -74,6 +117,7 @@ def initialize_reconstruction(
     mapper: IncrementalMapper,
     mapper_options: IncrementalMapperOptions,
     reconstruction: Reconstruction,
+    priors: pycolmap.BundleAdjustmentPriors | None = None,
 ) -> IncrementalPipelineStatus:
     """Equivalent to IncrementalPipeline.initialize_reconstruction(...)"""
     options = controller.options
@@ -115,10 +159,12 @@ def initialize_reconstruction(
 
     logging.info("Global bundle adjustment")
     # The following is equivalent to: mapper.adjust_global_bundle(...)
+    ba_options = options.get_global_bundle_adjustment()
     custom_bundle_adjustment.adjust_global_bundle(
-        mapper, mapper_options, options.get_global_bundle_adjustment()
+        mapper, mapper_options, ba_options, priors=priors
     )
-    reconstruction.normalize()
+    if not ba_options.constrain_metric_scale():
+        reconstruction.normalize()
     mapper.filter_points(mapper_options)
     mapper.filter_frames(mapper_options)
 
@@ -145,9 +191,17 @@ def reconstruct_sub_model(
     if has_unknown_sensor_from_rig(reconstruction):
         return IncrementalPipelineStatus.UNKNOWN_SENSOR_FROM_RIG
 
+    priors = pycolmap.BundleAdjustmentPriors(
+        pose_priors=controller.database_cache.pose_priors
+    )
+
     if reconstruction.num_reg_frames() == 0:
         init_status = initialize_reconstruction(
-            controller, mapper, mapper_options, reconstruction
+            controller,
+            mapper,
+            mapper_options,
+            reconstruction,
+            priors=priors,
         )
         if init_status != IncrementalPipelineStatus.SUCCESS:
             return init_status
@@ -252,7 +306,9 @@ def reconstruct_sub_model(
             if controller.check_run_global_refinement(
                 reconstruction, ba_prev_num_reg_frames, ba_prev_num_points
             ):
-                iterative_global_refinement(options, mapper_options, mapper)
+                iterative_global_refinement(
+                    options, mapper_options, mapper, priors=priors
+                )
                 ba_prev_num_points = reconstruction.num_points3D()
                 ba_prev_num_reg_frames = reconstruction.num_reg_frames()
             if options.extract_colors:
@@ -278,7 +334,9 @@ def reconstruct_sub_model(
         if mapper.num_shared_reg_images() >= int(options.max_model_overlap):
             break
         if (not reg_next_success) and prev_reg_next_success:
-            iterative_global_refinement(options, mapper_options, mapper)
+            iterative_global_refinement(
+                options, mapper_options, mapper, priors=priors
+            )
 
     if controller.check_reached_max_runtime():
         return pycolmap.IncrementalPipelineStatus.INTERRUPTED
@@ -289,7 +347,9 @@ def reconstruct_sub_model(
         and reconstruction.num_reg_frames() != ba_prev_num_reg_frames
         and reconstruction.num_points3D() != ba_prev_num_points
     ):
-        iterative_global_refinement(options, mapper_options, mapper)
+        iterative_global_refinement(
+            options, mapper_options, mapper, priors=priors
+        )
     return IncrementalPipelineStatus.SUCCESS
 
 
@@ -321,8 +381,8 @@ def reconstruct(
             reconstruction.update_point_3d_errors()
             logging.info("Keeping reconstruction due to interrupt")
             mapper.end_reconstruction(False)
-            pycolmap.align_reconstruction_to_orig_rig_scales(
-                database_cache.rigs, reconstruction
+            align_reconstruction_to_priors_or_rig_scale(
+                options, database_cache, reconstruction
             )
         elif status == IncrementalPipelineStatus.UNKNOWN_SENSOR_FROM_RIG:
             logging.error(
@@ -362,8 +422,8 @@ def reconstruct(
                 reconstruction.update_point_3d_errors()
                 logging.info("Keeping successful reconstruction")
                 mapper.end_reconstruction(False)
-                pycolmap.align_reconstruction_to_orig_rig_scales(
-                    database_cache.rigs, reconstruction
+                align_reconstruction_to_priors_or_rig_scale(
+                    options, database_cache, reconstruction
                 )
             controller.callback(
                 IncrementalPipelineCallback.LAST_IMAGE_REG_CALLBACK
@@ -405,6 +465,18 @@ def main_incremental_mapper(controller: IncrementalPipeline) -> None:
         logging.fatal(
             "Can only resume from a single reconstruction, "
             "but multiple are given"
+        )
+    if (
+        continue_reconstruction
+        and controller.options.fix_existing_frames
+        and controller.options.use_prior_position
+        and not try_align_reconstruction_to_pose_priors(
+            controller.options, database_cache, reconstruction_manager.get(0)
+        )
+    ):
+        logging.warning(
+            "Initial alignment of existing reconstruction w.r.t. prior "
+            "positions failed"
         )
 
     num_images = database_cache.num_images()
