@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+import copy
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
@@ -184,8 +185,9 @@ def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
     options.prior_gravity = True
     with pycolmap.Database.open(str(database_path)) as database:
         sparse_gt = pycolmap.synthesize_dataset(options, database)
-    (gt_rig,) = sparse_gt.rigs.values()
+    (gt_rig,) = [copy.copy(rig) for rig in sparse_gt.rigs.values()]
     (gt_sensor_id,) = gt_rig.non_ref_sensors
+    gt_frame_ids = sorted(sparse_gt.frames)
 
     utils.set_cameras_from_gt(
         database_path, sparse_gt, ["camera000001_", "camera000002_"]
@@ -216,10 +218,13 @@ def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
             assert pose_prior.corr_data_id == image.data_id
         for camera in database.read_all_cameras():
             assert camera.source == pycolmap.CameraSource.USER
-    # The GT rig is not modified.
-    assert sparse_gt.rigs[gt_rig.rig_id].sensor_from_rig(gt_sensor_id) == (
-        gt_rig.sensor_from_rig(gt_sensor_id)
+    # The rigs and frames of the GT are not modified.
+    (rig,) = sparse_gt.rigs.values()
+    assert rig.rig_id == gt_rig.rig_id
+    assert rig.sensor_from_rig(gt_sensor_id) == gt_rig.sensor_from_rig(
+        gt_sensor_id
     )
+    assert sorted(sparse_gt.frames) == gt_frame_ids
 
 
 def test_set_cameras_from_gt(tmp_path: Path) -> None:
@@ -254,6 +259,11 @@ def test_set_cameras_from_gt(tmp_path: Path) -> None:
             ),
             pycolmap.Rigid3d(),
         )
+
+    gt_cameras = {
+        camera_id: copy.copy(camera)
+        for camera_id, camera in sparse_gt.cameras.items()
+    }
 
     utils.set_cameras_from_gt(database_path, sparse_gt)
 
@@ -291,10 +301,8 @@ def test_set_cameras_from_gt(tmp_path: Path) -> None:
         assert cache.num_rigs() == 2
         assert cache.num_frames() == len(images)
         assert cache.num_images() == len(images)
-    # The GT cameras are not modified.
-    assert sorted(sparse_gt.cameras) == gt_camera_ids
-    for camera_id, camera in sparse_gt.cameras.items():
-        assert camera.camera_id == camera_id
+    # The GT cameras are not modified, including their source.
+    assert dict(sparse_gt.cameras) == gt_cameras
 
 
 class TestFilterSmallestScenesPerCategory:
