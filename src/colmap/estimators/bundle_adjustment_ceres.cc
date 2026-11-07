@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/alignment.h"
 #include "colmap/estimators/ceres_loss_function.h"
+#include "colmap/estimators/cost_functions/depth.h"
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
@@ -1131,6 +1132,65 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary,
   log << std::right << ceres::TerminationTypeToString(summary.termination_type)
       << "\n\n";
   LOG(INFO) << log.str();
+}
+
+size_t AppendBADepthConstraints(
+    ceres::Problem& problem,
+    Reconstruction& reconstruction,
+    image_t image_id,
+    const FlatHashMap<point2D_t, std::pair<double, double>>& depths,
+    double* log_depth_scale,
+    const BADepthConstraintOptions& options,
+    ceres::LossFunction* loss) {
+  THROW_CHECK_NOTNULL(log_depth_scale);
+  THROW_CHECK(std::isfinite(*log_depth_scale));
+  auto& image = reconstruction.Image(image_id);
+  if (!image.HasPose()) return 0;
+  double* rig_from_world = image.FramePtr()->RigFromWorld().params.data();
+  double* cam_from_rig =
+      image.IsRefInFrame() ? nullptr
+                           : image.FramePtr()
+                                 ->RigPtr()
+                                 ->SensorFromRig(image.CameraPtr()->SensorId())
+                                 .params.data();
+  size_t count = 0;
+  for (const auto& [idx, prior] : depths) {
+    THROW_CHECK_LT(idx, image.NumPoints2D());
+    const auto& [depth, stddev] = prior;
+    THROW_CHECK(std::isfinite(depth) && depth > 0);
+    THROW_CHECK(std::isfinite(stddev) && stddev > 0);
+    const auto& point2D = image.Point2D(idx);
+    if (!point2D.HasPoint3D()) continue;
+    double* point = reconstruction.Point3D(point2D.point3D_id).xyz.data();
+    if (!problem.HasParameterBlock(point)) continue;
+    if (count == 0) {
+      for (double* pose : {rig_from_world, cam_from_rig}) {
+        if (pose && !problem.HasParameterBlock(pose)) {
+          problem.AddParameterBlock(pose, 7);
+          problem.SetParameterBlockConstant(pose);
+        }
+      }
+    }
+    const CamFromWorldDepthCostFunctor depth_cost{
+        depth, stddev, options.residual_type};
+    if (cam_from_rig) {
+      problem.AddResidualBlock(
+          RigCamFromWorldDepthCostFunctor::Create(depth_cost),
+          loss,
+          point,
+          cam_from_rig,
+          rig_from_world,
+          log_depth_scale);
+    } else {
+      problem.AddResidualBlock(CamFromWorldDepthCostFunctor::Create(depth_cost),
+                               loss,
+                               point,
+                               rig_from_world,
+                               log_depth_scale);
+    }
+    ++count;
+  }
+  return count;
 }
 
 }  // namespace colmap
