@@ -8,6 +8,7 @@
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
@@ -508,6 +509,129 @@ TEST(FeatureMatcherController, SharedFeatureMatcherWorkersMatchPairs) {
     worker->Wait();
   }
 }
+
+#if defined(COLMAP_CUDA_ENABLED) && defined(COLMAP_ONNX_ENABLED) && \
+    defined(COLMAP_DOWNLOAD_ENABLED)
+TEST(FeatureMatcherController, FlexGlueSharedCudaWorkersMatchPairs) {
+  if (GetNumCudaDevices() == 0) {
+    GTEST_SKIP() << "No CUDA devices available";
+  }
+
+  constexpr int kNumImages = 4;
+  constexpr int kWidth = 640;
+  constexpr int kHeight = 480;
+  constexpr int kStepX = 15;
+  constexpr int kStepY = 10;
+
+  const std::filesystem::path test_dir = CreateTestDir();
+  const auto database = Database::Open(test_dir / "database.db");
+
+  // Deterministic textured canvas cropped at translated offsets so all pairs
+  // are covisible with known correspondences and no descriptors are stored.
+  std::mt19937 prng(42);
+  std::uniform_int_distribution<int> byte_dist(0, 255);
+  std::uniform_int_distribution<int> size_dist(8, 80);
+  const int canvas_width = kWidth + (kNumImages - 1) * kStepX + 1;
+  const int canvas_height = kHeight + (kNumImages - 1) * kStepY + 1;
+  std::uniform_int_distribution<int> x_dist(0, canvas_width - 1);
+  std::uniform_int_distribution<int> y_dist(0, canvas_height - 1);
+  Bitmap canvas(canvas_width, canvas_height, /*as_rgb=*/true);
+  for (int y = 0; y < canvas_height; ++y) {
+    for (int x = 0; x < canvas_width; ++x) {
+      canvas.SetPixel(
+          x,
+          y,
+          BitmapColor<uint8_t>(static_cast<uint8_t>(x * 255 / canvas_width),
+                               static_cast<uint8_t>(y * 255 / canvas_height),
+                               128));
+    }
+  }
+  for (int r = 0; r < 300; ++r) {
+    const int size = size_dist(prng);
+    const int x0 = x_dist(prng);
+    const int y0 = y_dist(prng);
+    const BitmapColor<uint8_t> color(static_cast<uint8_t>(byte_dist(prng)),
+                                     static_cast<uint8_t>(byte_dist(prng)),
+                                     static_cast<uint8_t>(byte_dist(prng)));
+    for (int y = y0; y < std::min(canvas_height, y0 + size); ++y) {
+      for (int x = x0; x < std::min(canvas_width, x0 + size); ++x) {
+        canvas.SetPixel(x, y, color);
+      }
+    }
+  }
+
+  Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, PinholeCameraModel::model_id, 500, kWidth, kHeight);
+  camera.camera_id = database->WriteCamera(camera);
+
+  constexpr int kGridRows = 16;
+  constexpr int kGridCols = 20;
+  std::vector<image_t> image_ids;
+  image_ids.reserve(kNumImages);
+  for (int i = 0; i < kNumImages; ++i) {
+    Bitmap crop(kWidth, kHeight, /*as_rgb=*/true);
+    for (int y = 0; y < kHeight; ++y) {
+      for (int x = 0; x < kWidth; ++x) {
+        crop.SetPixel(x, y, *canvas.GetPixel(i * kStepX + x, i * kStepY + y));
+      }
+    }
+    const std::string name = "image" + std::to_string(i) + ".png";
+    ASSERT_TRUE(crop.Write(test_dir / name));
+
+    Image image;
+    image.SetName(name);
+    image.SetCameraId(camera.camera_id);
+    const image_t image_id = database->WriteImage(image);
+    image_ids.push_back(image_id);
+
+    FeatureKeypoints keypoints;
+    keypoints.reserve(kGridRows * kGridCols);
+    for (int r = 0; r < kGridRows; ++r) {
+      for (int c = 0; c < kGridCols; ++c) {
+        keypoints.emplace_back(80 + c * 24 - i * kStepX + 0.5f,
+                               60 + r * 22 - i * kStepY + 0.5f);
+      }
+    }
+    database->WriteKeypoints(image_id, keypoints);
+  }
+
+  const auto pairs = AllPairs(image_ids);
+  auto run_with_workers = [&](int num_workers_per_gpu) {
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
+    auto cache = std::make_shared<FeatureMatcherCache>(100, database);
+    FeatureMatchingOptions matching_options(FeatureMatcherType::FLEXGLUE);
+    matching_options.use_gpu = true;
+    matching_options.gpu_index = "0";
+    // Smaller than num_workers_per_gpu = 3 to also exercise the std::max(1, .)
+    // clamping when dividing num_threads across GPU workers.
+    matching_options.num_threads = 2;
+    matching_options.skip_geometric_verification = true;
+    matching_options.flexglue->image_path = test_dir.string();
+    matching_options.flexglue->num_workers_per_gpu = num_workers_per_gpu;
+    TwoViewGeometryOptions geometry_options;
+    FeatureMatcherController controller(
+        matching_options, geometry_options, cache);
+    EXPECT_TRUE(controller.Setup());
+    controller.Match(pairs);
+
+    std::vector<FeatureMatches> all_matches;
+    all_matches.reserve(pairs.size());
+    for (const auto& [id1, id2] : pairs) {
+      all_matches.push_back(database->ReadMatches(id1, id2));
+    }
+    return all_matches;
+  };
+
+  const std::vector<FeatureMatches> expected_matches = run_with_workers(1);
+  for (const FeatureMatches& matches : expected_matches) {
+    ASSERT_FALSE(matches.empty());
+  }
+
+  const std::vector<FeatureMatches> concurrent_matches = run_with_workers(3);
+  EXPECT_EQ(concurrent_matches, expected_matches);
+}
+#endif
 
 TEST(FeatureMatcherController, MatchSkipGeometricVerification) {
   auto data = CreateTestData(3);
