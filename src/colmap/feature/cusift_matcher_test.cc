@@ -285,18 +285,23 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
     ASSERT_GT(distance, 0.3);
     FeatureMatchingOptions options = CreateCusiftMatchingOptions();
     options.cusift->distance_type = distance_type;
-    options.sift->cross_check = false;
     // A single candidate's runner-up counts as infinitely far (L2) or at
     // angle pi/2 (ANGULAR); the pair's distance passes either ratio test.
     options.sift->max_ratio = 1.0;
-    for (const double factor : {1.05, 0.95}) {
-      options.sift->max_distance = factor * distance;
-      auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
-      FeatureMatches matches;
-      matcher->Match(image1, image2, &matches);
-      EXPECT_EQ(matches.size(), factor > 1 ? 1 : 0)
-          << "distance_type=" << distance_type << " distance=" << distance
-          << " max_distance=" << options.sift->max_distance;
+    // Cross-checking must not change the outcome: the lone reverse candidate
+    // has no runner-up either.
+    for (const bool cross_check : {false, true}) {
+      options.sift->cross_check = cross_check;
+      for (const double factor : {1.05, 0.95}) {
+        options.sift->max_distance = factor * distance;
+        auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
+        FeatureMatches matches;
+        matcher->Match(image1, image2, &matches);
+        EXPECT_EQ(matches.size(), factor > 1 ? 1 : 0)
+            << "distance_type=" << distance_type << " distance=" << distance
+            << " max_distance=" << options.sift->max_distance
+            << " cross_check=" << cross_check;
+      }
     }
   }
 }

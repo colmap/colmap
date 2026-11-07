@@ -330,13 +330,12 @@ float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
   safeCall(cudaEventElapsedTime(&ms, ev.t0, ev.t1));
 
   std::vector<float> hB(n1), hS(n1), h1Sq(n1), h2Sq(n2);
-  std::vector<int> hIdx(n1), hIdx2(n1), hColIdx(mutual ? n2 : 0);
+  std::vector<int> hIdx(n1), hColIdx(mutual ? n2 : 0);
   std::vector<float> hColB(mutual && reverseRatio ? n2 : 0);
   std::vector<float> hColS(mutual && reverseRatio ? n2 : 0);
   safeCall(cudaMemcpy(hB.data(), dBest, n1 * sizeof(float), cudaMemcpyDeviceToHost));
   safeCall(cudaMemcpy(hS.data(), dSecond, n1 * sizeof(float), cudaMemcpyDeviceToHost));
   safeCall(cudaMemcpy(hIdx.data(), dIdx, n1 * sizeof(int), cudaMemcpyDeviceToHost));
-  safeCall(cudaMemcpy(hIdx2.data(), dIdx2, n1 * sizeof(int), cudaMemcpyDeviceToHost));
   safeCall(cudaMemcpy(h1Sq.data(), d1Sq, n1 * sizeof(float), cudaMemcpyDeviceToHost));
   safeCall(cudaMemcpy(h2Sq.data(), d2Sq, n2 * sizeof(float), cudaMemcpyDeviceToHost));
   if (mutual) {
@@ -363,50 +362,44 @@ float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
   auto angle_of = [&](float dot) {
     return acosf(fminf(fmaxf(dot * invSqNorm, -1.0f), 1.0f));
   };
-
-  for (int i = 0; i < n1; i++) {
-    const int j = hIdx[i], j2 = hIdx2[i];
-    if (j < 0) continue;
-
-    float dB;  // reported squared distance, COLMAP scale
+  // One-way acceptance of a descriptor's best candidate, from the reduction
+  // keys of its best and second-best candidate (second is -FLT_MAX when there
+  // is none) and its own squared norm. COLMAP's reference applies the same
+  // one-way test to the transposed matrix for the cross-check, so this serves
+  // both directions.
+  auto accepts = [&](float best, float second, float sqNorm) {
     if (angular) {
       // The reference seeds best and second at dot 0: a best dot <= 0 is no
       // candidate, and a missing or non-positive runner-up counts as dot 0
       // (angle pi/2), so a lone candidate still faces the ratio test.
-      if (hB[i] <= 0.0f) continue;
-      const float aB = angle_of(hB[i]);
+      if (best <= 0.0f) return false;
+      const float aB = angle_of(best);
       // Threshold on the angle, matching the reference's ordering of tests.
-      if (aB > maxDistance) continue;
-      const float aS = angle_of(fmaxf(hS[i], 0.0f));
-      if (aB >= ratio * aS) continue;
-      dB = h1Sq[i] + h2Sq[j] - 2.0f * hB[i];
-    } else {
-      dB = h1Sq[i] - hB[i];
-      const float dS = (j2 < 0) ? FLT_MAX : (h1Sq[i] - hS[i]);
-      if (dB > maxDistance * maxDistance * sqDescriptorNorm) continue;
-      if (j2 >= 0 && dB >= r2 * dS) continue;
+      if (aB > maxDistance) return false;
+      return aB < ratio * angle_of(fmaxf(second, 0.0f));
     }
+    // The L2 key is 2 q.c - ||c||^2, so the squared distance is ||q||^2 - key;
+    // a missing runner-up is infinitely far, as in COLMAP's index matcher.
+    const float dB = sqNorm - best;
+    const float dS = (second == -FLT_MAX) ? FLT_MAX : (sqNorm - second);
+    if (dB > maxDistance * maxDistance * sqDescriptorNorm) return false;
+    return dB < r2 * dS;
+  };
+
+  for (int i = 0; i < n1; i++) {
+    const int j = hIdx[i];
+    if (j < 0) continue;
+    if (!accepts(hB[i], hS[i], h1Sq[i])) continue;
 
     if (mutual) {
       if (hColIdx[j] != i) continue;
-      // Reverse-direction test. COLMAP's reference applies the SAME one-way
-      // test to the transposed matrix and intersects, so the reverse side gets
-      // its own ratio test, not just mutual-best agreement (see ColTop2).
-      if (reverseRatio) {
-        if (angular) {
-          // Same seeding as the forward direction: a column with one row has
-          // its runner-up at dot 0, not at the -FLT_MAX initialiser.
-          const float cB = angle_of(hColB[j]);
-          const float cS = angle_of(fmaxf(hColS[j], 0.0f));
-          if (cB > maxDistance) continue;
-          if (cB >= ratio * cS) continue;
-        } else {
-          const float cB = h2Sq[j] - hColB[j];
-          const float cS = h2Sq[j] - hColS[j];
-          if (cB >= r2 * cS) continue;
-        }
-      }
+      // Reverse-direction test: the reverse side gets its own max-distance and
+      // ratio test, not just mutual-best agreement (see ColTop2).
+      if (reverseRatio && !accepts(hColB[j], hColS[j], h2Sq[j])) continue;
     }
+    // Reported squared distance, COLMAP scale.
+    const float dB = angular ? (h1Sq[i] + h2Sq[j] - 2.0f * hB[i])
+                             : (h1Sq[i] - hB[i]);
     out.push_back({i, j, dB});
   }
 
