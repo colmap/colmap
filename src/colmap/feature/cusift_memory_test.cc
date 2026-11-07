@@ -10,6 +10,9 @@
 //   default pool, which other code in the process may use, keeps its settings.
 // - Destroying an extractor returns the pool memory it no longer uses to the
 //   driver, so GPU stages that run after extraction can have it.
+// - An extractor's buffers, pool and constant bank are per device, so Extract
+//   runs on the device the extractor was created on, whatever the calling
+//   thread has current.
 
 #include "colmap/feature/cusift.h"
 #include "colmap/feature/cusift_matcher.h"
@@ -128,6 +131,41 @@ FeatureDescriptors CreateRandomDescriptors(const int num_features) {
     }
   }
   return FeatureDescriptors(FeatureExtractorType::SIFT, std::move(data));
+}
+
+// COLMAP's controllers create and extract on one thread, bound at creation to
+// the extractor's GPU; direct and pycolmap callers may extract on another
+// thread, with another device current. With one GPU this only shows that such
+// a call works; with several it checks that Extract rebinds its own device.
+TEST(CusiftDevice, ExtractRunsOnTheExtractorsDevice) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  const Bitmap bitmap = CreateNoiseImage(128, 128);
+  FeatureExtractionOptions options(FeatureExtractorType::CUSIFT);
+  options.use_gpu = true;
+
+  std::unique_ptr<FeatureExtractor> extractor;
+  int created_on = -1;
+  RunOnFreshThread([&]() {
+    extractor = THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options));
+    THROW_CHECK_EQ(cudaGetDevice(&created_on), cudaSuccess);
+  });
+
+  int extracted_on = -1;
+  RunOnFreshThread([&]() {
+    const int other_device = (created_on + 1) % GetNumCudaDevices();
+    THROW_CHECK_EQ(cudaSetDevice(other_device), cudaSuccess);
+    FeatureKeypoints keypoints;
+    THROW_CHECK(
+        extractor->Extract(bitmap, &keypoints, /*descriptors=*/nullptr));
+    THROW_CHECK_GT(keypoints.size(), 0);
+    THROW_CHECK_EQ(cudaGetDevice(&extracted_on), cudaSuccess);
+  });
+  EXPECT_EQ(extracted_on, created_on);
+
+  RunOnFreshThread([&]() {
+    THROW_CHECK_EQ(cudaSetDevice(created_on), cudaSuccess);
+    extractor.reset();
+  });
 }
 
 TEST(CusiftMemory, ExtractorThreadReleasesScratchMemory) {

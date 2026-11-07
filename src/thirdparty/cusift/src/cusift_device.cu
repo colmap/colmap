@@ -43,6 +43,8 @@ cudaMemPool_t cusiftMemPool()
 
 namespace cusift {
 
+int CurrentDevice() { return cusiftCurrentDevice(); }
+
 void InitMemoryPool() { cusiftInitMemPool(); }
 
 void ReleaseUnusedMemory() {

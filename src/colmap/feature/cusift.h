@@ -28,6 +28,11 @@ bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift);
 // options.sift. Its descriptors are tagged FeatureExtractorType::SIFT, so the
 // SIFT matchers and databases use them unchanged. Returns nullptr if COLMAP was
 // built without cusift (CUSIFT_ENABLED, which needs CUDA >= 11.2).
+//
+// The extractor is bound to the GPU named by options.gpu_index, which Create
+// makes the calling thread's current device (BindCusiftDevice); Extract binds
+// its calling thread to that GPU again. Use one extractor from one thread at a
+// time and destroy it on a thread bound to its GPU, as COLMAP's controllers do.
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
     const FeatureExtractionOptions& options);
 

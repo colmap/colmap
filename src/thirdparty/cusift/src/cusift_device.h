@@ -15,6 +15,10 @@
 
 namespace cusift {
 
+// The calling thread's current device, for a caller that must come back to it
+// (colmap::SetBestCudaDevice) from another thread.
+int CurrentDevice();
+
 // Creates cusift's own stream-ordered memory pool on the calling thread's
 // current device, whose unbounded release threshold turns cusift's per-image
 // allocations into pool hits. The device's default pool is left untouched.

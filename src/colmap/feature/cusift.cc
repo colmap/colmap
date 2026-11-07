@@ -92,8 +92,12 @@ FeatureDescriptorsData NormalizeAndQuantize(
 
 class CusiftFeatureExtractor : public FeatureExtractor {
  public:
-  explicit CusiftFeatureExtractor(const FeatureExtractionOptions& options)
-      : options_(options) {
+  // `device` is the GPU the calling thread is bound to; Extract binds its
+  // calling thread to it again (SiftScratch, the pool and the constant bank
+  // are per device).
+  CusiftFeatureExtractor(const FeatureExtractionOptions& options,
+                         const int device)
+      : options_(options), device_(device) {
     // Includes CheckCusiftSiftOptions.
     THROW_CHECK(options_.Check())
         << "invalid options for the cusift extractor; the reason is logged "
@@ -112,13 +116,15 @@ class CusiftFeatureExtractor : public FeatureExtractor {
   static std::unique_ptr<FeatureExtractor> Create(
       const FeatureExtractionOptions& options) {
     BindCusiftDevice(options.gpu_index);
-    return std::make_unique<CusiftFeatureExtractor>(options);
+    return std::make_unique<CusiftFeatureExtractor>(options,
+                                                    cusift::CurrentDevice());
   }
 
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
     THROW_CHECK_NOTNULL(keypoints);
+    SetBestCudaDevice(device_);
 
     std::vector<float> host_buffer;
     CudaImage image;
@@ -179,6 +185,7 @@ class CusiftFeatureExtractor : public FeatureExtractor {
 
  private:
   const FeatureExtractionOptions options_;
+  const int device_;
   // Kernel I/O buffers reused across images; freed in the destructor.
   SiftScratch scratch_;
 
