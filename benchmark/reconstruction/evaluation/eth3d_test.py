@@ -13,18 +13,30 @@ from .eth3d import (
 
 
 @pytest.mark.parametrize(
-    ("dataset_class", "calibration", "single_camera"),
+    ("dataset_class", "calibration", "expected_args"),
     [
-        (DatasetETH3DUndistorted, "dslr_calibration_undistorted", False),
-        (DatasetETH3DDistorted, "dslr_calibration_jpg", False),
-        (DatasetETH3DCentered, "dslr_calibration_undistorted", True),
+        (
+            DatasetETH3DUndistorted,
+            "dslr_calibration_undistorted",
+            ["--data_type", "individual"],
+        ),
+        (
+            DatasetETH3DDistorted,
+            "dslr_calibration_jpg",
+            ["--data_type", "individual"],
+        ),
+        (
+            DatasetETH3DCentered,
+            "dslr_calibration_undistorted",
+            ["--data_type", "individual", "--single_camera", "1"],
+        ),
     ],
 )
-def test_list_scenes_single_camera(
+def test_list_scenes_colmap_extra_args(
     tmp_path: Path,
     dataset_class: type[_DatasetETH3D],
     calibration: str,
-    single_camera: bool,
+    expected_args: list[str],
 ) -> None:
     scene_path = tmp_path / "data" / dataset_class.dataset_name / "dslr" / "s"
     (scene_path / calibration).mkdir(parents=True)
@@ -40,6 +52,4 @@ def test_list_scenes_single_camera(
 
     (scene_info,) = dataset.list_scenes()
 
-    assert scene_info.num_images == 1
-    assert scene_info.colmap_extra_args is not None
-    assert ("--single_camera" in scene_info.colmap_extra_args) == single_camera
+    assert scene_info.colmap_extra_args == expected_args
