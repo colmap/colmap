@@ -5,7 +5,9 @@
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/file.h"
+#include "colmap/util/misc.h"
 #include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
@@ -60,6 +62,62 @@ TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
                                  /*num_obs_tolerance=*/0.9,
                                  /*align=*/true));
 }
+
+class ParameterizedAutomaticReconstructionIntrinsicsTests
+    : public ::testing::TestWithParam<
+          AutomaticReconstructionController::Mapper> {};
+
+TEST_P(ParameterizedAutomaticReconstructionIntrinsicsTests, FixedIntrinsics) {
+  const auto test_dir = CreateTestDir();
+  const auto workspace_path = test_dir / "workspace";
+  const auto image_path = test_dir / "images";
+  CreateDirIfNotExists(workspace_path);
+  CreateDirIfNotExists(image_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 5;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 200;
+  synthetic_dataset_options.num_points2D_without_point3D = 10;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+  SynthesizeImages(SyntheticImageOptions(), gt_reconstruction, image_path);
+
+  AutomaticReconstructionController::Options options;
+  options.workspace_path = workspace_path;
+  options.image_path = image_path;
+  options.data_type = AutomaticReconstructionController::DataType::INDIVIDUAL;
+  options.quality = AutomaticReconstructionController::Quality::LOW;
+  options.camera_model =
+      CameraModelIdToName(synthetic_dataset_options.camera_model_id);
+  options.camera_params = VectorToCSV(synthetic_dataset_options.camera_params);
+  options.refine_intrinsics = false;
+  options.dense = false;
+  options.use_gpu = false;
+  options.random_seed = 1;
+  options.mapper = GetParam();
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  AutomaticReconstructionController controller(options, reconstruction_manager);
+  controller.Setup();
+  controller.Start();
+  controller.Wait();
+
+  ASSERT_GE(reconstruction_manager->Size(), 1);
+  const Reconstruction& reconstruction = *reconstruction_manager->Get(0);
+  ASSERT_GT(reconstruction.NumRegImages(), 0);
+  for (const auto& [_, camera] : reconstruction.Cameras()) {
+    EXPECT_EQ(camera.params, synthetic_dataset_options.camera_params);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AutomaticReconstructionTests,
+    ParameterizedAutomaticReconstructionIntrinsicsTests,
+    ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
+                      AutomaticReconstructionController::Mapper::HIERARCHICAL,
+                      AutomaticReconstructionController::Mapper::GLOBAL));
 
 // TODO: Add GLOBAL mapper test. Currently excluded because the test produces
 // fewer observations than expected. The global pipeline is tested separately

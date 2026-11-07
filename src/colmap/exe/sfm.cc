@@ -85,6 +85,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
                            &reconstruction_options.single_camera_per_folder);
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
+  options.AddDefaultOption("refine_intrinsics",
+                           &reconstruction_options.refine_intrinsics);
   options.AddDefaultOption("extraction", &reconstruction_options.extraction);
   options.AddDefaultOption("single_view_calibration",
                            &reconstruction_options.single_view_calibration);
