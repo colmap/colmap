@@ -63,7 +63,7 @@ maps[0].write(output_path)
 # Dense reconstruction
 pycolmap.undistort_images(mvs_path, output_path, image_dir)
 pycolmap.patch_match_stereo(mvs_path)  # requires compilation with CUDA
-pycolmap.stereo_fusion(mvs_path / "dense.ply", mvs_path)
+pycolmap.stereo_fusion(mvs_path / "dense.ply", mvs_path, output_type="ply")
 ```
 
 PyCOLMAP can leverage the GPU for feature extraction, matching, and multi-view stereo if COLMAP was compiled with CUDA support. Similarly, PyCOLMAP can run Delaunay Triangulation and Advancing Front Surface Reconstruction if COLMAP was compiled with CGAL support. This requires to build the package from source and is not available with the PyPI wheels.
