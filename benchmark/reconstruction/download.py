@@ -118,7 +118,6 @@ def download_imc2024(data_path: Path) -> None:
     archive_path = data_path / f"{competition}.zip"
     with zipfile.ZipFile(archive_path, mode="r") as archive:
         archive.extractall(path=data_path)
-    archive_path.unlink()
 
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"
@@ -127,6 +126,7 @@ def download_imc2024(data_path: Path) -> None:
         if scene.name == "all":
             continue
         shutil.move(scene, category_path)
+    archive_path.unlink()
 
 
 def download_imc2025(data_path: Path) -> None:
@@ -150,7 +150,6 @@ def download_imc2025(data_path: Path) -> None:
     archive_path = data_path / f"{competition}.zip"
     with zipfile.ZipFile(archive_path, mode="r") as archive:
         archive.extractall(path=data_path)
-    archive_path.unlink()
 
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"
@@ -159,6 +158,7 @@ def download_imc2025(data_path: Path) -> None:
         if scene.name == "all":
             continue
         shutil.move(scene, category_path)
+    archive_path.unlink()
 
 
 # TODO: BlendedMVS+ and BlendedMVS++.
