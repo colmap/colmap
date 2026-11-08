@@ -29,6 +29,11 @@ bool CheckCusiftSiftOptions(const SiftExtractionOptions& sift);
 // (for example "sift.upright: ..."); empty if CheckCusiftSiftOptions passes.
 std::string CusiftUnsupportedSiftOption(const SiftExtractionOptions& sift);
 
+// Resets every SIFT option cusift does not support (see
+// CheckCusiftSiftOptions) to its SIFT default, so that CheckCusiftSiftOptions
+// passes. Leaves the supported options, first_octave 0 among them, unchanged.
+void ClearUnsupportedCusiftSiftOptions(SiftExtractionOptions* sift);
+
 // CUDA SIFT extractor replicating COLMAP's VLFeat CPU backend, configured by
 // options.sift. Its descriptors are tagged FeatureExtractorType::SIFT, so the
 // SIFT matchers and databases use them unchanged. Returns nullptr if COLMAP was

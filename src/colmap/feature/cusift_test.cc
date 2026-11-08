@@ -151,6 +151,13 @@ TEST_P(CusiftUnsupportedOptionTest, MessageNamesTheOption) {
               testing::StartsWith(GetParam().option + ": "));
 }
 
+TEST_P(CusiftUnsupportedOptionTest, ClearMakesCheckPass) {
+  SiftExtractionOptions options;
+  GetParam().apply(options);
+  ClearUnsupportedCusiftSiftOptions(&options);
+  EXPECT_TRUE(CheckCusiftSiftOptions(options));
+}
+
 INSTANTIATE_TEST_SUITE_P(
     CusiftUnsupportedOption,
     CusiftUnsupportedOptionTest,
@@ -189,6 +196,31 @@ INSTANTIATE_TEST_SUITE_P(
             "sift.num_octaves",
             [](SiftExtractionOptions& o) { o.num_octaves = 6; }}),
     [](const auto& info) { return info.param.name; });
+
+TEST(CusiftUnsupportedOptions, ClearResetsAllAndKeepsSupportedOnes) {
+  SiftExtractionOptions options;
+  options.estimate_affine_shape = true;
+  options.domain_size_pooling = true;
+  options.upright = true;
+  options.darkness_adaptivity = true;
+  options.force_covariant_extractor = true;
+  options.first_octave = -2;
+  options.octave_resolution = 4;
+  options.num_octaves = 6;
+  options.max_num_features = 1234;
+  options.peak_threshold = 0.01;
+  ClearUnsupportedCusiftSiftOptions(&options);
+  EXPECT_TRUE(CheckCusiftSiftOptions(options));
+  EXPECT_EQ(options.max_num_features, 1234);
+  EXPECT_EQ(options.peak_threshold, 0.01);
+}
+
+TEST(CusiftUnsupportedOptions, ClearKeepsSupportedFirstOctave) {
+  SiftExtractionOptions options;
+  options.first_octave = 0;
+  ClearUnsupportedCusiftSiftOptions(&options);
+  EXPECT_EQ(options.first_octave, 0);
+}
 
 // Options pass Check() only in a build with cusift; without it, Check() rejects
 // the cusift types before reaching cusift's own checks.

@@ -12,6 +12,7 @@
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
@@ -121,8 +122,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   if (options_.feature == Feature::CUSIFT) {
     // The high and extreme quality presets enable covariant SIFT, which cusift
     // rejects rather than ignores.
-    option_manager_.feature_extraction->sift->estimate_affine_shape = false;
-    option_manager_.feature_extraction->sift->domain_size_pooling = false;
+    ClearUnsupportedCusiftSiftOptions(
+        option_manager_.feature_extraction->sift.get());
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;

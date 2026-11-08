@@ -222,6 +222,21 @@ int CusiftEffectiveNumOctaves(const CusiftExtractionOptions& options,
   return std::min(num_octaves, max_num_octaves);
 }
 
+void ClearUnsupportedCusiftSiftOptions(SiftExtractionOptions* sift) {
+  THROW_CHECK_NOTNULL(sift);
+  const SiftExtractionOptions defaults;
+  sift->estimate_affine_shape = false;
+  sift->domain_size_pooling = false;
+  sift->upright = false;
+  sift->darkness_adaptivity = false;
+  sift->force_covariant_extractor = false;
+  if (sift->first_octave != 0 && sift->first_octave != -1) {
+    sift->first_octave = defaults.first_octave;
+  }
+  sift->octave_resolution = kCusiftOctaveResolution;
+  sift->num_octaves = defaults.num_octaves;
+}
+
 bool CusiftExtractionOptions::Check() const {
   CHECK_OPTION(num_octaves == -1 || num_octaves >= 1);
   return true;
