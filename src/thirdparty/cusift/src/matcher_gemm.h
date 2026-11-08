@@ -49,6 +49,12 @@ struct GemmTop2 {
 // buffers, freed when it is destroyed; use one per thread. Not thread_local:
 // on Windows every CUDA call made from a thread-exit destructor fails
 // ("initialization error"), so buffers released there leaked.
+//
+// Default stream only: the cuBLAS handle keeps its default stream and every
+// kernel launch and copy uses the default stream too. cusift is built without
+// --default-stream per-thread, so that is the legacy default stream: Top2 is
+// serialised against all other blocking-stream work on the device, including
+// GemmMatchers on other threads, and returns once its results are on the host.
 class GemmMatcher {
  public:
   GemmMatcher();
