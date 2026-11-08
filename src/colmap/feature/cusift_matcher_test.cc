@@ -681,7 +681,8 @@ std::vector<int> OracleOneWay(const Eigen::MatrixXf& query,
                               const MatchingSetup& setup,
                               const bool thresholds) {
   constexpr float kSqNorm = 512.0f * 512.0f;
-  constexpr float kInvSqNorm = 1.0f / kSqNorm;
+  // Static, so the capture-less lambda below may use it (MSVC requires that).
+  static constexpr float kInvSqNorm = 1.0f / kSqNorm;
   constexpr float kMissing = std::numeric_limits<float>::max();
   const auto angle = [](const float dot) {
     return std::acos(std::min(kInvSqNorm * dot, 1.0f));
