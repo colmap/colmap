@@ -217,7 +217,6 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   }
 
   std::atomic<size_t> trial_counter(0);
-  size_t num_trials = 0;
   std::atomic<size_t> dyn_max_num_trials(max_num_trials);
   std::atomic<bool> abort_flag(false);
 
@@ -234,8 +233,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 // serially when num_threads == 1 via the if-clause). Without OpenMP, the
 // pragma is absent and the block runs once serially.
 #ifdef _OPENMP
-#pragma omp parallel num_threads(num_threads) if (num_threads > 1) \
-    reduction(+ : num_trials)
+#pragma omp parallel num_threads(num_threads) if (num_threads > 1)
 #endif
   {
     // Per-thread copies of mutable objects. Each thread needs its own sampler
@@ -269,9 +267,13 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
           trial_counter.fetch_add(1, std::memory_order_relaxed);
       if (curr_thread_trial >= max_num_trials ||
           abort_flag.load(std::memory_order_relaxed)) {
+        // Undo the reservation, so that trial_counter counts only the
+        // trials that pass the checks above. A reused index fails the
+        // gate again: the abort flag is never cleared, and a budget
+        // failure means max_num_trials was already reached.
+        trial_counter.fetch_sub(1, std::memory_order_relaxed);
         break;
       }
-      ++num_trials;
 
       thread_sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
@@ -320,7 +322,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     }
   }
 
-  report.num_trials = num_trials;
+  report.num_trials = trial_counter.load();
 
   if (!best_model.has_value()) {
     return report;
