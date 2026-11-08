@@ -497,6 +497,23 @@ TEST(CusiftFeatureMatcher, ColumnTieBreakPrefersLowerRowIndex) {
   }
 }
 
+// A second set with genuine correspondences: independent random sparse
+// descriptors are near-orthogonal and produce almost no matches, so both
+// matchers would return the empty set and an equality assertion would pass
+// vacuously. Perturbed copies give real matches AND keep the near-tie
+// population that makes a differential test sensitive. The perturbation adds
+// 6 to 10 to one dimension per row; the L2 thresholds of
+// DifferentialAcrossTilesMetricsAndCrossCheckModes are chosen around it.
+FeatureDescriptors CreatePerturbedCopy(const FeatureDescriptors& src,
+                                       const int seed) {
+  FeatureDescriptorsFloatData f = src.ToFloat().data;
+  for (Eigen::Index r = 0; r < f.rows(); ++r) {
+    const int dim = static_cast<int>((r * 37 + seed) % 128);
+    f(r, dim) += 6.0f + static_cast<float>((r + seed) % 5);
+  }
+  return FeatureDescriptors(FeatureExtractorType::SIFT, f.cast<uint8_t>());
+}
+
 // Differential fuzz against COLMAP's EXACT reference matcher, on descriptors
 // with NON-UNIFORM norms, where ranking by raw inner product and ranking by
 // normalized distance disagree.
@@ -515,18 +532,7 @@ TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
   for (int seed = 1; seed <= 12; ++seed) {
     for (const size_t n : {2u, 3u, 17u, 64u, 200u}) {
       const FeatureDescriptors da = CreateDescriptorsWithVaryingNorms(n, seed);
-      // db must contain genuine correspondences, or both matchers return the
-      // empty set and the equality assertion passes vacuously. Independent
-      // random sparse descriptors are near-orthogonal and produce almost no
-      // matches. Perturbed copies of da give real matches AND keep the near-tie
-      // population that makes the test sensitive.
-      FeatureDescriptorsFloatData f = da.ToFloat().data;
-      for (Eigen::Index r = 0; r < f.rows(); ++r) {
-        const int dim = static_cast<int>((r * 37 + seed) % 128);
-        f(r, dim) += 6.0f + static_cast<float>((r + seed) % 5);
-      }
-      const FeatureDescriptors db(FeatureExtractorType::SIFT,
-                                  f.cast<uint8_t>());
+      const FeatureDescriptors db = CreatePerturbedCopy(da, seed);
       const auto img1 = MakeImage(1, da);
       const auto img2 = MakeImage(2, db);
 
@@ -627,16 +633,21 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
       << "the winning candidate changed under non-canonical descriptor norms";
 }
 
-// Thresholds and cross-check setting, applied alike to the cusift matcher and
-// to COLMAP's exact CPU matcher.
+// Thresholds and cross-check settings, applied alike to the cusift matcher
+// and to the in-test reference; COLMAP's exact CPU matcher implements only
+// ANGULAR with the reverse ratio test.
 struct MatchingSetup {
   double max_ratio = 0.8;
   double max_distance = 0.7;
   bool cross_check = true;
+  CusiftDistanceType distance_type = CusiftDistanceType::ANGULAR;
+  bool cross_check_reverse_ratio = true;
 };
 
 FeatureMatchingOptions CreateCusiftMatchingOptions(const MatchingSetup& setup) {
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+  options.cusift->distance_type = setup.distance_type;
+  options.cusift->cross_check_reverse_ratio = setup.cross_check_reverse_ratio;
   options.sift->max_ratio = setup.max_ratio;
   options.sift->max_distance = setup.max_distance;
   options.sift->cross_check = setup.cross_check;
@@ -652,6 +663,230 @@ FeatureMatchingOptions CreateExactCpuMatchingOptions(
   options.sift->max_distance = setup.max_distance;
   options.sift->cross_check = setup.cross_check;
   return options;
+}
+
+// Exact reference for both metrics and both cross-check strengths, written
+// from the definitions in sift.cc rather than reusing its matchers, which
+// implement only ANGULAR with the full reverse ratio test. One way, the best
+// candidate must lie within max_distance, and the match is rejected once its
+// distance reaches max_ratio times the second best's; ties go to the lower
+// index. ANGULAR ranks on the raw inner product with the fixed 512^2 norm,
+// and a lone candidate's runner-up counts as dot 0 (angle pi/2). L2 ranks on
+// the squared distance, and a lone candidate's runner-up is infinitely far.
+// Per row of `query`, the index of its accepted candidate in `target`, or -1.
+// Without `thresholds` the best candidate is returned untested: the reverse
+// direction of a mutual-best-only cross-check.
+std::vector<int> OracleOneWay(const Eigen::MatrixXf& query,
+                              const Eigen::MatrixXf& target,
+                              const MatchingSetup& setup,
+                              const bool thresholds) {
+  constexpr float kSqNorm = 512.0f * 512.0f;
+  constexpr float kInvSqNorm = 1.0f / kSqNorm;
+  constexpr float kMissing = std::numeric_limits<float>::max();
+  const auto angle = [](const float dot) {
+    return std::acos(std::min(kInvSqNorm * dot, 1.0f));
+  };
+  const bool angular = setup.distance_type == CusiftDistanceType::ANGULAR;
+  const float max_ratio = static_cast<float>(setup.max_ratio);
+  const float max_distance = static_cast<float>(setup.max_distance);
+  const float max_sq_dist = kSqNorm * max_distance * max_distance;
+
+  // Sums of uint8 products stay below 2^24, so every value here is exact.
+  const Eigen::MatrixXf dots = query * target.transpose();
+  const Eigen::VectorXf query_sq = query.rowwise().squaredNorm();
+  const Eigen::VectorXf target_sq = target.rowwise().squaredNorm();
+  std::vector<int> out(query.rows(), -1);
+  for (Eigen::Index i = 0; i < query.rows(); ++i) {
+    // A larger score is better: the dot, or the negated squared distance.
+    float best = -kMissing;
+    float second = -kMissing;
+    int best_idx = -1;
+    for (Eigen::Index j = 0; j < target.rows(); ++j) {
+      const float score =
+          angular ? dots(i, j)
+                  : -(query_sq(i) + target_sq(j) - 2.0f * dots(i, j));
+      if (score > best) {
+        second = best;
+        best = score;
+        best_idx = static_cast<int>(j);
+      } else if (score > second) {
+        second = score;
+      }
+    }
+    if (!thresholds) {
+      out[i] = best_idx;
+      continue;
+    }
+    if (angular) {
+      if (best <= 0.0f || angle(best) > max_distance ||
+          angle(best) >= max_ratio * angle(std::max(second, 0.0f))) {
+        continue;
+      }
+    } else {
+      const float second_sq_dist = second == -kMissing ? kMissing : -second;
+      if (-best > max_sq_dist ||
+          std::sqrt(-best) >= max_ratio * std::sqrt(second_sq_dist)) {
+        continue;
+      }
+    }
+    out[i] = best_idx;
+  }
+  return out;
+}
+
+std::set<std::pair<point2D_t, point2D_t>> OracleMatches(
+    const FeatureDescriptors& da,
+    const FeatureDescriptors& db,
+    const MatchingSetup& setup) {
+  const Eigen::MatrixXf a = da.data.cast<float>();
+  const Eigen::MatrixXf b = db.data.cast<float>();
+  const std::vector<int> forward =
+      OracleOneWay(a, b, setup, /*thresholds=*/true);
+  std::vector<int> reverse;
+  if (setup.cross_check) {
+    reverse = OracleOneWay(b, a, setup, setup.cross_check_reverse_ratio);
+  }
+  std::set<std::pair<point2D_t, point2D_t>> out;
+  for (size_t i = 0; i < forward.size(); ++i) {
+    const int j = forward[i];
+    if (j < 0 || (setup.cross_check && reverse[j] != static_cast<int>(i))) {
+      continue;
+    }
+    out.emplace(i, j);
+  }
+  return out;
+}
+
+FeatureDescriptors HeadRows(const FeatureDescriptors& src,
+                            const Eigen::Index num_rows) {
+  return FeatureDescriptors(src.type, src.data.topRows(num_rows));
+}
+
+FeatureDescriptors TailRows(const FeatureDescriptors& src,
+                            const Eigen::Index num_rows) {
+  return FeatureDescriptors(src.type, src.data.bottomRows(num_rows));
+}
+
+FeatureDescriptors ConcatRows(const FeatureDescriptors& top,
+                              const FeatureDescriptors& bottom) {
+  FeatureDescriptorsData data(top.data.rows() + bottom.data.rows(),
+                              top.data.cols());
+  data << top.data, bottom.data;
+  return FeatureDescriptors(top.type, data);
+}
+
+// Sizes of the tiled differential fixture: both images hold the
+// `num_base` descriptors, image 1 as is and image 2 perturbed. Image 1 appends
+// perturbed near duplicates of the first base rows, which let two queries
+// choose the same target, so only a cross-check removes one. Image 2 appends
+// near duplicates of the last base rows, which give both ratio tests a close
+// runner-up. Each copy has its own seed, so its perturbations land on other
+// dimensions with other sizes.
+struct TiledFixtureSize {
+  size_t num_base;
+  Eigen::Index num_head_dups1;
+  Eigen::Index num_tail_dups2;
+};
+
+std::pair<FeatureDescriptors, FeatureDescriptors> CreateTiledFixture(
+    const TiledFixtureSize& size, const int seed) {
+  const FeatureDescriptors base =
+      CreateDescriptorsWithVaryingNorms(size.num_base, seed);
+  return {ConcatRows(base,
+                     CreatePerturbedCopy(HeadRows(base, size.num_head_dups1),
+                                         seed + 101)),
+          ConcatRows(CreatePerturbedCopy(base, seed),
+                     CreatePerturbedCopy(TailRows(base, size.num_tail_dups2),
+                                         seed + 202))};
+}
+
+// Guards against a vacuous comparison, so a matcher that ignored a setting
+// would fail: every max_distance step must admit more matches in each
+// cross-check mode, and at the loosest max_distance each stronger mode must
+// reject more. Tighter thresholds admit only unambiguous matches, which every
+// mode keeps. Indexed [max_distance][mode], with max_distance ascending and
+// the modes ordered none, mutual best, reverse ratio test.
+void ExpectEveryAxisMatters(const std::vector<std::vector<size_t>>& num_matches,
+                            const std::string& group) {
+  for (size_t d = 1; d < num_matches.size(); ++d) {
+    for (size_t m = 0; m < num_matches[d].size(); ++m) {
+      EXPECT_LT(num_matches[d - 1][m], num_matches[d][m])
+          << "max_distance has no effect at" << group;
+    }
+  }
+  const std::vector<size_t>& loosest = num_matches.back();
+  for (size_t m = 1; m < loosest.size(); ++m) {
+    EXPECT_GT(loosest[m - 1], loosest[m])
+        << "the cross-check mode has no effect at" << group;
+  }
+}
+
+// The row reduction merges running top-2 results across 512-column tiles and
+// the column reduction strides over more than 512 rows, so both sides exceed
+// 512 in turn, never at equal sizes. L2 and the mutual-best-only cross-check
+// have no CPU matcher to compare against, so the oracle is the reference for
+// every combination; in the one configuration the exact CPU matcher
+// implements, it pins the oracle itself.
+TEST(CusiftMatcherParity, DifferentialAcrossTilesMetricsAndCrossCheckModes) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // n2 > 512 > n1; n1 > n2 > 512; n1 > 512 > n2.
+  const std::vector<TiledFixtureSize> sizes = {
+      {360, 120, 200}, {1000, 400, 100}, {450, 150, 30}};
+  // L2 distances shrink with the perturbations, ANGULAR ones are dominated by
+  // the descriptors' norm deficit; each list spans tight to loose.
+  const std::vector<std::pair<CusiftDistanceType, std::vector<double>>>
+      metrics = {{CusiftDistanceType::ANGULAR, {0.25, 0.7, 1.5}},
+                 {CusiftDistanceType::L2, {0.015, 0.0185, 1.5}}};
+  const std::vector<std::pair<bool, bool>> modes = {
+      {false, true}, {true, false}, {true, true}};
+  for (const TiledFixtureSize& size : sizes) {
+    for (const int seed : {1, 2}) {
+      const auto [da, db] = CreateTiledFixture(size, seed);
+      const auto img1 = MakeImage(1, da);
+      const auto img2 = MakeImage(2, db);
+      for (const auto& [distance_type, max_distances] : metrics) {
+        std::vector<std::vector<size_t>> num_matches;
+        const std::string group =
+            StringPrintf(" n1=%d n2=%d seed=%d distance_type=%d",
+                         static_cast<int>(da.data.rows()),
+                         static_cast<int>(db.data.rows()),
+                         seed,
+                         static_cast<int>(distance_type));
+        for (const double max_distance : max_distances) {
+          num_matches.emplace_back();
+          for (const auto& [cross_check, reverse_ratio] : modes) {
+            MatchingSetup setup;
+            setup.max_distance = max_distance;
+            setup.cross_check = cross_check;
+            setup.distance_type = distance_type;
+            setup.cross_check_reverse_ratio = reverse_ratio;
+            const std::string config =
+                group + StringPrintf(
+                            " max_distance=%g cross_check=%d "
+                            "reverse_ratio=%d",
+                            max_distance,
+                            cross_check,
+                            reverse_ratio);
+            const auto want = OracleMatches(da, db, setup);
+            num_matches.back().push_back(want.size());
+            auto cu_matcher = THROW_CHECK_NOTNULL(
+                CreateCusiftFeatureMatcher(CreateCusiftMatchingOptions(setup)));
+            EXPECT_EQ(MatchToSet(*cu_matcher, img1, img2), want)
+                << "cusift diverged from the oracle at" << config;
+            if (distance_type == CusiftDistanceType::ANGULAR && cross_check &&
+                reverse_ratio) {
+              auto ref_matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(
+                  CreateExactCpuMatchingOptions(setup)));
+              EXPECT_EQ(MatchToSet(*ref_matcher, img1, img2), want)
+                  << "the oracle diverged from the exact CPU matcher at"
+                  << config;
+            }
+          }
+        }
+        ExpectEveryAxisMatters(num_matches, group);
+      }
+    }
+  }
 }
 
 // One descriptor in each image leaves both ratio tests without a runner-up.
