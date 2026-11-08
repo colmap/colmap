@@ -11,6 +11,7 @@ COLMAP_ADD_LIBRARY(
         src/cudaImage.h src/cudaImage.cu
         src/cudaSift.h
         src/cudaSiftD.h
+        src/fast_expn.h
         src/cudaSiftH.cu
         src/cudautils.h
         src/cusift_device.h src/cusift_device.cu

@@ -10,6 +10,7 @@
 #include "cudautils.h"
 #include "cudaSiftD.h"
 #include "cudaSift.h"
+#include "fast_expn.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Kernel configuration
@@ -358,9 +359,11 @@ __global__ void ComputeOrientationsVLFeat(
 {
   __shared__ unsigned long long hist[36];
   __shared__ float histSmooth[36];
+  __shared__ double expnTable[CUSIFT_EXPN_SZ + 1];
   const int tid = threadIdx.x;
   const int nthreads = blockDim.x;
   const float twoPi = 6.283185307179586f;
+  LoadExpnTable(expnTable);
 
   for (int bx = blockIdx.x; bx < numKps; bx += gridDim.x) {
     for (int i = tid; i < 36; i += nthreads) hist[i] = 0ull;
@@ -398,7 +401,8 @@ __global__ void ComputeOrientationsVLFeat(
       int px = xi + xs, py = yi + ys;
       float mod = gmag[py*pitch + px];
       float ang = gang[py*pitch + px];
-      float wgt = __expf(-r2 / (2.0f * sigmaw * sigmaw));
+      float wgt =
+          (float)FastExpn(expnTable, (double)r2 / (2.0 * sigmaw * sigmaw));
 
       // Bilinear (soft) binning across 2 adjacent bins -- VLFeat's actual
       // code path (VL_SIFT_BILINEAR_ORIENTATIONS is unconditionally #define'd
@@ -477,9 +481,11 @@ __global__ void ExtractSiftDescriptorsVLFeat(
 {
   __shared__ unsigned long long buffer[VLDESC_NBP*VLDESC_NBP*VLDESC_NBO];  // 128
   __shared__ float partial[1024];
+  __shared__ double expnTable[CUSIFT_EXPN_SZ + 1];
   const int tid = threadIdx.x;
   const int nthreads = blockDim.x;
   const float twoPi = 6.283185307179586f;
+  LoadExpnTable(expnTable);
 
   for (int bx = blockIdx.x; bx < numKps; bx += gridDim.x) {
     for (int i = tid; i < 128; i += nthreads) buffer[i] = 0ull;
@@ -524,7 +530,8 @@ __global__ void ExtractSiftDescriptorsVLFeat(
       float nt = VLDESC_NBO * theta / twoPi;
 
       float wsigma = VLDESC_NBP / 2.0f;
-      float win = __expf(-(nx*nx+ny*ny) / (2.0f*wsigma*wsigma));
+      float win = (float)FastExpn(
+          expnTable, (nx*nx + ny*ny) / (2.0 * wsigma * wsigma));
 
       int binx = (int)floorf(nx - 0.5f);
       int biny = (int)floorf(ny - 0.5f);
