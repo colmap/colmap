@@ -12,6 +12,7 @@ from pathlib import Path
 
 import py7zr
 import requests
+from evaluation import package_eth3d_centered
 from evaluation.tartanair.tartanair_v2 import (
     MANIFEST_PATH,
     load_manifest,
@@ -69,6 +70,26 @@ def download_eth3d(data_path: Path) -> None:
 
 def download_eth3d_distorted(data_path: Path) -> None:
     _download_eth3d_archives(data_path, ETH3D_DISTORTED_ARCHIVES)
+
+
+def download_eth3d_centered(data_path: Path) -> None:
+    """Downloads the per-scene archives built by package_eth3d_centered.py."""
+    target_folder = data_path / "dslr"
+    target_folder.mkdir(parents=True, exist_ok=True)
+    base_url = (
+        "https://github.com/"
+        f"{package_eth3d_centered.RELEASE_REPOSITORY}/releases/download/"
+        f"{package_eth3d_centered.RELEASE_TAG}"
+    )
+    checksums = json.loads(package_eth3d_centered.CHECKSUMS_PATH.read_text())
+    for filename, expected in checksums.items():
+        pycolmap.logging.info(f"Downloading ETH3D centered {filename}")
+        download_file(f"{base_url}/{filename}", target_folder)
+        if _sha256(target_folder / filename) != expected:
+            raise RuntimeError(f"Checksum mismatch for {filename}")
+        pycolmap.logging.info(f"Extracting ETH3D centered {filename}")
+        with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
+            archive.extractall(path=target_folder)
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -279,13 +300,18 @@ def download_tartanair_v2(
 DOWNLOADERS = {
     "eth3d": download_eth3d,
     "eth3d-distorted": download_eth3d_distorted,
+    "eth3d-centered": download_eth3d_centered,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
     "imc2025": download_imc2025,
     "blended-mvs": download_blended_mvs,
     "tartanair-v2": download_tartanair_v2,
 }
-DEFAULT_DATASETS = [name for name in DOWNLOADERS if name != "eth3d-distorted"]
+DEFAULT_DATASETS = [
+    name
+    for name in DOWNLOADERS
+    if name not in ("eth3d-distorted", "eth3d-centered")
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -299,7 +325,9 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_DATASETS,
         choices=DOWNLOADERS.keys(),
         help="Datasets to download by name. eth3d-distorted downloads the "
-        "large DSLR-only _jpg.7z archives into data/eth3d-distorted.",
+        "large DSLR-only _jpg.7z archives into data/eth3d-distorted, and "
+        "eth3d-centered the DSLR images warped to a single centered pinhole "
+        "camera into data/eth3d-centered.",
     )
     parser.add_argument(
         "--categories",
