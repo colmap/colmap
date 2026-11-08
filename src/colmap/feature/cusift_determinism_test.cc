@@ -181,18 +181,19 @@ TEST(CusiftDeterminism, ExtractionUnaffectedByOtherThreadsOnTheSameGpu) {
   Features before;
   Features after;
   std::future<void> thread_a = std::async(std::launch::async, [&]() {
+    bool signalled = false;
     try {
       auto extractor =
           THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_a));
       before = Extract(*extractor, bitmap);
       a_extracted_once.set_value();
+      signalled = true;
       b_finished.wait();
       after = Extract(*extractor, bitmap);
     } catch (...) {
-      try {
+      // Once signalled, get() on thread_a reports the error.
+      if (!signalled) {
         a_extracted_once.set_exception(std::current_exception());
-      } catch (const std::future_error&) {
-        // Already signalled; get() on thread_a reports the error.
       }
       throw;
     }

@@ -38,6 +38,7 @@ TEST(CusiftMatchingOptions, DefaultsMatchTheExactReference) {
 TEST(CusiftMatchingOptions, RejectsUnknownDistanceType) {
   CusiftMatchingOptions options;
   EXPECT_TRUE(options.Check());
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
   options.distance_type = static_cast<CusiftDistanceType>(7);
   EXPECT_FALSE(options.Check());
 }
