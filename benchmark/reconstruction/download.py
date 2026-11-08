@@ -65,9 +65,10 @@ def _download_eth3d_archives(
         pycolmap.logging.info(
             f"Extracting ETH3D category={category}, filename={filename}"
         )
-        with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
+        archive_path = target_folder / filename
+        with py7zr.SevenZipFile(archive_path, mode="r") as archive:
             archive.extractall(path=target_folder)
-        (target_folder / filename).unlink()
+        archive_path.unlink()
 
 
 def download_eth3d_undistorted_legacy(data_path: Path) -> None:
@@ -114,6 +115,7 @@ def download_eth3d_undistorted(data_path: Path) -> None:
 def download_imc2023(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
+    competition = "image-matching-challenge-2023"
     pycolmap.logging.info("Downloading IMC2023")
     subprocess.check_call(
         [
@@ -121,23 +123,23 @@ def download_imc2023(data_path: Path) -> None:
             "competitions",
             "download",
             "-c",
-            "image-matching-challenge-2023",
+            competition,
             "-p",
             str(data_path),
         ],
     )
 
     pycolmap.logging.info("Extracting IMC2023")
-    with zipfile.ZipFile(
-        data_path / "image-matching-challenge-2023.zip", mode="r"
-    ) as archive:
+    archive_path = data_path / f"{competition}.zip"
+    with zipfile.ZipFile(archive_path, mode="r") as archive:
         archive.extractall(path=data_path)
-    (data_path / "image-matching-challenge-2023.zip").unlink()
+    archive_path.unlink()
 
 
 def download_imc2024(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
+    competition = "image-matching-challenge-2024"
     pycolmap.logging.info("Downloading IMC2024")
     subprocess.check_call(
         [
@@ -145,18 +147,17 @@ def download_imc2024(data_path: Path) -> None:
             "competitions",
             "download",
             "-c",
-            "image-matching-challenge-2024",
+            competition,
             "-p",
             str(data_path),
         ],
     )
 
     pycolmap.logging.info("Extracting IMC2024")
-    with zipfile.ZipFile(
-        data_path / "image-matching-challenge-2024.zip", mode="r"
-    ) as archive:
+    archive_path = data_path / f"{competition}.zip"
+    with zipfile.ZipFile(archive_path, mode="r") as archive:
         archive.extractall(path=data_path)
-    (data_path / "image-matching-challenge-2024.zip").unlink()
+    archive_path.unlink()
 
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"
@@ -170,6 +171,7 @@ def download_imc2024(data_path: Path) -> None:
 def download_imc2025(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
+    competition = "image-matching-challenge-2025"
     pycolmap.logging.info("Downloading IMC2025")
     subprocess.check_call(
         [
@@ -177,18 +179,17 @@ def download_imc2025(data_path: Path) -> None:
             "competitions",
             "download",
             "-c",
-            "image-matching-challenge-2025",
+            competition,
             "-p",
             str(data_path),
         ],
     )
 
     pycolmap.logging.info("Extracting IMC2025")
-    with zipfile.ZipFile(
-        data_path / "image-matching-challenge-2025.zip", mode="r"
-    ) as archive:
+    archive_path = data_path / f"{competition}.zip"
+    with zipfile.ZipFile(archive_path, mode="r") as archive:
         archive.extractall(path=data_path)
-    (data_path / "image-matching-challenge-2025.zip").unlink()
+    archive_path.unlink()
 
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"
