@@ -451,6 +451,19 @@ TEST_P(CusiftUnsupportedOptionTest, Throws) {
                   "invalid options for the cusift extractor")));
 }
 
+TEST(CusiftFeatureExtractor, ThrowsOnUnsupportedOptionsTypedSift) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  FeatureExtractionOptions options = CreateCusiftOptions();
+  options.type = FeatureExtractorType::SIFT;
+  options.sift->upright = true;
+  // FeatureExtractionOptions::Check() dispatches on the type and passes these
+  // options as SIFT ones, so only the extractor's own check can reject them.
+  EXPECT_TRUE(options.Check());
+  EXPECT_THAT([&]() { CreateCusiftFeatureExtractor(options); },
+              testing::ThrowsMessage<std::invalid_argument>(testing::HasSubstr(
+                  "invalid options for the cusift extractor")));
+}
+
 #else
 
 TEST(CusiftExtractionOptions, CheckFailsWithoutCusift) {

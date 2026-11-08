@@ -95,8 +95,11 @@ class CusiftFeatureExtractor : public FeatureExtractor {
   CusiftFeatureExtractor(const FeatureExtractionOptions& options,
                          const int device)
       : options_(options), device_(device) {
-    // Includes CheckCusiftSiftOptions.
-    THROW_CHECK(options_.Check())
+    // options_.Check() dispatches on options.type, so options typed SIFT
+    // would skip cusift's own checks; they run here whatever the type.
+    THROW_CHECK(options_.Check() &&
+                THROW_CHECK_NOTNULL(options_.cusift)->Check() &&
+                CheckCusiftSiftOptions(*THROW_CHECK_NOTNULL(options_.sift)))
         << "invalid options for the cusift extractor; the reason is logged "
            "above";
   }
