@@ -145,7 +145,7 @@ __global__ void ColTop2(const float* __restrict__ sim, int n1, int tw,
     const float v = rowSqNorm ? (2.0f * sim[(size_t)r * tw + c] - rowSqNorm[r])
                               : sim[(size_t)r * tw + c];
     // Only the BEST needs an index-aware comparison. The runner-up's index is
-    // never used (the epilogue reads colSecond's value only), and max over
+    // never used (callers read colSecond's value only), and max over
     // values is order-independent, so the second is canonical by construction.
     if (CanonicallyBetter(v, r, b, bi)) { s = b; b = v; bi = r; }
     else if (v > s) { s = v; }
@@ -267,11 +267,16 @@ struct GemmMatcherContext {
 
 namespace {
 
-// Everything after the upload.
-float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
-                    bool mutual, std::vector<Match>& out, bool reverseRatio,
-                    int distanceType, float maxDistance,
-                    float sqDescriptorNorm) {
+template <typename T>
+void Download(std::vector<T>& dst, const T* src, int n) {
+  safeCall(cudaMemcpy(dst.data(), src, (size_t)n * sizeof(T),
+                      cudaMemcpyDeviceToHost));
+}
+
+// Everything after the upload: the reductions, then the download of their
+// results.
+float ReduceUploaded(GemmMatcherContext& ctx, int n1, int n2, int distanceType,
+                     bool columns, GemmTop2& rows, GemmTop2& cols) {
   const bool angular_mode = (distanceType == kGemmDistanceAngular);
   const int TILE = 512;
   float *d1 = ctx.d1, *d2 = ctx.d2, *dSim = ctx.dSim;
@@ -319,7 +324,7 @@ float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
     // one extra shared array and a few instructions, no extra kernel launch and
     // no extra pass over dSim -- so the reverse ratio test is essentially free
     // once the mutual check is already being computed.
-    if (mutual)
+    if (columns)
       ColTop2<<<tw, 256>>>(dSim, n1, tw, angular_mode ? nullptr : d1Sq,
                            dColBest + off, dColSecond + off, dColIdx + off);
     checkMsg("RowTop2Update/ColTop2 launch failed");
@@ -329,77 +334,17 @@ float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
   float ms = 0;
   safeCall(cudaEventElapsedTime(&ms, ev.t0, ev.t1));
 
-  std::vector<float> hB(n1), hS(n1), h1Sq(n1), h2Sq(n2);
-  std::vector<int> hIdx(n1), hColIdx(mutual ? n2 : 0);
-  std::vector<float> hColB(mutual && reverseRatio ? n2 : 0);
-  std::vector<float> hColS(mutual && reverseRatio ? n2 : 0);
-  safeCall(cudaMemcpy(hB.data(), dBest, n1 * sizeof(float), cudaMemcpyDeviceToHost));
-  safeCall(cudaMemcpy(hS.data(), dSecond, n1 * sizeof(float), cudaMemcpyDeviceToHost));
-  safeCall(cudaMemcpy(hIdx.data(), dIdx, n1 * sizeof(int), cudaMemcpyDeviceToHost));
-  safeCall(cudaMemcpy(h1Sq.data(), d1Sq, n1 * sizeof(float), cudaMemcpyDeviceToHost));
-  safeCall(cudaMemcpy(h2Sq.data(), d2Sq, n2 * sizeof(float), cudaMemcpyDeviceToHost));
-  if (mutual) {
-    safeCall(cudaMemcpy(hColIdx.data(), dColIdx, n2 * sizeof(int), cudaMemcpyDeviceToHost));
-    if (reverseRatio) {
-      safeCall(cudaMemcpy(hColB.data(), dColBest, n2 * sizeof(float),
-                 cudaMemcpyDeviceToHost));
-      safeCall(cudaMemcpy(hColS.data(), dColSecond, n2 * sizeof(float),
-                 cudaMemcpyDeviceToHost));
-    }
-  }
-
-  const float r2 = ratio * ratio;
-  const bool angular = angular_mode;
-  const float invSqNorm = 1.0f / sqDescriptorNorm;
-
-  // ANGULAR reproduces COLMAP's exact brute-force reference and SiftGPU
-  // bit-for-bit in form: rank on the raw inner product, then convert with a
-  // FIXED descriptor-norm constant (not per-row norms) and threshold on angles.
-  //   angle = acos(min(dot / sqDescriptorNorm, 1))
-  // L2 reproduces COLMAP's other convention (its faiss/index path): rank on
-  // true distance and compare a ratio of distances.
-  auto angle_of = [&](float dot) {
-    return acosf(fminf(fmaxf(dot * invSqNorm, -1.0f), 1.0f));
-  };
-  // One-way acceptance of a descriptor's best candidate, from the reduction
-  // keys of its best and second-best candidate (second is -FLT_MAX when there
-  // is none) and its own squared norm. COLMAP's reference applies the same
-  // one-way test to the transposed matrix for the cross-check, so this serves
-  // both directions.
-  auto accepts = [&](float best, float second, float sqNorm) {
-    if (angular) {
-      // The reference seeds best and second at dot 0: a best dot <= 0 is no
-      // candidate, and a missing or non-positive runner-up counts as dot 0
-      // (angle pi/2), so a lone candidate still faces the ratio test.
-      if (best <= 0.0f) return false;
-      const float aB = angle_of(best);
-      // Threshold on the angle, matching the reference's ordering of tests.
-      if (aB > maxDistance) return false;
-      return aB < ratio * angle_of(fmaxf(second, 0.0f));
-    }
-    // The L2 key is 2 q.c - ||c||^2, so the squared distance is ||q||^2 - key;
-    // a missing runner-up is infinitely far, as in COLMAP's index matcher.
-    const float dB = sqNorm - best;
-    const float dS = (second == -FLT_MAX) ? FLT_MAX : (sqNorm - second);
-    if (dB > maxDistance * maxDistance * sqDescriptorNorm) return false;
-    return dB < r2 * dS;
-  };
-
-  for (int i = 0; i < n1; i++) {
-    const int j = hIdx[i];
-    if (j < 0) continue;
-    if (!accepts(hB[i], hS[i], h1Sq[i])) continue;
-
-    if (mutual) {
-      if (hColIdx[j] != i) continue;
-      // Reverse-direction test: the reverse side gets its own max-distance and
-      // ratio test, not just mutual-best agreement (see ColTop2).
-      if (reverseRatio && !accepts(hColB[j], hColS[j], h2Sq[j])) continue;
-    }
-    // Reported squared distance, COLMAP scale.
-    const float dB = angular ? (h1Sq[i] + h2Sq[j] - 2.0f * hB[i])
-                             : (h1Sq[i] - hB[i]);
-    out.push_back({i, j, dB});
+  rows.Resize(n1);
+  cols.Resize(columns ? n2 : 0);
+  Download(rows.best, dBest, n1);
+  Download(rows.second, dSecond, n1);
+  Download(rows.bestIdx, dIdx, n1);
+  Download(rows.sqNorm, d1Sq, n1);
+  if (columns) {
+    Download(cols.best, dColBest, n2);
+    Download(cols.second, dColSecond, n2);
+    Download(cols.bestIdx, dColIdx, n2);
+    Download(cols.sqNorm, d2Sq, n2);
   }
 
   // Nothing is freed here: the context owns the buffers and the handle for the
@@ -434,16 +379,15 @@ void GemmMatcher::Reserve(int maxNumDescriptors) {
   }
 }
 
-float GemmMatcher::MatchPair(const unsigned char* h_desc1, int n1,
-                             const unsigned char* h_desc2, int n2, float ratio,
-                             bool mutual, std::vector<Match>& out,
-                             bool reverseRatio, int distanceType,
-                             float maxDistance, float sqDescriptorNorm) {
-  out.clear();
-  // A side without descriptors has no matches; a zero-sized grid would fail.
+float GemmMatcher::Top2(const unsigned char* h_desc1, int n1,
+                        const unsigned char* h_desc2, int n2, int distanceType,
+                        bool columns, GemmTop2& rows, GemmTop2& cols) {
+  rows.Clear();
+  cols.Clear();
+  // A side without descriptors has no candidates; a zero-sized grid would fail.
   if (n1 <= 0 || n2 <= 0) return 0.0f;
   if (h_desc1 == nullptr || h_desc2 == nullptr) {
-    throw std::invalid_argument("cusift: GemmMatcher::MatchPair got a null "
+    throw std::invalid_argument("cusift: GemmMatcher::Top2 got a null "
                                 "descriptor pointer for a non-empty side");
   }
   GemmMatcherContext& ctx = Context();
@@ -455,6 +399,5 @@ float GemmMatcher::MatchPair(const unsigned char* h_desc1, int n1,
   WidenU8<<<256, 256>>>(ctx.d1U8, n1, 128, ctx.d1);
   WidenU8<<<256, 256>>>(ctx.d2U8, n2, 128, ctx.d2);
   checkMsg("WidenU8 launch failed");
-  return MatchUploaded(ctx, n1, n2, ratio, mutual, out, reverseRatio,
-                       distanceType, maxDistance, sqDescriptorNorm);
+  return ReduceUploaded(ctx, n1, n2, distanceType, columns, rows, cols);
 }

@@ -10,6 +10,8 @@
 #include "colmap/util/cuda.h"
 #endif
 
+#include <algorithm>
+#include <limits>
 #include <vector>
 
 #ifdef COLMAP_CUSIFT_ENABLED
@@ -23,6 +25,27 @@ namespace {
 
 #ifdef COLMAP_CUSIFT_ENABLED
 
+// COLMAP's one-way SIFT acceptance (sift.h), applied to the GEMM's top-2
+// reduction keys of one query descriptor.
+struct GemmTop2Acceptance {
+  SiftMatchAcceptance sift;
+  bool angular = true;
+
+  bool Accepts(const GemmTop2& top2, const int k) const {
+    if (angular) {
+      // The brute-force reference seeds the runner-up at dot 0, so a missing
+      // or non-positive runner-up counts as dot 0.
+      return sift.AcceptsAngular(top2.best[k], std::max(top2.second[k], 0.0f));
+    }
+    // A missing runner-up is at FLT_MAX, as in the index matcher.
+    constexpr float kMissing = std::numeric_limits<float>::max();
+    const float second_sq_dist = top2.second[k] == -kMissing
+                                     ? kMissing
+                                     : top2.sqNorm[k] - top2.second[k];
+    return sift.AcceptsL2(top2.sqNorm[k] - top2.best[k], second_sq_dist);
+  }
+};
+
 // Uploads COLMAP's row-major uint8 descriptors as they are, without per-row
 // normalization: the reference (FindBestMatchesOneWayBruteForce) ranks on the
 // raw inner product with a fixed 512^2 norm, and normalizing would re-rank
@@ -33,11 +56,9 @@ class CusiftFeatureMatcher : public FeatureMatcher {
   // `device` is the GPU Create bound; Match binds its calling thread to it
   // again (the cuBLAS handle and the device buffers live there).
   CusiftFeatureMatcher(const FeatureMatchingOptions& options, const int device)
-      : options_(options), device_(device) {
-    // Includes use_gpu and guided_matching, for callers that skip Check().
-    THROW_CHECK(options_.Check())
-        << "invalid options for the cusift matcher; the reason is logged above";
-  }
+      : options_(options),
+        device_(device),
+        acceptance_(CheckedAcceptance(options)) {}
 
   static std::unique_ptr<FeatureMatcher> Create(
       const FeatureMatchingOptions& options) {
@@ -60,8 +81,8 @@ class CusiftFeatureMatcher : public FeatureMatcher {
     THROW_CHECK_EQ(image1.descriptors->type, FeatureExtractorType::SIFT);
     THROW_CHECK_EQ(image2.descriptors->type, FeatureExtractorType::SIFT);
     // The upload reads 128 bytes per row.
-    THROW_CHECK_EQ(image1.descriptors->data.cols(), 128);
-    THROW_CHECK_EQ(image2.descriptors->data.cols(), 128);
+    THROW_CHECK_EQ(image1.descriptors->data.cols(), kSiftDescriptorDim);
+    THROW_CHECK_EQ(image2.descriptors->data.cols(), kSiftDescriptorDim);
 
     SetBestCudaDevice(device_);
     matches->clear();
@@ -71,38 +92,15 @@ class CusiftFeatureMatcher : public FeatureMatcher {
       return;
     }
 
-    const bool angular =
-        options_.cusift->distance_type == CusiftDistanceType::ANGULAR;
-    // COLMAP's fixed descriptor-norm convention (sift.cc
-    // kSqSiftDescriptorNorm).
-    constexpr double kSqSiftDescriptorNorm = 512.0 * 512.0;
-
-    std::vector<::Match> raw_matches;
-    gemm_.MatchPair(
-        image1.descriptors->data.data(),
-        n1,
-        image2.descriptors->data.data(),
-        n2,
-        static_cast<float>(options_.sift->max_ratio),
-        options_.sift->cross_check,
-        raw_matches,
-        options_.cusift->cross_check_reverse_ratio,
-        angular ? kGemmDistanceAngular : kGemmDistanceL2,
-        // Radians under ANGULAR, unit-vector distance under L2, as in sift.cc.
-        static_cast<float>(options_.sift->max_distance),
-        static_cast<float>(kSqSiftDescriptorNorm));
-
-    // Keep the first max_num_matches in image1 order, as SiftGPU does
-    // (SiftMatchCU::GetBestMatch); raw_matches is already in that order.
-    if (raw_matches.size() > static_cast<size_t>(options_.max_num_matches)) {
-      raw_matches.resize(static_cast<size_t>(options_.max_num_matches));
-    }
-
-    matches->reserve(raw_matches.size());
-    for (const ::Match& m : raw_matches) {
-      matches->emplace_back(static_cast<point2D_t>(m.i),
-                            static_cast<point2D_t>(m.j));
-    }
+    gemm_.Top2(image1.descriptors->data.data(),
+               n1,
+               image2.descriptors->data.data(),
+               n2,
+               acceptance_.angular ? kGemmDistanceAngular : kGemmDistanceL2,
+               options_.sift->cross_check,
+               rows_,
+               cols_);
+    AcceptMatches(matches);
   }
 
   void MatchGuided(double /*max_error*/,
@@ -113,10 +111,50 @@ class CusiftFeatureMatcher : public FeatureMatcher {
   }
 
  private:
+  static GemmTop2Acceptance CheckedAcceptance(
+      const FeatureMatchingOptions& options) {
+    // Includes use_gpu and guided_matching, for callers that skip Check().
+    THROW_CHECK(options.Check())
+        << "invalid options for the cusift matcher; the reason is logged above";
+    return {{static_cast<float>(options.sift->max_ratio),
+             static_cast<float>(options.sift->max_distance)},
+            options.cusift->distance_type == CusiftDistanceType::ANGULAR};
+  }
+
+  // Keeps each image1 descriptor's best candidate that passes the one-way test
+  // and, with cross_check, is the best of its candidate in turn (and, with
+  // cross_check_reverse_ratio, passes the one-way test in that direction too).
+  // Stops after max_num_matches in image1 order, as SiftGPU does
+  // (SiftMatchCU::GetBestMatch).
+  void AcceptMatches(FeatureMatches* matches) const {
+    const bool cross_check = options_.sift->cross_check;
+    const bool reverse_test = options_.cusift->cross_check_reverse_ratio;
+    const size_t max_num_matches =
+        static_cast<size_t>(options_.max_num_matches);
+    for (int i = 0; i < static_cast<int>(rows_.bestIdx.size()) &&
+                    matches->size() < max_num_matches;
+         ++i) {
+      const int j = rows_.bestIdx[i];
+      if (j < 0 || !acceptance_.Accepts(rows_, i)) {
+        continue;
+      }
+      if (cross_check && (cols_.bestIdx[j] != i ||
+                          (reverse_test && !acceptance_.Accepts(cols_, j)))) {
+        continue;
+      }
+      matches->emplace_back(static_cast<point2D_t>(i),
+                            static_cast<point2D_t>(j));
+    }
+  }
+
   const FeatureMatchingOptions options_;
   const int device_;
+  const GemmTop2Acceptance acceptance_;
   // cuBLAS handle and device buffers, freed when the matcher is destroyed.
   GemmMatcher gemm_;
+  // Top-2 results of the last pair, kept to reuse their allocations.
+  GemmTop2 rows_;
+  GemmTop2 cols_;
 };
 
 #endif  // COLMAP_CUSIFT_ENABLED

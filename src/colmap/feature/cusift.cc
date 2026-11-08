@@ -30,10 +30,6 @@
 namespace colmap {
 namespace {
 
-#ifdef COLMAP_CUSIFT_ENABLED
-constexpr int kSiftDescriptorDim = 128;
-#endif  // COLMAP_CUSIFT_ENABLED
-
 // cusift's compile-time levels-per-octave (NUM_SCALES in cudaSiftD.h).
 constexpr int kCusiftOctaveResolution = 3;
 

@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 #include <set>
 #include <stdexcept>
@@ -707,63 +708,119 @@ TEST(CusiftMatcherParity, SingleCandidateFollowsTheReference) {
   EXPECT_TRUE(MatchToSet(*cu_matcher, single(0), single(3)).empty());
 }
 
+TEST(SiftMatchAcceptance, AngularRejectsRunnerUpAsCloseAsBest) {
+  const SiftMatchAcceptance acceptance{/*max_ratio=*/0.8f,
+                                       /*max_distance=*/0.7f};
+  EXPECT_FALSE(acceptance.AcceptsAngular(200000.0f, 200000.0f));
+}
+
+TEST(SiftMatchAcceptance, AngularRejectsNonPositiveBestDot) {
+  const SiftMatchAcceptance acceptance{/*max_ratio=*/0.8f,
+                                       /*max_distance=*/3.0f};
+  EXPECT_FALSE(acceptance.AcceptsAngular(0.0f, 0.0f));
+  EXPECT_FALSE(acceptance.AcceptsAngular(-1000.0f, 0.0f));
+}
+
+TEST(SiftMatchAcceptance, AngularTestsLoneCandidateAgainstRightAngle) {
+  // A missing runner-up is passed as dot 0, i.e. an angle of pi/2.
+  const float dot_at_one_radian = kSqSiftDescriptorNorm * std::cos(1.0f);
+  const SiftMatchAcceptance passes_ratio{/*max_ratio=*/0.8f,
+                                         /*max_distance=*/1.5f};
+  EXPECT_TRUE(passes_ratio.AcceptsAngular(dot_at_one_radian, 0.0f));
+  const SiftMatchAcceptance fails_ratio{/*max_ratio=*/0.6f,
+                                        /*max_distance=*/1.5f};
+  EXPECT_FALSE(fails_ratio.AcceptsAngular(dot_at_one_radian, 0.0f));
+}
+
+TEST(SiftMatchAcceptance, AngularRejectsBestBeyondMaxDistance) {
+  const float dot_at_one_radian = kSqSiftDescriptorNorm * std::cos(1.0f);
+  const SiftMatchAcceptance acceptance{/*max_ratio=*/0.8f,
+                                       /*max_distance=*/0.7f};
+  EXPECT_FALSE(acceptance.AcceptsAngular(dot_at_one_radian, 0.0f));
+}
+
+TEST(SiftMatchAcceptance, L2RejectsExactRatioBoundary) {
+  // sqrt(16) == 0.8 * sqrt(25) in float: the strict test rejects it, as the
+  // index matcher does.
+  const SiftMatchAcceptance acceptance{/*max_ratio=*/0.8f,
+                                       /*max_distance=*/0.7f};
+  EXPECT_FALSE(acceptance.AcceptsL2(16.0f, 25.0f));
+  EXPECT_TRUE(acceptance.AcceptsL2(16.0f, 26.0f));
+}
+
+TEST(SiftMatchAcceptance, L2AcceptsLoneCandidateWithinMaxDistance) {
+  constexpr float kMissing = std::numeric_limits<float>::max();
+  const SiftMatchAcceptance acceptance{/*max_ratio=*/0.8f,
+                                       /*max_distance=*/0.7f};
+  EXPECT_TRUE(acceptance.AcceptsL2(100.0f, kMissing));
+  // 0.7^2 * 512^2 = 128450.56 is the largest accepted squared distance.
+  EXPECT_FALSE(acceptance.AcceptsL2(130000.0f, kMissing));
+}
+
 // The vendored GEMM matcher's own contract, for callers that use it directly
 // rather than through CusiftFeatureMatcher (which guards empty inputs).
-TEST(GemmMatcherContract, EmptySideClearsAndReturnsNoMatches) {
+TEST(GemmMatcherContract, EmptySideClearsAndReturnsNoCandidates) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(8);
   GemmMatcher matcher;
   for (const auto& [n1, n2] :
        std::vector<std::pair<int, int>>{{0, 8}, {8, 0}, {0, 0}}) {
-    std::vector<::Match> out = {{1, 2, 3.0f}};
-    EXPECT_EQ(matcher.MatchPair(n1 > 0 ? descriptors.data.data() : nullptr,
-                                n1,
-                                n2 > 0 ? descriptors.data.data() : nullptr,
-                                n2,
-                                /*ratio=*/0.8f,
-                                /*mutual=*/true,
-                                out),
+    GemmTop2 rows;
+    GemmTop2 cols;
+    rows.Resize(3);
+    cols.Resize(3);
+    EXPECT_EQ(matcher.Top2(n1 > 0 ? descriptors.data.data() : nullptr,
+                           n1,
+                           n2 > 0 ? descriptors.data.data() : nullptr,
+                           n2,
+                           kGemmDistanceAngular,
+                           /*columns=*/true,
+                           rows,
+                           cols),
               0.0f)
         << "n1=" << n1 << " n2=" << n2;
-    EXPECT_TRUE(out.empty()) << "n1=" << n1 << " n2=" << n2;
+    EXPECT_TRUE(rows.bestIdx.empty()) << "n1=" << n1 << " n2=" << n2;
+    EXPECT_TRUE(cols.bestIdx.empty()) << "n1=" << n1 << " n2=" << n2;
   }
 }
 
-TEST(GemmMatcherContract, ReplacesPreviousMatches) {
+TEST(GemmMatcherContract, ReplacesPreviousCandidates) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(8);
   GemmMatcher matcher;
-  std::vector<::Match> out;
-  matcher.MatchPair(descriptors.data.data(),
-                    8,
-                    descriptors.data.data(),
-                    8,
-                    /*ratio=*/0.8f,
-                    /*mutual=*/true,
-                    out);
-  ASSERT_EQ(out.size(), 8);
-  matcher.MatchPair(descriptors.data.data(),
-                    8,
-                    descriptors.data.data(),
-                    8,
-                    /*ratio=*/0.8f,
-                    /*mutual=*/true,
-                    out);
-  EXPECT_EQ(out.size(), 8);
+  GemmTop2 rows;
+  GemmTop2 cols;
+  for (int call = 0; call < 2; ++call) {
+    matcher.Top2(descriptors.data.data(),
+                 8,
+                 descriptors.data.data(),
+                 4,
+                 kGemmDistanceAngular,
+                 /*columns=*/call == 0,
+                 rows,
+                 cols);
+  }
+  ASSERT_EQ(rows.bestIdx.size(), 8);
+  EXPECT_TRUE(cols.bestIdx.empty());
+  for (int i = 0; i < 4; ++i) {
+    EXPECT_EQ(rows.bestIdx[i], i);
+  }
 }
 
 TEST(GemmMatcherContract, RejectsNullPointerForNonEmptySide) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(8);
   GemmMatcher matcher;
-  std::vector<::Match> out;
-  EXPECT_THROW(matcher.MatchPair(nullptr,
-                                 8,
-                                 descriptors.data.data(),
-                                 8,
-                                 /*ratio=*/0.8f,
-                                 /*mutual=*/true,
-                                 out),
+  GemmTop2 rows;
+  GemmTop2 cols;
+  EXPECT_THROW(matcher.Top2(nullptr,
+                            8,
+                            descriptors.data.data(),
+                            8,
+                            kGemmDistanceAngular,
+                            /*columns=*/true,
+                            rows,
+                            cols),
                std::invalid_argument);
 }
 
