@@ -7,6 +7,7 @@
 
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 using namespace colmap;
 using namespace pybind11::literals;
@@ -42,7 +43,12 @@ void BindUndistortion(py::module& m) {
           .def_readwrite("roi_max_y", &UndistortCameraOptions::roi_max_y)
           .def_readwrite("max_cam_point_norm",
                          &UndistortCameraOptions::max_cam_point_norm)
-          .def_readwrite("warp_options", &UndistortCameraOptions::warp_options);
+          .def_readwrite("warp_options", &UndistortCameraOptions::warp_options)
+          .def_readwrite("target_camera",
+                         &UndistortCameraOptions::target_camera,
+                         "If set, all perspective cameras are undistorted to "
+                         "this PINHOLE camera, ignoring the other options "
+                         "except for warp_options.");
   MakeDataclass(PyUndistortCameraOptions);
 
   m.def("undistort_camera",

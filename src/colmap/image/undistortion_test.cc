@@ -151,6 +151,29 @@ TEST(UndistortCamera, MaxCamPointNorm) {
   EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
 }
 
+TEST(UndistortCamera, TargetCamera) {
+  Camera distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
+
+  UndistortCameraOptions options;
+  options.target_camera =
+      Camera::CreateFromModelId(2, CameraModelId::kPinhole, 50, 60, 40);
+  const Camera undistorted_camera = UndistortCamera(options, distorted_camera);
+  EXPECT_EQ(undistorted_camera.camera_id, 1);
+  EXPECT_EQ(undistorted_camera.model_id, CameraModelId::kPinhole);
+  EXPECT_EQ(undistorted_camera.width, 60);
+  EXPECT_EQ(undistorted_camera.height, 40);
+  EXPECT_EQ(undistorted_camera.params, options.target_camera->params);
+
+  // The target camera must be a PINHOLE camera.
+  options.target_camera = distorted_camera;
+  EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
+  options.target_camera =
+      Camera::CreateFromModelId(2, CameraModelId::kSimplePinhole, 50, 60, 40);
+  EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
+}
+
 TEST(UndistortCamera, BlankPixels) {
   UndistortCameraOptions options;
   options.blank_pixels = 1;
@@ -387,6 +410,35 @@ TEST(UndistortReconstruction, RescalesAlreadyUndistortedCameras) {
     EXPECT_THAT(image.second.Point2D(0).xy,
                 EigenMatrixNear(Eigen::Vector2d(30, 20), 1e-6));
   }
+}
+
+TEST(UndistortReconstruction, TargetCamera) {
+  Reconstruction reconstruction;
+
+  // Already-undistorted cameras are also undistorted to the target camera.
+  const Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100, 100, 100);
+  reconstruction.AddCameraWithTrivialRig(camera);
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(1);
+  image.SetName("image1");
+  image.SetPoints2D(std::vector<Eigen::Vector2d>(1, Eigen::Vector2d(60, 40)));
+  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
+
+  UndistortCameraOptions options;
+  options.target_camera =
+      Camera::CreateFromModelId(2, CameraModelId::kPinhole, 50, 60, 40);
+  UndistortReconstruction(options, &reconstruction);
+
+  const Camera& undistorted_camera = reconstruction.Camera(1);
+  EXPECT_EQ(undistorted_camera.width, 60);
+  EXPECT_EQ(undistorted_camera.height, 40);
+  EXPECT_EQ(undistorted_camera.params, options.target_camera->params);
+  // (60, 40) maps to normalized (0.1, -0.1) and then to
+  // (0.1 * 50 + 30, -0.1 * 50 + 20) = (35, 15).
+  EXPECT_THAT(reconstruction.Image(1).Point2D(0).xy,
+              EigenMatrixNear(Eigen::Vector2d(35, 15), 1e-6));
 }
 
 TEST(UndistortReconstruction, RescalesSphericalCameras) {

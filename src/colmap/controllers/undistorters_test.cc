@@ -167,6 +167,45 @@ TEST(COLMAPUndistorter, JpegQuality) {
   }
 }
 
+TEST(COLMAPUndistorter, TargetCamera) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "output";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  // Already-undistorted images are also undistorted to the target camera
+  // instead of being copied.
+  Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path);
+  for (const auto& [camera_id, _] : reconstruction.Cameras()) {
+    reconstruction.Camera(camera_id) = Camera::CreateFromModelId(
+        camera_id, CameraModelId::kPinhole, 100, 100, 100);
+  }
+
+  UndistortCameraOptions camera_options;
+  camera_options.target_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 50, 60, 40);
+  COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+                                camera_options,
+                                reconstruction,
+                                image_path,
+                                output_path);
+  undistorter.Run();
+
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    Bitmap bitmap;
+    ASSERT_TRUE(bitmap.Read(output_path / "images" / image.Name()));
+    EXPECT_EQ(bitmap.Width(), 60);
+    EXPECT_EQ(bitmap.Height(), 40);
+  }
+  Reconstruction undistorted_reconstruction;
+  undistorted_reconstruction.Read(output_path / "sparse");
+  for (const auto& [camera_id, camera] : undistorted_reconstruction.Cameras()) {
+    EXPECT_EQ(camera.params, camera_options.target_camera->params);
+  }
+}
+
 TEST(PMVSUndistorter, Integration) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";
@@ -259,6 +298,39 @@ TEST(StandaloneImageUndistorter, Integration) {
   // Verify undistorted images were written.
   for (const auto& [image_name, camera] : options.image_names_and_cameras) {
     EXPECT_TRUE(ExistsFile(output_path / image_name));
+  }
+}
+
+TEST(StandaloneImageUndistorter, TargetCamera) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "pure_output";
+  CreateDirIfNotExists(image_path);
+
+  // Already-undistorted images are also undistorted to the target camera
+  // instead of being copied.
+  const Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(image_path);
+  StandaloneImageUndistorter::Options options;
+  for (const auto& [_, image] : reconstruction.Images()) {
+    options.image_names_and_cameras.emplace_back(
+        image.Name(),
+        Camera::CreateFromModelId(
+            image.CameraId(), CameraModelId::kPinhole, 100, 100, 100));
+  }
+
+  UndistortCameraOptions camera_options;
+  camera_options.target_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 50, 60, 40);
+  StandaloneImageUndistorter undistorter(
+      options, camera_options, image_path, output_path);
+  undistorter.Run();
+
+  for (const auto& [image_name, camera] : options.image_names_and_cameras) {
+    Bitmap bitmap;
+    ASSERT_TRUE(bitmap.Read(output_path / image_name));
+    EXPECT_EQ(bitmap.Width(), 60);
+    EXPECT_EQ(bitmap.Height(), 40);
   }
 }
 
