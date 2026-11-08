@@ -38,7 +38,11 @@ import json
 import pickle
 
 from evaluation.blended_mvs import DatasetBlendedMVS
-from evaluation.eth3d import DatasetETH3DDistorted, DatasetETH3DUndistorted
+from evaluation.eth3d import (
+    DatasetETH3DCentered,
+    DatasetETH3DDistorted,
+    DatasetETH3DUndistorted,
+)
 from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
 from evaluation.tartanair import (
     DatasetTartanAirPerspective,
@@ -61,6 +65,7 @@ def _dataset_classes() -> dict[str, type[Dataset]]:
     return {
         "eth3d": DatasetETH3DUndistorted,
         "eth3d-distorted": DatasetETH3DDistorted,
+        "eth3d-centered": DatasetETH3DCentered,
         "blended-mvs": DatasetBlendedMVS,
         "imc2023": DatasetIMC2023,
         "imc2024": DatasetIMC2024,
