@@ -61,6 +61,7 @@ def _download_eth3d_archives(
         )
         with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
             archive.extractall(path=target_folder)
+        (target_folder / filename).unlink()
 
 
 def download_eth3d(data_path: Path) -> None:
@@ -92,6 +93,7 @@ def download_imc2023(data_path: Path) -> None:
         data_path / "image-matching-challenge-2023.zip", mode="r"
     ) as archive:
         archive.extractall(path=data_path)
+    (data_path / "image-matching-challenge-2023.zip").unlink()
 
 
 def download_imc2024(data_path: Path) -> None:
@@ -115,6 +117,7 @@ def download_imc2024(data_path: Path) -> None:
         data_path / "image-matching-challenge-2024.zip", mode="r"
     ) as archive:
         archive.extractall(path=data_path)
+    (data_path / "image-matching-challenge-2024.zip").unlink()
 
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"
@@ -146,6 +149,7 @@ def download_imc2025(data_path: Path) -> None:
         data_path / "image-matching-challenge-2025.zip", mode="r"
     ) as archive:
         archive.extractall(path=data_path)
+    (data_path / "image-matching-challenge-2025.zip").unlink()
 
     # Move all scenes to the "all" category sub-folder.
     category_path = data_path / "train/all"
@@ -162,9 +166,10 @@ def download_blended_mvs(data_path: Path) -> None:
     target_folder.mkdir(parents=True, exist_ok=True)
 
     pycolmap.logging.info("Downloading BlendedMVS")
-    for filename in [
+    split_filenames = [
         "BlendedMVS.zip",
-    ] + [f"BlendedMVS.z{i:02d}" for i in range(1, 16)]:
+    ] + [f"BlendedMVS.z{i:02d}" for i in range(1, 16)]
+    for filename in split_filenames:
         download_file(
             "https://github.com/YoYo000/BlendedMVS/releases/download/v1.0.0/"
             + filename,
@@ -192,6 +197,8 @@ def download_blended_mvs(data_path: Path) -> None:
     finally:
         if combined_zip.exists():
             combined_zip.unlink()
+    for filename in split_filenames:
+        (target_folder / filename).unlink()
 
 
 def _sha256(path: Path) -> str:
