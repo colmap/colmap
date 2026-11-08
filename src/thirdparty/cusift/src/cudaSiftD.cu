@@ -460,6 +460,12 @@ __global__ void ComputeOrientationsVLFeat(
 // magnif=3.0, NBP=4, NBO=8, window sigma=NBP/2, centered 2x2x2 trilinear
 // binning, L2->clamp(0.2)->L2 normalization. Clean-room from that BSD source
 // + Lowe's papers; no SiftGPU code referenced.
+//
+// Launch with a 1D block (blockDim.y == blockDim.z == 1) whose size is a power
+// of two from 128 to 1024: threads are indexed by threadIdx.x alone, so a 2D
+// block would add every contribution several times; threads 0..127 write the
+// 128 bins; and the norm reductions halve blockDim.x. The host launches 256
+// threads; `partial` holds the CUDA maximum of 1024.
 #define VLDESC_NBP 4
 #define VLDESC_NBO 8
 __global__ void ExtractSiftDescriptorsVLFeat(
@@ -470,7 +476,7 @@ __global__ void ExtractSiftDescriptorsVLFeat(
     float subsampling, float magnif)
 {
   __shared__ unsigned long long buffer[VLDESC_NBP*VLDESC_NBP*VLDESC_NBO];  // 128
-  __shared__ float partial[256];
+  __shared__ float partial[1024];
   const int tid = threadIdx.x;
   const int nthreads = blockDim.x;
   const float twoPi = 6.283185307179586f;

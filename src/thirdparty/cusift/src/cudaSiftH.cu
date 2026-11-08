@@ -602,12 +602,7 @@ void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves,
     safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*m, cudaMemcpyHostToDevice));
 
     {
-      // ExtractSiftDescriptorsVLFeat indexes threads via a FLAT 1D
-      // threadIdx.x (tid/nthreads=blockDim.x) -- a 2D block here would give
-      // 8 redundant physical threads per distinct tid, each atomicAdd-ing
-      // the same contribution into the same descriptor bin (silently
-      // inflating every histogram entry ~8x). Must match the verified-
-      // working call elsewhere in this file (dim3 threads(256), 1D).
+      // 1D, 256 threads: see the launch requirements at the kernel.
       dim3 blocks(512), threads(256);
       ExtractSiftDescriptorsVLFeat<<<blocks, threads>>>(
           oct.gradMag.d_data, oct.gradAng.d_data,
