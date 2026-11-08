@@ -8,8 +8,10 @@
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
 
+#include <condition_variable>
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace colmap {
@@ -25,16 +27,38 @@ struct FeatureMatcherData {
   std::exception_ptr error;
 };
 
+// Synchronizes creation of a thread-safe FeatureMatcher shared across multiple
+// FeatureMatcherWorker threads (e.g., multiple workers per GPU for FlexGlue).
+// One designated creator worker calls Create() (or Fail() if worker setup fails
+// beforehand, propagating any exception on that worker alone so Setup()
+// rethrows once), while sibling workers call Wait() and receive the shared
+// instance (or nullptr on failure).
+class SharedFeatureMatcher {
+ public:
+  std::shared_ptr<FeatureMatcher> Create(const FeatureMatchingOptions& options);
+  void Fail();
+  std::shared_ptr<FeatureMatcher> Wait();
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  bool done_ = false;
+  std::shared_ptr<FeatureMatcher> matcher_;
+};
+
 class FeatureMatcherWorker : public Thread {
  public:
   using Input = FeatureMatcherData;
   using Output = FeatureMatcherData;
 
-  FeatureMatcherWorker(const FeatureMatchingOptions& matching_options,
-                       const TwoViewGeometryOptions& geometry_options,
-                       const std::shared_ptr<FeatureMatcherCache>& cache,
-                       JobQueue<Input>* input_queue,
-                       JobQueue<Output>* output_queue);
+  FeatureMatcherWorker(
+      const FeatureMatchingOptions& matching_options,
+      const TwoViewGeometryOptions& geometry_options,
+      const std::shared_ptr<FeatureMatcherCache>& cache,
+      JobQueue<Input>* input_queue,
+      JobQueue<Output>* output_queue,
+      std::shared_ptr<SharedFeatureMatcher> shared_matcher = nullptr,
+      bool is_shared_creator = false);
 
  private:
   void Run() override;
@@ -48,6 +72,8 @@ class FeatureMatcherWorker : public Thread {
   std::shared_ptr<FeatureMatcherCache> cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
+  std::shared_ptr<SharedFeatureMatcher> shared_matcher_;
+  bool is_shared_creator_;
 
   std::unique_ptr<OpenGLContextManager> opengl_context_;
 };

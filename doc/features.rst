@@ -217,7 +217,10 @@ models run on a CUDA GPU. On CUDA GPUs with compute capability 7.0 or newer, a
 variant of the matcher whose transformer layers run in float16 is used by
 default (``--FlexGlueMatching.use_fp16``), which is faster than the float32
 matcher with practically identical matches; the float32 matcher is used on the CPU, on
-older GPUs, or if the float16 variant fails to initialize. On the CPU, a
+older GPUs, or if the float16 variant fails to initialize. On CUDA GPUs,
+``--FlexGlueMatching.num_workers_per_gpu`` (default 3) matching threads share a
+single matcher instance and GPU feature cache per GPU so CPU image decoding
+overlaps with GPU inference (lower it to reduce GPU memory usage). On the CPU, a
 single matching thread runs the models with ``--FeatureMatching.num_threads``
 threads, rather than one copy of the models per thread. The
 ``automatic_reconstructor`` provides the ``--feature flexglue`` preset, which

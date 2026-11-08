@@ -4,8 +4,13 @@
 
 #include "colmap/controllers/matcher_cache.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/flexglue.h"
+#include "colmap/feature/sift.h"
+#include "colmap/feature/utils.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/sensor/models.h"
+#include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
 
 #include <functional>
@@ -333,20 +338,307 @@ TEST(FeatureMatcherController, SetupPropagatesMatcherCreationErrors) {
   matching_options.aliked->lightglue.model_path =
       (data.test_dir / "missing_model.onnx").string();
   TwoViewGeometryOptions geometry_options;
+#ifdef COLMAP_ONNX_ENABLED
+  const std::string expected_message = "missing_model.onnx";
+#else
+  const std::string expected_message = "requires ONNX support";
+#endif
   {
     FeatureMatcherController controller(
         matching_options, geometry_options, data.cache);
     // The worker fails to create the matcher. Setup rethrows its error, and
     // the controller then destructs without terminating.
-#ifdef COLMAP_ONNX_ENABLED
-    const std::string expected_message = "missing_model.onnx";
-#else
-    const std::string expected_message = "requires ONNX support";
-#endif
     EXPECT_THAT(ThrownMessage([&]() { controller.Setup(); }),
                 testing::HasSubstr(expected_message));
   }
+
+  // Also test SharedFeatureMatcher error propagation across multiple sibling
+  // workers: only the creator worker rethrows on Wait(), while sibling workers
+  // signal invalid setup and join without throwing.
+  {
+    JobQueue<FeatureMatcherData> input_queue;
+    JobQueue<FeatureMatcherData> output_queue;
+    auto shared_matcher = std::make_shared<SharedFeatureMatcher>();
+    std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+    workers.reserve(3);
+    for (int w = 0; w < 3; ++w) {
+      workers.push_back(
+          std::make_unique<FeatureMatcherWorker>(matching_options,
+                                                 geometry_options,
+                                                 data.cache,
+                                                 &input_queue,
+                                                 &output_queue,
+                                                 shared_matcher,
+                                                 /*is_shared_creator=*/w == 0));
+    }
+    for (auto& worker : workers) {
+      worker->Start();
+    }
+    EXPECT_FALSE(workers[0]->CheckValidSetup());
+    EXPECT_THAT(ThrownMessage([&]() { workers[0]->Wait(); }),
+                testing::HasSubstr(expected_message));
+    for (size_t w = 1; w < workers.size(); ++w) {
+      EXPECT_FALSE(workers[w]->CheckValidSetup());
+      EXPECT_NO_THROW(workers[w]->Wait());
+    }
+  }
+
+  // If the creator fails in Run() before reaching SharedFeatureMatcher::Create
+  // (e.g., while reading MaxNumKeypoints from a closed database), Fail() must
+  // still unblock sibling workers waiting in SharedFeatureMatcher::Wait().
+  {
+    auto closed_db = Database::Open(data.test_dir / "closed.db");
+    closed_db->Close();
+    auto closed_cache = std::make_shared<FeatureMatcherCache>(100, closed_db);
+    JobQueue<FeatureMatcherData> input_queue;
+    JobQueue<FeatureMatcherData> output_queue;
+    auto shared_matcher = std::make_shared<SharedFeatureMatcher>();
+    FeatureMatchingOptions valid_options = DefaultMatchingOptions();
+    std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+    workers.reserve(3);
+    for (int w = 0; w < 3; ++w) {
+      workers.push_back(std::make_unique<FeatureMatcherWorker>(
+          valid_options,
+          geometry_options,
+          w == 0 ? closed_cache : data.cache,
+          &input_queue,
+          &output_queue,
+          shared_matcher,
+          /*is_shared_creator=*/w == 0));
+    }
+    for (size_t w = 1; w < workers.size(); ++w) {
+      workers[w]->Start();
+    }
+    workers[0]->Start();
+    EXPECT_FALSE(workers[0]->CheckValidSetup());
+    EXPECT_THAT(ThrownMessage([&]() { workers[0]->Wait(); }),
+                testing::HasSubstr("database"));
+    for (size_t w = 1; w < workers.size(); ++w) {
+      EXPECT_FALSE(workers[w]->CheckValidSetup());
+      EXPECT_NO_THROW(workers[w]->Wait());
+    }
+  }
+
+#ifdef COLMAP_CUDA_ENABLED
+  if (GetNumCudaDevices() > 0) {
+    FeatureMatchingOptions flexglue_options(FeatureMatcherType::FLEXGLUE);
+    flexglue_options.use_gpu = true;
+    flexglue_options.gpu_index = "0";
+    flexglue_options.num_threads = 2;
+    flexglue_options.flexglue->image_path = data.test_dir.string();
+    flexglue_options.flexglue->num_workers_per_gpu = 3;
+    flexglue_options.flexglue->descriptor_model_path =
+        (data.test_dir / "missing_model.onnx").string();
+    FeatureMatcherController controller(
+        flexglue_options, geometry_options, data.cache);
+    EXPECT_THAT(ThrownMessage([&]() { controller.Setup(); }),
+                testing::HasSubstr(expected_message));
+  }
+#endif
 }
+
+TEST(FeatureMatcherController, SharedFeatureMatcherWorkersMatchPairs) {
+  auto data = CreateTestData(4);
+  data.database->ClearMatches();
+  data.database->ClearTwoViewGeometries();
+  std::vector<FeatureDescriptors> normalized_descriptors;
+  normalized_descriptors.reserve(data.image_ids.size());
+  for (const image_t image_id : data.image_ids) {
+    FeatureDescriptors desc = data.database->ReadDescriptors(image_id);
+    FeatureDescriptorsFloatData float_desc = desc.ToFloat().data;
+    L2NormalizeFeatureDescriptors(&float_desc);
+    desc.data = FeatureDescriptorsToUnsignedByte(float_desc);
+    normalized_descriptors.push_back(std::move(desc));
+  }
+  data.database->ClearDescriptors();
+  for (size_t i = 0; i < data.image_ids.size(); ++i) {
+    data.database->WriteDescriptors(data.image_ids[i],
+                                    normalized_descriptors[i]);
+  }
+  data.cache = std::make_shared<FeatureMatcherCache>(100, data.database);
+
+  FeatureMatchingOptions matching_options = DefaultMatchingOptions();
+  matching_options.skip_geometric_verification = true;
+  // Brute-force SIFT avoids SiftCPUFeatureMatcher's non-thread-safe index
+  // cache so the shared matcher is safe across concurrent workers.
+  matching_options.sift->cpu_brute_force_matcher = true;
+  TwoViewGeometryOptions geometry_options;
+  JobQueue<FeatureMatcherData> input_queue;
+  JobQueue<FeatureMatcherData> output_queue;
+  auto shared_matcher = std::make_shared<SharedFeatureMatcher>();
+
+  std::vector<std::unique_ptr<FeatureMatcherWorker>> workers;
+  workers.reserve(3);
+  for (int w = 0; w < 3; ++w) {
+    workers.push_back(
+        std::make_unique<FeatureMatcherWorker>(matching_options,
+                                               geometry_options,
+                                               data.cache,
+                                               &input_queue,
+                                               &output_queue,
+                                               shared_matcher,
+                                               /*is_shared_creator=*/w == 0));
+    workers.back()->Start();
+  }
+  for (auto& worker : workers) {
+    ASSERT_TRUE(worker->CheckValidSetup());
+  }
+
+  const auto pairs = AllPairs(data.image_ids);
+  for (const auto& [id1, id2] : pairs) {
+    FeatureMatcherData job;
+    job.image_id1 = id1;
+    job.image_id2 = id2;
+    ASSERT_TRUE(input_queue.Push(std::move(job)));
+  }
+
+  for (size_t i = 0; i < pairs.size(); ++i) {
+    auto out = output_queue.Pop();
+    ASSERT_TRUE(out.IsValid());
+    EXPECT_EQ(out.Data().error, nullptr);
+    EXPECT_FALSE(out.Data().matches.empty());
+  }
+
+  input_queue.Wait();
+  for (auto& worker : workers) {
+    worker->Stop();
+  }
+  input_queue.Stop();
+  output_queue.Stop();
+  for (auto& worker : workers) {
+    worker->Wait();
+  }
+
+  const auto created_matcher = shared_matcher->Wait();
+  EXPECT_NE(created_matcher, nullptr);
+  EXPECT_THAT(
+      ThrownMessage([&]() { shared_matcher->Create(matching_options); }),
+      testing::HasSubstr("!done_"));
+  EXPECT_EQ(shared_matcher->Wait(), created_matcher);
+}
+
+#if defined(COLMAP_CUDA_ENABLED) && defined(COLMAP_ONNX_ENABLED) && \
+    defined(COLMAP_DOWNLOAD_ENABLED)
+TEST(FeatureMatcherController, FlexGlueSharedCudaWorkersMatchPairs) {
+  if (GetNumCudaDevices() == 0) {
+    GTEST_SKIP() << "No CUDA devices available";
+  }
+
+  constexpr int kNumImages = 4;
+  constexpr int kWidth = 640;
+  constexpr int kHeight = 480;
+  constexpr int kStepX = 15;
+  constexpr int kStepY = 10;
+
+  const std::filesystem::path test_dir = CreateTestDir();
+  const auto database = Database::Open(test_dir / "database.db");
+
+  // Deterministic textured canvas cropped at translated offsets so all pairs
+  // are covisible with known correspondences and no descriptors are stored.
+  std::mt19937 prng(42);
+  std::uniform_int_distribution<int> byte_dist(0, 255);
+  std::uniform_int_distribution<int> size_dist(8, 80);
+  const int canvas_width = kWidth + (kNumImages - 1) * kStepX + 1;
+  const int canvas_height = kHeight + (kNumImages - 1) * kStepY + 1;
+  std::uniform_int_distribution<int> x_dist(0, canvas_width - 1);
+  std::uniform_int_distribution<int> y_dist(0, canvas_height - 1);
+  Bitmap canvas(canvas_width, canvas_height, /*as_rgb=*/true);
+  for (int y = 0; y < canvas_height; ++y) {
+    for (int x = 0; x < canvas_width; ++x) {
+      canvas.SetPixel(
+          x,
+          y,
+          BitmapColor<uint8_t>(static_cast<uint8_t>(x * 255 / canvas_width),
+                               static_cast<uint8_t>(y * 255 / canvas_height),
+                               128));
+    }
+  }
+  for (int r = 0; r < 300; ++r) {
+    const int size = size_dist(prng);
+    const int x0 = x_dist(prng);
+    const int y0 = y_dist(prng);
+    const BitmapColor<uint8_t> color(static_cast<uint8_t>(byte_dist(prng)),
+                                     static_cast<uint8_t>(byte_dist(prng)),
+                                     static_cast<uint8_t>(byte_dist(prng)));
+    for (int y = y0; y < std::min(canvas_height, y0 + size); ++y) {
+      for (int x = x0; x < std::min(canvas_width, x0 + size); ++x) {
+        canvas.SetPixel(x, y, color);
+      }
+    }
+  }
+
+  Camera camera = Camera::CreateFromModelId(
+      kInvalidCameraId, PinholeCameraModel::model_id, 500, kWidth, kHeight);
+  camera.camera_id = database->WriteCamera(camera);
+
+  constexpr int kGridRows = 16;
+  constexpr int kGridCols = 20;
+  std::vector<image_t> image_ids;
+  image_ids.reserve(kNumImages);
+  for (int i = 0; i < kNumImages; ++i) {
+    Bitmap crop(kWidth, kHeight, /*as_rgb=*/true);
+    for (int y = 0; y < kHeight; ++y) {
+      for (int x = 0; x < kWidth; ++x) {
+        crop.SetPixel(x, y, *canvas.GetPixel(i * kStepX + x, i * kStepY + y));
+      }
+    }
+    const std::string name = "image" + std::to_string(i) + ".png";
+    ASSERT_TRUE(crop.Write(test_dir / name));
+
+    Image image;
+    image.SetName(name);
+    image.SetCameraId(camera.camera_id);
+    const image_t image_id = database->WriteImage(image);
+    image_ids.push_back(image_id);
+
+    FeatureKeypoints keypoints;
+    keypoints.reserve(kGridRows * kGridCols);
+    for (int r = 0; r < kGridRows; ++r) {
+      for (int c = 0; c < kGridCols; ++c) {
+        keypoints.emplace_back(80 + c * 24 - i * kStepX + 0.5f,
+                               60 + r * 22 - i * kStepY + 0.5f);
+      }
+    }
+    database->WriteKeypoints(image_id, keypoints);
+  }
+
+  const auto pairs = AllPairs(image_ids);
+  auto run_with_workers = [&](int num_workers_per_gpu) {
+    database->ClearMatches();
+    database->ClearTwoViewGeometries();
+    auto cache = std::make_shared<FeatureMatcherCache>(100, database);
+    FeatureMatchingOptions matching_options(FeatureMatcherType::FLEXGLUE);
+    matching_options.use_gpu = true;
+    matching_options.gpu_index = "0";
+    // Smaller than num_workers_per_gpu = 3 to also exercise the std::max(1, .)
+    // clamping when dividing num_threads across GPU workers.
+    matching_options.num_threads = 2;
+    matching_options.skip_geometric_verification = true;
+    matching_options.flexglue->image_path = test_dir.string();
+    matching_options.flexglue->num_workers_per_gpu = num_workers_per_gpu;
+    TwoViewGeometryOptions geometry_options;
+    FeatureMatcherController controller(
+        matching_options, geometry_options, cache);
+    EXPECT_TRUE(controller.Setup());
+    controller.Match(pairs);
+
+    std::vector<FeatureMatches> all_matches;
+    all_matches.reserve(pairs.size());
+    for (const auto& [id1, id2] : pairs) {
+      all_matches.push_back(database->ReadMatches(id1, id2));
+    }
+    return all_matches;
+  };
+
+  const std::vector<FeatureMatches> expected_matches = run_with_workers(1);
+  for (const FeatureMatches& matches : expected_matches) {
+    ASSERT_FALSE(matches.empty());
+  }
+
+  const std::vector<FeatureMatches> concurrent_matches = run_with_workers(3);
+  EXPECT_EQ(concurrent_matches, expected_matches);
+}
+#endif
 
 TEST(FeatureMatcherController, MatchSkipGeometricVerification) {
   auto data = CreateTestData(3);
