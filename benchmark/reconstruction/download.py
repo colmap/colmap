@@ -35,9 +35,11 @@ def download_file(
     return filename
 
 
-ETH3D_UNDISTORTED_ARCHIVES = [
+ETH3D_UNDISTORTED_DSLR_ARCHIVES = [
     ("multi_view_training_dslr_undistorted.7z", "dslr"),
     ("multi_view_test_dslr_undistorted.7z", "dslr"),
+]
+ETH3D_UNDISTORTED_RIG_ARCHIVES = [
     ("multi_view_training_rig_undistorted.7z", "rig"),
     ("multi_view_test_rig_undistorted.7z", "rig"),
 ]
@@ -66,8 +68,8 @@ def _download_eth3d_archives(
             archive.extractall(path=target_folder)
 
 
-def download_eth3d(data_path: Path) -> None:
-    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_ARCHIVES)
+def download_eth3d_undistorted_legacy(data_path: Path) -> None:
+    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_DSLR_ARCHIVES)
 
 
 def download_eth3d_distorted(data_path: Path) -> None:
@@ -75,7 +77,7 @@ def download_eth3d_distorted(data_path: Path) -> None:
 
 
 def download_eth3d_undistorted(data_path: Path) -> None:
-    """Downloads the per-scene archives of package_eth3d_undistorted.py."""
+    """Downloads the eth3d-undistorted DSLR archives and the rig images."""
     target_folder = data_path / "dslr"
     target_folder.mkdir(parents=True, exist_ok=True)
     base_url = (
@@ -95,6 +97,7 @@ def download_eth3d_undistorted(data_path: Path) -> None:
         with py7zr.SevenZipFile(archive_path, mode="r") as archive:
             archive.extractall(path=target_folder)
         archive_path.unlink()
+    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_RIG_ARCHIVES)
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -308,9 +311,9 @@ def download_tartanair_v2(
 
 
 DOWNLOADERS = {
-    "eth3d": download_eth3d,
-    "eth3d-distorted": download_eth3d_distorted,
     "eth3d-undistorted": download_eth3d_undistorted,
+    "eth3d-undistorted-legacy": download_eth3d_undistorted_legacy,
+    "eth3d-distorted": download_eth3d_distorted,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
     "imc2025": download_imc2025,
@@ -320,7 +323,7 @@ DOWNLOADERS = {
 DEFAULT_DATASETS = [
     name
     for name in DOWNLOADERS
-    if name not in ("eth3d-distorted", "eth3d-undistorted")
+    if name not in ("eth3d-undistorted-legacy", "eth3d-distorted")
 ]
 
 
@@ -334,11 +337,12 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=DEFAULT_DATASETS,
         choices=DOWNLOADERS.keys(),
-        help="Datasets to download by name. eth3d downloads the official "
-        "undistorted images into data/eth3d, eth3d-distorted the large "
-        "DSLR-only _jpg.7z archives into data/eth3d-distorted, and "
-        "eth3d-undistorted the DSLR images undistorted to a single centered "
-        "pinhole camera into data/eth3d-undistorted.",
+        help="Datasets to download by name. eth3d-undistorted downloads the "
+        "DSLR images undistorted to a single centered pinhole camera and the "
+        "official undistorted rig images into data/eth3d-undistorted, "
+        "eth3d-undistorted-legacy the official undistorted DSLR images into "
+        "data/eth3d-undistorted-legacy, and eth3d-distorted the large "
+        "DSLR-only _jpg.7z archives into data/eth3d-distorted.",
     )
     parser.add_argument(
         "--categories",

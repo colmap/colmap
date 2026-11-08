@@ -120,17 +120,17 @@ class _DatasetETH3D(Dataset):
 
 
 class DatasetETH3DUndistortedLegacy(_DatasetETH3D):
-    """ETH3D reconstruction benchmark on the official undistorted images.
+    """ETH3D DSLR reconstruction benchmark on the official undistorted images.
 
-    Built from the `*_undistorted.7z` downloads, which cover both the `dslr`
-    and `rig` categories. The images are already undistorted and the ground
+    Built from the `*_dslr_undistorted.7z` downloads, and superseded by
+    `eth3d-undistorted`. The images are already undistorted and the ground
     truth uses PINHOLE cameras. Each GT camera keeps the principal point of
     its distorted camera, so the image size differs between GT cameras. The
     JPEGs have no EXIF, so `--uncalibrated` starts from a focal-length guess
     of 1.2 * max(width, height).
     """
 
-    dataset_name = "eth3d"
+    dataset_name = "eth3d-undistorted-legacy"
     calibration_glob = "*_calibration_undistorted"
 
 
@@ -148,12 +148,17 @@ class DatasetETH3DDistorted(_DatasetETH3D):
 
 
 class DatasetETH3DUndistorted(_DatasetETH3D):
-    """ETH3D DSLR benchmark undistorted to a single centered pinhole camera.
+    """ETH3D undistorted reconstruction benchmark.
 
-    Built by `package_eth3d_undistorted.py` from the distorted DSLR JPEGs. All
-    images of all scenes share the same PINHOLE camera, with the principal
-    point at the image center. The JPEGs keep the EXIF of the distorted
-    images, so `--uncalibrated` starts from the EXIF focal length.
+    The `dslr` category is built by `package_eth3d_undistorted.py` from the
+    distorted DSLR JPEGs. All images of all scenes share the same PINHOLE
+    camera, with the principal point at the image center. The JPEGs keep the
+    EXIF of the distorted images, so `--uncalibrated` starts from the EXIF
+    focal length.
+
+    The `rig` category is the official `*_rig_undistorted.7z` downloads. Each
+    GT camera keeps the principal point of its distorted camera, so the image
+    size differs between the cameras of a rig. The PNGs have no EXIF.
     """
 
     dataset_name = "eth3d-undistorted"
