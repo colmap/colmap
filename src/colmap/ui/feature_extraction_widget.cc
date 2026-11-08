@@ -190,6 +190,16 @@ void CusiftExtractionWidget::Run() {
     QMessageBox::critical(this, "", QString::fromStdString(unsupported));
     return;
   }
+  // The spinbox stops at -1 but admits 0, which cusift rejects.
+  if (options_->feature_extraction->cusift->num_octaves == 0) {
+    QMessageBox::critical(
+        this,
+        "",
+        "cusift.num_octaves cannot be 0. Set it to -1 to let cusift choose "
+        "the number of octaves from the image size, or to the number of "
+        "octaves you want (1 or more).");
+    return;
+  }
   options_->feature_extraction->type = FeatureExtractorType::CUSIFT;
   RunExtraction();
 }
