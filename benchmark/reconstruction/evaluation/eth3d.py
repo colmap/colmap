@@ -158,7 +158,9 @@ class DatasetETH3DUndistorted(_DatasetETH3D):
 
     The `rig` category is the official `*_rig_undistorted.7z` downloads. Each
     GT camera keeps the principal point of its distorted camera, so the image
-    size differs between the cameras of a rig. The PNGs have no EXIF.
+    size differs between the cameras of a rig. The PNGs have no EXIF, so
+    `--uncalibrated` starts from a focal-length guess of
+    1.2 * max(width, height).
     """
 
     dataset_name = "eth3d-undistorted"
