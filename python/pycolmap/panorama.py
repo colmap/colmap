@@ -595,6 +595,18 @@ def filter_database_by_covisibility(
     )
 
 
+def _configure_global_mapping_gpu(
+    options: PanoramaReconstructionOptions,
+    global_options: pycolmap.GlobalPipelineOptions,
+) -> None:
+    mapper_options = global_options.mapper
+    mapper_options.global_positioning.use_gpu = options.use_gpu
+    mapper_options.global_positioning.gpu_index = options.gpu_index
+    mapper_options.ba_gpu_index = options.gpu_index
+    if mapper_options.bundle_adjustment.ceres is not None:
+        mapper_options.bundle_adjustment.ceres.use_gpu = options.use_gpu
+
+
 def run_spherical(
     input_image_path: Path,
     options: PanoramaReconstructionOptions,
@@ -635,7 +647,10 @@ def run_spherical(
     # adjustment.
     if options.mapper == Mapper.INCREMENTAL:
         incremental_options = pycolmap.IncrementalPipelineOptions(
-            num_threads=options.num_threads, random_seed=options.random_seed
+            num_threads=options.num_threads,
+            random_seed=options.random_seed,
+            ba_use_gpu=options.use_gpu,
+            ba_gpu_index=options.gpu_index,
         )
         recs = pycolmap.incremental_mapping(
             database_path,
@@ -647,6 +662,7 @@ def run_spherical(
         global_options = pycolmap.GlobalPipelineOptions(
             num_threads=options.num_threads, random_seed=options.random_seed
         )
+        _configure_global_mapping_gpu(options, global_options)
         recs = pycolmap.global_mapping(
             database_path, input_image_path, rec_path, global_options
         )
@@ -744,6 +760,8 @@ def run_perspective(
             ba_refine_focal_length=False,
             ba_refine_principal_point=False,
             ba_refine_extra_params=False,
+            ba_use_gpu=options.use_gpu,
+            ba_gpu_index=options.gpu_index,
         )
         recs = pycolmap.incremental_mapping(
             database_path, image_dir, rec_path, opts
@@ -762,6 +780,7 @@ def run_perspective(
         global_opts.mapper.bundle_adjustment.refine_focal_length = False
         global_opts.mapper.bundle_adjustment.refine_principal_point = False
         global_opts.mapper.bundle_adjustment.refine_extra_params = False
+        _configure_global_mapping_gpu(options, global_opts)
         recs = pycolmap.global_mapping(
             database_path, image_dir, rec_path, global_opts
         )
