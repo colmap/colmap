@@ -31,6 +31,15 @@ class _DatasetETH3D(Dataset):
         return True
 
     def list_scenes(self) -> list[SceneInfo]:
+        # Downloads from before eth3d was split into eth3d-undistorted-legacy
+        # (dslr) and eth3d-undistorted (rig) would otherwise silently lose the
+        # rig scenes.
+        if (self.data_path / "eth3d").is_dir():
+            raise RuntimeError(
+                f"{self.data_path / 'eth3d'} is no longer used. Move its dslr/ "
+                "to eth3d-undistorted-legacy/dslr and its rig/ to "
+                "eth3d-undistorted/rig."
+            )
         scene_infos = []
         dataset_path = self.data_path / self.dataset_name
         category_paths = dataset_path.iterdir() if dataset_path.is_dir() else []
