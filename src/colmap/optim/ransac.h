@@ -267,6 +267,11 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
           trial_counter.fetch_add(1, std::memory_order_relaxed);
       if (curr_thread_trial >= max_num_trials ||
           abort_flag.load(std::memory_order_relaxed)) {
+        // Undo the reservation, so that trial_counter counts only the
+        // trials that pass the checks above. A reused index fails the
+        // gate again: the abort flag is never cleared, and a budget
+        // failure means max_num_trials was already reached.
+        trial_counter.fetch_sub(1, std::memory_order_relaxed);
         break;
       }
 
