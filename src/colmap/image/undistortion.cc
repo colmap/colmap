@@ -50,6 +50,14 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   // here too rather than dereferencing the (empty) focal-length parameters.
   THROW_CHECK(camera.IsPerspective());
 
+  if (options.target_camera.has_value()) {
+    THROW_CHECK(options.target_camera->model_id ==
+                PinholeCameraModel::model_id);
+    Camera undistorted_camera = *options.target_camera;
+    undistorted_camera.camera_id = camera.camera_id;
+    return undistorted_camera;
+  }
+
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
   undistorted_camera.width = camera.width;
@@ -289,7 +297,8 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   // undistortion, spherical cameras by resizing to a smaller image of the same
   // model.
   const auto keep_unchanged = [&options](const Camera& camera) {
-    return camera.IsUndistorted() && options.max_image_size < 0;
+    return camera.IsUndistorted() && options.max_image_size < 0 &&
+           !options.target_camera.has_value();
   };
   for (const auto& [camera_id, distorted_camera] : distorted_cameras) {
     if (keep_unchanged(distorted_camera)) {

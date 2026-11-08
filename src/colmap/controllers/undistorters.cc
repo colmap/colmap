@@ -230,9 +230,10 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   }
 
   // Already-undistorted perspective images are copied through only when no
-  // rescaling is requested; with a max_image_size they still go through
-  // UndistortImage below so the size limit is applied.
+  // rescaling or target camera is requested; otherwise they still go through
+  // UndistortImage below.
   if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
+      !camera_options_.target_camera.has_value() &&
       ExistsFile(input_image_path)) {
     LOG(INFO) << "Copying already undistorted image to location: "
               << output_image_path;
@@ -673,8 +674,9 @@ bool StandaloneImageUndistorter::Undistort(const size_t image_idx) const {
   const auto input_image_path = image_path_ / image_name;
 
   // Check if the image is already undistorted and copy from source if no
-  // scaling is needed
+  // scaling or target camera is needed
   if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
+      !camera_options_.target_camera.has_value() &&
       ExistsFile(input_image_path)) {
     FileCopy(input_image_path, output_image_path, options_.copy_type);
     return true;

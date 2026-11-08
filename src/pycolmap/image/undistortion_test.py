@@ -127,3 +127,32 @@ def test_undistort_image() -> None:
     undistorted_bitmap, undistorted_camera = result
     assert isinstance(undistorted_bitmap, pycolmap.Bitmap)
     assert isinstance(undistorted_camera, pycolmap.Camera)
+
+
+def test_undistort_camera_options_target_camera_readwrite() -> None:
+    options = pycolmap.UndistortCameraOptions()
+    assert options.target_camera is None
+    camera = pycolmap.Camera.create_from_model_id(
+        2, pycolmap.CameraModelId.PINHOLE, 50.0, 60, 40
+    )
+    options.target_camera = camera
+    assert options.target_camera == camera
+    options.target_camera = None
+    assert options.target_camera is None
+
+
+def test_undistort_image_target_camera() -> None:
+    options = pycolmap.UndistortCameraOptions()
+    options.target_camera = pycolmap.Camera.create_from_model_id(
+        2, pycolmap.CameraModelId.PINHOLE, 50.0, 60, 40
+    )
+    camera = pycolmap.Camera.create_from_model_id(
+        1, pycolmap.CameraModelId.SIMPLE_RADIAL, 100.0, 100, 100
+    )
+    bitmap = pycolmap.Bitmap.from_array(np.zeros((100, 100, 3), np.uint8))
+    undistorted_bitmap, undistorted_camera = pycolmap.undistort_image(
+        options, bitmap, camera
+    )
+    assert (undistorted_bitmap.width, undistorted_bitmap.height) == (60, 40)
+    assert undistorted_camera.camera_id == 1
+    assert undistorted_camera.params.tolist() == [50.0, 50.0, 30.0, 20.0]
