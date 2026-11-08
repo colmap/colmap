@@ -34,11 +34,15 @@ class _DatasetETH3D(Dataset):
         # Downloads from before eth3d was split into eth3d-undistorted-legacy
         # (dslr) and eth3d-undistorted (rig) would otherwise silently lose the
         # rig scenes.
-        if (self.data_path / "eth3d").is_dir():
+        old_path = self.data_path / "eth3d"
+        if old_path.is_dir():
             raise RuntimeError(
-                f"{self.data_path / 'eth3d'} is no longer used. Move its dslr/ "
-                "to eth3d-undistorted-legacy/dslr and its rig/ to "
-                "eth3d-undistorted/rig."
+                f"{old_path} is no longer used. Migrate it with:\n"
+                f"  cd {self.data_path}\n"
+                "  mkdir -p eth3d-undistorted-legacy eth3d-undistorted\n"
+                "  mv eth3d/dslr eth3d-undistorted-legacy/dslr\n"
+                "  mv eth3d/rig eth3d-undistorted/rig\n"
+                "  rmdir eth3d"
             )
         scene_infos = []
         dataset_path = self.data_path / self.dataset_name

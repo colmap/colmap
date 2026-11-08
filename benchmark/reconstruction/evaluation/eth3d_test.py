@@ -35,5 +35,5 @@ def test_list_scenes_rig_image_prefixes(tmp_path: Path) -> None:
 def test_list_scenes_rejects_old_eth3d_folder(tmp_path: Path) -> None:
     (tmp_path / "data" / "eth3d" / "rig").mkdir(parents=True)
     (tmp_path / "data" / "eth3d-undistorted" / "dslr").mkdir(parents=True)
-    with pytest.raises(RuntimeError, match="eth3d-undistorted/rig"):
+    with pytest.raises(RuntimeError, match="rmdir eth3d"):
         create_dataset(tmp_path / "data").list_scenes()
