@@ -138,7 +138,7 @@ class DatasetETH3DDistorted(_DatasetETH3D):
 
 
 class DatasetETH3DUndistorted(_DatasetETH3D):
-    """ETH3D DSLR benchmark warped to a single centered pinhole camera.
+    """ETH3D DSLR benchmark undistorted to a single centered pinhole camera.
 
     Built by `package_eth3d_undistorted.py` from the distorted DSLR JPEGs. All
     images of all scenes share the same PINHOLE camera, with the principal
