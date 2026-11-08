@@ -2,16 +2,16 @@
 
 from pathlib import Path
 
-from .eth3d import DatasetETH3DUndistortedLegacy
+from .eth3d import DatasetETH3DUndistorted
 
 
 def test_list_scenes_rig_image_prefixes(tmp_path: Path) -> None:
-    scene_path = tmp_path / "data" / "eth3d" / "rig" / "s"
+    scene_path = tmp_path / "data" / "eth3d-undistorted" / "rig" / "s"
     (scene_path / "rig_calibration_undistorted").mkdir(parents=True)
     for camera in ["images_rig_cam5", "images_rig_cam4"]:
         (scene_path / "images" / camera).mkdir(parents=True)
         (scene_path / "images" / camera / "0.png").touch()
-    dataset = DatasetETH3DUndistortedLegacy(
+    dataset = DatasetETH3DUndistorted(
         data_path=tmp_path / "data",
         categories=[],
         scenes=[],
