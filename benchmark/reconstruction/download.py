@@ -156,7 +156,7 @@ def download_blended_mvs(data_path: Path) -> None:
         if combined_zip.exists():
             combined_zip.unlink()
     for filename in split_filenames:
-        (target_folder / filename).unlink()
+        (target_folder / filename).unlink(missing_ok=True)
 
 
 def _sha256(path: Path) -> str:
