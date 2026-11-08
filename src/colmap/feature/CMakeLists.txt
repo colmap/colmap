@@ -122,7 +122,10 @@ COLMAP_ADD_TEST(
 if(TESTS_ENABLED AND CUSIFT_ENABLED)
     # Plain signature, as for sift_test below.
     target_link_libraries(colmap_feature_cusift_test colmap_util_cuda)
-    target_link_libraries(colmap_feature_cusift_matcher_test colmap_util_cuda)
+    # colmap_cusift: GemmMatcherContract tests call the vendored GEMM matcher
+    # directly.
+    target_link_libraries(colmap_feature_cusift_matcher_test
+        colmap_util_cuda colmap_cusift)
 endif()
 if(CUSIFT_ENABLED)
     COLMAP_ADD_TEST(

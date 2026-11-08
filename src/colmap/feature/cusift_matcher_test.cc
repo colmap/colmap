@@ -13,11 +13,16 @@
 #include <cmath>
 #include <numeric>
 #include <set>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#if defined(COLMAP_CUSIFT_ENABLED)
+#include "matcher_gemm.h"
+#endif
 
 namespace colmap {
 namespace {
@@ -700,6 +705,66 @@ TEST(CusiftMatcherParity, SingleCandidateFollowsTheReference) {
   auto cu_matcher = THROW_CHECK_NOTNULL(
       CreateCusiftFeatureMatcher(CreateCusiftMatchingOptions(lenient)));
   EXPECT_TRUE(MatchToSet(*cu_matcher, single(0), single(3)).empty());
+}
+
+// The vendored GEMM matcher's own contract, for callers that use it directly
+// rather than through CusiftFeatureMatcher (which guards empty inputs).
+TEST(GemmMatcherContract, EmptySideClearsAndReturnsNoMatches) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(8);
+  GemmMatcher matcher;
+  for (const auto& [n1, n2] :
+       std::vector<std::pair<int, int>>{{0, 8}, {8, 0}, {0, 0}}) {
+    std::vector<::Match> out = {{1, 2, 3.0f}};
+    EXPECT_EQ(matcher.MatchPair(n1 > 0 ? descriptors.data.data() : nullptr,
+                                n1,
+                                n2 > 0 ? descriptors.data.data() : nullptr,
+                                n2,
+                                /*ratio=*/0.8f,
+                                /*mutual=*/true,
+                                out),
+              0.0f)
+        << "n1=" << n1 << " n2=" << n2;
+    EXPECT_TRUE(out.empty()) << "n1=" << n1 << " n2=" << n2;
+  }
+}
+
+TEST(GemmMatcherContract, ReplacesPreviousMatches) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(8);
+  GemmMatcher matcher;
+  std::vector<::Match> out;
+  matcher.MatchPair(descriptors.data.data(),
+                    8,
+                    descriptors.data.data(),
+                    8,
+                    /*ratio=*/0.8f,
+                    /*mutual=*/true,
+                    out);
+  ASSERT_EQ(out.size(), 8);
+  matcher.MatchPair(descriptors.data.data(),
+                    8,
+                    descriptors.data.data(),
+                    8,
+                    /*ratio=*/0.8f,
+                    /*mutual=*/true,
+                    out);
+  EXPECT_EQ(out.size(), 8);
+}
+
+TEST(GemmMatcherContract, RejectsNullPointerForNonEmptySide) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(8);
+  GemmMatcher matcher;
+  std::vector<::Match> out;
+  EXPECT_THROW(matcher.MatchPair(nullptr,
+                                 8,
+                                 descriptors.data.data(),
+                                 8,
+                                 /*ratio=*/0.8f,
+                                 /*mutual=*/true,
+                                 out),
+               std::invalid_argument);
 }
 
 #else  // !defined(COLMAP_CUSIFT_ENABLED)

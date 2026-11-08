@@ -65,8 +65,10 @@ class GemmMatcher {
 };
 
 // GemmMatcher::MatchPair: The host->device transfer carries 128 B per
-// descriptor and the widening to float runs on the device. Returns kernel time
-// in ms; matches are appended to `out`.
+// descriptor and the widening to float runs on the device. Clears `out` and
+// fills it with the matches; returns the kernel time in ms (0 when a side is
+// empty, which launches nothing). A descriptor pointer must be non-null when
+// its side is non-empty.
 //
 // ratio: Lowe ratio test, evaluated in the space distanceType selects.
 // mutual: cross-check. reverseRatio (only meaningful when `mutual` is set)

@@ -348,7 +348,6 @@ float MatchUploaded(GemmMatcherContext& ctx, int n1, int n2, float ratio,
     }
   }
 
-  out.clear();
   const float r2 = ratio * ratio;
   const bool angular = angular_mode;
   const float invSqNorm = 1.0f / sqDescriptorNorm;
@@ -440,6 +439,13 @@ float GemmMatcher::MatchPair(const unsigned char* h_desc1, int n1,
                              bool mutual, std::vector<Match>& out,
                              bool reverseRatio, int distanceType,
                              float maxDistance, float sqDescriptorNorm) {
+  out.clear();
+  // A side without descriptors has no matches; a zero-sized grid would fail.
+  if (n1 <= 0 || n2 <= 0) return 0.0f;
+  if (h_desc1 == nullptr || h_desc2 == nullptr) {
+    throw std::invalid_argument("cusift: GemmMatcher::MatchPair got a null "
+                                "descriptor pointer for a non-empty side");
+  }
   GemmMatcherContext& ctx = Context();
   ctx.Reserve(n1, n2, 512);
   // 128 B per descriptor instead of 512 B. The widening then happens on the
