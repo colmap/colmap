@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Build the eth3d-centered benchmark from the distorted ETH3D DSLR images.
+"""Build the eth3d-undistorted benchmark from the distorted ETH3D DSLR images.
 
 The official undistorted ETH3D images keep the principal point of each
 distorted GT camera. Their size thus differs between GT cameras and their
@@ -12,9 +12,9 @@ together with the images.
 
 Example (from benchmark/reconstruction):
   python download.py --datasets eth3d-distorted
-  python -m evaluation.package_eth3d_centered \\
-    --input_path data/eth3d-distorted --output_path data/eth3d-centered \\
-    --archive_path data/eth3d-centered-archives
+  python -m evaluation.package_eth3d_undistorted \\
+    --input_path data/eth3d-distorted --output_path data/eth3d-undistorted \\
+    --archive_path data/eth3d-undistorted-archives
 """
 
 import argparse
@@ -29,9 +29,9 @@ import numpy as np
 import pycolmap
 
 RELEASE_REPOSITORY = "colmap/colmap"
-RELEASE_TAG = "datasets-eth3d-centered-v1"
-ARCHIVE_PREFIX = "eth3d-centered-v1"
-CHECKSUMS_PATH = Path(__file__).with_name("eth3d_centered_checksums.json")
+RELEASE_TAG = "datasets-eth3d-undistorted-v1"
+ARCHIVE_PREFIX = "eth3d-undistorted-v1"
+CHECKSUMS_PATH = Path(__file__).with_name("eth3d_undistorted_checksums.json")
 
 # Over all distorted GT cameras of all scenes, the largest centered 3:2 image
 # without blank pixels is 6141x4094 at the median GT focal length of 3412 px.
@@ -44,7 +44,7 @@ SOURCE_CALIBRATION = "dslr_calibration_jpg"
 TARGET_CALIBRATION = "dslr_calibration_undistorted"
 
 README = """\
-# eth3d-centered
+# eth3d-undistorted
 
 This package is derived from the distorted DSLR JPEG images of the ETH3D
 high-resolution multi-view benchmark for evaluating structure-from-motion in
@@ -197,7 +197,7 @@ def parse_args() -> argparse.Namespace:
         "--output_path",
         type=Path,
         required=True,
-        help="Path to the eth3d-centered dataset to write.",
+        help="Path to the eth3d-undistorted dataset to write.",
     )
     parser.add_argument(
         "--archive_path",

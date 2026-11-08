@@ -6,7 +6,7 @@ import numpy as np
 
 import pycolmap
 
-from .package_eth3d_centered import (
+from .package_eth3d_undistorted import (
     SOURCE_CALIBRATION,
     TARGET_CALIBRATION,
     undistort_scene,

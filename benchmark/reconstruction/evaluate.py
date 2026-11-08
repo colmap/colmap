@@ -39,9 +39,9 @@ import pickle
 
 from evaluation.blended_mvs import DatasetBlendedMVS
 from evaluation.eth3d import (
-    DatasetETH3DCentered,
     DatasetETH3DDistorted,
     DatasetETH3DUndistorted,
+    DatasetETH3DUndistortedLegacy,
 )
 from evaluation.imc import DatasetIMC2023, DatasetIMC2024, DatasetIMC2025
 from evaluation.tartanair import (
@@ -63,9 +63,9 @@ import pycolmap
 
 def _dataset_classes() -> dict[str, type[Dataset]]:
     return {
-        "eth3d": DatasetETH3DUndistorted,
+        "eth3d": DatasetETH3DUndistortedLegacy,
         "eth3d-distorted": DatasetETH3DDistorted,
-        "eth3d-centered": DatasetETH3DCentered,
+        "eth3d-undistorted": DatasetETH3DUndistorted,
         "blended-mvs": DatasetBlendedMVS,
         "imc2023": DatasetIMC2023,
         "imc2024": DatasetIMC2024,
