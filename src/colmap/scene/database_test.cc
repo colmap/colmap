@@ -1045,7 +1045,6 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
           break;
         default:
           GTEST_FAIL() << "Unexpected sensor type: " << data_id.sensor_id.type;
-          break;
       }
     }
   }
@@ -1059,7 +1058,6 @@ TEST_P(ParameterizedDatabaseTests, Merge) {
       default:
         GTEST_FAIL() << "Unexpected sensor type: "
                      << pose_prior.corr_data_id.sensor_id.type;
-        break;
     }
   }
 
