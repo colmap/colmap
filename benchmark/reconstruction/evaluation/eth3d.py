@@ -109,8 +109,8 @@ class _DatasetETH3D(Dataset):
         pass
 
 
-class DatasetETH3DUndistorted(_DatasetETH3D):
-    """ETH3D undistorted reconstruction benchmark.
+class DatasetETH3DUndistortedLegacy(_DatasetETH3D):
+    """ETH3D reconstruction benchmark on the official undistorted images.
 
     Built from the `*_undistorted.7z` downloads, which cover both the `dslr`
     and `rig` categories. The images are already undistorted and the ground
@@ -137,14 +137,14 @@ class DatasetETH3DDistorted(_DatasetETH3D):
     calibration_glob = "*_calibration_jpg"
 
 
-class DatasetETH3DCentered(_DatasetETH3D):
+class DatasetETH3DUndistorted(_DatasetETH3D):
     """ETH3D DSLR benchmark warped to a single centered pinhole camera.
 
-    Built by `package_eth3d_centered.py` from the distorted DSLR JPEGs. All
+    Built by `package_eth3d_undistorted.py` from the distorted DSLR JPEGs. All
     images of all scenes share the same PINHOLE camera, with the principal
     point at the image center. The JPEGs keep the EXIF of the distorted
     images, so `--uncalibrated` starts from the EXIF focal length.
     """
 
-    dataset_name = "eth3d-centered"
+    dataset_name = "eth3d-undistorted"
     calibration_glob = "*_calibration_undistorted"
