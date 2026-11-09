@@ -186,7 +186,7 @@ TEST(COLMAPUndistorter, TargetCamera) {
 
   UndistortCameraOptions camera_options;
   camera_options.target_camera =
-      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 50, 60, 40);
+      Camera::CreateFromModelId(2, CameraModelId::kPinhole, 50, 60, 40);
   COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
                                 camera_options,
                                 reconstruction,
@@ -202,7 +202,12 @@ TEST(COLMAPUndistorter, TargetCamera) {
   }
   Reconstruction undistorted_reconstruction;
   undistorted_reconstruction.Read(output_path / "sparse");
+  EXPECT_EQ(undistorted_reconstruction.NumCameras(),
+            reconstruction.NumCameras());
   for (const auto& [camera_id, camera] : undistorted_reconstruction.Cameras()) {
+    EXPECT_TRUE(reconstruction.ExistsCamera(camera_id));
+    EXPECT_EQ(camera.width, 60);
+    EXPECT_EQ(camera.height, 40);
     EXPECT_EQ(camera.params, camera_options.target_camera->params);
   }
 }
