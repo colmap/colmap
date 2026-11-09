@@ -14,9 +14,9 @@ class _DatasetETH3D(Dataset):
 
     Subclasses supply `dataset_name` and `calibration_glob` to select one of
     the published ETH3D variants. The image folders under images/ are named
-    per capture device (dslr_images_undistorted for the DSLR, one
-    images_rig_cam<i>_undistorted per camera for the rig), so they are not
-    matched by name.
+    per capture device and variant (e.g., dslr_images or
+    dslr_images_undistorted for the DSLR, one images_rig_cam<i>_undistorted
+    per camera for the rig), so they are not matched by name.
     """
 
     dataset_name = ""
