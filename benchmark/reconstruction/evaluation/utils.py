@@ -7,7 +7,6 @@ import ctypes
 import dataclasses
 import datetime
 import functools
-import itertools
 import multiprocessing
 import pickle
 import platform
@@ -1348,70 +1347,57 @@ def compute_grouped_rel_errors(
     fragmented registrations) we assign the maximum error of 180 degrees. The
     returned error array covers all pairs in A u B.
 
-    A and B are materialized as flat collections and scored in a single pass.
-    A is a multiset (tgt_from_src_est_edges): an image may appear in several
-    sub-models, so the same edge can carry several estimated relative poses,
-    each contributing one error entry.
+    An estimated pair may occur in several sub-models, contributing one error
+    per occurrence. Iterate one source at a time in lexical order so the
+    returned array stays deterministic without storing every relative pose.
     """
-    gt_cam_from_world = {
+    gt_poses = {
         image.name: image.cam_from_world()
         for image in sparse_gt.images.values()
     }
+    gt_groups: dict[int, set[str]] = collections.defaultdict(set)
+    for name, component in image_name_to_component.items():
+        if name in gt_poses and component != OUTLIER_COMPONENT_ID:
+            gt_groups[component].add(name)
 
-    # A: ordered estimated edges -> list of relative poses (one per sub-model
-    # containing both endpoints). Keeping a list makes A a multiset.
-    tgt_from_src_est_edges: dict[tuple[str, str], list[pycolmap.Rigid3d]] = (
+    models_by_image: dict[str, list[dict[str, pycolmap.Rigid3d]]] = (
         collections.defaultdict(list)
     )
-    for sub_model in sub_models:
-        cam_from_world = {
+    for model in sub_models:
+        poses = {
             image.name: image.cam_from_world()
-            for image in sub_model.images.values()
+            for image in model.images.values()
         }
-        for src_name, tgt_name in itertools.permutations(cam_from_world, 2):
-            tgt_from_src_est = (
-                cam_from_world[tgt_name] * cam_from_world[src_name].inverse()
-            )
-            tgt_from_src_est_edges[(src_name, tgt_name)].append(
-                tgt_from_src_est
-            )
-
-    # B: ordered GT edges grouped by GT component. Outliers never belong to a
-    # GT component, and names absent from sparse_gt cannot form a measurable GT
-    # edge, so both are excluded here.
-    names_by_component: dict[int, list[str]] = collections.defaultdict(list)
-    for name, component in image_name_to_component.items():
-        if component == OUTLIER_COMPONENT_ID or name not in gt_cam_from_world:
-            continue
-        names_by_component[component].append(name)
-    gt_edges: set[tuple[str, str]] = set()
-    for group_names in names_by_component.values():
-        gt_edges.update(itertools.permutations(group_names, 2))
+        for name in poses:
+            models_by_image[name].append(poses)
 
     errors: list[float] = []
-    # Score edges in sorted order: set iteration order depends on the
-    # per-process hash seed, so an unsorted union would permute the error
-    # array from run to run.
-    for edge in sorted(set(tgt_from_src_est_edges) | gt_edges):
-        src_name, tgt_name = edge
-        tgt_from_src_ests = tgt_from_src_est_edges.get(edge, [])
-        if edge in gt_edges:
-            tgt_from_src_gt = (
-                gt_cam_from_world[tgt_name]
-                * gt_cam_from_world[src_name].inverse()
-            )
-            if not tgt_from_src_ests:
-                # Edge in B - A: failed / fragmented registration.
+    for src in sorted(gt_poses.keys() | models_by_image.keys()):
+        component = image_name_to_component.get(src, OUTLIER_COMPONENT_ID)
+        gt_names = gt_groups.get(component, set()) if src in gt_poses else set()
+        estimates: dict[str, list[pycolmap.Rigid3d]] = (
+            collections.defaultdict(list)
+        )
+        for poses in models_by_image.get(src, []):
+            world_from_src = poses[src].inverse()
+            for tgt, tgt_from_world in poses.items():
+                if tgt != src:
+                    estimates[tgt].append(tgt_from_world * world_from_src)
+
+        gt_world_from_src = gt_poses[src].inverse() if gt_names else None
+        for tgt in sorted((estimates.keys() | gt_names) - {src}):
+            if tgt not in estimates:
                 errors.append(180.0)
-            for tgt_from_src_est in tgt_from_src_ests:
-                # Edge in A n B: measure the relative pose error.
-                dt, dR = compute_rel_pose_error(
-                    tgt_from_src_est, tgt_from_src_gt, min_proj_center_dist
-                )
-                errors.append(max(dt, dR))
-        else:
-            # Edge in A - B: wrong merge or registered outlier.
-            errors.extend(180.0 for _ in tgt_from_src_ests)
+            elif tgt not in gt_names:
+                errors.extend([180.0] * len(estimates[tgt]))
+            else:
+                assert gt_world_from_src is not None
+                target_from_src = gt_poses[tgt] * gt_world_from_src
+                for estimate in estimates[tgt]:
+                    dt, dR = compute_rel_pose_error(
+                        estimate, target_from_src, min_proj_center_dist
+                    )
+                    errors.append(max(dt, dR))
 
     if not errors:
         # No evaluable pairs (e.g. only singleton GT reconstructions). Report
