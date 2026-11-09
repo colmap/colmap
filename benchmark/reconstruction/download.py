@@ -90,6 +90,7 @@ def download_eth3d_undistorted(data_path: Path) -> None:
         pycolmap.logging.info(f"Extracting ETH3D undistorted {filename}")
         with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
             archive.extractall(path=target_folder)
+        (target_folder / filename).unlink()
 
 
 def download_imc2023(data_path: Path) -> None:
