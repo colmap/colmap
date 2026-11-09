@@ -650,7 +650,11 @@ def set_cameras_from_gt(
         image.name: image.camera_id
         for image in camera_priors_sparse_gt.images.values()
     }
-    with pycolmap.Database.open(str(database_path)) as database:
+    # Batch the many updates into one transaction.
+    with (
+        pycolmap.Database.open(str(database_path)) as database,
+        pycolmap.DatabaseTransaction(database),
+    ):
         images = database.read_all_images()
         missing = [
             image.name for image in images if image.name not in gt_camera_ids
@@ -696,14 +700,15 @@ def set_cameras_from_gt(
             ]
             rig_configs.append(rig_config)
         # The rig extrinsics are derived from the GT, whose rigs and frames are
-        # then also overwritten, so pass a copy of the GT.
-        pycolmap.apply_rig_config(
-            rig_configs,
-            database,
-            pycolmap.Reconstruction(camera_priors_sparse_gt)
-            if rig_configs
-            else None,
-        )
+        # then also overwritten, so pass a copy of the GT. apply_rig_config
+        # also writes its cameras, which must keep the USER source of the
+        # cameras written above.
+        rig_sparse_gt = None
+        if rig_configs:
+            rig_sparse_gt = pycolmap.Reconstruction(camera_priors_sparse_gt)
+            for camera in rig_sparse_gt.cameras.values():
+                camera.source = pycolmap.CameraSource.USER
+        pycolmap.apply_rig_config(rig_configs, database, rig_sparse_gt)
 
 
 def colmap_reconstruction(
