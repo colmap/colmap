@@ -112,6 +112,9 @@ int main(int argc, char** argv) {
                         &colmap::RunGeometricVerifier,
                         kSupportsGracefulShutdown);
   commands.emplace_back("global_mapper", &colmap::RunGlobalMapper);
+  commands.emplace_back("gravity_estimator",
+                        &colmap::RunGravityEstimator,
+                        kSupportsGracefulShutdown);
   commands.emplace_back("guided_geometric_verifier",
                         &colmap::RunGuidedGeometricVerifier,
                         kSupportsGracefulShutdown);

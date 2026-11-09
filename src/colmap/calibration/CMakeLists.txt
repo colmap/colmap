@@ -6,6 +6,8 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_calibration
     SRCS
         anycalib.h anycalib.cc
+        geocalib.h geocalib.cc
+        perspective_field_fitting.h perspective_field_fitting.cc
         single_view_calibrator.h single_view_calibrator.cc
         ray_fitting.h ray_fitting.cc
         resources.h
@@ -34,10 +36,23 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_calibration
 )
 
+COLMAP_ADD_TEST(
+    NAME perspective_field_fitting_test
+    SRCS perspective_field_fitting_test.cc
+    LINK_LIBS colmap_calibration
+)
+
 if(ONNX_ENABLED)
     COLMAP_ADD_TEST(
         NAME anycalib_test
         SRCS anycalib_test.cc
+        LINK_LIBS
+            colmap_calibration
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
+        NAME geocalib_test
+        SRCS geocalib_test.cc
         LINK_LIBS
             colmap_calibration
             onnxruntime::onnxruntime
