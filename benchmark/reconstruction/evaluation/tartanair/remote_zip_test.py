@@ -72,10 +72,24 @@ def test_empty_archive_and_empty_stored_member(
     assert archive.read("empty")[0] == b""
 
 
+@pytest.mark.parametrize(
+    "comment", [b"note with PK\x05\x06 inside", b"PK\x05\x06" + bytes(18)]
+)
 def test_directory_signature_in_comment(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, comment: bytes
 ) -> None:
-    data = zip_bytes({"pose": b"123"}, b"note with PK\x05\x06 inside")
+    data = zip_bytes({"pose": b"123"}, comment)
+    assert open_remote(monkeypatch, data).read("pose")[0] == b"123"
+
+
+def test_archive_with_trailing_padding(monkeypatch: pytest.MonkeyPatch) -> None:
+    data = zip_bytes({"pose": b"123"}) + bytes(4)
+    assert open_remote(monkeypatch, data).read("pose")[0] == b"123"
+
+
+def test_zip64_end_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(zipfile, "ZIP64_LIMIT", 1)
+    data = zip_bytes({"pose": b"123"})
     assert open_remote(monkeypatch, data).read("pose")[0] == b"123"
 
 

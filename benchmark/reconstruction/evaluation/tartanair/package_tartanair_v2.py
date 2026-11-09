@@ -127,7 +127,19 @@ class RemoteZip:
                 )
             if eocd_offset + 22 <= len(tail):
                 eocd = struct.unpack_from("<4s4H2LH", tail, eocd_offset)
-                if eocd_offset + 22 + eocd[-1] == len(tail):
+                # A signature inside the comment can look like a complete
+                # empty record. Match the preceding directory (or ZIP64
+                # locator) and tolerate padding after the archive.
+                directory_end = eocd[5] + eocd[6]
+                record_offset = total_size - len(tail) + eocd_offset
+                has_locator = (
+                    eocd_offset >= 20
+                    and tail[eocd_offset - 20 : eocd_offset - 16]
+                    == b"PK\x06\x07"
+                )
+                if eocd_offset + 22 + eocd[-1] <= len(tail) and (
+                    directory_end == record_offset or has_locator
+                ):
                     break
             end = eocd_offset
         num_entries, directory_size, directory_offset = eocd[4:7]
