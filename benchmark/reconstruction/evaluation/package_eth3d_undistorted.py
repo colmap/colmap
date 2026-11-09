@@ -172,13 +172,11 @@ def package_scene(
 
     archive_path.mkdir(parents=True, exist_ok=True)
     filename = f"{ARCHIVE_PREFIX}-{scene}.7z"
-    readme_path = archive_path / "README.md"
-    readme_path.write_text(README.format(quality=JPEG_QUALITY))
     # JPEGs do not compress further, so only copy them into the archive.
     with py7zr.SevenZipFile(
         archive_path / filename, "w", filters=[{"id": py7zr.FILTER_COPY}]
     ) as archive:
-        archive.write(readme_path, "README.md")
+        archive.writestr(README.format(quality=JPEG_QUALITY), "README.md")
         archive.writeall(dataset_path / scene, scene)
     digest = hashlib.sha256()
     with open(archive_path / filename, "rb") as fid:
