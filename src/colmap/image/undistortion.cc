@@ -53,6 +53,11 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   if (options.target_camera.has_value()) {
     THROW_CHECK(options.target_camera->model_id ==
                 PinholeCameraModel::model_id);
+    THROW_CHECK_GT(options.target_camera->width, 0);
+    THROW_CHECK_GT(options.target_camera->height, 0);
+    THROW_CHECK(options.target_camera->VerifyParams());
+    THROW_CHECK_GT(options.target_camera->FocalLengthX(), 0);
+    THROW_CHECK_GT(options.target_camera->FocalLengthY(), 0);
     Camera undistorted_camera = *options.target_camera;
     undistorted_camera.camera_id = camera.camera_id;
     return undistorted_camera;
