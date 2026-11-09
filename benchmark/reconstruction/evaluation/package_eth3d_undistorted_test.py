@@ -39,7 +39,7 @@ def test_undistort_scene(tmp_path: Path) -> None:
 
     target = pycolmap.Reconstruction(output_path / TARGET_CALIBRATION)
     assert list(target.cameras.values()) == [target_camera]
-    assert target.num_points3D() == source.num_points3D()
+    assert set(target.points3D.keys()) == set(source.points3D.keys())
     for image_id, image in target.images.items():
         np.testing.assert_allclose(
             image.cam_from_world().matrix(),
@@ -49,4 +49,5 @@ def test_undistort_scene(tmp_path: Path) -> None:
         assert bitmap is not None
         assert (bitmap.width, bitmap.height) == (700, 500)
     # The synthetic observations are noise-free.
-    assert target.compute_mean_reprojection_error() < 1e-6
+    for point3D in target.points3D.values():
+        assert 0 <= point3D.error < 1e-6

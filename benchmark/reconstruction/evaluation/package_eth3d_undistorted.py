@@ -124,8 +124,10 @@ def merge_cameras(
             ),
             image.cam_from_world(),
         )
-    for point3D in reconstruction.points3D.values():
-        merged.add_point3D(point3D.xyz, point3D.track, point3D.color)
+    # Keep the GT point IDs, and update the errors for the merged camera.
+    for point3D_id, point3D in reconstruction.points3D.items():
+        merged.add_point3D_with_id(point3D_id, point3D)
+    merged.update_point_3d_errors()
     return merged
 
 
