@@ -268,9 +268,11 @@ struct FeatureDescriptorIndexCacheHelper {
       image_descriptors_;
 };
 
-// The guided fixtures use identity H or horizontal epipolar lines. Compute
-// integer distances without Eigen reductions, then sort instead of maintaining
-// the production running minima, including its first-index tie policy.
+// Backward rejection is recomputed; the fixture filters are symmetric:
+// identity H with squared dx/dy, or horizontal epipolar lines. Production
+// cross-check instead transposes the forward rejection matrix. Compute integer
+// distances without Eigen reductions, then sort instead of maintaining the
+// production running minima, including its first-index tie policy.
 FeatureMatches ScalarSiftMatches(const FeatureMatcher::Image& image1,
                                  const FeatureMatcher::Image& image2,
                                  const SiftMatchingOptions& options,
@@ -362,6 +364,7 @@ TEST(SiftCPUFeatureMatcher, IntegerDistancesAndOrderedMatches) {
     options.sift->cross_check = cross_check;
     auto matcher = CreateSiftFeatureMatcher(options);
     for (const auto& [rows, cols] : {std::pair{17, 23},
+                                     {0, 0},
                                      {0, 7},
                                      {9, 0},
                                      {1, 1},
@@ -395,6 +398,9 @@ TEST(SiftCPUFeatureMatcher, IntegerDistancesAndOrderedMatches) {
       FeatureMatches actual;
       const auto expected =
           ScalarSiftMatches(image1, image2, *options.sift, nullptr, 0);
+      if (rows >= 17 && cols >= 23) {
+        ASSERT_FALSE(expected.empty());
+      }
       for (int repeat = 0; repeat < 2; ++repeat) {
         matcher->Match(image1, image2, &actual);
         CheckEqualMatches(actual, expected);
