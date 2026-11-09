@@ -9,18 +9,37 @@ from .utils import Dataset, SceneInfo
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 
 
+def check_no_old_eth3d_folder(data_path: Path) -> None:
+    """Rejects data from before eth3d was split into eth3d-undistorted-legacy
+    (dslr) and eth3d-undistorted (rig), whose rig scenes would be ignored."""
+    old_path = data_path / "eth3d"
+    if old_path.is_dir():
+        raise RuntimeError(
+            f"{old_path} is no longer used. Migrate it with:\n"
+            f"  cd {data_path}\n"
+            "  mkdir -p eth3d-undistorted-legacy eth3d-undistorted\n"
+            "  mv eth3d/dslr eth3d-undistorted-legacy/\n"
+            "  mv eth3d/rig eth3d-undistorted/\n"
+            "  rmdir eth3d\n"
+            "and download the DSLR images of eth3d-undistorted with "
+            "`python download.py --datasets eth3d-undistorted`."
+        )
+
+
 class _DatasetETH3D(Dataset):
     """Shared ETH3D scene discovery.
 
-    Subclasses supply `dataset_name` and `calibration_glob` to select one of
-    the published ETH3D variants. The image folders under images/ are named
-    per capture device and variant (e.g., dslr_images or
-    dslr_images_undistorted for the DSLR, one images_rig_cam<i>_undistorted
-    per camera for the rig), so they are not matched by name.
+    Subclasses supply `dataset_name`, `calibration_glob`, and
+    `published_categories` to select one of the published ETH3D variants. The
+    image folders under images/ are named per capture device and variant
+    (e.g., dslr_images or dslr_images_undistorted for the DSLR, one
+    images_rig_cam<i>_undistorted per camera for the rig), so they are not
+    matched by name.
     """
 
     dataset_name = ""
     calibration_glob = ""
+    published_categories: tuple[str, ...] = ()
 
     @property
     def position_accuracy_gt(self) -> float:
@@ -31,21 +50,22 @@ class _DatasetETH3D(Dataset):
         return True
 
     def list_scenes(self) -> list[SceneInfo]:
-        # Downloads from before eth3d was split into eth3d-undistorted-legacy
-        # (dslr) and eth3d-undistorted (rig) would otherwise silently lose the
-        # rig scenes.
-        old_path = self.data_path / "eth3d"
-        if old_path.is_dir():
+        check_no_old_eth3d_folder(self.data_path)
+        dataset_path = self.data_path / self.dataset_name
+        # A partial download would otherwise silently skip whole categories.
+        missing_categories = [
+            category
+            for category in self.published_categories
+            if (not self.categories or category in self.categories)
+            and not (dataset_path / category).is_dir()
+        ]
+        if missing_categories:
             raise RuntimeError(
-                f"{old_path} is no longer used. Migrate it with:\n"
-                f"  cd {self.data_path}\n"
-                "  mkdir -p eth3d-undistorted-legacy eth3d-undistorted\n"
-                "  mv eth3d/dslr eth3d-undistorted-legacy/dslr\n"
-                "  mv eth3d/rig eth3d-undistorted/rig\n"
-                "  rmdir eth3d"
+                f"No {self.dataset_name} {'/'.join(missing_categories)} scenes "
+                "found. Download them with "
+                f"`python download.py --datasets {self.dataset_name}`."
             )
         scene_infos = []
-        dataset_path = self.data_path / self.dataset_name
         category_paths = dataset_path.iterdir() if dataset_path.is_dir() else []
         for category_path in category_paths:
             if not category_path.is_dir() or (
@@ -120,11 +140,6 @@ class _DatasetETH3D(Dataset):
 
                 scene_infos.append(scene_info)
 
-        if not scene_infos and not dataset_path.is_dir():
-            raise RuntimeError(
-                f"No {self.dataset_name} scenes found. Download them with "
-                f"`python download.py --datasets {self.dataset_name}`."
-            )
         return scene_infos
 
     def prepare_scene(self, scene_info: SceneInfo) -> None:
@@ -145,6 +160,7 @@ class DatasetETH3DUndistortedLegacy(_DatasetETH3D):
 
     dataset_name = "eth3d-undistorted-legacy"
     calibration_glob = "*_calibration_undistorted"
+    published_categories = ("dslr",)
 
 
 class DatasetETH3DDistorted(_DatasetETH3D):
@@ -158,16 +174,17 @@ class DatasetETH3DDistorted(_DatasetETH3D):
 
     dataset_name = "eth3d-distorted"
     calibration_glob = "*_calibration_jpg"
+    published_categories = ("dslr",)
 
 
 class DatasetETH3DUndistorted(_DatasetETH3D):
     """ETH3D undistorted reconstruction benchmark.
 
     The `dslr` category is built by `package_eth3d_undistorted.py` from the
-    distorted DSLR JPEGs. All images of all scenes share the same PINHOLE
-    camera, with the principal point at the image center. The JPEGs keep the
-    EXIF of the distorted images, so `--uncalibrated` starts from the EXIF
-    focal length.
+    distorted DSLR JPEGs. All DSLR images of all scenes share the same
+    PINHOLE camera, with the principal point at the image center. The JPEGs
+    keep the EXIF of the distorted images, so `--uncalibrated` starts from the
+    EXIF focal length.
 
     The `rig` category is the official `*_rig_undistorted.7z` downloads. Each
     GT camera keeps the principal point of its distorted camera, so the image
@@ -178,3 +195,4 @@ class DatasetETH3DUndistorted(_DatasetETH3D):
 
     dataset_name = "eth3d-undistorted"
     calibration_glob = "*_calibration_undistorted"
+    published_categories = ("dslr", "rig")

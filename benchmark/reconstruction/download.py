@@ -13,6 +13,7 @@ from pathlib import Path
 import py7zr
 import requests
 from evaluation import package_eth3d_undistorted
+from evaluation.eth3d import check_no_old_eth3d_folder
 from evaluation.tartanair.tartanair_v2 import (
     MANIFEST_PATH,
     load_manifest,
@@ -362,6 +363,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    if any(dataset.startswith("eth3d") for dataset in args.datasets):
+        check_no_old_eth3d_folder(args.data_path)
     for dataset in args.datasets:
         if dataset == "tartanair-v2":
             download_tartanair_v2(
