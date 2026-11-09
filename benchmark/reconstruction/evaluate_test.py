@@ -26,9 +26,18 @@ def test_skip_datasets_without_matching_scenes(
     monkeypatch.setattr(evaluate, "create_result_table", lambda _: "")
     args = argparse.Namespace(
         datasets=["empty", "match"],
-        categories=[], scenes=[], data_path=tmp_path, run_path=tmp_path,
-        run_name="run", report_name="report", fast=False, random_seed=0,
-        feature="sift", mapper="global", use_gpu=False, uncalibrated=False,
+        categories=[],
+        scenes=[],
+        data_path=tmp_path,
+        run_path=tmp_path,
+        run_name="run",
+        report_name="report",
+        fast=False,
+        random_seed=0,
+        feature="sift",
+        mapper="global",
+        use_gpu=False,
+        uncalibrated=False,
         single_view_calibration=False,
     )
     output = tmp_path / "run"
