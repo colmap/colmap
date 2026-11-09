@@ -708,18 +708,16 @@ def set_cameras_from_gt(
 
 def colmap_reconstruction(
     args: argparse.Namespace,
-    workspace_path: Path,
-    image_path: Path,
+    scene_info: SceneInfo,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
-    camera_priors_define_sharing: bool = False,
-    rig_image_prefixes: Sequence[str] = (),
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
-    colmap_extra_args: list[str | Path] | None = None,
     num_threads: int = 1,
     gpu_index: str = "-1",
     phase_tracker: _PhaseTracker | None = None,
 ) -> None:
     phase_tracker = phase_tracker or _PhaseTracker()
+    workspace_path = scene_info.workspace_path
+    image_path = scene_info.image_path
     workspace_path.mkdir(parents=True, exist_ok=True)
 
     database_path = workspace_path / "database.db"
@@ -806,15 +804,17 @@ def colmap_reconstruction(
 
     phase_tracker.set("extraction")
     _run_with_log(
-        colmap_args + (colmap_extra_args or []) + extraction_args,
+        colmap_args + (scene_info.colmap_extra_args or []) + extraction_args,
         workspace_path / "extraction.log",
         cwd=workspace_path,
     )
 
     if camera_priors_sparse_gt is not None:
-        if camera_priors_define_sharing:
+        if scene_info.camera_priors_define_sharing:
             set_cameras_from_gt(
-                database_path, camera_priors_sparse_gt, rig_image_prefixes
+                database_path,
+                camera_priors_sparse_gt,
+                scene_info.rig_image_prefixes,
             )
         else:
             set_camera_priors(database_path, camera_priors_sparse_gt)
@@ -822,7 +822,7 @@ def colmap_reconstruction(
     phase_tracker.set("matching")
     _run_with_log(
         colmap_args
-        + (colmap_extra_args or [])
+        + (scene_info.colmap_extra_args or [])
         + [
             "--extraction",
             "0",
@@ -854,7 +854,7 @@ def colmap_reconstruction(
     phase_tracker.set("reconstruction")
     _run_with_log(
         colmap_args
-        + (colmap_extra_args or [])
+        + (scene_info.colmap_extra_args or [])
         + [
             "--extraction",
             "0",
@@ -1032,8 +1032,7 @@ def process_scene(
     if scene_info.reconstruction_backend == "automatic":
         colmap_reconstruction(
             args=args,
-            workspace_path=scene_info.workspace_path,
-            image_path=scene_info.image_path,
+            scene_info=scene_info,
             camera_priors_sparse_gt=(
                 sparse_gt
                 if not args.uncalibrated
@@ -1041,8 +1040,6 @@ def process_scene(
                 and scene_info.has_camera_priors
                 else None
             ),
-            camera_priors_define_sharing=scene_info.camera_priors_define_sharing,
-            rig_image_prefixes=scene_info.rig_image_prefixes,
             covisibility_sparse_gt=(
                 sparse_gt
                 if args.filter_covisibility
@@ -1050,7 +1047,6 @@ def process_scene(
                 else None
             ),
             num_threads=num_threads,
-            colmap_extra_args=scene_info.colmap_extra_args,
             gpu_index=gpu_index,
             phase_tracker=tracker,
         )
