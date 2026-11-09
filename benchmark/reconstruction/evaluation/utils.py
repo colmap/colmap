@@ -623,7 +623,9 @@ def set_camera_priors(
             image_gt = images_gt_by_name[image.name]
             if image.camera_id in updated_camera_ids:
                 continue
-            camera_gt = camera_priors_sparse_gt.cameras[image_gt.camera_id]
+            camera_gt = copy.copy(
+                camera_priors_sparse_gt.cameras[image_gt.camera_id]
+            )
             camera_gt.camera_id = image.camera_id
             camera_gt.source = pycolmap.CameraSource.USER
             database.update_camera(camera_gt)
@@ -661,6 +663,16 @@ def set_cameras_from_gt(
         ]
         if missing:
             raise ValueError(f"Images do not exist in GT: {missing}")
+        # Fail before modifying the database, unlike apply_rig_config.
+        unmatched_prefixes = [
+            prefix
+            for prefix in rig_image_prefixes
+            if not any(image.name.startswith(prefix) for image in images)
+        ]
+        if unmatched_prefixes:
+            raise ValueError(
+                f"Rig image prefixes match no image: {unmatched_prefixes}"
+            )
         pose_priors = database.read_all_pose_priors()
 
         database.clear_cameras()
