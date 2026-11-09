@@ -23,3 +23,11 @@ def test_compute_covisibility_counts_rejects_disjoint_views() -> None:
     )
     assert counts[0, 1] == 0
     assert counts[1, 0] == 0
+
+
+def test_empty_scene_has_an_empty_count_matrix() -> None:
+    counts = compute_covisibility_counts(
+        np.zeros((0, 4, 8), dtype=np.uint16), np.zeros((0, 4, 4)), depth_scale=1
+    )
+    assert counts.shape == (0, 0)
+    assert counts.dtype == np.uint32
