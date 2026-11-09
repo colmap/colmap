@@ -392,10 +392,14 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::GLOBAL: {
-      ViewGraphCalibrationOptions vgc_options;
-      vgc_options.random_seed = options_.random_seed;
-      vgc_options.solver_options.num_threads = options_.num_threads;
-      CalibrateViewGraph(vgc_options, database.get());
+      // View graph calibration would estimate the focal lengths of cameras
+      // without a prior focal length.
+      if (options_.refine_intrinsics) {
+        ViewGraphCalibrationOptions vgc_options;
+        vgc_options.random_seed = options_.random_seed;
+        vgc_options.solver_options.num_threads = options_.num_threads;
+        CalibrateViewGraph(vgc_options, database.get());
+      }
       GlobalPipelineOptions global_options = *option_manager_.global_mapper;
       global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
