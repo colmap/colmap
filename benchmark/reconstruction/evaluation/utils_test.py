@@ -274,6 +274,32 @@ class TestParseGpuIndex:
         assert _parse_gpu_index(self._make_args("-1")) == [-1]
 
 
+@pytest.mark.parametrize("absolute", [False, True])
+def test_pooled_auc_uses_a_distance_floor_only_for_absolute_errors(
+    absolute: bool,
+) -> None:
+    errors = np.array([0.01, 0.02, 0.03])
+    thresholds = np.array([0.1])
+    error_type = "absolute_auc" if absolute else "relative_auc"
+    expected = compute_auc(
+        errors, thresholds, min_error=0.05 if absolute else 0
+    )
+    scene = Metrics(
+        recalls=compute_recall(errors, thresholds),
+        aucs=expected,
+        error_thresholds=thresholds,
+        error_type=error_type,
+        num_images=3,
+        num_reg_images=3,
+        num_components=1,
+        largest_component=3,
+        errors=errors,
+        position_accuracy_gt=0.05,
+    )
+    result = aggregate_scene_metrics([("scene", scene)], thresholds, error_type)
+    np.testing.assert_allclose(result["__all__"].aucs, expected)
+
+
 class TestComputeAuc:
     def test_simple_uniform_errors(self) -> None:
         errors = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
@@ -1249,29 +1275,3 @@ class TestComputeGroupedAbsErrors:
         # Remaining cluster 1 credited by sub_model_1.
         for name in names[two_thirds:]:
             np.testing.assert_allclose(error_by_name[name], 0.0, atol=1e-10)
-
-
-@pytest.mark.parametrize("absolute", [False, True])
-def test_pooled_auc_uses_a_distance_floor_only_for_absolute_errors(
-    absolute: bool,
-) -> None:
-    errors = np.array([0.01, 0.02, 0.03])
-    thresholds = np.array([0.1])
-    error_type = "absolute_auc" if absolute else "relative_auc"
-    expected = compute_auc(
-        errors, thresholds, min_error=0.05 if absolute else 0
-    )
-    scene = Metrics(
-        recalls=compute_recall(errors, thresholds),
-        aucs=expected,
-        error_thresholds=thresholds,
-        error_type=error_type,
-        num_images=3,
-        num_reg_images=3,
-        num_components=1,
-        largest_component=3,
-        errors=errors,
-        position_accuracy_gt=0.05,
-    )
-    result = aggregate_scene_metrics([("scene", scene)], thresholds, error_type)
-    np.testing.assert_allclose(result["__all__"].aucs, expected)
