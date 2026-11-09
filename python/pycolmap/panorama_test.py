@@ -221,4 +221,6 @@ def test_convert_tracks_across_virtual_images(tmp_path: Path) -> None:
         assert point.track.length() == rec.points3D[point_id].track.length()
         for observation in point.track.elements:
             image = output.images[observation.image_id]
-            assert image.points2D[observation.point2D_idx].point3D_id == point_id
+            assert (
+                image.points2D[observation.point2D_idx].point3D_id == point_id
+            )

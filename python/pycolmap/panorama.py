@@ -429,7 +429,9 @@ class PanoProcessor:
                 cam_idx = self.split_image_name(image.name)[0]
                 count = len(image.points2D)
                 point2D_offsets[image.image_id] = (
-                    image_id, len(keypoints), count
+                    image_id,
+                    len(keypoints),
+                    count,
                 )
                 if count == 0:
                     continue
