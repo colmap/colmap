@@ -1166,7 +1166,11 @@ def process_scenes(
             aucs=compute_auc(
                 result.errors,
                 error_thresholds,
-                min_error=position_accuracy_gt,
+                min_error=(
+                    position_accuracy_gt
+                    if args.error_type.startswith("absolute")
+                    else 0.0
+                ),
             ),
             recalls=compute_recall(result.errors, error_thresholds),
             error_thresholds=error_thresholds,
@@ -1235,7 +1239,9 @@ def aggregate_scene_metrics(
     if pooled_errors.size:
         summary["__all__"] = Metrics(
             aucs=compute_auc(
-                pooled_errors, error_thresholds, min_error=min_pos_acc
+                pooled_errors,
+                error_thresholds,
+                min_error=min_pos_acc if error_type.startswith("absolute") else 0.0,
             ),
             recalls=compute_recall(pooled_errors, error_thresholds),
             error_thresholds=error_thresholds,
