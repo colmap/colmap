@@ -232,6 +232,45 @@ def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
     assert sorted(sparse_gt.frames) == gt_frame_ids
 
 
+def test_set_cameras_from_gt_rejects_unmatched_rig_prefix(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "database.db"
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_rigs = 1
+    options.num_cameras_per_rig = 2
+    options.num_frames_per_rig = 2
+    with pycolmap.Database.open(str(database_path)) as database:
+        sparse_gt = pycolmap.synthesize_dataset(options, database)
+        num_frames = len(database.read_all_frames())
+
+    with pytest.raises(ValueError, match="missing_"):
+        utils.set_cameras_from_gt(
+            database_path, sparse_gt, ["camera000001_", "missing_"]
+        )
+
+    # The database is not modified.
+    with pycolmap.Database.open(str(database_path)) as database:
+        assert len(database.read_all_frames()) == num_frames
+
+
+def test_set_camera_priors_does_not_modify_gt(tmp_path: Path) -> None:
+    database_path = tmp_path / "database.db"
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_rigs = 2
+    options.num_frames_per_rig = 2
+    with pycolmap.Database.open(str(database_path)) as database:
+        sparse_gt = pycolmap.synthesize_dataset(options, database)
+
+    utils.set_camera_priors(database_path, sparse_gt)
+
+    with pycolmap.Database.open(str(database_path)) as database:
+        for camera in database.read_all_cameras():
+            assert camera.source == pycolmap.CameraSource.USER
+    for camera in sparse_gt.cameras.values():
+        assert camera.source == pycolmap.CameraSource.UNKNOWN
+
+
 def test_set_cameras_from_gt(tmp_path: Path) -> None:
     database_path = tmp_path / "database.db"
     options = pycolmap.SyntheticDatasetOptions()
