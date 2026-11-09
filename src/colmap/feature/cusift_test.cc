@@ -264,12 +264,31 @@ TEST(CusiftFeatureExtractor, Nominal) {
   for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
     EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
   }
+}
 
-  // Keypoints only.
+TEST(CusiftFeatureExtractor, KeypointsOnlyMatchFullExtraction) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // Without descriptors the descriptor kernel is skipped, and with it the
+  // octave-to-image scaling it applies; the host must reproduce it exactly.
+  const Bitmap bitmap = CreateTexturedImage(256, 256);
+  auto extractor = CreateCusiftFeatureExtractor(CreateCusiftOptions());
+  FeatureKeypoints full;
+  FeatureDescriptors descriptors;
+  ASSERT_TRUE(extractor->Extract(bitmap, &full, &descriptors));
   FeatureKeypoints keypoints_only;
-  EXPECT_TRUE(
-      extractor->Extract(bitmap, &keypoints_only, /*descriptors=*/nullptr));
-  EXPECT_EQ(keypoints_only.size(), keypoints.size());
+
+  ASSERT_TRUE(extractor->Extract(bitmap, &keypoints_only, nullptr));
+
+  ASSERT_GE(full.size(), 100);
+  ASSERT_EQ(keypoints_only.size(), full.size());
+  for (size_t i = 0; i < full.size(); ++i) {
+    EXPECT_EQ(keypoints_only[i].x, full[i].x);
+    EXPECT_EQ(keypoints_only[i].y, full[i].y);
+    EXPECT_EQ(keypoints_only[i].a11, full[i].a11);
+    EXPECT_EQ(keypoints_only[i].a12, full[i].a12);
+    EXPECT_EQ(keypoints_only[i].a21, full[i].a21);
+    EXPECT_EQ(keypoints_only[i].a22, full[i].a22);
+  }
 }
 
 TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {

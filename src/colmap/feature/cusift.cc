@@ -149,6 +149,7 @@ class CusiftFeatureExtractor : public FeatureExtractor {
         options_.sift->max_num_orientations,
         options_.sift->first_octave,
         options_.sift->max_num_features,
+        /*computeDescriptors=*/descriptors != nullptr,
         x_,
         y_,
         sigma_,

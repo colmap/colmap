@@ -446,6 +446,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
 // that's the output/DB-boundary's job, same rule as detection.
 void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
                            int maxNumOrientations, int firstOctave, int maxNumFeatures,
+                           bool computeDescriptors,
                            std::vector<float> &outX, std::vector<float> &outY,
                            std::vector<float> &outSigma, std::vector<float> &outOrientation,
                            std::vector<std::array<float, 128>> &outDescriptors)
@@ -595,6 +596,20 @@ void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves,
     for (size_t i = 0; i < pendingRows[oi].size(); i++)
       if (keepLevel[oi][pendingLevel[oi][i]]) m++;
     if (m == 0) continue;
+    if (!computeDescriptors) {
+      // The descriptor kernel's last step, done here: octave to image
+      // coordinates. xper is a power of two, so the multiply is exact on host
+      // and device alike.
+      for (size_t i = 0; i < pendingRows[oi].size(); i++) {
+        if (!keepLevel[oi][pendingLevel[oi][i]]) continue;
+        const VLFeatKp &kp = pendingRows[oi][i];
+        outX.push_back(kp.x * xper);
+        outY.push_back(kp.y * xper);
+        outSigma.push_back(kp.sigma * xper);
+        outOrientation.push_back(kp.ori);
+      }
+      continue;
+    }
 
     PackedScratch &pk = scratch.Get(m);
     for (size_t i = 0, k = 0; i < pendingRows[oi].size(); i++)

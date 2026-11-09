@@ -58,8 +58,11 @@ struct DetectedKeypoint {
 // expanded to up to maxNumOrientations orientations.
 // firstOctave = VLFeat o_min: 0, or -1 for COLMAP's default 2x-upsampled
 // extra fine octave (roughly doubles the keypoint count).
+// Without computeDescriptors, the descriptor kernel and its copies are
+// skipped and outDescriptors is left empty; the keypoints are the same.
 void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
                            int maxNumOrientations, int firstOctave, int maxNumFeatures,
+                           bool computeDescriptors,
                            std::vector<float> &outX, std::vector<float> &outY,
                            std::vector<float> &outSigma, std::vector<float> &outOrientation,
                            std::vector<std::array<float, 128>> &outDescriptors);
