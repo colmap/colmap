@@ -15,7 +15,8 @@ from .package_eth3d_undistorted import (
 
 def test_undistort_scene(tmp_path: Path) -> None:
     options = pycolmap.SyntheticDatasetOptions()
-    options.num_rigs = 1
+    # Two cameras, to be merged into the target camera.
+    options.num_rigs = 2
     options.num_frames_per_rig = 3
     options.num_points3D = 50
     source = pycolmap.synthesize_dataset(options)
@@ -38,8 +39,14 @@ def test_undistort_scene(tmp_path: Path) -> None:
     undistort_scene(input_path, output_path, target_camera, num_threads=1)
 
     target = pycolmap.Reconstruction(output_path / TARGET_CALIBRATION)
+    assert source.num_cameras() == 2
     assert list(target.cameras.values()) == [target_camera]
+    assert {image.name for image in target.images.values()} == {
+        image.name for image in source.images.values()
+    }
     assert set(target.points3D.keys()) == set(source.points3D.keys())
+    for point3D_id, point3D in target.points3D.items():
+        np.testing.assert_allclose(point3D.xyz, source.points3D[point3D_id].xyz)
     for image_id, image in target.images.items():
         np.testing.assert_allclose(
             image.cam_from_world().matrix(),
