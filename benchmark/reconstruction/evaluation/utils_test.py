@@ -240,7 +240,20 @@ class TestFilterSmallestScenesPerCategory:
 class TestParseGpuIndex:
     @staticmethod
     def _make_args(gpu_index: str) -> argparse.Namespace:
-        return argparse.Namespace(gpu_index=gpu_index)
+        return argparse.Namespace(gpu_index=gpu_index, use_gpu=True)
+
+    def test_cpu_only_skips_device_discovery(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pycolmap, "has_cuda", True)
+        monkeypatch.setattr(
+            pycolmap,
+            "get_num_cuda_devices",
+            lambda: pytest.fail("CPU benchmark queried CUDA"),
+            raising=False,
+        )
+        args = argparse.Namespace(gpu_index="-1", use_gpu=False)
+        assert _parse_gpu_index(args) == [-1]
 
     def test_single_gpu(self) -> None:
         assert _parse_gpu_index(self._make_args("0")) == [0]
