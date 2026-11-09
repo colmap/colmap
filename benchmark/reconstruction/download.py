@@ -23,8 +23,10 @@ from evaluation.tartanair.tartanair_v2 import (
 import pycolmap
 
 
-def download_file(url: str, target_folder: Path) -> str:
-    filename = url.split("/")[-1]
+def download_file(
+    url: str, target_folder: Path, filename: str | None = None
+) -> str:
+    filename = filename or url.split("/")[-1]
     with requests.get(url, stream=True) as req:
         req.raise_for_status()
         with open(target_folder / filename, "wb") as f:
@@ -83,14 +85,16 @@ def download_eth3d_undistorted(data_path: Path) -> None:
     )
     checksums = json.loads(package_eth3d_undistorted.CHECKSUMS_PATH.read_text())
     for filename, expected in checksums.items():
-        pycolmap.logging.info(f"Downloading ETH3D undistorted {filename}")
-        download_file(f"{base_url}/{filename}", target_folder)
-        if _sha256(target_folder / filename) != expected:
-            raise RuntimeError(f"Checksum mismatch for {filename}")
+        # Archives of an interrupted run are reused if valid, but deleted after
+        # their extraction to save disk space.
+        archive_path = target_folder / filename
+        _download_verified_file(
+            f"{base_url}/{filename}", archive_path, expected
+        )
         pycolmap.logging.info(f"Extracting ETH3D undistorted {filename}")
-        with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
+        with py7zr.SevenZipFile(archive_path, mode="r") as archive:
             archive.extractall(path=target_folder)
-        (target_folder / filename).unlink()
+        archive_path.unlink()
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -224,6 +228,23 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _download_verified_file(url: str, target: Path, expected: str) -> None:
+    """Downloads url to target, unless target exists with the expected SHA256.
+
+    The download goes through a .part file, so that an interrupted download
+    never leaves a truncated target.
+    """
+    if target.exists() and _sha256(target) == expected:
+        return
+    temporary = target.with_suffix(target.suffix + ".part")
+    pycolmap.logging.info(f"Downloading {url}")
+    download_file(url, target.parent, temporary.name)
+    if _sha256(temporary) != expected:
+        temporary.unlink()
+        raise RuntimeError(f"Checksum mismatch for {target.name}")
+    temporary.replace(target)
+
+
 def _extract_tar_safely(archive_path: Path, output_path: Path) -> None:
     output_root = output_path.resolve()
     with tarfile.open(archive_path) as archive:
@@ -281,19 +302,7 @@ def download_tartanair_v2(
         expected = checksums.get(filename)
         if expected is None:
             raise RuntimeError(f"Missing release checksum for {filename}")
-        if not target.exists() or (expected and _sha256(target) != expected):
-            temporary = target.with_suffix(target.suffix + ".part")
-            if temporary.exists():
-                temporary.unlink()
-            pycolmap.logging.info(f"Downloading TartanAir V2 {filename}")
-            download_file(f"{base_url}/{filename}", archive_path)
-            downloaded = archive_path / filename
-            if downloaded != temporary:
-                downloaded.replace(temporary)
-            if expected and _sha256(temporary) != expected:
-                temporary.unlink()
-                raise RuntimeError(f"Checksum mismatch for {filename}")
-            temporary.replace(target)
+        _download_verified_file(f"{base_url}/{filename}", target, expected)
         pycolmap.logging.info(f"Extracting TartanAir V2 {filename}")
         _extract_tar_safely(target, data_path)
 
