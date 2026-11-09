@@ -160,7 +160,7 @@ kernels; the matcher (`matcher_gemm.{h,cu}`) and the device shim
 ## Build
 
 cusift is built with COLMAP's CUDA support when `CUSIFT_ENABLED` is on (the
-default). It needs CUDA >= 11.2 for its stream-ordered memory pool and
-CMake >= 3.17 for `CUDA::cublas`; with an older toolkit or CMake it is disabled
-at configure time, and the rest of COLMAP builds as before. It builds for
+default). It needs CUDA >= 11.2 for its stream-ordered memory pool, cuBLAS
+for its matcher, and CMake >= 3.17. Without any of them it is disabled at
+configure time, and the rest of COLMAP builds as before. It builds for
 COLMAP's `CMAKE_CUDA_ARCHITECTURES`, like the other CUDA targets.

@@ -229,9 +229,9 @@ Unsupported SIFT options (affine shape estimation, domain-size pooling,
 upright features, darkness adaptivity, the covariant extractor) are rejected
 with an error. The ``automatic_reconstructor`` provides the ``--feature
 cusift`` preset; with ``--quality high`` or ``extreme`` it turns off the
-options cusift does not support. cusift is built when CUDA >= 11.2 and
-CMake >= 3.17 are available, unless ``-DCUSIFT_ENABLED=OFF``; with an older
-toolkit it is disabled at configure time and the rest of COLMAP builds as
+options cusift does not support. cusift is built when CUDA >= 11.2 with
+cuBLAS and CMake >= 3.17 are available, unless ``-DCUSIFT_ENABLED=OFF``;
+otherwise it is disabled at configure time and the rest of COLMAP builds as
 before. cusift is MIT-licensed; see ``src/thirdparty/cusift``.
 
 
