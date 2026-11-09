@@ -12,6 +12,7 @@ import struct
 import tarfile
 import time
 import zlib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import quote
@@ -68,20 +69,21 @@ class RemoteZip:
         self.session = requests.Session()
         self.members = self._read_central_directory()
 
-    def _range(self, byte_range: str) -> tuple[bytes, requests.Response]:
+    def _range(self, byte_range: str) -> tuple[bytes, Mapping[str, str]]:
         for attempt in range(5):
             try:
-                response = self.session.get(
+                with self.session.get(
                     self.url,
                     headers={"Range": f"bytes={byte_range}"},
                     timeout=180,
-                )
-                response.raise_for_status()
-                if response.status_code != 206:
-                    raise RuntimeError(
-                        f"Server ignored byte range for {self.url}"
-                    )
-                return response.content, response
+                    stream=True,
+                ) as response:
+                    response.raise_for_status()
+                    if response.status_code != 206:
+                        raise RuntimeError(
+                            f"Server ignored byte range for {self.url}"
+                        )
+                    return response.content, response.headers
             except requests.RequestException:
                 if attempt == 4:
                     raise
@@ -113,12 +115,21 @@ class RemoteZip:
         return uncompressed, compressed, offset
 
     def _read_central_directory(self) -> dict[str, ZipMember]:
-        tail, response = self._range("-262144")
-        total_size = int(response.headers["Content-Range"].split("/")[-1])
-        eocd_offset = tail.rfind(b"PK\x05\x06")
-        if eocd_offset < 0 or eocd_offset + 22 > len(tail):
-            raise RuntimeError(f"Cannot locate ZIP directory for {self.url}")
-        eocd = struct.unpack_from("<4s4H2LH", tail, eocd_offset)
+        tail, headers = self._range("-262144")
+        total_size = int(headers["Content-Range"].split("/")[-1])
+        # The signature can also occur inside the ZIP file comment.
+        end = len(tail)
+        while True:
+            eocd_offset = tail.rfind(b"PK\x05\x06", 0, end)
+            if eocd_offset < 0:
+                raise RuntimeError(
+                    f"Cannot locate ZIP directory for {self.url}"
+                )
+            if eocd_offset + 22 <= len(tail):
+                eocd = struct.unpack_from("<4s4H2LH", tail, eocd_offset)
+                if eocd_offset + 22 + eocd[-1] == len(tail):
+                    break
+            end = eocd_offset
         num_entries, directory_size, directory_offset = eocd[4:7]
         if (
             num_entries == 0xFFFF
@@ -137,6 +148,8 @@ class RemoteZip:
         if directory_offset + directory_size > total_size:
             raise RuntimeError(f"Invalid ZIP directory bounds: {self.url}")
 
+        if directory_size == 0 and num_entries == 0:
+            return {}
         directory, _ = self._range(
             f"{directory_offset}-{directory_offset + directory_size - 1}"
         )
@@ -154,7 +167,13 @@ class RemoteZip:
             name_size, extra_size, comment_size = values[10:13]
             local_offset = values[16]
             name_start = position + 46
-            name = directory[name_start : name_start + name_size].decode()
+            record_end = name_start + name_size + extra_size + comment_size
+            if record_end > len(directory):
+                raise RuntimeError(f"Truncated ZIP directory entry: {self.url}")
+            encoding = "utf-8" if values[3] & 0x800 else "cp437"
+            name = directory[name_start : name_start + name_size].decode(
+                encoding
+            )
             extra = directory[
                 name_start + name_size : name_start + name_size + extra_size
             ]
@@ -169,7 +188,7 @@ class RemoteZip:
                 uncompressed_size=uncompressed,
                 local_offset=local_offset,
             )
-            position += 46 + name_size + extra_size + comment_size
+            position = record_end
         if len(members) != num_entries:
             raise RuntimeError(
                 f"Expected {num_entries} ZIP members, parsed {len(members)}"
@@ -184,9 +203,11 @@ class RemoteZip:
         values = struct.unpack_from("<4s5H3L2H", header)
         name_size, extra_size = values[9:11]
         data_offset = member.local_offset + 30 + name_size + extra_size
-        compressed, _ = self._range(
-            f"{data_offset}-{data_offset + member.compressed_size - 1}"
-        )
+        compressed = b""
+        if member.compressed_size:
+            compressed, _ = self._range(
+                f"{data_offset}-{data_offset + member.compressed_size - 1}"
+            )
         if member.method == 0:
             data = compressed
         elif member.method == 8:
