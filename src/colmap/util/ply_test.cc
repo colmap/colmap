@@ -502,6 +502,16 @@ TEST(Ply, RoundTripBinaryTexturedPlyMesh) {
   VerifyTexturedMesh(loaded, original);
 }
 
+TEST(Ply, RejectTruncatedBinaryTextureCoordinates) {
+  const auto path = CreateTestDir() / "truncated.ply";
+  for (const size_t removed : {size_t{1}, 6 * sizeof(float) + 1}) {
+    WriteBinaryPlyMesh(path, CreateTestTexturedMesh());
+    std::filesystem::resize_file(path,
+                                 std::filesystem::file_size(path) - removed);
+    EXPECT_THROW(ReadPlyMesh(path), std::invalid_argument);
+  }
+}
+
 TEST(Ply, ReadPlyMeshWithoutTexcoords) {
   const auto test_dir = CreateTestDir();
   const auto test_file = test_dir / "mesh.ply";
