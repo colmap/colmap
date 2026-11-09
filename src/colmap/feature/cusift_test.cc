@@ -222,6 +222,18 @@ TEST(CusiftUnsupportedOptions, ClearKeepsSupportedFirstOctave) {
   EXPECT_EQ(options.first_octave, 0);
 }
 
+TEST(CusiftDescriptors, ConvertToFloatAndBackLikeSift) {
+  const FeatureDescriptors original(FeatureExtractorType::CUSIFT,
+                                    FeatureDescriptorsData::Random(10, 128));
+  const FeatureDescriptorsFloat as_float = original.ToFloat();
+  EXPECT_EQ(as_float.type, FeatureExtractorType::CUSIFT);
+  EXPECT_EQ(as_float.data, original.data.cast<float>());
+
+  const FeatureDescriptors recovered = as_float.ToBytes();
+  EXPECT_EQ(recovered.type, FeatureExtractorType::CUSIFT);
+  EXPECT_EQ(recovered.data, original.data);
+}
+
 // Options pass Check() only in a build with cusift; without it, Check() rejects
 // the cusift types before reaching cusift's own checks.
 #if defined(COLMAP_CUSIFT_ENABLED)

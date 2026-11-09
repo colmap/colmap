@@ -120,14 +120,32 @@ def test_cusift_extractor_type_enum() -> None:
     assert pycolmap.FeatureExtractorType.CUSIFT is not None
     # SIFT must keep its integer identity: descriptor types are persisted in
     # COLMAP databases. CUSIFT's ordinal is deliberately not pinned -- cusift
-    # tags its descriptors FeatureExtractorType::SIFT (cusift.cc), so CUSIFT
-    # never reaches the database and is appended last, leaving the upstream
+    # tags its descriptors FeatureExtractorType::SIFT (cusift.cc), so its own
+    # output never stores CUSIFT, and it is appended last, leaving the upstream
     # values untouched whenever new extractor types land in between.
     assert int(pycolmap.FeatureExtractorType.SIFT) == 0
     assert (
         pycolmap.FeatureExtractorType.CUSIFT
         != pycolmap.FeatureExtractorType.SIFT
     )
+
+
+def test_cusift_descriptors_round_trip_through_database(
+    populated_database: tuple[pycolmap.Database, int, int],
+) -> None:
+    database, _, image_id = populated_database
+    data = np.array([[0, 7, 255], [1, 128, 64]], dtype=np.uint8)
+    database.write_descriptors(
+        image_id,
+        pycolmap.FeatureDescriptors(
+            type=pycolmap.FeatureExtractorType.CUSIFT, data=data
+        ),
+    )
+    read_back = database.read_descriptors(image_id)
+    assert read_back.type == pycolmap.FeatureExtractorType.CUSIFT
+    as_float = read_back.to_float()
+    np.testing.assert_array_equal(as_float.data, data.astype(np.float32))
+    np.testing.assert_array_equal(as_float.to_bytes().data, data)
 
 
 def test_cusift_extraction_options() -> None:

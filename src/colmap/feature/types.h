@@ -12,9 +12,9 @@
 
 namespace colmap {
 
-// Note that CUSIFT is an extractor type, not a descriptor type: it produces
-// standard SIFT descriptors and tags them FeatureExtractorType::SIFT, so no
-// FeatureDescriptors ever carries CUSIFT as its type.
+// Note that cusift produces standard SIFT descriptors and tags them
+// FeatureExtractorType::SIFT. Descriptors that carry CUSIFT as their type are
+// converted to and from float like SIFT ones.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType,
                                 -1,
                                 UNDEFINED,
