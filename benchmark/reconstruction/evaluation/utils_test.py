@@ -1258,7 +1258,9 @@ def test_pooled_auc_uses_a_distance_floor_only_for_absolute_errors(
     errors = np.array([0.01, 0.02, 0.03])
     thresholds = np.array([0.1])
     error_type = "absolute_auc" if absolute else "relative_auc"
-    expected = compute_auc(errors, thresholds, min_error=0.05 if absolute else 0)
+    expected = compute_auc(
+        errors, thresholds, min_error=0.05 if absolute else 0
+    )
     scene = Metrics(
         recalls=compute_recall(errors, thresholds),
         aucs=expected,

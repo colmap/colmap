@@ -1241,7 +1241,9 @@ def aggregate_scene_metrics(
             aucs=compute_auc(
                 pooled_errors,
                 error_thresholds,
-                min_error=min_pos_acc if error_type.startswith("absolute") else 0.0,
+                min_error=min_pos_acc
+                if error_type.startswith("absolute")
+                else 0.0,
             ),
             recalls=compute_recall(pooled_errors, error_thresholds),
             error_thresholds=error_thresholds,
