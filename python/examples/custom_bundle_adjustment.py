@@ -84,9 +84,6 @@ def adjust_global_bundle(
         ba_config.set_constant_cam_intrinsics(camera_id)
 
     # TODO: Add python support for prior positions
-    # Fixing the gauge with two cameras leads to a more stable optimization
-    # with fewer steps as compared to fixing three points.
-    ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.TWO_CAMS_FROM_WORLD)
 
     # Run bundle adjustment
     summary = solve_bundle_adjustment(
@@ -153,7 +150,6 @@ def adjust_local_bundle(
     # Do the bundle adjustment only if there is any connected images
     if local_bundle:
         ba_config = pycolmap.BundleAdjustmentConfig()
-        ba_config.fix_gauge(pycolmap.BundleAdjustmentGauge.THREE_POINTS)
 
         # Insert the images of all local frames.
         image = reconstruction.image(image_id)

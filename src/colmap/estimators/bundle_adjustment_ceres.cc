@@ -67,6 +67,12 @@ CeresBundleAdjustmentOptions::CeresBundleAdjustmentOptions() {
   solver_options.max_linear_solver_iterations = 200;
   solver_options.max_num_consecutive_invalid_steps = 10;
   solver_options.max_consecutive_nonmonotonic_steps = 10;
+  // Bound the trust region so that LM keeps a minimum damping of
+  // diag(J^T J) / max_trust_region_radius. This regularizes the directions
+  // that the problem leaves unconstrained (e.g., the gauge, which BA callers
+  // do not fix) and keeps the free scale from sliding into a collapsed
+  // (zero-baseline) solution in low-parallax problems.
+  solver_options.max_trust_region_radius = 1e8;
   solver_options.num_threads = -1;
 #if CERES_VERSION_MAJOR < 2
   solver_options.num_linear_solver_threads = -1;
@@ -908,14 +914,11 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
     const bool use_prior_position =
         pose_priors_.size() >= 3 && AlignReconstruction();
 
-    // Fix 7-DOFs of the BA problem if the pose priors cannot constrain them.
     if (use_prior_position) {
       // Normalize the reconstruction to avoid any numerical instability but
       // do not transform priors as they will be transformed when added to
       // ceres::Problem.
       normalized_from_metric_ = reconstruction_.Normalize(/*fixed_scale=*/true);
-    } else {
-      config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     }
 
     // WARNING: Do not move this above the reconstruction normalization.

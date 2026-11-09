@@ -76,7 +76,6 @@ int main(int argc, char** argv) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.print_summary = false;
