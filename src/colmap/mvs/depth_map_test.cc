@@ -36,6 +36,15 @@ TEST(DepthMap, Rescale) {
   EXPECT_EQ(depth_map.GetDepthMax(), 1);
 }
 
+TEST(DepthMap, RescalePreservesConstantDepth) {
+  DepthMap map(8, 6, 0, 2);
+  map.Fill(1.75f);
+  map.Rescale(0.5f);
+  for (const float depth : map.GetData()) {
+    EXPECT_NEAR(depth, 1.75f, 1e-5f);
+  }
+}
+
 TEST(DepthMap, Downsize) {
   DepthMap depth_map(6, 7, 0, 1);
   depth_map.Downsize(2, 4);

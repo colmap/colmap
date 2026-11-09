@@ -30,6 +30,15 @@ TEST(NormalMap, Rescale) {
   EXPECT_EQ(normal_map.GetDepth(), 3);
 }
 
+TEST(NormalMap, RescaleKeepsUnitNormals) {
+  NormalMap map(8, 6);
+  map.Fill(2.0f);
+  map.Rescale(0.5f);
+  for (const float component : map.GetData()) {
+    EXPECT_NEAR(component, 1.0f / std::sqrt(3.0f), 1e-5f);
+  }
+}
+
 TEST(NormalMap, Downsize) {
   NormalMap normal_map(6, 7);
   normal_map.Downsize(2, 4);
