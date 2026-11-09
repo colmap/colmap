@@ -97,14 +97,17 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
             )
 
         if not scene_infos:
-            pycolmap.logging.warning("No scenes found")
-            return None
+            pycolmap.logging.warning(f"No scenes found for {dataset_name}")
+            continue
 
         metrics[dataset_name] = process_scenes(
             args=args,
             scene_infos=scene_infos,
             dataset=dataset,
         )
+
+    if not metrics:
+        return None
 
     pycolmap.logging.info("Results:\n" + create_result_table(metrics))
 
@@ -115,7 +118,7 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
 
     metadata_path = report_path.with_suffix(".json")
     metadata = {
-        "datasets": args.datasets,
+        "datasets": list(metrics),
         "pycolmap_version": pycolmap.__version__,
         "random_seed": args.random_seed,
         "feature": args.feature,
@@ -124,7 +127,7 @@ def run_once(args: argparse.Namespace) -> MetricsByDatasetByCatByScene | None:
         "uncalibrated": args.uncalibrated,
         "single_view_calibration": args.single_view_calibration,
     }
-    if any(name.startswith("tartanair-v2-") for name in args.datasets):
+    if any(name.startswith("tartanair-v2-") for name in metrics):
         metadata["tartanair_manifest_version"] = load_manifest()["version"]
     metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
 
