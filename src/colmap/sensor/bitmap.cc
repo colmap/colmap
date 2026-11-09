@@ -96,8 +96,10 @@ std::vector<uint8_t> ConvertColorSpace(const uint8_t* src_data,
   const OIIO::ImageBuf src(image_spec, const_cast<uint8_t*>(src_data));
   std::vector<uint8_t> tgt_data(height * pitch);
   OIIO::ImageBuf tgt(image_spec, tgt_data.data());
-  THROW_CHECK(OIIO::ImageBufAlgo::colorconvert(
-      tgt, src, OIIOFromStdStringView(from), OIIOFromStdStringView(to)));
+  if (!OIIO::ImageBufAlgo::colorconvert(
+          tgt, src, OIIOFromStdStringView(from), OIIOFromStdStringView(to))) {
+    THROW_CHECK(false) << tgt.geterror();
+  }
   return tgt_data;
 }
 
@@ -443,6 +445,7 @@ bool Bitmap::Read(const std::filesystem::path& path,
     return false;
   }
 
+  linear_colorspace_ = false;
   data_.resize(width_ * height_ * channels_);
   // Note that OIIO supports reading a subset of channels.
   input->read_image(0, 0, 0, channels_, OIIO::TypeDesc::UINT8, data_.data());
@@ -455,11 +458,14 @@ bool Bitmap::Read(const std::filesystem::path& path,
 
   if (linearize_colorspace) {
     const std::string colorspace = image_spec["oiio:ColorSpace"];
-    if (IsEquivalentColorSpace(colorspace, "linear")) {
+    // An unspecified source space cannot establish linear pixel values.
+    THROW_CHECK(!colorspace.empty()) << "Image colorspace is unspecified";
+    if (!IsEquivalentColorSpace(colorspace, "linear")) {
       data_ = ConvertColorSpace(
           data_.data(), width_, height_, channels_, colorspace, "linear");
     }
   }
+  linear_colorspace_ = linearize_colorspace;
 
   if (as_rgb && channels_ != 3) {
     *this = CloneAsRGB();
@@ -497,6 +503,9 @@ bool Bitmap::Write(const std::filesystem::path& path,
     maybe_linearized_output_data = ConvertColorSpace(
         data_.data(), width_, height_, channels_, "linear", *colorspace);
     output_data_ptr = maybe_linearized_output_data.data();
+  } else if (linear_colorspace_) {
+    // The source metadata remains the destination for later inverse writes.
+    SetImageSpecColorSpace(meta_data.image_spec, "linear");
   }
 
   // OIIO writers that encode IPTC metadata (e.g. JPEG, or TIFF with
