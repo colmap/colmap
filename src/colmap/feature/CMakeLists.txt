@@ -138,6 +138,11 @@ if(CUSIFT_ENABLED)
         SRCS cusift_memory_test.cc
         LINK_LIBS colmap_feature colmap_cusift colmap_util_cuda
     )
+    COLMAP_ADD_TEST(
+        NAME cusift_pool_fallback_test
+        SRCS cusift_pool_fallback_test.cc
+        LINK_LIBS colmap_cusift colmap_util_cuda
+    )
 endif()
 COLMAP_ADD_TEST(
     NAME extractor_test

@@ -53,7 +53,7 @@ inline void __checkMsg(const char *errorMessage, const char *file, const int lin
 // other cudaMallocAsync users in the process get their memory back.
 // cusift::ReleaseUnusedMemory() hands what cusift no longer uses back to the
 // driver. Falls back to the default pool, with its settings untouched, on a
-// device that cannot create one.
+// device that cannot create one; ReleaseUnusedMemory then leaves it alone.
 cudaMemPool_t cusiftMemPool();
 
 // Creates the current device's pool if needed. Idempotent; safe to call

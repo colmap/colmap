@@ -28,15 +28,23 @@ void InitMemoryPool();
 // Returns the memory cusift's pool on the current device holds but no longer
 // uses to the driver, after the work already queued on the device has
 // finished. Memory still in use, by this or another thread, is not touched.
+// Does nothing on a device that fell back to its default pool, which other
+// code in the process shares.
 void ReleaseUnusedMemory();
 
 // Bytes of cusift's pool on the current device that are allocated (in use)
 // and reserved from the driver (in use or held for reuse). Diagnostics.
+// Zeros on a device that fell back to its default pool.
 struct MemoryPoolUsage {
   std::size_t used = 0;
   std::size_t reserved = 0;
 };
 MemoryPoolUsage GetMemoryPoolUsage();
+
+// Test only: devices whose pool is created after this call fall back to their
+// default pool, as on a device that cannot create one. Call it before any
+// cusift work in the process.
+void FailPoolCreationForTesting();
 
 }  // namespace cusift
 

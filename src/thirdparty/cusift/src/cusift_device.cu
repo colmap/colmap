@@ -5,6 +5,7 @@
 
 #include "cusift_device.h"
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <vector>
@@ -13,33 +14,54 @@
 
 #include "cudautils.h"
 
+namespace {
+
+struct DevicePool {
+  cudaMemPool_t pool = nullptr;
+  // False when the device could not create one and the default pool is used.
+  bool owned = false;
+};
+
+std::atomic<bool> failPoolCreationForTesting{false};
+
+DevicePool CreateDevicePool(int dev)
+{
+  cudaMemPoolProps props = {};
+  props.allocType = cudaMemAllocationTypePinned;
+  props.location.type = cudaMemLocationTypeDevice;
+  props.location.id = dev;
+  DevicePool result;
+  if (!failPoolCreationForTesting) {
+    result.owned = cudaMemPoolCreate(&result.pool, &props) == cudaSuccess;
+    if (!result.owned) cudaGetLastError();   // clear the error
+  }
+  if (result.owned) {
+    uint64_t threshold = UINT64_MAX;   // keep memory for reuse across images
+    safeCall(cudaMemPoolSetAttribute(result.pool, cudaMemPoolAttrReleaseThreshold, &threshold));
+  } else {
+    // Use the default pool as is.
+    safeCall(cudaDeviceGetDefaultMemPool(&result.pool, dev));
+  }
+  return result;
+}
+
 // One pool per device, created on first use and kept for the process
 // lifetime (see cusiftMemPool in cudautils.h).
-cudaMemPool_t cusiftMemPool()
+DevicePool CurrentDevicePool()
 {
   int dev = 0;
   safeCall(cudaGetDevice(&dev));
   static std::mutex mutex;
-  static std::vector<cudaMemPool_t> pools;
+  static std::vector<DevicePool> pools;
   std::lock_guard<std::mutex> lock(mutex);
-  if (dev >= (int)pools.size()) pools.resize(dev + 1, nullptr);
-  if (pools[dev] == nullptr) {
-    cudaMemPoolProps props = {};
-    props.allocType = cudaMemAllocationTypePinned;
-    props.location.type = cudaMemLocationTypeDevice;
-    props.location.id = dev;
-    cudaMemPool_t pool = nullptr;
-    if (cudaMemPoolCreate(&pool, &props) == cudaSuccess) {
-      uint64_t threshold = UINT64_MAX;   // keep memory for reuse across images
-      safeCall(cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReleaseThreshold, &threshold));
-    } else {
-      cudaGetLastError();   // clear the error; use the default pool as is
-      safeCall(cudaDeviceGetDefaultMemPool(&pool, dev));
-    }
-    pools[dev] = pool;
-  }
+  if (dev >= (int)pools.size()) pools.resize(dev + 1);
+  if (pools[dev].pool == nullptr) pools[dev] = CreateDevicePool(dev);
   return pools[dev];
 }
+
+}  // namespace
+
+cudaMemPool_t cusiftMemPool() { return CurrentDevicePool().pool; }
 
 namespace cusift {
 
@@ -47,18 +69,25 @@ int CurrentDevice() { return cusiftCurrentDevice(); }
 
 void InitMemoryPool() { cusiftInitMemPool(); }
 
+void FailPoolCreationForTesting() { failPoolCreationForTesting = true; }
+
 void ReleaseUnusedMemory() {
+  const DevicePool devicePool = CurrentDevicePool();
+  // The default pool is shared with the rest of the process: leave it alone.
+  if (!devicePool.owned) return;
   // Lets the stream-ordered frees already queued complete, so their memory
   // counts as unused. Errors are ignored: this runs from destructors.
   if (cudaStreamSynchronize(0) != cudaSuccess) {
     cudaGetLastError();
     return;
   }
-  cudaMemPoolTrimTo(cusiftMemPool(), 0);
+  cudaMemPoolTrimTo(devicePool.pool, 0);
 }
 
 MemoryPoolUsage GetMemoryPoolUsage() {
-  cudaMemPool_t pool = cusiftMemPool();
+  const DevicePool devicePool = CurrentDevicePool();
+  if (!devicePool.owned) return {};
+  cudaMemPool_t pool = devicePool.pool;
   uint64_t used = 0;
   uint64_t reserved = 0;
   safeCall(cudaMemPoolGetAttribute(pool, cudaMemPoolAttrUsedMemCurrent, &used));

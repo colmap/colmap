@@ -108,6 +108,8 @@ In `src/colmap/feature/` and `src/pycolmap/feature/`:
   fresh and reused extractors and matchers.
 - `cusift_memory_test`: device memory is released when extractors, matchers
   and their threads go away.
+- `cusift_pool_fallback_test`: on a device that cannot create cusift's own
+  memory pool, cusift leaves the shared default pool's memory alone.
 
 ## Licensing
 
