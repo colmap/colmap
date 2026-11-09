@@ -12,6 +12,7 @@ from .panorama import (
     PanoProcessor,
     PanoramaReconstructionOptions,
     PanoRenderType,
+    create_virtual_camera,
     filter_database_by_covisibility,
     get_virtual_rotations,
     run_perspective,
@@ -190,3 +191,34 @@ def test_run_perspective_raises_for_empty_input_dir(tmp_path: Path) -> None:
             output_dir / "database.db",
             output_dir / "sparse",
         )
+
+
+def test_convert_tracks_across_virtual_images(tmp_path: Path) -> None:
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_cameras_per_rig = 2
+    options.num_frames_per_rig = 3
+    options.num_points3D = 10
+    rec = pycolmap.synthesize_dataset(options)
+    processor = PanoProcessor(
+        tmp_path,
+        tmp_path / "images",
+        tmp_path / "masks",
+        PANO_RENDER_OPTIONS[PanoRenderType.PERSPECTIVE_NON_OVERLAPPING],
+    )
+    processor._pano_size = (256, 128)
+    processor._camera = create_virtual_camera(
+        pano_width=256, pano_height=128, hfov_deg=90, vfov_deg=90
+    )
+    camera_ids = sorted(rec.cameras)
+    for image in rec.images.values():
+        camera_idx = camera_ids.index(image.camera_id)
+        image.name = f"pano_camera{camera_idx}/{image.frame_id}.jpg"
+
+    output = processor.convert_to_equirectangular(rec)
+    assert len(output.images) == len(rec.frames)
+    assert len(output.points3D) == len(rec.points3D) > 0
+    for point_id, point in output.points3D.items():
+        assert point.track.length() == rec.points3D[point_id].track.length()
+        for observation in point.track.elements:
+            image = output.images[observation.image_id]
+            assert image.points2D[observation.point2D_idx].point3D_id == point_id
