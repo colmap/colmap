@@ -1249,3 +1249,28 @@ class TestComputeGroupedAbsErrors:
         # Remaining cluster 1 credited by sub_model_1.
         for name in names[two_thirds:]:
             np.testing.assert_allclose(error_by_name[name], 0.0, atol=1e-10)
+
+
+def test_failed_alignment_can_be_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "sparse"
+    source.mkdir()
+    target = tmp_path / "aligned"
+    calls = []
+
+    def run(cmd: list, log_path: Path, check: bool) -> int:
+        calls.append(cmd)
+        output = Path(cmd[cmd.index("--output_path") + 1])
+        data = b"partial" if len(calls) == 1 else b"ok"
+        (output / "images.bin").write_bytes(data)
+        return int(len(calls) == 1)
+
+    monkeypatch.setattr(utils, "_run_with_log", run)
+    args = argparse.Namespace(overwrite_alignment=False, colmap_path="colmap")
+    for attempt in range(3):
+        utils.colmap_alignment(args, source, source, target, 0.1)
+        if attempt == 0:
+            assert not (target / "images.bin").exists()
+    assert len(calls) == 2
+    assert (target / "images.bin").read_bytes() == b"ok"
