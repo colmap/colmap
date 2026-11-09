@@ -30,6 +30,11 @@ struct CusiftMatchingOptions {
   // (FindBestMatchesOneWayBruteForce).
   CusiftDistanceType distance_type = CusiftDistanceType::ANGULAR;
 
+  // Set by COLMAP's matching workers after clamping max_num_matches to the
+  // database's largest keypoint count: Create then sizes the device buffers
+  // for that many descriptors upfront. Otherwise they grow to each pair.
+  bool reserve_max_num_matches = false;
+
   bool Check() const;
 };
 

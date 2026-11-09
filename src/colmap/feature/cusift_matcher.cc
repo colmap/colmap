@@ -65,10 +65,12 @@ class CusiftFeatureMatcher : public FeatureMatcher {
     BindCusiftDevice(options.gpu_index);
     auto matcher = std::make_unique<CusiftFeatureMatcher>(
         options, cusift::CurrentDevice());
-    // Size the device buffers once: the worker has clamped max_num_matches to
-    // the largest keypoint count (feature_matching_utils.cc), and growing them
-    // later calls cudaFree, which synchronises the whole device.
-    matcher->gemm_.Reserve(options.max_num_matches);
+    // Size the device buffers once when the worker has clamped
+    // max_num_matches to the largest keypoint count (feature_matching_utils.cc):
+    // growing them later calls cudaFree, which synchronises the whole device.
+    if (options.cusift->reserve_max_num_matches) {
+      matcher->gemm_.Reserve(options.max_num_matches);
+    }
     return matcher;
   }
 

@@ -290,6 +290,37 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
   EXPECT_LT(reserved_after, reserved_while_alive / 4);
 }
 
+// Device memory a CUSIFT_GEMM matcher takes when created with `options`.
+int64_t MatcherCreationBytes(const FeatureMatchingOptions& options) {
+  int64_t used = 0;
+  RunOnFreshThread([&]() {
+    BindCusiftDevice("-1");
+    const int64_t before = FreeDeviceBytes();
+    auto matcher = THROW_CHECK_NOTNULL(FeatureMatcher::Create(options));
+    used = before - FreeDeviceBytes();
+  });
+  return used;
+}
+
+// A direct caller's matcher grows its buffers to the pairs it matches; only
+// COLMAP's matching workers, which clamp max_num_matches to the largest image,
+// ask for them upfront.
+TEST(CusiftMemory, MatcherReservesUpfrontOnlyWhenAsked) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  FeatureMatchingOptions options(FeatureMatcherType::CUSIFT_GEMM);
+  options.use_gpu = true;
+  // Warm up the CUDA context.
+  MatcherCreationBytes(options);
+
+  const int64_t direct = MatcherCreationBytes(options);
+  options.cusift->reserve_max_num_matches = true;
+  const int64_t reserved = MatcherCreationBytes(options);
+
+  // 32768 descriptors per side come to about 100 MiB of buffers.
+  EXPECT_LT(direct, 8 * kMiB);
+  EXPECT_GT(reserved, 64 * kMiB);
+}
+
 TEST(CusiftMemory, MatcherThreadReleasesDeviceMemory) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // Measure on the device the work runs on (both pick it with gpu_index -1).
