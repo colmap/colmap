@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
+#include <limits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -172,6 +174,24 @@ TEST(UndistortCamera, TargetCamera) {
   options.target_camera =
       Camera::CreateFromModelId(2, CameraModelId::kSimplePinhole, 50, 60, 40);
   EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
+
+  // The target camera must have a valid size and parameters.
+  const Camera valid_target_camera =
+      Camera::CreateFromModelId(2, CameraModelId::kPinhole, 50, 60, 40);
+  for (const auto& invalidate : std::vector<std::function<void(Camera&)>>{
+           [](Camera& camera) { camera.width = 0; },
+           [](Camera& camera) { camera.height = 0; },
+           [](Camera& camera) { camera.params.pop_back(); },
+           [](Camera& camera) {
+             camera.params[2] = std::numeric_limits<double>::quiet_NaN();
+           },
+           [](Camera& camera) { camera.params[0] = 0; },
+           [](Camera& camera) { camera.params[1] = -50; },
+       }) {
+    options.target_camera = valid_target_camera;
+    invalidate(*options.target_camera);
+    EXPECT_ANY_THROW(UndistortCamera(options, distorted_camera));
+  }
 }
 
 TEST(UndistortCamera, BlankPixels) {
