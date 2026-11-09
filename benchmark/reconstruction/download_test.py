@@ -4,6 +4,7 @@ import json
 import shutil
 import zipfile
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -32,9 +33,11 @@ def test_imc2024_relative_data_path(
     assert [p.name for p in (data_path / "train").iterdir()] == ["all"]
 
 
-def test_eth3d_undistorted_deletes_archives(
+@pytest.fixture
+def eth3d_undistorted_release(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+) -> tuple[ModuleType, Path, str]:
+    """Patches download.py to fetch one scene archive from a local release."""
     py7zr = pytest.importorskip("py7zr")
     monkeypatch.syspath_prepend(str(Path(__file__).parent))
     import download
@@ -51,14 +54,54 @@ def test_eth3d_undistorted_deletes_archives(
     monkeypatch.setattr(
         download.package_eth3d_undistorted, "CHECKSUMS_PATH", checksums_path
     )
-    monkeypatch.setattr(
-        download,
-        "download_file",
-        lambda url, folder: shutil.copy(
-            release_path / url.split("/")[-1], folder
-        ),
-    )
+
+    def fake_download_file(url: str, folder: Path, name: str) -> str:
+        shutil.copy(release_path / url.split("/")[-1], folder / name)
+        return name
+
+    monkeypatch.setattr(download, "download_file", fake_download_file)
+    return download, release_path, filename
+
+
+def test_eth3d_undistorted_deletes_archives(
+    tmp_path: Path, eth3d_undistorted_release: tuple[ModuleType, Path, str]
+) -> None:
+    download, _, _ = eth3d_undistorted_release
     data_path = tmp_path / "eth3d-undistorted"
     download.download_eth3d_undistorted(data_path)
     assert (data_path / "dslr/scene/images/one.jpg").read_text() == "image"
-    assert not (data_path / "dslr" / filename).exists()
+    assert sorted(p.name for p in (data_path / "dslr").iterdir()) == ["scene"]
+
+
+def test_eth3d_undistorted_reuses_valid_archives(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    eth3d_undistorted_release: tuple[ModuleType, Path, str],
+) -> None:
+    download, release_path, filename = eth3d_undistorted_release
+    data_path = tmp_path / "eth3d-undistorted"
+    (data_path / "dslr").mkdir(parents=True)
+    shutil.copy(release_path / filename, data_path / "dslr" / filename)
+
+    def fail(*args: object) -> None:
+        raise AssertionError("Unexpected download")
+
+    monkeypatch.setattr(download, "download_file", fail)
+    download.download_eth3d_undistorted(data_path)
+    assert (data_path / "dslr/scene/images/one.jpg").read_text() == "image"
+
+
+def test_eth3d_undistorted_rejects_corrupt_archives(
+    tmp_path: Path, eth3d_undistorted_release: tuple[ModuleType, Path, str]
+) -> None:
+    download, release_path, filename = eth3d_undistorted_release
+    data_path = tmp_path / "eth3d-undistorted"
+    # A truncated archive from an interrupted run is downloaded again, and
+    # here also corrupt in the release.
+    (data_path / "dslr").mkdir(parents=True)
+    (data_path / "dslr" / filename).write_bytes(b"truncated")
+    (release_path / filename).write_bytes(b"corrupt")
+    with pytest.raises(RuntimeError, match="Checksum mismatch"):
+        download.download_eth3d_undistorted(data_path)
+    assert not (data_path / "dslr" / f"{filename}.part").exists()
+    assert not (data_path / "dslr" / "scene").exists()
