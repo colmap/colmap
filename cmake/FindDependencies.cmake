@@ -372,6 +372,7 @@ if(CUDA_ENABLED)
 
             declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
             declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
+            declare_imported_cuda_target(cublas ${CUDA_LIBRARIES})
 
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
@@ -480,10 +481,10 @@ else()
     set(CUDA_ENABLED OFF)
 endif()
 
-# cusift's memory pool (cudaMallocFromPoolAsync, cudaMemPool*) needs CUDA 11.2,
-# and its matcher links CUDA::cublas, which the legacy (CMake < 3.17) CUDA
-# module above does not define. Without either, cusift is disabled and the
-# rest of COLMAP builds as before.
+# cusift needs CUDA >= 11.2 (for its memory pool) and CMake >= 3.17. Otherwise
+# it is disabled and the rest of COLMAP builds as before. The legacy
+# (CMake < 3.17) branch above still declares CUDA::cublas, which cusift links,
+# for projects that use an installed COLMAP built with cusift.
 if(CUSIFT_ENABLED)
     if(NOT CUDA_ENABLED)
         message(STATUS "Disabling cusift (requires CUDA)")
