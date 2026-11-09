@@ -15,6 +15,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
@@ -859,28 +860,35 @@ def colmap_alignment(
 ) -> None:
     if args.overwrite_alignment and sparse_aligned_path.exists():
         shutil.rmtree(sparse_aligned_path)
-    if sparse_aligned_path.exists():
+    if (sparse_aligned_path / "images.bin").is_file():
         pycolmap.logging.info("Skipping alignment, as it already exists")
         return
 
     if sparse_path.exists():
-        sparse_aligned_path.mkdir(parents=True, exist_ok=True)
-        _run_with_log(
-            [
-                args.colmap_path,
-                "model_aligner",
-                "--input_path",
-                sparse_path,
-                "--ref_model_path",
-                sparse_gt_path,
-                "--output_path",
-                sparse_aligned_path,
-                "--alignment_max_error",
-                str(max_ref_model_error),
-            ],
-            sparse_aligned_path.parent / "alignment.log",
-            check=False,
-        )
+        sparse_aligned_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=sparse_aligned_path.parent) as tmp:
+            output_path = Path(tmp) / "model"
+            output_path.mkdir()
+            status = _run_with_log(
+                [
+                    args.colmap_path,
+                    "model_aligner",
+                    "--input_path",
+                    sparse_path,
+                    "--ref_model_path",
+                    sparse_gt_path,
+                    "--output_path",
+                    output_path,
+                    "--alignment_max_error",
+                    str(max_ref_model_error),
+                ],
+                sparse_aligned_path.parent / "alignment.log",
+                check=False,
+            )
+            if status == 0 and (output_path / "images.bin").is_file():
+                if sparse_aligned_path.exists():
+                    shutil.rmtree(sparse_aligned_path)
+                output_path.replace(sparse_aligned_path)
 
 
 def merge_sub_models(
