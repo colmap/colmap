@@ -50,8 +50,9 @@ archs = ["auto64"]
 build-frontend = {name = "build", args = ["--no-isolation"]}
 before-build = "python {project}/python/ci/install-build-requirements.py"
 # pillow and requests are imported by the TartanAir packaging script, whose
-# tests are otherwise silently skipped.
-test-requires = "pytest>=8.0 mypy==2.4.0 enlighten==1.14.1 pillow requests"
+# tests are otherwise silently skipped. py7zr is imported by the benchmark
+# downloader.
+test-requires = "pytest>=8.0 mypy==2.4.0 enlighten==1.14.1 pillow requests py7zr"
 test-command = """\
     python -c "import pycolmap; print(pycolmap.__version__)" && \
     cd {project} && \
