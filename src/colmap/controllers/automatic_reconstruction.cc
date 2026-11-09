@@ -42,9 +42,6 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.AddAllOptions();
 
   *option_manager_.image_path = options_.image_path;
-  option_manager_.image_reader->image_names = options_.image_names;
-  option_manager_.mapper->image_names = {options_.image_names.begin(),
-                                         options_.image_names.end()};
   *option_manager_.database_path = options_.workspace_path / "database.db";
 
   if (options_.data_type == DataType::VIDEO) {
@@ -56,6 +53,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else {
     LOG(FATAL_THROW) << "Data type not supported";
   }
+
+  // Must come after the data type, as ModifyForVideoData resets all options
+  // except for the paths.
+  option_manager_.image_reader->image_names = options_.image_names;
+  option_manager_.mapper->image_names = {options_.image_names.begin(),
+                                         options_.image_names.end()};
 
   THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
