@@ -1375,8 +1375,8 @@ def compute_grouped_rel_errors(
     for src in sorted(gt_poses.keys() | models_by_image.keys()):
         component = image_name_to_component.get(src, OUTLIER_COMPONENT_ID)
         gt_names = gt_groups.get(component, set()) if src in gt_poses else set()
-        estimates: dict[str, list[pycolmap.Rigid3d]] = (
-            collections.defaultdict(list)
+        estimates: dict[str, list[pycolmap.Rigid3d]] = collections.defaultdict(
+            list
         )
         for poses in models_by_image.get(src, []):
             world_from_src = poses[src].inverse()
