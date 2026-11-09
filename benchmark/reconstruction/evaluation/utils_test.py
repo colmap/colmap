@@ -185,6 +185,9 @@ def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
     options.prior_gravity = True
     with pycolmap.Database.open(str(database_path)) as database:
         sparse_gt = pycolmap.synthesize_dataset(options, database)
+    # Only the USER source must be written, whatever the source of the GT.
+    for camera in sparse_gt.cameras.values():
+        camera.source = pycolmap.CameraSource.GUESS
     (gt_rig,) = [copy.copy(rig) for rig in sparse_gt.rigs.values()]
     (gt_sensor_id,) = gt_rig.non_ref_sensors
     gt_frame_ids = sorted(sparse_gt.frames)
@@ -218,8 +221,8 @@ def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
         for pose_prior in pose_priors:
             image = images[pose_prior.corr_data_id.id]
             assert pose_prior.corr_data_id == image.data_id
-        for camera in database.read_all_cameras():
-            assert camera.source == pycolmap.CameraSource.USER
+        for calibrations in database.read_all_camera_sources().values():
+            assert list(calibrations) == [pycolmap.CameraSource.USER]
     # The rigs and frames of the GT are not modified.
     (rig,) = sparse_gt.rigs.values()
     assert rig.rig_id == gt_rig.rig_id
