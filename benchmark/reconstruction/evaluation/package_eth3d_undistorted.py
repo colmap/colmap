@@ -95,9 +95,9 @@ def check_no_blank_pixels(
             np.stack([np.full_like(ys, w), ys], axis=1),
         ]
     )
-    rays = target_camera.cam_from_img(border)
+    cam_points = target_camera.cam_from_img(border)
     mapped = source_camera.img_from_cam(
-        np.concatenate([rays, np.ones((len(rays), 1))], axis=1)
+        np.concatenate([cam_points, np.ones((len(cam_points), 1))], axis=1)
     )
     # Keep a margin of one pixel for bilinear interpolation.
     if not np.all(
