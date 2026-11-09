@@ -9,6 +9,7 @@
 #include "colmap/util/testing.h"
 
 #include <filesystem>
+#include <fstream>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -318,6 +319,23 @@ TEST(StandaloneImageUndistorter, TargetCamera) {
         Camera::CreateFromModelId(
             image.CameraId(), CameraModelId::kPinhole, 100, 100, 100));
   }
+  // Spherical images are still copied, since the target camera only applies to
+  // perspective cameras. Trailing bytes, which image readers ignore, are only
+  // kept by copying.
+  auto& [spherical_image_name, spherical_camera] =
+      options.image_names_and_cameras.back();
+  Bitmap spherical_bitmap;
+  ASSERT_TRUE(spherical_bitmap.Read(image_path / spherical_image_name));
+  {
+    std::ofstream file(image_path / spherical_image_name,
+                       std::ios::binary | std::ios::app);
+    file << "trailing";
+  }
+  spherical_camera = Camera::CreateFromModelId(spherical_camera.camera_id,
+                                               CameraModelId::kEquirectangular,
+                                               /*focal_length=*/0.0,
+                                               spherical_bitmap.Width(),
+                                               spherical_bitmap.Height());
 
   UndistortCameraOptions camera_options;
   camera_options.target_camera =
@@ -327,6 +345,14 @@ TEST(StandaloneImageUndistorter, TargetCamera) {
   undistorter.Run();
 
   for (const auto& [image_name, camera] : options.image_names_and_cameras) {
+    if (camera.IsSpherical()) {
+      std::vector<char> output_data;
+      ReadBinaryBlob(output_path / image_name, &output_data);
+      std::vector<char> input_data;
+      ReadBinaryBlob(image_path / image_name, &input_data);
+      EXPECT_EQ(output_data, input_data);
+      continue;
+    }
     Bitmap bitmap;
     ASSERT_TRUE(bitmap.Read(output_path / image_name));
     EXPECT_EQ(bitmap.Width(), 60);

@@ -302,8 +302,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   // undistortion, spherical cameras by resizing to a smaller image of the same
   // model.
   const auto keep_unchanged = [&options](const Camera& camera) {
+    // The target camera only applies to perspective cameras.
     return camera.IsUndistorted() && options.max_image_size < 0 &&
-           !options.target_camera.has_value();
+           (!camera.IsPerspective() || !options.target_camera.has_value());
   };
   for (const auto& [camera_id, distorted_camera] : distorted_cameras) {
     if (keep_unchanged(distorted_camera)) {
