@@ -2,6 +2,10 @@
 
 #include "colmap/mvs/mat.h"
 
+#include "colmap/util/testing.h"
+
+#include <fstream>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -52,6 +56,22 @@ TEST(Mat, GetSet) {
   EXPECT_EQ(slice[0], 4);
   EXPECT_EQ(slice[1], 5);
   EXPECT_EQ(slice[2], 6);
+}
+
+TEST(Mat, ReadRejectsIncompleteMatrix) {
+  const auto path = CreateTestDir() / "depth.bin";
+  Mat<float> original(2, 3, 1);
+  original.Fill(1.5f);
+  original.Write(path);
+  Mat<float> loaded;
+  loaded.Read(path);
+  EXPECT_EQ(loaded.GetData(), original.GetData());
+  std::filesystem::resize_file(path, std::filesystem::file_size(path) - 1);
+  EXPECT_THROW(loaded.Read(path), std::invalid_argument);
+  for (const auto* header : {"2x3x1&", "4294967296&4294967296&1&"}) {
+    std::ofstream(path, std::ios::binary) << header;
+    EXPECT_THROW(loaded.Read(path), std::invalid_argument);
+  }
 }
 
 TEST(Mat, Fill) {
