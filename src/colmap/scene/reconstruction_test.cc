@@ -1224,6 +1224,14 @@ TEST(Reconstruction, IsValid) {
     EXPECT_FALSE(reconstruction_copy.IsValid());
   }
 
+  // Exercise the missing-image refusal after the original valid associations.
+  {
+    Reconstruction reconstruction_copy(reconstruction);
+    ASSERT_FALSE(reconstruction_copy.ExistsImage(999));
+    reconstruction_copy.Point3D(1).track.AddElement(999, 0);
+    EXPECT_FALSE(reconstruction_copy.IsValid());
+  }
+
   // Test registered frame without pose.
   {
     Reconstruction reconstruction_copy(reconstruction);
