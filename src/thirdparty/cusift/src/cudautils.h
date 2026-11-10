@@ -15,10 +15,11 @@
 #define safeCall(err)       __safeCall(err, __FILE__, __LINE__)
 #define checkMsg(msg)       __checkMsg(msg, __FILE__, __LINE__)
 
-// CUDA errors are reported as exceptions, never by ending the process: COLMAP
-// propagates exceptions from worker threads to the caller (pycolmap, the GUI,
-// the CLI), which decides what to do. Out-of-memory is thrown as
-// cusift::OutOfMemoryError, which the extractor turns into a failed image.
+// CUDA errors are reported as exceptions, never by ending the process. The
+// extractor turns them into a failed image, as SiftGPU does, since an exception
+// ending an extraction worker would stall COLMAP; the matcher's propagate to
+// the matching controller. Out-of-memory is thrown as cusift::OutOfMemoryError,
+// after which the extractor also releases unused pool memory.
 [[noreturn]] inline void __throwCudaError(const char *what, cudaError_t err,
                                           const char *file, const int line)
 {

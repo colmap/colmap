@@ -17,6 +17,7 @@
 
 #ifdef COLMAP_CUSIFT_ENABLED
 #include <array>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -119,21 +120,26 @@ class CusiftFeatureExtractor : public FeatureExtractor {
                                                     cusift::CurrentDevice());
   }
 
-  // Running out of GPU (or pinned host) memory fails this image only, as it
-  // does with SiftGPU: the controller skips it and goes on. Every other CUDA
-  // error propagates.
+  // Any exception fails this image only, as with SiftGPU: the controller skips
+  // it and goes on. An exception would end the worker thread, and the
+  // extraction controller would then wait for it forever. Running out of GPU
+  // (or pinned host) memory also returns the pool memory it no longer uses.
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
     THROW_CHECK_NOTNULL(keypoints);
-    SetBestCudaDevice(device_);
     try {
+      SetBestCudaDevice(device_);
       return ExtractOrThrow(bitmap, keypoints, descriptors);
     } catch (const cusift::OutOfMemoryError& error) {
       LOG(WARNING) << "cusift ran out of memory on a " << bitmap.Width()
                    << " x " << bitmap.Height()
                    << " image; skipping it: " << error.what();
       cusift::ReleaseUnusedMemory();
+      return false;
+    } catch (const std::exception& error) {
+      LOG(ERROR) << "cusift failed on a " << bitmap.Width() << " x "
+                 << bitmap.Height() << " image; skipping it: " << error.what();
       return false;
     }
   }

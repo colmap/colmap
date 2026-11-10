@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <thread>
@@ -368,6 +369,49 @@ TEST(CusiftMemory, ExtractorSkipsImageWhenOutOfMemory) {
   }
   // Every extraction allocates at least the input image and the scratch.
   EXPECT_GT(num_failed_extractions, 4);
+}
+
+// True where a multi-terabyte allocation throws std::bad_alloc: not under
+// AddressSanitizer, which aborts instead, nor with Linux overcommit always on
+// (vm.overcommit_memory = 1), which grants it.
+bool HugeAllocationsThrow() {
+#if defined(__SANITIZE_ADDRESS__)
+  return false;
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+  return false;
+#endif
+#endif
+  std::ifstream overcommit("/proc/sys/vm/overcommit_memory");
+  int mode = 0;
+  return !(overcommit >> mode) || mode != 1;
+}
+
+// Any other error fails the image too, instead of ending the worker thread,
+// which would leave the extraction controller waiting for it forever. An
+// absurd orientation count makes the extractor's host buffer reservation
+// throw std::bad_alloc.
+TEST(CusiftMemory, ExtractorSkipsImageOnOtherErrors) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  if (!HugeAllocationsThrow()) {
+    GTEST_SKIP()
+        << "A huge allocation does not throw here (ASan or overcommit)";
+  }
+  const Bitmap bitmap = CreateNoiseImage(256, 256);
+  FeatureExtractionOptions options(FeatureExtractorType::CUSIFT);
+  options.use_gpu = true;
+  FeatureExtractionOptions failing_options = options;
+  failing_options.sift->max_num_orientations = 2'000'000'000;
+  FeatureKeypoints keypoints;
+
+  const bool extracted =
+      THROW_CHECK_NOTNULL(FeatureExtractor::Create(failing_options))
+          ->Extract(bitmap, &keypoints, /*descriptors=*/nullptr);
+
+  EXPECT_FALSE(extracted);
+  EXPECT_TRUE(THROW_CHECK_NOTNULL(FeatureExtractor::Create(options))
+                  ->Extract(bitmap, &keypoints, /*descriptors=*/nullptr));
+  EXPECT_GT(keypoints.size(), 0u);
 }
 
 // Device memory a CUSIFT_GEMM matcher takes when created with `options`.
