@@ -61,21 +61,31 @@ TEST(SqDistanceFromGemmKey, ClampsRoundingBelowZeroToZero) {
   EXPECT_EQ(SqDistanceFromGemmKey(262144.0f, 262144.03f), 0.0f);
 }
 
-// Options pass Check() only in a build with cusift; without it, Check() rejects
-// the cusift types before reaching cusift's own checks.
+// Check() as CUSIFT_GEMM runs it. A build without cusift rejects the type
+// before its SIFT checks, so there only the SIFT options' own Check() runs.
+bool CheckAsCusiftGemm(const FeatureMatchingOptions& options) {
 #if defined(COLMAP_CUSIFT_ENABLED)
+  return options.Check();
+#else
+  return options.sift->Check();
+#endif
+}
+
 TEST(CusiftMatchingOptions, ChecksSiftThresholds) {
   // The ratio and distance thresholds come from the SIFT options, and are
   // checked for CUSIFT_GEMM too.
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  EXPECT_TRUE(options.Check());
+  EXPECT_TRUE(CheckAsCusiftGemm(options));
   options.sift->max_ratio = -1;
-  EXPECT_FALSE(options.Check());
+  EXPECT_FALSE(CheckAsCusiftGemm(options));
   options = CreateCusiftMatchingOptions();
   options.sift->max_distance = -1;
-  EXPECT_FALSE(options.Check());
+  EXPECT_FALSE(CheckAsCusiftGemm(options));
 }
 
+// Options pass Check() only in a build with cusift; without it, Check() rejects
+// the cusift types before reaching cusift's own checks.
+#if defined(COLMAP_CUSIFT_ENABLED)
 TEST(CusiftFeatureMatcher, RequiresGpu) {
   FeatureMatchingOptions options = CreateCusiftMatchingOptions();
   EXPECT_TRUE(options.Check());
