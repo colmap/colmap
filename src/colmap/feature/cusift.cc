@@ -69,7 +69,7 @@ void UploadGreyBitmap(const Bitmap& bitmap,
                   iAlignUp(bitmap.Width(), 128),
                   /*devMem=*/nullptr,
                   /*hostMem=*/host_buffer->data());
-  image->Download();
+  image->Upload();
 }
 
 // The VLFeat CPU path's final step: cusift returns what

@@ -29,7 +29,7 @@ public:
   CudaImage &operator=(CudaImage &&other) noexcept;
   void Allocate(int width, int height, int pitch, float *devMem = NULL, float *hostMem = NULL);
   // Copies h_data to the device.
-  void Download();
+  void Upload();
 };
 
 int iDivUp(int a, int b);

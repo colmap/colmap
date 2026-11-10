@@ -65,7 +65,7 @@ CudaImage::~CudaImage()
   d_data = NULL;
 }
 
-void CudaImage::Download()
+void CudaImage::Upload()
 {
   int p = sizeof(float)*pitch;
   if (d_data!=NULL && h_data!=NULL)
