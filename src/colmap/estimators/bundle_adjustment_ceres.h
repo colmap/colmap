@@ -4,7 +4,10 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/ceres_loss_function.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/math/math.h"
+
+#include <optional>
 
 #include <ceres/ceres.h>
 
@@ -20,6 +23,14 @@ struct CeresBundleAdjustmentOptions {
 
   // Multiplier applied to the loss function output.
   double loss_function_weight = 1.0;
+
+  // Loss function for prior position residuals.
+  CeresLossFunctionType prior_position_loss_function_type =
+      CeresLossFunctionType::TRIVIAL;
+
+  // Threshold on the whitened residual for the robust position prior loss
+  // (sqrt of chi-square 95% quantile for 3 DOF = 2.795).
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
   // Whether to use Ceres' CUDA linear algebra library, if available.
   bool use_gpu = false;
@@ -71,7 +82,8 @@ struct CeresBundleAdjustmentSummary : public BundleAdjustmentSummary {
       ceres::Solver::Summary ceres_summary);
 };
 
-// Ceres-specific pose prior bundle adjustment options.
+// Deprecated: configure prior_position_loss_function_type and
+// prior_position_loss_scale on CeresBundleAdjustmentOptions instead.
 struct CeresPosePriorBundleAdjustmentOptions {
   // Loss function for prior position loss.
   CeresLossFunctionType prior_position_loss_function_type =
@@ -88,18 +100,31 @@ class CeresBundleAdjuster : public BundleAdjuster {
  public:
   using BundleAdjuster::BundleAdjuster;
 
-  // Note: when position priors are active, residuals are constructed in an
-  // internally normalized coordinate frame, while Solve() restores the
-  // Reconstruction parameter blocks to the metric frame; Problem() must not be
-  // evaluated or passed to EstimateBACovariance after Solve().
+  // Note: when NormalizedFromMetric() has a value, residuals in Problem() are
+  // constructed in that internally normalized coordinate frame while
+  // `reconstruction` holds metric parameter values outside `Solve()`; custom
+  // residuals added to Problem() must transform metric constants by
+  // NormalizedFromMetric(), and Problem() must not be evaluated directly on
+  // metric parameters or passed to EstimateBACovarianceFromProblem.
   virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
+
+  // Internal similarity transform applied to `reconstruction` while
+  // constructing and solving Problem() when metric priors are active, or
+  // std::nullopt when Problem() operates directly in `reconstruction`'s frame.
+  virtual const std::optional<Sim3d>& NormalizedFromMetric() const {
+    static const std::optional<Sim3d> kNone = std::nullopt;
+    return kNone;
+  }
 };
 
 std::unique_ptr<CeresBundleAdjuster> CreateDefaultCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    Reconstruction& reconstruction);
+    Reconstruction& reconstruction,
+    const BundleAdjustmentPriors& priors = {});
 
+// Deprecated: use CreateDefaultCeresBundleAdjuster with
+// options.pose_prior.use_position and BundleAdjustmentPriors instead.
 std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const PosePriorBundleAdjustmentOptions& prior_options,

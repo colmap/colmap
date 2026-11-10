@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/eigen_alignment.h"
@@ -143,6 +144,29 @@ struct BundleAdjustmentBackendOptions {
       BundleAdjustmentBackendOptions&& other) = default;
 };
 
+// Solver-agnostic pose-prior options for bundle adjustment.
+struct BundleAdjustmentPosePriorOptions {
+  // Whether to use position priors on camera projection centers.
+  bool use_position = false;
+
+  // Per-axis fallback position standard deviation [m] (East, North, Up for ENU
+  // / GPS priors) used when a PosePrior lacks a finite, symmetric
+  // positive-definite covariance matrix, or unconditionally when
+  // overwrite_position_covariance is true.
+  Eigen::Vector3d position_stddev = Eigen::Vector3d::Ones();
+
+  // Whether to ignore per-prior covariances and overwrite them in memory with
+  // diag(position_stddev^2). Does not mutate the database.
+  bool overwrite_position_covariance = false;
+
+  // Sim3 RANSAC options when aligning an unanchored reconstruction to position
+  // priors. max_error (if > 0) is also the inlier threshold when checking that
+  // an anchored reconstruction is already aligned with the priors.
+  RANSACOptions position_alignment_ransac;
+
+  bool Check() const;
+};
+
 // Solver-agnostic bundle adjustment options.
 struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // Whether to refine the focal length parameter group.
@@ -173,6 +197,9 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // When true, only translation is refined.
   bool constant_rig_from_world_rotation = false;
 
+  // Pose-prior options.
+  BundleAdjustmentPosePriorOptions pose_prior;
+
   // Whether to print a final summary.
   bool print_summary = true;
 
@@ -183,7 +210,17 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // each iteration. Other backends may only evaluate it between solver runs.
   std::function<bool()> check_if_stopped;
 
+  // Whether any enabled prior constrains the metric scale of the scene.
+  bool ConstrainMetricScale() const;
+
   bool Check() const;
+};
+
+// Container for optional scene/sensor priors passed to bundle adjustment.
+// WGS84 position priors are converted in memory to a local Cartesian ENU frame
+// anchored at the first finite WGS84 position in `pose_priors`.
+struct BundleAdjustmentPriors {
+  std::vector<PosePrior> pose_priors;
 };
 
 // Abstract base class for bundle adjustment, independent of solver backend.
@@ -203,14 +240,21 @@ class BundleAdjuster {
   BundleAdjustmentConfig config_;
 };
 
-// Factory function to create bundle adjusters.
-// Currently uses Ceres as the backend, but can be extended to support
-// other backends (e.g., Caspar) in the future.
+// Factory function to create bundle adjusters. When
+// `options.pose_prior.use_position` is enabled and `config` does not anchor the
+// world frame (via constant poses or points), `reconstruction` is Sim3d-aligned
+// into the prior coordinate frame (Cartesian, or local ENU anchored at the
+// first WGS84 prior). If the priors are used, `Config().FixedGauge()` is reset
+// to `UNSPECIFIED`; if they are enabled but all dropped, an unspecified gauge
+// falls back to `TWO_CAMS_FROM_WORLD` or `THREE_POINTS`.
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    Reconstruction& reconstruction);
+    Reconstruction& reconstruction,
+    const BundleAdjustmentPriors& priors = {});
 
+// Deprecated: configure position prior options directly on
+// BundleAdjustmentOptions::pose_prior and CeresBundleAdjustmentOptions instead.
 struct PosePriorBundleAdjustmentBackendOptions {
   // Ceres-specific options (only used when backend == CERES).
   std::shared_ptr<CeresPosePriorBundleAdjustmentOptions> ceres;
@@ -226,10 +270,12 @@ struct PosePriorBundleAdjustmentBackendOptions {
       PosePriorBundleAdjustmentBackendOptions&& other) = default;
 };
 
-// Solver-agnostic pose prior bundle adjustment options.
+// Deprecated: configure position prior options directly on
+// BundleAdjustmentOptions::pose_prior and CeresBundleAdjustmentOptions instead.
 struct PosePriorBundleAdjustmentOptions
     : public PosePriorBundleAdjustmentBackendOptions {
-  // Fallback if no prior position covariance is provided.
+  // Fallback standard deviation used when a prior position covariance is
+  // missing or not symmetric positive-definite.
   double prior_position_fallback_stddev = 1.0;
 
   // Sim3 alignment options. max_error (if > 0) is also the inlier threshold
@@ -240,7 +286,8 @@ struct PosePriorBundleAdjustmentOptions
   bool Check() const;
 };
 
-// Factory function to create pose prior bundle adjusters.
+// Deprecated: use CreateDefaultBundleAdjuster with
+// options.pose_prior.use_position and BundleAdjustmentPriors instead.
 std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const PosePriorBundleAdjustmentOptions& prior_options,
