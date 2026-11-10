@@ -181,9 +181,18 @@ CusiftExtractionWidget::CusiftExtractionWidget(QWidget* parent,
 }
 
 void CusiftExtractionWidget::Run() {
+  WriteOptions();
+  // use_gpu is shared with the other tabs; cusift has no CPU fallback.
+  if (!options_->feature_extraction->use_gpu) {
+    QMessageBox::critical(
+        this,
+        "",
+        "use_gpu: cusift has no CPU implementation. Tick use_gpu, or use the "
+        "SIFT tab for CPU extraction.");
+    return;
+  }
   // The SIFT options are shared with the SIFT tab, which exposes options cusift
   // rejects; report them here instead of failing in the extraction controller.
-  WriteOptions();
   const std::string unsupported =
       CusiftUnsupportedSiftOption(*options_->feature_extraction->sift);
   if (!unsupported.empty()) {
