@@ -11,7 +11,7 @@ option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(HIP_ENABLED "Whether to enable AMD GPU support via HIP/ROCm" OFF)
-option(CUSIFT_ENABLED "Whether to build the cusift CUDA SIFT extractor and matcher (needs CUDA >= 11.2)" ON)
+option(CUSIFT_ENABLED "Whether to build cusift (CUDA SIFT; needs CUDA >= 11.2 with cuBLAS and CMake >= 3.17)" ON)
 
 if(CUDA_ENABLED AND HIP_ENABLED)
     message(FATAL_ERROR "CUDA and HIP cannot be enabled at the same time")
