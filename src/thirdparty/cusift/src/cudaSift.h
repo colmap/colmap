@@ -14,6 +14,8 @@
 // and write.
 //   orientation: reads x, y, sigma, level      -> writes VLFeatOri
 //   descriptor:  reads x, y, sigma, ori, level -> writes 128 floats, rescales x/y/sigma
+// The orientation pass leaves ori unread; the host then fills it, one row per
+// angle in VLFeatOri, for the descriptor pass.
 struct VLFeatKp {
   float x, y, sigma, ori;  // ori in RADIANS (the kernel's own convention)
   int level;               // gradient-plane index, = is
@@ -46,10 +48,10 @@ class SiftScratch {
   std::unique_ptr<PackedScratch> packed_;
 };
 
-// A detected keypoint: octave o, scale index is, integer position (ix, iy),
-// refined position (x, y), absolute sigma, and refined scale s.
+// A detected keypoint of one octave: scale index is, integer position
+// (ix, iy), refined position (x, y), absolute sigma, and refined scale s.
 struct DetectedKeypoint {
-  int o, is, ix, iy;
+  int is, ix, iy;
   float x, y, sigma, s;
 };
 

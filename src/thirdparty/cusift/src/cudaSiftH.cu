@@ -236,13 +236,13 @@ static void BuildVLFeatOctave(VLFeatOctaveBuffers &oct, CudaImage *prevTopLevel,
 }
 
 // Detection. DetectedKeypoint (declared in cudaSift.h) mirrors
-// VlSiftKeypoint's own fields exactly (o, is = coarse detection level, ix/iy
-// = coarse pixel, x/y/sigma = refined absolute-pixel-unit position/scale,
-// s = continuous refined level). `is` is carried as-is from the coarse scan
-// through refinement (VLFeat never changes it during Newton iteration, only
-// x/y can relocate -- verified directly against sift.c:1267-1427) so it's
-// available as a first-class field for orientation/descriptor, never
-// re-derived from sigma.
+// VlSiftKeypoint's fields except the octave o, which the caller tracks:
+// is = coarse detection level, ix/iy = coarse pixel, x/y/sigma = refined
+// absolute-pixel-unit position/scale, s = continuous refined level. `is` is
+// carried as-is from the coarse scan through refinement (VLFeat never changes
+// it during Newton iteration, only x/y can relocate -- verified directly
+// against sift.c:1267-1427) so it's available as a first-class field for
+// orientation/descriptor, never re-derived from sigma.
 
 // Packed scratch for the VLFeat pipeline's kernel I/O (see VLFeatKp in
 // cudaSift.h): grow-only, with pinned host memory, reused across octaves and
@@ -345,7 +345,7 @@ static void SortOctaveKeypoints(std::vector<DetectedKeypoint> &kps, size_t begin
 // Full detection pipeline for one octave, on the GPU: DoG cube -> coarse
 // extrema scan -> Newton refinement + edge test; then the survivors are sorted
 // on the host so their order does not depend on scheduling.
-static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
+static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct,
                                float peakThresh, float edgeThresh, int numScales,
                                std::vector<DetectedKeypoint> &out)
 {
@@ -428,7 +428,6 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct, int vo,
     }
     out.reserve(out.size() + accepted.size());
     for (DetectedKeypoint kp : accepted) {
-      kp.o = vo;
       kp.sigma = sigma0 * std::pow(sigmak, kp.s);
       out.push_back(kp);
     }
@@ -506,7 +505,7 @@ void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves,
     VLFeatOctaveBuffers &oct = octaves[oi];
 
     std::vector<DetectedKeypoint> localKps;
-    DetectOctaveVLFeat(oct, vo, peakThresh, edgeThresh, numScales, localKps);
+    DetectOctaveVLFeat(oct, peakThresh, edgeThresh, numScales, localKps);
     int n = (int)localKps.size();
     if (n == 0) continue;
 
@@ -517,7 +516,7 @@ void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves,
       pk.h_kps[i].x = localKps[i].x;
       pk.h_kps[i].y = localKps[i].y;
       pk.h_kps[i].sigma = localKps[i].sigma;
-      pk.h_kps[i].ori = 0.0f;
+      pk.h_kps[i].ori = 0.0f;  // unread here; per-angle rows built below
       pk.h_kps[i].level = localKps[i].is;
     }
     safeCall(cudaMemcpy(pk.d_kps, pk.h_kps, sizeof(VLFeatKp)*n, cudaMemcpyHostToDevice));
