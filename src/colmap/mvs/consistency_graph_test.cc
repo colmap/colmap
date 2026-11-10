@@ -4,6 +4,11 @@
 
 #include "colmap/util/testing.h"
 
+#include <fstream>
+#include <iterator>
+#include <limits>
+#include <string>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -100,6 +105,128 @@ TEST(ConsistencyGraph, WriteReadRoundtrip) {
   loaded.GetImageIdxs(1, 0, &num_images, &image_idxs);
   EXPECT_EQ(num_images, 1);
   EXPECT_EQ(image_idxs[0], 100);
+}
+
+TEST(ConsistencyGraph, RejectsTruncatedRecordPayload) {
+  for (const std::vector<int>& payload : {std::vector<int>{0, 0, 1},
+                                          std::vector<int>{0, 0, 2, 7},
+                                          std::vector<int>{0, 0, 2147483647}}) {
+    EXPECT_THROW(ConsistencyGraph(3, 2, payload), std::exception);
+  }
+}
+
+TEST(ConsistencyGraph, RejectsUnrepresentableDimensions) {
+  const size_t too_large =
+      static_cast<size_t>(std::numeric_limits<int>::max()) + 1;
+  const std::vector<int> data;
+  EXPECT_THROW(ConsistencyGraph(too_large, 1, data), std::exception);
+  EXPECT_THROW(ConsistencyGraph(1, too_large, data), std::exception);
+}
+
+TEST(ConsistencyGraph, RejectsPartialIntegerTail) {
+  const auto path = CreateTestDir() / "partial.bin";
+  for (int tail = 1; tail < 4; ++tail) {
+    std::ofstream file(path, std::ios::binary);
+    file.exceptions(std::ios::failbit | std::ios::badbit);
+    file << "3&2&1&";
+    file.write("\0\0\0", tail);
+    file.close();
+    ConsistencyGraph graph;
+    EXPECT_THROW(graph.Read(path), std::exception);
+  }
+}
+
+TEST(ConsistencyGraph, IndependentWireOrderAndWhitespacePayload) {
+  const auto path = CreateTestDir() / "wire.bin";
+  const std::string expected =
+      std::string("33&2&1&") +
+      std::string("\x20\0\0\0\x01\0\0\0\x02\0\0\0\x0a\0\0\0\x20\0\0\0", 20);
+  {
+    std::ofstream fixture(path, std::ios::binary);
+    fixture.write(expected.data(), expected.size());
+  }
+  std::ifstream file(path, std::ios::binary);
+  const std::string actual((std::istreambuf_iterator<char>(file)),
+                           std::istreambuf_iterator<char>());
+  EXPECT_EQ(actual, expected);
+  file.close();
+  ConsistencyGraph loaded;
+  loaded.Read(path);
+  int count;
+  const int* ids;
+  loaded.GetImageIdxs(1, 32, &count, &ids);
+  ASSERT_EQ(count, 2);
+  EXPECT_EQ(ids[0], 10);
+  EXPECT_EQ(ids[1], 32);
+  ConsistencyGraph graph(33, 2, std::vector<int>{32, 1, 2, 10, 32});
+  graph.Write(path);
+  std::ifstream written(path, std::ios::binary);
+  const std::string actual_written((std::istreambuf_iterator<char>(written)),
+                                   std::istreambuf_iterator<char>());
+  EXPECT_EQ(actual_written, expected);
+}
+
+TEST(ConsistencyGraph, ReadsEmptyPayload) {
+  const auto path = CreateTestDir() / "empty.bin";
+  {
+    std::ofstream file(path, std::ios::binary);
+    file << "3&2&1&";
+  }
+  ConsistencyGraph graph;
+  graph.Read(path);
+  int count = -1;
+  const int* ids = nullptr;
+  graph.GetImageIdxs(1, 2, &count, &ids);
+  EXPECT_EQ(count, 0);
+  EXPECT_EQ(ids, nullptr);
+}
+
+TEST(ConsistencyGraph, PreservesGraphAfterFailedRead) {
+  const auto path = CreateTestDir() / "failed-read.bin";
+  ConsistencyGraph graph(3, 2, std::vector<int>{2, 1, 2, 7, 8});
+  const std::vector<std::string> bad_inputs = {
+      std::string("2147483648&2&1&") +
+          std::string("\0\0\0\0\0\0\0\0\x64\0\0\0\x01\0\0\0", 16),
+      std::string("3&2&1&") + std::string("\0\0\0\0\0\0\0\0\x02\0\0\0", 12),
+      std::string("3&2&1&") + std::string("\0", 1),
+      "3&2&-1&"};
+  for (const auto& input : bad_inputs) {
+    {
+      std::ofstream file(path, std::ios::binary);
+      file.write(input.data(), input.size());
+    }
+    EXPECT_THROW(graph.Read(path), std::exception);
+    int count = -1;
+    const int* ids = nullptr;
+    graph.GetImageIdxs(1, 2, &count, &ids);
+    ASSERT_EQ(count, 2);
+    ASSERT_NE(ids, nullptr);
+    EXPECT_EQ(ids[0], 7);
+    EXPECT_EQ(ids[1], 8);
+  }
+  {
+    std::ofstream file(path, std::ios::binary);
+    file << "3&2&1&";
+  }
+  graph.Read(path);
+  int count = -1;
+  const int* ids = nullptr;
+  graph.GetImageIdxs(1, 2, &count, &ids);
+  EXPECT_EQ(count, 0);
+  EXPECT_EQ(ids, nullptr);
+}
+
+TEST(ConsistencyGraph, RejectsMalformedHeader) {
+  const auto path = CreateTestDir() / "header.bin";
+  for (const char* header :
+       {"3:2&1&", "3&2&", "0&2&1&", "-3&2&1&", "3&-2&1&", "3&2&-1&"}) {
+    std::ofstream file(path, std::ios::binary);
+    file.exceptions(std::ios::failbit | std::ios::badbit);
+    file << header;
+    file.close();
+    ConsistencyGraph graph;
+    EXPECT_THROW(graph.Read(path), std::exception);
+  }
 }
 
 }  // namespace

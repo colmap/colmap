@@ -254,6 +254,6 @@ The consistency graph defines, for all pixels in an image, the source images a
 pixel is consistent with. The graph is stored as a mixed text and binary file,
 while the text part is equivalent to the depth and normal maps and the binary
 part is a continuous list of ``int32`` values in the format
-``<row><col><N><image_idx1>...<image_idxN>``. Here, ``(row, col)``  defines the
+``<col><row><N><image_idx1>...<image_idxN>``. Here, ``(row, col)``  defines the
 location of the pixel in the image followed by a list of ``N`` image indices.
 The indices are specified w.r.t. the ordering in the ``images.txt`` file.
