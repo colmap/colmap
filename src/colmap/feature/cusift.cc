@@ -106,11 +106,10 @@ class CusiftFeatureExtractor : public FeatureExtractor {
 
   // Frees the scratch, then returns the memory cusift's pool holds but no
   // longer uses to the driver, so GPU stages that run after extraction can
-  // have it. COLMAP destroys the extractor on the thread that extracted,
-  // which is bound to the extractor's GPU.
+  // have it. Both act on the extractor's device, whatever the calling thread's.
   ~CusiftFeatureExtractor() override {
     scratch_.Release();
-    cusift::ReleaseUnusedMemory();
+    cusift::ReleaseUnusedMemoryOnDevice(device_);
   }
 
   static std::unique_ptr<FeatureExtractor> Create(

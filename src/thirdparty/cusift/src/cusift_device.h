@@ -33,6 +33,10 @@ void InitMemoryPool();
 // code in the process shares.
 void ReleaseUnusedMemory();
 
+// As ReleaseUnusedMemory, on `device` instead of the current device, which it
+// restores. Never throws, so destructors may call it.
+void ReleaseUnusedMemoryOnDevice(int device);
+
 // Bytes of cusift's pool on the current device that are allocated (in use)
 // and reserved from the driver (in use or held for reuse). Diagnostics.
 // Zeros on a device that fell back to its default pool.

@@ -42,7 +42,7 @@ void ClearUnsupportedCusiftSiftOptions(SiftExtractionOptions* sift);
 // The extractor is bound to the GPU named by options.gpu_index, which Create
 // makes the calling thread's current device (BindCusiftDevice); Extract binds
 // its calling thread to that GPU again. Use one extractor from one thread at a
-// time and destroy it on a thread bound to its GPU, as COLMAP's controllers do.
+// time; it may be destroyed on any thread.
 std::unique_ptr<FeatureExtractor> CreateCusiftFeatureExtractor(
     const FeatureExtractionOptions& options);
 

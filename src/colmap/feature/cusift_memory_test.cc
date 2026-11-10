@@ -151,9 +151,9 @@ TEST(CusiftDevice, ExtractRunsOnTheExtractorsDevice) {
     THROW_CHECK_EQ(cudaGetDevice(&created_on), cudaSuccess);
   });
 
+  const int other_device = (created_on + 1) % GetNumCudaDevices();
   int extracted_on = -1;
   RunOnFreshThread([&]() {
-    const int other_device = (created_on + 1) % GetNumCudaDevices();
     THROW_CHECK_EQ(cudaSetDevice(other_device), cudaSuccess);
     FeatureKeypoints keypoints;
     THROW_CHECK(
@@ -163,10 +163,19 @@ TEST(CusiftDevice, ExtractRunsOnTheExtractorsDevice) {
   });
   EXPECT_EQ(extracted_on, created_on);
 
+  // The destructor trims the extractor's own pool, whatever device is current.
+  int destroyed_with_current = -1;
+  int64_t reserved_after = -1;
   RunOnFreshThread([&]() {
-    THROW_CHECK_EQ(cudaSetDevice(created_on), cudaSuccess);
+    THROW_CHECK_EQ(cudaSetDevice(other_device), cudaSuccess);
     extractor.reset();
+    THROW_CHECK_EQ(cudaGetDevice(&destroyed_with_current), cudaSuccess);
+    THROW_CHECK_EQ(cudaSetDevice(created_on), cudaSuccess);
+    reserved_after =
+        static_cast<int64_t>(cusift::GetMemoryPoolUsage().reserved);
   });
+  EXPECT_EQ(destroyed_with_current, other_device);
+  EXPECT_EQ(reserved_after, 0);
 }
 
 // As ExtractRunsOnTheExtractorsDevice, for the matcher's cuBLAS handle and

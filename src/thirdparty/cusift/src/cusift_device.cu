@@ -95,6 +95,21 @@ void ReleaseUnusedMemory() {
   cudaMemPoolTrimTo(devicePool.pool, 0);
 }
 
+void ReleaseUnusedMemoryOnDevice(int device) {
+  ScopedCudaDeviceNoThrow scoped(device);
+  // Never trim another device's pool: skip if the switch failed.
+  int current = -1;
+  if (cudaGetDevice(&current) != cudaSuccess || current != device) {
+    cudaGetLastError();
+    return;
+  }
+  try {
+    ReleaseUnusedMemory();
+  } catch (const std::exception &) {
+    // Destructors call this; a failed trim only keeps memory cached.
+  }
+}
+
 MemoryPoolUsage GetMemoryPoolUsage() {
   const DevicePool devicePool = CurrentDevicePool();
   if (!devicePool.owned) return {};
