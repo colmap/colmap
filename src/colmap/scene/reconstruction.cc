@@ -504,25 +504,30 @@ void Reconstruction::AddImageWithTrivialFrame(class Image image,
 
 void Reconstruction::AddPoint3D(const point3D_t point3D_id,
                                 struct Point3D point3D) {
-  max_point3D_id_ = std::max(max_point3D_id_, point3D_id);
-
+  THROW_CHECK_NE(point3D_id, kInvalidPoint3DId);
+  // Validate the whole track before publishing any reverse image association.
   for (const auto& track_el : point3D.track.Elements()) {
-    class Image& image = Image(track_el.image_id);
-    const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+    const Point2D& point2D =
+        Image(track_el.image_id).Point2D(track_el.point2D_idx);
     if (point2D.HasPoint3D()) {
       THROW_CHECK_EQ(point2D.point3D_id, point3D_id);
-    } else {
-      image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
     }
+  }
+
+  const auto [it, inserted] = points3D_.emplace(point3D_id, std::move(point3D));
+  THROW_CHECK(inserted);
+  for (const auto& track_el : it->second.track.Elements()) {
+    class Image& image = Image(track_el.image_id);
+    image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
     THROW_CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
   }
-  THROW_CHECK(points3D_.emplace(point3D_id, std::move(point3D)).second);
+  max_point3D_id_ = std::max(max_point3D_id_, point3D_id);
 }
 
 point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
                                      Track track,
                                      const Eigen::Vector3ub& color) {
-  const point3D_t point3D_id = ++max_point3D_id_;
+  const point3D_t point3D_id = max_point3D_id_ + 1;
   struct Point3D point3D;
   point3D.xyz = xyz;
   point3D.track = std::move(track);
@@ -536,11 +541,11 @@ void Reconstruction::AddObservation(const point3D_t point3D_id,
   class Image& image = Image(track_el.image_id);
   THROW_CHECK(!image.Point2D(track_el.point2D_idx).HasPoint3D());
 
-  image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
-  THROW_CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
-
   struct Point3D& point3D = Point3D(point3D_id);
   point3D.track.AddElement(track_el);
+
+  image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
+  THROW_CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
 }
 
 point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
