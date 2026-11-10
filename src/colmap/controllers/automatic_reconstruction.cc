@@ -42,9 +42,6 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.AddAllOptions();
 
   *option_manager_.image_path = options_.image_path;
-  option_manager_.image_reader->image_names = options_.image_names;
-  option_manager_.mapper->image_names = {options_.image_names.begin(),
-                                         options_.image_names.end()};
   *option_manager_.database_path = options_.workspace_path / "database.db";
 
   if (options_.data_type == DataType::VIDEO) {
@@ -95,6 +92,12 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.quality == Quality::EXTREME) {
     option_manager_.ModifyForExtremeQuality();
   }
+
+  // Apply the requested image scope after presets, which can reset options.
+  option_manager_.image_reader->image_names = options_.image_names;
+  option_manager_.global_mapper->image_names = options_.image_names;
+  option_manager_.mapper->image_names = {options_.image_names.begin(),
+                                         options_.image_names.end()};
 
   // Must come after quality, which sets the number of SIFT features.
   if (options_.max_num_features > 0) {
