@@ -116,7 +116,7 @@ bool FeatureMatchingOptions::Check() const {
       LOG(ERROR) << "COLMAP was built without cusift (CUSIFT_ENABLED, which "
                     "needs CUDA >= 11.2).";
       return false;
-#endif
+#else
       // No CPU implementation to fall back to.
       if (!use_gpu) {
         LOG(ERROR) << "cusift feature matching requires GPU. Consider "
@@ -127,6 +127,7 @@ bool FeatureMatchingOptions::Check() const {
       CHECK_OPTION(!guided_matching);
       return THROW_CHECK_NOTNULL(sift)->Check() &&
              THROW_CHECK_NOTNULL(cusift)->Check();
+#endif
     default:
       LOG(ERROR) << "Unknown feature matcher type: " << type;
       return false;
