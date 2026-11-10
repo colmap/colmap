@@ -550,6 +550,9 @@ TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
 
   const auto got = MatchToSet(*cu_matcher, img1, img2);
   const auto want = MatchToSet(*ref_matcher, img1, img2);
+  // Parity alone would pass if both matchers stopped suppressing.
+  EXPECT_TRUE(want.empty()) << want.size() << " reference matches";
+  EXPECT_TRUE(got.empty()) << got.size() << " cusift matches";
   EXPECT_EQ(got, want);
 }
 
