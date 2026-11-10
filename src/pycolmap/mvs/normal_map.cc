@@ -19,13 +19,23 @@ typedef ptrdiff_t ssize_t;
 #endif
 
 py::array_t<float> ArrayFromNormalMap(const NormalMap& self) {
-  const std::vector<ssize_t> shape = {static_cast<ssize_t>(self.GetHeight()),
-                                      static_cast<ssize_t>(self.GetWidth()),
-                                      static_cast<ssize_t>(self.GetDepth())};
+  const size_t width = self.GetWidth();
+  const size_t height = self.GetHeight();
+  const size_t num_channels = self.GetDepth();
+  const std::vector<ssize_t> shape = {static_cast<ssize_t>(height),
+                                      static_cast<ssize_t>(width),
+                                      static_cast<ssize_t>(num_channels)};
   py::array_t<float> output(shape);
-  py::buffer_info output_info = output.request();
-  float* output_ptr = reinterpret_cast<float*>(output_info.ptr);
-  std::memcpy(output_ptr, self.GetPtr(), self.GetNumBytes());
+  float* output_ptr = output.mutable_data();
+  for (size_t d = 0; d < num_channels; ++d) {
+    size_t output_index = d;
+    for (size_t row = 0; row < height; ++row) {
+      for (size_t col = 0; col < width; ++col) {
+        output_ptr[output_index] = self.Get(row, col, d);
+        output_index += num_channels;
+      }
+    }
+  }
   return output;
 }
 
@@ -49,8 +59,14 @@ NormalMap NormalMapFromArray(py::array_t<float, py::array::c_style> array) {
 
   NormalMap output(width, height);
 
-  const float* input_ptr = static_cast<float*>(array.request().ptr);
-  std::memcpy(output.GetPtr(), input_ptr, output.GetNumBytes());
+  const float* input_ptr = array.data();
+  for (size_t row = 0; row < output.GetHeight(); ++row) {
+    for (size_t col = 0; col < output.GetWidth(); ++col) {
+      for (size_t d = 0; d < 3; ++d) {
+        output.Set(row, col, d, *input_ptr++);
+      }
+    }
+  }
   return output;
 }
 
