@@ -133,12 +133,13 @@ if(CUSIFT_ENABLED)
         SRCS cusift_determinism_test.cc
         LINK_LIBS colmap_feature colmap_util_cuda
     )
-    # Builds two-view and pose problems, so it also needs the estimators and
-    # the incremental mapper's registration thresholds.
+    # Builds two-view and pose problems, so it also needs the estimators. It
+    # reads IncrementalMapper::Options defaults from the header only, so it
+    # does not link colmap_sfm.
     COLMAP_ADD_TEST(
         NAME cusift_verification_test
         SRCS cusift_verification_test.cc
-        LINK_LIBS colmap_feature colmap_estimators colmap_sfm colmap_util_cuda
+        LINK_LIBS colmap_feature colmap_estimators colmap_util_cuda
     )
     COLMAP_ADD_TEST(
         NAME cusift_memory_test
