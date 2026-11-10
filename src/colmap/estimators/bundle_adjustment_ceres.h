@@ -88,6 +88,10 @@ class CeresBundleAdjuster : public BundleAdjuster {
  public:
   using BundleAdjuster::BundleAdjuster;
 
+  // Note: when position priors are active, residuals are constructed in an
+  // internally normalized coordinate frame, while Solve() restores the
+  // Reconstruction parameter blocks to the metric frame; Problem() must not be
+  // evaluated or passed to EstimateBACovariance after Solve().
   virtual std::shared_ptr<ceres::Problem>& Problem() = 0;
 };
 
