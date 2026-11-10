@@ -112,22 +112,33 @@ bool HasUnknownSensorFromRig(const Reconstruction& reconstruction) {
   return false;
 }
 
+bool TryAlignReconstructionToPosePriors(
+    const IncrementalPipelineOptions& options,
+    const DatabaseCache& database_cache,
+    Reconstruction* reconstruction) {
+  PosePriorBundleAdjustmentOptions prior_options;
+  prior_options.alignment_ransac_options.random_seed = options.random_seed;
+
+  Sim3d metric_from_reconstruction;
+  if (!AlignReconstructionToPosePriors(
+          *reconstruction,
+          database_cache.PosePriors(),
+          prior_options.alignment_ransac_options,
+          prior_options.prior_position_fallback_stddev,
+          &metric_from_reconstruction)) {
+    return false;
+  }
+  reconstruction->Transform(metric_from_reconstruction);
+  return true;
+}
+
 void AlignReconstructionToPriorsOrRigScale(
     const IncrementalPipelineOptions& options,
     const DatabaseCache& database_cache,
     Reconstruction* reconstruction) {
   if (options.use_prior_position) {
-    PosePriorBundleAdjustmentOptions prior_options;
-    prior_options.alignment_ransac_options.random_seed = options.random_seed;
-
-    Sim3d metric_from_reconstruction;
-    if (AlignReconstructionToPosePriors(
-            *reconstruction,
-            database_cache.PosePriors(),
-            prior_options.alignment_ransac_options,
-            prior_options.prior_position_fallback_stddev,
-            &metric_from_reconstruction)) {
-      reconstruction->Transform(metric_from_reconstruction);
+    if (TryAlignReconstructionToPosePriors(
+            options, database_cache, reconstruction)) {
       return;
     }
     LOG(WARNING) << "Final alignment w.r.t. prior positions failed; restoring "
@@ -400,6 +411,15 @@ void IncrementalPipeline::Run() {
   THROW_CHECK_LE(reconstruction_manager_->Size(), 1)
       << "Can only continue from a single reconstruction, "
          "but multiple are given.";
+  // Constant existing frames prevent per-BA Sim3d alignment; align the imported
+  // model once.
+  if (continue_reconstruction && options_->fix_existing_frames &&
+      options_->use_prior_position &&
+      !TryAlignReconstructionToPosePriors(
+          *options_, *database_cache_, reconstruction_manager_->Get(0).get())) {
+    LOG(WARNING) << "Initial alignment of existing reconstruction w.r.t. "
+                    "prior positions failed";
+  }
 
   const size_t num_images = database_cache_->NumImages();
 
