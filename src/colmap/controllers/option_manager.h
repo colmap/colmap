@@ -16,7 +16,7 @@ struct SiftMatchingOptions;
 struct TwoViewGeometryOptions;
 struct ExhaustivePairingOptions;
 struct SequentialPairingOptions;
-struct VocabTreePairingOptions;
+struct RetrievalPairingOptions;
 struct SpatialPairingOptions;
 struct TransitivePairingOptions;
 struct ImportedPairingOptions;
@@ -70,7 +70,7 @@ class OptionManager : public BaseOptionManager {
   void AddTwoViewGeometryOptions();
   void AddExhaustivePairingOptions();
   void AddSequentialPairingOptions();
-  void AddVocabTreePairingOptions();
+  void AddRetrievalPairingOptions();
   void AddSpatialPairingOptions();
   void AddTransitivePairingOptions();
   void AddImportedPairingOptions();
@@ -104,7 +104,7 @@ class OptionManager : public BaseOptionManager {
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
   std::shared_ptr<ExhaustivePairingOptions> exhaustive_pairing;
   std::shared_ptr<SequentialPairingOptions> sequential_pairing;
-  std::shared_ptr<VocabTreePairingOptions> vocab_tree_pairing;
+  std::shared_ptr<RetrievalPairingOptions> retrieval_pairing;
   std::shared_ptr<SpatialPairingOptions> spatial_pairing;
   std::shared_ptr<TransitivePairingOptions> transitive_pairing;
   std::shared_ptr<ImportedPairingOptions> imported_pairing;
