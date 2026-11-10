@@ -7,7 +7,9 @@
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <exception>
 #include <filesystem>
+#include <fstream>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -105,6 +107,99 @@ TEST_P(ParameterizedWorkspaceTests, MaxImageSize) {
 TEST_P(ParameterizedWorkspaceTests, Load) {
   auto workspace = GetParam()(GetOptions());
   workspace->Load({image_name_});
+}
+
+TEST_P(ParameterizedWorkspaceTests, CorruptBitmapCanBeRetried) {
+  auto options = GetOptions();
+  options.num_threads = 1;
+  auto workspace = GetParam()(options);
+  const auto path = workspace->GetBitmapPath(0);
+  auto backup_path = path;
+  backup_path += ".test-backup";
+  std::filesystem::rename(path, backup_path);
+  {
+    std::ofstream invalid_file(path, std::ios::binary);
+    invalid_file << "invalid";
+    ASSERT_TRUE(invalid_file.good());
+  }
+
+  EXPECT_THAT(
+      [&] {
+        workspace->Load({image_name_});
+        workspace->GetBitmap(0);
+      },
+      testing::ThrowsMessage<std::exception>(
+          testing::HasSubstr(path.filename().string())));
+
+  std::filesystem::remove(path);
+  std::filesystem::rename(backup_path, path);
+  workspace->Load({image_name_});
+  const auto& restored = workspace->GetBitmap(0);
+  ASSERT_EQ(restored.Width(), 10);
+  ASSERT_EQ(restored.Height(), 5);
+  EXPECT_FALSE(restored.IsEmpty());
+}
+
+TEST_P(ParameterizedWorkspaceTests, CorruptDepthMapCanBeRetried) {
+  auto options = GetOptions();
+  options.num_threads = 1;
+  auto workspace = GetParam()(options);
+  const auto path = workspace->GetDepthMapPath(0);
+  auto backup_path = path;
+  backup_path += ".test-backup";
+  std::filesystem::rename(path, backup_path);
+  {
+    std::ofstream invalid_file(path, std::ios::binary);
+    invalid_file << "invalid";
+    ASSERT_TRUE(invalid_file.good());
+  }
+
+  EXPECT_THAT(
+      [&] {
+        workspace->Load({image_name_});
+        workspace->GetDepthMap(0);
+      },
+      testing::ThrowsMessage<std::exception>(
+          testing::HasSubstr(path.filename().string())));
+
+  std::filesystem::remove(path);
+  std::filesystem::rename(backup_path, path);
+  workspace->Load({image_name_});
+  const auto& restored = workspace->GetDepthMap(0);
+  ASSERT_EQ(restored.GetWidth(), 10);
+  ASSERT_EQ(restored.GetHeight(), 5);
+  EXPECT_EQ(restored.Get(0, 0), 1.0f);
+}
+
+TEST_P(ParameterizedWorkspaceTests, CorruptNormalMapCanBeRetried) {
+  auto options = GetOptions();
+  options.num_threads = 1;
+  auto workspace = GetParam()(options);
+  const auto path = workspace->GetNormalMapPath(0);
+  auto backup_path = path;
+  backup_path += ".test-backup";
+  std::filesystem::rename(path, backup_path);
+  {
+    std::ofstream invalid_file(path, std::ios::binary);
+    invalid_file << "invalid";
+    ASSERT_TRUE(invalid_file.good());
+  }
+
+  EXPECT_THAT(
+      [&] {
+        workspace->Load({image_name_});
+        workspace->GetNormalMap(0);
+      },
+      testing::ThrowsMessage<std::exception>(
+          testing::HasSubstr(path.filename().string())));
+
+  std::filesystem::remove(path);
+  std::filesystem::rename(backup_path, path);
+  workspace->Load({image_name_});
+  const auto& restored = workspace->GetNormalMap(0);
+  ASSERT_EQ(restored.GetWidth(), 10);
+  ASSERT_EQ(restored.GetHeight(), 5);
+  EXPECT_EQ(restored.Get(0, 0), 1.0f);
 }
 
 INSTANTIATE_TEST_SUITE_P(WorkspaceTests,
