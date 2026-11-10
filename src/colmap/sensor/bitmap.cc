@@ -639,8 +639,10 @@ void Bitmap::Crop(const int left,
   THROW_CHECK_GE(top, 0);
   THROW_CHECK_GT(width, 0);
   THROW_CHECK_GT(height, 0);
-  THROW_CHECK_LE(left + width, width_);
-  THROW_CHECK_LE(top + height, height_);
+  THROW_CHECK_LE(left, width_);
+  THROW_CHECK_LE(top, height_);
+  THROW_CHECK_LE(width, width_ - left);
+  THROW_CHECK_LE(height, height_ - top);
   if (left == 0 && top == 0 && width == width_ && height == height_) {
     return;
   }
