@@ -25,3 +25,8 @@ if(TESTS_ENABLED AND OPENMP_FOUND)
     target_link_libraries(colmap_thirdparty_atomic_read_test
         OpenMP::OpenMP_CXX)
 endif()
+
+if(TESTS_ENABLED AND COVERAGE_ENABLED)
+    # This sibling-directory test links instrumented COLMAP libraries.
+    target_link_options(colmap_thirdparty_atomic_read_test PRIVATE -coverage)
+endif()
