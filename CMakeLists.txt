@@ -260,6 +260,10 @@ if(TESTS_ENABLED)
     message(STATUS "Enabling tests")
     enable_testing()
     include(CTest)
+    add_test(NAME cmake/find_onnxruntime
+        COMMAND ${CMAKE_COMMAND}
+            "-DTEST_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}/cmake-tests/onnxruntime"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/tests/FindonnxruntimeTest.cmake")
 else()
     message(STATUS "Disabling tests")
 endif()
