@@ -5,6 +5,7 @@
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -17,6 +18,67 @@
 
 namespace colmap {
 namespace {
+
+TEST(ImageUndistorter, Masks) {
+  const auto test_path = CreateTestDir();
+  const auto image_path = test_path / "images";
+  const auto mask_path = test_path / "masks";
+  const auto input_path = test_path / "sparse";
+  const auto output_path = test_path / "dense";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(input_path);
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 1;
+  options.num_frames_per_rig = 1;
+  options.camera_width = 100;
+  options.camera_height = 80;
+  options.camera_params = {70, 50, 40, 0.3};
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+  reconstruction.Write(input_path);
+  const Image& image = reconstruction.Image(reconstruction.RegImageIds()[0]);
+  Bitmap bitmap(100, 80, false);
+  bitmap.Fill(BitmapColor<uint8_t>(255));
+  ASSERT_TRUE(bitmap.Write(image_path / image.Name()));
+  std::vector<std::string> args = {"image_undistorter",
+                                   "--image_path",
+                                   image_path.string(),
+                                   "--input_path",
+                                   input_path.string(),
+                                   "--output_path",
+                                   output_path.string(),
+                                   "--mask_path",
+                                   mask_path.string(),
+                                   "--max_image_size",
+                                   "24",
+                                   "--num_threads",
+                                   "1",
+                                   "--output_type",
+                                   "COLMAP"};
+  const auto run = [&]() {
+    std::vector<char*> argv;
+    for (auto& arg : args) {
+      argv.push_back(arg.data());
+    }
+    return RunImageUndistorter(argv.size(), argv.data());
+  };
+  // Missing directories and masks return an error instead of throwing.
+  EXPECT_EQ(run(), EXIT_FAILURE);
+  CreateDirIfNotExists(mask_path);
+  EXPECT_EQ(run(), EXIT_FAILURE);
+  ASSERT_TRUE(bitmap.Write(mask_path / (image.Name() + ".png")));
+  EXPECT_EQ(run(), EXIT_SUCCESS);
+  Bitmap output_mask;
+  ASSERT_TRUE(
+      output_mask.Read(output_path / "masks" / (image.Name() + ".png"), false));
+  EXPECT_EQ(output_mask.Width(), 24);
+  EXPECT_EQ(output_mask.Height(), 19);
+  args.back() = "PMVS";
+  EXPECT_EQ(run(), EXIT_FAILURE);
+  args.back() = "CMP-MVS";
+  EXPECT_EQ(run(), EXIT_FAILURE);
+}
 
 TEST(ImageRegistrator, Nominal) {
   const auto test_path = CreateTestDir();

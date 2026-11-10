@@ -130,6 +130,9 @@ COLMAPUndistorter::COLMAPUndistorter(
       reconstruction_(reconstruction),
       image_path_(image_path),
       output_path_(output_path) {
+  if (!options_.mask_path.empty()) {
+    THROW_CHECK_DIR_EXISTS(options_.mask_path);
+  }
   THROW_CHECK_GE(options_.num_patch_match_src_images, 1);
   THROW_CHECK_GE(options_.jpeg_quality, -1);
   THROW_CHECK_LE(options_.jpeg_quality, 100);
@@ -148,6 +151,10 @@ void COLMAPUndistorter::Run() {
   CreateDirIfNotExists(output_path_ / "stereo" / "normal_maps");
   CreateDirIfNotExists(output_path_ / "stereo" / "consistency_graphs");
   reconstruction_.CreateImageDirs(output_path_ / "images");
+  if (!options_.mask_path.empty()) {
+    CreateDirIfNotExists(output_path_ / "masks");
+    reconstruction_.CreateImageDirs(output_path_ / "masks");
+  }
   reconstruction_.CreateImageDirs(output_path_ / "stereo" / "depth_maps");
   reconstruction_.CreateImageDirs(output_path_ / "stereo" / "normal_maps");
   reconstruction_.CreateImageDirs(output_path_ / "stereo" /
@@ -171,19 +178,26 @@ void COLMAPUndistorter::Run() {
   std::vector<std::string> image_names;
   image_names.reserve(num_images);
   bool stopped = false;
-  for (size_t i = 0; i < futures.size(); ++i) {
-    if (CheckIfStopped()) {
-      thread_pool.Stop();
-      stopped = true;
-      break;
-    }
+  try {
+    for (size_t i = 0; i < futures.size(); ++i) {
+      if (CheckIfStopped()) {
+        thread_pool.Stop();
+        stopped = true;
+        break;
+      }
 
-    LOG(INFO) << StringPrintf(
-        "Undistorting image [%d/%d]", i + 1, futures.size());
+      LOG(INFO) << StringPrintf(
+          "Undistorting image [%d/%d]", i + 1, futures.size());
 
-    if (futures[i].get()) {
-      image_names.push_back(reconstruction_.Image(image_ids[i]).Name());
+      if (futures[i].get()) {
+        image_names.push_back(reconstruction_.Image(image_ids[i]).Name());
+      }
     }
+  } catch (...) {
+    // Drain worker exceptions before the pool is destroyed, so invalid masks
+    // propagate to the caller instead of causing a fatal shutdown.
+    thread_pool.Wait();
+    throw;
   }
   if (stopped) {
     LOG(WARNING) << "Stopped image undistortion before writing the sparse "
@@ -226,6 +240,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
                  << " with non-perspective camera model " << camera.ModelName()
                  << "; copying the original image.";
     FileCopy(input_image_path, output_image_path, options_.copy_type);
+    UndistortMask(image, camera);
     return true;
   }
 
@@ -237,6 +252,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
     LOG(INFO) << "Copying already undistorted image to location: "
               << output_image_path;
     FileCopy(input_image_path, output_image_path, options_.copy_type);
+    UndistortMask(image, camera);
     return true;
   }
 
@@ -257,7 +273,63 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   MaybeSetJpegQuality(
       output_image_path, undistorted_bitmap, options_.jpeg_quality);
 
-  return undistorted_bitmap.Write(output_image_path);
+  if (!undistorted_bitmap.Write(output_image_path)) {
+    return false;
+  }
+  UndistortMask(image, undistorted_camera);
+  return true;
+}
+
+void COLMAPUndistorter::UndistortMask(const Image& image,
+                                      const Camera& output_camera) const {
+  if (options_.mask_path.empty()) {
+    return;
+  }
+  auto input_mask_path = options_.mask_path / (image.Name() + ".png");
+  if (!ExistsFile(input_mask_path)) {
+    auto alternate_path = options_.mask_path / image.Name();
+    alternate_path.replace_extension(".png");
+    if (ExistsFile(alternate_path)) {
+      input_mask_path = std::move(alternate_path);
+    }
+  }
+  Bitmap mask;
+  THROW_CHECK(mask.Read(input_mask_path, /*as_rgb=*/false))
+      << "Cannot read mask at path: " << input_mask_path;
+  const Camera& camera = *image.CameraPtr();
+  THROW_CHECK_EQ(mask.Width(), camera.width) << input_mask_path;
+  THROW_CHECK_EQ(mask.Height(), camera.height) << input_mask_path;
+
+  Bitmap output_mask;
+  if (camera.IsSpherical()) {
+    // Spherical images are only resized, without a pinhole projection.
+    output_mask = Bitmap(output_camera.width, output_camera.height, false);
+    const double scale_x =
+        static_cast<double>(camera.width) / output_camera.width;
+    const double scale_y =
+        static_cast<double>(camera.height) / output_camera.height;
+    for (int y = 0; y < output_mask.Height(); ++y) {
+      for (int x = 0; x < output_mask.Width(); ++x) {
+        output_mask.SetPixel(
+            x,
+            y,
+            *mask.InterpolateNearestNeighbor((x + 0.5) * scale_x - 0.5,
+                                             (y + 0.5) * scale_y - 0.5));
+      }
+    }
+  } else {
+    WarpImageOptions warp_options;
+    warp_options.interpolation =
+        WarpImageOptions::Interpolation::kNearestNeighbor;
+    // Do not use the intermediate, filtered downscaling path for mask labels.
+    warp_options.direct_warp_min_scale = 0;
+    WarpImageBetweenCameras(
+        warp_options, camera, output_camera, mask, &output_mask);
+  }
+  const auto output_mask_path =
+      output_path_ / "masks" / (image.Name() + ".png");
+  THROW_CHECK(output_mask.Write(output_mask_path))
+      << "Cannot write mask at path: " << output_mask_path;
 }
 
 void COLMAPUndistorter::WritePatchMatchConfig(
