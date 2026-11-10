@@ -150,12 +150,14 @@ def test_cusift_feature_matcher_matches_a_self_pair(
 def test_cusift_feature_matcher_finds_nothing_in_empty_descriptors(
     cusift_features: CusiftFeatures,
 ) -> None:
-    _, descriptors = cusift_features
+    keypoints, descriptors = cusift_features
     empty = pycolmap.FeatureDescriptors(
         type=pycolmap.FeatureExtractorType.SIFT,
         data=np.zeros((0, 128), dtype=np.uint8),
     )
 
-    matches = create_cusift_matcher().match(None, descriptors, None, empty)
+    matches = create_cusift_matcher().match(
+        keypoints, descriptors, pycolmap.FeatureKeypoints(), empty
+    )
 
     assert matches.shape == (0, 2)
