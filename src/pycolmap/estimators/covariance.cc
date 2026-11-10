@@ -54,8 +54,10 @@ void BindCovarianceEstimator(py::module& m) {
       .def_readwrite(
           "damping",
           &BACovarianceOptions::damping,
-          "Damping factor for the Hessian in the Schur complement solver. "
-          "Enables to robustly deal with poorly conditioned parameters.")
+          "Damping for the point covariances, the elimination of "
+          "ill-conditioned points, and the Schur elimination of the other "
+          "parameters. Enables to robustly deal with poorly conditioned "
+          "parameters.")
       .def_readwrite(
           "experimental_custom_poses",
           &BACovarianceOptions::experimental_custom_poses,
@@ -122,8 +124,10 @@ void BindCovarianceEstimator(py::module& m) {
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
-      "if you modify the underlying problem with custom residuals. Returns "
-      "null if the estimation was not successful.");
+      "if you modify the underlying problem with custom residuals. If the "
+      "problem leaves the gauge free, the pose and other covariances are "
+      "returned in the minimum-trace gauge. Returns null if the estimation "
+      "was not successful.");
 
   m.def(
       "estimate_ba_covariance_from_problem",
@@ -135,6 +139,8 @@ void BindCovarianceEstimator(py::module& m) {
       "problem. It is important that the problem has a structure suitable for "
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
-      "if you modify the underlying problem with custom residuals. Returns "
-      "null if the estimation was not successful.");
+      "if you modify the underlying problem with custom residuals. If the "
+      "problem leaves the gauge free, the pose and other covariances are "
+      "returned in the minimum-trace gauge. Returns null if the estimation "
+      "was not successful.");
 }

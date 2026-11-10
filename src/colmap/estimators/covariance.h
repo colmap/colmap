@@ -73,8 +73,9 @@ struct BACovarianceOptions {
   // For which parameters to compute the covariance.
   Params params = Params::ALL;
 
-  // Damping factor for the Hessian in the Schur complement solver.
-  // Enables to robustly deal with poorly conditioned parameters.
+  // Damping for the point covariances, the elimination of ill-conditioned
+  // points, and the Schur elimination of the other parameters. Enables to
+  // robustly deal with poorly conditioned parameters.
   double damping = 1e-8;
 
   // WARNING: This option will be removed in a future release, use at your own
@@ -92,9 +93,11 @@ struct BACovarianceOptions {
 // important that the problem has a structure suitable for solving using the
 // Schur complement trick. This is the case for the standard configuration of
 // bundle adjustment problems, but be careful if you modify the underlying
-// problem with custom residuals. The problem must have a fixed gauge (e.g., via
-// BundleAdjustmentConfig::FixGauge or constant poses/points) so that the Schur
-// complement is full-rank.
+// problem with custom residuals. If the problem leaves the gauge free (up to
+// the 7 DoF of a similarity transform), the pose and other covariances are
+// returned in the minimum-trace gauge, i.e., the pseudo-inverse of the Schur
+// complement. Point covariances are conditioned on the other parameters and
+// thus independent of the gauge.
 // Returns null if the estimation was not successful.
 std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
