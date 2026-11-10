@@ -39,10 +39,12 @@ struct GemmTop2Acceptance {
     }
     // A missing runner-up is at FLT_MAX, as in the index matcher.
     constexpr float kMissing = std::numeric_limits<float>::max();
-    const float second_sq_dist = top2.second[k] == -kMissing
-                                     ? kMissing
-                                     : top2.sqNorm[k] - top2.second[k];
-    return sift.AcceptsL2(top2.sqNorm[k] - top2.best[k], second_sq_dist);
+    const float second_sq_dist =
+        top2.second[k] == -kMissing
+            ? kMissing
+            : SqDistanceFromGemmKey(top2.sqNorm[k], top2.second[k]);
+    return sift.AcceptsL2(SqDistanceFromGemmKey(top2.sqNorm[k], top2.best[k]),
+                          second_sq_dist);
   }
 };
 
@@ -168,6 +170,10 @@ bool CusiftMatchingOptions::Check() const {
   CHECK_OPTION(distance_type == CusiftDistanceType::L2 ||
                distance_type == CusiftDistanceType::ANGULAR);
   return true;
+}
+
+float SqDistanceFromGemmKey(const float sq_norm, const float key) {
+  return std::max(0.0f, sq_norm - key);
 }
 
 std::unique_ptr<FeatureMatcher> CreateCusiftFeatureMatcher(

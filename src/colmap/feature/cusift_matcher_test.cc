@@ -49,6 +49,17 @@ TEST(CusiftMatchingOptions, RejectsUnknownDistanceType) {
   EXPECT_FALSE(options.Check());
 }
 
+TEST(SqDistanceFromGemmKey, RecoversTheSquaredDistance) {
+  // |q|^2 = 25 and key = 2 q.c - |c|^2 = 9 give |q - c|^2 = 16.
+  EXPECT_EQ(SqDistanceFromGemmKey(25.0f, 9.0f), 16.0f);
+}
+
+TEST(SqDistanceFromGemmKey, ClampsRoundingBelowZeroToZero) {
+  // With reduced-precision math, near-equal descriptors could round below 0,
+  // which the ratio test's sqrt would turn into NaN.
+  EXPECT_EQ(SqDistanceFromGemmKey(262144.0f, 262144.03f), 0.0f);
+}
+
 // Options pass Check() only in a build with cusift; without it, Check() rejects
 // the cusift types before reaching cusift's own checks.
 #if defined(COLMAP_CUSIFT_ENABLED)

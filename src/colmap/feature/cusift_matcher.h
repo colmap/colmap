@@ -38,6 +38,11 @@ struct CusiftMatchingOptions {
   bool Check() const;
 };
 
+// |q - c|^2 from |q|^2 and the GEMM matcher's L2 reduction key 2 q.c - |c|^2.
+// Exact for uint8 descriptors; clamped at 0, as FAISS does, in case
+// reduced-precision math rounds it below 0.
+float SqDistanceFromGemmKey(float sq_norm, float key);
+
 // CUDA (cuBLAS SGEMM) brute-force matcher for FeatureExtractorType::SIFT
 // descriptors. By default (distance_type ANGULAR), candidates are ranked on the
 // raw inner product with COLMAP's fixed 512^2 descriptor norm, as COLMAP's
