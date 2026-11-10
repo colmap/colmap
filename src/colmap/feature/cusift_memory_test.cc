@@ -33,6 +33,7 @@
 #include <thread>
 #include <vector>
 
+#include "cudaImage.h"
 #include "cusift_device.h"
 #include <cuda_runtime.h>
 #include <gtest/gtest.h>
@@ -53,6 +54,12 @@ void RunOnFreshThread(const std::function<void()>& fn) {
 // after its extractor is destroyed.
 int64_t CusiftPoolUsedBytes() {
   return static_cast<int64_t>(cusift::GetMemoryPoolUsage().used);
+}
+
+// As CusiftPoolUsedBytes, once the stream-ordered frees queued so far have run.
+int64_t SettledPoolUsedBytes() {
+  THROW_CHECK_EQ(cudaStreamSynchronize(0), cudaSuccess);
+  return CusiftPoolUsedBytes();
 }
 
 cudaMemPool_t DefaultPool() {
@@ -297,6 +304,41 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
   EXPECT_GT(reserved_while_alive, 128 * kMiB);
   // ...and handed back to the driver once it is destroyed.
   EXPECT_LT(reserved_after, reserved_while_alive / 4);
+}
+
+// A CudaImage owns at most one buffer: allocating again frees the old one.
+TEST(CusiftCudaImage, AllocateAgainFreesTheOwnedBuffer) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  BindCusiftDevice("-1");
+  const int64_t base = SettledPoolUsedBytes();
+  CudaImage image;
+  image.Allocate(512, 512, 512);
+  const int64_t image_bytes = SettledPoolUsedBytes() - base;
+  if (image_bytes == 0) GTEST_SKIP() << "cusift fell back to the default pool";
+
+  image.Allocate(512, 512, 512);
+
+  EXPECT_EQ(SettledPoolUsedBytes() - base, image_bytes);
+}
+
+// An owning image re-bound as a view frees its buffer, and never the view's.
+TEST(CusiftCudaImage, ViewOfAnotherBufferOwnsNothing) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  BindCusiftDevice("-1");
+  const int64_t base = SettledPoolUsedBytes();
+  CudaImage owner;
+  owner.Allocate(512, 512, 512);
+  const int64_t owner_bytes = SettledPoolUsedBytes() - base;
+  if (owner_bytes == 0) GTEST_SKIP() << "cusift fell back to the default pool";
+
+  {
+    CudaImage image;
+    image.Allocate(512, 512, 512);
+    image.Allocate(512, 512, 512, owner.d_data);
+    EXPECT_EQ(SettledPoolUsedBytes() - base, owner_bytes);
+  }
+
+  EXPECT_EQ(SettledPoolUsedBytes() - base, owner_bytes);
 }
 
 // Running out of memory fails the image, as SiftGPU does, instead of throwing

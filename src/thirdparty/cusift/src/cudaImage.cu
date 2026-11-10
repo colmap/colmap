@@ -16,6 +16,13 @@ int iAlignUp(int a, int b) { return (a%b != 0) ?  (a - a%b + b) : a; }
 
 void CudaImage::Allocate(int w, int h, int p, float *devmem, float *hostmem)
 {
+  // Frees the buffer this image owns; reset first, so a throw cannot free it
+  // twice. With devmem set, the image becomes a view and owns nothing.
+  float *owned = d_internalAlloc ? d_data : NULL;
+  d_data = NULL;
+  d_internalAlloc = false;
+  if (owned!=NULL)
+    safeCall(cusiftFree(owned));
   width = w;
   height = h;
   pitch = p;

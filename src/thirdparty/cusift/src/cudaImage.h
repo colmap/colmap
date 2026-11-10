@@ -11,7 +11,8 @@
 
 // A pitched float image on the device. Owns its device buffer when Allocate
 // allocated it, otherwise it is a view of `devMem`; `h_data` is never owned.
-// Move-only, so an owning image cannot be freed twice.
+// Allocate first frees the buffer the image owns, so `devMem` must not point
+// into it. Move-only, so an owning image cannot be freed twice.
 class CudaImage {
 public:
   int width, height;
