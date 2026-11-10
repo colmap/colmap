@@ -5,6 +5,7 @@
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
+#include "colmap/feature/sift_test_utils.h"
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
@@ -12,7 +13,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <random>
 #include <string>
 
 #include <gmock/gmock.h>
@@ -20,60 +20,6 @@
 
 namespace colmap {
 namespace {
-
-#if defined(COLMAP_CUSIFT_ENABLED)
-Bitmap CreateImageWithSquare(const int size) {
-  Bitmap bitmap(size, size, false);
-  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
-  for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
-    for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
-      bitmap.SetPixel(r, c, BitmapColor<uint8_t>(255));
-    }
-  }
-  return bitmap;
-}
-
-Bitmap CreateTexturedImage(const int width, const int height) {
-  Bitmap bitmap(width, height, /*as_rgb=*/false);
-  bitmap.Fill(BitmapColor<uint8_t>(40));
-  std::mt19937 rng(42);
-  std::uniform_int_distribution<int> pos_x(0, width - 1);
-  std::uniform_int_distribution<int> pos_y(0, height - 1);
-  std::uniform_int_distribution<int> side(4, 28);
-  std::uniform_int_distribution<int> value(70, 255);
-  for (int k = 0; k < 150; ++k) {
-    const int x0 = pos_x(rng);
-    const int y0 = pos_y(rng);
-    const int s = side(rng);
-    const BitmapColor<uint8_t> color(static_cast<uint8_t>(value(rng)));
-    for (int y = y0; y < std::min(y0 + s, height); ++y) {
-      for (int x = x0; x < std::min(x0 + s, width); ++x) {
-        bitmap.SetPixel(x, y, color);
-      }
-    }
-  }
-  return bitmap;
-}
-
-void ValidateKeypoints(const FeatureKeypoints& keypoints,
-                       const Bitmap& bitmap) {
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_GE(keypoints[i].x, 0);
-    EXPECT_GE(keypoints[i].y, 0);
-    EXPECT_LE(keypoints[i].x, bitmap.Width());
-    EXPECT_LE(keypoints[i].y, bitmap.Height());
-    EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-  }
-}
-#endif  // COLMAP_CUSIFT_ENABLED
-
-FeatureExtractionOptions CreateCusiftOptions() {
-  FeatureExtractionOptions options(FeatureExtractorType::CUSIFT);
-  options.use_gpu = true;
-  return options;
-}
 
 TEST(CusiftNumOctaves, FollowsSiftGpu) {
   // SiftGPU's rule (PyramidCU::ResizePyramid): floor(log2(min side)) - 3,

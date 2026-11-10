@@ -4,6 +4,7 @@
 
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
+#include "colmap/feature/sift_test_utils.h"
 #include "colmap/feature/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/camera.h"
@@ -86,51 +87,6 @@ TEST(CusiftFeatureMatcher, RequiresGpu) {
 #endif  // COLMAP_CUSIFT_ENABLED
 
 #if defined(COLMAP_CUSIFT_ENABLED)
-
-// Helper to create empty descriptors for testing. Mirrors
-// sift_test.cc's CreateEmptyDescriptors -- duplicated rather than shared,
-// same as cusift_test.cc does not share helpers with extractor_test.cc.
-FeatureDescriptors CreateEmptyDescriptors() {
-  return FeatureDescriptors(FeatureExtractorType::SIFT,
-                            FeatureDescriptorsData(0, 128));
-}
-
-// Helper to create reversed descriptors for testing matcher symmetry. Mirrors
-// sift_test.cc's CreateReversedDescriptors.
-FeatureDescriptors CreateReversedDescriptors(const FeatureDescriptors& src) {
-  return FeatureDescriptors(src.type, src.data.colwise().reverse());
-}
-
-// Mirrors sift_test.cc's CreateRandomFeatureDescriptors: each row is a sparse
-// random unit vector (10 of 128 dims set to 1, then L2-normalized and
-// quantized), so distinct rows are near-orthogonal and cross-row matches are
-// clearly separated from a row's match with itself.
-FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
-  SetPRNGSeed(0);
-  FeatureDescriptorsFloatData descriptors_float =
-      FeatureDescriptorsFloatData::Zero(num_features, 128);
-  std::vector<int> dims(128);
-  std::iota(dims.begin(), dims.end(), 0);
-  for (size_t i = 0; i < num_features; ++i) {
-    std::shuffle(dims.begin(), dims.end(), *PRNG);
-    for (size_t j = 0; j < 10; ++j) {
-      descriptors_float(i, dims[j]) = 1.0f;
-    }
-  }
-  L2NormalizeFeatureDescriptors(&descriptors_float);
-  return FeatureDescriptors(
-      FeatureExtractorType::SIFT,
-      FeatureDescriptorsToUnsignedByte(descriptors_float));
-}
-
-// Mirrors sift_test.cc's ExpectReversedMatches.
-void ExpectReversedMatches(const FeatureMatches& matches) {
-  EXPECT_EQ(matches.size(), 2);
-  EXPECT_EQ(matches[0].point2D_idx1, 0);
-  EXPECT_EQ(matches[0].point2D_idx2, 1);
-  EXPECT_EQ(matches[1].point2D_idx1, 1);
-  EXPECT_EQ(matches[1].point2D_idx2, 0);
-}
 
 const Camera& TestCamera() {
   static const Camera camera = Camera::CreateFromModelId(
