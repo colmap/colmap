@@ -62,7 +62,9 @@ struct DetectedKeypoint {
 // extra fine octave (roughly doubles the keypoint count).
 // Without computeDescriptors, the descriptor kernel and its copies are
 // skipped and outDescriptors is left empty; the keypoints are the same.
-void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
+// The thresholds are double, as in VLFeat, and reach the refinement unrounded;
+// the coarse scan rounds 0.8 * peakThresh to float once.
+void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves, double peakThresh, double edgeThresh,
                            int maxNumOrientations, int firstOctave, int maxNumFeatures,
                            bool computeDescriptors,
                            std::vector<float> &outX, std::vector<float> &outY,

@@ -346,7 +346,7 @@ static void SortOctaveKeypoints(std::vector<DetectedKeypoint> &kps, size_t begin
 // extrema scan -> Newton refinement + edge test; then the survivors are sorted
 // on the host so their order does not depend on scheduling.
 static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct,
-                               float peakThresh, float edgeThresh, int numScales,
+                               double peakThresh, double edgeThresh, int numScales,
                                std::vector<DetectedKeypoint> &out)
 {
   const size_t outBegin = out.size();
@@ -391,7 +391,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct,
     dim3 blocks(std::max(iDivUp(w-2, 16), 1), std::max(iDivUp(h-2, 16), 1),
                 std::max(nDogLevels-2, 1));
     FindDogExtremaKernel<<<blocks, threads>>>(dogCombined.d_data, w, dp, h, nDogLevels,
-        peakThresh, d_CandX.get(), d_CandY.get(), d_CandS.get(), (int)capacity,
+        static_cast<float>(0.8 * peakThresh), d_CandX.get(), d_CandY.get(), d_CandS.get(), (int)capacity,
         d_CandCount.get());
     checkMsg("FindDogExtremaKernel() execution failed\n");
     safeCall(cudaMemcpy(&candCount, d_CandCount.get(), sizeof(unsigned int),
@@ -443,7 +443,7 @@ static void DetectOctaveVLFeat(VLFeatOctaveBuffers &oct,
 // ABSOLUTE image coordinates, orientation in RADIANS (VLFeat convention),
 // descriptor already UBC-ordered + L2/clamp/L2-normalized. No +0.5 applied --
 // that's the output/DB-boundary's job, same rule as detection.
-void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves, float peakThresh, float edgeThresh,
+void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves, double peakThresh, double edgeThresh,
                            int maxNumOrientations, int firstOctave, int maxNumFeatures,
                            bool computeDescriptors,
                            std::vector<float> &outX, std::vector<float> &outY,

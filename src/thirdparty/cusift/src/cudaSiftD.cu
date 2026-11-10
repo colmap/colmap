@@ -621,7 +621,7 @@ __global__ void ComputeDogPlaneKernel(const float *d_GaussA, const float *d_Gaus
 // candidate. Every extremum is counted, even past maxCandidates, so the
 // caller can detect an overflow and rescan.
 __global__ void FindDogExtremaKernel(const float *d_Dog, int width, int pitch, int height,
-                                     int nDogLevels, float peakThresh,
+                                     int nDogLevels, float coarseThresh,
                                      int *d_CandX, int *d_CandY, int *d_CandS,
                                      int maxCandidates, unsigned int *d_CandCount)
 {
@@ -635,7 +635,7 @@ __global__ void FindDogExtremaKernel(const float *d_Dog, int width, int pitch, i
   const size_t so = (size_t)pitch*height;
   const float *pt = d_Dog + sIdx*so + (size_t)y*pitch + x;
   float v = *pt;
-  float th = 0.8f*peakThresh;
+  const float th = coarseThresh;  // float(0.8 * peakThresh), VLFeat's threshold
 
   bool isMax = v >= th;
   bool isMin = v <= -th;
