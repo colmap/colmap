@@ -16,6 +16,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/ply.h"
 
+#include <exception>
 #include <utility>
 
 namespace colmap {
@@ -217,11 +218,16 @@ int RunPatchMatchStereo(int argc, char** argv) {
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
-  RunPatchMatchStereoImpl(workspace_path,
-                          workspace_format,
-                          pmvs_option_name,
-                          *options.patch_match_stereo,
-                          config_path);
+  try {
+    RunPatchMatchStereoImpl(workspace_path,
+                            workspace_format,
+                            pmvs_option_name,
+                            *options.patch_match_stereo,
+                            config_path);
+  } catch (const std::exception& error) {
+    LOG(ERROR) << "PatchMatch stereo failed: " << error.what();
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }
 
