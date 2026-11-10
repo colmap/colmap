@@ -75,7 +75,11 @@ off. Only `low` and `medium` therefore run identical settings for
 `CUSIFT_GEMM` computes the full descriptor similarity matrix with one cuBLAS
 SGEMM per pair, then reduces it by rows and by columns, so a single pass gives
 both directions of the cross-check. It returns the **same match set as
-COLMAP's exact CPU brute-force matcher and as SiftGPU's matcher**:
+COLMAP's exact CPU brute-force matcher** (`cpu_brute_force_matcher`) while
+fewer than `max_num_matches` matches are found (the CPU matcher has no cap),
+and follows SiftGPU's matching rules. SiftGPU's match set can still differ: it
+keeps only the first `max_num_matches` descriptors of each image, whereas
+cusift matches them all and caps the matches.
 
 - **The ratio test runs in both directions.** COLMAP's CPU matcher applies its
   one-way test to the distance matrix and to its transpose before intersecting
