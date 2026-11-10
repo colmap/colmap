@@ -24,8 +24,8 @@
 
 #include "cudaSiftD.cu"
 
-//======= VLFeat-schedule pyramid + descriptor (clean-room from          ====//
-//======= colmap/src/thirdparty/VLFeat/sift.c, BSD; not SiftGPU)          ====//
+//======= VLFeat-schedule pyramid + descriptor (follows the schedule of ====//
+//======= colmap/src/thirdparty/VLFeat/sift.c, BSD-2-Clause; no SiftGPU) ===//
 // Builds a scale-space pyramid referenced to VLFeat's own absolute-sigma
 // schedule (not CudaSift's internal blur bookkeeping), so octave/level
 // assignment follows VLFeat exactly.

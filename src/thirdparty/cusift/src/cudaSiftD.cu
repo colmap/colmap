@@ -16,8 +16,8 @@
 // Kernel configuration
 ///////////////////////////////////////////////////////////////////////////////
 
-//======= VLFeat-schedule pyramid kernels (clean-room from            =======//
-//======= colmap/src/thirdparty/VLFeat/sift.c, BSD; not SiftGPU)     =======//
+//======= VLFeat-schedule pyramid kernels (ported from               =======//
+//======= colmap/src/thirdparty/VLFeat/sift.c, BSD-2-Clause; no SiftGPU) ===//
 
 // Pure 2x decimation (no anti-alias blur) -- matches VLFeat's
 // copy_and_downsample exactly (sift.c:836-851): dst(y,x) = src(2y,2x).
@@ -328,7 +328,7 @@ __global__ void ComputeGradientPlaneKernel(const float *d_Level, int width, int 
 // peaks where h0>0.8*max && local-max, parabolic sub-bin interpolation, up
 // to 4 angles returned (VLFeat's own cap; COLMAP's max_num_orientations=2
 // cap is applied on the host afterward, matching sift.cc:250-251).
-// Clean-room from that BSD source + Lowe's papers; no SiftGPU code
+// Ported from that BSD source, with Lowe's papers; no SiftGPU code
 // referenced.
 //
 // I/O is PACKED (VLFeatKp in, VLFeatOri out, 20 B each; see cudaSift.h), with
@@ -462,8 +462,8 @@ __global__ void ComputeOrientationsVLFeat(
 // keypoint's own assigned level (VLFeatKp::level) -- not a shared per-octave
 // texture. Mirrors vl_sift_calc_keypoint_descriptor (sift.c:1923-2100):
 // magnif=3.0, NBP=4, NBO=8, window sigma=NBP/2, centered 2x2x2 trilinear
-// binning, L2->clamp(0.2)->L2 normalization. Clean-room from that BSD source
-// + Lowe's papers; no SiftGPU code referenced.
+// binning, L2->clamp(0.2)->L2 normalization. Ported from that BSD source,
+// with Lowe's papers; no SiftGPU code referenced.
 //
 // Launch with a 1D block (blockDim.y == blockDim.z == 1) whose size is a power
 // of two from 128 to 1024: threads are indexed by threadIdx.x alone, so a 2D
@@ -593,8 +593,8 @@ __global__ void ExtractSiftDescriptorsVLFeat(
   }
 }
 
-//======= Detection (clean-room from colmap/src/thirdparty/VLFeat/         =//
-//======= sift.c, BSD; not SiftGPU)                                        =//
+//======= Detection (ported from colmap/src/thirdparty/VLFeat/            =//
+//======= sift.c, BSD-2-Clause; no SiftGPU code)                           =//
 
 // DoG plane = gaussB - gaussA, matches vl_sift_detect's own DoG computation
 // (sift.c:1176-1185) exactly -- plain pointwise difference of two adjacent
