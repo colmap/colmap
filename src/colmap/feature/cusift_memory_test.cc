@@ -11,9 +11,8 @@
 // - Destroying an extractor returns the pool memory it no longer uses to the
 //   driver, so GPU stages that run after extraction can have it.
 // - An extractor's buffers, pool and constant bank are per device, so Extract
-//   runs on the device the extractor was created on, whatever the calling
-//   thread has current; likewise Match for a matcher's cuBLAS handle and
-//   buffers.
+//   runs on the device it was created on, whatever the calling thread has
+//   current; likewise Match for a matcher's cuBLAS handle and buffers.
 
 #include "colmap/feature/cusift.h"
 #include "colmap/feature/cusift_matcher.h"
@@ -84,6 +83,13 @@ int64_t FreeDeviceBytes() {
   return static_cast<int64_t>(free_bytes);
 }
 
+int64_t Median(std::vector<int64_t> values) {
+  THROW_CHECK(!values.empty());
+  const auto middle = values.begin() + values.size() / 2;
+  std::nth_element(values.begin(), middle, values.end());
+  return *middle;
+}
+
 // Runs `fn` once to warm up (CUDA context, memory pool, cuBLAS library state),
 // then kNumThreads more times, each on a fresh thread, and returns the median
 // growth of `measure_used` per thread. A leak shows up as the size of one
@@ -98,9 +104,7 @@ int64_t MedianGrowthPerThread(const std::function<void()>& fn,
     RunOnFreshThread(fn);
     growth.push_back(measure_used() - before);
   }
-  std::nth_element(
-      growth.begin(), growth.begin() + kNumThreads / 2, growth.end());
-  return growth[kNumThreads / 2];
+  return Median(growth);
 }
 
 Bitmap CreateNoiseImage(const int width, const int height) {
@@ -178,8 +182,7 @@ TEST(CusiftDevice, ExtractRunsOnTheExtractorsDevice) {
 }
 
 // As ExtractRunsOnTheExtractorsDevice, for the matcher's cuBLAS handle and
-// buffers. The matcher frees them on its own device, so it may be destroyed on
-// any thread.
+// buffers, which it frees on its own device: it may be destroyed on any thread.
 TEST(CusiftDevice, MatchRunsOnTheMatchersDevice) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   const Camera camera = Camera::CreateFromModelId(
@@ -414,27 +417,27 @@ TEST(CusiftMemory, ExtractorSkipsImageOnOtherErrors) {
   EXPECT_GT(keypoints.size(), 0u);
 }
 
-// Device memory a CUSIFT_GEMM matcher takes when created with `options`.
+// Median device memory of kNumThreads CUSIFT_GEMM matchers made with `options`,
+// robust to other processes briefly allocating on a shared GPU.
 int64_t MatcherCreationBytes(const FeatureMatchingOptions& options) {
-  int64_t used = 0;
-  RunOnFreshThread([&]() {
-    BindCusiftDevice("-1");
-    const int64_t before = FreeDeviceBytes();
-    auto matcher = THROW_CHECK_NOTNULL(FeatureMatcher::Create(options));
-    used = before - FreeDeviceBytes();
-  });
-  return used;
+  std::vector<int64_t> used;
+  for (int i = 0; i < kNumThreads; ++i) {
+    RunOnFreshThread([&]() {
+      BindCusiftDevice("-1");
+      const int64_t before = FreeDeviceBytes();
+      auto matcher = THROW_CHECK_NOTNULL(FeatureMatcher::Create(options));
+      used.push_back(before - FreeDeviceBytes());
+    });
+  }
+  return Median(used);
 }
 
-// A direct caller's matcher grows its buffers to the pairs it matches; only
-// COLMAP's matching workers, which clamp max_num_matches to the largest image,
-// ask for them upfront.
+// A direct caller's matcher grows its buffers per pair; only COLMAP's matching
+// workers, which clamp max_num_matches to the largest image, reserve upfront.
 TEST(CusiftMemory, MatcherReservesUpfrontOnlyWhenAsked) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   FeatureMatchingOptions options(FeatureMatcherType::CUSIFT_GEMM);
   options.use_gpu = true;
-  // Warm up the CUDA context.
-  MatcherCreationBytes(options);
 
   const int64_t direct = MatcherCreationBytes(options);
   options.cusift->reserve_max_num_matches = true;
