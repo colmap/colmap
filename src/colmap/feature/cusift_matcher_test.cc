@@ -280,37 +280,6 @@ TEST(CusiftFeatureMatcher, MaxDistanceFiltersCorrectly) {
   }
 }
 
-TEST(CusiftFeatureMatcher, MaxNumMatchesTruncatesByIndexOrder) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  constexpr size_t kNumFeatures = 20;
-  constexpr int kMaxNumMatches = 5;
-
-  FeatureDescriptors desc = CreateRandomFeatureDescriptors(kNumFeatures);
-  const FeatureMatcher::Image image1 = MakeImage(1, desc);
-  const FeatureMatcher::Image image2 = MakeImage(2, desc);
-
-  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
-  options.sift->cross_check = false;
-  options.sift->max_ratio = 1.0;  // every row self-matches trivially
-  options.max_num_matches = kMaxNumMatches;
-
-  auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
-  FeatureMatches matches;
-  matcher->Match(image1, image2, &matches);
-
-  // Every one of the kNumFeatures rows qualifies (self-match, distance 0),
-  // so the cap binds: survivors must be exactly the first kMaxNumMatches by
-  // ascending point2D_idx1 -- SiftMatchGPU's own cap-binds rule (see
-  // cusift_matcher.h) -- NOT a distance-sorted top-K (all distances are tied
-  // at 0 here, so a top-K would be indistinguishable from this by distance
-  // alone; the index-order assertion is what actually exercises the rule).
-  ASSERT_EQ(matches.size(), static_cast<size_t>(kMaxNumMatches));
-  for (int i = 0; i < kMaxNumMatches; ++i) {
-    EXPECT_EQ(matches[i].point2D_idx1, static_cast<point2D_t>(i));
-    EXPECT_EQ(matches[i].point2D_idx2, static_cast<point2D_t>(i));
-  }
-}
-
 // Builds a descriptor whose uint8 norm deviates from COLMAP's nominal 512, by
 // scaling a unit vector before quantizing. Uniform-norm test data hides an
 // entire class of bug: when every candidate has the same norm, ranking by raw
@@ -744,6 +713,49 @@ FeatureDescriptors ConcatRows(const FeatureDescriptors& top,
                               top.data.cols());
   data << top.data, bottom.data;
   return FeatureDescriptors(top.type, data);
+}
+
+// Zeroes the first nonzero dimension of each row. Unlike CreatePerturbedCopy,
+// this moves every row away from its source under both metrics: the angular
+// reference ranks on the raw dot product, which adding to a dimension can only
+// keep or raise.
+FeatureDescriptors CreateCopyMissingOneDimension(
+    const FeatureDescriptors& src) {
+  FeatureDescriptors copy = src;
+  for (Eigen::Index r = 0; r < copy.data.rows(); ++r) {
+    Eigen::Index dim = 0;
+    while (dim < copy.data.cols() && copy.data(r, dim) == 0) ++dim;
+    THROW_CHECK_LT(dim, copy.data.cols());
+    copy.data(r, dim) = 0;
+  }
+  return copy;
+}
+
+// Image 2 holds degraded copies of the first kMaxNumMatches rows and exact
+// copies of the rest, so the earliest rows match worst. A distance-sorted
+// top-K would keep exact copies; the index-order rule (cusift_matcher.h) keeps
+// the first rows.
+TEST(CusiftFeatureMatcher, MaxNumMatchesTruncatesByIndexOrder) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  constexpr Eigen::Index kNumFeatures = 20;
+  constexpr int kMaxNumMatches = 5;
+  const FeatureDescriptors desc = CreateRandomFeatureDescriptors(kNumFeatures);
+  const FeatureDescriptors desc2 =
+      ConcatRows(CreateCopyMissingOneDimension(HeadRows(desc, kMaxNumMatches)),
+                 TailRows(desc, kNumFeatures - kMaxNumMatches));
+  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+  options.sift->cross_check = false;
+  options.max_num_matches = kMaxNumMatches;
+  auto matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(options));
+
+  FeatureMatches matches;
+  matcher->Match(MakeImage(1, desc), MakeImage(2, desc2), &matches);
+
+  ASSERT_EQ(matches.size(), static_cast<size_t>(kMaxNumMatches));
+  for (int i = 0; i < kMaxNumMatches; ++i) {
+    EXPECT_EQ(matches[i].point2D_idx1, static_cast<point2D_t>(i));
+    EXPECT_EQ(matches[i].point2D_idx2, static_cast<point2D_t>(i));
+  }
 }
 
 // Sizes of the tiled differential fixture: both images hold the
