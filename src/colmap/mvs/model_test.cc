@@ -248,6 +248,7 @@ TEST(Model, ComputeDepthRangesAcrossPosesAndTracks) {
     model.points.push_back(point);
   }
   std::vector<std::pair<float, float>> expected;
+  expected.reserve(depths.size());
   for (const auto& image_depths : depths) {
     expected.push_back(SortedDepthRange(image_depths));
   }
