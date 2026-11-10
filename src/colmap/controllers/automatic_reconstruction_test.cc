@@ -2,6 +2,7 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
+#include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
@@ -69,6 +70,62 @@ INSTANTIATE_TEST_SUITE_P(
     ParameterizedAutomaticReconstructionTests,
     ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
                       AutomaticReconstructionController::Mapper::HIERARCHICAL));
+
+TEST(AutomaticReconstructionController, VideoDataUsesProvidedVocabTree) {
+  const auto test_dir = CreateTestDir();
+  const auto workspace_path = test_dir / "workspace";
+  const auto image_path = test_dir / "images";
+  CreateDirIfNotExists(workspace_path);
+  CreateDirIfNotExists(image_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+  SynthesizeImages(SyntheticImageOptions(), gt_reconstruction, image_path);
+
+  const auto vocab_tree_path = test_dir / "vocab_tree.bin";
+  auto visual_index = retrieval::VisualIndex::Create();
+  retrieval::VisualIndex::BuildOptions build_options;
+  build_options.num_visual_words = 5;
+  visual_index->Build(
+      build_options,
+      FeatureDescriptorsFloat(FeatureExtractorType::SIFT,
+                              FeatureDescriptorsFloatData::Random(50, 128)));
+  visual_index->Write(vocab_tree_path);
+
+#ifdef COLMAP_DOWNLOAD_ENABLED
+  // Downloading the default vocabulary tree would create this directory.
+  const auto download_cache_dir = test_dir / "download_cache";
+  OverwriteDownloadCacheDir(download_cache_dir);
+#endif
+
+  AutomaticReconstructionController::Options options;
+  options.workspace_path = workspace_path;
+  options.image_path = image_path;
+  options.vocab_tree_path = vocab_tree_path;
+  options.data_type = AutomaticReconstructionController::DataType::VIDEO;
+  options.quality = AutomaticReconstructionController::Quality::LOW;
+  options.sparse = false;
+  options.dense = false;
+  options.use_gpu = false;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  AutomaticReconstructionController controller(options, reconstruction_manager);
+  controller.Setup();
+  controller.Start();
+  controller.Wait();
+
+  EXPECT_GT(
+      Database::Open(workspace_path / "database.db")->NumMatchedImagePairs(),
+      0);
+#ifdef COLMAP_DOWNLOAD_ENABLED
+  EXPECT_FALSE(ExistsDir(download_cache_dir));
+#endif
+}
 
 }  // namespace
 }  // namespace colmap
