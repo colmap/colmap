@@ -73,12 +73,17 @@ __global__ void SqNorms(const float* __restrict__ d, int n, int dim,
 // The caller recovers the distance as ||q||^2 - key.
 //
 // Note this is exact in fp32 for COLMAP-scale descriptors: with ||d||^2 ~ 2^18
-// every intermediate stays below 2^24, so no mantissa bits are lost.
+// every intermediate stays below 2^24, so no mantissa bits are lost. This
+// assumes cuBLAS's default math mode. SGEMM then computes and accumulates in
+// FP32. A reduced-precision mode could round the keys. The differential fuzz
+// tests in cusift_matcher_test guard this. SqDistanceFromGemmKey clamps a
+// recovered distance at 0.
 //
 // CANONICAL TIE-BREAK: strictly better key, or an equal key at a LOWER index.
 // The column reduction merges in a shared-memory tree, so without this rule a
-// tie would resolve by thread layout; keys are integers in [0, 262144], so
-// exact ties do occur, and the cross-check compares column winners exactly.
+// tie would resolve by thread layout; keys are integers of magnitude at most
+// about 2^18, so exact ties do occur, and the cross-check compares column
+// winners exactly.
 __device__ __forceinline__ bool CanonicallyBetter(float v, int i, float b,
                                                   int bi) {
   return v > b || (v == b && (bi < 0 || i < bi));
