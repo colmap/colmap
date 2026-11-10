@@ -17,9 +17,14 @@
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/cuda.h"
 
+#include <condition_variable>
+#include <exception>
+#include <functional>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -122,63 +127,99 @@ TEST(CusiftDeterminism, ExtractionWithReusedExtractor) {
   }
 }
 
+// Releases its threads together, round after round (std::barrier is C++20).
+class RoundBarrier {
+ public:
+  explicit RoundBarrier(const int num_threads) : num_threads_(num_threads) {}
+
+  void ArriveAndWait() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    const int round = round_;
+    if (++num_arrived_ == num_threads_) {
+      num_arrived_ = 0;
+      ++round_;
+      released_.notify_all();
+      return;
+    }
+    released_.wait(lock, [&]() { return round_ != round; });
+  }
+
+ private:
+  const int num_threads_;
+  int num_arrived_ = 0;
+  int round_ = 0;
+  std::mutex mutex_;
+  std::condition_variable released_;
+};
+
+constexpr int kNumOverlappingRounds = 10;
+
+// Extracts `bitmap` once per round, each round released together with the
+// other threads at `barrier`. An error skips the remaining extractions but not
+// the barrier, so no other thread is left waiting; it is rethrown at the end.
+std::vector<Features> ExtractInRounds(const FeatureExtractionOptions& options,
+                                      const Bitmap& bitmap,
+                                      RoundBarrier* barrier) {
+  std::vector<Features> results;
+  std::exception_ptr error;
+  std::unique_ptr<FeatureExtractor> extractor;
+  try {
+    extractor = THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options));
+  } catch (...) {
+    error = std::current_exception();
+  }
+  for (int round = 0; round < kNumOverlappingRounds; ++round) {
+    barrier->ArriveAndWait();
+    if (error) continue;
+    try {
+      results.push_back(Extract(*extractor, bitmap));
+    } catch (...) {
+      error = std::current_exception();
+    }
+  }
+  if (error) std::rethrow_exception(error);
+  return results;
+}
+
 TEST(CusiftDeterminism, ExtractionUnaffectedByOtherThreadsOnTheSameGpu) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // The blur weights live in one constant bank per GPU. A thread on the same
-  // GPU that uses different settings (here first_octave -1 vs 0, which give
-  // different blur sigmas) must not overwrite the weights another thread's
-  // later images use. Thread A extracts, waits while thread B extracts with
-  // the other setting, then extracts the same image again.
+  // The blur weights live in one constant bank per GPU. Threads on the same
+  // GPU that use different settings (here first_octave 0 vs -1, which give
+  // different blur sigmas) must not overwrite the weights the other uses.
+  // Threads A and B extract at the same time, round after round.
   const Bitmap bitmap = CreateTexturedImage(640, 480);
   FeatureExtractionOptions options_a = CreateCusiftOptions();
   options_a.sift->first_octave = 0;
   FeatureExtractionOptions options_b = CreateCusiftOptions();
   options_b.sift->first_octave = -1;
+  const Features reference_a = Extract(
+      *THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_a)), bitmap);
+  const Features reference_b = Extract(
+      *THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_b)), bitmap);
+  ASSERT_GE(reference_a.keypoints.size(), 200);
+  ASSERT_GE(reference_b.keypoints.size(), 200);
 
-  // std::async hands a worker's exception to get(), so a failure is reported
-  // by the test instead of terminating the binary; each path below also
-  // releases the other worker, so a failure cannot leave one waiting.
-  std::promise<void> a_extracted_once;
-  std::promise<void> b_done;
-  std::future<void> a_ready = a_extracted_once.get_future();
-  std::shared_future<void> b_finished = b_done.get_future().share();
-  Features before;
-  Features after;
-  std::future<void> thread_a = std::async(std::launch::async, [&]() {
-    bool signalled = false;
-    try {
-      auto extractor =
-          THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_a));
-      before = Extract(*extractor, bitmap);
-      a_extracted_once.set_value();
-      signalled = true;
-      b_finished.wait();
-      after = Extract(*extractor, bitmap);
-    } catch (...) {
-      // Once signalled, get() on thread_a reports the error.
-      if (!signalled) {
-        a_extracted_once.set_exception(std::current_exception());
-      }
-      throw;
-    }
-  });
-  a_ready.get();
-  std::future<void> thread_b = std::async(std::launch::async, [&]() {
-    auto extractor =
-        THROW_CHECK_NOTNULL(CreateCusiftFeatureExtractor(options_b));
-    Extract(*extractor, bitmap);
-  });
-  try {
-    thread_b.get();
-  } catch (...) {
-    b_done.set_value();
-    throw;
+  RoundBarrier barrier(/*num_threads=*/2);
+  std::future<std::vector<Features>> thread_a = std::async(std::launch::async,
+                                                           ExtractInRounds,
+                                                           std::cref(options_a),
+                                                           std::cref(bitmap),
+                                                           &barrier);
+  std::future<std::vector<Features>> thread_b = std::async(std::launch::async,
+                                                           ExtractInRounds,
+                                                           std::cref(options_b),
+                                                           std::cref(bitmap),
+                                                           &barrier);
+  const std::vector<Features> results_a = thread_a.get();
+  const std::vector<Features> results_b = thread_b.get();
+  ASSERT_EQ(results_a.size(), kNumOverlappingRounds);
+  ASSERT_EQ(results_b.size(), kNumOverlappingRounds);
+
+  for (int round = 0; round < kNumOverlappingRounds; ++round) {
+    SCOPED_TRACE(round);
+    ExpectIdentical(reference_a, results_a[round]);
+    ExpectIdentical(reference_b, results_b[round]);
   }
-  b_done.set_value();
-  thread_a.get();
-
-  ASSERT_GE(before.keypoints.size(), 200);
-  ExpectIdentical(before, after);
 }
 
 class CusiftMatchingDeterminism : public ::testing::Test {
