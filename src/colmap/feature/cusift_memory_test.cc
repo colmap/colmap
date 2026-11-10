@@ -121,15 +121,6 @@ FeatureExtractionOptions CreateLargeExtractionOptions() {
   return options;
 }
 
-void ExtractOnce(const FeatureExtractionOptions& options,
-                 const Bitmap& bitmap) {
-  auto extractor = THROW_CHECK_NOTNULL(FeatureExtractor::Create(options));
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-  THROW_CHECK(extractor->Extract(bitmap, &keypoints, &descriptors));
-  THROW_CHECK_GT(keypoints.size(), 0);
-}
-
 FeatureDescriptors CreateRandomDescriptors(const int num_features) {
   SetPRNGSeed(1);
   FeatureDescriptorsData data(num_features, 128);
@@ -253,13 +244,11 @@ TEST(CusiftMemory, ExtractorThreadReleasesScratchMemory) {
 
 TEST(CusiftMemoryPool, LeavesTheDefaultPoolUntouched) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // Measure on the device the work runs on (both pick it with gpu_index -1).
-  BindCusiftDevice("-1");
   const Bitmap bitmap = CreateNoiseImage(2048, 2048);
   RunOnFreshThread([&]() {
-    // Binds this thread to the GPU, so DefaultPool() names the pool cusift
-    // would have changed.
-    ExtractOnce(CreateLargeExtractionOptions(), bitmap);
+    // Binds this thread to the GPU cusift picks with gpu_index -1, without
+    // cusift code, so the baseline is taken before any cusift work on it.
+    SetBestCudaDevice(-1);
     const cudaMemPool_t pool = DefaultPool();
     const uint64_t threshold_before =
         GetPoolAttribute(pool, cudaMemPoolAttrReleaseThreshold);
@@ -274,7 +263,9 @@ TEST(CusiftMemoryPool, LeavesTheDefaultPoolUntouched) {
     // allocates from it.
     EXPECT_EQ(GetPoolAttribute(pool, cudaMemPoolAttrReleaseThreshold),
               threshold_before);
-    EXPECT_NE(threshold_before, UINT64_MAX);
+    // Earlier tests in this process may already have created cusift's pool, so
+    // check the baseline against the driver's default release threshold.
+    EXPECT_EQ(threshold_before, 0u);
     EXPECT_EQ(GetPoolAttribute(pool, cudaMemPoolAttrUsedMemCurrent),
               used_before);
   });
@@ -434,15 +425,27 @@ TEST(CusiftMemory, MatcherThreadReleasesDeviceMemory) {
   FeatureMatchingOptions options(FeatureMatcherType::CUSIFT_GEMM);
   options.use_gpu = true;
   options.max_num_matches = kNumFeatures;
+  constexpr int64_t kLeakBound = 32 * kMiB;
 
+  // Positive control: every matcher finds matches and, while it lives, holds
+  // more device memory than the leak bound.
+  size_t min_num_matches = SIZE_MAX;
+  int64_t min_used_while_alive = INT64_MAX;
   const int64_t growth = MedianGrowthPerThread(
       [&]() {
+        SetBestCudaDevice(-1);
+        const int64_t free_before = FreeDeviceBytes();
         auto matcher = THROW_CHECK_NOTNULL(FeatureMatcher::Create(options));
         FeatureMatches matches;
         matcher->Match(image1, image2, &matches);
+        min_num_matches = std::min(min_num_matches, matches.size());
+        min_used_while_alive =
+            std::min(min_used_while_alive, free_before - FreeDeviceBytes());
       },
       []() { return -FreeDeviceBytes(); });
-  EXPECT_LT(growth, 32 * kMiB);
+  EXPECT_GT(min_num_matches, 0u);
+  EXPECT_GT(min_used_while_alive, kLeakBound);
+  EXPECT_LT(growth, kLeakBound);
 }
 
 }  // namespace
