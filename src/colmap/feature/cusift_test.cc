@@ -269,11 +269,15 @@ TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
   EXPECT_LT(max_scale(1), max_scale(-1));
 }
 
+// Side of the square image the VLFeat parity tests extract from.
+constexpr int kParityImageSize = 256;
+
 // cusift must agree with COLMAP's own CPU (VLFeat) backend, not SiftGPU, when
-// both build the same pyramid.
+// both build the same pyramid. VLFeat must find at least `min_num_keypoints`.
 void ExpectMatchesVLFeat(const FeatureExtractionOptions& cusift_options,
-                         const FeatureExtractionOptions& vlfeat_options) {
-  const Bitmap bitmap = CreateTexturedImage(256, 256);
+                         const FeatureExtractionOptions& vlfeat_options,
+                         const size_t min_num_keypoints) {
+  const Bitmap bitmap = CreateTexturedImage(kParityImageSize, kParityImageSize);
 
   FeatureKeypoints cusift_keypoints;
   FeatureDescriptors cusift_descriptors;
@@ -293,7 +297,7 @@ void ExpectMatchesVLFeat(const FeatureExtractionOptions& cusift_options,
               static_cast<double>(vlfeat_keypoints.size()),
               0.02 * vlfeat_keypoints.size() + 1);
 
-  ASSERT_GE(vlfeat_keypoints.size(), 100);
+  ASSERT_GE(vlfeat_keypoints.size(), min_num_keypoints);
 
   // Every cusift keypoint should have a VLFeat keypoint within a pixel, at the
   // same scale, with the same orientation and descriptor. Positions can carry
@@ -347,7 +351,8 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatAtVLFeatDefaults) {
   const FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
   FeatureExtractionOptions cusift_options = CreateCusiftOptions();
   cusift_options.cusift->num_octaves = vlfeat_options.sift->num_octaves;
-  ExpectMatchesVLFeat(cusift_options, vlfeat_options);
+  ExpectMatchesVLFeat(
+      cusift_options, vlfeat_options, /*min_num_keypoints=*/100);
 }
 
 TEST(CusiftFeatureExtractor, MatchesVLFeatWithAutoOctaves) {
@@ -355,9 +360,53 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatWithAutoOctaves) {
   // cusift at its default (SiftGPU's automatic octave count); VLFeat is given
   // the same count so both build the same pyramid.
   FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
+  vlfeat_options.sift->num_octaves = CusiftNumOctaves(
+      kParityImageSize, kParityImageSize, vlfeat_options.sift->first_octave);
+  ExpectMatchesVLFeat(
+      CreateCusiftOptions(), vlfeat_options, /*min_num_keypoints=*/100);
+}
+
+TEST(CusiftFeatureExtractor, MatchesVLFeatAtFirstOctaveZero) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // No upsampling: both start at the image's own resolution, with cusift's
+  // automatic octave count given to VLFeat.
+  FeatureExtractionOptions cusift_options = CreateCusiftOptions();
+  cusift_options.sift->first_octave = 0;
+  FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
+  vlfeat_options.sift->first_octave = 0;
   vlfeat_options.sift->num_octaves =
-      CusiftNumOctaves(256, 256, vlfeat_options.sift->first_octave);
-  ExpectMatchesVLFeat(CreateCusiftOptions(), vlfeat_options);
+      CusiftNumOctaves(kParityImageSize, kParityImageSize, 0);
+  ExpectMatchesVLFeat(
+      cusift_options, vlfeat_options, /*min_num_keypoints=*/100);
+}
+
+size_t NumVLFeatKeypoints(const FeatureExtractionOptions& options) {
+  FeatureKeypoints keypoints;
+  THROW_CHECK(CreateSiftFeatureExtractor(options)->Extract(
+      CreateTexturedImage(kParityImageSize, kParityImageSize),
+      &keypoints,
+      /*descriptors=*/nullptr));
+  return keypoints.size();
+}
+
+TEST(CusiftFeatureExtractor, MatchesVLFeatWithMaxNumFeatures) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // max_num_features keeps whole DOG levels, coarsest first, up to and
+  // including the level that crosses it. The cap counts keypoints before their
+  // extra orientations are added, so both keep well over 50.
+  constexpr int kMaxNumFeatures = 50;
+  FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
+  vlfeat_options.sift->num_octaves = CusiftNumOctaves(
+      kParityImageSize, kParityImageSize, vlfeat_options.sift->first_octave);
+  const size_t num_uncapped = NumVLFeatKeypoints(vlfeat_options);
+  vlfeat_options.sift->max_num_features = kMaxNumFeatures;
+  FeatureExtractionOptions cusift_options = CreateCusiftOptions();
+  cusift_options.sift->max_num_features = kMaxNumFeatures;
+
+  // The cap must bind, or this repeats MatchesVLFeatWithAutoOctaves.
+  ASSERT_LT(NumVLFeatKeypoints(vlfeat_options), num_uncapped / 2);
+  ExpectMatchesVLFeat(
+      cusift_options, vlfeat_options, /*min_num_keypoints=*/kMaxNumFeatures);
 }
 
 // An octave narrower than the 3 px extrema window holds no features. VLFeat
