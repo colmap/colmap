@@ -339,9 +339,9 @@ __global__ void ComputeGradientPlaneKernel(const float *d_Level, int width, int 
 // gives results that depend on thread scheduling and change from run to run.
 // Every contribution here is non-negative, so accumulate in 64-bit fixed
 // point (units of 2^-32) instead: integer addition gives the same total in any
-// order. Scaling by 2^32 only shifts the float exponent, so the conversion is
-// exact for any contribution >= 2^-8, and the totals stay far below the
-// 2^32 range limit.
+// order. The result is deterministic, with at most one fixed-point unit of
+// rounding per contribution; the total is rounded once more when converted
+// back to float. The totals stay far below the 2^32 range limit.
 __device__ __forceinline__ unsigned long long HistToFixed(float v)
 {
   return __float2ull_rn(v * 4294967296.0f);
