@@ -18,9 +18,6 @@ namespace colmap {
 struct CeresBundleAdjustmentOptions;
 struct CeresPosePriorBundleAdjustmentOptions;
 
-MAKE_ENUM_CLASS_OVERLOAD_STREAM(
-    BundleAdjustmentGauge, -1, UNSPECIFIED, TWO_CAMS_FROM_WORLD, THREE_POINTS);
-
 // Termination type for bundle adjustment, independent of solver backend.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(BundleAdjustmentTerminationType,
                                 0,
@@ -51,12 +48,6 @@ struct BundleAdjustmentSummary {
 class BundleAdjustmentConfig {
  public:
   BundleAdjustmentConfig() = default;
-
-  // Optionally fix the gauge of the bundle adjustment problem. By default,
-  // bundle adjustment leaves the gauge free and relies on Levenberg-Marquardt
-  // damping, while callers such as EstimateBACovariance require a fixed gauge.
-  void FixGauge(BundleAdjustmentGauge gauge);
-  BundleAdjustmentGauge FixedGauge() const;
 
   size_t NumImages() const;
 
@@ -116,7 +107,6 @@ class BundleAdjustmentConfig {
   const FlatHashSet<frame_t>& ConstantRigFromWorldPoses() const;
 
  private:
-  BundleAdjustmentGauge fixed_gauge_ = BundleAdjustmentGauge::UNSPECIFIED;
   FlatHashSet<camera_t> constant_cam_intrinsics_;
   FlatHashSet<image_t> image_ids_;
   FlatHashSet<point3D_t> variable_point3D_ids_;
