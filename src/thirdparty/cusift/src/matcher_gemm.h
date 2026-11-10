@@ -73,13 +73,13 @@ class GemmMatcher {
   // Best and second-best candidate of every descriptor of side 1 among side 2
   // (`rows`) and, when `columns` is set, of every descriptor of side 2 among
   // side 1 (`cols`). Descriptors are uint8, row-major n x 128. Clears both
-  // outputs and fills them; returns the kernel time in ms (0 when a side is
-  // empty, which launches nothing). A descriptor pointer must be non-null
-  // when its side is non-empty. Ranking follows distanceType (see above);
-  // accepting a match from the result is up to the caller.
-  float Top2(const unsigned char* h_desc1, int n1,
-             const unsigned char* h_desc2, int n2, int distanceType,
-             bool columns, GemmTop2& rows, GemmTop2& cols);
+  // outputs and fills them (their contents are unspecified if it throws); an
+  // empty side launches nothing. A descriptor pointer must be non-null when its
+  // side is non-empty. Ranking follows distanceType (see above); accepting a
+  // match from the result is up to the caller.
+  void Top2(const unsigned char* h_desc1, int n1,
+            const unsigned char* h_desc2, int n2, int distanceType,
+            bool columns, GemmTop2& rows, GemmTop2& cols);
 
  private:
   GemmMatcherContext& Context();

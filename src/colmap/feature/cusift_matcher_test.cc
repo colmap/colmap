@@ -1005,16 +1005,14 @@ TEST(GemmMatcherContract, EmptySideClearsAndReturnsNoCandidates) {
     GemmTop2 cols;
     rows.Resize(3);
     cols.Resize(3);
-    EXPECT_EQ(matcher.Top2(n1 > 0 ? descriptors.data.data() : nullptr,
-                           n1,
-                           n2 > 0 ? descriptors.data.data() : nullptr,
-                           n2,
-                           kGemmDistanceAngular,
-                           /*columns=*/true,
-                           rows,
-                           cols),
-              0.0f)
-        << "n1=" << n1 << " n2=" << n2;
+    matcher.Top2(n1 > 0 ? descriptors.data.data() : nullptr,
+                 n1,
+                 n2 > 0 ? descriptors.data.data() : nullptr,
+                 n2,
+                 kGemmDistanceAngular,
+                 /*columns=*/true,
+                 rows,
+                 cols);
     EXPECT_TRUE(rows.bestIdx.empty()) << "n1=" << n1 << " n2=" << n2;
     EXPECT_TRUE(cols.bestIdx.empty()) << "n1=" << n1 << " n2=" << n2;
   }

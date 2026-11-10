@@ -275,8 +275,8 @@ void Download(std::vector<T>& dst, const T* src, int n) {
 
 // Everything after the upload: the reductions, then the download of their
 // results.
-float ReduceUploaded(GemmMatcherContext& ctx, int n1, int n2, int distanceType,
-                     bool columns, GemmTop2& rows, GemmTop2& cols) {
+void ReduceUploaded(GemmMatcherContext& ctx, int n1, int n2, int distanceType,
+                    bool columns, GemmTop2& rows, GemmTop2& cols) {
   const bool angular_mode = (distanceType == kGemmDistanceAngular);
   const int TILE = 512;
   float *d1 = ctx.d1, *d2 = ctx.d2, *dSim = ctx.dSim;
@@ -288,17 +288,6 @@ float ReduceUploaded(GemmMatcherContext& ctx, int n1, int n2, int distanceType,
   cublasHandle_t hb = ctx.blas;
   const float one = 1.f, zero = 0.f;
 
-  // Destroys the timing events on every exit path, including a throw.
-  struct Events {
-    cudaEvent_t t0 = nullptr, t1 = nullptr;
-    ~Events() {
-      if (t0) cudaEventDestroy(t0);
-      if (t1) cudaEventDestroy(t1);
-    }
-  } ev;
-  safeCall(cudaEventCreate(&ev.t0));
-  safeCall(cudaEventCreate(&ev.t1));
-  safeCall(cudaEventRecord(ev.t0));
   InitTop2<<<(n1 + 255) / 256, 256>>>(n1, dBest, dSecond, dIdx, dIdx2);
   // Squared norms drive the distance-ranked reduction key (see RowTop2Update).
   // O(n*128) and computed once per call, negligible beside the GEMM.
@@ -329,11 +318,7 @@ float ReduceUploaded(GemmMatcherContext& ctx, int n1, int n2, int distanceType,
                            dColBest + off, dColSecond + off, dColIdx + off);
     checkMsg("RowTop2Update/ColTop2 launch failed");
   }
-  safeCall(cudaEventRecord(ev.t1));
-  safeCall(cudaEventSynchronize(ev.t1));
-  float ms = 0;
-  safeCall(cudaEventElapsedTime(&ms, ev.t0, ev.t1));
-
+  // The blocking downloads below wait for the kernels and report their errors.
   rows.Resize(n1);
   cols.Resize(columns ? n2 : 0);
   Download(rows.best, dBest, n1);
@@ -349,7 +334,6 @@ float ReduceUploaded(GemmMatcherContext& ctx, int n1, int n2, int distanceType,
 
   // Nothing is freed here: the context owns the buffers and the handle for the
   // life of the matcher. A batch of pairs settles on the largest pair.
-  return ms;
 }
 
 }  // namespace
@@ -379,13 +363,13 @@ void GemmMatcher::Reserve(int maxNumDescriptors) {
   }
 }
 
-float GemmMatcher::Top2(const unsigned char* h_desc1, int n1,
-                        const unsigned char* h_desc2, int n2, int distanceType,
-                        bool columns, GemmTop2& rows, GemmTop2& cols) {
+void GemmMatcher::Top2(const unsigned char* h_desc1, int n1,
+                       const unsigned char* h_desc2, int n2, int distanceType,
+                       bool columns, GemmTop2& rows, GemmTop2& cols) {
   rows.Clear();
   cols.Clear();
   // A side without descriptors has no candidates; a zero-sized grid would fail.
-  if (n1 <= 0 || n2 <= 0) return 0.0f;
+  if (n1 <= 0 || n2 <= 0) return;
   if (h_desc1 == nullptr || h_desc2 == nullptr) {
     throw std::invalid_argument("cusift: GemmMatcher::Top2 got a null "
                                 "descriptor pointer for a non-empty side");
@@ -399,5 +383,5 @@ float GemmMatcher::Top2(const unsigned char* h_desc1, int n1,
   WidenU8<<<256, 256>>>(ctx.d1U8, n1, 128, ctx.d1);
   WidenU8<<<256, 256>>>(ctx.d2U8, n2, 128, ctx.d2);
   checkMsg("WidenU8 launch failed");
-  return ReduceUploaded(ctx, n1, n2, distanceType, columns, rows, cols);
+  ReduceUploaded(ctx, n1, n2, distanceType, columns, rows, cols);
 }
