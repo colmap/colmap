@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
 import pytest
 
 import pycolmap
@@ -21,6 +22,15 @@ def test_sift_matching_options_check() -> None:
     result = options.check()
     assert isinstance(result, bool)
     assert result is True
+
+
+def test_cusift_matching_options_defaults() -> None:
+    # Ratio test on angles, in both directions under cross-check, as the exact
+    # CPU reference.
+    options = pycolmap.CusiftMatchingOptions()
+    assert options.cross_check_reverse_ratio is True
+    assert options.distance_type == pycolmap.CusiftDistanceType.ANGULAR
+    assert pycolmap.CusiftDistanceType("L2") == pycolmap.CusiftDistanceType.L2
 
 
 def test_cusift_matching_options() -> None:
@@ -95,12 +105,57 @@ def test_feature_matcher_create() -> None:
     assert matcher is not None
 
 
-@pytest.mark.usefixtures("requires_cusift")
-def test_cusift_feature_matcher_create() -> None:
+CusiftFeatures = tuple[pycolmap.FeatureKeypoints, pycolmap.FeatureDescriptors]
+
+
+@pytest.fixture
+def cusift_features(
+    requires_cusift: None,
+) -> CusiftFeatures:
+    extractor = pycolmap.FeatureExtractor.create(
+        options=pycolmap.FeatureExtractionOptions(
+            type=pycolmap.FeatureExtractorType.CUSIFT
+        ),
+        device=pycolmap.Device.cuda,
+    )
+    rng = np.random.default_rng(0)
+    image = rng.integers(0, 256, size=(256, 320), dtype=np.uint8)
+    return extractor.extract_from_uint8_array(image)
+
+
+def create_cusift_matcher() -> pycolmap.FeatureMatcher:
     options = pycolmap.FeatureMatchingOptions(
         type=pycolmap.FeatureMatcherType.CUSIFT_GEMM
     )
-    matcher = pycolmap.FeatureMatcher.create(
+    return pycolmap.FeatureMatcher.create(
         options=options, device=pycolmap.Device.cuda
     )
-    assert matcher is not None
+
+
+def test_cusift_feature_matcher_matches_a_self_pair(
+    cusift_features: CusiftFeatures,
+) -> None:
+    keypoints, descriptors = cusift_features
+    assert len(keypoints) > 100
+
+    matches = create_cusift_matcher().match(
+        keypoints, descriptors, keypoints, descriptors
+    )
+
+    assert matches.shape[1] == 2
+    assert len(matches) > len(keypoints) // 2
+    np.testing.assert_array_equal(matches[:, 0], matches[:, 1])
+
+
+def test_cusift_feature_matcher_finds_nothing_in_empty_descriptors(
+    cusift_features: CusiftFeatures,
+) -> None:
+    _, descriptors = cusift_features
+    empty = pycolmap.FeatureDescriptors(
+        type=pycolmap.FeatureExtractorType.SIFT,
+        data=np.zeros((0, 128), dtype=np.uint8),
+    )
+
+    matches = create_cusift_matcher().match(None, descriptors, None, empty)
+
+    assert matches.shape == (0, 2)
