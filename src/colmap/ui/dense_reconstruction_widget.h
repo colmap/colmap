@@ -12,6 +12,7 @@
 namespace colmap {
 
 class MainWindow;
+class TableWidgetButtonRows;
 
 class DenseReconstructionOptionsWidget : public QWidget {
  public:
@@ -42,7 +43,9 @@ class DenseReconstructionWidget : public QWidget {
   void LoadAndDisplayMesh(const std::filesystem::path& mesh_path);
 
   QWidget* GenerateTableButtonWidget(const std::string& image_name,
-                                     const std::string& type);
+                                     const std::string& type,
+                                     bool depth_exists,
+                                     bool normal_exists);
 
   MainWindow* main_window_;
   OptionManager* options_;
@@ -52,6 +55,7 @@ class DenseReconstructionWidget : public QWidget {
   ImageViewerWidget* image_viewer_widget_;
   QLineEdit* workspace_path_text_;
   QTableWidget* table_widget_;
+  TableWidgetButtonRows* table_button_rows_;
   QPushButton* undistortion_button_;
   QPushButton* stereo_button_;
   QPushButton* fusion_button_;
