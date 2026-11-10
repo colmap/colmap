@@ -120,12 +120,29 @@ class CusiftFeatureExtractor : public FeatureExtractor {
                                                     cusift::CurrentDevice());
   }
 
+  // Running out of GPU (or pinned host) memory fails this image only, as it
+  // does with SiftGPU: the controller skips it and goes on. Every other CUDA
+  // error propagates.
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
     THROW_CHECK_NOTNULL(keypoints);
     SetBestCudaDevice(device_);
+    try {
+      return ExtractOrThrow(bitmap, keypoints, descriptors);
+    } catch (const cusift::OutOfMemoryError& error) {
+      LOG(WARNING) << "cusift ran out of memory on a " << bitmap.Width()
+                   << " x " << bitmap.Height()
+                   << " image; skipping it: " << error.what();
+      cusift::ReleaseUnusedMemory();
+      return false;
+    }
+  }
 
+ private:
+  bool ExtractOrThrow(const Bitmap& bitmap,
+                      FeatureKeypoints* keypoints,
+                      FeatureDescriptors* descriptors) {
     std::vector<float> host_buffer;
     CudaImage image;
     UploadGreyBitmap(bitmap, &host_buffer, &image);
@@ -184,7 +201,6 @@ class CusiftFeatureExtractor : public FeatureExtractor {
     return true;
   }
 
- private:
   const FeatureExtractionOptions options_;
   const int device_;
   // Kernel I/O buffers reused across images; freed in the destructor.

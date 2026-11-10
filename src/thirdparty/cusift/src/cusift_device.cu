@@ -23,6 +23,8 @@ struct DevicePool {
 };
 
 std::atomic<bool> failPoolCreationForTesting{false};
+// Allocations left until the injected failure; 0 when none is armed.
+std::atomic<int> allocationsUntilFailure{0};
 
 DevicePool CreateDevicePool(int dev)
 {
@@ -63,6 +65,13 @@ DevicePool CurrentDevicePool()
 
 cudaMemPool_t cusiftMemPool() { return CurrentDevicePool().pool; }
 
+bool cusiftTakeInjectedAllocationFailure()
+{
+  // A plain load first: no shared write on the normal path.
+  return allocationsUntilFailure.load(std::memory_order_relaxed) > 0 &&
+         allocationsUntilFailure.fetch_sub(1) == 1;
+}
+
 namespace cusift {
 
 int CurrentDevice() { return cusiftCurrentDevice(); }
@@ -70,6 +79,8 @@ int CurrentDevice() { return cusiftCurrentDevice(); }
 void InitMemoryPool() { cusiftInitMemPool(); }
 
 void FailPoolCreationForTesting() { failPoolCreationForTesting = true; }
+
+void FailAllocationForTesting(int n) { allocationsUntilFailure = n; }
 
 void ReleaseUnusedMemory() {
   const DevicePool devicePool = CurrentDevicePool();

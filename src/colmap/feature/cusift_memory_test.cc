@@ -290,6 +290,44 @@ TEST(CusiftMemoryPool, ExtractorReturnsUnusedMemoryWhenDestroyed) {
   EXPECT_LT(reserved_after, reserved_while_alive / 4);
 }
 
+// Running out of memory fails the image, as SiftGPU does, instead of throwing
+// out of the extraction worker; the extractor then works as before. The
+// failure is injected at every pool allocation of an extraction in turn, so
+// it also hits the scratch buffers when some are already allocated.
+TEST(CusiftMemory, ExtractorSkipsImageWhenOutOfMemory) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  const Bitmap bitmap = CreateNoiseImage(256, 256);
+  FeatureExtractionOptions options(FeatureExtractorType::CUSIFT);
+  options.use_gpu = true;
+  FeatureKeypoints expected;
+  ASSERT_TRUE(THROW_CHECK_NOTNULL(FeatureExtractor::Create(options))
+                  ->Extract(bitmap, &expected, /*descriptors=*/nullptr));
+
+  int num_failed_extractions = 0;
+  for (int failing_allocation = 1;; ++failing_allocation) {
+    SCOPED_TRACE(failing_allocation);
+    ASSERT_LT(failing_allocation, 1000) << "the injected failure never ran out";
+    auto extractor = THROW_CHECK_NOTNULL(FeatureExtractor::Create(options));
+    cusift::FailAllocationForTesting(failing_allocation);
+    FeatureKeypoints keypoints;
+    if (extractor->Extract(bitmap, &keypoints, /*descriptors=*/nullptr)) {
+      // Past the last allocation: the injected failure did not fire.
+      cusift::FailAllocationForTesting(0);
+      break;
+    }
+    ++num_failed_extractions;
+    ASSERT_TRUE(
+        extractor->Extract(bitmap, &keypoints, /*descriptors=*/nullptr));
+    ASSERT_EQ(keypoints.size(), expected.size());
+    for (size_t i = 0; i < keypoints.size(); ++i) {
+      ASSERT_EQ(keypoints[i].x, expected[i].x);
+      ASSERT_EQ(keypoints[i].y, expected[i].y);
+    }
+  }
+  // Every extraction allocates at least the input image and the scratch.
+  EXPECT_GT(num_failed_extractions, 4);
+}
+
 // Device memory a CUSIFT_GEMM matcher takes when created with `options`.
 int64_t MatcherCreationBytes(const FeatureMatchingOptions& options) {
   int64_t used = 0;

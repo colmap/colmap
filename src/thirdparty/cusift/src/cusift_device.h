@@ -12,6 +12,7 @@
 #define CUSIFT_DEVICE_H
 
 #include <cstddef>
+#include <stdexcept>
 
 namespace cusift {
 
@@ -40,6 +41,18 @@ struct MemoryPoolUsage {
   std::size_t reserved = 0;
 };
 MemoryPoolUsage GetMemoryPoolUsage();
+
+// Thrown when a CUDA runtime call reports cudaErrorMemoryAllocation (device or
+// pinned host memory). Unlike other CUDA errors, it depends on the image, so a
+// caller may skip the image and go on.
+class OutOfMemoryError : public std::runtime_error {
+ public:
+  using std::runtime_error::runtime_error;
+};
+
+// Test only: the `n`-th next allocation from cusift's pool, on any thread,
+// fails as if the device were out of memory. 0 disarms it.
+void FailAllocationForTesting(int n);
 
 // Test only: devices whose pool is created after this call fall back to their
 // default pool, as on a device that cannot create one. Call it before any

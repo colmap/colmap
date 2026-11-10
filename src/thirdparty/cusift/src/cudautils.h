@@ -10,19 +10,23 @@
 #include <stdexcept>
 #include <string>
 
+#include "cusift_device.h"
+
 #define safeCall(err)       __safeCall(err, __FILE__, __LINE__)
 #define checkMsg(msg)       __checkMsg(msg, __FILE__, __LINE__)
 
 // CUDA errors are reported as exceptions, never by ending the process: COLMAP
 // propagates exceptions from worker threads to the caller (pycolmap, the GUI,
-// the CLI), which decides what to do. Out-of-memory in particular is
-// recoverable.
+// the CLI), which decides what to do. Out-of-memory is thrown as
+// cusift::OutOfMemoryError, which the extractor turns into a failed image.
 [[noreturn]] inline void __throwCudaError(const char *what, cudaError_t err,
                                           const char *file, const int line)
 {
-  throw std::runtime_error(std::string("cusift: ") + what + ": " +
-                           cudaGetErrorString(err) + " (" + file + ":" +
-                           std::to_string(line) + ")");
+  const std::string message = std::string("cusift: ") + what + ": " +
+                              cudaGetErrorString(err) + " (" + file + ":" +
+                              std::to_string(line) + ")";
+  if (err == cudaErrorMemoryAllocation) throw cusift::OutOfMemoryError(message);
+  throw std::runtime_error(message);
 }
 
 inline void __safeCall(cudaError err, const char *file, const int line)
@@ -60,11 +64,15 @@ cudaMemPool_t cusiftMemPool();
 // before any allocation.
 inline void cusiftInitMemPool() { (void)cusiftMemPool(); }
 
+// True for the allocation cusift::FailAllocationForTesting picked.
+bool cusiftTakeInjectedAllocationFailure();
+
 // Stream-ordered allocation from cusift's pool on the legacy default stream,
 // which is where the whole pipeline runs. Free with cusiftFree.
 template <typename T>
 inline cudaError_t cusiftMallocAsync(T **ptr, size_t bytes)
 {
+  if (cusiftTakeInjectedAllocationFailure()) return cudaErrorMemoryAllocation;
   return cudaMallocFromPoolAsync((void **)ptr, bytes, cusiftMemPool(), 0);
 }
 
