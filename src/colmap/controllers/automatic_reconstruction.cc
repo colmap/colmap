@@ -151,6 +151,17 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.mapper->random_seed = options_.random_seed;
 
+  if (!options_.refine_intrinsics) {
+    option_manager_.mapper->ba_refine_focal_length = false;
+    option_manager_.mapper->ba_refine_principal_point = false;
+    option_manager_.mapper->ba_refine_extra_params = false;
+    BundleAdjustmentOptions& global_ba_options =
+        option_manager_.global_mapper->mapper.bundle_adjustment;
+    global_ba_options.refine_focal_length = false;
+    global_ba_options.refine_principal_point = false;
+    global_ba_options.refine_extra_params = false;
+  }
+
 #if defined(COLMAP_MVS_ENABLED)
   if (!options_.mask_path.empty()) {
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
@@ -381,10 +392,14 @@ void AutomaticReconstructionController::RunSparseMapper() {
       break;
     }
     case Mapper::GLOBAL: {
-      ViewGraphCalibrationOptions vgc_options;
-      vgc_options.random_seed = options_.random_seed;
-      vgc_options.solver_options.num_threads = options_.num_threads;
-      CalibrateViewGraph(vgc_options, database.get());
+      // View graph calibration would estimate the focal lengths of cameras
+      // without a prior focal length.
+      if (options_.refine_intrinsics) {
+        ViewGraphCalibrationOptions vgc_options;
+        vgc_options.random_seed = options_.random_seed;
+        vgc_options.solver_options.num_threads = options_.num_threads;
+        CalibrateViewGraph(vgc_options, database.get());
+      }
       GlobalPipelineOptions global_options = *option_manager_.global_mapper;
       global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;

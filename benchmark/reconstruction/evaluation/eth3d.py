@@ -101,6 +101,7 @@ class _DatasetETH3D(Dataset):
                     has_camera_priors=True,
                     camera_priors_define_sharing=True,
                     rig_image_prefixes=rig_image_prefixes,
+                    fix_camera_priors=True,
                     colmap_extra_args=colmap_extra_args,
                 )
 
