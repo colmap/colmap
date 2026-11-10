@@ -55,11 +55,16 @@ def eth3d_undistorted_release(
         download.package_eth3d_undistorted, "CHECKSUMS_PATH", checksums_path
     )
 
-    def fake_download_file(url: str, folder: Path, name: str) -> str:
+    def fake_download_file(
+        url: str, folder: Path, name: str | None = None
+    ) -> str:
+        name = name or url.split("/")[-1]
         shutil.copy(release_path / url.split("/")[-1], folder / name)
         return name
 
     monkeypatch.setattr(download, "download_file", fake_download_file)
+    # The rig archives are tested separately.
+    monkeypatch.setattr(download, "ETH3D_UNDISTORTED_RIG_ARCHIVES", [])
     return download, release_path, filename
 
 
@@ -105,3 +110,38 @@ def test_eth3d_undistorted_rejects_corrupt_archives(
         download.download_eth3d_undistorted(data_path)
     assert not (data_path / "dslr" / f"{filename}.part").exists()
     assert not (data_path / "dslr" / "scene").exists()
+
+
+def test_eth3d_undistorted_downloads_rig_archives(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    eth3d_undistorted_release: tuple[ModuleType, Path, str],
+) -> None:
+    py7zr = pytest.importorskip("py7zr")
+    download, release_path, _ = eth3d_undistorted_release
+    with py7zr.SevenZipFile(release_path / "rig.7z", "w") as archive:
+        archive.writestr("image", "scene/images/cam/one.png")
+    monkeypatch.setattr(
+        download, "ETH3D_UNDISTORTED_RIG_ARCHIVES", [("rig.7z", "rig")]
+    )
+    data_path = tmp_path / "eth3d-undistorted"
+    download.download_eth3d_undistorted(data_path)
+    assert (data_path / "dslr/scene/images/one.jpg").read_text() == "image"
+    assert (data_path / "rig/scene/images/cam/one.png").read_text() == "image"
+
+
+def test_download_rejects_old_eth3d_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("py7zr")
+    monkeypatch.syspath_prepend(str(Path(__file__).parent))
+    import download
+
+    (tmp_path / "eth3d" / "rig").mkdir(parents=True)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["download.py", "--data_path", str(tmp_path)]
+        + ["--datasets", "eth3d-distorted"],
+    )
+    with pytest.raises(RuntimeError, match="rmdir eth3d"):
+        download.main()
