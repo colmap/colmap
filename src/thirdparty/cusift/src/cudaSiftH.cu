@@ -539,8 +539,9 @@ void ExtractSiftFullVLFeat(SiftScratch &scratch, CudaImage &img, int numOctaves,
     // Rows are VLFeatKp (20 B), reserved up front; angles stay in RADIANS.
     std::vector<VLFeatKp> &expanded = pendingRows[oi];
     std::vector<int> &expandedLevel = pendingLevel[oi];
-    expanded.reserve((size_t)n * maxNumOrientations);
-    expandedLevel.reserve((size_t)n * maxNumOrientations);
+    const int maxRowsPerKp = std::min(maxNumOrientations, kMaxVLFeatOrientations);
+    expanded.reserve((size_t)n * maxRowsPerKp);
+    expandedLevel.reserve((size_t)n * maxRowsPerKp);
     for (int i = 0; i < n; i++) {
       const VLFeatOri &op = pk.h_ori[i];
       int count = std::min(op.count, maxNumOrientations);

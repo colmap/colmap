@@ -437,8 +437,8 @@ __global__ void ComputeOrientationsVLFeat(
       for (int i = 0; i < 36; i++) maxh = fmaxf(maxh, histSmooth[i]);
 
       int nangles = 0;
-      float angles[4];
-      for (int i = 0; i < 36 && nangles < 4; i++) {
+      float angles[kMaxVLFeatOrientations];
+      for (int i = 0; i < 36 && nangles < kMaxVLFeatOrientations; i++) {
         float h0 = histSmooth[i];
         float hm = histSmooth[(i - 1 + 36) % 36];
         float hp = histSmooth[(i + 1) % 36];
@@ -448,7 +448,7 @@ __global__ void ComputeOrientationsVLFeat(
           angles[nangles++] = th;
         }
       }
-      for (int k = 0; k < 4; k++) d_out[bx].angles[k] = (nangles > k) ? angles[k] : 0.0f;
+      for (int k = 0; k < kMaxVLFeatOrientations; k++) d_out[bx].angles[k] = (nangles > k) ? angles[k] : 0.0f;
       d_out[bx].count = nangles;
     }
     __syncthreads();

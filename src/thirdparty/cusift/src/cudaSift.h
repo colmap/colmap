@@ -21,9 +21,12 @@ struct VLFeatKp {
   int level;               // gradient-plane index, = is
 };
 
-struct VLFeatOri {         // orientation-kernel output
-  float angles[4];         // radians, VLFeat convention
-  int count;               // 0..4
+// VLFeat keeps at most this many orientations per keypoint.
+constexpr int kMaxVLFeatOrientations = 4;
+
+struct VLFeatOri {                       // orientation-kernel output
+  float angles[kMaxVLFeatOrientations];  // radians, VLFeat convention
+  int count;                             // 0..kMaxVLFeatOrientations
 };
 
 struct PackedScratch;
