@@ -10,29 +10,26 @@ on device or allocator state would show up.
 
 import subprocess
 import sys
+from pathlib import Path
 
+import numpy as np
 import pytest
 
 NUM_PROCESSES = 4
 
-# Runs in a fresh interpreter. Extracts features from a fixed synthetic image
-# (many overlapping squares, so there are several hundred keypoints) and
-# prints a digest of every keypoint float and every descriptor byte, in output
-# order.
+# Runs in a fresh interpreter. Extracts features from the image saved at
+# argv[1] and prints a digest of every keypoint float and every descriptor
+# byte, in output order.
 _EXTRACT_SCRIPT = """
 import hashlib
 import struct
+import sys
 
 import numpy as np
 
 import pycolmap
 
-rng = np.random.default_rng(42)
-image = np.full((480, 640), 40, dtype=np.uint8)
-for _ in range(150):
-    x, y = int(rng.integers(0, 640)), int(rng.integers(0, 480))
-    s = int(rng.integers(4, 29))
-    image[y : y + s, x : x + s] = int(rng.integers(70, 256))
+image = np.load(sys.argv[1])
 
 options = pycolmap.FeatureExtractionOptions(
     type=pycolmap.FeatureExtractorType.CUSIFT
@@ -49,9 +46,9 @@ print(len(keypoints), digest.hexdigest())
 """
 
 
-def _run_in_fresh_process() -> str:
+def _run_in_fresh_process(image_path: Path) -> str:
     result = subprocess.run(
-        [sys.executable, "-c", _EXTRACT_SCRIPT],
+        [sys.executable, "-c", _EXTRACT_SCRIPT, str(image_path)],
         capture_output=True,
         text=True,
         check=True,
@@ -61,8 +58,12 @@ def _run_in_fresh_process() -> str:
 
 
 @pytest.mark.usefixtures("requires_cusift")
-def test_cusift_extraction_identical_across_processes() -> None:
-    outputs = [_run_in_fresh_process() for _ in range(NUM_PROCESSES)]
+def test_cusift_extraction_identical_across_processes(
+    overlapping_squares_image: np.ndarray, tmp_path: Path
+) -> None:
+    image_path = tmp_path / "image.npy"
+    np.save(image_path, overlapping_squares_image)
+    outputs = [_run_in_fresh_process(image_path) for _ in range(NUM_PROCESSES)]
     num_keypoints = int(outputs[0].split()[0])
     # Guard against a vacuous pass on an image with almost no features.
     assert num_keypoints >= 200

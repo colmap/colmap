@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 
@@ -116,6 +118,12 @@ def test_feature_extractor_create() -> None:
 # (src/colmap/feature/cusift_test.cc).
 
 
+def create_cusift_extraction_options() -> pycolmap.FeatureExtractionOptions:
+    return pycolmap.FeatureExtractionOptions(
+        type=pycolmap.FeatureExtractorType.CUSIFT
+    )
+
+
 def test_cusift_extractor_type_enum() -> None:
     assert pycolmap.FeatureExtractorType.CUSIFT is not None
     # SIFT must keep its integer identity: descriptor types are persisted in
@@ -148,6 +156,11 @@ def test_cusift_descriptors_round_trip_through_database(
     np.testing.assert_array_equal(as_float.to_bytes().data, data)
 
 
+def test_cusift_extraction_options_defaults() -> None:
+    # -1 picks SiftGPU's automatic octave count.
+    assert pycolmap.CusiftExtractionOptions().num_octaves == -1
+
+
 def test_cusift_extraction_options() -> None:
     options = pycolmap.FeatureExtractionOptions(
         type=pycolmap.FeatureExtractorType.CUSIFT
@@ -155,23 +168,63 @@ def test_cusift_extraction_options() -> None:
     assert isinstance(options.sift, pycolmap.SiftExtractionOptions)
     options.cusift.num_octaves = 4
     assert options.cusift.num_octaves == 4
-    assert isinstance(options.cusift.check(), bool)
+    assert options.cusift.check() is True
+
+
+def use_cpu(options: pycolmap.FeatureExtractionOptions) -> None:
+    options.use_gpu = False
+
+
+def set_zero_octaves(options: pycolmap.FeatureExtractionOptions) -> None:
+    options.cusift.num_octaves = 0
+
+
+def enable_affine_shape(options: pycolmap.FeatureExtractionOptions) -> None:
+    options.sift.estimate_affine_shape = True
+
+
+# requires_cusift runs these only where the default options pass check(), so
+# each rejection comes from its one change: to the device, to cusift's own
+# options, or to a SIFT option cusift does not support.
+@pytest.mark.usefixtures("requires_cusift")
+@pytest.mark.parametrize(
+    "invalidate",
+    [
+        pytest.param(use_cpu, id="cpu"),
+        pytest.param(set_zero_octaves, id="zero_octaves"),
+        pytest.param(enable_affine_shape, id="affine_shape"),
+    ],
+)
+def test_cusift_feature_extraction_options_check_rejects(
+    invalidate: Callable[[pycolmap.FeatureExtractionOptions], None],
+) -> None:
+    options = create_cusift_extraction_options()
+
+    invalidate(options)
+
+    assert options.check() is False
 
 
 @pytest.mark.usefixtures("requires_cusift")
-def test_cusift_extract_from_uint8_array() -> None:
-    options = pycolmap.FeatureExtractionOptions(
-        type=pycolmap.FeatureExtractorType.CUSIFT
-    )
+def test_cusift_extract_from_uint8_array(
+    overlapping_squares_image: np.ndarray,
+) -> None:
     extractor = pycolmap.FeatureExtractor.create(
-        options=options, device=pycolmap.Device.cuda
+        options=create_cusift_extraction_options(), device=pycolmap.Device.cuda
     )
-    rng = np.random.default_rng(0)
-    image = rng.integers(0, 256, size=(256, 320), dtype=np.uint8)
-    keypoints, descriptors = extractor.extract_from_uint8_array(image)
-    assert len(keypoints) > 0
+    height, width = overlapping_squares_image.shape
+
+    keypoints, descriptors = extractor.extract_from_uint8_array(
+        overlapping_squares_image
+    )
+
+    assert len(keypoints) >= 200
+    assert all(0 <= kp.x < width and 0 <= kp.y < height for kp in keypoints)
     assert descriptors.data.shape == (len(keypoints), 128)
     assert descriptors.data.dtype == np.uint8
+    # COLMAP scales unit descriptors by 512 before quantizing them.
+    norms = np.linalg.norm(descriptors.data.astype(np.float64), axis=1)
+    np.testing.assert_allclose(norms, 512, atol=8)
     # Descriptors are plain SIFT descriptors, so the existing SIFT matchers and
     # databases consume them unchanged.
     assert descriptors.type == pycolmap.FeatureExtractorType.SIFT
