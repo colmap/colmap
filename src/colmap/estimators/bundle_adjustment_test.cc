@@ -292,17 +292,6 @@ TEST(BundleAdjustmentConfig, IgnoredPoints) {
   EXPECT_FALSE(config.IsIgnoredPoint(2));
 }
 
-TEST(BundleAdjustmentConfig, FixGauge) {
-  BundleAdjustmentConfig config;
-  EXPECT_EQ(config.FixedGauge(), BundleAdjustmentGauge::UNSPECIFIED);
-
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-  EXPECT_EQ(config.FixedGauge(), BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-
-  config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
-  EXPECT_EQ(config.FixedGauge(), BundleAdjustmentGauge::THREE_POINTS);
-}
-
 TEST(BundleAdjustmentConfig, Images) {
   BundleAdjustmentConfig config;
   config.AddImage(5);
@@ -360,7 +349,6 @@ TEST_P(BundleAdjusterBackendTest, Nominal) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -407,7 +395,6 @@ TEST_P(BundleAdjusterBackendTest, NominalMultiCameraRigConstantSensorFromRig) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -440,7 +427,6 @@ TEST_P(BundleAdjusterBackendTest, TwoView) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -449,8 +435,10 @@ TEST_P(BundleAdjusterBackendTest, TwoView) {
   ASSERT_TRUE(summary->IsSolutionUsable());
   EXPECT_EQ(summary->num_residuals, 400);
 
-  ExpectConstantCamFromWorld(reconstruction.Image(1),
+  ExpectVariableCamFromWorld(reconstruction.Image(1),
                              orig_reconstruction.Image(1));
+  ExpectVariableCamFromWorld(reconstruction.Image(2),
+                             orig_reconstruction.Image(2));
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
     ExpectVariablePoint(point3D, orig_reconstruction.Point3D(point3D_id));
   }
@@ -557,7 +545,6 @@ TEST_P(BundleAdjusterBackendTest, MinimumTrackLength) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -594,7 +581,6 @@ TEST_P(BundleAdjusterBackendTest, MinimumTrackLengthWithExternalObservations) {
   for (const auto& [point3D_id, _] : reconstruction.Points3D()) {
     config.AddVariablePoint(point3D_id);
   }
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -630,7 +616,6 @@ TEST_P(BundleAdjusterBackendTest, ConstantPoints) {
   config.AddImage(2);
   config.AddConstantPoint(constant_point3D_id1);
   config.AddConstantPoint(constant_point3D_id2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -697,7 +682,7 @@ TEST_P(BundleAdjusterBackendTest, VariableImage) {
   config.AddImage(1);
   config.AddImage(2);
   config.AddImage(3);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
+  config.SetConstantRigFromWorldPose(1);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -708,6 +693,8 @@ TEST_P(BundleAdjusterBackendTest, VariableImage) {
 
   ExpectConstantCamFromWorld(reconstruction.Image(1),
                              orig_reconstruction.Image(1));
+  ExpectVariableCamFromWorld(reconstruction.Image(2),
+                             orig_reconstruction.Image(2));
   ExpectVariableCamFromWorld(reconstruction.Image(3),
                              orig_reconstruction.Image(3));
   for (const auto& [point3D_id, point3D] : reconstruction.Points3D()) {
@@ -731,7 +718,6 @@ TEST_P(BundleAdjusterBackendTest, ConstantFocalLengthAndExtraParams) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -769,7 +755,6 @@ TEST_P(BundleAdjusterBackendTest, VariablePrincipalPoint) {
   BundleAdjustmentConfig config;
   config.AddImage(1);
   config.AddImage(2);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
@@ -808,7 +793,6 @@ TEST_P(BundleAdjusterBackendTest, IgnorePoint) {
   config.AddImage(1);
   config.AddImage(2);
   config.IgnorePoint(42);
-  config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
   BundleAdjustmentOptions options;
   options.backend = GetParam();
