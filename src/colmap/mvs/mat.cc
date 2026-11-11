@@ -6,6 +6,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/string.h"
 
+#include <array>
+#include <cstdint>
 #include <fstream>
 #include <vector>
 
@@ -18,15 +20,32 @@ void Mat<float>::Read(const std::filesystem::path& path) {
   THROW_CHECK_FILE_OPEN(file, path);
   SetFullPrecTextStream(file);
 
-  char unused_char;
-  file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
-      unused_char;
-  THROW_CHECK_GT(width_, 0) << path;
-  THROW_CHECK_GT(height_, 0) << path;
-  THROW_CHECK_GT(depth_, 0) << path;
-  data_.resize(width_ * height_ * depth_);
+  std::array<size_t, 3> dimensions;
+  for (size_t& dimension : dimensions) {
+    file >> std::ws;
+    THROW_CHECK_NE(file.peek(), '-') << "Invalid matrix header in " << path;
+    char separator;
+    THROW_CHECK(file >> dimension >> separator)
+        << "Invalid matrix header in " << path;
+    THROW_CHECK_EQ(separator, '&') << path;
+    THROW_CHECK_GT(dimension, 0) << path;
+  }
+  const auto [width, height, depth] = dimensions;
 
+  const auto data_start = file.tellg();
+  file.seekg(0, std::ios::end);
+  const std::streamoff num_bytes = file.tellg() - data_start;
+  THROW_CHECK_GE(num_bytes, 0) << path;
+  const auto available = static_cast<std::uintmax_t>(num_bytes) / sizeof(float);
+  THROW_CHECK_LE(width, available / height / depth)
+      << "Matrix dimensions exceed the data in " << path;
+  file.seekg(data_start);
+  data_.resize(width * height * depth);
   ReadBinaryLittleEndian<float>(&file, &data_);
+  THROW_CHECK(file) << path;
+  width_ = width;
+  height_ = height;
+  depth_ = depth;
   file.close();
 }
 
