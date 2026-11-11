@@ -9,6 +9,7 @@
 #endif
 
 #include "colmap/feature/sift.h"
+#include "colmap/feature/sift_test_utils.h"
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/math/math.h"
@@ -24,56 +25,6 @@
 
 namespace colmap {
 namespace {
-
-Bitmap CreateImageWithSquare(const int size) {
-  Bitmap bitmap(size, size, false);
-  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
-  for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
-    for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
-      bitmap.SetPixel(r, c, BitmapColor<uint8_t>(255));
-    }
-  }
-  return bitmap;
-}
-
-// Helper to create empty descriptors for testing.
-FeatureDescriptors CreateEmptyDescriptors() {
-  return FeatureDescriptors(FeatureExtractorType::SIFT,
-                            FeatureDescriptorsData(0, 128));
-}
-
-// Helper to create reversed descriptors for testing matcher symmetry.
-FeatureDescriptors CreateReversedDescriptors(const FeatureDescriptors& src) {
-  return FeatureDescriptors(src.type, src.data.colwise().reverse());
-}
-
-void ValidateKeypoints(const FeatureKeypoints& keypoints,
-                       const Bitmap& bitmap) {
-  for (size_t i = 0; i < keypoints.size(); ++i) {
-    EXPECT_GE(keypoints[i].x, 0);
-    EXPECT_GE(keypoints[i].y, 0);
-    EXPECT_LE(keypoints[i].x, bitmap.Width());
-    EXPECT_LE(keypoints[i].y, bitmap.Height());
-    EXPECT_GT(keypoints[i].ComputeScale(), 0);
-    EXPECT_GT(keypoints[i].ComputeOrientation(), -M_PI);
-    EXPECT_LT(keypoints[i].ComputeOrientation(), M_PI);
-  }
-}
-
-void ValidateDescriptorNorms(const FeatureDescriptors& descriptors) {
-  EXPECT_EQ(descriptors.type, FeatureExtractorType::SIFT);
-  for (Eigen::Index i = 0; i < descriptors.data.rows(); ++i) {
-    EXPECT_LT(std::abs(descriptors.data.row(i).cast<float>().norm() - 512), 1);
-  }
-}
-
-void ExpectReversedMatches(const FeatureMatches& matches) {
-  EXPECT_EQ(matches.size(), 2);
-  EXPECT_EQ(matches[0].point2D_idx1, 0);
-  EXPECT_EQ(matches[0].point2D_idx2, 1);
-  EXPECT_EQ(matches[1].point2D_idx1, 1);
-  EXPECT_EQ(matches[1].point2D_idx2, 0);
-}
 
 void ExpectReversedInlierMatches(const TwoViewGeometry& two_view_geometry) {
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
@@ -194,24 +145,6 @@ TEST(ExtractSiftFeaturesGPU, Nominal) {
     EXPECT_GE(descriptors.data.rows(), 12);
     ValidateDescriptorNorms(descriptors);
   });
-}
-
-FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
-  SetPRNGSeed(0);
-  FeatureDescriptorsFloatData descriptors_float =
-      FeatureDescriptorsFloatData::Zero(num_features, 128);
-  std::vector<int> dims(128);
-  std::iota(dims.begin(), dims.end(), 0);
-  for (size_t i = 0; i < num_features; ++i) {
-    std::shuffle(dims.begin(), dims.end(), *PRNG);
-    for (size_t j = 0; j < 10; ++j) {
-      descriptors_float(i, dims[j]) = 1.0f;
-    }
-  }
-  L2NormalizeFeatureDescriptors(&descriptors_float);
-  return FeatureDescriptors(
-      FeatureExtractorType::SIFT,
-      FeatureDescriptorsToUnsignedByte(descriptors_float));
 }
 
 void CheckEqualMatches(const FeatureMatches& matches1,

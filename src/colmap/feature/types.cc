@@ -136,6 +136,7 @@ FeatureDescriptors FeatureDescriptors::FromFloat(
 
   switch (float_desc.type) {
     case FeatureExtractorType::SIFT:
+    case FeatureExtractorType::CUSIFT:
       // cast each float value to uint8
       result.data = float_desc.data.cast<uint8_t>();
       break;
@@ -171,6 +172,7 @@ FeatureDescriptorsFloat FeatureDescriptorsFloat::FromBytes(
 
   switch (byte_desc.type) {
     case FeatureExtractorType::SIFT:
+    case FeatureExtractorType::CUSIFT:
       // cast each uint8 value to float
       result.data = byte_desc.data.cast<float>();
       break;

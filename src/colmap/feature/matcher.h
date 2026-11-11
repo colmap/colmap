@@ -18,6 +18,7 @@ struct SiftMatchingOptions;
 struct AlikedMatchingOptions;
 struct LomaMatchingOptions;
 struct FlexGlueMatchingOptions;
+struct CusiftMatchingOptions;
 
 struct FeatureMatchingTypeOptions {
   explicit FeatureMatchingTypeOptions();
@@ -26,6 +27,7 @@ struct FeatureMatchingTypeOptions {
   std::shared_ptr<AlikedMatchingOptions> aliked;
   std::shared_ptr<LomaMatchingOptions> loma;
   std::shared_ptr<FlexGlueMatchingOptions> flexglue;
+  std::shared_ptr<CusiftMatchingOptions> cusift;
 
   FeatureMatchingTypeOptions(const FeatureMatchingTypeOptions& other);
   FeatureMatchingTypeOptions& operator=(

@@ -12,6 +12,9 @@
 
 namespace colmap {
 
+// Note that cusift produces standard SIFT descriptors and tags them
+// FeatureExtractorType::SIFT. Descriptors that carry CUSIFT as their type are
+// converted to and from float like SIFT ones.
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType,
                                 -1,
                                 UNDEFINED,
@@ -19,7 +22,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureExtractorType,
                                 ALIKED_N16ROT,
                                 ALIKED_N32,
                                 LOMA_B,
-                                LOMA_B128);
+                                LOMA_B128,
+                                CUSIFT);
 MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType,
                                 -1,
                                 UNDEFINED,
@@ -33,7 +37,8 @@ MAKE_ENUM_CLASS_OVERLOAD_STREAM(FeatureMatcherType,
                                 LOMA_R,
                                 LOMA_L,
                                 LOMA_G,
-                                FLEXGLUE);
+                                FLEXGLUE,
+                                CUSIFT_GEMM);
 
 struct FeatureKeypoint {
   FeatureKeypoint();

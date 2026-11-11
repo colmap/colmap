@@ -12,6 +12,7 @@ namespace colmap {
 struct SiftExtractionOptions;
 struct AlikedExtractionOptions;
 struct LomaExtractionOptions;
+struct CusiftExtractionOptions;
 
 struct FeatureExtractionTypeOptions {
   explicit FeatureExtractionTypeOptions();
@@ -19,6 +20,7 @@ struct FeatureExtractionTypeOptions {
   std::shared_ptr<SiftExtractionOptions> sift;
   std::shared_ptr<AlikedExtractionOptions> aliked;
   std::shared_ptr<LomaExtractionOptions> loma;
+  std::shared_ptr<CusiftExtractionOptions> cusift;
 
   FeatureExtractionTypeOptions(const FeatureExtractionTypeOptions& other);
   FeatureExtractionTypeOptions& operator=(

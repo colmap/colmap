@@ -3,6 +3,7 @@
 #include "colmap/feature/extractor.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 
@@ -19,6 +20,7 @@ TEST(FeatureExtractionOptions, Copy) {
   options.sift->max_num_features += 100;
   options.aliked->max_num_features += 100;
   options.loma->max_num_features += 100;
+  options.cusift->num_octaves = 5;
 
   FeatureExtractionOptions copy = options;
 
@@ -27,11 +29,13 @@ TEST(FeatureExtractionOptions, Copy) {
   EXPECT_EQ(copy.sift->max_num_features, options.sift->max_num_features);
   EXPECT_EQ(copy.aliked->max_num_features, options.aliked->max_num_features);
   EXPECT_EQ(copy.loma->max_num_features, options.loma->max_num_features);
+  EXPECT_EQ(copy.cusift->num_octaves, 5);
 
   // Verify deep copy of shared_ptr (different pointer instances)
   EXPECT_NE(options.sift.get(), copy.sift.get());
   EXPECT_NE(options.aliked.get(), copy.aliked.get());
   EXPECT_NE(options.loma.get(), copy.loma.get());
+  EXPECT_NE(options.cusift.get(), copy.cusift.get());
 }
 
 TEST(FeatureExtractionOptions, EffMaxImageSize) {
@@ -40,6 +44,7 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   // When max_image_size is explicitly set, use that value.
   options.max_image_size = 2000;
   for (const auto& type : {FeatureExtractorType::SIFT,
+                           FeatureExtractorType::CUSIFT,
                            FeatureExtractorType::ALIKED_N16ROT,
                            FeatureExtractorType::ALIKED_N32,
                            FeatureExtractorType::LOMA_B,
@@ -52,6 +57,8 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
   options.max_image_size = -1;
   options.type = FeatureExtractorType::SIFT;
   EXPECT_EQ(options.EffMaxImageSize(), 3200);
+  options.type = FeatureExtractorType::CUSIFT;
+  EXPECT_EQ(options.EffMaxImageSize(), 3200);
   options.type = FeatureExtractorType::ALIKED_N16ROT;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
   options.type = FeatureExtractorType::ALIKED_N32;
@@ -63,6 +70,8 @@ TEST(FeatureExtractionOptions, EffMaxImageSize) {
 
   options.max_image_size = 0;
   options.type = FeatureExtractorType::SIFT;
+  EXPECT_EQ(options.EffMaxImageSize(), 3200);
+  options.type = FeatureExtractorType::CUSIFT;
   EXPECT_EQ(options.EffMaxImageSize(), 3200);
   options.type = FeatureExtractorType::ALIKED_N16ROT;
   EXPECT_EQ(options.EffMaxImageSize(), 1600);
@@ -147,6 +156,7 @@ TEST(FeatureExtractionOptions, RequiresRGB) {
 
   const std::vector<std::pair<FeatureExtractorType, bool>> kTestCases = {
       {FeatureExtractorType::SIFT, false},
+      {FeatureExtractorType::CUSIFT, false},
       {FeatureExtractorType::ALIKED_N16ROT, true},
       {FeatureExtractorType::ALIKED_N32, true},
       {FeatureExtractorType::LOMA_B, true},

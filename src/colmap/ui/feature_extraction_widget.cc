@@ -4,6 +4,7 @@
 
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
 #include "colmap/sensor/models.h"
@@ -39,6 +40,15 @@ class SIFTExtractionWidget : public ExtractionWidget {
 
   void Run() override;
 };
+
+#ifdef COLMAP_CUSIFT_ENABLED
+class CusiftExtractionWidget : public ExtractionWidget {
+ public:
+  CusiftExtractionWidget(QWidget* parent, OptionManager* options);
+
+  void Run() override;
+};
+#endif
 
 class ImportFeaturesWidget : public ExtractionWidget {
  public:
@@ -147,6 +157,63 @@ void SIFTExtractionWidget::Run() {
   RunExtraction();
 }
 
+#ifdef COLMAP_CUSIFT_ENABLED
+CusiftExtractionWidget::CusiftExtractionWidget(QWidget* parent,
+                                               OptionManager* options)
+    : ExtractionWidget(parent, options) {
+  AddSharedOptions();
+
+  // Only the SIFT options cusift supports; the others are rejected.
+  SiftExtractionOptions& sift_options = *options->feature_extraction->sift;
+  AddOptionInt(&sift_options.max_num_features, "sift.max_num_features");
+  AddOptionInt(&sift_options.first_octave, "sift.first_octave", -1, 0);
+  AddOptionDouble(&sift_options.peak_threshold,
+                  "sift.peak_threshold",
+                  0.0,
+                  1e7,
+                  0.00001,
+                  5);
+  AddOptionDouble(&sift_options.edge_threshold, "sift.edge_threshold");
+  AddOptionInt(&sift_options.max_num_orientations, "sift.max_num_orientations");
+  AddOptionInt(&options->feature_extraction->cusift->num_octaves,
+               "cusift.num_octaves",
+               -1);
+}
+
+void CusiftExtractionWidget::Run() {
+  WriteOptions();
+  // use_gpu is shared with the other tabs; cusift has no CPU fallback.
+  if (!options_->feature_extraction->use_gpu) {
+    QMessageBox::critical(
+        this,
+        "",
+        "use_gpu: cusift has no CPU implementation. Tick use_gpu, or use the "
+        "SIFT tab for CPU extraction.");
+    return;
+  }
+  // The SIFT options are shared with the SIFT tab, which exposes options cusift
+  // rejects; report them here instead of failing in the extraction controller.
+  const std::string unsupported =
+      CusiftUnsupportedSiftOption(*options_->feature_extraction->sift);
+  if (!unsupported.empty()) {
+    QMessageBox::critical(this, "", QString::fromStdString(unsupported));
+    return;
+  }
+  // The spinbox stops at -1 but admits 0, which cusift rejects.
+  if (options_->feature_extraction->cusift->num_octaves == 0) {
+    QMessageBox::critical(
+        this,
+        "",
+        "cusift.num_octaves cannot be 0. Set it to -1 to let cusift choose "
+        "the number of octaves from the image size, or to the number of "
+        "octaves you want (1 or more).");
+    return;
+  }
+  options_->feature_extraction->type = FeatureExtractorType::CUSIFT;
+  RunExtraction();
+}
+#endif
+
 ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
@@ -248,6 +315,9 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
 
   AddTab(new SIFTExtractionWidget(this, options), "SIFT");
   AddTab(new ImportFeaturesWidget(this, options), "SIFT (Import)");
+#ifdef COLMAP_CUSIFT_ENABLED
+  AddTab(new CusiftExtractionWidget(this, options), "cusift");
+#endif
 
 #ifdef COLMAP_ONNX_ENABLED
   AddTab(new AlikedExtractionWidget(this, options), "ALIKED");
