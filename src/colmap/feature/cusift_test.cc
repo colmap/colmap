@@ -38,16 +38,16 @@ TEST(CusiftNumOctaves, FollowsSiftGpu) {
   EXPECT_EQ(CusiftNumOctaves(1, 1, -1), 1);
 }
 
-TEST(CusiftExtractionOptions, NumOctavesDefaultsToAutoAndCanBeSet) {
+TEST(CusiftExtractionOptions, NumOctavesDefaultsToVLFeatAndCanBeSet) {
   CusiftExtractionOptions options;
-  EXPECT_EQ(options.num_octaves, -1);
-  EXPECT_TRUE(options.Check());
-  // Auto: SiftGPU's rule.
-  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 1920, 1080, -1), 8);
-  // A user-defined count is used as is.
-  options.num_octaves = 4;
+  // The CPU (VLFeat) backend's count, at every image size.
+  EXPECT_EQ(options.num_octaves, SiftExtractionOptions().num_octaves);
   EXPECT_TRUE(options.Check());
   EXPECT_EQ(CusiftEffectiveNumOctaves(options, 1920, 1080, -1), 4);
+  // Auto: SiftGPU's rule.
+  options.num_octaves = -1;
+  EXPECT_TRUE(options.Check());
+  EXPECT_EQ(CusiftEffectiveNumOctaves(options, 1920, 1080, -1), 8);
   // Unless the pyramid would halve below one pixel: 64 px reaches 1 px in its
   // seventh octave (eighth with the 2x-upsampled octave -1), and a 1 px image
   // at first_octave -1 holds two (2 px and 1 px). VLFeat's later octaves are
@@ -249,6 +249,16 @@ TEST(CusiftFeatureExtractor, KeypointsOnlyMatchFullExtraction) {
   }
 }
 
+float MaxKeypointScale(FeatureExtractor& extractor, const Bitmap& bitmap) {
+  FeatureKeypoints keypoints;
+  THROW_CHECK(extractor.Extract(bitmap, &keypoints, /*descriptors=*/nullptr));
+  float scale = 0;
+  for (const FeatureKeypoint& kp : keypoints) {
+    scale = std::max(scale, kp.ComputeScale());
+  }
+  return scale;
+}
+
 TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // The square spans 64 px, so its blob responds at a large scale that only
@@ -257,14 +267,7 @@ TEST(CusiftFeatureExtractor, UserDefinedNumOctavesLimitsScale) {
   const auto max_scale = [&bitmap](int num_octaves) {
     FeatureExtractionOptions options = CreateCusiftOptions();
     options.cusift->num_octaves = num_octaves;
-    FeatureKeypoints keypoints;
-    THROW_CHECK(CreateCusiftFeatureExtractor(options)->Extract(
-        bitmap, &keypoints, /*descriptors=*/nullptr));
-    float scale = 0;
-    for (const FeatureKeypoint& kp : keypoints) {
-      scale = std::max(scale, kp.ComputeScale());
-    }
-    return scale;
+    return MaxKeypointScale(*CreateCusiftFeatureExtractor(options), bitmap);
   };
   EXPECT_LT(max_scale(1), max_scale(-1));
 }
@@ -346,36 +349,47 @@ FeatureExtractionOptions CreateVLFeatOptions() {
 
 TEST(CusiftFeatureExtractor, MatchesVLFeatAtVLFeatDefaults) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // VLFeat untouched (num_octaves 4 by default); cusift is told the same count
-  // through its override, so the comparison runs at VLFeat's own settings.
-  const FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
-  FeatureExtractionOptions cusift_options = CreateCusiftOptions();
-  cusift_options.cusift->num_octaves = vlfeat_options.sift->num_octaves;
+  // Both at their defaults, which build the same pyramid (4 octaves).
   ExpectMatchesVLFeat(
-      cusift_options, vlfeat_options, /*min_num_keypoints=*/100);
+      CreateCusiftOptions(), CreateVLFeatOptions(), /*min_num_keypoints=*/100);
+}
+
+TEST(CusiftFeatureExtractor, DefaultOctavesStopAtVLFeatsLargestScale) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  // The 64 px square's blob responds only in octaves beyond VLFeat's default
+  // four, which SiftGPU's automatic count builds. At the defaults, cusift must
+  // stop where VLFeat stops, or max_num_features (which walks levels from the
+  // coarsest) would spend its budget differently on large images.
+  const Bitmap bitmap = CreateImageWithSquare(256);
+  const float vlfeat_max_scale = MaxKeypointScale(
+      *CreateSiftFeatureExtractor(CreateVLFeatOptions()), bitmap);
+  ASSERT_GT(vlfeat_max_scale, 0);
+  EXPECT_NEAR(MaxKeypointScale(
+                  *CreateCusiftFeatureExtractor(CreateCusiftOptions()), bitmap),
+              vlfeat_max_scale,
+              0.01 * vlfeat_max_scale);
 }
 
 TEST(CusiftFeatureExtractor, MatchesVLFeatWithAutoOctaves) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // cusift at its default (SiftGPU's automatic octave count); VLFeat is given
-  // the same count so both build the same pyramid.
+  // cusift at SiftGPU's automatic octave count; VLFeat is given the same count
+  // so both build the same pyramid.
+  FeatureExtractionOptions cusift_options = CreateCusiftOptions();
+  cusift_options.cusift->num_octaves = -1;
   FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
   vlfeat_options.sift->num_octaves = CusiftNumOctaves(
       kParityImageSize, kParityImageSize, vlfeat_options.sift->first_octave);
   ExpectMatchesVLFeat(
-      CreateCusiftOptions(), vlfeat_options, /*min_num_keypoints=*/100);
+      cusift_options, vlfeat_options, /*min_num_keypoints=*/100);
 }
 
 TEST(CusiftFeatureExtractor, MatchesVLFeatAtFirstOctaveZero) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
-  // No upsampling: both start at the image's own resolution, with cusift's
-  // automatic octave count given to VLFeat.
+  // No upsampling: both start at the image's own resolution.
   FeatureExtractionOptions cusift_options = CreateCusiftOptions();
   cusift_options.sift->first_octave = 0;
   FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
   vlfeat_options.sift->first_octave = 0;
-  vlfeat_options.sift->num_octaves =
-      CusiftNumOctaves(kParityImageSize, kParityImageSize, 0);
   ExpectMatchesVLFeat(
       cusift_options, vlfeat_options, /*min_num_keypoints=*/100);
 }
@@ -393,11 +407,11 @@ TEST(CusiftFeatureExtractor, MatchesVLFeatWithMaxNumFeatures) {
   if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
   // max_num_features keeps whole DOG levels, coarsest first, up to and
   // including the level that crosses it. The cap counts keypoints before their
-  // extra orientations are added, so both keep well over 50.
+  // extra orientations are added, so both keep well over 50. Both run at their
+  // defaults; DefaultOctavesStopAtVLFeatsLargestScale checks that those build
+  // the same octaves, which this image is too fine to reveal.
   constexpr int kMaxNumFeatures = 50;
   FeatureExtractionOptions vlfeat_options = CreateVLFeatOptions();
-  vlfeat_options.sift->num_octaves = CusiftNumOctaves(
-      kParityImageSize, kParityImageSize, vlfeat_options.sift->first_octave);
   const size_t num_uncapped = NumVLFeatKeypoints(vlfeat_options);
   vlfeat_options.sift->max_num_features = kMaxNumFeatures;
   FeatureExtractionOptions cusift_options = CreateCusiftOptions();

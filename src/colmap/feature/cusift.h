@@ -10,11 +10,13 @@
 namespace colmap {
 
 struct CusiftExtractionOptions {
-  // Number of octaves. -1 picks it as COLMAP's SiftGPU backend does (see
-  // CusiftNumOctaves); a positive value builds that many, or fewer if the
-  // pyramid would halve below 1 px. SiftExtractionOptions::num_octaves, which
-  // the CPU backend uses, must stay at its default under cusift.
-  int num_octaves = -1;
+  // Number of octaves. A positive value builds that many, or fewer if the
+  // pyramid would halve below 1 px; the default is the CPU backend's
+  // (SiftExtractionOptions::num_octaves), so cusift builds VLFeat's pyramid.
+  // -1 picks it as COLMAP's SiftGPU backend does (see CusiftNumOctaves).
+  // SiftExtractionOptions::num_octaves, which the CPU backend uses, must stay
+  // at its default under cusift.
+  int num_octaves = 4;
 
   bool Check() const;
 };

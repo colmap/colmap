@@ -192,10 +192,11 @@ void BindFeatureExtraction(py::module& m) {
           .def_readwrite(
               "num_octaves",
               &CusiftExtractionOptions::num_octaves,
-              "Number of octaves to build. -1 (default) picks it like "
-              "SiftGPU: floor(log2(min image side)) - 3, after first_octave's "
-              "upsampling. A positive value builds that many, or fewer if the "
-              "pyramid would halve below 1 px.")
+              "Number of octaves to build. A positive value builds that many, "
+              "or fewer if the pyramid would halve below 1 px; the default, "
+              "4, is the CPU (VLFeat) backend's. -1 picks it like SiftGPU: "
+              "floor(log2(min image side)) - 3, after first_octave's "
+              "upsampling.")
           .def("check", &CusiftExtractionOptions::Check);
   MakeDataclass(PyCusiftExtractionOptions);
 

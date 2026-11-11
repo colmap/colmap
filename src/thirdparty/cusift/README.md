@@ -41,13 +41,12 @@ The orientation is stored in VLFeat's convention, like the CPU backend.
 SiftGPU's databases store a mirrored angle, so the two GPU backends differ
 there by design.
 
-**Octaves.** `CusiftExtraction.num_octaves` (default `-1`) picks the octave
-count the way SiftGPU does as COLMAP calls it:
-`floor(log2(min(width, height))) - first_octave - 3`. This gives 1080p and 4K
-inputs each a full pyramid, where VLFeat's fixed default (`num_octaves = 4`)
-stops short on large images. A positive value forces that many octaves; set
-it to `SiftExtraction.num_octaves` to compare cusift with VLFeat at VLFeat's
-own settings.
+**Octaves.** `CusiftExtraction.num_octaves` defaults to `4`, VLFeat's
+`SiftExtraction.num_octaves`, so cusift builds the CPU backend's pyramid. The
+count matters beyond the coarse scales: `max_num_features` walks levels from
+the coarsest, so extra octaves can push the finest level out of the budget.
+`-1` picks the count the way SiftGPU does as COLMAP calls it:
+`floor(log2(min(width, height))) - first_octave - 3`.
 
 **Feature cap.** `max_num_features` is applied the way VLFeat applies it:
 levels are kept coarse to fine, and the level that crosses the cap is kept
@@ -103,8 +102,9 @@ matcher does not.
 
 In `src/colmap/feature/` and `src/pycolmap/feature/`:
 
-- `cusift_test`: VLFeat parity on a synthetic image, with automatic octaves
-  and with VLFeat's own octave count; the octave rule; rejected options;
+- `cusift_test`: VLFeat parity on a synthetic image, at both backends'
+  defaults (also with the feature cap binding) and with automatic octaves; the
+  octave rule; rejected options;
   descriptors usable by the existing SIFT matchers.
 - `cusift_matcher_test`: agreement with COLMAP's CPU brute-force matcher,
   ratio test, cross-check and distance thresholds.

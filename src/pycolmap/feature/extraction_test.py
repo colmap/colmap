@@ -157,8 +157,11 @@ def test_cusift_descriptors_round_trip_through_database(
 
 
 def test_cusift_extraction_options_defaults() -> None:
-    # -1 picks SiftGPU's automatic octave count.
-    assert pycolmap.CusiftExtractionOptions().num_octaves == -1
+    # The CPU (VLFeat) backend's octave count.
+    assert (
+        pycolmap.CusiftExtractionOptions().num_octaves
+        == pycolmap.SiftExtractionOptions().num_octaves
+    )
 
 
 def test_cusift_extraction_options() -> None:
@@ -166,8 +169,8 @@ def test_cusift_extraction_options() -> None:
         type=pycolmap.FeatureExtractorType.CUSIFT
     )
     assert isinstance(options.sift, pycolmap.SiftExtractionOptions)
-    options.cusift.num_octaves = 4
-    assert options.cusift.num_octaves == 4
+    options.cusift.num_octaves = -1
+    assert options.cusift.num_octaves == -1
     assert options.cusift.check() is True
 
 
