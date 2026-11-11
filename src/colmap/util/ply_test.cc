@@ -8,6 +8,8 @@
 #include <array>
 #include <cstdint>
 #include <fstream>
+#include <iterator>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -20,7 +22,8 @@ namespace {
 // and triangular faces. The payload callback receives a Write function that
 // encodes one scalar in the file's endianness; it must write exactly
 // num_vertices vertices. Pass explicitly typed values (e.g. int16_t(-300))
-// so that scalars get the intended width.
+// so that scalars get the intended width. Optional face_uvs contains six
+// texture coordinates per face.
 template <typename WritePayload>
 std::filesystem::path WriteBinaryPlyMesh(
     const std::string& file_name,
@@ -28,7 +31,8 @@ std::filesystem::path WriteBinaryPlyMesh(
     size_t num_vertices,
     const std::vector<std::string>& properties,
     WritePayload&& write_payload,
-    const std::vector<std::array<int, 3>>& faces = {}) {
+    const std::vector<std::array<int, 3>>& faces = {},
+    const std::vector<float>& face_uvs = {}) {
   const auto test_file = CreateTestDir() / file_name;
   {
     std::ofstream text_file(test_file);
@@ -40,6 +44,9 @@ std::filesystem::path WriteBinaryPlyMesh(
     }
     text_file << "element face " << faces.size() << "\n";
     text_file << "property list uchar int vertex_index\n";
+    if (!face_uvs.empty()) {
+      text_file << "property list uchar float texcoord\n";
+    }
     text_file << "end_header\n";
     text_file.close();
 
@@ -53,10 +60,16 @@ std::filesystem::path WriteBinaryPlyMesh(
                         sizeof(converted));
     };
     write_payload(Write);
-    for (const auto& face : faces) {
+    for (size_t i = 0; i < faces.size(); ++i) {
       Write(uint8_t(3));
-      for (int idx : face) {
+      for (int idx : faces[i]) {
         Write(int32_t(idx));
+      }
+      if (!face_uvs.empty()) {
+        Write(uint8_t(6));
+        for (size_t j = 0; j < 6; ++j) {
+          Write(face_uvs.at(6 * i + j));
+        }
       }
     }
   }
@@ -503,12 +516,62 @@ TEST(Ply, RoundTripBinaryTexturedPlyMesh) {
 }
 
 TEST(Ply, RejectTruncatedBinaryTextureCoordinates) {
-  const auto path = CreateTestDir() / "truncated.ply";
-  for (const size_t removed : {size_t{1}, 6 * sizeof(float) + 1}) {
-    WriteBinaryPlyMesh(path, CreateTestTexturedMesh());
-    std::filesystem::resize_file(path,
-                                 std::filesystem::file_size(path) - removed);
-    EXPECT_THROW(ReadPlyMesh(path), std::invalid_argument);
+  PlyTexturedMesh original = CreateTestTexturedMesh();
+  original.texture_file.clear();
+  constexpr size_t kFaceIndexBytes = sizeof(uint8_t) + 3 * sizeof(int32_t);
+  constexpr size_t kFaceTexcoordBytes = sizeof(uint8_t) + 6 * sizeof(float);
+  constexpr size_t kFaceBytes = kFaceIndexBytes + kFaceTexcoordBytes;
+
+  for (const std::string format :
+       {"binary_little_endian", "binary_big_endian"}) {
+    SCOPED_TRACE(format);
+    const auto path = WriteBinaryPlyMesh(
+        "truncated.ply",
+        format,
+        original.mesh.vertices.size(),
+        {"float x", "float y", "float z"},
+        [&](const auto& Write) {
+          for (const auto& vertex : original.mesh.vertices) {
+            Write(vertex.x);
+            Write(vertex.y);
+            Write(vertex.z);
+          }
+        },
+        {{0, 1, 2}, {1, 3, 2}},
+        original.face_uvs);
+    VerifyTexturedMesh(ReadPlyMesh(path), original);
+
+    std::ifstream input(path, std::ios::binary);
+    const std::vector<char> bytes(std::istreambuf_iterator<char>{input}, {});
+    input.close();
+    ASSERT_GE(bytes.size(), original.mesh.faces.size() * kFaceBytes);
+
+    for (size_t face = 0; face < original.mesh.faces.size(); ++face) {
+      SCOPED_TRACE(face);
+      const size_t uv_offset =
+          bytes.size() - (original.mesh.faces.size() - face) * kFaceBytes +
+          kFaceIndexBytes;
+      // Keep zero through 24 bytes: omit the count, or truncate any UV float.
+      for (size_t length = 0; length < kFaceTexcoordBytes; ++length) {
+        SCOPED_TRACE(length);
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output.write(bytes.data(), uv_offset + length);
+        output.close();
+        ASSERT_TRUE(output.good());
+
+        const std::string expected_message =
+            (length == 0 ? "Missing texture coordinate count at face "
+                         : "Unexpected end of texture coordinates at face ") +
+            std::to_string(face);
+        try {
+          ReadPlyMesh(path);
+          FAIL() << "Expected rejection of truncated texture coordinates";
+        } catch (const std::invalid_argument& error) {
+          EXPECT_NE(std::string(error.what()).find(expected_message),
+                    std::string::npos);
+        }
+      }
+    }
   }
 }
 
