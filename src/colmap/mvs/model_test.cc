@@ -5,7 +5,13 @@
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
+#include <random>
+#include <stdexcept>
+#include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -160,6 +166,158 @@ TEST(Model, GetMaxOverlappingImages) {
   // Image 0 should have image 1 as top overlap.
   EXPECT_FALSE(overlapping[0].empty());
   EXPECT_EQ(overlapping[0][0], 1);
+}
+
+std::pair<float, float> SortedDepthRange(std::vector<float> depths) {
+  if (depths.empty()) {
+    return {-1.0f, -1.0f};
+  }
+  std::sort(depths.begin(), depths.end());
+  return {depths[static_cast<size_t>(depths.size() * 0.01f)] * 0.75f,
+          depths[static_cast<size_t>(depths.size() * 0.99f)] * 1.25f};
+}
+
+TEST(Model, ComputeDepthRangesRanksAndTies) {
+  const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
+  const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  const float T[3] = {0, 0, 0};
+  std::mt19937 rng(0);
+  for (const size_t num_points : {0, 1, 2, 99, 100, 101, 1024, 10001}) {
+    for (const bool tied : {false, true}) {
+      Model model;
+      model.images.emplace_back("img.jpg", 100, 100, K, R, T);
+      std::vector<float> depths;
+      for (size_t i = 0; i < num_points; ++i) {
+        const float depth = tied ? 7.0f : static_cast<float>(i + 1);
+        depths.push_back(depth);
+        model.points.push_back(Model::Point{0, 0, depth, {0}});
+      }
+      // These observations must not change the population used for the ranks.
+      model.points.push_back(Model::Point{0, 0, 0, {0}});
+      model.points.push_back(Model::Point{0, 0, -100, {0}});
+      const auto expected = SortedDepthRange(depths);
+      for (int permutation = 0; permutation < 3; ++permutation) {
+        SCOPED_TRACE(::testing::Message()
+                     << "num_points=" << num_points << " tied=" << tied
+                     << " permutation=" << permutation);
+        const auto ranges = model.ComputeDepthRanges();
+        ASSERT_EQ(ranges.size(), 1);
+        EXPECT_EQ(ranges[0], expected);
+        if (permutation == 0) {
+          std::reverse(model.points.begin(), model.points.end());
+        } else {
+          std::shuffle(model.points.begin(), model.points.end(), rng);
+        }
+      }
+    }
+  }
+}
+
+TEST(Model, ComputeDepthRangesAcrossPosesAndTracks) {
+  Model model;
+  const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
+  const float R0[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  const float R1[9] = {0, 0, 1, 0, 1, 0, -1, 0, 0};
+  const float R2[9] = {1, 0, 0, 0, 0, -1, 0, 1, 0};
+  const float T0[3] = {0, 0, 0};
+  const float T1[3] = {0, 0, 3};
+  const float T2[3] = {0, 0, 2};
+  model.images.emplace_back("img0.jpg", 100, 100, K, R0, T0);
+  model.images.emplace_back("img1.jpg", 100, 100, K, R1, T1);
+  model.images.emplace_back("img2.jpg", 100, 100, K, R2, T2);
+  model.images.emplace_back("unobserved.jpg", 100, 100, K, R0, T0);
+  std::vector<std::vector<float>> depths(4);
+  for (int i = 0; i < 257; ++i) {
+    Model::Point point{static_cast<float>(i % 41 - 20),
+                       static_cast<float>(i % 23 - 11),
+                       static_cast<float>(i % 31 - 15),
+                       {0}};
+    if (i % 5 != 0) {
+      point.track.push_back(1);
+    }
+    if (i % 7 != 0) {
+      point.track.push_back(2);
+    }
+    // These axis-aligned rotations give independent, exact expected depths.
+    const float camera_depths[] = {point.z, 3.0f - point.x, point.y + 2.0f};
+    for (const int image_idx : point.track) {
+      if (camera_depths[image_idx] > 0) {
+        depths[image_idx].push_back(camera_depths[image_idx]);
+      }
+    }
+    model.points.push_back(point);
+  }
+  std::vector<std::pair<float, float>> expected;
+  expected.reserve(depths.size());
+  for (const auto& image_depths : depths) {
+    expected.push_back(SortedDepthRange(image_depths));
+  }
+  EXPECT_EQ(model.ComputeDepthRanges(), expected);
+  std::reverse(model.points.begin(), model.points.end());
+  EXPECT_EQ(model.ComputeDepthRanges(), expected);
+}
+
+TEST(Model, ComputeDepthRangesMixedDepthsAndInvalidTracks) {
+  Model model;
+  const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
+  const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  const float T[3] = {0, 0, 0};
+  model.images.emplace_back("img.jpg", 100, 100, K, R, T);
+  const float infinity = std::numeric_limits<float>::infinity();
+  const float nan = std::numeric_limits<float>::quiet_NaN();
+  for (const float depth : {0.0f, -0.0f, -1.0f, -infinity, nan}) {
+    model.points.push_back(Model::Point{0, 0, depth, {0}});
+  }
+  const std::vector<std::pair<float, float>> empty_ranges = {{-1, -1}};
+  EXPECT_EQ(model.ComputeDepthRanges(), empty_ranges);
+
+  const std::vector<float> positive_depths = {
+      0.125f, 0.5f, 1.0f, 2.0f, 4.0f, 16.0f, 1e-20f, 1e30f, 1.0f};
+  std::vector<float> expected_depths;
+  for (size_t i = 0; i < 257; ++i) {
+    const float depth = positive_depths[i % positive_depths.size()];
+    Model::Point point{0, 0, depth, {0}};
+    expected_depths.push_back(depth);
+    // The owning method counts duplicate track indices as observations.
+    if (i % 7 == 0) {
+      point.track.push_back(0);
+      expected_depths.push_back(depth);
+    }
+    model.points.push_back(std::move(point));
+  }
+  for (int i = 0; i < 8; ++i) {
+    model.points.push_back(Model::Point{0, 0, infinity, {0}});
+    expected_depths.push_back(infinity);
+  }
+  const std::vector<std::pair<float, float>> expected = {
+      SortedDepthRange(expected_depths)};
+  EXPECT_EQ(model.ComputeDepthRanges(), expected);
+  std::reverse(model.points.begin(), model.points.end());
+  EXPECT_EQ(model.ComputeDepthRanges(), expected);
+
+  // A repeated nearest observation changes the 1% rank from depth 2 to 1.
+  model.points.clear();
+  expected_depths.clear();
+  for (int depth = 1; depth <= 100; ++depth) {
+    Model::Point point{0, 0, static_cast<float>(depth), {0}};
+    expected_depths.push_back(point.z);
+    if (depth == 1) {
+      point.track.push_back(0);
+      expected_depths.push_back(point.z);
+    }
+    model.points.push_back(std::move(point));
+  }
+  const std::vector<std::pair<float, float>> weighted_expected = {
+      SortedDepthRange(expected_depths)};
+  ASSERT_EQ(weighted_expected[0].first, 0.75f);
+  EXPECT_EQ(model.ComputeDepthRanges(), weighted_expected);
+
+  // Lookup still rejects invalid indices before excluding negative depths.
+  for (const int image_idx : {-1, 1}) {
+    model.points.push_back(Model::Point{0, 0, -1, {image_idx}});
+    EXPECT_THROW(model.ComputeDepthRanges(), std::out_of_range);
+    model.points.pop_back();
+  }
 }
 
 }  // namespace

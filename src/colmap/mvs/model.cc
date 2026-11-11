@@ -175,12 +175,20 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
       continue;
     }
 
-    std::sort(image_depths.begin(), image_depths.end());
-
     constexpr float kMinPercentile = 0.01f;
     constexpr float kMaxPercentile = 0.99f;
-    depth_range.first = image_depths[image_depths.size() * kMinPercentile];
-    depth_range.second = image_depths[image_depths.size() * kMaxPercentile];
+    const auto min_it =
+        image_depths.begin() +
+        static_cast<size_t>(image_depths.size() * kMinPercentile);
+    const auto max_it =
+        image_depths.begin() +
+        static_cast<size_t>(image_depths.size() * kMaxPercentile);
+    std::nth_element(image_depths.begin(), max_it, image_depths.end());
+    depth_range.second = *max_it;
+    // The lower partition contains the minimum rank without disturbing the
+    // maximum rank. For a singleton, both iterators equal begin().
+    std::nth_element(image_depths.begin(), min_it, max_it);
+    depth_range.first = *min_it;
 
     constexpr float kStretchRatio = 0.25f;
     depth_range.first *= (1.0f - kStretchRatio);
