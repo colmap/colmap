@@ -6,6 +6,7 @@
 #include "colmap/util/file.h"
 #include "colmap/util/string.h"
 
+#include <array>
 #include <cstdint>
 #include <fstream>
 #include <vector>
@@ -19,14 +20,17 @@ void Mat<float>::Read(const std::filesystem::path& path) {
   THROW_CHECK_FILE_OPEN(file, path);
   SetFullPrecTextStream(file);
 
-  size_t width, height, depth;
-  char sep1, sep2, sep3;
-  THROW_CHECK(file >> width >> sep1 >> height >> sep2 >> depth >> sep3)
-      << "Invalid matrix header in " << path;
-  THROW_CHECK(sep1 == '&' && sep2 == '&' && sep3 == '&') << path;
-  THROW_CHECK_GT(width, 0) << path;
-  THROW_CHECK_GT(height, 0) << path;
-  THROW_CHECK_GT(depth, 0) << path;
+  std::array<size_t, 3> dimensions;
+  for (size_t& dimension : dimensions) {
+    file >> std::ws;
+    THROW_CHECK_NE(file.peek(), '-') << "Invalid matrix header in " << path;
+    char separator;
+    THROW_CHECK(file >> dimension >> separator)
+        << "Invalid matrix header in " << path;
+    THROW_CHECK_EQ(separator, '&') << path;
+    THROW_CHECK_GT(dimension, 0) << path;
+  }
+  const auto [width, height, depth] = dimensions;
 
   const auto data_start = file.tellg();
   file.seekg(0, std::ios::end);
