@@ -74,31 +74,25 @@ void CamFromImgRow(const Camera& camera,
                    uint8_t* valid,
                    Eigen::Vector2d* cam_points) {
   const double* params = camera.params.data();
-  switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::model_id:                                            \
-    if (img_points == nullptr) {                                         \
-      for (int x = 0; x < width; ++x) {                                  \
-        valid[x] = CameraModel::CamFromImg(                              \
-            params, x + 0.5, y, &cam_points[x].x(), &cam_points[x].y()); \
-      }                                                                  \
-    } else {                                                             \
-      for (int x = 0; x < width; ++x) {                                  \
-        if (valid[x]) {                                                  \
-          valid[x] = CameraModel::CamFromImg(params,                     \
-                                             img_points[x].x(),          \
-                                             img_points[x].y(),          \
-                                             &cam_points[x].x(),         \
-                                             &cam_points[x].y());        \
-        }                                                                \
-      }                                                                  \
-    }                                                                    \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-  }
+  VisitCameraModelOrThrow(camera.model_id, [&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    if (img_points == nullptr) {
+      for (int x = 0; x < width; ++x) {
+        valid[x] = CameraModel::CamFromImg(
+            params, x + 0.5, y, &cam_points[x].x(), &cam_points[x].y());
+      }
+    } else {
+      for (int x = 0; x < width; ++x) {
+        if (valid[x]) {
+          valid[x] = CameraModel::CamFromImg(params,
+                                             img_points[x].x(),
+                                             img_points[x].y(),
+                                             &cam_points[x].x(),
+                                             &cam_points[x].y());
+        }
+      }
+    }
+  });
 }
 
 // Project normalized camera coordinates (u, v, 1) along a scanline to image
@@ -109,25 +103,19 @@ void ImgFromCamRow(const Camera& camera,
                    uint8_t* valid,
                    Eigen::Vector2d* img_points) {
   const double* params = camera.params.data();
-  switch (camera.model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                          \
-  case CameraModel::model_id:                                   \
-    for (int x = 0; x < width; ++x) {                           \
-      if (valid[x]) {                                           \
-        valid[x] = CameraModel::ImgFromCam(params,              \
-                                           cam_points[x].x(),   \
-                                           cam_points[x].y(),   \
-                                           1.0,                 \
-                                           &img_points[x].x(),  \
-                                           &img_points[x].y()); \
-      }                                                         \
-    }                                                           \
-    break;
-
-    CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
-  }
+  VisitCameraModelOrThrow(camera.model_id, [&](auto tag) {
+    using CameraModel = typename decltype(tag)::type;
+    for (int x = 0; x < width; ++x) {
+      if (valid[x]) {
+        valid[x] = CameraModel::ImgFromCam(params,
+                                           cam_points[x].x(),
+                                           cam_points[x].y(),
+                                           1.0,
+                                           &img_points[x].x(),
+                                           &img_points[x].y());
+      }
+    }
+  });
 }
 
 template <WarpImageOptions::Interpolation interpolation>
