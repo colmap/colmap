@@ -449,6 +449,22 @@ TEST(Camera, Rescale) {
   EXPECT_EQ(camera.FocalLengthY(), 2);
   EXPECT_EQ(camera.PrincipalPointX(), 2);
   EXPECT_EQ(camera.PrincipalPointY(), 2);
+
+  // A positive scale keeps thin camera axes nonempty and intrinsics valid.
+  for (const bool portrait : {false, true}) {
+    camera = Camera::CreateFromModelId(1,
+                                       CameraModelId::kPinhole,
+                                       100,
+                                       portrait ? 1 : 100,
+                                       portrait ? 100 : 1);
+    camera.Rescale(0.1);
+    EXPECT_EQ(camera.width, portrait ? 1 : 10);
+    EXPECT_EQ(camera.height, portrait ? 10 : 1);
+    EXPECT_EQ(camera.FocalLengthX(), portrait ? 100 : 10);
+    EXPECT_EQ(camera.FocalLengthY(), portrait ? 10 : 100);
+    EXPECT_EQ(camera.PrincipalPointX(), portrait ? 0.5 : 5);
+    EXPECT_EQ(camera.PrincipalPointY(), portrait ? 5 : 0.5);
+  }
 }
 
 TEST(Camera, Spherical) {
