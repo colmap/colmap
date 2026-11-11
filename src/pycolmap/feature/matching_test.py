@@ -25,12 +25,15 @@ def test_sift_matching_options_check() -> None:
 
 
 def test_cusift_matching_options_defaults() -> None:
-    # Ratio test on angles, in both directions under cross-check, as the exact
-    # CPU reference.
+    # Ratio test on L2 distances, in both directions under cross-check, as the
+    # default CPU matcher.
     options = pycolmap.CusiftMatchingOptions()
     assert options.cross_check_reverse_ratio is True
-    assert options.distance_type == pycolmap.CusiftDistanceType.ANGULAR
-    assert pycolmap.CusiftDistanceType("L2") == pycolmap.CusiftDistanceType.L2
+    assert options.distance_type == pycolmap.CusiftDistanceType.L2
+    assert (
+        pycolmap.CusiftDistanceType("ANGULAR")
+        == pycolmap.CusiftDistanceType.ANGULAR
+    )
 
 
 def test_cusift_matching_options() -> None:
@@ -38,9 +41,9 @@ def test_cusift_matching_options() -> None:
         type=pycolmap.FeatureMatcherType.CUSIFT_GEMM
     )
     options.cusift.cross_check_reverse_ratio = False
-    options.cusift.distance_type = pycolmap.CusiftDistanceType.L2
+    options.cusift.distance_type = pycolmap.CusiftDistanceType.ANGULAR
     assert options.cusift.cross_check_reverse_ratio is False
-    assert options.cusift.distance_type == pycolmap.CusiftDistanceType.L2
+    assert options.cusift.distance_type == pycolmap.CusiftDistanceType.ANGULAR
     assert isinstance(options.cusift.check(), bool)
 
 

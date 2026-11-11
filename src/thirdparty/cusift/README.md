@@ -73,17 +73,20 @@ off. Only `low` and `medium` therefore run identical settings for
 
 `CUSIFT_GEMM` computes the full descriptor similarity matrix with one cuBLAS
 SGEMM per pair, then reduces it by rows and by columns, so a single pass gives
-both directions of the cross-check. It returns the **same match set as
-COLMAP's exact CPU brute-force matcher** (`cpu_brute_force_matcher`) while
-fewer than `max_num_matches` matches are found (the CPU matcher has no cap),
-and follows SiftGPU's matching rules. SiftGPU's match set can still differ: it
+both directions of the cross-check. By default (`distance_type L2`) it applies
+the ratio test of COLMAP's default CPU matcher (`FindBestMatchesIndex`), with
+exact search where the CPU matcher's faiss index is approximate. With
+`distance_type ANGULAR` it returns the **same match set as COLMAP's exact CPU
+brute-force matcher** (`cpu_brute_force_matcher`) while fewer than
+`max_num_matches` matches are found (the CPU matcher has no cap), and follows
+SiftGPU's matching rules. SiftGPU's match set can still differ: it
 keeps only the first `max_num_matches` descriptors of each image, whereas
 cusift matches them all and caps the matches.
 
 - **The ratio test runs in both directions.** COLMAP's CPU matcher applies its
   one-way test to the distance matrix and to its transpose before intersecting
   (`sift.cc`, `FindBestMatchesBruteForce`), and SiftGPU does the same.
-- **Under the default ANGULAR distance, candidates are ranked on the raw inner
+- **Under ANGULAR, candidates are ranked on the raw inner
   product and converted with a fixed 512^2.** `FindBestMatchesOneWayBruteForce` thresholds `acos(dot / 512^2)`, as
   SiftGPU does; normalising each descriptor instead would re-rank near-ties.
 
@@ -106,8 +109,10 @@ In `src/colmap/feature/` and `src/pycolmap/feature/`:
   defaults (also with the feature cap binding) and with automatic octaves; the
   octave rule; rejected options;
   descriptors usable by the existing SIFT matchers.
-- `cusift_matcher_test`: agreement with COLMAP's CPU brute-force matcher,
-  ratio test, cross-check and distance thresholds.
+- `cusift_matcher_test`: agreement with COLMAP's CPU brute-force matcher
+  (ANGULAR) and, at the defaults, with its default index matcher below the
+  512 descriptors where that index turns approximate; ratio test,
+  cross-check and distance thresholds.
 - `cusift_determinism_test`: identical extraction and matching output across
   fresh and reused extractors and matchers.
 - `cusift_memory_test`: device memory is released when extractors, matchers

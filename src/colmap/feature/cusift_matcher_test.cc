@@ -2,17 +2,20 @@
 
 #include "colmap/feature/cusift_matcher.h"
 
+#include "colmap/feature/index.h"
 #include "colmap/feature/matcher.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/sift_test_utils.h"
 #include "colmap/feature/utils.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/camera.h"
+#include "colmap/util/cache.h"
 #include "colmap/util/cuda.h"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <numeric>
 #include <set>
 #include <stdexcept>
@@ -35,11 +38,11 @@ FeatureMatchingOptions CreateCusiftMatchingOptions() {
   return options;
 }
 
-TEST(CusiftMatchingOptions, DefaultsMatchTheExactReference) {
-  // Bidirectional ratio test on angles, as FindBestMatchesOneWayBruteForce.
+TEST(CusiftMatchingOptions, DefaultsMatchTheDefaultCpuMatcherRule) {
+  // Bidirectional ratio test on L2 distances, as FindBestMatchesIndex.
   const CusiftMatchingOptions options;
   EXPECT_TRUE(options.cross_check_reverse_ratio);
-  EXPECT_EQ(options.distance_type, CusiftDistanceType::ANGULAR);
+  EXPECT_EQ(options.distance_type, CusiftDistanceType::L2);
 }
 
 TEST(CusiftMatchingOptions, RejectsUnknownDistanceType) {
@@ -460,51 +463,92 @@ FeatureDescriptors CreatePerturbedCopy(const FeatureDescriptors& src,
   return FeatureDescriptors(FeatureExtractorType::SIFT, f.cast<uint8_t>());
 }
 
-// Differential fuzz against COLMAP's EXACT reference matcher, on descriptors
-// with NON-UNIFORM norms, where ranking by raw inner product and ranking by
-// normalized distance disagree.
-//
-// The reference is deliberately `cpu_brute_force_matcher = true`. The default
-// CPU path builds a faiss IVF index and probes 8 of ~400 cells, i.e. it is
-// APPROXIMATE despite `SIFT_BRUTEFORCE` in the enum name, and it also applies a
-// different distance convention, so it is not a bit-exact reference.
-//
-// Bit-exactness is the ideal property to fuzz: the assertion is equality, with
-// no tolerance to tune.
-TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
-  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+// The exact reference implements only ANGULAR, so these parity tests set it.
+FeatureMatchingOptions CreateCusiftAngularMatchingOptions() {
+  FeatureMatchingOptions options = CreateCusiftMatchingOptions();
+  options.cusift->distance_type = CusiftDistanceType::ANGULAR;
+  return options;
+}
 
+using DescriptorIndexCache =
+    ThreadSafeLRUCache<image_t, FeatureDescriptorIndex>;
+
+// The descriptor indexes COLMAP's index-based CPU matcher reads; its matching
+// controller builds them the same way.
+std::unique_ptr<DescriptorIndexCache> CreateDescriptorIndexCache(
+    const FeatureMatcher::Image& image1, const FeatureMatcher::Image& image2) {
+  return std::make_unique<DescriptorIndexCache>(
+      2, [&image1, &image2](const image_t image_id) {
+        const auto& image = image_id == image1.image_id ? image1 : image2;
+        auto index = FeatureDescriptorIndex::Create();
+        index->Build(image.descriptors->ToFloat());
+        return index;
+      });
+}
+
+// Differential fuzz against COLMAP's CPU SIFT matchers, on descriptors with
+// NON-UNIFORM norms, where ranking by raw inner product and ranking by
+// normalized distance disagree. Each pair is matched by cusift and by the CPU
+// `reference` (on cusift's thresholds), and the match sets must be identical:
+// bit-exactness is the ideal property to fuzz, with no tolerance to tune.
+// Returns the number of reference matches, for the non-vacuity guards.
+size_t ExpectSameMatchesOnFuzzPairs(const FeatureMatchingOptions& cusift,
+                                    FeatureMatchingOptions reference,
+                                    const std::vector<size_t>& sizes) {
+  reference.use_gpu = false;
+  reference.sift->max_ratio = cusift.sift->max_ratio;
+  reference.sift->max_distance = cusift.sift->max_distance;
+  reference.sift->cross_check = cusift.sift->cross_check;
   size_t total_reference_matches = 0;
   for (int seed = 1; seed <= 12; ++seed) {
-    for (const size_t n : {2u, 3u, 17u, 64u, 200u}) {
+    for (const size_t n : sizes) {
       const FeatureDescriptors da = CreateDescriptorsWithVaryingNorms(n, seed);
-      const FeatureDescriptors db = CreatePerturbedCopy(da, seed);
       const auto img1 = MakeImage(1, da);
-      const auto img2 = MakeImage(2, db);
-
-      FeatureMatchingOptions cu = CreateCusiftMatchingOptions();
-      auto cu_matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cu));
-
-      FeatureMatchingOptions ref(FeatureMatcherType::SIFT_BRUTEFORCE);
-      ref.use_gpu = false;
-      ref.sift->cpu_brute_force_matcher =
-          true;  // EXACT, not the faiss IVF path
-      ref.sift->max_ratio = cu.sift->max_ratio;
-      ref.sift->max_distance = cu.sift->max_distance;
-      ref.sift->cross_check = cu.sift->cross_check;
-      auto ref_matcher = THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(ref));
-
-      const auto got = MatchToSet(*cu_matcher, img1, img2);
-      const auto want = MatchToSet(*ref_matcher, img1, img2);
+      const auto img2 = MakeImage(2, CreatePerturbedCopy(da, seed));
+      const auto index_cache = CreateDescriptorIndexCache(img1, img2);
+      reference.sift->cpu_descriptor_index_cache = index_cache.get();
+      const auto got = MatchToSet(
+          *THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cusift)), img1, img2);
+      const auto want =
+          MatchToSet(*THROW_CHECK_NOTNULL(CreateSiftFeatureMatcher(reference)),
+                     img1,
+                     img2);
       total_reference_matches += want.size();
-      EXPECT_EQ(got, want) << "cusift diverged from the exact reference at n="
+      EXPECT_EQ(got, want) << "cusift diverged from the CPU reference at n="
                            << n << " seed=" << seed << " (got " << got.size()
                            << " vs " << want.size() << " matches)";
     }
   }
+  return total_reference_matches;
+}
+
+// The reference is `cpu_brute_force_matcher = true`, COLMAP's exact matcher,
+// which implements only ANGULAR.
+TEST(CusiftMatcherParity, DifferentialAgainstExactCpuBruteForce) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  FeatureMatchingOptions reference(FeatureMatcherType::SIFT_BRUTEFORCE);
+  reference.sift->cpu_brute_force_matcher = true;
   // Non-vacuity guard: if the fixtures stop producing matches this test
   // silently becomes "empty == empty" and stops testing anything at all.
-  EXPECT_GT(total_reference_matches, 100u)
+  EXPECT_GT(ExpectSameMatchesOnFuzzPairs(CreateCusiftAngularMatchingOptions(),
+                                         reference,
+                                         {2u, 3u, 17u, 64u, 200u}),
+            100u)
+      << "fixtures produced too few reference matches to be meaningful";
+}
+
+// Both at their defaults: cusift's L2 rule and the CPU's default faiss index
+// matcher. faiss searches exactly (IndexFlatL2) below 512 indexed descriptors
+// and approximately (IVF, 8 probed cells) from 512, so the match sets can be
+// required equal only below that size.
+TEST(CusiftMatcherParity, DefaultMatchesDefaultCpuMatcherBelowIvfSize) {
+  if (GetNumCudaDevices() == 0) GTEST_SKIP() << "No CUDA device available";
+  FeatureMatchingOptions reference(FeatureMatcherType::SIFT_BRUTEFORCE);
+  ASSERT_FALSE(reference.sift->cpu_brute_force_matcher);
+  EXPECT_GT(ExpectSameMatchesOnFuzzPairs(CreateCusiftMatchingOptions(),
+                                         reference,
+                                         {2u, 3u, 17u, 64u, 200u, 511u}),
+            100u)
       << "fixtures produced too few reference matches to be meaningful";
 }
 
@@ -520,7 +564,7 @@ TEST(CusiftMatcherParity, NegativeControlUnrelatedDescriptors) {
   const auto img1 = MakeImage(1, da);
   const auto img2 = MakeImage(2, db);
 
-  FeatureMatchingOptions cu = CreateCusiftMatchingOptions();
+  FeatureMatchingOptions cu = CreateCusiftAngularMatchingOptions();
   auto cu_matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cu));
   FeatureMatchingOptions ref(FeatureMatcherType::SIFT_BRUTEFORCE);
   ref.use_gpu = false;
@@ -567,7 +611,7 @@ TEST(CusiftMatcherParity, NonCanonicalNormsDoNotChangeTheDecision) {
   const auto img1 = MakeImage(1, dq);
   const auto img2 = MakeImage(2, dc);
 
-  FeatureMatchingOptions cu = CreateCusiftMatchingOptions();
+  FeatureMatchingOptions cu = CreateCusiftAngularMatchingOptions();
   cu.sift->max_ratio = 0.99;  // keep the ratio test from masking the choice
   auto cu_matcher = THROW_CHECK_NOTNULL(CreateCusiftFeatureMatcher(cu));
   FeatureMatchingOptions ref(FeatureMatcherType::SIFT_BRUTEFORCE);

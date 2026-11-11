@@ -26,9 +26,11 @@ struct CusiftMatchingOptions {
   // only mutual best matches.
   bool cross_check_reverse_ratio = true;
 
-  // ANGULAR is what COLMAP's exact brute-force matcher does
+  // L2, the default, applies the ratio test of COLMAP's default CPU matcher
+  // (FindBestMatchesIndex) with exact instead of approximate search. ANGULAR
+  // is what COLMAP's exact brute-force matcher does
   // (FindBestMatchesOneWayBruteForce).
-  CusiftDistanceType distance_type = CusiftDistanceType::ANGULAR;
+  CusiftDistanceType distance_type = CusiftDistanceType::L2;
 
   // Set by COLMAP's matching workers after clamping max_num_matches to the
   // database's largest keypoint count: Create then sizes the device buffers
@@ -44,9 +46,10 @@ struct CusiftMatchingOptions {
 float SqDistanceFromGemmKey(float sq_norm, float key);
 
 // CUDA (cuBLAS SGEMM) brute-force matcher for FeatureExtractorType::SIFT
-// descriptors. By default (distance_type ANGULAR), candidates are ranked on the
-// raw inner product with COLMAP's fixed 512^2 descriptor norm, as COLMAP's
-// brute-force matcher and SiftGPU do.
+// descriptors. By default (distance_type L2), candidates are ranked and
+// accepted on L2 distance, as COLMAP's default CPU matcher does. With ANGULAR,
+// they are ranked on the raw inner product with COLMAP's fixed 512^2
+// descriptor norm, as COLMAP's brute-force matcher and SiftGPU do.
 // max_num_matches keeps the first matches in image1 keypoint order, as SiftGPU
 // does. Guided matching is not supported. Returns nullptr if COLMAP was built
 // without cusift (CUSIFT_ENABLED, which needs CUDA >= 11.2).

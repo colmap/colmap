@@ -275,10 +275,10 @@ void BindFeatureMatching(py::module& m) {
           .def_readwrite(
               "distance_type",
               &CusiftMatchingOptions::distance_type,
-              "Metric space for the ratio test and sift.max_distance: ANGULAR "
-              "(the default; radians, as COLMAP's brute-force matcher and "
-              "SiftGPU) or L2 (unit-vector distance, as COLMAP's index-based "
-              "matcher and VLFeat).")
+              "Metric space for the ratio test and sift.max_distance: L2 (the "
+              "default; unit-vector distance, as COLMAP's default index-based "
+              "CPU matcher, with exact search) or ANGULAR (radians, as "
+              "COLMAP's brute-force matcher and SiftGPU).")
           .def("check", &CusiftMatchingOptions::Check);
   MakeDataclass(PyCusiftMatchingOptions);
 

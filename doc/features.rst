@@ -91,9 +91,12 @@ The following feature matcher types are available:
   descriptor. Requires ONNX support to be enabled at build time.
 
 - ``CUSIFT_GEMM``: Exact brute-force matching of SIFT descriptors on CUDA
-  GPUs, using cuBLAS. Returns the same matches as ``SIFT_BRUTEFORCE`` with
-  ``--FeatureMatching.use_gpu 0 --SiftMatching.cpu_brute_force_matcher 1`` and
-  uses the ``SiftMatching`` ratio, distance and cross-check options. Guided matching is not supported.
+  GPUs, using cuBLAS. By default it applies the ratio test of the CPU
+  ``SIFT_BRUTEFORCE`` matcher (on L2 distances) with exact instead of
+  approximate search. With ``--CusiftMatching.distance_type ANGULAR`` it returns
+  the same matches as ``SIFT_BRUTEFORCE`` with ``--FeatureMatching.use_gpu 0
+  --SiftMatching.cpu_brute_force_matcher 1``. It uses the ``SiftMatching``
+  ratio, distance and cross-check options. Guided matching is not supported.
   Requires a build with CUDA >= 11.2 (``-DCUSIFT_ENABLED``) and a CUDA GPU.
 
 - ``FLEXGLUE``: Neural network matcher operating on dense image features
@@ -223,9 +226,10 @@ fewer if the pyramid would halve below 1 px, and -1 picks it like SiftGPU.
 ``--SiftExtraction.num_octaves`` applies to the CPU extractor only and is
 rejected under ``CUSIFT`` if changed from its default.
 ``--CusiftMatching.distance_type`` selects whether candidates are ranked, and
-the ratio test and ``max_distance`` evaluated, on angles (``ANGULAR``, the
-default, as the brute-force matcher and SiftGPU) or unit-vector distances
-(``L2``); the two can pick different matches when descriptor norms differ.
+the ratio test and ``max_distance`` evaluated, on unit-vector distances
+(``L2``, the default, as the default CPU matcher) or angles (``ANGULAR``, as
+the exact CPU brute-force matcher and SiftGPU); the two can pick different
+matches when descriptor norms differ.
 Unsupported SIFT options (affine shape estimation, domain-size pooling,
 upright features, darkness adaptivity, the covariant extractor) are rejected
 with an error. The ``automatic_reconstructor`` provides the ``--feature

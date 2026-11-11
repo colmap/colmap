@@ -27,7 +27,7 @@ def make_cusift_extraction() -> pycolmap.CusiftExtractionOptions:
 def make_cusift_matching() -> pycolmap.CusiftMatchingOptions:
     options = pycolmap.CusiftMatchingOptions()
     options.cross_check_reverse_ratio = False
-    options.distance_type = pycolmap.CusiftDistanceType.L2
+    options.distance_type = pycolmap.CusiftDistanceType.ANGULAR
     return options
 
 
@@ -44,7 +44,7 @@ def make_matching() -> pycolmap.FeatureMatchingOptions:
         type=pycolmap.FeatureMatcherType.CUSIFT_GEMM
     )
     options.cusift.cross_check_reverse_ratio = False
-    options.cusift.distance_type = pycolmap.CusiftDistanceType.L2
+    options.cusift.distance_type = pycolmap.CusiftDistanceType.ANGULAR
     return options
 
 
@@ -117,10 +117,10 @@ def test_copied_matching_options_own_their_cusift_options(
     options = make_matching()
 
     copied = copy_options(options)
-    copied.cusift.distance_type = pycolmap.CusiftDistanceType.ANGULAR
+    copied.cusift.distance_type = pycolmap.CusiftDistanceType.L2
 
-    assert copied.cusift.distance_type == pycolmap.CusiftDistanceType.ANGULAR
-    assert options.cusift.distance_type == pycolmap.CusiftDistanceType.L2
+    assert copied.cusift.distance_type == pycolmap.CusiftDistanceType.L2
+    assert options.cusift.distance_type == pycolmap.CusiftDistanceType.ANGULAR
 
 
 def test_extraction_mergedict_sets_nested_cusift_fields() -> None:
@@ -138,10 +138,10 @@ def test_matching_mergedict_sets_nested_cusift_fields() -> None:
         {
             "cusift": {
                 "cross_check_reverse_ratio": False,
-                "distance_type": pycolmap.CusiftDistanceType.L2,
+                "distance_type": pycolmap.CusiftDistanceType.ANGULAR,
             }
         }
     )
 
     assert options.cusift.cross_check_reverse_ratio is False
-    assert options.cusift.distance_type == pycolmap.CusiftDistanceType.L2
+    assert options.cusift.distance_type == pycolmap.CusiftDistanceType.ANGULAR
