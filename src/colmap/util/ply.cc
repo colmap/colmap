@@ -712,13 +712,16 @@ PlyTexturedMesh ReadPlyMesh(const std::filesystem::path& path) {
 
       if (has_texcoord) {
         uint8_t num_texcoords;
-        file.read(reinterpret_cast<char*>(&num_texcoords), sizeof(uint8_t));
+        THROW_CHECK(file.read(reinterpret_cast<char*>(&num_texcoords),
+                              sizeof(num_texcoords)))
+            << "Missing texture coordinate count at face " << i;
         THROW_CHECK_EQ(num_texcoords, 6)
             << "Expected 6 texture coordinates per triangular face";
 
         for (int j = 0; j < 6; ++j) {
           float uv;
-          file.read(reinterpret_cast<char*>(&uv), sizeof(float));
+          THROW_CHECK(file.read(reinterpret_cast<char*>(&uv), sizeof(uv)))
+              << "Unexpected end of texture coordinates at face " << i;
           if (is_little_endian) {
             uv = LittleEndianToNative(uv);
           } else {
