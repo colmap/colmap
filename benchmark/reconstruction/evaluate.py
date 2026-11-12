@@ -157,6 +157,11 @@ def run_seeds(args: argparse.Namespace) -> None:
         except Exception as error:
             reason = f": {error!r}"
         if reason:
+            # An older or partially written report must not enter a comparison.
+            report_dir = args.run_path / args.run_name
+            for suffix in (".pkl", ".json"):
+                path = report_dir / (args.report_name + suffix)
+                path.unlink(missing_ok=True)
             failures.append(seed)
             pycolmap.logging.warning(
                 f"seed={seed} FAILED{reason} (its report will be missing and "
