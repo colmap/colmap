@@ -1,0 +1,122 @@
+name: CUDA tests (simulated H100)
+
+# Optional, non-required check. The hosted runners have no GPU, so the regular
+# CUDA job cannot run the GPU tests. This builds COLMAP with CUDA and the
+# Caspar bundle adjuster and runs those tests on a simulated NVIDIA H100
+# (https://github.com/pantheongpu/pantheonsim). A simulator cannot reproduce
+# hardware-specific behavior or timing, so it complements real-GPU testing and
+# does not replace it.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/colmap/feature/**"
+      - "src/colmap/mvs/**"
+      - "src/colmap/util/cuda*"
+      - "src/colmap/estimators/**"
+      - "src/thirdparty/**"
+      - "cmake/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/gpu-sim.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cuda-sim:
+    name: CUDA 13.0, simulated H100
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_MAXSIZE: 500M
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up the simulated GPU and CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@dda0c8df8d72627c295edbae525354ba2bcb1687 # v0.1.4
+        with:
+          gpu: nvidia/h100
+          cuda-toolkit: "13.0"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ccache \
+            ninja-build \
+            libboost-program-options-dev \
+            libboost-graph-dev \
+            libboost-system-dev \
+            libeigen3-dev \
+            libceres-dev \
+            libopenimageio-dev \
+            openimageio-tools \
+            libsuitesparse-dev \
+            libmetis-dev \
+            libgoogle-glog-dev \
+            libgtest-dev \
+            libgmock-dev \
+            libsqlite3-dev \
+            libglew-dev \
+            libunwind-dev \
+            libcurl4-openssl-dev \
+            libopenblas-dev \
+            liblapack-dev
+          # Ubuntu's openimageio CMake config wants this directory to exist.
+          sudo mkdir -p /usr/include/opencv4
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-gpu-sim-${{ github.sha }}
+          restore-keys: |
+            ccache-gpu-sim-
+
+      # The simulator runs PTX, not SASS, and needs a shared CUDA runtime, so
+      # the device code is built for 90-virtual. The executables are linked
+      # with lazy symbol binding because SiftGPU references the OpenGL interop
+      # functions cudaGL*(), which the simulator's CUDA runtime does not
+      # provide; they are never called without OpenGL.
+      - name: Configure
+        run: |
+          cmake -S . -B build -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CUDA_ARCHITECTURES=90-virtual \
+            -DCMAKE_CUDA_RUNTIME_LIBRARY=Shared \
+            -DCMAKE_EXE_LINKER_FLAGS=-Wl,-z,lazy \
+            -DTESTS_ENABLED=ON \
+            -DCUDA_ENABLED=ON \
+            -DCASPAR_ENABLED=ON \
+            -DGUI_ENABLED=OFF \
+            -DOPENGL_ENABLED=OFF \
+            -DONNX_ENABLED=OFF \
+            -DCGAL_ENABLED=OFF
+
+      # Only the tests that need a GPU, which the regular CUDA job excludes.
+      - name: Build
+        run: |
+          ccache --zero-stats
+          cmake --build build -j3 --target \
+            colmap_util_cuda_test \
+            colmap_util_cudacc_test \
+            colmap_feature_sift_test \
+            colmap_mvs_gpu_mat_test \
+            colmap_estimators_bundle_adjustment_caspar_test
+          ccache --show-stats
+
+      - name: Test
+        working-directory: build
+        run: |
+          vgpu run ctest --output-on-failure --timeout 3000 \
+            -R '^(util/cuda_test|util/cudacc_test|feature/sift_test|mvs/gpu_mat_test|estimators/bundle_adjustment_caspar_test)$'
