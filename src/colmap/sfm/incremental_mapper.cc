@@ -978,8 +978,6 @@ IncrementalMapper::AdjustLocalBundle(
   BundleAdjustmentConfig ba_config;
   FlatHashSet<image_t> image_ids;
   if (local_bundle.size() > 0) {
-    ba_config.FixGauge(BundleAdjustmentGauge::THREE_POINTS);
-
     // Insert the images of all local frames.
     const Image& image = reconstruction_->Image(image_id);
     FlatHashSet<frame_t> frame_ids;
@@ -1166,12 +1164,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   std::unique_ptr<BundleAdjuster> bundle_adjuster;
   if (!use_prior_position) {
-    // Fixing the gauge with two cameras leads to a more stable optimization
-    // with fewer steps as compared to fixing three points.
-    // TODO(jsch): Investigate whether it is safe to not fix the gauge at all,
-    // as initial experiments show that it is even faster.
-
-    ba_config.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
     bundle_adjuster = CreateDefaultBundleAdjuster(
         custom_ba_options, ba_config, *reconstruction_);
   } else {

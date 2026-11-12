@@ -81,7 +81,16 @@ struct CasparBundleAdjustmentOptions {
   int solver_iter_max = 200;
   int pcg_iter_max = 20;
   double diag_init = 1.0;
-  double diag_min = 1e-12;
+  // Minimum LM damping. Caspar damps diag(J^T J) by (1 + diag). In float32,
+  // 1e-6 is the smallest value resolved by (1 + diag); in double precision,
+  // 1e-8 matches the Ceres max_trust_region_radius = 1e8 floor. Like the Ceres
+  // cap, this regularizes unconstrained directions, e.g., the gauge when it is
+  // not fixed.
+#ifdef CASPAR_USE_DOUBLE
+  double diag_min = 1e-8;
+#else
+  double diag_min = 1e-6;
+#endif
   double diag_scaling_up = 2.0;
   double diag_scaling_down = 0.333333;
   double diag_exit_value = 1e3;

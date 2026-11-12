@@ -983,6 +983,167 @@ TEST(DefaultBundleAdjuster, FixGaugeWithTwoCamsFromWorldFallback) {
             307);
 }
 
+TEST(DefaultBundleAdjuster, FreeGaugeMatchesFixedGauge) {
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 10;
+  synthetic_dataset_options.num_points3D = 200;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  Reconstruction noisy_reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &noisy_reconstruction);
+
+  const auto solve = [](BundleAdjustmentGauge gauge,
+                        Reconstruction& reconstruction) {
+    BundleAdjustmentConfig config;
+    for (const image_t image_id : reconstruction.RegImageIds()) {
+      config.AddImage(image_id);
+    }
+    config.FixGauge(gauge);
+    const auto summary = CreateDefaultCeresBundleAdjuster(
+                             BundleAdjustmentOptions(), config, reconstruction)
+                             ->Solve();
+    EXPECT_EQ(summary->termination_type,
+              BundleAdjustmentTerminationType::CONVERGENCE);
+    return GetCeresSummary(summary.get()).final_cost;
+  };
+
+  Reconstruction fixed_reconstruction = noisy_reconstruction;
+  const double fixed_cost =
+      solve(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD, fixed_reconstruction);
+  Reconstruction free_reconstruction = noisy_reconstruction;
+  const double free_cost =
+      solve(BundleAdjustmentGauge::UNSPECIFIED, free_reconstruction);
+
+  // The gauge does not change the optimum, only its representative.
+  EXPECT_NEAR(free_cost, fixed_cost, 1e-6 * fixed_cost);
+  EXPECT_THAT(gt_reconstruction,
+              ReconstructionNear(free_reconstruction,
+                                 /*max_rotation_error_deg=*/0.1,
+                                 /*max_proj_center_error=*/0.1,
+                                 /*max_scale_error=*/std::nullopt,
+                                 /*num_obs_tolerance=*/0.0));
+}
+
+TEST(DefaultBundleAdjuster, LowParallaxScaleCollapse) {
+  SetPRNGSeed(42);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 4;
+  synthetic_dataset_options.num_points3D = 100;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+
+  // Place cameras along a narrow baseline at distance 5 from the point cloud
+  // (b / Z ~ 4e-4) and reproject exact 2D observations.
+  constexpr double kBaseline = 2e-3;
+  for (const frame_t frame_id : gt_reconstruction.RegFrameIds()) {
+    const double x = kBaseline * (static_cast<int>(frame_id) - 2);
+    const Eigen::Vector3d proj_center(x, 0.0, -5.0);
+    gt_reconstruction.Frame(frame_id).SetRigFromWorld(
+        Rigid3d(Eigen::Quaterniond::Identity(), -proj_center));
+  }
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    Image& image = gt_reconstruction.Image(image_id);
+    const Camera& camera = *image.CameraPtr();
+    for (Point2D& point2D : image.Points2D()) {
+      if (point2D.HasPoint3D()) {
+        point2D.xy = *camera.ImgFromCam(
+            image.CamFromWorld() *
+            gt_reconstruction.Point3D(point2D.point3D_id).xyz);
+      }
+    }
+  }
+
+  // Perturb camera orientations with a slight inward vergence bias, as can
+  // occur after global rotation averaging in low-parallax scenes. With fixed
+  // rotations, the reprojection error drives camera positions to collapse
+  // toward the optical axis while expanding scene depth along the weakly
+  // constrained scale direction.
+  Reconstruction noisy_reconstruction = gt_reconstruction;
+  for (const frame_t frame_id : noisy_reconstruction.RegFrameIds()) {
+    const double x = kBaseline * (static_cast<int>(frame_id) - 2);
+    const double yaw = -0.195 * x;
+    Rigid3d& rig_from_world =
+        noisy_reconstruction.Frame(frame_id).RigFromWorld();
+    rig_from_world.rotation() =
+        Eigen::Quaterniond(Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitY())) *
+        rig_from_world.rotation();
+  }
+
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : noisy_reconstruction.RegImageIds()) {
+    config.AddImage(image_id);
+  }
+
+  auto run_fixed_rotation_ba = [&](const double max_trust_region_radius,
+                                   int& num_invalid_steps,
+                                   double& baseline_to_depth) {
+    Reconstruction reconstruction = noisy_reconstruction;
+    BundleAdjustmentOptions options;
+    options.refine_focal_length = false;
+    options.refine_extra_params = false;
+    options.constant_rig_from_world_rotation = true;
+    options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
+    options.ceres->solver_options.max_trust_region_radius =
+        max_trust_region_radius;
+    options.ceres->solver_options.max_num_iterations = 50;
+    const auto summary =
+        CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
+            ->Solve();
+    ASSERT_TRUE(summary->IsSolutionUsable());
+    const auto& ceres_summary = GetCeresSummary(summary.get());
+
+    num_invalid_steps = 0;
+    for (const auto& iteration : ceres_summary.iterations) {
+      if (!iteration.step_is_valid) {
+        ++num_invalid_steps;
+      }
+    }
+
+    const double baseline = (reconstruction.Image(4).ProjectionCenter() -
+                             reconstruction.Image(1).ProjectionCenter())
+                                .norm() /
+                            3.0;
+    double mean_depth = 0.0;
+    const Rigid3d cam_from_world = reconstruction.Image(1).CamFromWorld();
+    for (const auto& [_, point3D] : reconstruction.Points3D()) {
+      mean_depth += std::abs((cam_from_world * point3D.xyz).z());
+    }
+    mean_depth /= reconstruction.NumPoints3D();
+    baseline_to_depth = baseline / mean_depth;
+  };
+
+  // Without capping max_trust_region_radius (Ceres's 1e16 default), the LM
+  // damping 1 / tr_radius vanishes below machine precision, causing repeated
+  // Cholesky factorization failures and an order-of-magnitude deeper collapse
+  // of the baseline-to-depth ratio along the nearly unobservable scale mode.
+  int uncapped_invalid_steps = 0;
+  double uncapped_baseline_to_depth = 0.0;
+  run_fixed_rotation_ba(
+      1e16, uncapped_invalid_steps, uncapped_baseline_to_depth);
+  EXPECT_GT(uncapped_invalid_steps, 0);
+
+  // With the default 1e8 cap (damping floor 1e-8), all steps remain
+  // numerically valid and the baseline-to-depth collapse is arrested.
+  int capped_invalid_steps = 0;
+  double capped_baseline_to_depth = 0.0;
+  run_fixed_rotation_ba(
+      BundleAdjustmentOptions().ceres->solver_options.max_trust_region_radius,
+      capped_invalid_steps,
+      capped_baseline_to_depth);
+  EXPECT_EQ(capped_invalid_steps, 0);
+  EXPECT_GT(capped_baseline_to_depth, 10.0 * uncapped_baseline_to_depth);
+}
+
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
@@ -1038,35 +1199,75 @@ TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
                                  /*num_obs_tolerance=*/0.02));
 }
 
-TEST(PosePriorBundleAdjuster, InsufficientPriorsUseTwoCameraGauge) {
-  Reconstruction reconstruction;
+TEST(PosePriorBundleAdjuster, InsufficientPriorsLeaveGaugeFree) {
+  Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_options;
   synthetic_options.num_rigs = 1;
   synthetic_options.num_cameras_per_rig = 1;
-  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_frames_per_rig = 5;
   synthetic_options.num_points3D = 50;
   synthetic_options.prior_position = true;
   const auto database_path = CreateTestDir() / "database.db";
   auto database = Database::Open(database_path);
-  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+  SynthesizeDataset(synthetic_options, &gt_reconstruction, database.get());
+
+  Reconstruction noisy_reconstruction = gt_reconstruction;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  synthetic_noise_options.point3D_stddev = 0.1;
+  synthetic_noise_options.rig_from_world_rotation_stddev = 0.5;
+  synthetic_noise_options.rig_from_world_translation_stddev = 0.1;
+  SynthesizeNoise(synthetic_noise_options, &noisy_reconstruction);
 
   BundleAdjustmentConfig config;
-  for (const image_t image_id : reconstruction.RegImageIds()) {
+  for (const image_t image_id : noisy_reconstruction.RegImageIds()) {
     config.AddImage(image_id);
   }
 
-  std::vector<PosePrior> pose_priors = database->ReadAllPosePriors();
-  pose_priors.resize(2);
-  auto adjuster =
-      CreatePosePriorBundleAdjuster(BundleAdjustmentOptions(),
-                                    PosePriorBundleAdjustmentOptions(),
-                                    config,
-                                    std::move(pose_priors),
-                                    reconstruction);
+  Reconstruction plain_reconstruction = noisy_reconstruction;
+  auto plain_adjuster = CreateDefaultCeresBundleAdjuster(
+      BundleAdjustmentOptions(), config, plain_reconstruction);
+  const int expected_num_residuals =
+      plain_adjuster->Problem()->NumResidualBlocks();
+  ASSERT_TRUE(plain_adjuster->Solve()->IsSolutionUsable());
 
-  EXPECT_EQ(adjuster->Config().FixedGauge(),
-            BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
-  EXPECT_TRUE(adjuster->Solve()->IsSolutionUsable());
+  // Case 1: fewer than 3 priors (< 3 required for Sim3 alignment).
+  std::vector<PosePrior> two_priors = database->ReadAllPosePriors();
+  two_priors.resize(2);
+
+  // Case 2: >= 3 priors whose Sim3 alignment fails (coincident prior
+  // positions).
+  std::vector<PosePrior> unalignable_priors = database->ReadAllPosePriors();
+  for (PosePrior& prior : unalignable_priors) {
+    prior.position = Eigen::Vector3d::Zero();
+  }
+
+  for (const auto& priors : {two_priors, unalignable_priors}) {
+    Reconstruction reconstruction = noisy_reconstruction;
+    auto adjuster =
+        CreatePosePriorCeresBundleAdjuster(BundleAdjustmentOptions(),
+                                           PosePriorBundleAdjustmentOptions(),
+                                           config,
+                                           priors,
+                                           reconstruction);
+
+    EXPECT_EQ(adjuster->Config().FixedGauge(),
+              BundleAdjustmentGauge::UNSPECIFIED);
+    EXPECT_EQ(adjuster->Problem()->NumResidualBlocks(), expected_num_residuals);
+    ASSERT_TRUE(adjuster->Solve()->IsSolutionUsable());
+    EXPECT_THAT(plain_reconstruction,
+                ReconstructionNear(reconstruction,
+                                   /*max_rotation_error_deg=*/1e-5,
+                                   /*max_proj_center_error=*/1e-5,
+                                   /*max_scale_error=*/1e-5,
+                                   /*num_obs_tolerance=*/0.0));
+    EXPECT_THAT(gt_reconstruction,
+                ReconstructionNear(reconstruction,
+                                   /*max_rotation_error_deg=*/0.1,
+                                   /*max_proj_center_error=*/0.1,
+                                   /*max_scale_error=*/std::nullopt,
+                                   /*num_obs_tolerance=*/0.0));
+  }
 }
 
 TEST(PosePriorBundleAdjuster, MissingPositionCov) {
