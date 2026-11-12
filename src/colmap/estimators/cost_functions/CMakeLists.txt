@@ -8,6 +8,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         alignment.h
         calibration.h
+        depth.h
         manifold.h
         motion_averaging.h
         pose_prior.h
