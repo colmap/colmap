@@ -667,6 +667,9 @@ void OptionManager::AddBundleAdjustmentOptions() {
   AddDefaultOption(
       "BundleAdjustmentCeres.parameter_tolerance",
       &bundle_adjustment->ceres->solver_options.parameter_tolerance);
+  AddDefaultOption(
+      "BundleAdjustmentCeres.max_trust_region_radius",
+      &bundle_adjustment->ceres->solver_options.max_trust_region_radius);
   AddDefaultOption("BundleAdjustmentCeres.use_gpu",
                    &bundle_adjustment->ceres->use_gpu);
   AddDefaultOption("BundleAdjustmentCeres.gpu_index",
