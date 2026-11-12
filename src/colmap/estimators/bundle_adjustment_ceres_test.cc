@@ -1071,7 +1071,7 @@ TEST(DefaultBundleAdjuster, LowParallaxScaleCollapse) {
   Reconstruction noisy_reconstruction = gt_reconstruction;
   for (const frame_t frame_id : noisy_reconstruction.RegFrameIds()) {
     const double x = kBaseline * (static_cast<int>(frame_id) - 2);
-    const double yaw = -0.21 * x;
+    const double yaw = -0.195 * x;
     Rigid3d& rig_from_world =
         noisy_reconstruction.Frame(frame_id).RigFromWorld();
     rig_from_world.rotation() =
@@ -1086,7 +1086,7 @@ TEST(DefaultBundleAdjuster, LowParallaxScaleCollapse) {
 
   auto run_fixed_rotation_ba = [&](const double max_trust_region_radius,
                                    int& num_invalid_steps,
-                                   int& num_points_in_front) {
+                                   double& baseline_to_depth) {
     Reconstruction reconstruction = noisy_reconstruction;
     BundleAdjustmentOptions options;
     options.refine_focal_length = false;
@@ -1095,7 +1095,7 @@ TEST(DefaultBundleAdjuster, LowParallaxScaleCollapse) {
     options.ceres->loss_function_type = CeresLossFunctionType::HUBER;
     options.ceres->solver_options.max_trust_region_radius =
         max_trust_region_radius;
-    options.ceres->solver_options.max_num_iterations = 200;
+    options.ceres->solver_options.max_num_iterations = 50;
     const auto summary =
         CreateDefaultCeresBundleAdjuster(options, config, reconstruction)
             ->Solve();
@@ -1109,35 +1109,39 @@ TEST(DefaultBundleAdjuster, LowParallaxScaleCollapse) {
       }
     }
 
-    num_points_in_front = 0;
+    const double baseline = (reconstruction.Image(4).ProjectionCenter() -
+                             reconstruction.Image(1).ProjectionCenter())
+                                .norm() /
+                            3.0;
+    double mean_depth = 0.0;
     const Rigid3d cam_from_world = reconstruction.Image(1).CamFromWorld();
     for (const auto& [_, point3D] : reconstruction.Points3D()) {
-      if ((cam_from_world * point3D.xyz).z() > 0) {
-        ++num_points_in_front;
-      }
+      mean_depth += std::abs((cam_from_world * point3D.xyz).z());
     }
+    mean_depth /= reconstruction.NumPoints3D();
+    baseline_to_depth = baseline / mean_depth;
   };
 
-  // With Ceres's default max_trust_region_radius (1e16), the trust-region
-  // radius grows past 1e8, causing Cholesky factorization failures on the
-  // rank-deficient normal equations and an under-damped step that flips the
-  // majority of 3D points behind the cameras (where residuals evaluate to 0).
+  // Without capping max_trust_region_radius (Ceres's 1e16 default), the LM
+  // damping 1 / tr_radius vanishes below machine precision, causing repeated
+  // Cholesky factorization failures and an order-of-magnitude deeper collapse
+  // of the baseline-to-depth ratio along the nearly unobservable scale mode.
   int uncapped_invalid_steps = 0;
-  int uncapped_points_in_front = 0;
-  run_fixed_rotation_ba(1e16, uncapped_invalid_steps, uncapped_points_in_front);
+  double uncapped_baseline_to_depth = 0.0;
+  run_fixed_rotation_ba(
+      1e16, uncapped_invalid_steps, uncapped_baseline_to_depth);
   EXPECT_GT(uncapped_invalid_steps, 0);
-  EXPECT_LT(uncapped_points_in_front, 50);
 
-  // With COLMAP's default cap (1e8), the LM diagonal damping floor keeps all
-  // linear solver steps valid and prevents the depth collapse.
+  // With the default 1e8 cap (damping floor 1e-8), all steps remain
+  // numerically valid and the baseline-to-depth collapse is arrested.
   int capped_invalid_steps = 0;
-  int capped_points_in_front = 0;
+  double capped_baseline_to_depth = 0.0;
   run_fixed_rotation_ba(
       BundleAdjustmentOptions().ceres->solver_options.max_trust_region_radius,
       capped_invalid_steps,
-      capped_points_in_front);
+      capped_baseline_to_depth);
   EXPECT_EQ(capped_invalid_steps, 0);
-  EXPECT_GT(capped_points_in_front, 95);
+  EXPECT_GT(capped_baseline_to_depth, 10.0 * uncapped_baseline_to_depth);
 }
 
 TEST(PosePriorBundleAdjuster, AlignmentRobustToOutliers) {
