@@ -92,9 +92,10 @@ TEST(VoteAndVerify, WrappedOrientations) {
   for (int i = 0; i < 18; ++i) {
     // Two distinct rotations above pi must occupy distinct orientation bins.
     const float angle = i < 12 ? 3.5f : 4.8f;
+    const int row = i / 4;
     FeatureGeometryMatch match;
     match.geometry1.x = 200 + 160 * (i % 4);
-    match.geometry1.y = 200 + 140 * (i / 4);
+    match.geometry1.y = 200 + 140 * row;
     match.geometry1.scale = match.geometry2.scale = 1;
     match.geometry1.orientation = -3;
     match.geometry2.orientation = -3 + angle;
