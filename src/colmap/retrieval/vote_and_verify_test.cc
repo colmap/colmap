@@ -87,6 +87,28 @@ TEST(VoteAndVerify, EffectiveInliers) {
   EXPECT_GT(num_inliers, 0.8 * kNumInliers);
 }
 
+TEST(VoteAndVerify, WrappedOrientations) {
+  std::vector<FeatureGeometryMatch> matches;
+  for (int i = 0; i < 18; ++i) {
+    // Two distinct rotations above pi must occupy distinct orientation bins.
+    const float angle = i < 12 ? 3.5f : 4.8f;
+    FeatureGeometryMatch match;
+    match.geometry1.x = 200 + 160 * (i % 4);
+    match.geometry1.y = 200 + 140 * (i / 4);
+    match.geometry1.scale = match.geometry2.scale = 1;
+    match.geometry1.orientation = -3;
+    match.geometry2.orientation = -3 + angle;
+    match.geometry2.x = std::cos(angle) * match.geometry1.x -
+                        std::sin(angle) * match.geometry1.y + 2000;
+    match.geometry2.y = std::sin(angle) * match.geometry1.x +
+                        std::cos(angle) * match.geometry1.y + 2000;
+    matches.push_back(match);
+  }
+  VoteAndVerifyOptions options;
+  options.eff_inlier_count = false;
+  EXPECT_EQ(VoteAndVerify(options, matches), 12);
+}
+
 }  // namespace
 }  // namespace retrieval
 }  // namespace colmap
