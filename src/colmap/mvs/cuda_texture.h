@@ -119,8 +119,13 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
   resource_desc_.resType = cudaResourceTypeArray;
   resource_desc_.res.array.array = array_;
 
-  CUDA_SAFE_CALL(cudaCreateTextureObject(
-      &texture_, &resource_desc_, &texture_desc_, nullptr));
+  try {
+    CUDA_SAFE_CALL(cudaCreateTextureObject(
+        &texture_, &resource_desc_, &texture_desc_, nullptr));
+  } catch (...) {
+    (void)cudaFreeArray(array_);
+    throw;
+  }
 }
 
 template <typename T>
