@@ -689,7 +689,7 @@ Sim3d Reconstruction::Normalize(const bool fixed_scale,
                                 const bool use_images) {
   THROW_CHECK_GT(extent, 0);
 
-  if ((use_images && NumRegFrames() < 2) ||
+  if ((use_images && NumRegImages() < 2) ||
       (!use_images && points3D_.size() < 2)) {
     return Sim3d();
   }
