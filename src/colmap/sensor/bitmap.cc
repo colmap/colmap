@@ -448,16 +448,30 @@ bool Bitmap::Read(const std::filesystem::path& path,
   linear_colorspace_ = false;
   data_.resize(width_ * height_ * channels_);
   // Note that OIIO supports reading a subset of channels.
-  input->read_image(0, 0, 0, channels_, OIIO::TypeDesc::UINT8, data_.data());
-  input->close();
+  const bool read_success = input->read_image(
+      0, 0, 0, channels_, OIIO::TypeDesc::UINT8, data_.data());
+  if (!read_success) {
+    const std::string error = input->geterror();
+    VLOG(3) << "Could not read pixels from " << path << ", error = " << error;
+  }
 
+  // Capture metadata added during decoding before close invalidates the spec.
   auto meta_data = std::make_unique<OIIOMetaData>();
   meta_data->image_spec = image_spec;
   meta_data->image_spec.nchannels = channels_;
   meta_data_ = std::move(meta_data);
 
+  const bool close_success = input->close();
+  if (!close_success) {
+    const std::string error = input->geterror();
+    VLOG(3) << "Error closing " << path << ", error = " << error;
+  }
+  if (!read_success || !close_success) {
+    return false;
+  }
+
   if (linearize_colorspace) {
-    const std::string colorspace = image_spec["oiio:ColorSpace"];
+    const std::string colorspace = GetMetaData("oiio:ColorSpace").value_or("");
     // An unspecified source space cannot establish linear pixel values.
     THROW_CHECK(!colorspace.empty()) << "Image colorspace is unspecified";
     if (!IsEquivalentColorSpace(colorspace, "linear")) {
