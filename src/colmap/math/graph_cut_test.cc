@@ -2,6 +2,9 @@
 
 #include "colmap/math/graph_cut.h"
 
+#include <limits>
+#include <stdexcept>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -209,6 +212,41 @@ TEST(GraphCut, ComputeNormalizedMinGraphCutDisconnected) {
   EXPECT_EQ(cut_labels.at(1), cut_labels.at(2));
   EXPECT_NE(cut_labels.at(2), cut_labels.at(3));
   EXPECT_EQ(cut_labels.at(3), cut_labels.at(4));
+}
+
+TEST(GraphCut, ComputeNormalizedMinGraphCutNonmonotonicIds) {
+  const int max_id = std::numeric_limits<int>::max();
+  const int min_id = std::numeric_limits<int>::lowest();
+  for (const bool reversed_parallel_edges : {false, true}) {
+    SCOPED_TRACE(reversed_parallel_edges);
+    std::vector<std::pair<int, int>> edges = {
+        {min_id, 1001}, {max_id, -7}, {-7, 42}};
+    std::vector<int> weights = {1, 3, 2};
+    if (reversed_parallel_edges) {
+      edges.insert(edges.end(), {{1001, min_id}, {42, -7}, {-7, max_id}});
+      weights.insert(weights.end(), {4, 5, 6});
+    }
+    const auto labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
+    ASSERT_EQ(labels.size(), 5);
+    EXPECT_EQ(labels.at(max_id), labels.at(-7));
+    EXPECT_EQ(labels.at(-7), labels.at(42));
+    EXPECT_EQ(labels.at(min_id), labels.at(1001));
+    EXPECT_NE(labels.at(max_id), labels.at(min_id));
+    for (const auto& [vertex_id, label] : labels) {
+      EXPECT_GE(label, 0);
+      EXPECT_LT(label, 2);
+    }
+  }
+}
+
+TEST(GraphCut, ComputeNormalizedMinGraphCutInvalidInput) {
+  EXPECT_THROW(ComputeNormalizedMinGraphCut({}, {}, 2), std::invalid_argument);
+  EXPECT_THROW(ComputeNormalizedMinGraphCut({{1, 2}}, {}, 2),
+               std::invalid_argument);
+  EXPECT_THROW(ComputeNormalizedMinGraphCut({{1, 2}}, {1}, 0),
+               std::invalid_argument);
+  EXPECT_THROW(ComputeNormalizedMinGraphCut({{1, 2}}, {1}, -1),
+               std::invalid_argument);
 }
 
 TEST(GraphCut, MinSTGraphCut1) {
