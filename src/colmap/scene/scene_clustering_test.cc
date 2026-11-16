@@ -203,6 +203,38 @@ TEST(SceneClustering, Empty) {
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 1);
 }
 
+TEST(SceneClustering, EmptyFlatClusters) {
+  SceneClustering::Options options;
+  options.branching = 4;
+  options.image_overlap = 0;
+  options.is_hierarchical = false;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition({{0, 1}}, {10});
+
+  const auto* root = scene_clustering.GetRootCluster();
+  ASSERT_NE(root, nullptr);
+  EXPECT_EQ(root->image_ids, (std::vector<image_t>{0, 1}));
+  ASSERT_EQ(root->child_clusters.size(), 4);
+  const auto leaves = scene_clustering.GetLeafClusters();
+  ASSERT_EQ(leaves.size(), root->child_clusters.size());
+  size_t num_empty = 0;
+  std::vector<image_t> covered_ids;
+  for (size_t i = 0; i < leaves.size(); ++i) {
+    EXPECT_EQ(leaves[i], &root->child_clusters[i]);
+    if (leaves[i]->image_ids.empty()) {
+      ++num_empty;
+    } else {
+      EXPECT_EQ(num_empty, 0);
+      covered_ids.insert(covered_ids.end(),
+                         leaves[i]->image_ids.begin(),
+                         leaves[i]->image_ids.end());
+    }
+  }
+  EXPECT_GE(num_empty, 2);
+  std::sort(covered_ids.begin(), covered_ids.end());
+  EXPECT_EQ(covered_ids, root->image_ids);
+}
+
 TEST(SceneClustering, OneLevel) {
   SceneClustering::Options options;
   options.branching = 2;
