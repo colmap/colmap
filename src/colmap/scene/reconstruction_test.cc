@@ -733,6 +733,131 @@ TEST(Reconstruction, SetRigsAndFramesResetsNumRegImages) {
   }
 }
 
+TEST(Reconstruction, SetRigsAndFramesFailurePreservesOriginalGraph) {
+  for (int invalid_case = 0; invalid_case < 4; ++invalid_case) {
+    SCOPED_TRACE(invalid_case);
+    Reconstruction reconstruction;
+    GenerateReconstruction(2, &reconstruction);
+    if (invalid_case == 3) {
+      reconstruction.AddCamera(
+          Camera::CreateFromModelId(2, CameraModelId::kPinhole, 1, 1, 1));
+    }
+
+    const Reconstruction original = reconstruction;
+    const class Rig* const original_rig = &reconstruction.Rig(1);
+    const class Frame* const original_frame1 = &reconstruction.Frame(1);
+    const class Frame* const original_frame2 = &reconstruction.Frame(2);
+    const struct Camera* const original_camera = &reconstruction.Camera(1);
+    const class Image* const original_image1 = &reconstruction.Image(1);
+    const class Image* const original_image2 = &reconstruction.Image(2);
+
+    std::vector<class Rig> rigs{reconstruction.Rig(1)};
+    class Frame frame1 = reconstruction.Frame(1);
+    class Frame frame2 = reconstruction.Frame(2);
+    frame1.ResetRigPtr();
+    frame2.ResetRigPtr();
+    std::vector<class Frame> frames;
+    if (invalid_case == 0) {
+      class Rig invalid_rig;
+      invalid_rig.SetRigId(2);
+      invalid_rig.AddRefSensor(sensor_t(SensorType::CAMERA, 99));
+      rigs.push_back(std::move(invalid_rig));
+    } else if (invalid_case == 1) {
+      frame2.SetRigId(99);
+    } else if (invalid_case == 3) {
+      class Rig second_rig;
+      second_rig.SetRigId(2);
+      second_rig.AddRefSensor(reconstruction.Camera(2).SensorId());
+      rigs.push_back(std::move(second_rig));
+      frame1.ClearDataIds();
+      frame1.SetRigId(2);
+      frame1.AddDataId(data_t(reconstruction.Camera(2).SensorId(), 1));
+    }
+    frames.push_back(std::move(frame1));
+    if (invalid_case != 2) {
+      frames.push_back(std::move(frame2));
+    }
+
+    EXPECT_THROW(
+        reconstruction.SetRigsAndFrames(std::move(rigs), std::move(frames)),
+        std::exception);
+
+    // Check map membership and object addresses before following any links:
+    // the original implementation can leave image pointers dangling here.
+    ASSERT_EQ(reconstruction.NumRigs(), original.NumRigs());
+    ASSERT_EQ(reconstruction.NumFrames(), original.NumFrames());
+    ASSERT_EQ(reconstruction.NumCameras(), original.NumCameras());
+    ASSERT_EQ(reconstruction.NumImages(), original.NumImages());
+    ASSERT_TRUE(reconstruction.ExistsRig(1));
+    ASSERT_TRUE(reconstruction.ExistsFrame(1));
+    ASSERT_TRUE(reconstruction.ExistsFrame(2));
+    ASSERT_TRUE(reconstruction.ExistsCamera(1));
+    ASSERT_TRUE(reconstruction.ExistsImage(1));
+    ASSERT_TRUE(reconstruction.ExistsImage(2));
+    ASSERT_EQ(&reconstruction.Rig(1), original_rig);
+    ASSERT_EQ(&reconstruction.Frame(1), original_frame1);
+    ASSERT_EQ(&reconstruction.Frame(2), original_frame2);
+    ASSERT_EQ(&reconstruction.Camera(1), original_camera);
+    ASSERT_EQ(&reconstruction.Image(1), original_image1);
+    ASSERT_EQ(&reconstruction.Image(2), original_image2);
+    ASSERT_TRUE(reconstruction.Frame(1).HasRigPtr());
+    ASSERT_TRUE(reconstruction.Frame(2).HasRigPtr());
+    ASSERT_TRUE(reconstruction.Image(1).HasFramePtr());
+    ASSERT_TRUE(reconstruction.Image(2).HasFramePtr());
+    EXPECT_EQ(reconstruction.Frame(1).RigPtr(), original_rig);
+    EXPECT_EQ(reconstruction.Frame(2).RigPtr(), original_rig);
+    EXPECT_EQ(reconstruction.Image(1).FramePtr(), original_frame1);
+    EXPECT_EQ(reconstruction.Image(2).FramePtr(), original_frame2);
+    EXPECT_EQ(reconstruction.RegFrameIds(), original.RegFrameIds());
+    EXPECT_EQ(reconstruction.NumRegImages(), original.NumRegImages());
+    ExpectEqualSerialization(reconstruction, original);
+    EXPECT_TRUE(reconstruction.IsValid());
+  }
+}
+
+TEST(Reconstruction, SetRigsAndFramesRewiresSuccessfulReplacement) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  Track track;
+  track.AddElement(TrackElement(1, 0));
+  track.AddElement(TrackElement(2, 0));
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 0), std::move(track));
+  const struct Point3D* const point3D = &reconstruction.Point3D(point3D_id);
+  const struct Camera* const camera = &reconstruction.Camera(1);
+  const class Image* const image1 = &reconstruction.Image(1);
+  const class Image* const image2 = &reconstruction.Image(2);
+
+  class Rig rig = reconstruction.Rig(1);
+  rig.SetRigId(2);
+  class Frame frame;
+  frame.SetFrameId(10);
+  frame.SetRigId(2);
+  frame.AddDataId(image1->DataId());
+  frame.AddDataId(image2->DataId());
+  frame.SetRigFromWorld(Rigid3d());
+  reconstruction.SetRigsAndFrames({std::move(rig)}, {std::move(frame)});
+
+  ASSERT_EQ(reconstruction.NumRigs(), 1);
+  ASSERT_EQ(reconstruction.NumFrames(), 1);
+  ASSERT_TRUE(reconstruction.ExistsRig(2));
+  ASSERT_TRUE(reconstruction.ExistsFrame(10));
+  EXPECT_FALSE(reconstruction.ExistsRig(1));
+  EXPECT_FALSE(reconstruction.ExistsFrame(1));
+  EXPECT_FALSE(reconstruction.ExistsFrame(2));
+  EXPECT_EQ(reconstruction.NumRegFrames(), 1);
+  EXPECT_EQ(reconstruction.NumRegImages(), 2);
+  EXPECT_EQ(&reconstruction.Camera(1), camera);
+  EXPECT_EQ(&reconstruction.Image(1), image1);
+  EXPECT_EQ(&reconstruction.Image(2), image2);
+  EXPECT_EQ(&reconstruction.Point3D(point3D_id), point3D);
+  EXPECT_EQ(reconstruction.Frame(10).RigPtr(), &reconstruction.Rig(2));
+  EXPECT_EQ(reconstruction.Image(1).FrameId(), 10);
+  EXPECT_EQ(reconstruction.Image(2).FrameId(), 10);
+  ExpectValidPtrs(reconstruction);
+  EXPECT_TRUE(reconstruction.IsValid());
+}
+
 TEST(Reconstruction, RegisterFrame) {
   Reconstruction reconstruction;
   GenerateReconstruction(1, &reconstruction);

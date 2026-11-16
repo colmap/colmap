@@ -101,6 +101,12 @@ std::vector<RigConfig> ReadRigConfig(const std::filesystem::path& path);
 // Any unspecified images in the provided configurations will be configured as
 // trivial rigs/frames. Throws if the images of different cameras in a rig
 // config share a database camera, since each rig sensor needs its own camera.
+// Requires a rollback-capable database; unsupported backends reject the call
+// before writing. On failure, the reconstruction is unchanged and database
+// writes are rolled back. A rollback failure is reported separately and leaves
+// database recovery unconfirmed; the original operation error is rethrown.
+// An enclosing caller-owned transaction is not committed here. A later outer
+// rollback does not undo an already successful reconstruction update.
 void ApplyRigConfig(const std::vector<RigConfig>& configs,
                     Database& database,
                     Reconstruction* reconstruction = nullptr);
