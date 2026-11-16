@@ -437,13 +437,15 @@ void Reconstruction::AddFrame(class Frame frame) {
   }
   const bool is_registered = frame.HasPose();
   const frame_t frame_id = frame.FrameId();
+  if (is_registered) {
+    THROW_CHECK_NE(frame_id, kInvalidFrameId);
+  }
   auto [it, inserted] = frames_.emplace(frame_id, std::move(frame));
   THROW_CHECK(inserted);
   // We finalize the data ids, otherwise some internal bookkeeping
   // (e.g., counting reg_image_ids_) will be incorrect.
   it->second.FinalizeDataIds();
   if (is_registered) {
-    THROW_CHECK_NE(frame_id, kInvalidFrameId);
     // A newly inserted frame cannot already be registered.
     reg_frame_ids_.push_back(frame_id);
     num_reg_images_ += std::distance(it->second.ImageIds().begin(),

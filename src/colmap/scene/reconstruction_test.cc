@@ -296,6 +296,7 @@ TEST(Reconstruction, AddPosedFrameRegistersNewFrame) {
   rig.SetRigId(1);
   rig.AddRefSensor(camera1.SensorId());
   rig.AddSensor(camera2.SensorId());
+  rig.AddSensor(sensor_t(SensorType::IMU, 3));
   reconstruction.AddRig(rig);
 
   Frame first;
@@ -303,6 +304,7 @@ TEST(Reconstruction, AddPosedFrameRegistersNewFrame) {
   first.SetRigId(rig.RigId());
   first.AddDataId(data_t(camera1.SensorId(), 101));
   first.AddDataId(data_t(camera2.SensorId(), 102));
+  first.AddDataId(data_t(sensor_t(SensorType::IMU, 3), 201));
   first.SetRigFromWorld(Rigid3d());
   reconstruction.AddFrame(first);
   EXPECT_TRUE(reconstruction.Frame(20).HasFinalDataIds());
@@ -325,6 +327,11 @@ TEST(Reconstruction, AddPosedFrameRegistersNewFrame) {
 
   EXPECT_THROW(reconstruction.AddFrame(first), std::invalid_argument);
   EXPECT_THROW(reconstruction.RegisterFrame(30), std::invalid_argument);
+  Frame foreign = first;
+  foreign.SetFrameId(40);
+  foreign.SetRigPtr(&rig);
+  EXPECT_THROW(reconstruction.AddFrame(foreign), std::invalid_argument);
+  EXPECT_FALSE(reconstruction.ExistsFrame(40));
   EXPECT_EQ(reconstruction.NumFrames(), 3);
   reconstruction.RegisterFrame(20);
   EXPECT_THAT(reconstruction.RegFrameIds(), testing::ElementsAre(20, 10));
@@ -335,6 +342,21 @@ TEST(Reconstruction, AddPosedFrameRegistersNewFrame) {
   reconstruction.RegisterFrame(30);
   EXPECT_THAT(reconstruction.RegFrameIds(), testing::ElementsAre(20, 10, 30));
   EXPECT_EQ(reconstruction.NumRegImages(), 4);
+  ExpectValidPtrs(reconstruction);
+}
+
+TEST(Reconstruction, AddPosedFrameInvalidIdPreservesState) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(1, &reconstruction);
+  const Reconstruction before = reconstruction;
+  Frame frame = reconstruction.Frame(1);
+  frame.SetFrameId(kInvalidFrameId);
+
+  EXPECT_THROW(reconstruction.AddFrame(frame), std::invalid_argument);
+  EXPECT_FALSE(reconstruction.ExistsFrame(kInvalidFrameId));
+  EXPECT_THAT(reconstruction, ReconstructionEq(before));
+  EXPECT_EQ(reconstruction.RegFrameIds(), before.RegFrameIds());
+  EXPECT_EQ(reconstruction.NumRegImages(), before.NumRegImages());
   ExpectValidPtrs(reconstruction);
 }
 
