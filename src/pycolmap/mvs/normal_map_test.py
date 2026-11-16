@@ -66,6 +66,24 @@ def test_normal_map_from_array_to_array_roundtrip() -> None:
     np.testing.assert_array_almost_equal(array, result)
 
 
+@pytest.mark.skipif(
+    np.iinfo(np.intp).max <= np.iinfo(np.intc).max,
+    reason="Array dimensions cannot exceed the native int range",
+)
+@pytest.mark.parametrize("axis", [0, 1, 2])
+def test_normal_map_from_array_rejects_dimensions_before_narrowing(
+    axis: int,
+) -> None:
+    shape = [0, 0, 3]
+    shape[axis] = np.iinfo(np.intc).max + 1
+    # A genuine empty array exercises shape validation without large storage.
+    array = np.empty(shape, dtype=np.float32)
+    assert array.size == 0
+    assert array.flags.c_contiguous
+    with pytest.raises(RuntimeError, match="dimensions must fit in int"):
+        pycolmap.NormalMap.from_array(array)
+
+
 def test_normal_map_rescale() -> None:
     normal_map = pycolmap.NormalMap(64, 48)
     normal_map.rescale(0.5)

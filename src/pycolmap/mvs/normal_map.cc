@@ -5,12 +5,13 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <limits>
+
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
-using namespace colmap;
-using namespace colmap::mvs;
-using namespace pybind11::literals;
+using colmap::mvs::NormalMap;
+using pybind11::literals::operator""_a;
 namespace py = pybind11;
 
 #ifdef _MSC_VER  // If compiling with MSVC
@@ -39,14 +40,21 @@ py::array_t<float> ArrayFromNormalMap(const NormalMap& self) {
   return output;
 }
 
-NormalMap NormalMapFromArray(py::array_t<float, py::array::c_style> array) {
+NormalMap NormalMapFromArray(
+    const py::array_t<float, py::array::c_style>& array) {
   if (array.ndim() != 3) {
     throw std::runtime_error("Input array must have 3 dimensions!");
   }
 
-  const int width = array.shape(1);
-  const int height = array.shape(0);
-  const int depth = array.shape(2);
+  const py::ssize_t width = array.shape(1);
+  const py::ssize_t height = array.shape(0);
+  const py::ssize_t depth = array.shape(2);
+
+  if (width > std::numeric_limits<int>::max() ||
+      height > std::numeric_limits<int>::max() ||
+      depth > std::numeric_limits<int>::max()) {
+    throw std::runtime_error("Input array dimensions must fit in int!");
+  }
 
   if (width == 0 || height == 0) {
     throw std::runtime_error(
@@ -57,7 +65,7 @@ NormalMap NormalMapFromArray(py::array_t<float, py::array::c_style> array) {
     throw std::runtime_error("Input array must have 3 channels for normals!");
   }
 
-  NormalMap output(width, height);
+  NormalMap output(static_cast<int>(width), static_cast<int>(height));
 
   const float* input_ptr = array.data();
   for (size_t row = 0; row < output.GetHeight(); ++row) {
