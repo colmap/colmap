@@ -236,6 +236,49 @@ TEST(SceneClustering, ThreeFlatClusters) {
               UnorderedClustersEq({0, 1}, {2, 3}, {4, 5}));
 }
 
+TEST(SceneClustering, FlatClustersOrderedBySizeThenImageId) {
+  const SceneGraph graph = {
+      {{0, 1}, {2, 3}, {10, 11}, {11, 12}, {10, 12}, {1, 2}, {3, 10}, {12, 0}},
+      {1000, 1000, 1000, 1000, 1000, 1, 1, 1}};
+
+  SceneClustering::Options options;
+  options.branching = 3;
+  options.image_overlap = 0;
+  options.is_hierarchical = false;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  const auto* root = scene_clustering.GetRootCluster();
+  ASSERT_NE(root, nullptr);
+  ASSERT_EQ(root->child_clusters.size(), 3);
+  const auto leaves = scene_clustering.GetLeafClusters();
+  ASSERT_EQ(leaves.size(), 3);
+  const std::vector<image_t> expected_ids = {0, 1, 2, 3, 10, 11, 12};
+  ASSERT_EQ(root->image_ids, expected_ids);
+  std::vector<image_t> covered_ids;
+  for (const auto& child : root->child_clusters) {
+    ASSERT_TRUE(std::is_sorted(child.image_ids.begin(), child.image_ids.end()));
+    covered_ids.insert(
+        covered_ids.end(), child.image_ids.begin(), child.image_ids.end());
+  }
+  std::sort(covered_ids.begin(), covered_ids.end());
+  ASSERT_EQ(covered_ids, expected_ids);
+
+  // Check the public ordering independently of METIS's chosen memberships.
+  std::vector<std::pair<size_t, image_t>> order_keys;
+  order_keys.reserve(root->child_clusters.size());
+  for (const auto& child : root->child_clusters) {
+    order_keys.emplace_back(
+        root->image_ids.size() - child.image_ids.size(),
+        child.image_ids.empty() ? 0 : child.image_ids.front());
+  }
+  EXPECT_TRUE(std::is_sorted(order_keys.begin(), order_keys.end()))
+      << "flat cluster order: " << ::testing::PrintToString(order_keys);
+  for (size_t i = 0; i < leaves.size(); ++i) {
+    EXPECT_EQ(leaves[i], &root->child_clusters[i]);
+  }
+}
+
 TEST(SceneClustering, ThreeFlatClustersTwoOverlap) {
   const SceneGraph graph = MakeSceneGraphOneLevel();
 

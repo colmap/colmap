@@ -191,15 +191,17 @@ void SceneClustering::PartitionFlatCluster(
   }
 
   // Sort child clusters by descending size of images and secondarily by lowest
-  // image id.
+  // image id. Children inherit ascending image IDs from the root.
   std::sort(root_cluster_->child_clusters.begin(),
             root_cluster_->child_clusters.end(),
             [](const Cluster& first, const Cluster& second) {
-              return first.image_ids.size() >= second.image_ids.size() &&
-                     *std::min_element(first.image_ids.begin(),
-                                       first.image_ids.end()) <
-                         *std::min_element(second.image_ids.begin(),
-                                           second.image_ids.end());
+              if (first.image_ids.size() != second.image_ids.size()) {
+                return first.image_ids.size() > second.image_ids.size();
+              }
+              if (first.image_ids.empty()) {
+                return false;
+              }
+              return first.image_ids.front() < second.image_ids.front();
             });
 
   // For each image find all related images with their weights
