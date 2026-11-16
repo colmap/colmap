@@ -293,7 +293,8 @@ TEST_P(CorrespondenceGraphFinalizeTest, RejectedPairPreservesCounts) {
     FeatureMatches matches;
     graph.ExtractMatchesBetweenImages(0, 1, matches);
     EXPECT_EQ(matches, geometry.inlier_matches);
-    EXPECT_EQ(graph.ExtractTwoViewGeometry(0, 1, false).config, geometry.config);
+    EXPECT_EQ(graph.ExtractTwoViewGeometry(0, 1, false).config,
+              geometry.config);
     std::vector<CorrespondenceGraph::Correspondence> corrs;
     graph.ExtractCorrespondences(0, 2, &corrs);
     EXPECT_TRUE(corrs.empty());
