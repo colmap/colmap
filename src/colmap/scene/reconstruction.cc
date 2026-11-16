@@ -848,8 +848,8 @@ std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
   if (NumRegImages() == 0 || other.NumImages() == 0) {
     return common_reg_image_ids;
   }
-  // A single lookup is already linear and needs no index allocation.
-  const bool build_index = NumRegImages() > 1;
+  // For small collections, direct scans avoid the index construction cost.
+  const bool build_index = std::min(NumRegImages(), other.NumImages()) > 64;
   FlatHashMap<std::string_view, const class Image*> matches_by_name;
   if (build_index) {
     matches_by_name.reserve(NumRegImages());

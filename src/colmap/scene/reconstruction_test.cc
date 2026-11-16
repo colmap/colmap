@@ -1010,8 +1010,8 @@ TEST(Reconstruction, FindCommonRegImageIdsPreservesNameLookup) {
     }
     return pairs;
   };
-  for (const image_t num_source : {0, 1, 2, 8}) {
-    for (const image_t num_target : {0, 1, 2, 8}) {
+  for (const image_t num_source : {0, 1, 2, 8, 64, 65}) {
+    for (const image_t num_target : {0, 1, 2, 8, 64, 65}) {
       SCOPED_TRACE(num_source);
       SCOPED_TRACE(num_target);
       Reconstruction source;
@@ -1024,8 +1024,8 @@ TEST(Reconstruction, FindCommonRegImageIdsPreservesNameLookup) {
   }
   Reconstruction source;
   Reconstruction target;
-  GenerateReconstruction(8, &source);
-  GenerateReconstruction(8, &target);
+  GenerateReconstruction(128, &source);
+  GenerateReconstruction(128, &target);
   source.Image(1).SetName("duplicate");
   source.Image(2).SetName("duplicate");
   source.Image(3).SetName("");
@@ -1050,24 +1050,27 @@ TEST(Reconstruction, FindCommonRegImageIdsPreservesNameLookup) {
   EXPECT_EQ(source.FindCommonRegImageIds(target),
             expected_pairs(source, target));
   // One registered frame may contribute several camera images.
-  SyntheticDatasetOptions options;
-  options.num_rigs = 1;
-  options.num_cameras_per_rig = 2;
-  options.num_frames_per_rig = 1;
-  options.num_points3D = 0;
-  options.num_points2D_without_point3D = 0;
-  Reconstruction rig_source;
-  SynthesizeDataset(options, &rig_source);
-  ASSERT_EQ(rig_source.NumRegFrames(), 1);
-  ASSERT_EQ(rig_source.NumRegImages(), 2);
-  Reconstruction rig_target(rig_source);
-  EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target).size(), 2);
-  EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target),
-            expected_pairs(rig_source, rig_target));
-  rig_target.DeRegisterFrame(*rig_target.RegFrameIds().begin());
-  EXPECT_TRUE(rig_source.FindCommonRegImageIds(rig_target).empty());
-  EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target),
-            expected_pairs(rig_source, rig_target));
+  for (const int num_cameras : {2, 65}) {
+    SCOPED_TRACE(num_cameras);
+    SyntheticDatasetOptions options;
+    options.num_rigs = 1;
+    options.num_cameras_per_rig = num_cameras;
+    options.num_frames_per_rig = 1;
+    options.num_points3D = 0;
+    options.num_points2D_without_point3D = 0;
+    Reconstruction rig_source;
+    SynthesizeDataset(options, &rig_source);
+    ASSERT_EQ(rig_source.NumRegFrames(), 1);
+    ASSERT_EQ(rig_source.NumRegImages(), num_cameras);
+    Reconstruction rig_target(rig_source);
+    EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target).size(), num_cameras);
+    EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target),
+              expected_pairs(rig_source, rig_target));
+    rig_target.DeRegisterFrame(*rig_target.RegFrameIds().begin());
+    EXPECT_TRUE(rig_source.FindCommonRegImageIds(rig_target).empty());
+    EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target),
+              expected_pairs(rig_source, rig_target));
+  }
 }
 
 TEST(Reconstruction, ComputeNumObservations) {
