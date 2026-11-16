@@ -309,35 +309,48 @@ void ResampleImageBilinear(const float* data,
     float d_min;
     float d_max;
   };
-  std::vector<ColumnGeometry> columns(new_cols);
-  for (int c = 0; c < new_cols; ++c) {
+  const auto column_geometry = [scale_c](const int c) {
     const float c_i = (c + 0.5f) * scale_c - 0.5f;
     const int c_i_min = std::floor(c_i);
     const int c_i_max = c_i_min + 1;
-    columns[c] = {c_i_min, c_i_max, c_i - c_i_min, c_i_max - c_i};
-  }
+    return ColumnGeometry{c_i_min, c_i_max, c_i - c_i_min, c_i_max - c_i};
+  };
+  const auto resample = [&](const auto& get_column) {
+    for (int r = 0; r < new_rows; ++r) {
+      const float r_i = (r + 0.5f) * scale_r - 0.5f;
+      const int r_i_min = std::floor(r_i);
+      const int r_i_max = r_i_min + 1;
+      const float d_r_min = r_i - r_i_min;
+      const float d_r_max = r_i_max - r_i;
 
-  for (int r = 0; r < new_rows; ++r) {
-    const float r_i = (r + 0.5f) * scale_r - 0.5f;
-    const int r_i_min = std::floor(r_i);
-    const int r_i_max = r_i_min + 1;
-    const float d_r_min = r_i - r_i_min;
-    const float d_r_max = r_i_max - r_i;
+      for (int c = 0; c < new_cols; ++c) {
+        const auto [c_i_min, c_i_max, d_c_min, d_c_max] = get_column(c);
 
-    for (int c = 0; c < new_cols; ++c) {
-      const auto& [c_i_min, c_i_max, d_c_min, d_c_max] = columns[c];
+        // Interpolation in column direction.
+        const float value1 = d_c_max * GetPixelConstantBorder(
+                                           data, rows, cols, r_i_min, c_i_min) +
+                             d_c_min * GetPixelConstantBorder(
+                                           data, rows, cols, r_i_min, c_i_max);
+        const float value2 = d_c_max * GetPixelConstantBorder(
+                                           data, rows, cols, r_i_max, c_i_min) +
+                             d_c_min * GetPixelConstantBorder(
+                                           data, rows, cols, r_i_max, c_i_max);
 
-      // Interpolation in column direction.
-      const float value1 =
-          d_c_max * GetPixelConstantBorder(data, rows, cols, r_i_min, c_i_min) +
-          d_c_min * GetPixelConstantBorder(data, rows, cols, r_i_min, c_i_max);
-      const float value2 =
-          d_c_max * GetPixelConstantBorder(data, rows, cols, r_i_max, c_i_min) +
-          d_c_min * GetPixelConstantBorder(data, rows, cols, r_i_max, c_i_max);
-
-      // Interpolation in row direction.
-      resampled[r * new_cols + c] = d_r_max * value1 + d_r_min * value2;
+        // Interpolation in row direction.
+        resampled[r * new_cols + c] = d_r_max * value1 + d_r_min * value2;
+      }
     }
+  };
+
+  // A single output row cannot reuse column geometry.
+  if (new_rows == 1) {
+    resample(column_geometry);
+  } else {
+    std::vector<ColumnGeometry> columns(new_cols);
+    for (int c = 0; c < new_cols; ++c) {
+      columns[c] = column_geometry(c);
+    }
+    resample([&columns](const int c) { return columns[c]; });
   }
 }
 

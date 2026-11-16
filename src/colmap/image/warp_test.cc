@@ -509,6 +509,9 @@ TEST(Warp, ResampleImageBilinearAsymmetricAndBorders) {
         std::tuple{1, 7, 5, 3},
         std::tuple{7, 1, 3, 5},
         std::tuple{1, 1, 3, 4},
+        std::tuple{1, 1, 1, 1},
+        std::tuple{1, 7, 1, 3},
+        std::tuple{5, 7, 1, 9},
         std::tuple{3, 5, 3, 5},
         std::tuple{5, 7, 1, 1}}) {
     std::vector<float> image(rows * cols);
