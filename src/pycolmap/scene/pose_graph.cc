@@ -121,5 +121,10 @@ void BindPoseGraph(py::module& m) {
            &PoseGraph::InvalidatePairsOutsideActiveImageIds,
            "active_image_ids"_a,
            "Mark image pairs as invalid if either image is not in the active "
-           "set.");
+           "set.")
+      .def("subgraph",
+           &PoseGraph::Subgraph,
+           "image_ids"_a,
+           "Return the subgraph of the edges between images in the given set, "
+           "with all their data and validity.");
 }

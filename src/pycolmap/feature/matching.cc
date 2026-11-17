@@ -216,6 +216,14 @@ void BindFeatureMatching(py::module& m) {
                          "Whether to use the float16 matcher on CUDA GPUs "
                          "with compute capability 7.0 or newer (falls back to "
                          "float32 otherwise).")
+          .def_readwrite("num_workers_per_gpu",
+                         &FlexGlueMatchingOptions::num_workers_per_gpu,
+                         "Number of matching worker threads per CUDA GPU that "
+                         "share one FlexGlue matcher instance.")
+          .def_readwrite("num_inferences_per_gpu",
+                         &FlexGlueMatchingOptions::num_inferences_per_gpu,
+                         "Maximum number of concurrent ONNX model inferences "
+                         "per CUDA GPU across the shared worker threads.")
           .def("check", &FlexGlueMatchingOptions::Check);
   MakeDataclass(PyFlexGlueMatchingOptions);
 #endif

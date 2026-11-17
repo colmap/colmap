@@ -7,6 +7,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
+#include <tuple>
+
 #include <ceres/evaluation_callback.h>
 #include <ceres/normal_prior.h>
 #include <gtest/gtest.h>
@@ -216,6 +218,136 @@ TEST(BACovariance, ReturnedCovarianceOwnsItsResults) {
     }
   }
 }
+
+class PointTangentBACovarianceTests
+    : public ::testing::TestWithParam<
+          std::tuple<BACovarianceOptions::Params, int>> {};
+
+TEST_P(PointTangentBACovarianceTests, CompareWithCeres) {
+  const auto [params, tangent_size] = GetParam();
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions dataset;
+  dataset.num_rigs = 1;
+  dataset.num_cameras_per_rig = 1;
+  dataset.num_frames_per_rig = 1;
+  dataset.num_points3D = 2;
+  dataset.num_points2D_without_point3D = 0;
+  SynthesizeDataset(dataset, &reconstruction);
+  const image_t image_id = reconstruction.RegImageIds().front();
+  double* const pose =
+      reconstruction.Frame(reconstruction.Image(image_id).FrameId())
+          .RigFromWorld()
+          .params.data();
+  double other = 0.25;
+  std::vector<int> fixed_coordinates;
+  for (int i = tangent_size; i < 3; ++i) {
+    fixed_coordinates.push_back(i);
+  }
+
+  ceres::Problem problem;
+  std::vector<std::pair<const double*, const double*>> point_pairs;
+  for (const auto& [point_id, _] : reconstruction.Points3D()) {
+    double* const point = reconstruction.Point3D(point_id).xyz.data();
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<LinearCovarianceCost, 6, 7, 1, 3>(
+            new LinearCovarianceCost),
+        new ceres::ScaledLoss(
+            nullptr, static_cast<double>(point_id), ceres::TAKE_OWNERSHIP),
+        pose,
+        &other,
+        point);
+    SetManifold(&problem, point, CreateSubsetManifold(3, fixed_coordinates));
+    ASSERT_EQ(ParameterBlockTangentSize(problem, point), tangent_size);
+    point_pairs.emplace_back(point, point);
+  }
+  ASSERT_EQ(point_pairs.size(), 2);
+  ASSERT_EQ(problem.NumResiduals(), 12);
+  SetManifold(&problem, pose, CreateSubsetManifold(7, {0, 1, 2, 3, 6}));
+
+  BACovarianceOptions options;
+  options.params = params;
+  options.damping = 0;
+  const auto covariance =
+      EstimateBACovarianceFromProblem(options, reconstruction, problem);
+  ASSERT_TRUE(covariance.has_value());
+  if (params == BACovarianceOptions::Params::POSES_AND_POINTS) {
+    // Pose covariance marginalizes both point blocks and the other parameter.
+    ceres::Covariance oracle{ceres::Covariance::Options()};
+    ASSERT_TRUE(oracle.Compute(std::vector<const double*>{pose}, &problem));
+    Eigen::Matrix<double, 2, 2, Eigen::RowMajor> expected;
+    ASSERT_TRUE(
+        oracle.GetCovarianceBlockInTangentSpace(pose, pose, expected.data()));
+    const auto pose_cov = covariance->GetCamCovFromWorld(image_id);
+    ASSERT_TRUE(pose_cov.has_value());
+    ExpectNearEigenMatrixXd(*pose_cov, expected, 1e-12);
+  } else {
+    EXPECT_FALSE(covariance->GetCamCovFromWorld(image_id).has_value());
+  }
+  // Point covariance is conditional even when pose covariance is requested.
+  problem.SetParameterBlockConstant(pose);
+  problem.SetParameterBlockConstant(&other);
+  ceres::Covariance oracle{ceres::Covariance::Options()};
+  ASSERT_TRUE(oracle.Compute(point_pairs, &problem));
+  for (const auto& [point_id, point] : reconstruction.Points3D()) {
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+        expected(tangent_size, tangent_size);
+    ASSERT_TRUE(oracle.GetCovarianceBlockInTangentSpace(
+        point.xyz.data(), point.xyz.data(), expected.data()));
+    const auto point_cov = covariance->GetPointCov(point_id);
+    ASSERT_TRUE(point_cov.has_value());
+    ExpectNearEigenMatrixXd(*point_cov, expected, 1e-12);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BACovarianceTests,
+    PointTangentBACovarianceTests,
+    ::testing::Combine(
+        ::testing::Values(BACovarianceOptions::Params::POINTS,
+                          BACovarianceOptions::Params::POSES_AND_POINTS),
+        ::testing::Values(3, 2, 1)));
+
+class OtherCovarianceRequestTests
+    : public ::testing::TestWithParam<BACovarianceOptions::Params> {};
+
+TEST_P(OtherCovarianceRequestTests, OnlyReturnsRequestedCovariance) {
+  Eigen::Vector2d pose = Eigen::Vector2d::Zero();
+  Eigen::Vector<double, 1> other = Eigen::Vector<double, 1>::Zero();
+  ceres::Problem problem;
+  problem.AddResidualBlock(new ceres::NormalPrior(Eigen::Matrix2d::Identity(),
+                                                  Eigen::Vector2d::Zero()),
+                           nullptr,
+                           pose.data());
+  problem.AddResidualBlock(
+      new ceres::NormalPrior(Eigen::Matrix<double, 1, 1>::Identity(), other),
+      nullptr,
+      other.data());
+  BACovarianceOptions options;
+  options.params = GetParam();
+  options.damping = 0;
+  options.experimental_custom_poses = {{1, pose.data()}};
+  const auto covariance =
+      EstimateBACovarianceFromProblem(options, Reconstruction(), problem);
+  ASSERT_TRUE(covariance.has_value());
+  const auto pose_cov = covariance->GetCamCovFromWorld(1);
+  ASSERT_TRUE(pose_cov.has_value());
+  ExpectNearEigenMatrixXd(*pose_cov, Eigen::Matrix2d::Identity(), 1e-12);
+  const auto other_cov = covariance->GetOtherParamsCov(other.data());
+  if (options.params == BACovarianceOptions::Params::ALL) {
+    ASSERT_TRUE(other_cov.has_value());
+    ExpectNearEigenMatrixXd(
+        *other_cov, Eigen::Matrix<double, 1, 1>::Identity(), 1e-12);
+  } else {
+    EXPECT_FALSE(other_cov.has_value());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    BACovarianceTests,
+    OtherCovarianceRequestTests,
+    ::testing::Values(BACovarianceOptions::Params::POSES,
+                      BACovarianceOptions::Params::POSES_AND_POINTS,
+                      BACovarianceOptions::Params::ALL));
 
 struct BACovarianceTestOptions {
   bool fixed_points = false;

@@ -99,7 +99,7 @@ bool ComputeSchurComplement(bool estimate_point_covs,
       // Point covariance conditioned on fixed pose/other parameters.
       point_covs.emplace(point.point3D_id, H_pp_idx_inv);
     }
-    point_param_idx += 3;
+    point_param_idx += tangent_size;
   }
 
   if (!estimate_pose_covs && !estimate_other_covs) {
@@ -325,12 +325,16 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
       pose_num_params += num_params;
     }
 
-    other_L_start_size.reserve(poses.size());
+    if (estimate_other_covs) {
+      other_L_start_size.reserve(others.size());
+    }
     for (const double* other : others) {
       const int num_params = ParameterBlockTangentSize(problem, other);
-      other_L_start_size.emplace(
-          other,
-          std::make_pair(pose_num_params + other_num_params, num_params));
+      if (estimate_other_covs) {
+        other_L_start_size.emplace(
+            other,
+            std::make_pair(pose_num_params + other_num_params, num_params));
+      }
       other_num_params += num_params;
     }
   }

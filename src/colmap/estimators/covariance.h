@@ -52,7 +52,7 @@ struct BACovariance {
   // Tangent space covariance for any other variable parameter block in the
   // problem. If some dimensions are kept constant, the respective rows/columns
   // are omitted. Returns null if parameter block is not a variable in the
-  // problem.
+  // problem or other-parameter covariance was not requested.
   std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:

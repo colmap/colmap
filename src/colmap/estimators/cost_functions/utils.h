@@ -6,9 +6,12 @@
 #include "colmap/util/logging.h"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
+#include <Eigen/LU>
 #include <ceres/ceres.h>
 
 namespace colmap {
@@ -93,14 +96,32 @@ auto LastValueParameterPack(Args&&... args) {
 namespace internal {
 
 template <int kNumResiduals>
-Eigen::Matrix<double, kNumResiduals, kNumResiduals> ComputeLeftSqrtInformation(
+std::optional<Eigen::Matrix<double, kNumResiduals, kNumResiduals>>
+TryComputeLeftSqrtInformation(
     const Eigen::Matrix<double, kNumResiduals, kNumResiduals>& cov) {
   using CovMat = Eigen::Matrix<double, kNumResiduals, kNumResiduals>;
-  const CovMat info = cov.inverse();
-  const Eigen::LLT<CovMat> llt(info);
-  THROW_CHECK(info.allFinite() && llt.info() == Eigen::Success)
-      << "Covariance matrix is not positive definite";
-  return llt.matrixL().transpose();
+  if (!cov.allFinite() || !cov.isApprox(cov.transpose(), 1e-5)) {
+    return std::nullopt;
+  }
+  const CovMat info = (0.5 * (cov + cov.transpose())).inverse();
+  if (!info.allFinite()) {
+    return std::nullopt;
+  }
+  const Eigen::LLT<CovMat> llt(0.5 * (info + info.transpose()));
+  if (llt.info() != Eigen::Success) {
+    return std::nullopt;
+  }
+  return CovMat(llt.matrixL().transpose());
+}
+
+template <int kNumResiduals>
+Eigen::Matrix<double, kNumResiduals, kNumResiduals> ComputeLeftSqrtInformation(
+    const Eigen::Matrix<double, kNumResiduals, kNumResiduals>& cov) {
+  std::optional<Eigen::Matrix<double, kNumResiduals, kNumResiduals>>
+      left_sqrt_info = TryComputeLeftSqrtInformation<kNumResiduals>(cov);
+  THROW_CHECK(left_sqrt_info.has_value())
+      << "Covariance matrix is not symmetric positive definite";
+  return *left_sqrt_info;
 }
 
 }  // namespace internal
@@ -220,6 +241,13 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
     *mutable_parameter_block_sizes() = cost_->parameter_block_sizes();
   }
 
+  static DynamicCovarianceWeightedCostFunction* FromLeftSqrtInformation(
+      const CovMat& left_sqrt_info, ceres::CostFunction* cost) {
+    return new DynamicCovarianceWeightedCostFunction(
+        std::unique_ptr<ceres::CostFunction>(THROW_CHECK_NOTNULL(cost)),
+        left_sqrt_info);
+  }
+
   bool Evaluate(double const* const* parameters,
                 double* residuals,
                 double** jacobians) const override {
@@ -236,15 +264,27 @@ class DynamicCovarianceWeightedCostFunction : public ceres::CostFunction {
         }
         Eigen::Map<
             Eigen::
-                Matrix<double, kNumResiduals, Eigen::Dynamic, Eigen::RowMajor>>(
-            jacobians[i], kNumResiduals, block_sizes[i])
-            .applyOnTheLeft(left_sqrt_info_);
+                Matrix<double, kNumResiduals, Eigen::Dynamic, Eigen::RowMajor>>
+            jacobian(jacobians[i], kNumResiduals, block_sizes[i]);
+        for (int col = 0; col < block_sizes[i]; ++col) {
+          jacobian.col(col) = left_sqrt_info_ * jacobian.col(col);
+        }
       }
     }
     return true;
   }
 
  private:
+  DynamicCovarianceWeightedCostFunction(
+      std::unique_ptr<ceres::CostFunction> cost, const CovMat& left_sqrt_info)
+      : cost_(std::move(THROW_CHECK_NOTNULL(cost))),
+        left_sqrt_info_(left_sqrt_info) {
+    THROW_CHECK(left_sqrt_info_.allFinite());
+    THROW_CHECK_EQ(cost_->num_residuals(), kNumResiduals);
+    set_num_residuals(kNumResiduals);
+    *mutable_parameter_block_sizes() = cost_->parameter_block_sizes();
+  }
+
   // Declared first, such that the wrapped cost function is owned, and thus
   // released, if computing the square root information throws.
   const std::unique_ptr<ceres::CostFunction> cost_;
