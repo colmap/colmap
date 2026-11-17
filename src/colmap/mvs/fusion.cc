@@ -430,13 +430,16 @@ void StereoFusion::Fuse(const int thread_id,
 
     // Read the color of the pixel.
     const auto& bitmap = workspace_->GetBitmap(image_idx);
-    const auto& depth_map_size = depth_map_sizes_.at(image_idx);
     const auto color =
         bitmap
             .GetPixel(internal::RescalePixelCenter(
-                          col, depth_map_size.first, bitmap.Width()),
+                          col,
+                          static_cast<int>(fused_pixel_mask.GetWidth()),
+                          bitmap.Width()),
                       internal::RescalePixelCenter(
-                          row, depth_map_size.second, bitmap.Height()))
+                          row,
+                          static_cast<int>(fused_pixel_mask.GetHeight()),
+                          bitmap.Height()))
             .value_or(BitmapColor<uint8_t>(0));
 
     // Set the current pixel as visited.
