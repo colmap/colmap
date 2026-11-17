@@ -263,10 +263,45 @@ T ScaleSigmoid(T x, const T alpha, const T x0) {
 
 template <typename T1, typename T2>
 T2 TruncateCast(const T1 value) {
-  return static_cast<T2>(
-      std::clamp(value,
-                 static_cast<T1>(std::numeric_limits<T2>::min()),
-                 static_cast<T1>(std::numeric_limits<T2>::max())));
+  using InputLimits = std::numeric_limits<T1>;
+  using OutputLimits = std::numeric_limits<T2>;
+  if constexpr (InputLimits::is_integer && OutputLimits::is_integer) {
+    if constexpr (InputLimits::is_signed && !OutputLimits::is_signed) {
+      if (value < 0) {
+        return OutputLimits::lowest();
+      }
+    }
+    if constexpr (InputLimits::digits > OutputLimits::digits) {
+      if (value > static_cast<T1>(OutputLimits::max())) {
+        return OutputLimits::max();
+      }
+      if constexpr (InputLimits::is_signed && OutputLimits::is_signed) {
+        if (value < static_cast<T1>(OutputLimits::lowest())) {
+          return OutputLimits::lowest();
+        }
+      }
+    }
+  } else if constexpr (!InputLimits::is_integer &&
+                       OutputLimits::digits <= InputLimits::digits &&
+                       (OutputLimits::is_integer ||
+                        OutputLimits::max_exponent <=
+                            InputLimits::max_exponent)) {
+    // The output bounds are exactly representable in the floating input type.
+    // Clamping before the cast also guarantees that the cast never overflows,
+    // even in unreachable code after constant folding (MSVC warning C4756).
+    return static_cast<T2>(std::clamp(value,
+                                      static_cast<T1>(OutputLimits::lowest()),
+                                      static_cast<T1>(OutputLimits::max())));
+  } else {
+    const long double input = static_cast<long double>(value);
+    if (input <= static_cast<long double>(OutputLimits::lowest())) {
+      return OutputLimits::lowest();
+    }
+    if (input >= static_cast<long double>(OutputLimits::max())) {
+      return OutputLimits::max();
+    }
+  }
+  return static_cast<T2>(value);
 }
 
 }  // namespace colmap

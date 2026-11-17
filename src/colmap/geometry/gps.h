@@ -62,11 +62,13 @@ class GPSTransform {
   // If the points span multiple zones, the zone with the most points is chosen.
   // The conversion uses a 4th-order expansion formula. The easting offset is
   // 500 km, and the northing offset is 10,000 km for the Southern Hemisphere.
+  // Points at latitude 0 use the northern hemisphere offset.
   std::pair<std::vector<Eigen::Vector3d>, int> EllipsoidToUTM(
       const std::vector<Eigen::Vector3d>& lat_lon_alt) const;
 
   // Convert UTM to ellipsoidal (lat/lon/alt) coordinates.
   // Requires the zone number and hemisphere (true for north, false for south).
+  // The returned longitude is normalized to the [-180, 180] range.
   std::vector<Eigen::Vector3d> UTMToEllipsoid(
       const std::vector<Eigen::Vector3d>& xyz_in_utm,
       int zone,

@@ -4,6 +4,9 @@
 
 #include "colmap/util/eigen_matchers.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -122,6 +125,89 @@ TEST(FindQuadraticPolynomialRoots, ZeroLeadingCoefficient) {
   EXPECT_EQ(imag(0), 0);
 }
 
+using PolynomialSolver = bool (*)(const Eigen::VectorXd&,
+                                  Eigen::VectorXd*,
+                                  Eigen::VectorXd*);
+
+struct SolverParam {
+  const char* name;
+  PolynomialSolver solve;
+};
+
+class QuadraticSolverTest : public ::testing::TestWithParam<SolverParam> {};
+
+TEST_P(QuadraticSolverTest, CoefficientScaleInvariance) {
+  const SolverParam solver = GetParam();
+  struct TestCase {
+    Eigen::Vector3d coeffs;
+    Eigen::Vector2d expected_real;
+    Eigen::Vector2d expected_imag;
+  };
+  // Expected roots of the unscaled polynomials. Real and imaginary parts are
+  // sorted independently before comparison, which preserves the pairing for
+  // quadratics (complex roots come in conjugate pairs with equal real parts).
+  const TestCase well_conditioned[] = {
+      {Eigen::Vector3d(1, -3, 2), Eigen::Vector2d(1, 2), Eigen::Vector2d(0, 0)},
+      {Eigen::Vector3d(1, 0, 1), Eigen::Vector2d(0, 0), Eigen::Vector2d(-1, 1)},
+      {Eigen::Vector3d(1, 3, 0), Eigen::Vector2d(-3, 0), Eigen::Vector2d(0, 0)},
+      {Eigen::Vector3d(1, 0, -1),
+       Eigen::Vector2d(-1, 1),
+       Eigen::Vector2d(0, 0)},
+  };
+  // The repeated root is ill-conditioned: rounding of decimal-scaled
+  // coefficients perturbs it by ~sqrt(eps). Binary scales keep these
+  // small-integer coefficients exact, so it is only tested there.
+  const TestCase binary_only[] = {
+      {Eigen::Vector3d(1, -2, 1), Eigen::Vector2d(1, 1), Eigen::Vector2d(0, 0)},
+  };
+
+  const auto check = [&](double scale, const TestCase& test) {
+    SCOPED_TRACE(testing::Message() << "scale=" << scale << ", coeffs=["
+                                    << test.coeffs.transpose() << "]");
+    Eigen::VectorXd real;
+    Eigen::VectorXd imag;
+    ASSERT_TRUE(solver.solve(scale * test.coeffs, &real, &imag));
+    ASSERT_EQ(real.size(), 2);
+    ASSERT_EQ(imag.size(), 2);
+    ASSERT_TRUE(real.allFinite());
+    ASSERT_TRUE(imag.allFinite());
+    std::sort(real.data(), real.data() + real.size());
+    std::sort(imag.data(), imag.data() + imag.size());
+    EXPECT_THAT(real, EigenMatrixNear(test.expected_real, 1e-12));
+    EXPECT_THAT(imag, EigenMatrixNear(test.expected_imag, 1e-12));
+  };
+
+  for (const double scale : {1.0, -1.0, 1e-200, -1e-200, 1e200, -1e200}) {
+    for (const auto& test : well_conditioned) {
+      check(scale, test);
+    }
+  }
+  // Boundary binary scales with both signs: smallest subnormal, smallest
+  // normal, unit, and near-largest normal.
+  for (const int exponent : {-1074, -1022, 0, 1000}) {
+    for (const double sign : {-1.0, 1.0}) {
+      const double scale = sign * std::scalbn(1.0, exponent);
+      for (const auto& test : well_conditioned) {
+        check(scale, test);
+      }
+      for (const auto& test : binary_only) {
+        check(scale, test);
+      }
+    }
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Solvers,
+    QuadraticSolverTest,
+    ::testing::Values(
+        SolverParam{"quadratic", FindQuadraticPolynomialRoots},
+        SolverParam{"durand_kerner", FindPolynomialRootsDurandKerner},
+        SolverParam{"companion", FindPolynomialRootsCompanionMatrix}),
+    [](const ::testing::TestParamInfo<SolverParam>& info) {
+      return info.param.name;
+    });
+
 TEST(FindQuadraticPolynomialRoots, OnlyZeroSolution) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
@@ -131,6 +217,42 @@ TEST(FindQuadraticPolynomialRoots, OnlyZeroSolution) {
   ASSERT_EQ(imag.size(), 1);
   EXPECT_EQ(real(0), 0);
   EXPECT_EQ(imag(0), 0);
+}
+
+TEST(FindQuadraticPolynomialRoots, WideCoefficientRange) {
+  Eigen::VectorXd real;
+  Eigen::VectorXd imag;
+  // The small coefficient must survive rescaling even though c / a underflows.
+  ASSERT_TRUE(FindQuadraticPolynomialRoots(
+      Eigen::Vector3d(1e200, 0, 1e-200), &real, &imag));
+  ASSERT_EQ(real.size(), 2);
+  ASSERT_EQ(imag.size(), 2);
+  EXPECT_EQ(real, Eigen::Vector2d::Zero());
+  EXPECT_NEAR(imag(0) / 1e-200, 1.0, 1e-12);
+  EXPECT_NEAR(imag(1) / 1e-200, -1.0, 1e-12);
+
+  ASSERT_TRUE(
+      FindQuadraticPolynomialRoots(Eigen::Vector3d(1, 1e100, 1), &real, &imag));
+  EXPECT_NEAR(real(0) / -1e100, 1.0, 1e-12);
+  EXPECT_NEAR(real(1) / -1e-100, 1.0, 1e-12);
+  EXPECT_EQ(imag, Eigen::Vector2d::Zero());
+
+  ASSERT_TRUE(FindQuadraticPolynomialRoots(
+      Eigen::Vector3d(1e-200, 0, 1e200), &real, &imag));
+  EXPECT_EQ(real, Eigen::Vector2d::Zero());
+  EXPECT_NEAR(imag(0) / 1e200, 1.0, 1e-12);
+  EXPECT_NEAR(imag(1) / 1e200, -1.0, 1e-12);
+}
+
+TEST(FindQuadraticPolynomialRoots, OptionalOutputs) {
+  Eigen::VectorXd real;
+  Eigen::VectorXd imag;
+  const Eigen::Vector3d coeffs(1, -3, 2);
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, nullptr));
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, nullptr, &imag));
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, nullptr, nullptr));
+  EXPECT_EQ(real, Eigen::Vector2d(1, 2));
+  EXPECT_EQ(imag, Eigen::Vector2d::Zero());
 }
 
 TEST(FindQuadraticPolynomialRoots, OnlyLeadingCoefficientNonZero) {
@@ -156,6 +278,82 @@ TEST(FindCubicPolynomialRoots, SingleRoot) {
       EvaluatePolynomial(coeffs, std::complex<double>(real(0), 0)).real(),
       0.0,
       1e-6);
+}
+
+TEST(FindCubicPolynomialRoots, NearRepeatedRoots) {
+  for (const double epsilon : {1e-2, 1e-6, 1e-10}) {
+    Eigen::Vector3d real;
+    ASSERT_EQ(FindCubicPolynomialRoots(0, epsilon, 0, &real), 1);
+    EXPECT_NEAR(real(0), 0, 1e-12);
+
+    ASSERT_EQ(FindCubicPolynomialRoots(0, -epsilon, 0, &real), 3);
+    ASSERT_TRUE(real.allFinite());
+    std::sort(real.data(), real.data() + real.size());
+    const Eigen::Vector3d expected(-std::sqrt(epsilon), 0, std::sqrt(epsilon));
+    EXPECT_THAT(real, EigenMatrixNear(expected, 1e-12));
+  }
+}
+
+TEST(FindCubicPolynomialRoots, TripleRoot) {
+  for (const double root : {-2.0, -1.0, 0.0, 1.0, 2.0}) {
+    Eigen::Vector3d real;
+    ASSERT_EQ(FindCubicPolynomialRoots(
+                  -3 * root, 3 * root * root, -root * root * root, &real),
+              3);
+    EXPECT_TRUE(real.allFinite());
+    const Eigen::Vector3d expected = Eigen::Vector3d::Constant(root);
+    EXPECT_THAT(real, EigenMatrixNear(expected, 1e-12));
+  }
+}
+
+TEST(FindCubicPolynomialRoots, DoubleRoot) {
+  for (const double root : {-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0}) {
+    for (const double offset : {-3.0, 3.0}) {
+      const double simple_root = root + offset;
+      Eigen::Vector3d real;
+      ASSERT_EQ(FindCubicPolynomialRoots(-2 * root - simple_root,
+                                         root * root + 2 * root * simple_root,
+                                         -root * root * simple_root,
+                                         &real),
+                3);
+      ASSERT_TRUE(real.allFinite());
+      std::sort(real.data(), real.data() + real.size());
+      Eigen::Vector3d expected(root, root, simple_root);
+      std::sort(expected.data(), expected.data() + expected.size());
+      EXPECT_THAT(real, EigenMatrixNear(expected, 1e-12));
+    }
+  }
+}
+
+TEST(FindCubicPolynomialRoots, DoubleRootRounding) {
+  // (x - root)^2 (x - simple_root) with fractional roots, where rounding
+  // of the discriminant takes the trigonometric branch: the acos argument
+  // may round outside [-1, 1], and the Newton update divides rounding
+  // noise by rounding noise. The first case used to return NaNs, the
+  // second infinities or inaccurate roots, depending on the build.
+  const double cases[][2] = {{-7.424214552093327, 9.502857898721292},
+                             {0.73860616877870156, -0.22275443202436795}};
+  for (const auto& roots : cases) {
+    const double root = roots[0];
+    const double simple_root = roots[1];
+    Eigen::Vector3d real;
+    const int num_roots =
+        FindCubicPolynomialRoots(-2 * root - simple_root,
+                                 root * root + 2 * root * simple_root,
+                                 -root * root * simple_root,
+                                 &real);
+    // Near a zero discriminant, the single- vs. three-root branch itself
+    // is rounding-dependent; both are valid, but the roots must be finite.
+    ASSERT_TRUE(num_roots == 1 || num_roots == 3);
+    ASSERT_TRUE(real.head(num_roots).allFinite());
+    // Loose tolerance: repeated roots are ill-conditioned, with
+    // perturbations scaling as the square root of the coefficient error.
+    for (int i = 0; i < num_roots; ++i) {
+      EXPECT_LT(
+          std::min(std::abs(real(i) - root), std::abs(real(i) - simple_root)),
+          1e-6);
+    }
+  }
 }
 
 TEST(FindCubicPolynomialRoots, MultiRoot) {

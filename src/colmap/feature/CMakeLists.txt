@@ -22,11 +22,12 @@ COLMAP_ADD_LIBRARY(
     SRCS
         aliked.h aliked.cc
         extractor.h extractor.cc
+        flexglue.h flexglue.cc
         index.h index.cc
+        lightglue.h lightglue.cc
         loma.h loma.cc
         matcher.h matcher.cc
         onnx_matchers.h onnx_matchers.cc
-        onnx_utils.h onnx_utils.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
@@ -55,7 +56,10 @@ if(OPENMP_FOUND)
 endif()
 
 if(ONNX_ENABLED)
-    target_link_libraries(colmap_feature PRIVATE onnxruntime::onnxruntime)
+    target_link_libraries(colmap_feature PRIVATE colmap_onnx_util)
+    if(CUDA_ENABLED)
+        target_link_libraries(colmap_feature PRIVATE colmap_util_cuda)
+    endif()
 endif()
 
 if(ONNX_ENABLED)
@@ -74,10 +78,18 @@ if(ONNX_ENABLED)
             onnxruntime::onnxruntime
     )
     COLMAP_ADD_TEST(
-        NAME onnx_utils_test
-        SRCS onnx_utils_test.cc
+        NAME lightglue_test
+        SRCS lightglue_test.cc
         LINK_LIBS
             colmap_feature
+            onnxruntime::onnxruntime
+    )
+    COLMAP_ADD_TEST(
+        NAME flexglue_test
+        SRCS flexglue_test.cc
+        LINK_LIBS
+            colmap_feature
+            colmap_sensor
             onnxruntime::onnxruntime
     )
     COLMAP_ADD_TEST(
@@ -117,4 +129,9 @@ COLMAP_ADD_TEST(
 )
 if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt${QT_VERSION_MAJOR}::Widgets)
+endif()
+if(TESTS_ENABLED AND (CUDA_ENABLED OR HIP_ENABLED))
+    # NOTE: plain signature to match COLMAP_ADD_TEST() above; mixing
+    # keyword and plain signatures for one target is a CMake error.
+    target_link_libraries(colmap_feature_sift_test colmap_util_cuda)
 endif()

@@ -10,7 +10,7 @@ on:
       - main
       - release/*
   pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened ]
   release:
     types: [ published, edited ]
 
@@ -89,6 +89,8 @@ jobs:
           ninja
 
       - name: Run tests
+        env:
+          COLMAP_TEST_HEAVY: "1"
         run: |
           cd build
           set +e

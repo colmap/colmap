@@ -167,6 +167,26 @@ void BindIncrementalPipeline(py::module& m) {
       .def_readwrite("ba_gpu_index",
                      &IncrementalPipelineOptions::ba_gpu_index,
                      "Index of CUDA GPU to use for BA, if available.")
+      .def_readwrite("ba_min_num_images_gpu_solver",
+                     &Opts::ba_min_num_images_gpu_solver,
+                     "Minimum number of images to use a Ceres GPU solver in "
+                     "local and global BA, when ba_use_gpu is enabled.")
+      .def_readwrite("ba_max_num_images_direct_dense_cpu_solver",
+                     &Opts::ba_max_num_images_direct_dense_cpu_solver,
+                     "Maximum number of images to use a Ceres direct dense "
+                     "CPU solver in local and global BA.")
+      .def_readwrite("ba_max_num_images_direct_sparse_cpu_solver",
+                     &Opts::ba_max_num_images_direct_sparse_cpu_solver,
+                     "Maximum number of images to use a Ceres direct sparse "
+                     "CPU solver in local and global BA.")
+      .def_readwrite("ba_max_num_images_direct_dense_gpu_solver",
+                     &Opts::ba_max_num_images_direct_dense_gpu_solver,
+                     "Maximum number of images to use a Ceres direct dense "
+                     "GPU solver in local and global BA.")
+      .def_readwrite("ba_max_num_images_direct_sparse_gpu_solver",
+                     &Opts::ba_max_num_images_direct_sparse_gpu_solver,
+                     "Maximum number of images to use a Ceres direct sparse "
+                     "GPU solver in local and global BA.")
       .def_readwrite("ba_local_backend",
                      &Opts::ba_local_backend,
                      "Bundle adjustment solver backend for local bundle "

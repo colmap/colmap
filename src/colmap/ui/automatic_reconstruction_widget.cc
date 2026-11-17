@@ -71,8 +71,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
     QLabel* label =
         new QLabel(tr("Model path (optional)"), global_descriptor_row_);
     QLineEdit* edit = new QLineEdit(global_descriptor_row_);
-    edit->setText(
-        QString::fromStdString(options_.global_descriptor_path.string()));
+    edit->setText(QString::fromStdString(options_.global_descriptor_path));
     QPushButton* btn =
         new QPushButton(tr("Select file"), global_descriptor_row_);
     hbox->addWidget(label);

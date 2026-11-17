@@ -22,6 +22,7 @@ void BindFeatureTypes(py::module& m);
 void BindFeature(py::module& m);
 void BindGeometry(py::module& m);
 void BindImage(py::module& m);
+void BindInertial(py::module& m);
 void BindOptim(py::module& m);
 void BindPipeline(py::module& m);
 void BindRetrieval(py::module& m);
@@ -62,6 +63,7 @@ PYBIND11_MODULE(_core, m, py::mod_gil_used()) {
   BindScene(m);
   BindImage(m);
   BindEstimators(m);
+  BindInertial(m);
   BindRetrieval(m);
   BindSfm(m);
 #if defined(COLMAP_MVS_ENABLED)

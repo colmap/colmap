@@ -3,6 +3,7 @@
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/retrieval/global_descriptor_model.h"
 #ifdef COLMAP_ONNX_ENABLED
@@ -56,12 +57,12 @@ class SequentialMatchingTab : public FeatureMatchingTab {
  private:
   void UpdateLoopDetectionFields();
   QComboBox* loop_detection_type_cb_;
-  // Rows added via AddOptionFilePath; we track the grid row of the lineEdit
+  // Row added via AddOptionFilePath; we track the grid row of the lineEdit
   // so we can hide the label (row, col 0), lineEdit (row, col 1), and
   // button (row+1, col 1) together.
   int vocab_tree_grid_row_ = -1;
 #ifdef COLMAP_ONNX_ENABLED
-  int global_descriptor_grid_row_ = -1;
+  // Row of the precision selector; the model path text field follows it.
   int precision_grid_row_ = -1;
   QComboBox* precision_cb_ = nullptr;
   QLineEdit* model_path_edit_ = nullptr;
@@ -143,6 +144,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   add_matcher_type(FeatureMatcherType::LOMA_R);
   add_matcher_type(FeatureMatcherType::LOMA_L);
   add_matcher_type(FeatureMatcherType::LOMA_G);
+  add_matcher_type(FeatureMatcherType::FLEXGLUE);
 #endif
   options_widget_->AddWidgetRow("Type", matcher_type_cb_);
 
@@ -171,6 +173,17 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->feature_matching->sift->max_distance, "sift.max_distance");
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
                                  "sift.cross_check");
+#ifdef COLMAP_ONNX_ENABLED
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->flexglue->filter_threshold,
+      "flexglue.filter_threshold");
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->flexglue->min_covisibility,
+      "flexglue.min_covisibility");
+  options_widget_->AddOptionDouble(
+      &options_->feature_matching->flexglue->early_stop_decay,
+      "flexglue.early_stop_decay");
+#endif
 
   options_widget_->AddSpacer();
   options_widget_->AddSection("Geometric verification");
@@ -233,6 +246,10 @@ void FeatureMatchingTab::WriteOptions() {
   options_widget_->WriteOptions();
   options_->feature_matching->type =
       matcher_types_[matcher_type_cb_->currentIndex()];
+  // FlexGlue reads the image pixels during matching. The GUI has no field for
+  // this option, so always use the image path of the current project.
+  options_->feature_matching->flexglue->image_path =
+      options_->image_path->string();
 }
 
 void FeatureMatchingTab::RunMatcher(std::unique_ptr<Thread> matcher) {
@@ -281,14 +298,16 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
   loop_detection_type_cb_->addItem("None");             // 0
   loop_detection_type_cb_->addItem("Vocabulary Tree");  // 1
 #ifdef COLMAP_ONNX_ENABLED
-  loop_detection_type_cb_->addItem("MixVPR");   // 2
-  loop_detection_type_cb_->addItem("MegaLoc");  // 3
+  for (const auto name : retrieval::GlobalDescriptorModel::ModelNames()) {
+    loop_detection_type_cb_->addItem(
+        QString::fromStdString(std::string(name)));  // 2..N+1
+  }
 #endif
   options_widget_->AddWidgetRow("Loop detection", loop_detection_type_cb_);
 
-  // Use standard AddOptionFilePath for both path types — identical height,
-  // no layout jump when swapping.  We track the grid row of each lineEdit
-  // so we can hide the entire row (label + lineEdit + button) together
+  // We track the grid rows of the vocabulary tree path (AddOptionFilePath:
+  // label + lineEdit, button on the next row) and of the precision selector
+  // (followed by the model path text field) so we can hide them together
   // via the QGridLayout.
   if (QGridLayout* grid = options_widget_->findChild<QGridLayout*>()) {
     // Vocab tree path.
@@ -303,8 +322,7 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
     precision_cb_ = new QComboBox(this);
     options_widget_->AddWidgetRow("loop_detection_model_precision",
                                   precision_cb_);
-    global_descriptor_grid_row_ = grid->rowCount();
-    model_path_edit_ = options_widget_->AddOptionFilePath(
+    model_path_edit_ = options_widget_->AddOptionText(
         &options_->sequential_pairing->loop_detection_options.model_path,
         "Model path (ONNX, optional)");
     connect(precision_cb_,
@@ -360,9 +378,9 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
 
   const int idx = loop_detection_type_cb_->currentIndex();
 
-  // Helper: hide or show every widget in the two grid rows occupied by
-  // one AddOptionFilePath call (label at row, lineEdit at row, button at
-  // row+1).
+  // Helper: hide or show every widget in two consecutive grid rows (the
+  // vocabulary tree path: label and lineEdit at row, button at row+1; or
+  // the precision selector followed by the model path text field).
   auto SetRowVisible = [grid](int row, bool visible) {
     for (int r = row; r <= row + 1; ++r) {
       for (int c = 0; c < 2; ++c) {
@@ -377,14 +395,8 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
   // 0 = None, 1 = Vocab Tree, 2+ = global descriptor (MixVPR / MegaLoc / ...)
   SetRowVisible(vocab_tree_grid_row_, idx == 1);
 #ifdef COLMAP_ONNX_ENABLED
-  // The precision selector occupies a single grid row.
-  for (int c = 0; c < 2; ++c) {
-    QLayoutItem* item = grid->itemAtPosition(precision_grid_row_, c);
-    if (item && item->widget()) {
-      item->widget()->setVisible(idx >= 2);
-    }
-  }
-  SetRowVisible(global_descriptor_grid_row_, idx >= 2);
+  // The precision selector and the model path occupy the next two rows.
+  SetRowVisible(precision_grid_row_, idx >= 2);
   if (idx >= 2 && model_path_edit_ != nullptr) {
     const RetrievalPairingOptions& loop_detection_options =
         options_->sequential_pairing->loop_detection_options;
@@ -426,7 +438,7 @@ void SequentialMatchingTab::UpdateLoopDetectionFields() {
             loop_detection_options.model_type,
             loop_detection_options.model_precision) == default_uri) {
       model_path_edit_->setText(
-          QString::fromStdString(loop_detection_options.model_path.string()));
+          QString::fromStdString(loop_detection_options.model_path));
     } else {
       model_path_edit_->setText(QString::fromStdString(default_uri));
     }
@@ -502,7 +514,7 @@ void SequentialMatchingTab::Run() {
       }
       const auto& model_path = loop_detection_options.model_path;
       if (!model_path.empty() && !ExistsFile(model_path) &&
-          !IsURI(model_path.string())) {
+          !IsURI(model_path)) {
         QMessageBox::critical(
             this,
             "",
@@ -569,9 +581,9 @@ RetrievalMatchingTab::RetrievalMatchingTab(QWidget* parent,
   options_widget_->AddWidgetRow("model_precision", precision_cb_);
   options_widget_->AddOptionInt(
       &options_->retrieval_pairing->batch_size, "batch_size", 1);
-  model_path_edit_ = options_widget_->AddOptionFilePath(
-      &options_->retrieval_pairing->model_path,
-      "Model path<br>(ONNX, optional)");
+  model_path_edit_ =
+      options_widget_->AddOptionText(&options_->retrieval_pairing->model_path,
+                                     "Model path<br>(ONNX, optional)");
   global_descriptor_end_row_ = grid == nullptr ? -1 : grid->rowCount();
 
   connect(precision_cb_,
@@ -683,8 +695,7 @@ void RetrievalMatchingTab::UpdateModelPathField() {
           pairing.model_type, pairing.model_precision) ==
           retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
                                                             precision)) {
-    model_path_edit_->setText(
-        QString::fromStdString(pairing.model_path.string()));
+    model_path_edit_->setText(QString::fromStdString(pairing.model_path));
   } else {
     model_path_edit_->setText(QString::fromStdString(
         retrieval::GlobalDescriptorModel::DefaultModelUri(model_name,
@@ -717,7 +728,7 @@ void RetrievalMatchingTab::Run() {
 
     // Empty model path is valid: auto-download from the default URI.
     if (!pairing.model_path.empty() && !ExistsFile(pairing.model_path) &&
-        !IsURI(pairing.model_path.string())) {
+        !IsURI(pairing.model_path)) {
       QMessageBox::critical(
           this,
           "",

@@ -18,12 +18,17 @@
 #include <cstdio>
 
 #include <hip/hip_runtime.h>
+// colmap/mvs/gpu_mat.h names curandState in host-visible declarations, so this
+// cannot be narrowed to device translation units; every target that includes
+// this header must therefore also declare the rocRAND dependency.
 #include <hiprand/hiprand_kernel.h>
 
 // Errors, streams
 using cudaError_t = hipError_t;
 using cudaStream_t = hipStream_t;
 #define cudaSuccess hipSuccess
+#define cudaErrorNoDevice hipErrorNoDevice
+#define cudaErrorInsufficientDriver hipErrorInsufficientDriver
 #define cudaGetErrorString hipGetErrorString
 #define cudaGetLastError hipGetLastError
 #define cudaPeekAtLastError hipPeekAtLastError
@@ -48,12 +53,14 @@ using cudaDeviceProp = hipDeviceProp_t;
 // Memory
 #define cudaMalloc hipMalloc
 #define cudaMallocPitch hipMallocPitch
+#define cudaMallocArray hipMallocArray
 #define cudaMalloc3DArray hipMalloc3DArray
 #define cudaFree hipFree
 #define cudaFreeArray hipFreeArray
 #define cudaMemcpy hipMemcpy
 #define cudaMemcpyAsync hipMemcpyAsync
 #define cudaMemcpy2D hipMemcpy2D
+#define cudaMemcpy2DToArray hipMemcpy2DToArray
 #define cudaMemcpy3D hipMemcpy3D
 #define cudaMemcpyToSymbol hipMemcpyToSymbol
 #define cudaMemset hipMemset
@@ -90,6 +97,12 @@ using cudaTextureReadMode = hipTextureReadMode;
 #define cudaArrayDefault hipArrayDefault
 #define cudaArrayLayered hipArrayLayered
 #define cudaResourceTypeArray hipResourceTypeArray
+#define cudaResourceTypeLinear hipResourceTypeLinear
+
+#define cudaChannelFormatKindSigned hipChannelFormatKindSigned
+#define cudaChannelFormatKindUnsigned hipChannelFormatKindUnsigned
+#define cudaChannelFormatKindFloat hipChannelFormatKindFloat
+#define cudaChannelFormatKindNone hipChannelFormatKindNone
 
 #define cudaAddressModeWrap hipAddressModeWrap
 #define cudaAddressModeClamp hipAddressModeClamp

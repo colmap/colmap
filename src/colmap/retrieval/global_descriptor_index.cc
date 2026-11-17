@@ -8,7 +8,6 @@
 #include "colmap/util/misc.h"
 
 #include <fstream>
-#include <unordered_map>
 
 #include <faiss/IndexFlat.h>
 
@@ -38,8 +37,6 @@ void GlobalDescriptorIndex::FaissIndexDeleter::operator()(void* ptr) const {
 GlobalDescriptorIndex::GlobalDescriptorIndex(const int descriptor_dim)
     : descriptor_dim_(descriptor_dim) {
   THROW_CHECK_GT(descriptor_dim_, 0);
-  // Reserve space for descriptors — the matrix is grown row-by-row.
-  descriptors_.resize(0, descriptor_dim_);
 }
 
 size_t GlobalDescriptorIndex::NumImages() const { return image_ids_.size(); }
@@ -59,13 +56,8 @@ void GlobalDescriptorIndex::Add(const image_t image_id,
     return;
   }
 
-  const size_t row = static_cast<size_t>(descriptors_.rows());
-
-  // Grow the descriptor matrix by one row.
-  descriptors_.conservativeResize(row + 1, Eigen::NoChange);
-  descriptors_.row(row) =
-      Eigen::Map<const Eigen::RowVectorXf>(descriptor.data(), descriptor_dim_);
-
+  const size_t row = image_ids_.size();
+  descriptors_.insert(descriptors_.end(), descriptor.begin(), descriptor.end());
   image_ids_.push_back(image_id);
   image_id_to_idx_[image_id] = row;
 }
@@ -89,6 +81,7 @@ void GlobalDescriptorIndex::Query(const QueryOptions& options,
   THROW_CHECK(prepared_)
       << "Index not prepared. Call Prepare() before Query().";
   THROW_CHECK_NOTNULL(image_scores);
+  THROW_CHECK_GT(options.max_num_images, 0);
   image_scores->clear();
 
   // Look up the query descriptor.
@@ -112,7 +105,7 @@ void GlobalDescriptorIndex::Query(const QueryOptions& options,
   std::vector<float> distances(k);
 
   index->search(1,
-                descriptors_.row(query_idx).data(),
+                descriptors_.data() + query_idx * descriptor_dim_,
                 k,
                 distances.data(),
                 labels.data());
@@ -173,17 +166,19 @@ void GlobalDescriptorIndex::Read(const std::filesystem::path& path) {
   std::ifstream file(path, std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  // Header.
+  // Header. The values are only valid once the stream state is checked.
   const uint32_t magic = ReadBinaryLittleEndian<uint32_t>(&file);
-  THROW_CHECK_EQ(magic, kFileMagic)
-      << "Invalid global descriptor index file: bad magic number.";
   const uint32_t version = ReadBinaryLittleEndian<uint32_t>(&file);
-  THROW_CHECK_EQ(version, kFileVersion)
-      << "Unsupported global descriptor index file version: " << version;
   const uint32_t num_images = ReadBinaryLittleEndian<uint32_t>(&file);
   const uint32_t desc_dim = ReadBinaryLittleEndian<uint32_t>(&file);
+  THROW_CHECK(file) << "Truncated global descriptor index file: " << path;
+  THROW_CHECK_EQ(magic, kFileMagic)
+      << "Invalid global descriptor index file: bad magic number.";
+  THROW_CHECK_EQ(version, kFileVersion)
+      << "Unsupported global descriptor index file version: " << version;
 
   descriptor_dim_ = static_cast<int>(desc_dim);
+  THROW_CHECK_GT(descriptor_dim_, 0);
 
   // Image IDs.
   image_ids_.clear();
@@ -194,9 +189,10 @@ void GlobalDescriptorIndex::Read(const std::filesystem::path& path) {
   }
 
   // Descriptors (row-major float32, contiguous — single bulk read).
-  descriptors_.resize(static_cast<int>(num_images), descriptor_dim_);
+  descriptors_.resize(static_cast<size_t>(num_images) * descriptor_dim_);
   const size_t desc_bytes = descriptors_.size() * sizeof(float);
   file.read(reinterpret_cast<char*>(descriptors_.data()), desc_bytes);
+  THROW_CHECK(file) << "Truncated global descriptor index file: " << path;
 
   // Rebuild mapping.
   image_id_to_idx_.clear();

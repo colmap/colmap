@@ -698,6 +698,59 @@ TEST(IncrementalPipeline, PriorBasedSfMWithRandomSeedStability) {
               ReconstructionEq(*reconstruction_manager1->Get(0)));
 }
 
+TEST(IncrementalPipelineOptions, DefaultSolverThresholds) {
+  const IncrementalPipelineOptions options;
+  const CeresBundleAdjustmentOptions defaults;
+  for (const auto& ba_options :
+       {options.LocalBundleAdjustment(), options.GlobalBundleAdjustment()}) {
+    ASSERT_TRUE(ba_options.ceres);
+    EXPECT_EQ(ba_options.ceres->min_num_images_gpu_solver,
+              defaults.min_num_images_gpu_solver);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_dense_cpu_solver,
+              defaults.max_num_images_direct_dense_cpu_solver);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_sparse_cpu_solver,
+              defaults.max_num_images_direct_sparse_cpu_solver);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_dense_gpu_solver,
+              defaults.max_num_images_direct_dense_gpu_solver);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_sparse_gpu_solver,
+              defaults.max_num_images_direct_sparse_gpu_solver);
+  }
+}
+
+TEST(IncrementalPipelineOptions, PropagatesSolverThresholds) {
+  IncrementalPipelineOptions options;
+  options.ba_min_num_images_gpu_solver = 7;
+  options.ba_max_num_images_direct_dense_cpu_solver = 11;
+  options.ba_max_num_images_direct_sparse_cpu_solver = 101;
+  options.ba_max_num_images_direct_dense_gpu_solver = 23;
+  options.ba_max_num_images_direct_sparse_gpu_solver = 1001;
+  EXPECT_TRUE(options.Check());
+  for (const auto& ba_options :
+       {options.LocalBundleAdjustment(), options.GlobalBundleAdjustment()}) {
+    ASSERT_TRUE(ba_options.ceres);
+    EXPECT_EQ(ba_options.ceres->min_num_images_gpu_solver, 7);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_dense_cpu_solver, 11);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_sparse_cpu_solver, 101);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_dense_gpu_solver, 23);
+    EXPECT_EQ(ba_options.ceres->max_num_images_direct_sparse_gpu_solver, 1001);
+    ASSERT_TRUE(ba_options.caspar);
+    EXPECT_EQ(ba_options.caspar->solver_iter_max,
+              CasparBundleAdjustmentOptions().solver_iter_max);
+  }
+}
+
+TEST(IncrementalPipelineOptions, CheckSolverThresholds) {
+  IncrementalPipelineOptions options;
+  options.ba_max_num_images_direct_dense_cpu_solver =
+      options.ba_max_num_images_direct_sparse_cpu_solver;
+  EXPECT_FALSE(options.Check());
+  options.ba_max_num_images_direct_dense_cpu_solver = 50;
+  EXPECT_TRUE(options.Check());
+  options.ba_max_num_images_direct_dense_gpu_solver =
+      options.ba_max_num_images_direct_sparse_gpu_solver;
+  EXPECT_FALSE(options.Check());
+}
+
 TEST(IncrementalPipelineOptions, PropagatesExplicitMaxNumIterations) {
   // Explicitly set iteration bounds must be forwarded to both backends,
   // including values that coincide with the previous compiled-in defaults.

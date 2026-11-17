@@ -53,6 +53,52 @@ void PoseGraph::Load(const CorrespondenceGraph& corr_graph) {
   LOG(INFO) << "Loaded " << edges_.size() << " edges into pose graph";
 }
 
+void PoseGraph::AddRigEdges(const Reconstruction& reconstruction,
+                            const FlatHashSet<image_t>& active_image_ids,
+                            bool refine_sensor_from_rig) {
+  FlatHashMap<frame_t, std::pair<image_t, Rigid3d>> frame_images;
+  FlatHashSet<image_t> calibrated_image_ids;
+  std::vector<image_t> image_ids(active_image_ids.begin(),
+                                 active_image_ids.end());
+  std::sort(image_ids.begin(), image_ids.end());
+  for (const image_t image_id : image_ids) {
+    const auto& image = reconstruction.Image(image_id);
+    Rigid3d cam_from_rig;
+    if (!image.IsRefInFrame()) {
+      const auto& pose = image.FramePtr()->RigPtr()->MaybeSensorFromRig(
+          image.CameraPtr()->SensorId());
+      if (!pose.has_value() || !pose->rotation().coeffs().allFinite() ||
+          (refine_sensor_from_rig && pose->translation().hasNaN())) {
+        continue;
+      }
+      cam_from_rig = *pose;
+    }
+    calibrated_image_ids.insert(image_id);
+    const auto [it, inserted] =
+        frame_images.try_emplace(image.FrameId(), image_id, cam_from_rig);
+    if (!inserted) {
+      const auto& [first_image_id, first_cam_from_rig] = it->second;
+      const auto [entry, edge_inserted] =
+          edges_.try_emplace(ImagePairToPairId(first_image_id, image_id));
+      auto& edge = entry->second;
+      if (edge_inserted) {
+        edge.cam2_from_cam1 = cam_from_rig * Inverse(first_cam_from_rig);
+        if (ShouldSwapImagePair(first_image_id, image_id)) edge.Invert();
+        edge.valid = false;
+      }
+    }
+  }
+  for (auto& [pair_id, edge] : edges_) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    if (calibrated_image_ids.count(image_id1) &&
+        calibrated_image_ids.count(image_id2) &&
+        reconstruction.Image(image_id1).FrameId() ==
+            reconstruction.Image(image_id2).FrameId()) {
+      edge.prior = true;
+    }
+  }
+}
+
 std::vector<FlatHashSet<frame_t>> PoseGraph::ConnectedFrameComponents(
     const Reconstruction& reconstruction, bool filter_unregistered) const {
   FrameGraph graph =

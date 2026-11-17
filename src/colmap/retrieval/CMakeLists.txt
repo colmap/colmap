@@ -36,6 +36,16 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_retrieval
 )
 COLMAP_ADD_TEST(
+    NAME global_descriptor_index_test
+    SRCS global_descriptor_index_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
+    NAME global_descriptor_model_test
+    SRCS global_descriptor_model_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
     NAME inverted_file_entry_test
     SRCS inverted_file_entry_test.cc
     LINK_LIBS colmap_retrieval

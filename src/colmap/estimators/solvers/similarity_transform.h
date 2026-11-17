@@ -106,8 +106,12 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
   const Eigen::Map<const MatrixType> tgt_mat(
       reinterpret_cast<const double*>(tgt.data()), kDim, tgt.size());
 
-  if (Eigen::FullPivLU<MatrixType>(src_mat).rank() < kMinNumSamples ||
-      Eigen::FullPivLU<MatrixType>(tgt_mat).rank() < kMinNumSamples) {
+  // Degeneracy depends on the affine span, not on the coordinate origin.
+  // A non-collinear plane determines a 3D transform, as a line does in 2D.
+  if (Eigen::FullPivLU<MatrixType>(src_mat.colwise() - src_mat.rowwise().mean())
+              .rank() < kDim - 1 ||
+      Eigen::FullPivLU<MatrixType>(tgt_mat.colwise() - tgt_mat.rowwise().mean())
+              .rank() < kDim - 1) {
     return;
   }
 

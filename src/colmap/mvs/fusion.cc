@@ -205,6 +205,8 @@ void StereoFusion::Run() {
     K(0, 2) *= bitmap_scales_.at(image_idx).first;
     K(1, 1) *= bitmap_scales_.at(image_idx).second;
     K(1, 2) *= bitmap_scales_.at(image_idx).second;
+    K(0, 2) -= 0.5f;
+    K(1, 2) -= 0.5f;
 
     ComposeProjectionMatrix(
         K.data(), image.GetR(), image.GetT(), P_.at(image_idx).data());

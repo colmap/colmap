@@ -1,7 +1,8 @@
 name: COLMAP (Windows)
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Adding any label other than "full-ci" must not cancel an in-progress run.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'full-ci' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
@@ -10,13 +11,19 @@ on:
       - main
       - release/*
   pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened, labeled ]
   release:
     types: [ published, edited ]
 
 jobs:
   build:
     name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
+    # Pull requests only run this job once a maintainer adds the "full-ci"
+    # label. Until then, its required status checks remain pending.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'full-ci') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'full-ci'))
     runs-on: ${{ matrix.config.os }}
     permissions:
       contents: read
@@ -52,8 +59,8 @@ jobs:
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 13
-      CUDA_MINOR_VERSION: 2
-      CUDA_PATCH_VERSION: 0
+      CUDA_MINOR_VERSION: 3
+      CUDA_PATCH_VERSION: 1
 
     steps:
       - uses: actions/checkout@v7
@@ -100,7 +107,7 @@ jobs:
           & "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe" --zero-stats
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.35
+        uses: Jimver/cuda-toolkit@v0.2.36
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
         with:
@@ -120,8 +127,11 @@ jobs:
         run: |
           ./scripts/shell/enter_vs_dev_shell.ps1
           cd ${{ github.workspace }}
+          $vcpkgCommit = (Get-Content -Raw vcpkg-configuration.json | ConvertFrom-Json).'default-registry'.baseline
+          Write-Host "Checking out vcpkg baseline commit: $vcpkgCommit"
           git clone https://github.com/microsoft/vcpkg
           cd vcpkg
+          git checkout $vcpkgCommit
           ./bootstrap-vcpkg.bat
 
       - name: Install CMake and Ninja
@@ -131,8 +141,8 @@ jobs:
           # expands to Turing..Blackwell (75..120). Older CMake predates CUDA 13
           # and would expand it to a stale set including Maxwell/Pascal/Volta
           # (compute_50/60/70), which CUDA 13 no longer supports.
-          cmakeVersion: "4.3.2"
-          ninjaVersion: "1.12.1"
+          cmakeVersion: "4.4.4"
+          ninjaVersion: "1.13.2"
 
       - name: Configure and build
         shell: pwsh
@@ -169,6 +179,8 @@ jobs:
 
       - name: Run tests
         shell: pwsh
+        env:
+          COLMAP_TEST_HEAVY: "1"
         run: |
           ./vcpkg/vcpkg.exe integrate install
           cd build

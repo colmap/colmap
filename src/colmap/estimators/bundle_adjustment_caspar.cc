@@ -15,6 +15,7 @@
 #endif
 
 namespace colmap {
+#ifdef CASPAR_ENABLED
 namespace {
 
 class CasparBundleAdjuster : public BundleAdjuster {
@@ -750,7 +751,6 @@ class CasparBundleAdjuster : public BundleAdjuster {
       Camera& camera = reconstruction_.Camera(camera_id);
       ICasparModelAdapter* adapter = GetAdapter(camera.model_id);
       const ModelData& md = model_data_per_model_.at(camera.model_id);
-      const std::string params_before = camera.ParamsToString();
       if (IsFocalAndExtraVariable(camera_id)) {
         adapter->WriteFocalAndExtra(
             camera, md.focal_and_extra_data.data(), calib_idx);
@@ -759,10 +759,9 @@ class CasparBundleAdjuster : public BundleAdjuster {
         adapter->WritePrincipalPoint(
             camera, md.principal_point_data.data(), calib_idx);
       }
-      THROW_CHECK(camera.VerifyParams());
-      VLOG(1) << "Camera " << camera_id << " (" << camera.ModelName() << ")"
-              << " params: [" << params_before << "] -> ["
-              << camera.ParamsToString() << "]";
+      LOG_IF(WARNING, !camera.VerifyParams())
+          << "Invalid parameters for camera " << camera_id
+          << " after optimization: [" << camera.ParamsToString() << "]";
     }
   }
 
@@ -1035,12 +1034,21 @@ CasparBundleAdjustmentSummary::Create(
   return summary;
 }
 
+#endif  // CASPAR_ENABLED
+
 std::unique_ptr<BundleAdjuster> CreateDefaultCasparBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
     Reconstruction& reconstruction) {
+#ifdef CASPAR_ENABLED
   return std::make_unique<CasparBundleAdjuster>(
       options, config, reconstruction);
+#else
+  LOG(FATAL_THROW)
+      << "Caspar BA backend selected but COLMAP was built without "
+         "CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON to use it";
+  return nullptr;
+#endif
 }
 
 }  // namespace colmap

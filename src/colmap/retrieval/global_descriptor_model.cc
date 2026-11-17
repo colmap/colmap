@@ -55,15 +55,18 @@ const std::vector<GlobalDescriptorModel> kModels = {};
 
 // Build a lowercase-name→model lookup map for case-insensitive matching.
 // The canonical spelling remains the registered model name.
-auto& ModelMap() {
-  static std::unordered_map<std::string, const GlobalDescriptorModel*> map;
-  if (map.empty()) {
-    for (const auto& m : kModels) {
-      std::string key = m.name;
-      StringToLower(&key);
-      map[std::move(key)] = &m;
-    }
-  }
+const std::unordered_map<std::string, const GlobalDescriptorModel*>&
+ModelMap() {
+  static const std::unordered_map<std::string, const GlobalDescriptorModel*>
+      map = [] {
+        std::unordered_map<std::string, const GlobalDescriptorModel*> map;
+        for (const auto& m : kModels) {
+          std::string key = m.name;
+          StringToLower(&key);
+          map[std::move(key)] = &m;
+        }
+        return map;
+      }();
   return map;
 }
 
@@ -73,8 +76,8 @@ const GlobalDescriptorModel* GlobalDescriptorModel::GetModel(
     std::string_view name) {
   std::string key(name);
   StringToLower(&key);
-  auto& map = ModelMap();
-  auto it = map.find(key);
+  const auto& map = ModelMap();
+  const auto it = map.find(key);
   return it != map.end() ? it->second : nullptr;
 }
 

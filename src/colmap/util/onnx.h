@@ -21,6 +21,11 @@ enum class ONNXExecutionProvider {
 // Resolve the execution provider requested by `use_gpu` for this build.
 ONNXExecutionProvider SelectONNXExecutionProvider(bool use_gpu);
 
+// Resolve the CUDA device on which an ONNXModel with the given `gpu_index`
+// runs. A negative index selects device 0. Throws if more than one GPU is
+// selected.
+int SelectONNXCudaDevice(const std::string& gpu_index);
+
 // Format tensor shape as a string for logging/error messages.
 std::string FormatONNXTensorShape(const std::vector<int64_t>& shape);
 
@@ -59,30 +64,43 @@ inline Ort::Value CreateONNXScalarTensor(T& value) {
   return CreateONNXTensor(&value, 1, kEmptyShape);
 }
 
+// Check that a model node has the expected element type.
+void ThrowCheckONNXElementType(std::string_view name,
+                               ONNXTensorElementDataType type,
+                               ONNXTensorElementDataType expected_type);
+
 // Wrapper for ONNX Runtime session management.
 // Handles model loading, input/output shape parsing, and inference.
 class ONNXModel {
  public:
-  // A capability probe propagates initialization failures without logging an
-  // error. When a non-CPU provider is selected, it also requires that provider
-  // to support the complete graph instead of falling back to CPU.
   ONNXModel(std::string model_path,
             int num_threads,
             bool use_gpu,
-            const std::string& gpu_index,
-            bool is_capability_probe = false);
+            const std::string& gpu_index);
 
   std::vector<Ort::Value> Run(
       const std::vector<Ort::Value>& input_tensors) const;
+
+  // Same as above, but the outputs are allocated in the given memory, e.g., on
+  // the GPU or in page-locked host memory, so that they can be passed to
+  // another model without copies.
+  std::vector<Ort::Value> Run(const std::vector<Ort::Value>& input_tensors,
+                              const Ort::MemoryInfo& output_memory_info) const;
 
   const std::vector<std::vector<int64_t>>& input_shapes() const {
     return input_shapes_;
   }
   const std::vector<char*>& input_names() const { return input_names_; }
+  const std::vector<ONNXTensorElementDataType>& input_element_types() const {
+    return input_element_types_;
+  }
   const std::vector<std::vector<int64_t>>& output_shapes() const {
     return output_shapes_;
   }
   const std::vector<char*>& output_names() const { return output_names_; }
+  const std::vector<ONNXTensorElementDataType>& output_element_types() const {
+    return output_element_types_;
+  }
   ONNXExecutionProvider execution_provider() const {
     return execution_provider_;
   }
@@ -91,8 +109,7 @@ class ONNXModel {
   void InitializeSession(const std::string& model_path,
                          int num_threads,
                          bool use_gpu,
-                         const std::string& gpu_index,
-                         bool is_capability_probe);
+                         const std::string& gpu_index);
 
   // Apply the common, provider-independent session options (threading,
   // execution mode, graph optimization). Resets any previously appended
@@ -108,9 +125,11 @@ class ONNXModel {
   std::vector<std::vector<int64_t>> input_shapes_;
   std::vector<Ort::AllocatedStringPtr> input_name_strs_;
   std::vector<char*> input_names_;
+  std::vector<ONNXTensorElementDataType> input_element_types_;
   std::vector<std::vector<int64_t>> output_shapes_;
   std::vector<Ort::AllocatedStringPtr> output_name_strs_;
   std::vector<char*> output_names_;
+  std::vector<ONNXTensorElementDataType> output_element_types_;
 };
 
 }  // namespace colmap

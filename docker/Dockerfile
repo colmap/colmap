@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG UBUNTU_VERSION=24.04
-ARG NVIDIA_CUDA_VERSION=12.9.1
+ARG NVIDIA_CUDA_VERSION=12.9.2
 
 #
 # Docker builder stage.

@@ -18,7 +18,7 @@ class AutomaticReconstructionController : public Thread {
  public:
   MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
-  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED, LOMA, LOMA128);
+  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED, LOMA, LOMA128, FLEXGLUE);
   MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
   MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY, ADVANCING_FRONT);
 
@@ -44,9 +44,9 @@ class AutomaticReconstructionController : public Thread {
     // If empty, the vocabulary tree is used.
     std::string global_descriptor_model;
 
-    // Optional path to the global descriptor ONNX model. If empty, the default
-    // model is downloaded.
-    std::filesystem::path global_descriptor_path;
+    // Optional path or URI of the global descriptor ONNX model. If empty, the
+    // default model is downloaded.
+    std::string global_descriptor_path;
 
     // The type of input data used to choose optimal mapper settings.
     DataType data_type = DataType::INDIVIDUAL;
@@ -70,6 +70,12 @@ class AutomaticReconstructionController : public Thread {
     // Whether to perform feature extraction.
     bool extraction = true;
 
+    // Whether to perform learned single-view calibration after feature
+    // extraction, replacing EXIF-based intrinsics before matching and mapping.
+    // Ignored if explicit `camera_params` are provided, which always take
+    // precedence.
+    bool single_view_calibration = false;
+
     // Whether to perform feature matching.
     bool matching = true;
 
@@ -77,7 +83,8 @@ class AutomaticReconstructionController : public Thread {
     bool sparse = true;
 
 // Whether to perform dense mapping.
-#if defined(COLMAP_CUDA_ENABLED) && defined(COLMAP_MVS_ENABLED)
+#if (defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)) && \
+    defined(COLMAP_MVS_ENABLED)
     bool dense = true;
 #else
     bool dense = false;
@@ -85,6 +92,10 @@ class AutomaticReconstructionController : public Thread {
 
     // The feature extraction/matching algorithm to be used.
     Feature feature = Feature::SIFT;
+
+    // Maximum number of features per image. If non-positive, the default of
+    // the selected feature type and quality is used.
+    int max_num_features = -1;
 
     // The mapping algorithm to be used.
     Mapper mapper = Mapper::INCREMENTAL;
@@ -125,6 +136,7 @@ class AutomaticReconstructionController : public Thread {
  private:
   void Run() override;
   void RunFeatureExtraction();
+  void RunSingleViewCalibration();
   void RunFeatureMatching();
   void RunSparseMapper();
   void RunDenseMapper();
@@ -134,6 +146,7 @@ class AutomaticReconstructionController : public Thread {
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
   Thread* active_thread_;
   std::unique_ptr<Thread> feature_extractor_;
+  std::unique_ptr<Thread> single_view_calibrator_;
   std::unique_ptr<Thread> exhaustive_matcher_;
   std::unique_ptr<Thread> sequential_matcher_;
   std::unique_ptr<Thread> retrieval_matcher_;

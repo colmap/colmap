@@ -1,0 +1,339 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+#include "colmap/feature/lightglue.h"
+
+#include "colmap/feature/utils.h"
+#include "colmap/geometry/pose_prior.h"
+#include "colmap/util/onnx.h"
+
+#include <cstring>
+#include <memory>
+#include <vector>
+
+namespace colmap {
+namespace {
+
+#ifdef COLMAP_ONNX_ENABLED
+
+class LightGlueONNXFeatureMatcher : public FeatureMatcher {
+ public:
+  explicit LightGlueONNXFeatureMatcher(
+      const FeatureMatchingOptions& options,
+      const LightGlueONNXMatchingOptions& lightglue_options)
+      : options_(options),
+        lightglue_options_(lightglue_options),
+        model_(lightglue_options.model_path,
+               options.num_threads,
+               options.use_gpu,
+               options.gpu_index) {
+    THROW_CHECK(options.Check());
+
+    const size_t num_inputs = model_.input_shapes().size();
+    if (num_inputs == 6) {
+      has_scale_ori_ = false;
+    } else if (num_inputs == 10) {
+      has_scale_ori_ = true;
+    } else {
+      LOG(FATAL_THROW) << "LightGlue ONNX model must have 6 or 10 inputs, "
+                       << "got " << num_inputs;
+    }
+
+    ThrowCheckONNXNode(model_.input_names()[0],
+                       "kpts0",
+                       model_.input_shapes()[0],
+                       {-1, -1, -1});
+    ThrowCheckONNXNode(model_.input_names()[1],
+                       "kpts1",
+                       model_.input_shapes()[1],
+                       {-1, -1, -1});
+    ThrowCheckONNXNode(model_.input_names()[2],
+                       "desc0",
+                       model_.input_shapes()[2],
+                       {-1, -1, -1});
+    ThrowCheckONNXNode(model_.input_names()[3],
+                       "desc1",
+                       model_.input_shapes()[3],
+                       {-1, -1, -1});
+    ThrowCheckONNXNode(model_.input_names()[4],
+                       "image_size0",
+                       model_.input_shapes()[4],
+                       {-1, -1});
+    ThrowCheckONNXNode(model_.input_names()[5],
+                       "image_size1",
+                       model_.input_shapes()[5],
+                       {-1, -1});
+
+    if (has_scale_ori_) {
+      ThrowCheckONNXNode(model_.input_names()[6],
+                         "scales0",
+                         model_.input_shapes()[6],
+                         {-1, -1});
+      ThrowCheckONNXNode(model_.input_names()[7],
+                         "scales1",
+                         model_.input_shapes()[7],
+                         {-1, -1});
+      ThrowCheckONNXNode(
+          model_.input_names()[8], "oris0", model_.input_shapes()[8], {-1, -1});
+      ThrowCheckONNXNode(
+          model_.input_names()[9], "oris1", model_.input_shapes()[9], {-1, -1});
+    }
+
+    THROW_CHECK_EQ(model_.output_shapes().size(), 2);
+    ThrowCheckONNXNode(
+        model_.output_names()[0], "matches0", model_.output_shapes()[0], {-1});
+    ThrowCheckONNXNode(
+        model_.output_names()[1], "mscores0", model_.output_shapes()[1], {-1});
+  }
+
+  void Match(const Image& image1,
+             const Image& image2,
+             FeatureMatches* matches) override {
+    THROW_CHECK_NOTNULL(matches);
+    matches->clear();
+
+    const int num_keypoints1 = image1.descriptors->data.rows();
+    const int num_keypoints2 = image2.descriptors->data.rows();
+    if (num_keypoints1 < 1 || num_keypoints2 < 1) {
+      return;
+    }
+
+    auto create = [this](const Image& image) {
+      return FeaturesFromImage(image);
+    };
+    CachedFeatures& cached1 = cache_.GetOrCreate(image1, create);
+    CachedFeatures& cached2 = cache_.GetOrCreate(image2, create);
+
+    // Create input tensors.
+    std::vector<Ort::Value> input_tensors;
+    input_tensors.reserve(has_scale_ori_ ? 10 : 6);
+
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached1.keypoints_data, cached1.keypoints_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached2.keypoints_data, cached2.keypoints_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached1.descriptors_data, cached1.descriptors_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached2.descriptors_data, cached2.descriptors_shape));
+
+    std::vector<int64_t> image_size_shape = {1, 2};
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached1.image_size, 2, image_size_shape));
+    input_tensors.emplace_back(
+        CreateONNXTensor(cached2.image_size, 2, image_size_shape));
+
+    if (has_scale_ori_) {
+      input_tensors.emplace_back(
+          CreateONNXTensor(cached1.scales_data, cached1.scales_shape));
+      input_tensors.emplace_back(
+          CreateONNXTensor(cached2.scales_data, cached2.scales_shape));
+      input_tensors.emplace_back(CreateONNXTensor(cached1.orientations_data,
+                                                  cached1.orientations_shape));
+      input_tensors.emplace_back(CreateONNXTensor(cached2.orientations_data,
+                                                  cached2.orientations_shape));
+    }
+
+    // Run model inference.
+    const std::vector<Ort::Value> output_tensors = model_.Run(input_tensors);
+    THROW_CHECK_EQ(output_tensors.size(), 2);
+
+    // Parse matches0 shape: [M].
+    const auto matches0_info = output_tensors[0].GetTensorTypeAndShapeInfo();
+    const std::vector<int64_t> matches0_shape = matches0_info.GetShape();
+    THROW_CHECK_EQ(matches0_shape.size(), 1);
+    const int64_t num_kpts = matches0_shape[0];
+    THROW_CHECK_EQ(num_kpts, num_keypoints1);
+
+    // Parse mscores0 shape: [M].
+    const auto mscores0_info = output_tensors[1].GetTensorTypeAndShapeInfo();
+    const std::vector<int64_t> mscores0_shape = mscores0_info.GetShape();
+    THROW_CHECK_EQ(mscores0_shape.size(), 1);
+    THROW_CHECK_EQ(mscores0_shape[0], num_kpts);
+
+    const float min_score = static_cast<float>(lightglue_options_.min_score);
+    const float* mscores0_data = output_tensors[1].GetTensorData<float>();
+
+    // Handle both int64 and float output types for matches0.
+    const auto matches0_type = matches0_info.GetElementType();
+    if (matches0_type == ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64) {
+      const int64_t* matches0_data = output_tensors[0].GetTensorData<int64_t>();
+      for (int64_t i = 0; i < num_kpts; ++i) {
+        if (matches0_data[i] >= 0 && mscores0_data[i] >= min_score) {
+          THROW_CHECK_LT(matches0_data[i], num_keypoints2);
+          matches->emplace_back(static_cast<point2D_t>(i),
+                                static_cast<point2D_t>(matches0_data[i]));
+        }
+      }
+    } else if (matches0_type == ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+      const float* matches0_data = output_tensors[0].GetTensorData<float>();
+      for (int64_t i = 0; i < num_kpts; ++i) {
+        const int64_t match_idx = static_cast<int64_t>(matches0_data[i]);
+        if (match_idx >= 0 && mscores0_data[i] >= min_score) {
+          THROW_CHECK_LT(match_idx, num_keypoints2);
+          matches->emplace_back(static_cast<point2D_t>(i),
+                                static_cast<point2D_t>(match_idx));
+        }
+      }
+    } else {
+      LOG(FATAL_THROW) << "Unexpected matches0 output type: " << matches0_type;
+    }
+  }
+
+  void MatchGuided(double max_error,
+                   const Image& image1,
+                   const Image& image2,
+                   TwoViewGeometry* two_view_geometry) override {
+    LOG(FATAL_THROW) << "Guided matching not supported for LightGlue.";
+  }
+
+ private:
+  struct CachedFeatures {
+    std::vector<float> keypoints_data;
+    std::vector<int64_t> keypoints_shape;
+    std::vector<float> descriptors_data;
+    std::vector<int64_t> descriptors_shape;
+    float image_size[2];
+    std::vector<float> scales_data;
+    std::vector<int64_t> scales_shape;
+    std::vector<float> orientations_data;
+    std::vector<int64_t> orientations_shape;
+  };
+
+  CachedFeatures FeaturesFromImage(const Image& image) {
+    THROW_CHECK_NOTNULL(image.keypoints);
+    THROW_CHECK_NOTNULL(image.descriptors);
+    THROW_CHECK_NOTNULL(image.camera);
+
+    const bool is_sift = image.descriptors->type == FeatureExtractorType::SIFT;
+    const bool is_aliked =
+        image.descriptors->type == FeatureExtractorType::ALIKED_N16ROT ||
+        image.descriptors->type == FeatureExtractorType::ALIKED_N32;
+    THROW_CHECK(is_sift || is_aliked)
+        << "Unsupported feature type: "
+        << FeatureExtractorTypeToString(image.descriptors->type);
+
+    if ((options_.type == FeatureMatcherType::SIFT_LIGHTGLUE && !is_sift) ||
+        (options_.type == FeatureMatcherType::ALIKED_LIGHTGLUE && !is_aliked)) {
+      LOG(FATAL_THROW) << FeatureMatcherTypeToString(options_.type)
+                       << " feature matcher got unsupported feature type: "
+                       << FeatureExtractorTypeToString(image.descriptors->type);
+    }
+
+    const int num_keypoints = image.descriptors->data.rows();
+    THROW_CHECK_EQ(static_cast<int>(image.keypoints->size()), num_keypoints);
+
+    CachedFeatures features;
+
+    const int rot90 =
+        (image.pose_prior != nullptr && image.pose_prior->HasGravity())
+            ? ComputeRot90FromGravity(image.pose_prior->gravity)
+            : 0;
+    const int image_width = image.camera->width;
+    const int image_height = image.camera->height;
+
+    std::vector<FeatureKeypoint> rotated_keypoints;
+    const FeatureKeypoints* keypoints_to_use = image.keypoints.get();
+    if (rot90 != 0) {
+      rotated_keypoints = *image.keypoints;
+      for (auto& kp : rotated_keypoints) {
+        kp.Rot90(rot90, image_width, image_height);
+      }
+      keypoints_to_use = &rotated_keypoints;
+    }
+
+    // Convert keypoints: COLMAP (origin at pixel corner, top-left center =
+    // (0.5, 0.5)) to LightGlue (top-left center = (0, 0)).
+    features.keypoints_shape = {1, num_keypoints, 2};
+    features.keypoints_data.resize(num_keypoints * 2);
+    for (int i = 0; i < num_keypoints; ++i) {
+      const FeatureKeypoint& kp = (*keypoints_to_use)[i];
+      features.keypoints_data[2 * i + 0] = kp.x - 0.5f;
+      features.keypoints_data[2 * i + 1] = kp.y - 0.5f;
+    }
+
+    if (is_aliked) {
+      // ALIKED descriptors: stored as float bytes, reinterpret directly.
+      THROW_CHECK_EQ(image.descriptors->data.cols() % sizeof(float), 0);
+      const int descriptor_dim = image.descriptors->data.cols() / sizeof(float);
+      THROW_CHECK_GT(descriptor_dim, 0);
+
+      features.descriptors_shape = {1, num_keypoints, descriptor_dim};
+      features.descriptors_data.resize(num_keypoints * descriptor_dim);
+      THROW_CHECK_EQ(image.descriptors->data.size(),
+                     features.descriptors_data.size() * sizeof(float));
+      std::memcpy(features.descriptors_data.data(),
+                  reinterpret_cast<const void*>(image.descriptors->data.data()),
+                  image.descriptors->data.size());
+    } else {
+      // SIFT descriptors: stored as uint8, cast to float32 and L2-normalize.
+      // LightGlue was trained on root-normalized (RootSIFT) descriptors. The
+      // SIFT extractor already root-normalizes them before quantizing to uint8
+      // (scaled by 512), so here we only need to undo that quantization scale
+      // via L2-normalization to recover the unit-norm RootSIFT vectors. Do NOT
+      // apply L1RootNormalize again, as that would root-normalize twice.
+      const int descriptor_dim = image.descriptors->data.cols();
+      THROW_CHECK_GT(descriptor_dim, 0);
+
+      FeatureDescriptorsFloat descriptors_float = image.descriptors->ToFloat();
+      L2NormalizeFeatureDescriptors(&descriptors_float.data);
+
+      features.descriptors_shape = {1, num_keypoints, descriptor_dim};
+      features.descriptors_data.resize(num_keypoints * descriptor_dim);
+      THROW_CHECK_EQ(descriptors_float.data.size(),
+                     features.descriptors_data.size());
+      std::memcpy(features.descriptors_data.data(),
+                  reinterpret_cast<const void*>(descriptors_float.data.data()),
+                  descriptors_float.data.size() * sizeof(float));
+
+      // Extract scale and orientation from keypoints.
+      features.scales_shape = {1, num_keypoints};
+      features.scales_data.resize(num_keypoints);
+      features.orientations_shape = {1, num_keypoints};
+      features.orientations_data.resize(num_keypoints);
+      for (int i = 0; i < num_keypoints; ++i) {
+        const FeatureKeypoint& kp = (*keypoints_to_use)[i];
+        features.scales_data[i] = kp.ComputeScale();
+        // LightGlue was trained with radians.
+        features.orientations_data[i] = kp.ComputeOrientation();
+      }
+    }
+
+    // Image size as (width, height).
+    const bool swap_dims = rot90 % 2;
+    features.image_size[0] =
+        static_cast<float>(swap_dims ? image_height : image_width);
+    features.image_size[1] =
+        static_cast<float>(swap_dims ? image_width : image_height);
+
+    return features;
+  }
+
+  const FeatureMatchingOptions options_;
+  const LightGlueONNXMatchingOptions lightglue_options_;
+  ONNXModel model_;
+  bool has_scale_ori_ = false;
+
+  ImageFeatureCache<CachedFeatures> cache_;
+};
+
+#endif
+
+}  // namespace
+
+bool LightGlueONNXMatchingOptions::Check() const {
+  CHECK_OPTION_IN(min_score, 0, 1);
+  return true;
+}
+
+std::unique_ptr<FeatureMatcher> CreateLightGlueONNXFeatureMatcher(
+    const FeatureMatchingOptions& options,
+    const LightGlueONNXMatchingOptions& lightglue_options) {
+#ifdef COLMAP_ONNX_ENABLED
+  return std::make_unique<LightGlueONNXFeatureMatcher>(options,
+                                                       lightglue_options);
+#else
+  throw std::runtime_error("LightGlue feature matching requires ONNX support.");
+#endif
+}
+
+}  // namespace colmap

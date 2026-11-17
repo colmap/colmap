@@ -2,10 +2,89 @@
 
 #include "colmap/sensor/models.h"
 
+#include "colmap/math/random.h"
+
+#include <cmath>
+#include <limits>
+
+#include <ceres/ceres.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
 namespace {
+
+// Cost functor for optimizing pixel coordinates to match a target in
+// normalized camera coordinates. Used to test CamFromImg Jacobians.
+template <typename CameraModel>
+struct CamFromImgCostFunctor {
+  CamFromImgCostFunctor(const double* params, double target_u, double target_v)
+      : params_(params), target_u_(target_u), target_v_(target_v) {}
+
+  template <typename T>
+  bool operator()(const T* const xy, T* residuals) const {
+    // Convert params to type T (Jets will have zero derivatives for constants)
+    T params_T[CameraModel::num_params];
+    for (size_t i = 0; i < CameraModel::num_params; ++i) {
+      params_T[i] = T(params_[i]);
+    }
+
+    T u, v;
+    if (!CameraModel::CamFromImg(params_T, xy[0], xy[1], &u, &v)) {
+      return false;
+    }
+    residuals[0] = u - T(target_u_);
+    residuals[1] = v - T(target_v_);
+    return true;
+  }
+
+  const double* params_;
+  double target_u_;
+  double target_v_;
+};
+
+// Test that CamFromImg works with Ceres auto-differentiation by optimizing
+// a noisy pixel to match a target undistorted point.
+// Returns true if the test actually ran, false if skipped.
+template <typename CameraModel>
+bool TestCamFromImgCeresOptimization(const std::vector<double>& params,
+                                     const double x0,
+                                     const double y0) {
+  // Undistort the pixel to get target
+  double target_u, target_v;
+  if (!CameraModel::CamFromImg(params.data(), x0, y0, &target_u, &target_v)) {
+    return false;  // Skip if undistortion fails
+  }
+
+  // Add random noise to pixel in range [-10, 10]
+  double xy[2] = {x0 + RandomUniformReal(-10.0, 10.0),
+                  y0 + RandomUniformReal(-10.0, 10.0)};
+
+  // Skip if noisy pixel is out of valid range
+  double test_u, test_v;
+  if (!CameraModel::CamFromImg(params.data(), xy[0], xy[1], &test_u, &test_v)) {
+    return false;
+  }
+
+  // Optimize to recover original pixel
+  ceres::Problem problem;
+  problem.AddResidualBlock(
+      new ceres::AutoDiffCostFunction<CamFromImgCostFunctor<CameraModel>, 2, 2>(
+          new CamFromImgCostFunctor<CameraModel>(
+              params.data(), target_u, target_v)),
+      nullptr,
+      xy);
+
+  ceres::Solver::Options options;
+  options.linear_solver_type = ceres::DENSE_QR;
+  options.minimizer_progress_to_stdout = false;
+  ceres::Solver::Summary summary;
+  ceres::Solve(options, &problem, &summary);
+
+  EXPECT_EQ(summary.termination_type, ceres::CONVERGENCE);
+  EXPECT_NEAR(xy[0], x0, 1e-4);
+  EXPECT_NEAR(xy[1], y0, 1e-4);
+  return true;
+}
 
 bool FisheyeCameraModelIsValidPixel(const CameraModelId model_id,
                                     const std::vector<double>& params,
@@ -98,6 +177,7 @@ void TestCamRayFromImgToImg(const std::vector<double>& params,
 
 template <typename CameraModel>
 void TestModel(const std::vector<double>& params) {
+  SetPRNGSeed(42);
   EXPECT_TRUE(CameraModelVerifyParams(CameraModel::model_id, params));
 
   const std::vector<double> default_params =
@@ -136,6 +216,36 @@ void TestModel(const std::vector<double>& params) {
         CameraModel::model_id, default_params, 100, 100, 0.1, 2.0, -0.1));
   }
 
+  // Non-finite values read as bogus in the per-model checks, including when
+  // called directly rather than through the runtime dispatch.
+  const double kNaN = std::numeric_limits<double>::quiet_NaN();
+  for (size_t idx = 0; idx < default_params.size(); ++idx) {
+    std::vector<double> nan_params = default_params;
+    nan_params[idx] = kNaN;
+    EXPECT_TRUE(
+        CameraModel::HasBogusParams(nan_params, 100, 100, 0.1, 2.0, 1.0));
+  }
+  for (const size_t idx : CameraModel::focal_length_idxs) {
+    std::vector<double> nan_params = default_params;
+    nan_params[idx] = kNaN;
+    EXPECT_TRUE(
+        CameraModel::HasBogusFocalLength(nan_params, 100, 100, 0.1, 2.0));
+  }
+  for (const size_t idx : CameraModel::principal_point_idxs) {
+    std::vector<double> nan_params = default_params;
+    nan_params[idx] = kNaN;
+    EXPECT_TRUE(CameraModel::HasBogusPrincipalPoint(nan_params, 100, 100));
+  }
+  for (const size_t idx : CameraModel::extra_params_idxs) {
+    std::vector<double> nan_params = default_params;
+    nan_params[idx] = kNaN;
+    EXPECT_TRUE(CameraModel::HasBogusExtraParams(nan_params, 1.0));
+  }
+  if (CameraModel::extra_params_idxs.size() > 0) {
+    // A NaN bound fails closed as well.
+    EXPECT_TRUE(CameraModel::HasBogusExtraParams(default_params, kNaN));
+  }
+
   EXPECT_EQ(CameraModelCamFromImgThreshold(CameraModel::model_id, params, 0),
             0);
   EXPECT_GT(CameraModelCamFromImgThreshold(CameraModel::model_id, params, 1),
@@ -166,6 +276,8 @@ void TestModel(const std::vector<double>& params) {
     }
   }
 
+  int num_ceres_tests_total = 0;
+  int num_ceres_tests_ran = 0;
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
       if (CameraModelIsPerspectiveFisheye(CameraModel::model_id) &&
@@ -175,8 +287,15 @@ void TestModel(const std::vector<double>& params) {
       }
       TestCamFromImgToImg<CameraModel>(params, x, y);
       TestCamRayFromImgToImg<CameraModel>(params, x, y);
+      ++num_ceres_tests_total;
+      if (TestCamFromImgCeresOptimization<CameraModel>(params, x, y)) {
+        ++num_ceres_tests_ran;
+      }
     }
   }
+  // Ensure at least 80% of tests ran (to catch excessive skipping due to
+  // invalid noisy pixels falling outside the valid range)
+  EXPECT_GE(num_ceres_tests_ran, static_cast<int>(num_ceres_tests_total * 0.8));
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
   TestCamFromImgToImg<CameraModel>(
@@ -194,6 +313,36 @@ TEST(SimplePinhole, Nominal) {
 
 TEST(Pinhole, Nominal) {
   TestModel<PinholeCameraModel>({651.123, 655.123, 386.123, 511.123});
+}
+
+TEST(CameraModel, RejectsNonFiniteParams) {
+  const std::vector<double> non_finite_values{
+      std::numeric_limits<double>::quiet_NaN(),
+      std::numeric_limits<double>::infinity(),
+      -std::numeric_limits<double>::infinity()};
+  // Every camera model, generated from the model registry so that future
+  // models are covered by construction.
+  const std::vector<CameraModelId> model_ids{
+#define CAMERA_MODEL_CASE(CameraModel) CameraModel::model_id,
+      CAMERA_MODEL_CASES
+#undef CAMERA_MODEL_CASE
+  };
+  for (const CameraModelId model_id : model_ids) {
+    const std::vector<double> nominal_params =
+        CameraModelInitializeParams(model_id, /*focal_length=*/100, 100, 100);
+    ASSERT_TRUE(CameraModelVerifyParams(model_id, nominal_params));
+    for (size_t idx = 0; idx < nominal_params.size(); ++idx) {
+      for (const double value : non_finite_values) {
+        std::vector<double> params = nominal_params;
+        params[idx] = value;
+        EXPECT_FALSE(CameraModelVerifyParams(model_id, params))
+            << CameraModelIdToName(model_id) << " param " << idx;
+        EXPECT_TRUE(CameraModelHasBogusParams(
+            model_id, params, 100, 100, 0.1, 2.0, 1.0))
+            << CameraModelIdToName(model_id) << " param " << idx;
+      }
+    }
+  }
 }
 
 TEST(Spherical, Nominal) {
@@ -223,8 +372,9 @@ TEST(Spherical, Nominal) {
   EXPECT_TRUE(
       CameraModelMetaDataParamsIdxs(PinholeCameraModel::model_id).empty());
 
-  // EQUIRECTANGULAR is non-perspective, spherical, and never has bogus
-  // parameters.
+  // EQUIRECTANGULAR is non-perspective and spherical. It has no
+  // model-specific plausibility bounds, but non-finite parameters are still
+  // invalid.
   EXPECT_FALSE(CameraModelIsPerspective(EquirectangularCameraModel::model_id));
   EXPECT_TRUE(CameraModelIsPerspective(PinholeCameraModel::model_id));
   EXPECT_TRUE(CameraModelIsSpherical(EquirectangularCameraModel::model_id));
@@ -232,6 +382,15 @@ TEST(Spherical, Nominal) {
   EXPECT_FALSE(CameraModelIsSpherical(OpenCVFisheyeCameraModel::model_id));
   EXPECT_FALSE(CameraModelHasBogusParams(
       EquirectangularCameraModel::model_id, params, 800, 400, 0.1, 2.0, 1.0));
+
+  // The per-model check rejects non-finite metadata directly.
+  EXPECT_FALSE(EquirectangularCameraModel::HasBogusParams(
+      params, 800, 400, 0.1, 2.0, 1.0));
+  const double kNaN = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_TRUE(EquirectangularCameraModel::HasBogusParams(
+      std::vector<double>{kNaN, 400.0}, 800, 400, 0.1, 2.0, 1.0));
+  EXPECT_TRUE(EquirectangularCameraModel::HasBogusParams(
+      std::vector<double>{800.0, kNaN}, 800, 400, 0.1, 2.0, 1.0));
 
   // InitializeParams ignores the focal length and returns (w, h).
   EXPECT_EQ(
@@ -311,6 +470,45 @@ TEST(FOV, Nominal) {
   EXPECT_EQ(CameraModelInitializeParams(FOVCameraModel::model_id, 100, 100, 100)
                 .back(),
             1e-2);
+}
+
+TEST(FOV, SmallOmegaProjection) {
+  // 0.011 sits just above the |omega| < 0.01 small-omega branch threshold.
+  for (const double omega : {-0.011, -0.009, -0.001, 0.001, 0.009, 0.011}) {
+    const std::vector<double> params = {650, 655, 400, 300, omega};
+    for (const Eigen::Vector2d& uv : {Eigen::Vector2d(0.1, -0.2),
+                                      Eigen::Vector2d(0.8, -0.6),
+                                      Eigen::Vector2d(2, 1)}) {
+      const double radius = uv.norm();
+      const double factor =
+          std::atan(2 * radius * std::tan(omega / 2)) / (radius * omega);
+      const auto xy = CameraModelImgFromCam(
+          FOVCameraModel::model_id, params, uv.homogeneous());
+      ASSERT_TRUE(xy.has_value());
+      // The small-omega branch retains terms through order omega squared.
+      EXPECT_NEAR(xy->x(), params[0] * uv.x() * factor + params[2], 1e-4);
+      EXPECT_NEAR(xy->y(), params[1] * uv.y() * factor + params[3], 1e-4);
+    }
+  }
+}
+
+TEST(FOV, SmallOmegaRoundTrip) {
+  // 0.011 sits just above the |omega| < 0.01 small-omega branch threshold.
+  for (const double omega : {-0.011, -0.009, -0.001, 0.001, 0.009, 0.011}) {
+    const std::vector<double> params = {650, 655, 400, 300, omega};
+    for (const Eigen::Vector2d& uv : {Eigen::Vector2d(0.1, -0.2),
+                                      Eigen::Vector2d(0.8, -0.6),
+                                      Eigen::Vector2d(2, 1)}) {
+      const auto xy = CameraModelImgFromCam(
+          FOVCameraModel::model_id, params, uv.homogeneous());
+      ASSERT_TRUE(xy.has_value());
+      const auto recovered =
+          CameraModelCamFromImg(FOVCameraModel::model_id, params, *xy);
+      ASSERT_TRUE(recovered.has_value());
+      EXPECT_NEAR(recovered->x(), uv.x(), 1e-6);
+      EXPECT_NEAR(recovered->y(), uv.y(), 1e-6);
+    }
+  }
 }
 
 TEST(SimpleRadialFisheye, Nominal) {
@@ -424,6 +622,37 @@ TEST(EUCMCamera, RejectsInvalidExtraParams) {
       1.0));
 }
 
+TEST(SkewedPinhole, Nominal) {
+  TestModel<SkewedPinholeCameraModel>({651.123, 655.123, 386.123, 511.123, 0});
+  TestModel<SkewedPinholeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.2});
+  TestModel<SkewedPinholeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, -0.7});
+}
+
+TEST(SkewedPinhole, BoundsSkewRelativeToFocalLength) {
+  // The skew is in pixels, so the extra-parameter bound applies to the
+  // dimensionless shear s / f, with f the mean focal length, and the verdict
+  // does not depend on the pixel scale of the camera (pinhole approximations
+  // of pushbroom satellite images, for example, reach skews of 1e6 px at
+  // shears of 0.2). The focal-length ratio bound is relaxed here to isolate
+  // the skew check.
+  for (const double f : {1e3, 1e6}) {
+    const std::vector<double> params = {f, f, 500, 500, 0.05 * f};
+    // Shear 0.05 is below a bound of 0.1 ...
+    EXPECT_FALSE(CameraModelHasBogusParams(
+        SkewedPinholeCameraModel::model_id, params, 1000, 1000, 0.1, 1e4, 0.1));
+    // ... and above a bound of 0.01.
+    EXPECT_TRUE(CameraModelHasBogusParams(SkewedPinholeCameraModel::model_id,
+                                          params,
+                                          1000,
+                                          1000,
+                                          0.1,
+                                          1e4,
+                                          0.01));
+  }
+}
+
 TEST(CameraModelRescale, Perspective) {
   // Distinct per-axis scale factors to verify each is applied to the right
   // parameter; all results are exactly representable.
@@ -453,6 +682,45 @@ TEST(CameraModelRescale, Perspective) {
         SimpleRadialCameraModel::model_id, scale_x, scale_y, params);
     EXPECT_EQ(params, (std::vector<double>{250, 100, 240, 0.3}));
   }
+
+  // The skew of SKEWED_PINHOLE is in pixels along x and scales with the width.
+  {
+    std::vector<double> params = {100, 200, 50, 80, 10};  // fx, fy, cx, cy, s
+    CameraModelRescale(
+        SkewedPinholeCameraModel::model_id, scale_x, scale_y, params);
+    EXPECT_EQ(params, (std::vector<double>{200, 600, 100, 240, 20}));
+  }
+}
+
+TEST(CameraModelCalibrationMatrix, Nominal) {
+  Eigen::Matrix3d K_ref;
+
+  // A single shared focal length fills both diagonal entries.
+  K_ref << 100, 0, 50, 0, 100, 80, 0, 0, 1;
+  EXPECT_EQ(CameraModelCalibrationMatrix(SimplePinholeCameraModel::model_id,
+                                         {100, 50, 80}),
+            K_ref);
+
+  // Separate focal lengths; distortion parameters are not part of K.
+  K_ref << 100, 0, 50, 0, 200, 80, 0, 0, 1;
+  EXPECT_EQ(CameraModelCalibrationMatrix(PinholeCameraModel::model_id,
+                                         {100, 200, 50, 80}),
+            K_ref);
+  EXPECT_EQ(
+      CameraModelCalibrationMatrix(OpenCVCameraModel::model_id,
+                                   {100, 200, 50, 80, 0.1, 0.01, 0.001, 0.002}),
+      K_ref);
+
+  // SKEWED_PINHOLE adds the skew.
+  K_ref << 100, 10, 50, 0, 200, 80, 0, 0, 1;
+  EXPECT_EQ(CameraModelCalibrationMatrix(SkewedPinholeCameraModel::model_id,
+                                         {100, 200, 50, 80, 10}),
+            K_ref);
+
+  // Spherical models have no calibration matrix.
+  EXPECT_THROW(CameraModelCalibrationMatrix(
+                   EquirectangularCameraModel::model_id, {1000, 500}),
+               std::domain_error);
 }
 
 TEST(CameraModelRescale, Spherical) {

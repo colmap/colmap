@@ -247,8 +247,9 @@ void BindMatchFeatures(py::module& m) {
                          "(e.g. \"fp16\", \"fp32\").")
           .def_readwrite("model_path",
                          &RetrievalPairingOptions::model_path,
-                         "Path to the global descriptor ONNX model file. "
-                         "Defaults to the selected model type's default URI.")
+                         "Path or URI of the global descriptor ONNX model "
+                         "file. Defaults to the selected model type's default "
+                         "URI.")
           .def_readwrite("image_path",
                          &RetrievalPairingOptions::image_path,
                          "Path to the image directory, required for global "

@@ -2,8 +2,10 @@
 
 #include "colmap/estimators/cost_functions/tiny_manifold.h"
 
+#include "colmap/optim/tiny_solver.h"
 #include "colmap/util/eigen_matchers.h"
 
+#include <cmath>
 #include <vector>
 
 #include <Eigen/Core>
@@ -115,6 +117,85 @@ TEST(SphereManifold, PlusJacobianMatchesFiniteDiff) {
               EigenMatrixNear(NumericPlusJacobian(manifold, x.data()), 1e-6));
 }
 
+TEST(EigenQuaternionManifold, PlusStaysNormalized) {
+  const Eigen::Quaterniond q(
+      Eigen::AngleAxisd(0.7, Eigen::Vector3d(1, 2, 3).normalized()));
+  const EigenQuaternionManifold manifold;
+  // A large step, unlike the small deltas of the rotation-composition test.
+  const Eigen::Vector3d delta(0.5, -1.2, 2.0);
+  double x_plus[4];
+  manifold.Plus(q.coeffs().data(), delta.data(), x_plus);
+  EXPECT_NEAR(Eigen::Map<const Eigen::Vector4d>(x_plus).norm(), 1.0, 1e-12);
+}
+
+TEST(SphereManifold9, PlusStaysOnUnitSphere) {
+  Eigen::Matrix<double, 9, 1> x;
+  x << 0.5, -1.0, 2.0, 0.25, -0.75, 1.5, -0.1, 0.9, -1.2;
+  x.normalize();
+  const SphereManifold<9> manifold;
+  Eigen::Matrix<double, 8, 1> delta;
+  delta << 0.15, -0.2, 0.1, -0.05, 0.08, -0.12, 0.04, 0.06;
+  double x_plus[9];
+  manifold.Plus(x.data(), delta.data(), x_plus);
+  const double x_plus_norm =
+      Eigen::Map<const Eigen::Matrix<double, 9, 1>>(x_plus).norm();
+  EXPECT_NEAR(x_plus_norm, 1.0, 1e-12);
+
+  const double zero[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  double x_plus_zero[9];
+  manifold.Plus(x.data(), zero, x_plus_zero);
+  const Eigen::Matrix<double, 9, 1> x_plus_zero_vec =
+      Eigen::Map<const Eigen::Matrix<double, 9, 1>>(x_plus_zero);
+  EXPECT_THAT(x_plus_zero_vec, EigenMatrixNear(x, 1e-12));
+}
+
+TEST(SphereManifold9, PlusJacobianMatchesFiniteDiff) {
+  Eigen::Matrix<double, 9, 1> x;
+  x << 0.5, -1.0, 2.0, 0.25, -0.75, 1.5, -0.1, 0.9, -1.2;
+  x.normalize();
+  const SphereManifold<9> manifold;
+  // The columns span the tangent plane, i.e. are orthogonal to x.
+  const Eigen::MatrixXd J = AnalyticPlusJacobian(manifold, x.data());
+  EXPECT_LT((x.transpose() * J).norm(), 1e-12);
+  // The columns are orthonormal.
+  const Eigen::MatrixXd gram = J.transpose() * J;
+  const Eigen::MatrixXd identity = Eigen::MatrixXd::Identity(8, 8);
+  EXPECT_THAT(gram, EigenMatrixNear(identity, 1e-12));
+  EXPECT_THAT(J,
+              EigenMatrixNear(NumericPlusJacobian(manifold, x.data()), 1e-6));
+}
+
+TEST(SphereManifold2, PlusStaysOnUnitCircle) {
+  Eigen::Vector2d x(0.5, -1.0);
+  x.normalize();
+  const SphereManifold<2> manifold;
+  const double delta[1] = {0.15};
+  double x_plus[2];
+  manifold.Plus(x.data(), delta, x_plus);
+  const double x_plus_norm = Eigen::Map<const Eigen::Vector2d>(x_plus).norm();
+  EXPECT_NEAR(x_plus_norm, 1.0, 1e-12);
+
+  const double zero[1] = {0};
+  double x_plus_zero[2];
+  manifold.Plus(x.data(), zero, x_plus_zero);
+  const Eigen::Vector2d x_plus_zero_vec =
+      Eigen::Map<const Eigen::Vector2d>(x_plus_zero);
+  EXPECT_THAT(x_plus_zero_vec, EigenMatrixNear(x, 1e-12));
+}
+
+TEST(SphereManifold2, PlusJacobianMatchesFiniteDiff) {
+  Eigen::Vector2d x(0.5, -1.0);
+  x.normalize();
+  const SphereManifold<2> manifold;
+  // The single column spans the tangent line, i.e. is orthogonal to x.
+  const Eigen::MatrixXd J = AnalyticPlusJacobian(manifold, x.data());
+  EXPECT_LT((x.transpose() * J).norm(), 1e-12);
+  // The column is unit norm.
+  EXPECT_NEAR(J.norm(), 1.0, 1e-12);
+  EXPECT_THAT(J,
+              EigenMatrixNear(NumericPlusJacobian(manifold, x.data()), 1e-6));
+}
+
 TEST(ProductManifold, SizesAndBlockStructure) {
   using RelativePoseManifold =
       ProductManifold<EigenQuaternionManifold, SphereManifold<3>>;
@@ -196,6 +277,23 @@ TEST(ProductManifold, ThreeWaySizesAndBlockStructure) {
   J.block(4, 3, 3, 2).setZero();
   J.block(7, 5, 4, 3).setZero();
   EXPECT_LT(J.norm(), 1e-12);
+}
+
+TEST(ProductManifold, SingleTangentBlocks) {
+  using TwoSingleManifold =
+      ProductManifold<EuclideanManifold<1>, EuclideanManifold<1>>;
+  static_assert(TwoSingleManifold::kAmbientSize == 2);
+  static_assert(TwoSingleManifold::kTangentSize == 2);
+
+  const TwoSingleManifold manifold{};
+  const double x[2] = {1.0, -2.0};
+  const double delta[2] = {0.5, 0.25};
+  double x_plus[2];
+  manifold.Plus(x, delta, x_plus);
+  EXPECT_THAT(Eigen::Map<const Eigen::Vector2d>(x_plus),
+              EigenMatrixNear(Eigen::Vector2d(1.5, -1.75), 1e-12));
+  EXPECT_THAT(AnalyticPlusJacobian(manifold, x),
+              EigenMatrixNear(NumericPlusJacobian(manifold, x), 1e-6));
 }
 
 }  // namespace

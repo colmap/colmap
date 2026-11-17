@@ -23,8 +23,11 @@ void L2NormalizeFeatureDescriptors(FeatureDescriptorsFloatData* descriptors) {
 void L1RootNormalizeFeatureDescriptors(
     FeatureDescriptorsFloatData* descriptors) {
   for (Eigen::Index r = 0; r < descriptors->rows(); ++r) {
-    descriptors->row(r) *= 1 / descriptors->row(r).lpNorm<1>();
-    descriptors->row(r) = descriptors->row(r).array().sqrt();
+    const float norm = descriptors->row(r).lpNorm<1>();
+    if (norm > 0) {
+      descriptors->row(r) *= 1 / norm;
+      descriptors->row(r) = descriptors->row(r).array().sqrt();
+    }
   }
 }
 

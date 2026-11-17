@@ -9,6 +9,7 @@ namespace py = pybind11;
 
 void BindConstants(py::module& m) {
   m.attr("INVALID_CAMERA_ID") = colmap::kInvalidCameraId;
+  m.attr("INVALID_IMU_ID") = colmap::kInvalidImuId;
   m.attr("INVALID_IMAGE_ID") = colmap::kInvalidImageId;
   m.attr("INVALID_IMAGE_PAIR_ID") = colmap::kInvalidImagePairId;
   m.attr("INVALID_POINT2D_IDX") = colmap::kInvalidPoint2DIdx;

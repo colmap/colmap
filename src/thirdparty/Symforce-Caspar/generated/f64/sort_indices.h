@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <cuda_runtime.h>
 
 namespace caspar {

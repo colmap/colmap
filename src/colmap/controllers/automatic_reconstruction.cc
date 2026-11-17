@@ -8,8 +8,13 @@
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/single_view_calibration.h"
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
+#include "colmap/feature/aliked.h"
+#include "colmap/feature/flexglue.h"
+#include "colmap/feature/loma.h"
+#include "colmap/feature/sift.h"
 #if defined(COLMAP_MVS_ENABLED)
 #include "colmap/mvs/advancing_front_meshing.h"
 #include "colmap/mvs/delaunay_meshing.h"
@@ -70,6 +75,14 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   } else if (options_.feature == Feature::LOMA128) {
     option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
     option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B128;
+  } else if (options_.feature == Feature::FLEXGLUE) {
+    // FlexGlue only uses the keypoint locations. Use the same DaD keypoints as
+    // the LoMa presets, with the lightweight descriptor (unused by FlexGlue).
+    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
+    option_manager_.feature_matching->type = FeatureMatcherType::FLEXGLUE;
+    // FlexGlue reads the image pixels during matching.
+    option_manager_.feature_matching->flexglue->image_path =
+        options_.image_path.string();
   }
 
   // Apply quality preset (scales max_image_size relative to extractor default).
@@ -83,11 +96,22 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.ModifyForExtremeQuality();
   }
 
+  // Must come after quality, which sets the number of SIFT features.
+  if (options_.max_num_features > 0) {
+    option_manager_.feature_extraction->sift->max_num_features =
+        options_.max_num_features;
+    option_manager_.feature_extraction->aliked->max_num_features =
+        options_.max_num_features;
+    option_manager_.feature_extraction->loma->max_num_features =
+        options_.max_num_features;
+  }
+
   // Feature-specific overrides that must come after quality.
   if (options_.feature == Feature::ALIKED ||
       options_.feature == Feature::LOMA ||
-      options_.feature == Feature::LOMA128) {
-    // Guided matching is not supported for ALIKED/LoMa
+      options_.feature == Feature::LOMA128 ||
+      options_.feature == Feature::FLEXGLUE) {
+    // Guided matching is not supported for ALIKED/LoMa/FlexGlue
     option_manager_.feature_matching->guided_matching = false;
   }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
@@ -206,6 +230,29 @@ void AutomaticReconstructionController::Setup() {
                                          *option_manager_.feature_extraction);
   }
 
+  if (options_.single_view_calibration) {
+    if (!options_.camera_params.empty()) {
+      // Explicit intrinsics are written to the database by the image reader
+      // and must not be overwritten by the calibration.
+      LOG(WARNING) << "Skipping single-view calibration, because explicit "
+                      "camera parameters were provided";
+    } else {
+      SingleViewCalibrationOptions& calibration_options =
+          *option_manager_.single_view_calibration;
+      calibration_options.camera_model = options_.camera_model;
+      calibration_options.num_threads = options_.num_threads;
+      calibration_options.use_gpu = options_.use_gpu;
+      const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+      THROW_CHECK(!gpu_indices.empty());
+      calibration_options.gpu_index = std::to_string(gpu_indices.front());
+      single_view_calibrator_ =
+          CreateSingleViewCalibrationController(*option_manager_.database_path,
+                                                *option_manager_.image_path,
+                                                calibration_options,
+                                                options_.image_names);
+    }
+  }
+
   if (options_.matching) {
     exhaustive_matcher_ =
         CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_pairing,
@@ -250,6 +297,14 @@ void AutomaticReconstructionController::Run() {
     return;
   }
 
+  if (single_view_calibrator_ != nullptr) {
+    RunSingleViewCalibration();
+  }
+
+  if (IsStopped()) {
+    return;
+  }
+
   if (options_.matching) {
     RunFeatureMatching();
   }
@@ -279,6 +334,17 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
   feature_extractor_->Start();
   feature_extractor_->Wait();
   feature_extractor_.reset();
+  active_thread_ = nullptr;
+}
+
+void AutomaticReconstructionController::RunSingleViewCalibration() {
+  LOG_HEADING1("Single-view calibration");
+
+  THROW_CHECK_NOTNULL(single_view_calibrator_);
+  active_thread_ = single_view_calibrator_.get();
+  single_view_calibrator_->Start();
+  single_view_calibrator_->Wait();
+  single_view_calibrator_.reset();
   active_thread_ = nullptr;
 }
 
@@ -352,7 +418,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
       vgc_options.random_seed = options_.random_seed;
       vgc_options.solver_options.num_threads = options_.num_threads;
       CalibrateViewGraph(vgc_options, database.get());
-      GlobalPipelineOptions global_options;
+      GlobalPipelineOptions global_options = *option_manager_.global_mapper;
       global_options.image_path = *option_manager_.image_path;
       global_options.num_threads = options_.num_threads;
       global_options.random_seed = options_.random_seed;
@@ -432,7 +498,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
-#if defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
@@ -440,10 +506,11 @@ void AutomaticReconstructionController::RunDenseMapper() {
           [&]() { return IsStopped(); });
       patch_match_controller.Run();
     }
-#else   // COLMAP_CUDA_ENABLED
-    LOG(WARNING) << "Skipping patch match stereo because CUDA is not available";
+#else
+    LOG(WARNING)
+        << "Skipping patch match stereo because no GPU backend is available";
     return;
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 
     if (IsStopped()) {
       return;

@@ -231,9 +231,9 @@ void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
                              const mvs::PatchMatchOptions& options,
                              const std::filesystem::path& config_path) {
 #if !defined(COLMAP_CUDA_ENABLED) && !defined(COLMAP_HIP_ENABLED)
-  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA, which is not "
-                      "available on your system.";
-#else   // COLMAP_CUDA_ENABLED
+  LOG(FATAL_THROW) << "Dense stereo reconstruction requires CUDA or HIP, "
+                      "neither of which is available on your system.";
+#else   // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
   std::string workspace_format_lower = workspace_format;
   StringToLower(&workspace_format_lower);
   THROW_CHECK(workspace_format_lower == "colmap" ||
@@ -248,7 +248,7 @@ void RunPatchMatchStereoImpl(const std::filesystem::path& workspace_path,
                                        config_path);
 
   controller.Run();
-#endif  // COLMAP_CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED || COLMAP_HIP_ENABLED
 }
 
 int RunPoissonMesher(int argc, char** argv) {

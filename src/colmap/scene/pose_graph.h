@@ -27,7 +27,10 @@ class PoseGraph {
     // Number of two-view matches used to compute the relative pose.
     int num_matches = 0;
 
-    // Whether this edge is valid for reconstruction.
+    // Whether fixed rig calibration is available for initialization.
+    bool prior = false;
+
+    // Whether this edge has a valid measured relative pose.
     bool valid = true;
 
     // Invert the geometry to match swapped image order.
@@ -46,6 +49,14 @@ class PoseGraph {
 
   // Load edges from the correspondence graph.
   void Load(const CorrespondenceGraph& corr_graph);
+
+  // Add fixed rig connections as prior edges for active images.
+  // Existing edges retain their measured poses and validity; new edges are not
+  // valid measurements. Call after adding measured edges, since AddEdge rejects
+  // duplicates.
+  void AddRigEdges(const Reconstruction& reconstruction,
+                   const FlatHashSet<image_t>& active_image_ids,
+                   bool refine_sensor_from_rig = true);
 
   // Edge operations.
   inline Edge& AddEdge(image_t image_id1, image_t image_id2, Edge edge);

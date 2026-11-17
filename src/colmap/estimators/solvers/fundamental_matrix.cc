@@ -240,9 +240,8 @@ bool RefineFundamentalMatrixSampson(const std::vector<Eigen::Vector2d>& points1,
   Solver solver;
   Solver::Options options;
   options.max_num_iterations = 25;
-  solver.Solve(functor, &params, options);
-
-  if (!params.allFinite()) {
+  if (solver.Solve(functor, &params, options).status ==
+      Solver::NUMERICAL_FAILURE) {
     return false;
   }
 

@@ -79,9 +79,10 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
 
 // Compute stereo rectification homographies that transform two images,
 // such that corresponding pixels in one image lie on the same scanline in the
-// other image. The matrix Q transforms disparity values to world coordinates
-// as [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w. Note that this function
-// assumes that the two cameras are already undistorted.
+// other image. The matrix Q transforms disparity values to 3D coordinates in
+// the rectified first camera frame as [x, y, disparity, 1] * Q =
+// [X, Y, Z, 1] * w. Note that this function assumes that the two cameras are
+// already undistorted.
 void RectifyStereoCameras(const Camera& camera1,
                           const Camera& camera2,
                           const Rigid3d& cam2_from_cam1,

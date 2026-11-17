@@ -76,9 +76,10 @@ struct SimpleFisheyeCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    double uu, vv;
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    T uu, vv;
     FisheyeFromImg(params, x, y, &uu, &vv);
     // No undistortion needed
     NormalFromFisheye(uu, vv, u, v);
@@ -153,9 +154,10 @@ struct FisheyeCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    double uu, vv;
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    T uu, vv;
     FisheyeFromImg(params, x, y, &uu, &vv);
     // No undistortion needed
     NormalFromFisheye(uu, vv, u, v);

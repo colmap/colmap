@@ -43,6 +43,12 @@ of commands as an alternative to the automatic reconstruction command::
        --database_path $DATASET_PATH/database.db \
        --image_path $DATASET_PATH/images
 
+    # Optionally replace intrinsics with learned single-view
+    # calibration (AnyCalib) before matching and geometric verification.
+    $ colmap single_view_calibrator \
+       --database_path $DATASET_PATH/database.db \
+       --image_path $DATASET_PATH/images
+
     $ colmap exhaustive_matcher \
        --database_path $DATASET_PATH/database.db
 
@@ -102,7 +108,7 @@ Graceful shutdown and resuming
 
 The feature extraction and matching commands, ``mapper``,
 ``pose_prior_mapper``, ``bundle_adjuster``, ``point_triangulator``,
-``image_registrator``, the image undistortion commands,
+``image_registrator``, ``single_view_calibrator``, the image undistortion commands,
 ``patch_match_stereo``, and ``stereo_fusion`` handle ``SIGINT`` and ``SIGTERM``
 cooperatively. ``automatic_reconstructor`` supports graceful shutdown when
 using the incremental mapper. The first signal stops work at a safe point and
@@ -157,10 +163,11 @@ To use the global SfM pipeline instead of the incremental mapper, replace the
 length priors, so if reliable intrinsics are not available (e.g., from EXIF or
 lab calibration), you should run ``view_graph_calibrator`` first. This step is
 optional but recommended to improve the quality of global SfM, as was always
-the default in `GLOMAP <https://github.com/colmap/glomap>`_. Note that
-``view_graph_calibrator`` modifies camera intrinsics and two-view geometries
-in the database in-place, so it is recommended to work on a copy of the
-database::
+the default in `GLOMAP <https://github.com/colmap/glomap>`_. Alternatively,
+``single_view_calibrator`` can provide learned intrinsics from the images alone
+before matching. Note that ``view_graph_calibrator`` modifies camera
+intrinsics and two-view geometries in the database in-place, so it is
+recommended to work on a copy of the database::
 
     $ colmap feature_extractor \
        --database_path $DATASET_PATH/database.db \
@@ -217,6 +224,7 @@ The available commands can be listed using the command::
           gui
           automatic_reconstructor
           bundle_adjuster
+          single_view_calibrator
           color_extractor
           database_cleaner
           database_creator
@@ -293,7 +301,7 @@ the available options, e.g.::
                                                   {SIMPLE_PINHOLE, PINHOLE, SIMPLE_RADIAL, RADIAL, OPENCV, OPENCV_FISHEYE,
                                                   FULL_OPENCV, FOV, SIMPLE_RADIAL_FISHEYE, RADIAL_FISHEYE, THIN_PRISM_FISHEYE,
                                                   RAD_TAN_THIN_PRISM_FISHEYE, SIMPLE_DIVISION, DIVISION, SIMPLE_FISHEYE, FISHEYE,
-                                                  EUCM, EQUIRECTANGULAR}
+                                                  EUCM, EQUIRECTANGULAR, SKEWED_PINHOLE}
             --ImageReader.single_camera arg (=0)
             --ImageReader.single_camera_per_folder arg (=0)
             --ImageReader.single_camera_per_image arg (=0)
@@ -322,7 +330,9 @@ the available options, e.g.::
 
 
 The available options can either be provided directly from the command-line or
-through a ``.ini`` file provided to ``--project_path``.
+through a ``.ini`` file provided to ``--project_path``. When an option is
+specified in both places, the command-line value takes precedence, and options
+may be split across the two sources.
 
 
 Commands
@@ -337,10 +347,15 @@ available as ``colmap [command]``:
 - ``automatic_reconstructor``: Automatically reconstruct sparse and dense model
   for a set of input images. Key options include ``--quality`` (LOW, MEDIUM,
   HIGH, EXTREME), ``--data_type`` (INDIVIDUAL, VIDEO, INTERNET) to tune settings
-  for different capture scenarios, ``--feature`` (SIFT, ALIKED, LOMA, LOMA128)
-  to select the feature extraction algorithm, ``--mapper`` (INCREMENTAL,
-  HIERARCHICAL, GLOBAL) to choose the SfM pipeline, and ``--mesher`` (POISSON,
-  DELAUNAY, ADVANCING_FRONT) to select the surface reconstruction method.
+  for different capture scenarios, ``--feature`` (SIFT, ALIKED, LOMA, LOMA128,
+  FLEXGLUE) to select the feature extraction and matching algorithm,
+  ``--max_num_features`` to override the maximum number of features per image,
+  ``--mapper`` (INCREMENTAL, HIERARCHICAL, GLOBAL) to choose the SfM pipeline,
+  and ``--mesher`` (POISSON, DELAUNAY, ADVANCING_FRONT) to select the surface
+  reconstruction method.
+  ``--single_view_calibration`` enables learned single-view calibration
+  after feature extraction (ignored if explicit ``--camera_params`` are given);
+  ``--SingleViewCalibration.*`` tunes the calibration backend.
 
 - ``project_generator``: Generate project files at different quality settings.
 
@@ -501,6 +516,14 @@ available as ``colmap [command]``:
   geometric relations. Should be run before ``global_mapper``, if no good
   prior camera intrinsics are known, since the global mapper
   depends on reasonably good focal length priors to perform well.
+
+- ``single_view_calibrator``: Calibrate camera intrinsics from single images with a
+  learned model (AnyCalib), replacing e.g. EXIF-based initialization. Run
+  after ``feature_extractor`` and before matching and mapping, or enable
+  ``--single_view_calibration`` in ``automatic_reconstructor``. Supports
+  ``--image_list_path`` to calibrate a subset of the database images. Each
+  camera keeps its existing model unless ``--SingleViewCalibration.camera_model``
+  explicitly converts all cameras to the given model.
 
 
 Visualization

@@ -70,6 +70,10 @@ constexpr rig_t kInvalidRigId = std::numeric_limits<rig_t>::max();
 using camera_t = uint32_t;
 constexpr camera_t kInvalidCameraId = std::numeric_limits<camera_t>::max();
 
+// Unique identifier for IMUs.
+using imu_t = uint32_t;
+constexpr imu_t kInvalidImuId = std::numeric_limits<imu_t>::max();
+
 // Unique identifier for images.
 using image_t = uint32_t;
 constexpr image_t kInvalidImageId = std::numeric_limits<image_t>::max();

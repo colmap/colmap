@@ -2,10 +2,10 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/types.h"
 
-#include <array>
 #include <optional>
 #include <vector>
 
@@ -32,7 +32,7 @@ class P3PEstimator {
   // The observed 3D features in the world frame.
   using Y_t = Eigen::Vector3d;
   // The transformation from the world to the camera frame.
-  using M_t = Eigen::Matrix3x4d;
+  using M_t = Rigid3d;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
@@ -44,7 +44,7 @@ class P3PEstimator {
   //
   // @param points2D         2D image observations with rays.
   // @param points3D         3D world points.
-  // @param cams_from_world  Output vector of 3x4 transformation matrices.
+  // @param cams_from_world  Output vector of rigid transformations.
   void Estimate(const std::vector<X_t>& points2D,
                 const std::vector<Y_t>& points3D,
                 std::vector<M_t>* cams_from_world) const;
@@ -54,12 +54,30 @@ class P3PEstimator {
   //
   // @param points2D        2D image observations with rays.
   // @param points3D        3D world points.
-  // @param cam_from_world  3x4 projection matrix.
+  // @param cam_from_world  Rigid transformation from world to camera frame.
   // @param residuals       Output vector of residuals.
   void Residuals(const std::vector<X_t>& points2D,
                  const std::vector<Y_t>& points3D,
                  const M_t& cam_from_world,
                  std::vector<double>* residuals) const;
+
+  // Nonlinear local optimization of the pose over the given 2D-3D
+  // correspondences, starting from *cam_from_world. Minimizes
+  // normalized-plane reprojection errors with Levenberg-Marquardt
+  // (colmap::TinySolver), with the rotation on the quaternion manifold and an
+  // autodiff Jacobian. The refinement is independent of the camera model
+  // (observations enter as rays); scoring uses the pixel reprojection error.
+  //
+  // Returns true and overwrites *cam_from_world with the refined transform on
+  // success. Returns false and leaves *cam_from_world unchanged if fewer than
+  // kMinNumSamples observations are given or the solve fails.
+  //
+  // @param points2D        2D image observations with rays.
+  // @param points3D        3D world points.
+  // @param cam_from_world  Rigid transformation, refined in place.
+  bool Refine(const std::vector<X_t>& points2D,
+              const std::vector<Y_t>& points3D,
+              M_t* cam_from_world) const;
 
  private:
   const ImgFromCamFunc img_from_cam_func_;
@@ -75,7 +93,7 @@ class P4PFEstimator {
   using Y_t = Eigen::Vector3d;
   struct M_t {
     // The transformation from the world to the camera frame.
-    Eigen::Matrix3x4d cam_from_world;
+    Rigid3d cam_from_world;
     // The focal lengths (fx, fy) of the camera. Equal when the focal length is
     // shared (e.g. single-focal camera models).
     Eigen::Vector2d focal_lengths = Eigen::Vector2d::Zero();
@@ -97,106 +115,27 @@ class P4PFEstimator {
                         const M_t& model,
                         std::vector<double>* residuals);
 
+  // Nonlinear local optimization of the pose and focal length(s) over the
+  // given 2D-3D correspondences, starting from *model. Minimizes pixel
+  // reprojection errors with Levenberg-Marquardt (colmap::TinySolver), with
+  // the rotation on the quaternion manifold, an autodiff Jacobian, and the
+  // focal length(s) in log-space so that they stay positive.
+  //
+  // Returns true and overwrites *model with the refined estimate on success.
+  // Returns false and leaves *model unchanged if fewer than kMinNumSamples
+  // observations are given, if the initial focal length(s) are not positive,
+  // or if the solve fails.
+  //
+  // @param points2D  2D image feature observations, normalized by the
+  //                  principal point.
+  // @param points3D  3D world points.
+  // @param model     Model to refine in place.
+  bool Refine(const std::vector<X_t>& points2D,
+              const std::vector<Y_t>& points3D,
+              M_t* model) const;
+
  private:
   const bool share_focal_length_;
-};
-
-// EPNP solver for the PNP (Perspective-N-Point) problem. The solver needs a
-// minimum of 4 2D-3D correspondences.
-//
-// The algorithm is based on the following paper:
-//
-//    Lepetit, Vincent, Francesc Moreno-Noguer, and Pascal Fua.
-//    "Epnp: An accurate o (n) solution to the pnp problem."
-//    International journal of computer vision 81.2 (2009): 155-166.
-//
-// The implementation is based on their original open-source release, but is
-// ported to Eigen and contains several improvements over the original code.
-class EPNPEstimator {
- public:
-  // The 2D image feature observations.
-  using X_t = Point2DWithRay;
-  // The observed 3D features in the world frame.
-  using Y_t = Eigen::Vector3d;
-  // The transformation from the world to the camera frame.
-  using M_t = Eigen::Matrix3x4d;
-
-  // The minimum number of samples needed to estimate a model.
-  static const int kMinNumSamples = 4;
-
-  explicit EPNPEstimator(ImgFromCamFunc img_from_cam_func);
-
-  // Estimate the most probable solution of the EPNP problem from a set of
-  // four or more 2D-3D point correspondences.
-  //
-  // @param points2D         2D image observations with rays.
-  // @param points3D         3D world points.
-  // @param cams_from_world  Output vector of 3x4 transformation matrices.
-  void Estimate(const std::vector<X_t>& points2D,
-                const std::vector<Y_t>& points3D,
-                std::vector<M_t>* cams_from_world);
-
-  // Calculate the squared reprojection error given a set of 2D-3D point
-  // correspondences and a projection matrix.
-  //
-  // @param points2D        2D image observations with rays.
-  // @param points3D        3D world points.
-  // @param cam_from_world  3x4 projection matrix.
-  // @param residuals       Output vector of residuals.
-  void Residuals(const std::vector<X_t>& points2D,
-                 const std::vector<Y_t>& points3D,
-                 const M_t& cam_from_world,
-                 std::vector<double>* residuals) const;
-
- private:
-  bool ComputePose(const std::vector<X_t>& points2D,
-                   const std::vector<Y_t>& points3D,
-                   Eigen::Matrix3x4d* cam_from_world);
-
-  void ChooseControlPoints();
-  bool ComputeBarycentricCoordinates();
-
-  Eigen::Matrix<double, Eigen::Dynamic, 12> ComputeM();
-  Eigen::Matrix<double, 6, 10> ComputeL6x10(
-      const Eigen::Matrix<double, 12, 12>& Ut);
-  Eigen::Matrix<double, 6, 1> ComputeRho();
-
-  void FindBetasApprox1(const Eigen::Matrix<double, 6, 10>& L_6x10,
-                        const Eigen::Matrix<double, 6, 1>& rho,
-                        Eigen::Vector4d* betas);
-  void FindBetasApprox2(const Eigen::Matrix<double, 6, 10>& L_6x10,
-                        const Eigen::Matrix<double, 6, 1>& rho,
-                        Eigen::Vector4d* betas);
-  void FindBetasApprox3(const Eigen::Matrix<double, 6, 10>& L_6x10,
-                        const Eigen::Matrix<double, 6, 1>& rho,
-                        Eigen::Vector4d* betas);
-
-  void RunGaussNewton(const Eigen::Matrix<double, 6, 10>& L_6x10,
-                      const Eigen::Matrix<double, 6, 1>& rho,
-                      Eigen::Vector4d* betas);
-
-  double ComputeRT(const Eigen::Matrix<double, 12, 12>& Ut,
-                   const Eigen::Vector4d& betas,
-                   Eigen::Matrix3d* R,
-                   Eigen::Vector3d* t);
-
-  void ComputeCcs(const Eigen::Vector4d& betas,
-                  const Eigen::Matrix<double, 12, 12>& Ut);
-  void ComputePcs();
-
-  void SolveForSign();
-
-  void EstimateRT(Eigen::Matrix3d* R, Eigen::Vector3d* t);
-
-  double ComputeTotalError(const Eigen::Matrix3d& R, const Eigen::Vector3d& t);
-
-  const ImgFromCamFunc img_from_cam_func_;
-  const std::vector<X_t>* points2D_ = nullptr;
-  const std::vector<Y_t>* points3D_ = nullptr;
-  std::vector<Eigen::Vector3d> pcs_;
-  std::vector<Eigen::Vector4d> alphas_;
-  std::array<Eigen::Vector3d, 4> cws_;
-  std::array<Eigen::Vector3d, 4> ccs_;
 };
 
 // Compute squared reprojection error in pixels.

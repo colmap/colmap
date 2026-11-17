@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "colmap/feature/onnx_utils.h"
+#include "colmap/util/onnx.h"
 
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
 #include <cstddef>
 #include <filesystem>
+#include <stdexcept>
 #include <vector>
 
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -40,29 +40,6 @@ Ort::Value MakeTensor(std::vector<T>* data, const std::vector<int64_t>& shape) {
   return CreateONNXTensor(*data, shape);
 }
 
-class ErrorLogSink : public google::LogSink {
- public:
-  ErrorLogSink() { google::AddLogSink(this); }
-  ~ErrorLogSink() override { google::RemoveLogSink(this); }
-
-  void send(google::LogSeverity severity,
-            const char*,
-            const char*,
-            int,
-            const struct ::tm*,
-            const char*,
-            size_t) override {
-    if (severity >= google::GLOG_ERROR) {
-      ++num_error_logs_;
-    }
-  }
-
-  size_t NumErrorLogs() const { return num_error_logs_; }
-
- private:
-  size_t num_error_logs_ = 0;
-};
-
 TEST(ONNXExecutionProviderTest, Selection) {
   EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/false),
             ONNXExecutionProvider::CPU);
@@ -78,6 +55,13 @@ TEST(ONNXExecutionProviderTest, Selection) {
 #endif
 }
 
+TEST(SelectONNXCudaDeviceTest, Nominal) {
+  EXPECT_EQ(SelectONNXCudaDevice("0"), 0);
+  EXPECT_EQ(SelectONNXCudaDevice("2"), 2);
+  EXPECT_EQ(SelectONNXCudaDevice("-1"), 0);
+  EXPECT_THROW(SelectONNXCudaDevice("0,1"), std::invalid_argument);
+}
+
 TEST(ONNXModelTest, MetadataAndInference) {
   ONNXModel model(WriteIdentityModel().string(),
                   /*num_threads=*/1,
@@ -89,10 +73,16 @@ TEST(ONNXModelTest, MetadataAndInference) {
   EXPECT_STREQ(model.input_names()[0], "input");
   ASSERT_EQ(model.input_shapes().size(), 1);
   EXPECT_EQ(model.input_shapes()[0], (std::vector<int64_t>{1, 2}));
+  ASSERT_EQ(model.input_element_types().size(), 1);
+  EXPECT_EQ(model.input_element_types()[0],
+            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
   ASSERT_EQ(model.output_names().size(), 1);
   EXPECT_STREQ(model.output_names()[0], "output");
   ASSERT_EQ(model.output_shapes().size(), 1);
   EXPECT_EQ(model.output_shapes()[0], (std::vector<int64_t>{1, 2}));
+  ASSERT_EQ(model.output_element_types().size(), 1);
+  EXPECT_EQ(model.output_element_types()[0],
+            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
   std::vector<float> input_data{1.25f, -2.5f};
   const std::vector<int64_t> input_shape{1, 2};
@@ -105,6 +95,49 @@ TEST(ONNXModelTest, MetadataAndInference) {
   const float* output_data = outputs[0].GetTensorData<float>();
   EXPECT_FLOAT_EQ(output_data[0], input_data[0]);
   EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
+}
+
+TEST(ONNXModelTest, RunWithOutputMemoryInfo) {
+  ONNXModel model(WriteIdentityModel().string(),
+                  /*num_threads=*/1,
+                  /*use_gpu=*/false,
+                  /*gpu_index=*/"-1");
+
+  std::vector<float> input_data{1.25f, -2.5f};
+  const std::vector<int64_t> input_shape{1, 2};
+  std::vector<Ort::Value> inputs;
+  inputs.push_back(MakeTensor(&input_data, input_shape));
+  // The outputs are allocated in the given memory through an I/O binding, as
+  // FlexGlue does on the GPU. Host memory gives the same values as Run.
+  const std::vector<Ort::Value> outputs = model.Run(
+      inputs, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
+
+  ASSERT_EQ(outputs.size(), 1);
+  EXPECT_EQ(outputs[0].GetTensorTypeAndShapeInfo().GetShape(), input_shape);
+  const float* output_data = outputs[0].GetTensorData<float>();
+  EXPECT_FLOAT_EQ(output_data[0], input_data[0]);
+  EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
+  // The output owns its memory, independently of the input.
+  input_data[0] = 0.f;
+  EXPECT_FLOAT_EQ(output_data[0], 1.25f);
+}
+
+TEST(ThrowCheckONNXElementTypeTest, AcceptsMatchingType) {
+  EXPECT_NO_THROW(
+      ThrowCheckONNXElementType("image",
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT));
+  EXPECT_NO_THROW(
+      ThrowCheckONNXElementType("max_keypoints",
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64,
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64));
+}
+
+TEST(ThrowCheckONNXElementTypeTest, RejectsMismatchedType) {
+  EXPECT_THROW(ThrowCheckONNXElementType("image",
+                                         ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE,
+                                         ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT),
+               std::exception);
 }
 
 TEST(ONNXModelTest, InvalidInputTypeRethrows) {
@@ -120,19 +153,18 @@ TEST(ONNXModelTest, InvalidInputTypeRethrows) {
   EXPECT_THROW(model.Run(inputs), Ort::Exception);
 }
 
-TEST(ONNXModelTest, CapabilityProbeRethrowsWithoutErrorLog) {
+TEST(ONNXModelTest, InvalidModelThrowsOrtException) {
+  // LoMa falls back to fp32 when initializing the bf16 models throws an
+  // Ort::Exception.
   const std::filesystem::path model_path = CreateTestDir() / "invalid.onnx";
   constexpr char kInvalidModel[] = "not an ONNX model";
   WriteBinaryBlob(model_path, {kInvalidModel, sizeof(kInvalidModel)});
 
-  ErrorLogSink log_sink;
   EXPECT_THROW(ONNXModel(model_path.string(),
                          /*num_threads=*/1,
                          /*use_gpu=*/false,
-                         /*gpu_index=*/"-1",
-                         /*is_capability_probe=*/true),
+                         /*gpu_index=*/"-1"),
                Ort::Exception);
-  EXPECT_EQ(log_sink.NumErrorLogs(), 0);
 }
 
 TEST(CreateONNXTensorTest, FloatVector) {

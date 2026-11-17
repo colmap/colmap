@@ -379,7 +379,8 @@ TEST(ImageReaderTest, ManualCameraParams) {
   EXPECT_EQ(camera.params[1], 500.0);
   EXPECT_EQ(camera.params[2], 320.0);
   EXPECT_EQ(camera.params[3], 240.0);
-  EXPECT_TRUE(camera.has_prior_focal_length);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
+  EXPECT_EQ(camera.source, CameraSource::USER);
 }
 
 TEST(ImageReaderTest, ExplicitImageNames) {

@@ -6,6 +6,7 @@
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/eigen_matchers.h"
 #include "colmap/util/testing.h"
 
@@ -993,6 +994,81 @@ TEST(ExistingMatchedPairGenerator, Nominal) {
   EXPECT_TRUE(generator.Next().empty());
   EXPECT_TRUE(generator.HasFinished());
 }
+
+#if defined(COLMAP_ONNX_ENABLED) && defined(COLMAP_DOWNLOAD_ENABLED)
+
+TEST(RetrievalPairGenerator, GlobalDescriptor) {
+  constexpr int kNumImages = 5;
+  const std::filesystem::path test_dir = CreateTestDir();
+  const std::filesystem::path database_path = test_dir / "database.db";
+  auto database = Database::Open(database_path);
+  CreateSyntheticDatabase(kNumImages, *database);
+
+  // Global descriptors are computed from the image pixels, so write a
+  // distinct image for every database image.
+  int image_idx = 0;
+  for (const Image& image : database->ReadAllImages()) {
+    Bitmap bitmap(/*width=*/32, /*height=*/24, /*as_rgb=*/true);
+    for (int y = 0; y < bitmap.Height(); ++y) {
+      for (int x = 0; x < bitmap.Width(); ++x) {
+        const uint8_t value =
+            static_cast<uint8_t>((x * 7 + y * 13 + image_idx * 50) % 256);
+        bitmap.SetPixel(
+            x,
+            y,
+            BitmapColor<uint8_t>(value,
+                                 static_cast<uint8_t>(255 - value),
+                                 static_cast<uint8_t>(image_idx * 40)));
+      }
+    }
+    ASSERT_TRUE(bitmap.Write(test_dir / image.Name()));
+    ++image_idx;
+  }
+
+  RetrievalPairingOptions options;
+  options.method = RetrievalMethod::GLOBAL_DESCRIPTOR;
+  options.num_images = 3;
+  options.model_type = "MixVPR";
+  options.model_precision = "fp16";
+  options.image_path = test_dir;
+  options.database_path = database_path;
+  options.use_gpu = false;
+
+  const auto generate_pairs = [&]() {
+    std::set<std::pair<image_t, image_t>> pairs;
+    RetrievalPairGenerator generator(options, database);
+    while (!generator.HasFinished()) {
+      for (const auto& [image_id1, image_id2] : generator.Next()) {
+        EXPECT_NE(image_id1, image_id2);
+        // Symmetric pairs are reported only once.
+        EXPECT_TRUE(pairs.insert(std::minmax(image_id1, image_id2)).second);
+      }
+    }
+    EXPECT_TRUE(generator.Next().empty());
+    return pairs;
+  };
+
+  const std::set<std::pair<image_t, image_t>> pairs = generate_pairs();
+  // Every image retrieves `num_images` neighbors and symmetric pairs collapse.
+  EXPECT_GE(pairs.size(), (kNumImages * options.num_images + 1) / 2);
+  EXPECT_LE(pairs.size(), kNumImages * (kNumImages - 1) / 2);
+
+  // The descriptors are cached next to the database and reused.
+  int num_cache_files = 0;
+  for (const auto& entry : std::filesystem::directory_iterator(test_dir)) {
+    if (entry.path().filename().string().rfind("global_descriptors_", 0) == 0) {
+      ++num_cache_files;
+    }
+  }
+  EXPECT_EQ(num_cache_files, 1);
+  EXPECT_EQ(generate_pairs(), pairs);
+
+  // A missing image directory is rejected before the model is loaded.
+  options.image_path = test_dir / "missing";
+  EXPECT_ANY_THROW(RetrievalPairGenerator generator(options, database));
+}
+
+#endif  // COLMAP_ONNX_ENABLED && COLMAP_DOWNLOAD_ENABLED
 
 }  // namespace
 }  // namespace colmap

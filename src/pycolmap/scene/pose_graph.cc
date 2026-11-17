@@ -28,9 +28,14 @@ void BindPoseGraph(py::module& m) {
                          &PoseGraph::Edge::num_matches,
                          "Number of two-view matches used to compute the "
                          "relative pose.")
-          .def_readwrite("valid",
-                         &PoseGraph::Edge::valid,
-                         "Whether this edge is valid for reconstruction.")
+          .def_readwrite("prior",
+                         &PoseGraph::Edge::prior,
+                         "Whether fixed rig calibration is available for "
+                         "initialization.")
+          .def_readwrite(
+              "valid",
+              &PoseGraph::Edge::valid,
+              "Whether this edge has a valid measured relative pose.")
           .def("invert",
                &PoseGraph::Edge::Invert,
                "Invert the geometry to match swapped image order.");
@@ -54,6 +59,12 @@ void BindPoseGraph(py::module& m) {
            &PoseGraph::Load,
            "corr_graph"_a,
            "Load edges from a correspondence graph.")
+      .def("add_rig_edges",
+           &PoseGraph::AddRigEdges,
+           "reconstruction"_a,
+           "active_image_ids"_a,
+           "refine_sensor_from_rig"_a = true,
+           "Add fixed rig connections for active images.")
       .def("add_edge",
            &PoseGraph::AddEdge,
            "image_id1"_a,

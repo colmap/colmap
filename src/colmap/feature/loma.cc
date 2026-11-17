@@ -2,9 +2,13 @@
 
 #include "colmap/feature/loma.h"
 
-#include "colmap/feature/onnx_utils.h"
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/pose_prior.h"
+#include "colmap/util/onnx.h"
+
+#ifdef COLMAP_CUDA_ENABLED
+#include "colmap/util/cuda.h"
+#endif
 
 #include <cstring>
 #include <memory>
@@ -16,6 +20,27 @@ namespace colmap {
 namespace {
 
 #ifdef COLMAP_ONNX_ENABLED
+
+// Whether to load the bf16 models instead of the fp32 models. They are only
+// faster on CUDA GPUs with native bf16 support. On older GPUs, creating the
+// session may succeed while inference fails, which the fp32 fallback on
+// initialization failures does not catch, so check the device up front.
+bool UseLomaBf16(bool use_bf16, bool use_gpu, const std::string& gpu_index) {
+  if (!use_bf16 ||
+      SelectONNXExecutionProvider(use_gpu) != ONNXExecutionProvider::CUDA) {
+    return false;
+  }
+#ifdef COLMAP_CUDA_ENABLED
+  const int device = SelectONNXCudaDevice(gpu_index);
+  if (CudaDeviceHasComputeCapability(device, /*major=*/8)) {
+    return true;
+  }
+  LOG(WARNING) << "The bf16 LoMa models require a CUDA GPU with compute "
+                  "capability 8.0 or newer, which GPU "
+               << device << " is not; falling back to fp32";
+#endif
+  return false;
+}
 
 // Fast bilinear resample instead of Bitmap::Rescale()'s filtered resize --
 // see LomaExtractionOptions::use_fast_resize for the speed/accuracy tradeoff.
@@ -62,8 +87,7 @@ std::vector<float> ResizeToInputTensor(const Bitmap& bitmap,
 class LomaFeatureExtractor : public FeatureExtractor {
  public:
   LomaFeatureExtractor(const FeatureExtractionOptions& options,
-                       const std::string& descriptor_model_path,
-                       bool probe_descriptor_support = false)
+                       const std::string& descriptor_model_path)
       : options_(options),
         detector_(options.loma->detector_model_path,
                   options.num_threads,
@@ -72,8 +96,7 @@ class LomaFeatureExtractor : public FeatureExtractor {
         descriptor_(descriptor_model_path,
                     options.num_threads,
                     options.use_gpu,
-                    options.gpu_index,
-                    probe_descriptor_support) {
+                    options.gpu_index) {
     THROW_CHECK(options.Check());
 
     // Detector: image [1, 3, H, W], num_keypoints [1] (int64, runtime input --
@@ -85,19 +108,31 @@ class LomaFeatureExtractor : public FeatureExtractor {
                        "image",
                        detector_.input_shapes()[0],
                        {1, 3, -1, -1});
+    ThrowCheckONNXElementType(detector_.input_names()[0],
+                              detector_.input_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(detector_.input_names()[1],
                        "num_keypoints",
                        detector_.input_shapes()[1],
                        {1});
+    ThrowCheckONNXElementType(detector_.input_names()[1],
+                              detector_.input_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64);
     THROW_CHECK_EQ(detector_.output_shapes().size(), 2);
     ThrowCheckONNXNode(detector_.output_names()[0],
                        "keypoints",
                        detector_.output_shapes()[0],
                        {1, -1, 2});
+    ThrowCheckONNXElementType(detector_.output_names()[0],
+                              detector_.output_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     ThrowCheckONNXNode(detector_.output_names()[1],
                        "keypoint_probs",
                        detector_.output_shapes()[1],
                        {1, -1});
+    ThrowCheckONNXElementType(detector_.output_names()[1],
+                              detector_.output_element_types()[1],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
     // Descriptor: image [1, 3, S, S], keypoints [1, N, 2] -> descriptions
     // [1, N, D]. Variant-specific (dim differs between DeDoDe-B / DeDoDe-G).
@@ -107,6 +142,9 @@ class LomaFeatureExtractor : public FeatureExtractor {
     for (size_t i = 0; i < descriptor_.input_names().size(); ++i) {
       const std::string_view name = descriptor_.input_names()[i];
       const auto& shape = descriptor_.input_shapes()[i];
+      ThrowCheckONNXElementType(name,
+                                descriptor_.input_element_types()[i],
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
       if (name == "image") {
         ThrowCheckONNXNode(name, "image", shape, {1, 3, -1, -1});
         THROW_CHECK_GT(shape[2], 0);
@@ -123,6 +161,9 @@ class LomaFeatureExtractor : public FeatureExtractor {
     THROW_CHECK(found_image_input);
     THROW_CHECK(found_keypoints_input);
     THROW_CHECK_EQ(descriptor_.output_shapes().size(), 1);
+    ThrowCheckONNXElementType(descriptor_.output_names()[0],
+                              descriptor_.output_element_types()[0],
+                              ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
     const auto& desc_out_shape = descriptor_.output_shapes()[0];
     THROW_CHECK_EQ(desc_out_shape.size(), 3);
     descriptor_dim_ = static_cast<int>(desc_out_shape[2]);
@@ -238,16 +279,14 @@ class LomaFeatureMatcher : public FeatureMatcher {
  public:
   LomaFeatureMatcher(const FeatureMatchingOptions& options,
                      const std::string& model_path,
-                     FeatureExtractorType expected_extractor_type,
-                     bool probe_model_support = false)
+                     FeatureExtractorType expected_extractor_type)
       : options_(options),
         loma_options_(*options.loma),
         expected_extractor_type_(expected_extractor_type),
         model_(model_path,
                options.num_threads,
                options.use_gpu,
-               options.gpu_index,
-               probe_model_support) {
+               options.gpu_index) {
     THROW_CHECK(options.Check());
     THROW_CHECK_EQ(model_.input_shapes().size(), 4);
     THROW_CHECK_GE(model_.output_shapes().size(), 2);
@@ -387,12 +426,11 @@ std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
 #ifdef COLMAP_ONNX_ENABLED
   switch (options.type) {
     case FeatureExtractorType::LOMA_B: {
-      if (options.loma->use_bf16) {
+      if (UseLomaBf16(
+              options.loma->use_bf16, options.use_gpu, options.gpu_index)) {
         try {
           return std::make_unique<LomaFeatureExtractor>(
-              options,
-              options.loma->descriptor_model_path_bf16,
-              /*probe_descriptor_support=*/true);
+              options, options.loma->descriptor_model_path_bf16);
         } catch (const Ort::Exception& e) {
           LOG(WARNING) << "Failed to initialize the bf16 LoMa descriptor ("
                        << e.what() << "); falling back to fp32";
@@ -425,12 +463,10 @@ std::unique_ptr<FeatureMatcher> CreateLomaVariantMatcher(
     const FeatureMatchingOptions& options,
     const LomaMatchingOptions::Variant& variant,
     FeatureExtractorType expected_extractor_type) {
-  if (options.loma->use_bf16) {
+  if (UseLomaBf16(options.loma->use_bf16, options.use_gpu, options.gpu_index)) {
     try {
-      return std::make_unique<LomaFeatureMatcher>(options,
-                                                  variant.model_path_bf16,
-                                                  expected_extractor_type,
-                                                  /*probe_model_support=*/true);
+      return std::make_unique<LomaFeatureMatcher>(
+          options, variant.model_path_bf16, expected_extractor_type);
     } catch (const Ort::Exception& e) {
       LOG(WARNING) << "Failed to initialize the bf16 LoMa matcher (" << e.what()
                    << "); falling back to fp32";

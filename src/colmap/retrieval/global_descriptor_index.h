@@ -8,9 +8,8 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <unordered_map>
 #include <vector>
-
-#include <Eigen/Core>
 
 namespace colmap {
 namespace retrieval {
@@ -82,10 +81,9 @@ class GlobalDescriptorIndex {
 
   int descriptor_dim_;
   std::vector<image_t> image_ids_;
-  // Descriptors stored as row-major matrix (num_images × descriptor_dim).
-  // Each row is L2-normalized.
-  Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-      descriptors_;
+  // Descriptors stored contiguously in row-major order
+  // (num_images x descriptor_dim). Each row is L2-normalized.
+  std::vector<float> descriptors_;
   // Mapping from image_id to row index in descriptors_.
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   // FAISS index for fast nearest-neighbor search (owned via opaque pointer).

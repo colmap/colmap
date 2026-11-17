@@ -64,7 +64,7 @@ void SetTwoViewGeometryModel(const Camera& camera1,
     return;
   }
   const bool is_calibrated =
-      camera1.has_prior_focal_length && camera2.has_prior_focal_length;
+      camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength();
   two_view_geometry->config = is_calibrated ? TwoViewGeometry::CALIBRATED
                                             : TwoViewGeometry::UNCALIBRATED;
   two_view_geometry->F =
@@ -380,7 +380,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       camera.model_id = options.camera_model_id;
       camera.params = options.camera_params;
       THROW_CHECK(camera.VerifyParams());
-      camera.has_prior_focal_length = options.camera_has_prior_focal_length;
+      camera.source = options.camera_has_prior_focal_length
+                          ? CameraSource::USER
+                          : CameraSource::UNKNOWN;
       camera.camera_id =
           (database == nullptr)
               ? (rig_idx * options.num_cameras_per_rig + camera_idx + 1)

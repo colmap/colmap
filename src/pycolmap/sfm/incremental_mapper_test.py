@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 import pycolmap
 
 
@@ -115,6 +117,34 @@ def test_incremental_pipeline_options_check() -> None:
     assert options.check()
 
 
+@pytest.mark.parametrize(
+    "threshold,value",
+    [
+        ("min_num_images_gpu_solver", 7),
+        ("max_num_images_direct_dense_cpu_solver", 11),
+        ("max_num_images_direct_sparse_cpu_solver", 101),
+        ("max_num_images_direct_dense_gpu_solver", 23),
+        ("max_num_images_direct_sparse_gpu_solver", 1001),
+    ],
+)
+def test_incremental_pipeline_solver_thresholds(
+    threshold: str, value: int
+) -> None:
+    name = f"ba_{threshold}"
+    options = pycolmap.IncrementalPipelineOptions()
+    defaults = pycolmap.CeresBundleAdjustmentOptions()
+    assert getattr(options, name) == getattr(defaults, threshold)
+    options = pycolmap.IncrementalPipelineOptions({name: value})
+    assert getattr(options, name) == value
+    assert options.check()
+    for getter in (
+        options.get_local_bundle_adjustment,
+        options.get_global_bundle_adjustment,
+    ):
+        assert getattr(getter().ceres, threshold) == value
+    assert options.todict()[name] == value
+
+
 def test_incremental_pipeline_options_is_initial_pair_provided() -> None:
     options = pycolmap.IncrementalPipelineOptions()
     result = options.is_initial_pair_provided()
@@ -161,7 +191,10 @@ def test_incremental_pipeline_options_ba_global_backend_readwrite() -> None:
     assert options.ba_global_backend == pycolmap.BundleAdjustmentBackend.CASPAR
 
 
-def test_incremental_pipeline_run(tmp_path: Path) -> None:
+@pytest.mark.parametrize("dense_cpu_threshold", [50, 0])
+def test_incremental_pipeline_run(
+    tmp_path: Path, dense_cpu_threshold: int
+) -> None:
     pycolmap.set_random_seed(0)
 
     database_path = tmp_path / "database.db"
@@ -177,8 +210,12 @@ def test_incremental_pipeline_run(tmp_path: Path) -> None:
         )
 
         reconstruction_manager = pycolmap.ReconstructionManager()
+        pipeline_options = pycolmap.IncrementalPipelineOptions()
+        pipeline_options.ba_max_num_images_direct_dense_cpu_solver = (
+            dense_cpu_threshold
+        )
         pipeline = pycolmap.IncrementalPipeline(
-            pycolmap.IncrementalPipelineOptions(),
+            pipeline_options,
             database,
             reconstruction_manager,
         )

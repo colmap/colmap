@@ -237,8 +237,8 @@ void ReadImagesText(Reconstruction& reconstruction, std::istream& stream) {
       image.SetFramePtr(frame);
     }
 
-    // NAME
-    THROW_CHECK(line_stream1 >> image.Name());
+    // NAME (remainder of the line, as names may contain whitespace)
+    THROW_CHECK(std::getline(line_stream1 >> std::ws, image.Name()));
 
     // POINTS2D
     if (!std::getline(stream, line)) {

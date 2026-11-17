@@ -65,11 +65,12 @@ struct SimpleRadialCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    const double f = params[0];
-    const double c1 = params[1];
-    const double c2 = params[2];
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T f = params[0];
+    const T c1 = params[1];
+    const T c2 = params[2];
 
     // Lift points to normalized plane
     *u = (x - c1) / f;
@@ -145,11 +146,12 @@ struct RadialCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    const double f = params[0];
-    const double c1 = params[1];
-    const double c2 = params[2];
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    const T f = params[0];
+    const T c1 = params[1];
+    const T c2 = params[2];
 
     // Lift points to normalized plane
     *u = (x - c1) / f;

@@ -128,6 +128,10 @@ template <typename CameraModel>
 void TestModelImgFromCamWithJac(const std::vector<double>& params) {
   static_assert(CameraModel::has_img_from_cam_with_jac,
                 "Model does not provide an analytic ImgFromCamWithJac");
+  for (const double w : {0.5, 1.0, 2.0}) {
+    TestImgFromCamWithJac<CameraModel>(params, 0.0, 0.0, w);
+    TestCamRayJac<CameraModel>(params, 0.0, 0.0, w);
+  }
   // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double u = -0.5; u <= 0.5; u += 0.1) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
@@ -193,6 +197,12 @@ TEST(FOV, ImgFromCamWithJac) {
       {651.123, 655.123, 386.123, 511.123, 0.9});
   TestModelImgFromCamWithJac<FOVCameraModel>(
       {651.123, 655.123, 386.123, 511.123, 0.5});
+  // 0.011 sits just above the |omega| < 0.01 small-omega branch threshold.
+  for (const double omega :
+       {0.0, -0.011, -0.009, -0.005, 0.005, 0.009, 0.011}) {
+    TestModelImgFromCamWithJac<FOVCameraModel>(
+        {651.123, 655.123, 386.123, 511.123, omega});
+  }
 }
 
 TEST(SimpleRadialFisheye, ImgFromCamWithJac) {
@@ -291,6 +301,13 @@ TEST(EUCM, ImgFromCamWithJac) {
 
 TEST(Equirectangular, ImgFromCamWithJac) {
   TestModelImgFromCamWithJac<EquirectangularCameraModel>({1000, 500});
+}
+
+TEST(SkewedPinhole, ImgFromCamWithJac) {
+  TestModelImgFromCamWithJac<SkewedPinholeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.0});
+  TestModelImgFromCamWithJac<SkewedPinholeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, 0.8});
 }
 
 TEST(CamRayFromImgJac, RankDeficientReturnsNullopt) {

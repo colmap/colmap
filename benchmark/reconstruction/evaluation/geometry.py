@@ -4,10 +4,12 @@ import numpy as np
 import numpy.typing as npt
 
 
-def normalize_vec(
-    vec: npt.NDArray[np.floating], eps: float = 1e-10
-) -> npt.NDArray[np.floating]:
-    return vec / max(eps, float(np.linalg.norm(vec)))
+def normalize_vec(vec: npt.NDArray[np.floating]) -> npt.NDArray[np.floating]:
+    scale = float(np.max(np.abs(vec)))
+    if scale == 0.0:
+        return np.zeros_like(vec)
+    scaled = vec / scale
+    return scaled / float(np.linalg.norm(scaled))
 
 
 def vec_angular_dist_deg(

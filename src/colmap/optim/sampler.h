@@ -43,6 +43,12 @@ class Sampler {
 template <typename T>
 struct is_randomized_sampler : std::false_type {};
 
+// Whether the sampler draws independent random samples without cross-trial
+// sequence state, making it safe for parallel RANSAC where each thread owns
+// a copy of the sampler.
+template <typename T>
+struct is_parallel_safe_sampler : std::false_type {};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////

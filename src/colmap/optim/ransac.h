@@ -211,9 +211,9 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 
   [[maybe_unused]] const int num_threads =
       GetEffectiveNumThreads(options_.num_threads);
-  if constexpr (!std::is_same_v<Sampler, RandomSampler>) {
+  if constexpr (!is_parallel_safe_sampler<Sampler>::value) {
     THROW_CHECK_EQ(num_threads, 1)
-        << "Parallel RANSAC only supports RandomSampler";
+        << "Parallel RANSAC only supports parallel-safe samplers";
   }
 
   std::atomic<size_t> trial_counter(0);
@@ -238,7 +238,9 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   {
     // Per-thread copies of mutable objects. Each thread needs its own sampler
     // (see random_sampler.h) and its own estimator/support_measurer instances.
-    Sampler thread_sampler(Estimator::kMinNumSamples);
+    // The sampler is copied from the provided instance so that samplers
+    // carrying estimation-specific state (e.g. group labels) propagate it.
+    Sampler thread_sampler = sampler;
     thread_sampler.Initialize(num_samples);
     Estimator thread_estimator = estimator;
     SupportMeasurer thread_support_measurer = support_measurer;

@@ -94,9 +94,10 @@ struct ThinPrismFisheyeCameraModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    double uu, vv;
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    T uu, vv;
     FisheyeFromImg(params, x, y, &uu, &vv);
     if (!IterativeUndistortion(&params[4], &uu, &vv)) {
       return false;
@@ -214,9 +215,10 @@ struct RadTanThinPrismFisheyeModel
     return true;
   }
 
+  template <typename T>
   static inline bool CamFromImg(
-      const double* params, double x, double y, double* u, double* v) {
-    double uu, vv;
+      const T* params, const T& x, const T& y, T* u, T* v) {
+    T uu, vv;
     FisheyeFromImg(params, x, y, &uu, &vv);
     if (!IterativeUndistortion(&params[4], &uu, &vv)) {
       return false;

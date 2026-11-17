@@ -25,8 +25,15 @@ bool CompareCudaDevice(const cudaDeviceProp& d1, const cudaDeviceProp& d2) {
 int GetNumCudaDevices() {
   int num_cuda_devices = 0;
   const cudaError_t error = cudaGetDeviceCount(&num_cuda_devices);
-#ifdef COLMAP_CUDA_ENABLED
-  if (error == cudaErrorNoDevice || error == cudaErrorInsufficientDriver) {
+#if defined(COLMAP_CUDA_ENABLED) || defined(COLMAP_HIP_ENABLED)
+  if (error == cudaErrorInsufficientDriver) {
+    // Preserve the zero-device result for callers that can fall back to CPU,
+    // but do not discard the reason why GPU initialization failed.
+    LOG(WARNING) << "Cannot enumerate GPU devices: "
+                 << GetCudaErrorMessage(error);
+    return 0;
+  }
+  if (error == cudaErrorNoDevice) {
     return 0;
   }
 #endif
@@ -59,6 +66,23 @@ void SetBestCudaDevice(const int gpu_index) {
   const int selected = (gpu_index >= 0) ? gpu_index : FindBestCudaDevice();
   THROW_CHECK_LT(selected, num_cuda_devices) << "Invalid CUDA GPU selected";
   CUDA_SAFE_CALL(cudaSetDevice(selected));
+}
+
+bool CudaDeviceHasComputeCapability(const int gpu_index, const int major) {
+#ifdef COLMAP_HIP_ENABLED
+  // The major version of HIP devices is the GFX version, not a compute
+  // capability.
+  return false;
+#else
+  cudaDeviceProp properties;
+  if (cudaGetDeviceProperties(&properties, gpu_index) != cudaSuccess) {
+    // Reset the error for an invalid device so that later CUDA_CHECK() calls
+    // do not report it. Initialization errors (e.g., no device) are sticky.
+    cudaGetLastError();
+    return false;
+  }
+  return properties.major >= major;
+#endif
 }
 
 }  // namespace colmap

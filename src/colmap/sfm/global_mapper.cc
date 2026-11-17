@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/rotation_averaging.h"
+#include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/math/union_find.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sfm/incremental_mapper.h"
@@ -45,6 +46,11 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
 BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
     const BundleAdjustmentOptions& ba_options) {
   BundleAdjustmentOptions custom_ba_options = ba_options;
+  custom_ba_options.refine_focal_length = false;
+  custom_ba_options.refine_principal_point = false;
+  custom_ba_options.refine_extra_params = false;
+  custom_ba_options.refine_sensor_from_rig = false;
+  custom_ba_options.refine_rig_from_world = false;
   custom_ba_options.print_summary = false;
   custom_ba_options.min_track_length = 0;
   if (custom_ba_options.ceres) {
@@ -64,6 +70,7 @@ BundleAdjustmentOptions RefinementBundleAdjustmentOptions(
 RotationEstimatorOptions GlobalMapperOptions::RotationAveraging() const {
   RotationEstimatorOptions opts = rotation_averaging;
   opts.refine_sensor_from_rig = refine_sensor_from_rig;
+  opts.ceres->solver_options.num_threads = num_threads;
   if (random_seed >= 0) {
     opts.random_seed = random_seed;
   }
@@ -328,7 +335,7 @@ bool GlobalMapper::GlobalPositioning(const GlobalPositionerOptions& options,
     for (const auto& track_el : point3D.track.Elements()) {
       const auto& image = reconstruction_->Image(track_el.image_id);
       const auto& camera = *image.CameraPtr();
-      if (!camera.has_prior_focal_length) {
+      if (!camera.HasPriorFocalLength()) {
         continue;
       }
       const auto& point2D = image.Point2D(track_el.point2D_idx);
@@ -483,7 +490,7 @@ bool GlobalMapper::IterativeRetriangulateAndRefine(
       mapper_options,
       RefinementBundleAdjustmentOptions(ba_options),
       options,
-      /*normalize_reconstruction=*/true);
+      /*normalize_reconstruction=*/false);
 
   mapper.EndReconstruction(/*discard=*/false);
 

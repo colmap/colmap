@@ -44,8 +44,9 @@ def _make_scene_info(category: str, scene: str, num_images: int) -> SceneInfo:
     )
 
 
+@pytest.mark.parametrize("pano_matcher", ["sequential", "retrieval"])
 def test_panorama_reconstruction_uses_library_api(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pano_matcher: str
 ) -> None:
     covisibility_path = tmp_path / "covisibility.npz"
     covisibility_path.touch()
@@ -68,10 +69,18 @@ def test_panorama_reconstruction_uses_library_api(
         feature="sift",
         mapper="global",
         uncalibrated=False,
+        single_view_calibration=False,
         filter_covisibility=True,
         covisibility_min_shared_points=5,
         random_seed=7,
         use_gpu=False,
+        pano_matcher=pano_matcher,
+        retrieval_method="GLOBAL_DESCRIPTOR",
+        retrieval_model_type="MegaLoc",
+        retrieval_model_precision="fp16",
+        retrieval_model_path="https://example.com/model.onnx",
+        retrieval_num_images=20,
+        retrieval_batch_size=4,
     )
     call: dict[str, Any] = {}
 
@@ -91,6 +100,23 @@ def test_panorama_reconstruction_uses_library_api(
     assert call["input_image_path"] == scene_info.image_path
     assert call["output_path"] == scene_info.workspace_path
     options = call["options"]
+    assert options.matcher.value == pano_matcher
+    if pano_matcher == "retrieval":
+        retrieval_options = options.retrieval_options
+        assert (
+            retrieval_options.method
+            == pycolmap.RetrievalMethod.GLOBAL_DESCRIPTOR
+        )
+        assert retrieval_options.model_type == "MegaLoc"
+        assert retrieval_options.model_precision == "fp16"
+        assert retrieval_options.num_images == 20
+        assert retrieval_options.batch_size == 4
+        assert retrieval_options.model_path == "https://example.com/model.onnx"
+        assert retrieval_options.gpu_index == "2"
+        assert retrieval_options.num_threads == 3
+        assert not retrieval_options.use_gpu
+    else:
+        assert options.retrieval_options is None
     assert options.mapper.value == "global"
     assert options.render_type.value == "spherical"
     assert options.random_seed == 7
@@ -100,6 +126,78 @@ def test_panorama_reconstruction_uses_library_api(
     assert options.covisibility_path == covisibility_path
     assert options.covisibility_min_shared_points == 1
     assert not options.show_progress
+
+
+def test_panorama_reconstruction_rejects_calibration(tmp_path: Path) -> None:
+    scene_info = SceneInfo(
+        dataset="tartanair-v2-spherical",
+        category="test",
+        scene="scene",
+        num_images=2,
+        workspace_path=tmp_path / "workspace",
+        image_path=tmp_path / "images",
+        sparse_gt_path=tmp_path / "sparse_gt",
+        has_camera_priors=False,
+        colmap_extra_args=[],
+        reconstruction_backend="panorama-spherical",
+    )
+    args = argparse.Namespace(
+        overwrite_reconstruction=False,
+        feature="sift",
+        mapper="global",
+        uncalibrated=False,
+        single_view_calibration=True,
+    )
+
+    with pytest.raises(
+        ValueError, match="does not support learned calibration"
+    ):
+        panorama_reconstruction(args, scene_info, num_threads=1, gpu_index="-1")
+
+
+def test_learned_calibration_disables_gt_camera_priors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scene_info = SceneInfo(
+        dataset="dummy",
+        category="test",
+        scene="scene",
+        num_images=1,
+        workspace_path=tmp_path / "workspace",
+        image_path=tmp_path / "images",
+        sparse_gt_path=tmp_path / "sparse_gt",
+        has_camera_priors=True,
+        colmap_extra_args=[],
+    )
+    args = argparse.Namespace(
+        uncalibrated=False,
+        single_view_calibration=True,
+        filter_covisibility=False,
+    )
+
+    dataset: Any = argparse.Namespace(
+        position_accuracy_gt=0.0,
+        supports_covisibility_filtering=False,
+        prepare_scene=lambda _: None,
+    )
+
+    sparse_gt = object()
+    call: dict[str, Any] = {}
+
+    monkeypatch.setattr(utils.pycolmap, "Reconstruction", lambda _: sparse_gt)
+
+    class StopAfterReconstruction(Exception):
+        pass
+
+    def reconstruct(**kwargs: Any) -> None:
+        call.update(kwargs)
+        raise StopAfterReconstruction
+
+    monkeypatch.setattr(utils, "colmap_reconstruction", reconstruct)
+    with pytest.raises(StopAfterReconstruction):
+        utils.process_scene(args, scene_info, dataset, num_threads=1)
+
+    assert call["camera_priors_sparse_gt"] is None
 
 
 class TestFilterSmallestScenesPerCategory:
@@ -542,6 +640,44 @@ class TestDiffMetrics:
         assert scene_diff.num_components == 1
 
 
+@pytest.mark.parametrize(
+    ("changed_report", "thresholds", "error_type"),
+    [
+        ("b0", [10.0, 20.0], "relative_auc"),
+        ("a1", [10.0, 20.0], "relative_auc"),
+        ("b0", [1.0, 2.0], "relative_recall"),
+    ],
+)
+def test_compare_reports_rejects_incompatible_seeded_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+    changed_report: str,
+    thresholds: list[float],
+    error_type: str,
+) -> None:
+    paths_a = [Path("a0"), Path("a1")]
+    paths_b = [Path("b0"), Path("b1")]
+    reports = {}
+    for path in paths_a + paths_b:
+        changed = path.name == changed_report
+        metrics = Metrics(
+            aucs=np.array([20.0, 30.0]),
+            recalls=np.array([40.0, 50.0]),
+            error_thresholds=np.array(thresholds if changed else [1.0, 2.0]),
+            error_type=error_type if changed else "relative_auc",
+            num_images=2,
+            num_reg_images=2,
+            num_components=1,
+            largest_component=2,
+        )
+        reports[path] = {"toy": {"cat": {"scene": metrics}}}
+    monkeypatch.setattr(utils, "load_report", reports.__getitem__)
+
+    with pytest.raises(
+        ValueError, match="Inconsistent error thresholds or types"
+    ):
+        utils.compare_reports(paths_a, paths_b)
+
+
 def create_test_reconstruction() -> pycolmap.Reconstruction:
     pycolmap.set_random_seed(0)
     synthetic_dataset_options = pycolmap.SyntheticDatasetOptions()
@@ -644,15 +780,16 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_images * (num_images - 1)
         np.testing.assert_allclose(errors, 0.0, atol=1e-5)
 
-    def test_transformed_reconstruction(self) -> None:
+    @pytest.mark.parametrize("scale", [1e-200, 1e-12, 1.0, 1e200])
+    def test_transformed_reconstruction(self, scale: float) -> None:
         gt_reconstruction = create_test_reconstruction()
         reconstruction = create_test_reconstruction()
         # A global similarity transform leaves relative poses unchanged.
         reconstruction.transform(
             pycolmap.Sim3d(
-                1.0,
+                scale,
                 pycolmap.Rotation3d(np.array([0, 1, 0, 0])),
-                np.array([1, 2, 3]),
+                scale * np.array([1.0, 2.0, 3.0]),
             )
         )
 

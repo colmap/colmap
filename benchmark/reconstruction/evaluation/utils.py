@@ -446,7 +446,7 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--feature",
         default="sift",
-        choices=["sift", "aliked", "loma", "loma128"],
+        choices=["sift", "aliked", "loma", "loma128", "flexglue"],
     )
     parser.add_argument(
         "--mapper",
@@ -496,12 +496,27 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "--quality", default="high", choices=["low", "medium", "high"]
     )
     parser.add_argument(
+        "--max_num_features",
+        type=int,
+        default=-1,
+        help="Maximum number of features per image (non-positive: default of "
+        "the feature type and quality).",
+    )
+    parser.add_argument(
         "--uncalibrated",
         default=False,
         action="store_true",
         help="Whether to evaluate the setting of uncalibrated input cameras, "
         "even if normal setting for the dataset contains calibrated inputs. "
         "This is useful for evaluating the performance of self-calibration.",
+    )
+    parser.add_argument(
+        "--single_view_calibration",
+        default=False,
+        action="store_true",
+        help="Whether to run learned single-view calibration after "
+        "feature extraction, replacing EXIF-based intrinsics before matching "
+        "and mapping.",
     )
     parser.add_argument(
         "--filter_covisibility",
@@ -566,6 +581,9 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
     )
     args = parser.parse_args()
     args.colmap_path = Path(args.colmap_path).resolve()
+    # Child processes run inside each scene's workspace, not the caller's cwd.
+    args.data_path = args.data_path.resolve()
+    args.run_path = args.run_path.resolve()
     if args.num_seeds is not None:
         if args.num_seeds <= 0:
             parser.error("--num_seeds must be > 0")
@@ -635,7 +653,7 @@ def set_camera_priors(
                 continue
             camera_gt = camera_priors_sparse_gt.cameras[image_gt.camera_id]
             camera_gt.camera_id = image.camera_id
-            camera_gt.has_prior_focal_length = True
+            camera_gt.source = pycolmap.CameraSource.USER
             database.update_camera(camera_gt)
             updated_camera_ids.add(image.camera_id)
 
@@ -715,21 +733,30 @@ def colmap_reconstruction(
         "--quality",
         args.quality,
     ]
+    if args.max_num_features > 0:
+        colmap_args += ["--max_num_features", str(args.max_num_features)]
+
+    # Learned calibration runs in the extraction step: the automatic
+    # reconstructor runs extraction and calibration sequentially in one
+    # process, so intrinsics are replaced before matching and mapping. It is
+    # intentionally not passed to the matching/sparse steps below, which would
+    # otherwise recalibrate every time they run.
+    extraction_args = [
+        "--extraction",
+        "1",
+        "--matching",
+        "0",
+        "--sparse",
+        "0",
+        "--dense",
+        "0",
+    ]
+    if args.single_view_calibration:
+        extraction_args += ["--single_view_calibration", "1"]
 
     phase_tracker.set("extraction")
     _run_with_log(
-        colmap_args
-        + (colmap_extra_args or [])
-        + [
-            "--extraction",
-            "1",
-            "--matching",
-            "0",
-            "--sparse",
-            "0",
-            "--dense",
-            "0",
-        ],
+        colmap_args + (colmap_extra_args or []) + extraction_args,
         workspace_path / "extraction.log",
         cwd=workspace_path,
     )
@@ -814,6 +841,10 @@ def panorama_reconstruction(
     if args.uncalibrated:
         raise ValueError(
             "Equirectangular panorama reconstruction has fixed calibration"
+        )
+    if args.single_view_calibration:
+        raise ValueError(
+            "Panorama reconstruction does not support learned calibration"
         )
 
     render_type = scene_info.reconstruction_backend.removeprefix("panorama-")
@@ -968,7 +999,9 @@ def process_scene(
             image_path=scene_info.image_path,
             camera_priors_sparse_gt=(
                 sparse_gt
-                if not args.uncalibrated and scene_info.has_camera_priors
+                if not args.uncalibrated
+                and not args.single_view_calibration
+                and scene_info.has_camera_priors
                 else None
             ),
             covisibility_sparse_gt=(
@@ -2064,6 +2097,18 @@ def compare_reports(
     keys = _common_scene_keys(reports_a + reports_b)
     if not keys:
         raise SystemExit("No scenes shared across all reports.")
+
+    for dataset, category, scene in keys:
+        reference = reports_a[0][dataset][category][scene]
+        for report in reports_a[1:] + reports_b:
+            metrics = report[dataset][category][scene]
+            if metrics.error_type != reference.error_type or not np.array_equal(
+                metrics.error_thresholds, reference.error_thresholds
+            ):
+                raise ValueError(
+                    "Inconsistent error thresholds or types for "
+                    f"{dataset}/{category}/{scene}"
+                )
 
     first_metrics = _first_metrics(reports_a[0])
     error_type = first_metrics.error_type

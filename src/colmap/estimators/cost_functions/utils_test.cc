@@ -210,5 +210,19 @@ TEST(CovarianceWeightedCostFunction, WrapsAnalyticalCostFunction) {
   EXPECT_THAT(residuals_only, EigenMatrixNear(autodiff_residuals, 1e-10));
 }
 
+TEST(CovarianceWeightedCostFunction, RejectsNonPositiveDefiniteCovariance) {
+  // The wrapped cost function is owned, and thus released, on throw.
+  for (const Eigen::Matrix3d& cov :
+       {Eigen::Matrix3d(Eigen::Matrix3d::Zero()),
+        Eigen::Vector3d(1.0, -1.0, 1.0).asDiagonal().toDenseMatrix()}) {
+    EXPECT_THROW(CovarianceWeightedCostFunction<NormalErrorCostFunctor<3>>(
+                     cov, NormalErrorCostFunctor<3>::Create()),
+                 std::invalid_argument);
+  }
+  EXPECT_THROW(CovarianceWeightedCostFunction<NormalErrorCostFunctor<3>>(
+                   Eigen::Matrix3d::Identity(), nullptr),
+               std::invalid_argument);
+}
+
 }  // namespace
 }  // namespace colmap

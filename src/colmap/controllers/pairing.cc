@@ -12,7 +12,7 @@
 #include "colmap/util/timer.h"
 
 #ifdef COLMAP_ONNX_ENABLED
-#include "colmap/feature/onnx_utils.h"
+#include "colmap/util/onnx.h"
 #endif
 
 #include <fstream>
@@ -1171,20 +1171,17 @@ std::vector<std::pair<image_t, image_t>> GlobalDescriptorPairGenerator::Next() {
 // static
 std::vector<float> GlobalDescriptorPairGenerator::PreprocessImage(
     const Bitmap& bitmap, const retrieval::GlobalDescriptorModel& model) {
-  // Input: RGB bitmap. Output: float32 NCHW tensor normalized per model config.
+  // Input: RGB or grayscale bitmap. Output: float32 NCHW tensor normalized per
+  // model config.
   const int input_w =
       model.input_width > 0 ? model.input_width : bitmap.Width();
   const int input_h =
       model.input_height > 0 ? model.input_height : bitmap.Height();
   const int kChannels = 3;
 
-  // Caller reads as RGB; clone only if we need to resize.
-  Bitmap resized;
-  if (bitmap.Width() != input_w || bitmap.Height() != input_h) {
-    resized = bitmap.CloneAsRGB();
+  Bitmap resized = bitmap.CloneAsRGB();
+  if (resized.Width() != input_w || resized.Height() != input_h) {
     resized.Rescale(input_w, input_h, Bitmap::RescaleFilter::kBilinear);
-  } else {
-    resized = bitmap.Clone();
   }
 
   const int kNumPixels = input_w * input_h;
@@ -1208,6 +1205,7 @@ std::vector<float> GlobalDescriptorPairGenerator::PreprocessImage(
 
 void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
 #ifdef COLMAP_ONNX_ENABLED
+  THROW_CHECK_DIR_EXISTS(options_.image_path);
   const std::vector<image_t> all_image_ids = cache_->GetImageIds();
 
   // Look up the model config.
@@ -1225,20 +1223,44 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
       model_info->input_height > 0 ? model_info->input_height : 0;
   const int kChannels = 3;
   const int kDescriptorDim = model_info->descriptor_dim;
-  const int kBatchSize = retrieval::GlobalDescriptorModel::SupportsBatching(
-                             options_.model_type, options_.model_precision)
-                             ? options_.batch_size
-                             : 1;
+  // Images of varying size (dynamic model input) cannot share a batch.
+  const int kBatchSize =
+      kInputW > 0 && retrieval::GlobalDescriptorModel::SupportsBatching(
+                         options_.model_type, options_.model_precision)
+          ? options_.batch_size
+          : 1;
 
   // Resize the index if descriptor dim changed (e.g. model switch).
   global_descriptor_index_ = retrieval::GlobalDescriptorIndex(kDescriptorDim);
 
-  // Cache alongside the database, not in the image folder, keyed by the model
-  // and the images it was extracted from.
-  std::string cache_key = retrieval::GlobalDescriptorModel::DefaultModelUri(
-                              options_.model_type, options_.model_precision) +
-                          "\n" + options_.model_path.string() + "\n" +
-                          options_.image_path.string() + "\n";
+  // Resolve the model path. If the path was left at another registered model
+  // variant's default URI (e.g. when only the model type or precision was
+  // changed), fall back to the selected variant's default.
+  const std::string selected_uri =
+      retrieval::GlobalDescriptorModel::DefaultModelUri(
+          options_.model_type, options_.model_precision);
+  std::string model_path = options_.model_path;
+  for (const std::string_view name :
+       retrieval::GlobalDescriptorModel::ModelNames()) {
+    for (const std::string_view variant :
+         retrieval::GlobalDescriptorModel::VariantNames(name)) {
+      const std::string uri =
+          retrieval::GlobalDescriptorModel::DefaultModelUri(name, variant);
+      if (uri != selected_uri && model_path == uri) {
+        model_path.clear();
+        break;
+      }
+    }
+  }
+  const bool use_default_uri = model_path.empty();
+  if (use_default_uri) {
+    model_path = selected_uri;
+  }
+
+  // Cache alongside the database, not in the image folder, keyed by the
+  // resolved model and the images it was extracted from.
+  std::string cache_key =
+      model_path + "\n" + options_.image_path.string() + "\n";
   for (const image_t image_id : all_image_ids) {
     cache_key += std::to_string(image_id) + ":" +
                  cache_->GetImage(image_id).Name() + "\n";
@@ -1268,29 +1290,9 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
     }
   }
 
-  // Resolve model path. If the path was left at another registered model
-  // variant's default URI (e.g. when only the model type or precision was
-  // changed), fall back to the selected variant's default.
-  const std::string selected_uri =
-      retrieval::GlobalDescriptorModel::DefaultModelUri(
-          options_.model_type, options_.model_precision);
-  std::string model_path = options_.model_path.string();
-  for (const std::string_view name :
-       retrieval::GlobalDescriptorModel::ModelNames()) {
-    for (const std::string_view variant :
-         retrieval::GlobalDescriptorModel::VariantNames(name)) {
-      const std::string uri =
-          retrieval::GlobalDescriptorModel::DefaultModelUri(name, variant);
-      if (uri != selected_uri && model_path == uri) {
-        model_path.clear();
-        break;
-      }
-    }
-  }
-  if (model_path.empty()) {
-    model_path = selected_uri;
-    LOG(INFO) << "Auto-downloading " << model_info->name << " ("
-              << options_.model_precision << ") model from default URI";
+  if (use_default_uri) {
+    LOG(INFO) << "Using the default " << model_info->name << " ("
+              << options_.model_precision << ") model URI";
   } else {
     LOG(INFO) << "Loading ONNX model from " << model_path;
   }
@@ -1313,11 +1315,17 @@ void GlobalDescriptorPairGenerator::ComputeAndIndexDescriptors() {
                      model_info->input_name,
                      model->input_shapes()[0],
                      model_info->expected_input_shape);
+  ThrowCheckONNXElementType(model->input_names()[0],
+                            model->input_element_types()[0],
+                            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
   THROW_CHECK_EQ(model->output_shapes().size(), 1);
   ThrowCheckONNXNode(model->output_names()[0],
                      model_info->output_name,
                      model->output_shapes()[0],
                      model_info->expected_output_shape);
+  ThrowCheckONNXElementType(model->output_names()[0],
+                            model->output_element_types()[0],
+                            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
 
   const int kPixelsPerImage = kInputW > 0 ? kChannels * kInputW * kInputH : 0;
 

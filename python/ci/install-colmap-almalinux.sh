@@ -52,8 +52,8 @@ fi
 COMPILER_TOOLS_DIR="${CONTAINER_COMPILER_CACHE_DIR}/bin"
 mkdir -p ${COMPILER_TOOLS_DIR}
 if [ ! -f "${COMPILER_TOOLS_DIR}/ccache" ]; then
-    FILE="ccache-4.10.1-linux-x86_64"
-    curl -sSLO https://github.com/ccache/ccache/releases/download/v4.10.1/${FILE}.tar.xz
+    FILE="ccache-4.14.1-linux-x86_64-glibc"
+    curl -sSLO https://github.com/ccache/ccache/releases/download/v4.14.1/${FILE}.tar.xz
     tar -xf ${FILE}.tar.xz
     cp ${FILE}/ccache ${COMPILER_TOOLS_DIR}
 fi

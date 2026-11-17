@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pickle
+
 import pytest
 
 import pycolmap
@@ -70,6 +72,13 @@ def test_retrieval_pairing_options_num_nearest_neighbors() -> None:
 def test_retrieval_pairing_options_check() -> None:
     options = pycolmap.RetrievalPairingOptions()
     assert options.check()
+
+
+def test_retrieval_pairing_options_model_path_pickle_roundtrip() -> None:
+    options = pycolmap.RetrievalPairingOptions()
+    options.model_path = "https://example.com/model.onnx"
+    restored = pickle.loads(pickle.dumps(options))
+    assert restored.model_path == "https://example.com/model.onnx"
 
 
 def test_sequential_pairing_options_init() -> None:

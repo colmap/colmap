@@ -25,10 +25,24 @@ def test_rotation_averaging_reweighting_enum() -> None:
     }
 
 
+def test_rotation_averaging_backend_enum() -> None:
+    assert {
+        k: int(v)
+        for k, v in pycolmap.RotationAveragingBackend.__members__.items()
+    } == {
+        "L1_IRLS": 0,
+        "CERES": 1,
+    }
+
+
 def test_rotation_estimator_options_default_init() -> None:
     options = pycolmap.RotationEstimatorOptions()
     assert options is not None
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+    assert options.backend == pycolmap.RotationAveragingBackend.L1_IRLS
+    assert isinstance(options.l1_irls, pycolmap.L1IrlsRotationAveragerOptions)
+    assert isinstance(options.ceres, pycolmap.CeresRotationAveragerOptions)
+    assert options.ceres.loss_function_type == pycolmap.LossFunctionType.CAUCHY
 
 
 def test_rotation_estimator_options_reweighting_readwrite() -> None:
@@ -42,6 +56,31 @@ def test_rotation_estimator_options_reweighting_readwrite() -> None:
     )
     options.reweighting = "UNIFORM"  # type: ignore[assignment]
     assert options.reweighting == pycolmap.RotationAveragingReweighting.UNIFORM
+    options.backend = "CERES"  # type: ignore[assignment]
+    assert options.backend == pycolmap.RotationAveragingBackend.CERES
+    options.ceres.loss_function_type = "HUBER"  # type: ignore[assignment]
+    assert options.ceres.loss_function_type == pycolmap.LossFunctionType.HUBER
+
+
+def test_rotation_estimator_options_l1_irls_readwrite() -> None:
+    options = pycolmap.RotationEstimatorOptions()
+    assert options.l1_irls.max_num_l1_iterations == 5
+    assert (
+        options.l1_irls.weight_type == pycolmap.RotationWeightType.GEMAN_MCCLURE
+    )
+    options.l1_irls.irls_loss_parameter_sigma = 2.0
+    options.l1_irls.weight_type = "HALF_NORM"  # type: ignore[assignment]
+    assert options.l1_irls.irls_loss_parameter_sigma == 2.0
+    assert options.l1_irls.weight_type == pycolmap.RotationWeightType.HALF_NORM
+
+
+def test_rotation_estimator_options_ceres_readwrite() -> None:
+    options = pycolmap.RotationEstimatorOptions()
+    assert options.ceres.max_num_warm_start_iterations == 5
+    options.ceres.loss_function_scale = 0.1
+    options.ceres.max_num_warm_start_iterations = 0
+    assert options.ceres.loss_function_scale == 0.1
+    assert options.ceres.max_num_warm_start_iterations == 0
 
 
 def test_gravity_refiner_options_default_init() -> None:
@@ -72,7 +111,22 @@ def test_gravity_refiner_options_min_num_neighbors_readwrite() -> None:
 
 def test_global_positioner_options_default_init() -> None:
     options = pycolmap.GlobalPositionerOptions()
-    assert options is not None
+    assert options.loss_function_scale == -1.0
+    options.loss_function_scale = 0.1
+    assert options.loss_function_scale == 0.1
+    options.loss_function_scale = -1.0
+    assert options.loss_function_scale == -1.0
+    assert options.fix_first_scale
+    assert options.uncalibrated_observation_weight == 0.5
+    assert not options.initialize_scales_from_geometry
+    options = pycolmap.GlobalPositionerOptions(
+        fix_first_scale=False,
+        uncalibrated_observation_weight=0.2,
+        initialize_scales_from_geometry=True,
+    )
+    assert not options.fix_first_scale
+    assert options.uncalibrated_observation_weight == 0.2
+    assert options.initialize_scales_from_geometry
 
 
 def test_global_positioner_prepared_problem() -> None:
@@ -102,6 +156,35 @@ def test_global_positioner_prepared_problem() -> None:
         owner.extend_parameter_block_ordering([(point.copy(), 1)])
     assert owner.problem.num_residual_blocks() > 0
     assert owner.solve().IsSolutionUsable()
+
+
+def test_global_positioner_observation_stddev() -> None:
+    pyceres = pytest.importorskip("pyceres")
+    dataset_options = pycolmap.SyntheticDatasetOptions()
+    dataset_options.num_rigs = 1
+    dataset_options.num_cameras_per_rig = 1
+    dataset_options.num_frames_per_rig = 4
+    dataset_options.num_points3D = 30
+    reconstruction = pycolmap.synthesize_dataset(dataset_options)
+    options = pycolmap.GlobalPositionerOptions()
+    options.use_gpu = False
+    options.generate_random_positions = False
+    options.generate_random_points = False
+    assert options.experimental_observation_stddev is None
+    evaluation = pyceres.EvaluateOptions()
+    evaluation.apply_loss_function = False
+    costs = []
+    for stddev in (1.0, 8.0):
+        options.experimental_observation_stddev = stddev
+        owner = pycolmap.create_default_global_positioner(
+            options, pycolmap.PoseGraph(), reconstruction
+        )
+        residuals = np.asarray(owner.problem.evaluate_residuals(evaluation))
+        assert residuals.size > 0
+        costs.append(residuals @ residuals)
+    np.testing.assert_allclose(costs[0], 64 * costs[1])
+    options.experimental_observation_stddev = None
+    assert options.experimental_observation_stddev is None
 
 
 def test_global_positioner_frame_center_parameter_block() -> None:

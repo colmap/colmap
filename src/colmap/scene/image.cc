@@ -46,6 +46,10 @@ Image& Image::operator=(const Image& other) {
 }
 
 void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
+  for (point2D_t point2D_idx = points.size(); point2D_idx < points2D_.size();
+       ++point2D_idx) {
+    ResetPoint3DForPoint2D(point2D_idx);
+  }
   points2D_.resize(points.size());
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
     points2D_[point2D_idx].xy = points[point2D_idx];

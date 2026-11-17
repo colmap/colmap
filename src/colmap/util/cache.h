@@ -36,6 +36,10 @@ class LRUCache {
   // Returns true if the element was evicted.
   bool Evict(const key_t& key);
 
+  // Manually evict an element from the cache if it still contains the
+  // expected value. Returns true if the element was evicted.
+  bool Evict(const key_t& key, const std::shared_ptr<value_t>& expected_value);
+
   // Pop least recently used element from cache.
   void Pop();
 
@@ -212,6 +216,18 @@ bool LRUCache<key_t, value_t>::Evict(const key_t& key) {
 }
 
 template <typename key_t, typename value_t>
+bool LRUCache<key_t, value_t>::Evict(
+    const key_t& key, const std::shared_ptr<value_t>& expected_value) {
+  const auto it = elems_map_.find(key);
+  if (it != elems_map_.end() && it->second->second == expected_value) {
+    elems_list_.erase(it->second);
+    elems_map_.erase(it);
+    return true;
+  }
+  return false;
+}
+
+template <typename key_t, typename value_t>
 void LRUCache<key_t, value_t>::Pop() {
   if (!elems_list_.empty()) {
     auto last = elems_list_.end();
@@ -278,9 +294,9 @@ std::shared_ptr<value_t> ThreadSafeLRUCache<key_t, value_t>::Get(
     try {
       entry->promise.set_value(THROW_CHECK_NOTNULL(load_fn_(key)));
     } catch (...) {
-      // Evict the cache entry after load failed and set the exception.
+      // Evict the failed entry if it is still cached and set the exception.
       std::unique_lock lock(cache_mutex_);
-      cache_.Evict(key);
+      cache_.Evict(key, entry);
       entry->promise.set_exception(std::current_exception());
     }
   }

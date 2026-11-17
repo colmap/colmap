@@ -8,6 +8,7 @@
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
 
+#include <exception>
 #include <memory>
 #include <vector>
 
@@ -18,6 +19,10 @@ struct FeatureMatcherData {
   image_t image_id2 = kInvalidImageId;
   FeatureMatches matches;
   TwoViewGeometry two_view_geometry;
+  // Exception thrown while matching the pair, if any. Jobs with an error pass
+  // through the remaining workers untouched, and
+  // FeatureMatcherController::Match rethrows it.
+  std::exception_ptr error;
 };
 
 class FeatureMatcherWorker : public Thread {
@@ -33,6 +38,10 @@ class FeatureMatcherWorker : public Thread {
 
  private:
   void Run() override;
+
+  // Matches the pair (unless it has no descriptors) and stores the result in
+  // the data. Throws on errors, e.g., if the matcher cannot read an image.
+  void MatchPair(FeatureMatcher& matcher, FeatureMatcherData& data);
 
   FeatureMatchingOptions matching_options_;
   TwoViewGeometryOptions geometry_options_;

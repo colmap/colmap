@@ -29,8 +29,8 @@ struct UTMParams {
   static constexpr double k0 = 0.9996;
   // Easting of the origin in km.
   static constexpr double E0 = 500;
-  // Northing of the origin in km.
-  static double N0(double lat_or_hemi) { return lat_or_hemi > 0 ? 0 : 1e4; }
+  // Northing of the origin in km. The equator uses the northern offset.
+  static double N0(bool is_north) { return is_north ? 0 : 1e4; }
 
   UTMParams(double a, double f) {
     n[0] = 1;
@@ -62,7 +62,8 @@ struct UTMParams {
   static double ZoneToCentralMeridian(int zone) { return 6 * zone - 183; }
 
   static int MeridianToZone(double meridian) {
-    return static_cast<int>(std::floor((meridian + 180) / 6)) + 1;
+    // Clamp: +180 degrees is valid input but the formula yields zone 61.
+    return std::min(static_cast<int>(std::floor((meridian + 180) / 6)) + 1, 60);
   }
 };
 }  // namespace
@@ -133,9 +134,11 @@ std::vector<Eigen::Vector3d> GPSTransform::ECEFToEllipsoid(
       const double sin_lat = std::sin(lat);
       const double N = a_ / std::sqrt(1 - e2_ * sin_lat * sin_lat);
       const double prev_alt = alt;
-      alt = radius_xy / std::cos(lat) - N;
+      // Project onto the ellipsoid normal to avoid division by cos(lat).
+      alt = radius_xy * std::cos(lat) + z * sin_lat -
+            N * (1 - e2_ * sin_lat * sin_lat);
       const double prev_lat = lat;
-      lat = std::atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
+      lat = std::atan2(z, radius_xy * (1 - e2_ * N / (N + alt)));
 
       if (std::abs(prev_lat - lat) < kEps && std::abs(prev_alt - alt) < kEps) {
         break;
@@ -277,7 +280,7 @@ std::pair<std::vector<Eigen::Vector3d>, int> GPSTransform::EllipsoidToUTM(
     }
 
     E = params.E0 + params.k0 * params.A * E;
-    N = params.N0(lla[0]) + params.k0 * params.A * N;
+    N = params.N0(lla[0] >= 0) + params.k0 * params.A * N;
 
     xyz_in_utm.emplace_back(E * 1000, N * 1000, lla[2]);  // Convert to meters.
   }
@@ -328,7 +331,12 @@ std::vector<Eigen::Vector3d> GPSTransform::UTMToEllipsoid(
         UTMParams::ZoneToCentralMeridian(zone) +
         RadToDeg(std::atan(std::sinh(eta_prime) / std::cos(xi_prime)));
 
-    lat_lon_alt.emplace_back(lat, lon, ena[2]);
+    // Preserve the antimeridian's sign when projection rounding crosses it.
+    const double bounded_lon =
+        std::abs(lon) <= 180.0 + 360.0 * std::numeric_limits<double>::epsilon()
+            ? std::clamp(lon, -180.0, 180.0)
+            : std::remainder(lon, 360.0);
+    lat_lon_alt.emplace_back(lat, bounded_lon, ena[2]);
   }
 
   return lat_lon_alt;
