@@ -21,13 +21,20 @@ void Mat<float>::Read(const std::filesystem::path& path) {
   char unused_char;
   file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
       unused_char;
+  THROW_CHECK(file) << path;
   THROW_CHECK_GT(width_, 0) << path;
   THROW_CHECK_GT(height_, 0) << path;
   THROW_CHECK_GT(depth_, 0) << path;
   data_.resize(width_ * height_ * depth_);
 
-  ReadBinaryLittleEndian<float>(&file, &data_);
-  file.close();
+  try {
+    file.exceptions(std::ios::failbit | std::ios::badbit);
+    ReadBinaryLittleEndian<float>(&file, &data_);
+    file.close();
+  } catch (const std::ios_base::failure& error) {
+    throw std::ios_base::failure(path.string() + ": " + error.what(),
+                                 error.code());
+  }
 }
 
 template <>

@@ -202,6 +202,41 @@ TEST_P(ParameterizedWorkspaceTests, CorruptNormalMapCanBeRetried) {
   EXPECT_EQ(restored.Get(0, 0), 1.0f);
 }
 
+TEST_P(ParameterizedWorkspaceTests, TruncatedMapsCanBeRetried) {
+  auto options = GetOptions();
+  options.num_threads = 1;
+  for (const size_t num_channels : {size_t{1}, size_t{3}}) {
+    SCOPED_TRACE(num_channels);
+    auto workspace = GetParam()(options);
+    const auto path = num_channels == 1 ? workspace->GetDepthMapPath(0)
+                                        : workspace->GetNormalMapPath(0);
+    const auto get_map = [&]() -> const Mat<float>& {
+      if (num_channels == 1) {
+        return workspace->GetDepthMap(0);
+      }
+      return workspace->GetNormalMap(0);
+    };
+    std::filesystem::resize_file(path, std::filesystem::file_size(path) - 1);
+    EXPECT_THAT(
+        [&] {
+          workspace->Load({image_name_});
+          get_map();
+        },
+        testing::ThrowsMessage<std::exception>(
+            testing::HasSubstr(path.filename().string())));
+
+    Mat<float> repaired(10, 5, num_channels);
+    repaired.Fill(2.0f);
+    repaired.Write(path);
+    workspace->Load({image_name_});
+    const auto& restored = get_map();
+    EXPECT_EQ(restored.GetWidth(), repaired.GetWidth());
+    EXPECT_EQ(restored.GetHeight(), repaired.GetHeight());
+    EXPECT_EQ(restored.GetDepth(), repaired.GetDepth());
+    EXPECT_EQ(restored.GetData(), repaired.GetData());
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(WorkspaceTests,
                          ParameterizedWorkspaceTests,
                          ::testing::Values(
