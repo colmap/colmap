@@ -167,7 +167,6 @@ void StereoFusion::Run() {
   fused_images_.resize(model.images.size(), false);
   fused_pixel_masks_.resize(model.images.size());
   depth_map_sizes_.resize(model.images.size());
-  bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
@@ -194,17 +193,18 @@ void StereoFusion::Run() {
     depth_map_sizes_.at(image_idx) =
         std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
 
-    bitmap_scales_.at(image_idx) = std::make_pair(
-        static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
-        static_cast<float>(depth_map.GetHeight()) / image.GetHeight());
+    const float scale_x =
+        static_cast<float>(depth_map.GetWidth()) / image.GetWidth();
+    const float scale_y =
+        static_cast<float>(depth_map.GetHeight()) / image.GetHeight();
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetK());
-    K(0, 0) *= bitmap_scales_.at(image_idx).first;
-    K(0, 2) *= bitmap_scales_.at(image_idx).first;
-    K(1, 1) *= bitmap_scales_.at(image_idx).second;
-    K(1, 2) *= bitmap_scales_.at(image_idx).second;
+    K(0, 0) *= scale_x;
+    K(0, 2) *= scale_x;
+    K(1, 1) *= scale_y;
+    K(1, 2) *= scale_y;
     K(0, 2) -= 0.5f;
     K(1, 2) -= 0.5f;
 
