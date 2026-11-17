@@ -4,7 +4,9 @@
 
 #include "colmap/util/testing.h"
 
+#include <array>
 #include <fstream>
+#include <limits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -106,6 +108,27 @@ TEST(Mat, RejectsTruncatedFloatPayloadAndCanBeRetried) {
   Mat<float> actual;
   actual.Read(path);
   EXPECT_EQ(actual.GetData(), expected.GetData());
+}
+
+TEST(Mat, RejectsOverflowingDimensions) {
+  const auto path = CreateTestDir() / "matrix.bin";
+  constexpr size_t kLargeDimension = std::numeric_limits<size_t>::max() / 2 + 1;
+  for (const auto& dimensions :
+       {std::array<size_t, 3>{kLargeDimension, 2, 1},
+        std::array<size_t, 3>{1, kLargeDimension, 2}}) {
+    SCOPED_TRACE(testing::Message() << dimensions[0] << "x" << dimensions[1]
+                                    << "x" << dimensions[2]);
+    {
+      std::ofstream file(path, std::ios::binary);
+      file << dimensions[0] << "&" << dimensions[1] << "&" << dimensions[2]
+           << "&";
+      ASSERT_TRUE(file.good());
+    }
+    Mat<float> mat;
+    EXPECT_THAT([&] { mat.Read(path); },
+                testing::ThrowsMessage<std::exception>(
+                    testing::HasSubstr(path.filename().string())));
+  }
 }
 
 }  // namespace

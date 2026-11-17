@@ -25,6 +25,7 @@ void Mat<float>::Read(const std::filesystem::path& path) {
   THROW_CHECK_GT(width_, 0) << path;
   THROW_CHECK_GT(height_, 0) << path;
   THROW_CHECK_GT(depth_, 0) << path;
+  THROW_CHECK_LE(width_, data_.max_size() / height_ / depth_) << path;
   data_.resize(width_ * height_ * depth_);
 
   try {
