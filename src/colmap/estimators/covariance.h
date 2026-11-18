@@ -92,7 +92,9 @@ struct BACovarianceOptions {
 // important that the problem has a structure suitable for solving using the
 // Schur complement trick. This is the case for the standard configuration of
 // bundle adjustment problems, but be careful if you modify the underlying
-// problem with custom residuals.
+// problem with custom residuals. Bundle adjusters with active position priors
+// are not supported because their residuals use an internally normalized
+// coordinate frame while Solve() restores metric parameter values.
 // Returns null if the estimation was not successful.
 std::optional<BACovariance> EstimateBACovariance(
     const BACovarianceOptions& options,
