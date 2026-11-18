@@ -14,12 +14,15 @@
 
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <vector>
 
 #include <Eigen/Core>
 
 namespace colmap {
+
+class DatabaseSavepoint;
 
 using FeatureKeypointsBlob =
     Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
@@ -332,13 +335,40 @@ class Database {
   virtual void BeginTransaction() const = 0;
   virtual void EndTransaction() const = 0;
 
+  // A rollback-capable scope that can nest within a caller-owned transaction.
+  // Backends without this capability throw at creation, before any writes.
+  virtual std::unique_ptr<DatabaseSavepoint> CreateSavepoint();
+
  private:
   friend class DatabaseTransaction;
+  friend class DatabaseSavepoint;
 
-  // Used to ensure that only one transaction is active at the same time.
-  std::mutex transaction_mutex_;
+  // Serializes transaction scopes across threads and permits same-thread
+  // savepoints within a caller-owned transaction.
+  std::recursive_mutex transaction_mutex_;
 
   static std::vector<Factory> factories_;
+};
+
+class DatabaseSavepoint {
+ public:
+  virtual ~DatabaseSavepoint() = default;
+
+  // Keep the database and any enclosing transaction alive until this object
+  // is destroyed, and close nested savepoints in reverse creation order.
+  // Release keeps this scope's writes but does not commit an outer transaction.
+  // Rollback discards them and reports errors. An active scope also attempts
+  // rollback during destruction, but cleanup errors cannot replace an
+  // exception already unwinding; call Rollback to confirm it succeeded.
+  // The transaction lock remains held until this object is destroyed.
+  virtual void Release() = 0;
+  virtual void Rollback() = 0;
+
+ protected:
+  explicit DatabaseSavepoint(Database* database);
+
+ private:
+  std::unique_lock<std::recursive_mutex> database_lock_;
 };
 
 // This class automatically manages the scope of a database transaction by
@@ -353,7 +383,7 @@ class DatabaseTransaction {
   NON_COPYABLE(DatabaseTransaction)
   NON_MOVABLE(DatabaseTransaction)
   Database* database_;
-  std::unique_lock<std::mutex> database_lock_;
+  std::unique_lock<std::recursive_mutex> database_lock_;
 };
 
 // Loads random descriptors from random images in the database.

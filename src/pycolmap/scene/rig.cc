@@ -42,5 +42,10 @@ void BindSceneRig(py::module& m) {
         "derives camera rig extrinsics and intrinsics from the reconstruction, "
         "if not defined in the config. If the reconstruction is provided, it "
         "is also updated with the provided config and any previous rigs/frames "
-        "are cleared and overwritten.");
+        "are cleared and overwritten. Requires a database with savepoint "
+        "support. On failure, the reconstruction stays unchanged and database "
+        "writes are rolled back; rollback errors are reported separately. "
+        "An enclosing transaction is not committed. Rolling back that outer "
+        "transaction after a successful call does not revert the "
+        "reconstruction.");
 }

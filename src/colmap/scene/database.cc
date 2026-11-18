@@ -7,6 +7,7 @@
 #include "colmap/util/hash_containers.h"
 
 #include <numeric>
+#include <stdexcept>
 
 namespace colmap {
 
@@ -305,6 +306,13 @@ void Database::Merge(const Database& database1,
         new_image_id1, new_image_id2, two_view_geometry);
   }
 }
+
+std::unique_ptr<DatabaseSavepoint> Database::CreateSavepoint() {
+  throw std::runtime_error("This database does not support savepoints");
+}
+
+DatabaseSavepoint::DatabaseSavepoint(Database* database)
+    : database_lock_(THROW_CHECK_NOTNULL(database)->transaction_mutex_) {}
 
 DatabaseTransaction::DatabaseTransaction(Database* database)
     : database_(database), database_lock_(database->transaction_mutex_) {

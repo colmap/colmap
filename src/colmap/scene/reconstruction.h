@@ -14,6 +14,7 @@
 #include "colmap/util/types.h"
 
 #include <filesystem>
+#include <functional>
 #include <vector>
 
 #include <Eigen/Core>
@@ -21,6 +22,7 @@
 namespace colmap {
 
 struct PlyPoint;
+struct RigConfig;
 class DatabaseCache;
 
 // Reconstruction class holds all information about a single reconstructed
@@ -259,6 +261,19 @@ class Reconstruction {
   void CreateImageDirs(const std::filesystem::path& path) const;
 
  private:
+  friend void ApplyRigConfig(const std::vector<RigConfig>& configs,
+                             Database& database,
+                             Reconstruction* reconstruction);
+
+  // Complete throwing preparation before the caller releases its DB scope.
+  // The callback must not mutate this reconstruction. On return, publish only
+  // prevalidated pointers and nonthrowing value/container swaps.
+  void SetRigsAndFramesPrepared(
+      std::vector<class Rig> rigs,
+      std::vector<class Frame> frames,
+      NodeHashMap<camera_t, struct Camera> camera_replacements,
+      const std::function<void()>& before_publish);
+
   // Reset all reconstruction data and bookkeeping state, so that this object
   // can be reused to load a replacement model (see ReadText and ReadBinary).
   void Clear();

@@ -9,6 +9,7 @@
 #include "colmap/util/testing.h"
 
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
@@ -87,6 +88,138 @@ TEST_P(ParameterizedDatabaseTests, TransactionMultiThreaded) {
   for (auto& thread : threads) {
     thread.join();
   }
+}
+
+void WriteSavepointTestCamera(Database& database, camera_t camera_id) {
+  const Camera camera = Camera::CreateFromModelId(
+      camera_id, CameraModelId::kSimplePinhole, 1.0, 1, 1);
+  EXPECT_EQ(database.WriteCamera(camera, /*use_camera_id=*/true), camera_id);
+}
+
+TEST(DatabaseSavepoint, TopLevelReleaseAndRollback) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  {
+    auto savepoint = database->CreateSavepoint();
+    WriteSavepointTestCamera(*database, 1);
+    savepoint->Release();
+    EXPECT_THROW(savepoint->Release(), std::exception);
+  }
+  EXPECT_TRUE(database->ExistsCamera(1));
+
+  {
+    auto savepoint = database->CreateSavepoint();
+    WriteSavepointTestCamera(*database, 2);
+    savepoint->Rollback();
+    EXPECT_THROW(savepoint->Rollback(), std::exception);
+  }
+  EXPECT_TRUE(database->ExistsCamera(1));
+  EXPECT_FALSE(database->ExistsCamera(2));
+}
+
+TEST(DatabaseSavepoint, InvalidatedScopeReportsReleaseAndRollbackErrors) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  {
+    auto savepoint = database->CreateSavepoint();
+    WriteSavepointTestCamera(*database, 1);
+    // Deliberately end the underlying SQLite transaction outside the
+    // savepoint owner. The write is committed, so neither close operation can
+    // claim to roll it back.
+    database->EndTransaction();
+    EXPECT_THROW(savepoint->Release(), std::runtime_error);
+  }
+  EXPECT_TRUE(database->ExistsCamera(1));
+
+  {
+    auto savepoint = database->CreateSavepoint();
+    WriteSavepointTestCamera(*database, 2);
+    database->EndTransaction();
+    EXPECT_THROW(savepoint->Rollback(), std::runtime_error);
+  }
+  EXPECT_TRUE(database->ExistsCamera(1));
+  EXPECT_TRUE(database->ExistsCamera(2));
+}
+
+TEST(DatabaseSavepoint, CleanupReportsFailureWithoutReplacingOriginalError) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  testing::internal::CaptureStderr();
+  std::string original_message;
+  try {
+    auto savepoint = database->CreateSavepoint();
+    EXPECT_NE(savepoint, nullptr);
+    // Invalidate the SQL scope, then make cleanup run during exception unwind.
+    database->EndTransaction();
+    throw std::runtime_error("original operation failure");
+  } catch (const std::runtime_error& error) {
+    original_message = error.what();
+  } catch (...) {
+    testing::internal::GetCapturedStderr();
+    throw;
+  }
+  const std::string diagnostic = testing::internal::GetCapturedStderr();
+  EXPECT_EQ(original_message, "original operation failure");
+  EXPECT_NE(diagnostic.find("database recovery is unconfirmed"),
+            std::string::npos);
+}
+
+TEST(DatabaseSavepoint, ExceptionScopeRollsBack) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  EXPECT_THROW(
+      {
+        auto savepoint = database->CreateSavepoint();
+        WriteSavepointTestCamera(*database, 1);
+        throw std::runtime_error("test failure after write");
+      },
+      std::runtime_error);
+  EXPECT_FALSE(database->ExistsCamera(1));
+}
+
+TEST(DatabaseSavepoint, CallerTransactionPreservesOuterWrites) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  {
+    DatabaseTransaction outer(database.get());
+    WriteSavepointTestCamera(*database, 1);
+    {
+      auto savepoint = database->CreateSavepoint();
+      WriteSavepointTestCamera(*database, 2);
+      savepoint->Release();
+    }
+    EXPECT_THROW(
+        {
+          auto savepoint = database->CreateSavepoint();
+          WriteSavepointTestCamera(*database, 3);
+          throw std::runtime_error("inner failure");
+        },
+        std::runtime_error);
+    EXPECT_TRUE(database->ExistsCamera(1));
+    EXPECT_TRUE(database->ExistsCamera(2));
+    EXPECT_FALSE(database->ExistsCamera(3));
+  }
+  EXPECT_TRUE(database->ExistsCamera(1));
+  EXPECT_TRUE(database->ExistsCamera(2));
+  EXPECT_FALSE(database->ExistsCamera(3));
+}
+
+TEST(DatabaseSavepoint, NestedReleaseCanBeUndoneByOuterRollback) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  auto outer = database->CreateSavepoint();
+  WriteSavepointTestCamera(*database, 1);
+  {
+    auto inner = database->CreateSavepoint();
+    WriteSavepointTestCamera(*database, 2);
+    inner->Release();
+  }
+  EXPECT_TRUE(database->ExistsCamera(2));
+  outer->Rollback();
+  EXPECT_FALSE(database->ExistsCamera(1));
+  EXPECT_FALSE(database->ExistsCamera(2));
+}
+
+TEST(DatabaseSavepoint, UnsupportedBaseAndClosedConnection) {
+  auto database = OpenSqliteDatabase(kInMemorySqliteDatabasePath);
+  EXPECT_THROW(database->Database::CreateSavepoint(), std::runtime_error);
+  EXPECT_EQ(database->NumCameras(), 0);
+  database->Close();
+  EXPECT_THROW(database->CreateSavepoint(), std::exception);
 }
 
 TEST_P(ParameterizedDatabaseTests, Empty) {

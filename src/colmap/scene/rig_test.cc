@@ -5,14 +5,21 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 
+#include <cstdint>
 #include <fstream>
 #include <locale>
+#include <map>
+#include <memory>
+#include <tuple>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <sqlite3.h>
 
 namespace colmap {
 namespace {
@@ -223,6 +230,142 @@ void CreateTestData(int num_frames,
   }
 }
 
+void CreateRemappedPartialReconstruction(const Reconstruction& source,
+                                         const camera_t id_offset,
+                                         const std::string& omitted_image_name,
+                                         Reconstruction* destination) {
+  for (const auto& [_, camera] : source.Cameras()) {
+    Camera remapped_camera = camera;
+    remapped_camera.camera_id += id_offset;
+    destination->AddCameraWithTrivialRig(std::move(remapped_camera));
+  }
+  for (const auto& [_, image] : source.Images()) {
+    if (image.Name() == omitted_image_name) {
+      continue;
+    }
+    const Rigid3d cam_from_world = image.CamFromWorld();
+    Image remapped_image = image;
+    remapped_image.ResetCameraPtr();
+    remapped_image.ResetFramePtr();
+    remapped_image.SetImageId(image.ImageId() + id_offset);
+    remapped_image.SetCameraId(image.CameraId() + id_offset);
+    remapped_image.SetFrameId(remapped_image.ImageId());
+    destination->AddImageWithTrivialFrame(std::move(remapped_image),
+                                          cam_from_world);
+  }
+}
+
+void ExpectIntrinsicsEqual(const Camera& actual, const Camera& expected) {
+  EXPECT_EQ(actual.model_id, expected.model_id);
+  EXPECT_EQ(actual.params, expected.params);
+  EXPECT_EQ(actual.source, expected.source);
+}
+
+std::uintptr_t Address(const void* value) {
+  return reinterpret_cast<std::uintptr_t>(value);
+}
+
+struct RigConfigDatabaseState {
+  std::vector<Rig> rigs;
+  std::vector<Frame> frames;
+  std::vector<Image> images;
+  std::map<camera_t, std::map<CameraSource, Camera>> cameras;
+};
+
+RigConfigDatabaseState CaptureDatabaseState(const Database& database) {
+  RigConfigDatabaseState state{database.ReadAllRigs(),
+                               database.ReadAllFrames(),
+                               database.ReadAllImages(),
+                               {}};
+  for (const auto& [id, sources] : database.ReadAllCameraSources()) {
+    state.cameras.emplace(id, sources);
+  }
+  return state;
+}
+
+void ExpectDatabaseState(const Database& database,
+                         const RigConfigDatabaseState& state) {
+  EXPECT_EQ(database.ReadAllRigs(), state.rigs);
+  EXPECT_EQ(database.ReadAllFrames(), state.frames);
+  EXPECT_EQ(database.ReadAllImages(), state.images);
+  std::map<camera_t, std::map<CameraSource, Camera>> cameras;
+  for (const auto& [id, sources] : database.ReadAllCameraSources()) {
+    cameras.emplace(id, sources);
+  }
+  EXPECT_EQ(cameras, state.cameras);
+}
+
+struct RigConfigLiveState {
+  Reconstruction reconstruction;
+  std::map<rig_t, std::uintptr_t> rigs;
+  std::map<frame_t, std::tuple<std::uintptr_t, std::uintptr_t, bool>> frames;
+  std::map<camera_t, std::uintptr_t> cameras;
+  std::map<image_t, std::tuple<std::uintptr_t, std::uintptr_t, std::uintptr_t>>
+      images;
+};
+
+RigConfigLiveState CaptureLiveState(const Reconstruction& reconstruction) {
+  RigConfigLiveState state;
+  state.reconstruction = reconstruction;
+  for (const auto& [id, rig] : reconstruction.Rigs()) {
+    state.rigs.emplace(id, Address(&rig));
+  }
+  for (const auto& [id, frame] : reconstruction.Frames()) {
+    state.frames.emplace(
+        id,
+        std::make_tuple(Address(&frame),
+                        frame.HasRigPtr() ? Address(frame.RigPtr()) : 0,
+                        frame.HasFinalDataIds()));
+  }
+  for (const auto& [id, camera] : reconstruction.Cameras()) {
+    state.cameras.emplace(id, Address(&camera));
+  }
+  for (const auto& [id, image] : reconstruction.Images()) {
+    state.images.emplace(
+        id,
+        std::make_tuple(Address(&image),
+                        image.HasCameraPtr() ? Address(image.CameraPtr()) : 0,
+                        image.HasFramePtr() ? Address(image.FramePtr()) : 0));
+  }
+  return state;
+}
+
+void ExpectLiveState(const Reconstruction& reconstruction,
+                     const RigConfigLiveState& before) {
+  ASSERT_EQ(reconstruction.NumRigs(), before.rigs.size());
+  ASSERT_EQ(reconstruction.NumFrames(), before.frames.size());
+  ASSERT_EQ(reconstruction.NumCameras(), before.cameras.size());
+  ASSERT_EQ(reconstruction.NumImages(), before.images.size());
+  // Validate ownership before the equality matcher follows image/frame links.
+  // The old implementation can leave those links dangling after rejection.
+  for (const auto& [id, expected] : before.frames) {
+    ASSERT_TRUE(reconstruction.ExistsFrame(id));
+    const Frame& frame = reconstruction.Frame(id);
+    ASSERT_TRUE(reconstruction.ExistsRig(frame.RigId()));
+    ASSERT_TRUE(frame.HasRigPtr());
+    ASSERT_EQ(frame.RigPtr(), &reconstruction.Rig(frame.RigId()));
+  }
+  for (const auto& [id, expected] : before.images) {
+    ASSERT_TRUE(reconstruction.ExistsImage(id));
+    const Image& image = reconstruction.Image(id);
+    ASSERT_TRUE(reconstruction.ExistsCamera(image.CameraId()));
+    ASSERT_TRUE(reconstruction.ExistsFrame(image.FrameId()));
+    ASSERT_TRUE(image.HasCameraPtr());
+    ASSERT_TRUE(image.HasFramePtr());
+    ASSERT_EQ(image.CameraPtr(), &reconstruction.Camera(image.CameraId()));
+    ASSERT_EQ(image.FramePtr(), &reconstruction.Frame(image.FrameId()));
+  }
+  const RigConfigLiveState after = CaptureLiveState(reconstruction);
+  EXPECT_EQ(after.rigs, before.rigs);
+  EXPECT_EQ(after.frames, before.frames);
+  EXPECT_EQ(after.cameras, before.cameras);
+  EXPECT_EQ(after.images, before.images);
+  EXPECT_EQ(reconstruction.RegFrameIds(), before.reconstruction.RegFrameIds());
+  EXPECT_EQ(reconstruction.NumRegImages(),
+            before.reconstruction.NumRegImages());
+  EXPECT_THAT(reconstruction, ReconstructionEq(before.reconstruction));
+}
+
 TEST(ApplyRigConfig, WithReconstruction) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   Reconstruction reconstruction;
@@ -312,6 +455,133 @@ TEST(ApplyRigConfig, WithDifferingDatabaseAndReconstructionIds) {
   EXPECT_EQ(differing_reconstruction.NumRigs(), 1);
   EXPECT_EQ(differing_reconstruction.NumFrames(), 5);
   EXPECT_EQ(differing_reconstruction.NumRegFrames(), 5);
+}
+
+TEST(ApplyRigConfig, ExplicitIntrinsicsWithMatchingCameraIds) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  CreateTestData(5, 2, database.get(), &reconstruction);
+  const Image* first_image = reconstruction.FindImageWithName("camera0_frame1");
+  const Image* other_image = reconstruction.FindImageWithName("camera1_frame1");
+  ASSERT_NE(first_image, nullptr);
+  ASSERT_NE(other_image, nullptr);
+  const camera_t camera_id = first_image->CameraId();
+  const Camera* camera_ptr = &reconstruction.Camera(camera_id);
+  const Camera before_other = reconstruction.Camera(other_image->CameraId());
+  const Camera specified = Camera::CreateFromModelId(
+      camera_id, CameraModelId::kOpenCV, 1200.0, 1024, 768);
+
+  RigConfig config;
+  config.cameras.emplace_back().image_prefix = "camera0_";
+  config.cameras[0].ref_sensor = true;
+  config.cameras[0].camera = specified;
+  config.cameras.emplace_back().image_prefix = "camera1_";
+
+  ApplyRigConfig({config}, *database, &reconstruction);
+  EXPECT_EQ(&reconstruction.Camera(camera_id), camera_ptr);
+  ExpectIntrinsicsEqual(database->ReadCamera(camera_id), specified);
+  ExpectIntrinsicsEqual(reconstruction.Camera(camera_id), specified);
+  ExpectIntrinsicsEqual(reconstruction.Camera(before_other.camera_id),
+                        before_other);
+  // All five database-matched images of this sensor share one camera.
+  for (int frame_idx = 1; frame_idx <= 5; ++frame_idx) {
+    const Image* image = reconstruction.FindImageWithName(
+        "camera0_frame" + std::to_string(frame_idx));
+    ASSERT_NE(image, nullptr);
+    EXPECT_EQ(image->CameraId(), camera_id);
+  }
+}
+
+TEST(ApplyRigConfig, ExplicitIntrinsicsWithCollisionAndPartialModel) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction source;
+  CreateTestData(5, 2, database.get(), &source);
+  const Image* first_database_image =
+      source.FindImageWithName("camera0_frame1");
+  const Image* second_sensor_image = source.FindImageWithName("camera1_frame1");
+  ASSERT_NE(first_database_image, nullptr);
+  ASSERT_NE(second_sensor_image, nullptr);
+  const camera_t database_camera_id = first_database_image->CameraId();
+  const camera_t second_database_camera_id = second_sensor_image->CameraId();
+
+  Reconstruction partial;
+  constexpr camera_t kIdOffset = 10;
+  CreateRemappedPartialReconstruction(
+      source, kIdOffset, "camera0_frame1", &partial);
+  ASSERT_EQ(partial.FindImageWithName("camera0_frame1"), nullptr);
+  ASSERT_NE(partial.FindImageWithName("camera0_frame2"), nullptr);
+  Camera unrelated = source.Camera(database_camera_id);
+  partial.AddCamera(unrelated);  // Its ID collides with the database ID.
+  const Camera unrelated_before = partial.Camera(database_camera_id);
+  const camera_t matched_camera_id = database_camera_id + kIdOffset;
+  const Camera* matched_camera_ptr = &partial.Camera(matched_camera_id);
+  const Camera specified = Camera::CreateFromModelId(
+      database_camera_id, CameraModelId::kOpenCV, 1200.0, 1024, 768);
+  const Camera second_specified = Camera::CreateFromModelId(
+      second_database_camera_id, CameraModelId::kOpenCV, 900.0, 1024, 768);
+
+  RigConfig config;
+  config.cameras.emplace_back().image_prefix = "camera0_";
+  config.cameras[0].ref_sensor = true;
+  config.cameras[0].camera = specified;
+  config.cameras.emplace_back().image_prefix = "camera1_";
+  config.cameras[1].camera = second_specified;
+
+  ApplyRigConfig({config}, *database, &partial);
+  EXPECT_EQ(&partial.Camera(matched_camera_id), matched_camera_ptr);
+  ExpectIntrinsicsEqual(database->ReadCamera(database_camera_id), specified);
+  ExpectIntrinsicsEqual(partial.Camera(matched_camera_id), specified);
+  ExpectIntrinsicsEqual(database->ReadCamera(second_database_camera_id),
+                        second_specified);
+  ExpectIntrinsicsEqual(partial.Camera(second_database_camera_id + kIdOffset),
+                        second_specified);
+  ExpectIntrinsicsEqual(partial.Camera(database_camera_id), unrelated_before);
+  EXPECT_EQ(partial.NumImages(), 9);
+}
+
+TEST(ApplyRigConfig, ConflictingReconstructionCameraRemainsUnsupported) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction source;
+  CreateTestData(2, 2, database.get(), &source);
+  const Image* first_image = source.FindImageWithName("camera0_frame1");
+  const Image* second_image = source.FindImageWithName("camera1_frame1");
+  ASSERT_NE(first_image, nullptr);
+  ASSERT_NE(second_image, nullptr);
+
+  // Distinct database sensors are mapped to one reconstruction camera.
+  const camera_t shared_camera_id = first_image->CameraId() + 100;
+  Reconstruction shared;
+  Camera shared_camera = source.Camera(first_image->CameraId());
+  shared_camera.camera_id = shared_camera_id;
+  shared.AddCameraWithTrivialRig(std::move(shared_camera));
+  for (const auto& [_, source_image] : source.Images()) {
+    const Rigid3d cam_from_world = source_image.CamFromWorld();
+    Image image = source_image;
+    image.ResetCameraPtr();
+    image.ResetFramePtr();
+    image.SetImageId(source_image.ImageId() + 100);
+    image.SetCameraId(shared_camera_id);
+    image.SetFrameId(image.ImageId());
+    shared.AddImageWithTrivialFrame(std::move(image), cam_from_world);
+  }
+
+  RigConfig config;
+  config.cameras.emplace_back().image_prefix = "camera0_";
+  config.cameras[0].ref_sensor = true;
+  config.cameras[0].camera = Camera::CreateFromModelId(
+      first_image->CameraId(), CameraModelId::kOpenCV, 1200.0, 1024, 768);
+  config.cameras.emplace_back().image_prefix = "camera1_";
+  config.cameras[1].camera = Camera::CreateFromModelId(
+      second_image->CameraId(), CameraModelId::kOpenCV, 900.0, 1024, 768);
+
+  // Rig rebuild already refuses a sensor shared by distinct config sensors.
+  // This does not test or imply rollback of earlier database writes.
+  try {
+    ApplyRigConfig({config}, *database, &shared);
+    ADD_FAILURE() << "Expected a shared-sensor rig rebuild failure";
+  } catch (const std::exception& e) {
+    EXPECT_THAT(e.what(), testing::HasSubstr("inserted twice into the rig"));
+  }
 }
 
 TEST(ApplyRigConfig, WithPartialReconstruction) {
@@ -498,6 +768,147 @@ TEST(ApplyRigConfig, PrefersRefSensorForFramePoses) {
     EXPECT_THAT(image.CamFromWorld(),
                 Rigid3dNear(expected, /*rtol=*/1e-6, /*ttol=*/1e-6));
   }
+}
+
+TEST(ApplyRigConfig, LateInvalidConfigRestoresDatabaseAndLiveOwners) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  CreateTestData(2, 2, database.get(), &reconstruction);
+  const auto* first = reconstruction.FindImageWithName("camera0_frame1");
+  ASSERT_NE(first, nullptr);
+  const auto database_before = CaptureDatabaseState(*database);
+  const auto live_before = CaptureLiveState(reconstruction);
+
+  RigConfig first_config;
+  first_config.cameras.emplace_back().image_prefix = "camera0_";
+  first_config.cameras[0].ref_sensor = true;
+  first_config.cameras[0].camera = Camera::CreateFromModelId(
+      first->CameraId(), CameraModelId::kOpenCV, 1200.0, 1024, 768);
+  first_config.cameras.emplace_back().image_prefix = "camera1_";
+  RigConfig invalid_later;
+  invalid_later.cameras.emplace_back().image_prefix = "missing_";
+  invalid_later.cameras[0].ref_sensor = true;
+
+  try {
+    ApplyRigConfig({first_config, invalid_later}, *database, &reconstruction);
+    ADD_FAILURE() << "Expected late invalid sensor rejection";
+  } catch (const std::exception& error) {
+    EXPECT_THAT(error.what(), testing::HasSubstr("At least one image"));
+  }
+  ExpectDatabaseState(*database, database_before);
+  ExpectLiveState(reconstruction, live_before);
+}
+
+TEST(ApplyRigConfig, WriteAndReleaseFailuresPreserveDatabaseAndLiveOwners) {
+  for (const bool fail_on_release : {false, true}) {
+    SCOPED_TRACE(fail_on_release);
+    const auto database_path =
+        CreateTestDir() /
+        (fail_on_release ? "rig_release_failure.db" : "rig_insert_failure.db");
+    auto database = Database::Open(database_path);
+    Reconstruction reconstruction;
+    CreateTestData(2, 2, database.get(), &reconstruction);
+    const auto database_before = CaptureDatabaseState(*database);
+    const auto live_before = CaptureLiveState(reconstruction);
+
+    // Use a real SQL write failure or a deferred foreign-key failure. The
+    // latter permits every frame write and all reconstruction preparation, but
+    // rejects RELEASE of the top-level savepoint before live state is
+    // published.
+    sqlite3* raw_database = nullptr;
+    const int open_result =
+        sqlite3_open(database_path.string().c_str(), &raw_database);
+    std::unique_ptr<sqlite3, decltype(&sqlite3_close)> raw(raw_database,
+                                                           &sqlite3_close);
+    ASSERT_EQ(open_result, SQLITE_OK);
+    const char* failure_sql =
+        fail_on_release
+            ? "CREATE TABLE rollback_parent (id INTEGER PRIMARY KEY); "
+              "CREATE TABLE rollback_child (parent_id INTEGER REFERENCES "
+              "rollback_parent(id) DEFERRABLE INITIALLY DEFERRED); "
+              "CREATE TRIGGER fail_rig_frame AFTER INSERT ON frames "
+              "BEGIN INSERT INTO rollback_child VALUES (1); END;"
+            : "CREATE TRIGGER fail_rig_frame BEFORE INSERT ON frames "
+              "WHEN (SELECT COUNT(*) FROM rigs) = 1 "
+              "BEGIN SELECT RAISE(ABORT, 'forced frame insert failure'); END;";
+    ASSERT_EQ(sqlite3_exec(raw.get(), failure_sql, nullptr, nullptr, nullptr),
+              SQLITE_OK);
+    raw.reset();
+
+    RigConfig config;
+    config.cameras.emplace_back().image_prefix = "camera0_";
+    config.cameras[0].ref_sensor = true;
+    config.cameras.emplace_back().image_prefix = "camera1_";
+    try {
+      ApplyRigConfig({config}, *database, &reconstruction);
+      ADD_FAILURE() << "Expected SQLite write or release failure";
+    } catch (const std::exception& error) {
+      EXPECT_THAT(error.what(), testing::HasSubstr("SQLite error"));
+      if (fail_on_release) {
+        EXPECT_THAT(error.what(),
+                    testing::HasSubstr("FOREIGN KEY constraint failed"));
+      }
+    }
+    ExpectDatabaseState(*database, database_before);
+    ExpectLiveState(reconstruction, live_before);
+
+    // Remove the external failure and reuse the same owners. This also checks
+    // that the failed statement and savepoint left the connection usable.
+    raw_database = nullptr;
+    const int reopen_result =
+        sqlite3_open(database_path.string().c_str(), &raw_database);
+    raw.reset(raw_database);
+    ASSERT_EQ(reopen_result, SQLITE_OK);
+    ASSERT_EQ(sqlite3_exec(raw.get(),
+                           "DROP TRIGGER fail_rig_frame",
+                           nullptr,
+                           nullptr,
+                           nullptr),
+              SQLITE_OK);
+    raw.reset();
+
+    ASSERT_NO_THROW(ApplyRigConfig({config}, *database, &reconstruction));
+    EXPECT_EQ(database->NumRigs(), 1);
+    EXPECT_EQ(database->NumFrames(), 2);
+    EXPECT_EQ(reconstruction.NumRigs(), 1);
+    EXPECT_EQ(reconstruction.NumFrames(), 2);
+    EXPECT_EQ(reconstruction.NumRegFrames(), 2);
+    for (const auto& [_, frame] : reconstruction.Frames()) {
+      ASSERT_TRUE(reconstruction.ExistsRig(frame.RigId()));
+      ASSERT_TRUE(frame.HasRigPtr());
+      EXPECT_EQ(frame.RigPtr(), &reconstruction.Rig(frame.RigId()));
+    }
+    for (const auto& [_, image] : reconstruction.Images()) {
+      ASSERT_TRUE(reconstruction.ExistsFrame(image.FrameId()));
+      ASSERT_TRUE(image.HasFramePtr());
+      ASSERT_EQ(image.FramePtr(), &reconstruction.Frame(image.FrameId()));
+      EXPECT_TRUE(image.FramePtr()->HasDataId(image.DataId()));
+    }
+  }
+}
+
+TEST(ApplyRigConfig, OuterRollbackAfterSuccessfulNestedCallIsCallerOwned) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  CreateTestData(2, 2, database.get(), &reconstruction);
+  const auto database_before = CaptureDatabaseState(*database);
+  RigConfig config;
+  config.cameras.emplace_back().image_prefix = "camera0_";
+  config.cameras[0].ref_sensor = true;
+  config.cameras.emplace_back().image_prefix = "camera1_";
+
+  auto outer = database->CreateSavepoint();
+  ASSERT_NO_THROW(ApplyRigConfig({config}, *database, &reconstruction));
+  EXPECT_EQ(database->NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  outer->Rollback();
+  ExpectDatabaseState(*database, database_before);
+  // The call succeeded before the caller rolled back its outer scope. The
+  // reconstruction intentionally remains published; callers own this later
+  // database/reconstruction lifecycle boundary.
+  EXPECT_EQ(reconstruction.NumRigs(), 1);
+  EXPECT_EQ(reconstruction.NumFrames(), 2);
+  EXPECT_EQ(reconstruction.NumRegFrames(), 2);
 }
 
 }  // namespace

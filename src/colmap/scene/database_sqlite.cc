@@ -5,7 +5,12 @@
 #include "colmap/util/string.h"
 #include "colmap/util/version.h"
 
+#include <atomic>
+#include <cstdint>
+#include <cstdio>
+#include <limits>
 #include <sstream>
+#include <string>
 
 #include <sqlite3.h>
 
@@ -1842,6 +1847,8 @@ class SqliteDatabase : public Database {
     SQLITE3_EXEC(THROW_CHECK_NOTNULL(database_), "END TRANSACTION", nullptr);
   }
 
+  std::unique_ptr<DatabaseSavepoint> CreateSavepoint() override;
+
   void PrepareSQLStatements() {
     sql_stmts_.clear();
 
@@ -2818,6 +2825,87 @@ class SqliteDatabase : public Database {
 };
 
 std::mutex SqliteDatabase::update_schema_mutex_;
+
+std::string NextSavepointName() {
+  static std::atomic<uint64_t> next_id{0};
+  uint64_t id = next_id.load(std::memory_order_relaxed);
+  while (true) {
+    THROW_CHECK_NE(id, std::numeric_limits<uint64_t>::max());
+    if (next_id.compare_exchange_weak(id, id + 1, std::memory_order_relaxed)) {
+      return "colmap_savepoint_" + std::to_string(id);
+    }
+  }
+}
+
+class SqliteDatabaseSavepoint final : public DatabaseSavepoint {
+ public:
+  explicit SqliteDatabaseSavepoint(SqliteDatabase* database)
+      : DatabaseSavepoint(database),
+        database_(THROW_CHECK_NOTNULL(database)),
+        name_(NextSavepointName()),
+        begin_sql_("SAVEPOINT " + name_),
+        release_sql_("RELEASE SAVEPOINT " + name_),
+        rollback_sql_("ROLLBACK TO SAVEPOINT " + name_) {
+    Execute(begin_sql_);
+    active_ = true;
+  }
+
+  ~SqliteDatabaseSavepoint() override {
+    if (!active_) return;
+    try {
+      SqliteDatabaseSavepoint::Rollback();
+    } catch (const std::exception& error) {
+      std::fprintf(stderr,
+                   "SQLite savepoint rollback failed; database recovery is "
+                   "unconfirmed: %s\n",
+                   error.what());
+    } catch (...) {
+      std::fputs(
+          "SQLite savepoint rollback failed; database recovery is "
+          "unconfirmed.\n",
+          stderr);
+    }
+  }
+
+  void Release() override {
+    THROW_CHECK(active_);
+    Execute(release_sql_);
+    active_ = false;
+  }
+
+  void Rollback() override {
+    THROW_CHECK(active_);
+    Execute(rollback_sql_);
+    Execute(release_sql_);
+    active_ = false;
+  }
+
+ private:
+  void Execute(const std::string& sql) {
+    // Unlike the general logging macro, cleanup must observe SQL errors even
+    // while another exception is unwinding. The destructor contains failures.
+    if (database_->database_ == nullptr) {
+      throw std::runtime_error("SQLite savepoint database is closed");
+    }
+    const int result = sqlite3_exec(
+        database_->database_, sql.c_str(), nullptr, nullptr, nullptr);
+    if (result != SQLITE_OK) {
+      throw std::runtime_error(std::string("SQLite error: ") +
+                               sqlite3_errmsg(database_->database_));
+    }
+  }
+
+  SqliteDatabase* database_;
+  const std::string name_;
+  const std::string begin_sql_;
+  const std::string release_sql_;
+  const std::string rollback_sql_;
+  bool active_ = false;
+};
+
+std::unique_ptr<DatabaseSavepoint> SqliteDatabase::CreateSavepoint() {
+  return std::make_unique<SqliteDatabaseSavepoint>(this);
+}
 
 }  // namespace
 
