@@ -38,48 +38,41 @@ class MetisGraph {
  public:
   MetisGraph(const std::vector<std::pair<int, int>>& edges,
              const std::vector<int>& weights) {
-    NodeHashMap<int, std::vector<std::pair<int, int>>> adjacency_list;
+    // Preserve first-seen vertex order while counting degrees.
+    xadj_.push_back(0);
+    for (const auto& [vertex_id1, vertex_id2] : edges) {
+      const int vertex_idx1 = GetVertexIdx(vertex_id1);
+      const int vertex_idx2 = GetVertexIdx(vertex_id2);
+      ++xadj_[static_cast<size_t>(vertex_idx1) + 1];
+      ++xadj_[static_cast<size_t>(vertex_idx2) + 1];
+    }
+    for (size_t i = 1; i < xadj_.size(); ++i) {
+      xadj_[i] += xadj_[i - 1];
+    }
+
+    adjncy_.resize(2 * edges.size());
+    adjwgt_.resize(2 * edges.size());
+    std::vector<idx_t> cursors(xadj_.begin(), xadj_.end() - 1);
+    // Replay input order within every row, retaining both directions, parallel
+    // edges and both entries for a self-loop exactly as before.
     for (size_t i = 0; i < edges.size(); ++i) {
-      const auto& edge = edges[i];
-      const auto weight = weights[i];
-      const int vertex_idx1 = GetVertexIdx(edge.first);
-      const int vertex_idx2 = GetVertexIdx(edge.second);
-      adjacency_list[vertex_idx1].emplace_back(vertex_idx2, weight);
-      adjacency_list[vertex_idx2].emplace_back(vertex_idx1, weight);
+      const int vertex_idx1 = vertex_id_to_idx_.at(edges[i].first);
+      const int vertex_idx2 = vertex_id_to_idx_.at(edges[i].second);
+      const idx_t edge_idx1 = cursors[vertex_idx1]++;
+      const idx_t edge_idx2 = cursors[vertex_idx2]++;
+      adjncy_[edge_idx1] = vertex_idx2;
+      adjwgt_[edge_idx1] = weights[i];
+      adjncy_[edge_idx2] = vertex_idx1;
+      adjwgt_[edge_idx2] = weights[i];
     }
 
-    xadj_.reserve(vertex_id_to_idx_.size() + 1);
-    adjncy_.reserve(2 * edges.size());
-    adjwgt_.reserve(2 * edges.size());
-
-    idx_t edge_idx = 0;
-    for (size_t i = 0; i < vertex_id_to_idx_.size(); ++i) {
-      xadj_.push_back(edge_idx);
-
-      if (adjacency_list.count(i) == 0) {
-        continue;
-      }
-
-      for (const auto& [neighbor_idx, weight] : adjacency_list[i]) {
-        edge_idx += 1;
-        adjncy_.push_back(neighbor_idx);
-        adjwgt_.push_back(weight);
-      }
-    }
-
-    xadj_.push_back(edge_idx);
-
-    THROW_CHECK_EQ(edge_idx, 2 * edges.size());
+    THROW_CHECK_EQ(xadj_.back(), 2 * edges.size());
     THROW_CHECK_EQ(xadj_.size(), vertex_id_to_idx_.size() + 1);
-    THROW_CHECK_EQ(adjncy_.size(), 2 * edges.size());
-    THROW_CHECK_EQ(adjwgt_.size(), 2 * edges.size());
 
     nvtxs = vertex_id_to_idx_.size();
 
     xadj = xadj_.data();
     adjncy = adjncy_.data();
-
-    vwgt = nullptr;
     adjwgt = adjwgt_.data();
   }
 
@@ -88,7 +81,8 @@ class MetisGraph {
     if (it == vertex_id_to_idx_.end()) {
       const int idx = vertex_id_to_idx_.size();
       vertex_id_to_idx_.emplace(id, idx);
-      vertex_idx_to_id_.emplace(idx, id);
+      vertex_idx_to_id_.push_back(id);
+      xadj_.push_back(0);
       return idx;
     } else {
       return it->second;
@@ -99,13 +93,12 @@ class MetisGraph {
 
   idx_t nvtxs = 0;
   idx_t* xadj = nullptr;
-  idx_t* vwgt = nullptr;
   idx_t* adjncy = nullptr;
   idx_t* adjwgt = nullptr;
 
  private:
-  NodeHashMap<int, int> vertex_id_to_idx_;
-  NodeHashMap<int, int> vertex_idx_to_id_;
+  FlatHashMap<int, int> vertex_id_to_idx_;
+  std::vector<int> vertex_idx_to_id_;
   std::vector<idx_t> xadj_;
   std::vector<idx_t> adjncy_;
   std::vector<idx_t> adjwgt_;
