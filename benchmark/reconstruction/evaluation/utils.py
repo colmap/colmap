@@ -91,6 +91,15 @@ class SceneInfo:
     sparse_gt_path: Path
     # Whether the dataset has camera priors.
     has_camera_priors: bool
+    # Whether the camera priors also define which images share a camera.
+    # Otherwise, the sharing guessed by COLMAP during feature extraction is
+    # kept and only the camera parameters are set from the camera priors.
+    camera_priors_define_sharing: bool = False
+    # Image name prefixes of the cameras of a multi-camera rig, starting with
+    # the reference camera. Images with the same name after their prefix are
+    # grouped into a frame. Only used if the camera priors define the sharing,
+    # in which case the rig extrinsics are also derived from the GT.
+    rig_image_prefixes: list[str] = dataclasses.field(default_factory=list)
     # Additional arguments for the COLMAP reconstruction command.
     colmap_extra_args: list[str | Path] | None
     # Reconstruction backend. The default uses automatic_reconstructor.
@@ -614,25 +623,118 @@ def set_camera_priors(
             image_gt = images_gt_by_name[image.name]
             if image.camera_id in updated_camera_ids:
                 continue
-            camera_gt = camera_priors_sparse_gt.cameras[image_gt.camera_id]
+            camera_gt = copy.copy(
+                camera_priors_sparse_gt.cameras[image_gt.camera_id]
+            )
             camera_gt.camera_id = image.camera_id
             camera_gt.source = pycolmap.CameraSource.USER
             database.update_camera(camera_gt)
             updated_camera_ids.add(image.camera_id)
 
 
+def set_cameras_from_gt(
+    database_path: Path,
+    camera_priors_sparse_gt: pycolmap.Reconstruction,
+    rig_image_prefixes: Sequence[str] = (),
+) -> None:
+    """Sets the cameras of all images and their sharing from GT.
+
+    Unlike set_camera_priors, which keeps the camera sharing guessed by COLMAP
+    during feature extraction, every image is assigned to a copy of its GT
+    camera. The rigs and frames are then rewritten by apply_rig_config: a rig
+    of GT cameras if rig_image_prefixes is set (see SceneInfo), with its
+    extrinsics derived from the GT poses, and trivial rigs and frames
+    otherwise.
+    """
+    pycolmap.logging.info("Setting prior cameras and their sharing from GT")
+
+    gt_camera_ids = {
+        image.name: image.camera_id
+        for image in camera_priors_sparse_gt.images.values()
+    }
+    # Batch the many updates into one transaction.
+    with (
+        pycolmap.Database.open(str(database_path)) as database,
+        pycolmap.DatabaseTransaction(database),
+    ):
+        images = database.read_all_images()
+        missing = [
+            image.name for image in images if image.name not in gt_camera_ids
+        ]
+        if missing:
+            raise ValueError(f"Images do not exist in GT: {missing}")
+        # Fail before modifying the database, unlike apply_rig_config.
+        unmatched_prefixes = [
+            prefix
+            for prefix in rig_image_prefixes
+            if not any(image.name.startswith(prefix) for image in images)
+        ]
+        if unmatched_prefixes:
+            raise ValueError(
+                f"Rig image prefixes match no image: {unmatched_prefixes}"
+            )
+        pose_priors = database.read_all_pose_priors()
+
+        database.clear_cameras()
+        camera_ids = {}
+        for gt_camera_id in sorted(
+            {gt_camera_ids[image.name] for image in images}
+        ):
+            camera = copy.copy(camera_priors_sparse_gt.cameras[gt_camera_id])
+            camera.source = pycolmap.CameraSource.USER
+            camera_ids[gt_camera_id] = database.write_camera(camera)
+
+        data_ids = {}
+        for image in images:
+            # Drop the frame of the image, which no longer contains its new
+            # data ID until apply_rig_config rewrites the frames below.
+            updated_image = pycolmap.Image(
+                name=image.name,
+                camera_id=camera_ids[gt_camera_ids[image.name]],
+                image_id=image.image_id,
+            )
+            database.update_image(updated_image)
+            data_ids[image.image_id] = updated_image.data_id
+
+        # Pose priors refer to their image together with its camera.
+        for pose_prior in pose_priors:
+            pose_prior.corr_data_id = data_ids[pose_prior.corr_data_id.id]
+            database.update_pose_prior(pose_prior)
+
+        rig_configs = []
+        if rig_image_prefixes:
+            rig_config = pycolmap.RigConfig()
+            rig_config.cameras = [
+                pycolmap.RigConfigCamera(
+                    image_prefix=image_prefix, ref_sensor=i == 0
+                )
+                for i, image_prefix in enumerate(rig_image_prefixes)
+            ]
+            rig_configs.append(rig_config)
+        # The rig extrinsics are derived from the GT, whose rigs and frames are
+        # then also overwritten, so pass a copy of the GT. apply_rig_config
+        # also writes its cameras, which must keep the USER source of the
+        # cameras written above.
+        rig_sparse_gt = None
+        if rig_configs:
+            rig_sparse_gt = pycolmap.Reconstruction(camera_priors_sparse_gt)
+            for camera in rig_sparse_gt.cameras.values():
+                camera.source = pycolmap.CameraSource.USER
+        pycolmap.apply_rig_config(rig_configs, database, rig_sparse_gt)
+
+
 def colmap_reconstruction(
     args: argparse.Namespace,
-    workspace_path: Path,
-    image_path: Path,
+    scene_info: SceneInfo,
     camera_priors_sparse_gt: pycolmap.Reconstruction | None = None,
     covisibility_sparse_gt: pycolmap.Reconstruction | None = None,
-    colmap_extra_args: list[str | Path] | None = None,
     num_threads: int = 1,
     gpu_index: str = "-1",
     phase_tracker: _PhaseTracker | None = None,
 ) -> None:
     phase_tracker = phase_tracker or _PhaseTracker()
+    workspace_path = scene_info.workspace_path
+    image_path = scene_info.image_path
     workspace_path.mkdir(parents=True, exist_ok=True)
 
     database_path = workspace_path / "database.db"
@@ -719,18 +821,25 @@ def colmap_reconstruction(
 
     phase_tracker.set("extraction")
     _run_with_log(
-        colmap_args + (colmap_extra_args or []) + extraction_args,
+        colmap_args + (scene_info.colmap_extra_args or []) + extraction_args,
         workspace_path / "extraction.log",
         cwd=workspace_path,
     )
 
     if camera_priors_sparse_gt is not None:
-        set_camera_priors(database_path, camera_priors_sparse_gt)
+        if scene_info.camera_priors_define_sharing:
+            set_cameras_from_gt(
+                database_path,
+                camera_priors_sparse_gt,
+                scene_info.rig_image_prefixes,
+            )
+        else:
+            set_camera_priors(database_path, camera_priors_sparse_gt)
 
     phase_tracker.set("matching")
     _run_with_log(
         colmap_args
-        + (colmap_extra_args or [])
+        + (scene_info.colmap_extra_args or [])
         + [
             "--extraction",
             "0",
@@ -762,7 +871,7 @@ def colmap_reconstruction(
     phase_tracker.set("reconstruction")
     _run_with_log(
         colmap_args
-        + (colmap_extra_args or [])
+        + (scene_info.colmap_extra_args or [])
         + [
             "--extraction",
             "0",
@@ -940,8 +1049,7 @@ def process_scene(
     if scene_info.reconstruction_backend == "automatic":
         colmap_reconstruction(
             args=args,
-            workspace_path=scene_info.workspace_path,
-            image_path=scene_info.image_path,
+            scene_info=scene_info,
             camera_priors_sparse_gt=(
                 sparse_gt
                 if not args.uncalibrated
@@ -956,7 +1064,6 @@ def process_scene(
                 else None
             ),
             num_threads=num_threads,
-            colmap_extra_args=scene_info.colmap_extra_args,
             gpu_index=gpu_index,
             phase_tracker=tracker,
         )
