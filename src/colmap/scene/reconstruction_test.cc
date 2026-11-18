@@ -994,6 +994,85 @@ TEST(Reconstruction, FindCommonRegImageIds) {
             reconstruction2.FindCommonRegImageIds(reconstruction1));
 }
 
+TEST(Reconstruction, FindCommonRegImageIdsPreservesNameLookup) {
+  // Use the public linear lookup as the independent first-match oracle.
+  const auto expected_pairs = [](const Reconstruction& source,
+                                 const Reconstruction& target) {
+    std::vector<std::pair<image_t, image_t>> pairs;
+    for (const frame_t frame_id : source.RegFrameIds()) {
+      for (const data_t& data_id : source.Frame(frame_id).ImageIds()) {
+        const auto& image = source.Image(data_id.id);
+        const auto* match = target.FindImageWithName(image.Name());
+        if (match != nullptr && match->FramePtr()->HasPose()) {
+          pairs.emplace_back(image.ImageId(), match->ImageId());
+        }
+      }
+    }
+    return pairs;
+  };
+  for (const image_t num_source : {0, 1, 2, 8, 64, 65}) {
+    for (const image_t num_target : {0, 1, 2, 8, 64, 65}) {
+      SCOPED_TRACE(num_source);
+      SCOPED_TRACE(num_target);
+      Reconstruction source;
+      Reconstruction target;
+      GenerateReconstruction(num_source, &source);
+      GenerateReconstruction(num_target, &target);
+      EXPECT_EQ(source.FindCommonRegImageIds(target),
+                expected_pairs(source, target));
+    }
+  }
+  Reconstruction source;
+  Reconstruction target;
+  GenerateReconstruction(128, &source);
+  GenerateReconstruction(128, &target);
+  source.Image(1).SetName("duplicate");
+  source.Image(2).SetName("duplicate");
+  source.Image(3).SetName("");
+  source.Image(4).SetName("missing");
+  source.DeRegisterFrame(5);
+  target.Image(1).SetName("duplicate");
+  target.Image(2).SetName("duplicate");
+  target.Image(3).SetName("");
+  const auto duplicate_frame_id =
+      target.FindImageWithName("duplicate")->FrameId();
+  target.DeRegisterFrame(duplicate_frame_id);
+  const Reconstruction source_before(source);
+  const Reconstruction target_before(target);
+  EXPECT_EQ(source.FindCommonRegImageIds(target),
+            expected_pairs(source, target));
+  EXPECT_THAT(source, ReconstructionEq(source_before));
+  EXPECT_THAT(target, ReconstructionEq(target_before));
+  EXPECT_EQ(source.FindCommonRegImageIds(source),
+            expected_pairs(source, source));
+  // The index must not survive this call or hide later name changes.
+  target.Image(6).SetName("missing");
+  EXPECT_EQ(source.FindCommonRegImageIds(target),
+            expected_pairs(source, target));
+  // One registered frame may contribute several camera images.
+  for (const int num_cameras : {2, 65}) {
+    SCOPED_TRACE(num_cameras);
+    SyntheticDatasetOptions options;
+    options.num_rigs = 1;
+    options.num_cameras_per_rig = num_cameras;
+    options.num_frames_per_rig = 1;
+    options.num_points3D = 0;
+    options.num_points2D_without_point3D = 0;
+    Reconstruction rig_source;
+    SynthesizeDataset(options, &rig_source);
+    ASSERT_EQ(rig_source.NumRegFrames(), 1);
+    ASSERT_EQ(rig_source.NumRegImages(), num_cameras);
+    Reconstruction rig_target(rig_source);
+    EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target).size(), num_cameras);
+    EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target),
+              expected_pairs(rig_source, rig_target));
+    rig_target.DeRegisterFrame(*rig_target.RegFrameIds().begin());
+    EXPECT_TRUE(rig_source.FindCommonRegImageIds(rig_target).empty());
+    EXPECT_EQ(rig_source.FindCommonRegImageIds(rig_target),
+              expected_pairs(rig_source, rig_target));
+  }
+}
+
 TEST(Reconstruction, ComputeNumObservations) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
