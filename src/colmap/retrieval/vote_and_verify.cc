@@ -8,6 +8,8 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 
+#include <cmath>
+
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -226,8 +228,9 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   }
 
   for (const auto& match : matches) {
-    const auto T =
+    auto T =
         FeatureGeometry::TransformFromMatch(match.geometry1, match.geometry2);
+    T.angle = std::remainder(T.angle, 2.0f * static_cast<float>(EIGEN_PI));
 
     if (std::abs(T.tx) > max_trans || std::abs(T.ty) > max_trans) {
       continue;
