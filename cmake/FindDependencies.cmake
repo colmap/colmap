@@ -372,6 +372,7 @@ if(CUDA_ENABLED)
 
             declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
             declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
+            declare_imported_cuda_target(cublas ${CUDA_LIBRARIES})
 
             set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
             set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
@@ -478,6 +479,32 @@ if(CUDA_ENABLED AND CUDA_FOUND)
                     "archs: ${CMAKE_CUDA_ARCHITECTURES})")
 else()
     set(CUDA_ENABLED OFF)
+endif()
+
+# cusift needs CUDA >= 11.2 (for its memory pool), cuBLAS (for its matcher) and
+# CMake >= 3.17. Otherwise it is disabled and the rest of COLMAP builds as
+# before. The legacy (CMake < 3.17) branch above still declares CUDA::cublas
+# for projects that use an installed COLMAP built with cusift.
+if(CUSIFT_ENABLED)
+    if(NOT CUDA_ENABLED)
+        message(STATUS "Disabling cusift (requires CUDA)")
+        set(CUSIFT_ENABLED OFF)
+    elseif(CMAKE_VERSION VERSION_LESS 3.17)
+        message(STATUS "Disabling cusift (requires CMake >= 3.17)")
+        set(CUSIFT_ENABLED OFF)
+    elseif(CUDAToolkit_VERSION VERSION_LESS "11.2")
+        message(STATUS "Disabling cusift (requires CUDA >= 11.2, found "
+                       "${CUDAToolkit_VERSION})")
+        set(CUSIFT_ENABLED OFF)
+    elseif(NOT TARGET CUDA::cublas)
+        message(STATUS "Disabling cusift (requires cuBLAS)")
+        set(CUSIFT_ENABLED OFF)
+    else()
+        message(STATUS "Enabling cusift")
+        list(APPEND COLMAP_COMPILE_DEFINITIONS COLMAP_CUSIFT_ENABLED)
+    endif()
+else()
+    message(STATUS "Disabling cusift")
 endif()
 
 if(ONNX_ENABLED)

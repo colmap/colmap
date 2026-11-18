@@ -3,6 +3,7 @@
 #include "colmap/controllers/feature_matching_utils.h"
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
@@ -110,6 +111,9 @@ void FeatureMatcherWorker::Run() {
     // number of descriptors for any image over the whole database.
     matching_options_.max_num_matches = std::min<int>(
         matching_options_.max_num_matches, cache_->MaxNumKeypoints());
+    if (matching_options_.cusift) {
+      matching_options_.cusift->reserve_max_num_matches = true;
+    }
 
     if (shared_matcher_ == nullptr) {
       matcher = FeatureMatcher::Create(matching_options_);

@@ -2,11 +2,18 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
+#include "colmap/controllers/pairing.h"
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
+#include "colmap/feature/sift.h"
+#include "colmap/retrieval/resources.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
+
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -69,6 +76,57 @@ INSTANTIATE_TEST_SUITE_P(
     ParameterizedAutomaticReconstructionTests,
     ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
                       AutomaticReconstructionController::Mapper::HIERARCHICAL));
+
+using Quality = AutomaticReconstructionController::Quality;
+
+OptionManager ResolveFeatureOptions(
+    const AutomaticReconstructionController::Feature feature,
+    const Quality quality) {
+  AutomaticReconstructionController::Options options;
+  options.feature = feature;
+  options.quality = quality;
+  OptionManager option_manager;
+  option_manager.AddAllOptions();
+  AutomaticReconstructionController::ApplyFeatureOptions(options,
+                                                         &option_manager);
+  return option_manager;
+}
+
+class FeatureOptionsAtHighQualityTest
+    : public ::testing::TestWithParam<Quality> {};
+
+// The high and extreme presets turn on affine shape and guided matching, and
+// extreme also domain-size pooling.
+TEST_P(FeatureOptionsAtHighQualityTest, SiftKeepsThePresets) {
+  const OptionManager option_manager = ResolveFeatureOptions(
+      AutomaticReconstructionController::Feature::SIFT, GetParam());
+  EXPECT_TRUE(option_manager.feature_extraction->sift->estimate_affine_shape);
+  EXPECT_TRUE(option_manager.feature_matching->guided_matching);
+  EXPECT_EQ(option_manager.feature_extraction->sift->domain_size_pooling,
+            GetParam() == Quality::EXTREME);
+}
+
+// cusift supports neither, and writes SIFT descriptors, so it gets the SIFT
+// vocabulary tree.
+TEST_P(FeatureOptionsAtHighQualityTest, CusiftClearsWhatItDoesNotSupport) {
+  const OptionManager option_manager = ResolveFeatureOptions(
+      AutomaticReconstructionController::Feature::CUSIFT, GetParam());
+  EXPECT_EQ(option_manager.feature_extraction->type,
+            FeatureExtractorType::CUSIFT);
+  EXPECT_EQ(option_manager.feature_matching->type,
+            FeatureMatcherType::CUSIFT_GEMM);
+  const std::string sift_tree =
+      GetVocabTreeUriForFeatureType(FeatureExtractorType::SIFT).string();
+  EXPECT_EQ(option_manager.vocab_tree_pairing->vocab_tree_path, sift_tree);
+  EXPECT_EQ(option_manager.sequential_pairing->vocab_tree_path, sift_tree);
+  EXPECT_FALSE(option_manager.feature_matching->guided_matching);
+  EXPECT_FALSE(option_manager.feature_extraction->sift->estimate_affine_shape);
+  EXPECT_FALSE(option_manager.feature_extraction->sift->domain_size_pooling);
+}
+
+INSTANTIATE_TEST_SUITE_P(AutomaticReconstructionController,
+                         FeatureOptionsAtHighQualityTest,
+                         ::testing::Values(Quality::HIGH, Quality::EXTREME));
 
 }  // namespace
 }  // namespace colmap

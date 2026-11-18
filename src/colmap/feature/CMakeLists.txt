@@ -21,6 +21,8 @@ COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
         aliked.h aliked.cc
+        cusift.h cusift.cc
+        cusift_matcher.h cusift_matcher.cc
         extractor.h extractor.cc
         flexglue.h flexglue.cc
         index.h index.cc
@@ -43,6 +45,11 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         faiss
 )
+
+if(CUSIFT_ENABLED)
+    # colmap_util_cuda for device selection (SetBestCudaDevice).
+    target_link_libraries(colmap_feature PRIVATE colmap_cusift colmap_util_cuda)
+endif()
 
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
@@ -98,6 +105,51 @@ if(ONNX_ENABLED)
         LINK_LIBS
             colmap_feature
             onnxruntime::onnxruntime
+    )
+endif()
+# The option tests in cusift_test and cusift_matcher_test run in every build;
+# their GPU tests are compiled only with cusift.
+COLMAP_ADD_TEST(
+    NAME cusift_test
+    SRCS cusift_test.cc
+    LINK_LIBS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME cusift_matcher_test
+    SRCS cusift_matcher_test.cc
+    LINK_LIBS colmap_feature
+)
+if(TESTS_ENABLED AND CUSIFT_ENABLED)
+    # Plain signature, as for sift_test below.
+    target_link_libraries(colmap_feature_cusift_test colmap_util_cuda)
+    # colmap_cusift: GemmMatcherContract tests call the vendored GEMM matcher
+    # directly.
+    target_link_libraries(colmap_feature_cusift_matcher_test
+        colmap_util_cuda colmap_cusift)
+endif()
+if(CUSIFT_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME cusift_determinism_test
+        SRCS cusift_determinism_test.cc
+        LINK_LIBS colmap_feature colmap_util_cuda
+    )
+    # Builds two-view and pose problems, so it also needs the estimators. It
+    # reads IncrementalMapper::Options defaults from the header only, so it
+    # does not link colmap_sfm.
+    COLMAP_ADD_TEST(
+        NAME cusift_verification_test
+        SRCS cusift_verification_test.cc
+        LINK_LIBS colmap_feature colmap_estimators colmap_util_cuda
+    )
+    COLMAP_ADD_TEST(
+        NAME cusift_memory_test
+        SRCS cusift_memory_test.cc
+        LINK_LIBS colmap_feature colmap_cusift colmap_util_cuda
+    )
+    COLMAP_ADD_TEST(
+        NAME cusift_pool_fallback_test
+        SRCS cusift_pool_fallback_test.cc
+        LINK_LIBS colmap_cusift colmap_util_cuda
     )
 endif()
 COLMAP_ADD_TEST(

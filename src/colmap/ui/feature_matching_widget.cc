@@ -3,6 +3,7 @@
 #include "colmap/ui/feature_matching_widget.h"
 
 #include "colmap/controllers/feature_matching.h"
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #ifdef COLMAP_ONNX_ENABLED
@@ -37,6 +38,9 @@ class FeatureMatchingTab : public QWidget {
   ThreadControlWidget* thread_control_widget_;
   QComboBox* matcher_type_cb_;
   std::vector<FeatureMatcherType> matcher_types_;
+#ifdef COLMAP_CUSIFT_ENABLED
+  QComboBox* cusift_distance_type_cb_;
+#endif
 };
 
 class ExhaustiveMatchingTab : public FeatureMatchingTab {
@@ -97,6 +101,9 @@ void FeatureMatchingTab::CreateGeneralOptions() {
     matcher_types_.push_back(type);
   };
   add_matcher_type(FeatureMatcherType::SIFT_BRUTEFORCE);
+#ifdef COLMAP_CUSIFT_ENABLED
+  add_matcher_type(FeatureMatcherType::CUSIFT_GEMM);
+#endif
 #ifdef COLMAP_ONNX_ENABLED
   add_matcher_type(FeatureMatcherType::SIFT_LIGHTGLUE);
   add_matcher_type(FeatureMatcherType::ALIKED_BRUTEFORCE);
@@ -136,6 +143,20 @@ void FeatureMatchingTab::CreateGeneralOptions() {
       &options_->feature_matching->sift->max_distance, "sift.max_distance");
   options_widget_->AddOptionBool(&options_->feature_matching->sift->cross_check,
                                  "sift.cross_check");
+#ifdef COLMAP_CUSIFT_ENABLED
+  options_widget_->AddOptionBool(
+      &options_->feature_matching->cusift->cross_check_reverse_ratio,
+      "cusift.cross_check_reverse_ratio");
+  cusift_distance_type_cb_ = new QComboBox(options_widget_);
+  for (const CusiftDistanceType type :
+       {CusiftDistanceType::ANGULAR, CusiftDistanceType::L2}) {
+    cusift_distance_type_cb_->addItem(
+        QString::fromStdString(std::string(CusiftDistanceTypeToString(type))),
+        static_cast<int>(type));
+  }
+  options_widget_->AddWidgetRow("cusift.distance_type",
+                                cusift_distance_type_cb_);
+#endif
 #ifdef COLMAP_ONNX_ENABLED
   options_widget_->AddOptionDouble(
       &options_->feature_matching->flexglue->filter_threshold,
@@ -202,6 +223,10 @@ void FeatureMatchingTab::ReadOptions() {
       break;
     }
   }
+#ifdef COLMAP_CUSIFT_ENABLED
+  cusift_distance_type_cb_->setCurrentIndex(cusift_distance_type_cb_->findData(
+      static_cast<int>(options_->feature_matching->cusift->distance_type)));
+#endif
   options_widget_->ReadOptions();
 }
 
@@ -209,6 +234,20 @@ void FeatureMatchingTab::WriteOptions() {
   options_widget_->WriteOptions();
   options_->feature_matching->type =
       matcher_types_[matcher_type_cb_->currentIndex()];
+#ifdef COLMAP_CUSIFT_ENABLED
+  options_->feature_matching->cusift->distance_type =
+      static_cast<CusiftDistanceType>(
+          cusift_distance_type_cb_->currentData().toInt());
+  // The cusift matcher has no guided matching and rejects it. Untick the box
+  // too: hiding the dialog writes the widgets back into the options.
+  if (options_->feature_matching->type == FeatureMatcherType::CUSIFT_GEMM &&
+      options_->feature_matching->guided_matching) {
+    LOG(WARNING) << "guided_matching is not supported by CUSIFT_GEMM; "
+                    "matching without it.";
+    options_->feature_matching->guided_matching = false;
+    options_widget_->ReadOptions();
+  }
+#endif
   // FlexGlue reads the image pixels during matching. The GUI has no field for
   // this option, so always use the image path of the current project.
   options_->feature_matching->flexglue->image_path =

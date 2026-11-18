@@ -10,6 +10,9 @@ const std::filesystem::path& GetVocabTreeUriForFeatureType(
     FeatureExtractorType feature_type) {
   switch (feature_type) {
     case FeatureExtractorType::SIFT:
+    // cusift writes standard SIFT descriptors (typed SIFT in the database),
+    // so it uses the SIFT vocabulary tree.
+    case FeatureExtractorType::CUSIFT:
       return kDefaultSiftVocabTreeUri;
     case FeatureExtractorType::ALIKED_N16ROT:
       return kDefaultAlikedN16RotVocabTreeUri;

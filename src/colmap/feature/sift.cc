@@ -36,11 +36,6 @@
 
 namespace colmap {
 
-constexpr int kSiftDescriptorDim = 128;
-
-// SIFT descriptors are normalized to length 512 (w/ quantization errors).
-constexpr int kSqSiftDescriptorNorm = 512 * 512;
-
 bool SiftExtractionOptions::Check() const {
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GT(octave_resolution, 0);
@@ -60,6 +55,35 @@ bool SiftMatchingOptions::Check() const {
   CHECK_OPTION_GT(max_distance, 0.0);
   if (!lightglue.Check()) return false;
   return true;
+}
+
+bool SiftMatchAcceptance::AcceptsAngular(const float best_dot,
+                                         const float second_best_dot) const {
+  constexpr float kInvSqDescriptorNorm =
+      static_cast<float>(1. / kSqSiftDescriptorNorm);
+  if (best_dot <= 0) {
+    return false;
+  }
+  // Angles, in which the thresholds are defined.
+  const float best_dist_normed =
+      std::acos(std::min(kInvSqDescriptorNorm * best_dot, 1.0f));
+  if (best_dist_normed > max_distance) {
+    return false;
+  }
+  const float second_best_dist_normed =
+      std::acos(std::min(kInvSqDescriptorNorm * second_best_dot, 1.0f));
+  // Strict, so that best == second_best is rejected.
+  return best_dist_normed < max_ratio * second_best_dist_normed;
+}
+
+bool SiftMatchAcceptance::AcceptsL2(const float best_sq_dist,
+                                    const float second_best_sq_dist) const {
+  const float max_sq_dist = kSqSiftDescriptorNorm * max_distance * max_distance;
+  if (best_sq_dist > max_sq_dist) {
+    return false;
+  }
+  // Strict, so that best == second_best is rejected.
+  return std::sqrt(best_sq_dist) < max_ratio * std::sqrt(second_best_sq_dist);
 }
 
 namespace {
@@ -746,8 +770,7 @@ size_t FindBestMatchesOneWayBruteForce(
     const float max_ratio,
     const float max_distance,
     std::vector<int>* matches) {
-  constexpr float kInvSqDescriptorNorm =
-      static_cast<float>(1. / kSqSiftDescriptorNorm);
+  const SiftMatchAcceptance acceptance{max_ratio, max_distance};
 
   size_t num_matches = 0;
   matches->resize(dot_products.rows(), -1);
@@ -772,21 +795,7 @@ size_t FindBestMatchesOneWayBruteForce(
       continue;
     }
 
-    // Convert to L2 distance in which the thresholds are defined.
-    const float best_dist_normed =
-        std::acos(std::min(kInvSqDescriptorNorm * best_dot_product, 1.0f));
-
-    // Check if match distance passes threshold.
-    if (best_dist_normed > max_distance) {
-      continue;
-    }
-
-    const float second_best_dist_normed = std::acos(
-        std::min(kInvSqDescriptorNorm * second_best_dot_product, 1.0f));
-
-    // Check if match passes ratio test. Keep this comparison >= in order to
-    // ensure that the case of best == second_best is detected.
-    if (best_dist_normed >= max_ratio * second_best_dist_normed) {
+    if (!acceptance.AcceptsAngular(best_dot_product, second_best_dot_product)) {
       continue;
     }
 
@@ -840,7 +849,7 @@ size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
                                   const float max_ratio,
                                   const float max_distance,
                                   std::vector<int>* matches) {
-  const float max_l2_dist = kSqSiftDescriptorNorm * max_distance * max_distance;
+  const SiftMatchAcceptance acceptance{max_ratio, max_distance};
 
   size_t num_matches = 0;
   matches->resize(indices.rows(), -1);
@@ -866,14 +875,7 @@ size_t FindBestMatchesOneWayIndex(const Eigen::RowMajorMatrixXi& indices,
       continue;
     }
 
-    // Check if match distance passes threshold.
-    if (best_l2_dist > max_l2_dist) {
-      continue;
-    }
-
-    // Check if match passes ratio test. Keep this comparison >= in order to
-    // ensure that the case of best == second_best is detected.
-    if (std::sqrt(best_l2_dist) >= max_ratio * std::sqrt(second_best_l2_dist)) {
+    if (!acceptance.AcceptsL2(best_l2_dist, second_best_l2_dist)) {
       continue;
     }
 

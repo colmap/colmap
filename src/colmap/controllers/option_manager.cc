@@ -20,6 +20,8 @@
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
@@ -340,6 +342,9 @@ void OptionManager::AddFeatureExtractionOptions() {
   AddDefaultOption("AlikedExtraction.n32_model_path",
                    &feature_extraction->aliked->n32_model_path);
 
+  AddDefaultOption("CusiftExtraction.num_octaves",
+                   &feature_extraction->cusift->num_octaves);
+
   AddDefaultOption("LomaExtraction.max_num_features",
                    &feature_extraction->loma->max_num_features);
   AddDefaultOption("LomaExtraction.min_score",
@@ -468,6 +473,12 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->flexglue->num_workers_per_gpu);
   AddDefaultOption("FlexGlueMatching.num_inferences_per_gpu",
                    &feature_matching->flexglue->num_inferences_per_gpu);
+  AddDefaultOption("CusiftMatching.cross_check_reverse_ratio",
+                   &feature_matching->cusift->cross_check_reverse_ratio);
+  AddDefaultEnumOption("CusiftMatching.distance_type",
+                       &feature_matching->cusift->distance_type,
+                       CusiftDistanceTypeToString,
+                       CusiftDistanceTypeFromString);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {

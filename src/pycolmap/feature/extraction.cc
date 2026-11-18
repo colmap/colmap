@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/sift.h"
 #ifdef COLMAP_ONNX_ENABLED
@@ -185,6 +186,20 @@ void BindFeatureExtraction(py::module& m) {
   MakeDataclass(PyLomaExtractionOptions);
 #endif
 
+  auto PyCusiftExtractionOptions =
+      py::classh<CusiftExtractionOptions>(m, "CusiftExtractionOptions")
+          .def(py::init<>())
+          .def_readwrite(
+              "num_octaves",
+              &CusiftExtractionOptions::num_octaves,
+              "Number of octaves to build. A positive value builds that many, "
+              "or fewer if the pyramid would halve below 1 px; the default, "
+              "4, is the CPU (VLFeat) backend's. -1 picks it like SiftGPU: "
+              "floor(log2(min image side)) - 3, after first_octave's "
+              "upsampling.")
+          .def("check", &CusiftExtractionOptions::Check);
+  MakeDataclass(PyCusiftExtractionOptions);
+
   auto PyFeatureExtractionOptions =
       py::classh<FeatureExtractionOptions>(m, "FeatureExtractionOptions")
           .def(py::init<FeatureExtractorType>(),
@@ -207,7 +222,7 @@ void BindFeatureExtraction(py::module& m) {
                          "multi-GPU matching, you should separate multiple "
                          "GPU indices by comma, e.g., '0,1,2,3'.")
           .def_readwrite("sift", &FeatureExtractionOptions::sift)
-
+          .def_readwrite("cusift", &FeatureExtractionOptions::cusift)
           .def("requires_rgb", &FeatureExtractionOptions::RequiresRGB)
           .def("requires_opengl", &FeatureExtractionOptions::RequiresOpenGL)
           .def("eff_max_image_size", &FeatureExtractionOptions::EffMaxImageSize)

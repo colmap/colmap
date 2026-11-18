@@ -115,6 +115,31 @@ struct SiftMatchingOptions {
   bool Check() const;
 };
 
+// SIFT descriptors have 128 dimensions and are normalized to length 512 (with
+// quantization errors).
+constexpr int kSiftDescriptorDim = 128;
+constexpr int kSqSiftDescriptorNorm = 512 * 512;
+
+// Acceptance of a one-way SIFT match from the best and second-best candidate
+// of a query, as every SIFT matcher in COLMAP applies it: the best candidate
+// must lie within max_distance and pass Lowe's ratio test against the second
+// best (strictly, so that best == second is rejected).
+struct SiftMatchAcceptance {
+  float max_ratio = 0.8f;
+  float max_distance = 0.7f;
+
+  // Candidates as inner products with the query, compared as the angles
+  // acos(dot / kSqSiftDescriptorNorm); max_distance is in radians. A query
+  // without a second candidate passes 0 (angle pi/2), and a best dot <= 0 is
+  // no candidate, as in the brute-force matcher.
+  bool AcceptsAngular(float best_dot, float second_best_dot) const;
+
+  // Candidates as squared L2 distances to the query in the descriptors' own
+  // scale; max_distance is in unit-vector distance. A query without a second
+  // candidate passes FLT_MAX, as in the index matcher.
+  bool AcceptsL2(float best_sq_dist, float second_best_sq_dist) const;
+};
+
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const FeatureMatchingOptions& options);
 

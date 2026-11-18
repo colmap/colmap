@@ -3,6 +3,7 @@
 #include "colmap/feature/matcher.h"
 
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift_matcher.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/onnx_matchers.h"
@@ -24,14 +25,16 @@ FeatureMatchingTypeOptions::FeatureMatchingTypeOptions()
     : sift(std::make_shared<SiftMatchingOptions>()),
       aliked(std::make_shared<AlikedMatchingOptions>()),
       loma(std::make_shared<LomaMatchingOptions>()),
-      flexglue(std::make_shared<FlexGlueMatchingOptions>()) {}
+      flexglue(std::make_shared<FlexGlueMatchingOptions>()),
+      cusift(std::make_shared<CusiftMatchingOptions>()) {}
 
 FeatureMatchingTypeOptions::FeatureMatchingTypeOptions(
     const FeatureMatchingTypeOptions& other)
     : sift(CloneSharedPtr(other.sift)),
       aliked(CloneSharedPtr(other.aliked)),
       loma(CloneSharedPtr(other.loma)),
-      flexglue(CloneSharedPtr(other.flexglue)) {}
+      flexglue(CloneSharedPtr(other.flexglue)),
+      cusift(CloneSharedPtr(other.cusift)) {}
 
 FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
     const FeatureMatchingTypeOptions& other) {
@@ -42,6 +45,7 @@ FeatureMatchingTypeOptions& FeatureMatchingTypeOptions::operator=(
   aliked = CloneSharedPtr(other.aliked);
   loma = CloneSharedPtr(other.loma);
   flexglue = CloneSharedPtr(other.flexglue);
+  cusift = CloneSharedPtr(other.cusift);
   return *this;
 }
 
@@ -71,6 +75,7 @@ bool FeatureMatchingOptions::RequiresOpenGL() const {
     case FeatureMatcherType::LOMA_L:
     case FeatureMatcherType::LOMA_G:
     case FeatureMatcherType::FLEXGLUE:
+    case FeatureMatcherType::CUSIFT_GEMM:
       return false;
     default:
       ThrowUnknownFeatureMatcherType(type);
@@ -106,6 +111,23 @@ bool FeatureMatchingOptions::Check() const {
       // Not supported by FlexGlue. Fail before loading the models.
       CHECK_OPTION(!guided_matching);
       return THROW_CHECK_NOTNULL(flexglue)->Check();
+    case FeatureMatcherType::CUSIFT_GEMM:
+#if !defined(COLMAP_CUSIFT_ENABLED)
+      LOG(ERROR) << "COLMAP was built without cusift (CUSIFT_ENABLED, which "
+                    "needs CUDA >= 11.2).";
+      return false;
+#else
+      // No CPU implementation to fall back to.
+      if (!use_gpu) {
+        LOG(ERROR) << "cusift feature matching requires GPU. Consider "
+                      "setting the feature matcher type to SIFT_BRUTEFORCE.";
+        return false;
+      }
+      // Not supported by CUSIFT_GEMM.
+      CHECK_OPTION(!guided_matching);
+      return THROW_CHECK_NOTNULL(sift)->Check() &&
+             THROW_CHECK_NOTNULL(cusift)->Check();
+#endif
     default:
       LOG(ERROR) << "Unknown feature matcher type: " << type;
       return false;
@@ -131,6 +153,8 @@ std::unique_ptr<FeatureMatcher> FeatureMatcher::Create(
       return CreateLomaFeatureMatcher(options);
     case FeatureMatcherType::FLEXGLUE:
       return CreateFlexGlueFeatureMatcher(options);
+    case FeatureMatcherType::CUSIFT_GEMM:
+      return CreateCusiftFeatureMatcher(options);
     default:
       ThrowUnknownFeatureMatcherType(options.type);
   }

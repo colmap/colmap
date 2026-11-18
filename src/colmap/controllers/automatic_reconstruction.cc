@@ -12,6 +12,7 @@
 #include "colmap/controllers/undistorters.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/feature/aliked.h"
+#include "colmap/feature/cusift.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/loma.h"
 #include "colmap/feature/sift.h"
@@ -28,6 +29,78 @@
 #include "colmap/util/misc.h"
 
 namespace colmap {
+
+void AutomaticReconstructionController::ApplyFeatureOptions(
+    const Options& options, OptionManager* option_manager) {
+  // Set feature type first so quality modifiers can query EffMaxImageSize().
+  if (options.feature == Feature::SIFT) {
+    option_manager->feature_extraction->type = FeatureExtractorType::SIFT;
+    option_manager->feature_matching->type =
+        FeatureMatcherType::SIFT_BRUTEFORCE;
+  } else if (options.feature == Feature::ALIKED) {
+    option_manager->feature_extraction->type =
+        FeatureExtractorType::ALIKED_N16ROT;
+    option_manager->feature_matching->type =
+        FeatureMatcherType::ALIKED_BRUTEFORCE;
+  } else if (options.feature == Feature::LOMA) {
+    option_manager->feature_extraction->type = FeatureExtractorType::LOMA_B;
+    option_manager->feature_matching->type = FeatureMatcherType::LOMA_B;
+  } else if (options.feature == Feature::LOMA128) {
+    option_manager->feature_extraction->type = FeatureExtractorType::LOMA_B128;
+    option_manager->feature_matching->type = FeatureMatcherType::LOMA_B128;
+  } else if (options.feature == Feature::FLEXGLUE) {
+    // FlexGlue only uses the keypoint locations. Use the same DaD keypoints as
+    // the LoMa presets, with the lightweight descriptor (unused by FlexGlue).
+    option_manager->feature_extraction->type = FeatureExtractorType::LOMA_B128;
+    option_manager->feature_matching->type = FeatureMatcherType::FLEXGLUE;
+    // FlexGlue reads the image pixels during matching.
+    option_manager->feature_matching->flexglue->image_path =
+        options.image_path.string();
+  } else if (options.feature == Feature::CUSIFT) {
+    option_manager->feature_extraction->type = FeatureExtractorType::CUSIFT;
+    option_manager->feature_matching->type = FeatureMatcherType::CUSIFT_GEMM;
+  }
+
+  // Apply quality preset (scales max_image_size relative to extractor default).
+  if (options.quality == Quality::LOW) {
+    option_manager->ModifyForLowQuality();
+  } else if (options.quality == Quality::MEDIUM) {
+    option_manager->ModifyForMediumQuality();
+  } else if (options.quality == Quality::HIGH) {
+    option_manager->ModifyForHighQuality();
+  } else if (options.quality == Quality::EXTREME) {
+    option_manager->ModifyForExtremeQuality();
+  }
+
+  // Must come after quality, which sets the number of SIFT features.
+  if (options.max_num_features > 0) {
+    option_manager->feature_extraction->sift->max_num_features =
+        options.max_num_features;
+    option_manager->feature_extraction->aliked->max_num_features =
+        options.max_num_features;
+    option_manager->feature_extraction->loma->max_num_features =
+        options.max_num_features;
+  }
+
+  // Feature-specific overrides that must come after quality.
+  if (options.feature == Feature::ALIKED || options.feature == Feature::LOMA ||
+      options.feature == Feature::LOMA128 ||
+      options.feature == Feature::FLEXGLUE ||
+      options.feature == Feature::CUSIFT) {
+    // Guided matching is not supported for ALIKED/LoMa/FlexGlue/cusift
+    option_manager->feature_matching->guided_matching = false;
+  }
+  if (options.feature == Feature::CUSIFT) {
+    // The high and extreme quality presets enable covariant SIFT, which cusift
+    // rejects rather than ignores.
+    ClearUnsupportedCusiftSiftOptions(
+        option_manager->feature_extraction->sift.get());
+  }
+  option_manager->vocab_tree_pairing->vocab_tree_path =
+      GetVocabTreeUriForFeatureType(option_manager->feature_extraction->type);
+  option_manager->sequential_pairing->vocab_tree_path =
+      GetVocabTreeUriForFeatureType(option_manager->feature_extraction->type);
+}
 
 AutomaticReconstructionController::AutomaticReconstructionController(
     const Options& options,
@@ -59,61 +132,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   THROW_CHECK(ExistsCameraModelWithName(options_.camera_model));
 
-  // Set feature type first so quality modifiers can query EffMaxImageSize().
-  if (options_.feature == Feature::SIFT) {
-    option_manager_.feature_extraction->type = FeatureExtractorType::SIFT;
-    option_manager_.feature_matching->type =
-        FeatureMatcherType::SIFT_BRUTEFORCE;
-  } else if (options_.feature == Feature::ALIKED) {
-    option_manager_.feature_extraction->type =
-        FeatureExtractorType::ALIKED_N16ROT;
-    option_manager_.feature_matching->type =
-        FeatureMatcherType::ALIKED_BRUTEFORCE;
-  } else if (options_.feature == Feature::LOMA) {
-    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B;
-    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B;
-  } else if (options_.feature == Feature::LOMA128) {
-    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
-    option_manager_.feature_matching->type = FeatureMatcherType::LOMA_B128;
-  } else if (options_.feature == Feature::FLEXGLUE) {
-    // FlexGlue only uses the keypoint locations. Use the same DaD keypoints as
-    // the LoMa presets, with the lightweight descriptor (unused by FlexGlue).
-    option_manager_.feature_extraction->type = FeatureExtractorType::LOMA_B128;
-    option_manager_.feature_matching->type = FeatureMatcherType::FLEXGLUE;
-    // FlexGlue reads the image pixels during matching.
-    option_manager_.feature_matching->flexglue->image_path =
-        options_.image_path.string();
-  }
+  ApplyFeatureOptions(options_, &option_manager_);
 
-  // Apply quality preset (scales max_image_size relative to extractor default).
-  if (options_.quality == Quality::LOW) {
-    option_manager_.ModifyForLowQuality();
-  } else if (options_.quality == Quality::MEDIUM) {
-    option_manager_.ModifyForMediumQuality();
-  } else if (options_.quality == Quality::HIGH) {
-    option_manager_.ModifyForHighQuality();
-  } else if (options_.quality == Quality::EXTREME) {
-    option_manager_.ModifyForExtremeQuality();
-  }
-
-  // Must come after quality, which sets the number of SIFT features.
-  if (options_.max_num_features > 0) {
-    option_manager_.feature_extraction->sift->max_num_features =
-        options_.max_num_features;
-    option_manager_.feature_extraction->aliked->max_num_features =
-        options_.max_num_features;
-    option_manager_.feature_extraction->loma->max_num_features =
-        options_.max_num_features;
-  }
-
-  // Feature-specific overrides that must come after quality.
-  if (options_.feature == Feature::ALIKED ||
-      options_.feature == Feature::LOMA ||
-      options_.feature == Feature::LOMA128 ||
-      options_.feature == Feature::FLEXGLUE) {
-    // Guided matching is not supported for ALIKED/LoMa/FlexGlue
-    option_manager_.feature_matching->guided_matching = false;
-  }
   option_manager_.feature_extraction->num_threads = options_.num_threads;
   option_manager_.feature_matching->num_threads = options_.num_threads;
   option_manager_.sequential_pairing->num_threads = options_.num_threads;
@@ -125,10 +145,6 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.delaunay_meshing->num_threads = options_.num_threads;
 #endif
 
-  option_manager_.vocab_tree_pairing->vocab_tree_path =
-      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
-  option_manager_.sequential_pairing->vocab_tree_path =
-      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
   option_manager_.sequential_pairing->loop_detection = true;
 
   // Apply mapper-appropriate two-view geometry defaults.

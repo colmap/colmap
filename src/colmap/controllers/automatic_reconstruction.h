@@ -18,7 +18,7 @@ class AutomaticReconstructionController : public Thread {
  public:
   MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
-  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED, LOMA, LOMA128, FLEXGLUE);
+  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED, LOMA, LOMA128, FLEXGLUE, CUSIFT);
   MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
   MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY, ADVANCING_FRONT);
 
@@ -120,6 +120,12 @@ class AutomaticReconstructionController : public Thread {
 
   // Whether any of the selected reconstruction stages requires OpenGL.
   bool RequiresOpenGL() const;
+
+  // Applies the feature type and quality preset of `options` to
+  // `option_manager`, with the feature-specific overrides and vocabulary trees,
+  // as the constructor does. Needs no GPU, images or workspace.
+  static void ApplyFeatureOptions(const Options& options,
+                                  OptionManager* option_manager);
 
   void Setup();
   void Stop() override;
