@@ -97,7 +97,7 @@ class MetisGraph {
   idx_t* adjwgt = nullptr;
 
  private:
-  NodeHashMap<int, int> vertex_id_to_idx_;
+  FlatHashMap<int, int> vertex_id_to_idx_;
   std::vector<int> vertex_idx_to_id_;
   std::vector<idx_t> xadj_;
   std::vector<idx_t> adjncy_;
