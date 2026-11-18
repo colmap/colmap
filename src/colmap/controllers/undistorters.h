@@ -24,6 +24,13 @@ class COLMAPUndistorter : public BaseController {
     // patch match config file.
     int num_patch_match_src_images = 20;
 
+    // Optional input masks, with the same relative names as the images plus
+    // ".png" (or with their extension replaced by ".png"). Each selected image
+    // must have a readable mask matching its camera dimensions. Masks are
+    // sampled with nearest-neighbor interpolation and written as grayscale PNGs
+    // to output_path/masks/<image_name>.png.
+    std::filesystem::path mask_path;
+
     // List of images to undistort. If empty, all images are undistorted.
     std::vector<image_t> image_ids;
 
@@ -46,6 +53,7 @@ class COLMAPUndistorter : public BaseController {
 
  private:
   bool Undistort(image_t image_id) const;
+  void UndistortMask(const Image& image, const Camera& output_camera) const;
   void WritePatchMatchConfig(const std::vector<std::string>& image_names) const;
   void WriteFusionConfig(const std::vector<std::string>& image_names) const;
   void WriteScript(bool geometric) const;
