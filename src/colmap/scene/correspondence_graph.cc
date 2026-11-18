@@ -84,10 +84,6 @@ void CorrespondenceGraph::AddTwoViewGeometry(
   struct Image& image1 = images_.at(image_id1);
   struct Image& image2 = images_.at(image_id2);
 
-  // Store number of correspondences for each image to find good initial pair.
-  image1.num_correspondences += two_view_geometry.inlier_matches.size();
-  image2.num_correspondences += two_view_geometry.inlier_matches.size();
-
   // Set the number of all correspondences for this image pair. Further below,
   // we will make sure that only unique correspondences are counted.
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
@@ -97,6 +93,10 @@ void CorrespondenceGraph::AddTwoViewGeometry(
       << image_id1 << ", image_id2=" << image_id2;
   image_pair_it->second.num_matches =
       static_cast<point2D_t>(two_view_geometry.inlier_matches.size());
+
+  // Store number of correspondences for each image to find good initial pair.
+  image1.num_correspondences += two_view_geometry.inlier_matches.size();
+  image2.num_correspondences += two_view_geometry.inlier_matches.size();
 
   // Store all matches in correspondence graph data structure. This data-
   // structure uses more memory than storing the raw match matrices, but is
