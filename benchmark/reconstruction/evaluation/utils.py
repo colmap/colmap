@@ -308,8 +308,10 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "--datasets",
         nargs="+",
         default=["eth3d", "blended-mvs", "imc2023", "imc2024"],
-        help="Datasets to evaluate by name. Use eth3d-distorted for the "
-        "distorted DSLR JPEGs.",
+        help="Datasets to evaluate by name. eth3d uses the official "
+        "undistorted images, eth3d-distorted the distorted DSLR JPEGs, and "
+        "eth3d-undistorted the DSLR JPEGs undistorted to a single centered "
+        "pinhole camera.",
     )
     parser.add_argument(
         "--categories",
