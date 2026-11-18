@@ -37,7 +37,9 @@ DAMAGE.
 #include <sys/time.h> 
 #include <sys/resource.h> 
 #endif // _WIN32 || _WIN64
+#include <cstring>
 #include <mutex>
+#include <new>
 
 namespace PoissonRecon
 {
@@ -179,16 +181,25 @@ namespace PoissonRecon
 	///////////////////////////////////////////////
 	///////////////////////////////////////////////
 
+	template< typename Value , typename Loaded >
+	Value AtomicReadValue_( const Loaded &loaded )
+	{
+		static_assert( sizeof(Value)==sizeof(Loaded) , "atomic read representation size mismatch" );
+		alignas(Value) unsigned char buffer[sizeof(Value)];
+		// memcpy creates implicit-lifetime values here under the C++17 defect resolution.
+		std::memcpy( buffer , &loaded , sizeof(loaded) );
+		return *std::launder( reinterpret_cast< Value* >( buffer ) );
+	}
+
 	template< typename Value >
 	Value ReadAtomic8_( const volatile Value * value )
 	{
 #if defined( _WIN32 ) || defined( _WIN64 )
 		char _value = InterlockedExchangeAdd8( (char*)value , 0 );
-		return *(Value*)(&_value);
 #else // !_WIN32 && !_WIN64
 		uint8_t _value =  __atomic_load_n( (uint8_t *)value , __ATOMIC_SEQ_CST );
 #endif // _WIN32 || _WIN64
-		return *(Value*)(&_value);
+		return AtomicReadValue_< Value >( _value );
 	}
 
 	template< typename Value >
@@ -196,11 +207,10 @@ namespace PoissonRecon
 	{
 #if defined( _WIN32 ) || defined( _WIN64 )
 		long _value = InterlockedExchangeAdd( (long*)value , 0 );
-		return *(Value*)(&_value);
 #else // !_WIN32 && !_WIN64
 		uint32_t _value =  __atomic_load_n( (uint32_t *)value , __ATOMIC_SEQ_CST );
 #endif // _WIN32 || _WIN64
-		return *(Value*)(&_value);
+		return AtomicReadValue_< Value >( _value );
 	}
 
 	template< typename Value >
@@ -211,7 +221,7 @@ namespace PoissonRecon
 #else // !_WIN32 && !_WIN64
 		uint64_t _value = __atomic_load_n( (uint64_t *)value , __ATOMIC_SEQ_CST );
 #endif // _WIN32 || _WIN64
-		return *(Value*)(&_value);
+		return AtomicReadValue_< Value >( _value );
 	}
 
 	template< typename Value >
