@@ -11,6 +11,7 @@
 #include "colmap/mvs/poisson_meshing.h"
 #endif
 #include "colmap/ui/main_window.h"
+#include "colmap/ui/table_widget_button_rows.h"
 #include "colmap/util/controller_thread.h"
 
 namespace colmap {
@@ -275,6 +276,32 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   table_widget_->verticalHeader()->setDefaultSectionSize(25);
 
+  table_button_rows_ = new TableWidgetButtonRows(
+      table_widget_, 1, 4, [this](int row, int column) -> QWidget* {
+        const auto* item = table_widget_->item(row, 0);
+        if (item == nullptr) return nullptr;
+        const std::string image_name = item->text().toStdString();
+        if (column == 1) {
+          auto* button = new QPushButton("Image");
+          const auto image_path = images_path_ / image_name;
+          connect(
+              button, &QPushButton::released, [this, image_name, image_path]() {
+                image_viewer_widget_->setWindowTitle(
+                    QString("Image for %1").arg(image_name.c_str()));
+                image_viewer_widget_->ReadAndShow(image_path);
+              });
+          return button;
+        }
+        const int mask = item->data(Qt::UserRole).toInt();
+        const bool photometric = column == 2;
+        const int shift = photometric ? 0 : 2;
+        return GenerateTableButtonWidget(
+            image_name,
+            photometric ? "photometric" : "geometric",
+            (mask & (1 << shift)) != 0,
+            (mask & (2 << shift)) != 0);
+      });
+
   grid->addWidget(table_widget_, 1, 0, 1, 10);
 
   grid->setColumnStretch(4, 1);
@@ -502,6 +529,7 @@ std::filesystem::path DenseReconstructionWidget::GetWorkspacePath() {
 }
 
 void DenseReconstructionWidget::RefreshWorkspace() {
+  const QSignalBlocker scroll_signals(table_widget_->verticalScrollBar());
   table_widget_->clearContents();
   table_widget_->setRowCount(0);
 
@@ -542,31 +570,32 @@ void DenseReconstructionWidget::RefreshWorkspace() {
   for (size_t i = 0; i < images.size(); ++i) {
     const std::string image_name = images[i].first;
     const std::string src_images = images[i].second;
-    const auto image_path = images_path_ / image_name;
-
     QTableWidgetItem* image_name_item =
         new QTableWidgetItem(QString::fromStdString(image_name));
+    int mask = 0;
+    for (int type = 0; type < 2; ++type) {
+      const std::string suffix =
+          type == 0 ? ".photometric.bin" : ".geometric.bin";
+      if (ExistsFile(depth_maps_path_ / (image_name + suffix))) {
+        mask |= 1 << (2 * type);
+      }
+      if (ExistsFile(normal_maps_path_ / (image_name + suffix))) {
+        mask |= 2 << (2 * type);
+      }
+    }
+    image_name_item->setData(Qt::UserRole, mask);
+    // Preserve the existing completion semantics independently of which rows
+    // currently have controls in the viewport.
+    photometric_done_ = (mask & 3) == 3;
+    geometric_done_ = (mask & 12) == 12;
     table_widget_->setItem(i, 0, image_name_item);
-
-    QPushButton* image_button = new QPushButton("Image");
-    connect(
-        image_button, &QPushButton::released, [this, image_name, image_path]() {
-          image_viewer_widget_->setWindowTitle(
-              QString("Image for %1").arg(image_name.c_str()));
-          image_viewer_widget_->ReadAndShow(image_path);
-        });
-    table_widget_->setCellWidget(i, 1, image_button);
-
-    table_widget_->setCellWidget(
-        i, 2, GenerateTableButtonWidget(image_name, "photometric"));
-    table_widget_->setCellWidget(
-        i, 3, GenerateTableButtonWidget(image_name, "geometric"));
 
     QTableWidgetItem* src_images_item =
         new QTableWidgetItem(QString::fromStdString(src_images));
     table_widget_->setItem(i, 4, src_images_item);
   }
 
+  table_button_rows_->Refresh();
   table_widget_->resizeColumnsToContents();
 
   fusion_button_->setEnabled(photometric_done_ || geometric_done_);
@@ -587,15 +616,11 @@ void DenseReconstructionWidget::WriteSurfaceMesh() {
 }
 
 QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
-    const std::string& image_name, const std::string& type) {
+    const std::string& image_name,
+    const std::string& type,
+    bool depth_exists,
+    bool normal_exists) {
   THROW_CHECK(type == "photometric" || type == "geometric");
-  const bool photometric = type == "photometric";
-
-  if (photometric) {
-    photometric_done_ = true;
-  } else {
-    geometric_done_ = true;
-  }
 
   const auto depth_map_path =
       depth_maps_path_ /
@@ -609,7 +634,7 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
   button_layout->setContentsMargins(0, 0, 0, 0);
 
   QPushButton* depth_map_button = new QPushButton("Depth map", button_widget);
-  if (ExistsFile(depth_map_path)) {
+  if (depth_exists) {
     connect(depth_map_button,
             &QPushButton::released,
             [this, image_name, depth_map_path]() {
@@ -623,16 +648,11 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
             });
   } else {
     depth_map_button->setEnabled(false);
-    if (photometric) {
-      photometric_done_ = false;
-    } else {
-      geometric_done_ = false;
-    }
   }
   button_layout->addWidget(depth_map_button, 0, 1, Qt::AlignLeft);
 
   QPushButton* normal_map_button = new QPushButton("Normal map", button_widget);
-  if (ExistsFile(normal_map_path)) {
+  if (normal_exists) {
     connect(normal_map_button,
             &QPushButton::released,
             [this, image_name, normal_map_path]() {
@@ -646,11 +666,6 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
             });
   } else {
     normal_map_button->setEnabled(false);
-    if (photometric) {
-      photometric_done_ = false;
-    } else {
-      geometric_done_ = false;
-    }
   }
   button_layout->addWidget(normal_map_button, 0, 2, Qt::AlignLeft);
 
