@@ -7,8 +7,10 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <stdexcept>
 #include <string>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -22,7 +24,7 @@ TEST(ConsistencyGraph, Empty) {
     for (size_t j = 0; j < 2; ++j) {
       int num_images;
       const int* image_idxs;
-      consistency_graph.GetImageIdxs(0, 0, &num_images, &image_idxs);
+      consistency_graph.GetImageIdxs(i, j, &num_images, &image_idxs);
       EXPECT_EQ(num_images, 0);
       EXPECT_TRUE(image_idxs == nullptr);
     }
@@ -111,7 +113,9 @@ TEST(ConsistencyGraph, RejectsTruncatedRecordPayload) {
   for (const std::vector<int>& payload : {std::vector<int>{0, 0, 1},
                                           std::vector<int>{0, 0, 2, 7},
                                           std::vector<int>{0, 0, 2147483647}}) {
-    EXPECT_THROW(ConsistencyGraph(3, 2, payload), std::exception);
+    EXPECT_THAT([&] { ConsistencyGraph(3, 2, payload); },
+                testing::ThrowsMessage<std::invalid_argument>(
+                    testing::HasSubstr("insufficient image indices")));
   }
 }
 
@@ -119,8 +123,12 @@ TEST(ConsistencyGraph, RejectsUnrepresentableDimensions) {
   const size_t too_large =
       static_cast<size_t>(std::numeric_limits<int>::max()) + 1;
   const std::vector<int> data;
-  EXPECT_THROW(ConsistencyGraph(too_large, 1, data), std::exception);
-  EXPECT_THROW(ConsistencyGraph(1, too_large, data), std::exception);
+  EXPECT_THAT([&] { ConsistencyGraph(too_large, 1, data); },
+              testing::ThrowsMessage<std::invalid_argument>(
+                  testing::HasSubstr("width <=")));
+  EXPECT_THAT([&] { ConsistencyGraph(1, too_large, data); },
+              testing::ThrowsMessage<std::invalid_argument>(
+                  testing::HasSubstr("height <=")));
 }
 
 TEST(ConsistencyGraph, RejectsPartialIntegerTail) {
@@ -132,7 +140,7 @@ TEST(ConsistencyGraph, RejectsPartialIntegerTail) {
     file.write("\0\0\0", tail);
     file.close();
     ConsistencyGraph graph;
-    EXPECT_THROW(graph.Read(path), std::exception);
+    EXPECT_THROW(graph.Read(path), std::invalid_argument);
   }
 }
 
@@ -195,7 +203,7 @@ TEST(ConsistencyGraph, PreservesGraphAfterFailedRead) {
       std::ofstream file(path, std::ios::binary);
       file.write(input.data(), input.size());
     }
-    EXPECT_THROW(graph.Read(path), std::exception);
+    EXPECT_THROW(graph.Read(path), std::invalid_argument);
     int count = -1;
     const int* ids = nullptr;
     graph.GetImageIdxs(1, 2, &count, &ids);
