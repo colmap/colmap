@@ -232,7 +232,9 @@ struct PosePriorBundleAdjustmentOptions
   // Fallback if no prior position covariance is provided.
   double prior_position_fallback_stddev = 1.0;
 
-  // Sim3 alignment options.
+  // Sim3 alignment options. max_error (if > 0) is also the inlier threshold
+  // when checking that an anchored reconstruction is already aligned with the
+  // priors.
   RANSACOptions alignment_ransac_options;
 
   bool Check() const;

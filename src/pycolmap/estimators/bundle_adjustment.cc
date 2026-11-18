@@ -387,7 +387,10 @@ void BindBundleAdjuster(py::module& m) {
               "Fallback if no prior position covariance is provided.")
           .def_readwrite("alignment_ransac",
                          &PosePriorBAOpts::alignment_ransac_options,
-                         "RANSAC options for Sim3 alignment.")
+                         "RANSAC options for Sim3 alignment. max_error (if > "
+                         "0) is also the inlier threshold when checking that "
+                         "an anchored reconstruction is already aligned with "
+                         "the priors.")
           .def_readwrite("ceres",
                          &PosePriorBAOpts::ceres,
                          "Ceres-specific pose prior bundle adjustment options.")
