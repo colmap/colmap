@@ -68,6 +68,14 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_exe
 )
 
+if(MVS_ENABLED)
+    COLMAP_ADD_TEST(
+        NAME mvs_test
+        SRCS mvs_test.cc
+        LINK_LIBS colmap_exe ${OPTIONAL_LIBS}
+    )
+endif()
+
 set(COLMAP_MAIN_SRCS
     colmap.cc
     database.cc
