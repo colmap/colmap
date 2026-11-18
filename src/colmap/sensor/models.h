@@ -26,7 +26,9 @@
 //  2. Define a unique model_name, model_id, and params_info string for the
 //     camera model (passed to the model definition macro, which also derives
 //     the parameter group index arrays from the group sizes).
-//  3. Add camera model to `CAMERA_MODEL_CASES` macro in `sensor/models/base.h`.
+//  3. Add camera model to the `AllCameraModels` tuple, the matching
+//     category tuple, and the switch in `internal::DispatchCameraModel`,
+//     all in `sensor/models/runtime.h`.
 //  4. Add new template specialization of test case for camera model to
 //     `models_test.cc`.
 //  5. Implement the analytic `ImgFromCamWithJac` for the camera model in

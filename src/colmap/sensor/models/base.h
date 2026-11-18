@@ -168,62 +168,6 @@ constexpr std::array<size_t, N> IotaArray() {
   SPHERICAL_CAMERA_MODEL_PARAM_DEFINITIONS(num_metadata_params_val)
 #endif
 
-#ifndef PERSPECTIVE_CAMERA_MODEL_CASES
-#define PERSPECTIVE_CAMERA_MODEL_CASES              \
-  CAMERA_MODEL_CASE(SimplePinholeCameraModel)       \
-  CAMERA_MODEL_CASE(PinholeCameraModel)             \
-  CAMERA_MODEL_CASE(SimpleRadialCameraModel)        \
-  CAMERA_MODEL_CASE(SimpleRadialFisheyeCameraModel) \
-  CAMERA_MODEL_CASE(RadialCameraModel)              \
-  CAMERA_MODEL_CASE(RadialFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(OpenCVCameraModel)              \
-  CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
-  CAMERA_MODEL_CASE(FOVCameraModel)                 \
-  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
-  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)    \
-  CAMERA_MODEL_CASE(SimpleDivisionCameraModel)      \
-  CAMERA_MODEL_CASE(DivisionCameraModel)            \
-  CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(FisheyeCameraModel)             \
-  CAMERA_MODEL_CASE(EUCMCameraModel)                \
-  CAMERA_MODEL_CASE(SkewedPinholeCameraModel)
-#endif
-
-#ifndef SPHERICAL_CAMERA_MODEL_CASES
-#define SPHERICAL_CAMERA_MODEL_CASES \
-  CAMERA_MODEL_CASE(EquirectangularCameraModel)
-#endif
-
-#ifndef CAMERA_MODEL_CASES
-#define CAMERA_MODEL_CASES       \
-  PERSPECTIVE_CAMERA_MODEL_CASES \
-  SPHERICAL_CAMERA_MODEL_CASES
-#endif
-
-#ifndef CAMERA_MODEL_SWITCH_CASES
-#define CAMERA_MODEL_SWITCH_CASES         \
-  CAMERA_MODEL_CASES                      \
-  default:                                \
-    CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION \
-    break;
-#endif
-
-#define CAMERA_MODEL_DOES_NOT_EXIST_EXCEPTION \
-  throw std::domain_error("Camera model does not exist");
-
-// Fisheye camera model macros
-#ifndef PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES
-#define PERSPECTIVE_FISHEYE_CAMERA_MODEL_CASES      \
-  CAMERA_MODEL_CASE(SimpleRadialFisheyeCameraModel) \
-  CAMERA_MODEL_CASE(RadialFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)    \
-  CAMERA_MODEL_CASE(RadTanThinPrismFisheyeModel)    \
-  CAMERA_MODEL_CASE(SimpleFisheyeCameraModel)       \
-  CAMERA_MODEL_CASE(FisheyeCameraModel)
-#endif
-
 // Depth guard shared by the models' `ImgFromCam`. Rejects points at or behind
 // the camera plane if `check_cheirality`, otherwise only points on the plane,
 // where the projection diverges.
