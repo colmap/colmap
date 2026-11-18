@@ -125,10 +125,15 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.delaunay_meshing->num_threads = options_.num_threads;
 #endif
 
-  option_manager_.vocab_tree_pairing->vocab_tree_path =
-      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
-  option_manager_.sequential_pairing->vocab_tree_path =
-      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
+  // Use the user-provided vocabulary tree, if any, and otherwise the default
+  // vocabulary tree of the selected feature type.
+  const std::filesystem::path vocab_tree_path =
+      options_.vocab_tree_path.empty()
+          ? GetVocabTreeUriForFeatureType(
+                option_manager_.feature_extraction->type)
+          : options_.vocab_tree_path;
+  option_manager_.vocab_tree_pairing->vocab_tree_path = vocab_tree_path;
+  option_manager_.sequential_pairing->vocab_tree_path = vocab_tree_path;
   option_manager_.sequential_pairing->loop_detection = true;
 
   // Apply mapper-appropriate two-view geometry defaults.
