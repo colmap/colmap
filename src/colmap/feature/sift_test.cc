@@ -18,9 +18,14 @@
 #include "colmap/util/cuda.h"
 #endif
 
+#include <algorithm>
+#include <cmath>
 #include <functional>
+#include <limits>
+#include <memory>
 #include <set>
 #include <utility>
+#include <vector>
 
 namespace colmap {
 namespace {
@@ -262,6 +267,170 @@ struct FeatureDescriptorIndexCacheHelper {
   std::map<image_t, std::shared_ptr<const FeatureDescriptors>>
       image_descriptors_;
 };
+
+// Backward rejection is recomputed; the fixture filters are symmetric:
+// identity H with squared dx/dy, or horizontal epipolar lines. Production
+// cross-check instead transposes the forward rejection matrix. Compute integer
+// distances without Eigen reductions, then sort instead of maintaining the
+// production running minima, including its first-index tie policy.
+FeatureMatches ScalarSiftMatches(const FeatureMatcher::Image& image1,
+                                 const FeatureMatcher::Image& image2,
+                                 const SiftMatchingOptions& options,
+                                 const TwoViewGeometry* geometry,
+                                 const float max_error) {
+  constexpr int kSqNorm = 512 * 512;
+  const bool guided = geometry != nullptr;
+  const float max_ratio = options.max_ratio;
+  const float max_distance = options.max_distance;
+  const auto one_way = [&](const bool reverse) {
+    const int rows = reverse ? image2.descriptors->data.rows()
+                             : image1.descriptors->data.rows();
+    const int cols = reverse ? image1.descriptors->data.rows()
+                             : image2.descriptors->data.rows();
+    std::vector<int> best(rows, -1);
+    for (int i = 0; i < rows; ++i) {
+      std::vector<std::pair<int, int>> ranked;
+      for (int j = 0; j < cols; ++j) {
+        const int i1 = reverse ? j : i;
+        const int i2 = reverse ? i : j;
+        const auto& p1 = image1.keypoints->at(i1);
+        const auto& p2 = image2.keypoints->at(i2);
+        const float dx = p2.x - p1.x;
+        const float dy = p2.y - p1.y;
+        const bool rejected =
+            guided &&
+            (geometry->H.has_value() ? dx * dx + dy * dy > max_error * max_error
+                                     : dy * dy > 2 * max_error * max_error);
+        int score = rejected ? kSqNorm : 0;
+        if (!rejected) {
+          for (int k = 0; k < 128; ++k) {
+            const int a = image1.descriptors->data(i1, k);
+            const int b = image2.descriptors->data(i2, k);
+            score += guided ? (a - b) * (a - b) : a * b;
+          }
+        }
+        ranked.emplace_back(guided ? score : -score, j);
+      }
+      std::sort(ranked.begin(), ranked.end());
+      if (ranked.empty()) {
+        continue;
+      }
+      float first = guided ? ranked[0].first : -ranked[0].first;
+      float second = ranked.size() > 1
+                         ? (guided ? ranked[1].first : -ranked[1].first)
+                         : (guided ? std::numeric_limits<float>::max() : 0);
+      if (guided) {
+        if (first > kSqNorm * max_distance * max_distance) {
+          continue;
+        }
+        first = std::sqrt(first);
+        second = std::sqrt(second);
+      } else {
+        if (first == 0) {
+          continue;
+        }
+        first = std::acos(std::min(first / kSqNorm, 1.0f));
+        second = std::acos(std::min(second / kSqNorm, 1.0f));
+        if (first > max_distance) {
+          continue;
+        }
+      }
+      if (first < max_ratio * second) {
+        best[i] = ranked[0].second;
+      }
+    }
+    return best;
+  };
+  const std::vector<int> forward = one_way(false);
+  const std::vector<int> backward =
+      options.cross_check ? one_way(true) : std::vector<int>();
+  FeatureMatches matches;
+  for (size_t i = 0; i < forward.size(); ++i) {
+    if (forward[i] != -1 &&
+        (!options.cross_check || backward[forward[i]] == int(i))) {
+      matches.emplace_back(i, forward[i]);
+    }
+  }
+  return matches;
+}
+
+TEST(SiftCPUFeatureMatcher, IntegerDistancesAndOrderedMatches) {
+  const Camera camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimplePinhole, 100.0, 256, 256);
+  for (const bool cross_check : {false, true}) {
+    FeatureMatchingOptions options;
+    options.use_gpu = false;
+    options.sift->cpu_brute_force_matcher = true;
+    options.sift->cross_check = cross_check;
+    auto matcher = CreateSiftFeatureMatcher(options);
+    for (const auto& [rows, cols] : {std::pair{17, 23},
+                                     {0, 0},
+                                     {0, 7},
+                                     {9, 0},
+                                     {1, 1},
+                                     {1, 7},
+                                     {7, 1},
+                                     {31, 37}}) {
+      SCOPED_TRACE(::testing::Message()
+                   << rows << "x" << cols << " cross_check=" << cross_check);
+      const auto descriptors =
+          CreateRandomFeatureDescriptors(std::max(rows, cols));
+      const auto make_image =
+          [&](const image_t image_id, const int count, const bool reverse) {
+            auto data = std::make_shared<FeatureDescriptors>(
+                FeatureExtractorType::SIFT, descriptors.data.topRows(count));
+            if (reverse) {
+              *data = CreateReversedDescriptors(*data);
+            }
+            if (count >= 3) {
+              data->data.row(0) = data->data.row(1);
+              data->data.row(2).setZero();
+            }
+            auto keypoints = std::make_shared<FeatureKeypoints>();
+            for (int i = 0; i < count; ++i) {
+              const int index = reverse ? count - 1 - i : i;
+              keypoints->emplace_back(4 * (index % 7), 4 * (index / 7));
+            }
+            return FeatureMatcher::Image{image_id, &camera, keypoints, data};
+          };
+      const auto image1 = make_image(1, rows, false);
+      const auto image2 = make_image(2, cols, true);
+      FeatureMatches actual;
+      const auto expected =
+          ScalarSiftMatches(image1, image2, *options.sift, nullptr, 0);
+      if (rows >= 17 && cols >= 23) {
+        ASSERT_FALSE(expected.empty());
+      }
+      for (int repeat = 0; repeat < 2; ++repeat) {
+        matcher->Match(image1, image2, &actual);
+        CheckEqualMatches(actual, expected);
+      }
+      for (const bool epipolar : {false, true}) {
+        TwoViewGeometry geometry = CreatePlanarTwoViewGeometry();
+        if (epipolar) {
+          geometry.config = TwoViewGeometry::UNCALIBRATED;
+          geometry.H.reset();
+          geometry.F = Eigen::Matrix3d::Zero();
+          (*geometry.F)(1, 2) = -1;
+          (*geometry.F)(2, 1) = 1;
+        }
+        for (const float max_error : {1.0f, 1000.0f}) {
+          SCOPED_TRACE(::testing::Message() << "epipolar=" << epipolar
+                                            << " max_error=" << max_error);
+          const auto guided_expected = ScalarSiftMatches(
+              image1, image2, *options.sift, &geometry, max_error);
+          if (rows >= 17 && cols >= 23) {
+            ASSERT_FALSE(guided_expected.empty());
+          }
+          for (int repeat = 0; repeat < 2; ++repeat) {
+            matcher->MatchGuided(max_error, image1, image2, &geometry);
+            CheckEqualMatches(geometry.inlier_matches, guided_expected);
+          }
+        }
+      }
+    }
+  }
+}
 
 TEST(SiftCPUFeatureMatcher, Nominal) {
   const Camera camera = Camera::CreateFromModelId(

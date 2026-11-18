@@ -941,9 +941,9 @@ Eigen::RowMajorMatrixXf ComputeSiftDistanceMatrix(
     const FeatureDescriptorsData& descriptors1,
     const FeatureDescriptorsData& descriptors2,
     const std::function<bool(Eigen::Index, Eigen::Index)>& guided_filter) {
-  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim>
+  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim, Eigen::RowMajor>
       descriptors1_int = descriptors1.cast<int>();
-  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim>
+  const Eigen::Matrix<int, Eigen::Dynamic, kSiftDescriptorDim, Eigen::RowMajor>
       descriptors2_int = descriptors2.cast<int>();
 
   Eigen::RowMajorMatrixXf distances(descriptors1.rows(), descriptors2.rows());
