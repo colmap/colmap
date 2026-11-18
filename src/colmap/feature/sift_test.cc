@@ -675,6 +675,13 @@ TEST(SiftCPUFeatureMatcherFaissVsBruteForce, Nominal) {
     return num_matches;
   };
 
+  // A one-descriptor FAISS index returns only one neighbor.
+  {
+    const FeatureDescriptors descriptors = CreateRandomFeatureDescriptors(1);
+    EXPECT_EQ(TestFaissVsBruteForce(match_options, descriptors, descriptors),
+              1);
+  }
+
   {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     const FeatureDescriptors descriptors2 = CreateRandomFeatureDescriptors(50);
