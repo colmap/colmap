@@ -327,28 +327,33 @@ matching modes, which are intended for different input scenarios:
   sequential order, e.g., by a video camera. In this case, consecutive frames
   have visual overlap and there is no need to match all image pairs
   exhaustively. Instead, consecutively captured images are matched against each
-  other. This matching mode has built-in loop detection based on a vocabulary
-  tree, where every N-th image (``--SequentialMatching.loop_detection_period``)
+  other. This matching mode has built-in retrieval-based loop detection, where
+  every N-th image (``--SequentialMatching.loop_detection_period``)
   is matched against its visually most similar images
-  (``--SequentialMatching.loop_detection_num_images``). Retrieved images can
-  be restricted to those that are sufficiently far from the query in the
-  sequence (``--SequentialMatching.loop_detection_min_index_distance``), so
+  (``--SequentialMatching.loop_detection_num_images``). Loop detection uses
+  either a vocabulary tree (default) or a learned global descriptor model
+  (``--SequentialMatching.loop_detection_method GLOBAL_DESCRIPTOR``). Retrieved
+  images can be restricted to those that are sufficiently far from the query in
+  the sequence (``--SequentialMatching.loop_detection_min_index_distance``), so
   that nearby images do not consume the loop detection budget. A value of zero
   disables this restriction. Note that image file names must be ordered
   sequentially (e.g., ``image0001.jpg``,
   ``image0002.jpg``, etc.). The order in the database is not relevant, since the
-  images are explicitly ordered according to their file names. Note that loop
-  detection requires a pre-trained vocabulary tree. A default tree will be
-  automatically downloaded and cached. More trees are available and can be
-  downloaded from https://demuc.de/colmap/. In case rigs and frames are
-  configured appropriately in the database, sequential matching will
-  automatically match all images in consecutive frames against each other.
+  images are explicitly ordered according to their file names. Note that
+  vocabulary tree based loop detection requires a pre-trained vocabulary tree.
+  A default tree will be automatically downloaded and cached. More trees are
+  available and can be downloaded from https://demuc.de/colmap/. In case rigs
+  and frames are configured appropriately in the database, sequential matching
+  will automatically match all images in consecutive frames against each other.
 
-- **Vocabulary Tree Matching**: In this matching mode [schoenberger16vote]_,
-  every image is matched against its visual nearest neighbors using a vocabulary
-  tree with spatial re-ranking. This is the recommended matching mode for large
-  image collections (several thousands). This requires a pre-trained vocabulary
-  tree, that can be downloaded from https://demuc.de/colmap/.
+- **Retrieval Matching**: In this matching mode, every image is matched against
+  its visual nearest neighbors found by image retrieval. Retrieval is performed
+  either with a vocabulary tree with spatial re-ranking [schoenberger16vote]_
+  (default; a pre-trained tree is automatically downloaded, more trees are
+  available at https://demuc.de/colmap/) or with a learned global descriptor
+  model (e.g., MixVPR), where each image is represented by a single compact
+  descriptor computed with ONNX. This is the recommended matching mode for
+  large image collections (several thousands).
 
 - **Spatial Matching**: This matching mode matches every image against its
   spatial nearest neighbors. Spatial locations can be manually set in the
@@ -399,7 +404,7 @@ image, and the chosen matching mode. Expected times for exhaustive matching are
 from a few minutes for tens of images to a few hours for hundreds of images to
 days or weeks for thousands of images. Exhaustive matching scales quadratically
 with the number of images and quickly becomes impractical for large collections;
-for thousands of images or more, use vocabulary tree or sequential matching
+for thousands of images or more, use retrieval or sequential matching
 instead, which are dramatically faster. If you cancel the matching process or
 import new images after matching, COLMAP only matches image pairs that have not
 been matched previously. The overhead of skipping already matched image pairs is
@@ -439,7 +444,7 @@ Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:
 
 - Perform additional matching. For best results, use exhaustive matching, enable
-  guided matching, increase the number of nearest neighbors in vocabulary tree
+  guided matching, increase the number of retrieved images in retrieval
   matching, or increase the overlap in sequential matching, etc.
 
 - Manually choose an initial image pair, if COLMAP fails to initialize. Choose

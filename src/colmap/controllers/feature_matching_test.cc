@@ -62,7 +62,7 @@ TEST(CreateExhaustiveFeatureMatcher, Nominal) {
   EXPECT_EQ(database->ReadTwoViewGeometries().size(), 6);
 }
 
-TEST(CreateVocabTreeFeatureMatcher, Nominal) {
+TEST(CreateRetrievalFeatureMatcher, VocabTree) {
   const auto test_dir = CreateTestDir();
   const auto database_path = test_dir / "database.db";
   const auto vocab_tree_path = test_dir / "vocab_tree.bin";
@@ -75,7 +75,8 @@ TEST(CreateVocabTreeFeatureMatcher, Nominal) {
   // Create vocab tree
   CreateSyntheticVisualIndex()->Write(vocab_tree_path);
 
-  VocabTreePairingOptions pairing_options;
+  RetrievalPairingOptions pairing_options;
+  pairing_options.method = RetrievalMethod::VOCAB_TREE;
   pairing_options.vocab_tree_path = vocab_tree_path;
   pairing_options.num_images = 2;
 
@@ -85,7 +86,7 @@ TEST(CreateVocabTreeFeatureMatcher, Nominal) {
 
   TwoViewGeometryOptions geometry_options;
 
-  auto matcher = CreateVocabTreeFeatureMatcher(
+  auto matcher = CreateRetrievalFeatureMatcher(
       pairing_options, matching_options, geometry_options, database_path);
   ASSERT_NE(matcher, nullptr);
   matcher->Start();
