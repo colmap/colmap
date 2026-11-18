@@ -542,7 +542,8 @@ Available functionality without GPU/CUDA
 ----------------------------------------
 
 If you do not have a CUDA-enabled GPU but some other GPU, you can use all COLMAP
-functionality except the dense reconstruction part. However, you can use
+functionality except the dense reconstruction part (which also runs on AMD GPUs
+when built with HIP, and on Apple GPUs through Metal). However, you can use
 external dense reconstruction software as an alternative, as described in the
 :ref:`Tutorial <dense-reconstruction>`. If you have a GPU with low compute power
 or you want to execute COLMAP on a machine without an attached display and
@@ -860,7 +861,9 @@ for CUDA-enabled GPUs, e.g., ``--PatchMatchStereo.gpu_index=0,1,2,3`` runs the d
 reconstruction on 4 GPUs in parallel. You can also run multiple dense
 reconstruction threads on the same GPU by specifying the same GPU index twice,
 e.g., ``--PatchMatchStereo.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one
-dense reconstruction thread per CUDA-enabled GPU.
+dense reconstruction thread per CUDA-enabled GPU. With Metal, there is a single
+GPU on Apple silicon, which a single dense reconstruction thread already
+saturates.
 
 
 .. _faq-dense-timeout:
@@ -868,7 +871,7 @@ dense reconstruction thread per CUDA-enabled GPU.
 Fix GPU freezes and timeouts during dense reconstruction
 --------------------------------------------------------
 
-The stereo reconstruction pipeline runs on the GPU using CUDA and puts the GPU
+The stereo reconstruction pipeline runs on the GPU using CUDA (or HIP / Metal) and puts the GPU
 under heavy load. You might experience a display freeze or even a program crash
 during the reconstruction. As a solution to this problem, you could use a
 secondary GPU in your system, that is not connected to your display by setting
