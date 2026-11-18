@@ -8,6 +8,7 @@
 #include "colmap/util/string.h"
 
 #include <fstream>
+#include <limits>
 
 namespace colmap {
 namespace mvs {
@@ -42,37 +43,38 @@ void ConsistencyGraph::GetImageIdxs(const int row,
 }
 
 void ConsistencyGraph::Read(const std::filesystem::path& path) {
-  std::fstream text_file(path, std::ios::in | std::ios::binary);
-  THROW_CHECK_FILE_OPEN(text_file, path);
-  SetFullPrecTextStream(text_file);
+  std::ifstream file(path, std::ios::binary);
+  THROW_CHECK_FILE_OPEN(file, path);
+  file.exceptions(std::ios::failbit | std::ios::badbit);
+  SetFullPrecTextStream(file);
 
   size_t width = 0;
   size_t height = 0;
   size_t depth = 0;
-  char unused_char;
-
-  text_file >> width >> unused_char >> height >> unused_char >> depth >>
-      unused_char;
-  const std::streampos pos = text_file.tellg();
-  text_file.close();
-
-  THROW_CHECK_GT(width, 0);
-  THROW_CHECK_GT(height, 0);
-  THROW_CHECK_GT(depth, 0);
-
-  std::fstream binary_file(path, std::ios::in | std::ios::binary);
-  THROW_CHECK_FILE_OPEN(binary_file, path);
-
-  binary_file.seekg(0, std::ios::end);
-  const size_t num_bytes = binary_file.tellg() - pos;
-
-  data_.resize(num_bytes / sizeof(int));
-
-  binary_file.seekg(pos);
-  ReadBinaryLittleEndian<int>(&binary_file, &data_);
-  binary_file.close();
-
-  InitializeMap(width, height);
+  char width_separator, height_separator, depth_separator;
+  const auto read_positive = [&file](size_t& value, char& separator) {
+    file >> std::ws;
+    THROW_CHECK_NE(file.peek(), '-');
+    file >> value >> separator;
+    THROW_CHECK_GT(value, 0);
+    THROW_CHECK_EQ(separator, '&');
+  };
+  read_positive(width, width_separator);
+  read_positive(height, height_separator);
+  read_positive(depth, depth_separator);
+  const std::streampos pos = file.tellg();
+  file.seekg(0, std::ios::end);
+  const std::streamoff num_bytes = file.tellg() - pos;
+  THROW_CHECK_GE(num_bytes, 0);
+  THROW_CHECK_EQ(num_bytes % sizeof(int), 0);
+  ConsistencyGraph graph;
+  graph.data_.resize(num_bytes / sizeof(int));
+  file.seekg(pos);
+  ReadBinaryLittleEndian<int>(&file, &graph.data_);
+  file.close();
+  graph.InitializeMap(width, height);
+  map_.swap(graph.map_);
+  data_.swap(graph.data_);
 }
 
 void ConsistencyGraph::Write(const std::filesystem::path& path) const {
@@ -90,24 +92,31 @@ void ConsistencyGraph::Write(const std::filesystem::path& path) const {
 }
 
 void ConsistencyGraph::InitializeMap(const size_t width, const size_t height) {
+  THROW_CHECK_LE(width, static_cast<size_t>(std::numeric_limits<int>::max()));
+  THROW_CHECK_LE(height, static_cast<size_t>(std::numeric_limits<int>::max()));
   map_.resize(height, width);
   map_.setConstant(kNoConsistentImageIds);
   for (size_t i = 0; i < data_.size();) {
-    THROW_CHECK_LT(i + 2, data_.size())
+    THROW_CHECK_GE(data_.size() - i, 3)
         << "Corrupt consistency graph: insufficient data at offset " << i;
     const int col = data_.at(i);
     const int row = data_.at(i + 1);
     const int num_images = data_.at(i + 2);
     THROW_CHECK_GE(num_images, 0)
         << "Corrupt consistency graph: negative num_images at offset " << i;
+    THROW_CHECK_LE(static_cast<size_t>(num_images), data_.size() - i - 3)
+        << "Corrupt consistency graph: insufficient image indices at offset "
+        << i;
     THROW_CHECK_GE(col, 0);
     THROW_CHECK_LT(col, static_cast<int>(width));
     THROW_CHECK_GE(row, 0);
     THROW_CHECK_LT(row, static_cast<int>(height));
     if (num_images > 0) {
-      map_(row, col) = i + 2;
+      THROW_CHECK_LE(i + 2,
+                     static_cast<size_t>(std::numeric_limits<int>::max() - 1));
+      map_(row, col) = static_cast<int>(i + 2);
     }
-    i += 3 + num_images;
+    i += 3 + static_cast<size_t>(num_images);
   }
 }
 

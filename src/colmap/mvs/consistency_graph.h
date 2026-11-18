@@ -14,8 +14,8 @@ namespace mvs {
 
 // List of geometrically consistent images, in the following format:
 //
-//    r_1, c_1, N_1, i_11, i_12, ..., i_1N_1,
-//    r_2, c_2, N_2, i_21, i_22, ..., i_2N_2, ...
+//    c_1, r_1, N_1, i_11, i_12, ..., i_1N_1,
+//    c_2, r_2, N_2, i_21, i_22, ..., i_2N_2, ...
 //
 // where r, c are the row and column image coordinates of the pixel,
 // N is the number of consistent images, followed by the N image indices.
