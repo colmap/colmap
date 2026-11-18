@@ -224,12 +224,13 @@ bool Reconstruction::IsValid() const {
   // Check 2D-3D associations: point3D -> point2D direction.
   for (const auto& [point3D_id, point3D] : points3D_) {
     for (const auto& track_el : point3D.track.Elements()) {
-      if (!ExistsImage(track_el.image_id)) {
+      const auto image_it = images_.find(track_el.image_id);
+      if (image_it == images_.end()) {
         LOG(WARNING) << "Point3D " << point3D_id << " track references image "
                      << track_el.image_id << " which does not exist";
         return false;
       }
-      const class Image& image = Image(track_el.image_id);
+      const class Image& image = image_it->second;
       if (track_el.point2D_idx >= image.NumPoints2D()) {
         LOG(WARNING) << "Point3D " << point3D_id << " track references point2D "
                      << track_el.point2D_idx << " in image "
