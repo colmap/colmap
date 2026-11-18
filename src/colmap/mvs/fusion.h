@@ -106,7 +106,6 @@ class StereoFusion : public BaseController {
   // Initialized from image masks if provided in StereoFusionOptions.
   std::vector<Mat<char>> fused_pixel_masks_;
   std::vector<std::pair<int, int>> depth_map_sizes_;
-  std::vector<std::pair<float, float>> bitmap_scales_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_;
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;

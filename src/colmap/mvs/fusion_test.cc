@@ -3,11 +3,13 @@
 #include "colmap/mvs/fusion.h"
 
 #include "colmap/math/math.h"
+#include "colmap/scene/frame.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
+#include <cmath>
 #include <fstream>
 
 #include <gtest/gtest.h>
@@ -261,6 +263,118 @@ TEST(StereoFusion, Rotation180Invariance) {
   EXPECT_NEAR(points1[0].x, points2[0].x, 1e-5f);
   EXPECT_NEAR(points1[0].y, points2[0].y, 1e-5f);
   EXPECT_NEAR(points1[0].z, points2[0].z, 1e-5f);
+}
+
+TEST(StereoFusion, MixedResolutionColorsFollowPixelCenters) {
+  const auto root = CreateTestDir();
+  for (const auto* dir : {"sparse",
+                          "images",
+                          "stereo",
+                          "stereo/depth_maps",
+                          "stereo/normal_maps"}) {
+    CreateDirIfNotExists(root / dir);
+  }
+  colmap::Camera camera;
+  camera.camera_id = 1;
+  camera.model_id = CameraModelId::kPinhole;
+  camera.width = 10;
+  camera.height = 5;
+  camera.params = {8.0, 11.0, 4.3, 2.2};
+  Reconstruction reconstruction;
+  reconstruction.AddCameraWithTrivialRig(camera);
+  colmap::Image image;
+  image.SetImageId(1);
+  image.SetCameraId(1);
+  image.SetName("view.png");
+  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
+  reconstruction.Write(root / "sparse");
+  Bitmap bitmap(10, 5, true);
+  for (int row = 0; row < 5; ++row) {
+    for (int col = 0; col < 10; ++col) {
+      bitmap.SetPixel(
+          col, row, BitmapColor<uint8_t>(20 * col, 30 * row, col + row));
+    }
+  }
+  ASSERT_TRUE(bitmap.Write(root / "images/view.png"));
+  {
+    std::ofstream config(root / "stereo/fusion.cfg");
+    config << "view.png\n";
+  }
+  struct Grid {
+    std::vector<int> source_columns;
+    std::vector<int> source_rows;
+  };
+  // Hand-derived nearest source indices. The 7x3 raster has unequal scales;
+  // 1x1 and 5x1 include exact halfway samples, including a non-binary ratio.
+  // Keeping every grid cell in the expected set makes lost coverage fail too.
+  const std::vector<Grid> grids = {
+      {{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, {0, 1, 2, 3, 4}},
+      {{0, 2, 3, 5, 6, 7, 9}, {0, 2, 4}},
+      {{5}, {2}},
+      {{1, 3, 5, 7, 9}, {2}},
+  };
+  for (const auto& grid : grids) {
+    const int width = grid.source_columns.size();
+    const int height = grid.source_rows.size();
+    SCOPED_TRACE(::testing::Message() << width << "x" << height);
+    Mat<float> depth(width, height, 1);
+    depth.Fill(5.0f);
+    depth.Write(root / "stereo/depth_maps/view.png.geometric.bin");
+    Mat<float> normal(width, height, 3);
+    normal.Fill(0.0f);
+    for (int row = 0; row < height; ++row) {
+      for (int col = 0; col < width; ++col) normal.Set(row, col, 2, -1.0f);
+    }
+    normal.Write(root / "stereo/normal_maps/view.png.geometric.bin");
+    for (const std::string mode : {"eager", "lru"}) {
+      SCOPED_TRACE(mode);
+      StereoFusionOptions options;
+      options.num_threads = 1;
+      options.min_num_pixels = 1;
+      options.max_num_pixels = 1;
+      options.use_cache = mode == "lru";
+      options.cache_size = 1.0 / 1024;
+      StereoFusion fusion(options, root, "COLMAP", "", "geometric");
+      fusion.Run();
+      const auto& points = fusion.GetFusedPoints();
+      const auto& visibility = fusion.GetFusedPointsVisibility();
+      ASSERT_EQ(points.size(), width * height);
+      ASSERT_EQ(visibility.size(), points.size());
+      std::vector<int> coverage(width * height, 0);
+      for (size_t index = 0; index < points.size(); ++index) {
+        const auto& point = points[index];
+        ASSERT_TRUE(std::isfinite(point.x));
+        ASSERT_TRUE(std::isfinite(point.y));
+        ASSERT_TRUE(std::isfinite(point.z));
+        ASSERT_GT(point.z, 0.0f);
+        // Project published XYZ with the original camera, independent of
+        // Fusion's float K and the integer rescaling helper.
+        const int col =
+            std::lround((8.0 * point.x / point.z + 4.3) * width / 10 - 0.5);
+        const int row =
+            std::lround((11.0 * point.y / point.z + 2.2) * height / 5 - 0.5);
+        ASSERT_GE(col, 0);
+        ASSERT_LT(col, width);
+        ASSERT_GE(row, 0);
+        ASSERT_LT(row, height);
+        ++coverage[row * width + col];
+        EXPECT_NEAR(point.x, 5 * ((col + 0.5) * 10 / width - 4.3) / 8, 2e-6);
+        EXPECT_NEAR(point.y, 5 * ((row + 0.5) * 5 / height - 2.2) / 11, 2e-6);
+        EXPECT_FLOAT_EQ(point.z, 5.0f);
+        EXPECT_FLOAT_EQ(point.nx, 0.0f);
+        EXPECT_FLOAT_EQ(point.ny, 0.0f);
+        EXPECT_FLOAT_EQ(point.nz, -1.0f);
+        const auto expected =
+            bitmap.GetPixel(grid.source_columns[col], grid.source_rows[row]);
+        ASSERT_TRUE(expected);
+        EXPECT_EQ(point.r, expected->r);
+        EXPECT_EQ(point.g, expected->g);
+        EXPECT_EQ(point.b, expected->b);
+        EXPECT_EQ(visibility[index], std::vector<int>{0});
+      }
+      EXPECT_EQ(coverage, std::vector<int>(width * height, 1));
+    }
+  }
 }
 
 }  // namespace

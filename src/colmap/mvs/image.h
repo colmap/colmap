@@ -4,10 +4,29 @@
 
 #include "colmap/sensor/bitmap.h"
 
+#include <cstdint>
 #include <filesystem>
 
 namespace colmap {
 namespace mvs {
+
+namespace internal {
+
+// Return the nearest target pixel to a source pixel's center after rescaling.
+// Requires positive extents and 0 <= pixel < source_size. Exact halfway cases
+// select the larger target index, matching nearest-neighbor round. For
+// int-sized extents the numerator is less than 2^63, so uint64_t preserves
+// ties for large rasters without overflow.
+inline int RescalePixelCenter(const int pixel,
+                              const int source_size,
+                              const int target_size) {
+  if (source_size == target_size) return pixel;
+  const uint64_t numerator =
+      (2 * static_cast<uint64_t>(pixel) + 1) * target_size;
+  return static_cast<int>(numerator / (2 * static_cast<uint64_t>(source_size)));
+}
+
+}  // namespace internal
 
 class Image {
  public:
