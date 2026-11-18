@@ -579,6 +579,47 @@ ceres::Solver::Summary SolveWithGpuFallback(
   return ceres_summary;
 }
 
+Point3D* FindPoint3DInProblem(const Point2D& point2D,
+                              Reconstruction& reconstruction,
+                              const BundleAdjustmentConfig& config,
+                              const BundleAdjustmentOptions& options) {
+  if (!point2D.HasPoint3D() || config.IsIgnoredPoint(point2D.point3D_id)) {
+    return nullptr;
+  }
+  Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
+  THROW_CHECK_GT(point3D.track.Length(), 1);
+  if (options.min_track_length > 0 &&
+      static_cast<int>(point3D.track.Length()) < options.min_track_length) {
+    return nullptr;
+  }
+  return &point3D;
+}
+
+bool HasValidPointObservation(const Image& image,
+                              Reconstruction& reconstruction,
+                              const BundleAdjustmentConfig& config,
+                              const BundleAdjustmentOptions& options) {
+  for (const Point2D& point2D : image.Points2D()) {
+    if (FindPoint3DInProblem(point2D, reconstruction, config, options) !=
+        nullptr) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool HasVariableCameraPose(const Image& image,
+                           const BundleAdjustmentConfig& config,
+                           const BundleAdjustmentOptions& options) {
+  const bool constant_sensor_from_rig =
+      image.IsRefInFrame() || !options.refine_sensor_from_rig ||
+      config.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
+  const bool constant_rig_from_world =
+      !options.refine_rig_from_world ||
+      config.HasConstantRigFromWorldPose(image.FrameId());
+  return !constant_sensor_from_rig || !constant_rig_from_world;
+}
+
 class DefaultBundleAdjuster : public CeresBundleAdjuster {
  public:
   DefaultBundleAdjuster(const BundleAdjustmentOptions& options,
@@ -690,17 +731,9 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
-        continue;
-      }
-
-      Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
-      THROW_CHECK_GT(point3D.track.Length(), 1);
-
-      // Skip points with track length below minimum.
-      if (options_.min_track_length > 0 &&
-          static_cast<int>(point3D.track.Length()) <
-              options_.min_track_length) {
+      Point3D* point3D =
+          FindPoint3DInProblem(point2D, reconstruction, config_, options_);
+      if (point3D == nullptr) {
         continue;
       }
 
@@ -712,14 +745,14 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, rig_from_world),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             camera.params.data());
       } else {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<ReprojErrorCostFunctor>(camera.model_id,
                                                              point2D.xy),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             rig_from_world.params.data(),
             camera.params.data());
       }
@@ -755,17 +788,9 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
     // Add residuals to bundle adjustment problem.
     size_t num_observations = 0;
     for (const Point2D& point2D : image.Points2D()) {
-      if (!point2D.HasPoint3D() || config_.IsIgnoredPoint(point2D.point3D_id)) {
-        continue;
-      }
-
-      Point3D& point3D = reconstruction.Point3D(point2D.point3D_id);
-      THROW_CHECK_GT(point3D.track.Length(), 1);
-
-      // Skip points with track length below minimum.
-      if (options_.min_track_length > 0 &&
-          static_cast<int>(point3D.track.Length()) <
-              options_.min_track_length) {
+      Point3D* point3D =
+          FindPoint3DInProblem(point2D, reconstruction, config_, options_);
+      if (point3D == nullptr) {
         continue;
       }
 
@@ -779,14 +804,14 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<ReprojErrorConstantPoseCostFunctor>(
                 camera.model_id, point2D.xy, cam_from_world.value()),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             camera.params.data());
       } else if (!constant_rig_from_world && constant_sensor_from_rig) {
         problem_->AddResidualBlock(
             CreateCameraCostFunction<RigReprojErrorConstantRigCostFunctor>(
                 camera.model_id, point2D.xy, sensor_from_rig),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             rig_from_world.params.data(),
             camera.params.data());
       } else {
@@ -794,7 +819,7 @@ class DefaultBundleAdjuster : public CeresBundleAdjuster {
             CreateCameraCostFunction<RigReprojErrorCostFunctor>(camera.model_id,
                                                                 point2D.xy),
             loss_function_.get(),
-            point3D.xyz.data(),
+            point3D->xyz.data(),
             sensor_from_rig.params.data(),
             rig_from_world.params.data(),
             camera.params.data());
@@ -893,20 +918,39 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
 
     THROW_CHECK(prior_options_.Check());
 
-    // Filter irrelevant pose priors.
+    // Filter pose priors to images that participate in the BA problem so
+    // alignment and the >= 3 prior count only include parameterized images.
     pose_priors_.erase(
         std::remove_if(pose_priors_.begin(),
                        pose_priors_.end(),
-                       [this](const auto& pose_prior) {
-                         return !pose_prior.HasPosition() ||
-                                pose_prior.corr_data_id.sensor_id.type !=
-                                    SensorType::CAMERA ||
-                                !config_.HasImage(pose_prior.corr_data_id.id);
+                       [this](const PosePrior& pose_prior) {
+                         if (!pose_prior.HasPosition() ||
+                             pose_prior.corr_data_id.sensor_id.type !=
+                                 SensorType::CAMERA ||
+                             !config_.HasImage(pose_prior.corr_data_id.id)) {
+                           return true;
+                         }
+                         const Image& image =
+                             reconstruction_.Image(pose_prior.corr_data_id.id);
+                         return !HasValidPointObservation(
+                             image, reconstruction_, config_, options_);
                        }),
         pose_priors_.end());
 
-    const bool use_prior_position =
-        pose_priors_.size() >= 3 && AlignReconstruction();
+    bool use_prior_position = pose_priors_.size() >= 3 && AlignReconstruction();
+    if (use_prior_position) {
+      pose_priors_.erase(std::remove_if(pose_priors_.begin(),
+                                        pose_priors_.end(),
+                                        [this](const PosePrior& pose_prior) {
+                                          const Image& image =
+                                              reconstruction_.Image(
+                                                  pose_prior.corr_data_id.id);
+                                          return !HasVariableCameraPose(
+                                              image, config_, options_);
+                                        }),
+                         pose_priors_.end());
+      use_prior_position = !pose_priors_.empty();
+    }
 
     // Fix 7-DOFs of the BA problem if the pose priors cannot constrain them.
     if (use_prior_position) {
@@ -927,16 +971,12 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
           prior_options_.ceres->prior_position_loss_function_type,
           prior_options_.ceres->prior_position_loss_scale);
 
-      // Only consider parameterized images for pose priors. Notice that some
-      // images may be configured to be included in the BA problem but have no
-      // reprojection constraints, etc.
-      const std::set<image_t>& parameterized_image_ids =
-          default_bundle_adjuster_->ParameterizedImageIds();
       for (const auto& pose_prior : pose_priors_) {
-        if (parameterized_image_ids.count(pose_prior.corr_data_id.id) > 0) {
-          AddImagePosePriorToProblem(
-              pose_prior.corr_data_id.id, pose_prior, reconstruction);
-        }
+        DCHECK_GT(default_bundle_adjuster_->ParameterizedImageIds().count(
+                      pose_prior.corr_data_id.id),
+                  0);
+        AddImagePosePriorToProblem(
+            pose_prior.corr_data_id.id, pose_prior, reconstruction);
       }
     }
   }
@@ -969,16 +1009,13 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
                                   const PosePrior& pose_prior,
                                   Reconstruction& reconstruction) {
     Image& image = reconstruction.Image(image_id);
-
     const bool constant_sensor_from_rig =
         image.IsRefInFrame() || !options_.refine_sensor_from_rig ||
         config_.HasConstantSensorFromRigPose(image.CameraPtr()->SensorId());
     const bool constant_rig_from_world =
         !options_.refine_rig_from_world ||
         config_.HasConstantRigFromWorldPose(image.FrameId());
-    if (constant_sensor_from_rig && constant_rig_from_world) {
-      return;
-    }
+    DCHECK(!constant_sensor_from_rig || !constant_rig_from_world);
 
     ceres::Problem& problem = *default_bundle_adjuster_->Problem();
     Frame& frame = *image.FramePtr();
