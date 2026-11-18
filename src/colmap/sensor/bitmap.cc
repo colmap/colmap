@@ -285,7 +285,7 @@ std::optional<double> Bitmap::ExifFocalLength() const {
       //   (Diagonal distance of image area in the 35 mm camera (43.27 mm) /
       //    Diagonal distance of image area on the image sensor of the DSC)
       //    * focal length of the lens of the DSC.
-      const double diagonal = std::sqrt(width_ * width_ + height_ * height_);
+      const double diagonal = std::hypot(width_, height_);
       return focal_length_35mm / 43.27 * diagonal;
     }
   }

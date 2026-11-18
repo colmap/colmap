@@ -4,6 +4,7 @@
 
 #include "colmap/util/testing.h"
 
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -869,6 +870,23 @@ TEST(Bitmap, ExifFocalLengthIn35mm) {
   const auto focal_length = bitmap.ExifFocalLength();
   EXPECT_TRUE(focal_length.has_value());
   EXPECT_NEAR(focal_length.value(), 207.17, 0.1);
+}
+
+TEST(Bitmap, ExifFocalLengthIn35mmLargeDimension) {
+  for (const int long_side : {50000, 65536}) {
+    for (const bool portrait : {false, true}) {
+      Bitmap bitmap(portrait ? 2 : long_side,
+                    portrait ? long_side : 2,
+                    /*as_rgb=*/false);
+      const float focal_length_in_35mm_film = 70.f;
+      bitmap.SetMetaData(
+          "Exif:FocalLengthIn35mmFilm", "float", &focal_length_in_35mm_film);
+      const auto focal_length = bitmap.ExifFocalLength();
+      ASSERT_TRUE(focal_length.has_value());
+      const double diagonal = std::sqrt(1.0 * long_side * long_side + 4.0);
+      EXPECT_NEAR(focal_length.value(), 70.0 / 43.27 * diagonal, 1e-8);
+    }
+  }
 }
 
 TEST(Bitmap, ExifFocalLengthWithPlane) {
