@@ -21,6 +21,13 @@ jobs:
   # wheels are built by the build-gated job, which reuses this job's name, env,
   # and steps through YAML anchors.
   build:
+    # Skip auxiliary releases (mirrored dependencies, models, datasets), which
+    # are not COLMAP releases and must not trigger builds or deployments.
+    if: >-
+      github.event_name != 'release' ||
+      !(startsWith(github.ref_name, 'deps-') ||
+        startsWith(github.ref_name, 'models-') ||
+        startsWith(github.ref_name, 'datasets-'))
     name: &build-name ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     runs-on: ${{ matrix.config.os }}
     permissions:
@@ -288,10 +295,16 @@ jobs:
     name: *build-name
     # Pull requests only run this job once a maintainer adds the "full-ci"
     # label. Until then, its required status checks remain pending.
+    # Skip auxiliary releases (mirrored dependencies, models, datasets), which
+    # are not COLMAP releases and must not trigger builds or deployments.
     if: >-
-      github.event_name != 'pull_request' ||
-      (contains(github.event.pull_request.labels.*.name, 'full-ci') &&
-       (github.event.action != 'labeled' || github.event.label.name == 'full-ci'))
+      (github.event_name != 'pull_request' ||
+       (contains(github.event.pull_request.labels.*.name, 'full-ci') &&
+        (github.event.action != 'labeled' || github.event.label.name == 'full-ci'))) &&
+      (github.event_name != 'release' ||
+       !(startsWith(github.ref_name, 'deps-') ||
+         startsWith(github.ref_name, 'models-') ||
+         startsWith(github.ref_name, 'datasets-')))
     runs-on: ${{ matrix.config.os }}
     permissions:
       contents: read
@@ -318,7 +331,12 @@ jobs:
       id-token: write
     # We publish the wheel to pypi when a new tag is pushed,
     # either by creating a new GitHub release or explicitly with `git tag`
-    if: ${{ github.event_name == 'release' || startsWith(github.ref, 'refs/tags') }}
+    # Never publish for auxiliary releases (mirrored dependencies, models, datasets).
+    if: >-
+      (github.event_name == 'release' || startsWith(github.ref, 'refs/tags')) &&
+      !(startsWith(github.ref_name, 'deps-') ||
+        startsWith(github.ref_name, 'models-') ||
+        startsWith(github.ref_name, 'datasets-'))
     steps:
       - name: Download wheels
         uses: actions/download-artifact@v8

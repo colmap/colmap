@@ -20,10 +20,16 @@ jobs:
     name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }}
     # Pull requests only run this job once a maintainer adds the "full-ci"
     # label. Until then, its required status checks remain pending.
+    # Skip auxiliary releases (mirrored dependencies, models, datasets), which
+    # are not COLMAP releases and must not trigger builds or deployments.
     if: >-
-      github.event_name != 'pull_request' ||
-      (contains(github.event.pull_request.labels.*.name, 'full-ci') &&
-       (github.event.action != 'labeled' || github.event.label.name == 'full-ci'))
+      (github.event_name != 'pull_request' ||
+       (contains(github.event.pull_request.labels.*.name, 'full-ci') &&
+        (github.event.action != 'labeled' || github.event.label.name == 'full-ci'))) &&
+      (github.event_name != 'release' ||
+       !(startsWith(github.ref_name, 'deps-') ||
+         startsWith(github.ref_name, 'models-') ||
+         startsWith(github.ref_name, 'datasets-')))
     runs-on: ${{ matrix.config.os }}
     permissions:
       contents: read
