@@ -24,10 +24,11 @@ Example:
   # One binary across 5 seeds (run-to-run variance):
   python evaluate.py --colmap_path /path/colmap --num_seeds 5 \\
     --threads_per_scene 1 --overwrite_two_view_geometries \\
-    --data_path data --datasets eth3d --categories dslr --scenes meadow \\
+    --data_path data --datasets eth3d-undistorted --categories dslr \\
+    --scenes meadow \\
     --run_path runs --run_name variance-meadow
 
-  # Distorted ETH3D DSLR JPEGs (bare eth3d remains undistorted):
+  # Distorted ETH3D DSLR JPEGs:
   python evaluate.py --colmap_path /path/colmap \\
     --datasets eth3d-distorted --categories dslr \\
     --run_name eth3d-distorted
@@ -63,9 +64,9 @@ import pycolmap
 
 def _dataset_classes() -> dict[str, type[Dataset]]:
     return {
-        "eth3d": DatasetETH3DUndistortedLegacy,
-        "eth3d-distorted": DatasetETH3DDistorted,
         "eth3d-undistorted": DatasetETH3DUndistorted,
+        "eth3d-undistorted-legacy": DatasetETH3DUndistortedLegacy,
+        "eth3d-distorted": DatasetETH3DDistorted,
         "blended-mvs": DatasetBlendedMVS,
         "imc2023": DatasetIMC2023,
         "imc2024": DatasetIMC2024,
