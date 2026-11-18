@@ -5,12 +5,13 @@
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
 
+#include <limits>
+
 #include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 
-using namespace colmap;
-using namespace colmap::mvs;
-using namespace pybind11::literals;
+using colmap::mvs::NormalMap;
+using pybind11::literals::operator""_a;
 namespace py = pybind11;
 
 #ifdef _MSC_VER  // If compiling with MSVC
@@ -19,24 +20,41 @@ typedef ptrdiff_t ssize_t;
 #endif
 
 py::array_t<float> ArrayFromNormalMap(const NormalMap& self) {
-  const std::vector<ssize_t> shape = {static_cast<ssize_t>(self.GetHeight()),
-                                      static_cast<ssize_t>(self.GetWidth()),
-                                      static_cast<ssize_t>(self.GetDepth())};
+  const size_t width = self.GetWidth();
+  const size_t height = self.GetHeight();
+  const size_t num_channels = self.GetDepth();
+  const std::vector<ssize_t> shape = {static_cast<ssize_t>(height),
+                                      static_cast<ssize_t>(width),
+                                      static_cast<ssize_t>(num_channels)};
   py::array_t<float> output(shape);
-  py::buffer_info output_info = output.request();
-  float* output_ptr = reinterpret_cast<float*>(output_info.ptr);
-  std::memcpy(output_ptr, self.GetPtr(), self.GetNumBytes());
+  float* output_ptr = output.mutable_data();
+  for (size_t d = 0; d < num_channels; ++d) {
+    size_t output_index = d;
+    for (size_t row = 0; row < height; ++row) {
+      for (size_t col = 0; col < width; ++col) {
+        output_ptr[output_index] = self.Get(row, col, d);
+        output_index += num_channels;
+      }
+    }
+  }
   return output;
 }
 
-NormalMap NormalMapFromArray(py::array_t<float, py::array::c_style> array) {
+NormalMap NormalMapFromArray(
+    const py::array_t<float, py::array::c_style>& array) {
   if (array.ndim() != 3) {
     throw std::runtime_error("Input array must have 3 dimensions!");
   }
 
-  const int width = array.shape(1);
-  const int height = array.shape(0);
-  const int depth = array.shape(2);
+  const py::ssize_t width = array.shape(1);
+  const py::ssize_t height = array.shape(0);
+  const py::ssize_t depth = array.shape(2);
+
+  if (width > std::numeric_limits<int>::max() ||
+      height > std::numeric_limits<int>::max() ||
+      depth > std::numeric_limits<int>::max()) {
+    throw std::runtime_error("Input array dimensions must fit in int!");
+  }
 
   if (width == 0 || height == 0) {
     throw std::runtime_error(
@@ -47,10 +65,16 @@ NormalMap NormalMapFromArray(py::array_t<float, py::array::c_style> array) {
     throw std::runtime_error("Input array must have 3 channels for normals!");
   }
 
-  NormalMap output(width, height);
+  NormalMap output(static_cast<int>(width), static_cast<int>(height));
 
-  const float* input_ptr = static_cast<float*>(array.request().ptr);
-  std::memcpy(output.GetPtr(), input_ptr, output.GetNumBytes());
+  const float* input_ptr = array.data();
+  for (size_t row = 0; row < output.GetHeight(); ++row) {
+    for (size_t col = 0; col < output.GetWidth(); ++col) {
+      for (size_t d = 0; d < 3; ++d) {
+        output.Set(row, col, d, *input_ptr++);
+      }
+    }
+  }
   return output;
 }
 
