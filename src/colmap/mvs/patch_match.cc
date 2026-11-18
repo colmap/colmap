@@ -478,7 +478,12 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
         images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
         if (options.geom_consistency) {
           depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
-          normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
+          // Keep the workspace read for each input. Only the reference
+          // normal map is consumed by PatchMatch.
+          const NormalMap& normal_map = workspace_->GetNormalMap(image_idx);
+          if (image_idx == problem.ref_image_idx) {
+            normal_maps.at(image_idx) = normal_map;
+          }
         }
       }));
     }
