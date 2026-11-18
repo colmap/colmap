@@ -13,6 +13,46 @@
 namespace colmap {
 namespace {
 
+TEST(AutomaticReconstructionController, VideoDataUsesImageNames) {
+  const auto test_dir = CreateTestDir();
+  const auto workspace_path = test_dir / "workspace";
+  const auto image_path = test_dir / "images";
+  CreateDirIfNotExists(workspace_path);
+  CreateDirIfNotExists(image_path);
+
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 3;
+  synthetic_dataset_options.num_cameras_per_rig = 1;
+  synthetic_dataset_options.num_frames_per_rig = 1;
+  synthetic_dataset_options.num_points3D = 50;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction);
+  SynthesizeImages(SyntheticImageOptions(), gt_reconstruction, image_path);
+
+  AutomaticReconstructionController::Options options;
+  options.workspace_path = workspace_path;
+  options.image_path = image_path;
+  for (const auto& [_, image] : gt_reconstruction.Images()) {
+    options.image_names.push_back(image.Name());
+  }
+  options.image_names.pop_back();
+  options.data_type = AutomaticReconstructionController::DataType::VIDEO;
+  options.quality = AutomaticReconstructionController::Quality::LOW;
+  options.matching = false;
+  options.sparse = false;
+  options.dense = false;
+  options.use_gpu = false;
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  AutomaticReconstructionController controller(options, reconstruction_manager);
+  controller.Setup();
+  controller.Start();
+  controller.Wait();
+
+  EXPECT_EQ(Database::Open(workspace_path / "database.db")->NumImages(),
+            options.image_names.size());
+}
+
 class ParameterizedAutomaticReconstructionTests
     : public ::testing::TestWithParam<
           AutomaticReconstructionController::Mapper> {};
