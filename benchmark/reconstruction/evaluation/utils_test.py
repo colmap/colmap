@@ -271,6 +271,66 @@ def test_set_camera_priors_does_not_modify_gt(tmp_path: Path) -> None:
         assert camera.source == pycolmap.CameraSource.UNKNOWN
 
 
+@pytest.mark.parametrize(
+    ("has_camera_priors", "fix_camera_priors", "expect_fixed"),
+    [(True, False, False), (True, True, True), (False, True, False)],
+)
+def test_colmap_reconstruction_fixes_camera_priors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    has_camera_priors: bool,
+    fix_camera_priors: bool,
+    expect_fixed: bool,
+) -> None:
+    args = argparse.Namespace(
+        overwrite_database=False,
+        overwrite_reconstruction=False,
+        overwrite_matches=False,
+        overwrite_two_view_geometries=False,
+        colmap_path=Path("colmap"),
+        use_gpu=False,
+        random_seed=0,
+        feature="sift",
+        mapper="global",
+        quality="high",
+        max_num_features=-1,
+        single_view_calibration=False,
+    )
+    commands: list[list[Any]] = []
+    monkeypatch.setattr(
+        utils,
+        "_run_with_log",
+        lambda cmd, *args, **kwargs: commands.append(cmd),
+    )
+    monkeypatch.setattr(utils, "set_cameras_from_gt", lambda *args: None)
+
+    scene_info = SceneInfo(
+        dataset="dummy",
+        category="dslr",
+        scene="scene",
+        num_images=1,
+        workspace_path=tmp_path,
+        image_path=tmp_path / "images",
+        sparse_gt_path=tmp_path / "sparse_gt",
+        has_camera_priors=True,
+        camera_priors_define_sharing=True,
+        fix_camera_priors=fix_camera_priors,
+        colmap_extra_args=[],
+    )
+    utils.colmap_reconstruction(
+        args=args,
+        scene_info=scene_info,
+        camera_priors_sparse_gt=(
+            pycolmap.Reconstruction() if has_camera_priors else None
+        ),
+    )
+
+    extraction, matching, sparse = commands
+    assert "--refine_intrinsics" not in extraction
+    assert "--refine_intrinsics" not in matching
+    assert (sparse[-2:] == ["--refine_intrinsics", "0"]) == expect_fixed
+
+
 def test_set_cameras_from_gt(tmp_path: Path) -> None:
     database_path = tmp_path / "database.db"
     options = pycolmap.SyntheticDatasetOptions()
