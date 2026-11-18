@@ -89,6 +89,10 @@ bool ComputeSchurComplement(bool estimate_point_covs,
             point_param_idx, point_param_idx, tangent_size, tangent_size) +
         damping * Eigen::MatrixXd::Identity(tangent_size, tangent_size);
     const Eigen::MatrixXd H_pp_idx_inv = H_pp_idx.inverse();
+    if (!H_pp_idx_inv.allFinite()) {
+      LOG(WARNING) << "Failed to invert point Hessian block";
+      return false;
+    }
     for (int i = 0; i < tangent_size; ++i) {
       for (int j = 0; j < tangent_size; ++j) {
         H_pp_inv.coeffRef(point_param_idx + i, point_param_idx + j) =

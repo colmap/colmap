@@ -16,6 +16,45 @@
 namespace colmap {
 namespace {
 
+TEST(BACovariance, PointOnlyRejectsNonFiniteCovariance) {
+  for (const double constrained : {0.0, 1.0}) {
+    SCOPED_TRACE(constrained);
+    Reconstruction reconstruction;
+    const point3D_t point_id =
+        reconstruction.AddPoint3D(Eigen::Vector3d(1, 2, 3), Track());
+    Eigen::Matrix3d weight = Eigen::Matrix3d::Zero();
+    weight(0, 0) = constrained;
+    ceres::Problem problem;
+    problem.AddResidualBlock(
+        new ceres::NormalPrior(weight, Eigen::Vector3d::Zero()),
+        nullptr,
+        reconstruction.Point3D(point_id).xyz.data());
+
+    BACovarianceOptions options;
+    options.params = BACovarianceOptions::Params::POINTS;
+    options.damping = 0;
+    EXPECT_FALSE(
+        EstimateBACovarianceFromProblem(options, reconstruction, problem)
+            .has_value());
+
+    options.damping = BACovarianceOptions().damping;
+    const auto cov =
+        EstimateBACovarianceFromProblem(options, reconstruction, problem);
+    ASSERT_TRUE(cov.has_value());
+    const auto point_cov = cov->GetPointCov(point_id);
+    ASSERT_TRUE(point_cov.has_value());
+    ASSERT_EQ(point_cov->rows(), 3);
+    ASSERT_EQ(point_cov->cols(), 3);
+    const Eigen::Vector3d hessian_diag(
+        constrained * constrained + options.damping,
+        options.damping,
+        options.damping);
+    EXPECT_TRUE(point_cov->allFinite());
+    EXPECT_TRUE((*point_cov * hessian_diag.asDiagonal())
+                    .isApprox(Eigen::Matrix3d::Identity(), 1e-12));
+  }
+}
+
 void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
                              const Eigen::MatrixXd& mat2,
                              double tol) {
