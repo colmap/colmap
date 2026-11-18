@@ -576,6 +576,157 @@ TEST(Reconstruction, AddObservation) {
   EXPECT_EQ(reconstruction.Point3D(point3D_id).track.Length(), 3);
 }
 
+TEST(Reconstruction, AddPoint3DInvalidIdPreservesStateAndNextId) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  Track track;
+  track.AddElement(1, 0);
+  const point3D_t first_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(1, 2, 3), track);
+  ASSERT_EQ(first_id, 1);
+
+  // Do not continue with a poisoned allocator if the baseline accepts this ID.
+  ASSERT_THROW(reconstruction.AddPoint3D(kInvalidPoint3DId, Point3D{}),
+               std::invalid_argument);
+  ASSERT_EQ(reconstruction.NumPoints3D(), 1);
+  EXPECT_EQ(reconstruction.Point3D(first_id).track, track);
+  EXPECT_EQ(reconstruction.Image(1).Point2D(0).point3D_id, first_id);
+  EXPECT_EQ(reconstruction.Image(1).NumPoints3D(), 1);
+  EXPECT_FALSE(reconstruction.Image(2).Point2D(0).HasPoint3D());
+  EXPECT_EQ(reconstruction.Image(2).NumPoints3D(), 0);
+
+  Track next_track;
+  next_track.AddElement(2, 0);
+  const point3D_t next_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(4, 5, 6), next_track);
+  EXPECT_EQ(next_id, 2);
+  EXPECT_EQ(reconstruction.Image(2).Point2D(0).point3D_id, next_id);
+  EXPECT_TRUE(reconstruction.IsValid());
+}
+
+TEST(Reconstruction, AddPoint3DDuplicateIdPreservesAssociations) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(3, &reconstruction);
+  struct Point3D original;
+  original.xyz = Eigen::Vector3d(1, 2, 3);
+  original.track.AddElement(1, 0);
+  original.track.AddElement(2, 0);
+  reconstruction.AddPoint3D(1, original);
+
+  struct Point3D rejected;
+  rejected.xyz = Eigen::Vector3d(4, 5, 6);
+  rejected.track.AddElement(3, 0);
+  EXPECT_THROW(reconstruction.AddPoint3D(1, rejected), std::invalid_argument);
+
+  // Observe the live associations before copying, serializing, or traversing
+  // the rejected graph. A duplicate ID must not attach a fresh observation.
+  ASSERT_FALSE(reconstruction.Image(3).Point2D(0).HasPoint3D());
+  ASSERT_EQ(reconstruction.Image(3).NumPoints3D(), 0);
+  ASSERT_EQ(reconstruction.NumPoints3D(), 1);
+  EXPECT_EQ(reconstruction.Point3D(1).track, original.track);
+  EXPECT_EQ(reconstruction.Point3D(1).xyz, original.xyz);
+
+  const point3D_t retry_id =
+      reconstruction.AddPoint3D(rejected.xyz, rejected.track);
+  EXPECT_EQ(retry_id, 2);
+  reconstruction.DeletePoint3D(1);
+  EXPECT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
+  EXPECT_FALSE(reconstruction.Image(2).Point2D(0).HasPoint3D());
+  EXPECT_EQ(reconstruction.Image(3).Point2D(0).point3D_id, retry_id);
+  ASSERT_TRUE(reconstruction.IsValid());
+
+  // The import consumers accept associations already recorded in images.
+  for (const bool binary : {false, true}) {
+    SCOPED_TRACE(binary);
+    const auto path = CreateTestDir();
+    Reconstruction loaded;
+    if (binary) {
+      reconstruction.WriteBinary(path);
+      loaded.ReadBinary(path);
+    } else {
+      reconstruction.WriteText(path);
+      loaded.ReadText(path);
+    }
+    ASSERT_TRUE(loaded.IsValid());
+    EXPECT_EQ(loaded.Image(3).Point2D(0).point3D_id, retry_id);
+    EXPECT_EQ(loaded.Point3D(retry_id).track, rejected.track);
+    ExpectEqualSerialization(reconstruction, loaded);
+  }
+}
+
+TEST(Reconstruction, AddPoint3DLateTrackConflictPreservesStateAndNextId) {
+  const auto check_rejected_track = [](const bool explicit_id) {
+    SCOPED_TRACE(explicit_id);
+    Reconstruction reconstruction;
+    GenerateReconstruction(3, &reconstruction);
+    Track existing_track;
+    existing_track.AddElement(2, 0);
+    const point3D_t existing_id =
+        reconstruction.AddPoint3D(Eigen::Vector3d(1, 2, 3), existing_track);
+    ASSERT_EQ(existing_id, 1);
+
+    struct Point3D rejected;
+    rejected.xyz = Eigen::Vector3d(4, 5, 6);
+    rejected.track.AddElement(1, 0);
+    rejected.track.AddElement(2, 0);
+    if (explicit_id) {
+      EXPECT_THROW(reconstruction.AddPoint3D(100, rejected),
+                   std::invalid_argument);
+    } else {
+      EXPECT_THROW(reconstruction.AddPoint3D(rejected.xyz, rejected.track),
+                   std::invalid_argument);
+    }
+
+    ASSERT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
+    ASSERT_EQ(reconstruction.Image(1).NumPoints3D(), 0);
+    ASSERT_EQ(reconstruction.NumPoints3D(), 1);
+    ASSERT_EQ(reconstruction.Image(2).Point2D(0).point3D_id, existing_id);
+    EXPECT_EQ(reconstruction.Point3D(existing_id).track, existing_track);
+
+    rejected.track.SetElement(1, TrackElement(3, 0));
+    const point3D_t retry_id =
+        reconstruction.AddPoint3D(rejected.xyz, rejected.track);
+    EXPECT_EQ(retry_id, 2);
+    EXPECT_EQ(reconstruction.Image(1).Point2D(0).point3D_id, retry_id);
+    EXPECT_EQ(reconstruction.Image(3).Point2D(0).point3D_id, retry_id);
+    reconstruction.DeleteObservation(3, 0);
+    EXPECT_FALSE(reconstruction.ExistsPoint3D(retry_id));
+    EXPECT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
+    EXPECT_FALSE(reconstruction.Image(3).Point2D(0).HasPoint3D());
+    EXPECT_EQ(reconstruction.Image(2).Point2D(0).point3D_id, existing_id);
+    EXPECT_TRUE(reconstruction.IsValid());
+  };
+  check_rejected_track(false);
+  check_rejected_track(true);
+}
+
+TEST(Reconstruction, AddObservationToDeletedPointPreservesImage) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  Track track;
+  track.AddElement(1, 0);
+  const point3D_t stale_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(1, 2, 3), track);
+  reconstruction.DeletePoint3D(stale_id);
+
+  EXPECT_THROW(reconstruction.AddObservation(stale_id, TrackElement(2, 0)),
+               std::out_of_range);
+  ASSERT_FALSE(reconstruction.Image(2).Point2D(0).HasPoint3D());
+  ASSERT_EQ(reconstruction.Image(2).NumPoints3D(), 0);
+  ASSERT_EQ(reconstruction.NumPoints3D(), 0);
+
+  const point3D_t retry_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(4, 5, 6), track);
+  reconstruction.AddObservation(retry_id, TrackElement(2, 0));
+  EXPECT_EQ(reconstruction.Point3D(retry_id).track.Length(), 2);
+  EXPECT_EQ(reconstruction.Image(2).Point2D(0).point3D_id, retry_id);
+  reconstruction.DeleteObservation(2, 0);
+  EXPECT_FALSE(reconstruction.Image(1).Point2D(0).HasPoint3D());
+  EXPECT_FALSE(reconstruction.Image(2).Point2D(0).HasPoint3D());
+  EXPECT_EQ(reconstruction.NumPoints3D(), 0);
+  EXPECT_TRUE(reconstruction.IsValid());
+}
+
 TEST(Reconstruction, MergePoints3D) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
