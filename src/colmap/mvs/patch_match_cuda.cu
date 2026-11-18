@@ -10,6 +10,7 @@
 #define _USE_MATH_DEFINES
 
 #include "colmap/mvs/patch_match_cuda.h"
+#include "colmap/mvs/patch_match_geometry.cuh"
 #include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
@@ -175,37 +176,6 @@ __device__ inline void ComputePointAtDepth(const float row,
   point[0] = depth * (ref_inv_K[0] * col + ref_inv_K[1]);
   point[1] = depth * (ref_inv_K[2] * row + ref_inv_K[3]);
   point[2] = depth;
-}
-
-// Transfer depth on plane from viewing ray at row1 to row2. The returned
-// depth is the intersection of the viewing ray through row2 with the plane
-// at row1 defined by the given depth and normal.
-__device__ inline float PropagateDepth(const float depth1,
-                                       const float normal1[3],
-                                       const float row1,
-                                       const float row2) {
-  // Point along first viewing ray.
-  const float x1 = depth1 * (ref_inv_K[2] * row1 + ref_inv_K[3]);
-  const float y1 = depth1;
-  // Point on plane defined by point along first viewing ray and plane normal1.
-  const float x2 = x1 + normal1[2];
-  const float y2 = y1 - normal1[1];
-
-  // Origin of second viewing ray.
-  // const float x3 = 0.0f;
-  // const float y3 = 0.0f;
-  // Point on second viewing ray.
-  const float x4 = ref_inv_K[2] * row2 + ref_inv_K[3];
-  // const float y4 = 1.0f;
-
-  // Intersection of the lines ((x1, y1), (x2, y2)) and ((x3, y3), (x4, y4)).
-  const float denom = x2 - x1 + x4 * (y1 - y2);
-  constexpr float kEps = 1e-5f;
-  if (abs(denom) < kEps) {
-    return depth1;
-  }
-  const float nom = y1 * x2 - x1 * y2;
-  return nom / denom;
 }
 
 // First, compute triangulation angle between reference and source image for 3D
@@ -1017,8 +987,12 @@ __global__ void SweepFromTopToBottom(
     // of the normal of the previous ray. This helps to better estimate
     // the depth of very oblique structures, i.e. pixels whose normal direction
     // is significantly different from their viewing direction.
-    prev_param_state.depth = PropagateDepth(
-        prev_param_state.depth, prev_param_state.normal, row - 1, row);
+    prev_param_state.depth = internal::PropagateDepth(ref_inv_K,
+                                                      prev_param_state.depth,
+                                                      prev_param_state.normal,
+                                                      row - 1,
+                                                      row,
+                                                      col);
 
     // Read parameters for current pixel from previous sweep.
     curr_param_state.depth = depth_map.Get(row, col);
