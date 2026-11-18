@@ -203,6 +203,38 @@ TEST(SceneClustering, Empty) {
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 1);
 }
 
+TEST(SceneClustering, EmptyFlatClusters) {
+  SceneClustering::Options options;
+  options.branching = 4;
+  options.image_overlap = 0;
+  options.is_hierarchical = false;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition({{0, 1}}, {10});
+
+  const auto* root = scene_clustering.GetRootCluster();
+  ASSERT_NE(root, nullptr);
+  EXPECT_EQ(root->image_ids, (std::vector<image_t>{0, 1}));
+  ASSERT_EQ(root->child_clusters.size(), 4);
+  const auto leaves = scene_clustering.GetLeafClusters();
+  ASSERT_EQ(leaves.size(), root->child_clusters.size());
+  size_t num_empty = 0;
+  std::vector<image_t> covered_ids;
+  for (size_t i = 0; i < leaves.size(); ++i) {
+    EXPECT_EQ(leaves[i], &root->child_clusters[i]);
+    if (leaves[i]->image_ids.empty()) {
+      ++num_empty;
+    } else {
+      EXPECT_EQ(num_empty, 0);
+      covered_ids.insert(covered_ids.end(),
+                         leaves[i]->image_ids.begin(),
+                         leaves[i]->image_ids.end());
+    }
+  }
+  EXPECT_GE(num_empty, 2);
+  std::sort(covered_ids.begin(), covered_ids.end());
+  EXPECT_EQ(covered_ids, root->image_ids);
+}
+
 TEST(SceneClustering, OneLevel) {
   SceneClustering::Options options;
   options.branching = 2;
@@ -234,6 +266,49 @@ TEST(SceneClustering, ThreeFlatClusters) {
   EXPECT_EQ(scene_clustering.GetLeafClusters().size(), 3);
   EXPECT_THAT(GetLeafImageSets(scene_clustering.GetLeafClusters()),
               UnorderedClustersEq({0, 1}, {2, 3}, {4, 5}));
+}
+
+TEST(SceneClustering, FlatClustersOrderedBySizeThenImageId) {
+  const SceneGraph graph = {
+      {{0, 1}, {2, 3}, {10, 11}, {11, 12}, {10, 12}, {1, 2}, {3, 10}, {12, 0}},
+      {1000, 1000, 1000, 1000, 1000, 1, 1, 1}};
+
+  SceneClustering::Options options;
+  options.branching = 3;
+  options.image_overlap = 0;
+  options.is_hierarchical = false;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(graph.image_pairs, graph.num_inliers);
+
+  const auto* root = scene_clustering.GetRootCluster();
+  ASSERT_NE(root, nullptr);
+  ASSERT_EQ(root->child_clusters.size(), 3);
+  const auto leaves = scene_clustering.GetLeafClusters();
+  ASSERT_EQ(leaves.size(), 3);
+  const std::vector<image_t> expected_ids = {0, 1, 2, 3, 10, 11, 12};
+  ASSERT_EQ(root->image_ids, expected_ids);
+  std::vector<image_t> covered_ids;
+  for (const auto& child : root->child_clusters) {
+    ASSERT_TRUE(std::is_sorted(child.image_ids.begin(), child.image_ids.end()));
+    covered_ids.insert(
+        covered_ids.end(), child.image_ids.begin(), child.image_ids.end());
+  }
+  std::sort(covered_ids.begin(), covered_ids.end());
+  ASSERT_EQ(covered_ids, expected_ids);
+
+  // Check the public ordering independently of METIS's chosen memberships.
+  std::vector<std::pair<size_t, image_t>> order_keys;
+  order_keys.reserve(root->child_clusters.size());
+  for (const auto& child : root->child_clusters) {
+    order_keys.emplace_back(
+        root->image_ids.size() - child.image_ids.size(),
+        child.image_ids.empty() ? 0 : child.image_ids.front());
+  }
+  EXPECT_TRUE(std::is_sorted(order_keys.begin(), order_keys.end()))
+      << "flat cluster order: " << ::testing::PrintToString(order_keys);
+  for (size_t i = 0; i < leaves.size(); ++i) {
+    EXPECT_EQ(leaves[i], &root->child_clusters[i]);
+  }
 }
 
 TEST(SceneClustering, ThreeFlatClustersTwoOverlap) {
