@@ -13,28 +13,34 @@ CombinationSampler::CombinationSampler(const size_t num_samples)
 
 void CombinationSampler::Initialize(const size_t total_num_samples) {
   THROW_CHECK_LE(num_samples_, total_num_samples);
-  total_sample_idxs_.resize(total_num_samples);
-  // Note that the samples must be in increasing order for `NextCombination`.
-  std::iota(total_sample_idxs_.begin(), total_sample_idxs_.end(), 0);
+  sample_idxs_.resize(num_samples_);
+  std::iota(sample_idxs_.begin(), sample_idxs_.end(), size_t{0});
+  total_num_samples_ = total_num_samples;
 }
 
 size_t CombinationSampler::MaxNumSamples() {
-  return NChooseK(total_sample_idxs_.size(), num_samples_);
+  return NChooseK(total_num_samples_, num_samples_);
 }
 
 void CombinationSampler::Sample(std::vector<size_t>* sampled_idxs) {
-  sampled_idxs->resize(num_samples_);
-  for (size_t i = 0; i < num_samples_; ++i) {
-    (*sampled_idxs)[i] = total_sample_idxs_[i];
+  *sampled_idxs = sample_idxs_;
+  if (num_samples_ == total_num_samples_) {
+    return;
   }
 
-  if (!NextCombination(total_sample_idxs_.begin(),
-                       total_sample_idxs_.begin() + num_samples_,
-                       total_sample_idxs_.end())) {
-    // Reached all possible combinations, so reset to original state.
-    // Note that the samples must be in increasing order for `NextCombination`.
-    std::iota(total_sample_idxs_.begin(), total_sample_idxs_.end(), 0);
+  for (size_t i = num_samples_; i > 0; --i) {
+    const size_t pos = i - 1;
+    if (sample_idxs_[pos] < total_num_samples_ - num_samples_ + pos) {
+      ++sample_idxs_[pos];
+      for (size_t j = pos + 1; j < num_samples_; ++j) {
+        sample_idxs_[j] = sample_idxs_[j - 1] + 1;
+      }
+      return;
+    }
   }
+
+  // Reached all possible combinations, so reset to the first sample.
+  std::iota(sample_idxs_.begin(), sample_idxs_.end(), size_t{0});
 }
 
 }  // namespace colmap
