@@ -123,10 +123,10 @@ void BindCovarianceEstimator(py::module& m) {
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
       "if you modify the underlying problem with custom residuals. Bundle "
-      "adjusters with active position priors are not supported because their "
-      "residuals use an internally normalized coordinate frame while Solve() "
-      "restores metric parameter values. Returns null if the estimation was "
-      "not successful.");
+      "adjusters with metric-scale priors are not supported because their "
+      "residuals use an internally normalized coordinate frame while "
+      "reconstruction holds metric parameter values. Returns null if the "
+      "estimation was not successful.");
 
   m.def(
       "estimate_ba_covariance_from_problem",
@@ -139,8 +139,8 @@ void BindCovarianceEstimator(py::module& m) {
       "solving using the Schur complement trick. This is the case for the "
       "standard configuration of bundle adjustment problems, but be careful "
       "if you modify the underlying problem with custom residuals. Bundle "
-      "adjusters with active position priors are not supported because their "
-      "residuals use an internally normalized coordinate frame while Solve() "
-      "restores metric parameter values. Returns null if the estimation was "
-      "not successful.");
+      "adjusters with metric-scale priors are not supported because their "
+      "residuals use an internally normalized coordinate frame while "
+      "reconstruction holds metric parameter values. Returns null if the "
+      "estimation was not successful.");
 }

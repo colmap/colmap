@@ -34,6 +34,7 @@ def test_image_alignment_error_proj_center_error_readwrite() -> None:
         "align_reconstructions_via_reprojections",
         "align_reconstructions_via_proj_centers",
         "align_reconstructions_via_points",
+        "align_reconstruction_to_pose_priors",
         "compare_reconstructions",
     ],
 )

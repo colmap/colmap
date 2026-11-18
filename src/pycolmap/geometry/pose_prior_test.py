@@ -74,3 +74,31 @@ def test_pose_prior_corr_data_id_readwrite() -> None:
     )
     pose_prior.corr_data_id = data_id
     assert pose_prior.corr_data_id == data_id
+
+
+def test_set_pose_prior_position_covariances() -> None:
+    missing_cov = pycolmap.PosePrior()
+    existing_cov = pycolmap.PosePrior()
+    existing_cov.position_covariance = np.eye(3) * 4.0
+
+    priors = [missing_cov, existing_cov]
+    populated = pycolmap.set_pose_prior_position_covariances(
+        [0.5, 1.0, 2.0], False, priors
+    )
+    assert not missing_cov.has_position_cov()
+    np.testing.assert_allclose(
+        populated[0].position_covariance, np.diag([0.25, 1.0, 4.0])
+    )
+    np.testing.assert_allclose(
+        populated[1].position_covariance, np.eye(3) * 4.0
+    )
+
+    overwritten = pycolmap.set_pose_prior_position_covariances(
+        [0.5, 1.0, 2.0], True, priors
+    )
+    np.testing.assert_allclose(
+        existing_cov.position_covariance, np.eye(3) * 4.0
+    )
+    np.testing.assert_allclose(
+        overwritten[1].position_covariance, np.diag([0.25, 1.0, 4.0])
+    )

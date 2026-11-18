@@ -41,4 +41,19 @@ void BindPosePrior(py::module& m) {
         &ComputeRot90FromGravity,
         "gravity"_a,
         "Compute number of 90 deg CCW rotations to make sensor upright.");
+
+  m.def(
+      "set_pose_prior_position_covariances",
+      [](const Eigen::Vector3d& stddev,
+         const bool overwrite,
+         std::vector<PosePrior> pose_priors) {
+        SetPosePriorPositionCovariances(stddev, overwrite, pose_priors);
+        return pose_priors;
+      },
+      "stddev"_a,
+      "overwrite"_a,
+      "pose_priors"_a,
+      "Return a copy of `pose_priors` with missing or "
+      "non-symmetric-positive-definite position covariances populated (or all "
+      "of them overwritten when `overwrite` is True) with diag(stddev^2).");
 }

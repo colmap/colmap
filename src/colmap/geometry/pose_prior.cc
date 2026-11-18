@@ -6,8 +6,23 @@
 #include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/Cholesky>
+#include <Eigen/LU>
+
 namespace colmap {
 namespace {
+
+// Matches ComputeLeftSqrtInformation (and main's
+// TryComputeLeftSqrtInformation) in estimators/cost_functions/utils.h.
+bool IsSymmetricPositiveDefiniteCovariance(const Eigen::Matrix3d& cov) {
+  if (!cov.allFinite() || !cov.isApprox(cov.transpose(), 1e-5)) {
+    return false;
+  }
+  const Eigen::Matrix3d info = (0.5 * (cov + cov.transpose())).inverse();
+  return info.allFinite() &&
+         Eigen::LLT<Eigen::Matrix3d>(0.5 * (info + info.transpose())).info() ==
+             Eigen::Success;
+}
 
 // Handle NaNs explicitly and consider them equal, whereas the default C++
 // comparison operator returns false for a NaN == NaN comparison.
@@ -124,6 +139,27 @@ void ConvertPosePriorsToENU(std::vector<PosePrior>& pose_priors) {
     pose_prior->position = *enu_it;
     pose_prior->coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
     ++enu_it;
+  }
+}
+
+void SetPosePriorPositionCovariances(const Eigen::Vector3d& stddev,
+                                     const bool overwrite,
+                                     std::vector<PosePrior>& pose_priors) {
+  THROW_CHECK(stddev.allFinite() && (stddev.array() > 0).all())
+      << "stddev must be finite and positive";
+  const Eigen::Matrix3d fallback_cov = stddev.cwiseAbs2().asDiagonal();
+  for (PosePrior& pose_prior : pose_priors) {
+    if (overwrite || !pose_prior.HasPositionCov()) {
+      pose_prior.position_covariance = fallback_cov;
+    } else if (!IsSymmetricPositiveDefiniteCovariance(
+                   pose_prior.position_covariance)) {
+      LOG_FIRST_N(WARNING, 1)
+          << "Pose prior for data (" << pose_prior.corr_data_id.sensor_id.type
+          << ", " << pose_prior.corr_data_id.id
+          << ") has non-symmetric-positive-definite position covariance; "
+             "replacing with fallback covariance.";
+      pose_prior.position_covariance = fallback_cov;
+    }
   }
 }
 

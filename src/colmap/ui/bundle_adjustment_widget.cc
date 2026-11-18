@@ -58,21 +58,58 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
   AddOptionBool(&options->bundle_adjustment->refine_points3D,
                 "refine_points3D");
 
+  AddSection("Priors");
+  AddOptionBool(&options->bundle_adjustment->pose_prior.use_position,
+                "use_prior_position");
+  AddOptionBool(
+      &options->bundle_adjustment->pose_prior.overwrite_position_covariance,
+      "overwrite_prior_position_covariance");
+  for (int i = 0; i < 3; ++i) {
+    AddOptionDouble(&options->bundle_adjustment->pose_prior.position_stddev[i],
+                    std::string("prior_position_stddev_") + "xyz"[i] + " [m]",
+                    1e-6,
+                    1e7,
+                    0.01,
+                    3);
+  }
+  prior_position_loss_combo_ = new QComboBox(this);
+  for (const std::string_view name : CeresLossFunctionTypeStrings()) {
+    prior_position_loss_combo_->addItem(
+        QString::fromUtf8(name.data(), name.size()));
+  }
+  prior_position_loss_combo_->setCurrentIndex(static_cast<int>(
+      options->bundle_adjustment->ceres->prior_position_loss_function_type));
+  connect(
+      prior_position_loss_combo_,
+      QOverload<int>::of(&QComboBox::currentIndexChanged),
+      [options](int idx) {
+        options->bundle_adjustment->ceres->prior_position_loss_function_type =
+            static_cast<CeresLossFunctionType>(idx);
+      });
+  AddWidgetRow("prior_position_loss_function", prior_position_loss_combo_);
+  AddOptionDouble(&options->bundle_adjustment->ceres->prior_position_loss_scale,
+                  "prior_position_loss_scale",
+                  1e-6,
+                  1e7,
+                  0.01,
+                  3);
+
 #ifdef CASPAR_ENABLED
   AddSection("Bundle Adjustment Backend");
-  auto* backend_combo = new QComboBox(this);
-  backend_combo->addItem("CERES");  // index 0 == BundleAdjustmentBackend::CERES
-  backend_combo->addItem(
+  backend_combo_ = new QComboBox(this);
+  backend_combo_->addItem(
+      "CERES");  // index 0 == BundleAdjustmentBackend::CERES
+  backend_combo_->addItem(
       "CASPAR");  // index 1 == BundleAdjustmentBackend::CASPAR
-  backend_combo->setCurrentIndex(
+  backend_combo_->setCurrentIndex(
       static_cast<int>(options->bundle_adjustment->backend));
-  connect(backend_combo,
+  connect(backend_combo_,
           QOverload<int>::of(&QComboBox::currentIndexChanged),
           [options](int idx) {
             options->bundle_adjustment->backend =
                 static_cast<BundleAdjustmentBackend>(idx);
           });
-  AddWidgetRow("backend", backend_combo);
+  AddWidgetRow("backend", backend_combo_);
 
   AddSection("Caspar Options");
   AddOptionText(&options->bundle_adjustment->caspar->gpu_index,
@@ -84,7 +121,7 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
     HideOption(&options->bundle_adjustment->caspar->gpu_index);
   }
 
-  connect(backend_combo,
+  connect(backend_combo_,
           QOverload<int>::of(&QComboBox::currentIndexChanged),
           [this, options](int idx) {
             const bool is_caspar = static_cast<BundleAdjustmentBackend>(idx) ==
@@ -113,6 +150,12 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
 void BundleAdjustmentWidget::Show(
     std::shared_ptr<Reconstruction> reconstruction) {
   reconstruction_ = std::move(reconstruction);
+  prior_position_loss_combo_->setCurrentIndex(static_cast<int>(
+      options_->bundle_adjustment->ceres->prior_position_loss_function_type));
+#ifdef CASPAR_ENABLED
+  backend_combo_->setCurrentIndex(
+      static_cast<int>(options_->bundle_adjustment->backend));
+#endif
   show();
   raise();
 }
@@ -127,9 +170,11 @@ void BundleAdjustmentWidget::Run() {
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
+  if (!options_->bundle_adjustment->ConstrainMetricScale()) {
+    // Normalize scene for numerical stability and
+    // to avoid large scale changes in viewer.
+    reconstruction_->Normalize();
+  }
 
   thread_control_widget_->StartThread(
       "Bundle adjusting...", true, std::move(thread));

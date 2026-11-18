@@ -4,6 +4,7 @@
 
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_pipeline.h"
+#include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/feature/flexglue.h"
 #include "colmap/feature/sift.h"
 #include "colmap/mvs/patch_match_options.h"
@@ -404,6 +405,44 @@ TEST(OptionManager, WriteAfterResetOptions) {
 
   EXPECT_NO_THROW(options.Write(config_path));
   EXPECT_TRUE(ExistsFile(config_path));
+}
+
+TEST(OptionManager, PriorOptionsRoundTripAndReset) {
+  const auto test_dir = CreateTestDir();
+  const auto config_path = test_dir / "priors.ini";
+  const auto db_path = (test_dir / "database.db").string();
+  const auto img_path = (test_dir / "images").string();
+  CreateDirIfNotExists(img_path);
+
+  OptionManager options;
+  options.AddAllOptions();
+
+  std::vector<std::string> args = {
+      "colmap",
+      "--database_path=" + db_path,
+      "--image_path=" + img_path,
+      "--BundleAdjustment.prior_position_stddev_y=1.5",
+      "--BundleAdjustmentCeres.prior_position_loss_function_type=CAUCHY",
+      "--Mapper.use_prior_position=1",
+  };
+  std::vector<char*> argv;
+  argv.reserve(args.size());
+  for (auto& arg : args) {
+    argv.push_back(arg.data());
+  }
+  ASSERT_TRUE(options.Parse(argv.size(), argv.data()));
+  options.Write(config_path);
+
+  OptionManager options_read;
+  options_read.AddAllOptions();
+  options_read.ResetOptions(/*reset_paths=*/true);
+  ASSERT_TRUE(options_read.Read(config_path));
+  EXPECT_EQ(options_read.bundle_adjustment->pose_prior.position_stddev,
+            Eigen::Vector3d(1.0, 1.5, 1.0));
+  EXPECT_EQ(
+      options_read.bundle_adjustment->ceres->prior_position_loss_function_type,
+      CeresLossFunctionType::CAUCHY);
+  EXPECT_TRUE(options_read.mapper->use_prior_position);
 }
 
 }  // namespace

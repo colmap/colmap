@@ -104,12 +104,8 @@ TEST(Alignment, AlignReconstructionToPosePriors) {
   ransac_options.max_error = 1e-2;
 
   Sim3d tgt_from_src;
-  ASSERT_TRUE(
-      AlignReconstructionToPosePriors(src_reconstruction,
-                                      tgt_pose_priors,
-                                      ransac_options,
-                                      /*prior_position_fallback_stddev=*/1.0,
-                                      &tgt_from_src));
+  ASSERT_TRUE(AlignReconstructionToPosePriors(
+      src_reconstruction, tgt_pose_priors, ransac_options, &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
@@ -133,12 +129,8 @@ TEST(Alignment, AlignReconstructionToPosePriorsWithAutomaticMaxError) {
   RANSACOptions ransac_options;
   ransac_options.max_error = 0.0;
   Sim3d tgt_from_src;
-  ASSERT_TRUE(
-      AlignReconstructionToPosePriors(src_reconstruction,
-                                      tgt_pose_priors,
-                                      ransac_options,
-                                      /*prior_position_fallback_stddev=*/1.0,
-                                      &tgt_from_src));
+  ASSERT_TRUE(AlignReconstructionToPosePriors(
+      src_reconstruction, tgt_pose_priors, ransac_options, &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 

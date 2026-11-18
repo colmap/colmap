@@ -19,7 +19,7 @@
 namespace colmap {
 namespace {
 
-bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
+bool RunBundleAdjustment(BundleAdjustmentOptions options,
                          Reconstruction& reconstruction) {
   if (reconstruction.NumImages() == 0) {
     LOG(ERROR) << "Cannot run bundle adjustment: no registered images";
@@ -28,6 +28,12 @@ bool RunBundleAdjustment(const BundleAdjustmentOptions& options,
   if (reconstruction.NumPoints3D() == 0) {
     LOG(ERROR) << "Cannot run bundle adjustment: no 3D points to optimize";
     return false;
+  }
+
+  if (options.pose_prior.use_position) {
+    LOG(WARNING)
+        << "Position priors are not supported by the global mapper; ignoring.";
+    options.pose_prior.use_position = false;
   }
 
   BundleAdjustmentConfig ba_config;

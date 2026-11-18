@@ -280,18 +280,34 @@ BundleAdjustmentBackendOptions& BundleAdjustmentBackendOptions::operator=(
   return *this;
 }
 
+bool BundleAdjustmentPosePriorOptions::Check() const {
+  CHECK_OPTION(position_stddev.allFinite() &&
+               (position_stddev.array() > 0).all());
+  return true;
+}
+
+bool BundleAdjustmentOptions::ConstrainMetricScale() const {
+  return pose_prior.use_position;
+}
+
 bool BundleAdjustmentOptions::Check() const {
+  CHECK_OPTION(pose_prior.Check());
   return THROW_CHECK_NOTNULL(ceres)->Check();
 }
 
 std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
-    Reconstruction& reconstruction) {
+    Reconstruction& reconstruction,
+    const BundleAdjustmentPriors& priors) {
   switch (options.backend) {
     case BundleAdjustmentBackend::CERES:
-      return CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
+      return CreateDefaultCeresBundleAdjuster(
+          options, config, reconstruction, priors);
     case BundleAdjustmentBackend::CASPAR:
+      if (options.pose_prior.use_position) {
+        LOG(FATAL_THROW) << "Caspar BA backend does not support priors";
+      }
       return CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
@@ -350,14 +366,7 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
                                                 std::move(pose_priors),
                                                 reconstruction);
     case BundleAdjustmentBackend::CASPAR:
-#ifdef CASPAR_ENABLED
-      LOG(FATAL_THROW) << "Caspar BA backend does not support pose priors";
-#else
-      LOG(FATAL_THROW)
-          << "Caspar BA backend selected but COLMAP was built without "
-             "CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON to use it";
-#endif
-      return nullptr;
+      LOG(FATAL_THROW) << "Caspar BA backend does not support priors";
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
                    << static_cast<int>(options.backend);

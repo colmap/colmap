@@ -171,8 +171,11 @@ def test_incremental_pipeline_options_get_local_bundle_adjustment() -> None:
 
 def test_incremental_pipeline_options_get_global_bundle_adjustment() -> None:
     options = pycolmap.IncrementalPipelineOptions()
+    options.use_prior_position = True
+    options.overwrite_prior_position_covariance = True
     bundle_adjustment_options = options.get_global_bundle_adjustment()
-    assert bundle_adjustment_options is not None
+    assert bundle_adjustment_options.pose_prior.use_position
+    assert bundle_adjustment_options.pose_prior.overwrite_position_covariance
 
 
 def test_incremental_pipeline_options_ba_local_backend_readwrite() -> None:
