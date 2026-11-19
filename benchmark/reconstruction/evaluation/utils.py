@@ -1665,9 +1665,9 @@ def diff_metrics(
                 metrics_b_item = scene_metrics_b[scene]
                 if (
                     metrics_a_item.error_type != metrics_b_item.error_type
-                    or not np.all(
-                        metrics_a_item.error_thresholds
-                        == metrics_b_item.error_thresholds
+                    or not np.array_equal(
+                        metrics_a_item.error_thresholds,
+                        metrics_b_item.error_thresholds,
                     )
                 ):
                     raise ValueError("Inconsistent error thresholds or types")
@@ -1699,6 +1699,19 @@ def create_result_table(
     first_metrics = next(
         iter(next(iter(next(iter(dataset_metrics.values())).values())).values())
     )
+    for dataset, category_metrics in dataset_metrics.items():
+        for category, scene_metrics in category_metrics.items():
+            for scene, metrics in scene_metrics.items():
+                if (
+                    metrics.error_type != first_metrics.error_type
+                    or not np.array_equal(
+                        metrics.error_thresholds, first_metrics.error_thresholds
+                    )
+                ):
+                    raise ValueError(
+                        "Inconsistent error thresholds or types for "
+                        f"{dataset}/{category}/{scene}"
+                    )
 
     is_auc = first_metrics.error_type.endswith("auc")
     is_relative = first_metrics.error_type.startswith("relative")
@@ -1903,10 +1916,6 @@ def pair_reports(
     return paths(reports_a), paths(reports_b), shared
 
 
-def _first_metrics(report: MetricsByDatasetByCatByScene) -> Metrics:
-    return next(iter(next(iter(next(iter(report.values())).values())).values()))
-
-
 def _common_scene_keys(
     reports: list[MetricsByDatasetByCatByScene],
 ) -> list[SceneKey]:
@@ -2041,19 +2050,22 @@ def compare_reports(
     if not keys:
         raise SystemExit("No scenes shared across all reports.")
 
+    first_dataset, first_category, first_scene = keys[0]
+    first_metrics = reports_a[0][first_dataset][first_category][first_scene]
     for dataset, category, scene in keys:
-        reference = reports_a[0][dataset][category][scene]
-        for report in reports_a[1:] + reports_b:
+        for report in reports_a + reports_b:
             metrics = report[dataset][category][scene]
-            if metrics.error_type != reference.error_type or not np.array_equal(
-                metrics.error_thresholds, reference.error_thresholds
+            if (
+                metrics.error_type != first_metrics.error_type
+                or not np.array_equal(
+                    metrics.error_thresholds, first_metrics.error_thresholds
+                )
             ):
                 raise ValueError(
                     "Inconsistent error thresholds or types for "
                     f"{dataset}/{category}/{scene}"
                 )
 
-    first_metrics = _first_metrics(reports_a[0])
     error_type = first_metrics.error_type
     thresholds = np.asarray(first_metrics.error_thresholds)
     score = "AUC" if error_type.endswith("auc") else "Recall"

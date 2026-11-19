@@ -2,6 +2,7 @@
 
 import argparse
 from collections.abc import Iterable, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -573,6 +574,31 @@ class TestGetScores:
 
 
 class TestDiffMetrics:
+    def test_rejects_broadcastable_threshold_shapes(self) -> None:
+        metrics = Metrics(
+            aucs=np.array([20.0]),
+            recalls=np.array([30.0]),
+            error_thresholds=np.array([1.0]),
+            error_type="relative_auc",
+            num_images=2,
+            num_reg_images=2,
+            num_components=1,
+            largest_component=2,
+        )
+        repeated = replace(
+            metrics,
+            aucs=np.array([20.0, 20.0]),
+            recalls=np.array([30.0, 30.0]),
+            error_thresholds=np.array([1.0, 1.0]),
+        )
+        with pytest.raises(
+            ValueError, match="Inconsistent error thresholds or types"
+        ):
+            diff_metrics(
+                {"toy": {"cat": {"scene": metrics}}},
+                {"toy": {"cat": {"scene": repeated}}},
+            )
+
     def test_nominal(self) -> None:
         metrics_a = {
             "dataset1": {
@@ -613,6 +639,39 @@ class TestDiffMetrics:
         np.testing.assert_array_equal(scene_diff.recalls, [10.0, 10.0, 10.0])
         assert scene_diff.num_reg_images == 5
         assert scene_diff.num_components == 1
+
+
+@pytest.mark.parametrize("num_runs", [1, 2])
+@pytest.mark.parametrize("mismatch", ["thresholds", "type"])
+def test_compare_reports_rejects_incompatible_scenes(
+    monkeypatch: pytest.MonkeyPatch, num_runs: int, mismatch: str
+) -> None:
+    metrics = Metrics(
+        aucs=np.array([20.0, 30.0]),
+        recalls=np.array([40.0, 50.0]),
+        error_thresholds=np.array([1.0, 2.0]),
+        error_type="relative_auc",
+        num_images=2,
+        num_reg_images=2,
+        num_components=1,
+        largest_component=2,
+    )
+    other = (
+        replace(metrics, error_thresholds=np.array([10.0, 20.0]))
+        if mismatch == "thresholds"
+        else replace(metrics, error_type="absolute_recall")
+    )
+    # Each scene matches across every run, but the table cannot give these
+    # two scenes one shared metric/threshold header.
+    report = {"toy": {"cat": {"first": metrics, "second": other}}}
+    monkeypatch.setattr(utils, "load_report", lambda _: report)
+    with pytest.raises(
+        ValueError, match="Inconsistent error thresholds or types"
+    ):
+        utils.compare_reports(
+            [Path(f"a{i}") for i in range(num_runs)],
+            [Path(f"b{i}") for i in range(num_runs)],
+        )
 
 
 @pytest.mark.parametrize(
