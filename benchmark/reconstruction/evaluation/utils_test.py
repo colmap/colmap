@@ -740,6 +740,61 @@ def _single_gt_cluster(
 
 
 class TestComputeGroupedRelErrors:
+    @pytest.mark.parametrize("reverse_models", [False, True])
+    @pytest.mark.parametrize("mixed_edges", [False, True])
+    def test_overlapping_models_preserve_error_order(
+        self, reverse_models: bool, mixed_edges: bool
+    ) -> None:
+        def make_model(angles: dict[str, float]) -> pycolmap.Reconstruction:
+            reconstruction = create_test_reconstruction()
+            for image, (name, angle) in zip(
+                reconstruction.images.values(), angles.items(), strict=False
+            ):
+                image.name = name
+                image.frame.rig_from_world = pycolmap.Rigid3d(
+                    pycolmap.Rotation3d(np.array([0, 0, np.deg2rad(angle)])),
+                    np.zeros(3),
+                )
+            return extract_sub_reconstruction(reconstruction, angles)
+
+        # Nonlexical image order; coincident centers isolate rotation errors.
+        gt_angles = {"c": 0.0, "a": 0.0, "b": 0.0}
+        first_angles = {"c": 30.0, "a": 0.0, "b": 10.0}
+        if mixed_edges:
+            gt_angles.update({"d": 0.0, "e": 0.0})
+            first_angles.update({"f": 50.0, "e": 70.0})
+        ground_truth = make_model(gt_angles)
+        models = [make_model(first_angles), make_model({"b": 40.0, "a": 0.0})]
+        if reverse_models:
+            models.reverse()
+        components = {name: 0 for name in gt_angles}
+        if mixed_edges:
+            # d is GT-only, e is a declared outlier, f is estimate-only.
+            components["e"] = OUTLIER_COMPONENT_ID
+
+        errors = compute_grouped_rel_errors(
+            sparse_gt=ground_truth,
+            sub_models=models,
+            image_name_to_component=components,
+            min_proj_center_dist=0.01,
+        )
+
+        ab = [40.0, 10.0] if reverse_models else [10.0, 40.0]
+        if mixed_edges:
+            expected_by_source: list[list[float]] = [
+                [*ab, 30, 180, 180, 180],  # a -> b (twice), c, d, e, f
+                [*ab, 20, 180, 180, 180],  # b -> a (twice), c, d, e, f
+                [30, 20, 180, 180, 180],  # c -> a, b, d, e, f
+                [180, 180, 180],  # d -> a, b, c
+                [180, 180, 180, 180],  # e -> a, b, c, f
+                [180, 180, 180, 180],  # f -> a, b, c, e
+            ]
+        else:
+            expected_by_source = [[*ab, 30], [*ab, 20], [30, 20]]
+        np.testing.assert_allclose(
+            errors, np.concatenate(expected_by_source), rtol=0, atol=1e-12
+        )
+
     def test_identical_reconstruction(self) -> None:
         reconstruction = create_test_reconstruction()
 
