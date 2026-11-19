@@ -27,6 +27,7 @@ class BundleAdjustmentWidget : public OptionsWidget {
   MainWindow* main_window_;
   OptionManager* options_;
   std::shared_ptr<Reconstruction> reconstruction_;
+  QTabWidget* tab_widget_;
   ThreadControlWidget* thread_control_widget_;
   QAction* render_action_;
 };

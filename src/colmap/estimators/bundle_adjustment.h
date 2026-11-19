@@ -246,4 +246,9 @@ std::unique_ptr<BundleAdjuster> CreatePosePriorBundleAdjuster(
     std::vector<PosePrior> pose_priors,
     Reconstruction& reconstruction);
 
+// Number of pose priors with a position on the camera images in the config,
+// i.e., that can constrain a pose prior bundle adjustment.
+size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
+                               const BundleAdjustmentConfig& ba_config);
+
 }  // namespace colmap

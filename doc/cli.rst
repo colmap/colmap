@@ -452,6 +452,9 @@ available as ``colmap [command]``:
   ``--BundleAdjustment.backend`` (``CERES`` or ``CASPAR``). Caspar [caspar]_ is
   an experimental GPU-accelerated backend; see :doc:`faq` for details and
   limitations.
+  With ``--use_prior_position 1`` and ``--database_path``, the camera positions
+  are additionally constrained by the pose priors stored in the database, as
+  done internally by ``pose_prior_mapper``.
 
 - ``database_cleaner``: Clean specific or all database tables.
 

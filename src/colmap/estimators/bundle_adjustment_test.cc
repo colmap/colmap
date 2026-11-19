@@ -314,6 +314,37 @@ TEST(BundleAdjustmentConfig, Images) {
   EXPECT_EQ(images.count(10), 1);
 }
 
+TEST(NumRegisteredPosePriors, Nominal) {
+  const auto make_pose_prior =
+      [](sensor_t sensor_id, image_t image_id, bool has_position) {
+        PosePrior pose_prior;
+        pose_prior.corr_data_id = data_t(sensor_id, image_id);
+        if (has_position) {
+          pose_prior.position = Eigen::Vector3d(1, 2, 3);
+        }
+        return pose_prior;
+      };
+  const sensor_t camera_id(SensorType::CAMERA, 1);
+  const std::vector<PosePrior> pose_priors = {
+      make_pose_prior(camera_id, 1, /*has_position=*/true),
+      make_pose_prior(camera_id, 2, /*has_position=*/true),
+      // No position.
+      make_pose_prior(camera_id, 3, /*has_position=*/false),
+      // Image not in the config.
+      make_pose_prior(camera_id, 4, /*has_position=*/true),
+      // Not a camera sensor.
+      make_pose_prior(sensor_t(SensorType::IMU, 1), 1, /*has_position=*/true),
+  };
+
+  BundleAdjustmentConfig config;
+  EXPECT_EQ(NumRegisteredPosePriors(pose_priors, config), 0);
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+  EXPECT_EQ(NumRegisteredPosePriors(pose_priors, config), 2);
+  EXPECT_EQ(NumRegisteredPosePriors({}, config), 0);
+}
+
 TEST(BundleAdjustmentSummary, BriefReport) {
   BundleAdjustmentSummary summary;
   summary.termination_type = BundleAdjustmentTerminationType::CONVERGENCE;
