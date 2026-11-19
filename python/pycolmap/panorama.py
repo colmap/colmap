@@ -310,6 +310,9 @@ class PanoProcessor:
             ).astype(np.float32)
             xy_in_pano -= 0.5  # COLMAP to OpenCV pixel origin.
             x_coords, y_coords = np.moveaxis(xy_in_pano, [0, 1, 2], [2, 1, 0])
+            # Longitude wraps at the seam; latitude must not interpolate
+            # between the north and south poles.
+            y_coords = np.clip(y_coords, 0, pano_height - 1)
             image = cv2.remap(
                 pano_image,
                 x_coords,
