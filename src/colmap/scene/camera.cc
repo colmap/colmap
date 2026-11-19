@@ -6,6 +6,8 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
+#include <algorithm>
+
 namespace colmap {
 
 Camera Camera::CreateFromModelId(camera_t camera_id,
@@ -88,12 +90,8 @@ bool Camera::IsUndistorted() const {
 
 void Camera::Rescale(const double scale) {
   THROW_CHECK_GT(scale, 0.0);
-  const double scale_x = std::round(scale * width) / static_cast<double>(width);
-  const double scale_y =
-      std::round(scale * height) / static_cast<double>(height);
-  width = static_cast<size_t>(std::round(scale * width));
-  height = static_cast<size_t>(std::round(scale * height));
-  CameraModelRescale(model_id, scale_x, scale_y, params);
+  Rescale(static_cast<size_t>(std::max(1.0, std::round(scale * width))),
+          static_cast<size_t>(std::max(1.0, std::round(scale * height))));
 }
 
 void Camera::Rescale(const size_t new_width, const size_t new_height) {
