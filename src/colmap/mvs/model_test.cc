@@ -181,6 +181,8 @@ TEST(Model, ComputeDepthRangesRanksAndTies) {
   const float K[9] = {100, 0, 50, 0, 100, 50, 0, 0, 1};
   const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
   const float T[3] = {0, 0, 0};
+  // Keep shuffled coverage reproducible.
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rng(0);
   for (const size_t num_points : {0, 1, 2, 99, 100, 101, 1024, 10001}) {
     for (const bool tied : {false, true}) {
