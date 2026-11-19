@@ -21,10 +21,17 @@ std::vector<Eigen::AlignedBox3d> ComputeEqualPartsBboxes(
   for (int k = 0; k < split(2); ++k) {
     for (int j = 0; j < split(1); ++j) {
       for (int i = 0; i < split(0); ++i) {
-        Eigen::Vector3d min(bbox.min().x() + i * size(0),
-                            bbox.min().y() + j * size(1),
-                            bbox.min().z() + k * size(2));
-        bboxes.emplace_back(min, min + size);
+        const Eigen::Vector3d min(bbox.min().x() + i * size(0),
+                                  bbox.min().y() + j * size(1),
+                                  bbox.min().z() + k * size(2));
+        const Eigen::Vector3d max(
+            i + 1 == split(0) ? bbox.max().x()
+                              : bbox.min().x() + (i + 1) * size(0),
+            j + 1 == split(1) ? bbox.max().y()
+                              : bbox.min().y() + (j + 1) * size(1),
+            k + 1 == split(2) ? bbox.max().z()
+                              : bbox.min().z() + (k + 1) * size(2));
+        bboxes.emplace_back(min, max);
       }
     }
   }
