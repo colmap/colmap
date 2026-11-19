@@ -781,7 +781,7 @@ class TestComputeGroupedRelErrors:
 
         ab = [40.0, 10.0] if reverse_models else [10.0, 40.0]
         if mixed_edges:
-            expected_by_source = [
+            expected_by_source: list[list[float]] = [
                 [*ab, 30, 180, 180, 180],  # a -> b (twice), c, d, e, f
                 [*ab, 20, 180, 180, 180],  # b -> a (twice), c, d, e, f
                 [30, 20, 180, 180, 180],  # c -> a, b, d, e, f
