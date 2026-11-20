@@ -9,12 +9,15 @@ import pycolmap
 
 from .panorama import (
     PANO_RENDER_OPTIONS,
+    Mapper,
     PanoProcessor,
     PanoramaReconstructionOptions,
     PanoRenderType,
+    _configure_global_mapping_gpu,
     filter_database_by_covisibility,
     get_virtual_rotations,
     run_perspective,
+    run_spherical,
 )
 
 
@@ -190,3 +193,58 @@ def test_run_perspective_raises_for_empty_input_dir(tmp_path: Path) -> None:
             output_dir / "database.db",
             output_dir / "sparse",
         )
+
+
+@pytest.mark.parametrize("use_gpu", [False, True])
+def test_global_mapping_gpu_options(use_gpu: bool) -> None:
+    options = PanoramaReconstructionOptions(use_gpu=use_gpu, gpu_index="0")
+    global_options = pycolmap.GlobalPipelineOptions()
+    _configure_global_mapping_gpu(options, global_options)
+
+    mapper_options = global_options.mapper
+    positioner_options = mapper_options.get_global_positioning()
+    assert positioner_options.use_gpu is use_gpu
+    assert positioner_options.gpu_index == "0"
+    ba_options = mapper_options.get_bundle_adjustment().ceres
+    assert ba_options is not None
+    assert ba_options.use_gpu is use_gpu
+    assert ba_options.gpu_index == "0"
+
+
+@pytest.mark.parametrize("use_gpu", [False, True])
+def test_incremental_mapping_gpu_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, use_gpu: bool
+) -> None:
+    from . import panorama
+
+    mapping_options: pycolmap.IncrementalPipelineOptions | None = None
+
+    def capture_mapping(
+        database_path: Path,
+        image_path: Path,
+        output_path: Path,
+        options: pycolmap.IncrementalPipelineOptions,
+    ) -> dict[int, pycolmap.Reconstruction]:
+        nonlocal mapping_options
+        mapping_options = options
+        return {}
+
+    monkeypatch.setattr(
+        panorama.pycolmap, "extract_features", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(panorama, "run_matcher", lambda *args: None)
+    monkeypatch.setattr(
+        panorama.pycolmap, "incremental_mapping", capture_mapping
+    )
+
+    run_spherical(
+        tmp_path,
+        PanoramaReconstructionOptions(
+            mapper=Mapper.INCREMENTAL, use_gpu=use_gpu, gpu_index="0"
+        ),
+        tmp_path / "database.db",
+        tmp_path / "sparse",
+    )
+    assert mapping_options is not None
+    assert mapping_options.ba_use_gpu is use_gpu
+    assert mapping_options.ba_gpu_index == "0"
