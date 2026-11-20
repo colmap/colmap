@@ -59,8 +59,10 @@ def _download_eth3d_archives(
         pycolmap.logging.info(
             f"Extracting ETH3D category={category}, filename={filename}"
         )
-        with py7zr.SevenZipFile(target_folder / filename, mode="r") as archive:
+        archive_path = target_folder / filename
+        with py7zr.SevenZipFile(archive_path, mode="r") as archive:
             archive.extractall(path=target_folder)
+        archive_path.unlink()
 
 
 def download_eth3d(data_path: Path) -> None:
@@ -71,89 +73,49 @@ def download_eth3d_distorted(data_path: Path) -> None:
     _download_eth3d_archives(data_path, ETH3D_DISTORTED_ARCHIVES)
 
 
-def download_imc2023(data_path: Path) -> None:
+def _download_imc(data_path: Path, year: int, move_scenes_to_all: bool) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
-    pycolmap.logging.info("Downloading IMC2023")
+    competition = f"image-matching-challenge-{year}"
+    pycolmap.logging.info(f"Downloading IMC{year}")
     subprocess.check_call(
         [
             "kaggle",
             "competitions",
             "download",
             "-c",
-            "image-matching-challenge-2023",
+            competition,
             "-p",
             str(data_path),
         ],
     )
 
-    pycolmap.logging.info("Extracting IMC2023")
-    with zipfile.ZipFile(
-        data_path / "image-matching-challenge-2023.zip", mode="r"
-    ) as archive:
+    pycolmap.logging.info(f"Extracting IMC{year}")
+    archive_path = data_path / f"{competition}.zip"
+    with zipfile.ZipFile(archive_path, mode="r") as archive:
         archive.extractall(path=data_path)
+
+    if move_scenes_to_all:
+        # Move all scenes to the "all" category sub-folder.
+        category_path = data_path / "train/all"
+        category_path.mkdir(parents=True, exist_ok=True)
+        for scene in (data_path / "train").iterdir():
+            if scene.name == "all":
+                continue
+            shutil.move(scene, category_path)
+    archive_path.unlink()
+
+
+def download_imc2023(data_path: Path) -> None:
+    _download_imc(data_path, 2023, move_scenes_to_all=False)
 
 
 def download_imc2024(data_path: Path) -> None:
-    data_path.mkdir(parents=True, exist_ok=True)
-
-    pycolmap.logging.info("Downloading IMC2024")
-    subprocess.check_call(
-        [
-            "kaggle",
-            "competitions",
-            "download",
-            "-c",
-            "image-matching-challenge-2024",
-            "-p",
-            str(data_path),
-        ],
-    )
-
-    pycolmap.logging.info("Extracting IMC2024")
-    with zipfile.ZipFile(
-        data_path / "image-matching-challenge-2024.zip", mode="r"
-    ) as archive:
-        archive.extractall(path=data_path)
-
-    # Move all scenes to the "all" category sub-folder.
-    category_path = data_path / "train/all"
-    category_path.mkdir(parents=True, exist_ok=True)
-    for scene in (data_path / "train").iterdir():
-        if scene.name == "all":
-            continue
-        shutil.move(scene, category_path)
+    _download_imc(data_path, 2024, move_scenes_to_all=True)
 
 
 def download_imc2025(data_path: Path) -> None:
-    data_path.mkdir(parents=True, exist_ok=True)
-
-    pycolmap.logging.info("Downloading IMC2025")
-    subprocess.check_call(
-        [
-            "kaggle",
-            "competitions",
-            "download",
-            "-c",
-            "image-matching-challenge-2025",
-            "-p",
-            str(data_path),
-        ],
-    )
-
-    pycolmap.logging.info("Extracting IMC2025")
-    with zipfile.ZipFile(
-        data_path / "image-matching-challenge-2025.zip", mode="r"
-    ) as archive:
-        archive.extractall(path=data_path)
-
-    # Move all scenes to the "all" category sub-folder.
-    category_path = data_path / "train/all"
-    category_path.mkdir(parents=True, exist_ok=True)
-    for scene in (data_path / "train").iterdir():
-        if scene.name == "all":
-            continue
-        shutil.move(scene, category_path)
+    _download_imc(data_path, 2025, move_scenes_to_all=True)
 
 
 # TODO: BlendedMVS+ and BlendedMVS++.
@@ -162,9 +124,10 @@ def download_blended_mvs(data_path: Path) -> None:
     target_folder.mkdir(parents=True, exist_ok=True)
 
     pycolmap.logging.info("Downloading BlendedMVS")
-    for filename in [
+    split_filenames = [
         "BlendedMVS.zip",
-    ] + [f"BlendedMVS.z{i:02d}" for i in range(1, 16)]:
+    ] + [f"BlendedMVS.z{i:02d}" for i in range(1, 16)]
+    for filename in split_filenames:
         download_file(
             "https://github.com/YoYo000/BlendedMVS/releases/download/v1.0.0/"
             + filename,
@@ -192,6 +155,8 @@ def download_blended_mvs(data_path: Path) -> None:
     finally:
         if combined_zip.exists():
             combined_zip.unlink()
+    for filename in split_filenames:
+        (target_folder / filename).unlink(missing_ok=True)
 
 
 def _sha256(path: Path) -> str:
