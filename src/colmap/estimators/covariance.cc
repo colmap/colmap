@@ -174,13 +174,13 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
 
   const int num_positive_pivots = (D_dense.array() > 1e-6).count();
   if (!D_dense.allFinite() || num_positive_pivots < S.rows()) {
-    LOG(WARNING) << StringPrintf(
-        "Unable to compute covariance. The Schur complement on pose/other "
-        "parameters is not sufficiently positive definite. Number of columns: "
-        "%d, positive pivots: %d. This may be due to gauge ambiguity, other "
-        "degeneracies, or numerical instability.",
-        S.rows(),
-        num_positive_pivots);
+    LOG(WARNING)
+        << "Unable to compute covariance. The Schur complement on pose/other "
+           "parameters is not sufficiently positive definite. Number of "
+           "columns: "
+        << S.rows() << ", positive pivots: " << num_positive_pivots
+        << ". This may be due to gauge ambiguity, other degeneracies, or "
+           "numerical instability.";
     return false;
   }
   VLOG(2) << "Finish sparse Cholesky decomposition.";
