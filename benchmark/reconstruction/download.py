@@ -12,6 +12,7 @@ from pathlib import Path
 
 import py7zr
 import requests
+from evaluation.eth3d_slam import SCENES as ETH3D_SLAM_SCENES
 from evaluation.tartanair.tartanair_v2 import (
     MANIFEST_PATH,
     load_manifest,
@@ -69,6 +70,30 @@ def download_eth3d(data_path: Path) -> None:
 
 def download_eth3d_distorted(data_path: Path) -> None:
     _download_eth3d_archives(data_path, ETH3D_DISTORTED_ARCHIVES)
+
+
+def download_eth3d_slam(data_path: Path, scenes: list[str]) -> None:
+    selected = scenes or ETH3D_SLAM_SCENES
+    unknown = set(selected) - set(ETH3D_SLAM_SCENES)
+    if unknown:
+        raise ValueError(
+            f"Unknown ETH3D-SLAM training sequences: {sorted(unknown)}"
+        )
+    data_path.mkdir(parents=True, exist_ok=True)
+    for scene in selected:
+        for modality in ("mono", "rgbd"):
+            pycolmap.logging.info(
+                f"Downloading ETH3D-SLAM scene={scene}, modality={modality}"
+            )
+            filename = download_file(
+                f"https://eth3d.ethz.ch/data/slam/datasets/{scene}_{modality}.zip",
+                data_path,
+            )
+            pycolmap.logging.info(
+                f"Extracting ETH3D-SLAM scene={scene}, modality={modality}"
+            )
+            with zipfile.ZipFile(data_path / filename, mode="r") as archive:
+                archive.extractall(path=data_path)
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -278,6 +303,7 @@ def download_tartanair_v2(
 
 DOWNLOADERS = {
     "eth3d": download_eth3d,
+    "eth3d-slam": download_eth3d_slam,
     "eth3d-distorted": download_eth3d_distorted,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
@@ -285,7 +311,11 @@ DOWNLOADERS = {
     "blended-mvs": download_blended_mvs,
     "tartanair-v2": download_tartanair_v2,
 }
-DEFAULT_DATASETS = [name for name in DOWNLOADERS if name != "eth3d-distorted"]
+DEFAULT_DATASETS = [
+    name
+    for name in DOWNLOADERS
+    if name not in {"eth3d-distorted", "eth3d-slam"}
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -311,7 +341,7 @@ def parse_args() -> argparse.Namespace:
         "--scenes",
         nargs="+",
         default=[],
-        help="TartanAir scenes to download; empty downloads all.",
+        help="TartanAir or ETH3D-SLAM scenes to download; empty downloads all.",
     )
     return parser.parse_args()
 
@@ -324,6 +354,8 @@ def main() -> None:
             download_tartanair_v2(
                 args.data_path / dataset, args.categories, args.scenes
             )
+        elif dataset == "eth3d-slam":
+            download_eth3d_slam(args.data_path / dataset, args.scenes)
         else:
             DOWNLOADERS[dataset](args.data_path / dataset)
 
