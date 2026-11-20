@@ -85,7 +85,9 @@ TEST(BACovariance, PointOnlyRejectsInvalidHessian) {
       options.params = BACovarianceOptions::Params::POINTS;
       const auto covariance =
           EstimateBACovarianceFromProblem(options, reconstruction, problem);
-      if (well_conditioned) ASSERT_TRUE(covariance.has_value());
+      if (well_conditioned) {
+        ASSERT_TRUE(covariance.has_value());
+      }
       if (tangent_size == 1 && !well_conditioned) {
         EXPECT_FALSE(covariance.has_value());
       }
@@ -132,7 +134,9 @@ TEST(BACovariance, RejectsNonRepresentableCovariance) {
       // A finite Jacobian can overflow when forming the normal equations.
       EXPECT_FALSE(covariance.has_value());
     } else {
-      if (size == 3) ASSERT_TRUE(covariance.has_value());
+      if (size == 3) {
+        ASSERT_TRUE(covariance.has_value());
+      }
       if (covariance.has_value()) {
         const auto other_cov = covariance->GetOtherParamsCov(other.data());
         ASSERT_TRUE(other_cov.has_value());
