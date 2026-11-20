@@ -10,6 +10,7 @@ COLMAP_ADD_LIBRARY(
         imu.h imu.cc
         models.h models.cc
         models/base.h
+        models/brown_conrady.h
         models/division.h
         models/eucm.h
         models/fisheye.h

@@ -7,8 +7,8 @@
 //
 //   base.h            Model id enum, declaration/registration macros, CRTP
 //                     base classes shared by all models.
-//   pinhole.h, radial.h, opencv.h, fov.h, division.h, eucm.h,
-//   fisheye.h, fisheye_radial.h, thin_prism.h, spherical.h
+//   pinhole.h, radial.h, brown_conrady.h, opencv.h, fov.h, division.h,
+//   eucm.h, fisheye.h, fisheye_radial.h, thin_prism.h, spherical.h
 //                     Per-family model structs and their implementations.
 //   runtime.h         Runtime dispatch over CameraModelId (the CameraModel*
 //                     free functions). Aggregates the family headers above.
