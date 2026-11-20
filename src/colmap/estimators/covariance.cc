@@ -5,6 +5,7 @@
 #include "colmap/estimators/cost_functions/manifold.h"
 #include "colmap/util/hash_containers.h"
 
+#include <Eigen/Cholesky>
 #include <ceres/crs_matrix.h>
 
 namespace colmap {
@@ -88,7 +89,17 @@ bool ComputeSchurComplement(bool estimate_point_covs,
         H_pp.block(
             point_param_idx, point_param_idx, tangent_size, tangent_size) +
         damping * Eigen::MatrixXd::Identity(tangent_size, tangent_size);
-    const Eigen::MatrixXd H_pp_idx_inv = H_pp_idx.inverse();
+    if (!H_pp_idx.allFinite()) {
+      LOG(WARNING) << "Nonfinite point Hessian block";
+      return false;
+    }
+    const Eigen::LLT<Eigen::MatrixXd> llt_H_pp_idx(H_pp_idx);
+    if (llt_H_pp_idx.info() != Eigen::Success) {
+      LOG(WARNING) << "Point Hessian block is not positive definite";
+      return false;
+    }
+    const Eigen::MatrixXd H_pp_idx_inv = llt_H_pp_idx.solve(
+        Eigen::MatrixXd::Identity(tangent_size, tangent_size));
     if (!H_pp_idx_inv.allFinite()) {
       LOG(WARNING) << "Failed to invert point Hessian block";
       return false;
@@ -161,15 +172,15 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
 
   const Eigen::VectorXd D_dense = ldlt_S.vectorD();
 
-  const int rank = (D_dense.array().abs() > 1e-6).count();
-  if (rank < S.rows()) {
+  const int num_positive_pivots = (D_dense.array() > 1e-6).count();
+  if (!D_dense.allFinite() || num_positive_pivots < S.rows()) {
     LOG(WARNING) << StringPrintf(
         "Unable to compute covariance. The Schur complement on pose/other "
-        "parameters is rank deficient. Number of columns: %d, rank: %d. This "
-        "is likely due to the pose/other parameters being underconstrained "
-        "with Gauge ambiguity or other degeneracies.",
+        "parameters is not sufficiently positive definite. Number of columns: "
+        "%d, positive pivots: %d. This may be due to gauge ambiguity, other "
+        "degeneracies, or numerical instability.",
         S.rows(),
-        rank);
+        num_positive_pivots);
     return false;
   }
   VLOG(2) << "Finish sparse Cholesky decomposition.";
@@ -178,10 +189,13 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
   L_inv = Eigen::MatrixXd::Identity(L_sparse.rows(), L_sparse.cols());
   L_sparse.triangularView<Eigen::Lower>().solveInPlace(L_inv);
   for (int i = 0; i < S.rows(); ++i) {
-    L_inv.row(i) *= 1.0 / std::max(std::sqrt(std::max(D_dense(i), 0.)),
-                                   std::numeric_limits<double>::min());
+    L_inv.row(i) *= 1.0 / std::sqrt(D_dense(i));
   }
   L_inv *= ldlt_S.permutationP();
+  if (!L_inv.colwise().squaredNorm().allFinite()) {
+    LOG(WARNING) << "Failed to compute finite pose/other covariance";
+    return false;
+  }
   VLOG(2) << "Finish factorization.";
   return true;
 }
@@ -264,7 +278,19 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
   cov.block<6, 6>(6, 6) = *cov_22;
   cov.block<6, 6>(0, 6) = *cov_12;
   cov.block<6, 6>(6, 0) = cov_12->transpose();
-  return GetCovarianceForRelativeRigid3d(cam1_from_world, cam2_from_world, cov);
+  // Convert Ceres' half-angle/additive tangent coordinates to left SE(3).
+  Eigen::Matrix<double, 12, 12> ceres_to_se3 =
+      Eigen::Matrix<double, 12, 12>::Identity();
+  ceres_to_se3.block<3, 3>(0, 0) *= 2;
+  ceres_to_se3.block<3, 3>(3, 0) =
+      2 * CrossProductMatrix(cam1_from_world.translation());
+  ceres_to_se3.block<3, 3>(6, 6) *= 2;
+  ceres_to_se3.block<3, 3>(9, 6) =
+      2 * CrossProductMatrix(cam2_from_world.translation());
+  return GetCovarianceForRelativeRigid3d(
+      cam1_from_world,
+      cam2_from_world,
+      ceres_to_se3 * cov * ceres_to_se3.transpose());
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(
@@ -365,6 +391,12 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
                                        std::move(pose_L_start_size),
                                        std::move(other_L_start_size),
                                        /*L_inv=*/Eigen::MatrixXd());
+  }
+
+  S.makeCompressed();
+  if (!S.coeffs().allFinite()) {
+    LOG(WARNING) << "Nonfinite Schur complement";
+    return std::nullopt;
   }
 
   if (!estimate_other_covs) {

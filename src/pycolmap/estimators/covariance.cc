@@ -78,15 +78,21 @@ void BindCovarianceEstimator(py::module& m) {
       .def("get_cam_cov_from_world",
            &BACovariance::GetCamCovFromWorld,
            "image_id"_a,
-           "Tangent space covariance in the order [rotation, translation]. If "
-           "some dimensions are kept constant, the respective rows/columns are "
+           "Covariance in the problem's tangent coordinates, ordered "
+           "[rotation, translation]. The standard COLMAP pose manifold uses "
+           "Ceres' left quaternion half-angle increments and additive "
+           "translation. If some dimensions are kept constant, the respective "
+           "rows/columns are "
            "omitted. Returns null if image is not a variable in the problem.")
       .def("get_cam_cross_cov_from_world",
            &BACovariance::GetCamCrossCovFromWorld,
            "image_id1"_a,
            "image_id2"_a,
-           "Tangent space covariance in the order [rotation, translation]. If "
-           "some dimensions are kept constant, the respective rows/columns are "
+           "Covariance in the problem's tangent coordinates, ordered "
+           "[rotation, translation]. The standard COLMAP pose manifold uses "
+           "Ceres' left quaternion half-angle increments and additive "
+           "translation. If some dimensions are kept constant, the respective "
+           "rows/columns are "
            "omitted. Returns null if image is not a variable in the problem.")
       .def("get_cam2_cov_from_cam1",
            &BACovariance::GetCam2CovFromCam1,
@@ -94,11 +100,13 @@ void BindCovarianceEstimator(py::module& m) {
            "cam1_from_world"_a,
            "image_id2"_a,
            "cam2_from_world"_a,
-           "Get relative pose covariance in the order [rotation, translation]. "
-           "This function returns null if some dimensions are kept constant "
-           "for either of the two poses. This does not mean that one cannot "
-           "get relative pose covariance for such case, but requires custom "
-           "logic to fill in zero block in the covariance matrix.")
+           "Relative pose covariance in left SE(3) tangent coordinates, "
+           "ordered [full-angle rotation, translation]. Requires both poses to "
+           "use "
+           "EigenQuaternionManifold x EuclideanManifold<3>. Returns null if "
+           "some dimensions are kept constant for either pose. Such a case "
+           "requires custom logic to fill in zero blocks in the covariance "
+           "matrix.")
       .def(
           "get_other_params_cov",
           [](BACovariance& self, py::array_t<double>& pyarray) {
@@ -110,7 +118,8 @@ void BindCovarianceEstimator(py::module& m) {
           "Tangent space covariance for any variable parameter block in the "
           "problem. If some dimensions are kept constant, the respective "
           "rows/columns are omitted. Returns null if parameter block not a "
-          "variable in the problem.");
+          "variable in the problem or other-parameter covariance was not "
+          "requested.");
 
   m.def(
       "estimate_ba_covariance",

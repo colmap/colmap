@@ -7,6 +7,7 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
 
+#include <array>
 #include <tuple>
 
 #include <ceres/evaluation_callback.h>
@@ -55,6 +56,198 @@ TEST(BACovariance, PointOnlyRejectsNonFiniteCovariance) {
   }
 }
 
+TEST(BACovariance, PointOnlyRejectsInvalidHessian) {
+  for (const int tangent_size : {1, 2}) {
+    for (const bool well_conditioned : {true, false}) {
+      SCOPED_TRACE(tangent_size);
+      SCOPED_TRACE(well_conditioned);
+      Reconstruction reconstruction;
+      const point3D_t point_id =
+          reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), Track());
+      double* point = reconstruction.Point3D(point_id).xyz.data();
+      Eigen::Matrix3d weight = Eigen::Matrix3d::Zero();
+      if (tangent_size == 1) {
+        weight(0, 0) = well_conditioned ? 1.0 : 1e155;
+      } else {
+        const double scale = well_conditioned ? 1e-8 : 1.0;
+        weight.topLeftCorner<2, 2>() << 370392643.9011732 * scale,
+            235456757.2678747 * scale, 1.0, 0.0;
+      }
+      ceres::Problem problem;
+      problem.AddResidualBlock(
+          new ceres::NormalPrior(weight, Eigen::Vector3d::Zero()),
+          nullptr,
+          point);
+      const std::vector<int> fixed =
+          tangent_size == 1 ? std::vector<int>{1, 2} : std::vector<int>{2};
+      SetManifold(&problem, point, CreateSubsetManifold(3, fixed));
+      BACovarianceOptions options;
+      options.params = BACovarianceOptions::Params::POINTS;
+      const auto covariance =
+          EstimateBACovarianceFromProblem(options, reconstruction, problem);
+      if (well_conditioned) ASSERT_TRUE(covariance.has_value());
+      if (tangent_size == 1 && !well_conditioned) {
+        EXPECT_FALSE(covariance.has_value());
+      }
+      if (covariance.has_value()) {
+        const auto point_cov = covariance->GetPointCov(point_id);
+        ASSERT_TRUE(point_cov.has_value());
+        EXPECT_TRUE(point_cov->allFinite());
+        EXPECT_GT(point_cov->diagonal().minCoeff(), 0.0);
+        if (well_conditioned) {
+          const Eigen::MatrixXd J = weight.leftCols(tangent_size);
+          const Eigen::MatrixXd expected =
+              (J.transpose() * J +
+               options.damping *
+                   Eigen::MatrixXd::Identity(tangent_size, tangent_size))
+                  .inverse();
+          EXPECT_TRUE(point_cov->isApprox(expected, 1e-12));
+        }
+      }
+    }
+  }
+}
+
+TEST(BACovariance, RejectsNonRepresentableCovariance) {
+  for (const int size : {1, 3, 80}) {
+    SCOPED_TRACE(size);
+    Reconstruction reconstruction;
+    Eigen::VectorXd other = Eigen::VectorXd::Zero(size);
+    Eigen::MatrixXd weight = Eigen::MatrixXd::Identity(size, size);
+    if (size == 1) {
+      weight(0, 0) = 1e155;
+    } else {
+      weight.diagonal(1).setConstant(100);
+    }
+    ceres::Problem problem;
+    problem.AddResidualBlock(
+        new ceres::NormalPrior(weight, Eigen::VectorXd::Zero(size)),
+        nullptr,
+        other.data());
+    BACovarianceOptions options;
+    options.params = BACovarianceOptions::Params::ALL;
+    const auto covariance =
+        EstimateBACovarianceFromProblem(options, reconstruction, problem);
+    if (size == 1) {
+      // A finite Jacobian can overflow when forming the normal equations.
+      EXPECT_FALSE(covariance.has_value());
+    } else {
+      if (size == 3) ASSERT_TRUE(covariance.has_value());
+      if (covariance.has_value()) {
+        const auto other_cov = covariance->GetOtherParamsCov(other.data());
+        ASSERT_TRUE(other_cov.has_value());
+        // The longer chain can overflow covariance even with a finite factor.
+        EXPECT_TRUE(other_cov->allFinite());
+        if (size == 3) {
+          const Eigen::MatrixXd inverse = weight.inverse();
+          EXPECT_TRUE(
+              other_cov->isApprox(inverse * inverse.transpose(), 1e-12));
+        }
+      }
+    }
+  }
+}
+
+struct CoupledSchurCovarianceCost {
+  double a;
+  double b;
+  int retained_index = 0;
+
+  template <typename T>
+  bool operator()(const T* retained, const T* eliminated, T* residual) const {
+    residual[0] = T(a) * retained[retained_index] + T(b) * eliminated[0];
+    residual[1] = retained[retained_index];
+    return true;
+  }
+};
+
+TEST(BACovariance, NuisanceEliminationDoesNotHideOverflow) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions data;
+  data.num_rigs = 1;
+  data.num_cameras_per_rig = 1;
+  data.num_frames_per_rig = 1;
+  data.num_points3D = 1;
+  data.num_points2D_without_point3D = 0;
+  SynthesizeDataset(data, &reconstruction);
+  const image_t image_id = reconstruction.RegImageIds().front();
+  auto& pose = reconstruction.Image(image_id).FramePtr()->RigFromWorld();
+  pose = Rigid3d();
+  for (const double scale : {1.0, 1e155}) {
+    SCOPED_TRACE(scale);
+    double nuisance = 0;
+    ceres::Problem problem;
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<CoupledSchurCovarianceCost, 2, 7, 1>(
+            new CoupledSchurCovarianceCost{1.0, scale, 4}),
+        nullptr,
+        pose.params.data(),
+        &nuisance);
+    SetManifold(&problem,
+                pose.params.data(),
+                CreateSubsetManifold(7, {0, 1, 2, 3, 5, 6}));
+    for (const auto mode : {BACovarianceOptions::Params::ALL,
+                            BACovarianceOptions::Params::POSES}) {
+      SCOPED_TRACE(static_cast<int>(mode));
+      BACovarianceOptions options;
+      options.params = mode;
+      const auto covariance =
+          EstimateBACovarianceFromProblem(options, reconstruction, problem);
+      if (scale == 1.0) {
+        ASSERT_TRUE(covariance.has_value());
+        const auto pose_cov = covariance->GetCamCovFromWorld(image_id);
+        ASSERT_TRUE(pose_cov.has_value());
+        const double damping =
+            mode == BACovarianceOptions::Params::POSES ? options.damping : 0.0;
+        const double expected = 1.0 / (2.0 - 1.0 / (1.0 + damping));
+        EXPECT_NEAR((*pose_cov)(0, 0), expected, 1e-12);
+      } else {
+        EXPECT_FALSE(covariance.has_value());
+      }
+    }
+  }
+}
+
+TEST(BACovariance, SchurCancellationDoesNotReturnNonFiniteCovariance) {
+  for (const double scale : {1e-8, 1.0}) {
+    SCOPED_TRACE(scale);
+    Reconstruction reconstruction;
+    const point3D_t point_id =
+        reconstruction.AddPoint3D(Eigen::Vector3d::Zero(), Track());
+    double* point = reconstruction.Point3D(point_id).xyz.data();
+    double other = 0;
+    const double a = 612342538.330063 * scale;
+    const double b = 578478850.648649 * scale;
+    ceres::Problem problem;
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<CoupledSchurCovarianceCost, 2, 1, 3>(
+            new CoupledSchurCovarianceCost{a, b}),
+        nullptr,
+        &other,
+        point);
+    SetManifold(&problem, point, CreateSubsetManifold(3, {1, 2}));
+    BACovarianceOptions options;
+    options.params = BACovarianceOptions::Params::ALL;
+    const auto covariance =
+        EstimateBACovarianceFromProblem(options, reconstruction, problem);
+    // Cancellation can make this full-rank problem's Schur pivot negative.
+    // Allow rejection or a finite result across different rounding behavior.
+    if (scale == 1e-8) {
+      ASSERT_TRUE(covariance.has_value());
+    }
+    if (covariance.has_value()) {
+      const auto other_cov = covariance->GetOtherParamsCov(&other);
+      ASSERT_TRUE(other_cov.has_value());
+      EXPECT_TRUE(other_cov->allFinite());
+      if (scale == 1e-8) {
+        const double expected =
+            1.0 / (1.0 + a * a * options.damping / (b * b + options.damping));
+        EXPECT_NEAR((*other_cov)(0, 0), expected, 1e-12);
+      }
+    }
+  }
+}
+
 void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
                              const Eigen::MatrixXd& mat2,
                              double tol) {
@@ -64,6 +257,73 @@ void ExpectNearEigenMatrixXd(const Eigen::MatrixXd& mat1,
     for (int j = 0; j < mat1.cols(); ++j) {
       ASSERT_NEAR(mat1(i, j), mat2(i, j), tol);
     }
+  }
+}
+
+TEST(BACovariance, RelativePoseUsesLeftSE3TangentCoordinates) {
+  const auto manifold = CreateProductManifold(CreateEigenQuaternionManifold(),
+                                              CreateEuclideanManifold<3>());
+  std::array<std::pair<Rigid3d, Rigid3d>, 3> poses;
+  poses[1].second.translation() = Eigen::Vector3d(10, 0, 0);
+  poses[2].first.rotation() =
+      Eigen::AngleAxisd(0.4, Eigen::Vector3d(1, 2, 3).normalized());
+  poses[2].second.rotation() =
+      Eigen::AngleAxisd(-0.7, Eigen::Vector3d(3, -2, 1).normalized());
+  poses[2].first.translation() = Eigen::Vector3d(1, 2, 3);
+  poses[2].second.translation() = Eigen::Vector3d(-2, 0.5, 4);
+
+  for (size_t i = 0; i < poses.size(); ++i) {
+    SCOPED_TRACE(i);
+    const auto& [cam1_from_world, cam2_from_world] = poses[i];
+    Eigen::Matrix<double, 12, 12> factor =
+        Eigen::Matrix<double, 12, 12>::Identity();
+    if (i == 2) {
+      for (int row = 0; row < 12; ++row) {
+        for (int col = 0; col < 12; ++col) {
+          factor(row, col) += 0.03 * ((3 * row + 5 * col) % 7 - 3);
+        }
+      }
+    }
+    const BACovariance covariance({}, {{1, {0, 6}}, {2, {6, 6}}}, {}, factor);
+    const auto actual =
+        covariance.GetCam2CovFromCam1(1, cam1_from_world, 2, cam2_from_world);
+    ASSERT_TRUE(actual.has_value());
+
+    const Rigid3d cam2_from_cam1 = cam2_from_world * Inverse(cam1_from_world);
+    Eigen::Matrix<double, 6, 12> J;
+    constexpr double kStep = 1e-6;
+    for (int parameter = 0; parameter < 12; ++parameter) {
+      Eigen::Vector6d differences[2];
+      for (int side = 0; side < 2; ++side) {
+        Eigen::Vector6d delta = Eigen::Vector6d::Zero();
+        delta(parameter % 6) = (side ? 1 : -1) * kStep;
+        Rigid3d perturbed_cam1 = cam1_from_world;
+        Rigid3d perturbed_cam2 = cam2_from_world;
+        Rigid3d& perturbed = parameter < 6 ? perturbed_cam1 : perturbed_cam2;
+        const Rigid3d& nominal =
+            parameter < 6 ? cam1_from_world : cam2_from_world;
+        ASSERT_TRUE(manifold->Plus(
+            nominal.params.data(), delta.data(), perturbed.params.data()));
+        const Rigid3d relative = perturbed_cam2 * Inverse(perturbed_cam1);
+        const Rigid3d left_difference = relative * Inverse(cam2_from_cam1);
+        const Eigen::AngleAxisd rotation_difference(left_difference.rotation());
+        differences[side].head<3>() =
+            rotation_difference.angle() * rotation_difference.axis();
+        // At zero, this translation has the same derivative as the SE(3) log.
+        differences[side].tail<3>() = left_difference.translation();
+      }
+      J.col(parameter) = (differences[1] - differences[0]) / (2 * kStep);
+    }
+    ExpectNearEigenMatrixXd(
+        *actual, J * factor.transpose() * factor * J.transpose(), 1e-7);
+    if (i == 1) {
+      const Eigen::Vector6d expected_diagonal(8, 8, 8, 2, 802, 802);
+      ExpectNearEigenMatrixXd(actual->diagonal(), expected_diagonal, 1e-10);
+    }
+    const auto identity_cov =
+        covariance.GetCam2CovFromCam1(1, cam1_from_world, 1, cam1_from_world);
+    ASSERT_TRUE(identity_cov.has_value());
+    ExpectNearEigenMatrixXd(*identity_cov, Eigen::Matrix6d::Zero(), 1e-10);
   }
 }
 
