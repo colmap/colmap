@@ -257,40 +257,39 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
     const Rigid3d& cam1_from_world,
     image_t image_id2,
     const Rigid3d& cam2_from_world) const {
-  auto cov_11 = GetCamCovFromWorld(image_id1);
-  if (!cov_11.has_value()) return std::nullopt;
-  if (cov_11->rows() != 6) {
+  const auto it1 = pose_L_start_size_.find(image_id1);
+  if (it1 == pose_L_start_size_.end()) return std::nullopt;
+  const auto [start1, size1] = it1->second;
+  if (size1 != 6) {
     LOG(WARNING) << "cam1_from_world is not fully in the problem. This is "
                     "likely due to the pose being set (partially) constant. ";
     return std::nullopt;
   }
-  auto cov_22 = GetCamCovFromWorld(image_id2);
-  if (!cov_22.has_value()) return std::nullopt;
-  if (cov_22->rows() != 6) {
+  const auto it2 = pose_L_start_size_.find(image_id2);
+  if (it2 == pose_L_start_size_.end()) return std::nullopt;
+  const auto [start2, size2] = it2->second;
+  if (size2 != 6) {
     LOG(WARNING) << "cam2_from_world is not fully in the problem. This is "
                     "likely due to the pose being set (partially) constant. ";
     return std::nullopt;
   }
-  auto cov_12 = GetCamCrossCovFromWorld(image_id1, image_id2);
-  THROW_CHECK(cov_12.has_value());
-  Eigen::Matrix<double, 12, 12> cov;
-  cov.block<6, 6>(0, 0) = *cov_11;
-  cov.block<6, 6>(6, 6) = *cov_22;
-  cov.block<6, 6>(0, 6) = *cov_12;
-  cov.block<6, 6>(6, 0) = cov_12->transpose();
-  // Convert Ceres' half-angle/additive tangent coordinates to left SE(3).
-  Eigen::Matrix<double, 12, 12> ceres_to_se3 =
-      Eigen::Matrix<double, 12, 12>::Identity();
-  ceres_to_se3.block<3, 3>(0, 0) *= 2;
-  ceres_to_se3.block<3, 3>(3, 0) =
-      2 * CrossProductMatrix(cam1_from_world.translation());
-  ceres_to_se3.block<3, 3>(6, 6) *= 2;
-  ceres_to_se3.block<3, 3>(9, 6) =
+  Eigen::Matrix6d rotation = Eigen::Matrix6d::Zero();
+  rotation.topLeftCorner<3, 3>() =
+      cam2_from_world.rotation().toRotationMatrix() *
+      cam1_from_world.rotation().toRotationMatrix().transpose();
+  rotation.bottomRightCorner<3, 3>() = rotation.topLeftCorner<3, 3>();
+  Eigen::Matrix6d ceres_to_se3 = Eigen::Matrix6d::Identity();
+  ceres_to_se3.topLeftCorner<3, 3>() *= 2;
+  ceres_to_se3.bottomLeftCorner<3, 3>() =
       2 * CrossProductMatrix(cam2_from_world.translation());
-  return GetCovarianceForRelativeRigid3d(
-      cam1_from_world,
-      cam2_from_world,
-      ceres_to_se3 * cov * ceres_to_se3.transpose());
+  // The relative-pose Jacobian in Ceres coordinates is
+  // ceres_to_se3 * [-rotation, I]. Apply it before forming the covariance so
+  // shared pose uncertainty cancels without subtracting large covariance terms.
+  const Eigen::Matrix<double, Eigen::Dynamic, 6> relative_L =
+      (L_inv_.middleCols(start2, 6) -
+       L_inv_.middleCols(start1, 6) * rotation.transpose()) *
+      ceres_to_se3.transpose();
+  return relative_L.transpose() * relative_L;
 }
 
 std::optional<Eigen::MatrixXd> BACovariance::GetOtherParamsCov(

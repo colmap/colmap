@@ -331,6 +331,49 @@ TEST(BACovariance, RelativePoseUsesLeftSE3TangentCoordinates) {
   }
 }
 
+TEST(BACovariance, RelativePoseCancelsSharedWorldUncertainty) {
+  for (const double offset : {0.0, 1e6 + 0.3, 1e8}) {
+    for (const double relative_stddev : {0.0, 1e-10}) {
+      SCOPED_TRACE(offset);
+      SCOPED_TRACE(relative_stddev);
+      Rigid3d first;
+      Rigid3d second;
+      first.translation() = offset * Eigen::Vector3d(1.1, 2.3, -4.7);
+      second.translation() = first.translation() + Eigen::Vector3d(3, -2, 1);
+      Eigen::Matrix<double, 12, 12> factor =
+          Eigen::Matrix<double, 12, 12>::Zero();
+      // A common world perturbation must cancel from the relative pose.
+      factor.topLeftCorner<6, 6>().diagonal() << 0.5, 0.5, 0.5, 1, 1, 1;
+      factor.topRightCorner<6, 6>() = factor.topLeftCorner<6, 6>();
+      // Independent noise in the second camera remains. The nonzero case also
+      // makes the full joint factor nonsingular.
+      factor.bottomRightCorner<6, 6>() =
+          relative_stddev * Eigen::Matrix6d::Identity();
+      const BACovariance covariance({}, {{1, {0, 6}}, {2, {6, 6}}}, {}, factor);
+      const auto actual = covariance.GetCam2CovFromCam1(1, first, 2, second);
+      ASSERT_TRUE(actual.has_value());
+      Eigen::Matrix6d noise = relative_stddev * Eigen::Matrix6d::Identity();
+      noise.topLeftCorner<3, 3>() *= 2;
+      noise.bottomLeftCorner<3, 3>() =
+          CrossProductMatrix(2 * relative_stddev * second.translation());
+      const Eigen::Matrix6d expected = noise * noise.transpose();
+      ExpectNearEigenMatrixXd(*actual, expected, 1e-12);
+    }
+  }
+}
+
+TEST(BACovariance, RelativePoseRequiresBothFullPoses) {
+  const BACovariance covariance({},
+                                {{1, {0, 6}}, {2, {6, 3}}},
+                                {},
+                                Eigen::Matrix<double, 9, 9>::Identity());
+  const Rigid3d pose;
+  for (const image_t incomplete : {image_t{2}, kInvalidImageId}) {
+    EXPECT_FALSE(covariance.GetCam2CovFromCam1(1, pose, incomplete, pose));
+    EXPECT_FALSE(covariance.GetCam2CovFromCam1(incomplete, pose, 1, pose));
+  }
+}
+
 TEST(BACovariance, PointOnlySupportsNonReferenceRigImages) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions dataset_options;
