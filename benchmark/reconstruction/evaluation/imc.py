@@ -2,7 +2,7 @@
 
 import csv
 import tempfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -167,8 +167,28 @@ class _DatasetIMC(Dataset):
 
         return scene_infos
 
+    def _train_image_names(
+        self, scene_info: SceneInfo, sparse_sfm: pycolmap.Reconstruction
+    ) -> dict[int, str]:
+        """Map the image ids of the sfm/ reconstruction to the names of the
+        corresponding training images on disk."""
+        train_image_names = set(
+            image.name for image in scene_info.image_path.iterdir()
+        )
+        return {
+            image.image_id: image.name
+            for image in sparse_sfm.images.values()
+            if image.name in train_image_names
+        }
+
     def prepare_scene(self, scene_info: SceneInfo) -> None:
-        if scene_info.sparse_gt_path.exists():
+        # Regenerate cached GT reconstructions without images, as previously
+        # written for IMC2024 due to mismatching image names.
+        if (
+            scene_info.sparse_gt_path.exists()
+            and pycolmap.Reconstruction(scene_info.sparse_gt_path).num_images()
+            > 0
+        ):
             return
 
         scene_path = scene_info.image_path.parent
@@ -177,13 +197,8 @@ class _DatasetIMC(Dataset):
         sparse_sfm = _read_sparse_sfm_without_points3D(sfm_path)
         sparse_gt = pycolmap.Reconstruction()
 
-        train_image_ids = set()
-        train_image_names = set(
-            image.name for image in scene_info.image_path.iterdir()
-        )
-        for image in sparse_sfm.images.values():
-            if image.name in train_image_names:
-                train_image_ids.add(image.image_id)
+        train_image_names = self._train_image_names(scene_info, sparse_sfm)
+        train_image_ids = set(train_image_names)
         for camera in sparse_sfm.cameras.values():
             sparse_gt.add_camera(camera)
         for rig in sparse_sfm.rigs.values():
@@ -202,6 +217,7 @@ class _DatasetIMC(Dataset):
                 continue
             if image.camera_id not in sparse_gt.cameras:
                 sparse_gt.add_camera(image.camera)
+            image.name = train_image_names[image.image_id]
             image.reset_camera_ptr()
             image.reset_frame_ptr()
             sparse_gt.add_image(image)
@@ -252,6 +268,78 @@ class DatasetIMC2024(_DatasetIMC):
             run_name=run_name,
         )
         self.year = 2024
+
+    def _train_image_names(
+        self, scene_info: SceneInfo, sparse_sfm: pycolmap.Reconstruction
+    ) -> dict[int, str]:
+        """Map the images of the sfm/ reconstruction to the training images.
+
+        The released IMC2024 training images were renamed (e.g., 00001.jpg to
+        00001.png, or renumbered entirely), while sfm/ references the original
+        names, so matching by name finds few or no images. train_labels.csv
+        lists the released names with the poses of sfm/, up to the scale of
+        the scene, so the images are matched by rotation and translation
+        direction instead.
+        """
+        labels_path = scene_info.image_path.parent.parent / (
+            _TRAIN_LABELS_FILENAME
+        )
+        if not labels_path.exists():
+            return super()._train_image_names(scene_info, sparse_sfm)
+
+        def normalize(v: np.ndarray) -> np.ndarray:
+            return v / max(float(np.linalg.norm(v)), 1e-12)
+
+        sfm_image_ids = []
+        sfm_rotations = []
+        sfm_directions = []
+        for image in sparse_sfm.images.values():
+            if not image.has_pose:
+                continue
+            cam_from_world = image.cam_from_world()
+            sfm_image_ids.append(image.image_id)
+            sfm_rotations.append(cam_from_world.rotation.matrix())
+            sfm_directions.append(normalize(cam_from_world.translation))
+        if not sfm_image_ids:
+            return {}
+        sfm_rotations_array = np.array(sfm_rotations)
+        sfm_directions_array = np.array(sfm_directions)
+
+        train_image_names = set(
+            image.name for image in scene_info.image_path.iterdir()
+        )
+        matches: list[tuple[int, str]] = []
+        with open(labels_path, newline="") as f:
+            for row in csv.DictReader(f):
+                if (
+                    row["dataset"] != scene_info.scene
+                    or row["image_name"] not in train_image_names
+                ):
+                    continue
+                rotation = np.array(
+                    row["rotation_matrix"].split(";"), dtype=np.float64
+                ).reshape(3, 3)
+                translation = np.array(
+                    row["translation_vector"].split(";"), dtype=np.float64
+                )
+                errors = np.abs(sfm_rotations_array - rotation).max(
+                    axis=(1, 2)
+                ) + np.abs(sfm_directions_array - normalize(translation)).max(
+                    axis=1
+                )
+                index = int(np.argmin(errors))
+                if errors[index] < 1e-6:
+                    matches.append((sfm_image_ids[index], row["image_name"]))
+
+        # Some distinct original names map to the same released name, whose
+        # image is then ambiguous, so only keep one-to-one matches.
+        id_counts = Counter(image_id for image_id, _ in matches)
+        name_counts = Counter(name for _, name in matches)
+        return {
+            image_id: name
+            for image_id, name in matches
+            if id_counts[image_id] == 1 and name_counts[name] == 1
+        }
 
 
 class DatasetIMC2025(_DatasetIMC):
