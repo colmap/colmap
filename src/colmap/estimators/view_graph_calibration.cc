@@ -7,14 +7,18 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
+#include "colmap/math/polynomial.h"
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
+#include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <mutex>
+#include <optional>
 
 namespace colmap {
 namespace {
@@ -39,8 +43,6 @@ struct FocalLengthCalibResult {
   // Calibration error per image pair, i.e., the normalized distance of the
   // calibrated fundamental matrix to the essential manifold.
   FlatHashMap<image_pair_t, double> calibration_errors;
-  // Whether the calibration succeeded.
-  bool success = false;
 };
 
 // Cross-validate prior focal lengths by checking the ratio of calibrated vs
@@ -235,30 +237,23 @@ std::vector<std::pair<double, double>> SquaredFocalLengthsFromFundamental(
   const Eigen::Vector4d d = bilinear(pivot, (pivot + 2) % 3);
 
   // Eliminating x2 = -(c10 * x1 + c00) / (c11 * x1 + c01) yields a quadratic
-  // alpha * x1^2 + beta * x1 + gamma = 0.
-  const double alpha = c(1) * d(0) - d(1) * c(0);
-  const double beta = c(1) * d(2) + c(3) * d(0) - d(1) * c(2) - d(3) * c(0);
-  const double gamma = c(3) * d(2) - d(3) * c(2);
-  constexpr double kEps = 1e-30;
-  std::vector<double> x1_roots;
-  if (std::abs(alpha) < kEps) {
-    if (std::abs(beta) > kEps) {
-      x1_roots.push_back(-gamma / beta);
-    }
-  } else {
-    const double discriminant = beta * beta - 4 * alpha * gamma;
-    if (discriminant < 0) {
-      return {};
-    }
-    const double sqrt_discriminant = std::sqrt(discriminant);
-    x1_roots.push_back((-beta + sqrt_discriminant) / (2 * alpha));
-    x1_roots.push_back((-beta - sqrt_discriminant) / (2 * alpha));
+  // polynomial in x1.
+  Eigen::VectorXd x1_real;
+  Eigen::VectorXd x1_imag;
+  if (!FindQuadraticPolynomialRoots(
+          Eigen::Vector3d(c(1) * d(0) - d(1) * c(0),
+                          c(1) * d(2) + c(3) * d(0) - d(1) * c(2) - d(3) * c(0),
+                          c(3) * d(2) - d(3) * c(2)),
+          &x1_real,
+          &x1_imag)) {
+    return {};
   }
 
   std::vector<std::pair<double, double>> solutions;
-  for (const double x1 : x1_roots) {
+  for (Eigen::Index i = 0; i < x1_real.size(); ++i) {
+    const double x1 = x1_real(i);
     const double denom = c(0) * x1 + c(2);
-    if (std::abs(denom) < kEps) {
+    if (x1_imag(i) != 0 || denom == 0) {
       continue;
     }
     const double x2 = -(c(1) * x1 + c(3)) / denom;
@@ -269,8 +264,9 @@ std::vector<std::pair<double, double>> SquaredFocalLengthsFromFundamental(
   return solutions;
 }
 
-// Initializes the focal lengths of cameras without prior focal length from a
-// consensus of the closed-form two-view estimates of their image pairs. Each
+// Initializes the focal lengths of the cameras in the given image pairs.
+// Cameras without prior focal length are initialized from a consensus of the
+// closed-form two-view estimates of their image pairs. Each
 // pair votes with its estimate that is within the plausible range relative to
 // the prior and closest to the essential manifold. A camera with at least
 // three votes of small spread is initialized to their median. Otherwise, it
@@ -287,9 +283,6 @@ FlatHashMap<camera_t, double> InitializeFocalLengths(
   // Collect votes as ratios of estimated to prior focal length.
   FlatHashMap<camera_t, std::vector<double>> votes;
   for (const auto& input : inputs) {
-    if (input.num_inliers < static_cast<size_t>(options.min_num_inliers)) {
-      continue;
-    }
     const Camera& camera1 = cameras.at(input.camera_id1);
     const Camera& camera2 = cameras.at(input.camera_id2);
     const Eigen::Matrix3d K1 = camera1.CalibrationMatrix();
@@ -301,10 +294,21 @@ FlatHashMap<camera_t, double> InitializeFocalLengths(
     }
     normalized_F /= norm;
 
+    const std::vector<std::pair<double, double>> squared_ratios =
+        SquaredFocalLengthsFromFundamental(normalized_F);
+    if (squared_ratios.empty()) {
+      continue;
+    }
+    const EssentialManifoldFocalLengthCostFunctor cost_functor(
+        input.F,
+        camera1.PrincipalPoint(),
+        camera2.PrincipalPoint(),
+        camera1.MeanFocalLength(),
+        camera2.MeanFocalLength());
+
     double min_error = std::numeric_limits<double>::max();
     std::pair<double, double> best_ratios;
-    for (const auto& [ratio1_sq, ratio2_sq] :
-         SquaredFocalLengthsFromFundamental(normalized_F)) {
+    for (const auto& [ratio1_sq, ratio2_sq] : squared_ratios) {
       const double ratio1 = std::sqrt(ratio1_sq);
       const double ratio2 = std::sqrt(ratio2_sq);
       if (ratio1 < options.min_focal_length_ratio ||
@@ -313,20 +317,12 @@ FlatHashMap<camera_t, double> InitializeFocalLengths(
           ratio2 > options.max_focal_length_ratio) {
         continue;
       }
-      const double focal_length1 = ratio1 * camera1.MeanFocalLength();
-      const double focal_length2 = ratio2 * camera2.MeanFocalLength();
-      const double log_focal_length1 = std::log(focal_length1);
-      const double log_focal_length2 = std::log(focal_length2);
-      const EssentialManifoldFocalLengthCostFunctor cost_functor(
-          input.F,
-          camera1.PrincipalPoint(),
-          camera2.PrincipalPoint(),
-          focal_length1,
-          focal_length2);
-      Eigen::Vector2d residual;
-      cost_functor(&log_focal_length1, &log_focal_length2, residual.data());
-      if (residual.squaredNorm() < min_error) {
-        min_error = residual.squaredNorm();
+      const double error = cost_functor
+                               .Evaluate(ratio1 * camera1.MeanFocalLength(),
+                                         ratio2 * camera2.MeanFocalLength())
+                               .squaredNorm();
+      if (error < min_error) {
+        min_error = error;
         best_ratios = {ratio1, ratio2};
       }
     }
@@ -390,19 +386,30 @@ FlatHashMap<camera_t, double> InitializeFocalLengths(
 // a Cauchy loss and then with a redescending Tukey loss.
 // See: "Smooth Essential-Manifold Residuals for View-Graph Calibration",
 // 3DV 2027.
-FocalLengthCalibResult CalibrateFocalLengths(
+// Returns std::nullopt if the optimization failed.
+std::optional<FocalLengthCalibResult> CalibrateFocalLengths(
     const ViewGraphCalibrationOptions& options,
     const std::vector<FocalLengthCalibInput>& inputs,
     const NodeHashMap<camera_t, Camera>& cameras) {
   FocalLengthCalibResult result;
 
   if (inputs.empty()) {
-    result.success = true;
     return result;
   }
 
+  // Only pairs with enough inliers are used to estimate the focal lengths.
+  std::vector<FocalLengthCalibInput> optimized_inputs;
+  optimized_inputs.reserve(inputs.size());
+  std::copy_if(inputs.begin(),
+               inputs.end(),
+               std::back_inserter(optimized_inputs),
+               [&](const FocalLengthCalibInput& input) {
+                 return input.num_inliers >=
+                        static_cast<size_t>(options.min_num_inliers);
+               });
+
   const FlatHashMap<camera_t, double> initial_focal_lengths =
-      InitializeFocalLengths(options, inputs, cameras);
+      InitializeFocalLengths(options, optimized_inputs, cameras);
 
   // Parameterize the focal lengths by their logarithm to enforce positivity.
   // Ceres holds pointers to the values, so the container must be
@@ -422,10 +429,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   ceres::Problem problem(problem_options);
 
-  for (const auto& input : inputs) {
-    if (input.num_inliers < static_cast<size_t>(options.min_num_inliers)) {
-      continue;
-    }
+  for (const auto& input : optimized_inputs) {
     if (input.camera_id1 == input.camera_id2) {
       problem.AddResidualBlock(
           EssentialManifoldFocalLengthSameCameraCostFunctor::Create(
@@ -451,9 +455,6 @@ FocalLengthCalibResult CalibrateFocalLengths(
   // Fix cameras with prior focal length and bound the others.
   std::vector<camera_t> optimized_camera_ids;
   for (auto& [camera_id, log_focal_length] : log_focal_lengths) {
-    if (!problem.HasParameterBlock(&log_focal_length)) {
-      continue;
-    }
     if (cameras.at(camera_id).HasPriorFocalLength()) {
       problem.SetParameterBlockConstant(&log_focal_length);
     } else {
@@ -491,7 +492,7 @@ FocalLengthCalibResult CalibrateFocalLengths(
       VLOG(2) << summary.FullReport();
       if (!summary.IsSolutionUsable()) {
         LOG(ERROR) << "Ceres solver failed";
-        return result;
+        return std::nullopt;
       }
     }
 
@@ -522,23 +523,20 @@ FocalLengthCalibResult CalibrateFocalLengths(
                ? it->second
                : cameras.at(camera_id).MeanFocalLength();
   };
+  result.calibration_errors.reserve(inputs.size());
   for (const auto& input : inputs) {
     const double focal_length1 = final_focal_length(input.camera_id1);
     const double focal_length2 = final_focal_length(input.camera_id2);
-    const double log_focal_length1 = std::log(focal_length1);
-    const double log_focal_length2 = std::log(focal_length2);
     const EssentialManifoldFocalLengthCostFunctor cost_functor(
         input.F,
         cameras.at(input.camera_id1).PrincipalPoint(),
         cameras.at(input.camera_id2).PrincipalPoint(),
         focal_length1,
         focal_length2);
-    Eigen::Vector2d residual;
-    cost_functor(&log_focal_length1, &log_focal_length2, residual.data());
-    result.calibration_errors[input.pair_id] = residual.norm();
+    result.calibration_errors[input.pair_id] =
+        cost_functor.Evaluate(focal_length1, focal_length2).norm();
   }
 
-  result.success = true;
   return result;
 }
 
@@ -637,14 +635,14 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                       tvg.inlier_matches.size()});
   }
 
-  const FocalLengthCalibResult calib_result =
+  const std::optional<FocalLengthCalibResult> calib_result =
       CalibrateFocalLengths(options, inputs, cameras);
-  if (!calib_result.success) {
+  if (!calib_result) {
     return false;
   }
 
   // Update cameras with estimated focal lengths.
-  for (const auto& [camera_id, focal_length] : calib_result.focal_lengths) {
+  for (const auto& [camera_id, focal_length] : calib_result->focal_lengths) {
     Camera& camera = cameras.at(camera_id);
     camera.SetFocalLength(focal_length);
     camera.source = CameraSource::VIEW_GRAPH;
@@ -662,8 +660,8 @@ bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
       continue;
 
     const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
-    const auto error_it = calib_result.calibration_errors.find(pair_id);
-    if (error_it == calib_result.calibration_errors.end()) {
+    const auto error_it = calib_result->calibration_errors.find(pair_id);
+    if (error_it == calib_result->calibration_errors.end()) {
       continue;
     }
 

@@ -35,18 +35,6 @@ double NormalizedEssentialDistanceSq(const Eigen::Matrix3d& F,
   return (s(0) - s(1)) * (s(0) - s(1)) / (2 * (s(0) * s(0) + s(1) * s(1)));
 }
 
-Eigen::Vector2d EvaluateResidual(
-    const EssentialManifoldFocalLengthCostFunctor& cost_functor,
-    double focal_length1,
-    double focal_length2) {
-  const double log_focal_length1 = std::log(focal_length1);
-  const double log_focal_length2 = std::log(focal_length2);
-  Eigen::Vector2d residual;
-  EXPECT_TRUE(
-      cost_functor(&log_focal_length1, &log_focal_length2, residual.data()));
-  return residual;
-}
-
 TEST(EssentialManifoldFocalLengthCostFunctor, ZeroAtTrueFocalLengths) {
   const double focal_length1 = 1200;
   const double focal_length2 = 800;
@@ -65,14 +53,10 @@ TEST(EssentialManifoldFocalLengthCostFunctor, ZeroAtTrueFocalLengths) {
         principal_point2,
         RandomUniformReal(100.0, 5000.0),
         RandomUniformReal(100.0, 5000.0));
-    EXPECT_LT(
-        EvaluateResidual(cost_functor, focal_length1, focal_length2).norm(),
-        1e-8);
-    EXPECT_GT(EvaluateResidual(cost_functor, 1.2 * focal_length1, focal_length2)
-                  .norm(),
+    EXPECT_LT(cost_functor.Evaluate(focal_length1, focal_length2).norm(), 1e-8);
+    EXPECT_GT(cost_functor.Evaluate(1.2 * focal_length1, focal_length2).norm(),
               1e-4);
-    EXPECT_GT(EvaluateResidual(cost_functor, focal_length1, 0.8 * focal_length2)
-                  .norm(),
+    EXPECT_GT(cost_functor.Evaluate(focal_length1, 0.8 * focal_length2).norm(),
               1e-4);
   }
 }
@@ -99,14 +83,14 @@ TEST(EssentialManifoldFocalLengthCostFunctor,
     for (int j = 0; j < 10; ++j) {
       const double focal_length1 = RandomUniformReal(100.0, 5000.0);
       const double focal_length2 = RandomUniformReal(100.0, 5000.0);
-      EXPECT_NEAR(EvaluateResidual(cost_functor, focal_length1, focal_length2)
-                      .squaredNorm(),
-                  NormalizedEssentialDistanceSq(F,
-                                                focal_length1,
-                                                principal_point1,
-                                                focal_length2,
-                                                principal_point2),
-                  1e-10);
+      EXPECT_NEAR(
+          cost_functor.Evaluate(focal_length1, focal_length2).squaredNorm(),
+          NormalizedEssentialDistanceSq(F,
+                                        focal_length1,
+                                        principal_point1,
+                                        focal_length2,
+                                        principal_point2),
+          1e-10);
     }
   }
 }
@@ -134,10 +118,9 @@ TEST(EssentialManifoldFocalLengthSameCameraCostFunctor, Nominal) {
       const double log_focal_length = std::log(test_focal_length);
       Eigen::Vector2d residual;
       EXPECT_TRUE(cost_functor(&log_focal_length, residual.data()));
-      EXPECT_EQ(
-          residual,
-          EvaluateResidual(
-              reference_cost_functor, test_focal_length, test_focal_length));
+      EXPECT_EQ(residual,
+                reference_cost_functor.Evaluate(test_focal_length,
+                                                test_focal_length));
       if (test_focal_length == focal_length) {
         EXPECT_LT(residual.norm(), 1e-8);
       } else {

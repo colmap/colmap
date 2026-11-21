@@ -43,6 +43,18 @@ void PerturbFocalLengths(Database& database) {
   }
 }
 
+// Expects all cameras to be calibrated by view graph calibration to their
+// ground truth focal lengths.
+void ExpectCalibratedFocalLengths(const Reconstruction& gt_reconstruction,
+                                  const Database& database) {
+  for (const auto& [camera_id, gt_camera] : gt_reconstruction.Cameras()) {
+    const Camera camera = database.ReadCamera(camera_id);
+    EXPECT_TRUE(camera.HasPriorFocalLength());
+    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
+    EXPECT_NEAR(camera.MeanFocalLength(), gt_camera.MeanFocalLength(), 1.0);
+  }
+}
+
 TEST(CalibrateViewGraph, Nominal) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
 
@@ -50,25 +62,12 @@ TEST(CalibrateViewGraph, Nominal) {
   SynthesizeDataset(
       CalibrationDatasetOptions(), &reconstruction, database.get());
 
-  // Store ground truth focal lengths.
-  NodeHashMap<camera_t, double> gt_focals;
-  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
-    gt_focals[camera_id] = camera.MeanFocalLength();
-  }
-
   PerturbFocalLengths(*database);
 
   ViewGraphCalibrationOptions calib_options;
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
-  // Verify focal lengths are calibrated close to ground truth and source is
-  // VIEW_GRAPH.
-  for (const auto& [camera_id, gt_focal] : gt_focals) {
-    const Camera camera = database->ReadCamera(camera_id);
-    EXPECT_TRUE(camera.HasPriorFocalLength());
-    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
-    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
-  }
+  ExpectCalibratedFocalLengths(reconstruction, *database);
 
   // Verify pairs are now CALIBRATED with valid E matrices and relative poses.
   for (const auto& [pair_id, tvg] : database->ReadTwoViewGeometries()) {
@@ -81,12 +80,7 @@ TEST(CalibrateViewGraph, Nominal) {
   // non-VIEW_GRAPH calibrations as input rather than compounding on previous
   // output or rebuilding F from the GUESS cameras.
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
-  for (const auto& [camera_id, gt_focal] : gt_focals) {
-    const Camera camera = database->ReadCamera(camera_id);
-    EXPECT_TRUE(camera.HasPriorFocalLength());
-    EXPECT_EQ(camera.source, CameraSource::VIEW_GRAPH);
-    EXPECT_NEAR(camera.MeanFocalLength(), gt_focal, 1.0);
-  }
+  ExpectCalibratedFocalLengths(reconstruction, *database);
 }
 
 TEST(CalibrateViewGraph, PriorFocalLength) {
@@ -157,11 +151,7 @@ TEST(CalibrateViewGraph, ConfigTagging) {
   }
 
   // Verify the outlier pairs do not affect the calibrated focal lengths.
-  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
-    EXPECT_NEAR(database->ReadCamera(camera_id).MeanFocalLength(),
-                camera.MeanFocalLength(),
-                1.0);
-  }
+  ExpectCalibratedFocalLengths(reconstruction, *database);
 }
 
 TEST(CalibrateViewGraph, SharedCameras) {
@@ -180,12 +170,7 @@ TEST(CalibrateViewGraph, SharedCameras) {
   EXPECT_TRUE(CalibrateViewGraph(calib_options, database.get()));
 
   EXPECT_EQ(reconstruction.NumCameras(), 4);
-  for (const auto& [camera_id, camera] : reconstruction.Cameras()) {
-    const Camera calibrated_camera = database->ReadCamera(camera_id);
-    EXPECT_EQ(calibrated_camera.source, CameraSource::VIEW_GRAPH);
-    EXPECT_NEAR(
-        calibrated_camera.MeanFocalLength(), camera.MeanFocalLength(), 1.0);
-  }
+  ExpectCalibratedFocalLengths(reconstruction, *database);
 }
 
 TEST(CalibrateViewGraph, MinNumInliers) {

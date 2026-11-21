@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <Eigen/SVD>
@@ -53,6 +55,9 @@ class EssentialManifoldFocalLengthCostFunctor {
     right_null_ = svd.matrixV().col(2);
     left_axis_ = CompletionAxis(left_null_, principal_point2_);
     right_axis_ = CompletionAxis(right_null_, principal_point1_);
+    F_right_axis_ = F_ * right_axis_;
+    Ft_left_axis_ = F_.transpose() * left_axis_;
+    left_axis_F_right_axis_ = left_axis_.dot(F_right_axis_);
     const Eigen::Matrix2d C = ReducedCalibratedFundamental(
         initial_focal_length1, initial_focal_length2);
     sign_ = C.determinant() >= 0 ? 1 : -1;
@@ -85,6 +90,15 @@ class EssentialManifoldFocalLengthCostFunctor {
     return true;
   }
 
+  // Evaluates the residuals at the given (not log) focal lengths.
+  Eigen::Vector2d Evaluate(double focal_length1, double focal_length2) const {
+    const double log_focal_length1 = std::log(focal_length1);
+    const double log_focal_length2 = std::log(focal_length2);
+    Eigen::Vector2d residuals;
+    (*this)(&log_focal_length1, &log_focal_length2, residuals.data());
+    return residuals;
+  }
+
  private:
   // Unit vector orthogonal to K^-1 * n for any focal length f > 0. With the
   // principal point (u, v) fixed, K^-1 * n ~ (w0, w1, f * n2) with
@@ -107,30 +121,6 @@ class EssentialManifoldFocalLengthCostFunctor {
       const T& focal_length1, const T& focal_length2) const {
     using Vector3T = Eigen::Matrix<T, 3, 1>;
 
-    // Null vectors of A = K2^T F K1 are K2^-1 * left_null and
-    // K1^-1 * right_null, and their orthonormal complements follow from the
-    // fixed completion axes without Gram-Schmidt.
-    Vector3T left_null(
-        (T(left_null_(0)) - T(principal_point2_(0) * left_null_(2))) /
-            focal_length2,
-        (T(left_null_(1)) - T(principal_point2_(1) * left_null_(2))) /
-            focal_length2,
-        T(left_null_(2)));
-    left_null.normalize();
-    Vector3T right_null(
-        (T(right_null_(0)) - T(principal_point1_(0) * right_null_(2))) /
-            focal_length1,
-        (T(right_null_(1)) - T(principal_point1_(1) * right_null_(2))) /
-            focal_length1,
-        T(right_null_(2)));
-    right_null.normalize();
-    const Vector3T left_axis1 = left_axis_.cast<T>();
-    const Vector3T left_axis2 = left_null.cross(left_axis1);
-    const Vector3T right_axis1 = right_axis_.cast<T>();
-    const Vector3T right_axis2 = right_null.cross(right_axis1);
-
-    // C_ij = left_axis_i^T * K2^T * F * K1 * right_axis_j
-    //      = (K2 * left_axis_i)^T * F * (K1 * right_axis_j).
     const auto calibrate = [](const Vector3T& x,
                               const T& focal_length,
                               const Eigen::Vector2d& principal_point) {
@@ -138,21 +128,38 @@ class EssentialManifoldFocalLengthCostFunctor {
                       focal_length * x(1) + T(principal_point(1)) * x(2),
                       x(2));
     };
-    const Eigen::Matrix<T, 3, 3> F = F_.cast<T>();
-    const Vector3T F_right1 =
-        F * calibrate(right_axis1, focal_length1, principal_point1_);
-    const Vector3T F_right2 =
-        F * calibrate(right_axis2, focal_length1, principal_point1_);
-    const Vector3T left1 =
-        calibrate(left_axis1, focal_length2, principal_point2_);
-    const Vector3T left2 =
-        calibrate(left_axis2, focal_length2, principal_point2_);
+    const auto normalized_uncalibrate =
+        [](const Eigen::Vector3d& x,
+           const T& focal_length,
+           const Eigen::Vector2d& principal_point) {
+          Vector3T y((T(x(0)) - T(principal_point(0) * x(2))) / focal_length,
+                     (T(x(1)) - T(principal_point(1) * x(2))) / focal_length,
+                     T(x(2)));
+          y.normalize();
+          return y;
+        };
 
+    // The null vectors of A = K2^T F K1 are K2^-1 * left_null and
+    // K1^-1 * right_null, and their orthonormal complements follow from the
+    // fixed completion axes without Gram-Schmidt.
+    const Vector3T left_axis2 =
+        normalized_uncalibrate(left_null_, focal_length2, principal_point2_)
+            .cross(left_axis_.cast<T>());
+    const Vector3T right_axis2 =
+        normalized_uncalibrate(right_null_, focal_length1, principal_point1_)
+            .cross(right_axis_.cast<T>());
+    const Vector3T K2_left_axis2 =
+        calibrate(left_axis2, focal_length2, principal_point2_);
+    const Vector3T K1_right_axis2 =
+        calibrate(right_axis2, focal_length1, principal_point1_);
+
+    // C_ij = (K2 * left_axis_i)^T * F * (K1 * right_axis_j), where
+    // K * axis = f * axis for the completion axes in the xy-plane.
     Eigen::Matrix<T, 2, 2> C;
-    C(0, 0) = left1.dot(F_right1);
-    C(0, 1) = left1.dot(F_right2);
-    C(1, 0) = left2.dot(F_right1);
-    C(1, 1) = left2.dot(F_right2);
+    C(0, 0) = focal_length1 * focal_length2 * T(left_axis_F_right_axis_);
+    C(0, 1) = focal_length2 * Ft_left_axis_.cast<T>().dot(K1_right_axis2);
+    C(1, 0) = focal_length1 * K2_left_axis2.dot(F_right_axis_.cast<T>());
+    C(1, 1) = K2_left_axis2.dot(F_.cast<T>() * K1_right_axis2);
     return C;
   }
 
@@ -163,6 +170,10 @@ class EssentialManifoldFocalLengthCostFunctor {
   Eigen::Vector3d right_null_;
   Eigen::Vector3d left_axis_;
   Eigen::Vector3d right_axis_;
+  // Precomputed terms of C that only depend on the completion axes.
+  Eigen::Vector3d F_right_axis_;
+  Eigen::Vector3d Ft_left_axis_;
+  double left_axis_F_right_axis_ = 0;
   double sign_ = 1;
 };
 
