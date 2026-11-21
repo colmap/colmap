@@ -701,7 +701,7 @@ def set_cameras_from_gt(
             pose_prior.corr_data_id = data_ids[pose_prior.corr_data_id.id]
             database.update_pose_prior(pose_prior)
 
-        rig_configs = []
+        rig_configs, rig_sparse_gt = [], None
         if rig_image_prefixes:
             rig_config = pycolmap.RigConfig()
             rig_config.cameras = [
@@ -711,12 +711,10 @@ def set_cameras_from_gt(
                 for i, image_prefix in enumerate(rig_image_prefixes)
             ]
             rig_configs.append(rig_config)
-        # The rig extrinsics are derived from the GT, whose rigs and frames are
-        # then also overwritten, so pass a copy of the GT. apply_rig_config
-        # also writes its cameras, which must keep the USER source of the
-        # cameras written above.
-        rig_sparse_gt = None
-        if rig_configs:
+            # The rig extrinsics are derived from the GT, whose rigs and frames
+            # are then also overwritten, so pass a copy of the GT.
+            # apply_rig_config also writes its cameras, which must keep the
+            # USER source of the cameras written above.
             rig_sparse_gt = pycolmap.Reconstruction(camera_priors_sparse_gt)
             for camera in rig_sparse_gt.cameras.values():
                 camera.source = pycolmap.CameraSource.USER
