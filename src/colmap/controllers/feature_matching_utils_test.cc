@@ -429,6 +429,8 @@ TEST(FeatureMatcherController, SetupPropagatesMatcherCreationErrors) {
     flexglue_options.flexglue->num_workers_per_gpu = 3;
     flexglue_options.flexglue->descriptor_model_path =
         (data.test_dir / "missing_model.onnx").string();
+    flexglue_options.flexglue->matcher_model_path =
+        (data.test_dir / "missing_model.onnx").string();
     FeatureMatcherController controller(
         flexglue_options, geometry_options, data.cache);
     EXPECT_THAT(ThrownMessage([&]() { controller.Setup(); }),
