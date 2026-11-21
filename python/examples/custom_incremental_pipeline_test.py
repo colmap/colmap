@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import custom_incremental_pipeline
+import pytest
 
 import pycolmap
 
@@ -204,7 +205,9 @@ def test_chained_matches(tmp_path: Path) -> None:
     )
 
 
-def test_write_snapshot(tmp_path: Path, monkeypatch) -> None:
+def test_write_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         custom_incremental_pipeline.time, "time", lambda: 123.456
     )
