@@ -125,11 +125,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.delaunay_meshing->num_threads = options_.num_threads;
 #endif
 
-  option_manager_.vocab_tree_pairing->vocab_tree_path =
-      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
-  option_manager_.sequential_pairing->vocab_tree_path =
-      GetVocabTreeUriForFeatureType(option_manager_.feature_extraction->type);
-  option_manager_.sequential_pairing->loop_detection = true;
+  // Use the given vocabulary tree or otherwise the default one for the
+  // feature type, which is empty if downloads are disabled.
+  const std::filesystem::path& vocab_tree_path =
+      options_.vocab_tree_path.empty()
+          ? GetVocabTreeUriForFeatureType(
+                option_manager_.feature_extraction->type)
+          : options_.vocab_tree_path;
+  option_manager_.vocab_tree_pairing->vocab_tree_path = vocab_tree_path;
+  option_manager_.sequential_pairing->vocab_tree_path = vocab_tree_path;
+  option_manager_.sequential_pairing->loop_detection = !vocab_tree_path.empty();
 
   // Apply mapper-appropriate two-view geometry defaults.
   // Global uses stricter thresholds; Incremental/Hierarchical use standard.
@@ -236,7 +241,7 @@ void AutomaticReconstructionController::Setup() {
                                        *option_manager_.two_view_geometry,
                                        *option_manager_.database_path);
 
-    if (!options_.vocab_tree_path.empty()) {
+    if (!option_manager_.vocab_tree_pairing->vocab_tree_path.empty()) {
       vocab_tree_matcher_ =
           CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_pairing,
                                         *option_manager_.feature_matching,
@@ -327,7 +332,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
              options_.data_type == DataType::INTERNET) {
     auto database = Database::Open(*option_manager_.database_path);
     const size_t num_images = database->NumImages();
-    if (options_.vocab_tree_path.empty() || num_images < 200) {
+    if (vocab_tree_matcher_ == nullptr || num_images < 200) {
       matcher = exhaustive_matcher_.get();
     } else {
       matcher = vocab_tree_matcher_.get();
