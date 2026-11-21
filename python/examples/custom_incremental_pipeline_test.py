@@ -202,3 +202,18 @@ def test_chained_matches(tmp_path: Path) -> None:
         max_proj_center_error=1e-4,
         num_obs_tolerance=0,
     )
+
+
+def test_write_snapshot(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(custom_incremental_pipeline.time, "time", lambda: 123.456)
+    snapshot_root = tmp_path / "snapshots"
+    reconstruction = pycolmap.Reconstruction()
+
+    custom_incremental_pipeline.write_snapshot(reconstruction, snapshot_root)
+
+    snapshot = snapshot_root / "0000123456"
+    assert snapshot.is_dir()
+    assert (snapshot / "cameras.bin").is_file()
+    assert (snapshot / "images.bin").is_file()
+    assert (snapshot / "points3D.bin").is_file()
+    assert pycolmap.Reconstruction(snapshot).num_images() == 0
