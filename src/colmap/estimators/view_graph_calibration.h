@@ -31,8 +31,10 @@ struct ViewGraphCalibrationOptions {
   // The maximum calibration error for an image pair, measured as the
   // normalized distance of its calibrated fundamental matrix to the essential
   // manifold (in [0, 1/sqrt(2)]). Pairs with larger error are tagged as
-  // DEGENERATE.
-  double max_calibration_error = 0.1;
+  // DEGENERATE. The default only rejects grossly non-essential pairs (singular
+  // value ratio below ~0.5), since stricter thresholds remove pairs that are
+  // still useful for reconstruction.
+  double max_calibration_error = 0.3;
 
   // Minimum number of inlier matches for an image pair to be used in the focal
   // length optimization. The calibration error is still evaluated for all
