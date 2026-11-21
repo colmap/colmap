@@ -15,6 +15,7 @@ namespace {
 struct TextureCalls {
   cudaError_t alloc_error = cudaSuccess;
   cudaError_t create_error = cudaSuccess;
+  cudaError_t destroy_error = cudaSuccess;
   cudaError_t free_error = cudaSuccess;
   int free_count = 0;
   bool freed_expected_array = false;
@@ -50,7 +51,7 @@ cudaError_t TestCreateTextureObject(cudaTextureObject_t* texture,
 
 cudaError_t TestDestroyTextureObject(cudaTextureObject_t) {
   calls.order += 'D';
-  return cudaSuccess;
+  return calls.destroy_error;
 }
 
 cudaError_t TestFreeArray(cudaArray_t array) {
@@ -142,6 +143,25 @@ TEST_F(CudaTextureConstructionTest, SuccessDestroysTextureBeforeFreeingArray) {
   EXPECT_EQ(calls.free_count, 1);
   EXPECT_TRUE(calls.freed_expected_array);
   EXPECT_EQ(calls.order, "ACDF");
+}
+
+TEST_F(CudaTextureConstructionTest, CleanupFailuresStillAttemptBothReleases) {
+  for (const cudaError_t destroy_error : {cudaSuccess, cudaErrorNoDevice}) {
+    for (const cudaError_t free_error :
+         {cudaSuccess, cudaErrorInsufficientDriver}) {
+      SCOPED_TRACE(testing::Message()
+                   << "destroy=" << destroy_error << ", free=" << free_error);
+      calls = TextureCalls{};
+      calls.destroy_error = destroy_error;
+      calls.free_error = free_error;
+      {
+        Texture texture(cudaTextureDesc{}, 1, 1, 1);
+      }
+      EXPECT_EQ(calls.free_count, 1);
+      EXPECT_TRUE(calls.freed_expected_array);
+      EXPECT_EQ(calls.order, "ACDF");
+    }
+  }
 }
 
 }  // namespace
