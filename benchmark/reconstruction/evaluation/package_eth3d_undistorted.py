@@ -18,7 +18,6 @@ Example (from benchmark/reconstruction):
 """
 
 import argparse
-import hashlib
 import json
 import shutil
 import tempfile
@@ -27,6 +26,8 @@ from pathlib import Path
 import numpy as np
 
 import pycolmap
+
+from .utils import sha256
 
 RELEASE_REPOSITORY = "colmap/colmap"
 RELEASE_TAG = "datasets-eth3d-undistorted-v1"
@@ -178,11 +179,7 @@ def package_scene(
     ) as archive:
         archive.writestr(README.format(quality=JPEG_QUALITY), "README.md")
         archive.writeall(dataset_path / scene, scene)
-    digest = hashlib.sha256()
-    with open(archive_path / filename, "rb") as fid:
-        while chunk := fid.read(1024 * 1024):
-            digest.update(chunk)
-    return filename, digest.hexdigest()
+    return filename, sha256(archive_path / filename)
 
 
 def parse_args() -> argparse.Namespace:

@@ -7,6 +7,7 @@ import ctypes
 import dataclasses
 import datetime
 import functools
+import hashlib
 import itertools
 import multiprocessing
 import pickle
@@ -41,6 +42,15 @@ _LIBC = (
     if platform.system() == "Linux"
     else None
 )
+
+
+def sha256(path: Path) -> str:
+    """Returns the SHA256 hex digest of a file."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as fid:
+        while chunk := fid.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _set_pdeathsig() -> None:

@@ -49,7 +49,7 @@ def eth3d_undistorted_release(
         archive.writestr("image", "scene/images/one.jpg")
     checksums_path = tmp_path / "checksums.json"
     checksums_path.write_text(
-        json.dumps({filename: download._sha256(release_path / filename)})
+        json.dumps({filename: download.sha256(release_path / filename)})
     )
     monkeypatch.setattr(
         download.package_eth3d_undistorted, "CHECKSUMS_PATH", checksums_path

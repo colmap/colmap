@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import hashlib
 import inspect
 import json
 import shutil
@@ -19,6 +18,7 @@ from evaluation.tartanair.tartanair_v2 import (
     scene_shards,
     shard_name,
 )
+from evaluation.utils import sha256
 
 import pycolmap
 
@@ -229,26 +229,18 @@ def download_blended_mvs(data_path: Path) -> None:
             combined_zip.unlink()
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as fid:
-        while chunk := fid.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _download_verified_file(url: str, target: Path, expected: str) -> None:
     """Downloads url to target, unless target exists with the expected SHA256.
 
     The download goes through a .part file, so that an interrupted download
     never leaves a truncated target.
     """
-    if target.exists() and _sha256(target) == expected:
+    if target.exists() and sha256(target) == expected:
         return
     temporary = target.with_suffix(target.suffix + ".part")
     pycolmap.logging.info(f"Downloading {url}")
     download_file(url, target.parent, temporary.name)
-    if _sha256(temporary) != expected:
+    if sha256(temporary) != expected:
         temporary.unlink()
         raise RuntimeError(f"Checksum mismatch for {target.name}")
     temporary.replace(target)
