@@ -205,7 +205,9 @@ def test_chained_matches(tmp_path: Path) -> None:
 
 
 def test_write_snapshot(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(custom_incremental_pipeline.time, "time", lambda: 123.456)
+    monkeypatch.setattr(
+        custom_incremental_pipeline.time, "time", lambda: 123.456
+    )
     snapshot_root = tmp_path / "snapshots"
     reconstruction = pycolmap.Reconstruction()
 
