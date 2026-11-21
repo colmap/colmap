@@ -673,16 +673,6 @@ def set_cameras_from_gt(
         ]
         if missing:
             raise ValueError(f"Images do not exist in GT: {missing}")
-        # Fail before modifying the database, unlike apply_rig_config.
-        unmatched_prefixes = [
-            prefix
-            for prefix in rig_image_prefixes
-            if not any(image.name.startswith(prefix) for image in images)
-        ]
-        if unmatched_prefixes:
-            raise ValueError(
-                f"Rig image prefixes match no image: {unmatched_prefixes}"
-            )
         pose_priors = database.read_all_pose_priors()
 
         database.clear_cameras()
