@@ -48,7 +48,8 @@ void BindUndistortion(py::module& m) {
                          &UndistortCameraOptions::target_camera,
                          "If set, all perspective cameras are undistorted to "
                          "this PINHOLE camera, ignoring the other options "
-                         "except for warp_options.");
+                         "except for warp_options (but they must still be "
+                         "valid).");
   MakeDataclass(PyUndistortCameraOptions);
 
   m.def("undistort_camera",
