@@ -71,6 +71,12 @@ struct UndistortCameraOptions {
 Camera UndistortCamera(const UndistortCameraOptions& options,
                        const Camera& camera);
 
+// Whether undistortion leaves the camera and its images unchanged, so that the
+// images can be copied through as-is. The undistorted reconstruction and the
+// undistorted images must make the same decision to stay consistent.
+bool IsUndistortionNoOp(const UndistortCameraOptions& options,
+                        const Camera& camera);
+
 // Undistort image such that the viewing geometry of the undistorted image
 // follows a pinhole camera model. See `UndistortCamera` for more details
 // on the undistortion conventions.

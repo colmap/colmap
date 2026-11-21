@@ -432,6 +432,33 @@ TEST(UndistortReconstruction, RescalesAlreadyUndistortedCameras) {
   }
 }
 
+TEST(IsUndistortionNoOp, Nominal) {
+  const Camera undistorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100, 100, 100);
+  Camera distorted_camera =
+      Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
+  distorted_camera.params[3] = 0.5;
+  const Camera spherical_camera = Camera::CreateFromModelId(
+      1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 100, 50);
+
+  UndistortCameraOptions options;
+  EXPECT_TRUE(IsUndistortionNoOp(options, undistorted_camera));
+  EXPECT_FALSE(IsUndistortionNoOp(options, distorted_camera));
+  EXPECT_TRUE(IsUndistortionNoOp(options, spherical_camera));
+
+  // A target camera only applies to perspective cameras.
+  options.target_camera =
+      Camera::CreateFromModelId(2, CameraModelId::kPinhole, 50, 60, 40);
+  EXPECT_FALSE(IsUndistortionNoOp(options, undistorted_camera));
+  EXPECT_TRUE(IsUndistortionNoOp(options, spherical_camera));
+
+  // Rescaling applies to all cameras.
+  options.target_camera.reset();
+  options.max_image_size = 50;
+  EXPECT_FALSE(IsUndistortionNoOp(options, undistorted_camera));
+  EXPECT_FALSE(IsUndistortionNoOp(options, spherical_camera));
+}
+
 TEST(UndistortReconstruction, TargetCamera) {
   Reconstruction reconstruction;
 
