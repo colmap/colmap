@@ -89,6 +89,9 @@ def test_eth3d_undistorted_reuses_valid_archives(
     monkeypatch.setattr(download, "download_file", fail)
     download.download_eth3d_undistorted(data_path)
     assert (data_path / "dslr/scene/images/one.jpg").read_text() == "image"
+    # Rerunning skips the extracted scene, whose archive was deleted.
+    download.download_eth3d_undistorted(data_path)
+    assert sorted(p.name for p in (data_path / "dslr").iterdir()) == ["scene"]
 
 
 def test_eth3d_undistorted_rejects_corrupt_archives(

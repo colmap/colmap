@@ -85,9 +85,18 @@ def download_eth3d_undistorted(data_path: Path) -> None:
     )
     checksums = json.loads(package_eth3d_undistorted.CHECKSUMS_PATH.read_text())
     for filename, expected in checksums.items():
-        # Archives of an interrupted run are reused if valid, but deleted after
-        # their extraction to save disk space.
+        # Archives are deleted after a successful extraction to save disk
+        # space, so a scene without its archive is complete and skipped when
+        # resuming. Archives of an interrupted run are reused if valid.
         archive_path = target_folder / filename
+        scene = filename.removeprefix(
+            f"{package_eth3d_undistorted.ARCHIVE_PREFIX}-"
+        ).removesuffix(".7z")
+        if (target_folder / scene).is_dir() and not archive_path.exists():
+            pycolmap.logging.info(
+                f"Skipping extracted ETH3D undistorted {scene}"
+            )
+            continue
         _download_verified_file(
             f"{base_url}/{filename}", archive_path, expected
         )
