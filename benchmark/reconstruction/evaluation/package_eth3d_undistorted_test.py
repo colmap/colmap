@@ -3,14 +3,50 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 import pycolmap
 
 from .package_eth3d_undistorted import (
     SOURCE_CALIBRATION,
     TARGET_CALIBRATION,
+    check_no_blank_pixels,
     undistort_scene,
 )
+
+
+def _pinhole(width: int, height: int, cx: float, cy: float) -> pycolmap.Camera:
+    return pycolmap.Camera(
+        camera_id=1,
+        model="PINHOLE",
+        width=width,
+        height=height,
+        params=[100.0, 100.0, cx, cy],
+    )
+
+
+@pytest.mark.parametrize(
+    ("width", "height", "cx", "cy", "valid"),
+    [
+        (90, 70, 45, 35, True),
+        # The left border maps to x=0.5, inside the one-pixel margin.
+        (98, 78, 49.5, 39, False),
+        # The right border maps to x=99.5, inside the one-pixel margin.
+        (98, 78, 48.5, 39, False),
+        (120, 70, 60, 35, False),
+        (90, 90, 45, 45, False),
+    ],
+)
+def test_check_no_blank_pixels(
+    width: int, height: int, cx: float, cy: float, valid: bool
+) -> None:
+    source_camera = _pinhole(100, 80, 50, 40)
+    target_camera = _pinhole(width, height, cx, cy)
+    if valid:
+        check_no_blank_pixels(source_camera, target_camera)
+    else:
+        with pytest.raises(ValueError, match="Blank pixels"):
+            check_no_blank_pixels(source_camera, target_camera)
 
 
 def test_undistort_scene(tmp_path: Path) -> None:
