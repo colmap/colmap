@@ -33,7 +33,7 @@ class CudaArrayLayeredTexture {
                           const size_t width,
                           const size_t height,
                           const size_t depth);
-  ~CudaArrayLayeredTexture();
+  ~CudaArrayLayeredTexture() noexcept;
 
  private:
   // Define class as non-copyable and non-movable.
@@ -103,10 +103,10 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
     const size_t width,
     const size_t height,
     const size_t depth)
-    : texture_desc_(texture_desc),
-      width_(width),
+    : width_(width),
       height_(height),
-      depth_(depth) {
+      depth_(depth),
+      texture_desc_(texture_desc) {
   THROW_CHECK_GT(width_, 0);
   THROW_CHECK_GT(height_, 0);
   THROW_CHECK_GT(depth_, 0);
@@ -119,14 +119,20 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
   resource_desc_.resType = cudaResourceTypeArray;
   resource_desc_.res.array.array = array_;
 
-  CUDA_SAFE_CALL(cudaCreateTextureObject(
-      &texture_, &resource_desc_, &texture_desc_, nullptr));
+  try {
+    CUDA_SAFE_CALL(cudaCreateTextureObject(
+        &texture_, &resource_desc_, &texture_desc_, nullptr));
+  } catch (...) {
+    (void)cudaFreeArray(array_);
+    throw;
+  }
 }
 
 template <typename T>
-CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() {
-  CUDA_SAFE_CALL(cudaDestroyTextureObject(texture_));
-  CUDA_SAFE_CALL(cudaFreeArray(array_));
+CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() noexcept {
+  // Attempt both releases even if the CUDA runtime reports an error.
+  (void)cudaDestroyTextureObject(texture_);
+  (void)cudaFreeArray(array_);
 }
 
 template <typename T>
