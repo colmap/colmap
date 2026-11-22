@@ -222,6 +222,7 @@ The available commands can be listed using the command::
         Available commands:
           help
           gui
+          apriltag_aligner
           automatic_reconstructor
           bundle_adjuster
           single_view_calibrator
@@ -470,6 +471,11 @@ available as ``colmap [command]``:
 
 - ``model_aligner``: Align/geo-register model to coordinate system of given
   camera centers.
+
+- ``apriltag_aligner``: Align or scale an existing sparse reconstruction using
+  AprilTags detected in the input images and either known pairwise tag
+  distances (``--distances_path``) or known 3D tag positions
+  (``--positions_path``).
 
 - ``model_orientation_aligner``: Align the coordinate axis of a model using a
   Manhattan world assumption.

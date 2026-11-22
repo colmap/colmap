@@ -65,6 +65,10 @@ set(MVS_ENABLED @MVS_ENABLED@)
 
 set(LSD_ENABLED @LSD_ENABLED@)
 
+set(APRILTAG_ENABLED @APRILTAG_ENABLED@)
+
+set(FETCH_APRILTAG @FETCH_APRILTAG@)
+
 # Whether the installed COLMAP was built with interprocedural optimization.
 # Consumers linking COLMAP's static libraries (e.g. pycolmap) must match this:
 # linking non-IPO archives into an IPO binary fails with GCC.

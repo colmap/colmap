@@ -87,6 +87,12 @@
                 "cgal"
             ]
         },
+        "apriltag": {
+            "description": "Build with AprilTag detection support.",
+            "dependencies": [
+                "apriltag"
+            ]
+        },
         "download": {
             "description": "Build with download support.",
             "dependencies": [

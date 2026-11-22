@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
+#include "colmap/exe/apriltag.h"
 #include "colmap/exe/database.h"
 #include "colmap/exe/feature.h"
 #include "colmap/exe/gui.h"
@@ -84,6 +85,7 @@ int main(int argc, char** argv) {
 
   std::vector<Command> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
+  commands.emplace_back("apriltag_aligner", &colmap::RunAprilTagAligner);
   // The automatic reconstructor installs its handler after parsing the mapper
   // type, since only incremental mapping supports resumable shutdown.
   commands.emplace_back("automatic_reconstructor",
