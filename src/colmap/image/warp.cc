@@ -303,25 +303,39 @@ void ResampleImageBilinear(const float* data,
   const float scale_r = static_cast<float>(rows) / static_cast<float>(new_rows);
   const float scale_c = static_cast<float>(cols) / static_cast<float>(new_cols);
 
-  struct ColumnGeometry {
+  struct AxisGeometry {
     int min;
     int max;
     float d_min;
     float d_max;
   };
-  const auto column_geometry = [scale_c](const int c) {
-    const float c_i = (c + 0.5f) * scale_c - 0.5f;
-    const int c_i_min = std::floor(c_i);
-    const int c_i_max = c_i_min + 1;
-    return ColumnGeometry{c_i_min, c_i_max, c_i - c_i_min, c_i_max - c_i};
+  const auto make_geometry = [](const auto sample) {
+    const int min = std::floor(sample);
+    const int max = min + 1;
+    return AxisGeometry{min,
+                        max,
+                        static_cast<float>(sample - min),
+                        static_cast<float>(max - sample)};
+  };
+  const auto axis_geometry = [&](const int index,
+                                 const int size,
+                                 const int new_size,
+                                 const float scale) {
+    // Float cannot represent half-pixel centers beyond this axis length.
+    if (size > (1 << 23) || new_size > (1 << 23)) {
+      return make_geometry((static_cast<double>(index) + 0.5) *
+                               (static_cast<double>(size) / new_size) -
+                           0.5);
+    }
+    return make_geometry((index + 0.5f) * scale - 0.5f);
+  };
+  const auto column_geometry = [&](const int c) {
+    return axis_geometry(c, cols, new_cols, scale_c);
   };
   const auto resample = [&](const auto& get_column) {
     for (int r = 0; r < new_rows; ++r) {
-      const float r_i = (r + 0.5f) * scale_r - 0.5f;
-      const int r_i_min = std::floor(r_i);
-      const int r_i_max = r_i_min + 1;
-      const float d_r_min = r_i - r_i_min;
-      const float d_r_max = r_i_max - r_i;
+      const auto [r_i_min, r_i_max, d_r_min, d_r_max] =
+          axis_geometry(r, rows, new_rows, scale_r);
 
       for (int c = 0; c < new_cols; ++c) {
         const auto [c_i_min, c_i_max, d_c_min, d_c_max] = get_column(c);
@@ -346,7 +360,7 @@ void ResampleImageBilinear(const float* data,
   if (new_rows == 1) {
     resample(column_geometry);
   } else {
-    std::vector<ColumnGeometry> columns(new_cols);
+    std::vector<AxisGeometry> columns(new_cols);
     for (int c = 0; c < new_cols; ++c) {
       columns[c] = column_geometry(c);
     }

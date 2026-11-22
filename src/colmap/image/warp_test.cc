@@ -546,6 +546,24 @@ TEST(Warp, ResampleImageBilinearAsymmetricAndBorders) {
   }
 }
 
+TEST(Warp, ResampleImageBilinearLongAxisIdentity) {
+  constexpr int length = (1 << 23) + 1;
+  std::vector<float> image(length, 0.0f);
+  image.front() = 1.0f;
+  image[length - 2] = 2.0f;
+  image.back() = 6.0f;
+  std::vector<float> resampled(length);
+  for (const auto& [rows, cols] :
+       {std::tuple{1, length}, std::tuple{length, 1}}) {
+    SCOPED_TRACE(rows);
+    ResampleImageBilinear(
+        image.data(), rows, cols, rows, cols, resampled.data());
+    EXPECT_EQ(resampled.front(), image.front());
+    EXPECT_EQ(resampled[length - 2], image[length - 2]);
+    EXPECT_EQ(resampled.back(), image.back());
+  }
+}
+
 TEST(Warp, SmoothImage) {
   std::vector<float> image(16);
   for (size_t i = 0; i < image.size(); ++i) {
