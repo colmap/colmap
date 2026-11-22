@@ -24,17 +24,14 @@ size_t CombinationSampler::MaxNumSamples() {
 
 void CombinationSampler::Sample(std::vector<size_t>* sampled_idxs) {
   *sampled_idxs = sample_idxs_;
-  if (num_samples_ == total_num_samples_) {
-    return;
-  }
 
   for (size_t i = num_samples_; i > 0; --i) {
     const size_t pos = i - 1;
     if (sample_idxs_[pos] < total_num_samples_ - num_samples_ + pos) {
       ++sample_idxs_[pos];
-      for (size_t j = pos + 1; j < num_samples_; ++j) {
-        sample_idxs_[j] = sample_idxs_[j - 1] + 1;
-      }
+      std::iota(sample_idxs_.begin() + pos + 1,
+                sample_idxs_.end(),
+                sample_idxs_[pos] + 1);
       return;
     }
   }
