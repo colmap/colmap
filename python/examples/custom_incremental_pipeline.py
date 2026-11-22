@@ -488,13 +488,29 @@ def main(
                 total=num_images, desc="Images registered:"
             ) as pbar:
                 pbar.update(0, force=True)
+
+                # Recount rather than increment: models can be discarded or
+                # share images, and frames can have multiple images.
+                def update_pbar() -> None:
+                    reg_image_ids = set()
+                    for i in range(reconstruction_manager.size()):
+                        reg_image_ids.update(
+                            reconstruction_manager.get(i).reg_image_ids()
+                        )
+                    pbar.count = len(reg_image_ids)
+                    pbar.refresh()
+
                 mapper.add_callback(
                     IncrementalPipelineCallback.INITIAL_IMAGE_PAIR_REG_CALLBACK,
-                    lambda: pbar.update(2),
+                    update_pbar,
                 )
                 mapper.add_callback(
                     IncrementalPipelineCallback.NEXT_IMAGE_REG_CALLBACK,
-                    lambda: pbar.update(1),
+                    update_pbar,
+                )
+                mapper.add_callback(
+                    IncrementalPipelineCallback.LAST_IMAGE_REG_CALLBACK,
+                    update_pbar,
                 )
                 main_incremental_mapper(mapper)
 
