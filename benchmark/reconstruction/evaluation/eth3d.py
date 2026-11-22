@@ -14,9 +14,9 @@ class _DatasetETH3D(Dataset):
 
     Subclasses supply `dataset_name` and `calibration_glob` to select one of
     the published ETH3D variants. The image folders under images/ are named
-    per capture device (dslr_images_undistorted for the DSLR, one
-    images_rig_cam<i>_undistorted per camera for the rig), so they are not
-    matched by name.
+    per capture device and variant (e.g., dslr_images or
+    dslr_images_undistorted for the DSLR, one images_rig_cam<i>_undistorted
+    per camera for the rig), so they are not matched by name.
     """
 
     dataset_name = ""
@@ -109,12 +109,15 @@ class _DatasetETH3D(Dataset):
         pass
 
 
-class DatasetETH3DUndistorted(_DatasetETH3D):
-    """ETH3D undistorted reconstruction benchmark.
+class DatasetETH3DUndistortedLegacy(_DatasetETH3D):
+    """ETH3D reconstruction benchmark on the official undistorted images.
 
     Built from the `*_undistorted.7z` downloads, which cover both the `dslr`
     and `rig` categories. The images are already undistorted and the ground
-    truth uses PINHOLE cameras.
+    truth uses PINHOLE cameras. Each GT camera keeps the principal point of
+    its distorted camera, so the image size differs between GT cameras. The
+    JPEGs have no EXIF, so `--uncalibrated` starts from a focal-length guess
+    of 1.2 * max(width, height).
     """
 
     dataset_name = "eth3d"
@@ -126,10 +129,22 @@ class DatasetETH3DDistorted(_DatasetETH3D):
 
     The ground truth uses THIN_PRISM_FISHEYE cameras, and rig data is not
     published for this set. ETH3D's separate `_raw.7z` downloads contain
-    undeveloped camera RAW files and are not this dataset. The JPEGs have no
-    EXIF, so `--uncalibrated` starts from a focal-length guess of
-    1.2 * max(width, height).
+    undeveloped camera RAW files and are not this dataset. The JPEGs keep
+    their EXIF, so `--uncalibrated` starts from the EXIF focal length.
     """
 
     dataset_name = "eth3d-distorted"
     calibration_glob = "*_calibration_jpg"
+
+
+class DatasetETH3DUndistorted(_DatasetETH3D):
+    """ETH3D DSLR benchmark undistorted to a single centered pinhole camera.
+
+    Built by `package_eth3d_undistorted.py` from the distorted DSLR JPEGs. All
+    images of all scenes share the same PINHOLE camera, with the principal
+    point at the image center. The JPEGs keep the EXIF of the distorted
+    images, so `--uncalibrated` starts from the EXIF focal length.
+    """
+
+    dataset_name = "eth3d-undistorted"
+    calibration_glob = "*_calibration_undistorted"

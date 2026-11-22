@@ -7,6 +7,7 @@ import ctypes
 import dataclasses
 import datetime
 import functools
+import hashlib
 import itertools
 import multiprocessing
 import pickle
@@ -41,6 +42,15 @@ _LIBC = (
     if platform.system() == "Linux"
     else None
 )
+
+
+def sha256(path: Path) -> str:
+    """Returns the SHA256 hex digest of a file."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as fid:
+        while chunk := fid.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _set_pdeathsig() -> None:
@@ -308,8 +318,10 @@ def parse_args(description: str | None = None) -> argparse.Namespace:
         "--datasets",
         nargs="+",
         default=["eth3d", "blended-mvs", "imc2023", "imc2024"],
-        help="Datasets to evaluate by name. Use eth3d-distorted for the "
-        "distorted DSLR JPEGs.",
+        help="Datasets to evaluate by name. eth3d uses the official "
+        "undistorted images, eth3d-distorted the distorted DSLR JPEGs, and "
+        "eth3d-undistorted the DSLR JPEGs undistorted to a single centered "
+        "pinhole camera.",
     )
     parser.add_argument(
         "--categories",
