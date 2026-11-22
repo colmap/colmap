@@ -248,12 +248,6 @@ if(CUDA_ENABLED)
     endif()
 
     COLMAP_ADD_TEST(
-        NAME cuda_texture_test
-        SRCS cuda_texture_test.cc
-        LINK_LIBS colmap_util_cuda CUDA::cudart CUDA::curand
-    )
-
-    COLMAP_ADD_TEST(
         NAME gpu_mat_test
         SRCS gpu_mat_test.cu
         LINK_LIBS colmap_mvs_cuda
@@ -287,12 +281,6 @@ if(HIP_ENABLED)
         gpu_mat_ref_image.cu
         patch_match_cuda.cu
         PROPERTIES LANGUAGE HIP
-    )
-
-    COLMAP_ADD_TEST(
-        NAME cuda_texture_test
-        SRCS cuda_texture_test.cc
-        LINK_LIBS colmap_util_cuda hip::host hip::hiprand roc::rocrand
     )
 
     COLMAP_ADD_TEST(

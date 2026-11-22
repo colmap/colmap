@@ -33,7 +33,7 @@ class CudaArrayLayeredTexture {
                           const size_t width,
                           const size_t height,
                           const size_t depth);
-  ~CudaArrayLayeredTexture() noexcept;
+  ~CudaArrayLayeredTexture();
 
  private:
   // Define class as non-copyable and non-movable.
@@ -129,7 +129,7 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
 }
 
 template <typename T>
-CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() noexcept {
+CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() {
   // Attempt both releases even if the CUDA runtime reports an error.
   (void)cudaDestroyTextureObject(texture_);
   (void)cudaFreeArray(array_);
