@@ -4,6 +4,8 @@
 
 #include "colmap/util/hash_containers.h"
 
+#include <numeric>
+
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -38,26 +40,28 @@ class MetisGraph {
  public:
   MetisGraph(const std::vector<std::pair<int, int>>& edges,
              const std::vector<int>& weights) {
-    // Preserve first-seen vertex order while counting degrees.
-    xadj_.push_back(0);
+    // Map vertex ids to contiguous indices in first-seen order.
+    std::vector<std::pair<int, int>> edge_idxs;
+    edge_idxs.reserve(edges.size());
     for (const auto& [vertex_id1, vertex_id2] : edges) {
-      const int vertex_idx1 = GetVertexIdx(vertex_id1);
-      const int vertex_idx2 = GetVertexIdx(vertex_id2);
-      ++xadj_[static_cast<size_t>(vertex_idx1) + 1];
-      ++xadj_[static_cast<size_t>(vertex_idx2) + 1];
-    }
-    for (size_t i = 1; i < xadj_.size(); ++i) {
-      xadj_[i] += xadj_[i - 1];
+      edge_idxs.emplace_back(GetVertexIdx(vertex_id1),
+                             GetVertexIdx(vertex_id2));
     }
 
+    // Count vertex degrees and convert them to CSR row offsets.
+    xadj_.assign(vertex_idx_to_id_.size() + 1, 0);
+    for (const auto& [vertex_idx1, vertex_idx2] : edge_idxs) {
+      ++xadj_[vertex_idx1 + 1];
+      ++xadj_[vertex_idx2 + 1];
+    }
+    std::partial_sum(xadj_.begin(), xadj_.end(), xadj_.begin());
+
+    // Fill rows in input edge order, storing both directions of every edge.
     adjncy_.resize(2 * edges.size());
     adjwgt_.resize(2 * edges.size());
     std::vector<idx_t> cursors(xadj_.begin(), xadj_.end() - 1);
-    // Replay input order within every row, retaining both directions, parallel
-    // edges and both entries for a self-loop exactly as before.
     for (size_t i = 0; i < edges.size(); ++i) {
-      const int vertex_idx1 = vertex_id_to_idx_.at(edges[i].first);
-      const int vertex_idx2 = vertex_id_to_idx_.at(edges[i].second);
+      const auto [vertex_idx1, vertex_idx2] = edge_idxs[i];
       const idx_t edge_idx1 = cursors[vertex_idx1]++;
       const idx_t edge_idx2 = cursors[vertex_idx2]++;
       adjncy_[edge_idx1] = vertex_idx2;
@@ -67,26 +71,12 @@ class MetisGraph {
     }
 
     THROW_CHECK_EQ(xadj_.back(), 2 * edges.size());
-    THROW_CHECK_EQ(xadj_.size(), vertex_id_to_idx_.size() + 1);
 
-    nvtxs = vertex_id_to_idx_.size();
+    nvtxs = vertex_idx_to_id_.size();
 
     xadj = xadj_.data();
     adjncy = adjncy_.data();
     adjwgt = adjwgt_.data();
-  }
-
-  int GetVertexIdx(const int id) {
-    const auto it = vertex_id_to_idx_.find(id);
-    if (it == vertex_id_to_idx_.end()) {
-      const int idx = vertex_id_to_idx_.size();
-      vertex_id_to_idx_.emplace(id, idx);
-      vertex_idx_to_id_.push_back(id);
-      xadj_.push_back(0);
-      return idx;
-    } else {
-      return it->second;
-    }
   }
 
   int GetVertexId(const int idx) { return vertex_idx_to_id_.at(idx); }
@@ -97,6 +87,15 @@ class MetisGraph {
   idx_t* adjwgt = nullptr;
 
  private:
+  int GetVertexIdx(const int id) {
+    const auto [it, inserted] = vertex_id_to_idx_.try_emplace(
+        id, static_cast<int>(vertex_idx_to_id_.size()));
+    if (inserted) {
+      vertex_idx_to_id_.push_back(id);
+    }
+    return it->second;
+  }
+
   FlatHashMap<int, int> vertex_id_to_idx_;
   std::vector<int> vertex_idx_to_id_;
   std::vector<idx_t> xadj_;

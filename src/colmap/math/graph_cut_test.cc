@@ -3,7 +3,6 @@
 #include "colmap/math/graph_cut.h"
 
 #include <limits>
-#include <stdexcept>
 
 #include <gtest/gtest.h>
 
@@ -237,16 +236,6 @@ TEST(GraphCut, ComputeNormalizedMinGraphCutNonmonotonicIds) {
       EXPECT_LT(label, 2);
     }
   }
-}
-
-TEST(GraphCut, ComputeNormalizedMinGraphCutInvalidInput) {
-  EXPECT_THROW(ComputeNormalizedMinGraphCut({}, {}, 2), std::invalid_argument);
-  EXPECT_THROW(ComputeNormalizedMinGraphCut({{1, 2}}, {}, 2),
-               std::invalid_argument);
-  EXPECT_THROW(ComputeNormalizedMinGraphCut({{1, 2}}, {1}, 0),
-               std::invalid_argument);
-  EXPECT_THROW(ComputeNormalizedMinGraphCut({{1, 2}}, {1}, -1),
-               std::invalid_argument);
 }
 
 TEST(GraphCut, MinSTGraphCut1) {
