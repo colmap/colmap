@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <filesystem>
 #include <limits>
@@ -95,7 +96,7 @@ struct DenseFeatures {
   int width = 0;
   int height = 0;
   // Whether the image size was compared with the camera size.
-  bool checked_camera_size = false;
+  std::atomic<bool> checked_camera_size{false};
 };
 
 // Non-owning tensor referencing the memory of the given tensor.
@@ -138,11 +139,22 @@ bool UseFlexGlueFp16(const FeatureMatchingOptions& options) {
   return false;
 }
 
+std::shared_ptr<ONNXInferenceLimiter> CreateInferenceLimiter(
+    const FeatureMatchingOptions& options) {
+  if (SelectONNXExecutionProvider(options.use_gpu) !=
+      ONNXExecutionProvider::CUDA) {
+    return nullptr;
+  }
+  return std::make_shared<ONNXInferenceLimiter>(
+      THROW_CHECK_NOTNULL(options.flexglue)->num_inferences_per_gpu);
+}
+
 // Matcher with float16 or float32 transformer layers (see UseFlexGlueFp16).
 // The float16 matcher is loaded as a regular session, with a fallback to the
 // float32 matcher if its initialization fails.
 std::unique_ptr<ONNXModel> CreateMatcherModel(
-    const FeatureMatchingOptions& options) {
+    const FeatureMatchingOptions& options,
+    const std::shared_ptr<ONNXInferenceLimiter>& inference_limiter) {
   const FlexGlueMatchingOptions& flexglue_options = *options.flexglue;
   if (UseFlexGlueFp16(options)) {
     try {
@@ -150,7 +162,8 @@ std::unique_ptr<ONNXModel> CreateMatcherModel(
           flexglue_options.matcher_model_path_fp16,
           options.num_threads,
           options.use_gpu,
-          options.gpu_index);
+          options.gpu_index,
+          inference_limiter);
     } catch (const Ort::Exception& e) {
       LOG(WARNING) << "Failed to initialize the fp16 FlexGlue matcher ("
                    << e.what() << "); falling back to fp32";
@@ -159,18 +172,22 @@ std::unique_ptr<ONNXModel> CreateMatcherModel(
   return std::make_unique<ONNXModel>(flexglue_options.matcher_model_path,
                                      options.num_threads,
                                      options.use_gpu,
-                                     options.gpu_index);
+                                     options.gpu_index,
+                                     inference_limiter);
 }
 
 class FlexGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit FlexGlueFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(*THROW_CHECK_NOTNULL(options.flexglue)),
+        inference_limiter_(CreateInferenceLimiter(options)),
         descriptor_(options_.descriptor_model_path,
                     options.num_threads,
                     options.use_gpu,
-                    options.gpu_index),
-        matcher_(CreateMatcherModel(options)),
+                    options.gpu_index,
+                    inference_limiter_,
+                    /*allow_session_replicas=*/false),
+        matcher_(CreateMatcherModel(options, inference_limiter_)),
         dense_cache_(options_.feature_cache_size,
                      [this](const std::string& name) {
                        return ComputeDenseFeatures(name);
@@ -274,10 +291,19 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         dense_cache_.Get(std::string(image1.name));
     const std::shared_ptr<DenseFeatures> dense2 =
         dense_cache_.Get(std::string(image2.name));
-    std::array<float, 2> image_size1 = ImageSize(image1, *dense1);
-    std::array<float, 2> image_size2 = ImageSize(image2, *dense2);
-    std::vector<float> kpts1 = KeypointsToTensorData(*image1.keypoints);
-    std::vector<float> kpts2 = KeypointsToTensorData(*image2.keypoints);
+    const std::array<float, 2> image_size1 = ImageSize(image1, *dense1);
+    const std::array<float, 2> image_size2 = ImageSize(image2, *dense2);
+    // Rescale the keypoints from the original image frame to the resized
+    // descriptor input frame (512x512 by default) and pass that size to the
+    // matcher, so that mutual nearest-neighbor search and max_distance_px
+    // operate in the descriptor input frame.
+    std::array<float, 2> descriptor_size = {
+        static_cast<float>(descriptor_width_),
+        static_cast<float>(descriptor_height_)};
+    std::vector<float> kpts1 =
+        KeypointsToTensorData(*image1.keypoints, image_size1, descriptor_size);
+    std::vector<float> kpts2 =
+        KeypointsToTensorData(*image2.keypoints, image_size2, descriptor_size);
 
     const std::vector<int64_t> kpts1_shape = {1, num_keypoints1, 2};
     const std::vector<int64_t> kpts2_shape = {1, num_keypoints2, 2};
@@ -301,12 +327,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         inputs.push_back(CreateONNXTensor(kpts1, kpts1_shape));
       } else if (name == "kpts1") {
         inputs.push_back(CreateONNXTensor(kpts2, kpts2_shape));
-      } else if (name == "image_size0") {
+      } else if (name == "image_size0" || name == "image_size1") {
         inputs.push_back(
-            CreateONNXTensor(image_size1.data(), 2, image_size_shape));
-      } else if (name == "image_size1") {
-        inputs.push_back(
-            CreateONNXTensor(image_size2.data(), 2, image_size_shape));
+            CreateONNXTensor(descriptor_size.data(), 2, image_size_shape));
       } else if (name == "filter_threshold") {
         inputs.push_back(CreateONNXScalarTensor(filter_threshold));
       } else if (name == "max_distance_px") {
@@ -356,13 +379,20 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
 
  private:
   // COLMAP and FlexGlue both place the origin at the upper left image corner,
-  // i.e., the center of the upper left pixel is at (0.5, 0.5).
+  // i.e., the center of the upper left pixel is at (0.5, 0.5), which scales
+  // linearly with the image dimensions when squashing to target_size.
   static std::vector<float> KeypointsToTensorData(
-      const FeatureKeypoints& keypoints) {
+      const FeatureKeypoints& keypoints,
+      const std::array<float, 2>& image_size,
+      const std::array<float, 2>& target_size) {
+    THROW_CHECK_GT(image_size[0], 0);
+    THROW_CHECK_GT(image_size[1], 0);
+    const float scale_x = target_size[0] / image_size[0];
+    const float scale_y = target_size[1] / image_size[1];
     std::vector<float> data(2 * keypoints.size());
     for (size_t i = 0; i < keypoints.size(); ++i) {
-      data[2 * i + 0] = keypoints[i].x;
-      data[2 * i + 1] = keypoints[i].y;
+      data[2 * i + 0] = keypoints[i].x * scale_x;
+      data[2 * i + 1] = keypoints[i].y * scale_y;
     }
     return data;
   }
@@ -377,8 +407,8 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
       return {static_cast<float>(dense.width),
               static_cast<float>(dense.height)};
     }
-    if (!dense.checked_camera_size) {
-      dense.checked_camera_size = true;
+    if (!dense.checked_camera_size.load(std::memory_order_relaxed) &&
+        !dense.checked_camera_size.exchange(true, std::memory_order_relaxed)) {
       const double camera_aspect =
           static_cast<double>(image.camera->width) / image.camera->height;
       const double image_aspect =
@@ -399,19 +429,24 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         << "FlexGlue requires the image name to read the image pixels.";
     const std::filesystem::path path =
         std::filesystem::path(options_.image_path) / name;
-    Bitmap bitmap;
-    THROW_CHECK(bitmap.Read(path, /*as_rgb=*/true))
-        << "Failed to read image: " << path;
-
     auto dense = std::make_shared<DenseFeatures>();
-    dense->width = bitmap.Width();
-    dense->height = bitmap.Height();
-
-    std::vector<float> input =
-        ResizeBilinearToCHW(bitmap, descriptor_width_, descriptor_height_);
+    std::vector<float> input;
+    {
+      // Release the full-resolution decoded bitmap before acquiring an
+      // inference slot, so workers waiting on the GPU hold only the resized
+      // descriptor input tensor.
+      Bitmap bitmap;
+      THROW_CHECK(bitmap.Read(path, /*as_rgb=*/true))
+          << "Failed to read image: " << path;
+      dense->width = bitmap.Width();
+      dense->height = bitmap.Height();
+      input =
+          ResizeBilinearToCHW(bitmap, descriptor_width_, descriptor_height_);
+    }
     const std::vector<int64_t> input_shape = {
         1, 3, descriptor_height_, descriptor_width_};
     std::vector<Ort::Value> inputs;
+    inputs.reserve(1);
     inputs.push_back(CreateONNXTensor(input, input_shape));
     std::vector<Ort::Value> outputs =
         feature_memory_info_ ? descriptor_.Run(inputs, *feature_memory_info_)
@@ -423,6 +458,7 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
   }
 
   const FlexGlueMatchingOptions options_;
+  std::shared_ptr<ONNXInferenceLimiter> inference_limiter_;
   ONNXModel descriptor_;
   std::unique_ptr<ONNXModel> matcher_;
   int descriptor_height_ = 0;
@@ -434,10 +470,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
   std::optional<Ort::MemoryInfo> feature_memory_info_;
   // Dense features keyed by image name. Unlike ImageFeatureCache, it retains
   // many images, since pairs of exhaustive or retrieval-based matching revisit
-  // the same images far apart in time. Neither the cache nor its entries
-  // (see ImageSize) are thread-safe, so a matcher must not run concurrent
-  // Match() calls (see CreateFlexGlueFeatureMatcher).
-  LRUCache<std::string, DenseFeatures> dense_cache_;
+  // the same images far apart in time. ThreadSafeLRUCache also deduplicates
+  // concurrent loads when multiple workers request the same uncached image.
+  ThreadSafeLRUCache<std::string, DenseFeatures> dense_cache_;
 };
 
 #endif
@@ -454,6 +489,8 @@ bool FlexGlueMatchingOptions::Check() const {
   CHECK_OPTION_GT(feature_cache_size, 0);
   CHECK_OPTION(!descriptor_model_path.empty());
   CHECK_OPTION(!matcher_model_path.empty());
+  CHECK_OPTION_GT(num_workers_per_gpu, 0);
+  CHECK_OPTION_GT(num_inferences_per_gpu, 0);
   return true;
 }
 

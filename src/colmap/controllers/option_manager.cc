@@ -464,6 +464,10 @@ void OptionManager::AddFeatureMatchingOptions() {
                    &feature_matching->flexglue->matcher_model_path_fp16);
   AddDefaultOption("FlexGlueMatching.use_fp16",
                    &feature_matching->flexglue->use_fp16);
+  AddDefaultOption("FlexGlueMatching.num_workers_per_gpu",
+                   &feature_matching->flexglue->num_workers_per_gpu);
+  AddDefaultOption("FlexGlueMatching.num_inferences_per_gpu",
+                   &feature_matching->flexglue->num_inferences_per_gpu);
 }
 
 void OptionManager::AddTwoViewGeometryOptions() {
@@ -1006,6 +1010,12 @@ void OptionManager::AddGlobalMapperOptions() {
   AddDefaultOption(
       "GlobalMapper.ra_ceres_loss_function_scale",
       &global_mapper->mapper.rotation_averaging.ceres->loss_function_scale);
+  AddDefaultOption(
+      "GlobalMapper.ra_ceres_covariance_loss_scale",
+      &global_mapper->mapper.rotation_averaging.ceres->covariance_loss_scale);
+  AddDefaultOption("GlobalMapper.ra_ceres_covariance_sigma_floor_deg",
+                   &global_mapper->mapper.rotation_averaging.ceres
+                        ->covariance_sigma_floor_deg);
   AddDefaultOption("GlobalMapper.ra_ceres_max_num_warm_start_iterations",
                    &global_mapper->mapper.rotation_averaging.ceres
                         ->max_num_warm_start_iterations);

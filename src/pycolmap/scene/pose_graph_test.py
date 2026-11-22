@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+
 import pycolmap
 
 
@@ -33,6 +35,18 @@ def test_pose_graph_edge_valid_readwrite() -> None:
     assert edge.valid is True
     edge.valid = False
     assert edge.valid is False
+
+
+def test_pose_graph_edge_rotation_cov_readwrite() -> None:
+    edge = pycolmap.PoseGraphEdge()
+    assert edge.cam2_from_cam1_rotation_cov is None
+    cov = np.arange(9, dtype=np.float32).reshape(3, 3)
+    edge.cam2_from_cam1_rotation_cov = cov
+    assert edge.cam2_from_cam1_rotation_cov is not None
+    assert edge.cam2_from_cam1_rotation_cov.dtype == np.float32
+    np.testing.assert_array_equal(edge.cam2_from_cam1_rotation_cov, cov)
+    edge.cam2_from_cam1_rotation_cov = None
+    assert edge.cam2_from_cam1_rotation_cov is None
 
 
 def test_pose_graph_edge_invert() -> None:
@@ -159,3 +173,17 @@ def test_pose_graph_add_rig_edges() -> None:
     assert edge.prior is True
     assert edge.valid is False
     assert edge.num_matches == 0
+
+
+def test_pose_graph_subgraph() -> None:
+    pose_graph = pycolmap.PoseGraph()
+    edge = pycolmap.PoseGraphEdge()
+    edge.num_matches = 42
+    pose_graph.add_edge(1, 2, edge)
+    pose_graph.add_edge(1, 3, pycolmap.PoseGraphEdge())
+    pose_graph.add_edge(2, 3, pycolmap.PoseGraphEdge())
+    subgraph = pose_graph.subgraph({1, 2})
+    assert subgraph.num_edges == 1
+    assert subgraph.has_edge(1, 2)
+    assert subgraph.get_edge(1, 2).num_matches == 42
+    assert pose_graph.num_edges == 3

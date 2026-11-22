@@ -8,6 +8,7 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <vector>
 
 namespace colmap {
@@ -24,6 +25,10 @@ class PoseGraph {
     // Relative pose from image 1 to image 2.
     Rigid3d cam2_from_cam1;
 
+    // Optional 3x3 marginal rotation covariance of cam2_from_cam1 in
+    // camera 1's local tangent frame (right perturbation R21 * Exp(delta)).
+    std::optional<Eigen::Matrix3f> cam2_from_cam1_rotation_cov;
+
     // Number of two-view matches used to compute the relative pose.
     int num_matches = 0;
 
@@ -34,7 +39,18 @@ class PoseGraph {
     bool valid = true;
 
     // Invert the geometry to match swapped image order.
-    void Invert() { cam2_from_cam1 = Inverse(cam2_from_cam1); }
+    void Invert() {
+      if (cam2_from_cam1_rotation_cov.has_value()) {
+        const Eigen::Matrix3d cam2_from_cam1_rot =
+            cam2_from_cam1.rotation().toRotationMatrix();
+        const Eigen::Matrix3d cov =
+            cam2_from_cam1_rot * cam2_from_cam1_rotation_cov->cast<double>() *
+            cam2_from_cam1_rot.transpose();
+        cam2_from_cam1_rotation_cov =
+            (0.5 * (cov + cov.transpose())).cast<float>();
+      }
+      cam2_from_cam1 = Inverse(cam2_from_cam1);
+    }
   };
 
   PoseGraph() = default;
@@ -106,6 +122,10 @@ class PoseGraph {
   // Mark image pairs as invalid if either image is not in the active set.
   void InvalidatePairsOutsideActiveImageIds(
       const FlatHashSet<image_t>& active_image_ids);
+
+  // Returns the subgraph of the edges between images in the given set, with
+  // all their data and validity.
+  PoseGraph Subgraph(const FlatHashSet<image_t>& image_ids) const;
 
  private:
   // Map from pair ID to edge data. The pair ID is computed from the
