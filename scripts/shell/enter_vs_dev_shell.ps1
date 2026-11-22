@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+# Optionally select a specific installed MSVC toolset version (e.g., "14.44")
+# instead of the latest one.
+param(
+    [string]$VcvarsVersion = ""
+)
+
 if (!$env:VisualStudioDevShell) {
     $vswhere = "${Env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
     if (!(Test-Path $vswhere)) {
@@ -14,8 +20,12 @@ if (!$env:VisualStudioDevShell) {
 
     Import-Module "$($vsInstance.installationPath)/Common7/Tools/Microsoft.VisualStudio.DevShell.dll"
     $prevCwd = Get-Location
+    $devCmdArguments = "-no_logo -host_arch=amd64 -arch=amd64"
+    if ($VcvarsVersion) {
+        $devCmdArguments += " -vcvars_ver=$VcvarsVersion"
+    }
     try {
-        Enter-VsDevShell $vsInstance.instanceId -DevCmdArguments "-no_logo -host_arch=amd64 -arch=amd64"
+        Enter-VsDevShell $vsInstance.instanceId -DevCmdArguments $devCmdArguments
     } catch {
         Write-Host $_
         Write-Error "Failed to enter Visual Studio Dev Shell"

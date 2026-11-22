@@ -153,7 +153,17 @@ jobs:
       - name: Configure and build
         shell: pwsh
         run: |
-          ./scripts/shell/enter_vs_dev_shell.ps1
+          if ($${{ matrix.config.cudaEnabled }}) {
+            # CUDA 13.3's cudafe++ crashes with an access violation on the
+            # headers of MSVC 14.52 (VS 18.12), already during CMake's CUDA
+            # compiler detection. Build with the VS 2022 toolset (MSVC 14.44),
+            # which the runner image ships side-by-side. vcpkg selects its own
+            # toolset per port, so the cached dependencies are unaffected.
+            # Remove once a CUDA release works with the runner's default MSVC.
+            ./scripts/shell/enter_vs_dev_shell.ps1 -VcvarsVersion 14.44
+          } else {
+            ./scripts/shell/enter_vs_dev_shell.ps1
+          }
           cd ${{ github.workspace }}
           ./vcpkg/vcpkg.exe integrate install
           mkdir -Force build
