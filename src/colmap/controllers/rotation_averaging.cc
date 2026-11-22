@@ -56,6 +56,8 @@ void RotationAveragingPipeline::Run() {
     LOG(ERROR) << "Cannot continue without image pairs";
     return;
   }
+  MaybeEstimatePoseGraphRotationCovariances(
+      options.rotation_estimation, *database_cache_, pose_graph);
 
   // Get a mutable copy of pose priors.
   std::vector<PosePrior> pose_priors = database_cache_->PosePriors();

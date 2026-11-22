@@ -72,15 +72,23 @@ TEST(RotationAveragingPipeline, WithNoiseAndOutliers) {
   synthetic_noise_options.point2D_stddev = 1;
   SynthesizeNoise(synthetic_noise_options, &gt_reconstruction, database.get());
 
-  auto reconstruction = std::make_shared<Reconstruction>();
+  for (const bool use_covariance : {false, true}) {
+    SCOPED_TRACE(use_covariance);
+    auto reconstruction = std::make_shared<Reconstruction>();
 
-  RotationAveragingPipelineOptions options;
-  RotationAveragingPipeline controller(options, database, reconstruction);
-  controller.Run();
+    RotationAveragingPipelineOptions options;
+    if (use_covariance) {
+      options.rotation_estimation.backend = RotationAveragingBackend::CERES;
+      options.rotation_estimation.reweighting =
+          RotationAveragingReweighting::COVARIANCE;
+    }
+    RotationAveragingPipeline controller(options, database, reconstruction);
+    controller.Run();
 
-  ExpectEqualRotations(gt_reconstruction,
-                       *reconstruction,
-                       /*max_rotation_error_deg=*/3);
+    ExpectEqualRotations(gt_reconstruction,
+                         *reconstruction,
+                         /*max_rotation_error_deg=*/3);
+  }
 }
 
 void ExpectExactEqualRotations(const Reconstruction& reconstruction1,

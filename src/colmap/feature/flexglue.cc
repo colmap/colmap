@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <filesystem>
 #include <limits>
@@ -95,7 +96,7 @@ struct DenseFeatures {
   int width = 0;
   int height = 0;
   // Whether the image size was compared with the camera size.
-  bool checked_camera_size = false;
+  std::atomic<bool> checked_camera_size{false};
 };
 
 // Non-owning tensor referencing the memory of the given tensor.
@@ -138,11 +139,22 @@ bool UseFlexGlueFp16(const FeatureMatchingOptions& options) {
   return false;
 }
 
+std::shared_ptr<ONNXInferenceLimiter> CreateInferenceLimiter(
+    const FeatureMatchingOptions& options) {
+  if (SelectONNXExecutionProvider(options.use_gpu) !=
+      ONNXExecutionProvider::CUDA) {
+    return nullptr;
+  }
+  return std::make_shared<ONNXInferenceLimiter>(
+      THROW_CHECK_NOTNULL(options.flexglue)->num_inferences_per_gpu);
+}
+
 // Matcher with float16 or float32 transformer layers (see UseFlexGlueFp16).
 // The float16 matcher is loaded as a regular session, with a fallback to the
 // float32 matcher if its initialization fails.
 std::unique_ptr<ONNXModel> CreateMatcherModel(
-    const FeatureMatchingOptions& options) {
+    const FeatureMatchingOptions& options,
+    const std::shared_ptr<ONNXInferenceLimiter>& inference_limiter) {
   const FlexGlueMatchingOptions& flexglue_options = *options.flexglue;
   if (UseFlexGlueFp16(options)) {
     try {
@@ -150,7 +162,8 @@ std::unique_ptr<ONNXModel> CreateMatcherModel(
           flexglue_options.matcher_model_path_fp16,
           options.num_threads,
           options.use_gpu,
-          options.gpu_index);
+          options.gpu_index,
+          inference_limiter);
     } catch (const Ort::Exception& e) {
       LOG(WARNING) << "Failed to initialize the fp16 FlexGlue matcher ("
                    << e.what() << "); falling back to fp32";
@@ -159,18 +172,22 @@ std::unique_ptr<ONNXModel> CreateMatcherModel(
   return std::make_unique<ONNXModel>(flexglue_options.matcher_model_path,
                                      options.num_threads,
                                      options.use_gpu,
-                                     options.gpu_index);
+                                     options.gpu_index,
+                                     inference_limiter);
 }
 
 class FlexGlueFeatureMatcher : public FeatureMatcher {
  public:
   explicit FlexGlueFeatureMatcher(const FeatureMatchingOptions& options)
       : options_(*THROW_CHECK_NOTNULL(options.flexglue)),
+        inference_limiter_(CreateInferenceLimiter(options)),
         descriptor_(options_.descriptor_model_path,
                     options.num_threads,
                     options.use_gpu,
-                    options.gpu_index),
-        matcher_(CreateMatcherModel(options)),
+                    options.gpu_index,
+                    inference_limiter_,
+                    /*allow_session_replicas=*/false),
+        matcher_(CreateMatcherModel(options, inference_limiter_)),
         dense_cache_(options_.feature_cache_size,
                      [this](const std::string& name) {
                        return ComputeDenseFeatures(name);
@@ -390,8 +407,8 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
       return {static_cast<float>(dense.width),
               static_cast<float>(dense.height)};
     }
-    if (!dense.checked_camera_size) {
-      dense.checked_camera_size = true;
+    if (!dense.checked_camera_size.load(std::memory_order_relaxed) &&
+        !dense.checked_camera_size.exchange(true, std::memory_order_relaxed)) {
       const double camera_aspect =
           static_cast<double>(image.camera->width) / image.camera->height;
       const double image_aspect =
@@ -412,19 +429,24 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
         << "FlexGlue requires the image name to read the image pixels.";
     const std::filesystem::path path =
         std::filesystem::path(options_.image_path) / name;
-    Bitmap bitmap;
-    THROW_CHECK(bitmap.Read(path, /*as_rgb=*/true))
-        << "Failed to read image: " << path;
-
     auto dense = std::make_shared<DenseFeatures>();
-    dense->width = bitmap.Width();
-    dense->height = bitmap.Height();
-
-    std::vector<float> input =
-        ResizeBilinearToCHW(bitmap, descriptor_width_, descriptor_height_);
+    std::vector<float> input;
+    {
+      // Release the full-resolution decoded bitmap before acquiring an
+      // inference slot, so workers waiting on the GPU hold only the resized
+      // descriptor input tensor.
+      Bitmap bitmap;
+      THROW_CHECK(bitmap.Read(path, /*as_rgb=*/true))
+          << "Failed to read image: " << path;
+      dense->width = bitmap.Width();
+      dense->height = bitmap.Height();
+      input =
+          ResizeBilinearToCHW(bitmap, descriptor_width_, descriptor_height_);
+    }
     const std::vector<int64_t> input_shape = {
         1, 3, descriptor_height_, descriptor_width_};
     std::vector<Ort::Value> inputs;
+    inputs.reserve(1);
     inputs.push_back(CreateONNXTensor(input, input_shape));
     std::vector<Ort::Value> outputs =
         feature_memory_info_ ? descriptor_.Run(inputs, *feature_memory_info_)
@@ -436,6 +458,7 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
   }
 
   const FlexGlueMatchingOptions options_;
+  std::shared_ptr<ONNXInferenceLimiter> inference_limiter_;
   ONNXModel descriptor_;
   std::unique_ptr<ONNXModel> matcher_;
   int descriptor_height_ = 0;
@@ -447,10 +470,9 @@ class FlexGlueFeatureMatcher : public FeatureMatcher {
   std::optional<Ort::MemoryInfo> feature_memory_info_;
   // Dense features keyed by image name. Unlike ImageFeatureCache, it retains
   // many images, since pairs of exhaustive or retrieval-based matching revisit
-  // the same images far apart in time. Neither the cache nor its entries
-  // (see ImageSize) are thread-safe, so a matcher must not run concurrent
-  // Match() calls (see CreateFlexGlueFeatureMatcher).
-  LRUCache<std::string, DenseFeatures> dense_cache_;
+  // the same images far apart in time. ThreadSafeLRUCache also deduplicates
+  // concurrent loads when multiple workers request the same uncached image.
+  ThreadSafeLRUCache<std::string, DenseFeatures> dense_cache_;
 };
 
 #endif
@@ -467,6 +489,8 @@ bool FlexGlueMatchingOptions::Check() const {
   CHECK_OPTION_GT(feature_cache_size, 0);
   CHECK_OPTION(!descriptor_model_path.empty());
   CHECK_OPTION(!matcher_model_path.empty());
+  CHECK_OPTION_GT(num_workers_per_gpu, 0);
+  CHECK_OPTION_GT(num_inferences_per_gpu, 0);
   return true;
 }
 

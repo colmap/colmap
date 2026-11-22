@@ -10,7 +10,8 @@ $PYTHON_EXEC -m pybind11_stubgen $PACKAGE_NAME -o $OUTPUT \
         --enum-class-locations=.+:$PACKAGE_NAME \
         --ignore-invalid-expressions "ceres::*" \
         --print-invalid-expressions-as-is \
-        --print-safe-value-reprs "[a-zA-Z]+Options\(\)"
+        --print-safe-value-reprs "[a-zA-Z]+Options\(\)" \
+        --print-value-comments
 FILES=$(find $OUTPUT/$PACKAGE_NAME/ -name '*.pyi' -type f)
 
 perl -i -pe's/\b_core\b/pycolmap/g' $FILES
@@ -28,3 +29,12 @@ perl -i -pe's/Mapping\[typing.Supports(Int|Float)/Mapping\[\L\1/g' $FILES
 
 COLMAP_DIR=$(dirname $( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd ))
 ruff format --config ${COLMAP_DIR}/ruff.toml ${FILES}
+
+# Exclude submodules (e.g., cost_functions, pyceres) from _core.__all__ to match
+# python/pycolmap/__init__.py, which excludes them from pycolmap.__all__.
+# Must run after ruff format, which puts each __all__ entry on its own line.
+perl -i -ne '
+    push @m, $1 if /^from \. import (\w+)$/;
+    my $re = join("|", @m);
+    print unless @m && (/^__all__/ .. /^\]/) && /^\s+"(?:$re)",$/
+' "$OUTPUT/$PACKAGE_NAME/__init__.pyi"
