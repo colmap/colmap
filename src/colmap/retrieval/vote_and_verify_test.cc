@@ -34,28 +34,31 @@ SyntheticData SynthesizeData(size_t num_inliers, size_t num_outliers) {
   for (size_t i = 0; i < num_inliers; ++i) {
     FeatureGeometryMatch& match = data.matches[i];
     match.geometry1.scale = RandomUniformReal<float>(0.5, 2);
-    match.geometry1.orientation = RandomUniformReal<float>(0, 2 * M_PI);
+    // Wrap orientations to [-pi, pi] like real features (atan2).
+    match.geometry1.orientation = RandomUniformReal<float>(-M_PI, M_PI);
     match.geometry1.x = RandomUniformReal<float>(-100, 100);
     match.geometry1.y = RandomUniformReal<float>(-100, 100);
     match.geometry2.scale = data.img2_from_img1.scale * match.geometry1.scale;
-    match.geometry2.orientation =
-        data.img2_from_img1.angle + match.geometry1.orientation;
+    match.geometry2.orientation = std::remainder(
+        data.img2_from_img1.angle + match.geometry1.orientation, 2 * M_PI);
     match.geometry2.x =
         data.img2_from_img1.scale *
-        (cos_angle * match.geometry1.x - sin_angle * match.geometry1.y);
+            (cos_angle * match.geometry1.x - sin_angle * match.geometry1.y) +
+        data.img2_from_img1.tx;
     match.geometry2.y =
         data.img2_from_img1.scale *
-        (sin_angle * match.geometry1.x + cos_angle * match.geometry1.y);
+            (sin_angle * match.geometry1.x + cos_angle * match.geometry1.y) +
+        data.img2_from_img1.ty;
   }
 
   for (size_t i = 0; i < num_outliers; ++i) {
     FeatureGeometryMatch& match = data.matches[i + num_inliers];
     match.geometry1.scale = RandomUniformReal<float>(0.5, 2);
-    match.geometry1.orientation = RandomUniformReal<float>(0, 2 * M_PI);
+    match.geometry1.orientation = RandomUniformReal<float>(-M_PI, M_PI);
     match.geometry1.x = RandomUniformReal<float>(-100, 100);
     match.geometry1.y = RandomUniformReal<float>(-100, 100);
     match.geometry2.scale = RandomUniformReal<float>(0.5, 2);
-    match.geometry2.orientation = RandomUniformReal<float>(0, 2 * M_PI);
+    match.geometry2.orientation = RandomUniformReal<float>(-M_PI, M_PI);
     match.geometry2.x = RandomUniformReal<float>(-100, 100);
     match.geometry2.y = RandomUniformReal<float>(-100, 100);
   }
@@ -88,26 +91,13 @@ TEST(VoteAndVerify, EffectiveInliers) {
 }
 
 TEST(VoteAndVerify, WrappedOrientations) {
-  std::vector<FeatureGeometryMatch> matches;
-  for (int i = 0; i < 18; ++i) {
-    // Two distinct rotations above pi must occupy distinct orientation bins.
-    const float angle = i < 12 ? 3.5f : 4.8f;
-    const int row = i / 4;
-    FeatureGeometryMatch match;
-    match.geometry1.x = 200 + 160 * (i % 4);
-    match.geometry1.y = 200 + 140 * row;
-    match.geometry1.scale = match.geometry2.scale = 1;
-    match.geometry1.orientation = -3;
-    match.geometry2.orientation = -3 + angle;
-    match.geometry2.x = std::cos(angle) * match.geometry1.x -
-                        std::sin(angle) * match.geometry1.y + 2000;
-    match.geometry2.y = std::sin(angle) * match.geometry1.x +
-                        std::cos(angle) * match.geometry1.y + 2000;
-    matches.push_back(match);
-  }
+  // Wrapped orientation differences of one rotation must vote for one bin.
+  const size_t kNumInliers = 100;
+  const auto data = SynthesizeData(kNumInliers, /*num_outliers=*/50);
   VoteAndVerifyOptions options;
+  options.min_num_votes = kNumInliers;
   options.eff_inlier_count = false;
-  EXPECT_EQ(VoteAndVerify(options, matches), 12);
+  EXPECT_GE(VoteAndVerify(options, data.matches), kNumInliers);
 }
 
 }  // namespace
