@@ -22,13 +22,17 @@ Reconstruction CreateSyntheticReconstructionWithBitmaps(
     int num_images = 2,
     int image_width = 100,
     int image_height = 100,
-    const std::string& image_extension = ".png") {
+    const std::string& image_extension = ".png",
+    CameraModelId camera_model_id = SimpleRadialCameraModel::model_id,
+    const std::vector<double>& camera_params = {1280, 512, 384, 0.05}) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = num_images;
   synthetic_dataset_options.camera_width = image_width;
   synthetic_dataset_options.camera_height = image_height;
+  synthetic_dataset_options.camera_model_id = camera_model_id;
+  synthetic_dataset_options.camera_params = camera_params;
   synthetic_dataset_options.image_extension = image_extension;
 
   Reconstruction reconstruction;
@@ -76,6 +80,37 @@ TEST(COLMAPUndistorter, Integration) {
   // Expect dense reconstruction files to be written.
   EXPECT_TRUE(ExistsFile(output_path / "stereo/patch-match.cfg"));
   EXPECT_TRUE(ExistsFile(output_path / "stereo/fusion.cfg"));
+}
+
+TEST(COLMAPUndistorter, UndistortsZeroDistortionFisheyeCameras) {
+  const auto temp_dir = CreateTestDir();
+  const auto image_path = temp_dir / "input_images";
+  const auto output_path = temp_dir / "output";
+  CreateDirIfNotExists(image_path);
+  CreateDirIfNotExists(output_path);
+
+  // SIMPLE_FISHEYE has no distortion parameters, but MVS needs pinhole cameras.
+  const Reconstruction reconstruction =
+      CreateSyntheticReconstructionWithBitmaps(
+          image_path,
+          /*num_images=*/1,
+          /*image_width=*/100,
+          /*image_height=*/100,
+          /*image_extension=*/".png",
+          SimpleFisheyeCameraModel::model_id,
+          /*camera_params=*/{50, 50, 50});
+
+  COLMAPUndistorter undistorter(COLMAPUndistorter::Options(),
+                                UndistortCameraOptions(),
+                                reconstruction,
+                                image_path,
+                                output_path);
+  undistorter.Run();
+
+  Reconstruction undistorted_reconstruction;
+  undistorted_reconstruction.Read(output_path / "sparse");
+  EXPECT_EQ(undistorted_reconstruction.Camera(1).model_id,
+            PinholeCameraModel::model_id);
 }
 
 TEST(COLMAPUndistorter, StopsPendingWork) {
