@@ -50,6 +50,19 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   // here too rather than dereferencing the (empty) focal-length parameters.
   THROW_CHECK(camera.IsPerspective());
 
+  if (options.target_camera.has_value()) {
+    THROW_CHECK(options.target_camera->model_id ==
+                PinholeCameraModel::model_id);
+    THROW_CHECK_GT(options.target_camera->width, 0);
+    THROW_CHECK_GT(options.target_camera->height, 0);
+    THROW_CHECK(options.target_camera->VerifyParams());
+    THROW_CHECK_GT(options.target_camera->FocalLengthX(), 0);
+    THROW_CHECK_GT(options.target_camera->FocalLengthY(), 0);
+    Camera undistorted_camera = *options.target_camera;
+    undistorted_camera.camera_id = camera.camera_id;
+    return undistorted_camera;
+  }
+
   Camera undistorted_camera;
   undistorted_camera.model_id = PinholeCameraModel::model_id;
   undistorted_camera.width = camera.width;
@@ -275,6 +288,13 @@ void UndistortImage(const UndistortCameraOptions& options,
   distorted_bitmap.CloneMetadata(undistorted_bitmap);
 }
 
+bool IsUndistortionNoOp(const UndistortCameraOptions& options,
+                        const Camera& camera) {
+  // The target camera only applies to perspective cameras.
+  return camera.IsUndistorted() && options.max_image_size < 0 &&
+         (!camera.IsPerspective() || !options.target_camera.has_value());
+}
+
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction) {
   const NodeHashMap<camera_t, Camera> distorted_cameras =
@@ -288,11 +308,8 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   // resized to match the rescaled output images: perspective cameras through
   // undistortion, spherical cameras by resizing to a smaller image of the same
   // model.
-  const auto keep_unchanged = [&options](const Camera& camera) {
-    return camera.IsUndistorted() && options.max_image_size < 0;
-  };
   for (const auto& [camera_id, distorted_camera] : distorted_cameras) {
-    if (keep_unchanged(distorted_camera)) {
+    if (IsUndistortionNoOp(options, distorted_camera)) {
       continue;
     }
     Camera& undistorted_camera = reconstruction->Camera(camera_id);
@@ -310,7 +327,7 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
     Image& image = reconstruction->Image(distorted_image.first);
     const Camera& distorted_camera = distorted_cameras.at(image.CameraId());
     // Cameras left unchanged above need no observation rewrite.
-    if (keep_unchanged(distorted_camera)) {
+    if (IsUndistortionNoOp(options, distorted_camera)) {
       continue;
     }
     const Camera& undistorted_camera = *image.CameraPtr();
