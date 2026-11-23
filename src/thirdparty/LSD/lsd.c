@@ -843,6 +843,9 @@ static image_double ll_angle( image_double in, double threshold,
   for(x=0;x<p-1;x++)
     for(y=0;y<n-1;y++)
       {
+        /* Undefined gradients never seed a region. This also avoids 0/0
+           when the image has no gradient above the threshold. */
+        if( g->data[y*p+x] == NOTDEF ) continue;
         norm = (*modgrad)->data[y*p+x];
 
         /* store the point in the right bin according to its norm */

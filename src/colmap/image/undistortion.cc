@@ -291,8 +291,10 @@ void UndistortImage(const UndistortCameraOptions& options,
 bool IsUndistortionNoOp(const UndistortCameraOptions& options,
                         const Camera& camera) {
   // The target camera only applies to perspective cameras.
-  return camera.IsUndistorted() && options.max_image_size < 0 &&
-         (!camera.IsPerspective() || !options.target_camera.has_value());
+  return options.max_image_size < 0 &&
+         (camera.IsSpherical() ||
+          (camera.IsPerspectivePinhole() && camera.IsUndistorted() &&
+           !options.target_camera.has_value()));
 }
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
@@ -301,13 +303,9 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
       reconstruction->Cameras();
   // Leave a camera unchanged exactly when the image undistortion also copies
   // its images through unchanged, so that the reconstruction stays consistent
-  // with the output images (see COLMAPUndistorter::Undistort). Both spherical
-  // cameras (e.g. EQUIRECTANGULAR, which have no pinhole image plane to
-  // undistort to) and already-undistorted perspective cameras are otherwise
-  // copied through as-is. When a max_image_size is requested, they are still
-  // resized to match the rescaled output images: perspective cameras through
-  // undistortion, spherical cameras by resizing to a smaller image of the same
-  // model.
+  // with the output images (see IsUndistortionNoOp). Otherwise, spherical
+  // cameras are only resized to max_image_size, keeping their model, and all
+  // other cameras are undistorted to a pinhole camera.
   for (const auto& [camera_id, distorted_camera] : distorted_cameras) {
     if (IsUndistortionNoOp(options, distorted_camera)) {
       continue;

@@ -15,17 +15,6 @@ void CreateOneRigPerCamera(Reconstruction& reconstruction) {
   }
 }
 
-void CreateFrameForImage(const Image& image,
-                         const Rigid3d& cam_from_world,
-                         Reconstruction& reconstruction) {
-  Frame frame;
-  frame.SetFrameId(image.ImageId());
-  frame.SetRigId(image.CameraId());
-  frame.AddDataId(image.DataId());
-  frame.SetRigFromWorld(cam_from_world);
-  reconstruction.AddFrame(std::move(frame));
-}
-
 NodeHashMap<image_t, Frame*> ExtractImageToFramePtr(
     Reconstruction& reconstruction) {
   NodeHashMap<image_t, Frame*> image_to_frame;

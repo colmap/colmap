@@ -337,28 +337,16 @@ TEST(UndistortReconstruction, Nominal) {
 
   Camera camera = Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 1, 1, 1);
   camera.params[4] = 1.0;
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
-    Frame frame;
-    frame.SetRigId(1);
-    frame.SetFrameId(image_id);
-    frame.SetRigFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
-    frame.AddDataId(image.DataId());
-    reconstruction.AddFrame(frame);
-    reconstruction.AddImage(image);
-    reconstruction.RegisterFrame(frame.FrameId());
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 
   UndistortCameraOptions options;
@@ -374,6 +362,34 @@ TEST(UndistortReconstruction, Nominal) {
   }
 }
 
+TEST(UndistortReconstruction, UndistortsZeroDistortionFisheyeCameras) {
+  Reconstruction reconstruction;
+
+  // SIMPLE_FISHEYE has no distortion parameters, but its projection is still
+  // non-linear and must be converted to a pinhole camera.
+  const Camera distorted_camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimpleFisheye, 100, 200, 200);
+  reconstruction.AddCameraWithTrivialRig(distorted_camera);
+  // Off-axis observation, where fisheye and pinhole projections differ.
+  const Eigen::Vector2d point_xy(160, 70);
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(1);
+  image.SetName("image1");
+  image.SetPoints2D({point_xy});
+  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
+
+  UndistortReconstruction(UndistortCameraOptions(), &reconstruction);
+
+  // The observation is rewritten so that it keeps its viewing ray.
+  const Camera& undistorted_camera = reconstruction.Camera(1);
+  EXPECT_EQ(undistorted_camera.model_id, CameraModelId::kPinhole);
+  EXPECT_THAT(
+      undistorted_camera.CamFromImg(reconstruction.Image(1).Point2D(0).xy)
+          .value(),
+      EigenMatrixNear(distorted_camera.CamFromImg(point_xy).value(), 1e-6));
+}
+
 TEST(UndistortReconstruction, RescalesAlreadyUndistortedCameras) {
   constexpr size_t kNumImages = 3;
 
@@ -384,28 +400,16 @@ TEST(UndistortReconstruction, RescalesAlreadyUndistortedCameras) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100, 100, 100);
   ASSERT_TRUE(camera.IsUndistorted());
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   const Eigen::Vector2d point_xy(60, 40);
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
-    Frame frame;
-    frame.SetRigId(1);
-    frame.SetFrameId(image_id);
-    frame.SetRigFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(std::vector<Eigen::Vector2d>(1, point_xy));
-    frame.AddDataId(image.DataId());
-    reconstruction.AddFrame(frame);
-    reconstruction.AddImage(image);
-    reconstruction.RegisterFrame(frame.FrameId());
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 
   UndistortCameraOptions options;
@@ -445,6 +449,17 @@ TEST(IsUndistortionNoOp, Nominal) {
   EXPECT_TRUE(IsUndistortionNoOp(options, undistorted_camera));
   EXPECT_FALSE(IsUndistortionNoOp(options, distorted_camera));
   EXPECT_TRUE(IsUndistortionNoOp(options, spherical_camera));
+  distorted_camera.params[3] = 0;
+  EXPECT_TRUE(IsUndistortionNoOp(options, distorted_camera));
+
+  // Fisheye cameras are always undistorted, even with zero distortion.
+  for (const CameraModelId model_id : {CameraModelId::kSimpleFisheye,
+                                       CameraModelId::kFisheye,
+                                       CameraModelId::kOpenCVFisheye}) {
+    const Camera camera = Camera::CreateFromModelId(1, model_id, 100, 100, 100);
+    ASSERT_TRUE(camera.IsUndistorted());
+    EXPECT_FALSE(IsUndistortionNoOp(options, camera));
+  }
 
   // A target camera only applies to perspective cameras.
   options.target_camera =
@@ -499,11 +514,7 @@ TEST(UndistortReconstruction, RescalesSphericalCameras) {
   Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
   ASSERT_TRUE(camera.IsSpherical());
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   // A front-hemisphere pixel (azimuth 36 deg) and a back-hemisphere pixel
   // (azimuth -144 deg, behind the camera). The back-hemisphere observation has
@@ -512,20 +523,12 @@ TEST(UndistortReconstruction, RescalesSphericalCameras) {
   const std::vector<Eigen::Vector2d> points_xy = {Eigen::Vector2d(600, 200),
                                                   Eigen::Vector2d(100, 400)};
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
-    Frame frame;
-    frame.SetRigId(1);
-    frame.SetFrameId(image_id);
-    frame.SetRigFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(points_xy);
-    frame.AddDataId(image.DataId());
-    reconstruction.AddFrame(frame);
-    reconstruction.AddImage(image);
-    reconstruction.RegisterFrame(frame.FrameId());
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 
   UndistortCameraOptions options;
