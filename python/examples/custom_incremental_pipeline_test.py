@@ -216,9 +216,5 @@ def test_write_snapshot(
 
     custom_incremental_pipeline.write_snapshot(reconstruction, snapshot_root)
 
-    snapshot = snapshot_root / "0000123456"
-    assert snapshot.is_dir()
-    assert (snapshot / "cameras.bin").is_file()
-    assert (snapshot / "images.bin").is_file()
-    assert (snapshot / "points3D.bin").is_file()
-    assert pycolmap.Reconstruction(snapshot).num_images() == 0
+    snapshot = pycolmap.Reconstruction(snapshot_root / "0000123456")
+    assert snapshot.num_images() == 0
