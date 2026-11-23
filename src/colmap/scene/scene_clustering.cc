@@ -190,16 +190,25 @@ void SceneClustering::PartitionFlatCluster(
     }
   }
 
+  // Remove empty clusters.
+  auto& child_clusters = root_cluster_->child_clusters;
+  child_clusters.erase(std::remove_if(child_clusters.begin(),
+                                      child_clusters.end(),
+                                      [](const Cluster& cluster) {
+                                        return cluster.image_ids.empty();
+                                      }),
+                       child_clusters.end());
+
   // Sort child clusters by descending size of images and secondarily by lowest
-  // image id.
-  std::sort(root_cluster_->child_clusters.begin(),
-            root_cluster_->child_clusters.end(),
+  // image id. Children inherit sorted image IDs from the root, so front() is
+  // the minimum.
+  std::sort(child_clusters.begin(),
+            child_clusters.end(),
             [](const Cluster& first, const Cluster& second) {
-              return first.image_ids.size() >= second.image_ids.size() &&
-                     *std::min_element(first.image_ids.begin(),
-                                       first.image_ids.end()) <
-                         *std::min_element(second.image_ids.begin(),
-                                           second.image_ids.end());
+              if (first.image_ids.size() != second.image_ids.size()) {
+                return first.image_ids.size() > second.image_ids.size();
+              }
+              return first.image_ids.front() < second.image_ids.front();
             });
 
   // For each image find all related images with their weights
@@ -223,11 +232,9 @@ void SceneClustering::PartitionFlatCluster(
   // the max image overal allowance
   // We do the process sequentially for each image to ensure that at
   // least we get the best matches firat
-  for (int i = 0; i < options_.branching; ++i) {
-    auto& orig_image_ids = root_cluster_->child_clusters[i].image_ids;
-    std::set<int> cluster_images(
-        root_cluster_->child_clusters[i].image_ids.begin(),
-        root_cluster_->child_clusters[i].image_ids.end());
+  for (Cluster& child_cluster : child_clusters) {
+    auto& orig_image_ids = child_cluster.image_ids;
+    std::set<int> cluster_images(orig_image_ids.begin(), orig_image_ids.end());
     const size_t max_size = cluster_images.size() + options_.image_overlap;
     // check up to all the desired matches
     for (size_t j = 0; j < static_cast<size_t>(options_.num_image_matches) &&

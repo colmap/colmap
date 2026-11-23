@@ -72,15 +72,28 @@ remove_homebrew_rpaths() {
     done < <(otool -l "$binary_path" | awk '/LC_RPATH/{getline; getline; print $2}')
 }
 
+adhoc_sign() {
+    local path=$1
+    # Strip any existing signature first. Some bundled libraries (e.g., the
+    # prebuilt onnxruntime dylib) carry a third-party Developer ID signature
+    # that was invalidated by macdeployqt/install_name_tool and that older
+    # codesign versions fail to replace in place.
+    codesign --remove-signature "$path" >/dev/null 2>&1 || true
+    if ! codesign --force --sign - "$path" >/dev/null; then
+        echo "ERROR: Failed to sign $path" >&2
+        return 1
+    fi
+}
+
 while IFS= read -r file_path; do
     if file "$file_path" | grep -q "Mach-O"; then
         remove_homebrew_rpaths "$file_path"
-        codesign --force --sign - "$file_path" >/dev/null 2>&1
+        adhoc_sign "$file_path"
     fi
 done < <(find "$APP_PATH/Contents/Frameworks" "$APP_PATH/Contents/PlugIns" -type f)
 remove_homebrew_rpaths "$APP_BINARY"
-codesign --force --sign - "$APP_BINARY" >/dev/null 2>&1
-codesign --force --sign - "$APP_PATH" >/dev/null 2>&1
+adhoc_sign "$APP_BINARY"
+codesign --force --sign - "$APP_PATH" >/dev/null
 
 echo "Checking packaged binary"
 "$APP_BINARY" help >/dev/null
