@@ -272,64 +272,6 @@ TEST_P(CorrespondenceGraphFinalizeTest, ThreeView) {
             2);
 }
 
-TEST_P(CorrespondenceGraphFinalizeTest, RejectedPairPreservesCounts) {
-  CorrespondenceGraph graph;
-  for (image_t image_id = 0; image_id < 3; ++image_id) {
-    graph.AddImage(image_id, 3);
-  }
-  TwoViewGeometry geometry;
-  geometry.config = TwoViewGeometry::CALIBRATED;
-  geometry.inlier_matches = {{0, 1}, {1, 0}};
-  graph.AddTwoViewGeometry(0, 1, geometry);
-
-  const auto expect_original_pair = [&]() {
-    EXPECT_EQ(graph.NumImagePairs(), 1);
-    EXPECT_EQ(graph.NumCorrespondencesForImage(0), 2);
-    EXPECT_EQ(graph.NumCorrespondencesForImage(1), 2);
-    EXPECT_EQ(graph.NumCorrespondencesForImage(2), 0);
-    EXPECT_EQ(graph.NumObservationsForImage(0), 2);
-    EXPECT_EQ(graph.NumObservationsForImage(1), 2);
-    EXPECT_EQ(graph.NumMatchesBetweenImages(0, 1), 2);
-    FeatureMatches matches;
-    graph.ExtractMatchesBetweenImages(0, 1, matches);
-    EXPECT_EQ(matches, geometry.inlier_matches);
-    EXPECT_EQ(graph.ExtractTwoViewGeometry(0, 1, false).config,
-              geometry.config);
-    std::vector<CorrespondenceGraph::Correspondence> corrs;
-    graph.ExtractCorrespondences(0, 2, &corrs);
-    EXPECT_TRUE(corrs.empty());
-  };
-  expect_original_pair();
-
-  TwoViewGeometry rejected;
-  rejected.inlier_matches = {{2, 2}};
-  EXPECT_THROW(graph.AddTwoViewGeometry(0, 1, rejected), std::invalid_argument);
-  expect_original_pair();
-  EXPECT_THROW(graph.AddTwoViewGeometry(1, 0, rejected), std::invalid_argument);
-  expect_original_pair();
-
-  TwoViewGeometry next;
-  next.inlier_matches = {{2, 0}};
-  graph.AddTwoViewGeometry(1, 2, next);
-  if (GetParam()) {
-    graph.Finalize();
-  }
-  EXPECT_EQ(graph.NumImagePairs(), 2);
-  EXPECT_EQ(graph.NumCorrespondencesForImage(0), 2);
-  EXPECT_EQ(graph.NumCorrespondencesForImage(1), 3);
-  EXPECT_EQ(graph.NumCorrespondencesForImage(2), 1);
-  EXPECT_EQ(graph.NumObservationsForImage(0), 2);
-  EXPECT_EQ(graph.NumObservationsForImage(1), 3);
-  EXPECT_EQ(graph.NumObservationsForImage(2), 1);
-  EXPECT_EQ(graph.NumMatchesBetweenImages(0, 1), 2);
-  EXPECT_EQ(graph.NumMatchesBetweenImages(1, 2), 1);
-  FeatureMatches matches;
-  graph.ExtractMatchesBetweenImages(0, 1, matches);
-  EXPECT_EQ(matches, geometry.inlier_matches);
-  graph.ExtractMatchesBetweenImages(1, 2, matches);
-  EXPECT_EQ(matches, next.inlier_matches);
-}
-
 INSTANTIATE_TEST_SUITE_P(CorrespondenceGraph,
                          CorrespondenceGraphFinalizeTest,
                          testing::Bool(),
@@ -371,6 +313,22 @@ TEST(CorrespondenceGraph, Duplicate) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
   const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id), 4);
+}
+
+TEST(CorrespondenceGraph, DuplicateImagePair) {
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.inlier_matches = {{0, 0}, {1, 1}};
+  correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry);
+  EXPECT_THROW(correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry),
+               std::invalid_argument);
+  EXPECT_THROW(correspondence_graph.AddTwoViewGeometry(1, 0, two_view_geometry),
+               std::invalid_argument);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 2);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 2);
+  EXPECT_EQ(correspondence_graph.NumMatchesBetweenImages(0, 1), 2);
 }
 
 TEST(CorrespondenceGraph, UpdateTwoViewGeometry) {

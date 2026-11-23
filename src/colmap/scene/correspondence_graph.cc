@@ -84,13 +84,14 @@ void CorrespondenceGraph::AddTwoViewGeometry(
   struct Image& image1 = images_.at(image_id1);
   struct Image& image2 = images_.at(image_id2);
 
-  // Set the number of all correspondences for this image pair. Further below,
-  // we will make sure that only unique correspondences are counted.
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   auto [image_pair_it, inserted] = image_pairs_.try_emplace(pair_id);
   THROW_CHECK(inserted)
       << "Two view geometry for image pair was already added: image_id1="
       << image_id1 << ", image_id2=" << image_id2;
+
+  // Set the number of all correspondences for this image pair. Further below,
+  // we will make sure that only unique correspondences are counted.
   image_pair_it->second.num_matches =
       static_cast<point2D_t>(two_view_geometry.inlier_matches.size());
 
