@@ -9,6 +9,12 @@ namespace {
 
 #ifdef COLMAP_LSD_ENABLED
 
+TEST(DetectLineSegments, NoDefinedGradients) {
+  Bitmap bitmap(32, 32, false);
+  bitmap.Fill(BitmapColor<uint8_t>(128));
+  EXPECT_TRUE(DetectLineSegments(bitmap, 0).empty());
+}
+
 TEST(DetectLineSegments, Nominal) {
   Bitmap bitmap(100, 100, false);
   for (size_t i = 0; i < 100; ++i) {
