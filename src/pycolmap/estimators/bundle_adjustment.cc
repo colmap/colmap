@@ -371,8 +371,8 @@ void BindBundleAdjuster(py::module& m) {
               "Loss function for prior position loss.")
           .def_readwrite("prior_position_loss_scale",
                          &CeresPosePriorBAOpts::prior_position_loss_scale,
-                         "Threshold on the residual for the robust loss (chi2 "
-                         "for 3DOF at 95% = 7.815).")
+                         "Threshold on the residual for the robust loss (sqrt "
+                         "of chi2 for 3DOF at 95% = 2.795).")
           .def("check", &CeresPosePriorBAOpts::Check);
   MakeDataclass(PyCeresPosePriorBundleAdjustmentOptions);
 

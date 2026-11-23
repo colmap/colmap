@@ -62,7 +62,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
             << " descriptors";
   THROW_CHECK_GT(descriptors.data.size(), 0);
 
-  auto visual_index = retrieval::VisualIndex::Create();
+  auto visual_index = retrieval::VisualIndex::Create(descriptors.data.cols());
 
   LOG(INFO) << "Building index for visual words...";
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)

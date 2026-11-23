@@ -485,6 +485,18 @@ TEST(Bitmap, Thumbnail) {
   non_integer.Thumbnail(/*max_image_size=*/100);
   EXPECT_EQ(non_integer.Width(), 100);
   EXPECT_EQ(non_integer.Height(), 67);
+
+  // Thin images: the short side is clamped to at least 1 pixel instead of
+  // rounding to 0.
+  Bitmap thin_landscape(100, 1, /*as_rgb=*/true);
+  EXPECT_DOUBLE_EQ(thin_landscape.Thumbnail(/*max_image_size=*/10), 0.1);
+  EXPECT_EQ(thin_landscape.Width(), 10);
+  EXPECT_EQ(thin_landscape.Height(), 1);
+
+  Bitmap thin_portrait(1, 100, /*as_rgb=*/true);
+  EXPECT_DOUBLE_EQ(thin_portrait.Thumbnail(/*max_image_size=*/10), 0.1);
+  EXPECT_EQ(thin_portrait.Width(), 1);
+  EXPECT_EQ(thin_portrait.Height(), 10);
 }
 
 TEST(Bitmap, ThumbnailNoOp) {

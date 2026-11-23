@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+import copy
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
@@ -173,6 +174,222 @@ def test_learned_calibration_disables_gt_camera_priors(
         utils.process_scene(args, scene_info, dataset, num_threads=1)
 
     assert call["camera_priors_sparse_gt"] is None
+
+
+def test_set_cameras_from_gt_with_rig(tmp_path: Path) -> None:
+    database_path = tmp_path / "database.db"
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_rigs = 1
+    options.num_cameras_per_rig = 2
+    options.num_frames_per_rig = 3
+    options.prior_gravity = True
+    with pycolmap.Database.open(str(database_path)) as database:
+        sparse_gt = pycolmap.synthesize_dataset(options, database)
+    # Only the USER source must be written, whatever the source of the GT.
+    for camera in sparse_gt.cameras.values():
+        camera.source = pycolmap.CameraSource.GUESS
+    (gt_rig,) = [copy.copy(rig) for rig in sparse_gt.rigs.values()]
+    (gt_sensor_id,) = gt_rig.non_ref_sensors
+    gt_frame_ids = sorted(sparse_gt.frames)
+
+    utils.set_cameras_from_gt(
+        database_path, sparse_gt, ["camera000001_", "camera000002_"]
+    )
+
+    with pycolmap.Database.open(str(database_path)) as database:
+        images = {image.image_id: image for image in database.read_all_images()}
+        (rig,) = database.read_all_rigs()
+        assert rig.ref_sensor_id == gt_rig.ref_sensor_id
+        sensor_from_rig = rig.sensor_from_rig(gt_sensor_id)
+        assert sensor_from_rig is not None
+        np.testing.assert_allclose(
+            sensor_from_rig.matrix(),
+            gt_rig.sensor_from_rig(gt_sensor_id).matrix(),
+            atol=1e-9,
+        )
+        frames = database.read_all_frames()
+        assert len(frames) == options.num_frames_per_rig
+        for frame in frames:
+            frame_names = {
+                images[data_id.id].name.split("_")[1]
+                for data_id in frame.data_ids
+            }
+            assert frame.num_data_ids() == 2
+            assert len(frame_names) == 1
+        pose_priors = database.read_all_pose_priors()
+        assert len(pose_priors) == len(images)
+        for pose_prior in pose_priors:
+            image = images[pose_prior.corr_data_id.id]
+            assert pose_prior.corr_data_id == image.data_id
+        for calibrations in database.read_all_camera_sources().values():
+            assert list(calibrations) == [pycolmap.CameraSource.USER]
+    # The rigs and frames of the GT are not modified.
+    (rig,) = sparse_gt.rigs.values()
+    assert rig.rig_id == gt_rig.rig_id
+    assert rig.sensor_from_rig(gt_sensor_id) == gt_rig.sensor_from_rig(
+        gt_sensor_id
+    )
+    assert sorted(sparse_gt.frames) == gt_frame_ids
+
+
+def test_set_cameras_from_gt_rejects_images_missing_from_gt(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "database.db"
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_rigs = 1
+    options.num_frames_per_rig = 2
+    with pycolmap.Database.open(str(database_path)) as database:
+        sparse_gt = pycolmap.synthesize_dataset(options, database)
+        cameras = database.read_all_cameras()
+    # Rename one GT image, so that its database image is missing from the GT.
+    gt_image = next(iter(sparse_gt.images.values()))
+    missing_name = gt_image.name
+    gt_image.name = "renamed.png"
+
+    with pytest.raises(ValueError, match=missing_name):
+        utils.set_cameras_from_gt(database_path, sparse_gt)
+
+    # The database is not modified.
+    with pycolmap.Database.open(str(database_path)) as database:
+        assert database.read_all_cameras() == cameras
+
+
+@pytest.mark.parametrize(
+    ("has_camera_priors", "fix_camera_priors", "expect_fixed"),
+    [(True, False, False), (True, True, True), (False, True, False)],
+)
+def test_colmap_reconstruction_fixes_camera_priors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    has_camera_priors: bool,
+    fix_camera_priors: bool,
+    expect_fixed: bool,
+) -> None:
+    args = argparse.Namespace(
+        overwrite_database=False,
+        overwrite_reconstruction=False,
+        overwrite_matches=False,
+        overwrite_two_view_geometries=False,
+        colmap_path=Path("colmap"),
+        use_gpu=False,
+        random_seed=0,
+        feature="sift",
+        mapper="global",
+        quality="high",
+        max_num_features=-1,
+        single_view_calibration=False,
+    )
+    commands: list[list[Any]] = []
+    monkeypatch.setattr(
+        utils,
+        "_run_with_log",
+        lambda cmd, *args, **kwargs: commands.append(cmd),
+    )
+    monkeypatch.setattr(utils, "set_cameras_from_gt", lambda *args: None)
+
+    scene_info = SceneInfo(
+        dataset="dummy",
+        category="dslr",
+        scene="scene",
+        num_images=1,
+        workspace_path=tmp_path,
+        image_path=tmp_path / "images",
+        sparse_gt_path=tmp_path / "sparse_gt",
+        has_camera_priors=True,
+        fix_camera_priors=fix_camera_priors,
+        colmap_extra_args=[],
+    )
+    utils.colmap_reconstruction(
+        args=args,
+        scene_info=scene_info,
+        camera_priors_sparse_gt=(
+            pycolmap.Reconstruction() if has_camera_priors else None
+        ),
+    )
+
+    extraction, matching, sparse = commands
+    assert "--refine_intrinsics" not in extraction
+    assert "--refine_intrinsics" not in matching
+    assert (sparse[-2:] == ["--refine_intrinsics", "0"]) == expect_fixed
+
+
+def test_set_cameras_from_gt(tmp_path: Path) -> None:
+    database_path = tmp_path / "database.db"
+    options = pycolmap.SyntheticDatasetOptions()
+    options.num_rigs = 1
+    options.num_frames_per_rig = 4
+    options.prior_gravity = True
+    with pycolmap.Database.open(str(database_path)) as database:
+        pycolmap.synthesize_dataset(options, database)
+        images = database.read_all_images()
+    # The extraction shares one camera, while the GT has two cameras.
+    assert len({image.camera_id for image in images}) == 1
+
+    sparse_gt = pycolmap.Reconstruction()
+    gt_camera_ids = [5, 7]
+    for camera_id, focal_length in zip(gt_camera_ids, [100, 200], strict=True):
+        sparse_gt.add_camera_with_trivial_rig(
+            pycolmap.Camera.create_from_model_id(
+                camera_id, pycolmap.CameraModelId.PINHOLE, focal_length, 64, 48
+            )
+        )
+    gt_camera_id_by_name = {}
+    for image in images:
+        gt_camera_id = gt_camera_ids[image.image_id % 2]
+        gt_camera_id_by_name[image.name] = gt_camera_id
+        sparse_gt.add_image_with_trivial_frame(
+            pycolmap.Image(
+                name=image.name,
+                camera_id=gt_camera_id,
+                image_id=image.image_id,
+            ),
+            pycolmap.Rigid3d(),
+        )
+
+    gt_cameras = {
+        camera_id: copy.copy(camera)
+        for camera_id, camera in sparse_gt.cameras.items()
+    }
+
+    utils.set_cameras_from_gt(database_path, sparse_gt)
+
+    with pycolmap.Database.open(str(database_path)) as database:
+        cameras = {
+            camera.camera_id: camera for camera in database.read_all_cameras()
+        }
+        assert len(cameras) == 2
+        images = database.read_all_images()
+        for image in images:
+            camera = cameras[image.camera_id]
+            gt_camera = sparse_gt.cameras[gt_camera_id_by_name[image.name]]
+            np.testing.assert_array_equal(camera.params, gt_camera.params)
+            assert camera.source == pycolmap.CameraSource.USER
+        frames = database.read_all_frames()
+        assert len(frames) == len(images)
+        rigs = {rig.rig_id: rig for rig in database.read_all_rigs()}
+        assert len(rigs) == 2
+        data_ids = {image.image_id: image.data_id for image in images}
+        for frame in frames:
+            (data_id,) = frame.data_ids
+            assert data_id == data_ids[data_id.id]
+            assert rigs[frame.rig_id].ref_sensor_id == data_id.sensor_id
+        pose_priors = database.read_all_pose_priors()
+        assert len(pose_priors) == len(images)
+        for pose_prior in pose_priors:
+            assert (
+                pose_prior.corr_data_id == data_ids[pose_prior.corr_data_id.id]
+            )
+        # The database remains consistent for the mappers.
+        cache = pycolmap.DatabaseCache.create(
+            database, pycolmap.DatabaseCacheOptions()
+        )
+        assert cache.num_cameras() == 2
+        assert cache.num_rigs() == 2
+        assert cache.num_frames() == len(images)
+        assert cache.num_images() == len(images)
+    # The GT cameras are not modified, including their source.
+    assert dict(sparse_gt.cameras) == gt_cameras
 
 
 class TestFilterSmallestScenesPerCategory:
@@ -755,15 +972,16 @@ class TestComputeGroupedRelErrors:
         assert len(errors) == num_images * (num_images - 1)
         np.testing.assert_allclose(errors, 0.0, atol=1e-5)
 
-    def test_transformed_reconstruction(self) -> None:
+    @pytest.mark.parametrize("scale", [1e-200, 1e-12, 1.0, 1e200])
+    def test_transformed_reconstruction(self, scale: float) -> None:
         gt_reconstruction = create_test_reconstruction()
         reconstruction = create_test_reconstruction()
         # A global similarity transform leaves relative poses unchanged.
         reconstruction.transform(
             pycolmap.Sim3d(
-                1.0,
+                scale,
                 pycolmap.Rotation3d(np.array([0, 1, 0, 0])),
-                np.array([1, 2, 3]),
+                scale * np.array([1.0, 2.0, 3.0]),
             )
         )
 

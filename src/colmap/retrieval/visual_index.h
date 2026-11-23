@@ -78,10 +78,17 @@ class VisualIndex {
     int num_threads = -1;
   };
 
-  // Create visual index with specific input feature descriptor dimension and
-  // Hamming embedding dimension per descriptor in the inverted index.
-  static std::unique_ptr<VisualIndex> Create(int desc_dim = 128,
-                                             int embedding_dim = 64);
+  // Create visual index with the default SIFT descriptor and Hamming
+  // embedding dimensions.
+  static std::unique_ptr<VisualIndex> Create();
+
+  // Create visual index with a supported input feature descriptor dimension
+  // and its default Hamming embedding dimension.
+  static std::unique_ptr<VisualIndex> Create(int desc_dim);
+
+  // Create visual index with specific input feature descriptor and Hamming
+  // embedding dimensions per descriptor in the inverted index.
+  static std::unique_ptr<VisualIndex> Create(int desc_dim, int embedding_dim);
 
   virtual ~VisualIndex() = default;
 

@@ -51,8 +51,8 @@ struct SimpleDivisionCameraModel
     const T c2 = params[2];
     const T k = params[3];
 
-    const T rho = ceres::sqrt(u * u + v * v);
-    const T disc_sq = w * w - T(4) * rho * rho * k;
+    const T rho2 = u * u + v * v;
+    const T disc_sq = w * w - T(4) * rho2 * k;
 
     if (disc_sq < T(0)) {
       return false;
@@ -142,8 +142,8 @@ struct DivisionCameraModel
     const T c2 = params[3];
     const T k = params[4];
 
-    const T rho = ceres::sqrt(u * u + v * v);
-    const T disc_sq = w * w - T(4) * rho * rho * k;
+    const T rho2 = u * u + v * v;
+    const T disc_sq = w * w - T(4) * rho2 * k;
 
     if (disc_sq < T(0)) {
       return false;

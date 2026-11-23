@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import hashlib
 import inspect
 import json
 import shutil
@@ -12,18 +11,23 @@ from pathlib import Path
 
 import py7zr
 import requests
+from evaluation import package_eth3d_undistorted
+from evaluation.eth3d import check_no_old_eth3d_folder
 from evaluation.tartanair.tartanair_v2 import (
     MANIFEST_PATH,
     load_manifest,
     scene_shards,
     shard_name,
 )
+from evaluation.utils import sha256
 
 import pycolmap
 
 
-def download_file(url: str, target_folder: Path) -> str:
-    filename = url.split("/")[-1]
+def download_file(
+    url: str, target_folder: Path, filename: str | None = None
+) -> str:
+    filename = filename or url.split("/")[-1]
     with requests.get(url, stream=True) as req:
         req.raise_for_status()
         with open(target_folder / filename, "wb") as f:
@@ -32,9 +36,11 @@ def download_file(url: str, target_folder: Path) -> str:
     return filename
 
 
-ETH3D_UNDISTORTED_ARCHIVES = [
+ETH3D_UNDISTORTED_DSLR_ARCHIVES = [
     ("multi_view_training_dslr_undistorted.7z", "dslr"),
     ("multi_view_test_dslr_undistorted.7z", "dslr"),
+]
+ETH3D_UNDISTORTED_RIG_ARCHIVES = [
     ("multi_view_training_rig_undistorted.7z", "rig"),
     ("multi_view_test_rig_undistorted.7z", "rig"),
 ]
@@ -63,12 +69,45 @@ def _download_eth3d_archives(
             archive.extractall(path=target_folder)
 
 
-def download_eth3d(data_path: Path) -> None:
-    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_ARCHIVES)
+def download_eth3d_undistorted_legacy(data_path: Path) -> None:
+    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_DSLR_ARCHIVES)
 
 
 def download_eth3d_distorted(data_path: Path) -> None:
     _download_eth3d_archives(data_path, ETH3D_DISTORTED_ARCHIVES)
+
+
+def download_eth3d_undistorted(data_path: Path) -> None:
+    """Downloads the eth3d-undistorted DSLR archives and the rig images."""
+    target_folder = data_path / "dslr"
+    target_folder.mkdir(parents=True, exist_ok=True)
+    base_url = (
+        "https://github.com/"
+        f"{package_eth3d_undistorted.RELEASE_REPOSITORY}/releases/download/"
+        f"{package_eth3d_undistorted.RELEASE_TAG}"
+    )
+    checksums = json.loads(package_eth3d_undistorted.CHECKSUMS_PATH.read_text())
+    for filename, expected in checksums.items():
+        # Archives are deleted after a successful extraction to save disk
+        # space, so a scene without its archive is complete and skipped when
+        # resuming. Archives of an interrupted run are reused if valid.
+        archive_path = target_folder / filename
+        scene = filename.removeprefix(
+            f"{package_eth3d_undistorted.ARCHIVE_PREFIX}-"
+        ).removesuffix(".7z")
+        if (target_folder / scene).is_dir() and not archive_path.exists():
+            pycolmap.logging.info(
+                f"Skipping extracted ETH3D undistorted {scene}"
+            )
+            continue
+        _download_verified_file(
+            f"{base_url}/{filename}", archive_path, expected
+        )
+        pycolmap.logging.info(f"Extracting ETH3D undistorted {filename}")
+        with py7zr.SevenZipFile(archive_path, mode="r") as archive:
+            archive.extractall(path=target_folder)
+        archive_path.unlink()
+    _download_eth3d_archives(data_path, ETH3D_UNDISTORTED_RIG_ARCHIVES)
 
 
 def download_imc2023(data_path: Path) -> None:
@@ -120,9 +159,9 @@ def download_imc2024(data_path: Path) -> None:
     category_path = data_path / "train/all"
     category_path.mkdir(parents=True, exist_ok=True)
     for scene in (data_path / "train").iterdir():
-        if str(scene).endswith("/all"):
+        if scene.name == "all":
             continue
-        shutil.move(scene, data_path / category_path)
+        shutil.move(scene, category_path)
 
 
 def download_imc2025(data_path: Path) -> None:
@@ -194,12 +233,21 @@ def download_blended_mvs(data_path: Path) -> None:
             combined_zip.unlink()
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as fid:
-        while chunk := fid.read(1024 * 1024):
-            digest.update(chunk)
-    return digest.hexdigest()
+def _download_verified_file(url: str, target: Path, expected: str) -> None:
+    """Downloads url to target, unless target exists with the expected SHA256.
+
+    The download goes through a .part file, so that an interrupted download
+    never leaves a truncated target.
+    """
+    if target.exists() and sha256(target) == expected:
+        return
+    temporary = target.with_suffix(target.suffix + ".part")
+    pycolmap.logging.info(f"Downloading {url}")
+    download_file(url, target.parent, temporary.name)
+    if sha256(temporary) != expected:
+        temporary.unlink()
+        raise RuntimeError(f"Checksum mismatch for {target.name}")
+    temporary.replace(target)
 
 
 def _extract_tar_safely(archive_path: Path, output_path: Path) -> None:
@@ -259,25 +307,14 @@ def download_tartanair_v2(
         expected = checksums.get(filename)
         if expected is None:
             raise RuntimeError(f"Missing release checksum for {filename}")
-        if not target.exists() or (expected and _sha256(target) != expected):
-            temporary = target.with_suffix(target.suffix + ".part")
-            if temporary.exists():
-                temporary.unlink()
-            pycolmap.logging.info(f"Downloading TartanAir V2 {filename}")
-            download_file(f"{base_url}/{filename}", archive_path)
-            downloaded = archive_path / filename
-            if downloaded != temporary:
-                downloaded.replace(temporary)
-            if expected and _sha256(temporary) != expected:
-                temporary.unlink()
-                raise RuntimeError(f"Checksum mismatch for {filename}")
-            temporary.replace(target)
+        _download_verified_file(f"{base_url}/{filename}", target, expected)
         pycolmap.logging.info(f"Extracting TartanAir V2 {filename}")
         _extract_tar_safely(target, data_path)
 
 
 DOWNLOADERS = {
-    "eth3d": download_eth3d,
+    "eth3d-undistorted": download_eth3d_undistorted,
+    "eth3d-undistorted-legacy": download_eth3d_undistorted_legacy,
     "eth3d-distorted": download_eth3d_distorted,
     "imc2023": download_imc2023,
     "imc2024": download_imc2024,
@@ -285,7 +322,11 @@ DOWNLOADERS = {
     "blended-mvs": download_blended_mvs,
     "tartanair-v2": download_tartanair_v2,
 }
-DEFAULT_DATASETS = [name for name in DOWNLOADERS if name != "eth3d-distorted"]
+DEFAULT_DATASETS = [
+    name
+    for name in DOWNLOADERS
+    if name not in ("eth3d-undistorted-legacy", "eth3d-distorted")
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -298,8 +339,12 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=DEFAULT_DATASETS,
         choices=DOWNLOADERS.keys(),
-        help="Datasets to download by name. eth3d-distorted downloads the "
-        "large DSLR-only _jpg.7z archives into data/eth3d-distorted.",
+        help="Datasets to download by name. eth3d-undistorted downloads the "
+        "DSLR images undistorted to a single centered pinhole camera and the "
+        "official undistorted rig images into data/eth3d-undistorted, "
+        "eth3d-undistorted-legacy the official undistorted DSLR images into "
+        "data/eth3d-undistorted-legacy, and eth3d-distorted the large "
+        "DSLR-only _jpg.7z archives into data/eth3d-distorted.",
     )
     parser.add_argument(
         "--categories",
@@ -319,6 +364,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    if any(dataset.startswith("eth3d") for dataset in args.datasets):
+        check_no_old_eth3d_folder(args.data_path)
     for dataset in args.datasets:
         if dataset == "tartanair-v2":
             download_tartanair_v2(

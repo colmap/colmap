@@ -281,9 +281,14 @@ T2 TruncateCast(const T1 value) {
         }
       }
     }
-  } else if constexpr (OutputLimits::is_integer &&
-                       OutputLimits::digits <= InputLimits::digits) {
-    // The integer bounds are exactly representable in the floating input type.
+  } else if constexpr (!InputLimits::is_integer &&
+                       OutputLimits::digits <= InputLimits::digits &&
+                       (OutputLimits::is_integer ||
+                        OutputLimits::max_exponent <=
+                            InputLimits::max_exponent)) {
+    // The output bounds are exactly representable in the floating input type.
+    // Clamping before the cast also guarantees that the cast never overflows,
+    // even in unreachable code after constant folding (MSVC warning C4756).
     return static_cast<T2>(std::clamp(value,
                                       static_cast<T1>(OutputLimits::lowest()),
                                       static_cast<T1>(OutputLimits::max())));

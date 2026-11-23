@@ -2,12 +2,14 @@
 
 #pragma once
 
+#include "colmap/math/math.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/base_controller.h"
 #include "colmap/util/hash_containers.h"
 
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -116,6 +118,16 @@ struct IncrementalPipelineOptions {
   // GPU device index for bundle adjustment (-1 = auto-select).
   std::string ba_gpu_index = "-1";
 
+  // Image-count thresholds for automatic Ceres solver selection in both local
+  // and global bundle adjustment. These do not affect the Caspar backend.
+  // The defaults mirror CeresBundleAdjustmentOptions; the
+  // DefaultSolverThresholds test guards against drift.
+  int ba_min_num_images_gpu_solver = 50;
+  int ba_max_num_images_direct_dense_cpu_solver = 50;
+  int ba_max_num_images_direct_sparse_cpu_solver = 1000;
+  int ba_max_num_images_direct_dense_gpu_solver = 200;
+  int ba_max_num_images_direct_sparse_gpu_solver = 4000;
+
   // Bundle adjustment solver backend for local bundle adjustment.
   BundleAdjustmentBackend ba_local_backend = BundleAdjustmentBackend::CERES;
 
@@ -129,8 +141,8 @@ struct IncrementalPipelineOptions {
   bool use_robust_loss_on_prior_position = false;
 
   // Threshold on the residual for the robust position prior loss
-  // (chi2 for 3DOF at 95% = 7.815).
-  double prior_position_loss_scale = 7.815;
+  // (sqrt of chi2 for 3DOF at 95% = 2.795).
+  double prior_position_loss_scale = std::sqrt(kChiSquare95ThreeDof);
 
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified

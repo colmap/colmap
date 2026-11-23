@@ -10,12 +10,19 @@ on:
       - main
       - release/*
   pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened ]
   release:
     types: [ published, edited ]
 
 jobs:
   build:
+    # Skip auxiliary releases (mirrored dependencies, models, datasets), which
+    # are not COLMAP releases and must not trigger builds or deployments.
+    if: >-
+      github.event_name != 'release' ||
+      !(startsWith(github.ref_name, 'deps-') ||
+        startsWith(github.ref_name, 'models-') ||
+        startsWith(github.ref_name, 'datasets-'))
     name: ${{ matrix.config.os }} ${{ matrix.config.cmakeBuildType }} ${{ matrix.config.cudaEnabled && 'CUDA' || '' }} ${{ matrix.config.asanEnabled && 'ASan' || '' }} ${{ matrix.config.coverageEnabled && 'Coverage' || '' }}
     runs-on: ${{ matrix.config.os }}
     permissions:
@@ -139,22 +146,46 @@ jobs:
       - name: Install compiler cache
         run: |
           mkdir -p "$CCACHE_DIR" "$CTCACHE_DIR"
-          echo "$COMPILER_CACHE_DIR/bin" >> $GITHUB_PATH
 
-          if [ ! -f "$COMPILER_CACHE_DIR/bin/ccache" ]; then
+          # The tools are installed into the compiler cache directory, which
+          # is restored by key prefix and thus carries over between runs.
+          # Install each tool into a directory named after its version, so
+          # that bumping a version reinstalls it instead of silently reusing
+          # the previously cached one.
+          ccache_version="4.14.1"
+          ccache_install_dir="$COMPILER_CACHE_DIR/tools/ccache-${ccache_version}"
+          if [ ! -x "$ccache_install_dir/ccache" ]; then
             set -x
-            wget https://github.com/ccache/ccache/releases/download/v4.14.1/ccache-4.14.1-linux-x86_64-glibc.tar.xz
-            echo "ad63d19f5d09ea13f749651653a561c98a59994e673504a4266617b8754218f7  ccache-4.14.1-linux-x86_64-glibc.tar.xz" | sha256sum --check
-            tar xfv ccache-4.14.1-linux-x86_64-glibc.tar.xz
-            mkdir -p "$COMPILER_CACHE_DIR/bin"
-            mv ./ccache-4.14.1-linux-x86_64-glibc/ccache "$COMPILER_CACHE_DIR/bin"
-            ctcache_commit_id="857b14271d3ded5511c2e6a60f2dc20c1e4b5680"
-            wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
-            echo "4c3e15bae65754a5095e9a80edb395077371bee3b9e3333c95259deb4f2d5aa0  ${ctcache_commit_id}.zip" | sha256sum --check
-            unzip "${ctcache_commit_id}.zip"
-            mv ctcache-${ctcache_commit_id}/clang-tidy* "$COMPILER_CACHE_DIR/bin"
+            wget https://github.com/ccache/ccache/releases/download/v${ccache_version}/ccache-${ccache_version}-linux-x86_64-glibc.tar.xz
+            echo "ad63d19f5d09ea13f749651653a561c98a59994e673504a4266617b8754218f7  ccache-${ccache_version}-linux-x86_64-glibc.tar.xz" | sha256sum --check
+            tar xfv ccache-${ccache_version}-linux-x86_64-glibc.tar.xz
+            mkdir -p "$ccache_install_dir"
+            mv ./ccache-${ccache_version}-linux-x86_64-glibc/ccache "$ccache_install_dir"
           fi
-          "$COMPILER_CACHE_DIR/bin/ccache" --zero-stats
+
+          ctcache_commit_id="2cb1c2bdd86f5e56a9044908f7c36a8a04a30ca2"
+          ctcache_install_dir="$COMPILER_CACHE_DIR/tools/ctcache-${ctcache_commit_id}"
+          if [ ! -x "$ctcache_install_dir/clang-tidy" ]; then
+            set -x
+            wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
+            echo "776b7a77b0e785ff6fda12e177fb38893ae7dfc2a994924c641ef487a038e04f  ${ctcache_commit_id}.zip" | sha256sum --check
+            unzip "${ctcache_commit_id}.zip"
+            mkdir -p "$ctcache_install_dir"
+            # The clang-tidy wrapper runs src/ctcache/clang_tidy_cache.py
+            # relative to its own location.
+            mv ctcache-${ctcache_commit_id}/clang-tidy ctcache-${ctcache_commit_id}/src "$ctcache_install_dir"
+          fi
+
+          # Remove tools of previous versions, including the former flat bin/
+          # directory layout.
+          rm -rf "$COMPILER_CACHE_DIR/bin"
+          find "$COMPILER_CACHE_DIR/tools" -mindepth 1 -maxdepth 1 \
+            ! -path "$ccache_install_dir" ! -path "$ctcache_install_dir" \
+            -exec rm -rf {} +
+
+          echo "$ccache_install_dir" >> $GITHUB_PATH
+          echo "$ctcache_install_dir" >> $GITHUB_PATH
+          "$ccache_install_dir/ccache" --zero-stats
 
       - name: Setup Ubuntu
         run: |

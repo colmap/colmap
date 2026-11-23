@@ -18,7 +18,7 @@ class AutomaticReconstructionController : public Thread {
  public:
   MAKE_ENUM_CLASS(DataType, 0, INDIVIDUAL, VIDEO, INTERNET);
   MAKE_ENUM_CLASS(Quality, 0, LOW, MEDIUM, HIGH, EXTREME);
-  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED, LOMA, LOMA128);
+  MAKE_ENUM_CLASS(Feature, 0, SIFT, ALIKED, LOMA, LOMA128, FLEXGLUE);
   MAKE_ENUM_CLASS(Mapper, 0, INCREMENTAL, HIERARCHICAL, GLOBAL);
   MAKE_ENUM_CLASS(Mesher, 0, POISSON, DELAUNAY, ADVANCING_FRONT);
 
@@ -58,6 +58,12 @@ class AutomaticReconstructionController : public Thread {
     // Initial camera params for all images.
     std::string camera_params;
 
+    // Whether to refine the camera intrinsics during mapping. Disable to keep
+    // known intrinsics fixed, e.g., given by `camera_params` or written to
+    // the database before mapping. With the global mapper, this also skips
+    // view graph calibration.
+    bool refine_intrinsics = true;
+
     // Whether to perform feature extraction.
     bool extraction = true;
 
@@ -83,6 +89,10 @@ class AutomaticReconstructionController : public Thread {
 
     // The feature extraction/matching algorithm to be used.
     Feature feature = Feature::SIFT;
+
+    // Maximum number of features per image. If non-positive, the default of
+    // the selected feature type and quality is used.
+    int max_num_features = -1;
 
     // The mapping algorithm to be used.
     Mapper mapper = Mapper::INCREMENTAL;

@@ -85,6 +85,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
                            &reconstruction_options.single_camera_per_folder);
   options.AddDefaultOption("camera_params",
                            &reconstruction_options.camera_params);
+  options.AddDefaultOption("refine_intrinsics",
+                           &reconstruction_options.refine_intrinsics);
   options.AddDefaultOption("extraction", &reconstruction_options.extraction);
   options.AddDefaultOption("single_view_calibration",
                            &reconstruction_options.single_view_calibration);
@@ -92,7 +94,9 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption(
-      "feature", &feature, "{sift, aliked, loma, loma128}");
+      "feature", &feature, "{sift, aliked, loma, loma128, flexglue}");
+  options.AddDefaultOption("max_num_features",
+                           &reconstruction_options.max_num_features);
   options.AddDefaultOption(
       "mapper", &mapper, "{incremental, hierarchical, global}");
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");

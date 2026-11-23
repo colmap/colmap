@@ -132,6 +132,14 @@ class OptionManager : public BaseOptionManager {
   void PostParse() override;
   void PrintHelp() const override;
 
+  // FlexGlue reads the image pixels during matching. Default its image path to
+  // the global image path, if it was not set explicitly. Applied after parsing
+  // the command line and after reading a project file. This only has an effect
+  // if the global image path is registered (AddImageOptions), e.g., in the GUI.
+  // The matcher commands do not register it, so FlexGlueMatching.image_path
+  // must be set explicitly there, also in project files.
+  void SetDefaultFlexGlueImagePath();
+
   std::filesystem::path mapper_image_list_path_;
   std::filesystem::path mapper_constant_rig_list_path_;
   std::filesystem::path mapper_constant_camera_list_path_;
