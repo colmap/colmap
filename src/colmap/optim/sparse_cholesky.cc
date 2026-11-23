@@ -9,10 +9,9 @@ namespace colmap {
 void SparseCholeskyWithFallbackSolver::AnalyzePattern(
     const Eigen::SparseMatrix<double>& A) {
   supernodal_.analyzePattern(A);
-  // Analyze LDLT lazily unless a previous factorization selected it.
-  if (use_ldlt_) {
-    ldlt_.analyzePattern(A);
-  }
+  // LDLT pattern is analyzed lazily on first fallback, since the common case
+  // never needs it. A new pattern retries supernodal first.
+  use_ldlt_ = false;
 }
 
 bool SparseCholeskyWithFallbackSolver::Factorize(
