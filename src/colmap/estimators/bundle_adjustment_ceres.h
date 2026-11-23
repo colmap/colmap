@@ -4,7 +4,11 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/ceres_loss_function.h"
+#include "colmap/estimators/cost_functions/depth.h"
 #include "colmap/math/math.h"
+#include "colmap/util/hash_containers.h"
+
+#include <utility>
 
 #include <ceres/ceres.h>
 
@@ -105,5 +109,26 @@ std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header);
+
+struct BADepthConstraintOptions {
+  // Linear or logarithmic depth error.
+  DepthResidualType residual_type = DepthResidualType::kLog;
+};
+
+// Append keypoint-indexed (axial depth, stddev) measurements for points already
+// in the problem; omit missing depths and skip keypoints without a 3D point.
+//
+// exp(log_depth_scale) scales depth and stddev. Fix it at zero for unit scale.
+// The scale storage must outlive the problem.
+//
+// Preserve existing parameterizations; add missing pose blocks as constant.
+size_t AppendBADepthConstraints(
+    ceres::Problem& problem,
+    Reconstruction& reconstruction,
+    image_t image_id,
+    const FlatHashMap<point2D_t, std::pair<double, double>>& depths,
+    double* log_depth_scale,
+    const BADepthConstraintOptions& options = {},
+    ceres::LossFunction* loss_function = nullptr);
 
 }  // namespace colmap

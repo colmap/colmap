@@ -22,6 +22,7 @@ void BindTriangulationEstimator(py::module& m);
 void BindTwoViewGeometryEstimator(py::module& m);
 void BindTwoViewRotationCovarianceEstimator(py::module& m);
 void BindMotionAveraging(py::module& m);
+void BindObservationDepth(py::module& m);
 
 void BindEstimators(py::module& m) {
   BindCeres(m);
@@ -41,5 +42,6 @@ void BindEstimators(py::module& m) {
   BindTwoViewRotationCovarianceEstimator(m);
   BindCeresRotationAveragerOptions(m);
   BindMotionAveraging(m);
+  BindObservationDepth(m);
   BindCeresRotationAverager(m);
 }
