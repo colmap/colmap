@@ -362,6 +362,34 @@ TEST(UndistortReconstruction, Nominal) {
   }
 }
 
+TEST(UndistortReconstruction, UndistortsZeroDistortionFisheyeCameras) {
+  Reconstruction reconstruction;
+
+  // SIMPLE_FISHEYE has no distortion parameters, but its projection is still
+  // non-linear and must be converted to a pinhole camera.
+  const Camera distorted_camera = Camera::CreateFromModelId(
+      1, CameraModelId::kSimpleFisheye, 100, 200, 200);
+  reconstruction.AddCameraWithTrivialRig(distorted_camera);
+  // Off-axis observation, where fisheye and pinhole projections differ.
+  const Eigen::Vector2d point_xy(160, 70);
+  Image image;
+  image.SetImageId(1);
+  image.SetCameraId(1);
+  image.SetName("image1");
+  image.SetPoints2D({point_xy});
+  reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
+
+  UndistortReconstruction(UndistortCameraOptions(), &reconstruction);
+
+  // The observation is rewritten so that it keeps its viewing ray.
+  const Camera& undistorted_camera = reconstruction.Camera(1);
+  EXPECT_EQ(undistorted_camera.model_id, CameraModelId::kPinhole);
+  EXPECT_THAT(
+      undistorted_camera.CamFromImg(reconstruction.Image(1).Point2D(0).xy)
+          .value(),
+      EigenMatrixNear(distorted_camera.CamFromImg(point_xy).value(), 1e-6));
+}
+
 TEST(UndistortReconstruction, RescalesAlreadyUndistortedCameras) {
   constexpr size_t kNumImages = 3;
 
@@ -421,6 +449,17 @@ TEST(IsUndistortionNoOp, Nominal) {
   EXPECT_TRUE(IsUndistortionNoOp(options, undistorted_camera));
   EXPECT_FALSE(IsUndistortionNoOp(options, distorted_camera));
   EXPECT_TRUE(IsUndistortionNoOp(options, spherical_camera));
+  distorted_camera.params[3] = 0;
+  EXPECT_TRUE(IsUndistortionNoOp(options, distorted_camera));
+
+  // Fisheye cameras are always undistorted, even with zero distortion.
+  for (const CameraModelId model_id : {CameraModelId::kSimpleFisheye,
+                                       CameraModelId::kFisheye,
+                                       CameraModelId::kOpenCVFisheye}) {
+    const Camera camera = Camera::CreateFromModelId(1, model_id, 100, 100, 100);
+    ASSERT_TRUE(camera.IsUndistorted());
+    EXPECT_FALSE(IsUndistortionNoOp(options, camera));
+  }
 
   // A target camera only applies to perspective cameras.
   options.target_camera =
