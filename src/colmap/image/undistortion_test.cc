@@ -337,28 +337,16 @@ TEST(UndistortReconstruction, Nominal) {
 
   Camera camera = Camera::CreateFromModelId(1, CameraModelId::kOpenCV, 1, 1, 1);
   camera.params[4] = 1.0;
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
-    Frame frame;
-    frame.SetRigId(1);
-    frame.SetFrameId(image_id);
-    frame.SetRigFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
-    frame.AddDataId(image.DataId());
-    reconstruction.AddFrame(frame);
-    reconstruction.AddImage(image);
-    reconstruction.RegisterFrame(frame.FrameId());
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 
   UndistortCameraOptions options;
@@ -384,28 +372,16 @@ TEST(UndistortReconstruction, RescalesAlreadyUndistortedCameras) {
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100, 100, 100);
   ASSERT_TRUE(camera.IsUndistorted());
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   const Eigen::Vector2d point_xy(60, 40);
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
-    Frame frame;
-    frame.SetRigId(1);
-    frame.SetFrameId(image_id);
-    frame.SetRigFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(std::vector<Eigen::Vector2d>(1, point_xy));
-    frame.AddDataId(image.DataId());
-    reconstruction.AddFrame(frame);
-    reconstruction.AddImage(image);
-    reconstruction.RegisterFrame(frame.FrameId());
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 
   UndistortCameraOptions options;
@@ -499,11 +475,7 @@ TEST(UndistortReconstruction, RescalesSphericalCameras) {
   Camera camera = Camera::CreateFromModelId(
       1, CameraModelId::kEquirectangular, /*focal_length=*/0.0, 1000, 500);
   ASSERT_TRUE(camera.IsSpherical());
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(sensor_t(SensorType::CAMERA, 1));
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   // A front-hemisphere pixel (azimuth 36 deg) and a back-hemisphere pixel
   // (azimuth -144 deg, behind the camera). The back-hemisphere observation has
@@ -512,20 +484,12 @@ TEST(UndistortReconstruction, RescalesSphericalCameras) {
   const std::vector<Eigen::Vector2d> points_xy = {Eigen::Vector2d(600, 200),
                                                   Eigen::Vector2d(100, 400)};
   for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
-    Frame frame;
-    frame.SetRigId(1);
-    frame.SetFrameId(image_id);
-    frame.SetRigFromWorld(Rigid3d());
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(1);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(points_xy);
-    frame.AddDataId(image.DataId());
-    reconstruction.AddFrame(frame);
-    reconstruction.AddImage(image);
-    reconstruction.RegisterFrame(frame.FrameId());
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 
   UndistortCameraOptions options;

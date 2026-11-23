@@ -19,28 +19,16 @@ void GenerateReconstruction(const image_t num_images,
 
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
-    Frame frame;
-    frame.SetFrameId(image_id);
-    frame.SetRigId(rig.RigId());
-    frame.AddDataId(data_t(camera.SensorId(), image_id));
-    frame.SetRigFromWorld(Rigid3d());
-    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(camera.camera_id);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    reconstruction.AddImage(image);
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 }
 
@@ -130,16 +118,11 @@ TEST(ObservationManager, FilterPoints3DWithLargeReprojectionErrorTypes) {
   // This gives: pixel_error = 100 * normalized_error
   Camera camera = Camera::CreateFromModelId(
       kCameraId, CameraModelId::kPinhole, 100, 100, 100);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), 1));
   frame.AddDataId(data_t(camera.SensorId(), 2));
   frame.SetRigFromWorld(Rigid3d());
@@ -210,16 +193,11 @@ TEST(ObservationManager, FilterPoints3DSphericalSeam) {
                                 /*focal_length=*/0.0,
                                 1000,
                                 500);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), 1));
   frame.AddDataId(data_t(camera.SensorId(), 2));
   frame.SetRigFromWorld(Rigid3d());
@@ -437,14 +415,10 @@ TEST(ObservationManager, NumVisiblePoints3D) {
                                                   /*focal_length=*/10,
                                                   /*width=*/10,
                                                   /*height=*/10);
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), kImageId1));
   frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   reconstruction.AddFrame(frame);
@@ -497,16 +471,11 @@ TEST(ObservationManager, NumVisibleCorrespondences) {
                                                   /*focal_length=*/10,
                                                   /*width=*/10,
                                                   /*height=*/10);
-  reconstruction.AddCamera(camera);
-
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), kImageId1));
   frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   frame.AddDataId(data_t(camera.SensorId(), kImageId3));
@@ -605,14 +574,10 @@ TEST(ObservationManager, Point3DVisibilityScore) {
                                                   /*focal_length=*/4,
                                                   /*width=*/4,
                                                   /*height=*/4);
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
   Frame frame;
   frame.SetFrameId(1);
-  frame.SetRigId(rig.RigId());
+  frame.SetRigId(kCameraId);
   frame.AddDataId(data_t(camera.SensorId(), kImageId1));
   frame.AddDataId(data_t(camera.SensorId(), kImageId2));
   reconstruction.AddFrame(frame);
@@ -750,20 +715,13 @@ TEST(ObservationManager, AddImage) {
   graph->AddTwoViewGeometry(2, 3, tvg23);
 
   {
-    const Camera& camera = reconstruction.Camera(1);
-    Frame frame;
-    frame.SetFrameId(3);
-    frame.SetRigId(1);
-    frame.AddDataId(data_t(camera.SensorId(), 3));
-    reconstruction.AddFrame(frame);
     Image image;
     image.SetImageId(3);
-    image.SetCameraId(camera.camera_id);
-    image.SetFrameId(3);
+    image.SetCameraId(1);
     image.SetName("image3");
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(10, Eigen::Vector2d::Zero()));
-    reconstruction.AddImage(image);
+    reconstruction.AddImageWithTrivialFrame(image);
   }
   obs_manager.AddImage(3);
 
