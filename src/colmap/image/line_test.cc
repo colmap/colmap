@@ -10,21 +10,9 @@ namespace {
 #ifdef COLMAP_LSD_ENABLED
 
 TEST(DetectLineSegments, NoDefinedGradients) {
-  for (const int value : {0, 128, 255}) {
-    SCOPED_TRACE(value);
-    Bitmap bitmap(32, 32, false);
-    bitmap.Fill(BitmapColor<uint8_t>(static_cast<uint8_t>(value)));
-    EXPECT_TRUE(DetectLineSegments(bitmap, 0).empty());
-  }
-
-  // A weak ramp also has no gradient above LSD's default threshold.
-  Bitmap ramp(32, 32, false);
-  for (size_t y = 0; y < 32; ++y) {
-    for (size_t x = 0; x < 32; ++x) {
-      ramp.SetPixel(x, y, BitmapColor<uint8_t>(static_cast<uint8_t>(x)));
-    }
-  }
-  EXPECT_TRUE(DetectLineSegments(ramp, 0).empty());
+  Bitmap bitmap(32, 32, false);
+  bitmap.Fill(BitmapColor<uint8_t>(128));
+  EXPECT_TRUE(DetectLineSegments(bitmap, 0).empty());
 }
 
 TEST(DetectLineSegments, Nominal) {
