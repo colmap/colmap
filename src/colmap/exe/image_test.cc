@@ -58,6 +58,7 @@ TEST(ImageUndistorter, Masks) {
                                    "COLMAP"};
   const auto run = [&]() {
     std::vector<char*> argv;
+    argv.reserve(args.size());
     for (auto& arg : args) {
       argv.push_back(arg.data());
     }

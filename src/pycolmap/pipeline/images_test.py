@@ -75,6 +75,7 @@ def test_undistort_images_with_masks(tmp_path: Path) -> None:
     pixels = np.full((80, 100, 3), 128, dtype=np.uint8)
     assert pycolmap.Bitmap.from_array(pixels).write(image_path / image.name)
     # The default must remain an empty input path, not pathlib.Path(".").
+    undistort_options = pycolmap.UndistortCameraOptions(max_image_size=24)
     unmasked_output_path = tmp_path / "unmasked"
     pycolmap.undistort_images(
         unmasked_output_path, input_path, image_path, num_threads=1
@@ -86,7 +87,7 @@ def test_undistort_images_with_masks(tmp_path: Path) -> None:
             input_path,
             image_path,
             mask_path=mask_path,
-            undistort_options={"max_image_size": 24},
+            undistort_options=undistort_options,
             num_threads=1,
         )
     mask = ((np.indices((80, 100)).sum(axis=0) % 2) * 255).astype(np.uint8)
@@ -98,7 +99,7 @@ def test_undistort_images_with_masks(tmp_path: Path) -> None:
         input_path,
         image_path,
         mask_path=mask_path,
-        undistort_options={"max_image_size": 24},
+        undistort_options=undistort_options,
         num_threads=1,
     )
     output_mask = pycolmap.Bitmap.read(
