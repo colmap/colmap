@@ -144,10 +144,7 @@ class DatasetTartanAir(Dataset):
                 height=height,
                 params=[width, height],
             )
-            rig = pycolmap.Rig(rig_id=1)
-            rig.add_ref_sensor(camera.sensor_id)
-            reconstruction.add_camera(camera)
-            reconstruction.add_rig(rig)
+            reconstruction.add_camera_with_trivial_rig(camera)
 
         if reconstruction is not None:
             for image_id, (frame_info, world_from_camera_matrix) in enumerate(
@@ -159,16 +156,13 @@ class DatasetTartanAir(Dataset):
                     camera_id=camera.camera_id,
                     name=frame_info["image_name"],
                 )
-                image.frame_id = image_id
-                frame = pycolmap.Frame(frame_id=image_id)
-                frame.rig_id = rig.rig_id
-                frame.add_data_id(image.data_id)
-                frame.rig_from_world = pycolmap.Rigid3d(
+                cam_from_world = pycolmap.Rigid3d(
                     pycolmap.Rotation3d(world_from_camera_matrix[:3, :3]),
                     world_from_camera_matrix[:3, 3],
                 ).inverse()
-                reconstruction.add_frame(frame)
-                reconstruction.add_image(image)
+                reconstruction.add_image_with_trivial_frame(
+                    image, cam_from_world
+                )
 
             scene_info.sparse_gt_path.mkdir(parents=True)
             reconstruction.write(scene_info.sparse_gt_path)
