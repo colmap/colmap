@@ -43,7 +43,7 @@ void BindSimilarityTransformEstimator(py::module& m) {
       "estimate_rigid3d_robust",
       [](const std::vector<Eigen::Vector3d>& src,
          const std::vector<Eigen::Vector3d>& tgt,
-         const RANSACOptions& options) -> py::typing::Optional<Rigid3d> {
+         const RANSACOptions& options) -> py::typing::Optional<py::dict> {
         py::gil_scoped_release release;
         Rigid3d tgt_from_src;
         const auto report =
@@ -84,7 +84,7 @@ void BindSimilarityTransformEstimator(py::module& m) {
       "estimate_sim3d_robust",
       [](const std::vector<Eigen::Vector3d>& src,
          const std::vector<Eigen::Vector3d>& tgt,
-         const RANSACOptions& options) -> py::typing::Optional<Sim3d> {
+         const RANSACOptions& options) -> py::typing::Optional<py::dict> {
         py::gil_scoped_release release;
         Sim3d tgt_from_src;
         const auto report =
