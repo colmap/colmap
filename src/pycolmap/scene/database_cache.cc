@@ -95,5 +95,8 @@ void BindDatabaseCache(py::module& m) {
           "correspondence_graph",
           static_cast<std::shared_ptr<const class CorrespondenceGraph> (
               DatabaseCache::*)() const>(&DatabaseCache::CorrespondenceGraph))
-      .def("find_image_with_name", &DatabaseCache::FindImageWithName, "name"_a);
+      .def("find_image_with_name",
+           &DatabaseCache::FindImageWithName,
+           py::return_value_policy::reference_internal,
+           "name"_a);
 }
