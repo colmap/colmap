@@ -457,6 +457,51 @@ TEST(DatabaseCache, CreateFromCacheSkipsUndefinedGeometries) {
             0);
 }
 
+TEST(DatabaseCache, CreateFromCacheWithRigImageNames) {
+  auto database = CreateTestDatabase();
+  TwoViewGeometry watermark = database->ReadTwoViewGeometry(1, 2);
+  watermark.config = TwoViewGeometry::WATERMARK;
+  database->UpdateTwoViewGeometry(1, 2, watermark);
+  const auto source = DatabaseCache::Create(*database, {});
+  ASSERT_EQ(source->NumImages(), 4);
+
+  // Each frame has two images. Selecting either image must include its sibling
+  // before matching, including when the selected image has no direct match to
+  // another selected image. Compare against loading the same filter from
+  // SQLite.
+  const std::vector<FlatHashSet<std::string>> name_filters = {
+      {"image1"}, {"image4"}, {"image1", "image4"}, {}, {"missing"}};
+  for (const auto& image_names : name_filters) {
+    for (const bool load_all_images : {false, true}) {
+      for (const bool ignore_watermarks : {false, true}) {
+        for (const size_t min_num_matches : {0, 2}) {
+          DatabaseCache::Options options;
+          options.image_names = image_names;
+          options.load_all_images = load_all_images;
+          options.ignore_watermarks = ignore_watermarks;
+          options.min_num_matches = min_num_matches;
+          const auto expected = DatabaseCache::Create(*database, options);
+          const auto filtered =
+              DatabaseCache::CreateFromCache(*source, options);
+          EXPECT_EQ(filtered->NumFrames(), expected->NumFrames());
+          EXPECT_EQ(filtered->NumImages(), expected->NumImages());
+          for (const auto& [image_id, image] : expected->Images()) {
+            ASSERT_TRUE(filtered->ExistsImage(image_id));
+            EXPECT_EQ(filtered->Image(image_id), image);
+            EXPECT_EQ(filtered->Frame(image.FrameId()),
+                      expected->Frame(image.FrameId()));
+            EXPECT_EQ(filtered->Camera(image.CameraId()),
+                      expected->Camera(image.CameraId()));
+          }
+          EXPECT_EQ(
+              filtered->CorrespondenceGraph()->NumMatchesBetweenAllImages(),
+              expected->CorrespondenceGraph()->NumMatchesBetweenAllImages());
+        }
+      }
+    }
+  }
+}
+
 TEST(DatabaseCache, ConvertMixedGravityAndGPSPosePriorsToENU) {
   auto database = Database::Open(kInMemorySqliteDatabasePath);
   const Camera camera = Camera::CreateFromModelId(
