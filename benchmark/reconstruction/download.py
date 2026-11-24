@@ -133,6 +133,23 @@ def download_imc2023(data_path: Path) -> None:
         archive.extractall(path=data_path)
 
 
+def _group_imc_scenes(data_path: Path) -> None:
+    """Move scenes into the all category, merging a previous extraction."""
+    category_path = data_path / "train/all"
+    category_path.mkdir(parents=True, exist_ok=True)
+    for scene in (data_path / "train").iterdir():
+        if scene.name == "all":
+            continue
+        target = category_path / scene.name
+        if scene.is_dir() and target.is_dir():
+            shutil.copytree(
+                scene, target, copy_function=shutil.move, dirs_exist_ok=True
+            )
+            shutil.rmtree(scene)
+        else:
+            shutil.move(scene, target)
+
+
 def download_imc2024(data_path: Path) -> None:
     data_path.mkdir(parents=True, exist_ok=True)
 
@@ -155,13 +172,7 @@ def download_imc2024(data_path: Path) -> None:
     ) as archive:
         archive.extractall(path=data_path)
 
-    # Move all scenes to the "all" category sub-folder.
-    category_path = data_path / "train/all"
-    category_path.mkdir(parents=True, exist_ok=True)
-    for scene in (data_path / "train").iterdir():
-        if scene.name == "all":
-            continue
-        shutil.move(scene, category_path)
+    _group_imc_scenes(data_path)
 
 
 def download_imc2025(data_path: Path) -> None:
@@ -186,13 +197,7 @@ def download_imc2025(data_path: Path) -> None:
     ) as archive:
         archive.extractall(path=data_path)
 
-    # Move all scenes to the "all" category sub-folder.
-    category_path = data_path / "train/all"
-    category_path.mkdir(parents=True, exist_ok=True)
-    for scene in (data_path / "train").iterdir():
-        if scene.name == "all":
-            continue
-        shutil.move(scene, category_path)
+    _group_imc_scenes(data_path)
 
 
 # TODO: BlendedMVS+ and BlendedMVS++.

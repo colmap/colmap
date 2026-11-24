@@ -33,6 +33,43 @@ def test_imc2024_relative_data_path(
     assert [p.name for p in (data_path / "train").iterdir()] == ["all"]
 
 
+@pytest.mark.parametrize("year", [2024, 2025])
+def test_imc_download_can_resume_grouped_scenes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, year: int
+) -> None:
+    pytest.importorskip("py7zr")
+    monkeypatch.syspath_prepend(str(Path(__file__).parent))
+    import download
+
+    data_path = tmp_path / f"imc{year}"
+    data_path.mkdir()
+    with zipfile.ZipFile(
+        data_path / f"image-matching-challenge-{year}.zip", "w"
+    ) as archive:
+        archive.writestr("train/scene/images/one.jpg", b"image1")
+        archive.writestr("train/scene/images/two.jpg", b"image2")
+        archive.writestr("train/scene2/images/three.jpg", b"image3")
+    monkeypatch.setattr(download.subprocess, "check_call", lambda cmd: 0)
+    downloader = getattr(download, f"download_imc{year}")
+    downloader(data_path)
+
+    scene = data_path / "train/all/scene"
+    (scene / "images/two.jpg").unlink()
+    cached_gt = scene / "sparse_gt/cameras.txt"
+    cached_gt.parent.mkdir()
+    cached_gt.write_text("prepared ground truth")
+    downloader(data_path)
+    downloader(data_path)
+
+    assert (scene / "images/one.jpg").read_bytes() == b"image1"
+    assert (scene / "images/two.jpg").read_bytes() == b"image2"
+    assert (
+        data_path / "train/all/scene2/images/three.jpg"
+    ).read_bytes() == b"image3"
+    assert cached_gt.read_text() == "prepared ground truth"
+    assert [p.name for p in (data_path / "train").iterdir()] == ["all"]
+
+
 @pytest.fixture
 def eth3d_undistorted_release(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
