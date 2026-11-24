@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import numpy as np
+import pytest
 
 import pycolmap
 
@@ -29,6 +30,73 @@ def test_rotation3d_from_buffer() -> None:
     array = np.array([0.0, 0.0, 0.0, 1.0])
     rotation = pycolmap.Rotation3d.from_buffer(array)
     assert rotation is not None
+
+
+@pytest.fixture(params=["contiguous", "strided", "reversed", "float32"])
+def quaternion_array(request: pytest.FixtureRequest) -> np.ndarray:
+    quat = np.array([0.0, 0.0, np.sqrt(0.5), np.sqrt(0.5)])
+    if request.param == "strided":
+        # A row in a Fortran-order pose array is a common strided input.
+        return np.asfortranarray([quat, [1.0, 0.0, 0.0, 0.0]])[0]
+    if request.param == "reversed":
+        return quat[::-1].copy()[::-1]
+    if request.param == "float32":
+        return quat.astype(np.float32)
+    return quat
+
+
+def test_rotation3d_buffer_respects_array_layout(
+    quaternion_array: np.ndarray,
+) -> None:
+    expected = pycolmap.Rotation3d(quaternion_array.copy()).matrix()
+    rotation = pycolmap.Rotation3d.from_buffer(quaternion_array)
+    np.testing.assert_allclose(rotation.matrix(), expected)
+    shares_input = (
+        quaternion_array.flags.c_contiguous
+        and quaternion_array.dtype == np.float64
+    )
+    assert np.shares_memory(rotation.quat, quaternion_array) == shares_input
+    # Updating a copied view must not write into neighboring pose coefficients.
+    original = quaternion_array.copy()
+    rotation.quat = np.array([0.0, 0.0, 0.0, 1.0])
+    if shares_input:
+        np.testing.assert_array_equal(quaternion_array, rotation.quat)
+    else:
+        np.testing.assert_array_equal(quaternion_array, original)
+
+
+@pytest.mark.parametrize("kind", ["rigid", "similarity"])
+def test_transform_quaternion_respects_array_layout(
+    quaternion_array: np.ndarray, kind: str
+) -> None:
+    expected = pycolmap.Rotation3d(quaternion_array.copy()).matrix()
+    # The custom quaternion caster accepts arrays as well as Rotation3d.
+    if kind == "rigid":
+        transform = pycolmap.Rigid3d(quaternion_array, np.zeros(3))  # type: ignore[call-overload]
+    else:
+        transform = pycolmap.Sim3d(1.0, quaternion_array, np.zeros(3))  # type: ignore[call-overload]
+    np.testing.assert_allclose(transform.rotation.matrix(), expected)
+    np.testing.assert_array_equal(transform.rotation.quat, quaternion_array)
+
+
+@pytest.mark.parametrize("kind", ["rigid", "similarity"])
+def test_transform_rotation_setter_respects_array_layout(
+    quaternion_array: np.ndarray, kind: str
+) -> None:
+    expected = pycolmap.Rotation3d(quaternion_array.copy()).matrix()
+    transform = pycolmap.Rigid3d() if kind == "rigid" else pycolmap.Sim3d()
+    transform.rotation = quaternion_array  # type: ignore[assignment]
+    np.testing.assert_allclose(transform.rotation.matrix(), expected)
+    np.testing.assert_array_equal(transform.rotation.quat, quaternion_array)
+
+
+@pytest.mark.parametrize("kind", ["rigid", "similarity"])
+def test_transform_rotation_remains_a_view(kind: str) -> None:
+    transform = pycolmap.Rigid3d() if kind == "rigid" else pycolmap.Sim3d()
+    rotation = transform.rotation
+    assert np.shares_memory(rotation.quat, transform.params)
+    rotation.quat = np.array([0.0, 0.0, 1.0, 0.0])
+    np.testing.assert_array_equal(transform.params[:4], rotation.quat)
 
 
 def test_rotation3d_quat_readwrite() -> None:
