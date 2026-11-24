@@ -188,6 +188,60 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_NE(keypoint, FeatureKeypoint(1, 2, 1, 0));
 }
 
+TEST(FeatureKeypoint, ShearAcrossAngleWrap) {
+  for (const float orientation :
+       {-179.99f, -170.f, -10.f, 0.f, 10.f, 170.f, 179.99f}) {
+    for (const float shear :
+         {-179.99f, -160.f, -20.f, -0.01f, 0.f, 0.01f, 20.f, 160.f, 179.99f}) {
+      const FeatureKeypoint keypoint = FeatureKeypoint::FromShapeParameters(
+          1, 2, 2, 3, DegToRad(orientation), DegToRad(shear));
+      EXPECT_NEAR(keypoint.ComputeShear(), DegToRad(shear), 1e-6)
+          << "orientation=" << orientation << ", shear=" << shear;
+    }
+  }
+}
+
+TEST(FeatureKeypoint, ShearIsInvariantToRotation) {
+  for (const float orientation : {-170.f, 170.f}) {
+    for (const float shear : {-20.f, 20.f}) {
+      for (const int k : {0, 1, 2, 3}) {
+        FeatureKeypoint keypoint = FeatureKeypoint::FromShapeParameters(
+            100, 200, 2, 3, DegToRad(orientation), DegToRad(shear));
+        keypoint.Rot90(k, 640, 480);
+        EXPECT_NEAR(keypoint.ComputeShear(), DegToRad(shear), 1e-6)
+            << "orientation=" << orientation << ", shear=" << shear
+            << ", quarter turns=" << k;
+      }
+    }
+  }
+}
+
+TEST(FeatureKeypoint, ShearDegenerateAndReflectedShapes) {
+  EXPECT_FLOAT_EQ(FeatureKeypoint(0, 0, 0, 0, 0, 0).ComputeShear(), 0);
+  EXPECT_NEAR(
+      FeatureKeypoint(0, 0, 0, -1, 0, 0).ComputeShear(), M_PI / 2, 1e-6);
+  EXPECT_NEAR(
+      FeatureKeypoint(0, 0, 0, 0, 1, 0).ComputeShear(), -M_PI / 2, 1e-6);
+
+  for (const float shear :
+       {-static_cast<float>(M_PI), static_cast<float>(M_PI)}) {
+    const FeatureKeypoint keypoint =
+        FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, 0.2f, shear);
+    EXPECT_NEAR(std::abs(keypoint.ComputeShear()), M_PI, 1e-6);
+    const FeatureKeypoint recovered =
+        FeatureKeypoint::FromShapeParameters(keypoint.x,
+                                             keypoint.y,
+                                             keypoint.ComputeScaleX(),
+                                             keypoint.ComputeScaleY(),
+                                             keypoint.ComputeOrientation(),
+                                             keypoint.ComputeShear());
+    EXPECT_NEAR(recovered.a11, keypoint.a11, 1e-6);
+    EXPECT_NEAR(recovered.a12, keypoint.a12, 1e-6);
+    EXPECT_NEAR(recovered.a21, keypoint.a21, 1e-6);
+    EXPECT_NEAR(recovered.a22, keypoint.a22, 1e-6);
+  }
+}
+
 TEST(FeatureKeypoint, RescaleImageCoordinates) {
   for (const float orientation : {0.0f, 0.5f, 1.5f}) {
     for (const Eigen::Vector2f& scale :

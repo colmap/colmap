@@ -2,6 +2,7 @@
 
 #include "colmap/feature/types.h"
 
+#include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 
 #include <cstring>
@@ -124,7 +125,8 @@ float FeatureKeypoint::ComputeOrientation() const {
 }
 
 float FeatureKeypoint::ComputeShear() const {
-  return std::atan2(-a12, a22) - ComputeOrientation();
+  return std::remainder(std::atan2(-a12, a22) - ComputeOrientation(),
+                        2.0 * M_PI);
 }
 
 FeatureDescriptors FeatureDescriptors::FromFloat(

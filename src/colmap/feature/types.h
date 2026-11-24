@@ -64,6 +64,7 @@ struct FeatureKeypoint {
   float ComputeScaleX() const;
   float ComputeScaleY() const;
   float ComputeOrientation() const;
+  // The shear angle is returned in radians in the range [-pi, pi].
   float ComputeShear() const;
 
   // Location of the feature, with the origin at the upper left image corner,
