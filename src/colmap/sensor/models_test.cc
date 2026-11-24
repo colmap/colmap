@@ -573,6 +573,7 @@ TEST(Division, Nominal) {
 }
 
 TEST(PerspectiveFisheyeCamera, RejectsNonForwardPixels) {
+  const double kPi = EIGEN_PI;
   // With unit focal lengths, zero principal points, and no distortion, the
   // horizontal pixel coordinate is the incidence angle in radians.
   for (const auto model_id : {CameraModelId::kSimpleFisheye,
@@ -584,7 +585,7 @@ TEST(PerspectiveFisheyeCamera, RejectsNonForwardPixels) {
                               CameraModelId::kRadTanThinPrismFisheye}) {
     const auto params = CameraModelInitializeParams(model_id, 1.0, 0, 0);
     SCOPED_TRACE(static_cast<int>(model_id));
-    for (const double theta : {0.0, 85.0 * EIGEN_PI / 180.0}) {
+    for (const double theta : {0.0, 85.0 * kPi / 180.0}) {
       const Eigen::Vector2d xy(theta, 0.0);
       const auto normal = CameraModelCamFromImg(model_id, params, xy);
       ASSERT_TRUE(normal.has_value());
@@ -595,8 +596,8 @@ TEST(PerspectiveFisheyeCamera, RejectsNonForwardPixels) {
       EXPECT_NEAR(ray->x(), std::sin(theta), 1e-9);
       EXPECT_NEAR(ray->z(), std::cos(theta), 1e-9);
     }
-    for (const double theta : {EIGEN_PI / 2.0, 95.0 * EIGEN_PI / 180.0,
-                               5.0 * EIGEN_PI / 3.0}) {
+    for (const double theta :
+         {kPi / 2.0, 95.0 * kPi / 180.0, 5.0 * kPi / 3.0}) {
       const Eigen::Vector2d xy(theta, 0.0);
       EXPECT_FALSE(CameraModelCamFromImg(model_id, params, xy).has_value());
       EXPECT_FALSE(CameraModelCamRayFromImg(model_id, params, xy).has_value());
