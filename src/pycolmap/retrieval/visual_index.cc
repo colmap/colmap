@@ -22,6 +22,27 @@ namespace py = pybind11;
 
 namespace {
 
+std::vector<ImageScore> QueryVisualIndex(
+    const VisualIndex& index,
+    const VisualIndex::QueryOptions& options,
+    const FeatureDescriptorsFloat& descriptors,
+    const FeatureKeypoints* keypoints = nullptr) {
+  std::vector<ImageScore> image_scores;
+  py::gil_scoped_release release;
+  if (keypoints) {
+    index.Query(options, *keypoints, descriptors, &image_scores);
+  } else {
+    index.Query(options, descriptors, &image_scores);
+  }
+  return image_scores;
+}
+
+void ReplaceImageScores(const py::list& output,
+                        const std::vector<ImageScore>& image_scores) {
+  output[py::slice(py::none(), py::none(), py::none())] =
+      py::cast(image_scores);
+}
+
 class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
  public:
   size_t NumVisualWords() const override {
@@ -158,19 +179,59 @@ void BindVisualIndex(py::module& m) {
       .def("desc_dim", &VisualIndex::DescDim)
       .def("embedding_dim", &VisualIndex::EmbeddingDim)
       .def("feature_type", &VisualIndex::FeatureType)
-      .def("query",
-           static_cast<void (VisualIndex::*)(
-               const typename VisualIndex::QueryOptions&,
-               const FeatureDescriptorsFloat&,
-               std::vector<ImageScore>*) const>(&VisualIndex::Query),
-           py::call_guard<py::gil_scoped_release>())
-      .def("query",
-           static_cast<void (VisualIndex::*)(
-               const typename VisualIndex::QueryOptions&,
-               const FeatureKeypoints&,
-               const FeatureDescriptorsFloat&,
-               std::vector<ImageScore>*) const>(&VisualIndex::Query),
-           py::call_guard<py::gil_scoped_release>())
+      .def(
+          "query",
+          [](const VisualIndex& self,
+             const VisualIndex::QueryOptions& options,
+             const FeatureDescriptorsFloat& descriptors) {
+            return QueryVisualIndex(self, options, descriptors);
+          },
+          "options"_a,
+          "descriptors"_a,
+          "Return the most similar images and their retrieval scores.")
+      .def(
+          "query",
+          [](const VisualIndex& self,
+             const VisualIndex::QueryOptions& options,
+             const FeatureKeypoints& keypoints,
+             const FeatureDescriptorsFloat& descriptors) {
+            return QueryVisualIndex(self, options, descriptors, &keypoints);
+          },
+          "options"_a,
+          "keypoints"_a,
+          "descriptors"_a,
+          "Return the most similar images, optionally with spatial "
+          "verification.")
+      .def(
+          "query",
+          [](const VisualIndex& self,
+             const VisualIndex::QueryOptions& options,
+             const FeatureDescriptorsFloat& descriptors,
+             const py::list& image_scores) {
+            ReplaceImageScores(image_scores,
+                               QueryVisualIndex(self, options, descriptors));
+          },
+          "options"_a,
+          "descriptors"_a,
+          "image_scores"_a,
+          "Replace image_scores with the retrieved images and scores.")
+      .def(
+          "query",
+          [](const VisualIndex& self,
+             const VisualIndex::QueryOptions& options,
+             const FeatureKeypoints& keypoints,
+             const FeatureDescriptorsFloat& descriptors,
+             const py::list& image_scores) {
+            ReplaceImageScores(
+                image_scores,
+                QueryVisualIndex(self, options, descriptors, &keypoints));
+          },
+          "options"_a,
+          "keypoints"_a,
+          "descriptors"_a,
+          "image_scores"_a,
+          "Replace image_scores with the retrieved images and scores, "
+          "optionally with spatial verification.")
       .def("prepare",
            &VisualIndex::Prepare,
            py::call_guard<py::gil_scoped_release>())
