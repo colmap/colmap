@@ -281,6 +281,58 @@ TEST(PMVSUndistorter, Integration) {
   }
 }
 
+TEST(PMVSUndistorter, VisibilityUsesExportedImageIndices) {
+  const auto path = CreateTestDir();
+  const auto input_path = path / "input";
+  const auto output_path = path / "output";
+  CreateDirIfNotExists(input_path);
+  CreateDirIfNotExists(output_path);
+  const Camera camera =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 32, 32, 24);
+  Reconstruction reconstruction;
+  reconstruction.AddCameraWithTrivialRig(camera);
+  const std::vector<image_t> image_ids = {40, 7, 120};
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    Image image;
+    image.SetImageId(image_ids[i]);
+    image.SetCameraId(camera.camera_id);
+    image.SetName(std::to_string(image_ids[i]) + ".png");
+    image.SetPoints2D(std::vector<Eigen::Vector2d>(3, {16, 12}));
+    reconstruction.AddImageWithTrivialFrame(
+        image, Rigid3d(Eigen::Quaterniond::Identity(), {-double(i), 0, 0}));
+    Bitmap bitmap(32, 24, true);
+    bitmap.Fill(BitmapColor<uint8_t>(50 + 50 * i, 50 + 50 * i, 50 + 50 * i));
+    ASSERT_TRUE(bitmap.Write(input_path / image.Name()));
+  }
+  const std::vector<std::vector<TrackElement>> tracks = {
+      {{40, 0}, {7, 0}}, {{7, 1}, {120, 0}}, {{40, 1}, {7, 2}}};
+  for (const auto& elements : tracks) {
+    Track track;
+    track.AddElements(elements);
+    reconstruction.AddPoint3D({0, 0, 5}, track);
+  }
+  ASSERT_EQ(reconstruction.RegImageIds(), image_ids);
+  ASSERT_TRUE(reconstruction.IsValid());
+  PMVSUndistorter undistorter(PMVSUndistorter::Options(),
+                              UndistortCameraOptions(),
+                              reconstruction,
+                              input_path,
+                              output_path);
+  undistorter.Run();
+
+  EXPECT_THAT(
+      ReadTextFileLines(output_path / "pmvs" / "vis.dat"),
+      testing::ElementsAre("VISDATA", "3", "0 1 1", "1 2 0 2", "2 1 1"));
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    Bitmap bitmap;
+    ASSERT_TRUE(bitmap.Read(output_path / "pmvs" / "visualize" /
+                            StringPrintf("%08zu.jpg", i)));
+    const uint8_t value = 50 + 50 * i;
+    EXPECT_EQ(bitmap.GetPixel(16, 12),
+              BitmapColor<uint8_t>(value, value, value));
+  }
+}
+
 TEST(CMPMVSUndistorter, Integration) {
   const auto temp_dir = CreateTestDir();
   const auto image_path = temp_dir / "input_images";
