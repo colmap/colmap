@@ -179,6 +179,40 @@ TEST(FileCopy, Nominal) {
   EXPECT_TRUE(ExistsFile(dst_soft_link_path));
 }
 
+TEST(FileCopy, RelativeSoftLink) {
+  const auto dir = CreateTestDir();
+  const auto src_path = dir / "input" / "source.txt";
+  const auto dst_dir = dir / "nested" / "output";
+  CreateDirIfNotExists(src_path.parent_path());
+  CreateDirIfNotExists(dst_dir, /*recursive=*/true);
+  {
+    std::ofstream file(src_path);
+    file << "test content";
+  }
+
+  const auto relative_src_path = std::filesystem::relative(src_path);
+  ASSERT_TRUE(relative_src_path.is_relative());
+  for (const bool relative_dst : {false, true}) {
+    SCOPED_TRACE(relative_dst);
+    const auto dst_path =
+        dst_dir / (relative_dst ? "relative.txt" : "absolute.txt");
+    const auto dst_arg =
+        relative_dst ? std::filesystem::relative(dst_path) : dst_path;
+    try {
+      FileCopy(relative_src_path, dst_arg, FileCopyType::SOFT_LINK);
+    } catch (const std::filesystem::filesystem_error& e) {
+      // Might fail on Windows if symlinks are not enabled.
+      GTEST_SKIP() << "Could not create symlink: " << e.what();
+    }
+    EXPECT_TRUE(std::filesystem::is_symlink(dst_path));
+    EXPECT_TRUE(ExistsFile(dst_path));
+    std::ifstream file(dst_path);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    EXPECT_EQ(buffer.str(), "test content");
+  }
+}
+
 TEST(GetRecursiveFileList, Nominal) {
   const auto dir = CreateTestDir();
   const auto file1 = dir / "file1.txt";

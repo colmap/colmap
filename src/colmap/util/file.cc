@@ -93,7 +93,8 @@ void FileCopy(const std::filesystem::path& src_path,
       std::filesystem::create_hard_link(src_path, dst_path);
       break;
     case FileCopyType::SOFT_LINK:
-      std::filesystem::create_symlink(src_path, dst_path);
+      std::filesystem::create_symlink(std::filesystem::absolute(src_path),
+                                      dst_path);
       break;
   }
 }
