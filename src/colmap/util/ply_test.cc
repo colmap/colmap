@@ -3,12 +3,15 @@
 #include "colmap/util/ply.h"
 
 #include "colmap/util/endian.h"
+#include "colmap/util/string.h"
 #include "colmap/util/testing.h"
 
 #include <array>
 #include <cstdint>
 #include <fstream>
+#include <iterator>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -322,6 +325,95 @@ TEST(Ply, ReadMeshVerticesAsPoints) {
     }
   }
 }
+
+class PlyHeaderWhitespaceTest
+    : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {
+ protected:
+  std::filesystem::path WriteFile() const {
+    const auto& [format, separator] = GetParam();
+    const std::vector<std::string> properties = {"double x",
+                                                 "float y",
+                                                 "float32 z",
+                                                 "float64 nx",
+                                                 "float ny",
+                                                 "float nz",
+                                                 "uchar red",
+                                                 "uchar green",
+                                                 "uchar blue"};
+    const auto path = format == "ascii"
+                          ? WriteTextPlyMesh("whitespace.ply",
+                                             properties,
+                                             {"1.25 -2.5 3.75 0 0 1 10 20 30",
+                                              "2.25 -3.5 4.75 0 0 1 10 20 30",
+                                              "3.25 -4.5 5.75 0 0 1 10 20 30"},
+                                             {"3 0 1 2"})
+                          : WriteBinaryPlyMesh("whitespace.ply",
+                                               format,
+                                               3,
+                                               properties,
+                                               [](const auto& Write) {
+                                                 for (int i = 0; i < 3; ++i) {
+                                                   Write(1.25 + i);
+                                                   Write(-2.5f - i);
+                                                   Write(3.75f + i);
+                                                   Write(0.0);
+                                                   Write(0.0f);
+                                                   Write(1.0f);
+                                                   Write(uint8_t(10));
+                                                   Write(uint8_t(20));
+                                                   Write(uint8_t(30));
+                                                 }
+                                               },
+                                               {{0, 1, 2}});
+
+    std::ifstream input(path, std::ios::binary);
+    std::string header;
+    std::string line;
+    while (std::getline(input, line)) {
+      header += StringReplace(line, " ", separator) + '\n';
+      if (line == "end_header") {
+        break;
+      }
+    }
+    const std::string payload((std::istreambuf_iterator<char>(input)), {});
+    input.close();
+    std::ofstream output(path, std::ios::binary);
+    output << header << payload;
+    return path;
+  }
+};
+
+TEST_P(PlyHeaderWhitespaceTest, ReadPoints) {
+  const auto points = ReadPly(WriteFile());
+  ASSERT_EQ(points.size(), 3);
+  for (size_t i = 0; i < points.size(); ++i) {
+    ExpectPositionEq(points[i], 1.25f + i, -2.5f - i, 3.75f + i);
+    ExpectNormalEq(points[i], 0.0f, 0.0f, 1.0f);
+    ExpectColorEq(points[i], 10, 20, 30);
+  }
+}
+
+TEST_P(PlyHeaderWhitespaceTest, ReadMesh) {
+  const auto path = WriteFile();
+  EXPECT_TRUE(HasPlyMeshFaces(path));
+  const auto mesh = ReadPlyMesh(path).mesh;
+  ASSERT_EQ(mesh.vertices.size(), 3);
+  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+    ExpectPositionEq(mesh.vertices[i], 1.25f + i, -2.5f - i, 3.75f + i);
+    ExpectColorEq(mesh.vertices[i], 10, 20, 30);
+  }
+  ASSERT_EQ(mesh.faces.size(), 1);
+  EXPECT_EQ(mesh.faces[0].vertex_idx1, 0);
+  EXPECT_EQ(mesh.faces[0].vertex_idx2, 1);
+  EXPECT_EQ(mesh.faces[0].vertex_idx3, 2);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Ply,
+    PlyHeaderWhitespaceTest,
+    ::testing::Combine(
+        ::testing::Values("ascii", "binary_little_endian", "binary_big_endian"),
+        ::testing::Values(" ", "  ", "\t")));
 
 TEST(Ply, ReadTextZeroVerticesIgnoresFollowingElements) {
   const auto test_file = CreateTestDir() / "empty.ply";
