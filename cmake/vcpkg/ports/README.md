@@ -24,3 +24,20 @@ redundant because overlay ports take precedence during version resolution.
 
 Remove these overlays after a newer METIS/GKlib pair passes the Windows graph
 cut and scene clustering tests and produces portable binaries on Linux.
+
+## OpenBLAS
+
+COLMAP and FAISS call BLAS from multiple threads, including when OpenBLAS's
+own thread pool is disabled. The registry port does not enable `USE_LOCKING`
+for this configuration, so concurrent calls can share scratch buffers and
+return corrupted results or crash.
+
+The OpenBLAS overlay is copied from the pinned vcpkg baseline
+`c748cb44f2a435fcf015c35225c9d5545fe0021c` (OpenBLAS 0.3.33), with
+`-DUSE_LOCKING=ON` added to the configure options. This keeps single-threaded
+kernels while protecting their shared allocator; it does not enable a nested
+BLAS thread pool. The existing `threads` and `dynamic-arch` features retain
+their behavior.
+
+Remove this overlay once the registry baseline provides a thread-safe
+single-threaded OpenBLAS build.
