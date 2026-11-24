@@ -14,6 +14,7 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 import urllib.request
 
 
@@ -21,15 +22,22 @@ def download_file(url: str, file_path: str, max_retries: int = 3) -> None:
     if os.path.exists(file_path):
         return
     logging.info(f"Downloading {url} to {file_path}")
-    for retry in range(max_retries):
-        try:
-            urllib.request.urlretrieve(url, file_path)
-            return
-        except Exception as exc:
-            logging.error(
-                f"Failed to download {url} (trial={retry + 1}) "
-                f"to {file_path} due to {exc}"
-            )
+    with tempfile.TemporaryDirectory(
+        dir=os.path.dirname(file_path) or "."
+    ) as temp_dir:
+        temp_path = os.path.join(temp_dir, os.path.basename(file_path))
+        for retry in range(max_retries):
+            try:
+                urllib.request.urlretrieve(url, temp_path)
+                os.replace(temp_path, file_path)
+                return
+            except Exception as exc:
+                logging.error(
+                    f"Failed to download {url} (trial={retry + 1}) "
+                    f"to {file_path} due to {exc}"
+                )
+                if retry + 1 == max_retries:
+                    raise
 
 
 def check_small_errors_or_exit(
