@@ -32,19 +32,6 @@ void SeedEstimatedInitialCameras(Reconstruction& reconstruction,
   }
 }
 
-size_t NumRegisteredPosePriors(const std::vector<PosePrior>& pose_priors,
-                               const BundleAdjustmentConfig& ba_config) {
-  size_t num_registered_pose_priors = 0;
-  for (const PosePrior& pose_prior : pose_priors) {
-    if (pose_prior.HasPosition() &&
-        pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
-        ba_config.HasImage(pose_prior.corr_data_id.id)) {
-      ++num_registered_pose_priors;
-    }
-  }
-  return num_registered_pose_priors;
-}
-
 }  // namespace
 
 bool IncrementalMapper::Options::Check() const {
