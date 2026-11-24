@@ -506,7 +506,16 @@ available as ``colmap [command]``:
 - ``vocab_tree_retriever``: Perform vocabulary tree based image retrieval.
 
 - ``rotation_averager``: Run standalone rotation averaging on the view graph.
-  Estimates global camera rotations from pairwise relative rotations.
+  Estimates global camera rotations from pairwise relative rotations. With
+  ``--backend CERES --use_gravity 1 --use_heading 1``, jointly optimizes
+  relative rotations and soft gravity and heading priors in local
+  East–North–Up (ENU) coordinates. Set ``PosePrior.heading`` via the database
+  API (radians clockwise from north, measured for the associated camera's
+  projected optical axis), with an optional ``heading_stddev`` in radians
+  (default 3°). Use one calibrated camera per rig frame. Gravity is required
+  to establish the horizontal plane; without usable headings, yaw is arbitrary.
+  The global mapper exposes the same options through ``GlobalMapper.ra_backend``,
+  ``GlobalMapper.ra_use_gravity``, and ``GlobalMapper.ra_use_heading``.
 
 - ``view_graph_calibrator``: Calibrate camera intrinsics using the view graph.
   Estimates focal lengths and other intrinsic parameters from pairwise

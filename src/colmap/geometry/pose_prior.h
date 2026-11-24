@@ -6,6 +6,8 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/types.h"
 
+#include <cmath>
+#include <limits>
 #include <optional>
 #include <ostream>
 #include <vector>
@@ -42,9 +44,22 @@ struct PosePrior {
   // The gravity (down) in the sensor coordinate system.
   Eigen::Vector3d gravity = Eigen::Vector3d::Constant(kNaN);
 
+  // Heading in radians clockwise from north in Cartesian east-north-up (ENU).
+  // It describes the horizontal projection of the associated sensor's +Z axis
+  // (the camera optical axis). For multi-camera rigs, associate the prior with
+  // the designated forward-view sensor. NaN means no heading prior.
+  double heading = kNaN;
+  // Heading standard deviation in radians. NaN leaves the uncertainty to the
+  // estimator (default 3 degrees).
+  double heading_stddev = kNaN;
+
   inline bool HasPosition() const { return position.allFinite(); }
   inline bool HasPositionCov() const { return position_covariance.allFinite(); }
   inline bool HasGravity() const { return gravity.allFinite(); }
+  inline bool HasHeading() const { return std::isfinite(heading); }
+  inline bool HasHeadingStddev() const {
+    return std::isfinite(heading_stddev) && heading_stddev > 0;
+  }
 
   bool operator==(const PosePrior& other) const;
   bool operator!=(const PosePrior& other) const;
@@ -62,8 +77,8 @@ int ComputeRot90FromGravity(const Eigen::Vector3d& gravity);
 
 // Convert WGS84 pose prior positions in-place to Cartesian ENU coordinates
 // anchored at the first finite WGS84 position. Priors without a finite position
-// (e.g., gravity-only priors) are skipped. Throws if finite-position priors mix
-// coordinate systems.
+// (e.g., heading-only or gravity-only priors) are skipped. Throws if
+// finite-position priors mix coordinate systems.
 void ConvertPosePriorsToENU(std::vector<PosePrior>& pose_priors);
 
 }  // namespace colmap

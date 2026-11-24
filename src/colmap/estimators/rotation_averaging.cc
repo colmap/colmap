@@ -385,7 +385,13 @@ bool RunRotationAveragingOnComponent(
   }
 
   pose_graph.InvalidatePairsOutsideActiveImageIds(expanded_active_image_ids);
-  RotationEstimator rotation_estimator_expanded(options);
+  RotationEstimatorOptions expanded_options = options;
+  // In the joint ENU mode, apply sensor priors after the rig is assembled.
+  if (expanded_options.use_heading) {
+    expanded_options.use_heading = false;
+    expanded_options.use_gravity = false;
+  }
+  RotationEstimator rotation_estimator_expanded(expanded_options);
   if (!rotation_estimator_expanded.EstimateRotations(
           pose_graph, pose_priors, expanded_active_image_ids, recon_expanded)) {
     return false;
@@ -431,8 +437,13 @@ bool RotationEstimator::EstimateRotations(
     return false;
   }
 
+  if (options_.use_heading) {
+    THROW_CHECK_EQ(options_.backend, RotationAveragingBackend::CERES);
+    THROW_CHECK(options_.use_gravity) << "Heading requires gravity priors";
+  }
   // Handle stratified solving for mixed gravity systems.
-  if (UseGravity(options_, pose_priors) && options_.use_stratified) {
+  if (!options_.use_heading && UseGravity(options_, pose_priors) &&
+      options_.use_stratified) {
     if (!MaybeSolveGravityAlignedSubset(
             pose_graph, pose_priors, active_image_ids, reconstruction)) {
       return false;
@@ -558,9 +569,9 @@ bool RotationEstimator::SolveRotationAveraging(
     const FlatHashSet<image_t>& active_image_ids,
     Reconstruction& reconstruction) {
   if (options_.backend == RotationAveragingBackend::CERES) {
-    if (!UseGravity(options_, pose_priors)) {
+    if (options_.use_heading || !UseGravity(options_, pose_priors)) {
       return SolveRotationAveragingWithCeres(
-          pose_graph, active_image_ids, reconstruction);
+          pose_graph, pose_priors, active_image_ids, reconstruction);
     }
     // L1_IRLS ignores COVARIANCE reweighting (equivalent to UNIFORM).
     LOG(WARNING) << "Gravity priors are not supported by the CERES rotation "
@@ -837,7 +848,8 @@ void MaybeEstimatePoseGraphRotationCovariances(
     LOG(FATAL_THROW) << "COVARIANCE reweighting is not implemented for the "
                      << options.backend << " rotation averaging backend";
   }
-  if (UseGravity(options, database_cache.PosePriors())) {
+  if (!options.use_heading &&
+      UseGravity(options, database_cache.PosePriors())) {
     LOG(WARNING) << "COVARIANCE reweighting is ignored when falling back to "
                     "L1_IRLS for gravity priors";
     return;

@@ -32,9 +32,21 @@ void BindPosePrior(py::module& m) {
       .def_readwrite("position_covariance", &PosePrior::position_covariance)
       .def_readwrite("coordinate_system", &PosePrior::coordinate_system)
       .def_readwrite("gravity", &PosePrior::gravity)
+      .def_readwrite("heading",
+                     &PosePrior::heading,
+                     "Heading in radians clockwise from north in ENU, of the "
+                     "horizontal projection of the associated sensor's +Z "
+                     "axis (camera optical axis). For multi-camera rigs, "
+                     "associate it with the designated forward-view sensor.")
+      .def_readwrite("heading_stddev",
+                     &PosePrior::heading_stddev,
+                     "Heading standard deviation in radians. NaN leaves the "
+                     "uncertainty to the estimator (default 3 degrees).")
       .def("has_position", &PosePrior::HasPosition)
       .def("has_position_cov", &PosePrior::HasPositionCov)
-      .def("has_gravity", &PosePrior::HasGravity);
+      .def("has_gravity", &PosePrior::HasGravity)
+      .def("has_heading", &PosePrior::HasHeading)
+      .def("has_heading_stddev", &PosePrior::HasHeadingStddev);
   MakeDataclass(PyPosePrior);
 
   m.def("compute_rot90_from_gravity",

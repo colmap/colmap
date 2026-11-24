@@ -286,6 +286,10 @@ void BindRotationEstimator(py::module& m) {
           .def_readwrite("use_gravity",
                          &RotationEstimatorOptions::use_gravity,
                          "Use gravity priors for rotation averaging.")
+          .def_readwrite("use_heading",
+                         &RotationEstimatorOptions::use_heading,
+                         "Use soft gravity and heading priors in ENU with "
+                         "CERES. Requires use_gravity.")
           .def_readwrite("use_stratified",
                          &RotationEstimatorOptions::use_stratified,
                          "Use stratified solving for mixed gravity systems.")

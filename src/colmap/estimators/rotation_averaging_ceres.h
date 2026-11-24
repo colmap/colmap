@@ -115,6 +115,9 @@ class CeresRotationAverager {
                     PreparedWeights weights);
   void SetupParameterBlocks(const RotationEstimatorOptions& options,
                             const FlatHashSet<image_t>& image_ids);
+  void AddOrientationPriors(const RotationEstimatorOptions& options,
+                            const PoseGraphInfo& graph_info,
+                            const std::vector<PosePrior>& pose_priors);
   void AddRelativeRotationResidualImpl(
       image_t image_id1,
       image_t image_id2,

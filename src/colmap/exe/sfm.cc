@@ -689,6 +689,7 @@ void RunPointTriangulatorImpl(
 int RunRotationAverager(int argc, char** argv) {
   std::filesystem::path output_path;
   std::filesystem::path image_list_path;
+  std::string backend;
 
   RotationAveragingPipelineOptions controller_options;
 
@@ -704,6 +705,11 @@ int RunRotationAverager(int argc, char** argv) {
   options.AddDefaultOption("random_seed", &controller_options.random_seed);
   options.AddDefaultOption("use_gravity",
                            &controller_options.rotation_estimation.use_gravity);
+  options.AddDefaultOption("backend", &backend, "L1_IRLS or CERES.");
+  options.AddDefaultOption("use_heading",
+                           &controller_options.rotation_estimation.use_heading,
+                           "Use soft gravity and heading priors in ENU with "
+                           "Ceres. Requires --use_gravity 1.");
   options.AddDefaultOption(
       "use_stratified", &controller_options.rotation_estimation.use_stratified);
   options.AddDefaultOption("refine_gravity",
@@ -713,6 +719,13 @@ int RunRotationAverager(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  if (!backend.empty()) {
+    controller_options.rotation_estimation.backend =
+        RotationAveragingBackendFromString(backend);
+  } else if (controller_options.rotation_estimation.use_heading) {
+    controller_options.rotation_estimation.backend =
+        RotationAveragingBackend::CERES;
+  }
   controller_options.gravity_refiner = *options.gravity_refiner;
 
   if (!image_list_path.empty()) {

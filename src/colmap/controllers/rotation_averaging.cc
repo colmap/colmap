@@ -62,21 +62,25 @@ void RotationAveragingPipeline::Run() {
   // Get a mutable copy of pose priors.
   std::vector<PosePrior> pose_priors = database_cache_->PosePriors();
 
-  // Initialize frame rotations from gravity priors.
-  const Eigen::Vector3d kUnknownTranslation =
-      Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-  for (const auto& pose_prior : pose_priors) {
-    if (!pose_prior.HasGravity()) {
-      continue;
+  // The ENU Ceres solver initializes the joint world orientation itself.
+  if (!options.rotation_estimation.use_heading) {
+    const Eigen::Vector3d kUnknownTranslation =
+        Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+    for (const auto& pose_prior : pose_priors) {
+      if (!pose_prior.HasGravity() ||
+          pose_prior.corr_data_id.sensor_id.type != SensorType::CAMERA ||
+          !reconstruction_->ExistsImage(pose_prior.corr_data_id.id)) {
+        continue;
+      }
+      const auto& image = reconstruction_->Image(pose_prior.corr_data_id.id);
+      if (!image.IsRefInFrame()) {
+        continue;
+      }
+      reconstruction_->Frame(image.FrameId())
+          .SetRigFromWorld(Rigid3d(
+              Eigen::Quaterniond(GravityAlignedRotation(pose_prior.gravity)),
+              kUnknownTranslation));
     }
-    const auto& image = reconstruction_->Image(pose_prior.pose_prior_id);
-    if (!image.IsRefInFrame()) {
-      continue;
-    }
-    reconstruction_->Frame(image.FrameId())
-        .SetRigFromWorld(Rigid3d(
-            Eigen::Quaterniond(GravityAlignedRotation(pose_prior.gravity)),
-            kUnknownTranslation));
   }
 
   // Optionally refine gravity priors (only if gravity priors exist).

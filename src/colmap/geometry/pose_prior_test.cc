@@ -25,6 +25,41 @@ TEST(PosePrior, Equals) {
   EXPECT_NE(prior, other);
   other.position.x() = 1;
   EXPECT_EQ(prior, other);
+  prior.heading = 0.25;
+  EXPECT_NE(prior, other);
+  other.heading = 0.25;
+  EXPECT_EQ(prior, other);
+  prior.heading_stddev = 0.125;
+  EXPECT_NE(prior, other);
+  other.heading_stddev = 0.125;
+  EXPECT_EQ(prior, other);
+  other.heading_stddev = 0.25;
+  EXPECT_NE(prior, other);
+}
+
+TEST(PosePrior, HasHeading) {
+  PosePrior prior;
+  EXPECT_TRUE(std::isnan(prior.heading));
+  EXPECT_TRUE(std::isnan(prior.heading_stddev));
+  EXPECT_FALSE(prior.HasHeading());
+  EXPECT_FALSE(prior.HasHeadingStddev());
+
+  prior.heading = 0.0;
+  EXPECT_TRUE(prior.HasHeading());
+  EXPECT_FALSE(prior.HasPosition());
+  EXPECT_FALSE(prior.HasHeadingStddev());
+  prior.heading_stddev = 0.1;
+  EXPECT_TRUE(prior.HasHeadingStddev());
+
+  const double infinity = std::numeric_limits<double>::infinity();
+  for (double heading : {-infinity, infinity}) {
+    prior.heading = heading;
+    EXPECT_FALSE(prior.HasHeading());
+  }
+  for (double stddev : {-infinity, -0.1, 0.0, infinity}) {
+    prior.heading_stddev = stddev;
+    EXPECT_FALSE(prior.HasHeadingStddev());
+  }
 }
 
 TEST(PosePrior, NaNEquals) {
@@ -53,13 +88,16 @@ TEST(PosePrior, Print) {
   prior.position_covariance = Eigen::Matrix3d::Identity();
   prior.coordinate_system = PosePrior::CoordinateSystem::CARTESIAN;
   prior.gravity = Eigen::Vector3d::UnitZ();
+  prior.heading = 0.5;
+  prior.heading_stddev = 0.125;
   std::ostringstream stream;
   stream << prior;
   EXPECT_EQ(stream.str(),
             "PosePrior(pose_prior_id=0, corr_data_id=(CAMERA, 1, 2), "
             "position=[0, 0, 0], "
             "position_covariance=[1, 0, 0, 0, 1, 0, 0, 0, 1], "
-            "coordinate_system=CARTESIAN, gravity=[0, 0, 1])");
+            "coordinate_system=CARTESIAN, gravity=[0, 0, 1], "
+            "heading=0.5, heading_stddev=0.125)");
 }
 
 TEST(PosePrior, GravityFromExifOrientation) {
