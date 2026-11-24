@@ -398,6 +398,7 @@ TEST(MaybeDownloadAndCacheFile, ConcurrentDownloads) {
   std::promise<void> start;
   const auto ready = start.get_future().share();
   std::vector<std::future<std::filesystem::path>> downloads;
+  downloads.reserve(4);
   for (int i = 0; i < 4; ++i) {
     downloads.push_back(std::async(std::launch::async, [&]() {
       ready.wait();
