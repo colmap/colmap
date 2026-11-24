@@ -63,22 +63,17 @@ std::filesystem::path AddFileExtension(std::filesystem::path path,
 void SplitFileExtension(const std::string& path,
                         std::string* root,
                         std::string* ext) {
-  const auto parts = StringSplit(path, ".");
-  THROW_CHECK_GT(parts.size(), 0);
-  if (parts.size() == 1) {
-    *root = parts[0];
+  const size_t filename_start =
+      path.size() - std::filesystem::path(path).filename().string().size();
+  const size_t extension_start = path.find_last_of('.');
+  if (extension_start == std::string::npos ||
+      extension_start < filename_start) {
+    *root = path;
     *ext = "";
   } else {
-    *root = "";
-    for (size_t i = 0; i < parts.size() - 1; ++i) {
-      *root += parts[i] + ".";
-    }
-    *root = root->substr(0, root->length() - 1);
-    if (parts.back() == "") {
-      *ext = "";
-    } else {
-      *ext = "." + parts.back();
-    }
+    *root = path.substr(0, extension_start);
+    *ext =
+        extension_start + 1 == path.size() ? "" : path.substr(extension_start);
   }
 }
 
