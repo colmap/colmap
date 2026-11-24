@@ -164,6 +164,80 @@ TEST_P(ParameterizedVisualIndexTests, ReadWrite) {
   EXPECT_FALSE(visual_index->IsImageIndexed(3));
 }
 
+TEST_P(ParameterizedVisualIndexTests, Rebuild) {
+  const auto [desc_dim, embedding_dim] = GetParam();
+  const auto training_descriptors =
+      CreateRandomDescriptors(1000, desc_dim, FeatureExtractorType::SIFT);
+  const FeatureDescriptorsFloat descriptors(
+      FeatureExtractorType::SIFT, training_descriptors.data.topRows(50));
+  const FeatureDescriptorsFloat other_descriptors(
+      FeatureExtractorType::SIFT, training_descriptors.data.bottomRows(50));
+  const FeatureDescriptorsFloat empty_descriptors(
+      FeatureExtractorType::SIFT, FeatureDescriptorsFloatData(0, desc_dim));
+  const FeatureKeypoints keypoints(50);
+  VisualIndex::IndexOptions index_options;
+  index_options.num_threads = 1;
+  VisualIndex::QueryOptions query_options;
+  query_options.num_neighbors = 1;
+  query_options.num_threads = 1;
+
+  for (const bool prepare_before_rebuild : {false, true}) {
+    SCOPED_TRACE(prepare_before_rebuild);
+    VisualIndex::BuildOptions build_options;
+    build_options.num_iterations = 5;
+    build_options.num_rounds = 1;
+    build_options.num_visual_words = 100;
+    build_options.num_threads = 1;
+    auto index = VisualIndex::Create(desc_dim, embedding_dim);
+    index->Build(build_options, training_descriptors);
+    index->Add(index_options, 7, keypoints, descriptors);
+    index->Add(index_options, 9, keypoints, other_descriptors);
+    index->Add(index_options, 11, {}, empty_descriptors);
+    ASSERT_EQ(index->NumImages(), 3);
+    if (prepare_before_rebuild) {
+      index->Prepare();
+    }
+
+    build_options.num_visual_words = 50;
+    index->Build(build_options, training_descriptors);
+    EXPECT_EQ(index->NumVisualWords(), 50);
+    EXPECT_EQ(index->NumImages(), 0);
+    EXPECT_FALSE(index->IsImageIndexed(7));
+    EXPECT_FALSE(index->IsImageIndexed(9));
+    EXPECT_FALSE(index->IsImageIndexed(11));
+    std::vector<ImageScore> scores;
+    EXPECT_THROW(index->Query(query_options, descriptors, &scores),
+                 std::invalid_argument);
+    index->Prepare();
+    index->Query(query_options, descriptors, &scores);
+    EXPECT_TRUE(scores.empty());
+
+    index->Add(index_options, 7, keypoints, descriptors);
+    index->Add(index_options, 13, keypoints, other_descriptors);
+    index->Prepare();
+    EXPECT_EQ(index->NumImages(), 2);
+    index->Query(query_options, descriptors, &scores);
+    ASSERT_FALSE(scores.empty());
+    EXPECT_EQ(scores.front().image_id, 7);
+    for (const auto& score : scores) {
+      EXPECT_TRUE(score.image_id == 7 || score.image_id == 13);
+    }
+
+    const auto path = CreateTestDir() / "rebuilt.bin";
+    index->Write(path);
+    auto read_index = VisualIndex::Read(path);
+    EXPECT_EQ(read_index->NumImages(), 2);
+    EXPECT_TRUE(read_index->IsImageIndexed(7));
+    EXPECT_TRUE(read_index->IsImageIndexed(13));
+    EXPECT_FALSE(read_index->IsImageIndexed(9));
+    EXPECT_FALSE(read_index->IsImageIndexed(11));
+    read_index->Prepare();
+    read_index->Query(query_options, descriptors, &scores);
+    ASSERT_FALSE(scores.empty());
+    EXPECT_EQ(scores.front().image_id, 7);
+  }
+}
+
 TEST_P(ParameterizedVisualIndexTests, SpatialVerification) {
   const auto [desc_dim, embedding_dim] = GetParam();
 
