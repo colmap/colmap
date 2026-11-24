@@ -283,7 +283,7 @@ void ImportPMVSWorkspace(const Workspace& workspace,
       if (overlapping_images.empty()) {
         patch_match_file << "__auto__, 20\n";
       } else {
-        for (const int image_idx : overlapping_images[i]) {
+        for (const int image_idx : overlapping_images[image_idxs[i]]) {
           patch_match_file << workspace.GetModel().GetImageName(image_idx)
                            << ", ";
         }
