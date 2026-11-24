@@ -563,6 +563,24 @@ TEST(ExportVRML, Nominal) {
       reconstruction, images_path, points3D_path, image_scale, image_rgb);
   EXPECT_TRUE(std::filesystem::exists(images_path));
   EXPECT_TRUE(std::filesystem::exists(points3D_path));
+  EXPECT_THAT(ReadFileAsString(images_path),
+              testing::StartsWith("#VRML V2.0 utf8\n"));
+  EXPECT_THAT(ReadFileAsString(points3D_path),
+              testing::StartsWith("#VRML V2.0 utf8\n"));
+}
+
+TEST(ExportVRML, EmptyReconstruction) {
+  const auto test_dir = CreateTestDir();
+  const auto images_path = test_dir / "images.wrl";
+  const auto points3D_path = test_dir / "points3D.wrl";
+  ExportVRML(Reconstruction(),
+             images_path,
+             points3D_path,
+             1.0,
+             Eigen::Vector3d(1.0, 0.0, 0.0));
+  EXPECT_EQ(ReadFileAsString(images_path), "#VRML V2.0 utf8\n");
+  EXPECT_THAT(ReadFileAsString(points3D_path),
+              testing::StartsWith("#VRML V2.0 utf8\n"));
 }
 
 // Custom numpunct facet that uses comma as decimal separator, for testing
