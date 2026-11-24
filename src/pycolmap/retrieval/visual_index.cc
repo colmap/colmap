@@ -81,7 +81,7 @@ class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
   }
 
   void Write(const std::filesystem::path& path) const override {
-    PYBIND11_OVERRIDE_PURE(void, VisualIndex, Read);
+    PYBIND11_OVERRIDE_PURE(void, VisualIndex, Write, path);
   }
 
  protected:

@@ -1,5 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+from pathlib import Path
+
+import numpy as np
+import pytest
+
 import pycolmap
 
 
@@ -122,3 +127,48 @@ def test_visual_index_create_with_descriptor_dimension() -> None:
     for desc_dim in (32, 128, 256):
         index = pycolmap.VisualIndex.create(desc_dim)
         assert index.desc_dim() == desc_dim
+
+
+def test_visual_index_write_override(tmp_path: Path) -> None:
+    index = pycolmap.VisualIndex.create(128, 64)
+    options = pycolmap.VisualIndex.BuildOptions(
+        num_visual_words=5, num_iterations=2, num_rounds=1, num_threads=1
+    )
+    data = np.random.default_rng(0).random((200, 128), dtype=np.float32)
+    data /= np.linalg.norm(data, axis=1, keepdims=True)
+    data = np.minimum(np.round(512 * data), 255)
+    descriptors = pycolmap.FeatureDescriptorsFloat(
+        pycolmap.FeatureExtractorType.SIFT, data
+    )
+    index.build(options, descriptors)
+    keypoints = pycolmap.FeatureKeypoints(
+        [pycolmap.FeatureKeypoint() for _ in range(len(data))]
+    )
+    index.add(
+        pycolmap.VisualIndex.IndexOptions(num_threads=1),
+        7,
+        keypoints,
+        descriptors,
+    )
+    index.prepare()
+
+    class DelegatingIndex(pycolmap.VisualIndex):
+        def Write(self, path: Path) -> None:
+            index.write(path)
+
+    path = tmp_path / "custom vocabulary.bin"
+    DelegatingIndex().write(path)
+    restored = pycolmap.VisualIndex.read(path)
+    assert restored.num_visual_words() == 5
+    assert restored.num_images() == 1
+    assert restored.is_image_indexed(7)
+    assert restored.feature_type() == pycolmap.FeatureExtractorType.SIFT
+
+
+def test_visual_index_write_override_exception(tmp_path: Path) -> None:
+    class FailingIndex(pycolmap.VisualIndex):
+        def Write(self, path: Path) -> None:
+            raise OSError(f"Cannot write custom index to {path}")
+
+    with pytest.raises(OSError, match="Cannot write custom index"):
+        FailingIndex().write(tmp_path / "index.bin")
