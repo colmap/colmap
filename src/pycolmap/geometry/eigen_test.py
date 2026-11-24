@@ -107,6 +107,28 @@ def test_rotation3d_quat_readwrite() -> None:
     np.testing.assert_array_almost_equal(rotation.quat, [0.0, 0.0, 0.0, 1.0])
 
 
+@pytest.mark.parametrize("kind", ["rigid", "similarity"])
+def test_readonly_rotation_as_transform_input(kind: str) -> None:
+    quat = np.array([0.0, 0.0, np.sqrt(0.5), np.sqrt(0.5)])
+    quat.setflags(write=False)
+    rotation = pycolmap.Rotation3d.from_buffer(quat)
+
+    transform: pycolmap.Rigid3d | pycolmap.Sim3d
+    if kind == "rigid":
+        transform = pycolmap.Rigid3d(rotation, np.zeros(3))
+    else:
+        transform = pycolmap.Sim3d(1.0, rotation, np.zeros(3))
+    np.testing.assert_array_equal(transform.rotation.quat, quat)
+    assigned = pycolmap.Rigid3d() if kind == "rigid" else pycolmap.Sim3d()
+    assigned.rotation = rotation
+    np.testing.assert_array_equal(assigned.rotation.quat, quat)
+
+    assert np.shares_memory(rotation.quat, quat)
+    assert not rotation.quat.flags.writeable
+    with pytest.raises(ValueError, match="not writeable"):
+        rotation.normalize()
+
+
 def test_rotation3d_matrix() -> None:
     rotation = pycolmap.Rotation3d(xyzw=np.array([0.0, 0.0, 0.0, 1.0]))
     matrix = rotation.matrix()

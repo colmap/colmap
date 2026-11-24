@@ -84,7 +84,7 @@ struct type_caster<Eigen::Quaterniond> {
   bool load(handle src, bool) {
     // Try to load from Rotation3dWrapper
     if (isinstance<pycolmap::Rotation3dWrapper>(src)) {
-      value = src.cast<pycolmap::Rotation3dWrapper&>().map();
+      value = src.cast<const pycolmap::Rotation3dWrapper&>().map();
       return true;
     }
     // Also accept raw numpy arrays
