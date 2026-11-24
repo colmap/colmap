@@ -5,6 +5,8 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random_eigen.h"
 
+#include <stdexcept>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -311,6 +313,22 @@ TEST(CorrespondenceGraph, Duplicate) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 4);
   const image_pair_t pair_id = ImagePairToPairId(0, 1);
   EXPECT_EQ(correspondence_graph.NumMatchesBetweenAllImages().at(pair_id), 4);
+}
+
+TEST(CorrespondenceGraph, DuplicateImagePair) {
+  CorrespondenceGraph correspondence_graph;
+  correspondence_graph.AddImage(0, 10);
+  correspondence_graph.AddImage(1, 10);
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.inlier_matches = {{0, 0}, {1, 1}};
+  correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry);
+  EXPECT_THROW(correspondence_graph.AddTwoViewGeometry(0, 1, two_view_geometry),
+               std::invalid_argument);
+  EXPECT_THROW(correspondence_graph.AddTwoViewGeometry(1, 0, two_view_geometry),
+               std::invalid_argument);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(0), 2);
+  EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 2);
+  EXPECT_EQ(correspondence_graph.NumMatchesBetweenImages(0, 1), 2);
 }
 
 TEST(CorrespondenceGraph, UpdateTwoViewGeometry) {

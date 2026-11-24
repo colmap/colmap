@@ -65,8 +65,8 @@ jobs:
       GLOG_v: 2
       GLOG_logtostderr: 1
       CUDA_MAJOR_VERSION: 13
-      CUDA_MINOR_VERSION: 3
-      CUDA_PATCH_VERSION: 1
+      CUDA_MINOR_VERSION: 5
+      CUDA_PATCH_VERSION: 0
 
     steps:
       - uses: actions/checkout@v7
@@ -113,11 +113,19 @@ jobs:
           & "${{ env.COMPILER_CACHE_DIR }}/bin/ccache.exe" --zero-stats
 
       - name: Install CUDA
-        uses: Jimver/cuda-toolkit@v0.2.36
         if: matrix.config.cudaEnabled
         id: cuda-toolkit
-        with:
-          cuda: '${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}.${{ env.CUDA_PATCH_VERSION }}'
+        shell: pwsh
+        run: |
+          # cudafe++ of CUDA <= 13.3 crashes (ACCESS_VIOLATION) with the MSVC
+          # 14.52 toolset of the windows-2025-vs2026 runner, but
+          # Jimver/cuda-toolkit (v0.2.36) does not know newer CUDA versions, so
+          # we run NVIDIA's network installer directly.
+          $version = "${{ env.CUDA_MAJOR_VERSION }}.${{ env.CUDA_MINOR_VERSION }}"
+          $fullVersion = "$version.${{ env.CUDA_PATCH_VERSION }}"
+          $installer = "${env:RUNNER_TEMP}/cuda_${fullVersion}_windows_network.exe"
+          Invoke-WebRequest -OutFile $installer `
+            -Uri "https://developer.download.nvidia.com/compute/cuda/${fullVersion}/network_installers/cuda_${fullVersion}_windows_x86_64_network.exe"
           # CUDA 13 reorganized the toolkit, so the compiler now needs four
           # extra components beyond the old list: crt (crt/host_config.h,
           # included by cuda_runtime.h), nvvm (the cicc device compiler +
@@ -125,8 +133,18 @@ jobs:
           # nvptxcompiler, and thrust (Thrust/CUB headers, on Windows the
           # subpackage is "thrust", not "cccl"). We avoid a full install to
           # skip the large math/Nsight subpackages COLMAP does not use.
-          sub-packages: '["nvcc", "crt", "nvvm", "nvptxcompiler", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev"]'
-          method: 'network'
+          $subPackages = "nvcc", "crt", "nvvm", "nvptxcompiler", "thrust", "nvtx", "cudart", "curand", "curand_dev", "nvrtc_dev" | ForEach-Object { "${_}_${version}" }
+          $process = Start-Process -FilePath $installer -ArgumentList (@("-s") + $subPackages) -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "CUDA installer failed with exit code $($process.ExitCode)"
+          }
+          $cudaPath = "${env:ProgramFiles}/NVIDIA GPU Computing Toolkit/CUDA/v${version}"
+          if (!(Test-Path -PathType Leaf "${cudaPath}/bin/nvcc.exe")) {
+            throw "nvcc.exe not found in ${cudaPath}"
+          }
+          echo "CUDA_PATH=${cudaPath}" >> "${env:GITHUB_OUTPUT}"
+          echo "CUDA_PATH=${cudaPath}" >> "${env:GITHUB_ENV}"
+          echo "${cudaPath}/bin" >> "${env:GITHUB_PATH}"
 
       - name: Setup vcpkg
         shell: pwsh

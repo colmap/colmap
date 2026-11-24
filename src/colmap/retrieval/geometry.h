@@ -11,6 +11,7 @@ namespace retrieval {
 
 struct FeatureGeometryTransform {
   float scale = 0.0f;
+  // Rotation angle in [-pi, pi].
   float angle = 0.0f;
   float tx = 0.0f;
   float ty = 0.0f;
