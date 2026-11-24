@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import copy
+import gc
+import weakref
+from collections.abc import Callable
+
 import numpy as np
+import pytest
 
 import pycolmap
 
@@ -95,3 +101,50 @@ def test_image_map_insert_and_access() -> None:
     image_map[1] = image
     assert len(image_map) == 1
     assert image_map[1].name == "test.jpg"
+
+
+@pytest.mark.parametrize("kind", ["image", "frame"])
+@pytest.mark.parametrize("copy_fn", [copy.copy, copy.deepcopy])
+def test_scene_copy_keeps_reconstruction_alive(
+    kind: str,
+    copy_fn: Callable[
+        [pycolmap.Image | pycolmap.Frame], pycolmap.Image | pycolmap.Frame
+    ],
+    simple_camera: pycolmap.Camera,
+) -> None:
+    reconstruction = pycolmap.Reconstruction()
+    reconstruction.add_camera_with_trivial_rig(simple_camera)
+    reconstruction.add_image_with_trivial_frame(
+        pycolmap.Image(name="frame.jpg", camera_id=1, image_id=1)
+    )
+    pose = pycolmap.Rigid3d(translation=np.array([1.0, 2.0, 3.0]))
+    reconstruction.frame(1).rig_from_world = pose
+    original = (
+        reconstruction.image(1) if kind == "image" else reconstruction.frame(1)
+    )
+    duplicate = copy_fn(original)
+    assert duplicate is not original
+    owner_ref = weakref.ref(reconstruction)
+    del original, reconstruction
+    gc.collect()
+    assert owner_ref() is not None
+
+    if isinstance(duplicate, pycolmap.Image):
+        assert duplicate.has_pose
+        np.testing.assert_allclose(
+            duplicate.cam_from_world().matrix(), pose.matrix()
+        )
+        projection = duplicate.project_point(np.array([0.0, 0.0, 1.0]))
+        assert projection is not None
+        np.testing.assert_allclose(projection, [637.0, 634.0])
+    else:
+        assert duplicate.has_pose()
+        np.testing.assert_allclose(
+            duplicate.sensor_from_world(
+                pycolmap.sensor_t(pycolmap.SensorType.CAMERA, 1)
+            ).matrix(),
+            pose.matrix(),
+        )
+    del duplicate
+    gc.collect()
+    assert owner_ref() is None

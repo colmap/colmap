@@ -191,7 +191,15 @@ void BindSceneImage(py::module& m) {
             }
             return points2D;
           },
-          "Get the 2D points that observe a 3D point.");
+          "Get the 2D points that observe a 3D point.")
+      .def(
+          "__copy__",
+          [](const Image& self) { return Image(self); },
+          py::keep_alive<0, 1>())
+      .def(
+          "__deepcopy__",
+          [](const Image& self, const py::dict&) { return Image(self); },
+          py::keep_alive<0, 1>());
   MakeDataclass(PyImage);
 
   py::bind_map<ImageMap>(m, "ImageMap");
