@@ -855,6 +855,37 @@ TEST_P(BitmapCloneMetadataTest, PreservesTargetChannels) {
   EXPECT_EQ(read_bitmap.RowMajorData(), target.RowMajorData());
 }
 
+TEST_P(BitmapCloneMetadataTest, ConvertedChannelsHaveMatchingNames) {
+  const auto& [as_rgb, extension] = GetParam();
+  const auto path = CreateTestDir() / ("converted_channels" + extension);
+  if (extension == ".exr" && !OIIO::ImageOutput::create(path.string())) {
+    OIIO::geterror();
+    GTEST_SKIP() << "OpenImageIO was built without the OpenEXR output plugin";
+  }
+
+  Bitmap source(3, 2, /*as_rgb=*/!as_rgb);
+  source.Fill(BitmapColor<uint8_t>(12, 34, 56));
+  source.SetMetaData("Artist", "source photographer");
+  const Bitmap target = as_rgb ? source.CloneAsRGB() : source.CloneAsGrey();
+  EXPECT_EQ(target.GetMetaData("Artist").value(), "source photographer");
+
+  ASSERT_TRUE(target.Write(path));
+  auto input = OIIO::ImageInput::open(path.string());
+  ASSERT_NE(input, nullptr);
+  EXPECT_EQ(input->spec().nchannels, target.Channels());
+  EXPECT_THAT(
+      input->spec().channelnames,
+      testing::ElementsAreArray(as_rgb ? std::vector<std::string>{"R", "G", "B"}
+                                       : std::vector<std::string>{"Y"}));
+  ASSERT_TRUE(input->close());
+
+  Bitmap read_bitmap;
+  ASSERT_TRUE(read_bitmap.Read(path, as_rgb));
+  EXPECT_EQ(read_bitmap.Width(), target.Width());
+  EXPECT_EQ(read_bitmap.Height(), target.Height());
+  EXPECT_EQ(read_bitmap.RowMajorData(), target.RowMajorData());
+}
+
 INSTANTIATE_TEST_SUITE_P(Bitmap,
                          BitmapCloneMetadataTest,
                          testing::Combine(testing::Bool(),

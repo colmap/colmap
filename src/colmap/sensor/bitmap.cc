@@ -677,9 +677,7 @@ Bitmap Bitmap::CloneAsGrey() const {
                                              .7152f * data_[3 * i + 1] +
                                              .0722f * data_[3 * i + 2] + .5f);
     }
-    cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
-    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
-    cloned_meta_data->image_spec.nchannels = 1;
+    CloneMetadata(&cloned);
     return cloned;
   }
 }
@@ -700,9 +698,7 @@ Bitmap Bitmap::CloneAsRGB() const {
       cloned.data_[3 * i + 1] = data_[i];
       cloned.data_[3 * i + 2] = data_[i];
     }
-    cloned.meta_data_ = OIIOMetaData::Clone(meta_data_);
-    auto* cloned_meta_data = OIIOMetaData::Upcast(cloned.meta_data_.get());
-    cloned_meta_data->image_spec.nchannels = 3;
+    CloneMetadata(&cloned);
     return cloned;
   }
 }
