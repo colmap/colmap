@@ -61,6 +61,32 @@ TEST(DepthMap, ToBitmap) {
   EXPECT_EQ(bitmap.GetPixel(1, 1).value(), BitmapColor<uint8_t>(128, 0, 0));
 }
 
+TEST(DepthMap, ToBitmapConstantDepth) {
+  DepthMap depth_map(2, 2, 0, 2);
+  depth_map.Fill(1);
+  depth_map.Set(0, 0, 0, 0);
+  const Bitmap bitmap = depth_map.ToBitmap(0, 100);
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value(), BitmapColor<uint8_t>(0));
+  const BitmapColor<uint8_t> valid_color = JetColormap::ToBitmapColor(0.5f);
+  EXPECT_EQ(bitmap.GetPixel(1, 0).value(), valid_color);
+  EXPECT_EQ(bitmap.GetPixel(0, 1).value(), valid_color);
+  EXPECT_EQ(bitmap.GetPixel(1, 1).value(), valid_color);
+}
+
+TEST(DepthMap, ToBitmapCollapsedPercentiles) {
+  DepthMap depth_map(10, 10, 0.1, 10);
+  depth_map.Fill(1);
+  depth_map.Set(0, 0, 0, 0.1);
+  depth_map.Set(9, 9, 0, 10);
+  const Bitmap bitmap = depth_map.ToBitmap(5, 95);
+  const BitmapColor<uint8_t> valid_color = JetColormap::ToBitmapColor(0.5f);
+  for (size_t y = 0; y < bitmap.Height(); ++y) {
+    for (size_t x = 0; x < bitmap.Width(); ++x) {
+      EXPECT_EQ(bitmap.GetPixel(x, y).value(), valid_color);
+    }
+  }
+}
+
 }  // namespace
 }  // namespace mvs
 }  // namespace colmap
