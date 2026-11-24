@@ -5,10 +5,12 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/testing.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -21,14 +23,15 @@ namespace {
 // encodes one scalar in the file's endianness; it must write exactly
 // num_vertices vertices. Pass explicitly typed values (e.g. int16_t(-300))
 // so that scalars get the intended width.
-template <typename WritePayload>
+template <typename WritePayload, typename FaceIndex = int32_t>
 std::filesystem::path WriteBinaryPlyMesh(
     const std::string& file_name,
     const std::string& format,
     size_t num_vertices,
     const std::vector<std::string>& properties,
     WritePayload&& write_payload,
-    const std::vector<std::array<int, 3>>& faces = {}) {
+    const std::vector<std::array<FaceIndex, 3>>& faces = {},
+    const std::string& face_index_type = "int") {
   const auto test_file = CreateTestDir() / file_name;
   {
     std::ofstream text_file(test_file);
@@ -39,7 +42,7 @@ std::filesystem::path WriteBinaryPlyMesh(
       text_file << "property " << property << "\n";
     }
     text_file << "element face " << faces.size() << "\n";
-    text_file << "property list uchar int vertex_index\n";
+    text_file << "property list uchar " << face_index_type << " vertex_index\n";
     text_file << "end_header\n";
     text_file.close();
 
@@ -55,8 +58,8 @@ std::filesystem::path WriteBinaryPlyMesh(
     write_payload(Write);
     for (const auto& face : faces) {
       Write(uint8_t(3));
-      for (int idx : face) {
-        Write(int32_t(idx));
+      for (const FaceIndex idx : face) {
+        Write(idx);
       }
     }
   }
@@ -802,6 +805,68 @@ TEST(Ply, ReadBinaryPlyMeshWithMixedColorTypes) {
   ExpectColorEq(mesh.vertices[0], 200, 100, 255);
   ExpectColorEq(mesh.vertices[1], 10, 255, 127);
 }
+
+template <typename FaceIndex>
+void ExpectBinaryPlyFaceIndices(const std::string& format,
+                                const std::string& index_type,
+                                const std::array<FaceIndex, 3>& face) {
+  SCOPED_TRACE(index_type);
+  const size_t num_vertices =
+      static_cast<size_t>(*std::max_element(face.begin(), face.end())) + 1;
+  const std::vector<std::array<FaceIndex, 3>> faces = {face};
+  const auto path = WriteBinaryPlyMesh(
+      "face_indices.ply",
+      format,
+      num_vertices,
+      {"float x", "float y", "float z"},
+      [num_vertices](const auto& Write) {
+        for (size_t i = 0; i < num_vertices; ++i) {
+          Write(static_cast<float>(i));
+          Write(0.0f);
+          Write(0.0f);
+        }
+      },
+      faces,
+      index_type);
+
+  const auto mesh = ReadPlyMesh(path).mesh;
+  ASSERT_EQ(mesh.vertices.size(), num_vertices);
+  EXPECT_EQ(mesh.vertices.back().x, static_cast<float>(num_vertices - 1));
+  ASSERT_EQ(mesh.faces.size(), 1);
+  EXPECT_EQ(mesh.faces[0].vertex_idx1, face[0]);
+  EXPECT_EQ(mesh.faces[0].vertex_idx2, face[1]);
+  EXPECT_EQ(mesh.faces[0].vertex_idx3, face[2]);
+}
+
+class PlyIntegerFaceIndexTest
+    : public ::testing::TestWithParam<std::tuple<std::string, bool>> {};
+
+TEST_P(PlyIntegerFaceIndexTest, ReadUnsigned16BitIndices) {
+  const auto& [format, fixed_width_names] = GetParam();
+  ExpectBinaryPlyFaceIndices<uint16_t>(
+      format, fixed_width_names ? "uint16" : "ushort", {0, 32768, 40000});
+}
+
+TEST_P(PlyIntegerFaceIndexTest, ReadOtherIntegerIndices) {
+  const auto& [format, fixed_width_names] = GetParam();
+  ExpectBinaryPlyFaceIndices<int8_t>(
+      format, fixed_width_names ? "int8" : "char", {0, 63, 127});
+  ExpectBinaryPlyFaceIndices<uint8_t>(
+      format, fixed_width_names ? "uint8" : "uchar", {0, 128, 255});
+  ExpectBinaryPlyFaceIndices<int16_t>(
+      format, fixed_width_names ? "int16" : "short", {0, 16384, 32767});
+  ExpectBinaryPlyFaceIndices<int32_t>(
+      format, fixed_width_names ? "int32" : "int", {0, 32768, 40000});
+  ExpectBinaryPlyFaceIndices<uint32_t>(
+      format, fixed_width_names ? "uint32" : "uint", {0, 32768, 40000});
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Ply,
+    PlyIntegerFaceIndexTest,
+    ::testing::Combine(::testing::Values("binary_little_endian",
+                                         "binary_big_endian"),
+                       ::testing::Bool()));
 
 TEST(Ply, ReadTextPlyMeshWithFloatColors) {
   const auto test_file =
