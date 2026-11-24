@@ -159,7 +159,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME synthetic_test
     SRCS synthetic_test.cc
-    LINK_LIBS colmap_scene
+    LINK_LIBS colmap_scene colmap_feature
 )
 COLMAP_ADD_TEST(
     NAME track_test

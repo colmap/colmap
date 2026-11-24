@@ -557,6 +557,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           descriptors.type = options.feature_type;
           descriptors.data.resize(points2D.size(), desc_dim);
           std::uniform_int_distribution<int> feature_distribution(0, 255);
+          Eigen::RowVectorXf descriptor(desc_dim);
           for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
                ++point2D_idx) {
             const auto& point2D = points2D[point2D_idx];
@@ -568,10 +569,15 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
                                                ? point2D.point3D_id
                                                : options.num_points3D +
                                                      (++total_num_descriptors));
-            for (int d = 0; d < descriptors.data.cols(); ++d) {
-              descriptors.data(point2D_idx, d) =
-                  feature_distribution(feature_generator);
+            for (int d = 0; d < descriptor.size(); ++d) {
+              descriptor(d) = feature_distribution(feature_generator);
             }
+            // Match the quantized L2 normalization expected by SIFT matchers.
+            descriptor.normalize();
+            descriptors.data.row(point2D_idx) = (512.0f * descriptor.array())
+                                                    .round()
+                                                    .min(255.0f)
+                                                    .cast<uint8_t>();
           }
           database->WriteKeypoints(image.ImageId(), keypoints);
           database->WriteDescriptors(image.ImageId(), descriptors);

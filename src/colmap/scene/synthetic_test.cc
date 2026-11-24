@@ -2,6 +2,7 @@
 
 #include "colmap/scene/synthetic.h"
 
+#include "colmap/feature/sift.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/math/random.h"
@@ -14,6 +15,8 @@
 #include "colmap/util/file.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
+
+#include <array>
 
 #include <gtest/gtest.h>
 
@@ -147,6 +150,54 @@ TEST(SynthesizeDataset, Nominal) {
     }
 
     EXPECT_GE(max_tri_angle, DegToRad(kMinTriAngleDeg));
+  }
+}
+
+TEST(SynthesizeDataset, SiftDescriptorsMatch) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_frames_per_rig = 2;
+  options.num_points3D = 32;
+  options.num_points2D_without_point3D = 8;
+  SynthesizeDataset(options, &reconstruction, database.get());
+
+  const auto image_ids = reconstruction.RegImageIds();
+  ASSERT_EQ(image_ids.size(), 2);
+  std::array<FeatureMatcher::Image, 2> images;
+  for (size_t i = 0; i < images.size(); ++i) {
+    images[i].image_id = image_ids[i];
+    images[i].camera = reconstruction.Image(image_ids[i]).CameraPtr();
+    images[i].keypoints = std::make_shared<FeatureKeypoints>(
+        database->ReadKeypoints(image_ids[i]));
+    images[i].descriptors = std::make_shared<FeatureDescriptors>(
+        database->ReadDescriptors(image_ids[i]));
+    for (Eigen::Index row = 0; row < images[i].descriptors->data.rows();
+         ++row) {
+      // Rounding 128 descriptor components contributes at most sqrt(128)/2
+      // to the error of the descriptor norm.
+      EXPECT_NEAR(images[i].descriptors->data.row(row).cast<float>().norm(),
+                  512.0f,
+                  std::sqrt(128.0f) / 2.0f);
+    }
+  }
+
+  FeatureMatchingOptions matching_options;
+  matching_options.use_gpu = false;
+  matching_options.sift->cpu_brute_force_matcher = true;
+  auto matcher = CreateSiftFeatureMatcher(matching_options);
+  ASSERT_NE(matcher, nullptr);
+  FeatureMatches matches;
+  matcher->Match(images[0], images[1], &matches);
+  ASSERT_EQ(matches.size(), options.num_points3D);
+  for (const auto& match : matches) {
+    const auto& point1 =
+        reconstruction.Image(image_ids[0]).Point2D(match.point2D_idx1);
+    const auto& point2 =
+        reconstruction.Image(image_ids[1]).Point2D(match.point2D_idx2);
+    EXPECT_TRUE(point1.HasPoint3D());
+    EXPECT_EQ(point1.point3D_id, point2.point3D_id);
   }
 }
 
