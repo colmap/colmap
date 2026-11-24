@@ -20,7 +20,9 @@ class ParameterizedWorkspaceTests
     : public ::testing::TestWithParam<std::function<std::unique_ptr<Workspace>(
           const Workspace::Options&)>> {
  protected:
-  void SetUp() override {
+  void SetUp() override { CreateWorkspace(10, 5); }
+
+  void CreateWorkspace(const size_t width, const size_t height) {
     temp_dir_ = CreateTestDir();
     CreateDirIfNotExists(temp_dir_ / "sparse");
     CreateDirIfNotExists(temp_dir_ / "images");
@@ -32,8 +34,8 @@ class ParameterizedWorkspaceTests
     options.num_rigs = 1;
     options.num_cameras_per_rig = 1;
     options.num_frames_per_rig = 1;
-    options.camera_width = 10;
-    options.camera_height = 5;
+    options.camera_width = width;
+    options.camera_height = height;
     Reconstruction reconstruction;
     SynthesizeDataset(options, &reconstruction);
     reconstruction.Write(temp_dir_ / "sparse");
@@ -105,6 +107,29 @@ TEST_P(ParameterizedWorkspaceTests, MaxImageSize) {
 TEST_P(ParameterizedWorkspaceTests, Load) {
   auto workspace = GetParam()(GetOptions());
   workspace->Load({image_name_});
+}
+
+TEST_P(ParameterizedWorkspaceTests, KeepsThinDimensions) {
+  for (const bool portrait : {false, true}) {
+    CreateWorkspace(portrait ? 1 : 100, portrait ? 100 : 1);
+    Workspace::Options options = GetOptions();
+    options.max_image_size = 10;
+    auto workspace = GetParam()(options);
+    const size_t width = portrait ? 1 : 10;
+    const size_t height = portrait ? 10 : 1;
+    ASSERT_EQ(workspace->GetModel().images.at(0).GetWidth(), width);
+    ASSERT_EQ(workspace->GetModel().images.at(0).GetHeight(), height);
+    workspace->Load({image_name_});
+    EXPECT_EQ(workspace->GetBitmap(0).Width(), width);
+    EXPECT_EQ(workspace->GetBitmap(0).Height(), height);
+    EXPECT_EQ(workspace->GetDepthMap(0).GetWidth(), width);
+    EXPECT_EQ(workspace->GetDepthMap(0).GetHeight(), height);
+    EXPECT_EQ(workspace->GetNormalMap(0).GetWidth(), width);
+    EXPECT_EQ(workspace->GetNormalMap(0).GetHeight(), height);
+    EXPECT_NEAR(workspace->GetDepthMap(0).Get(0, 0), 1.0f, 1e-5f);
+    EXPECT_NEAR(
+        workspace->GetNormalMap(0).Get(0, 0, 0), 1.0f / std::sqrt(3.0f), 1e-5f);
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(WorkspaceTests,

@@ -5,6 +5,9 @@
 #include "colmap/image/warp.h"
 #include "colmap/math/math.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace colmap {
 namespace mvs {
 
@@ -33,8 +36,10 @@ void DepthMap::Rescale(const float factor) {
     return;
   }
 
-  const size_t new_width = std::round(width_ * factor);
-  const size_t new_height = std::round(height_ * factor);
+  THROW_CHECK_GT(factor, 0.0f);
+  THROW_CHECK(std::isfinite(factor));
+  const size_t new_width = std::max(1.0f, std::round(width_ * factor));
+  const size_t new_height = std::max(1.0f, std::round(height_ * factor));
   std::vector<float> new_data(new_width * new_height);
   DownsampleImage(
       data_.data(), height_, width_, new_height, new_width, new_data.data());

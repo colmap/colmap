@@ -2,6 +2,9 @@
 
 #include "colmap/mvs/image.h"
 
+#include <cmath>
+#include <utility>
+
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -104,6 +107,56 @@ TEST(Image, DownsizeNoChange) {
 
   EXPECT_EQ(image.GetWidth(), 100);
   EXPECT_EQ(image.GetHeight(), 100);
+}
+
+TEST(Image, KeepsThinDimensions) {
+  const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  const float T[3] = {1, 2, 3};
+  for (const bool portrait : {false, true}) {
+    const size_t width = portrait ? 1 : 100;
+    const size_t height = portrait ? 100 : 1;
+    const float K[9] = {100, 0, width / 2.0f, 0, 100, height / 2.0f, 0, 0, 1};
+    for (const bool with_bitmap : {false, true}) {
+      for (const bool downsize : {false, true}) {
+        Image image("thin.png", width, height, K, R, T);
+        if (with_bitmap) {
+          Bitmap bitmap(width, height, true);
+          bitmap.Fill(BitmapColor<uint8_t>(64));
+          image.SetBitmap(std::move(bitmap));
+        }
+        if (downsize) {
+          image.Downsize(10, 10);
+        } else {
+          image.Rescale(0.1f);
+        }
+        ASSERT_EQ(image.GetWidth(), portrait ? 1 : 10);
+        ASSERT_EQ(image.GetHeight(), portrait ? 10 : 1);
+        EXPECT_FLOAT_EQ(image.GetK()[0], portrait ? 100 : 10);
+        EXPECT_FLOAT_EQ(image.GetK()[4], portrait ? 10 : 100);
+        EXPECT_FLOAT_EQ(image.GetK()[2], image.GetWidth() / 2.0f);
+        EXPECT_FLOAT_EQ(image.GetK()[5], image.GetHeight() / 2.0f);
+        for (size_t i = 0; i < 12; ++i) {
+          EXPECT_TRUE(std::isfinite(image.GetInvP()[i]));
+        }
+        if (with_bitmap) {
+          EXPECT_EQ(image.GetBitmap().Width(), image.GetWidth());
+          EXPECT_EQ(image.GetBitmap().Height(), image.GetHeight());
+          EXPECT_EQ(image.GetBitmap().GetPixel(0, 0).value(),
+                    BitmapColor<uint8_t>(64));
+        }
+      }
+    }
+  }
+}
+
+TEST(Image, RejectsZeroScale) {
+  const float K[9] = {100, 0, 50, 0, 100, 0.5f, 0, 0, 1};
+  const float R[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1};
+  const float T[3] = {0, 0, 0};
+  Image image("thin.png", 100, 1, K, R, T);
+  EXPECT_ANY_THROW(image.Rescale(0.0f));
+  EXPECT_EQ(image.GetWidth(), 100);
+  EXPECT_EQ(image.GetHeight(), 1);
 }
 
 TEST(Image, GetViewingDirection) {
