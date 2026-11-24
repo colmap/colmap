@@ -259,8 +259,10 @@ std::optional<std::string> Bitmap::ExifCameraModel() const {
     return std::nullopt;
   }
   float focal_length = 0;
-  if (!GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) &&
-      !GetMetaData("Exif:FocalLength", "float", &focal_length)) {
+  if ((!GetMetaData("Exif:FocalLengthIn35mmFilm", "float", &focal_length) ||
+       !(focal_length > 0)) &&
+      (!GetMetaData("Exif:FocalLength", "float", &focal_length) ||
+       !(focal_length > 0))) {
     return std::nullopt;
   }
   std::string camera_model = StringPrintf("%s-%s-%.6f-%dx%d",
