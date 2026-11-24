@@ -70,7 +70,7 @@ void WriteCOLMAPCommands(const bool geometric,
                          const std::string& indent,
                          std::ofstream* file) {
   if (geometric) {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\\n";
+    *file << indent << "\"$COLMAP_EXE_PATH/colmap\" patch_match_stereo \\\n";
     *file << indent << "  --workspace_path " << workspace_path << " \\\n";
     *file << indent << "  --workspace_format " << workspace_format << " \\\n";
     if (workspace_format == "PMVS") {
@@ -79,7 +79,7 @@ void WriteCOLMAPCommands(const bool geometric,
     *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\\n";
     *file << indent << "  --PatchMatchStereo.geom_consistency true\n";
   } else {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\\n";
+    *file << indent << "\"$COLMAP_EXE_PATH/colmap\" patch_match_stereo \\\n";
     *file << indent << "  --workspace_path " << workspace_path << " \\\n";
     *file << indent << "  --workspace_format " << workspace_format << " \\\n";
     if (workspace_format == "PMVS") {
@@ -89,7 +89,7 @@ void WriteCOLMAPCommands(const bool geometric,
     *file << indent << "  --PatchMatchStereo.geom_consistency false\n";
   }
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap stereo_fusion \\\n";
+  *file << indent << "\"$COLMAP_EXE_PATH/colmap\" stereo_fusion \\\n";
   *file << indent << "  --workspace_path " << workspace_path << " \\\n";
   *file << indent << "  --workspace_format " << workspace_format << " \\\n";
   if (workspace_format == "PMVS") {
@@ -103,13 +103,13 @@ void WriteCOLMAPCommands(const bool geometric,
   *file << indent << "  --output_path "
         << workspace_path / (output_prefix + "fused.ply") << " \\\n";
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap poisson_mesher \\\n";
+  *file << indent << "\"$COLMAP_EXE_PATH/colmap\" poisson_mesher \\\n";
   *file << indent << "  --input_path "
         << workspace_path / (output_prefix + "fused.ply") << " \\\n";
   *file << indent << "  --output_path "
         << workspace_path / (output_prefix + "meshed-poisson.ply") << " \\\n";
 
-  *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\\n";
+  *file << indent << "\"$COLMAP_EXE_PATH/colmap\" delaunay_mesher \\\n";
   *file << indent << "  --input_path " << workspace_path / output_prefix
         << " \\\n";
   *file << indent << "  --input_type dense \\\n";
@@ -441,7 +441,7 @@ void PMVSUndistorter::WritePMVSScript() const {
 
   file << "# You must set $PMVS_EXE_PATH to \n"
        << "# the directory containing the CMVS-PMVS executables.\n";
-  file << "$PMVS_EXE_PATH/pmvs2 pmvs/ option-all\n";
+  file << "\"$PMVS_EXE_PATH/pmvs2\" pmvs/ option-all\n";
 }
 
 void PMVSUndistorter::WriteCMVSPMVSScript() const {
@@ -451,15 +451,15 @@ void PMVSUndistorter::WriteCMVSPMVSScript() const {
 
   file << "# You must set $PMVS_EXE_PATH to \n"
        << "# the directory containing the CMVS-PMVS executables.\n";
-  file << "$PMVS_EXE_PATH/cmvs pmvs/\n";
-  file << "$PMVS_EXE_PATH/genOption pmvs/\n";
+  file << "\"$PMVS_EXE_PATH/cmvs\" pmvs/\n";
+  file << "\"$PMVS_EXE_PATH/genOption\" pmvs/\n";
   file << "find pmvs/ -iname \"option-*\" | sort | while read file_name\n";
   file << "do\n";
   file << "    option_name=$(basename \"$file_name\")\n";
   file << "    if [ \"$option_name\" = \"option-all\" ]; then\n";
   file << "        continue\n";
   file << "    fi\n";
-  file << "    $PMVS_EXE_PATH/pmvs2 pmvs/ $option_name\n";
+  file << "    \"$PMVS_EXE_PATH/pmvs2\" pmvs/ $option_name\n";
   file << "done\n";
 }
 
@@ -486,8 +486,8 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
        << "# the directory containing the CMVS-PMVS executables\n";
   file << "# and you must set $COLMAP_EXE_PATH to \n"
        << "# the directory containing the COLMAP executables.\n";
-  file << "$PMVS_EXE_PATH/cmvs pmvs/\n";
-  file << "$PMVS_EXE_PATH/genOption pmvs/\n";
+  file << "\"$PMVS_EXE_PATH/cmvs\" pmvs/\n";
+  file << "\"$PMVS_EXE_PATH/genOption\" pmvs/\n";
   file << "find pmvs/ -iname \"option-*\" | sort | while read file_name\n";
   file << "do\n";
   file << "    workspace_path=$(dirname \"$file_name\")\n";
