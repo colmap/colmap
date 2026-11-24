@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+import pytest
+
 import pycolmap
 
 
@@ -42,6 +45,41 @@ def test_experimental_pose_param_image_id_readwrite() -> None:
     param = pycolmap.ExperimentalPoseParam()
     param.image_id = 42
     assert param.image_id == 42
+
+
+def test_experimental_pose_param_from_rigid3d() -> None:
+    pose = pycolmap.Rigid3d()
+    pose.translation = np.array([1.0, 2.0, 3.0])
+    param = pycolmap.ExperimentalPoseParam()
+    param.cam_from_world = pose.params
+    np.testing.assert_array_equal(param.cam_from_world, pose.params)
+
+    options = pycolmap.BACovarianceOptions(experimental_custom_poses=[param])
+    pose.translation[:] = [4.0, 5.0, 6.0]
+    np.testing.assert_array_equal(
+        options.experimental_custom_poses[0].cam_from_world, pose.params
+    )
+
+
+@pytest.mark.parametrize("size", [4, 6, 8])
+def test_experimental_pose_param_requires_full_pose(size: int) -> None:
+    param = pycolmap.ExperimentalPoseParam()
+    with pytest.raises(ValueError, match="pyarray.size"):
+        param.cam_from_world = np.zeros(size)
+
+
+@pytest.mark.parametrize("kind", ["float32", "strided", "list"])
+def test_experimental_pose_param_does_not_copy_input(kind: str) -> None:
+    params: np.ndarray | list[float]
+    if kind == "float32":
+        params = np.zeros(7, dtype=np.float32)
+    elif kind == "strided":
+        params = np.zeros(14)[::2]
+    else:
+        params = [0.0] * 7
+    param = pycolmap.ExperimentalPoseParam()
+    with pytest.raises(TypeError):
+        param.cam_from_world = params
 
 
 def test_estimate_ba_covariance_is_callable() -> None:
