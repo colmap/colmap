@@ -46,7 +46,7 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME visual_index_test
     SRCS visual_index_test.cc
-    LINK_LIBS colmap_retrieval
+    LINK_LIBS colmap_retrieval faiss
 )
 COLMAP_ADD_TEST(
     NAME vote_and_verify_test

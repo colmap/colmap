@@ -10,6 +10,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 
+#include <exception>
 #include <fstream>
 
 #include <Eigen/Core>
@@ -525,7 +526,28 @@ class FaissVisualIndex : public VisualIndex {
     clustering.verbose = VLOG_IS_ON(3);
 
     faiss::IndexFlatL2 index(kDescDim);
-    clustering.train(descriptors.rows(), descriptors.data(), index);
+    std::exception_ptr error;
+#pragma omp parallel num_threads(1)
+    {
+#ifdef _OPENMP
+      omp_set_num_threads(GetEffectiveNumThreads(options.num_threads));
+#ifdef _MSC_VER
+      omp_set_nested(1);
+#else
+      omp_set_max_active_levels(1);
+#endif
+#endif
+      // Exceptions cannot cross an OpenMP region. Propagate training failures
+      // after leaving the region, which also restores the caller's settings.
+      try {
+        clustering.train(descriptors.rows(), descriptors.data(), index);
+      } catch (...) {
+        error = std::current_exception();
+      }
+    }
+    if (error) {
+      std::rethrow_exception(error);
+    }
 
     VLOG(2) << "Quantized into " << options.num_visual_words
             << " visual words with error "
