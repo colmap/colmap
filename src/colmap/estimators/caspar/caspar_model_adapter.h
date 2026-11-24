@@ -2,6 +2,8 @@
 
 #pragma once
 
+#ifdef CASPAR_ENABLED
+
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
@@ -986,3 +988,5 @@ inline caspar::GraphSolver CreateSolver(
 }
 
 }  // namespace colmap
+
+#endif  // CASPAR_ENABLED

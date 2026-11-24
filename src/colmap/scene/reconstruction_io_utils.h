@@ -31,10 +31,6 @@ std::vector<ID_TYPE> ExtractSortedIds(
 
 void CreateOneRigPerCamera(Reconstruction& reconstruction);
 
-void CreateFrameForImage(const Image& image,
-                         const Rigid3d& cam_from_world,
-                         Reconstruction& reconstruction);
-
 NodeHashMap<image_t, Frame*> ExtractImageToFramePtr(
     Reconstruction& reconstruction);
 

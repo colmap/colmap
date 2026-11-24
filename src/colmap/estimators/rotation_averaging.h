@@ -8,6 +8,7 @@
 #include "colmap/util/enum_utils.h"
 #include "colmap/util/hash_containers.h"
 
+#include <memory>
 #include <vector>
 
 #include <Eigen/Core>
@@ -17,55 +18,68 @@
 // to the paper "Gravity Aligned Rotation Averaging"
 namespace colmap {
 
+class DatabaseCache;
+
 // Reweighting scheme applied to the relative-rotation constraints.
 //   UNIFORM: all constraints are weighted equally.
 //   INLIER_MATCH_COUNT: weight each constraint by the number of inlier
 //     two-view matches (PoseGraph::Edge::num_matches) of the corresponding
 //     edge, normalized to (0, 1].
-MAKE_ENUM_CLASS(RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT);
+//   COVARIANCE: whiten each constraint with the covariance of its relative
+//     rotation (PoseGraph::Edge::cam2_from_cam1_rotation_cov), regularized with
+//     CeresRotationAveragerOptions::covariance_sigma_floor_deg. Every valid
+//     edge must have a covariance, which the global mapper and the rotation
+//     averaging pipeline estimate from the two-view correspondences (see
+//     MaybeEstimatePoseGraphRotationCovariances). Only supported by the CERES
+//     backend, which then uses
+//     CeresRotationAveragerOptions::covariance_loss_scale. It is ignored when
+//     the CERES backend falls back to L1_IRLS for gravity priors.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(
+    RotationAveragingReweighting, 0, UNIFORM, INLIER_MATCH_COUNT, COVARIANCE);
 
-struct RotationEstimatorOptions {
+// Solver backend for rotation averaging.
+//   L1_IRLS: L1 regression (ADMM) followed by IRLS using CHOLMOD.
+//   CERES: Nonlinear least squares on SO(3) using Ceres Solver.
+MAKE_ENUM_CLASS_OVERLOAD_STREAM(RotationAveragingBackend, 0, L1_IRLS, CERES);
+
+struct L1IrlsRotationAveragerOptions;
+struct CeresRotationAveragerOptions;
+
+struct RotationEstimatorBackendOptions {
+  // L1-IRLS-specific options (used when backend == L1_IRLS and when CERES
+  // falls back to L1_IRLS for gravity priors).
+  // Type defined in rotation_averaging_l1_irls.h.
+  std::shared_ptr<L1IrlsRotationAveragerOptions> l1_irls;
+
+  // Ceres-specific options (only used when backend == CERES).
+  // Type defined in rotation_averaging_ceres.h.
+  std::shared_ptr<CeresRotationAveragerOptions> ceres;
+
+  RotationEstimatorBackendOptions();
+  RotationEstimatorBackendOptions(const RotationEstimatorBackendOptions& other);
+  RotationEstimatorBackendOptions& operator=(
+      const RotationEstimatorBackendOptions& other);
+  RotationEstimatorBackendOptions(RotationEstimatorBackendOptions&& other) =
+      default;
+  RotationEstimatorBackendOptions& operator=(
+      RotationEstimatorBackendOptions&& other) = default;
+};
+
+struct RotationEstimatorOptions : public RotationEstimatorBackendOptions {
   // PRNG seed for stochastic methods during rotation averaging.
   // If -1 (default), the seed is derived from the current time
   // (non-deterministic). If >= 0, the rotation averaging is deterministic with
   // the given seed.
   int random_seed = -1;
 
-  // Maximum number of times to run L1 minimization.
-  int max_num_l1_iterations = 5;
-
-  // Average step size threshold to terminate the L1 minimization.
-  double l1_step_convergence_threshold = 0.001;
-
-  // The number of iterative reweighted least squares iterations to perform.
-  int max_num_irls_iterations = 100;
-
-  // Average step size threshold to terminate the IRLS minimization.
-  double irls_step_convergence_threshold = 0.001;
+  // Solver backend to use for rotation averaging. Backend-specific options are
+  // in the corresponding member of RotationEstimatorBackendOptions. The CERES
+  // backend does not support gravity priors and falls back to L1_IRLS when
+  // use_gravity is true and gravity priors are given.
+  RotationAveragingBackend backend = RotationAveragingBackend::L1_IRLS;
 
   // Gravity direction.
   Eigen::Vector3d gravity_dir = Eigen::Vector3d::UnitY();
-
-  // The point where the Huber-like cost function switches from L1 to L2.
-  double irls_loss_parameter_sigma = 5.0;  // in degrees
-
-  // Tikhonov ridge added to the diagonal of the normal equations A^T (W) A
-  // before each Cholesky factorization in the L1 and IRLS phases. The
-  // theoretical normal equations of a connected pose graph plus gauge fix are
-  // positive definite, but supernodal Cholesky may still report "matrix not
-  // positive definite" on poorly conditioned graphs (e.g., long sequential
-  // video chains). Set to a small positive value (e.g., 1e-9) to stabilize
-  // such systems. Zero disables regularization (no computational overhead).
-  double ridge_regularization = 1e-9;
-
-  enum WeightType {
-    // Geman-McClure weight from "Efficient and robust large-scale rotation
-    // averaging" (Chatterjee et al., 2013)
-    GEMAN_MCCLURE,
-    // Half norm from "Robust Relative Rotation Averaging"
-    // (Chatterjee et al., 2017)
-    HALF_NORM,
-  } weight_type = GEMAN_MCCLURE;
 
   // Flag to skip maximum spanning tree initialization.
   bool skip_initialization = false;
@@ -130,14 +144,25 @@ class RotationEstimator {
                               const FlatHashSet<image_t>& active_image_ids,
                               Reconstruction& reconstruction);
 
-  // Initializes rotations from maximum spanning tree.
-  void InitializeFromMaximumSpanningTree(
+  bool SolveRotationAveragingWithCeres(
       const PoseGraph& pose_graph,
       const FlatHashSet<image_t>& active_image_ids,
       Reconstruction& reconstruction);
 
   const RotationEstimatorOptions options_;
 };
+
+// Initializes rotations from maximum spanning tree, which prefers the edges
+// with the most inlier matches or, if use_rotation_covariance, the most certain
+// relative rotations, whose covariance every measured edge must then have. For
+// calibrated multi-camera rigs, add their connections with
+// PoseGraph::AddRigEdges before initialization.
+void InitializeFromMaximumSpanningTree(
+    const PoseGraph& pose_graph,
+    const FlatHashSet<image_t>& active_image_ids,
+    Reconstruction& reconstruction,
+    bool refine_sensor_from_rig,
+    bool use_rotation_covariance = false);
 
 // Initialize rig rotations by averaging per-image rotations.
 // Estimates cam_from_rig for cameras with unknown calibration,
@@ -153,6 +178,8 @@ bool InitializeRigRotationsFromImages(
 // For cameras with unknown cam_from_rig, first estimates their orientations
 // independently using an expanded reconstruction, then initializes the
 // cam_from_rig and runs rotation averaging on the original reconstruction.
+// With COVARIANCE reweighting, call MaybeEstimatePoseGraphRotationCovariances
+// first.
 bool RunRotationAveraging(const RotationEstimatorOptions& options,
                           PoseGraph& pose_graph,
                           Reconstruction& reconstruction,
@@ -176,5 +203,15 @@ bool RunRotationAveragingOnComponent(
 void FilterEdgesByRelativeRotation(PoseGraph& pose_graph,
                                    const Reconstruction& reconstruction,
                                    double max_angle_deg);
+
+// With COVARIANCE reweighting, estimates the rotation covariances of the valid
+// pose graph edges that do not have one yet from their two-view
+// correspondences, and invalidates the edges whose covariance cannot be
+// estimated. Throws if the backend is not CERES, warns and skips when falling
+// back to L1_IRLS for gravity priors, and is a no-op for other reweightings.
+void MaybeEstimatePoseGraphRotationCovariances(
+    const RotationEstimatorOptions& options,
+    const DatabaseCache& database_cache,
+    PoseGraph& pose_graph);
 
 }  // namespace colmap

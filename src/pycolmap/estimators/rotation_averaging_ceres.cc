@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+#include "colmap/estimators/rotation_averaging_ceres.h"
+
+#include "colmap/scene/pose_graph.h"
+#include "colmap/scene/reconstruction.h"
+
+#include "pycolmap/helpers.h"
+#include "pycolmap/pybind11_extension.h"
+
+#include <pybind11/pybind11.h>
+
+using namespace colmap;
+using namespace pybind11::literals;
+namespace py = pybind11;
+
+void BindCeresRotationAveragerOptions(py::module& m) {
+  IsPyceresAvailable();  // Try to import pyceres to populate the docstrings.
+
+  auto PyOptions =
+      py::classh<CeresRotationAveragerOptions>(m,
+                                               "CeresRotationAveragerOptions")
+          .def(py::init<>())
+          .def_readwrite("loss_function_type",
+                         &CeresRotationAveragerOptions::loss_function_type,
+                         "Loss function for relative-rotation residuals.")
+          .def_readwrite("loss_function_scale",
+                         &CeresRotationAveragerOptions::loss_function_scale,
+                         "Loss function scale in degrees.")
+          .def_readwrite(
+              "covariance_loss_scale",
+              &CeresRotationAveragerOptions::covariance_loss_scale,
+              "Loss function scale with COVARIANCE reweighting, in standard "
+              "deviations of the whitened residuals.")
+          .def_readwrite(
+              "covariance_sigma_floor_deg",
+              &CeresRotationAveragerOptions::covariance_sigma_floor_deg,
+              "Isotropic standard deviation (degrees) added in quadrature to "
+              "the estimated relative rotation covariances with COVARIANCE "
+              "reweighting.")
+          .def_readwrite(
+              "max_num_warm_start_iterations",
+              &CeresRotationAveragerOptions::max_num_warm_start_iterations,
+              "Number of solver iterations of a Huber-loss warm-start (using "
+              "loss_function_scale, in degrees) run by RotationEstimator "
+              "before the main solve; with COVARIANCE reweighting, the "
+              "warm-start uses UNIFORM reweighting on unwhitened angular "
+              "residuals, whereas the main solve uses covariance_loss_scale on "
+              "whitened residuals. Set to 0 to disable.")
+          .def_readwrite("solver_options",
+                         &CeresRotationAveragerOptions::solver_options,
+                         "Options for the Ceres solver. Using this member "
+                         "requires having PyCeres installed.");
+  MakeDataclass(PyOptions);
+}
+
+void BindCeresRotationAverager(py::module& m) {
+  py::classh<CeresRotationAverager>(m, "CeresRotationAverager")
+      .def("solve",
+           &CeresRotationAverager::Solve,
+           py::call_guard<py::gil_scoped_release>(),
+           "Optimize rotations in the reconstruction and return the solver "
+           "summary.")
+      .def("add_relative_rotation_residual",
+           &CeresRotationAverager::AddRelativeRotationResidual,
+           "image_id1"_a,
+           "image_id2"_a,
+           "cam2_from_cam1"_a,
+           "loss"_a,
+           "cam2_from_cam1_cov"_a = py::none(),
+           "Add a relative-rotation residual between images whose frame and "
+           "sensor rotations are configured in the problem. If given, the "
+           "residual is whitened with the 3x3 covariance of the relative "
+           "rotation, expressed in the frame of camera 1.")
+      .def_property_readonly(
+          "problem",
+          py::overload_cast<>(&CeresRotationAverager::Problem),
+          py::return_value_policy::reference_internal,
+          "Ceres problem for inspecting and modifying the optimization.")
+      .def_readwrite("solver_options",
+                     &CeresRotationAverager::solver_options,
+                     "Ceres solver options.");
+
+  m.def("create_default_ceres_rotation_averager",
+        &CreateDefaultCeresRotationAverager,
+        "options"_a,
+        "pose_graph"_a,
+        "reconstruction"_a,
+        py::keep_alive<0, 3>(),
+        "Create a Ceres rotation averaging problem that optimizes rotations "
+        "directly in the reconstruction.");
+}

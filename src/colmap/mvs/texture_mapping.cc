@@ -704,9 +704,12 @@ void BakeTexture(Bitmap* atlas,
                bary.z() * rp.face_projections[i][2]) *
               texture_inv_scale_factor;
 
-          const auto color =
-              src_bmp.InterpolateBilinear(static_cast<double>(img_pos.x()),
-                                          static_cast<double>(img_pos.y()));
+          // Projections are in continuous coordinates (pixel centers at
+          // integer + 0.5), while Bitmap sampling expects pixel centers
+          // at integers.
+          const auto color = src_bmp.InterpolateBilinear(
+              static_cast<double>(img_pos.x()) - 0.5,
+              static_cast<double>(img_pos.y()) - 0.5);
           if (!color) {
             continue;
           }
@@ -830,10 +833,13 @@ void ApplyGlobalColorCorrection(
         const Eigen::Vector2f proj_l = ProjectPoint(img_l.GetP(), vert);
         const Eigen::Vector2f proj_r = ProjectPoint(img_r.GetP(), vert);
 
-        const auto color_l =
-            img_l.GetBitmap().InterpolateBilinear(proj_l.x(), proj_l.y());
-        const auto color_r =
-            img_r.GetBitmap().InterpolateBilinear(proj_r.x(), proj_r.y());
+        // Projections are in continuous coordinates (pixel centers at
+        // integer + 0.5), while Bitmap sampling expects pixel centers
+        // at integers.
+        const auto color_l = img_l.GetBitmap().InterpolateBilinear(
+            proj_l.x() - 0.5, proj_l.y() - 0.5);
+        const auto color_r = img_r.GetBitmap().InterpolateBilinear(
+            proj_r.x() - 0.5, proj_r.y() - 0.5);
         if (!color_l || !color_r) {
           continue;
         }

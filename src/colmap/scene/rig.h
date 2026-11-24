@@ -99,7 +99,8 @@ std::vector<RigConfig> ReadRigConfig(const std::filesystem::path& path);
 // provided config and any previous rigs/frames are cleared and overwritten.
 // Existing rigs and frames in the database and reconstruction will be cleared.
 // Any unspecified images in the provided configurations will be configured as
-// trivial rigs/frames.
+// trivial rigs/frames. Throws if the images of different cameras in a rig
+// config share a database camera, since each rig sensor needs its own camera.
 void ApplyRigConfig(const std::vector<RigConfig>& configs,
                     Database& database,
                     Reconstruction* reconstruction = nullptr);

@@ -117,18 +117,12 @@ TEST(UnionFind, PathCompression) {
   uf.Union(3, 4);
   uf.Union(4, 5);
 
-  // Find root of element 1
+  // Finding the tail should compress all intermediate nodes directly to root.
   const int root = uf.Find(1);
-
-  // After path compression, finding 1 again should be efficient
-  // The root should remain the same
-  EXPECT_EQ(uf.Find(1), root);
-
-  // All elements should still have the same root
-  EXPECT_EQ(uf.Find(2), root);
-  EXPECT_EQ(uf.Find(3), root);
-  EXPECT_EQ(uf.Find(4), root);
-  EXPECT_EQ(uf.Find(5), root);
+  EXPECT_EQ(uf.Parents().size(), 5);
+  for (const auto& [elem, parent] : uf.Parents()) {
+    EXPECT_EQ(parent, root);
+  }
 }
 
 TEST(UnionFind, Compress) {
@@ -144,7 +138,7 @@ TEST(UnionFind, Compress) {
 }
 
 TEST(UnionFind, LargeNumberOfElements) {
-  constexpr int kNumElements = 1000;
+  constexpr int kNumElements = 200000;
   UnionFind<int> uf;
   uf.Reserve(kNumElements);
   // Union many elements

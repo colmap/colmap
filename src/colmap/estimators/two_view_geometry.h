@@ -215,7 +215,7 @@ TwoViewGeometry EstimateSharedFocalTwoViewGeometry(
 // `camera1`/`camera2` is the uncalibrated image; the other stays unset, its
 // intrinsics being an input rather than an estimate.
 //
-// Exactly one of `camera1`/`camera2` must have `has_prior_focal_length` set,
+// Exactly one of `camera1`/`camera2` must have `HasPriorFocalLength()` true,
 // and the uncalibrated one must use a pinhole projection. A single isotropic
 // focal is recovered; multi-focal models are seeded fx = fy = f and refined
 // later. Distortion on the uncalibrated side is absorbed by the epipolar fit,
@@ -245,6 +245,17 @@ bool DetectWatermarkMatches(const Camera& camera1,
                             size_t num_inliers,
                             const std::vector<char>& inlier_mask,
                             const TwoViewGeometryOptions& options);
+
+// Unprojects the matched image points to camera rays with their Jacobians
+// w.r.t. the image points. Rays that fail to unproject are zero-filled or, if
+// skip_invalid, the matches with a failed ray are dropped.
+std::pair<std::vector<CamRayWithJac>, std::vector<CamRayWithJac>>
+ExtractMatchedCamRaysWithJac(const Camera& camera1,
+                             const std::vector<Eigen::Vector2d>& points1,
+                             const Camera& camera2,
+                             const std::vector<Eigen::Vector2d>& points2,
+                             const FeatureMatches& matches,
+                             bool skip_invalid = false);
 
 // Remove matches that are caused by static content that has the same
 // position in both images.

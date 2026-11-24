@@ -1,19 +1,17 @@
 #pragma once
 
-#include "shared_indices.h"
 #include <cuda_runtime.h>
+
+#include "shared_indices.h"
 
 namespace caspar {
 
 void SimpleRadialPosePredDecreaseTimesTwo(
-    double* SimpleRadialPose_step,
-    unsigned int SimpleRadialPose_step_num_alloc,
-    double* SimpleRadialPose_precond_diag,
+    double *SimpleRadialPose_step, unsigned int SimpleRadialPose_step_num_alloc,
+    double *SimpleRadialPose_precond_diag,
     unsigned int SimpleRadialPose_precond_diag_num_alloc,
-    const double* const diag,
-    double* SimpleRadialPose_njtr,
+    const double *const diag, double *SimpleRadialPose_njtr,
     unsigned int SimpleRadialPose_njtr_num_alloc,
-    double* const out_SimpleRadialPose_pred_dec,
-    size_t problem_size);
+    double *const out_SimpleRadialPose_pred_dec, size_t problem_size);
 
-}  // namespace caspar
+} // namespace caspar

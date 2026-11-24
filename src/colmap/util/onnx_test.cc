@@ -1,0 +1,297 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+#include "colmap/util/onnx.h"
+
+#include "colmap/util/file.h"
+#include "colmap/util/testing.h"
+
+#include <atomic>
+#include <chrono>
+#include <cstddef>
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <stdexcept>
+#include <thread>
+#include <vector>
+
+#include <gtest/gtest.h>
+
+namespace colmap {
+namespace {
+
+std::filesystem::path WriteIdentityModel() {
+  // ONNX IR v8, opset 13: float input [1, 2] -> Identity -> float output
+  // [1, 2]. Keeping the serialized protobuf inline makes this test hermetic.
+  constexpr char kIdentityModel[] = {
+      0x08, 0x08, 0x3a, 0x5e, 0x0a, 0x19, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75,
+      0x74, 0x12, 0x06, 0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x22, 0x08, 0x49,
+      0x64, 0x65, 0x6e, 0x74, 0x69, 0x74, 0x79, 0x12, 0x0e, 0x69, 0x64, 0x65,
+      0x6e, 0x74, 0x69, 0x74, 0x79, 0x5f, 0x67, 0x72, 0x61, 0x70, 0x68, 0x5a,
+      0x17, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x12, 0x0e, 0x0a, 0x0c,
+      0x08, 0x01, 0x12, 0x08, 0x0a, 0x02, 0x08, 0x01, 0x0a, 0x02, 0x08, 0x02,
+      0x62, 0x18, 0x0a, 0x06, 0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x12, 0x0e,
+      0x0a, 0x0c, 0x08, 0x01, 0x12, 0x08, 0x0a, 0x02, 0x08, 0x01, 0x0a, 0x02,
+      0x08, 0x02, 0x42, 0x02, 0x10, 0x0d};
+
+  const std::filesystem::path model_path = CreateTestDir() / "identity.onnx";
+  WriteBinaryBlob(model_path,
+                  {kIdentityModel, sizeof(kIdentityModel) / sizeof(char)});
+  return model_path;
+}
+
+template <typename T>
+Ort::Value MakeTensor(std::vector<T>* data, const std::vector<int64_t>& shape) {
+  return CreateONNXTensor(*data, shape);
+}
+
+TEST(ONNXExecutionProviderTest, Selection) {
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/false),
+            ONNXExecutionProvider::CPU);
+#ifdef COLMAP_CUDA_ENABLED
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/true),
+            ONNXExecutionProvider::CUDA);
+#elif defined(COLMAP_COREML_ENABLED)
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/true),
+            ONNXExecutionProvider::COREML);
+#else
+  EXPECT_EQ(SelectONNXExecutionProvider(/*use_gpu=*/true),
+            ONNXExecutionProvider::CPU);
+#endif
+}
+
+TEST(SelectONNXCudaDeviceTest, Nominal) {
+  EXPECT_EQ(SelectONNXCudaDevice("0"), 0);
+  EXPECT_EQ(SelectONNXCudaDevice("2"), 2);
+  EXPECT_EQ(SelectONNXCudaDevice("-1"), 0);
+  EXPECT_THROW(SelectONNXCudaDevice("0,1"), std::invalid_argument);
+}
+
+TEST(ONNXModelTest, MetadataAndInference) {
+  ONNXModel model(WriteIdentityModel().string(),
+                  /*num_threads=*/1,
+                  /*use_gpu=*/false,
+                  /*gpu_index=*/"-1");
+
+  EXPECT_EQ(model.execution_provider(), ONNXExecutionProvider::CPU);
+  ASSERT_EQ(model.input_names().size(), 1);
+  EXPECT_STREQ(model.input_names()[0], "input");
+  ASSERT_EQ(model.input_shapes().size(), 1);
+  EXPECT_EQ(model.input_shapes()[0], (std::vector<int64_t>{1, 2}));
+  ASSERT_EQ(model.input_element_types().size(), 1);
+  EXPECT_EQ(model.input_element_types()[0],
+            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
+  ASSERT_EQ(model.output_names().size(), 1);
+  EXPECT_STREQ(model.output_names()[0], "output");
+  ASSERT_EQ(model.output_shapes().size(), 1);
+  EXPECT_EQ(model.output_shapes()[0], (std::vector<int64_t>{1, 2}));
+  ASSERT_EQ(model.output_element_types().size(), 1);
+  EXPECT_EQ(model.output_element_types()[0],
+            ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT);
+
+  std::vector<float> input_data{1.25f, -2.5f};
+  const std::vector<int64_t> input_shape{1, 2};
+  std::vector<Ort::Value> inputs;
+  inputs.push_back(MakeTensor(&input_data, input_shape));
+  const std::vector<Ort::Value> outputs = model.Run(inputs);
+
+  ASSERT_EQ(outputs.size(), 1);
+  EXPECT_EQ(outputs[0].GetTensorTypeAndShapeInfo().GetShape(), input_shape);
+  const float* output_data = outputs[0].GetTensorData<float>();
+  EXPECT_FLOAT_EQ(output_data[0], input_data[0]);
+  EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
+}
+
+TEST(ONNXModelTest, RunWithOutputMemoryInfo) {
+  ONNXModel model(WriteIdentityModel().string(),
+                  /*num_threads=*/1,
+                  /*use_gpu=*/false,
+                  /*gpu_index=*/"-1");
+
+  std::vector<float> input_data{1.25f, -2.5f};
+  const std::vector<int64_t> input_shape{1, 2};
+  std::vector<Ort::Value> inputs;
+  inputs.push_back(MakeTensor(&input_data, input_shape));
+  // The outputs are allocated in the given memory through an I/O binding, as
+  // FlexGlue does on the GPU. Host memory gives the same values as Run.
+  const std::vector<Ort::Value> outputs = model.Run(
+      inputs, Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault));
+
+  ASSERT_EQ(outputs.size(), 1);
+  EXPECT_EQ(outputs[0].GetTensorTypeAndShapeInfo().GetShape(), input_shape);
+  const float* output_data = outputs[0].GetTensorData<float>();
+  EXPECT_FLOAT_EQ(output_data[0], input_data[0]);
+  EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
+  // The output owns its memory, independently of the input.
+  input_data[0] = 0.f;
+  EXPECT_FLOAT_EQ(output_data[0], 1.25f);
+}
+
+TEST(ThrowCheckONNXElementTypeTest, AcceptsMatchingType) {
+  EXPECT_NO_THROW(
+      ThrowCheckONNXElementType("image",
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT));
+  EXPECT_NO_THROW(
+      ThrowCheckONNXElementType("max_keypoints",
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64,
+                                ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64));
+}
+
+TEST(ThrowCheckONNXElementTypeTest, RejectsMismatchedType) {
+  EXPECT_THROW(ThrowCheckONNXElementType("image",
+                                         ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE,
+                                         ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT),
+               std::exception);
+}
+
+TEST(ONNXModelTest, InvalidInputTypeRethrows) {
+  ONNXModel model(WriteIdentityModel().string(),
+                  /*num_threads=*/1,
+                  /*use_gpu=*/false,
+                  /*gpu_index=*/"-1");
+
+  std::vector<int64_t> input_data{1, 2};
+  const std::vector<int64_t> input_shape{1, 2};
+  std::vector<Ort::Value> inputs;
+  inputs.push_back(MakeTensor(&input_data, input_shape));
+  EXPECT_THROW(model.Run(inputs), Ort::Exception);
+}
+
+TEST(ONNXModelTest, InvalidModelThrowsOrtException) {
+  // LoMa falls back to fp32 when initializing the bf16 models throws an
+  // Ort::Exception.
+  const std::filesystem::path model_path = CreateTestDir() / "invalid.onnx";
+  constexpr char kInvalidModel[] = "not an ONNX model";
+  WriteBinaryBlob(model_path, {kInvalidModel, sizeof(kInvalidModel)});
+
+  EXPECT_THROW(ONNXModel(model_path.string(),
+                         /*num_threads=*/1,
+                         /*use_gpu=*/false,
+                         /*gpu_index=*/"-1"),
+               Ort::Exception);
+}
+
+TEST(CreateONNXTensorTest, FloatVector) {
+  std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f};
+  const std::vector<int64_t> shape{2, 2};
+  Ort::Value tensor = CreateONNXTensor(data, shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  const float* tensor_data = tensor.GetTensorData<float>();
+  EXPECT_EQ(tensor_data, data.data());
+  EXPECT_FLOAT_EQ(tensor_data[0], 1.0f);
+  EXPECT_FLOAT_EQ(tensor_data[3], 4.0f);
+}
+
+TEST(CreateONNXTensorTest, Int64Pointer) {
+  std::vector<int64_t> data{5, 6};
+  const std::vector<int64_t> shape{1, 2};
+  Ort::Value tensor = CreateONNXTensor(data.data(), data.size(), shape);
+  EXPECT_EQ(tensor.GetTensorTypeAndShapeInfo().GetShape(), shape);
+  EXPECT_EQ(tensor.GetTensorData<int64_t>(), data.data());
+}
+
+TEST(CreateONNXScalarTensorTest, Nominal) {
+  float value = 0.25f;
+  Ort::Value tensor = CreateONNXScalarTensor(value);
+  EXPECT_TRUE(tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_FLOAT_EQ(*tensor.GetTensorData<float>(), 0.25f);
+
+  int64_t int_value = 7;
+  Ort::Value int_tensor = CreateONNXScalarTensor(int_value);
+  EXPECT_TRUE(int_tensor.GetTensorTypeAndShapeInfo().GetShape().empty());
+  EXPECT_EQ(*int_tensor.GetTensorData<int64_t>(), 7);
+}
+
+TEST(ONNXInferenceLimiterTest, BoundsConcurrencyAndAssignsDisjointSlots) {
+  constexpr int kMaxConcurrent = 2;
+  constexpr int kNumThreads = 6;
+  constexpr int kNumIters = 10;
+
+  ONNXInferenceLimiter limiter(kMaxConcurrent);
+  EXPECT_EQ(limiter.MaxConcurrent(), kMaxConcurrent);
+  EXPECT_EQ(limiter.ActiveCount(), 0);
+
+  std::atomic<int> current_active{0};
+  std::atomic<int> peak_active{0};
+  std::mutex active_slots_mutex;
+  std::vector<int> slot_in_use(kMaxConcurrent, 0);
+
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+  for (int t = 0; t < kNumThreads; ++t) {
+    threads.emplace_back([&]() {
+      for (int i = 0; i < kNumIters; ++i) {
+        ONNXInferenceLimiter::Permit permit = limiter.Acquire();
+        const int slot = permit.slot();
+        EXPECT_GE(slot, 0);
+        EXPECT_LT(slot, kMaxConcurrent);
+        {
+          std::lock_guard<std::mutex> lock(active_slots_mutex);
+          EXPECT_EQ(slot_in_use[slot], 0);
+          slot_in_use[slot] = 1;
+        }
+        const int active =
+            current_active.fetch_add(1, std::memory_order_acq_rel) + 1;
+        EXPECT_LE(active, kMaxConcurrent);
+        int prev_peak = peak_active.load(std::memory_order_relaxed);
+        while (active > prev_peak &&
+               !peak_active.compare_exchange_weak(
+                   prev_peak, active, std::memory_order_relaxed)) {
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        current_active.fetch_sub(1, std::memory_order_acq_rel);
+        {
+          std::lock_guard<std::mutex> lock(active_slots_mutex);
+          slot_in_use[slot] = 0;
+        }
+      }
+    });
+  }
+  for (std::thread& thread : threads) {
+    thread.join();
+  }
+  EXPECT_EQ(limiter.ActiveCount(), 0);
+  EXPECT_EQ(peak_active.load(), kMaxConcurrent);
+}
+
+TEST(ONNXModelTest, ConcurrentRunWithInferenceLimiter) {
+  const std::string model_path = WriteIdentityModel().string();
+  for (const bool allow_replicas : {true, false}) {
+    auto limiter = std::make_shared<ONNXInferenceLimiter>(2);
+    ONNXModel model(model_path,
+                    /*num_threads=*/1,
+                    /*use_gpu=*/false,
+                    /*gpu_index=*/"-1",
+                    limiter,
+                    allow_replicas);
+
+    constexpr int kNumThreads = 5;
+    std::vector<std::thread> threads;
+    threads.reserve(kNumThreads);
+    for (int t = 0; t < kNumThreads; ++t) {
+      threads.emplace_back([&, t]() {
+        for (int iter = 0; iter < 6; ++iter) {
+          std::vector<float> input_data{static_cast<float>(t),
+                                        static_cast<float>(iter)};
+          const std::vector<int64_t> input_shape{1, 2};
+          std::vector<Ort::Value> inputs;
+          inputs.reserve(1);
+          inputs.push_back(MakeTensor(&input_data, input_shape));
+          const std::vector<Ort::Value> outputs = model.Run(inputs);
+          ASSERT_EQ(outputs.size(), 1);
+          const float* output_data = outputs[0].GetTensorData<float>();
+          EXPECT_FLOAT_EQ(output_data[0], input_data[0]);
+          EXPECT_FLOAT_EQ(output_data[1], input_data[1]);
+        }
+      });
+    }
+    for (std::thread& thread : threads) {
+      thread.join();
+    }
+    EXPECT_EQ(limiter->ActiveCount(), 0);
+  }
+}
+
+}  // namespace
+}  // namespace colmap

@@ -299,7 +299,6 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
     case BundleAdjustmentBackend::CERES:
       return CreateDefaultCeresBundleAdjuster(options, config, reconstruction);
     case BundleAdjustmentBackend::CASPAR:
-#ifdef CASPAR_ENABLED
       if (options.focal_length_prior_weight > 0 ||
           options.principal_point_prior_weight > 0 ||
           options.extra_params_prior_weight > 0 ||
@@ -310,12 +309,6 @@ std::unique_ptr<BundleAdjuster> CreateDefaultBundleAdjuster(
                "ignored";
       }
       return CreateDefaultCasparBundleAdjuster(options, config, reconstruction);
-#else
-      LOG(FATAL_THROW)
-          << "Caspar BA backend selected but COLMAP was built without "
-             "CASPAR_ENABLED; rebuild with -DCASPAR_ENABLED=ON to use it";
-      return nullptr;
-#endif
   }
   LOG(FATAL_THROW) << "Unknown bundle adjustment backend: "
                    << static_cast<int>(options.backend);

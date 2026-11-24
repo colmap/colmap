@@ -4,6 +4,7 @@
 
 #include "colmap/util/testing.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 
@@ -27,6 +28,11 @@ TEST(HasFileExtension, Nominal) {
   EXPECT_TRUE(HasFileExtension("test.jpg", ".jpg"));
   EXPECT_TRUE(HasFileExtension("test.jpg", ".Jpg"));
   EXPECT_TRUE(HasFileExtension("test.jpg", ".JPG"));
+  EXPECT_TRUE(HasFileExtension("test.JPG", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.JpG", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.JPG", ".JPG"));
+  EXPECT_TRUE(HasFileExtension("cloud.PLY", ".ply"));
+  EXPECT_FALSE(HasFileExtension("test.PNG", ".jpg"));
   EXPECT_TRUE(HasFileExtension("test.", "."));
 }
 
@@ -212,6 +218,24 @@ TEST(GetDirList, Nominal) {
   EXPECT_THAT(
       dir_list,
       testing::UnorderedElementsAre(subdir1.string(), subdir2.string()));
+}
+
+TEST(GetEnvSafe, Nominal) {
+  constexpr const char* kKey = "COLMAP_TEST_GET_ENV_SAFE";
+#ifdef _MSC_VER
+  ASSERT_EQ(_putenv_s(kKey, "test_value"), 0);
+#else
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  ASSERT_EQ(setenv(kKey, "test_value", /*overwrite=*/1), 0);
+#endif
+  EXPECT_EQ(GetEnvSafe(kKey), "test_value");
+#ifdef _MSC_VER
+  ASSERT_EQ(_putenv_s(kKey, ""), 0);
+#else
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
+  ASSERT_EQ(unsetenv(kKey), 0);
+#endif
+  EXPECT_EQ(GetEnvSafe(kKey), std::nullopt);
 }
 
 TEST(HomeDir, Nominal) {

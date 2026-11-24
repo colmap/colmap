@@ -7,6 +7,8 @@
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sensor/bitmap.h"
 
+#include <optional>
+
 namespace colmap {
 
 struct UndistortCameraOptions {
@@ -41,6 +43,13 @@ struct UndistortCameraOptions {
 
   // Options controlling image warping during undistortion.
   WarpImageOptions warp_options;
+
+  // If set, all perspective cameras are undistorted to this camera instead of
+  // a camera derived from each distorted camera, e.g., to undistort images of
+  // different cameras to the same camera. It must be a PINHOLE camera. The
+  // other camera options, except for the warp options, are then ignored for
+  // perspective cameras (but must still be valid).
+  std::optional<Camera> target_camera;
 };
 
 // Undistort camera by resizing the image and shifting the principal point.
@@ -63,6 +72,16 @@ struct UndistortCameraOptions {
 Camera UndistortCamera(const UndistortCameraOptions& options,
                        const Camera& camera);
 
+// Whether undistortion leaves the camera and its images unchanged, so that the
+// images can be copied through as-is: no max_image_size is requested and the
+// camera is either spherical (no pinhole image plane to undistort to) or an
+// undistorted pinhole camera without a target camera. Fisheye cameras always
+// need conversion to pinhole, even with zero distortion. The undistorted
+// reconstruction and the undistorted images must make the same decision to
+// stay consistent.
+bool IsUndistortionNoOp(const UndistortCameraOptions& options,
+                        const Camera& camera);
+
 // Undistort image such that the viewing geometry of the undistorted image
 // follows a pinhole camera model. See `UndistortCamera` for more details
 // on the undistortion conventions.
@@ -79,9 +98,10 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
 
 // Compute stereo rectification homographies that transform two images,
 // such that corresponding pixels in one image lie on the same scanline in the
-// other image. The matrix Q transforms disparity values to world coordinates
-// as [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w. Note that this function
-// assumes that the two cameras are already undistorted.
+// other image. The matrix Q transforms disparity values to 3D coordinates in
+// the rectified first camera frame as [x, y, disparity, 1] * Q =
+// [X, Y, Z, 1] * w. Note that this function assumes that the two cameras are
+// already undistorted.
 void RectifyStereoCameras(const Camera& camera1,
                           const Camera& camera2,
                           const Rigid3d& cam2_from_cam1,

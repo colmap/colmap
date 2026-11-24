@@ -176,11 +176,7 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
 
     image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&stream));
 
-    if (is_legacy_reconstruction) {
-      CreateFrameForImage(image, cam_from_world, reconstruction);
-      image.SetFrameId(image.ImageId());
-      image.SetFramePtr(&reconstruction.Frame(image.ImageId()));
-    } else {
+    if (!is_legacy_reconstruction) {
       Frame* frame = image_to_frame.at(image.ImageId());
       image.SetFrameId(frame->FrameId());
       image.SetFramePtr(frame);
@@ -216,7 +212,11 @@ void ReadImagesBinary(Reconstruction& reconstruction, std::istream& stream) {
       }
     }
 
-    reconstruction.AddImage(std::move(image));
+    if (is_legacy_reconstruction) {
+      reconstruction.AddImageWithTrivialFrame(std::move(image), cam_from_world);
+    } else {
+      reconstruction.AddImage(std::move(image));
+    }
   }
 }
 

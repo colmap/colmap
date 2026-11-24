@@ -484,7 +484,7 @@ class FeaturePairsFeatureMatcher : public Thread {
                                     geometry_options_);
 
       } else {
-        if (camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
+        if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
           two_view_geometry.config = TwoViewGeometry::CALIBRATED;
         } else {
           two_view_geometry.config = TwoViewGeometry::UNCALIBRATED;

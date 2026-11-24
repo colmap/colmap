@@ -8,6 +8,7 @@
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/types.h"
 
+#include <optional>
 #include <vector>
 
 namespace colmap {
@@ -24,14 +25,32 @@ class PoseGraph {
     // Relative pose from image 1 to image 2.
     Rigid3d cam2_from_cam1;
 
+    // Optional 3x3 marginal rotation covariance of cam2_from_cam1 in
+    // camera 1's local tangent frame (right perturbation R21 * Exp(delta)).
+    std::optional<Eigen::Matrix3f> cam2_from_cam1_rotation_cov;
+
     // Number of two-view matches used to compute the relative pose.
     int num_matches = 0;
 
-    // Whether this edge is valid for reconstruction.
+    // Whether fixed rig calibration is available for initialization.
+    bool prior = false;
+
+    // Whether this edge has a valid measured relative pose.
     bool valid = true;
 
     // Invert the geometry to match swapped image order.
-    void Invert() { cam2_from_cam1 = Inverse(cam2_from_cam1); }
+    void Invert() {
+      if (cam2_from_cam1_rotation_cov.has_value()) {
+        const Eigen::Matrix3d cam2_from_cam1_rot =
+            cam2_from_cam1.rotation().toRotationMatrix();
+        const Eigen::Matrix3d cov =
+            cam2_from_cam1_rot * cam2_from_cam1_rotation_cov->cast<double>() *
+            cam2_from_cam1_rot.transpose();
+        cam2_from_cam1_rotation_cov =
+            (0.5 * (cov + cov.transpose())).cast<float>();
+      }
+      cam2_from_cam1 = Inverse(cam2_from_cam1);
+    }
   };
 
   PoseGraph() = default;
@@ -46,6 +65,14 @@ class PoseGraph {
 
   // Load edges from the correspondence graph.
   void Load(const CorrespondenceGraph& corr_graph);
+
+  // Add fixed rig connections as prior edges for active images.
+  // Existing edges retain their measured poses and validity; new edges are not
+  // valid measurements. Call after adding measured edges, since AddEdge rejects
+  // duplicates.
+  void AddRigEdges(const Reconstruction& reconstruction,
+                   const FlatHashSet<image_t>& active_image_ids,
+                   bool refine_sensor_from_rig = true);
 
   // Edge operations.
   inline Edge& AddEdge(image_t image_id1, image_t image_id2, Edge edge);
@@ -95,6 +122,10 @@ class PoseGraph {
   // Mark image pairs as invalid if either image is not in the active set.
   void InvalidatePairsOutsideActiveImageIds(
       const FlatHashSet<image_t>& active_image_ids);
+
+  // Returns the subgraph of the edges between images in the given set, with
+  // all their data and validity.
+  PoseGraph Subgraph(const FlatHashSet<image_t>& image_ids) const;
 
  private:
   // Map from pair ID to edge data. The pair ID is computed from the

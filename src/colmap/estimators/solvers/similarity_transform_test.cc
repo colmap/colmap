@@ -144,6 +144,74 @@ TEST(Sim3d, EstimateNonMinimalDegenerate) {
       EstimateSim3d(degenerate_src_tgt, degenerate_src_tgt, tgt_from_src));
 }
 
+template <int kDim, bool kEstimateScale>
+void TestAffineRank() {
+  using Estimator = SimilarityTransformEstimator<kDim, kEstimateScale>;
+  using Point = typename Estimator::X_t;
+  for (const double offset : {0.0, 10.0}) {
+    std::vector<Point> src(kDim, Point::Constant(offset));
+    for (int i = 1; i < kDim; ++i) {
+      src[i](i - 1) += 1;
+    }
+    const double scale = kEstimateScale ? 2.0 : 1.0;
+    std::vector<Point> tgt;
+    tgt.reserve(src.size());
+    for (const auto& point : src) {
+      tgt.push_back(scale * point + Point::Constant(3));
+    }
+    for (int i = 0; i < 2; ++i) {
+      std::vector<typename Estimator::M_t> models;
+      Estimator::Estimate(src, tgt, &models);
+      ASSERT_EQ(models.size(), 1);
+      for (size_t j = 0; j < src.size(); ++j) {
+        EXPECT_LT((models[0] * src[j].homogeneous() - tgt[j]).norm(), 1e-10);
+      }
+      // Test a plane through the origin in either the source or target frame.
+      std::swap(src, tgt);
+    }
+  }
+}
+
+TEST(SimilarityTransformEstimator, AffineRank) {
+  TestAffineRank<2, false>();
+  TestAffineRank<2, true>();
+  TestAffineRank<3, false>();
+  TestAffineRank<3, true>();
+}
+
+TEST(SimilarityTransformEstimator, Collinear3d) {
+  // An offset line has linear rank two but still cannot determine a rotation.
+  const std::vector<Eigen::Vector3d> points = {{1, 2, 3}, {2, 3, 4}, {3, 4, 5}};
+  std::vector<Eigen::Matrix3x4d> models;
+  SimilarityTransformEstimator<3, false>::Estimate(points, points, &models);
+  EXPECT_TRUE(models.empty());
+  SimilarityTransformEstimator<3, true>::Estimate(points, points, &models);
+  EXPECT_TRUE(models.empty());
+}
+
+TEST(Sim3d, EstimatePlanarRobust) {
+  const Sim3d expected(
+      2,
+      Eigen::Quaterniond(Eigen::AngleAxisd(0.3, Eigen::Vector3d::UnitX())),
+      Eigen::Vector3d(3, 4, 5));
+  const std::vector<Eigen::Vector3d> src = {
+      {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}};
+  std::vector<Eigen::Vector3d> tgt;
+  tgt.reserve(src.size());
+  for (const auto& point : src) {
+    tgt.push_back(expected * point);
+  }
+  RANSACOptions options;
+  options.max_error = 1e-6;
+  options.max_num_trials = 20;
+  options.min_num_trials = 1;
+  Sim3d estimated;
+  const auto report = EstimateSim3dRobust(src, tgt, options, estimated);
+  ASSERT_TRUE(report.success);
+  EXPECT_EQ(report.support.num_inliers, src.size());
+  EXPECT_THAT(estimated, Sim3dNear(expected, 1e-10, 1e-10, 1e-10));
+}
+
 TEST(Sim3d, EstimateRobust) {
   const size_t num_inliers = 1000;
   const size_t num_outliers = 400;

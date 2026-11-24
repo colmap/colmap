@@ -746,7 +746,8 @@ TEST(EstimateGeneralizedRelativePose, Nominal) {
                                                     &num_inliers,
                                                     &inlier_mask));
         EXPECT_EQ(num_inliers, problem.points2D1.size());
-        EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+        EXPECT_THAT(inlier_mask,
+                    testing::Each(testing::Eq(static_cast<char>(true))));
         if ((num_cameras_per_rig1 == 1 && num_cameras_per_rig2 == 1) ||
             sensor_from_rig_translation_stddev == 0) {
           // Panoramic pairs do not allow for recovery of translation scale.

@@ -68,7 +68,7 @@ TEST(EstimateAbsolutePose, Nominal) {
       Rigid3dNear(problem.image.CamFromWorld(), /*rtol=*/1e-6, /*ttol=*/1e-6));
   EXPECT_EQ(camera, problem.camera);
   EXPECT_EQ(num_inliers, problem.points2D.size());
-  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(static_cast<char>(true))));
 }
 
 TEST(EstimateAbsolutePose, EstimateFocalLength) {
@@ -94,7 +94,7 @@ TEST(EstimateAbsolutePose, EstimateFocalLength) {
   camera.SetFocalLength(problem.camera.FocalLength());
   EXPECT_EQ(camera, problem.camera);
   EXPECT_EQ(num_inliers, problem.points2D.size());
-  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(static_cast<char>(true))));
 }
 
 TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
@@ -121,7 +121,7 @@ TEST(EstimateAbsolutePose, EstimateSeparateFocalLengths) {
   EXPECT_NEAR(camera.FocalLengthX(), problem.camera.FocalLengthX(), 5);
   EXPECT_NEAR(camera.FocalLengthY(), problem.camera.FocalLengthY(), 5);
   EXPECT_EQ(num_inliers, problem.points2D.size());
-  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(static_cast<char>(true))));
 }
 
 TEST(EstimateRelativePose, Nominal) {
@@ -164,7 +164,7 @@ TEST(EstimateRelativePose, Nominal) {
                           /*rtol=*/1e-3,
                           /*ttol=*/1e-3));
   EXPECT_EQ(num_inliers, cam_rays1_with_jac.size());
-  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(true)));
+  EXPECT_THAT(inlier_mask, testing::Each(testing::Eq(static_cast<char>(true))));
 }
 
 TEST(EstimateRelativePose, ZeroSentinelRaysExcluded) {

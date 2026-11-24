@@ -12,6 +12,46 @@
 
 namespace colmap {
 
+// L1-IRLS-specific rotation averaging options. Solver-agnostic options (e.g.,
+// reweighting, skip_initialization, refine_sensor_from_rig) are in
+// RotationEstimatorOptions.
+struct L1IrlsRotationAveragerOptions {
+  // Maximum number of times to run L1 minimization.
+  int max_num_l1_iterations = 5;
+
+  // Average step size threshold to terminate the L1 minimization.
+  double l1_step_convergence_threshold = 0.001;
+
+  // The number of iterative reweighted least squares iterations to perform.
+  int max_num_irls_iterations = 100;
+
+  // Average step size threshold to terminate the IRLS minimization.
+  double irls_step_convergence_threshold = 0.001;
+
+  // Scale of the Geman-McClure IRLS weight sigma^2 / (e^2 + sigma^2)^2, in
+  // degrees. Unused by HALF_NORM.
+  double irls_loss_parameter_sigma = 5.0;
+
+  // Tikhonov ridge added to the diagonal of the normal equations A^T (W) A
+  // before each Cholesky factorization in the L1 and IRLS phases. The
+  // theoretical normal equations of a connected pose graph plus gauge fix are
+  // positive definite, but supernodal Cholesky may still report "matrix not
+  // positive definite" on poorly conditioned graphs (e.g., long sequential
+  // video chains). Set to a small positive value (e.g., 1e-9) to stabilize
+  // such systems. Zero disables regularization (no computational overhead).
+  double ridge_regularization = 1e-9;
+
+  // IRLS weight function.
+  enum WeightType {
+    // Geman-McClure weight from "Efficient and robust large-scale rotation
+    // averaging" (Chatterjee et al., 2013)
+    GEMAN_MCCLURE,
+    // Half norm from "Robust Relative Rotation Averaging"
+    // (Chatterjee et al., 2017)
+    HALF_NORM,
+  } weight_type = GEMAN_MCCLURE;
+};
+
 // Rotation averaging problem formulated as linear system A*x = b where:
 //   x = [rig_from_world rotations, unknown cam_from_rig rotations]
 //   b = residuals from relative rotation constraints
@@ -139,7 +179,7 @@ class RotationAveragingProblem {
 // Solves the rotation averaging problem using L1 regression followed by IRLS.
 class RotationAveragingSolver {
  public:
-  explicit RotationAveragingSolver(const RotationEstimatorOptions& options)
+  explicit RotationAveragingSolver(const L1IrlsRotationAveragerOptions& options)
       : options_(options) {}
 
   // Solves the rotation averaging problem.
@@ -157,7 +197,7 @@ class RotationAveragingSolver {
   std::optional<Eigen::VectorXd> ComputeIRLSWeights(
       const RotationAveragingProblem& problem, double sigma) const;
 
-  const RotationEstimatorOptions options_;
+  const L1IrlsRotationAveragerOptions options_;
 };
 
 }  // namespace colmap

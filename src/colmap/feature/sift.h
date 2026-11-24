@@ -4,8 +4,8 @@
 
 #include "colmap/feature/extractor.h"
 #include "colmap/feature/index.h"
+#include "colmap/feature/lightglue.h"
 #include "colmap/feature/matcher.h"
-#include "colmap/feature/onnx_matchers.h"
 #include "colmap/feature/resources.h"
 #include "colmap/util/cache.h"
 
@@ -77,10 +77,19 @@ struct SiftExtractionOptions {
 // feature extractor instance can be used to extract features for multiple
 // images in the same thread. Note that, for GPU based extraction, a OpenGL
 // context must be made current in the thread of the caller. If the gpu_index is
-// not -1, the CUDA version of SiftGPU is used, which produces slightly
-// different results than the OpenGL implementation.
+// not -1, the compute (CUDA/HIP) version of SiftGPU is used, which produces
+// slightly different results than the OpenGL implementation.
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const FeatureExtractionOptions& options);
+
+// Named functions instead of lambdas for default member initializers: MSVC
+// can give lambdas from different translation units the same name.
+inline LightGlueONNXMatchingOptions DefaultSiftLightGlueMatchingOptions() {
+  LightGlueONNXMatchingOptions options;
+  options.min_score = 0.1;
+  options.model_path = kDefaultSiftLightGlueFeatureMatcherUri;
+  return options;
+}
 
 struct SiftMatchingOptions {
   // Maximum distance ratio between first and second best match.
@@ -100,12 +109,8 @@ struct SiftMatchingOptions {
       cpu_descriptor_index_cache = nullptr;
 
   // LightGlue matching options.
-  LightGlueONNXMatchingOptions lightglue = []() {
-    LightGlueONNXMatchingOptions options;
-    options.min_score = 0.1;
-    options.model_path = kDefaultSiftLightGlueFeatureMatcherUri;
-    return options;
-  }();
+  LightGlueONNXMatchingOptions lightglue =
+      DefaultSiftLightGlueMatchingOptions();
 
   bool Check() const;
 };

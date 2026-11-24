@@ -9,6 +9,8 @@ void BindAffineTransformEstimator(py::module& m);
 void BindAlignmentEstimator(py::module& m);
 void BindBundleAdjuster(py::module& m);
 void BindCeres(py::module& m);
+void BindCeresRotationAverager(py::module& m);
+void BindCeresRotationAveragerOptions(py::module& m);
 void BindCostFunctions(py::module& m);
 void BindCovarianceEstimator(py::module& m);
 void BindEssentialMatrixEstimator(py::module& m);
@@ -18,6 +20,7 @@ void BindHomographyMatrixEstimator(py::module& m);
 void BindSimilarityTransformEstimator(py::module& m);
 void BindTriangulationEstimator(py::module& m);
 void BindTwoViewGeometryEstimator(py::module& m);
+void BindTwoViewRotationCovarianceEstimator(py::module& m);
 void BindMotionAveraging(py::module& m);
 
 void BindEstimators(py::module& m) {
@@ -35,5 +38,8 @@ void BindEstimators(py::module& m) {
   BindSimilarityTransformEstimator(m);
   BindTriangulationEstimator(m);
   BindTwoViewGeometryEstimator(m);
+  BindTwoViewRotationCovarianceEstimator(m);
+  BindCeresRotationAveragerOptions(m);
   BindMotionAveraging(m);
+  BindCeresRotationAverager(m);
 }

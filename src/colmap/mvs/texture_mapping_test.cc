@@ -2,6 +2,7 @@
 
 #include "colmap/mvs/texture_mapping.h"
 
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -627,6 +628,51 @@ TEST(MeshTextureMapping, PyramidMultiFace) {
     if (v >= 0) ++assigned;
   }
   EXPECT_GT(assigned, 0);
+}
+
+TEST(MeshTextureMapping, SamplesAtPixelCenters) {
+  // With the MakeTestImage camera (fx = fy = 256, cx = cy = 128,
+  // R = 180-degree rotation about X, C = (0.5, 0.5, 5)), these vertices
+  // project exactly onto source texel centers: V0 -> (100.5, 100.5),
+  // V1 -> (100.5, 110.5), V2 -> (110.5, 100.5). All values are exactly
+  // representable in floating point, so the projections are exact.
+  PlyMesh mesh;
+  mesh.vertices = {
+      PlyMeshVertex(-19.0f / 512, 531.0f / 512, 0.0f),
+      PlyMeshVertex(-19.0f / 512, 431.0f / 512, 0.0f),
+      PlyMeshVertex(81.0f / 512, 531.0f / 512, 0.0f),
+  };
+  mesh.faces = {PlyMeshFace(0, 1, 2)};
+
+  // Source image: white texel at (100, 100), black elsewhere.
+  std::vector<Image> images;
+  images.push_back(MakeTestImage(256, 256, BitmapColor<uint8_t>(0)));
+  Bitmap bitmap(256, 256, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(100, 100, BitmapColor<uint8_t>(255));
+  images.back().SetBitmap(std::move(bitmap));
+
+  MeshTextureMappingOptions options;
+  options.apply_color_correction = false;
+  options.view_selection_smoothing_iterations = 0;
+  options.inpaint_radius = 0;
+
+  const auto result = MeshTextureMapping(mesh, images, options);
+  ASSERT_EQ(result.face_view_ids.size(), 1u);
+  ASSERT_EQ(result.face_view_ids[0], 0);
+  ASSERT_EQ(result.face_uvs.size(), 6u);
+
+  // The atlas texel under vertex 0 must reproduce the white source texel.
+  // Without the 0.5 sampling correction it samples gray instead.
+  const int px = static_cast<int>(
+      std::round(result.face_uvs[0] * result.atlas_width - 0.5));
+  const int py = static_cast<int>(
+      std::round((1.0f - result.face_uvs[1]) * result.atlas_height - 0.5));
+  const auto color = result.texture_atlas.GetPixel(px, py);
+  ASSERT_TRUE(color.has_value());
+  EXPECT_EQ(color->r, 255);
+  EXPECT_EQ(color->g, 255);
+  EXPECT_EQ(color->b, 255);
 }
 
 }  // namespace

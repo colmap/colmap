@@ -8,6 +8,7 @@
 #include "pycolmap/pybind11_extension.h"
 #include "pycolmap/scene/types.h"
 
+#include <pybind11/eigen.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
@@ -24,13 +25,22 @@ void BindPoseGraph(py::module& m) {
           .def_readwrite("cam2_from_cam1",
                          &PoseGraph::Edge::cam2_from_cam1,
                          "Relative pose from image 1 to image 2.")
+          .def_readwrite("cam2_from_cam1_rotation_cov",
+                         &PoseGraph::Edge::cam2_from_cam1_rotation_cov,
+                         "Optional 3x3 marginal rotation covariance of "
+                         "cam2_from_cam1 in camera 1's local tangent frame.")
           .def_readwrite("num_matches",
                          &PoseGraph::Edge::num_matches,
                          "Number of two-view matches used to compute the "
                          "relative pose.")
-          .def_readwrite("valid",
-                         &PoseGraph::Edge::valid,
-                         "Whether this edge is valid for reconstruction.")
+          .def_readwrite("prior",
+                         &PoseGraph::Edge::prior,
+                         "Whether fixed rig calibration is available for "
+                         "initialization.")
+          .def_readwrite(
+              "valid",
+              &PoseGraph::Edge::valid,
+              "Whether this edge has a valid measured relative pose.")
           .def("invert",
                &PoseGraph::Edge::Invert,
                "Invert the geometry to match swapped image order.");
@@ -54,6 +64,12 @@ void BindPoseGraph(py::module& m) {
            &PoseGraph::Load,
            "corr_graph"_a,
            "Load edges from a correspondence graph.")
+      .def("add_rig_edges",
+           &PoseGraph::AddRigEdges,
+           "reconstruction"_a,
+           "active_image_ids"_a,
+           "refine_sensor_from_rig"_a = true,
+           "Add fixed rig connections for active images.")
       .def("add_edge",
            &PoseGraph::AddEdge,
            "image_id1"_a,
@@ -105,5 +121,10 @@ void BindPoseGraph(py::module& m) {
            &PoseGraph::InvalidatePairsOutsideActiveImageIds,
            "active_image_ids"_a,
            "Mark image pairs as invalid if either image is not in the active "
-           "set.");
+           "set.")
+      .def("subgraph",
+           &PoseGraph::Subgraph,
+           "image_ids"_a,
+           "Return the subgraph of the edges between images in the given set, "
+           "with all their data and validity.");
 }

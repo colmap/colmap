@@ -24,7 +24,7 @@
 #ifndef CU_TEX_IMAGE_H
 #define CU_TEX_IMAGE_H
 
-#include <cuda_runtime.h>
+#include "colmap/util/cuda_to_hip.h"
 
 class GLTexImage;
 
@@ -41,10 +41,35 @@ protected:
 	int			_texHeight;
 	GLuint		_fromPBO;
 public:
+	// Owns a texture object handle. Move-only: a copy would destroy the same
+	// handle twice, and the callers below default-construct one and then
+	// move-assign a binding into it, so an unbound handle must also be safe to
+	// destroy.
 	struct CuTexObj
 	{
-		cudaTextureObject_t handle;
+		cudaTextureObject_t handle = 0;
+
+		CuTexObj() = default;
+		CuTexObj(const CuTexObj&) = delete;
+		CuTexObj& operator=(const CuTexObj&) = delete;
+		CuTexObj(CuTexObj&& other) noexcept : handle(other.handle)
+		{
+			other.handle = 0;
+		}
+		CuTexObj& operator=(CuTexObj&& other) noexcept
+		{
+			if(this != &other)
+			{
+				Destroy();
+				handle = other.handle;
+				other.handle = 0;
+			}
+			return *this;
+		}
 		~CuTexObj();
+
+	private:
+		void Destroy();
 	};
 
 	virtual void SetImageSize(int width, int height);
@@ -52,8 +77,6 @@ public:
 	void InitTexture2D();
 	CuTexObj BindTexture(const cudaTextureDesc& textureDesc,
 											 const cudaChannelFormatDesc& channelFmtDesc);
-	CuTexObj BindTexture2D(const cudaTextureDesc& textureDesc,
-											   const cudaChannelFormatDesc& channelFmtDesc);
 	void CopyToHost(void* buf);
 	void CopyToHost(void* buf, int stream);
 	void CopyFromHost(const void* buf);

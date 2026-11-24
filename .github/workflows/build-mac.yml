@@ -10,12 +10,19 @@ on:
       - main
       - release/*
   pull_request:
-    types: [ assigned, opened, synchronize, reopened ]
+    types: [ opened, synchronize, reopened ]
   release:
     types: [ published, edited ]
 
 jobs:
   build:
+    # Skip auxiliary releases (mirrored dependencies, models, datasets), which
+    # are not COLMAP releases and must not trigger builds or deployments.
+    if: >-
+      github.event_name != 'release' ||
+      !(startsWith(github.ref_name, 'deps-') ||
+        startsWith(github.ref_name, 'models-') ||
+        startsWith(github.ref_name, 'datasets-'))
     name: ${{ matrix.config.os }} ${{ matrix.config.arch }} ${{ matrix.config.cmakeBuildType }}
     runs-on: ${{ matrix.config.os }}
     permissions:
@@ -89,6 +96,8 @@ jobs:
           ninja
 
       - name: Run tests
+        env:
+          COLMAP_TEST_HEAVY: "1"
         run: |
           cd build
           set +e

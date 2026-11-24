@@ -22,21 +22,32 @@ namespace py = pybind11;
 py::typing::Optional<py::dict> PyEstimateHomographyMatrix(
     const std::vector<Eigen::Vector2d>& points2D1,
     const std::vector<Eigen::Vector2d>& points2D2,
-    const RANSACOptions& options) {
+    const RANSACOptions& options,
+    bool cheirality_check) {
   py::gil_scoped_release release;
   THROW_CHECK_EQ(points2D1.size(), points2D2.size());
+  const auto report_to_dict =
+      [](const auto& report) -> py::typing::Optional<py::dict> {
+    py::gil_scoped_acquire acquire;
+    if (!report.success) {
+      return py::none();
+    }
+    return py::dict("H"_a = report.model,
+                    "num_inliers"_a = report.support.num_inliers,
+                    "inlier_mask"_a = ToPythonMask(report.inlier_mask));
+  };
+  if (cheirality_check) {
+    LORANSAC<HomographyMatrixCheiralityEstimator,
+             HomographyMatrixEstimator,
+             MEstimatorSupportMeasurer>
+        ransac(options);
+    return report_to_dict(ransac.Estimate(points2D1, points2D2));
+  }
   LORANSAC<HomographyMatrixEstimator,
            HomographyMatrixEstimator,
            MEstimatorSupportMeasurer>
       ransac(options);
-  const auto report = ransac.Estimate(points2D1, points2D2);
-  py::gil_scoped_acquire acquire;
-  if (!report.success) {
-    return py::none();
-  }
-  return py::dict("H"_a = report.model,
-                  "num_inliers"_a = report.support.num_inliers,
-                  "inlier_mask"_a = ToPythonMask(report.inlier_mask));
+  return report_to_dict(ransac.Estimate(points2D1, points2D2));
 }
 
 void BindHomographyMatrixEstimator(py::module& m) {
@@ -47,5 +58,9 @@ void BindHomographyMatrixEstimator(py::module& m) {
         "points2D1"_a,
         "points2D2"_a,
         py::arg_v("estimation_options", est_options, "RANSACOptions()"),
-        "Robustly estimate homography matrix using LO-RANSAC.");
+        "cheirality_check"_a = true,
+        "Robustly estimate homography matrix using LO-RANSAC. If "
+        "cheirality_check is true, minimal samples that flip orientation are "
+        "rejected without solving, which assumes an orientation-preserving "
+        "homography.");
 }

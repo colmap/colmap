@@ -7,6 +7,8 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/eigen_matchers.h"
 
+#include <cmath>
+
 #include <Eigen/Core>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -244,6 +246,59 @@ TEST(TriangulateMultiViewPoint, Bearings) {
   }
 }
 
+TEST(TriangulateOptimalPoint, RotatedCameras) {
+  const std::vector<Eigen::Vector3d> points3D = {Eigen::Vector3d(-0.5, 0.2, 3),
+                                                 Eigen::Vector3d(0.3, -0.4, 5),
+                                                 Eigen::Vector3d(0.7, 0.6, 8)};
+  for (const Rigid3d& cam1_from_world :
+       {Rigid3d(),
+        Rigid3d(Eigen::Quaterniond(Eigen::AngleAxisd(
+                    0.1, Eigen::Vector3d(1, 2, 3).normalized())),
+                Eigen::Vector3d(0.2, -0.1, 0.3))}) {
+    for (const Eigen::Vector3d& axis : {Eigen::Vector3d::UnitX().eval(),
+                                        Eigen::Vector3d::UnitY().eval(),
+                                        Eigen::Vector3d::UnitZ().eval()}) {
+      const Rigid3d cam2_from_cam1(
+          Eigen::Quaterniond(Eigen::AngleAxisd(0.2, axis)),
+          Eigen::Vector3d(1, 0.2, 0.1));
+      const Rigid3d cam2_from_world = cam2_from_cam1 * cam1_from_world;
+      for (const Eigen::Vector3d& point3D : points3D) {
+        const Eigen::Vector2d point1 =
+            (cam1_from_world * point3D).hnormalized();
+        const Eigen::Vector2d point2 =
+            (cam2_from_world * point3D).hnormalized();
+        Eigen::Vector3d tri_point3D;
+        ASSERT_TRUE(TriangulateOptimalPoint(cam1_from_world.ToMatrix(),
+                                            cam2_from_world.ToMatrix(),
+                                            point1,
+                                            point2,
+                                            &tri_point3D));
+        EXPECT_THAT(tri_point3D, EigenMatrixNear(point3D, 1e-10));
+        ASSERT_TRUE(TriangulateOptimalPoint(cam2_from_world.ToMatrix(),
+                                            cam1_from_world.ToMatrix(),
+                                            point2,
+                                            point1,
+                                            &tri_point3D));
+        EXPECT_THAT(tri_point3D, EigenMatrixNear(point3D, 1e-10));
+      }
+    }
+  }
+}
+
+TEST(TriangulateOptimalPoint, NoisyRectifiedObservations) {
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0));
+  Eigen::Vector3d point3D;
+  ASSERT_TRUE(TriangulateOptimalPoint(cam1_from_world.ToMatrix(),
+                                      cam2_from_world.ToMatrix(),
+                                      Eigen::Vector2d(0.2, 0.1),
+                                      Eigen::Vector2d(0.4, 0.12),
+                                      &point3D));
+  // Rectified stereo keeps x and averages y, giving depth 1 / (0.4 - 0.2).
+  EXPECT_THAT(point3D, EigenMatrixNear(Eigen::Vector3d(1, 0.55, 5), 1e-10));
+}
+
 TEST(CalculateTriangulationAngle, Nominal) {
   const Eigen::Vector3d tvec1(0, 0, 0);
   const Eigen::Vector3d tvec2(0, 1, 0);
@@ -336,6 +391,50 @@ TEST(CalculateAngleBetweenVectors, IdenticalVectors) {
   const Eigen::Vector3d v1(1, 2, 3);
   const Eigen::Vector3d v2(1, 2, 3);
   EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), 0.0, 1e-10);
+}
+
+TEST(CalculateAngleBetweenVectors, SmallAngles) {
+  for (const double offset : {1e-8, 1e-12, 1e-200}) {
+    SCOPED_TRACE(offset);
+    EXPECT_NEAR(CalculateAngleBetweenVectors(Eigen::Vector3d(1, 0, 0),
+                                             Eigen::Vector3d(1, offset, 0)),
+                std::atan(offset),
+                offset * 1e-10);
+    EXPECT_NEAR(CalculateAngleBetweenVectors(Eigen::Vector3d(1, 0, 0),
+                                             Eigen::Vector3d(-1, offset, 0)),
+                EIGEN_PI - std::atan(offset),
+                1e-14);
+  }
+}
+
+TEST(CalculateAngleBetweenVectors, ScaleInvariance) {
+  for (const double scale1 :
+       {1e-200, 1e-155, 1e-100, 1e-80, 1.0, 1e80, 1e100, 1e155, 1e200}) {
+    for (const double scale2 :
+         {1e-200, 1e-155, 1e-100, 1e-80, 1.0, 1e80, 1e100, 1e155, 1e200}) {
+      SCOPED_TRACE(testing::Message() << scale1 << ", " << scale2);
+      const Eigen::Vector3d v1(scale1, 0, 0);
+      const Eigen::Vector3d v2(scale2, scale2, 0);
+      EXPECT_NEAR(CalculateAngleBetweenVectors(v1, v2), EIGEN_PI / 4, 1e-14);
+      EXPECT_NEAR(
+          CalculateAngleBetweenVectors(v1, -v2), 3 * EIGEN_PI / 4, 1e-14);
+    }
+  }
+}
+
+TEST(CalculateTriangulationAngle, ScaleInvariance) {
+  for (const double scale :
+       {1e-200, 1e-155, 1e-100, 1e-80, 1.0, 1e80, 1e100, 1e155, 1e200}) {
+    SCOPED_TRACE(scale);
+    const Eigen::Vector3d center1 = Eigen::Vector3d::Zero();
+    const Eigen::Vector3d center2(0, scale, 0);
+    const Eigen::Vector3d point3D(0, 0, scale);
+    EXPECT_NEAR(CalculateTriangulationAngle(center1, center2, point3D),
+                EIGEN_PI / 4,
+                1e-14);
+    EXPECT_THAT(CalculateTriangulationAngles(center1, center2, {point3D}),
+                testing::Each(testing::DoubleNear(EIGEN_PI / 4, 1e-14)));
+  }
 }
 
 }  // namespace

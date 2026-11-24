@@ -7,6 +7,9 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/oiio_utils.h"
 
+#include <algorithm>
+#include <cstring>
+
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imageio.h>
@@ -35,6 +38,39 @@ struct OIIOMetaData : public Bitmap::MetaData {
 // conversion from std::string_view.
 OIIO::string_view OIIOFromStdStringView(std::string_view value) {
   return {value.data(), value.size()};
+}
+
+// OIIO's IPTC IIM encoder reads the "IPTC:*" attributes plus the TIFF/EXIF
+// synonyms from its IIM tag table (Software, Artist, Copyright, and
+// ImageDescription, see the `iimtag` table in OIIO's
+// src/libOpenImageIO/iptc.cpp). OIIO 2.x aborts on empty string values in
+// `encode_iptc_iim_one_tag` (see colmap/colmap#4599), so detect these
+// attributes here in order to omit them from written files. "Keywords" is
+// included as a defensive alias for the repeatable IPTC:Keywords field. Empty
+// strings carry no information, so omitting them is lossless.
+bool IsIptcMetadata(const OIIO::ParamValue& attribute) {
+  if (attribute.type().basetype != OIIO::TypeDesc::STRING) {
+    return false;
+  }
+
+  const std::string_view name(attribute.name().c_str());
+  return name.substr(0, 5) == "IPTC:" || name == "Keywords" ||
+         name == "Software" || name == "Artist" || name == "Copyright" ||
+         name == "ImageDescription";
+}
+
+// Check all values, as repeatable IPTC fields (e.g. Keywords) may hold
+// multiple strings and OIIO encodes each of them.
+bool HasEmptyIptcString(const OIIO::ParamValue& attribute) {
+  if (!IsIptcMetadata(attribute)) {
+    return false;
+  }
+  for (int i = 0; i < attribute.nvalues(); ++i) {
+    if (attribute.get_string_indexed(i).empty()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Convert a filesystem path to a UTF-8 std::string. On Windows,
@@ -463,6 +499,15 @@ bool Bitmap::Write(const std::filesystem::path& path,
     output_data_ptr = maybe_linearized_output_data.data();
   }
 
+  // OIIO writers that encode IPTC metadata (e.g. JPEG, or TIFF with
+  // tiff:write_iptc) abort on empty fields in OIIO 2.x. Filter the copied spec
+  // for all formats, as empty IPTC strings carry no information anyway, while
+  // preserving populated metadata.
+  auto& attributes = meta_data.image_spec.extra_attribs;
+  attributes.erase(
+      std::remove_if(attributes.begin(), attributes.end(), HasEmptyIptcString),
+      attributes.end());
+
   if (HasFileExtension(path, ".jpg") || HasFileExtension(path, ".jpeg")) {
     if (!GetMetaData("Compression").has_value()) {
       // Save JPEG in superb quality by default to reduce compression artifacts.
@@ -489,6 +534,15 @@ bool Bitmap::Write(const std::filesystem::path& path,
   }
 
   return true;
+}
+
+void Bitmap::SetImageData(int width, int height, std::vector<uint8_t>&& data) {
+  width_ = width;
+  height_ = height;
+  data_ = std::move(data);
+  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
+  meta_data->image_spec.width = width;
+  meta_data->image_spec.height = height;
 }
 
 void Bitmap::Rescale(const int new_width,
@@ -523,12 +577,7 @@ void Bitmap::Rescale(const int new_width,
       break;
   }
 
-  width_ = new_width;
-  height_ = new_height;
-  data_ = std::move(new_data);
-  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
-  meta_data->image_spec.width = new_width;
-  meta_data->image_spec.height = new_height;
+  SetImageData(new_width, new_height, std::move(new_data));
 }
 
 double Bitmap::Thumbnail(const int max_image_size, RescaleFilter filter) {
@@ -539,8 +588,8 @@ double Bitmap::Thumbnail(const int max_image_size, RescaleFilter filter) {
   // Fit the down-sampled version exactly into the max dimensions.
   const double scale =
       static_cast<double>(max_image_size) / std::max(width_, height_);
-  Rescale(static_cast<int>(std::round(width_ * scale)),
-          static_cast<int>(std::round(height_ * scale)),
+  Rescale(std::max(1, static_cast<int>(std::round(width_ * scale))),
+          std::max(1, static_cast<int>(std::round(height_ * scale))),
           filter);
   return scale;
 }
@@ -579,12 +628,33 @@ void Bitmap::Rot90(int k) {
     THROW_CHECK(OIIO::ImageBufAlgo::rotate90(new_buf, buf));
   }
 
-  width_ = new_width;
-  height_ = new_height;
-  data_ = std::move(new_data);
-  auto* meta_data = OIIOMetaData::Upcast(meta_data_.get());
-  meta_data->image_spec.width = new_width;
-  meta_data->image_spec.height = new_height;
+  SetImageData(new_width, new_height, std::move(new_data));
+}
+
+void Bitmap::Crop(const int left,
+                  const int top,
+                  const int width,
+                  const int height) {
+  THROW_CHECK_GE(left, 0);
+  THROW_CHECK_GE(top, 0);
+  THROW_CHECK_GT(width, 0);
+  THROW_CHECK_GT(height, 0);
+  THROW_CHECK_LE(left + width, width_);
+  THROW_CHECK_LE(top + height, height_);
+  if (left == 0 && top == 0 && width == width_ && height == height_) {
+    return;
+  }
+
+  std::vector<uint8_t> cropped(width * height * channels_);
+  const int src_pitch = Pitch();
+  const int dst_pitch = width * channels_;
+  for (int y = 0; y < height; ++y) {
+    std::memcpy(cropped.data() + y * dst_pitch,
+                data_.data() + (top + y) * src_pitch + left * channels_,
+                dst_pitch);
+  }
+
+  SetImageData(width, height, std::move(cropped));
 }
 
 Bitmap Bitmap::Clone() const { return *this; }

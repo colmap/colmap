@@ -13,6 +13,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/support_measurement.h"
+#include "colmap/optim/two_group_sampler.h"
 #include "colmap/scene/camera.h"
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
@@ -109,6 +110,20 @@ std::vector<size_t> ComputeUniquePointIds(
     current_it++;
   }
   return unique_point3D_ids;
+}
+
+// Camera-pair label per correspondence, used to group samples for the
+// gen_relpose_5p1pt fast path.
+std::vector<int> ComputePairIds(const std::vector<size_t>& camera_idxs1,
+                                const std::vector<size_t>& camera_idxs2,
+                                size_t num_cameras) {
+  THROW_CHECK_EQ(camera_idxs1.size(), camera_idxs2.size());
+  std::vector<int> pair_ids(camera_idxs1.size());
+  for (size_t i = 0; i < pair_ids.size(); ++i) {
+    pair_ids[i] =
+        static_cast<int>(camera_idxs1[i] * num_cameras + camera_idxs2[i]);
+  }
+  return pair_ids;
 }
 
 }  // namespace
@@ -327,7 +342,19 @@ bool EstimateGeneralizedRelativePose(
                       .value_or(CamRayWithJac::Zero())};
   }
 
-  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(ransac_options);
+  // The grouped sampler biases minimal samples toward 5+1 camera-pair
+  // configurations for the gen_relpose_5p1pt fast path.
+  LORANSAC<GR6PEstimator, GR8PEstimator, InlierSupportMeasurer, TwoGroupSampler>
+      ransac(
+          ransac_options,
+          GR6PEstimator(),
+          GR8PEstimator(),
+          InlierSupportMeasurer(),
+          TwoGroupSampler(
+              GR6PEstimator::kMinNumSamples,
+              ComputePairIds(camera_idxs1, camera_idxs2, cameras.size()),
+              /*structured_prob=*/0.5,
+              /*num_first_group_samples=*/GR6PEstimator::kMinNumSamples - 1));
   auto report = ransac.Estimate(points1, points2);
   if (!report.success) {
     return false;
@@ -699,7 +726,22 @@ bool EstimateStructureLessAbsolutePose(
 
   // GR6P/GR8P score with the pixel-unit tangent Sampson error, so the RANSAC
   // threshold is the plain pixel max_error. No per-camera conversion needed.
-  LORANSAC<GR6PEstimator, GR8PEstimator> ransac(options.ransac_options);
+  // GR6PEstimator tries the faster gen_relpose_5p1pt solver first whenever five
+  // correspondences share one camera pair, falling back to gen_relpose_6pt.
+  // The grouped sampler biases minimal samples toward 5+1 configurations;
+  // groups are the world cameras (the query side is a single camera).
+  LORANSAC<GR6PEstimator, GR8PEstimator, InlierSupportMeasurer, TwoGroupSampler>
+      ransac(
+          options.ransac_options,
+          GR6PEstimator(),
+          GR8PEstimator(),
+          InlierSupportMeasurer(),
+          TwoGroupSampler(
+              GR6PEstimator::kMinNumSamples,
+              std::vector<int>(world_camera_idxs.begin(),
+                               world_camera_idxs.end()),
+              /*structured_prob=*/0.5,
+              /*num_first_group_samples=*/GR6PEstimator::kMinNumSamples - 1));
   auto report = ransac.Estimate(world_obs, query_obs);
   if (!report.success) {
     return false;

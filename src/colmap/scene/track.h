@@ -128,3 +128,16 @@ bool Track::operator==(const Track& other) const {
 bool Track::operator!=(const Track& other) const { return !(*this == other); }
 
 }  // namespace colmap
+
+namespace std {
+
+template <>
+struct hash<colmap::TrackElement> {
+  std::size_t operator()(
+      const colmap::TrackElement& observation) const noexcept {
+    return colmap::PairHash{}(
+        std::make_pair(observation.image_id, observation.point2D_idx));
+  }
+};
+
+}  // namespace std

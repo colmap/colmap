@@ -450,7 +450,7 @@ TEST(EstimateTwoViewGeometry, UncalibratedFisheyeIsDegenerate) {
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
   ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
-  ASSERT_FALSE(test_data.camera1.has_prior_focal_length);
+  ASSERT_FALSE(test_data.camera1.HasPriorFocalLength());
 
   // Without a focal length prior the only remaining model is the fundamental
   // matrix, which assumes a pinhole projection that a fisheye camera does not
@@ -482,7 +482,7 @@ TEST(EstimateTwoViewGeometry, CalibratedFisheyeIsEstimated) {
   const TwoViewGeometryTestData test_data =
       CreateTwoViewGeometryTestData(synthetic_dataset_options);
   ASSERT_TRUE(test_data.camera1.IsPerspectiveFisheye());
-  ASSERT_TRUE(test_data.camera1.has_prior_focal_length);
+  ASSERT_TRUE(test_data.camera1.HasPriorFocalLength());
 
   // With a known focal length the calibrated path applies, which works on
   // bearing vectors and is therefore valid for fisheye cameras.
@@ -636,6 +636,62 @@ TEST(EstimateTwoViewGeometry, PanoramicWithFisheyeCameraIsDetected) {
   EXPECT_GE(geometry.inlier_matches.size(), test_data.matches.size() / 2);
 }
 
+// A pure-rotation pair seen by a zero-distortion fisheye camera. The fisheye
+// projection is non-linear even with zero coefficients, so the homography must
+// be estimated on bearing rays; routing by IsUndistorted alone would send this
+// pair to the pixel estimator, where no homography fits. A dedicated wide
+// field-of-view scene is built here rather than using SynthesizeDataset, whose
+// points sit near the optical axis where fisheye and pinhole projections
+// nearly agree.
+TEST(EstimateTwoViewGeometry, PanoramicWithUndistortedFisheyeCameraIsDetected) {
+  SetPRNGSeed(42);
+  Camera camera = Camera::CreateFromModelId(
+      /*camera_id=*/1,
+      OpenCVFisheyeCameraModel::model_id,
+      /*focal_length=*/500.0,
+      /*width=*/2048,
+      /*height=*/2048);
+  camera.source = CameraSource::USER;
+  ASSERT_TRUE(camera.IsPerspectiveFisheye());
+  ASSERT_TRUE(camera.IsUndistorted());
+
+  const Rigid3d cam2_from_cam1(Eigen::Quaterniond(Eigen::AngleAxisd(
+                                   DegToRad(20.0), Eigen::Vector3d::UnitY())),
+                               Eigen::Vector3d::Zero());
+
+  std::vector<Eigen::Vector2d> points1;
+  std::vector<Eigen::Vector2d> points2;
+  FeatureMatches matches;
+  while (points1.size() < 200) {
+    // Bearing within ~60 degrees of the optical axis.
+    Eigen::Vector3d dir = RandomEigenVectord<3>();
+    dir.z() = std::abs(dir.z()) + 0.5;
+    const Eigen::Vector3d point_in_cam1 = 5.0 * dir.normalized();
+    const Eigen::Vector3d point_in_cam2 = cam2_from_cam1 * point_in_cam1;
+    if (point_in_cam2.z() < 0.5) {
+      continue;
+    }
+    const std::optional<Eigen::Vector2d> xy1 = camera.ImgFromCam(point_in_cam1);
+    const std::optional<Eigen::Vector2d> xy2 = camera.ImgFromCam(point_in_cam2);
+    if (!xy1.has_value() || !xy2.has_value()) {
+      continue;
+    }
+    const point2D_t idx = static_cast<point2D_t>(points1.size());
+    points1.push_back(*xy1);
+    points2.push_back(*xy2);
+    matches.emplace_back(idx, idx);
+  }
+
+  TwoViewGeometryOptions two_view_geometry_options;
+  two_view_geometry_options.ransac_options.random_seed = 42;
+  two_view_geometry_options.compute_relative_pose = true;
+  const TwoViewGeometry geometry = EstimateTwoViewGeometry(
+      camera, points1, camera, points2, matches, two_view_geometry_options);
+  EXPECT_EQ(geometry.config, TwoViewGeometry::ConfigurationType::PANORAMIC);
+  EXPECT_TRUE(geometry.H.has_value());
+  EXPECT_GE(geometry.inlier_matches.size(), matches.size() / 2);
+}
+
 TEST(EstimateTwoViewGeometry, SharedFocal) {
   // A single shared, uncalibrated, pinhole-projection camera observed from two
   // frames routes to the shared-focal solver, which jointly recovers the
@@ -653,8 +709,8 @@ TEST(EstimateTwoViewGeometry, SharedFocal) {
        {SimplePinholeCameraModel::model_id, PinholeCameraModel::model_id}) {
     Camera camera = Camera::CreateFromModelId(
         /*camera_id=*/1, model_id, kFocal, /*width=*/2048, /*height=*/2048);
-    camera.has_prior_focal_length = false;
-    ASSERT_FALSE(camera.has_prior_focal_length);
+    camera.source = CameraSource::GUESS;
+    ASSERT_FALSE(camera.HasPriorFocalLength());
     ASSERT_TRUE(camera.IsPerspective());
 
     // Ground-truth relative pose with a unit baseline and a bounded rotation so
@@ -754,14 +810,14 @@ TEST(EstimateTwoViewGeometry, OneSidedFocal) {
         kUncalibFocal,
         /*width=*/2048,
         /*height=*/2048);
-    uncalib_camera.has_prior_focal_length = false;
+    uncalib_camera.source = CameraSource::GUESS;
     Camera calib_camera = Camera::CreateFromModelId(
         /*camera_id=*/2,
         model_id,
         kCalibFocal,
         /*width=*/2048,
         /*height=*/2048);
-    calib_camera.has_prior_focal_length = true;
+    calib_camera.source = CameraSource::USER;
 
     // Ground-truth relative pose with a unit baseline and a bounded rotation so
     // the point cloud is visible in both views. Unlike the shared-focal case no
@@ -984,7 +1040,7 @@ TEST(EstimateTwoViewGeometry, SphericalAndUncalibratedPerspective) {
   // camera would carry COLMAP's default guess. The recovered focal therefore
   // cannot merely echo its input.
   Camera uncalib_camera = true_camera;
-  uncalib_camera.has_prior_focal_length = false;
+  uncalib_camera.source = CameraSource::GUESS;
   uncalib_camera.SetFocalLength(0.5 * kTrueFocal);
 
   const Camera spherical_camera =
@@ -1722,7 +1778,7 @@ TEST(MaybeDecomposeRelativePoses, UsesSolverEstimatedIntrinsics) {
   Camera default_camera = true_camera;
   default_camera.SetFocalLength(
       1.2 * std::max(true_camera.width, true_camera.height));
-  default_camera.has_prior_focal_length = false;
+  default_camera.source = CameraSource::GUESS;
   ASSERT_GT(
       std::abs(default_camera.FocalLength() / true_camera.FocalLength() - 1.0),
       0.1);
@@ -1799,6 +1855,57 @@ TEST(MaybeDecomposeRelativePoses, MissingMatrixFromOldDatabase) {
   TwoViewGeometry geometry_after = corr_graph->ExtractTwoViewGeometry(
       1, 2, /*extract_inlier_matches=*/false);
   EXPECT_TRUE(geometry_after.cam2_from_cam1.has_value());
+}
+
+TEST(ExtractMatchedCamRaysWithJac, Nominal) {
+  const Camera camera1 =
+      Camera::CreateFromModelId(1, CameraModelId::kPinhole, 100.0, 200, 200);
+  Camera camera2 =
+      Camera::CreateFromModelId(2, CameraModelId::kOpenCV, 100.0, 100, 200);
+  camera2.params[4] = -0.5;
+  camera2.params[5] = 0.5;
+  camera2.params[6] = -0.5;
+
+  const std::vector<Eigen::Vector2d> points1 = {{80.0, 120.0}, {110.0, 90.0}};
+  // The principal point unprojects cleanly, whereas (50, 150) fails iterative
+  // undistortion.
+  const std::vector<Eigen::Vector2d> points2 = {{50.0, 100.0}, {50.0, 150.0}};
+  ASSERT_TRUE(camera2.CamRayFromImgWithJac(points2[0]).has_value());
+  ASSERT_FALSE(camera2.CamRayFromImgWithJac(points2[1]).has_value());
+  const FeatureMatches matches = {{1, 0}, {0, 1}};
+
+  const CamRayWithJac expected_ray1_match0 =
+      *camera1.CamRayFromImgWithJac(points1[1]);
+  const CamRayWithJac expected_ray2_match0 =
+      *camera2.CamRayFromImgWithJac(points2[0]);
+  const CamRayWithJac expected_ray1_match1 =
+      *camera1.CamRayFromImgWithJac(points1[0]);
+
+  {
+    const auto [rays1, rays2] = ExtractMatchedCamRaysWithJac(
+        camera1, points1, camera2, points2, matches);
+    ASSERT_EQ(rays1.size(), 2);
+    ASSERT_EQ(rays2.size(), 2);
+    EXPECT_EQ(rays1[0].ray, expected_ray1_match0.ray);
+    EXPECT_EQ(rays1[0].jacobian, expected_ray1_match0.jacobian);
+    EXPECT_EQ(rays2[0].ray, expected_ray2_match0.ray);
+    EXPECT_EQ(rays2[0].jacobian, expected_ray2_match0.jacobian);
+    EXPECT_EQ(rays1[1].ray, expected_ray1_match1.ray);
+    EXPECT_EQ(rays1[1].jacobian, expected_ray1_match1.jacobian);
+    EXPECT_TRUE(rays2[1].ray.isZero());
+    EXPECT_TRUE(rays2[1].jacobian.isZero());
+  }
+
+  {
+    const auto [rays1, rays2] = ExtractMatchedCamRaysWithJac(
+        camera1, points1, camera2, points2, matches, /*skip_invalid=*/true);
+    ASSERT_EQ(rays1.size(), 1);
+    ASSERT_EQ(rays2.size(), 1);
+    EXPECT_EQ(rays1[0].ray, expected_ray1_match0.ray);
+    EXPECT_EQ(rays1[0].jacobian, expected_ray1_match0.jacobian);
+    EXPECT_EQ(rays2[0].ray, expected_ray2_match0.ray);
+    EXPECT_EQ(rays2[0].jacobian, expected_ray2_match0.jacobian);
+  }
 }
 
 }  // namespace

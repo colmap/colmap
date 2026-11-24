@@ -9,6 +9,7 @@
 namespace colmap {
 
 struct ImageReaderOptions;
+struct SingleViewCalibrationOptions;
 struct FeatureExtractionOptions;
 struct FeatureMatchingOptions;
 struct SiftMatchingOptions;
@@ -63,6 +64,7 @@ class OptionManager : public BaseOptionManager {
   void ModifyForExtremeQuality();
 
   void AddAllOptions() override;
+  void AddSingleViewCalibrationOptions();
   void AddFeatureExtractionOptions();
   void AddFeatureMatchingOptions();
   void AddTwoViewGeometryOptions();
@@ -96,6 +98,7 @@ class OptionManager : public BaseOptionManager {
             bool allow_unregistered = true) override;
 
   std::shared_ptr<ImageReaderOptions> image_reader;
+  std::shared_ptr<SingleViewCalibrationOptions> single_view_calibration;
   std::shared_ptr<FeatureExtractionOptions> feature_extraction;
   std::shared_ptr<FeatureMatchingOptions> feature_matching;
   std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
@@ -128,6 +131,14 @@ class OptionManager : public BaseOptionManager {
  protected:
   void PostParse() override;
   void PrintHelp() const override;
+
+  // FlexGlue reads the image pixels during matching. Default its image path to
+  // the global image path, if it was not set explicitly. Applied after parsing
+  // the command line and after reading a project file. This only has an effect
+  // if the global image path is registered (AddImageOptions), e.g., in the GUI.
+  // The matcher commands do not register it, so FlexGlueMatching.image_path
+  // must be set explicitly there, also in project files.
+  void SetDefaultFlexGlueImagePath();
 
   std::filesystem::path mapper_image_list_path_;
   std::filesystem::path mapper_constant_rig_list_path_;

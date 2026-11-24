@@ -42,6 +42,7 @@ describe("camera projections", () => {
       [100, 100, 320, 240],
       [100, 100, 320, 240, 0, 1],
       [640, 320],
+      [100, 100, 320, 240, 0],
     ];
     expect(params.map((value) => value.length)).toEqual([...CAMERA_MODEL_PARAM_COUNTS]);
     for (let modelId = 0; modelId < params.length; ++modelId) {

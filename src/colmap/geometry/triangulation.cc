@@ -6,6 +6,10 @@
 #include "colmap/util/eigen_alignment.h"
 #include "colmap/util/logging.h"
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
 #include <Eigen/Dense>
 
 namespace colmap {
@@ -172,11 +176,12 @@ bool TriangulateOptimalPoint(const Eigen::Matrix3x4d& cam1_from_world_mat,
   const Rigid3d cam2_from_world(
       Eigen::Quaterniond(cam2_from_world_mat.leftCols<3>()),
       cam2_from_world_mat.col(3));
-  const Rigid3d cam2_from_cam1 = cam2_from_world * Inverse(cam1_from_world);
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
+  const Rigid3d cam1_from_cam2 = cam1_from_world * Inverse(cam2_from_world);
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(cam1_from_cam2);
 
   Eigen::Vector2d optimal_point1;
   Eigen::Vector2d optimal_point2;
+  // The correction helper uses point1^T E point2 = 0.
   FindOptimalImageObservations(
       E, cam_point1, cam_point2, &optimal_point1, &optimal_point2);
 
@@ -214,11 +219,31 @@ double CalculateAngleBetweenVectors(const Eigen::Vector3d& v1,
                                     const Eigen::Vector3d& v2) {
   const double squared_norm1 = v1.squaredNorm();
   const double squared_norm2 = v2.squaredNorm();
-  if (squared_norm1 == 0.0 || squared_norm2 == 0.0) {
+  const double squared_norm_product = squared_norm1 * squared_norm2;
+  if (std::isnormal(squared_norm_product) &&
+      std::min(squared_norm1, squared_norm2) >=
+          std::numeric_limits<double>::min()) {
+    const double cosine = v1.dot(v2) / std::sqrt(squared_norm_product);
+    // acos loses accuracy near parallel or opposite vectors (|cosine| within
+    // 1e-8 of 1, i.e. within ~1.4e-4 rad of 0 or pi), so only use it for
+    // ordinary angles and fall through to the stable formulation below.
+    constexpr double kAcosCosineThreshold = 1.0 - 1e-8;
+    if (std::abs(cosine) < kAcosCosineThreshold) {
+      return std::acos(cosine);
+    }
+  }
+  // Rescale by the largest component to avoid overflow/underflow of the
+  // squared norms, then use atan2 of the cross-product norm and the dot
+  // product, which remains accurate for small angles and near pi.
+  const double scale1 = v1.cwiseAbs().maxCoeff();
+  const double scale2 = v2.cwiseAbs().maxCoeff();
+  if (scale1 == 0.0 || scale2 == 0.0) {
     return 0.0;
   }
-  return std::acos(std::clamp(
-      v1.dot(v2) / std::sqrt(squared_norm1 * squared_norm2), -1.0, 1.0));
+  const Eigen::Vector3d scaled_v1 = v1 / scale1;
+  const Eigen::Vector3d scaled_v2 = v2 / scale2;
+  return std::atan2(scaled_v1.cross(scaled_v2).stableNorm(),
+                    scaled_v1.dot(scaled_v2));
 }
 
 }  // namespace colmap

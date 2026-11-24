@@ -93,6 +93,8 @@ class FaissFeatureDescriptorIndex : public FeatureDescriptorIndex {
     THROW_CHECK_EQ(query_descriptors.data.cols(), index_->d);
     const int64_t num_query_descriptors = query_descriptors.data.rows();
     if (num_query_descriptors == 0) {
+      indices.resize(0, 0);
+      l2_dists.resize(0, 0);
       return;
     }
 

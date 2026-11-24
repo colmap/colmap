@@ -427,10 +427,14 @@ TEST(DefaultBundleAdjuster, MergedCalibMatchesCeres) {
   ASSERT_NE(caspar_adjuster->Solve()->termination_type,
             BundleAdjustmentTerminationType::FAILURE);
 
+  // Ceres uses exact dense Schur elimination with 7-DOF gauge fixing (scale
+  // pinned), whereas Caspar uses iterative PCG with 6-DOF gauge fixing (scale
+  // unpinned). Tolerances accommodate this gauge and solver difference while
+  // ensuring convergence to the same calibration solution.
 #ifdef CASPAR_USE_DOUBLE
   constexpr double kFocalTol = 1.0;
-  constexpr double kPPTol = 1.0;
-  constexpr double kExtraTol = 1e-4;
+  constexpr double kPPTol = 2.0;
+  constexpr double kExtraTol = 5e-4;
 #else
   constexpr double kFocalTol = 20.0;
   constexpr double kPPTol = 10.0;

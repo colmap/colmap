@@ -36,6 +36,17 @@ void BindCamera(py::module& m) {
   AddStringToEnumConstructor(PyCameraModelId);
   py::implicitly_convertible<int, CameraModelId>();
 
+  py::enum_<CameraSource> PyCameraSource(m, "CameraSource");
+  PyCameraSource.value("BEST", CameraSource::BEST)
+      .value("UNKNOWN", CameraSource::UNKNOWN)
+      .value("USER", CameraSource::USER)
+      .value("GUESS", CameraSource::GUESS)
+      .value("EXIF", CameraSource::EXIF)
+      .value("SINGLE_VIEW", CameraSource::SINGLE_VIEW)
+      .value("VIEW_GRAPH", CameraSource::VIEW_GRAPH);
+  AddStringToEnumConstructor(PyCameraSource);
+  py::implicitly_convertible<int, CameraSource>();
+
   py::classh<Camera> PyCamera(m, "Camera");
   PyCamera.def(py::init<>())
       .def_static("create_from_model_id",
@@ -44,7 +55,8 @@ void BindCamera(py::module& m) {
                   "model"_a,
                   "focal_length"_a,
                   "width"_a,
-                  "height"_a)
+                  "height"_a,
+                  "source"_a = CameraSource::UNKNOWN)
       .def_static("create_from_model_name",
                   &Camera::CreateFromModelName,
                   "camera_id"_a,
@@ -52,6 +64,7 @@ void BindCamera(py::module& m) {
                   "focal_length"_a,
                   "width"_a,
                   "height"_a,
+                  "source"_a = CameraSource::UNKNOWN,
                   "Create camera from model name string.")
       .def_readwrite(
           "camera_id", &Camera::camera_id, "Unique identifier of the camera.")
@@ -69,7 +82,30 @@ void BindCamera(py::module& m) {
           "focal_length_x", &Camera::FocalLengthX, &Camera::SetFocalLengthX)
       .def_property(
           "focal_length_y", &Camera::FocalLengthY, &Camera::SetFocalLengthY)
-      .def_readwrite("has_prior_focal_length", &Camera::has_prior_focal_length)
+      .def_property(
+          "has_prior_focal_length",
+          &Camera::HasPriorFocalLength,
+          [](Camera& camera, bool has_prior) {
+            PyErr_WarnEx(
+                PyExc_DeprecationWarning,
+                "Camera.has_prior_focal_length setter is deprecated, set "
+                "Camera.source directly instead.",
+                1);
+            camera.source =
+                has_prior ? CameraSource::USER : CameraSource::GUESS;
+          })
+      .def_property(
+          "source",
+          [](const Camera& camera) { return camera.source; },
+          [](Camera& camera, CameraSource source) {
+            if (source == CameraSource::BEST) {
+              throw py::value_error(
+                  "Camera.source cannot be BEST. BEST is a database query "
+                  "selector, not a valid camera source.");
+            }
+            camera.source = source;
+          },
+          "Origin/source of the camera calibration.")
       .def_property("principal_point_x",
                     &Camera::PrincipalPointX,
                     &Camera::SetPrincipalPointX)
@@ -118,7 +154,8 @@ void BindCamera(py::module& m) {
       .def("verify_params",
            &Camera::VerifyParams,
            "Check whether parameters are valid, i.e. the parameter vector has"
-           " the correct dimensions that match the specified camera model.")
+           " the correct dimensions that match the specified camera model and"
+           " contains only finite values.")
       .def("has_bogus_params",
            &Camera::HasBogusParams,
            "min_focal_length_ratio"_a,
@@ -275,12 +312,7 @@ void BindCamera(py::module& m) {
            "Rescale the camera dimensions and accordingly the "
            "focal length and the principal point.");
   MakeDataclass(PyCamera,
-                {"camera_id",
-                 "model",
-                 "width",
-                 "height",
-                 "params",
-                 "has_prior_focal_length"});
+                {"camera_id", "model", "width", "height", "params", "source"});
 
   py::bind_map<CameraMap>(m, "CameraMap");
 }

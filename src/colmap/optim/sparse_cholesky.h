@@ -20,6 +20,7 @@ class SparseCholeskyWithFallbackSolver {
 
   // For iterative reuse with matrices of identical sparsity but changing
   // values, call AnalyzePattern once then Factorize per iteration.
+  // AnalyzePattern resets any previous fallback to LDLT.
   void AnalyzePattern(const Eigen::SparseMatrix<double>& A);
   bool Factorize(const Eigen::SparseMatrix<double>& A);
 

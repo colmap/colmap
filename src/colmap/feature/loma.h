@@ -19,8 +19,8 @@ struct LomaExtractionOptions {
   // min_score = 0.0.
   double min_score = 0.0;
 
-  // Prefer bf16 for LOMA_B when supported; otherwise use fp32. No-op for
-  // LOMA_B128.
+  // Use bf16 for LOMA_B on CUDA GPUs with compute capability 8.0 or newer;
+  // otherwise use fp32. No-op for LOMA_B128.
   bool use_bf16 = false;
 
   // Use a fast bilinear resample instead of the filtered resize for the
@@ -46,6 +46,17 @@ struct LomaExtractionOptions {
 std::unique_ptr<FeatureExtractor> CreateLomaFeatureExtractor(
     const FeatureExtractionOptions& options);
 
+// Named functions instead of lambdas for default member initializers: MSVC
+// can give lambdas from different translation units the same name.
+inline BruteForceONNXMatchingOptions DefaultLomaBruteForceMatchingOptions() {
+  BruteForceONNXMatchingOptions options;
+  options.min_cossim = 0.85;
+  options.max_ratio = 1.0;
+  options.cross_check = true;
+  options.model_path = kDefaultBruteForceONNXMatcherUri;
+  return options;
+}
+
 struct LomaMatchingOptions {
   // Per-variant fp32 and bf16 model paths.
   struct Variant {
@@ -56,7 +67,8 @@ struct LomaMatchingOptions {
   // Matching filter, matches LG
   double min_score = 0.1;
 
-  // Prefer bf16 when supported; otherwise use fp32.
+  // Use bf16 on CUDA GPUs with compute capability 8.0 or newer; otherwise use
+  // fp32.
   bool use_bf16 = false;
 
   // One entry per FeatureMatcherType::LOMA_* dedicated-matcher variant.
@@ -68,14 +80,8 @@ struct LomaMatchingOptions {
 
   // Brute-force matching options (reuses the generic ONNX matcher, which
   // is descriptor-dimension agnostic).
-  BruteForceONNXMatchingOptions brute_force = []() {
-    BruteForceONNXMatchingOptions options;
-    options.min_cossim = 0.85;
-    options.max_ratio = 1.0;
-    options.cross_check = true;
-    options.model_path = kDefaultBruteForceONNXMatcherUri;
-    return options;
-  }();
+  BruteForceONNXMatchingOptions brute_force =
+      DefaultLomaBruteForceMatchingOptions();
 
   bool Check() const;
 };

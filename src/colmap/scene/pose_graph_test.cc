@@ -4,9 +4,12 @@
 
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_cache.h"
+#include "colmap/scene/database_sqlite.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/testing.h"
+
+#include <limits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -19,6 +22,94 @@ PoseGraph::Edge SynthesizeEdge(int num_matches = 50) {
   edge.cam2_from_cam1 = Rigid3d();
   edge.num_matches = num_matches;
   return edge;
+}
+
+TEST(PoseGraph, AddRigEdgesUsesSmallestEligibleImage) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 4;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+
+  for (const image_t first : {1, 2}) {
+    FlatHashSet<image_t> active_image_ids = {1, 2, 3, 4};
+    if (first == 2) active_image_ids.erase(1);
+    PoseGraph graph;
+    graph.AddRigEdges(reconstruction, active_image_ids);
+    EXPECT_EQ(graph.NumEdges(), 4 - first);
+    for (image_t image_id = first + 1; image_id <= 4; ++image_id) {
+      EXPECT_TRUE(graph.HasEdge(first, image_id));
+    }
+  }
+}
+
+TEST(PoseGraph, AddRigEdgesFlagsAllCalibratedMeasuredPairs) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 4;
+  options.num_frames_per_rig = 2;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+
+  PoseGraph graph;
+  for (image_t image_id1 = 1; image_id1 < 3; ++image_id1) {
+    for (image_t image_id2 = image_id1 + 1; image_id2 <= 3; ++image_id2) {
+      auto edge = SynthesizeEdge(42);
+      edge.cam2_from_cam1.translation() = Eigen::Vector3d(1, 2, 3);
+      edge.valid = image_id1 == 1;
+      graph.AddEdge(image_id1, image_id2, edge);
+    }
+  }
+  graph.AddEdge(1, 4, SynthesizeEdge());  // Inactive image.
+  graph.AddEdge(1, 5, SynthesizeEdge());  // Different frame.
+  const auto measured_edges = graph.Edges();
+  graph.AddRigEdges(reconstruction, {1, 2, 3, 5});
+  EXPECT_EQ(graph.NumEdges(), measured_edges.size());
+  for (const auto& [pair_id, measured] : measured_edges) {
+    const auto [image_id1, image_id2] = PairIdToImagePair(pair_id);
+    const auto edge = graph.GetEdge(image_id1, image_id2);
+    EXPECT_EQ(edge.prior, image_id2 <= 3);
+    EXPECT_EQ(edge.valid, measured.valid);
+    EXPECT_EQ(edge.num_matches, measured.num_matches);
+    EXPECT_TRUE(edge.cam2_from_cam1.ToMatrix().isApprox(
+        measured.cam2_from_cam1.ToMatrix()));
+  }
+}
+
+TEST(PoseGraph, AddRigEdgesCalibration) {
+  SyntheticDatasetOptions options;
+  options.num_rigs = 1;
+  options.num_cameras_per_rig = 2;
+  options.num_frames_per_rig = 1;
+  options.num_points3D = 0;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+  auto& rig = reconstruction.Rig(1);
+  const sensor_t sensor_id = reconstruction.Camera(2).SensorId();
+  const auto connects = [&](bool refine) {
+    PoseGraph graph;
+    graph.AddRigEdges(reconstruction, {1, 2}, refine);
+    return graph.HasEdge(1, 2);
+  };
+  EXPECT_TRUE(connects(false));
+  EXPECT_TRUE(connects(true));
+
+  auto& pose = rig.SensorFromRig(sensor_id);
+  pose.translation().setConstant(std::numeric_limits<double>::quiet_NaN());
+  EXPECT_TRUE(connects(false));
+  EXPECT_FALSE(connects(true));
+
+  pose.rotation().coeffs().setConstant(
+      std::numeric_limits<double>::quiet_NaN());
+  EXPECT_FALSE(connects(false));
+  EXPECT_FALSE(connects(true));
+
+  rig.ResetSensorFromRig(sensor_id);
+  EXPECT_FALSE(connects(false));
+  EXPECT_FALSE(connects(true));
 }
 
 TEST(PoseGraph, Nominal) {
@@ -341,6 +432,120 @@ TEST(PoseGraph, InvalidatePairsOutsideActiveImageIds) {
   // Edges involving image 3 should be invalidated
   EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(1, 3)));
   EXPECT_FALSE(pose_graph.IsValid(ImagePairToPairId(2, 3)));
+}
+
+TEST(PoseGraph, Subgraph) {
+  PoseGraph pose_graph;
+  PoseGraph::Edge edge = SynthesizeEdge(/*num_matches=*/42);
+  edge.cam2_from_cam1 =
+      Rigid3d(RandomEigenQuaterniond(), RandomEigenVectord<3>());
+  edge.cam2_from_cam1_rotation_cov = 2.0f * Eigen::Matrix3f::Identity();
+  edge.prior = true;
+  pose_graph.AddEdge(1, 2, edge);
+  pose_graph.AddEdge(1, 3, SynthesizeEdge());
+  pose_graph.AddEdge(2, 3, SynthesizeEdge());
+  pose_graph.AddEdge(2, 4, SynthesizeEdge());
+  pose_graph.SetInvalidEdge(ImagePairToPairId(2, 4));
+
+  const PoseGraph subgraph = pose_graph.Subgraph({1, 2, 4});
+  EXPECT_EQ(subgraph.NumEdges(), 2);
+  EXPECT_FALSE(subgraph.HasEdge(1, 3));
+  EXPECT_FALSE(subgraph.HasEdge(2, 3));
+
+  // Edges are copied with all their data and validity.
+  const PoseGraph::Edge& subgraph_edge =
+      subgraph.Edges().at(ImagePairToPairId(1, 2));
+  EXPECT_EQ(
+      subgraph_edge.cam2_from_cam1.params,
+      pose_graph.Edges().at(ImagePairToPairId(1, 2)).cam2_from_cam1.params);
+  EXPECT_EQ(subgraph_edge.num_matches, 42);
+  EXPECT_TRUE(subgraph_edge.prior);
+  EXPECT_TRUE(subgraph_edge.valid);
+  ASSERT_TRUE(subgraph_edge.cam2_from_cam1_rotation_cov.has_value());
+  EXPECT_EQ(*subgraph_edge.cam2_from_cam1_rotation_cov,
+            *pose_graph.Edges()
+                 .at(ImagePairToPairId(1, 2))
+                 .cam2_from_cam1_rotation_cov);
+  EXPECT_TRUE(subgraph.HasEdge(2, 4));
+  EXPECT_FALSE(subgraph.IsValid(ImagePairToPairId(2, 4)));
+
+  EXPECT_TRUE(pose_graph.Subgraph({}).Empty());
+}
+
+// The subgraph of a component equals the pose graph loaded from the database
+// cache of that component, which GlobalPipeline relies on.
+TEST(PoseGraph, SubgraphMatchesComponentDatabaseCache) {
+  auto database = Database::Open(kInMemorySqliteDatabasePath);
+  SyntheticDatasetOptions synthetic_options;
+  synthetic_options.num_rigs = 2;
+  synthetic_options.num_cameras_per_rig = 2;
+  synthetic_options.num_frames_per_rig = 3;
+  synthetic_options.num_points3D = 50;
+  synthetic_options.two_view_geometry_has_relative_pose = true;
+  Reconstruction reconstruction;
+  SynthesizeDataset(synthetic_options, &reconstruction, database.get());
+
+  DatabaseCache::Options cache_options;
+  const auto cache = DatabaseCache::Create(*database, cache_options);
+  PoseGraph pose_graph;
+  pose_graph.Load(*cache->CorrespondenceGraph());
+
+  // Select the images of the reference cameras of some frames. The component
+  // cache also includes the other images of their frames.
+  DatabaseCache::Options component_options;
+  for (const auto& [image_id, image] : reconstruction.Images()) {
+    if (image.IsRefInFrame() && image.FrameId() % 2 == 0) {
+      component_options.image_names.insert(image.Name());
+    }
+  }
+  ASSERT_FALSE(component_options.image_names.empty());
+  const auto component_cache =
+      DatabaseCache::CreateFromCache(*cache, component_options);
+  PoseGraph component_pose_graph;
+  component_pose_graph.Load(*component_cache->CorrespondenceGraph());
+
+  FlatHashSet<image_t> component_image_ids;
+  for (const auto& [image_id, _] : component_cache->Images()) {
+    component_image_ids.insert(image_id);
+  }
+  ASSERT_GT(component_image_ids.size(), component_options.image_names.size());
+  const PoseGraph subgraph = pose_graph.Subgraph(component_image_ids);
+
+  ASSERT_GT(subgraph.NumEdges(), 0);
+  ASSERT_EQ(subgraph.NumEdges(), component_pose_graph.NumEdges());
+  for (const auto& [pair_id, edge] : component_pose_graph.Edges()) {
+    ASSERT_TRUE(subgraph.Edges().count(pair_id));
+    const PoseGraph::Edge& subgraph_edge = subgraph.Edges().at(pair_id);
+    EXPECT_EQ(subgraph_edge.cam2_from_cam1.params, edge.cam2_from_cam1.params);
+    EXPECT_EQ(subgraph_edge.num_matches, edge.num_matches);
+    EXPECT_EQ(subgraph_edge.valid, edge.valid);
+  }
+}
+
+TEST(PoseGraph, InvertEdgeCovariance) {
+  PoseGraph::Edge edge;
+  const Eigen::Quaterniond q21 =
+      Eigen::AngleAxisd(0.4, Eigen::Vector3d(1.0, -2.0, 3.0).normalized()) *
+      Eigen::Quaterniond::Identity();
+  edge.cam2_from_cam1 = Rigid3d(q21, Eigen::Vector3d(0.5, -0.2, 0.8));
+  Eigen::Matrix3f cov;
+  cov << 2.0f, 0.3f, -0.1f, 0.3f, 1.5f, 0.2f, -0.1f, 0.2f, 0.8f;
+  edge.cam2_from_cam1_rotation_cov = cov;
+
+  const Eigen::Matrix3d R21 = q21.toRotationMatrix();
+  const Eigen::Matrix3f expected_inv_cov =
+      (R21 * cov.cast<double>() * R21.transpose()).cast<float>();
+
+  PoseGraph pose_graph;
+  pose_graph.AddEdge(2, 1, edge);
+  const PoseGraph::Edge stored = pose_graph.GetEdge(1, 2);
+  ASSERT_TRUE(stored.cam2_from_cam1_rotation_cov.has_value());
+  EXPECT_TRUE(
+      stored.cam2_from_cam1_rotation_cov->isApprox(expected_inv_cov, 1e-6f));
+
+  const PoseGraph::Edge round_trip = pose_graph.GetEdge(2, 1);
+  ASSERT_TRUE(round_trip.cam2_from_cam1_rotation_cov.has_value());
+  EXPECT_TRUE(round_trip.cam2_from_cam1_rotation_cov->isApprox(cov, 1e-6f));
 }
 
 }  // namespace

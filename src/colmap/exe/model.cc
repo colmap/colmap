@@ -71,6 +71,9 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     const bool ref_is_gps,
     const std::string& alignment_type,
     const std::vector<Eigen::Vector3d>& ref_locations) {
+  if (ref_locations.empty()) {
+    return {};
+  }
   if (ref_is_gps) {
     const GPSTransform gps_transform(GPSTransform::Ellipsoid::WGS84);
     if (alignment_type != "enu") {
@@ -78,7 +81,6 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
                    "to ECEF.";
       return gps_transform.EllipsoidToECEF(ref_locations);
     } else {
-      THROW_CHECK(!ref_locations.empty());
       LOG(INFO) << "Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU. Using the first GPS coordinate as the ENU origin: "
                 << ref_locations[0].transpose();
@@ -121,10 +123,12 @@ void ReadDatabaseCameraLocations(const std::filesystem::path& database_path,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   auto database = Database::Open(database_path);
 
-  // Index pose priors by their associated data ID.
+  // Index pose priors with finite positions by their associated data ID.
   NodeHashMap<data_t, PosePrior> pose_priors_by_data_id;
   for (const auto& pose_prior : database->ReadAllPosePriors()) {
-    pose_priors_by_data_id.emplace(pose_prior.corr_data_id, pose_prior);
+    if (pose_prior.HasPosition()) {
+      pose_priors_by_data_id.emplace(pose_prior.corr_data_id, pose_prior);
+    }
   }
 
   for (const auto& image : database->ReadAllImages()) {

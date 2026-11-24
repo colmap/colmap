@@ -5,7 +5,10 @@
 #include "colmap/util/testing.h"
 
 #include <fstream>
+#include <iterator>
+#include <string>
 #include <tuple>
+#include <vector>
 
 #include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imageio.h>
@@ -29,6 +32,73 @@ void WriteImageOIIO(const int width,
   ASSERT_TRUE(output->open(path.string(), spec));
   ASSERT_TRUE(output->write_image(OIIO::TypeDesc::UINT8, data));
   ASSERT_TRUE(output->close());
+}
+
+bool AddIptcMetadataToJpeg(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return false;
+  }
+
+  const std::istreambuf_iterator<char> begin(input);
+  const std::istreambuf_iterator<char> end;
+  std::string jpeg(begin, end);
+  input.close();
+  if (jpeg.size() < 2 || static_cast<uint8_t>(jpeg[0]) != 0xff ||
+      static_cast<uint8_t>(jpeg[1]) != 0xd8) {
+    return false;
+  }
+
+  // Add an empty IPTC ObjectName followed by a populated City tag.
+  const std::string city = "Chapel Hill";
+  std::vector<uint8_t> iptc_data = {0x1c,
+                                    0x02,
+                                    0x05,
+                                    0x00,
+                                    0x00,
+                                    0x1c,
+                                    0x02,
+                                    0x5a,
+                                    0x00,
+                                    static_cast<uint8_t>(city.size())};
+  iptc_data.insert(iptc_data.end(), city.begin(), city.end());
+
+  std::vector<uint8_t> resource;
+  const std::string resource_signature = "8BIM";
+  resource.insert(
+      resource.end(), resource_signature.begin(), resource_signature.end());
+  resource.insert(resource.end(), {0x04, 0x04, 0x00, 0x00});
+  const uint32_t resource_size = static_cast<uint32_t>(iptc_data.size());
+  resource.push_back(static_cast<uint8_t>(resource_size >> 24));
+  resource.push_back(static_cast<uint8_t>(resource_size >> 16));
+  resource.push_back(static_cast<uint8_t>(resource_size >> 8));
+  resource.push_back(static_cast<uint8_t>(resource_size));
+  resource.insert(resource.end(), iptc_data.begin(), iptc_data.end());
+  if (iptc_data.size() % 2 != 0) {
+    resource.push_back(0);
+  }
+
+  std::vector<uint8_t> payload;
+  const std::string photoshop_header = "Photoshop 3.0";
+  payload.insert(
+      payload.end(), photoshop_header.begin(), photoshop_header.end());
+  payload.push_back(0);
+  payload.insert(payload.end(), resource.begin(), resource.end());
+
+  const uint16_t segment_size = static_cast<uint16_t>(payload.size() + 2);
+  std::vector<uint8_t> app13 = {0xff,
+                                0xed,
+                                static_cast<uint8_t>(segment_size >> 8),
+                                static_cast<uint8_t>(segment_size)};
+  app13.insert(app13.end(), payload.begin(), payload.end());
+  jpeg.insert(2, reinterpret_cast<const char*>(app13.data()), app13.size());
+
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  if (!output) {
+    return false;
+  }
+  output.write(jpeg.data(), static_cast<std::streamsize>(jpeg.size()));
+  return output.good();
 }
 
 TEST(BitmapColor, Empty) {
@@ -415,6 +485,18 @@ TEST(Bitmap, Thumbnail) {
   non_integer.Thumbnail(/*max_image_size=*/100);
   EXPECT_EQ(non_integer.Width(), 100);
   EXPECT_EQ(non_integer.Height(), 67);
+
+  // Thin images: the short side is clamped to at least 1 pixel instead of
+  // rounding to 0.
+  Bitmap thin_landscape(100, 1, /*as_rgb=*/true);
+  EXPECT_DOUBLE_EQ(thin_landscape.Thumbnail(/*max_image_size=*/10), 0.1);
+  EXPECT_EQ(thin_landscape.Width(), 10);
+  EXPECT_EQ(thin_landscape.Height(), 1);
+
+  Bitmap thin_portrait(1, 100, /*as_rgb=*/true);
+  EXPECT_DOUBLE_EQ(thin_portrait.Thumbnail(/*max_image_size=*/10), 0.1);
+  EXPECT_EQ(thin_portrait.Width(), 1);
+  EXPECT_EQ(thin_portrait.Height(), 10);
 }
 
 TEST(Bitmap, ThumbnailNoOp) {
@@ -507,6 +589,63 @@ TEST(Bitmap, Rot90NoOp) {
   EXPECT_EQ(rotated4.Width(), 10);
   EXPECT_EQ(rotated4.Height(), 5);
   EXPECT_EQ(rotated4.RowMajorData(), original_data);
+}
+
+TEST(Bitmap, Crop) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(10, 20, 30));
+  bitmap.SetPixel(9, 0, BitmapColor<uint8_t>(40, 50, 60));
+  bitmap.SetPixel(0, 5, BitmapColor<uint8_t>(70, 80, 90));
+  bitmap.SetPixel(9, 5, BitmapColor<uint8_t>(100, 110, 120));
+  bitmap.SetPixel(4, 3, BitmapColor<uint8_t>(130, 140, 150));
+
+  bitmap.Crop(2, 1, 5, 4);
+  EXPECT_EQ(bitmap.Width(), 5);
+  EXPECT_EQ(bitmap.Height(), 4);
+  EXPECT_EQ(bitmap.Channels(), 3);
+  // Top-left (2,1) -> (0,0), (4,3) -> (2,2).
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value(), BitmapColor<uint8_t>(0, 0, 0));
+  EXPECT_EQ(bitmap.GetPixel(2, 2).value(), BitmapColor<uint8_t>(130, 140, 150));
+  EXPECT_EQ(bitmap.RowMajorData().size(), 5 * 4 * 3);
+}
+
+TEST(Bitmap, CropGrey) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  bitmap.SetPixel(9, 5, BitmapColor<uint8_t>(255));
+
+  bitmap.Crop(5, 2, 5, 4);
+  EXPECT_EQ(bitmap.Width(), 5);
+  EXPECT_EQ(bitmap.Height(), 4);
+  EXPECT_EQ(bitmap.Channels(), 1);
+  // Bottom-right (9,5) -> (4,3).
+  EXPECT_EQ(bitmap.GetPixel(4, 3).value().r, 255);
+  EXPECT_EQ(bitmap.GetPixel(0, 0).value().r, 0);
+}
+
+TEST(Bitmap, CropFullImageNoOp) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
+  const auto original_data = bitmap.RowMajorData();
+
+  bitmap.Crop(0, 0, 10, 6);
+  EXPECT_EQ(bitmap.Width(), 10);
+  EXPECT_EQ(bitmap.Height(), 6);
+  EXPECT_EQ(bitmap.RowMajorData(), original_data);
+}
+
+TEST(Bitmap, CropOutOfBounds) {
+  Bitmap bitmap(10, 6, /*as_rgb=*/true);
+  EXPECT_THROW(bitmap.Crop(-1, 0, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, -1, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 0, 0, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 0, 5, 0), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(6, 0, 5, 5), std::invalid_argument);
+  EXPECT_THROW(bitmap.Crop(0, 2, 5, 5), std::invalid_argument);
+  // Failed crops leave the bitmap unmodified.
+  EXPECT_EQ(bitmap.Width(), 10);
+  EXPECT_EQ(bitmap.Height(), 6);
 }
 
 TEST(Bitmap, Clone) {
@@ -606,6 +745,54 @@ TEST(Bitmap, SetGetMetaData) {
   EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "int8", &value));
   EXPECT_FALSE(bitmap.GetMetaData("foobar_str", "float", &value));
   EXPECT_FALSE(bitmap.GetMetaData("does_not_exist").has_value());
+}
+
+TEST(Bitmap, WriteJpegAndTiffWithEmptyIptcMetadata) {
+  const auto input_path = CreateTestDir() / "empty_iptc.jpg";
+  Bitmap source_bitmap(2, 2, /*as_rgb=*/true);
+  ASSERT_TRUE(source_bitmap.Write(input_path));
+  ASSERT_TRUE(AddIptcMetadataToJpeg(input_path));
+
+  Bitmap bitmap;
+  ASSERT_TRUE(bitmap.Read(input_path));
+  // OIIO versions differ in whether they surface empty IPTC tags on read, so
+  // set the empty field explicitly to exercise the write path
+  // deterministically.
+  bitmap.SetMetaData("IPTC:ObjectName", "");
+  const auto city = bitmap.GetMetaData("IPTC:City");
+  ASSERT_TRUE(city.has_value());
+  EXPECT_EQ(city.value(), "Chapel Hill");
+
+  const auto output_path = CreateTestDir() / "written_iptc.jpg";
+  ASSERT_TRUE(bitmap.Write(output_path));
+
+  Bitmap output_bitmap;
+  ASSERT_TRUE(output_bitmap.Read(output_path));
+  EXPECT_FALSE(output_bitmap.GetMetaData("IPTC:ObjectName").has_value());
+  const auto output_city = output_bitmap.GetMetaData("IPTC:City");
+  ASSERT_TRUE(output_city.has_value());
+  EXPECT_EQ(output_city.value(), "Chapel Hill");
+
+  // TIFF IPTC writing is opt-in, so enable it to exercise the same encoder.
+  const int write_iptc = 1;
+  bitmap.SetMetaData("tiff:write_iptc", "int", &write_iptc);
+  const auto tiff_output_path = CreateTestDir() / "written_iptc.tif";
+  ASSERT_TRUE(bitmap.Write(tiff_output_path));
+
+  Bitmap tiff_output_bitmap;
+  ASSERT_TRUE(tiff_output_bitmap.Read(tiff_output_path));
+  EXPECT_FALSE(tiff_output_bitmap.GetMetaData("IPTC:ObjectName").has_value());
+  const auto tiff_output_city = tiff_output_bitmap.GetMetaData("IPTC:City");
+  ASSERT_TRUE(tiff_output_city.has_value());
+#if OIIO_VERSION >= OIIO_MAKE_VERSION(2, 4, 0)
+  EXPECT_EQ(tiff_output_city.value(), "Chapel Hill");
+#else
+  // OIIO 2.2 corrupts TIFF IPTC string values on roundtrip, so only verify
+  // presence (i.e. populated fields are preserved, not filtered) there. The
+  // exact value is checked where TIFF IPTC is known to roundtrip correctly.
+  // The JPEG assertions above cover the exact-value preservation on all OIIO
+  // versions.
+#endif
 }
 
 TEST(Bitmap, CloneMetaData) {

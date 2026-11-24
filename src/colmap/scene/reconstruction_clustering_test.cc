@@ -156,6 +156,34 @@ TEST(ClusterReconstructionFrames, WellConnectedReconstruction) {
   }
 }
 
+TEST(ClusterReconstructionFrames, CountsRigFrameCovisibilityOnce) {
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_rigs = 1;
+  synthetic_dataset_options.num_cameras_per_rig = 2;
+  synthetic_dataset_options.num_frames_per_rig = 2;
+  synthetic_dataset_options.num_points3D = 5;
+  synthetic_dataset_options.num_points2D_without_point3D = 0;
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
+
+  ReconstructionClusteringOptions options;
+  options.min_num_reg_frames = 2;
+
+  options.min_edge_weight_threshold = 6.0;
+  auto cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+  ASSERT_EQ(cluster_ids.size(), 2);
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    EXPECT_EQ(cluster_id, -1);
+  }
+
+  options.min_edge_weight_threshold = 5.0;
+  cluster_ids = ClusterReconstructionFrames(options, reconstruction);
+  ASSERT_EQ(cluster_ids.size(), 2);
+  for (const auto& [frame_id, cluster_id] : cluster_ids) {
+    EXPECT_EQ(cluster_id, 0);
+  }
+}
+
 TEST(ClusterReconstructionFrames, WeaklyConnectedReconstruction) {
   // Create a reconstruction with very few 3D points (10 total).
   // With so few shared observations, the covisibility between frames is weak
@@ -398,9 +426,6 @@ TEST(ClusterReconstructionFrames, MultipleDisjointClusters) {
 TEST(ClusterReconstructionFrames, RigOneMajorConnectedComponent) {
   // Create a reconstruction with 10 frames from a rig with 3 cameras each.
   // Test that clustering correctly handles multi-camera rigs.
-  // Note: With multi-camera rigs, covisibility between frames is stronger
-  // because 3D points are often visible from multiple cameras in the same
-  // frame.
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
@@ -433,7 +458,6 @@ TEST(ClusterReconstructionFrames, RigOneMajorConnectedComponent) {
   }
 
   // Use keep_ratio=0.0 to completely disconnect clusters.
-  // With multi-camera rigs, weak connections are harder to break.
   PartitionFramesIntoClusters(reconstruction, frame_to_cluster, 0.0);
 
   EXPECT_EQ(reconstruction.NumRegFrames(), initial_num_reg_frames);
