@@ -7,9 +7,16 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <future>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#if !defined(_WIN32) && GTEST_HAS_DEATH_TEST
+#include <csignal>
+
+#include <sys/resource.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -325,6 +332,88 @@ TEST(MaybeDownloadAndCacheFile, Nominal) {
   EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_file_path);
   EXPECT_EQ(MaybeDownloadAndCacheFile(cached_file_path.string()),
             cached_file_path);
+}
+
+#if !defined(_WIN32) && GTEST_HAS_DEATH_TEST
+TEST(MaybeDownloadAndCacheFile, FailedWriteDoesNotPublishCache) {
+  const auto test_dir = CreateTestDir();
+  const auto cache_dir = test_dir / "cache";
+  CreateDirIfNotExists(cache_dir);
+  OverwriteDownloadCacheDir(cache_dir);
+  const std::string data(8192, 'x');
+  const auto server_path = test_dir / "server.bin";
+  WriteBinaryBlob(server_path, {data.data(), data.size()});
+  const std::string sha256 = ComputeSHA256(data);
+  const auto cached_path = cache_dir / (sha256 + "-cached.bin");
+  const std::string uri = "file://" +
+                          std::filesystem::absolute(server_path).string() +
+                          ";cached.bin;" + sha256;
+
+  // Limit writes in a child process so the test does not change the parent
+  // process's resource limits or signal handlers.
+  ASSERT_EXIT(
+      {
+        struct rlimit limit;
+        limit.rlim_cur = 4096;
+        limit.rlim_max = 4096;
+        if (setrlimit(RLIMIT_FSIZE, &limit) != 0) std::_Exit(2);
+        std::signal(SIGXFSZ, SIG_IGN);
+        try {
+          MaybeDownloadAndCacheFile(uri);
+        } catch (const std::exception& error) {
+          if (std::string(error.what()).find("Failed to write binary blob") ==
+              std::string::npos) {
+            std::_Exit(3);
+          }
+          std::_Exit(0);
+        }
+        std::_Exit(4);
+      },
+      testing::ExitedWithCode(0),
+      "");
+  EXPECT_FALSE(ExistsPath(cached_path));
+  EXPECT_THAT(GetRecursiveFileList(cache_dir), testing::IsEmpty());
+  EXPECT_THAT(GetDirList(cache_dir), testing::IsEmpty());
+
+  EXPECT_EQ(MaybeDownloadAndCacheFile(uri), cached_path);
+  std::vector<char> cached_data;
+  ReadBinaryBlob(cached_path, &cached_data);
+  EXPECT_EQ(std::string(cached_data.begin(), cached_data.end()), data);
+}
+#endif
+
+TEST(MaybeDownloadAndCacheFile, ConcurrentDownloads) {
+  const auto test_dir = CreateTestDir();
+  const auto cache_dir = test_dir / "cache";
+  CreateDirIfNotExists(cache_dir);
+  OverwriteDownloadCacheDir(cache_dir);
+  const std::string data(1024 * 1024, 'x');
+  const auto server_path = test_dir / "server.bin";
+  WriteBinaryBlob(server_path, {data.data(), data.size()});
+  const std::string sha256 = ComputeSHA256(data);
+  const auto cached_path = cache_dir / (sha256 + "-cached.bin");
+  const std::string uri = "file://" +
+                          std::filesystem::absolute(server_path).string() +
+                          ";cached.bin;" + sha256;
+  std::promise<void> start;
+  const auto ready = start.get_future().share();
+  std::vector<std::future<std::filesystem::path>> downloads;
+  for (int i = 0; i < 4; ++i) {
+    downloads.push_back(std::async(std::launch::async, [&]() {
+      ready.wait();
+      return MaybeDownloadAndCacheFile(uri);
+    }));
+  }
+  start.set_value();
+  for (auto& download : downloads) {
+    EXPECT_EQ(download.get(), cached_path);
+    std::vector<char> cached_data;
+    ReadBinaryBlob(cached_path, &cached_data);
+    EXPECT_EQ(ComputeSHA256({cached_data.data(), cached_data.size()}), sha256);
+  }
+  EXPECT_THAT(GetRecursiveFileList(cache_dir),
+              testing::ElementsAre(cached_path));
+  EXPECT_THAT(GetDirList(cache_dir), testing::IsEmpty());
 }
 
 #endif
