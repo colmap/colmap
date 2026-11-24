@@ -71,9 +71,12 @@ void BindSceneImage(py::module& m) {
           "data_id", &Image::DataId, "Unique identifier of the data.")
       .def_property(
           "camera",
-          [](Image& self) -> py::typing::Optional<Camera> {
-            if (self.HasCameraPtr()) {
-              return py::cast(self.CameraPtr());
+          [](py::object self) -> py::typing::Optional<Camera> {
+            const Image& image = self.cast<const Image&>();
+            if (image.HasCameraPtr()) {
+              return py::cast(image.CameraPtr(),
+                              py::return_value_policy::reference_internal,
+                              self);
             } else {
               return py::none();
             }
@@ -82,9 +85,12 @@ void BindSceneImage(py::module& m) {
           "The associated camera object.")
       .def_property(
           "frame",
-          [](Image& self) -> py::typing::Optional<Frame> {
-            if (self.HasFramePtr()) {
-              return py::cast(self.FramePtr());
+          [](py::object self) -> py::typing::Optional<Frame> {
+            const Image& image = self.cast<const Image&>();
+            if (image.HasFramePtr()) {
+              return py::cast(image.FramePtr(),
+                              py::return_value_policy::reference_internal,
+                              self);
             } else {
               return py::none();
             }

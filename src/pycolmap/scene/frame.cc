@@ -70,9 +70,12 @@ void BindFrame(py::module& m) {
           "The associated image data.")
       .def_property(
           "rig",
-          [](Frame& self) -> py::typing::Optional<Rig> {
-            if (self.HasRigPtr()) {
-              return py::cast(self.RigPtr());
+          [](py::object self) -> py::typing::Optional<Rig> {
+            const Frame& frame = self.cast<const Frame&>();
+            if (frame.HasRigPtr()) {
+              return py::cast(frame.RigPtr(),
+                              py::return_value_policy::reference_internal,
+                              self);
             } else {
               return py::none();
             }
