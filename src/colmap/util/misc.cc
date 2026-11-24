@@ -12,7 +12,7 @@ void RemoveCommandLineArgument(const std::string& arg, int* argc, char** argv) {
   for (int i = 0; i < *argc; ++i) {
     if (argv[i] == arg) {
       for (int j = i + 1; j < *argc; ++j) {
-        argv[i] = argv[j];
+        argv[j - 1] = argv[j];
       }
       *argc -= 1;
       break;
