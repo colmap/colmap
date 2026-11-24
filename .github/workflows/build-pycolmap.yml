@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         config: [
-          {os: ubuntu-24.04, cudaEnabled: false, ccacheMaxSize: 800M},
+          {os: ubuntu-24.04, arch: '', deploymentTarget: '', cudaEnabled: false, ccacheMaxSize: 800M},
         ]
     env: &build-env
       COMPILER_CACHE_DIR: ${{ github.workspace }}/compiler-cache
@@ -187,7 +187,7 @@ jobs:
       - name: Set env (Linux)
         if: runner.os == 'Linux'
         run: |
-          VCPKG_TARGET_TRIPLET="x64-linux-release"
+          VCPKG_TARGET_TRIPLET="${{ matrix.config.arch == 'aarch64' && 'arm64' || 'x64' }}-linux-release"
           echo "VCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET}" >> "$GITHUB_ENV"
 
           VCPKG_INSTALLATION_ROOT="${{ github.workspace }}/vcpkg"
@@ -234,6 +234,7 @@ jobs:
             python python/ci/update_pyproject_toml.py --name "pycolmap-cuda12" --add-deps "cuda-toolkit[cudart,curand]>=12,<13"
           else
             CIBW_MANYLINUX_X86_64_IMAGE="quay.io/pypa/manylinux_2_28_x86_64"
+            echo "CIBW_MANYLINUX_AARCH64_IMAGE=quay.io/pypa/manylinux_2_28_aarch64" >> "$GITHUB_ENV"
           fi
 
           echo "CIBW_MANYLINUX_X86_64_IMAGE=${CIBW_MANYLINUX_X86_64_IMAGE}" >> "$GITHUB_ENV"
@@ -245,6 +246,7 @@ jobs:
           package-dir: ./
         env:
           CIBW_ARCHS_MACOS: ${{ matrix.config.arch }}
+          CIBW_ARCHS_LINUX: ${{ matrix.config.arch || 'auto64' }}
           CIBW_ENVIRONMENT:  >
             BUILD_CUDA_ENABLED=${{ matrix.config.cudaEnabled }}
 
@@ -313,6 +315,7 @@ jobs:
       matrix:
         config: [
           {os: macos-15, arch: arm64, deploymentTarget: 15.0, cudaEnabled: false, ccacheMaxSize: 350M},
+          {os: ubuntu-24.04-arm, arch: aarch64, cudaEnabled: false, ccacheMaxSize: 800M},
           {os: windows-2025-vs2026, cudaEnabled: false, ccacheMaxSize: 1000M},
           {os: ubuntu-24.04, cudaEnabled: true, ccacheMaxSize: 850M},
         ]
