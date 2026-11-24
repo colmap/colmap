@@ -3,6 +3,9 @@
 import copy
 import pickle
 
+import numpy as np
+import pytest
+
 import pycolmap
 
 # --- Tests on RANSACOptions (flat dataclass) ---
@@ -150,6 +153,68 @@ def test_rigid3d_pickle_roundtrip() -> None:
     restored = pickle.loads(data)
     assert isinstance(restored, pycolmap.Rigid3d)
     assert restored == rigid
+
+
+def test_dataclass_equality_numpy_rotation() -> None:
+    left = pycolmap.Rotation3d()
+    right = pycolmap.Rotation3d()
+    assert (left == right) is True
+    assert (left != right) is False
+    right.quat = np.array([0.0, 0.0, 1.0, 0.0])
+    assert (left == right) is False
+    assert (left != right) is True
+    assert (left == object()) is False
+
+
+def test_dataclass_equality_numpy_box() -> None:
+    left = pycolmap.AlignedBox3d(np.zeros(3), np.ones(3))
+    right = pycolmap.AlignedBox3d(np.zeros(3), np.ones(3))
+    assert left == right
+    right.max = np.array([1.0, 2.0, 1.0])
+    assert left != right
+
+
+@pytest.mark.parametrize("num_matches", [0, 1, 3])
+def test_dataclass_equality_numpy_matches(num_matches: int) -> None:
+    matches = np.arange(2 * num_matches, dtype=np.uint32).reshape(-1, 2)
+    left = pycolmap.TwoViewGeometry(inlier_matches=matches)
+    right = pycolmap.TwoViewGeometry(inlier_matches=matches.copy())
+    assert left == right
+    right.inlier_matches = np.zeros((num_matches + 1, 2), dtype=np.uint32)
+    assert left != right
+    if num_matches:
+        right.inlier_matches = matches + 1
+        assert left != right
+
+
+def test_dataclass_equality_numpy_matrix() -> None:
+    left = pycolmap.TwoViewGeometry(E=np.eye(3))
+    right = pycolmap.TwoViewGeometry(E=np.eye(3))
+    assert left == right
+    right.E = np.diag([1.0, 2.0, 1.0])
+    assert left != right
+    right.E = None
+    assert left != right
+    assert right != left
+
+
+def test_dataclass_equality_nested_numpy_attributes() -> None:
+    camera = pycolmap.Camera.create_from_model_id(
+        1, pycolmap.CameraModelId.PINHOLE, 500.0, 1024, 768
+    )
+    left = pycolmap.TwoViewGeometry(
+        cam2_from_cam1=pycolmap.Rigid3d(), camera1=camera
+    )
+    right = copy.deepcopy(left)
+    assert left == right
+    assert right.cam2_from_cam1 is not None
+    right.cam2_from_cam1.translation = np.array([1.0, 0.0, 0.0])
+    assert left != right
+    right.cam2_from_cam1 = pycolmap.Rigid3d()
+    assert left == right
+    assert right.camera1 is not None
+    right.camera1.params = [600.0, 500.0, 512.0, 384.0]
+    assert left != right
 
 
 # --- Tests on dataclasses with enum and string attributes ---
