@@ -632,6 +632,10 @@ void StandaloneImageUndistorter::Run() {
   run_timer.Start();
 
   CreateDirIfNotExists(output_path_);
+  for (const auto& [image_name, camera] : options_.image_names_and_cameras) {
+    CreateDirIfNotExists((output_path_ / image_name).parent_path(),
+                         /*recursive=*/true);
+  }
 
   ThreadPool thread_pool(options_.num_threads);
   std::vector<std::shared_future<bool>> futures;
