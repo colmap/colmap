@@ -116,6 +116,27 @@ TEST(UndistortCamera, Nominal) {
   EXPECT_EQ(undistorted_camera.PrincipalPointY(), 30);
 }
 
+TEST(UndistortCamera, PreservesCameraMetadata) {
+  for (const CameraModelId model_id : {CameraModelId::kSimplePinhole,
+                                       CameraModelId::kPinhole,
+                                       CameraModelId::kSimpleRadial,
+                                       CameraModelId::kOpenCVFisheye}) {
+    SCOPED_TRACE(static_cast<int>(model_id));
+    for (const CameraSource source :
+         {CameraSource::UNKNOWN, CameraSource::EXIF, CameraSource::USER}) {
+      SCOPED_TRACE(source);
+      const Camera camera =
+          Camera::CreateFromModelId(17, model_id, 100, 100, 80, source);
+      const Camera undistorted =
+          UndistortCamera(UndistortCameraOptions(), camera);
+      EXPECT_EQ(undistorted.camera_id, camera.camera_id);
+      EXPECT_EQ(undistorted.source, source);
+      EXPECT_EQ(undistorted.HasPriorFocalLength(),
+                camera.HasPriorFocalLength());
+    }
+  }
+}
+
 TEST(UndistortCamera, MaxCamPointNorm) {
   // Fisheye camera with off-center principal point: pixels far from (cx, cy)
   // have theta close to pi/2, so CamFromImg returns very large values
@@ -157,16 +178,19 @@ TEST(UndistortCamera, TargetCamera) {
   Camera distorted_camera =
       Camera::CreateFromModelId(1, CameraModelId::kSimpleRadial, 100, 100, 100);
   distorted_camera.params[3] = 0.5;
+  distorted_camera.source = CameraSource::USER;
 
   UndistortCameraOptions options;
   options.target_camera =
       Camera::CreateFromModelId(2, CameraModelId::kPinhole, 50, 60, 40);
+  options.target_camera->source = CameraSource::EXIF;
   const Camera undistorted_camera = UndistortCamera(options, distorted_camera);
   EXPECT_EQ(undistorted_camera.camera_id, 1);
   EXPECT_EQ(undistorted_camera.model_id, CameraModelId::kPinhole);
   EXPECT_EQ(undistorted_camera.width, 60);
   EXPECT_EQ(undistorted_camera.height, 40);
   EXPECT_EQ(undistorted_camera.params, options.target_camera->params);
+  EXPECT_EQ(undistorted_camera.source, CameraSource::EXIF);
 
   // The target camera must be a PINHOLE camera.
   options.target_camera = distorted_camera;
@@ -359,6 +383,48 @@ TEST(UndistortReconstruction, Nominal) {
     for (const auto& point2D : image.second.Points2D()) {
       EXPECT_NE(point2D.xy, Eigen::Vector2d::Ones());
     }
+  }
+}
+
+TEST(UndistortReconstruction, CopyAfterUndistortion) {
+  for (const CameraModelId model_id : {CameraModelId::kPinhole,
+                                       CameraModelId::kSimpleRadial,
+                                       CameraModelId::kOpenCV,
+                                       CameraModelId::kOpenCVFisheye}) {
+    SCOPED_TRACE(static_cast<int>(model_id));
+    Camera camera = Camera::CreateFromModelId(
+        7, model_id, 100, 100, 80, CameraSource::USER);
+    if (!camera.ExtraParamsIdxs().empty()) {
+      camera.params[camera.ExtraParamsIdxs()[0]] = 0.1;
+    }
+    Reconstruction reconstruction;
+    reconstruction.AddCameraWithTrivialRig(camera);
+    Image image;
+    image.SetImageId(3);
+    image.SetCameraId(7);
+    image.SetName("image.png");
+    const Eigen::Vector2d point_xy(60, 55);
+    image.SetPoints2D({point_xy});
+    const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                                 Eigen::Vector3d(1, 2, 3));
+    reconstruction.AddImageWithTrivialFrame(image, cam_from_world);
+    UndistortCameraOptions options;
+    options.max_image_size = 50;
+    UndistortReconstruction(options, &reconstruction);
+
+    // Copying reconnects each image to its camera and requires a valid ID.
+    const Reconstruction copy = reconstruction;
+    ASSERT_TRUE(copy.IsValid());
+    const Camera& copied_camera = copy.Camera(7);
+    const Image& copied_image = copy.Image(3);
+    EXPECT_EQ(copied_image.CameraPtr(), &copied_camera);
+    EXPECT_EQ(copied_camera.camera_id, 7);
+    EXPECT_EQ(copied_camera.source, CameraSource::USER);
+    EXPECT_TRUE(copied_camera.HasPriorFocalLength());
+    EXPECT_THAT(copied_image.CamFromWorld().ToMatrix(),
+                EigenMatrixNear(cam_from_world.ToMatrix(), 1e-12));
+    EXPECT_THAT(copied_camera.CamFromImg(copied_image.Point2D(0).xy).value(),
+                EigenMatrixNear(camera.CamFromImg(point_xy).value(), 1e-6));
   }
 }
 
