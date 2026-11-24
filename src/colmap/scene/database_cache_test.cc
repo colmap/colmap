@@ -5,6 +5,7 @@
 #include "colmap/geometry/rigid3_matchers.h"
 #include "colmap/math/random_eigen.h"
 #include "colmap/scene/database_sqlite.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -155,6 +156,71 @@ TEST(DatabaseCache, ConstructFromDatabase) {
             1);
 }
 
+TEST(DatabaseCache, ReloadRefreshesExistingData) {
+  auto database = CreateTestDatabase();
+  DatabaseCache cache;
+  cache.Load(*database, {});
+
+  Camera camera = database->ReadCamera(1);
+  camera.SetFocalLength(3.5);
+  database->UpdateCamera(camera);
+  Rig rig = database->ReadRig(1);
+  rig.SetSensorFromRig(
+      sensor_t(SensorType::CAMERA, 2),
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3)));
+  database->UpdateRig(rig);
+  Image image = database->ReadImage(1);
+  image.SetName("updated_image1");
+  database->UpdateImage(image);
+  FeatureKeypoints keypoints(11);
+  keypoints[0] = FeatureKeypoint(5, 6);
+  database->UpdateKeypoints(1, keypoints);
+  PosePrior prior = database->ReadAllPosePriors().front();
+  prior.position = Eigen::Vector3d(7, 8, 9);
+  database->UpdatePosePrior(prior);
+
+  cache.Load(*database, {});
+  EXPECT_EQ(cache.Camera(1), camera);
+  EXPECT_EQ(cache.Rig(1), rig);
+  EXPECT_EQ(cache.Image(1).Name(), image.Name());
+  ASSERT_EQ(cache.Image(1).NumPoints2D(), keypoints.size());
+  EXPECT_EQ(cache.Image(1).Point2D(0).xy, Eigen::Vector2d(5, 6));
+  EXPECT_EQ(cache.PosePriors(), database->ReadAllPosePriors());
+  Reconstruction reconstruction;
+  ASSERT_NO_THROW(reconstruction.Load(cache));
+  EXPECT_TRUE(reconstruction.IsValid());
+}
+
+TEST(DatabaseCache, ReloadWithNarrowerImageFilter) {
+  auto database = CreateTestDatabase();
+  DatabaseCache cache;
+  cache.Load(*database, {});
+  const auto original_graph = cache.CorrespondenceGraph();
+  ASSERT_EQ(cache.NumImages(), 4);
+
+  DatabaseCache::Options options;
+  options.image_names = {"image1"};
+  cache.Load(*database, options);
+  EXPECT_EQ(cache.NumFrames(), 1);
+  EXPECT_EQ(cache.NumImages(), 2);
+  EXPECT_TRUE(cache.ExistsImage(1));
+  EXPECT_TRUE(cache.ExistsImage(2));
+  EXPECT_FALSE(cache.ExistsImage(3));
+  EXPECT_FALSE(cache.ExistsImage(4));
+  EXPECT_EQ(cache.CorrespondenceGraph()->NumImages(), 2);
+  // Rebuilding the cache must not alter independently retained graph snapshots.
+  EXPECT_EQ(original_graph->NumImages(), 4);
+  Reconstruction reconstruction;
+  ASSERT_NO_THROW(reconstruction.Load(cache));
+  EXPECT_TRUE(reconstruction.IsValid());
+  EXPECT_EQ(reconstruction.NumImages(), 2);
+
+  cache.Load(*database, {});
+  EXPECT_EQ(cache.NumFrames(), 2);
+  EXPECT_EQ(cache.NumImages(), 4);
+  EXPECT_EQ(cache.CorrespondenceGraph()->NumImages(), 4);
+}
+
 TEST(DatabaseCache, ConstructFromDatabaseWithCustomImages) {
   auto database = CreateTestDatabase();
 
@@ -217,6 +283,39 @@ std::shared_ptr<Database> CreateLegacyTestDatabase() {
   database->WriteTwoViewGeometry(image_id1, image_id3, two_view_geometry);
 
   return database;
+}
+
+TEST(DatabaseCache, ReloadReplacesDatabase) {
+  auto database = CreateTestDatabase();
+  auto legacy_database = CreateLegacyTestDatabase();
+  auto empty_database = Database::Open(kInMemorySqliteDatabasePath);
+  DatabaseCache cache;
+  cache.Load(*database, {});
+
+  // The databases reuse image/camera/rig/frame IDs but contain different data.
+  // Legacy loading must recreate its trivial rigs and frames, and empty loading
+  // must remove every cached object, including unused cameras and pose priors.
+  for (const auto& next_database :
+       {legacy_database, database, empty_database}) {
+    cache.Load(*next_database, {});
+    const auto expected = DatabaseCache::Create(*next_database, {});
+    EXPECT_EQ(cache.NumRigs(), expected->NumRigs());
+    EXPECT_EQ(cache.NumCameras(), expected->NumCameras());
+    EXPECT_EQ(cache.NumFrames(), expected->NumFrames());
+    EXPECT_EQ(cache.NumImages(), expected->NumImages());
+    EXPECT_EQ(cache.Rigs(), expected->Rigs());
+    EXPECT_EQ(cache.Cameras(), expected->Cameras());
+    EXPECT_EQ(cache.Frames(), expected->Frames());
+    EXPECT_EQ(cache.Images(), expected->Images());
+    EXPECT_EQ(cache.PosePriors(), expected->PosePriors());
+    EXPECT_EQ(cache.CorrespondenceGraph()->NumImages(),
+              expected->CorrespondenceGraph()->NumImages());
+    EXPECT_EQ(cache.CorrespondenceGraph()->NumMatchesBetweenAllImages(),
+              expected->CorrespondenceGraph()->NumMatchesBetweenAllImages());
+    Reconstruction reconstruction;
+    ASSERT_NO_THROW(reconstruction.Load(cache));
+    EXPECT_TRUE(reconstruction.IsValid());
+  }
 }
 
 TEST(DatabaseCache, ConstructFromLegacyDatabaseWithoutRigsAndFrames) {
