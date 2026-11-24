@@ -761,6 +761,11 @@ void Bitmap::CloneMetadata(Bitmap* target) const {
   auto* target_meta_data = OIIOMetaData::Upcast(target->meta_data_.get());
   target_meta_data->image_spec.width = target->Width();
   target_meta_data->image_spec.height = target->Height();
+  if (target_meta_data->image_spec.nchannels != target->Channels()) {
+    target_meta_data->image_spec.nchannels = target->Channels();
+    target_meta_data->image_spec.default_channel_names();
+    target_meta_data->image_spec.channelformats.clear();
+  }
 }
 
 std::ostream& operator<<(std::ostream& stream, const Bitmap& bitmap) {
