@@ -28,8 +28,7 @@ namespace colmap {
 //
 // The parameters are log focal lengths, which enforces positivity.
 //
-// See: "Smooth Essential-Manifold Residuals for View-Graph Calibration",
-// 3DV 2027.
+// See: "Smooth Essential-Manifold Residuals for View-Graph Calibration".
 class EssentialManifoldFocalLengthCostFunctor {
  public:
   // The initial focal lengths only determine on which of the two components of

@@ -384,8 +384,7 @@ FlatHashMap<camera_t, double> InitializeFocalLengths(
 // estimates and then jointly refined by minimizing the robustified distances
 // of the calibrated fundamental matrices to the essential manifold, first with
 // a Cauchy loss and then with a redescending Tukey loss.
-// See: "Smooth Essential-Manifold Residuals for View-Graph Calibration",
-// 3DV 2027.
+// See: "Smooth Essential-Manifold Residuals for View-Graph Calibration".
 // Returns std::nullopt if the optimization failed.
 std::optional<FocalLengthCalibResult> CalibrateFocalLengths(
     const ViewGraphCalibrationOptions& options,

@@ -75,7 +75,7 @@ struct ViewGraphCalibrationOptions {
 // The focal lengths are initialized from a consensus of closed-form two-view
 // estimates and then refined by minimizing the robustified distances of the
 // calibrated fundamental matrices to the essential manifold. See:
-// "Smooth Essential-Manifold Residuals for View-Graph Calibration", 3DV 2027.
+// "Smooth Essential-Manifold Residuals for View-Graph Calibration".
 bool CalibrateViewGraph(const ViewGraphCalibrationOptions& options,
                         Database* database);
 
