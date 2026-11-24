@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import numpy as np
+import pytest
+
 import pycolmap
 
 
@@ -35,6 +38,50 @@ def test_rig_add_sensor() -> None:
     rig.add_ref_sensor(ref_sensor)
     rig.add_sensor(other_sensor, None)
     assert rig.has_sensor(other_sensor)
+
+
+def test_rig_add_ref_sensor_keyword() -> None:
+    rig = pycolmap.Rig()
+    sensor = _make_sensor(pycolmap.SensorType.CAMERA, 3)
+    rig.add_ref_sensor(sensor_id=sensor)
+    assert rig.ref_sensor_id == sensor
+    assert rig.is_ref_sensor(sensor)
+
+
+@pytest.mark.parametrize("keyword", [False, True])
+def test_rig_add_sensor_default_transform(keyword: bool) -> None:
+    rig = pycolmap.Rig()
+    rig.add_ref_sensor(_make_sensor(pycolmap.SensorType.CAMERA, 3))
+    sensor = _make_sensor(pycolmap.SensorType.CAMERA, 5)
+    if keyword:
+        rig.add_sensor(sensor_id=sensor)
+    else:
+        rig.add_sensor(sensor)
+    assert rig.has_sensor(sensor)
+    assert not rig.has_sensor_from_rig(sensor)
+    assert rig.sensor_from_rig(sensor) is None
+
+
+def test_rig_add_sensor_keyword_transform() -> None:
+    rig = pycolmap.Rig()
+    rig.rig_id = 7
+    rig.add_ref_sensor(_make_sensor(pycolmap.SensorType.CAMERA, 3))
+    sensor = _make_sensor(pycolmap.SensorType.CAMERA, 5)
+    sensor_from_rig = pycolmap.Rigid3d(
+        pycolmap.Rotation3d(np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])),
+        np.array([1, 2, 3]),
+    )
+    rig.add_sensor(sensor_id=sensor, sensor_from_rig=sensor_from_rig)
+    frame = pycolmap.Frame(frame_id=9, rig_id=rig.rig_id)
+    frame.rig = rig
+    frame.rig_from_world = pycolmap.Rigid3d(
+        pycolmap.Rotation3d(), np.array([-2, 1, 4])
+    )
+    np.testing.assert_allclose(
+        frame.sensor_from_world(sensor).matrix(),
+        np.array([[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 7]]),
+        atol=1e-12,
+    )
 
 
 def test_rig_has_sensor() -> None:
