@@ -220,6 +220,7 @@ TEST(RemoveCommandLineArgument, PreservesRemainingOrder) {
     std::vector<std::string> args = {
         "program", "--input_path", "images", "--output_path", "model"};
     std::vector<char*> argv;
+    argv.reserve(args.size());
     for (auto& arg : args) {
       argv.push_back(arg.data());
     }
@@ -239,6 +240,7 @@ TEST(RemoveCommandLineArgument, RemovesFirstOccurrenceOnly) {
   std::vector<std::string> args = {
       "program", "--verbose", "input", "--verbose", "output"};
   std::vector<char*> argv;
+  argv.reserve(args.size());
   for (auto& arg : args) {
     argv.push_back(arg.data());
   }
