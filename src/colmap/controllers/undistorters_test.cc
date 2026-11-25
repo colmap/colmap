@@ -8,12 +8,15 @@
 #include "colmap/util/string.h"
 #include "colmap/util/testing.h"
 
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -492,7 +495,8 @@ TEST(Undistorters, GeneratedCOLMAPScriptCommands) {
              : std::vector<std::string>{"run-colmap"};
     for (const auto& prefix : prefixes) {
       for (const std::string mode : {"geometric", "photometric"}) {
-        const auto script = prefix + "-" + mode + ".sh";
+        const auto script =
+            std::string(prefix).append("-").append(mode).append(".sh");
         SCOPED_TRACE(output_path / script);
         const auto command_log = output_path / "commands.log";
         std::filesystem::remove(command_log);
@@ -500,7 +504,13 @@ TEST(Undistorters, GeneratedCOLMAPScriptCommands) {
             "cd '" + StringReplace(output_path.string(), "'", "'\\''") +
             "' && COLMAP_EXE_PATH=./tools PMVS_EXE_PATH=./tools /bin/sh " +
             script;
-        EXPECT_EQ(std::system(command.c_str()), 0);
+        EXPECT_EXIT(execl("/bin/sh",
+                          "sh",
+                          "-c",
+                          command.c_str(),
+                          static_cast<char*>(nullptr)),
+                    testing::ExitedWithCode(0),
+                    "");
         const auto commands = ExistsFile(command_log)
                                   ? ReadTextFileLines(command_log)
                                   : std::vector<std::string>();
