@@ -265,6 +265,9 @@ def main() -> int:
     if not args.relpose_path.exists():
         logging.error(f"Relative poses file not found: {args.relpose_path}")
         return 1
+    if args.gravity_path is not None and not args.gravity_path.exists():
+        logging.error(f"Gravity priors file not found: {args.gravity_path}")
+        return 1
 
     logging.info(f"Reading relative poses from {args.relpose_path}")
     relative_poses = read_relative_poses(args.relpose_path)
