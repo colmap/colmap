@@ -13,7 +13,7 @@ def test_image_score() -> None:
     assert score.image_id == -1
     assert score.score == 0.0
     with pytest.raises(AttributeError):
-        score.image_id = 1
+        score.image_id = 1  # type: ignore[misc]
 
 
 @pytest.mark.parametrize(
