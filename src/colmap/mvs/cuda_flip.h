@@ -39,8 +39,12 @@ __global__ void CudaFlipHorizontalKernel(T* output_data,
   const int y_index = blockIdx.y * TILE_DIM_FLIP + threadIdx.y;
 
   __shared__ T tile[TILE_DIM_FLIP][TILE_DIM_FLIP + 1];
-  const int tile_x = min(threadIdx.x, width - 1 - blockIdx.x * TILE_DIM_FLIP);
-  const int tile_y = min(threadIdx.y, height - 1 - blockIdx.y * TILE_DIM_FLIP);
+  const int tile_x =
+      min(static_cast<int>(threadIdx.x),
+          static_cast<int>(width - 1 - blockIdx.x * TILE_DIM_FLIP));
+  const int tile_y =
+      min(static_cast<int>(threadIdx.y),
+          static_cast<int>(height - 1 - blockIdx.y * TILE_DIM_FLIP));
 
   for (int i = 0; i < TILE_DIM_FLIP; i += BLOCK_ROWS_FLIP) {
     const int x = min(x_index, width - 1);
