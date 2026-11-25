@@ -67,8 +67,13 @@ class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
              const FeatureKeypoints& keypoints,
              const FeatureDescriptorsFloat& descriptors,
              std::vector<ImageScore>* image_scores) const override {
-    PYBIND11_OVERRIDE_PURE(
-        void, VisualIndex, Query, keypoints, descriptors, image_scores);
+    PYBIND11_OVERRIDE_PURE(void,
+                           VisualIndex,
+                           Query,
+                           options,
+                           keypoints,
+                           descriptors,
+                           image_scores);
   }
 
   void Prepare() override {
