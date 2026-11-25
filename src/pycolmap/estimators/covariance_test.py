@@ -79,7 +79,7 @@ def test_experimental_pose_param_does_not_copy_input(kind: str) -> None:
         params = [0.0] * 7
     param = pycolmap.ExperimentalPoseParam()
     with pytest.raises(TypeError):
-        param.cam_from_world = params
+        param.cam_from_world = params  # type: ignore[assignment]
 
 
 def test_estimate_ba_covariance_is_callable() -> None:
