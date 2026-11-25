@@ -40,7 +40,7 @@ TEST(CameraDatabase, ExactMatchAfterPartialMatches) {
       {"Nikon", "D800", 35.9000f},
       {"Nikon", "Z6III", 36.0000f}};
   for (const auto& [make, model, expected_width] : cases) {
-    SCOPED_TRACE(make + " " + model);
+    SCOPED_TRACE(testing::Message() << make << " " << model);
     double sensor_width = 0;
     EXPECT_TRUE(database.QuerySensorWidth(make, model, &sensor_width));
     EXPECT_EQ(sensor_width, expected_width);
