@@ -80,8 +80,8 @@ TEST(DepthMap, ToBitmapCollapsedPercentiles) {
   depth_map.Set(9, 9, 0, 10);
   const Bitmap bitmap = depth_map.ToBitmap(5, 95);
   const BitmapColor<uint8_t> valid_color = JetColormap::ToBitmapColor(0.5f);
-  for (size_t y = 0; y < bitmap.Height(); ++y) {
-    for (size_t x = 0; x < bitmap.Width(); ++x) {
+  for (int y = 0; y < bitmap.Height(); ++y) {
+    for (int x = 0; x < bitmap.Width(); ++x) {
       EXPECT_EQ(bitmap.GetPixel(x, y).value(), valid_color);
     }
   }
