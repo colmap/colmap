@@ -5,6 +5,7 @@
 #include "colmap/math/math.h"
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/patch_match_cuda.h"
+#include "colmap/mvs/patch_match_tasks.h"
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/file.h"
@@ -151,30 +152,26 @@ void PatchMatchController::Run() {
   io_thread_pool_ = std::make_unique<ThreadPool>(
       GetEffectiveNumThreads(options_.num_threads));
 
-  // If geometric consistency is enabled, then photometric output must be
-  // computed first for all images without filtering.
+  const auto run_phase = [&](const PatchMatchOptions& phase_options) {
+    internal::RunPatchMatchPhase(*thread_pool_, [&]() {
+      for (size_t problem_idx = 0; problem_idx < problems_.size();
+           ++problem_idx) {
+        thread_pool_->AddTask(&PatchMatchController::ProcessProblem,
+                              this,
+                              phase_options,
+                              problem_idx);
+      }
+    });
+  };
+
+  // Geometric consistency needs completed, unfiltered photometric output.
   if (options_.geom_consistency) {
     auto photometric_options = options_;
     photometric_options.geom_consistency = false;
     photometric_options.filter = false;
-
-    for (size_t problem_idx = 0; problem_idx < problems_.size();
-         ++problem_idx) {
-      thread_pool_->AddTask(&PatchMatchController::ProcessProblem,
-                            this,
-                            photometric_options,
-                            problem_idx);
-    }
-
-    thread_pool_->Wait();
+    run_phase(photometric_options);
   }
-
-  for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
-    thread_pool_->AddTask(
-        &PatchMatchController::ProcessProblem, this, options_, problem_idx);
-  }
-
-  thread_pool_->Wait();
+  run_phase(options_);
 
   run_timer.PrintMinutes();
 }
