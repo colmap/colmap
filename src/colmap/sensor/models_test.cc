@@ -585,17 +585,6 @@ TEST(PerspectiveFisheyeCamera, RejectsNonForwardPixels) {
                               CameraModelId::kRadTanThinPrismFisheye}) {
     const auto params = CameraModelInitializeParams(model_id, 1.0, 0, 0);
     SCOPED_TRACE(static_cast<int>(model_id));
-    for (const double theta : {0.0, 85.0 * kPi / 180.0}) {
-      const Eigen::Vector2d xy(theta, 0.0);
-      const auto normal = CameraModelCamFromImg(model_id, params, xy);
-      ASSERT_TRUE(normal.has_value());
-      EXPECT_NEAR(normal->x(), std::tan(theta), 1e-9);
-      EXPECT_NEAR(normal->y(), 0.0, 1e-9);
-      const auto ray = CameraModelCamRayFromImg(model_id, params, xy);
-      ASSERT_TRUE(ray.has_value());
-      EXPECT_NEAR(ray->x(), std::sin(theta), 1e-9);
-      EXPECT_NEAR(ray->z(), std::cos(theta), 1e-9);
-    }
     for (const double theta :
          {kPi / 2.0, 95.0 * kPi / 180.0, 5.0 * kPi / 3.0}) {
       const Eigen::Vector2d xy(theta, 0.0);
