@@ -496,7 +496,7 @@ void AddCameraPriorsToProblem(const BundleAdjustmentOptions& options,
     Eigen::VectorXd priors = Eigen::VectorXd::Zero(camera.params.size());
     bool has_prior = false;
 
-    if (prior_focal_length && camera.has_prior_focal_length) {
+    if (prior_focal_length && camera.HasPriorFocalLength()) {
       for (const size_t idx : camera.FocalLengthIdxs()) {
         stddevs[idx] = 1.0 / options.focal_length_prior_weight;
         priors[idx] = camera.params[idx];

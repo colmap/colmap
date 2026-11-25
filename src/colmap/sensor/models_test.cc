@@ -794,7 +794,7 @@ TEST_P(CameraModelParamsBoundsTest, ClampedParamsAreNotBogus) {
 
   const CameraModelId model_id = GetParam();
 
-  for (const auto [min_ratio, max_ratio, max_extra] :
+  for (const auto& [min_ratio, max_ratio, max_extra] :
        {std::tuple(0.1, 10.0, 1.0), std::tuple(0.2, 5.0, 0.5)}) {
     std::vector<double> lower_bounds;
     std::vector<double> upper_bounds;
