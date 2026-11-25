@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -294,6 +295,168 @@ TEST(Ply, RoundTripBinaryPlyPointsXYZOnly) {
   // Normals and colors should be default (0)
   ExpectNormalEq(loaded_points[0], 0.0f, 0.0f, 0.0f);
   ExpectColorEq(loaded_points[0], 0, 0, 0);
+}
+
+TEST(Ply, ReadBinaryPreservesBitsAndOptionalFieldsAcrossBlocks) {
+  const std::array<uint32_t, 8> patterns = {0x00000000,
+                                            0x80000000,
+                                            0x7f800000,
+                                            0xff800000,
+                                            0x7fc12345,
+                                            0xffc54321,
+                                            0x00000001,
+                                            0x7f7fffff};
+  const auto expected_bits = [&](size_t i, size_t field) {
+    return field == 0 ? 0x3f000000u + static_cast<uint32_t>(i)
+                      : patterns[(i + field) % patterns.size()];
+  };
+  for (const std::string format :
+       {"binary_little_endian", "binary_big_endian"}) {
+    for (const bool normals : {false, true}) {
+      for (const bool colors : {false, true}) {
+        std::vector<std::string> properties = {"float x", "float y", "float z"};
+        if (normals) {
+          properties.insert(properties.end(),
+                            {"float nx", "float ny", "float nz"});
+        }
+        if (colors) {
+          properties.insert(properties.end(),
+                            {"uchar red", "uchar green", "uchar blue"});
+        }
+        const size_t record_bytes = 12 + (normals ? 12 : 0) + (colors ? 3 : 0);
+        const size_t block_vertices = 32 * 1024 / record_bytes;
+        for (const size_t count : {size_t{0},
+                                   size_t{1},
+                                   block_vertices - 1,
+                                   block_vertices,
+                                   block_vertices + 1,
+                                   2 * block_vertices + 3}) {
+          SCOPED_TRACE(::testing::Message()
+                       << format << ", normals=" << normals
+                       << ", colors=" << colors << ", count=" << count);
+          const auto path = WriteBinaryPlyMesh(
+              "point_bits.ply",
+              format,
+              count,
+              properties,
+              [&](const auto& write) {
+                for (size_t i = 0; i < count; ++i) {
+                  for (size_t field = 0; field < (normals ? 6 : 3); ++field) {
+                    write(expected_bits(i, field));
+                  }
+                  if (colors) {
+                    write(static_cast<uint8_t>(i));
+                    write(static_cast<uint8_t>(17 * i + 3));
+                    write(static_cast<uint8_t>(31 * i + 7));
+                  }
+                }
+              });
+          const auto points = ReadPly(path);
+          ASSERT_EQ(points.size(), count);
+          for (size_t i = 0; i < count; ++i) {
+            const auto& p = points[i];
+            const std::array<float, 6> values = {
+                p.x, p.y, p.z, p.nx, p.ny, p.nz};
+            for (size_t field = 0; field < values.size(); ++field) {
+              uint32_t actual_bits;
+              std::memcpy(&actual_bits, &values[field], sizeof(actual_bits));
+              EXPECT_EQ(actual_bits,
+                        field < 3 || normals ? expected_bits(i, field) : 0u);
+            }
+            ExpectColorEq(p,
+                          colors ? static_cast<uint8_t>(i) : 0,
+                          colors ? static_cast<uint8_t>(17 * i + 3) : 0,
+                          colors ? static_cast<uint8_t>(31 * i + 7) : 0);
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST(Ply, ReadBinaryMixedLayoutAndOversizedRecords) {
+  for (const std::string format :
+       {"binary_little_endian", "binary_big_endian"}) {
+    for (const size_t extra_doubles : {size_t{0}, size_t{4096}}) {
+      SCOPED_TRACE(::testing::Message()
+                   << format << ", extra=" << extra_doubles);
+      const size_t count = extra_doubles == 0 ? 2051 : 3;
+      std::vector<std::string> properties = {
+          "uchar green", "double z", "float nx", "float x"};
+      for (size_t i = 0; i < extra_doubles; ++i) {
+        properties.push_back("double ignored" + std::to_string(i));
+      }
+      properties.insert(
+          properties.end(),
+          {"uchar blue", "double ny", "float y", "float nz", "uchar red"});
+      const auto path = WriteBinaryPlyMesh(
+          "mixed_points.ply",
+          format,
+          count,
+          properties,
+          [&](const auto& write) {
+            for (size_t i = 0; i < count; ++i) {
+              write(static_cast<uint8_t>(i));
+              write(-2.75 - 0.25 * i);
+              write(0.125f);
+              write(static_cast<float>(i) + 0.25f);
+              for (size_t extra = 0; extra < extra_doubles; ++extra) {
+                write(123.5);
+              }
+              write(static_cast<uint8_t>(31 * i + 7));
+              write(-0.5);
+              write(static_cast<float>(i) - 0.75f);
+              write(1.0f);
+              write(static_cast<uint8_t>(17 * i + 3));
+            }
+          });
+      const auto points = ReadPly(path);
+      ASSERT_EQ(points.size(), count);
+      for (size_t i = 0; i < count; ++i) {
+        ExpectPositionEq(points[i],
+                         static_cast<float>(i) + 0.25f,
+                         static_cast<float>(i) - 0.75f,
+                         static_cast<float>(-2.75 - 0.25 * i));
+        ExpectNormalEq(points[i], 0.125f, -0.5f, 1.0f);
+        ExpectColorEq(points[i],
+                      static_cast<uint8_t>(17 * i + 3),
+                      static_cast<uint8_t>(i),
+                      static_cast<uint8_t>(31 * i + 7));
+      }
+    }
+  }
+}
+
+TEST(Ply, ReadBinaryTruncationReportsFirstIncompleteVertex) {
+  const auto path = CreateTestDir() / "truncated_binary.ply";
+  for (const size_t complete : {size_t{0},
+                                size_t{1},
+                                size_t{2729},
+                                size_t{2730},
+                                size_t{2731},
+                                size_t{4096}}) {
+    for (size_t trailing = 0; trailing < 12; ++trailing) {
+      SCOPED_TRACE(::testing::Message()
+                   << complete << " complete, " << trailing << " trailing");
+      std::ofstream file(path, std::ios::binary);
+      file << "ply\nformat binary_little_endian 1.0\nelement vertex 4097\n"
+              "property float x\nproperty float y\nproperty float "
+              "z\nend_header\n";
+      const std::vector<char> payload(complete * 12 + trailing, 0);
+      file.write(payload.data(), static_cast<std::streamsize>(payload.size()));
+      file.close();
+      try {
+        ReadPly(path);
+        FAIL() << "Expected truncated PLY input to be rejected";
+      } catch (const std::invalid_argument& error) {
+        const std::string message = error.what();
+        const std::string suffix =
+            "Unexpected end of PLY file at vertex " + std::to_string(complete);
+        ASSERT_GE(message.size(), suffix.size());
+        EXPECT_EQ(message.substr(message.size() - suffix.size()), suffix);
+      }
+    }
+  }
 }
 
 TEST(Ply, ReadMeshVerticesAsPoints) {

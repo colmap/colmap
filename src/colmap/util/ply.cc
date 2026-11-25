@@ -266,30 +266,47 @@ std::vector<PlyPoint> ReadPly(const std::filesystem::path& path) {
       }
     };
 
-    std::vector<char> buffer(num_bytes_per_line);
+    // Read complete vertex records, bounded to 32 KiB or one oversized record.
+    constexpr size_t kBlockBytes = 32 * 1024;
+    const size_t vertices_per_block =
+        num_bytes_per_line > 0 && num_bytes_per_line <= kBlockBytes
+            ? kBlockBytes / num_bytes_per_line
+            : 1;
+    std::vector<char> buffer(num_bytes_per_line *
+                             std::min(vertices_per_block, num_vertices));
+    size_t buffered_vertices = 0;
+    const char* record = buffer.data();
     for (size_t i = 0; i < num_vertices; ++i) {
-      file.read(buffer.data(), num_bytes_per_line);
-      THROW_CHECK(file.good()) << "Unexpected end of PLY file at vertex " << i;
+      if (buffered_vertices == 0) {
+        buffered_vertices = std::min(vertices_per_block, num_vertices - i);
+        file.read(buffer.data(), num_bytes_per_line * buffered_vertices);
+        THROW_CHECK(file.good())
+            << "Unexpected end of PLY file at vertex "
+            << i + static_cast<size_t>(file.gcount()) / num_bytes_per_line;
+        record = buffer.data();
+      }
 
       PlyPoint point;
 
-      point.x = ReadCoord(buffer.data(), X_double, X_byte_pos);
-      point.y = ReadCoord(buffer.data(), Y_double, Y_byte_pos);
-      point.z = ReadCoord(buffer.data(), Z_double, Z_byte_pos);
+      point.x = ReadCoord(record, X_double, X_byte_pos);
+      point.y = ReadCoord(record, Y_double, Y_byte_pos);
+      point.z = ReadCoord(record, Z_double, Z_byte_pos);
 
       if (!is_normal_missing) {
-        point.nx = ReadCoord(buffer.data(), NX_double, NX_byte_pos);
-        point.ny = ReadCoord(buffer.data(), NY_double, NY_byte_pos);
-        point.nz = ReadCoord(buffer.data(), NZ_double, NZ_byte_pos);
+        point.nx = ReadCoord(record, NX_double, NX_byte_pos);
+        point.ny = ReadCoord(record, NY_double, NY_byte_pos);
+        point.nz = ReadCoord(record, NZ_double, NZ_byte_pos);
       }
 
       if (!is_rgb_missing) {
-        point.r = ReadFromBuffer<uint8_t>(buffer.data(), R_byte_pos);
-        point.g = ReadFromBuffer<uint8_t>(buffer.data(), G_byte_pos);
-        point.b = ReadFromBuffer<uint8_t>(buffer.data(), B_byte_pos);
+        point.r = ReadFromBuffer<uint8_t>(record, R_byte_pos);
+        point.g = ReadFromBuffer<uint8_t>(record, G_byte_pos);
+        point.b = ReadFromBuffer<uint8_t>(record, B_byte_pos);
       }
 
       points.push_back(point);
+      record += num_bytes_per_line;
+      --buffered_vertices;
     }
   } else {
     for (size_t i = 0; i < num_vertices; ++i) {
