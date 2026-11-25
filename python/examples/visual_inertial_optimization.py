@@ -6,6 +6,7 @@ Data was initialized and rectified with the online MPS service from
 Project Aria 1: https://facebookresearch.github.io/projectaria_tools/docs/intro
 """
 
+import hashlib
 import os
 import zipfile
 from pathlib import Path
@@ -324,13 +325,29 @@ def run_visual_inertial_optimization(
     rec_optimized.write(output_folder)
 
 
+DATA_URL = (
+    "https://github.com/colmap/colmap/releases/download/"
+    "datasets-visual-inertial-example-v1/visual-inertial-sample-data.zip"
+)
+DATA_SHA256 = "fd993845a4739bd0f24a17409a0fc5638f6e10b34fada7ab7d33192c3c12a843"
+
+
 def download_data() -> None:
-    data_url = "https://polybox.ethz.ch/index.php/s/SHcCxyecDsz7MzS/download"
     data_path = Path("sample_data")
     if not data_path.exists():
         logging.info("Downloading the data.")
-        zip_path = "sample_data.zip"
-        wget.download(data_url, str(zip_path))
+        zip_path = Path("sample_data.zip")
+        wget.download(DATA_URL, str(zip_path))
+        # The archive contains pickled NumPy files, so verify its integrity
+        # before extracting and loading them.
+        with open(zip_path, "rb") as fid:
+            sha256 = hashlib.sha256(fid.read()).hexdigest()
+        if sha256 != DATA_SHA256:
+            zip_path.unlink()
+            raise RuntimeError(
+                f"Checksum mismatch for {DATA_URL}: "
+                f"expected {DATA_SHA256}, got {sha256}"
+            )
         with zipfile.ZipFile(zip_path, "r") as fid:
             fid.extractall()
         logging.info(f"Data extracted to {data_path}.")

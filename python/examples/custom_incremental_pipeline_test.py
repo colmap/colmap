@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import custom_incremental_pipeline
+import pytest
 
 import pycolmap
 
@@ -202,3 +203,18 @@ def test_chained_matches(tmp_path: Path) -> None:
         max_proj_center_error=1e-4,
         num_obs_tolerance=0,
     )
+
+
+def test_write_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        custom_incremental_pipeline.time, "time", lambda: 123.456
+    )
+    snapshot_root = tmp_path / "snapshots"
+    reconstruction = pycolmap.Reconstruction()
+
+    custom_incremental_pipeline.write_snapshot(reconstruction, snapshot_root)
+
+    snapshot = pycolmap.Reconstruction(snapshot_root / "0000123456")
+    assert snapshot.num_images() == 0
