@@ -406,6 +406,50 @@ TEST(Bitmap, InterpolateBilinearGrey) {
   EXPECT_NEAR(color->r, 25.0f, 1e-5);
 }
 
+TEST(Bitmap, InterpolateBilinearGreyWithGradients) {
+  Bitmap bitmap(11, 10, /*as_rgb=*/false);
+  for (int y = 0; y < bitmap.Height(); ++y) {
+    for (int x = 0; x < bitmap.Width(); ++x) {
+      bitmap.SetPixel(x, y, BitmapColor<uint8_t>(2 * x + 3 * y + 10));
+    }
+  }
+  double dx = 0.0;
+  double dy = 0.0;
+  auto val = bitmap.InterpolateBilinearGrey(4.35, 3.65, &dx, &dy);
+  ASSERT_TRUE(val.has_value());
+  EXPECT_DOUBLE_EQ(*val, 2.0 * 4.35 + 3.0 * 3.65 + 10.0);
+  EXPECT_DOUBLE_EQ(dx, 2.0);
+  EXPECT_DOUBLE_EQ(dy, 3.0);
+
+  // Finite-difference check on a non-linear pixel neighborhood.
+  bitmap.SetPixel(5, 4, BitmapColor<uint8_t>(200));
+  val = bitmap.InterpolateBilinearGrey(4.35, 3.65, &dx, &dy);
+  ASSERT_TRUE(val.has_value());
+  const double eps = 1e-5;
+  const auto vp_x = bitmap.InterpolateBilinearGrey(4.35 + eps, 3.65);
+  const auto vm_x = bitmap.InterpolateBilinearGrey(4.35 - eps, 3.65);
+  ASSERT_TRUE(vp_x.has_value() && vm_x.has_value());
+  EXPECT_NEAR(dx, (*vp_x - *vm_x) / (2.0 * eps), 1e-8);
+  const auto vp_y = bitmap.InterpolateBilinearGrey(4.35, 3.65 + eps);
+  const auto vm_y = bitmap.InterpolateBilinearGrey(4.35, 3.65 - eps);
+  ASSERT_TRUE(vp_y.has_value() && vm_y.has_value());
+  EXPECT_NEAR(dy, (*vp_y - *vm_y) / (2.0 * eps), 1e-8);
+
+  // Out-of-bounds and NaN return std::nullopt; RGB and empty bitmaps throw.
+  EXPECT_FALSE(bitmap.InterpolateBilinearGrey(-0.1, 3.0).has_value());
+  EXPECT_FALSE(bitmap.InterpolateBilinearGrey(10.0, 3.0).has_value());
+  EXPECT_FALSE(bitmap.InterpolateBilinearGrey(3.0, 9.0).has_value());
+  EXPECT_FALSE(bitmap
+                   .InterpolateBilinearGrey(
+                       std::numeric_limits<double>::quiet_NaN(), 3.0)
+                   .has_value());
+  Bitmap rgb(11, 10, /*as_rgb=*/true);
+  EXPECT_THROW(rgb.InterpolateBilinearGrey(3.0, 3.0, &dx, &dy),
+               std::invalid_argument);
+  Bitmap empty;
+  EXPECT_THROW(empty.InterpolateBilinearGrey(0.0, 0.0), std::invalid_argument);
+}
+
 TEST(Bitmap, InterpolateBilinearOutOfBounds) {
   Bitmap bitmap(11, 10, /*as_rgb=*/true);
   bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));

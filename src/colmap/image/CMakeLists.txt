@@ -5,6 +5,7 @@ set(FOLDER_NAME "image")
 COLMAP_ADD_LIBRARY(
     NAME colmap_image
     SRCS
+        image_pyramid.h image_pyramid.cc
         line.h line.cc
         undistortion.h undistortion.cc
         warp.h warp.cc
@@ -20,6 +21,11 @@ if(LSD_ENABLED)
     target_link_libraries(colmap_image PRIVATE colmap_lsd)
 endif()
 
+COLMAP_ADD_TEST(
+    NAME image_pyramid_test
+    SRCS image_pyramid_test.cc
+    LINK_LIBS colmap_image
+)
 COLMAP_ADD_TEST(
     NAME line_test
     SRCS line_test.cc

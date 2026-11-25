@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "colmap/util/logging.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -90,6 +92,12 @@ class Bitmap {
       double x, double y) const;
   inline std::optional<BitmapColor<float>> InterpolateBilinear(double x,
                                                                double y) const;
+  // Interpolate grayscale intensity and optional spatial derivatives
+  // (dI/dx, dI/dy) in double precision for a single-channel bitmap.
+  // Throws if the bitmap is not grayscale; returns std::nullopt if (x, y) lies
+  // outside [0, width - 1) x [0, height - 1).
+  inline std::optional<double> InterpolateBilinearGrey(
+      double x, double y, double* dx = nullptr, double* dy = nullptr) const;
 
   // Extract EXIF information from bitmap. Returns std::nullopt if no EXIF
   // information is embedded in the bitmap.
@@ -166,6 +174,11 @@ class Bitmap {
   // Replace the image dimensions and pixel data, updating the metadata
   // accordingly. The channel count is preserved.
   void SetImageData(int width, int height, std::vector<uint8_t>&& data);
+
+  // Returns true if (x, y) is finite and inside [0, width_ - 1) x
+  // [0, height_ - 1) so that the 2x2 neighborhood for bilinear interpolation
+  // lies within bounds.
+  inline bool IsValidBilinearCoord(double x, double y) const;
 
   int width_;
   int height_;
@@ -315,59 +328,83 @@ std::optional<BitmapColor<uint8_t>> Bitmap::InterpolateNearestNeighbor(
   return GetPixel(xx, yy);
 }
 
-std::optional<BitmapColor<float>> Bitmap::InterpolateBilinear(
-    const double x, const double y) const {
-  const int x0 = static_cast<int>(std::floor(x));
-  const int x1 = x0 + 1;
-  const int y0 = static_cast<int>(std::floor(y));
-  const int y1 = y0 + 1;
+bool Bitmap::IsValidBilinearCoord(const double x, const double y) const {
+  return x >= 0.0 && x < static_cast<double>(width_ - 1) && y >= 0.0 &&
+         y < static_cast<double>(height_ - 1);
+}
 
-  if (x0 < 0 || x1 >= width_ || y0 < 0 || y1 >= height_) {
+std::optional<double> Bitmap::InterpolateBilinearGrey(const double x,
+                                                      const double y,
+                                                      double* dx,
+                                                      double* dy) const {
+  THROW_CHECK(IsGrey());
+  if (!IsValidBilinearCoord(x, y)) {
     return std::nullopt;
   }
 
+  const int x0 = static_cast<int>(x);
+  const int y0 = static_cast<int>(y);
+  const double fx = x - static_cast<double>(x0);
+  const double fy = y - static_cast<double>(y0);
+
+  const uint8_t* line0 = &data_[static_cast<size_t>(y0) * width_ + x0];
+  const uint8_t* line1 = line0 + width_;
+  const double i00 = static_cast<double>(line0[0]);
+  const double i01 = static_cast<double>(line0[1]);
+  const double i10 = static_cast<double>(line1[0]);
+  const double i11 = static_cast<double>(line1[1]);
+
+  const double v0 = i00 + fx * (i01 - i00);
+  const double v1 = i10 + fx * (i11 - i10);
+
+  if (dx != nullptr) {
+    *dx = (1.0 - fy) * (i01 - i00) + fy * (i11 - i10);
+  }
+  if (dy != nullptr) {
+    *dy = v1 - v0;
+  }
+  return v0 + fy * (v1 - v0);
+}
+
+std::optional<BitmapColor<float>> Bitmap::InterpolateBilinear(
+    const double x, const double y) const {
+  if (IsGrey()) {
+    if (const std::optional<double> val = InterpolateBilinearGrey(x, y)) {
+      return BitmapColor<float>(static_cast<float>(*val));
+    }
+    return std::nullopt;
+  }
+
+  if (!IsRGB() || !IsValidBilinearCoord(x, y)) {
+    return std::nullopt;
+  }
+
+  const int x0 = static_cast<int>(x);
+  const int y0 = static_cast<int>(y);
   const double dx = x - x0;
   const double dy = y - y0;
   const double dx_1 = 1 - dx;
   const double dy_1 = 1 - dy;
 
-  const int pitch = width_ * channels_;
-  const uint8_t* line0 = &data_[y0 * pitch];
-  const uint8_t* line1 = &data_[y1 * pitch];
+  const size_t pitch = static_cast<size_t>(width_) * channels_;
+  const uint8_t* line0 = &data_[static_cast<size_t>(y0) * pitch];
+  const uint8_t* line1 = line0 + pitch;
+  const uint8_t* p00 = &line0[3 * static_cast<size_t>(x0)];
+  const uint8_t* p01 = p00 + 3;
+  const uint8_t* p10 = &line1[3 * static_cast<size_t>(x0)];
+  const uint8_t* p11 = p10 + 3;
 
-  if (IsGrey()) {
-    // Top row, column-wise linear interpolation.
-    const double v0 = dx_1 * line0[x0] + dx * line0[x1];
+  const double v0_r = dx_1 * p00[0] + dx * p01[0];
+  const double v0_g = dx_1 * p00[1] + dx * p01[1];
+  const double v0_b = dx_1 * p00[2] + dx * p01[2];
 
-    // Bottom row, column-wise linear interpolation.
-    const double v1 = dx_1 * line1[x0] + dx * line1[x1];
+  const double v1_r = dx_1 * p10[0] + dx * p11[0];
+  const double v1_g = dx_1 * p10[1] + dx * p11[1];
+  const double v1_b = dx_1 * p10[2] + dx * p11[2];
 
-    // Row-wise linear interpolation.
-    const float r = dy_1 * v0 + dy * v1;
-    return BitmapColor<float>(r, r, r);
-  } else if (IsRGB()) {
-    const uint8_t* p00 = &line0[3 * x0];
-    const uint8_t* p01 = &line0[3 * x1];
-    const uint8_t* p10 = &line1[3 * x0];
-    const uint8_t* p11 = &line1[3 * x1];
-
-    // Top row, column-wise linear interpolation.
-    const double v0_r = dx_1 * p00[0] + dx * p01[0];
-    const double v0_g = dx_1 * p00[1] + dx * p01[1];
-    const double v0_b = dx_1 * p00[2] + dx * p01[2];
-
-    // Bottom row, column-wise linear interpolation.
-    const double v1_r = dx_1 * p10[0] + dx * p11[0];
-    const double v1_g = dx_1 * p10[1] + dx * p11[1];
-    const double v1_b = dx_1 * p10[2] + dx * p11[2];
-
-    // Row-wise linear interpolation.
-    return BitmapColor<float>(dy_1 * v0_r + dy * v1_r,
-                              dy_1 * v0_g + dy * v1_g,
-                              dy_1 * v0_b + dy * v1_b);
-  }
-
-  return std::nullopt;
+  return BitmapColor<float>(dy_1 * v0_r + dy * v1_r,
+                            dy_1 * v0_g + dy * v1_g,
+                            dy_1 * v0_b + dy * v1_b);
 }
 
 }  // namespace colmap
