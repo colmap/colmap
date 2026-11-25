@@ -8,12 +8,15 @@
 #include "colmap/util/string.h"
 #include "colmap/util/testing.h"
 
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 namespace colmap {
 namespace {
@@ -334,16 +337,28 @@ TEST(Undistorters, ScriptExecutablePaths) {
       const auto run = [&](const std::string& script) {
         const auto command_log = output_path / "commands.log";
         std::filesystem::remove(command_log);
-        const std::string command =
-            "cd '" + StringReplace(output_path.string(), "'", "'\\''") +
-            "' && COLMAP_EXE_PATH='./" + tools + "' PMVS_EXE_PATH='./" + tools +
-            "' /bin/sh " + script;
-        EXPECT_EQ(std::system(command.c_str()), 0) << script << ": " << tools;
+        std::string command = "cd '";
+        command += StringReplace(output_path.string(), "'", "'\\''");
+        command += "' && COLMAP_EXE_PATH='./";
+        command += tools;
+        command += "' PMVS_EXE_PATH='./";
+        command += tools;
+        command += "' /bin/sh ";
+        command += script;
+        EXPECT_EXIT(execl("/bin/sh",
+                          "sh",
+                          "-c",
+                          command.c_str(),
+                          static_cast<char*>(nullptr)),
+                    testing::ExitedWithCode(0),
+                    "")
+            << script << ": " << tools;
         return ExistsFile(command_log) ? ReadTextFileLines(command_log)
                                        : std::vector<std::string>();
       };
       for (const std::string mode : {"geometric", "photometric"}) {
-        SCOPED_TRACE(output_path.string() + ": " + tools + ": " + mode);
+        SCOPED_TRACE(testing::Message()
+                     << output_path << ": " << tools << ": " << mode);
         const auto commands = run("run-colmap-" + mode + ".sh");
         EXPECT_THAT(commands, testing::Contains("colmap patch_match_stereo"));
         EXPECT_THAT(commands, testing::Contains("colmap stereo_fusion"));
