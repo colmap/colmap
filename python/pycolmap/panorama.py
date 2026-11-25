@@ -276,6 +276,9 @@ class PanoProcessor:
                         "RGBA" if has_alpha else "RGB"
                     )
                 pano_image = np.asarray(pano_pil_image)
+                # OpenCV remap does not support signed 32-bit integer images.
+                if mode == "I":
+                    pano_image = pano_image.astype(np.float64)
         except PIL.Image.UnidentifiedImageError:
             logging.info(f"Skipping file {pano_path} as it cannot be read.")
             return
@@ -317,6 +320,11 @@ class PanoProcessor:
                 cv2.INTER_LINEAR,
                 borderMode=cv2.BORDER_WRAP,
             )
+            if mode == "I":
+                # Convert interpolated values back without overflowing int32.
+                image = np.rint(image).clip(
+                    np.iinfo(np.int32).min, np.iinfo(np.int32).max
+                ).astype(np.int32)
             # We define a mask such that each pixel of the panorama has its
             # features extracted only in a single virtual camera.
             closest_camera = np.argmax(
