@@ -10,6 +10,7 @@
 #define _USE_MATH_DEFINES
 
 #include "colmap/mvs/patch_match_cuda.h"
+#include "colmap/mvs/patch_match_sampling.cuh"
 #include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/logging.h"
@@ -653,21 +654,6 @@ __device__ inline int FindMinCost(const float costs[kNumCosts]) {
   return min_cost_idx;
 }
 
-__device__ inline void TransformPDFToCDF(float* probs, const int num_probs) {
-  float prob_sum = 0.0f;
-  for (int i = 0; i < num_probs; ++i) {
-    prob_sum += probs[i];
-  }
-  const float inv_prob_sum = 1.0f / prob_sum;
-
-  float cum_prob = 0.0f;
-  for (int i = 0; i < num_probs; ++i) {
-    const float prob = probs[i] * inv_prob_sum;
-    cum_prob += prob;
-    probs[i] = cum_prob;
-  }
-}
-
 class LikelihoodComputer {
  public:
   __device__ LikelihoodComputer(const float ncc_sigma,
@@ -1076,7 +1062,8 @@ __global__ void SweepFromTopToBottom(
       sampling_probs[image_idx] = sel_prob * tri_prob * inc_prob * res_prob;
     }
 
-    TransformPDFToCDF(sampling_probs, cost_map.GetDepth());
+    const bool empty_sampling_support =
+        !TransformPDFToCDF(sampling_probs, cost_map.GetDepth(), 1);
 
     // Compute matching cost using Monte Carlo sampling of source images. Images
     // with higher selection probability are more likely to be sampled. Hence,
@@ -1099,16 +1086,8 @@ __global__ void SweepFromTopToBottom(
                                        curr_param_state.normal};
 
     for (int sample = 0; sample < options.num_samples; ++sample) {
-      const float rand_prob = curand_uniform(&rand_state) - FLT_EPSILON;
-
-      pcc_computer.src_image_idx = -1;
-      for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
-        const float prob = sampling_probs[image_idx];
-        if (prob > rand_prob) {
-          pcc_computer.src_image_idx = image_idx;
-          break;
-        }
-      }
+      pcc_computer.src_image_idx = SampleSource(
+          sampling_probs, cost_map.GetDepth(), 1, curand_uniform(&rand_state));
 
       if (pcc_computer.src_image_idx == -1) {
         continue;
@@ -1146,7 +1125,10 @@ __global__ void SweepFromTopToBottom(
     }
 
     // Find the parameters of the minimum cost.
-    const int min_cost_idx = FindMinCost<kNumCosts>(costs);
+    // All-zero support supplies no evidence for a new hypothesis. Other
+    // degenerate distributions retain the existing winner policy.
+    const int min_cost_idx =
+        empty_sampling_support ? 0 : FindMinCost<kNumCosts>(costs);
     const float best_depth = depths[min_cost_idx];
     const float* best_normal = normals[min_cost_idx];
 

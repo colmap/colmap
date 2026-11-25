@@ -110,6 +110,7 @@ if(CUDA_ENABLED)
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
             patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu
+            patch_match_sampling.cuh
         PUBLIC_LINK_LIBS
             colmap_mvs
             colmap_util_cuda
@@ -252,6 +253,12 @@ if(CUDA_ENABLED)
         SRCS gpu_mat_test.cu
         LINK_LIBS colmap_mvs_cuda
     )
+
+    COLMAP_ADD_TEST(
+        NAME patch_match_sampling_test
+        SRCS patch_match_sampling_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
 endif()
 
 # ROCm HIP support for MVS (patch_match_stereo on AMD GPUs).
@@ -269,6 +276,7 @@ if(HIP_ENABLED)
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
             patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu
+            patch_match_sampling.cuh
         PUBLIC_LINK_LIBS
             colmap_mvs
             colmap_util_cuda
@@ -288,5 +296,15 @@ if(HIP_ENABLED)
         SRCS gpu_mat_test.cu
         LINK_LIBS colmap_mvs_cuda
     )
-    set_source_files_properties(gpu_mat_test.cu PROPERTIES LANGUAGE HIP)
+
+    COLMAP_ADD_TEST(
+        NAME patch_match_sampling_test
+        SRCS patch_match_sampling_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
+    set_source_files_properties(
+        gpu_mat_test.cu
+        patch_match_sampling_test.cu
+        PROPERTIES LANGUAGE HIP
+    )
 endif()
