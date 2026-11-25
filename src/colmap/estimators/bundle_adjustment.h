@@ -190,7 +190,7 @@ struct BundleAdjustmentOptions : public BundleAdjustmentBackendOptions {
   // its prior more strongly than a wide field-of-view one.
   //
   // The focal length prior is only applied to cameras with
-  // Camera::has_prior_focal_length and pulls towards the focal length at the
+  // Camera::HasPriorFocalLength() and pulls towards the focal length at the
   // time the problem is constructed. Thus "initial" means the construction-time
   // value for each bundle adjustment problem, not necessarily the original
   // database value. The prior therefore acts as a damping term across
