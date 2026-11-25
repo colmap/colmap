@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/bundle_adjustment_caspar.h"
 #include "colmap/estimators/bundle_adjustment_ceres.h"
+#include "colmap/estimators/photometric_bundle_adjustment.h"
 
 #include "pycolmap/helpers.h"
 #include "pycolmap/pybind11_extension.h"
@@ -433,4 +434,90 @@ void BindBundleAdjuster(py::module& m) {
         "config"_a,
         "pose_priors"_a,
         "reconstruction"_a);
+
+  // Photometric bundle adjustment options, summary, and factory.
+  using PhotoBAOpts = PhotometricBundleAdjustmentOptions;
+  auto PyPhotometricBundleAdjustmentOptions =
+      py::classh<PhotoBAOpts>(m, "PhotometricBundleAdjustmentOptions")
+          .def(py::init<>())
+          .def_readwrite("patch_size",
+                         &PhotoBAOpts::patch_size,
+                         "Side length of the square corner-grid patch.")
+          .def_readwrite("pyramid_levels",
+                         &PhotoBAOpts::pyramid_levels,
+                         "Comma-separated coarse-to-fine pyramid levels.")
+          .def_readwrite("max_image_size",
+                         &PhotoBAOpts::max_image_size,
+                         "Optional maximum image dimension (-1 = full res).")
+          .def_readwrite("use_target_mipmap",
+                         &PhotoBAOpts::use_target_mipmap,
+                         "Select target pyramid level matching ~1 px spacing.")
+          .def_readwrite("refine_structure_first",
+                         &PhotoBAOpts::refine_structure_first,
+                         "Run structure-only warmup before joint optimization.")
+          .def_readwrite("structure_warmup_max_num_iterations",
+                         &PhotoBAOpts::structure_warmup_max_num_iterations,
+                         "Maximum iterations for structure-only warmup.")
+          .def_readwrite("min_patch_std",
+                         &PhotoBAOpts::min_patch_std,
+                         "Minimum grayscale intensity std dev for textured "
+                         "patches.")
+          .def_readwrite("max_num_observations_per_point",
+                         &PhotoBAOpts::max_num_observations_per_point,
+                         "Optional cap on target observations per 3D point.")
+          .def_readwrite("loss_function_type",
+                         &PhotoBAOpts::loss_function_type,
+                         "Robust loss function for LS-NCC patch residuals.")
+          .def_readwrite("loss_function_scale",
+                         &PhotoBAOpts::loss_function_scale,
+                         "Robust loss scale parameter.")
+          .def_readwrite(
+              "geometric_reprojection_weight",
+              &PhotoBAOpts::geometric_reprojection_weight,
+              "Dimensionless VCE weight for full-track geometric reprojection "
+              "regularization (0.0 = pure photometric BA).")
+          .def_readwrite("num_threads",
+                         &PhotoBAOpts::num_threads,
+                         "Number of CPU threads (-1 = auto).")
+          .def("check", &PhotoBAOpts::Check);
+  MakeDataclass(PyPhotometricBundleAdjustmentOptions);
+
+  using PhotoBASummary = PhotometricBundleAdjustmentSummary;
+  auto PyPhotometricBundleAdjustmentSummary =
+      py::classh<PhotoBASummary, BASummary>(
+          m, "PhotometricBundleAdjustmentSummary")
+          .def(py::init<>())
+          .def_readwrite("num_tracks_total", &PhotoBASummary::num_tracks_total)
+          .def_readwrite("num_tracks_kept", &PhotoBASummary::num_tracks_kept)
+          .def_readwrite("num_tracks_filtered_short",
+                         &PhotoBASummary::num_tracks_filtered_short)
+          .def_readwrite("num_tracks_filtered_invalid",
+                         &PhotoBASummary::num_tracks_filtered_invalid)
+          .def_readwrite("num_tracks_filtered_low_texture",
+                         &PhotoBASummary::num_tracks_filtered_low_texture)
+          .def_readwrite("image_load_seconds",
+                         &PhotoBASummary::image_load_seconds)
+          .def_readwrite("optimization_seconds",
+                         &PhotoBASummary::optimization_seconds);
+  MakeDataclass(PyPhotometricBundleAdjustmentSummary);
+
+  m.def(
+      "create_photometric_bundle_adjuster",
+      [](const BundleAdjustmentOptions& ba_options,
+         const PhotometricBundleAdjustmentOptions& photometric_options,
+         const BundleAdjustmentConfig& config,
+         const std::filesystem::path& image_path,
+         Reconstruction& reconstruction) {
+        return CreatePhotometricBundleAdjuster(ba_options,
+                                               photometric_options,
+                                               config,
+                                               image_path,
+                                               reconstruction);
+      },
+      "options"_a,
+      "photometric_options"_a,
+      "config"_a,
+      "image_path"_a,
+      "reconstruction"_a,
+      py::keep_alive<0, 5>());
 }

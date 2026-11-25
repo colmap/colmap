@@ -17,6 +17,7 @@ set(ESTIMATORS_SRCS
     generalized_pose.h generalized_pose.cc
     global_positioning.h global_positioning.cc
     gravity_refinement.h gravity_refinement.cc
+    photometric_bundle_adjustment.h photometric_bundle_adjustment.cc
     pose.h pose.cc
     rotation_averaging.h rotation_averaging.cc
     rotation_averaging_ceres.h rotation_averaging_ceres.cc
@@ -143,5 +144,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME global_positioning_test
     SRCS global_positioning_test.cc
+    LINK_LIBS colmap_estimators
+)
+
+COLMAP_ADD_TEST(
+    NAME photometric_bundle_adjustment_test
+    SRCS photometric_bundle_adjustment_test.cc
     LINK_LIBS colmap_estimators
 )

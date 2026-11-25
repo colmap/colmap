@@ -107,9 +107,10 @@ Graceful shutdown and resuming
 ------------------------------
 
 The feature extraction and matching commands, ``mapper``,
-``pose_prior_mapper``, ``bundle_adjuster``, ``point_triangulator``,
-``image_registrator``, ``single_view_calibrator``, the image undistortion commands,
-``patch_match_stereo``, and ``stereo_fusion`` handle ``SIGINT`` and ``SIGTERM``
+``pose_prior_mapper``, ``bundle_adjuster``, ``photometric_bundle_adjuster``,
+``point_triangulator``, ``image_registrator``, ``single_view_calibrator``,
+the image undistortion commands, ``patch_match_stereo``, and
+``stereo_fusion`` handle ``SIGINT`` and ``SIGTERM``
 cooperatively. ``automatic_reconstructor`` supports graceful shutdown when
 using the incremental mapper. The first signal stops work at a safe point and
 writes any usable in-progress results. The process then exits with status 130
@@ -258,6 +259,7 @@ The available commands can be listed using the command::
           model_splitter
           model_transformer
           patch_match_stereo
+          photometric_bundle_adjuster
           point_filtering
           point_triangulator
           pose_prior_mapper
@@ -452,6 +454,11 @@ available as ``colmap [command]``:
   ``--BundleAdjustment.backend`` (``CERES`` or ``CASPAR``). Caspar [caspar]_ is
   an experimental GPU-accelerated backend; see :doc:`faq` for details and
   limitations.
+
+- ``photometric_bundle_adjuster``: Refine camera poses, rig extrinsics, camera
+  intrinsics, and 3D points (with per-point surface normals) on a reconstructed
+  scene using sparse multi-scale Least-Squares NCC photometric bundle
+  adjustment (LSPBA-style).
 
 - ``database_cleaner``: Clean specific or all database tables.
 

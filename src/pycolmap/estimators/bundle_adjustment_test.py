@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pytest
+
 import pycolmap
 
 
@@ -257,3 +259,111 @@ def test_bundle_adjustment_pipeline(
     options = pycolmap.BundleAdjustmentOptions()
     options.print_summary = False
     pycolmap.bundle_adjustment(reconstruction, options)
+
+
+def test_photometric_ba_options_and_summary() -> None:
+    options = pycolmap.PhotometricBundleAdjustmentOptions()
+    assert options.check()
+    assert options.patch_size == 4
+    assert options.geometric_reprojection_weight == 1.0
+    assert options.loss_function_type == pycolmap.LossFunctionType.GEMAN_MCCLURE
+    summary = pycolmap.PhotometricBundleAdjustmentSummary()
+    assert isinstance(summary, pycolmap.BundleAdjustmentSummary)
+    assert summary.num_tracks_total == 0
+
+
+def _write_synthetic_textured_images(
+    root_dir, reconstruction: pycolmap.Reconstruction
+) -> None:
+    import numpy as np
+    from PIL import Image as PILImage
+
+    for image in reconstruction.images.values():
+        cam = reconstruction.cameras[image.camera_id]
+        yy, xx = np.mgrid[0 : cam.height, 0 : cam.width]
+        arr = np.clip(
+            128 + 50 * np.sin(0.1 * xx) + 40 * np.cos(0.13 * yy), 0, 255
+        ).astype(np.uint8)
+        img_path = root_dir / image.name
+        img_path.parent.mkdir(parents=True, exist_ok=True)
+        PILImage.fromarray(arr).save(img_path)
+
+
+def test_photometric_bundle_adjustment_pipeline(
+    tmp_path,
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
+    import numpy as np
+
+    reconstruction = pycolmap.Reconstruction(synthetic_reconstruction)
+    _write_synthetic_textured_images(tmp_path, reconstruction)
+    num_images_before = reconstruction.num_reg_images()
+    num_points_before = reconstruction.num_points3D()
+
+    ba_options = pycolmap.BundleAdjustmentOptions()
+    ba_options.print_summary = False
+    ba_options.ceres.solver_options.max_num_iterations = 5
+    photo_options = pycolmap.PhotometricBundleAdjustmentOptions()
+    photo_options.pyramid_levels = "0"
+    photo_options.refine_structure_first = False
+    pycolmap.photometric_bundle_adjustment(
+        reconstruction, tmp_path, ba_options, photo_options
+    )
+
+    assert reconstruction.num_reg_images() == num_images_before
+    assert reconstruction.num_points3D() == num_points_before
+    for point in reconstruction.points3D.values():
+        assert np.all(np.isfinite(point.xyz))
+    for cam in reconstruction.cameras.values():
+        assert np.all(np.isfinite(cam.params))
+
+
+def test_create_photometric_bundle_adjuster_and_lifetime(
+    tmp_path,
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
+    import gc
+
+    reconstruction = pycolmap.Reconstruction(synthetic_reconstruction)
+    _write_synthetic_textured_images(tmp_path, reconstruction)
+
+    ba_options = pycolmap.BundleAdjustmentOptions()
+    ba_options.print_summary = False
+    ba_options.ceres.solver_options.max_num_iterations = 5
+    photo_options = pycolmap.PhotometricBundleAdjustmentOptions()
+    photo_options.pyramid_levels = "0"
+    photo_options.refine_structure_first = False
+    config = pycolmap.BundleAdjustmentConfig()
+    for image_id in reconstruction.reg_image_ids():
+        config.add_image(image_id)
+
+    adjuster = pycolmap.create_photometric_bundle_adjuster(
+        ba_options, photo_options, config, tmp_path, reconstruction
+    )
+    # Drop the caller's Python reference and force GC to verify keep_alive.
+    del reconstruction
+    gc.collect()
+
+    summary = adjuster.solve()
+    assert summary.is_solution_usable()
+    assert summary.num_tracks_total > 0
+    assert summary.num_tracks_kept > 0
+    assert summary.num_residuals > 0
+
+
+def test_photometric_bundle_adjustment_invalid_image_path(
+    tmp_path,
+    synthetic_reconstruction: pycolmap.Reconstruction,
+) -> None:
+    reconstruction = pycolmap.Reconstruction(synthetic_reconstruction)
+    ba_options = pycolmap.BundleAdjustmentOptions()
+    ba_options.print_summary = False
+    photo_options = pycolmap.PhotometricBundleAdjustmentOptions()
+    photo_options.pyramid_levels = "0"
+    with pytest.raises(ValueError):
+        pycolmap.photometric_bundle_adjustment(
+            reconstruction,
+            tmp_path / "does_not_exist",
+            ba_options,
+            photo_options,
+        )

@@ -16,6 +16,7 @@
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/global_positioning.h"
 #include "colmap/estimators/gravity_refinement.h"
+#include "colmap/estimators/photometric_bundle_adjustment.h"
 #include "colmap/estimators/rotation_averaging_ceres.h"
 #include "colmap/estimators/rotation_averaging_l1_irls.h"
 #include "colmap/estimators/two_view_geometry.h"
@@ -81,6 +82,8 @@ OptionManager::OptionManager(bool add_project_options)
   transitive_pairing = std::make_shared<TransitivePairingOptions>();
   imported_pairing = std::make_shared<ImportedPairingOptions>();
   bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
+  photometric_bundle_adjustment =
+      std::make_shared<PhotometricBundleAdjustmentOptions>();
   mapper = std::make_shared<IncrementalPipelineOptions>();
   global_mapper = std::make_shared<GlobalPipelineOptions>();
   hierarchical_mapper = std::make_shared<HierarchicalPipelineOptions>();
@@ -217,6 +220,7 @@ void OptionManager::AddAllOptions() {
   AddTransitivePairingOptions();
   AddImportedPairingOptions();
   AddBundleAdjustmentOptions();
+  AddPhotometricBundleAdjustmentOptions();
   AddMapperOptions();
   AddGlobalMapperOptions();
 #if defined(COLMAP_MVS_ENABLED)
@@ -721,6 +725,43 @@ void OptionManager::AddBundleAdjustmentOptions() {
   AddDefaultOption("BundleAdjustmentCaspar.gpu_index",
                    &bundle_adjustment->caspar->gpu_index);
 #endif  // CASPAR_ENABLED
+}
+
+void OptionManager::AddPhotometricBundleAdjustmentOptions() {
+  if (!RegisterOptionGroupOnce("photometric_bundle_adjustment")) {
+    return;
+  }
+
+  AddDefaultOption("PhotometricBundleAdjustment.patch_size",
+                   &photometric_bundle_adjustment->patch_size);
+  AddDefaultOption("PhotometricBundleAdjustment.pyramid_levels",
+                   &photometric_bundle_adjustment->pyramid_levels);
+  AddDefaultOption("PhotometricBundleAdjustment.max_image_size",
+                   &photometric_bundle_adjustment->max_image_size);
+  AddDefaultOption("PhotometricBundleAdjustment.use_target_mipmap",
+                   &photometric_bundle_adjustment->use_target_mipmap);
+  AddDefaultOption("PhotometricBundleAdjustment.refine_structure_first",
+                   &photometric_bundle_adjustment->refine_structure_first);
+  AddDefaultOption(
+      "PhotometricBundleAdjustment.structure_warmup_max_num_iterations",
+      &photometric_bundle_adjustment->structure_warmup_max_num_iterations);
+  AddDefaultOption("PhotometricBundleAdjustment.min_patch_std",
+                   &photometric_bundle_adjustment->min_patch_std);
+  AddDefaultOption(
+      "PhotometricBundleAdjustment.max_num_observations_per_point",
+      &photometric_bundle_adjustment->max_num_observations_per_point);
+  AddDefaultEnumOption("PhotometricBundleAdjustment.loss_function_type",
+                       &photometric_bundle_adjustment->loss_function_type,
+                       CeresLossFunctionTypeToString,
+                       CeresLossFunctionTypeFromString,
+                       EnumHelpText(CeresLossFunctionTypeStrings()));
+  AddDefaultOption("PhotometricBundleAdjustment.loss_function_scale",
+                   &photometric_bundle_adjustment->loss_function_scale);
+  AddDefaultOption(
+      "PhotometricBundleAdjustment.geometric_reprojection_weight",
+      &photometric_bundle_adjustment->geometric_reprojection_weight);
+  AddDefaultOption("PhotometricBundleAdjustment.num_threads",
+                   &photometric_bundle_adjustment->num_threads);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -1317,6 +1358,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *transitive_pairing = TransitivePairingOptions();
   *imported_pairing = ImportedPairingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
+  *photometric_bundle_adjustment = PhotometricBundleAdjustmentOptions();
   *mapper = IncrementalPipelineOptions();
   *global_mapper = GlobalPipelineOptions();
   *hierarchical_mapper = HierarchicalPipelineOptions();
@@ -1357,6 +1399,8 @@ bool OptionManager::Check() {
   if (imported_pairing) success = success && imported_pairing->Check();
 
   if (bundle_adjustment) success = success && bundle_adjustment->Check();
+  if (photometric_bundle_adjustment)
+    success = success && photometric_bundle_adjustment->Check();
   if (mapper) success = success && mapper->Check();
 
 #if defined(COLMAP_MVS_ENABLED)

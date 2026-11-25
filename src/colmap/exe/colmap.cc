@@ -154,6 +154,9 @@ int main(int argc, char** argv) {
                         &colmap::RunPatchMatchStereo,
                         kSupportsGracefulShutdown);
 #endif
+  commands.emplace_back("photometric_bundle_adjuster",
+                        &colmap::RunPhotometricBundleAdjuster,
+                        kSupportsGracefulShutdown);
   commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
   commands.emplace_back("point_triangulator",
                         &colmap::RunPointTriangulator,

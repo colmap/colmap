@@ -5,6 +5,8 @@
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/incremental_pipeline.h"
+#include "colmap/controllers/photometric_bundle_adjustment.h"
+#include "colmap/estimators/photometric_bundle_adjustment.h"
 #include "colmap/estimators/view_graph_calibration.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
@@ -174,6 +176,28 @@ void BundleAdjustment(
   interrupt_checker.CheckAndThrow();
 }
 
+void PhotometricBundleAdjustment(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const std::filesystem::path& image_path,
+    const BundleAdjustmentOptions& options,
+    const PhotometricBundleAdjustmentOptions& photometric_options,
+    const std::shared_ptr<CancellationToken>& cancellation_token) {
+  THROW_CHECK_DIR_EXISTS(image_path);
+  py::gil_scoped_release release;
+  OptionManager option_manager;
+  *option_manager.image_path = image_path;
+  option_manager.bundle_adjustment =
+      std::make_shared<BundleAdjustmentOptions>(options);
+  option_manager.photometric_bundle_adjustment =
+      std::make_shared<PhotometricBundleAdjustmentOptions>(photometric_options);
+  PyInterruptChecker interrupt_checker(cancellation_token);
+  PhotometricBundleAdjustmentController controller(option_manager,
+                                                   reconstruction);
+  controller.SetCheckIfStoppedFunc(interrupt_checker.Callback());
+  controller.Run();
+  interrupt_checker.CheckAndThrow();
+}
+
 bool ViewGraphCalibration(const std::filesystem::path& database_path,
                           const ViewGraphCalibrationOptions& options) {
   THROW_CHECK_FILE_EXISTS(database_path);
@@ -278,4 +302,17 @@ void BindSfM(py::module& m) {
             "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
         "cancellation_token"_a = py::none(),
         "Jointly refine 3D points and camera poses");
+
+  m.def("photometric_bundle_adjustment",
+        &PhotometricBundleAdjustment,
+        "reconstruction"_a,
+        "image_path"_a,
+        py::arg_v(
+            "options", BundleAdjustmentOptions(), "BundleAdjustmentOptions()"),
+        py::arg_v("photometric_options",
+                  PhotometricBundleAdjustmentOptions(),
+                  "PhotometricBundleAdjustmentOptions()"),
+        "cancellation_token"_a = py::none(),
+        "Jointly refine 3D points, camera poses, and intrinsics via sparse "
+        "photometric bundle adjustment");
 }

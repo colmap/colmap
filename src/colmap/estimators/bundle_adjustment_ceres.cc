@@ -18,7 +18,7 @@
 
 namespace colmap {
 
-namespace {
+namespace ceres_ba_internal {
 
 BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
     ceres::TerminationType ceres_type) {
@@ -38,13 +38,14 @@ BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
   return BundleAdjustmentTerminationType::FAILURE;
 }
 
-}  // namespace
+}  // namespace ceres_ba_internal
 
 std::shared_ptr<CeresBundleAdjustmentSummary>
 CeresBundleAdjustmentSummary::Create(ceres::Solver::Summary ceres_summary) {
   auto summary = std::make_shared<CeresBundleAdjustmentSummary>();
   summary->termination_type =
-      CeresTerminationTypeToTerminationType(ceres_summary.termination_type);
+      ceres_ba_internal::CeresTerminationTypeToTerminationType(
+          ceres_summary.termination_type);
   summary->num_residuals = ceres_summary.num_residuals_reduced;
   summary->ceres_summary = std::move(ceres_summary);
   return summary;
@@ -209,7 +210,7 @@ bool CeresPosePriorBundleAdjustmentOptions::Check() const {
   return true;
 }
 
-namespace {
+namespace ceres_ba_internal {
 
 void ParameterizeCameras(const BundleAdjustmentOptions& options,
                          const BundleAdjustmentConfig& config,
@@ -338,6 +339,14 @@ void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
   }
 }
 
+}  // namespace ceres_ba_internal
+
+namespace {
+
+using ceres_ba_internal::CancellationCallback;
+using ceres_ba_internal::ParameterizeCameras;
+using ceres_ba_internal::ParameterizeRigsAndFrames;
+
 void ParameterizePoints(
     const BundleAdjustmentOptions& options,
     const BundleAdjustmentConfig& config,
@@ -365,22 +374,6 @@ std::shared_ptr<CeresBundleAdjustmentSummary> CreateSummaryAndLogFailure(
   }
   return summary;
 }
-
-class CancellationCallback : public ceres::IterationCallback {
- public:
-  explicit CancellationCallback(std::function<bool()> check_if_stopped)
-      : check_if_stopped_(std::move(check_if_stopped)) {}
-
-  ceres::CallbackReturnType operator()(
-      const ceres::IterationSummary&) override {
-    return check_if_stopped_ && check_if_stopped_()
-               ? ceres::SOLVER_TERMINATE_SUCCESSFULLY
-               : ceres::SOLVER_CONTINUE;
-  }
-
- private:
-  std::function<bool()> check_if_stopped_;
-};
 
 ceres::Solver::Summary SolveWithGpuFallback(
     const BundleAdjustmentOptions& options,

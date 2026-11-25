@@ -10,6 +10,7 @@ COLMAP_ADD_LIBRARY(
         calibration.h
         manifold.h
         motion_averaging.h
+        photometric_error.h
         pose_prior.h
         quaternion_utils.h
         reprojection_error.h
@@ -19,6 +20,7 @@ COLMAP_ADD_LIBRARY(
         utils.h
     INTERFACE_LINK_LIBS
         colmap_geometry
+        colmap_image
         colmap_sensor
         Eigen3::Eigen
         Ceres::ceres
@@ -73,4 +75,9 @@ COLMAP_ADD_TEST(
     NAME quaternion_utils_test
     SRCS quaternion_utils_test.cc
     LINK_LIBS colmap_estimators_cost_functions colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME photometric_error_test
+    SRCS photometric_error_test.cc
+    LINK_LIBS colmap_estimators_cost_functions
 )

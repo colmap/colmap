@@ -106,4 +106,39 @@ std::unique_ptr<CeresBundleAdjuster> CreatePosePriorCeresBundleAdjuster(
 void PrintSolverSummary(const ceres::Solver::Summary& summary,
                         const std::string& header);
 
+namespace ceres_ba_internal {
+
+BundleAdjustmentTerminationType CeresTerminationTypeToTerminationType(
+    ceres::TerminationType ceres_type);
+
+class CancellationCallback : public ceres::IterationCallback {
+ public:
+  explicit CancellationCallback(std::function<bool()> check_if_stopped)
+      : check_if_stopped_(std::move(check_if_stopped)) {}
+
+  ceres::CallbackReturnType operator()(
+      const ceres::IterationSummary&) override {
+    return check_if_stopped_ && check_if_stopped_()
+               ? ceres::SOLVER_TERMINATE_SUCCESSFULLY
+               : ceres::SOLVER_CONTINUE;
+  }
+
+ private:
+  std::function<bool()> check_if_stopped_;
+};
+
+void ParameterizeCameras(const BundleAdjustmentOptions& options,
+                         const BundleAdjustmentConfig& config,
+                         const std::set<camera_t>& camera_ids,
+                         Reconstruction& reconstruction,
+                         ceres::Problem& problem);
+
+void ParameterizeRigsAndFrames(const BundleAdjustmentOptions& options,
+                               const BundleAdjustmentConfig& config,
+                               const std::set<image_t>& image_ids,
+                               Reconstruction& reconstruction,
+                               ceres::Problem& problem);
+
+}  // namespace ceres_ba_internal
+
 }  // namespace colmap

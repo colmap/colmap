@@ -7,6 +7,7 @@
 #include "colmap/controllers/global_pipeline.h"
 #include "colmap/controllers/hierarchical_pipeline.h"
 #include "colmap/controllers/option_manager.h"
+#include "colmap/controllers/photometric_bundle_adjustment.h"
 #include "colmap/controllers/rotation_averaging.h"
 #include "colmap/controllers/single_view_calibration.h"
 #include "colmap/estimators/bundle_adjustment.h"
@@ -191,6 +192,46 @@ int RunBundleAdjuster(int argc, char** argv) {
   reconstruction->Read(input_path);
 
   BundleAdjustmentController ba_controller(options, reconstruction);
+  ba_controller.Run();
+
+  reconstruction->Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
+int RunPhotometricBundleAdjuster(int argc, char** argv) {
+  std::filesystem::path input_path;
+  std::filesystem::path output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddImageOptions();
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddBundleAdjustmentOptions();
+  options.AddPhotometricBundleAdjustmentOptions();
+  if (!options.Parse(argc, argv)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(input_path)) {
+    LOG(ERROR) << "`input_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(*options.image_path)) {
+    LOG(ERROR) << "`image_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    LOG(ERROR) << "`output_path` is not a directory";
+    return EXIT_FAILURE;
+  }
+
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
+
+  PhotometricBundleAdjustmentController ba_controller(options, reconstruction);
   ba_controller.Run();
 
   reconstruction->Write(output_path);
