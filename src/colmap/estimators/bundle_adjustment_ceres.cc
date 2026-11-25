@@ -204,6 +204,8 @@ bool CeresBundleAdjustmentOptions::Check() const {
 
 bool CeresPosePriorBundleAdjustmentOptions::Check() const {
   CHECK_OPTION_GT(prior_position_loss_scale, 0);
+  CHECK_OPTION(IsValidCeresLossFunction(prior_position_loss_function_type,
+                                        prior_position_loss_scale));
   return true;
 }
 

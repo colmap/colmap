@@ -9,6 +9,8 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/testing.h"
 
+#include <limits>
+
 #include <gtest/gtest.h>
 
 // Due to pose normalization operations, constant variables may not be perfectly
@@ -1391,6 +1393,19 @@ TEST(PosePriorBundleAdjuster, OptimizationRobustToOutliers) {
                                  /*max_proj_center_error=*/0.1,
                                  /*max_scale_error=*/std::nullopt,
                                  /*num_obs_tolerance=*/0.02));
+}
+
+TEST(CeresPosePriorBundleAdjustmentOptions, CheckGemanMcClure) {
+  CeresPosePriorBundleAdjustmentOptions options;
+  options.prior_position_loss_function_type =
+      CeresLossFunctionType::GEMAN_MCCLURE;
+  options.prior_position_loss_scale = 1.0;
+  EXPECT_TRUE(options.Check());
+  for (const double bad_scale :
+       {0.0, 1e-200, 1e200, std::numeric_limits<double>::infinity()}) {
+    options.prior_position_loss_scale = bad_scale;
+    EXPECT_FALSE(options.Check());
+  }
 }
 
 }  // namespace
