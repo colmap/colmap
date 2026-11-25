@@ -9,6 +9,38 @@
 
 namespace colmap {
 
+namespace {
+
+// Redescending Geman-McClure loss function:
+//   rho(s) = (c * s) / (c + s), where c = a^2 and s = ||r||^2.
+// Scaled so rho'(0) = 1, matching Ceres's CauchyLoss convention.
+class GemanMcClureLoss final : public ceres::LossFunction {
+ public:
+  explicit GemanMcClureLoss(const double a) : c_(a * a), inv_c_(1.0 / c_) {}
+
+  void Evaluate(const double s, double rho[3]) const override {
+    if (s > c_) {
+      const double t = c_ / s;
+      const double inv = 1.0 / (1.0 + t);
+      const double u = t * inv;
+      rho[0] = c_ * inv;
+      rho[1] = u * u;
+      rho[2] = -2.0 * rho[1] * (inv / s);
+    } else {
+      const double inv = 1.0 / (1.0 + s * inv_c_);
+      rho[0] = s * inv;
+      rho[1] = inv * inv;
+      rho[2] = -2.0 * rho[1] * inv * inv_c_;
+    }
+  }
+
+ private:
+  const double c_;
+  const double inv_c_;
+};
+
+}  // namespace
+
 bool IsValidCeresLossFunction(const CeresLossFunctionType type,
                               const double robust_scale,
                               const double weight) {
@@ -23,6 +55,11 @@ bool IsValidCeresLossFunction(const CeresLossFunctionType type,
     case CeresLossFunctionType::CAUCHY:
     case CeresLossFunctionType::HUBER:
       return robust_scale >= 0.0 && weight > 0.0;
+    case CeresLossFunctionType::GEMAN_MCCLURE: {
+      const double c = robust_scale * robust_scale;
+      return robust_scale > 0.0 && c > 0.0 && std::isfinite(c) &&
+             std::isfinite(2.0 / c) && weight > 0.0;
+    }
   }
   return false;
 }
@@ -48,6 +85,9 @@ std::unique_ptr<ceres::LossFunction> CreateCeresLossFunction(
       break;
     case CeresLossFunctionType::HUBER:
       loss = std::make_unique<ceres::HuberLoss>(robust_scale);
+      break;
+    case CeresLossFunctionType::GEMAN_MCCLURE:
+      loss = std::make_unique<GemanMcClureLoss>(robust_scale);
       break;
   }
   if (weight == 1.0) return loss;

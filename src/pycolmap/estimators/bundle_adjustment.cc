@@ -187,7 +187,8 @@ void BindBundleAdjuster(py::module& m) {
           .value("TRIVIAL", CeresLossFunctionType::TRIVIAL)
           .value("SOFT_L1", CeresLossFunctionType::SOFT_L1)
           .value("CAUCHY", CeresLossFunctionType::CAUCHY)
-          .value("HUBER", CeresLossFunctionType::HUBER);
+          .value("HUBER", CeresLossFunctionType::HUBER)
+          .value("GEMAN_MCCLURE", CeresLossFunctionType::GEMAN_MCCLURE);
   AddStringToEnumConstructor(PyCeresLossFunctionType);
   m.def(
       "create_ceres_loss_function",
