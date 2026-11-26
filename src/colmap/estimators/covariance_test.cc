@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/bundle_adjustment_ceres.h"
 #include "colmap/estimators/cost_functions/manifold.h"
+#include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/math/random.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/scene/synthetic.h"
@@ -315,6 +316,78 @@ INSTANTIATE_TEST_SUITE_P(
           return std::make_pair(options, test_options);
         }()));
 
+// Orthonormal basis of the infinitesimal similarity transforms of the world
+// in the stacked pose tangent spaces [rotation, translation]. Under
+// X' = (1 + s) * (I + [w]_x) * X + t, cam_from_world changes by the rotation
+// vector -R * w (left perturbation) and the translation s * t' - R * t, where
+// t' is the camera translation. The tangent space of the Ceres quaternion
+// manifold is half the rotation vector.
+Eigen::MatrixXd SimilarityNullSpace(const Reconstruction& reconstruction,
+                                    const std::vector<image_t>& image_ids) {
+  Eigen::MatrixXd H = Eigen::MatrixXd::Zero(6 * image_ids.size(), 7);
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    const Rigid3d cam_from_world =
+        reconstruction.Image(image_ids[i]).CamFromWorld();
+    const Eigen::Matrix3d R = cam_from_world.rotation().toRotationMatrix();
+    H.block<3, 3>(6 * i, 3) = -0.5 * R;
+    H.block<3, 3>(6 * i + 3, 0) = -R;
+    H.block<3, 1>(6 * i + 3, 6) = cam_from_world.translation();
+  }
+  H.col(6).normalize();
+  return Eigen::HouseholderQR<Eigen::MatrixXd>(H).householderQ() *
+         Eigen::MatrixXd::Identity(H.rows(), 7);
+}
+
+// Checks pose covariance accuracy and gauge null-space orthogonality separately
+// on the rotation and translation sub-blocks so large scale differences between
+// them cannot mask errors in the smaller block.
+void ExpectPoseCovNear(const Eigen::MatrixXd& actual,
+                       const Eigen::MatrixXd& expected,
+                       const Eigen::MatrixXd& null_space,
+                       double tol) {
+  ASSERT_EQ(actual.rows(), expected.rows());
+  ASSERT_EQ(actual.cols(), expected.cols());
+  ASSERT_EQ(actual.rows() % 6, 0);
+  const int num_poses = actual.rows() / 6;
+
+  auto extract_submatrix = [&](const Eigen::MatrixXd& mat, int offset) {
+    Eigen::MatrixXd sub(3 * num_poses, 3 * num_poses);
+    for (int i = 0; i < num_poses; ++i) {
+      for (int j = 0; j < num_poses; ++j) {
+        sub.block<3, 3>(3 * i, 3 * j) =
+            mat.block<3, 3>(6 * i + offset, 6 * j + offset);
+      }
+    }
+    return sub;
+  };
+  auto extract_rows = [&](const Eigen::MatrixXd& mat, int offset) {
+    Eigen::MatrixXd sub(3 * num_poses, mat.cols());
+    for (int i = 0; i < num_poses; ++i) {
+      sub.middleRows<3>(3 * i) = mat.middleRows<3>(6 * i + offset);
+    }
+    return sub;
+  };
+
+  const Eigen::MatrixXd actual_rot = extract_submatrix(actual, 0);
+  const Eigen::MatrixXd expected_rot = extract_submatrix(expected, 0);
+  const Eigen::MatrixXd actual_trans = extract_submatrix(actual, 3);
+  const Eigen::MatrixXd expected_trans = extract_submatrix(expected, 3);
+  EXPECT_LT((actual_rot - expected_rot).norm(), tol * expected_rot.norm());
+  EXPECT_LT((actual_trans - expected_trans).norm(),
+            tol * expected_trans.norm());
+
+  const Eigen::VectorXd inv_std =
+      expected.diagonal().cwiseSqrt().cwiseInverse();
+  EXPECT_LT(
+      (inv_std.asDiagonal() * (actual - expected) * inv_std.asDiagonal())
+          .norm(),
+      tol * (inv_std.asDiagonal() * expected * inv_std.asDiagonal()).norm());
+
+  const Eigen::MatrixXd leaked = actual * null_space;
+  EXPECT_LT(extract_rows(leaked, 0).norm(), tol * actual_rot.norm());
+  EXPECT_LT(extract_rows(leaked, 3).norm(), tol * actual_trans.norm());
+}
+
 // Joint covariance of the stacked pose tangent spaces.
 Eigen::MatrixXd JointPoseCov(const BACovariance& ba_cov,
                              const std::vector<image_t>& image_ids) {
@@ -354,15 +427,21 @@ struct MonteCarloProblem {
   std::vector<point3D_t> constant_point3D_ids;
 };
 
-MonteCarloProblem CreateMonteCarloProblem(int num_constant_points) {
+MonteCarloProblem CreateMonteCarloProblem(int num_constant_points,
+                                          int num_points3D = 60,
+                                          double scene_scale = 1.0) {
   MonteCarloProblem problem;
   SetPRNGSeed(0);
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_rigs = 1;
   synthetic_dataset_options.num_cameras_per_rig = 1;
   synthetic_dataset_options.num_frames_per_rig = 6;
-  synthetic_dataset_options.num_points3D = 60;
+  synthetic_dataset_options.num_points3D = num_points3D;
   SynthesizeDataset(synthetic_dataset_options, &problem.gt_reconstruction);
+  if (scene_scale != 1.0) {
+    problem.gt_reconstruction.Transform(
+        Sim3d(scene_scale, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero()));
+  }
   problem.image_ids = problem.gt_reconstruction.RegImageIds();
   std::vector<point3D_t> point3D_ids;
   point3D_ids.reserve(problem.gt_reconstruction.NumPoints3D());
@@ -399,9 +478,15 @@ std::unique_ptr<CeresBundleAdjuster> SolveMonteCarloProblem(
 constexpr double kMonteCarloPoint2DStddev = 0.5;
 constexpr int kNumMonteCarloSamples = 300;
 
-TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
+class ParameterizedBACovarianceMonteCarloTests
+    : public ::testing::TestWithParam</*num_constant_points=*/int> {};
+
+TEST_P(ParameterizedBACovarianceMonteCarloTests, PosesAndIntrinsics) {
+  const int num_constant_points = GetParam();
   const MonteCarloProblem problem =
-      CreateMonteCarloProblem(/*num_constant_points=*/3);
+      CreateMonteCarloProblem(num_constant_points);
+  // A free gauge leaves a 7-DoF null space in the minimum-trace gauge.
+  const int null_dim = num_constant_points == 0 ? 7 : 0;
   Reconstruction gt_reconstruction = problem.gt_reconstruction;
   std::unique_ptr<CeresBundleAdjuster> gt_bundle_adjuster =
       SolveMonteCarloProblem(problem, gt_reconstruction);
@@ -419,6 +504,8 @@ TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
   // Tangent space of SIMPLE_RADIAL with constant principal point.
   ASSERT_EQ(intrinsics_cov->rows(), 2);
 
+  const Eigen::MatrixXd null_space =
+      SimilarityNullSpace(gt_reconstruction, problem.image_ids);
   std::vector<Eigen::VectorXd> pose_samples;
   std::vector<Eigen::VectorXd> intrinsics_samples;
   for (int i = 0; i < kNumMonteCarloSamples; ++i) {
@@ -429,8 +516,14 @@ TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
     SynthesizeNoise(synthetic_noise_options, &reconstruction);
     SolveMonteCarloProblem(problem, reconstruction);
 
-    pose_samples.push_back(
-        PoseDeviation(gt_reconstruction, reconstruction, problem.image_ids));
+    Eigen::VectorXd pose_deviation =
+        PoseDeviation(gt_reconstruction, reconstruction, problem.image_ids);
+    if (null_dim > 0) {
+      // S-transformation of the deviations into the minimum-trace gauge
+      // (Förstner & Wrobel 2016, Eq. 4.222).
+      pose_deviation -= null_space * (null_space.transpose() * pose_deviation);
+    }
+    pose_samples.push_back(pose_deviation);
 
     const Camera& camera = reconstruction.Camera(gt_camera.camera_id);
     intrinsics_samples.push_back(
@@ -438,10 +531,13 @@ TEST(BACovarianceMonteCarlo, PosesAndIntrinsics) {
                         camera.params[3] - gt_camera.params[3]));
   }
 
-  EXPECT_THAT(pose_samples, SamplesFollowCov(pose_cov));
+  EXPECT_THAT(pose_samples, SamplesFollowCov(pose_cov, null_dim));
   EXPECT_THAT(intrinsics_samples, SamplesFollowCov(variance * *intrinsics_cov));
 }
 
+INSTANTIATE_TEST_SUITE_P(BACovarianceMonteCarloTests,
+                         ParameterizedBACovarianceMonteCarloTests,
+                         ::testing::Values(0, 3));
 // Fixes the remaining gauge minimally on `ceres_problem`: keeps the pose of
 // `ref_image_id` constant if `pin_ref_pose` is true, and keeps one translation
 // component of `scale_image_id` constant to fix the scale. Returns the index
@@ -477,7 +573,204 @@ int FixGaugeMinimally(Reconstruction& reconstruction,
                             CreateSubsetManifold(3, {fixed_translation_idx})));
   return fixed_translation_idx;
 }
-TEST(EstimateBACovariance, IllConditionedAndDegeneratePoints) {
+// Fixes the remaining gauge minimally on `ceres_problem` (pinning
+// `free_image_ids[0]` when `pin_first_pose` is true, plus one translation
+// component of the next pose to fix scale) and returns the zero-padded pose
+// covariance on `free_image_ids` together with the underlying BACovariance.
+std::pair<Eigen::MatrixXd, std::optional<BACovariance>>
+EstimateMinimallyFixedGaugeCov(Reconstruction& reconstruction,
+                               ceres::Problem& ceres_problem,
+                               const std::vector<image_t>& free_image_ids,
+                               image_t fixed_ref_image_id,
+                               bool pin_first_pose,
+                               const BACovarianceOptions& options) {
+  const int scale_pose_idx = pin_first_pose ? 1 : 0;
+  if (pin_first_pose) {
+    Rigid3d& cam1_from_world =
+        reconstruction.Frame(reconstruction.Image(free_image_ids[0]).FrameId())
+            .RigFromWorld();
+    ceres_problem.SetParameterBlockConstant(cam1_from_world.params.data());
+  }
+  const Rigid3d ref_from_world =
+      reconstruction.Image(fixed_ref_image_id).CamFromWorld();
+  Rigid3d& scale_from_world =
+      reconstruction
+          .Frame(reconstruction.Image(free_image_ids[scale_pose_idx]).FrameId())
+          .RigFromWorld();
+  // Pick the largest component of the scale tangent direction
+  // t_scale - R_scale * R_ref^T * t_ref to ensure a transverse gauge cut.
+  const Eigen::Vector3d scale_dir =
+      scale_from_world.translation() -
+      (scale_from_world.rotation() * ref_from_world.rotation().inverse()) *
+          ref_from_world.translation();
+  int fixed_translation_idx = 0;
+  scale_dir.cwiseAbs().maxCoeff(&fixed_translation_idx);
+  SetManifold(
+      &ceres_problem,
+      scale_from_world.params.data(),
+      CreateProductManifold(CreateEigenQuaternionManifold(),
+                            CreateSubsetManifold(3, {fixed_translation_idx})));
+
+  std::optional<BACovariance> fixed_cov =
+      EstimateBACovarianceFromProblem(options, reconstruction, ceres_problem);
+  if (!fixed_cov.has_value()) {
+    return {Eigen::MatrixXd(), std::nullopt};
+  }
+
+  const int num_images = free_image_ids.size();
+  const int first_var_idx = pin_first_pose ? 1 : 0;
+  Eigen::MatrixXd fixed_pose_cov =
+      Eigen::MatrixXd::Zero(6 * num_images, 6 * num_images);
+  std::vector<std::vector<int>> tangent_idxs(num_images);
+  for (int i = first_var_idx; i < num_images; ++i) {
+    for (int k = 0; k < 6; ++k) {
+      if (i != scale_pose_idx || k != 3 + fixed_translation_idx) {
+        tangent_idxs[i].push_back(6 * i + k);
+      }
+    }
+  }
+  for (int i = first_var_idx; i < num_images; ++i) {
+    for (int j = first_var_idx; j < num_images; ++j) {
+      const std::optional<Eigen::MatrixXd> cov_ij =
+          fixed_cov->GetCamCrossCovFromWorld(free_image_ids[i],
+                                             free_image_ids[j]);
+      THROW_CHECK(cov_ij.has_value());
+      for (size_t r = 0; r < tangent_idxs[i].size(); ++r) {
+        for (size_t c = 0; c < tangent_idxs[j].size(); ++c) {
+          fixed_pose_cov(tangent_idxs[i][r], tangent_idxs[j][c]) =
+              (*cov_ij)(r, c);
+        }
+      }
+    }
+  }
+  return {fixed_pose_cov, std::move(fixed_cov)};
+}
+
+class ParameterizedFreeGaugeBACovarianceTests
+    : public ::testing::TestWithParam<
+          std::pair</*num_points3D=*/int, /*scene_scale=*/double>> {};
+
+TEST_P(ParameterizedFreeGaugeBACovarianceTests, IsMinimumTraceGauge) {
+  const auto [num_points3D, scene_scale] = GetParam();
+  const MonteCarloProblem problem = CreateMonteCarloProblem(
+      /*num_constant_points=*/0, num_points3D, scene_scale);
+  Reconstruction reconstruction = problem.gt_reconstruction;
+  SyntheticNoiseOptions synthetic_noise_options;
+  synthetic_noise_options.point2D_stddev = 0.5;
+  SynthesizeNoise(synthetic_noise_options, &reconstruction);
+  std::unique_ptr<CeresBundleAdjuster> bundle_adjuster =
+      SolveMonteCarloProblem(problem, reconstruction);
+  ceres::Problem& ceres_problem = *bundle_adjuster->Problem();
+
+  const std::optional<BACovariance> free_cov = EstimateBACovarianceFromProblem(
+      BACovarianceOptions(), reconstruction, ceres_problem);
+  ASSERT_TRUE(free_cov.has_value());
+  const Eigen::MatrixXd free_pose_cov =
+      JointPoseCov(*free_cov, problem.image_ids);
+
+  const auto [fixed_pose_cov, fixed_cov] =
+      EstimateMinimallyFixedGaugeCov(reconstruction,
+                                     ceres_problem,
+                                     problem.image_ids,
+                                     problem.image_ids[0],
+                                     /*pin_first_pose=*/true,
+                                     BACovarianceOptions());
+  ASSERT_TRUE(fixed_cov.has_value());
+
+  // S-transformation into the minimum-trace gauge (Förstner & Wrobel 2016,
+  // Eq. 4.224 with W = I).
+  const Eigen::MatrixXd null_space =
+      SimilarityNullSpace(reconstruction, problem.image_ids);
+  const Eigen::MatrixXd S =
+      Eigen::MatrixXd::Identity(free_pose_cov.rows(), free_pose_cov.cols()) -
+      null_space * null_space.transpose();
+  const Eigen::MatrixXd expected_pose_cov = S * fixed_pose_cov * S;
+  ExpectPoseCovNear(free_pose_cov, expected_pose_cov, null_space, /*tol=*/1e-6);
+
+  // Intrinsics are invariant to the gauge.
+  const double* camera_params =
+      reconstruction
+          .Camera(reconstruction.Image(problem.image_ids[0]).CameraId())
+          .params.data();
+  const Eigen::MatrixXd free_intrinsics_cov =
+      *free_cov->GetOtherParamsCov(camera_params);
+  EXPECT_LT((free_intrinsics_cov - *fixed_cov->GetOtherParamsCov(camera_params))
+                .norm(),
+            1e-6 * free_intrinsics_cov.norm());
+}
+
+INSTANTIATE_TEST_SUITE_P(FreeGaugeBACovarianceTests,
+                         ParameterizedFreeGaugeBACovarianceTests,
+                         // The gauge must be detected independently of the
+                         // scene scale and the number of points.
+                         ::testing::Values(std::make_pair(60, 1.0),
+                                           std::make_pair(60, 1e-3),
+                                           std::make_pair(1000, 30.0),
+                                           std::make_pair(1000, 3000.0)));
+
+TEST(EstimateBACovariance, PartialGaugeFreedom) {
+  const MonteCarloProblem problem =
+      CreateMonteCarloProblem(/*num_constant_points=*/0);
+  Reconstruction reconstruction = problem.gt_reconstruction;
+  // Fixing the first pose leaves a 1-DoF scale gauge freedom on the remaining
+  // poses.
+  BundleAdjustmentConfig config;
+  for (const image_t image_id : problem.image_ids) {
+    config.AddImage(image_id);
+  }
+  const image_t ref_image_id = problem.image_ids[0];
+  config.SetConstantRigFromWorldPose(
+      reconstruction.Image(ref_image_id).FrameId());
+  auto ceres_ba = CreateDefaultCeresBundleAdjuster(
+      BundleAdjustmentOptions(), config, reconstruction);
+  ceres::Problem& ceres_problem = *ceres_ba->Problem();
+
+  const std::vector<image_t> free_image_ids(problem.image_ids.begin() + 1,
+                                            problem.image_ids.end());
+  const std::optional<BACovariance> free_cov = EstimateBACovarianceFromProblem(
+      BACovarianceOptions(), reconstruction, ceres_problem);
+  ASSERT_TRUE(free_cov.has_value());
+  const Eigen::MatrixXd free_pose_cov = JointPoseCov(*free_cov, free_image_ids);
+
+  const auto [fixed_pose_cov, fixed_cov] =
+      EstimateMinimallyFixedGaugeCov(reconstruction,
+                                     ceres_problem,
+                                     free_image_ids,
+                                     ref_image_id,
+                                     /*pin_first_pose=*/false,
+                                     BACovarianceOptions());
+  ASSERT_TRUE(fixed_cov.has_value());
+
+  const Rigid3d ref_from_world =
+      reconstruction.Image(ref_image_id).CamFromWorld();
+  Eigen::VectorXd scale_null = Eigen::VectorXd::Zero(6 * free_image_ids.size());
+  for (size_t i = 0; i < free_image_ids.size(); ++i) {
+    const Rigid3d cam_from_world =
+        reconstruction.Image(free_image_ids[i]).CamFromWorld();
+    scale_null.segment<3>(6 * i + 3) =
+        cam_from_world.translation() -
+        (cam_from_world.rotation() * ref_from_world.rotation().inverse()) *
+            ref_from_world.translation();
+  }
+  scale_null.normalize();
+
+  const Eigen::MatrixXd S =
+      Eigen::MatrixXd::Identity(free_pose_cov.rows(), free_pose_cov.cols()) -
+      scale_null * scale_null.transpose();
+  const Eigen::MatrixXd expected_pose_cov = S * fixed_pose_cov * S;
+  ExpectPoseCovNear(free_pose_cov, expected_pose_cov, scale_null, /*tol=*/1e-6);
+
+  const double* camera_params =
+      reconstruction.Camera(reconstruction.Image(ref_image_id).CameraId())
+          .params.data();
+  const Eigen::MatrixXd free_intrinsics_cov =
+      *free_cov->GetOtherParamsCov(camera_params);
+  EXPECT_LT((free_intrinsics_cov - *fixed_cov->GetOtherParamsCov(camera_params))
+                .norm(),
+            1e-6 * free_intrinsics_cov.norm());
+}
+
+TEST(EstimateBACovariance, FreeGaugeWithIllConditionedAndDegeneratePoints) {
   const MonteCarloProblem problem =
       CreateMonteCarloProblem(/*num_constant_points=*/0);
   Reconstruction reconstruction = problem.gt_reconstruction;
@@ -581,11 +874,6 @@ TEST(EstimateBACovariance, IllConditionedAndDegeneratePoints) {
   auto ceres_ba = CreateDefaultCeresBundleAdjuster(
       BundleAdjustmentOptions(), config, reconstruction);
   ceres::Problem& ceres_problem = *ceres_ba->Problem();
-  FixGaugeMinimally(reconstruction,
-                    ceres_problem,
-                    image_ids[0],
-                    image_ids[1],
-                    /*pin_ref_pose=*/true);
   // Keep the single-residual point variable to test k < tangent_size SVD, and
   // add a zero-residual variable point to test the empty-rows path.
   ceres_problem.SetParameterBlockVariable(
@@ -595,27 +883,38 @@ TEST(EstimateBACovariance, IllConditionedAndDegeneratePoints) {
   ceres_problem.AddParameterBlock(
       reconstruction.Point3D(zero_residual_pt).xyz.data(), 3);
 
+  const Eigen::MatrixXd null_space =
+      SimilarityNullSpace(reconstruction, image_ids);
+  const Eigen::MatrixXd S =
+      Eigen::MatrixXd::Identity(6 * image_ids.size(), 6 * image_ids.size()) -
+      null_space * null_space.transpose();
+
+  // Check both Params::ALL and Params::POSES before fixing the gauge on
+  // ceres_problem.
   const BACovarianceOptions all_options;
   BACovarianceOptions poses_options;
   poses_options.params = BACovarianceOptions::Params::POSES;
-  const std::optional<BACovariance> all_cov = EstimateBACovarianceFromProblem(
-      all_options, reconstruction, ceres_problem);
-  const std::optional<BACovariance> poses_cov = EstimateBACovarianceFromProblem(
-      poses_options, reconstruction, ceres_problem);
-  ASSERT_TRUE(all_cov.has_value());
-  ASSERT_TRUE(poses_cov.has_value());
+  const std::optional<BACovariance> free_all_cov =
+      EstimateBACovarianceFromProblem(
+          all_options, reconstruction, ceres_problem);
+  const std::optional<BACovariance> free_poses_cov =
+      EstimateBACovarianceFromProblem(
+          poses_options, reconstruction, ceres_problem);
+  ASSERT_TRUE(free_all_cov.has_value());
+  ASSERT_TRUE(free_poses_cov.has_value());
 
   // Verify damped point covariances for zero-residual, single-residual
   // (k=2 < 3), and zero-baseline rank-2 points.
   const std::optional<Eigen::MatrixXd> zero_res_cov =
-      all_cov->GetPointCov(zero_residual_pt);
+      free_all_cov->GetPointCov(zero_residual_pt);
   ASSERT_TRUE(zero_res_cov.has_value());
   ExpectNearEigenMatrixXd(
       *zero_res_cov,
       (1.0 / all_options.damping) * Eigen::Matrix3d::Identity(),
       /*tol=*/1e-8);
   for (const point3D_t pt_id : {single_residual_pt, zero_baseline_pt}) {
-    const std::optional<Eigen::MatrixXd> pt_cov = all_cov->GetPointCov(pt_id);
+    const std::optional<Eigen::MatrixXd> pt_cov =
+        free_all_cov->GetPointCov(pt_id);
     ASSERT_TRUE(pt_cov.has_value());
     ASSERT_EQ(pt_cov->rows(), 3);
     ASSERT_EQ(pt_cov->cols(), 3);
@@ -663,6 +962,244 @@ TEST(EstimateBACovariance, IllConditionedAndDegeneratePoints) {
         pt_cov_in_basis.col(2).head<2>().norm(),
         1e-6 * std::sqrt(expected_transverse_cov.norm() / all_options.damping));
   }
+
+  const Eigen::MatrixXd free_all_pose_cov =
+      JointPoseCov(*free_all_cov, image_ids);
+  const Eigen::MatrixXd free_poses_pose_cov =
+      JointPoseCov(*free_poses_cov, image_ids);
+
+  const auto [fixed_pose_cov, fixed_cov] =
+      EstimateMinimallyFixedGaugeCov(reconstruction,
+                                     ceres_problem,
+                                     image_ids,
+                                     image_ids[0],
+                                     /*pin_first_pose=*/true,
+                                     BACovarianceOptions());
+  ASSERT_TRUE(fixed_cov.has_value());
+  const Eigen::MatrixXd expected_pose_cov = S * fixed_pose_cov * S;
+  ExpectPoseCovNear(
+      free_all_pose_cov, expected_pose_cov, null_space, /*tol=*/1e-6);
+  ExpectPoseCovNear(
+      free_poses_pose_cov, expected_pose_cov, null_space, /*tol=*/1e-6);
+}
+
+TEST(EstimateBACovariance, OffsetOriginAndIllConditionedGaugeProjection) {
+  // Moderate world offset still produces an accurate minimum-trace covariance
+  // on both rotation and translation blocks.
+  {
+    const MonteCarloProblem problem =
+        CreateMonteCarloProblem(/*num_constant_points=*/0);
+    Reconstruction reconstruction = problem.gt_reconstruction;
+    reconstruction.Transform(Sim3d(
+        1.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d(10.0, 20.0, 1.0)));
+    BundleAdjustmentConfig config;
+    for (const image_t image_id : problem.image_ids) {
+      config.AddImage(image_id);
+    }
+    std::unique_ptr<BundleAdjuster> bundle_adjuster =
+        CreateDefaultBundleAdjuster(
+            BundleAdjustmentOptions(), config, reconstruction);
+    ceres::Problem& ceres_problem =
+        *dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get())->Problem();
+
+    const std::optional<BACovariance> free_cov =
+        EstimateBACovarianceFromProblem(
+            BACovarianceOptions(), reconstruction, ceres_problem);
+    ASSERT_TRUE(free_cov.has_value());
+    const Eigen::MatrixXd free_pose_cov =
+        JointPoseCov(*free_cov, problem.image_ids);
+
+    const auto [fixed_pose_cov, fixed_cov] =
+        EstimateMinimallyFixedGaugeCov(reconstruction,
+                                       ceres_problem,
+                                       problem.image_ids,
+                                       problem.image_ids[0],
+                                       /*pin_first_pose=*/true,
+                                       BACovarianceOptions());
+    ASSERT_TRUE(fixed_cov.has_value());
+    const Eigen::MatrixXd null_space =
+        SimilarityNullSpace(reconstruction, problem.image_ids);
+    const Eigen::MatrixXd S =
+        Eigen::MatrixXd::Identity(free_pose_cov.rows(), free_pose_cov.cols()) -
+        null_space * null_space.transpose();
+    ExpectPoseCovNear(
+        free_pose_cov, S * fixed_pose_cov * S, null_space, /*tol=*/1e-6);
+  }
+
+  // Large world offsets or extreme scene scales make unscaled gauge projection
+  // too ill-conditioned; estimation must fail loudly rather than return a
+  // silently corrupted covariance.
+  const std::vector<Sim3d> ill_conditioned_transforms = {
+      Sim3d(
+          1.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d(1e3, 2e3, 1e2)),
+      Sim3d(
+          1.0, Eigen::Quaterniond::Identity(), Eigen::Vector3d(1e4, 2e4, 1e3)),
+      Sim3d(1e8, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero()),
+      Sim3d(1e-8, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero()),
+  };
+  for (const Sim3d& transform : ill_conditioned_transforms) {
+    const MonteCarloProblem problem =
+        CreateMonteCarloProblem(/*num_constant_points=*/0);
+    Reconstruction reconstruction = problem.gt_reconstruction;
+    reconstruction.Transform(transform);
+    BundleAdjustmentConfig config;
+    for (const image_t image_id : problem.image_ids) {
+      config.AddImage(image_id);
+    }
+    std::unique_ptr<BundleAdjuster> bundle_adjuster =
+        CreateDefaultBundleAdjuster(
+            BundleAdjustmentOptions(), config, reconstruction);
+    EXPECT_FALSE(EstimateBACovariance(
+                     BACovarianceOptions(),
+                     reconstruction,
+                     *dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get()))
+                     .has_value());
+  }
+}
+
+TEST(EstimateBACovariance, FailsForNullSpaceBeyondGauge) {
+  const MonteCarloProblem problem =
+      CreateMonteCarloProblem(/*num_constant_points=*/0);
+  Reconstruction reconstruction = problem.gt_reconstruction;
+  // Two observations leave 2 DoF of the first pose unconstrained.
+  const Image& image = reconstruction.Image(problem.image_ids[0]);
+  int num_kept_observations = 0;
+  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+       ++point2D_idx) {
+    if (image.Point2D(point2D_idx).HasPoint3D() &&
+        ++num_kept_observations > 2) {
+      reconstruction.DeleteObservation(image.ImageId(), point2D_idx);
+    }
+  }
+  ASSERT_EQ(image.NumPoints3D(), 2);
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = SolveMonteCarloProblem(
+      problem, /*constant_poses_and_intrinsics=*/false, reconstruction);
+  EXPECT_FALSE(EstimateBACovariance(
+                   BACovarianceOptions(),
+                   reconstruction,
+                   *dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get()))
+                   .has_value());
+
+  // An unconstrained pose with no residuals produces exact zeros on the Schur
+  // complement diagonal and must fail cleanly.
+  Reconstruction unconstrained_rec = problem.gt_reconstruction;
+  std::unique_ptr<BundleAdjuster> unconstrained_ba = SolveMonteCarloProblem(
+      problem, /*constant_poses_and_intrinsics=*/false, unconstrained_rec);
+  ceres::Problem& unconstrained_problem =
+      *dynamic_cast<CeresBundleAdjuster*>(unconstrained_ba.get())->Problem();
+  double unconstrained_pose[6] = {};
+  unconstrained_problem.AddParameterBlock(unconstrained_pose, 6);
+  BACovarianceOptions unconstrained_options;
+  unconstrained_options.params = BACovarianceOptions::Params::POSES;
+  unconstrained_options.experimental_custom_poses = {
+      {problem.image_ids.back() + 1, unconstrained_pose}};
+  EXPECT_FALSE(EstimateBACovarianceFromProblem(unconstrained_options,
+                                               unconstrained_rec,
+                                               unconstrained_problem)
+                   .has_value());
+}
+
+struct LinearComboCost {
+  double a;
+  double b;
+  template <typename T>
+  bool operator()(const T* const x, T* residual) const {
+    residual[0] = T(a) * x[0] + T(b) * x[1];
+    return true;
+  }
+};
+
+TEST(EstimateBACovariance, FailsForNullSpaceInOtherParams) {
+  const MonteCarloProblem problem =
+      CreateMonteCarloProblem(/*num_constant_points=*/3);
+  Reconstruction reconstruction = problem.gt_reconstruction;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = SolveMonteCarloProblem(
+      problem, /*constant_poses_and_intrinsics=*/false, reconstruction);
+  ceres::Problem& ceres_problem =
+      *dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get())->Problem();
+
+  double extra_params[2] = {1.0, 1.0};
+  // Rank-1 residual leaves a 1-DoF null space in `other` params while keeping
+  // the Schur complement diagonal strictly positive; must be rejected as a
+  // non-gauge null space.
+  ceres_problem.AddResidualBlock(
+      new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+          new LinearComboCost{1.0, 1.0}),
+      nullptr,
+      extra_params);
+  EXPECT_FALSE(EstimateBACovarianceFromProblem(
+                   BACovarianceOptions(), reconstruction, ceres_problem)
+                   .has_value());
+
+  // Adding an orthogonal residual makes `extra_params` full-rank with
+  // covariance (2 * I)^-1 = 0.5 * I.
+  ceres_problem.AddResidualBlock(
+      new ceres::AutoDiffCostFunction<LinearComboCost, 1, 2>(
+          new LinearComboCost{1.0, -1.0}),
+      nullptr,
+      extra_params);
+  const std::optional<BACovariance> cov = EstimateBACovarianceFromProblem(
+      BACovarianceOptions(), reconstruction, ceres_problem);
+  ASSERT_TRUE(cov.has_value());
+  const std::optional<Eigen::MatrixXd> extra_cov =
+      cov->GetOtherParamsCov(extra_params);
+  ASSERT_TRUE(extra_cov.has_value());
+  ExpectNearEigenMatrixXd(
+      *extra_cov, 0.5 * Eigen::Matrix2d::Identity(), /*tol=*/1e-8);
+}
+
+TEST(EstimateBACovariance, WeakPosePriorsMatchExactInverse) {
+  const MonteCarloProblem problem =
+      CreateMonteCarloProblem(/*num_constant_points=*/0);
+  Reconstruction reconstruction = problem.gt_reconstruction;
+  std::unique_ptr<BundleAdjuster> bundle_adjuster = SolveMonteCarloProblem(
+      problem, /*constant_poses_and_intrinsics=*/false, reconstruction);
+  ceres::Problem& ceres_problem =
+      *dynamic_cast<CeresBundleAdjuster*>(bundle_adjuster.get())->Problem();
+
+  // Attach weak position priors (stddev = 10 scene units, so scaled prior
+  // eigenvalues sit around 3e-9, well above round-off). The problem is
+  // full-rank and must use the exact inverse rather than projecting out the
+  // prior-constrained directions as a free gauge.
+  const Eigen::Matrix3d prior_cov = 100.0 * Eigen::Matrix3d::Identity();
+  std::vector<const double*> all_pose_blocks;
+  all_pose_blocks.reserve(problem.image_ids.size());
+  for (const image_t image_id : problem.image_ids) {
+    Rigid3d& rig_from_world =
+        reconstruction.Frame(reconstruction.Image(image_id).FrameId())
+            .RigFromWorld();
+    ceres_problem.AddResidualBlock(
+        CovarianceWeightedCostFunctor<AbsolutePosePositionPriorCostFunctor>::
+            Create(prior_cov,
+                   reconstruction.Image(image_id).ProjectionCenter()),
+        nullptr,
+        rig_from_world.params.data());
+    all_pose_blocks.push_back(rig_from_world.params.data());
+  }
+
+  BACovarianceOptions options;
+  options.params = BACovarianceOptions::Params::POSES;
+  const std::optional<BACovariance> ba_cov =
+      EstimateBACovarianceFromProblem(options, reconstruction, ceres_problem);
+  ASSERT_TRUE(ba_cov.has_value());
+  const Eigen::MatrixXd pose_cov = JointPoseCov(*ba_cov, problem.image_ids);
+
+  std::vector<std::pair<const double*, const double*>> cov_param_pairs;
+  for (const double* ptr1 : all_pose_blocks) {
+    for (const double* ptr2 : all_pose_blocks) {
+      cov_param_pairs.emplace_back(ptr1, ptr2);
+    }
+  }
+  ceres::Covariance::Options ceres_cov_options;
+  ceres_cov_options.algorithm_type = ceres::DENSE_SVD;
+  ceres_cov_options.min_reciprocal_condition_number = 1e-14;
+  ceres::Covariance ceres_cov_computer(ceres_cov_options);
+  ASSERT_TRUE(ceres_cov_computer.Compute(cov_param_pairs, &ceres_problem));
+
+  Eigen::MatrixXd ceres_pose_cov(pose_cov.rows(), pose_cov.cols());
+  ASSERT_TRUE(ceres_cov_computer.GetCovarianceMatrixInTangentSpace(
+      all_pose_blocks, ceres_pose_cov.data()));
+  EXPECT_LT((pose_cov - ceres_pose_cov).norm(), 1e-6 * ceres_pose_cov.norm());
 }
 
 }  // namespace
