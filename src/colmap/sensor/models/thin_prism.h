@@ -102,8 +102,7 @@ struct ThinPrismFisheyeCameraModel
     if (!IterativeUndistortion(&params[4], &uu, &vv)) {
       return false;
     }
-    NormalFromFisheye(uu, vv, u, v);
-    return true;
+    return NormalFromFisheye(uu, vv, u, v);
   }
 
   template <typename T>
@@ -223,8 +222,7 @@ struct RadTanThinPrismFisheyeModel
     if (!IterativeUndistortion(&params[4], &uu, &vv)) {
       return false;
     }
-    NormalFromFisheye(uu, vv, u, v);
-    return true;
+    return NormalFromFisheye(uu, vv, u, v);
   }
 
   template <typename T>
