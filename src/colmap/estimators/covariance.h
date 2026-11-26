@@ -73,8 +73,8 @@ struct BACovarianceOptions {
   // For which parameters to compute the covariance.
   Params params = Params::ALL;
 
-  // Damping factor for the Hessian in the Schur complement solver.
-  // Enables to robustly deal with poorly conditioned parameters.
+  // Damping for the point covariances and the Schur elimination of the other
+  // parameters. Enables to robustly deal with poorly conditioned parameters.
   double damping = 1e-8;
 
   // WARNING: This option will be removed in a future release, use at your own

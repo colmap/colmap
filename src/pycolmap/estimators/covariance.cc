@@ -54,8 +54,9 @@ void BindCovarianceEstimator(py::module& m) {
       .def_readwrite(
           "damping",
           &BACovarianceOptions::damping,
-          "Damping factor for the Hessian in the Schur complement solver. "
-          "Enables to robustly deal with poorly conditioned parameters.")
+          "Damping for the point covariances and the Schur elimination of the "
+          "other parameters. Enables to robustly deal with poorly conditioned "
+          "parameters.")
       .def_readwrite(
           "experimental_custom_poses",
           &BACovarianceOptions::experimental_custom_poses,
