@@ -81,9 +81,8 @@ void BindCovarianceEstimator(py::module& m) {
            "Covariance in the problem's tangent coordinates, ordered "
            "[rotation, translation]. The standard COLMAP pose manifold uses "
            "Ceres' left quaternion half-angle increments and additive "
-           "translation. If some dimensions are kept constant, the respective "
-           "rows/columns are "
-           "omitted. Returns null if image is not a variable in the problem.")
+           "translation. Constant dimensions are omitted. Returns null if the "
+           "image is not a variable in the problem.")
       .def("get_cam_cross_cov_from_world",
            &BACovariance::GetCamCrossCovFromWorld,
            "image_id1"_a,
@@ -91,9 +90,8 @@ void BindCovarianceEstimator(py::module& m) {
            "Covariance in the problem's tangent coordinates, ordered "
            "[rotation, translation]. The standard COLMAP pose manifold uses "
            "Ceres' left quaternion half-angle increments and additive "
-           "translation. If some dimensions are kept constant, the respective "
-           "rows/columns are "
-           "omitted. Returns null if image is not a variable in the problem.")
+           "translation. Constant dimensions are omitted. Returns null if an "
+           "image is not a variable in the problem.")
       .def("get_cam2_cov_from_cam1",
            &BACovariance::GetCam2CovFromCam1,
            "image_id1"_a,
@@ -101,12 +99,9 @@ void BindCovarianceEstimator(py::module& m) {
            "image_id2"_a,
            "cam2_from_world"_a,
            "Relative pose covariance in left SE(3) tangent coordinates, "
-           "ordered [full-angle rotation, translation]. Requires both poses to "
-           "use "
+           "ordered [full-angle rotation, translation]. Both poses must use "
            "EigenQuaternionManifold x EuclideanManifold<3>. Returns null if "
-           "some dimensions are kept constant for either pose. Such a case "
-           "requires custom logic to fill in zero blocks in the covariance "
-           "matrix.")
+           "either pose is fixed or partially fixed.")
       .def(
           "get_other_params_cov",
           [](BACovariance& self, py::array_t<double>& pyarray) {

@@ -89,10 +89,6 @@ bool ComputeSchurComplement(bool estimate_point_covs,
         H_pp.block(
             point_param_idx, point_param_idx, tangent_size, tangent_size) +
         damping * Eigen::MatrixXd::Identity(tangent_size, tangent_size);
-    if (!H_pp_idx.allFinite()) {
-      LOG(WARNING) << "Nonfinite point Hessian block";
-      return false;
-    }
     const Eigen::LLT<Eigen::MatrixXd> llt_H_pp_idx(H_pp_idx);
     if (llt_H_pp_idx.info() != Eigen::Success) {
       LOG(WARNING) << "Point Hessian block is not positive definite";
@@ -173,7 +169,7 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
   const Eigen::VectorXd D_dense = ldlt_S.vectorD();
 
   const int num_positive_pivots = (D_dense.array() > 1e-6).count();
-  if (!D_dense.allFinite() || num_positive_pivots < S.rows()) {
+  if (num_positive_pivots < S.rows()) {
     LOG(WARNING)
         << "Unable to compute covariance. The Schur complement on pose/other "
            "parameters is not sufficiently positive definite. Number of "
@@ -192,10 +188,6 @@ bool ComputeLInverse(Eigen::SparseMatrix<double>& S, Eigen::MatrixXd& L_inv) {
     L_inv.row(i) *= 1.0 / std::sqrt(D_dense(i));
   }
   L_inv *= ldlt_S.permutationP();
-  if (!L_inv.colwise().squaredNorm().allFinite()) {
-    LOG(WARNING) << "Failed to compute finite pose/other covariance";
-    return false;
-  }
   VLOG(2) << "Finish factorization.";
   return true;
 }
@@ -273,21 +265,23 @@ std::optional<Eigen::MatrixXd> BACovariance::GetCam2CovFromCam1(
                     "likely due to the pose being set (partially) constant. ";
     return std::nullopt;
   }
-  Eigen::Matrix6d rotation = Eigen::Matrix6d::Zero();
-  rotation.topLeftCorner<3, 3>() =
+  Eigen::Matrix6d cam2_from_cam1_rotation_blocks = Eigen::Matrix6d::Zero();
+  cam2_from_cam1_rotation_blocks.topLeftCorner<3, 3>() =
       cam2_from_world.rotation().toRotationMatrix() *
       cam1_from_world.rotation().toRotationMatrix().transpose();
-  rotation.bottomRightCorner<3, 3>() = rotation.topLeftCorner<3, 3>();
+  cam2_from_cam1_rotation_blocks.bottomRightCorner<3, 3>() =
+      cam2_from_cam1_rotation_blocks.topLeftCorner<3, 3>();
   Eigen::Matrix6d ceres_to_se3 = Eigen::Matrix6d::Identity();
   ceres_to_se3.topLeftCorner<3, 3>() *= 2;
   ceres_to_se3.bottomLeftCorner<3, 3>() =
       2 * CrossProductMatrix(cam2_from_world.translation());
   // The relative-pose Jacobian in Ceres coordinates is
-  // ceres_to_se3 * [-rotation, I]. Apply it before forming the covariance so
-  // shared pose uncertainty cancels without subtracting large covariance terms.
+  // ceres_to_se3 * [-cam2_from_cam1_rotation_blocks, I]. Apply it before
+  // forming the covariance so shared pose uncertainty cancels in the factor.
   const Eigen::Matrix<double, Eigen::Dynamic, 6> relative_L =
       (L_inv_.middleCols(start2, 6) -
-       L_inv_.middleCols(start1, 6) * rotation.transpose()) *
+       L_inv_.middleCols(start1, 6) *
+           cam2_from_cam1_rotation_blocks.transpose()) *
       ceres_to_se3.transpose();
   return relative_L.transpose() * relative_L;
 }
@@ -354,9 +348,7 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
       pose_num_params += num_params;
     }
 
-    if (estimate_other_covs) {
-      other_L_start_size.reserve(others.size());
-    }
+    other_L_start_size.reserve(others.size());
     for (const double* other : others) {
       const int num_params = ParameterBlockTangentSize(problem, other);
       if (estimate_other_covs) {
@@ -385,17 +377,10 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
   }
 
   if (!estimate_pose_covs && !estimate_other_covs) {
-    return std::optional<BACovariance>(std::in_place,
-                                       std::move(point_covs),
-                                       std::move(pose_L_start_size),
-                                       std::move(other_L_start_size),
-                                       /*L_inv=*/Eigen::MatrixXd());
-  }
-
-  S.makeCompressed();
-  if (!S.coeffs().allFinite()) {
-    LOG(WARNING) << "Nonfinite Schur complement";
-    return std::nullopt;
+    return BACovariance(std::move(point_covs),
+                        std::move(pose_L_start_size),
+                        std::move(other_L_start_size),
+                        /*L_inv=*/Eigen::MatrixXd());
   }
 
   if (!estimate_other_covs) {
@@ -412,11 +397,10 @@ std::optional<BACovariance> EstimateBACovarianceFromProblem(
     return std::nullopt;
   }
 
-  return std::optional<BACovariance>(std::in_place,
-                                     std::move(point_covs),
-                                     std::move(pose_L_start_size),
-                                     std::move(other_L_start_size),
-                                     std::move(L_inv));
+  return BACovariance(std::move(point_covs),
+                      std::move(pose_L_start_size),
+                      std::move(other_L_start_size),
+                      std::move(L_inv));
 }
 
 namespace internal {

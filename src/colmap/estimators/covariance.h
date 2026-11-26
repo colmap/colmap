@@ -58,10 +58,10 @@ struct BACovariance {
   std::optional<Eigen::MatrixXd> GetOtherParamsCov(const double* params) const;
 
  private:
-  const FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs_;
-  const NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size_;
-  const NodeHashMap<const double*, std::pair<int, int>> other_L_start_size_;
-  const Eigen::MatrixXd L_inv_;
+  FlatHashMap<point3D_t, Eigen::MatrixXd> point_covs_;
+  NodeHashMap<image_t, std::pair<int, int>> pose_L_start_size_;
+  NodeHashMap<const double*, std::pair<int, int>> other_L_start_size_;
+  Eigen::MatrixXd L_inv_;
 };
 
 struct BACovarianceOptions {
