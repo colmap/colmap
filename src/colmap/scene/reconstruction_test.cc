@@ -88,27 +88,16 @@ void GenerateReconstruction(const image_t num_images,
 
   Camera camera =
       Camera::CreateFromModelId(1, CameraModelId::kPinhole, 1, 1, 1);
-  reconstruction->AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction->AddRig(rig);
+  reconstruction->AddCameraWithTrivialRig(camera);
 
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
-    Frame frame;
-    frame.SetFrameId(image_id);
-    frame.SetRigId(rig.RigId());
-    frame.AddDataId(data_t(camera.SensorId(), image_id));
-    frame.SetRigFromWorld(Rigid3d());
-    reconstruction->AddFrame(frame);
     Image image;
     image.SetImageId(image_id);
     image.SetCameraId(camera.camera_id);
-    image.SetFrameId(frame.FrameId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    reconstruction->AddImage(image);
+    reconstruction->AddImageWithTrivialFrame(image, Rigid3d());
   }
 }
 
@@ -1127,31 +1116,17 @@ TEST(Reconstruction, TranscribeImageIdsToDatabase) {
 
   // Create a reconstruction with different image IDs but same names.
   Reconstruction reconstruction;
-  reconstruction.AddCamera(camera);
-  Rig rig;
-  rig.SetRigId(1);
-  rig.AddRefSensor(camera.SensorId());
-  reconstruction.AddRig(rig);
+  reconstruction.AddCameraWithTrivialRig(camera);
 
   const std::vector<image_t> recon_image_ids = {100, 200, 300};
   for (size_t i = 0; i < 3; ++i) {
-    const image_t image_id = recon_image_ids.at(i);
-
-    Frame frame;
-    frame.SetFrameId(image_id);
-    frame.SetRigId(rig.RigId());
-    frame.AddDataId(data_t(camera.SensorId(), image_id));
-    frame.SetRigFromWorld(Rigid3d());
-    reconstruction.AddFrame(frame);
-
     Image image;
-    image.SetImageId(image_id);
+    image.SetImageId(recon_image_ids.at(i));
     image.SetCameraId(camera.camera_id);
-    image.SetFrameId(frame.FrameId());
     image.SetName(kImageNames.at(i));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(10, Eigen::Vector2d::Zero()));
-    reconstruction.AddImage(image);
+    reconstruction.AddImageWithTrivialFrame(image, Rigid3d());
   }
 
   // Add a 3D point with observations to test track updates.

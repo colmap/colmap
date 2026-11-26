@@ -6,12 +6,10 @@ import multiprocessing
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 from typing import Final
-
-import urllib2
-import urlparse
 
 PER_PAGE: Final[int] = 500
 SORT: Final[str] = "date-posted-desc"
@@ -56,28 +54,25 @@ def compose_url(
 def parse_page(
     page: int, api_key: str, text: str, min_date: float, max_date: float
 ) -> tuple[dict[str, str], tuple[dict[str, str], ...]]:
-    f: urllib2.urlopen | None = None
     for _ in range(MAX_PAGE_REQUESTS):
         try:
-            f = urllib2.urlopen(
+            with urllib.request.urlopen(
                 compose_url(page, api_key, text, min_date, max_date),
                 timeout=MAX_PAGE_TIMEOUT,
-            )
+            ) as response:
+                root = ElementTree.parse(response).getroot()
         except TimeoutError:
             continue
         else:
             break
 
-    if f is None:
+    else:
         return {
             "pages": "0",
             "total": "0",
             "page": "0",
             "perpage": "0",
         }, tuple()
-
-    response = f.read()
-    root = ElementTree.fromstring(response)
 
     if root.attrib["stat"] != "ok":
         raise OSError
@@ -106,9 +101,7 @@ class PhotoDownloader:
                 break
 
         if url is not None:
-            # Note that the following statement may fail in Python 3. urlparse
-            # may need to be replaced with urllib.parse.
-            url_filename = urlparse.urlparse(url).path
+            url_filename = urllib.parse.urlparse(url).path
             image_ext = os.path.splitext(url_filename)[1]
 
             image_name = f"{photo['id']}_{photo['secret']}{image_ext}"

@@ -215,27 +215,19 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   const auto input_image_path = image_path_ / image.Name();
   const auto output_image_path = output_path_ / "images" / image.Name();
 
-  // Non-perspective cameras (e.g. EQUIRECTANGULAR) have no pinhole image plane
-  // to undistort to. Without a size limit they are copied through unchanged
-  // (they cannot be rescaled to a pinhole image for MVS); with a max_image_size
-  // they still go through UndistortImage below, which resizes them to a smaller
-  // image of the same model.
-  if (!camera.IsPerspective() && camera_options_.max_image_size < 0 &&
+  // Copy through images that need no undistortion (see IsUndistortionNoOp).
+  // With a max_image_size or target camera, they still go through
+  // UndistortImage below.
+  if (IsUndistortionNoOp(camera_options_, camera) &&
       ExistsFile(input_image_path)) {
-    LOG(WARNING) << "Cannot undistort image " << image.Name()
-                 << " with non-perspective camera model " << camera.ModelName()
-                 << "; copying the original image.";
-    FileCopy(input_image_path, output_image_path, options_.copy_type);
-    return true;
-  }
-
-  // Already-undistorted perspective images are copied through only when no
-  // rescaling is requested; with a max_image_size they still go through
-  // UndistortImage below so the size limit is applied.
-  if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
-      ExistsFile(input_image_path)) {
-    LOG(INFO) << "Copying already undistorted image to location: "
-              << output_image_path;
+    if (camera.IsSpherical()) {
+      LOG(WARNING) << "Cannot undistort image " << image.Name()
+                   << " with spherical camera model " << camera.ModelName()
+                   << "; copying the original image.";
+    } else {
+      LOG(INFO) << "Copying already undistorted image to location: "
+                << output_image_path;
+    }
     FileCopy(input_image_path, output_image_path, options_.copy_type);
     return true;
   }
@@ -673,8 +665,8 @@ bool StandaloneImageUndistorter::Undistort(const size_t image_idx) const {
   const auto input_image_path = image_path_ / image_name;
 
   // Check if the image is already undistorted and copy from source if no
-  // scaling is needed
-  if (camera.IsUndistorted() && camera_options_.max_image_size < 0 &&
+  // scaling or target camera (only for perspective cameras) is needed
+  if (IsUndistortionNoOp(camera_options_, camera) &&
       ExistsFile(input_image_path)) {
     FileCopy(input_image_path, output_image_path, options_.copy_type);
     return true;

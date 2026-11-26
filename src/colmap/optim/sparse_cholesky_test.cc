@@ -141,6 +141,32 @@ TEST(SparseCholeskyWithFallbackSolver, FallsBackToLdltOnIndefiniteMatrix) {
   EXPECT_THAT(x, EigenMatrixNear(Eigen::Vector3d(2, 3, 5), 1e-10));
 }
 
+TEST(SparseCholeskyWithFallbackSolver, AnalyzeNewPatternAfterFallback) {
+  Eigen::SparseMatrix<double> initial(3, 3);
+  initial.insert(0, 0) = 1;
+  initial.insert(1, 1) = 1;
+  initial.insert(2, 2) = -1;
+
+  for (const int size : {2, 3, 5}) {
+    for (const bool indefinite : {false, true}) {
+      SCOPED_TRACE(testing::Message() << size << ", " << indefinite);
+      SparseCholeskyWithFallbackSolver solver;
+      ASSERT_TRUE(solver.Compute(initial));
+
+      Eigen::SparseMatrix<double> A = ChainLaplacianGaugeFixed(size);
+      if (indefinite) {
+        A.coeffRef(0, 0) = -1;
+      }
+      ASSERT_TRUE(solver.Compute(A));
+
+      const Eigen::VectorXd expected = Eigen::VectorXd::LinSpaced(size, 1, 3);
+      Eigen::VectorXd x;
+      ASSERT_TRUE(solver.Solve(A * expected, &x));
+      EXPECT_THAT(x, EigenMatrixNear(expected, 1e-12));
+    }
+  }
+}
+
 TEST(SparseCholeskyWithFallbackSolver, IllConditionedChain) {
   // Long chain Laplacian + gauge fix. Mathematically PD but condition number
   // grows as O(n^2). Exercises the regime that motivated the fallback.

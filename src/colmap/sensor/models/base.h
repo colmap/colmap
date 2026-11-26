@@ -576,16 +576,21 @@ struct BasePerspectiveFisheyeCameraModel
   }
 
   template <typename T>
-  static inline void NormalFromFisheye(const T uu, const T vv, T* u, T* v) {
+  static inline bool NormalFromFisheye(const T uu, const T vv, T* u, T* v) {
+    const T theta = ceres::sqrt(uu * uu + vv * vv);
+    // Perspective models only unproject rays in the forward hemisphere.
+    // Reject the horizon, back-facing rays, and non-finite angles.
+    if (!(theta < T(EIGEN_PI / 2.0))) {
+      return false;
+    }
     *u = uu;
     *v = vv;
-    const T theta = ceres::sqrt(uu * uu + vv * vv);
-    const T theta_cos_theta = theta * ceres::cos(theta);
-    if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
-      const T scale = ceres::sin(theta) / theta_cos_theta;
+    if (theta > T(std::numeric_limits<double>::epsilon())) {
+      const T scale = ceres::sin(theta) / (theta * ceres::cos(theta));
       *u *= scale;
       *v *= scale;
     }
+    return true;
   }
 
  private:
