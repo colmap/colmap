@@ -1744,8 +1744,48 @@ TEST(Bitmap, ReadUnsupportedChannels) {
   const std::vector<uint8_t> data(kWidth * kHeight * kChannels, 128);
   WriteImageOIIO(kWidth, kHeight, kChannels, filename, data.data());
 
-  Bitmap bitmap;
-  EXPECT_FALSE(bitmap.Read(filename));
+  for (const bool reused : {true, false}) {
+    SCOPED_TRACE(reused);
+    Bitmap bitmap;
+    if (reused) {
+      bitmap = Bitmap(3, 1, /*as_rgb=*/true, /*linear_colorspace=*/true);
+      bitmap.Fill(BitmapColor<uint8_t>(64, 128, 192));
+      bitmap.SetMetaData("oiio:ColorSpace", "sRGB");
+      bitmap.SetMetaData("ImageDescription", "prior");
+    }
+    const Bitmap prior = bitmap.Clone();
+
+    EXPECT_FALSE(bitmap.Read(filename));
+    // Reject the header before replacing the previous image's dimensions.
+    // Check these before any pixel access or write could use invalid strides.
+    ASSERT_EQ(bitmap.Width(), prior.Width());
+    ASSERT_EQ(bitmap.Height(), prior.Height());
+    ASSERT_EQ(bitmap.Channels(), prior.Channels());
+    EXPECT_EQ(bitmap.RowMajorData(), prior.RowMajorData());
+    if (reused) {
+      EXPECT_EQ(bitmap.GetMetaData("ImageDescription"),
+                prior.GetMetaData("ImageDescription"));
+      EXPECT_EQ(bitmap.GetMetaData("oiio:ColorSpace"),
+                prior.GetMetaData("oiio:ColorSpace"));
+      const auto output = filename.parent_path() / "preserved.png";
+      ASSERT_TRUE(bitmap.Write(output));
+      Bitmap written;
+      ASSERT_TRUE(written.Read(output));
+      EXPECT_EQ(written.RowMajorData(),
+                ConvertPixelsWithOIIO(prior, "linear", "sRGB"));
+    }
+
+    const auto valid = filename.parent_path() / "valid.png";
+    Bitmap replacement(1, 3, /*as_rgb=*/false);
+    replacement.Fill(BitmapColor<uint8_t>(37));
+    ASSERT_TRUE(replacement.Write(valid));
+    ASSERT_TRUE(bitmap.Read(valid, /*as_rgb=*/false));
+    EXPECT_EQ(bitmap.Width(), replacement.Width());
+    EXPECT_EQ(bitmap.Height(), replacement.Height());
+    EXPECT_EQ(bitmap.Channels(), replacement.Channels());
+    EXPECT_EQ(bitmap.RowMajorData(), replacement.RowMajorData());
+    EXPECT_FALSE(bitmap.GetMetaData("ImageDescription").has_value());
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(

@@ -428,8 +428,6 @@ bool Bitmap::Read(const std::filesystem::path& path,
   }
 
   const OIIO::ImageSpec& image_spec = input->spec();
-  width_ = image_spec.width;
-  height_ = image_spec.height;
   const int file_channels = image_spec.nchannels;
   // Handle images with alpha channel by dropping alpha:
   // - 4 channels (RGBA) -> 3 channels (RGB)
@@ -445,6 +443,8 @@ bool Bitmap::Read(const std::filesystem::path& path,
     return false;
   }
 
+  width_ = image_spec.width;
+  height_ = image_spec.height;
   linear_colorspace_ = false;
   data_.resize(width_ * height_ * channels_);
   // Note that OIIO supports reading a subset of channels.
