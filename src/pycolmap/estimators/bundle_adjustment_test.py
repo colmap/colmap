@@ -48,6 +48,7 @@ def test_loss_function_type_enum() -> None:
         "SOFT_L1": 1,
         "CAUCHY": 2,
         "HUBER": 3,
+        "GEMAN_MCCLURE": 4,
     }
 
 

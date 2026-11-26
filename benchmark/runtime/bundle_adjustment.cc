@@ -56,7 +56,6 @@ class BM_BundleAdjustment : public benchmark::Fixture {
     for (const image_t image_id : reconstruction_->RegImageIds()) {
       config_.AddImage(image_id);
     }
-    config_.FixGauge(BundleAdjustmentGauge::TWO_CAMS_FROM_WORLD);
 
     options_.print_summary = false;
   }
