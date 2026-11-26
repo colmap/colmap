@@ -17,7 +17,7 @@ void RunPatchMatchPhase(ThreadPool& pool, Submit&& submit) {
   } catch (...) {
     try {
       pool.Wait();
-    } catch (...) {
+    } catch (...) {  // NOLINT(bugprone-empty-catch)
       // Preserve the initiating submission failure.
     }
     throw;
