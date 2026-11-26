@@ -93,6 +93,26 @@ TEST(SparseDelaunayMeshing, PointAtCameraCenter) {
   EXPECT_GE(mesh_vertices.size(), 3);
 }
 
+TEST(SparseDelaunayMeshing, EmptyCut) {
+  const auto test_dir = CreateTestDir();
+  const auto sparse_path = test_dir / "sparse";
+  const auto output_path = test_dir / "mesh.ply";
+  CreateAndWriteSyntheticReconstruction(sparse_path);
+
+  // A huge visibility sigma rounds all observation weights to zero, so without
+  // regularization the graph cut yields no surface facets.
+  DelaunayMeshingOptions options;
+  options.max_proj_dist = 0;
+  options.visibility_sigma = 1e20;
+  options.quality_regularization = 0;
+  options.num_threads = 1;
+  SparseDelaunayMeshing(options, sparse_path, output_path);
+
+  const PlyMesh mesh = ReadPlyMesh(output_path).mesh;
+  EXPECT_TRUE(mesh.vertices.empty());
+  EXPECT_TRUE(mesh.faces.empty());
+}
+
 TEST(DenseDelaunayMeshing, Integration) {
   const auto test_dir = CreateTestDir();
   const auto sparse_path = test_dir / "sparse";
