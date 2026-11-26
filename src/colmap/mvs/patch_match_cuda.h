@@ -107,8 +107,9 @@ class PatchMatchCuda {
   std::unique_ptr<GpuMatPRNG> rand_state_map_;
   std::unique_ptr<GpuMat<uint8_t>> consistency_mask_;
 
-  // Shared memory is too small to hold local state for each thread,
-  // so this is workspace memory in global memory.
+  // Instance-owned packed regions: forward[s * M + c] and
+  // sampling[M * S + s * M + c], where M is the maximum image dimension
+  // and S is the source count. Allocation pitch supplies capacity, not stride.
   std::unique_ptr<GpuMat<float>> global_workspace_;
 };
 
