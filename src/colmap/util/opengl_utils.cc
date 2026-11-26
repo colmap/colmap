@@ -6,10 +6,6 @@
 
 #include <exception>
 
-#if defined(COLMAP_GUI_ENABLED)
-#include <QTimer>
-#endif
-
 namespace colmap {
 
 #if defined(COLMAP_GUI_ENABLED)
@@ -66,7 +62,8 @@ void RunThreadWithOpenGLContext(Thread* thread) {
       worker_error = std::current_exception();
     }
     // Queue the exit on the Qt thread, even if the worker finishes before exec.
-    QTimer::singleShot(0, app, [] { QCoreApplication::exit(0); });
+    QMetaObject::invokeMethod(
+        app, [] { QCoreApplication::exit(0); }, Qt::QueuedConnection);
   });
   app->exec();
   opengl_thread.join();

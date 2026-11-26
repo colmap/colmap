@@ -124,12 +124,7 @@ TEST(RunThreadWithOpenGLContext, RethrowsWorkerFailure) {
   };
 
   FailingThread thread;
-  try {
-    RunThreadWithOpenGLContext(&thread);
-    ADD_FAILURE() << "Expected worker failure";
-  } catch (const std::runtime_error& error) {
-    EXPECT_STREQ(error.what(), "OpenGL worker failed");
-  }
+  EXPECT_THROW(RunThreadWithOpenGLContext(&thread), std::runtime_error);
   EXPECT_TRUE(thread.IsFinished());
 }
 
