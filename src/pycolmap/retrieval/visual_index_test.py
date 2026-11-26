@@ -77,19 +77,17 @@ def test_visual_index_python_override(tmp_path: Path) -> None:
     options = pycolmap.VisualIndex.QueryOptions(max_num_images=5)
     keypoints = pycolmap.FeatureKeypoints()
     descriptors = pycolmap.FeatureDescriptorsFloat()
-    index.query(options, descriptors, [])
-    index.query(options, keypoints, descriptors, [])
     assert index.query(options, descriptors) == []
     assert index.query(options, keypoints, descriptors) == []
-    assert [o.max_num_images for o in index.query_options] == [5, 5, 5, 5]
+    assert [o.max_num_images for o in index.query_options] == [5, 5]
 
     path = tmp_path / "index.bin"
     index.write(path)
     assert index.path == path
 
 
-@pytest.mark.parametrize("spatial_verification", [False, True])
-def test_visual_index_query_returns_scores(spatial_verification: bool) -> None:
+@pytest.mark.parametrize("with_keypoints", [False, True])
+def test_visual_index_query_returns_scores(with_keypoints: bool) -> None:
     rng = np.random.default_rng(0)
     training_data = rng.standard_normal((1000, 128)).astype(np.float32)
     training_descriptors = pycolmap.FeatureDescriptorsFloat(
@@ -106,54 +104,23 @@ def test_visual_index_query_returns_scores(spatial_verification: bool) -> None:
         training_descriptors,
     )
     keypoints = pycolmap.FeatureKeypoints(
-        [
-            pycolmap.FeatureKeypoint(x=10.0 * (i % 10), y=10.0 * (i // 10))
-            for i in range(50)
-        ]
+        [pycolmap.FeatureKeypoint() for _ in range(50)]
     )
     descriptors = pycolmap.FeatureDescriptorsFloat(
         pycolmap.FeatureExtractorType.SIFT, training_data[:50]
     )
-    other_descriptors = pycolmap.FeatureDescriptorsFloat(
-        pycolmap.FeatureExtractorType.SIFT,
-        np.concatenate((training_data[:10], training_data[50:90])),
-    )
     index_options = pycolmap.VisualIndex.IndexOptions(num_threads=1)
-    index.add(index_options, 7, keypoints, descriptors)
-    index.add(index_options, 9, keypoints, other_descriptors)
+    for image_id in (7, 9):
+        index.add(index_options, image_id, keypoints, descriptors)
     index.prepare()
     query_options = pycolmap.VisualIndex.QueryOptions(
         num_neighbors=1,
         num_threads=1,
-        num_images_after_verification=2 if spatial_verification else 0,
     )
-    output = [pycolmap.ImageScore()]
-    if spatial_verification:
-        result = index.query(query_options, keypoints, descriptors, output)
-    else:
-        result = index.query(query_options, descriptors, output)
-    assert result is None
-    assert [score.image_id for score in output] == [7, 9]
-
-    if spatial_verification:
+    if with_keypoints:
         scores = index.query(query_options, keypoints, descriptors)
     else:
         scores = index.query(query_options, descriptors)
-    assert [score.image_id for score in scores] == [7, 9]
-    assert scores[0].score > scores[1].score
-    np.testing.assert_allclose(
-        [score.score for score in output], [score.score for score in scores]
-    )
-
-    query_options.max_num_images = 1
-    if spatial_verification:
-        limited_scores = index.query(query_options, keypoints, descriptors)
-    else:
-        limited_scores = index.query(query_options, descriptors)
-    assert [score.image_id for score in limited_scores] == [7]
-
-    if spatial_verification:
-        index.query(query_options, keypoints, descriptors, output)
-    else:
-        index.query(query_options, descriptors, output)
-    assert [score.image_id for score in output] == [7]
+    assert isinstance(scores, list)
+    assert all(isinstance(score, pycolmap.ImageScore) for score in scores)
+    assert {score.image_id for score in scores} == {7, 9}

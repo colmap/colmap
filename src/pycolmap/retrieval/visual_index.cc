@@ -37,12 +37,6 @@ std::vector<ImageScore> QueryVisualIndex(
   return image_scores;
 }
 
-void ReplaceImageScores(const py::list& output,
-                        const std::vector<ImageScore>& image_scores) {
-  output[py::slice(py::none(), py::none(), py::none())] =
-      py::cast(image_scores);
-}
-
 class PyVisualIndexImpl : public VisualIndex, py::trampoline_self_life_support {
  public:
   size_t NumVisualWords() const override {
@@ -207,36 +201,6 @@ void BindVisualIndex(py::module& m) {
           "descriptors"_a,
           "Return the most similar images, optionally with spatial "
           "verification.")
-      .def(
-          "query",
-          [](const VisualIndex& self,
-             const VisualIndex::QueryOptions& options,
-             const FeatureDescriptorsFloat& descriptors,
-             const py::list& image_scores) {
-            ReplaceImageScores(image_scores,
-                               QueryVisualIndex(self, options, descriptors));
-          },
-          "options"_a,
-          "descriptors"_a,
-          "image_scores"_a,
-          "Replace image_scores with the retrieved images and scores.")
-      .def(
-          "query",
-          [](const VisualIndex& self,
-             const VisualIndex::QueryOptions& options,
-             const FeatureKeypoints& keypoints,
-             const FeatureDescriptorsFloat& descriptors,
-             const py::list& image_scores) {
-            ReplaceImageScores(
-                image_scores,
-                QueryVisualIndex(self, options, descriptors, &keypoints));
-          },
-          "options"_a,
-          "keypoints"_a,
-          "descriptors"_a,
-          "image_scores"_a,
-          "Replace image_scores with the retrieved images and scores, "
-          "optionally with spatial verification.")
       .def("prepare",
            &VisualIndex::Prepare,
            py::call_guard<py::gil_scoped_release>())
