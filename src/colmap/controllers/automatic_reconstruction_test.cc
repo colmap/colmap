@@ -6,6 +6,7 @@
 #include "colmap/scene/reconstruction_manager.h"
 #include "colmap/scene/reconstruction_matchers.h"
 #include "colmap/scene/synthetic.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/file.h"
 #include "colmap/util/testing.h"
 
@@ -64,6 +65,101 @@ TEST_P(ParameterizedAutomaticReconstructionTests, Nominal) {
                                  /*num_obs_tolerance=*/0.9,
                                  /*align=*/true));
 }
+
+TEST(AutomaticReconstruction, ImageReaderNamesSurviveVideoPreset) {
+  const auto workspace = CreateTestDir();
+  const auto image_path = workspace / "images";
+  CreateDirIfNotExists(image_path);
+  Bitmap bitmap(100, 100, /*as_rgb=*/false);
+  bitmap.Fill(BitmapColor<uint8_t>(0));
+  for (int y = 30; y < 70; ++y) {
+    for (int x = 30; x < 70; ++x) {
+      bitmap.SetPixel(x, y, BitmapColor<uint8_t>(255));
+    }
+  }
+  ASSERT_TRUE(bitmap.Write(image_path / "selected.png"));
+  ASSERT_TRUE(bitmap.Write(image_path / "excluded.png"));
+
+  AutomaticReconstructionController::Options options;
+  options.workspace_path = workspace;
+  options.image_path = image_path;
+  options.image_names = {"selected.png"};
+  options.data_type = AutomaticReconstructionController::DataType::VIDEO;
+  options.quality = AutomaticReconstructionController::Quality::LOW;
+  options.extraction = true;
+  options.single_view_calibration = false;
+  options.matching = false;
+  options.sparse = false;
+  options.dense = false;
+  options.use_gpu = false;
+  options.num_threads = 1;
+  options.camera_model = "SIMPLE_PINHOLE";
+  options.camera_params = "100,50,50";
+  auto manager = std::make_shared<ReconstructionManager>();
+  AutomaticReconstructionController controller(options, manager);
+  controller.Setup();
+  controller.Start();
+  ASSERT_NO_THROW(controller.Wait());
+
+  auto database = Database::Open(workspace / "database.db");
+  const auto images = database->ReadAllImages();
+  ASSERT_EQ(images.size(), 1);
+  EXPECT_EQ(images.front().Name(), "selected.png");
+  EXPECT_TRUE(database->ExistsKeypoints(images.front().ImageId()));
+  EXPECT_TRUE(database->ExistsDescriptors(images.front().ImageId()));
+}
+
+class ParameterizedAutomaticReconstructionImageNamesTests
+    : public ::testing::TestWithParam<
+          AutomaticReconstructionController::Mapper> {};
+
+TEST_P(ParameterizedAutomaticReconstructionImageNamesTests,
+       ImageNamesSurvivePresetsAndDispatch) {
+  const auto workspace_path = CreateTestDir();
+  const auto image_path = workspace_path / "images";
+  CreateDirIfNotExists(image_path);
+  Reconstruction gt_reconstruction;
+  {
+    auto database = Database::Open(workspace_path / "database.db");
+    SynthesizeDataset(
+        SyntheticDatasetOptions(), &gt_reconstruction, database.get());
+  }
+
+  AutomaticReconstructionController::Options options;
+  options.workspace_path = workspace_path;
+  options.image_path = image_path;
+  options.extraction = false;
+  options.matching = false;
+  options.dense = false;
+  options.use_gpu = false;
+  options.num_threads = 1;
+  options.random_seed = 1;
+  options.data_type = AutomaticReconstructionController::DataType::VIDEO;
+  options.mapper = GetParam();
+  for (const image_t image_id : gt_reconstruction.RegImageIds()) {
+    options.image_names.push_back(gt_reconstruction.Image(image_id).Name());
+  }
+  options.image_names.resize(options.image_names.size() / 2);
+
+  auto manager = std::make_shared<ReconstructionManager>();
+  AutomaticReconstructionController controller(options, manager);
+  controller.Setup();
+  controller.Start();
+  controller.Wait();
+  ASSERT_EQ(manager->Size(), 1);
+  const Reconstruction& actual = *manager->Get(0);
+  EXPECT_EQ(actual.NumRegImages(), options.image_names.size());
+  for (const image_t image_id : actual.RegImageIds()) {
+    EXPECT_THAT(options.image_names,
+                ::testing::Contains(actual.Image(image_id).Name()));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    AutomaticReconstructionTests,
+    ParameterizedAutomaticReconstructionImageNamesTests,
+    ::testing::Values(AutomaticReconstructionController::Mapper::INCREMENTAL,
+                      AutomaticReconstructionController::Mapper::GLOBAL));
 
 // TODO: Add GLOBAL mapper test. Currently excluded because the test produces
 // fewer observations than expected. The global pipeline is tested separately
