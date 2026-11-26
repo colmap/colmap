@@ -606,6 +606,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   // Ray traversal and graph construction require three-dimensional cells.
   if (triangulation.dimension() < 3) {
+    LOG(WARNING) << "Input points do not form a 3D triangulation; returning "
+                    "an empty mesh.";
     return {};
   }
 
