@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <vector>
 
@@ -23,6 +24,7 @@ float ProbePropagatedDepth(const std::array<float, 4>& K,
                            float row1,
                            float row2,
                            float col);
+std::vector<uint32_t> ProbeSelectionProbability(const std::vector<uint32_t>&);
 }  // namespace internal
 namespace {
 constexpr float kDepthMin = 1.0f;
@@ -308,6 +310,34 @@ TEST_F(CudaTest, PropagationUsesTheActualSourcePixel) {
   PatchMatchCuda patch_match(options, problem);
   const auto trace = internal::ProbeSweep(patch_match, 1873);
   ExpectPropagationAnchors(trace, inputs.images[0]);
+}
+
+TEST_F(CudaTest, SelectionProbabilityCapturedTupleAndDomain) {
+  // Captured alpha, beta, previous and weight, retained as exact binary32 bits.
+  const std::vector<uint32_t> input = {
+      0x3f7ff9b0, 0x3f7ff844, 0x3f000000, 0x00000000, 0x00000000, 0x00000000,
+      0x3f000000, 0x00000000, 0x3f800000, 0x3f800000, 0x3f000000, 0x00000000,
+      0x3f000000, 0x3f000000, 0x3f000000, 0x3e800000, 0x3f800000, 0x3f800000,
+      0x00000000, 0x3f800000, 0x00000000, 0x3f800000, 0x3f000000, 0x00000000,
+      0x7fc00000, 0x3f000000, 0x3f000000, 0x00000000, 0xbe800000, 0x3f000000,
+      0x3f000000, 0x00000000};
+  const auto out = internal::ProbeSelectionProbability(input);
+  ASSERT_EQ(out.size(), 8);
+  EXPECT_EQ(out[0], 0x3f800000u);  // Captured valid tuple: strict <= 1.
+  EXPECT_EQ(out[1], 0x00000000u);
+  EXPECT_EQ(out[2], 0x3f800000u);
+  EXPECT_EQ(out[3], 0x3f000000u);
+  EXPECT_EQ(out[4], 0x00000000u);
+  EXPECT_GT(out[5] & 0x7fffffffu, 0x7f800000u);  // Singular 0/0 remains NaN.
+  EXPECT_GT(out[6] & 0x7fffffffu, 0x7f800000u);  // NaN input remains NaN.
+  EXPECT_EQ(out[7], 0xbe800000u);  // Invalid input is not silently clamped.
+  std::vector<uint32_t> many;
+  for (int i = 0; i < 40; ++i) {
+    many.insert(many.end(), input.begin(), input.begin() + 4);
+  }
+  const auto many_out = internal::ProbeSelectionProbability(many);
+  ASSERT_EQ(many_out.size(), 40);
+  for (const auto value : many_out) EXPECT_EQ(value, 0x3f800000u);
 }
 
 }  // namespace
