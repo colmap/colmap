@@ -9,6 +9,7 @@
 #include "colmap/util/testing.h"
 
 #include <fstream>
+#include <limits>
 
 #include <gtest/gtest.h>
 
@@ -121,6 +122,86 @@ TEST(StereoFusion, Integration) {
   cancelled_fusion.Run();
   EXPECT_TRUE(stop_checked);
   EXPECT_TRUE(cancelled_fusion.GetFusedPoints().empty());
+}
+
+// Encode the wire format independently of the production endian/I/O helpers.
+std::vector<char> EncodeVisibility(
+    const std::vector<std::vector<int>>& visibility) {
+  std::vector<char> bytes;
+  const auto append = [&](const uint64_t value, const size_t width) {
+    for (size_t i = 0; i < width; ++i) {
+      bytes.push_back(static_cast<char>((value >> (8 * i)) & 0xff));
+    }
+  };
+  append(visibility.size(), 8);
+  for (const auto& images : visibility) {
+    append(images.size(), 4);
+    for (const int image : images) {
+      append(static_cast<uint32_t>(image), 4);
+    }
+  }
+  return bytes;
+}
+
+TEST(ReadPointsVisibility, WireBytesAcrossBlockBoundaries) {
+  const auto path = CreateTestDir() / "blocks.vis";
+  std::vector<std::vector<int>> expected = {{7,
+                                             7,
+                                             0,
+                                             -1,
+                                             0x01020304,
+                                             std::numeric_limits<int>::min(),
+                                             std::numeric_limits<int>::max()},
+                                            {}};
+  for (const size_t count : {8191, 8192, 8193, 16385}) {
+    auto& images = expected.emplace_back(count);
+    for (size_t i = 0; i < count; ++i) {
+      images[i] = static_cast<int>(0x01020304U + static_cast<uint32_t>(count) +
+                                   static_cast<uint32_t>(i) * 65537U);
+    }
+  }
+  const auto bytes = EncodeVisibility(expected);
+  WriteBinaryBlob(path, span<const char>(bytes.data(), bytes.size()));
+  EXPECT_EQ(ReadPointsVisibility(path, expected.size()), expected);
+}
+
+TEST(ReadPointsVisibility, EmptyAndTrailingBytes) {
+  const auto path = CreateTestDir() / "trailing.vis";
+  for (const std::vector<std::vector<int>>& expected :
+       {std::vector<std::vector<int>>{}, {{7, 7, 0, -1}, {}, {42}}}) {
+    for (const size_t tail : {0, 1, 3, 4, 32769}) {
+      SCOPED_TRACE(tail);
+      auto bytes = EncodeVisibility(expected);
+      bytes.insert(bytes.end(), tail, 'x');
+      WriteBinaryBlob(path, span<const char>(bytes.data(), bytes.size()));
+      EXPECT_EQ(ReadPointsVisibility(path, expected.size()), expected);
+    }
+  }
+}
+
+TEST(ReadPointsVisibility, TruncatedHeaderCountAndPayload) {
+  const auto path = CreateTestDir() / "truncated.vis";
+  const std::vector<std::vector<int>> expected = {{7, 8, 9}, {}, {3, 4}};
+  const auto bytes = EncodeVisibility(expected);
+  for (size_t cut = 0; cut < bytes.size(); ++cut) {
+    SCOPED_TRACE(cut);
+    WriteBinaryBlob(path, span<const char>(bytes.data(), cut));
+    EXPECT_THROW(ReadPointsVisibility(path, expected.size()),
+                 std::invalid_argument);
+  }
+}
+
+TEST(ReadPointsVisibility, TruncatedBlockBoundary) {
+  const auto path = CreateTestDir() / "block-tail.vis";
+  const auto bytes = EncodeVisibility({std::vector<int>(8193, 7)});
+  for (const size_t cut : {size_t{12 + 8191 * 4},
+                           size_t{12 + 8192 * 4 - 1},
+                           size_t{12 + 8192 * 4},
+                           bytes.size() - 1}) {
+    SCOPED_TRACE(cut);
+    WriteBinaryBlob(path, span<const char>(bytes.data(), cut));
+    EXPECT_THROW(ReadPointsVisibility(path, 1), std::invalid_argument);
+  }
 }
 
 TEST(ReadPointsVisibility, RoundTrip) {

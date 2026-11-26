@@ -11,7 +11,9 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
+#include <array>
 #include <fstream>
+#include <limits>
 
 #include <Eigen/Geometry>
 
@@ -553,16 +555,40 @@ std::vector<std::vector<int>> ReadPointsVisibility(
   std::fstream file(path, std::ios::in | std::ios::binary);
   THROW_CHECK_FILE_OPEN(file, path);
 
-  const size_t file_num_points = ReadBinaryLittleEndian<uint64_t>(&file);
+  uint64_t file_num_points = 0;
+  file.read(reinterpret_cast<char*>(&file_num_points), sizeof(file_num_points));
+  THROW_CHECK(file.good()) << "Unexpected end of visibility file header";
+  file_num_points = LittleEndianToNative(file_num_points);
   THROW_CHECK_EQ(file_num_points, num_points);
 
   std::vector<std::vector<int>> visibility(num_points);
+  std::array<uint32_t, 8192> buffer;
+  static_assert(sizeof(buffer) <= std::numeric_limits<std::streamsize>::max());
+  const bool native_little_endian = IsLittleEndian();
   for (size_t i = 0; i < num_points; ++i) {
-    const uint32_t num_visible = ReadBinaryLittleEndian<uint32_t>(&file);
-    visibility[i].resize(num_visible);
-    for (uint32_t j = 0; j < num_visible; ++j) {
-      visibility[i][j] =
-          static_cast<int>(ReadBinaryLittleEndian<uint32_t>(&file));
+    uint32_t num_visible = 0;
+    file.read(reinterpret_cast<char*>(&num_visible), sizeof(num_visible));
+    THROW_CHECK(file.good())
+        << "Unexpected end of visibility file at point " << i;
+    if (!native_little_endian) {
+      num_visible = LittleEndianToNative(num_visible);
+    }
+    // Read only this list's payload, including when the path is a pipe.
+    for (size_t offset = 0; offset < num_visible;) {
+      const size_t count =
+          std::min(buffer.size(), static_cast<size_t>(num_visible) - offset);
+      file.read(reinterpret_cast<char*>(buffer.data()),
+                static_cast<std::streamsize>(count * sizeof(uint32_t)));
+      THROW_CHECK(file.good())
+          << "Unexpected end of visibility file at point " << i;
+      // Allocate only for payload that was successfully read.
+      visibility[i].resize(offset + count);
+      for (size_t j = 0; j < count; ++j) {
+        const uint32_t value =
+            native_little_endian ? buffer[j] : LittleEndianToNative(buffer[j]);
+        visibility[i][offset + j] = static_cast<int>(value);
+      }
+      offset += count;
     }
   }
   return visibility;
