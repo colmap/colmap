@@ -61,6 +61,25 @@ def test_process_preserves_image_colors(tmp_path: Path, mode: str) -> None:
             )
 
 
+@pytest.mark.parametrize("value", [0, 255])
+def test_process_one_bit_panorama(tmp_path: Path, value: int) -> None:
+    pytest.importorskip("cv2")
+    image_module = pytest.importorskip("PIL.Image")
+    image_module.new("1", (128, 64), value).save(tmp_path / "pano.png")
+    processor = PanoProcessor(
+        tmp_path,
+        tmp_path / "images",
+        tmp_path / "masks",
+        PANO_RENDER_OPTIONS[PanoRenderType.PERSPECTIVE_NON_OVERLAPPING],
+    )
+    processor.process("pano.png")
+
+    for cam_idx in range(4):
+        image_path = tmp_path / "images" / f"pano_camera{cam_idx}/pano.png"
+        with image_module.open(image_path) as rendered:
+            np.testing.assert_array_equal(np.asarray(rendered), value)
+
+
 def test_process_preserves_palette_transparency(tmp_path: Path) -> None:
     pytest.importorskip("cv2")
     image_module = pytest.importorskip("PIL.Image")
