@@ -8,6 +8,7 @@
 #include "colmap/estimators/cost_functions/pose_prior.h"
 #include "colmap/estimators/cost_functions/reprojection_error.h"
 #include "colmap/estimators/cost_functions/utils.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/hash_containers.h"
 #include "colmap/util/misc.h"
@@ -854,12 +855,17 @@ class PosePriorBundleAdjuster : public CeresBundleAdjuster {
   }
 
   bool AlignReconstruction() {
+    std::vector<PosePrior> pose_priors = pose_priors_;
+    SetPosePriorPositionCovariances(
+        Eigen::Vector3d::Constant(
+            prior_options_.prior_position_fallback_stddev),
+        /*overwrite=*/false,
+        pose_priors);
     Sim3d metric_from_orig;
     if (!AlignReconstructionToPosePriors(
             reconstruction_,
-            pose_priors_,
+            pose_priors,
             prior_options_.alignment_ransac_options,
-            prior_options_.prior_position_fallback_stddev,
             &metric_from_orig)) {
       LOG(WARNING) << "Alignment w.r.t. prior positions failed";
       return false;

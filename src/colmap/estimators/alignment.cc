@@ -4,6 +4,7 @@
 
 #include "colmap/estimators/solvers/similarity_transform.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/geometry/pose_prior.h"
 #include "colmap/math/math.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
@@ -214,10 +215,7 @@ bool AlignReconstructionToPosePriors(
     const Reconstruction& src_reconstruction,
     const std::vector<PosePrior>& tgt_pose_priors,
     RANSACOptions ransac_options,
-    const double prior_position_fallback_stddev,
     Sim3d* tgt_from_src) {
-  THROW_CHECK_GT(prior_position_fallback_stddev, 0.0);
-
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> tgt;
   std::vector<double> rms_vars;
@@ -229,6 +227,9 @@ bool AlignReconstructionToPosePriors(
   for (const auto& pose_prior : tgt_pose_priors) {
     if (pose_prior.corr_data_id.sensor_id.type == SensorType::CAMERA &&
         pose_prior.HasPosition()) {
+      THROW_CHECK(pose_prior.coordinate_system ==
+                  PosePrior::CoordinateSystem::CARTESIAN)
+          << "Pose priors must be in a Cartesian coordinate system";
       THROW_CHECK(tgt_image_to_pose_prior
                       .emplace(pose_prior.corr_data_id.id, pose_prior)
                       .second)
@@ -242,9 +243,11 @@ bool AlignReconstructionToPosePriors(
       const auto& image = src_reconstruction.Image(image_id);
       src.push_back(image.ProjectionCenter());
       tgt.push_back(pose_prior_it->second.position);
-      const double trace = pose_prior_it->second.position_covariance.trace();
-      if (trace > 0.0) {
-        rms_vars.push_back(trace / 3.0);
+      if (pose_prior_it->second.HasPositionCov()) {
+        const double trace = pose_prior_it->second.position_covariance.trace();
+        if (trace > 0.0) {
+          rms_vars.push_back(trace / 3.0);
+        }
       }
     }
   }
@@ -254,13 +257,10 @@ bool AlignReconstructionToPosePriors(
     return false;
   }
 
-  if (ransac_options.max_error <= 0) {
-    if (rms_vars.empty()) {
-      LOG(WARNING) << "No pose priors with valid covariance found.";
-      rms_vars.push_back(prior_position_fallback_stddev *
-                         prior_position_fallback_stddev);
-    }
-
+  if (ransac_options.max_error <= 0.0) {
+    THROW_CHECK(!rms_vars.empty())
+        << "Either set ransac_options.max_error > 0 or provide pose prior "
+           "position covariances";
     // Scale the median RMS variance by the 95% chi-square quantile for 3 DOF.
     ransac_options.max_error =
         std::sqrt(kChiSquare95ThreeDof * Median(rms_vars));
