@@ -123,6 +123,18 @@ TEST(StereoFusion, Integration) {
   EXPECT_TRUE(cancelled_fusion.GetFusedPoints().empty());
 }
 
+#ifdef __linux__
+TEST(WritePointsVisibility, FailedOutputIsReported) {
+  const std::filesystem::path path("/dev/full");
+  if (!std::filesystem::is_character_file(path)) {
+    GTEST_SKIP() << "Requires /dev/full";
+  }
+  ASSERT_TRUE(std::ofstream(path, std::ios::binary).is_open());
+  EXPECT_THROW(WritePointsVisibility(path, {{1, 2}, {}, {3}}),
+               std::invalid_argument);
+}
+#endif  // __linux__
+
 TEST(ReadPointsVisibility, RoundTrip) {
   const auto test_dir = CreateTestDir();
   const auto vis_path = test_dir / "test.vis";
